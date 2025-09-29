@@ -5,7 +5,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_core::F;
+
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
@@ -24,7 +24,7 @@ pub struct PoolAsset {
     /// Current outstanding balance
     pub balance: Money,
     /// Current interest rate
-    pub rate: F,
+    pub rate: f64,
     /// Maturity date
     pub maturity: Date,
     /// Credit quality
@@ -71,12 +71,12 @@ impl PoolAsset {
     }
 
     /// Current yield of the asset
-    pub fn current_yield(&self) -> F {
+    pub fn current_yield(&self) -> f64 {
         self.rate
     }
 
     /// Remaining term to maturity in years
-    pub fn remaining_term(&self, as_of: Date, day_count: DayCount) -> finstack_core::Result<F> {
+    pub fn remaining_term(&self, as_of: Date, day_count: DayCount) -> finstack_core::Result<f64> {
         day_count.year_fraction(
             as_of,
             self.maturity,
@@ -105,7 +105,7 @@ pub struct EligibilityCriteria {
     /// Excluded industries
     pub excluded_industries: Vec<String>,
     /// Minimum spread over benchmark
-    pub min_spread_bp: Option<F>,
+    pub min_spread_bp: Option<f64>,
     /// Maximum asset size
     pub max_asset_size: Option<Money>,
     /// Minimum asset size
@@ -131,17 +131,17 @@ impl Default for EligibilityCriteria {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ConcentrationLimits {
     /// Maximum percentage of pool from single obligor
-    pub max_obligor_concentration: F,
+    pub max_obligor_concentration: f64,
     /// Maximum percentage from single industry
-    pub max_industry_concentration: F,
+    pub max_industry_concentration: f64,
     /// Maximum percentage of CCC-rated assets
-    pub max_ccc_assets: F,
+    pub max_ccc_assets: f64,
     /// Minimum diversity score
-    pub min_diversity_score: Option<F>,
+    pub min_diversity_score: Option<f64>,
     /// Maximum weighted average life
-    pub max_weighted_avg_life: Option<F>,
+    pub max_weighted_avg_life: Option<f64>,
     /// Maximum single asset size
-    pub max_single_asset_pct: F,
+    pub max_single_asset_pct: f64,
 }
 
 impl Default for ConcentrationLimits {
@@ -174,9 +174,9 @@ pub struct ReinvestmentPeriod {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ReinvestmentCriteria {
     /// Maximum purchase price (% of par)
-    pub max_price: F,
+    pub max_price: f64,
     /// Minimum yield requirement
-    pub min_yield: F,
+    pub min_yield: f64,
     /// Must maintain credit quality distribution
     pub maintain_credit_quality: bool,
     /// Must maintain weighted average life
@@ -202,25 +202,25 @@ impl Default for ReinvestmentCriteria {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PoolStats {
     /// Weighted average coupon
-    pub weighted_avg_coupon: F,
+    pub weighted_avg_coupon: f64,
     /// Weighted average spread
-    pub weighted_avg_spread: F,
+    pub weighted_avg_spread: f64,
     /// Weighted average life
-    pub weighted_avg_life: F,
+    pub weighted_avg_life: f64,
     /// Weighted average rating factor
-    pub weighted_avg_rating_factor: F,
+    pub weighted_avg_rating_factor: f64,
     /// Diversity score (Moody's methodology)
-    pub diversity_score: F,
+    pub diversity_score: f64,
     /// Number of obligors
     pub num_obligors: usize,
     /// Number of industries
     pub num_industries: usize,
     /// Cumulative default rate
-    pub cumulative_default_rate: F,
+    pub cumulative_default_rate: f64,
     /// Recovery rate on defaults
-    pub recovery_rate: F,
+    pub recovery_rate: f64,
     /// Prepayment rate (annualized)
-    pub prepayment_rate: F,
+    pub prepayment_rate: f64,
 }
 
 impl Default for PoolStats {
@@ -326,7 +326,7 @@ impl AssetPool {
     }
 
     /// Calculate weighted average coupon
-    pub fn weighted_avg_coupon(&self) -> F {
+    pub fn weighted_avg_coupon(&self) -> f64 {
         let total_balance = self.total_balance().amount();
         if total_balance == 0.0 {
             return 0.0;
@@ -336,13 +336,13 @@ impl AssetPool {
             .assets
             .iter()
             .map(|a| a.rate * a.balance.amount())
-            .sum::<F>();
+            .sum::<f64>();
 
         weighted_sum / total_balance
     }
 
     /// Calculate weighted average life (simplified)
-    pub fn weighted_avg_life(&self, as_of: Date) -> F {
+    pub fn weighted_avg_life(&self, as_of: Date) -> f64 {
         let total_balance = self.total_balance().amount();
         if total_balance == 0.0 {
             return 0.0;
@@ -356,14 +356,14 @@ impl AssetPool {
                     .ok()
                     .map(|term| term * a.balance.amount())
             })
-            .sum::<F>();
+            .sum::<f64>();
 
         weighted_sum / total_balance
     }
 
     /// Calculate diversity score (simplified Moody's approach)
-    pub fn diversity_score(&self) -> F {
-        let mut obligor_balances: HashMap<String, F> = HashMap::new();
+    pub fn diversity_score(&self) -> f64 {
+        let mut obligor_balances: HashMap<String, f64> = HashMap::new();
         let total_balance = self.total_balance().amount();
 
         if total_balance == 0.0 {
@@ -378,8 +378,8 @@ impl AssetPool {
         }
 
         // Calculate diversity score = (sum of balances)^2 / sum of (balance^2)
-        let sum_balances: F = obligor_balances.values().sum();
-        let sum_squares: F = obligor_balances.values().map(|b| b * b).sum();
+        let sum_balances: f64 = obligor_balances.values().sum();
+        let sum_squares: f64 = obligor_balances.values().map(|b| b * b).sum();
 
         if sum_squares > 0.0 {
             (sum_balances * sum_balances) / sum_squares
@@ -443,7 +443,7 @@ impl AssetPool {
         }
 
         // Check obligor concentration
-        let mut obligor_concentrations: HashMap<String, F> = HashMap::new();
+        let mut obligor_concentrations: HashMap<String, f64> = HashMap::new();
         for asset in &self.assets {
             if let Some(ref obligor) = asset.obligor_id {
                 *obligor_concentrations.entry(obligor.clone()).or_insert(0.0) +=
@@ -463,7 +463,7 @@ impl AssetPool {
         }
 
         // Check industry concentration
-        let mut industry_concentrations: HashMap<String, F> = HashMap::new();
+        let mut industry_concentrations: HashMap<String, f64> = HashMap::new();
         for asset in &self.assets {
             if let Some(ref industry) = asset.industry {
                 *industry_concentrations
@@ -484,7 +484,7 @@ impl AssetPool {
         }
 
         // Check CCC asset concentration
-        let ccc_balance: F = self
+        let ccc_balance: f64 = self
             .assets
             .iter()
             .filter(|a| {
@@ -532,7 +532,7 @@ impl AssetPool {
         self.stats.num_industries = industries.len();
 
         // Calculate default rate
-        let defaulted_balance: F = self
+        let defaulted_balance: f64 = self
             .assets
             .iter()
             .filter(|a| a.is_defaulted)
@@ -585,8 +585,8 @@ impl ConcentrationCheckResult {
 pub struct ConcentrationViolation {
     pub violation_type: String,
     pub identifier: String,
-    pub current_level: F,
-    pub limit: F,
+    pub current_level: f64,
+    pub limit: f64,
 }
 
 #[cfg(test)]

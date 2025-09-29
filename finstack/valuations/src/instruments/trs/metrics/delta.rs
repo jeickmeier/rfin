@@ -1,6 +1,6 @@
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsSide};
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 /// Calculates delta to the underlying index level for a TRS.
 ///
@@ -10,7 +10,7 @@ use finstack_core::{Error, Result, F};
 pub struct IndexDeltaCalculator;
 
 impl MetricCalculator for IndexDeltaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         if let Some(equity_trs) = context
             .instrument
             .as_any()

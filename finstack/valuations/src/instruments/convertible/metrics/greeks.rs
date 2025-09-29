@@ -4,13 +4,13 @@
 //! the pricing engine.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 use crate::instruments::convertible::types::ConvertibleBond;
 
 pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
         bond.delta(&context.curves)
     }
@@ -18,7 +18,7 @@ impl MetricCalculator for DeltaCalculator {
 
 pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
         bond.gamma(&context.curves)
     }
@@ -26,7 +26,7 @@ impl MetricCalculator for GammaCalculator {
 
 pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
         bond.vega(&context.curves)
     }
@@ -34,7 +34,7 @@ impl MetricCalculator for VegaCalculator {
 
 pub struct RhoCalculator;
 impl MetricCalculator for RhoCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
         bond.rho(&context.curves)
     }
@@ -42,7 +42,7 @@ impl MetricCalculator for RhoCalculator {
 
 pub struct ThetaCalculator;
 impl MetricCalculator for ThetaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
         bond.theta(&context.curves)
     }

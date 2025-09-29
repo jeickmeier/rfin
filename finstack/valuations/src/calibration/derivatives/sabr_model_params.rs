@@ -1,17 +1,17 @@
 //! SABR model parameters used for calibration derivatives.
 
-use finstack_core::F;
+
 
 #[derive(Clone, Debug)]
 pub struct SABRModelParams {
-    pub alpha: F,
-    pub nu: F,
-    pub rho: F,
-    pub beta: F,
+    pub alpha: f64,
+    pub nu: f64,
+    pub rho: f64,
+    pub beta: f64,
 }
 
 impl SABRModelParams {
-    pub fn new(alpha: F, nu: F, rho: F, beta: F) -> Self {
+    pub fn new(alpha: f64, nu: f64, rho: f64, beta: f64) -> Self {
         Self {
             alpha,
             nu,
@@ -20,10 +20,10 @@ impl SABRModelParams {
         }
     }
 
-    pub fn equity_standard(alpha: F, nu: F, rho: F) -> Self {
+    pub fn equity_standard(alpha: f64, nu: f64, rho: f64) -> Self {
         Self::new(alpha, nu, rho, 1.0)
     }
-    pub fn rates_standard(alpha: F, nu: F, rho: F) -> Self {
+    pub fn rates_standard(alpha: f64, nu: f64, rho: f64) -> Self {
         Self::new(alpha, nu, rho, 0.5)
     }
 }

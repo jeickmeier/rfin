@@ -20,7 +20,6 @@
 //! assert!((p_back - 0.84).abs() < 1e-3);
 //! ```
 
-use crate::F;
 use std::f64::consts::PI;
 
 /// Error function approximation (Abramowitz and Stegun).
@@ -34,7 +33,7 @@ use std::f64::consts::PI;
 /// # Returns
 /// erf(x) ≈ 2/√π ∫₀ˣ e^(-t²) dt
 #[inline]
-pub fn erf(x: F) -> F {
+pub fn erf(x: f64) -> f64 {
     let a1 = 0.254829592;
     let a2 = -0.284496736;
     let a3 = 1.421413741;
@@ -68,7 +67,7 @@ pub fn erf(x: F) -> F {
 /// # Returns
 /// Φ(x) = P(Z ≤ x) where Z ~ N(0,1)
 #[inline]
-pub fn norm_cdf(x: F) -> F {
+pub fn norm_cdf(x: f64) -> f64 {
     // For extreme values only, use enhanced tail handling
     if x.abs() > 8.0 {
         if x < -8.0 {
@@ -93,7 +92,7 @@ pub fn norm_cdf(x: F) -> F {
 /// # Returns
 /// φ(x) = (1/√(2π)) * e^(-x²/2)
 #[inline]
-pub fn norm_pdf(x: F) -> F {
+pub fn norm_pdf(x: f64) -> f64 {
     (-0.5 * x * x).exp() / (2.0 * PI).sqrt()
 }
 
@@ -113,10 +112,10 @@ pub fn norm_pdf(x: F) -> F {
 ///
 /// # Returns
 /// x such that Φ(x) = p
-pub fn standard_normal_inv_cdf(p: F) -> F {
+pub fn standard_normal_inv_cdf(p: f64) -> f64 {
     // Handle boundary cases with smooth transitions to avoid discontinuities
-    const EPSILON: F = 1e-15;
-    const EXTREME_TAIL_THRESHOLD: F = 1e-12;
+    const EPSILON: f64 = 1e-15;
+    const EXTREME_TAIL_THRESHOLD: f64 = 1e-12;
 
     if p <= EPSILON {
         return -10.0; // Increased range for better tail coverage
@@ -327,7 +326,7 @@ mod tests {
     #[test]
     fn test_numerical_stability_correlations() {
         // Test numerical stability for extreme correlation values used in copula models
-        let extreme_correlations = [
+        let extreme_correlations: [f64; 8] = [
             1e-10,
             1e-8,
             1e-6,
@@ -339,8 +338,8 @@ mod tests {
         ];
 
         for &rho in &extreme_correlations {
-            let sqrt_rho = (rho as F).sqrt();
-            let sqrt_one_minus_rho = ((1.0 - rho) as F).sqrt();
+            let sqrt_rho = rho.sqrt();
+            let sqrt_one_minus_rho = (1.0 - rho).sqrt();
 
             // These should be finite and reasonable
             assert!(

@@ -6,7 +6,7 @@ use finstack_core::{
     math::stats::{realized_variance, RealizedVarMethod},
     money::Money,
     types::id::{CurveId, InstrumentId},
-    Result, F,
+    Result,
 };
 
 use crate::{
@@ -46,7 +46,7 @@ impl std::str::FromStr for PayReceive {
 
 impl PayReceive {
     /// Get the sign multiplier for PV calculation.
-    pub fn sign(&self) -> F {
+    pub fn sign(&self) -> f64 {
         match self {
             PayReceive::Pay => -1.0,
             PayReceive::Receive => 1.0,
@@ -67,7 +67,7 @@ pub struct VarianceSwap {
     /// Variance notional (in variance units)
     pub notional: Money,
     /// Strike variance (annualized)
-    pub strike_variance: F,
+    pub strike_variance: f64,
     /// Start date of observation period
     pub start_date: Date,
     /// Maturity/settlement date
@@ -140,7 +140,7 @@ impl VarianceSwap {
     }
 
     /// Calculate payoff given realized variance.
-    pub fn payoff(&self, realized_variance: F) -> Money {
+    pub fn payoff(&self, realized_variance: f64) -> Money {
         let variance_diff = realized_variance - self.strike_variance;
         let sign = self.side.sign();
         Money::new(
@@ -199,7 +199,7 @@ impl VarianceSwap {
     }
 
     /// Calculate annualization factor based on observation frequency.
-    pub fn annualization_factor(&self) -> F {
+    pub fn annualization_factor(&self) -> f64 {
         // Check month-based frequencies first
         if let Some(months) = self.observation_freq.months() {
             match months {
@@ -215,7 +215,7 @@ impl VarianceSwap {
                 1 => 252.0,             // Daily (trading days)
                 7 => 52.0,              // Weekly
                 14 => 26.0,             // Bi-weekly
-                _ => 365.0 / days as F, // General day-based approximation
+                _ => 365.0 / days as f64, // General day-based approximation
             }
         } else {
             252.0 // Default to daily
@@ -223,7 +223,7 @@ impl VarianceSwap {
     }
 
     /// Sampling policy aware annualization factor (uses market overrides when available).
-    pub(crate) fn annualization_factor_with_policy(&self, context: &MarketContext) -> F {
+    pub(crate) fn annualization_factor_with_policy(&self, context: &MarketContext) -> f64 {
         // Allow market override via unitless scalars
         // Priority: UNDERLYING_TRADING_DAYS_PER_YEAR, TRADING_DAYS_PER_YEAR
         let tdy_override = context
@@ -258,14 +258,14 @@ impl VarianceSwap {
                 1 => tdy_override,
                 7 => 52.0,
                 14 => 26.0,
-                _ => 365.0 / days as F,
+                _ => 365.0 / days as f64,
             };
         }
         tdy_override
     }
 
     /// Calculate the fraction of time elapsed in the observation period.
-    pub fn time_elapsed_fraction(&self, as_of: Date) -> F {
+    pub fn time_elapsed_fraction(&self, as_of: Date) -> f64 {
         if as_of <= self.start_date {
             return 0.0;
         }
@@ -290,7 +290,7 @@ impl VarianceSwap {
     }
 
     /// Calculate realized fraction based on observation counts (sampling-based weight).
-    pub(crate) fn realized_fraction_by_observations(&self, as_of: Date) -> F {
+    pub(crate) fn realized_fraction_by_observations(&self, as_of: Date) -> f64 {
         let all = self.observation_dates();
         if all.is_empty() {
             return 0.0;
@@ -301,8 +301,8 @@ impl VarianceSwap {
         if as_of >= self.maturity {
             return 1.0;
         }
-        let total = all.len() as F;
-        let realized = all.iter().filter(|&&d| d <= as_of).count() as F;
+        let total = all.len() as f64;
+        let realized = all.iter().filter(|&&d| d <= as_of).count() as f64;
         (realized / total).clamp(0.0, 1.0)
     }
 
@@ -311,7 +311,7 @@ impl VarianceSwap {
         &self,
         context: &MarketContext,
         as_of: Date,
-    ) -> Result<Vec<F>> {
+    ) -> Result<Vec<f64>> {
         // Try generic time series first (preferred)
         if let Ok(series) = context.series(&self.underlying_id) {
             let dates: Vec<Date> = self
@@ -340,7 +340,7 @@ impl VarianceSwap {
         &self,
         context: &MarketContext,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let prices = self.get_historical_prices(context, as_of)?;
         if prices.len() < 2 {
             return Ok(0.0);
@@ -357,7 +357,7 @@ impl VarianceSwap {
         &self,
         context: &MarketContext,
         _as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Prefer replication from a vol surface; fallback to ATM surface vol,
         // then scalar implied vol, and finally strike variance.
 

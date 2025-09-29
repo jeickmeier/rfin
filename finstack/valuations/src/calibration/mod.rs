@@ -50,7 +50,7 @@
 //!    - Always calibrate discount curve first
 //!    - Then calibrate forward curves with discount curve in context
 
-use finstack_core::F;
+
 
 // Submodules
 mod config;
@@ -73,9 +73,9 @@ pub use validation::{CurveValidator, SurfaceValidator, ValidationConfig, Validat
 /// Finite penalty value used in objective functions instead of infinity.
 /// Using a large finite value helps solvers behave more predictably and
 /// documents intent while keeping diagnostics reasonable.
-pub const PENALTY: F = 1e12;
+pub const PENALTY: f64 = 1e12;
 
-pub fn penalize() -> F {
+pub fn penalize() -> f64 {
     PENALTY
 }
 
@@ -86,9 +86,9 @@ use finstack_core::Result;
 ///
 /// This replaces the former `with_solver!` macro with a plain helper function
 /// to make control flow explicit and IDE-friendly.
-pub fn solve_1d<Fun>(kind: SolverKind, tol: F, iters: usize, f: Fun, init: F) -> Result<F>
+pub fn solve_1d<Fun>(kind: SolverKind, tol: f64, iters: usize, f: Fun, init: f64) -> Result<f64>
 where
-    Fun: Fn(F) -> F,
+    Fun: Fn(f64) -> f64,
 {
     use finstack_core::math::{BrentSolver, HybridSolver, NewtonSolver, Solver};
 
@@ -124,14 +124,14 @@ where
 pub fn create_simple_solver(config: &CalibrationConfig) -> impl finstack_core::math::Solver {
     struct SimpleSolver {
         kind: SolverKind,
-        tolerance: F,
+        tolerance: f64,
         max_iterations: usize,
     }
 
     impl finstack_core::math::Solver for SimpleSolver {
-        fn solve<Fun>(&self, f: Fun, initial_guess: F) -> finstack_core::Result<F>
+        fn solve<Fun>(&self, f: Fun, initial_guess: f64) -> finstack_core::Result<f64>
         where
-            Fun: Fn(F) -> F,
+            Fun: Fn(f64) -> f64,
         {
             solve_1d(
                 self.kind.clone(),

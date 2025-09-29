@@ -23,7 +23,7 @@ use finstack_core::math::Solver;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
-use finstack_core::F;
+
 use std::collections::BTreeMap;
 
 /// Discount curve bootstrapper.
@@ -184,7 +184,7 @@ impl DiscountCurveCalibrator {
             // Use Arc reference instead of cloning the entire context
             let base_context_ref = std::sync::Arc::new(base_context.clone());
 
-            let objective = move |df: F| -> F {
+            let objective = move |df: f64| -> f64 {
                 let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
                 temp_knots.extend_from_slice(&knots_clone);
                 temp_knots.push((time_to_maturity, df));
@@ -445,18 +445,18 @@ impl DiscountCurveCalibrator {
         Ok((curve, report))
     }
 
-    fn solve_with_bracketing(&self, objective: &dyn Fn(F) -> F, initial: F) -> Result<Option<F>> {
+    fn solve_with_bracketing(&self, objective: &dyn Fn(f64) -> f64, initial: f64) -> Result<Option<f64>> {
         let value_initial = objective(initial);
         if value_initial.is_finite() && value_initial.abs() < self.config.tolerance {
             return Ok(Some(initial));
         }
 
-        let scan_points: [F; 18] = [
+        let scan_points: [f64; 18] = [
             1.0, 0.99, 0.98, 0.96, 0.94, 0.92, 0.90, 0.88, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60,
             0.55, 0.50, 0.45, 0.40,
         ];
 
-        let mut last_valid: Option<(F, F)> = None;
+        let mut last_valid: Option<(f64, f64)> = None;
         for &point in &scan_points {
             let value = objective(point);
             if !value.is_finite() || value.abs() >= crate::calibration::PENALTY / 10.0 {
@@ -493,7 +493,7 @@ impl DiscountCurveCalibrator {
     ///
     /// Returns the pricing error (PV for par instruments) that should be zero
     /// when the curve is correctly calibrated.
-    fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<F> {
+    fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
         match quote {
             RatesQuote::Deposit {
                 maturity,
@@ -818,7 +818,7 @@ impl DiscountCurveCalibrator {
     }
 
     /// Extract rate from quote.
-    fn get_rate(&self, quote: &RatesQuote) -> F {
+    fn get_rate(&self, quote: &RatesQuote) -> f64 {
         match quote {
             RatesQuote::Deposit { rate, .. } => *rate,
             RatesQuote::FRA { rate, .. } => *rate,

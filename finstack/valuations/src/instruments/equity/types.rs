@@ -10,7 +10,7 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::InstrumentId;
-use finstack_core::F;
+
 
 /// Type alias for ticker symbols
 pub type Ticker = String;
@@ -31,9 +31,9 @@ pub struct Equity {
     /// Currency in which the equity is quoted
     pub currency: Currency,
     /// Optional number of shares (defaults to 1 if not specified)
-    pub shares: Option<F>,
+    pub shares: Option<f64>,
     /// Optional price quote (if not provided, will look up from market data)
-    pub price_quote: Option<F>,
+    pub price_quote: Option<f64>,
     /// Explicit market data identifier to resolve the spot price
     pub price_id: Option<String>,
     /// Explicit market data identifier to resolve the dividend yield
@@ -58,13 +58,13 @@ impl Equity {
     }
 
     /// Set the number of shares
-    pub fn with_shares(mut self, shares: F) -> Self {
+    pub fn with_shares(mut self, shares: f64) -> Self {
         self.shares = Some(shares);
         self
     }
 
     /// Set a price quote
-    pub fn with_price(mut self, price: F) -> Self {
+    pub fn with_price(mut self, price: f64) -> Self {
         self.price_quote = Some(price);
         self
     }
@@ -185,7 +185,7 @@ impl Equity {
     }
 
     /// Get the effective number of shares (defaults to 1)
-    pub fn effective_shares(&self) -> F {
+    pub fn effective_shares(&self) -> f64 {
         self.shares.unwrap_or(1.0)
     }
 
@@ -236,7 +236,7 @@ impl Equity {
     }
 
     /// Resolve dividend yield (annualized, decimal) for the equity
-    pub fn dividend_yield(&self, curves: &MarketContext) -> finstack_core::Result<F> {
+    pub fn dividend_yield(&self, curves: &MarketContext) -> finstack_core::Result<f64> {
         let candidates = self.dividend_yield_id_candidates();
         for key in &candidates {
             match curves.price(key) {
@@ -258,7 +258,7 @@ impl Equity {
         &self,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
-        t: F,
+        t: f64,
     ) -> finstack_core::Result<Money> {
         let s0 = self.price_per_share(curves, as_of)?;
         let dy = self.dividend_yield(curves)?;
@@ -274,7 +274,7 @@ impl Equity {
         &self,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
-        t: F,
+        t: f64,
     ) -> finstack_core::Result<Money> {
         let per_share = self.forward_price_per_share(curves, as_of, t)?;
         Ok(Money::new(

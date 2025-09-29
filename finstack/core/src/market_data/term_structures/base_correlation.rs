@@ -20,7 +20,6 @@
 use crate::error::InputError;
 use crate::types::CurveId;
 use crate::Result;
-use crate::F;
 
 /// A curve representing the base correlation for a credit index.
 ///
@@ -34,9 +33,9 @@ pub struct BaseCorrelationCurve {
     /// Curve identifier (typically index name + maturity)
     pub id: CurveId,
     /// Detachment points in percent (e.g., 3.0 for a 0-3% tranche)
-    pub detachment_points: Vec<F>,
+    pub detachment_points: Vec<f64>,
     /// Base correlation values corresponding to each detachment point
-    pub correlations: Vec<F>,
+    pub correlations: Vec<f64>,
 }
 
 impl BaseCorrelationCurve {
@@ -49,7 +48,7 @@ impl BaseCorrelationCurve {
     ///
     /// Uses linear interpolation between points and flat extrapolation
     /// beyond the curve boundaries.
-    pub fn correlation(&self, detachment_pct: F) -> F {
+    pub fn correlation(&self, detachment_pct: f64) -> f64 {
         if self.detachment_points.is_empty() {
             return 0.0;
         }
@@ -89,16 +88,16 @@ impl BaseCorrelationCurve {
     }
 
     /// Raw detachment points used to build the curve.
-    pub fn detachment_points(&self) -> &[F] {
+    pub fn detachment_points(&self) -> &[f64] {
         &self.detachment_points
     }
 
     /// Raw correlation values at each detachment point.
-    pub fn correlations(&self) -> &[F] {
+    pub fn correlations(&self) -> &[f64] {
         &self.correlations
     }
 
-    fn find_bracket(&self, detachment_pct: F) -> Option<(usize, usize)> {
+    fn find_bracket(&self, detachment_pct: f64) -> Option<(usize, usize)> {
         if self.detachment_points.is_empty() {
             return None;
         }
@@ -153,7 +152,7 @@ impl BaseCorrelationCurve {
 /// ```
 pub struct BaseCorrelationCurveBuilder {
     id: CurveId,
-    points: Vec<(F, F)>, // (detachment_pct, correlation)
+    points: Vec<(f64, f64)>, // (detachment_pct, correlation)
 }
 
 impl BaseCorrelationCurveBuilder {
@@ -166,7 +165,7 @@ impl BaseCorrelationCurveBuilder {
     }
 
     /// Add a single point (detachment_pct, correlation).
-    pub fn add_point(mut self, detachment_pct: F, correlation: F) -> Self {
+    pub fn add_point(mut self, detachment_pct: f64, correlation: f64) -> Self {
         self.points.push((detachment_pct, correlation));
         self
     }
@@ -174,7 +173,7 @@ impl BaseCorrelationCurveBuilder {
     /// Set all points at once.
     pub fn points<I>(mut self, points: I) -> Self
     where
-        I: IntoIterator<Item = (F, F)>,
+        I: IntoIterator<Item = (f64, f64)>,
     {
         self.points.extend(points);
         self
@@ -184,7 +183,7 @@ impl BaseCorrelationCurveBuilder {
     #[inline]
     pub fn knots<I>(self, points: I) -> Self
     where
-        I: IntoIterator<Item = (F, F)>,
+        I: IntoIterator<Item = (f64, f64)>,
     {
         self.points(points)
     }

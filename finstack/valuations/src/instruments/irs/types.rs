@@ -12,7 +12,7 @@ use finstack_core::market_data::traits::Forward;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_core::{dates::Date, Result, F};
+use finstack_core::{dates::Date, Result};
 
 use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
@@ -54,7 +54,7 @@ impl InterestRateSwap {
     pub fn usd_pay_fixed(
         id: InstrumentId,
         notional: Money,
-        fixed_rate: F,
+        fixed_rate: f64,
         start: Date,
         end: Date,
     ) -> Self {
@@ -99,7 +99,7 @@ impl InterestRateSwap {
     pub fn usd_receive_fixed(
         id: InstrumentId,
         notional: Money,
-        fixed_rate: F,
+        fixed_rate: f64,
         start: Date,
         end: Date,
     ) -> Self {
@@ -146,8 +146,8 @@ impl InterestRateSwap {
         notional: Money,
         start: Date,
         end: Date,
-        primary_spread_bp: F,   // Spread on the "fixed" leg (really floating)
-        reference_spread_bp: F, // Spread on the "float" leg
+        primary_spread_bp: f64,   // Spread on the "fixed" leg (really floating)
+        reference_spread_bp: f64, // Spread on the "float" leg
     ) -> Self {
         // Approximate basis swap by using fixed leg to carry the primary spread as a fixed coupon
         let sched = ScheduleParams::usd_standard();

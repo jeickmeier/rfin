@@ -7,7 +7,7 @@
 use crate::instruments::irs::PayReceive;
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::F;
+
 
 /// DV01 calculator for IRS.
 pub struct Dv01Calculator;
@@ -17,7 +17,7 @@ impl MetricCalculator for Dv01Calculator {
         &[MetricId::Annuity]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
         let annuity = context
             .computed

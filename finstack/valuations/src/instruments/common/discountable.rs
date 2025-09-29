@@ -30,7 +30,7 @@ mod tests {
     use finstack_core::market_data::traits::{Discounting, TermStructure};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
-    use finstack_core::F;
+    
     use time::Month;
 
     struct FlatCurve {
@@ -47,7 +47,7 @@ mod tests {
         fn base_date(&self) -> Date {
             Date::from_calendar_date(2025, Month::January, 1).unwrap()
         }
-        fn df(&self, _t: F) -> F {
+        fn df(&self, _t: f64) -> f64 {
             1.0
         }
     }

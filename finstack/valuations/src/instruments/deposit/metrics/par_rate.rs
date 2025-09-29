@@ -1,5 +1,5 @@
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::F;
+
 
 /// Calculates par rate for deposits.
 ///
@@ -15,7 +15,7 @@ impl MetricCalculator for DepositParRateCalculator {
         &[MetricId::DfStart, MetricId::DfEnd, MetricId::Yf]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let df_s = context
             .computed
             .get(&MetricId::DfStart)

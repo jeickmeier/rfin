@@ -3,13 +3,13 @@
 use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 
 /// Calculates Inflation01 (1bp inflation rate sensitivity) for inflation swaps.
 pub struct Inflation01Calculator;
 
 impl MetricCalculator for Inflation01Calculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let s: &InflationSwap = context.instrument_as()?;
 
         let disc = context.curves.get_discount_ref(s.disc_id.as_str())?;

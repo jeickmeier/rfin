@@ -10,7 +10,7 @@ use finstack_core::dates::Date;
 //
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+
 
 use super::parameters::EquityOptionParams;
 
@@ -23,7 +23,7 @@ pub struct EquityOption {
     pub option_type: OptionType,
     pub exercise_style: ExerciseStyle,
     pub expiry: Date,
-    pub contract_size: F,
+    pub contract_size: f64,
     pub day_count: finstack_core::dates::DayCount,
     pub settlement: SettlementType,
     pub disc_id: CurveId,
@@ -41,10 +41,10 @@ impl EquityOption {
     pub fn european_call(
         id: impl Into<String>,
         ticker: impl Into<String>,
-        strike: F,
+        strike: f64,
         expiry: Date,
         notional: Money,
-        contract_size: F,
+        contract_size: f64,
     ) -> Self {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")
@@ -75,10 +75,10 @@ impl EquityOption {
     pub fn european_put(
         id: impl Into<String>,
         ticker: impl Into<String>,
-        strike: F,
+        strike: f64,
         expiry: Date,
         notional: Money,
-        contract_size: F,
+        contract_size: f64,
     ) -> Self {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")
@@ -108,10 +108,10 @@ impl EquityOption {
     pub fn american_call(
         id: impl Into<String>,
         ticker: impl Into<String>,
-        strike: F,
+        strike: f64,
         expiry: Date,
         notional: Money,
-        contract_size: F,
+        contract_size: f64,
     ) -> Self {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")
@@ -189,7 +189,7 @@ impl EquityOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, as_of)?;
         Ok(greeks.delta)
     }
@@ -199,7 +199,7 @@ impl EquityOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, as_of)?;
         Ok(greeks.gamma)
     }
@@ -209,7 +209,7 @@ impl EquityOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, as_of)?;
         Ok(greeks.vega)
     }
@@ -219,7 +219,7 @@ impl EquityOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, as_of)?;
         Ok(greeks.theta)
     }
@@ -229,7 +229,7 @@ impl EquityOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, as_of)?;
         Ok(greeks.rho)
     }
@@ -239,8 +239,8 @@ impl EquityOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-        market_price: finstack_core::F,
-    ) -> finstack_core::Result<finstack_core::F> {
+        market_price: f64,
+    ) -> finstack_core::Result<f64> {
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
@@ -263,7 +263,7 @@ impl EquityOption {
 
         // Solve for sigma using bracketed bisection
         let k = self.strike.amount();
-        let price_at = |sigma: finstack_core::F| -> finstack_core::F {
+        let price_at = |sigma: f64| -> f64 {
             if sigma <= 0.0 {
                 return 0.0;
             }
@@ -271,9 +271,9 @@ impl EquityOption {
             pricer::price_bs_unit(spot, k, r, q, sigma, t, self.option_type) * self.contract_size
         };
 
-        const MIN_VOL: finstack_core::F = 1e-6;
-        const MAX_VOL_BRACKET: finstack_core::F = 10.0;
-        const SOLVER_TOL: finstack_core::F = 1e-8;
+        const MIN_VOL: f64 = 1e-6;
+        const MAX_VOL_BRACKET: f64 = 10.0;
+        const SOLVER_TOL: f64 = 1e-8;
         const SOLVER_MAX_ITER: usize = 100;
 
         let mut lo = MIN_VOL;

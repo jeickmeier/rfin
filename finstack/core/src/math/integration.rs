@@ -16,7 +16,7 @@
 //! ```
 
 use crate::error::InputError;
-use crate::{Error, F};
+use crate::{Error};
 
 // Removed over-engineered parameter bundling structs - use direct parameters instead
 
@@ -27,9 +27,9 @@ use crate::{Error, F};
 /// computation of the nodes and weights.
 pub struct GaussHermiteQuadrature {
     /// Quadrature points (x-coordinates)
-    pub points: &'static [F],
+    pub points: &'static [f64],
     /// Quadrature weights
-    pub weights: &'static [F],
+    pub weights: &'static [f64],
 }
 
 #[cfg(feature = "serde")]
@@ -172,9 +172,9 @@ impl GaussHermiteQuadrature {
     /// # Returns
     /// The approximate integral of f(x) * φ(x) dx from -∞ to +∞,
     /// where φ(x) is the standard normal PDF.
-    pub fn integrate<F2>(&self, f: F2) -> F
+    pub fn integrate<F2>(&self, f: F2) -> f64
     where
-        F2: Fn(F) -> F,
+        F2: Fn(f64) -> f64,
     {
         let mut result = 0.0;
         let sqrt_2 = std::f64::consts::SQRT_2; // √2
@@ -198,9 +198,9 @@ impl GaussHermiteQuadrature {
     ///
     /// # Returns
     /// High-precision integral estimate with automatic accuracy control
-    pub fn integrate_adaptive<F2>(&self, f: F2, tolerance: F) -> F
+    pub fn integrate_adaptive<F2>(&self, f: F2, tolerance: f64) -> f64
     where
-        F2: Fn(F) -> F + Copy,
+        F2: Fn(f64) -> f64 + Copy,
     {
         let base = self.integrate(f);
         match self.points.len() {
@@ -231,26 +231,26 @@ impl GaussHermiteQuadrature {
 ///
 /// # Returns
 /// Approximate integral value
-pub fn simpson_rule<F2>(f: F2, a: F, b: F, n: usize) -> Result<F, Error>
+pub fn simpson_rule<F2>(f: F2, a: f64, b: f64, n: usize) -> Result<f64, Error>
 where
-    F2: Fn(F) -> F,
+    F2: Fn(f64) -> f64,
 {
     if n % 2 != 0 || n == 0 {
         return Err(InputError::Invalid.into());
     }
 
-    let h = (b - a) / n as F;
+    let h = (b - a) / n as f64;
     let mut sum = f(a) + f(b);
 
     // Add even terms (coefficient 2)
     for i in (2..n).step_by(2) {
-        let x = a + i as F * h;
+        let x = a + i as f64 * h;
         sum += 2.0 * f(x);
     }
 
     // Add odd terms (coefficient 4)
     for i in (1..n).step_by(2) {
-        let x = a + i as F * h;
+        let x = a + i as f64 * h;
         sum += 4.0 * f(x);
     }
 
@@ -272,25 +272,25 @@ where
 ///
 /// # Returns
 /// Approximate integral value with estimated error control
-pub fn adaptive_quadrature<F2>(f: F2, a: F, b: F, tol: F, max_depth: usize) -> Result<F, Error>
+pub fn adaptive_quadrature<F2>(f: F2, a: f64, b: f64, tol: f64, max_depth: usize) -> Result<f64, Error>
 where
-    F2: Fn(F) -> F + Copy,
+    F2: Fn(f64) -> f64 + Copy,
 {
     #[allow(clippy::too_many_arguments)]
     fn adaptive_simpson<F2>(
         f: F2,
-        a: F,
-        b: F,
-        tol: F,
-        fa: F,
-        fb: F,
-        fc: F,
-        whole: F,
+        a: f64,
+        b: f64,
+        tol: f64,
+        fa: f64,
+        fb: f64,
+        fc: f64,
+        whole: f64,
         depth: usize,
         max_depth: usize,
-    ) -> Result<F, Error>
+    ) -> Result<f64, Error>
     where
-        F2: Fn(F) -> F + Copy,
+        F2: Fn(f64) -> f64 + Copy,
     {
         if depth >= max_depth {
             // At recursion limit, return the current best composite estimate
@@ -337,9 +337,9 @@ where
 /// Convenience alias: Adaptive Simpson integration with error control.
 ///
 /// This forwards to `adaptive_quadrature`, clarifying the Simpson basis.
-pub fn adaptive_simpson<F2>(f: F2, a: F, b: F, tol: F, max_depth: usize) -> Result<F, Error>
+pub fn adaptive_simpson<F2>(f: F2, a: f64, b: f64, tol: f64, max_depth: usize) -> Result<f64, Error>
 where
-    F2: Fn(F) -> F + Copy,
+    F2: Fn(f64) -> f64 + Copy,
 {
     adaptive_quadrature(f, a, b, tol, max_depth)
 }
@@ -349,7 +349,7 @@ where
 // -----------------------------------------------------------------------------
 
 /// Return Gauss–Legendre nodes and weights for supported orders.
-fn gl_nodes_weights(order: usize) -> Result<(&'static [F], &'static [F]), Error> {
+fn gl_nodes_weights(order: usize) -> Result<(&'static [f64], &'static [f64]), Error> {
     // Nodes/weights for symmetric [-1,1] intervals
     // Orders supported: 2, 4, 8, 16
     match order {
@@ -436,9 +436,9 @@ fn gl_nodes_weights(order: usize) -> Result<(&'static [F], &'static [F]), Error>
 }
 
 /// Gauss–Legendre quadrature over finite interval [a,b].
-pub fn gauss_legendre_integrate<F2>(f: F2, a: F, b: F, order: usize) -> Result<F, Error>
+pub fn gauss_legendre_integrate<F2>(f: F2, a: f64, b: f64, order: usize) -> Result<f64, Error>
 where
-    F2: Fn(F) -> F,
+    F2: Fn(f64) -> f64,
 {
     if !(a.is_finite() && b.is_finite()) {
         return Err(InputError::Invalid.into());
@@ -460,21 +460,21 @@ where
 /// Composite Gauss–Legendre over [a,b] using `panels` sub-intervals.
 pub fn gauss_legendre_integrate_composite<F2>(
     f: F2,
-    a: F,
-    b: F,
+    a: f64,
+    b: f64,
     order: usize,
     panels: usize,
-) -> Result<F, Error>
+) -> Result<f64, Error>
 where
-    F2: Fn(F) -> F,
+    F2: Fn(f64) -> f64,
 {
     if panels == 0 {
         return Err(InputError::Invalid.into());
     }
-    let h = (b - a) / panels as F;
+    let h = (b - a) / panels as f64;
     let mut sum = 0.0;
     for k in 0..panels {
-        let ak = a + k as F * h;
+        let ak = a + k as f64 * h;
         let bk = ak + h;
         sum += gauss_legendre_integrate(&f, ak, bk, order)?;
     }
@@ -484,26 +484,26 @@ where
 /// Adaptive Gauss–Legendre based on panel refinement until tolerance is met.
 pub fn gauss_legendre_integrate_adaptive<F2>(
     f: F2,
-    a: F,
-    b: F,
+    a: f64,
+    b: f64,
     order: usize,
-    tol: F,
+    tol: f64,
     max_depth: usize,
-) -> Result<F, Error>
+) -> Result<f64, Error>
 where
-    F2: Fn(F) -> F + Copy,
+    F2: Fn(f64) -> f64 + Copy,
 {
     fn recurse<F2>(
         f: F2,
-        a: F,
-        b: F,
+        a: f64,
+        b: f64,
         order: usize,
-        tol: F,
+        tol: f64,
         depth: usize,
         max_depth: usize,
-    ) -> Result<F, Error>
+    ) -> Result<f64, Error>
     where
-        F2: Fn(F) -> F + Copy,
+        F2: Fn(f64) -> f64 + Copy,
     {
         let i1 = gauss_legendre_integrate(f, a, b, order)?;
         let mid = 0.5 * (a + b);
@@ -535,19 +535,19 @@ where
 ///
 /// # Returns
 /// Approximate integral value
-pub fn trapezoidal_rule<F2>(f: F2, a: F, b: F, n: usize) -> Result<F, Error>
+pub fn trapezoidal_rule<F2>(f: F2, a: f64, b: f64, n: usize) -> Result<f64, Error>
 where
-    F2: Fn(F) -> F,
+    F2: Fn(f64) -> f64,
 {
     if n == 0 {
         return Err(InputError::Invalid.into());
     }
 
-    let h = (b - a) / n as F;
+    let h = (b - a) / n as f64;
     let mut sum = 0.5 * (f(a) + f(b));
 
     for i in 1..n {
-        let x = a + i as F * h;
+        let x = a + i as f64 * h;
         sum += f(x);
     }
 
@@ -583,7 +583,7 @@ mod tests {
     #[test]
     fn test_different_quadrature_orders() {
         // Test that higher order gives better accuracy for polynomial
-        let f = |x: F| x * x * x * x; // x^4 function
+        let f = |x: f64| x * x * x * x; // x^4 function
 
         let quad5 = GaussHermiteQuadrature::order_5();
         let quad7 = GaussHermiteQuadrature::order_7();
@@ -623,7 +623,7 @@ mod tests {
     fn test_simpson_rule() {
         // Test Simpson's rule on a simple polynomial x² on [0, 1]
         // Exact integral = 1/3
-        let f = |x: F| x * x;
+        let f = |x: f64| x * x;
         let integral = simpson_rule(f, 0.0, 1.0, 100).unwrap();
         assert!((integral - 1.0 / 3.0).abs() < 1e-6);
     }
@@ -631,7 +631,7 @@ mod tests {
     #[test]
     fn test_adaptive_quadrature() {
         // Test adaptive integration on oscillatory function
-        let f = |x: F| (10.0 * x).sin();
+        let f = |x: f64| (10.0 * x).sin();
         let result = adaptive_quadrature(f, 0.0, std::f64::consts::PI, 1e-6, 1000).unwrap();
         // Exact integral = (1 - cos(10π))/10 = 0
         assert!(result.abs() < 1e-2);

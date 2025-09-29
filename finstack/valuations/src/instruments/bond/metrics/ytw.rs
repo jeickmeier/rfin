@@ -3,13 +3,13 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::F;
+
 
 /// Calculates yield-to-worst for bonds with call/put schedules.
 pub struct YtwCalculator;
 
 impl MetricCalculator for YtwCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         // Build and cache flows and hints if not already present
         let flows = if let Some(ref flows) = context.cashflows {
             flows
@@ -87,7 +87,7 @@ impl YtwCalculator {
         target_price: Money,
         exercise_date: Date,
         redemption: Money,
-    ) -> finstack_core::Result<F> {
+    ) -> finstack_core::Result<f64> {
         // Build truncated flows up to exercise plus redemption and reuse solver
         let mut ex_flows: Vec<(Date, Money)> = Vec::with_capacity(flows.len());
         for &(date, amount) in flows {

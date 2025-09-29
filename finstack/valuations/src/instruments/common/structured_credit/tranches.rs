@@ -5,7 +5,7 @@ use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_core::F;
+
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -17,9 +17,9 @@ use super::types::{CreditRating, TrancheSeniority, TriggerConsequence};
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CoverageTrigger {
     /// Trigger threshold level (e.g., 1.20 for 120% OC)
-    pub trigger_level: F,
+    pub trigger_level: f64,
     /// Higher level required to cure breach
-    pub cure_level: Option<F>,
+    pub cure_level: Option<f64>,
     /// Date when breach occurred (if any)
     pub breach_date: Option<Date>,
     /// What happens when triggered
@@ -28,7 +28,7 @@ pub struct CoverageTrigger {
 
 impl CoverageTrigger {
     /// Create a new coverage trigger
-    pub fn new(trigger_level: F, consequence: TriggerConsequence) -> Self {
+    pub fn new(trigger_level: f64, consequence: TriggerConsequence) -> Self {
         Self {
             trigger_level,
             cure_level: None,
@@ -38,18 +38,18 @@ impl CoverageTrigger {
     }
 
     /// With cure level (typically higher than trigger)
-    pub fn with_cure_level(mut self, cure_level: F) -> Self {
+    pub fn with_cure_level(mut self, cure_level: f64) -> Self {
         self.cure_level = Some(cure_level);
         self
     }
 
     /// Check if currently breached
-    pub fn is_breached(&self, current_level: F) -> bool {
+    pub fn is_breached(&self, current_level: f64) -> bool {
         current_level < self.trigger_level
     }
 
     /// Check if breach is cured
-    pub fn is_cured(&self, current_level: F) -> bool {
+    pub fn is_cured(&self, current_level: f64) -> bool {
         if let Some(cure) = self.cure_level {
             current_level >= cure
         } else {
@@ -69,7 +69,7 @@ pub struct CreditEnhancement {
     /// Reserve account balance
     pub reserve_account: Money,
     /// Available excess spread
-    pub excess_spread: F,
+    pub excess_spread: f64,
     /// Cash trap/turbo active
     pub cash_trap_active: bool,
 }
@@ -91,32 +91,32 @@ impl Default for CreditEnhancement {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TrancheCoupon {
     /// Fixed rate
-    Fixed { rate: F },
+    Fixed { rate: f64 },
     /// Floating rate with caps/floors
     Floating {
         index: String,
-        spread_bp: F,
-        floor: Option<F>,
-        cap: Option<F>,
+        spread_bp: f64,
+        floor: Option<f64>,
+        cap: Option<f64>,
     },
     /// Step-up coupon
-    StepUp { schedule: Vec<(Date, F)> },
+    StepUp { schedule: Vec<(Date, f64)> },
     /// Deferrable coupon (can skip payments)
     Deferrable {
-        base_rate: F,
+        base_rate: f64,
         can_defer: bool,
         compound_deferred: bool,
     },
     /// Payment-in-kind coupon
     PIK {
-        rate: F,
+        rate: f64,
         toggle_dates: Vec<(Date, bool)>, // true = PIK, false = cash
     },
 }
 
 impl TrancheCoupon {
     /// Get current rate for a given date
-    pub fn current_rate(&self, date: Date) -> F {
+    pub fn current_rate(&self, date: Date) -> f64 {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,
             TrancheCoupon::Floating { spread_bp, .. } => *spread_bp / 10_000.0, // Base spread only
@@ -137,7 +137,7 @@ impl TrancheCoupon {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CustomTrigger {
     pub name: String,
-    pub threshold: F,
+    pub threshold: f64,
     pub test_type: String, // Description of what's being tested
     pub consequence: TriggerConsequence,
 }
@@ -150,8 +150,8 @@ pub struct AbsTranche {
     pub id: InstrumentId,
 
     /// Structural boundaries (as % of total capital structure)
-    pub attachment_point: F, // Lower bound (e.g., 0.0% for equity, 10% for mezz)
-    pub detachment_point: F, // Upper bound (e.g., 10% for equity, 15% for mezz)
+    pub attachment_point: f64, // Lower bound (e.g., 0.0% for equity, 10% for mezz)
+    pub detachment_point: f64, // Upper bound (e.g., 10% for equity, 15% for mezz)
 
     /// Tranche characteristics
     pub seniority: TrancheSeniority,
@@ -195,8 +195,8 @@ impl AbsTranche {
     /// Create a new tranche with required fields
     pub fn new(
         id: impl Into<String>,
-        attachment_point: F,
-        detachment_point: F,
+        attachment_point: f64,
+        detachment_point: f64,
         seniority: TrancheSeniority,
         original_balance: Money,
         coupon: TrancheCoupon,
@@ -242,7 +242,7 @@ impl AbsTranche {
     }
 
     /// Tranche thickness (detachment - attachment)
-    pub fn thickness(&self) -> F {
+    pub fn thickness(&self) -> f64 {
         self.detachment_point - self.attachment_point
     }
 
@@ -252,12 +252,12 @@ impl AbsTranche {
     }
 
     /// Check if tranche is currently impaired by losses
-    pub fn is_impaired(&self, cumulative_loss_pct: F) -> bool {
+    pub fn is_impaired(&self, cumulative_loss_pct: f64) -> bool {
         cumulative_loss_pct > self.attachment_point
     }
 
     /// Calculate loss allocation to this tranche
-    pub fn loss_allocation(&self, cumulative_loss_pct: F, _total_pool_balance: Money) -> Money {
+    pub fn loss_allocation(&self, cumulative_loss_pct: f64, _total_pool_balance: Money) -> Money {
         if cumulative_loss_pct <= self.attachment_point {
             // No loss to this tranche
             Money::new(0.0, self.original_balance.currency())
@@ -275,7 +275,7 @@ impl AbsTranche {
     /// Current tranche balance after losses
     pub fn current_balance_after_losses(
         &self,
-        cumulative_loss_pct: F,
+        cumulative_loss_pct: f64,
         total_pool_balance: Money,
     ) -> Money {
         let loss_amount = self.loss_allocation(cumulative_loss_pct, total_pool_balance);
@@ -316,8 +316,8 @@ impl AbsTranche {
 /// Builder for creating tranches with validation
 pub struct TrancheBuilder {
     id: Option<String>,
-    attachment_point: Option<F>,
-    detachment_point: Option<F>,
+    attachment_point: Option<f64>,
+    detachment_point: Option<f64>,
     seniority: Option<TrancheSeniority>,
     original_balance: Option<Money>,
     coupon: Option<TrancheCoupon>,
@@ -349,7 +349,7 @@ impl TrancheBuilder {
         self
     }
 
-    pub fn attachment_detachment(mut self, attachment: F, detachment: F) -> Self {
+    pub fn attachment_detachment(mut self, attachment: f64, detachment: f64) -> Self {
         self.attachment_point = Some(attachment);
         self.detachment_point = Some(detachment);
         self

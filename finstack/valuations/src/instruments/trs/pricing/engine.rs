@@ -4,7 +4,7 @@ use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use finstack_core::F;
+
 
 use super::super::types::{FinancingLegSpec, TrsScheduleSpec};
 
@@ -24,9 +24,9 @@ pub struct TotalReturnLegParams<'a> {
     /// Discount curve identifier.
     pub disc_id: &'a str,
     /// Contract size multiplier for the underlying.
-    pub contract_size: F,
+    pub contract_size: f64,
     /// Initial level of the underlying (if known).
-    pub initial_level: Option<F>,
+    pub initial_level: Option<f64>,
 }
 
 /// Trait for underlying-specific total return models.
@@ -50,11 +50,11 @@ pub trait TrsReturnModel {
         &self,
         period_start: Date,
         period_end: Date,
-        t_start: F,
-        t_end: F,
-        initial_level: F,
+        t_start: f64,
+        t_end: f64,
+        initial_level: f64,
         context: &MarketContext,
-    ) -> Result<F>;
+    ) -> Result<f64>;
 }
 
 impl TrsEngine {
@@ -205,7 +205,7 @@ impl TrsEngine {
         notional: Money,
         context: &MarketContext,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Get discount curve
         let disc_curve_id = financing.disc_id.as_str();
         let disc = context.get_discount_ref(disc_curve_id)?;

@@ -2,7 +2,7 @@
 
 use crate::cashflow::builder::schedule_utils::build_dates;
 use crate::cashflow::builder::ScheduleParams;
-use finstack_core::{dates::Date, F};
+use finstack_core::{dates::Date};
 
 /// Side of the TRS trade from the party's perspective.
 ///
@@ -49,7 +49,7 @@ impl TrsSide {
     ///
     /// # Returns
     /// 1.0 for ReceiveTotalReturn, -1.0 for PayTotalReturn.
-    pub fn sign(&self) -> F {
+    pub fn sign(&self) -> f64 {
         match self {
             TrsSide::ReceiveTotalReturn => 1.0,
             TrsSide::PayTotalReturn => -1.0,

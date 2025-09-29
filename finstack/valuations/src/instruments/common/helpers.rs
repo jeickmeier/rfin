@@ -63,7 +63,7 @@ pub fn build_with_metrics_dyn(
     let metric_measures = registry.compute(metrics, &mut context)?;
 
     // Deterministic insertion order: follow the requested metrics slice order
-    let mut measures: IndexMap<String, finstack_core::F> = IndexMap::new();
+    let mut measures: IndexMap<String, f64> = IndexMap::new();
     for metric_id in metrics {
         if let Some(value) = metric_measures.get(metric_id) {
             measures.insert(metric_id.as_str().to_string(), *value);

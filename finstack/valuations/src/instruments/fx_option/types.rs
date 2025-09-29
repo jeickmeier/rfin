@@ -9,7 +9,7 @@ use finstack_core::dates::Date;
 // Pricing/greeks live in pricing engine; keep types minimal.
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 use super::calculator::{FxOptionCalculator, FxOptionGreeks};
 use super::parameters::FxOptionParams;
@@ -20,7 +20,7 @@ pub struct FxOption {
     pub id: InstrumentId,
     pub base_currency: Currency,
     pub quote_currency: Currency,
-    pub strike: F,
+    pub strike: f64,
     pub option_type: OptionType,
     pub exercise_style: ExerciseStyle,
     pub expiry: Date,
@@ -40,7 +40,7 @@ impl FxOption {
         id: impl Into<InstrumentId>,
         base_currency: Currency,
         quote_currency: Currency,
-        strike: F,
+        strike: f64,
         expiry: Date,
         notional: Money,
     ) -> Self {
@@ -77,7 +77,7 @@ impl FxOption {
         id: impl Into<InstrumentId>,
         base_currency: Currency,
         quote_currency: Currency,
-        strike: F,
+        strike: f64,
         expiry: Date,
         notional: Money,
     ) -> Self {
@@ -172,9 +172,9 @@ impl FxOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: Date,
-        target_price: finstack_core::F,
-        initial_guess: Option<finstack_core::F>,
-    ) -> Result<finstack_core::F> {
+        target_price: f64,
+        initial_guess: Option<f64>,
+    ) -> Result<f64> {
         self.calculator()
             .implied_vol(self, curves, as_of, target_price, initial_guess)
     }

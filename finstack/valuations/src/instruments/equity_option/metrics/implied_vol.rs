@@ -7,16 +7,16 @@
 
 use crate::instruments::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 pub struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &EquityOption = context.instrument_as()?;
 
         // Market price
-        let market_price: F = if let Some(p) = option.attributes.get_meta("market_price") {
+        let market_price: f64 = if let Some(p) = option.attributes.get_meta("market_price") {
             p.parse().unwrap_or(0.0)
         } else if let Some(price_id) = option.attributes.get_meta("market_price_id") {
             match context.curves.price(price_id) {

@@ -3,7 +3,6 @@
 use finstack_core::{
     dates::{Date, DayCount, Frequency},
     money::Money,
-    F,
 };
 
 /// Inflation-linked bond specific parameters.
@@ -14,13 +13,13 @@ pub struct InflationLinkedBondParams {
     /// Notional amount
     pub notional: Money,
     /// Real coupon rate
-    pub real_coupon: F,
+    pub real_coupon: f64,
     /// Issue date
     pub issue: Date,
     /// Maturity date
     pub maturity: Date,
     /// Base index value at issue
-    pub base_index: F,
+    pub base_index: f64,
     /// Payment frequency
     pub frequency: Frequency,
     /// Day count convention
@@ -31,10 +30,10 @@ impl InflationLinkedBondParams {
     /// Create new inflation-linked bond parameters
     pub fn new(
         notional: Money,
-        real_coupon: F,
+        real_coupon: f64,
         issue: Date,
         maturity: Date,
-        base_index: F,
+        base_index: f64,
         frequency: Frequency,
         day_count: DayCount,
     ) -> Self {
@@ -52,10 +51,10 @@ impl InflationLinkedBondParams {
     /// Create US TIPS parameters (semi-annual, Act/Act)
     pub fn tips(
         notional: Money,
-        real_coupon: F,
+        real_coupon: f64,
         issue: Date,
         maturity: Date,
-        base_index: F,
+        base_index: f64,
     ) -> Self {
         Self::new(
             notional,
@@ -71,10 +70,10 @@ impl InflationLinkedBondParams {
     /// Create UK linker parameters (semi-annual, Act/Act)
     pub fn uk_linker(
         notional: Money,
-        real_coupon: F,
+        real_coupon: f64,
         issue: Date,
         maturity: Date,
-        base_index: F,
+        base_index: f64,
     ) -> Self {
         Self::new(
             notional,

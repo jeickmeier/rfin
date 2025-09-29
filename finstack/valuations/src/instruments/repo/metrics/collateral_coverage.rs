@@ -4,7 +4,7 @@
 
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 
 /// Calculate collateral coverage ratio (market value / required value).
 pub struct CollateralCoverageCalculator;
@@ -14,7 +14,7 @@ impl MetricCalculator for CollateralCoverageCalculator {
         &[MetricId::CollateralValue, MetricId::RequiredCollateral]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let collateral_value = context
             .computed
             .get(&MetricId::CollateralValue)
@@ -27,7 +27,7 @@ impl MetricCalculator for CollateralCoverageCalculator {
             .unwrap_or(1.0);
 
         if required_value == 0.0 {
-            return Ok(F::INFINITY);
+            return Ok(f64::INFINITY);
         }
 
         Ok(collateral_value / required_value)

@@ -2,7 +2,7 @@
 
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 
 /// Interest rate instrument quotes for yield curve calibration.
 #[derive(Clone, Debug)]
@@ -12,7 +12,7 @@ pub enum RatesQuote {
         /// Maturity date
         maturity: Date,
         /// Quoted rate (decimal)
-        rate: F,
+        rate: f64,
         /// Day count convention
         day_count: DayCount,
     },
@@ -23,7 +23,7 @@ pub enum RatesQuote {
         /// End date  
         end: Date,
         /// Quoted rate (decimal)
-        rate: F,
+        rate: f64,
         /// Day count convention
         day_count: DayCount,
     },
@@ -32,7 +32,7 @@ pub enum RatesQuote {
         /// Expiry date
         expiry: Date,
         /// Contract price (e.g., 99.25 for 0.75% implied rate)
-        price: F,
+        price: f64,
         /// Contract specifications
         specs: FutureSpecs,
     },
@@ -41,7 +41,7 @@ pub enum RatesQuote {
         /// Swap maturity
         maturity: Date,
         /// Par rate (decimal)
-        rate: F,
+        rate: f64,
         /// Fixed leg frequency
         fixed_freq: Frequency,
         /// Float leg frequency  
@@ -62,7 +62,7 @@ pub enum RatesQuote {
         /// Reference leg index (e.g., "6M-LIBOR", "1M-SOFR")
         reference_index: String,
         /// Basis spread in basis points (primary pays reference + spread)
-        spread_bp: F,
+        spread_bp: f64,
         /// Primary leg frequency
         primary_freq: Frequency,
         /// Reference leg frequency  
@@ -114,9 +114,9 @@ pub enum CreditQuote {
         /// CDS maturity
         maturity: Date,
         /// Par spread in basis points
-        spread_bp: F,
+        spread_bp: f64,
         /// Recovery rate assumption
-        recovery_rate: F,
+        recovery_rate: f64,
         /// Currency
         currency: Currency,
     },
@@ -127,11 +127,11 @@ pub enum CreditQuote {
         /// CDS maturity
         maturity: Date,
         /// Upfront payment (% of notional, positive = protection buyer pays)
-        upfront_pct: F,
+        upfront_pct: f64,
         /// Running spread in basis points
-        running_spread_bp: F,
+        running_spread_bp: f64,
         /// Recovery rate assumption
-        recovery_rate: F,
+        recovery_rate: f64,
         /// Currency
         currency: Currency,
     },
@@ -140,15 +140,15 @@ pub enum CreditQuote {
         /// Index name (e.g., "CDX.NA.IG.42")
         index: String,
         /// Attachment point (%)
-        attachment: F,
+        attachment: f64,
         /// Detachment point (%)
-        detachment: F,
+        detachment: f64,
         /// Maturity date
         maturity: Date,
         /// Upfront payment (% of notional)
-        upfront_pct: F,
+        upfront_pct: f64,
         /// Running spread (bps)
-        running_spread_bp: F,
+        running_spread_bp: f64,
     },
 }
 
@@ -162,9 +162,9 @@ pub enum VolQuote {
         /// Option expiry
         expiry: Date,
         /// Strike (rate for swaptions, price for equity/FX)
-        strike: F,
+        strike: f64,
         /// Implied volatility
-        vol: F,
+        vol: f64,
         /// Option type ("Call", "Put", "Straddle")
         option_type: String,
     },
@@ -175,9 +175,9 @@ pub enum VolQuote {
         /// Underlying swap tenor
         tenor: Date,
         /// Strike rate
-        strike: F,
+        strike: f64,
         /// Implied volatility
-        vol: F,
+        vol: f64,
         /// Quote type (ATM, OTM, etc.)
         quote_type: String,
     },
@@ -191,7 +191,7 @@ pub enum InflationQuote {
         /// Swap maturity
         maturity: Date,
         /// Fixed rate (decimal)
-        rate: F,
+        rate: f64,
         /// Inflation index identifier  
         index: String,
     },
@@ -200,7 +200,7 @@ pub enum InflationQuote {
         /// Swap maturity
         maturity: Date,
         /// Fixed rate (decimal)
-        rate: F,
+        rate: f64,
         /// Inflation index identifier  
         index: String,
         /// Payment frequency
@@ -226,15 +226,15 @@ pub enum MarketQuote {
 #[derive(Clone, Debug)]
 pub struct FutureSpecs {
     /// Contract multiplier
-    pub multiplier: F,
+    pub multiplier: f64,
     /// Face value
-    pub face_value: F,
+    pub face_value: f64,
     /// Number of delivery months
     pub delivery_months: u8,
     /// Day count convention
     pub day_count: DayCount,
     /// Convexity adjustment (for long-dated futures)
-    pub convexity_adjustment: Option<F>,
+    pub convexity_adjustment: Option<f64>,
 }
 
 impl Default for FutureSpecs {

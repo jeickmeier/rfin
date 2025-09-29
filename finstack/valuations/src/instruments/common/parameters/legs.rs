@@ -2,7 +2,7 @@
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::types::CurveId;
-use finstack_core::F;
+
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -58,7 +58,7 @@ pub struct FixedLegSpec {
     /// Discount curve identifier for pricing
     pub disc_id: CurveId,
     /// Fixed rate (e.g., 0.05 for 5%)
-    pub rate: F,
+    pub rate: f64,
     /// Payment frequency
     pub freq: Frequency,
     /// Day count convention for accrual
@@ -88,7 +88,7 @@ pub struct FloatLegSpec {
     /// Forward curve identifier for rate projections
     pub fwd_id: CurveId,
     /// Spread in basis points added to the forward rate
-    pub spread_bp: F,
+    pub spread_bp: f64,
     /// Payment frequency
     pub freq: Frequency,
     /// Day count convention for accrual
@@ -120,7 +120,7 @@ pub struct BasisSwapLeg {
     /// Business day convention for date adjustments
     pub bdc: BusinessDayConvention,
     /// Optional spread in decimal form (e.g., 0.0005 for 5 basis points)
-    pub spread: F,
+    pub spread: f64,
 }
 
 /// Specification for CDS premium legs
@@ -142,7 +142,7 @@ pub struct PremiumLegSpec {
     /// Day count convention
     pub dc: DayCount,
     /// Fixed spread in basis points
-    pub spread_bp: F,
+    pub spread_bp: f64,
     /// Discount curve identifier
     pub disc_id: CurveId,
 }
@@ -154,7 +154,7 @@ pub struct ProtectionLegSpec {
     /// Credit curve identifier for default probabilities
     pub credit_id: CurveId,
     /// Recovery rate (0.0 to 1.0)
-    pub recovery_rate: F,
+    pub recovery_rate: f64,
     /// Settlement delay in business days
     pub settlement_delay: u16,
 }
@@ -173,7 +173,7 @@ pub struct FinancingLegSpec {
     /// Forward curve identifier (e.g., USD-SOFR-3M)
     pub fwd_id: CurveId,
     /// Spread in basis points over the floating rate
-    pub spread_bp: F,
+    pub spread_bp: f64,
     /// Day count convention for accrual calculations
     pub day_count: DayCount,
 }
@@ -183,7 +183,7 @@ impl FinancingLegSpec {
     pub fn new(
         disc_id: impl Into<String>,
         fwd_id: impl Into<String>,
-        spread_bp: F,
+        spread_bp: f64,
         day_count: DayCount,
     ) -> Self {
         Self {
@@ -202,7 +202,7 @@ pub struct TotalReturnLegSpec {
     /// Reference index or asset identifier
     pub reference_id: String,
     /// Initial price/level (if known, otherwise fetched from market)
-    pub initial_level: Option<F>,
+    pub initial_level: Option<f64>,
     /// Whether to include dividends/distributions in the return calculation
     pub include_distributions: bool,
 }

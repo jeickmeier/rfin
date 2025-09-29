@@ -4,14 +4,14 @@
 
 use crate::instruments::basket::types::Basket;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Calculate number of constituents in the basket
 pub struct ConstituentCountCalculator;
 
 impl MetricCalculator for ConstituentCountCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let basket = context.instrument_as::<Basket>()?;
-        Ok(basket.constituent_count() as F)
+        Ok(basket.constituent_count() as f64)
     }
 }

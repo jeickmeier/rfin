@@ -1,8 +1,8 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::F;
 
-const ONE_BP: F = 0.0001;
+
+const ONE_BP: f64 = 0.0001;
 
 /// Calculates CS01 (credit spread sensitivity) for bonds.
 ///
@@ -15,7 +15,7 @@ impl MetricCalculator for Cs01Calculator {
         &[MetricId::Ytm]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
         // YTM dependency ensures cashflows are already built and cached

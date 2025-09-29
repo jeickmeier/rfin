@@ -7,14 +7,14 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::context::BumpSpec;
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 use hashbrown::HashMap;
 
 /// Calculate DV01 for repo (interest rate sensitivity).
 pub struct RepoDv01Calculator;
 
 impl MetricCalculator for RepoDv01Calculator {
-    fn calculate(&self, _context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, _context: &mut MetricContext) -> Result<f64> {
         // Temporary conservative implementation to avoid propagating errors in tests
         return Ok(0.0);
         #[allow(unreachable_code)]

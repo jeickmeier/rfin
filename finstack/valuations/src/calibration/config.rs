@@ -6,7 +6,7 @@
 //! - Entity seniority mappings for credit calibration
 
 use finstack_core::market_data::term_structures::Seniority;
-use finstack_core::F;
+
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
@@ -56,7 +56,7 @@ impl MultiCurveConfig {
 #[derive(Clone, Debug)]
 pub struct CalibrationConfig {
     /// Solver tolerance
-    pub tolerance: F,
+    pub tolerance: f64,
     /// Maximum iterations
     pub max_iterations: usize,
     /// Use parallel processing when available

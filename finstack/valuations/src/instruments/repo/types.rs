@@ -7,7 +7,7 @@ use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
-use finstack_core::F;
+
 use std::any::Any;
 
 /// Type of repurchase agreement.
@@ -62,7 +62,7 @@ pub enum CollateralType {
         /// Identifier of the specific security
         security_id: String,
         /// Optional special rate adjustment in basis points (negative = lower rate)
-        rate_adjustment_bp: Option<F>,
+        rate_adjustment_bp: Option<f64>,
     },
 }
 
@@ -81,7 +81,7 @@ pub struct CollateralSpec {
     /// Identifier for the collateral instrument
     pub instrument_id: String,
     /// Quantity/face value of collateral
-    pub quantity: F,
+    pub quantity: f64,
     /// Market value identifier in MarketContext (e.g., "BOND_ABC_PRICE")
     pub market_value_id: String,
 }
@@ -90,7 +90,7 @@ impl CollateralSpec {
     /// Create a new collateral specification.
     pub fn new(
         instrument_id: impl Into<String>,
-        quantity: F,
+        quantity: f64,
         market_value_id: impl Into<String>,
     ) -> Self {
         Self {
@@ -105,9 +105,9 @@ impl CollateralSpec {
     pub fn special(
         security_id: impl Into<String>,
         instrument_id: impl Into<String>,
-        quantity: F,
+        quantity: f64,
         market_value_id: impl Into<String>,
-        rate_adjustment_bp: Option<F>,
+        rate_adjustment_bp: Option<f64>,
     ) -> Self {
         Self {
             collateral_type: CollateralType::Special {
@@ -151,13 +151,13 @@ pub struct Repo {
     /// Collateral specification
     pub collateral: CollateralSpec,
     /// Repo rate (annual, as decimal)
-    pub repo_rate: F,
+    pub repo_rate: f64,
     /// Start date of the repo
     pub start_date: Date,
     /// Maturity date of the repo
     pub maturity: Date,
     /// Haircut percentage (as decimal, e.g., 0.02 = 2%)
-    pub haircut: F,
+    pub haircut: f64,
     /// Type of repo
     pub repo_type: RepoType,
     /// Whether this is a tri-party repo
@@ -181,7 +181,7 @@ impl Repo {
         id: impl Into<String>,
         cash_amount: Money,
         collateral: CollateralSpec,
-        repo_rate: F,
+        repo_rate: f64,
         start_date: Date,
         disc_id: impl Into<CurveId>,
     ) -> Result<Self> {
@@ -209,7 +209,7 @@ impl Repo {
         id: impl Into<String>,
         cash_amount: Money,
         collateral: CollateralSpec,
-        repo_rate: F,
+        repo_rate: f64,
         start_date: Date,
         maturity: Date,
         disc_id: impl Into<CurveId>,
@@ -238,7 +238,7 @@ impl Repo {
         id: impl Into<String>,
         cash_amount: Money,
         collateral: CollateralSpec,
-        repo_rate: F,
+        repo_rate: f64,
         start_date: Date,
         initial_maturity: Date,
         disc_id: impl Into<CurveId>,
@@ -263,14 +263,14 @@ impl Repo {
     }
 
     /// Calculate the effective repo rate considering special collateral adjustments.
-    pub fn effective_rate(&self) -> F {
+    pub fn effective_rate(&self) -> f64 {
         match &self.collateral.collateral_type {
             CollateralType::General => self.repo_rate,
             CollateralType::Special {
                 rate_adjustment_bp, ..
             } => {
                 if let Some(adjustment_bp) = rate_adjustment_bp {
-                    const ONE_BP: F = 1e-4;
+                    const ONE_BP: f64 = 1e-4;
                     self.repo_rate + (adjustment_bp * ONE_BP) // Convert bp to decimal
                 } else {
                     self.repo_rate

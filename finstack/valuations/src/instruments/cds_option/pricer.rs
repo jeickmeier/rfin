@@ -17,7 +17,7 @@ use finstack_core::market_data::term_structures::ParInterp;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::money::Money;
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Pricing engine for `CdsOption`.
 ///
@@ -26,9 +26,9 @@ use finstack_core::{Result, F};
 #[derive(Clone, Debug)]
 pub struct CdsOptionPricerConfig {
     pub use_isda_schedule_rpv01: bool,
-    pub bp_per_unit: F,
-    pub theta_days_per_year: F,
-    pub iv_initial_guess: F,
+    pub bp_per_unit: f64,
+    pub theta_days_per_year: f64,
+    pub iv_initial_guess: f64,
     pub forward_interp: ParInterp,
 }
 
@@ -108,7 +108,7 @@ impl CdsOptionPricer {
         option: &CdsOption,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let hazard = curves.get_hazard_ref(option.credit_id.clone())?;
         let disc = curves.get_discount_ref(option.disc_id.clone())?;
         self.forward_spread_from_pricer(option, disc, hazard, as_of)
@@ -137,7 +137,7 @@ impl CdsOptionPricer {
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         surv: &finstack_core::market_data::term_structures::hazard_curve::HazardCurve,
         as_of: finstack_core::dates::Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let cds = synthetic_underlying_cds(option);
         let pricer = CDSPricer::new();
         let mut forward_bp = pricer.par_spread(&cds, disc, surv, as_of)?;
@@ -151,9 +151,9 @@ impl CdsOptionPricer {
     fn compute_forward_bp(
         &self,
         option: &CdsOption,
-        tenor: F,
+        tenor: f64,
         hazard: &finstack_core::market_data::term_structures::hazard_curve::HazardCurve,
-    ) -> F {
+    ) -> f64 {
         let mut fwd_bp = if tenor > 0.0 {
             hazard.quoted_spread_bp(tenor, self.config.forward_interp)
         } else {
@@ -169,11 +169,11 @@ impl CdsOptionPricer {
     pub fn credit_option_price(
         &self,
         option: &CdsOption,
-        forward_spread_bp: F,
-        df: F,
-        risky_annuity: F,
-        sigma: F,
-        t: F,
+        forward_spread_bp: f64,
+        df: f64,
+        risky_annuity: f64,
+        sigma: f64,
+        t: f64,
     ) -> Result<Money> {
         // Apply index-factor scale when underlying is an index (market convention)
         let scale = if option.underlying_is_index {
@@ -224,7 +224,7 @@ impl CdsOptionPricer {
     }
 
     /// Delta for CDS option w.r.t. forward spread (per unit notional and bp basis handled by caller).
-    pub fn delta(&self, option: &CdsOption, forward_spread_bp: F, sigma: F, t: F) -> F {
+    pub fn delta(&self, option: &CdsOption, forward_spread_bp: f64, sigma: f64, t: f64) -> f64 {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
@@ -261,7 +261,7 @@ impl CdsOptionPricer {
     }
 
     /// Gamma per bp of spread.
-    pub fn gamma(&self, option: &CdsOption, forward_spread_bp: F, sigma: F, t: F) -> F {
+    pub fn gamma(&self, option: &CdsOption, forward_spread_bp: f64, sigma: f64, t: f64) -> f64 {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
@@ -280,7 +280,7 @@ impl CdsOptionPricer {
     }
 
     /// Vega per 1% vol change.
-    pub fn vega(&self, option: &CdsOption, forward_spread_bp: F, sigma: F, t: F) -> F {
+    pub fn vega(&self, option: &CdsOption, forward_spread_bp: f64, sigma: f64, t: f64) -> f64 {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
@@ -303,7 +303,7 @@ impl CdsOptionPricer {
     }
 
     /// Theta per year, rate-sensitive term uses r provided by caller.
-    pub fn theta(&self, option: &CdsOption, forward_spread_bp: F, r: F, sigma: F, t: F) -> F {
+    pub fn theta(&self, option: &CdsOption, forward_spread_bp: f64, r: f64, sigma: f64, t: f64) -> f64 {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
@@ -341,7 +341,7 @@ impl CdsOptionPricer {
         surv: &finstack_core::market_data::term_structures::hazard_curve::HazardCurve,
         _curves: &MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         if !self.config.use_isda_schedule_rpv01 {
             // Fallback to simple approximation if ever disabled
             let cds_tenor = option.day_count.year_fraction(
@@ -357,7 +357,7 @@ impl CdsOptionPricer {
             let mut ann = 0.0;
             let n = (cds_tenor * 4.0).ceil() as usize;
             for i in 1..=n {
-                let tau = cds_tenor * (i as F) / (n as F);
+                let tau = cds_tenor * (i as f64) / (n as f64);
                 ann += 0.25 * disc.df(t0 + tau) * surv.sp(t0 + tau);
             }
             return Ok(ann);
@@ -378,9 +378,9 @@ impl CdsOptionPricer {
         option: &CdsOption,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
-        target_price: F,
-        initial_guess: Option<F>,
-    ) -> Result<F> {
+        target_price: f64,
+        initial_guess: Option<f64>,
+    ) -> Result<f64> {
         // Pre-compute market inputs independent of σ
         let t = option.day_count.year_fraction(
             as_of,
@@ -402,15 +402,15 @@ impl CdsOptionPricer {
         let df_expiry = disc.df(t);
 
         // Objective in log-σ space to keep σ>0
-        let price_for_sigma = |sigma: F| -> F {
+        let price_for_sigma = |sigma: f64| -> f64 {
             match self.credit_option_price(option, fwd_bp, df_expiry, ra, sigma, t) {
                 Ok(m) => m.amount(),
-                Err(_) => F::NAN,
+                Err(_) => f64::NAN,
             }
         };
 
         let target = target_price;
-        let f = |x: F| -> F {
+        let f = |x: f64| -> f64 {
             let sigma = x.exp();
             price_for_sigma(sigma) - target
         };

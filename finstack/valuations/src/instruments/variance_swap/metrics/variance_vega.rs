@@ -2,13 +2,13 @@
 
 use super::super::types::VarianceSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Calculate variance vega (sensitivity to 1 point change in variance).
 pub struct VarianceVegaCalculator;
 
 impl MetricCalculator for VarianceVegaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let swap = context.instrument_as::<VarianceSwap>()?;
         // Remaining fraction and discounting like vega
         let remaining_fraction = 1.0 - swap.realized_fraction_by_observations(context.as_of);

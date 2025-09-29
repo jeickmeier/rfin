@@ -15,7 +15,7 @@ use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 use std::collections::{BTreeMap, HashMap};
 
 /// Simple market calibration builder.
@@ -182,7 +182,7 @@ impl SimpleCalibration {
                 use finstack_core::dates::DayCountCtx;
                 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-                let mut knots: Vec<(F, F)> = Vec::new();
+                let mut knots: Vec<(f64, f64)> = Vec::new();
                 for rq in &rates_quotes {
                     if let RatesQuote::Deposit { maturity, rate, day_count } = rq {
                         let t = day_count
@@ -587,7 +587,7 @@ impl SimpleCalibration {
             CalibrationReport::success_empty("Base correlation calibration starting");
 
         // Group tranche quotes by index and maturity
-        let mut quotes_by_index: BTreeMap<String, BTreeMap<OrderedFloat<F>, Vec<CreditQuote>>> =
+        let mut quotes_by_index: BTreeMap<String, BTreeMap<OrderedFloat<f64>, Vec<CreditQuote>>> =
             BTreeMap::new();
 
         for quote in quotes {
@@ -639,7 +639,7 @@ impl SimpleCalibration {
     }
 
     /// Extract volatility grid from option quotes.
-    fn extract_vol_grid(&self, quotes: &[MarketQuote]) -> (Vec<F>, Vec<F>) {
+    fn extract_vol_grid(&self, quotes: &[MarketQuote]) -> (Vec<f64>, Vec<f64>) {
         let mut expiries = std::collections::HashSet::new();
         let mut strikes = std::collections::HashSet::new();
 
@@ -657,17 +657,17 @@ impl SimpleCalibration {
             }
         }
 
-        let mut expiry_grid: Vec<F> = expiries.into_iter().map(|e| e as F / 1000.0).collect();
+        let mut expiry_grid: Vec<f64> = expiries.into_iter().map(|e| e as f64 / 1000.0).collect();
         expiry_grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        let mut strike_grid: Vec<F> = strikes.into_iter().map(|s| s as F / 100.0).collect();
+        let mut strike_grid: Vec<f64> = strikes.into_iter().map(|s| s as f64 / 100.0).collect();
         strike_grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         (expiry_grid, strike_grid)
     }
 
     /// Get base CPI from context.
-    fn get_base_cpi(&self, context: &MarketContext, index: &str) -> Option<F> {
+    fn get_base_cpi(&self, context: &MarketContext, index: &str) -> Option<f64> {
         // Try inflation index
         if let Some(inflation_index) = context.inflation_index_ref(index) {
             if let Ok(value) = inflation_index.value_on(self.base_date) {
@@ -695,7 +695,7 @@ impl SimpleCalibration {
     /// Merge report data.
     fn merge_report(
         &self,
-        all_residuals: &mut BTreeMap<String, F>,
+        all_residuals: &mut BTreeMap<String, f64>,
         total_iterations: &mut usize,
         report: &CalibrationReport,
     ) {

@@ -4,26 +4,26 @@
 //! with volatility smile. It provides closed-form approximations for implied volatility
 //! that capture the smile and skew observed in market prices.
 
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 /// SABR model parameters
 #[derive(Clone, Debug)]
 pub struct SABRParameters {
     /// Initial volatility (alpha)
-    pub alpha: F,
+    pub alpha: f64,
     /// CEV exponent (beta) - typically 0 to 1
-    pub beta: F,
+    pub beta: f64,
     /// Volatility of volatility (nu/volvol)
-    pub nu: F,
+    pub nu: f64,
     /// Correlation between asset and volatility (rho)
-    pub rho: F,
+    pub rho: f64,
     /// Shift parameter for handling negative rates (optional)
-    pub shift: Option<F>,
+    pub shift: Option<f64>,
 }
 
 impl SABRParameters {
     /// Create new SABR parameters with validation
-    pub fn new(alpha: F, beta: F, nu: F, rho: F) -> Result<Self> {
+    pub fn new(alpha: f64, beta: f64, nu: f64, rho: f64) -> Result<Self> {
         // Validate parameters
         if alpha <= 0.0 {
             return Err(Error::Internal); // Alpha must be positive
@@ -48,7 +48,7 @@ impl SABRParameters {
     }
 
     /// Create new SABR parameters with shift for negative rates
-    pub fn new_with_shift(alpha: F, beta: F, nu: F, rho: F, shift: F) -> Result<Self> {
+    pub fn new_with_shift(alpha: f64, beta: f64, nu: f64, rho: f64, shift: f64) -> Result<Self> {
         // Validate base parameters
         if alpha <= 0.0 {
             return Err(Error::Internal); // Alpha must be positive
@@ -77,27 +77,27 @@ impl SABRParameters {
     }
 
     /// Create parameters for normal SABR (beta = 0)
-    pub fn normal(alpha: F, nu: F, rho: F) -> Result<Self> {
+    pub fn normal(alpha: f64, nu: f64, rho: f64) -> Result<Self> {
         Self::new(alpha, 0.0, nu, rho)
     }
 
     /// Create parameters for lognormal SABR (beta = 1)
-    pub fn lognormal(alpha: F, nu: F, rho: F) -> Result<Self> {
+    pub fn lognormal(alpha: f64, nu: f64, rho: f64) -> Result<Self> {
         Self::new(alpha, 1.0, nu, rho)
     }
 
     /// Create parameters for shifted normal SABR (beta = 0, with shift)
-    pub fn shifted_normal(alpha: F, nu: F, rho: F, shift: F) -> Result<Self> {
+    pub fn shifted_normal(alpha: f64, nu: f64, rho: f64, shift: f64) -> Result<Self> {
         Self::new_with_shift(alpha, 0.0, nu, rho, shift)
     }
 
     /// Create parameters for shifted lognormal SABR (beta = 1, with shift)
-    pub fn shifted_lognormal(alpha: F, nu: F, rho: F, shift: F) -> Result<Self> {
+    pub fn shifted_lognormal(alpha: f64, nu: f64, rho: f64, shift: f64) -> Result<Self> {
         Self::new_with_shift(alpha, 1.0, nu, rho, shift)
     }
 
     /// Get the shift parameter
-    pub fn shift(&self) -> Option<F> {
+    pub fn shift(&self) -> Option<f64> {
         self.shift
     }
 
@@ -122,7 +122,7 @@ impl SABRModel {
     ///
     /// This is the standard SABR formula from Hagan et al. (2002) with enhanced
     /// numerical stability and support for negative rates through shifting.
-    pub fn implied_volatility(&self, forward: F, strike: F, time_to_expiry: F) -> Result<F> {
+    pub fn implied_volatility(&self, forward: f64, strike: f64, time_to_expiry: f64) -> Result<f64> {
         // Apply shift if using shifted SABR for negative rates
         let (effective_forward, effective_strike) = if let Some(shift) = self.params.shift {
             (forward + shift, strike + shift)
@@ -221,7 +221,7 @@ impl SABRModel {
     }
 
     /// Calculate ATM implied volatility with enhanced numerical stability
-    fn atm_volatility(&self, forward: F, time_to_expiry: F) -> Result<F> {
+    fn atm_volatility(&self, forward: f64, time_to_expiry: f64) -> Result<f64> {
         let alpha = self.params.alpha;
         let beta = self.params.beta;
         let nu = self.params.nu;
@@ -275,7 +275,7 @@ impl SABRModel {
     }
 
     /// Calculate chi(z) for the SABR formula with enhanced numerical stability
-    fn calculate_chi_robust(&self, z: F) -> Result<F> {
+    fn calculate_chi_robust(&self, z: f64) -> Result<f64> {
         let rho = self.params.rho;
 
         // For very small z, use series expansion to avoid numerical issues
@@ -334,7 +334,7 @@ impl SABRModel {
     }
 
     /// Get the effective forward/strike after applying shift
-    pub fn effective_rates(&self, forward: F, strike: F) -> (F, F) {
+    pub fn effective_rates(&self, forward: f64, strike: f64) -> (f64, f64) {
         if let Some(shift) = self.params.shift {
             (forward + shift, strike + shift)
         } else {
@@ -343,7 +343,7 @@ impl SABRModel {
     }
 
     /// Validate inputs for SABR model
-    pub fn validate_inputs(&self, forward: F, strike: F, time_to_expiry: F) -> Result<()> {
+    pub fn validate_inputs(&self, forward: f64, strike: f64, time_to_expiry: f64) -> Result<()> {
         // Time validation
         if time_to_expiry <= 0.0 {
             return Err(Error::Internal); // Invalid time to expiry
@@ -370,7 +370,7 @@ impl SABRModel {
 /// SABR calibration using market prices
 pub struct SABRCalibrator {
     /// Tolerance for calibration convergence
-    tolerance: F,
+    tolerance: f64,
     /// Maximum iterations
     max_iterations: usize,
 }
@@ -385,7 +385,7 @@ impl SABRCalibrator {
     }
 
     /// Set tolerance
-    pub fn with_tolerance(mut self, tolerance: F) -> Self {
+    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
         self.tolerance = tolerance;
         self
     }
@@ -399,11 +399,11 @@ impl SABRCalibrator {
     /// Calibrate SABR parameters with automatic negative rate detection
     pub fn calibrate_auto_shift(
         &self,
-        forward: F,
-        strikes: &[F],
-        market_vols: &[F],
-        time_to_expiry: F,
-        beta: F,
+        forward: f64,
+        strikes: &[f64],
+        market_vols: &[f64],
+        time_to_expiry: f64,
+        beta: f64,
     ) -> Result<SABRParameters> {
         // Check if we need shift for negative rates
         let min_rate = forward.min(
@@ -426,11 +426,11 @@ impl SABRCalibrator {
     /// Calibrate SABR parameters with automatic negative rate detection and analytical derivatives
     pub fn calibrate_auto_shift_with_derivatives(
         &self,
-        forward: F,
-        strikes: &[F],
-        market_vols: &[F],
-        time_to_expiry: F,
-        beta: F,
+        forward: f64,
+        strikes: &[f64],
+        market_vols: &[f64],
+        time_to_expiry: f64,
+        beta: f64,
     ) -> Result<SABRParameters> {
         // Check if we need shift for negative rates
         let min_rate = forward.min(
@@ -460,12 +460,12 @@ impl SABRCalibrator {
     /// Calibrate shifted SABR parameters for negative rate environments
     pub fn calibrate_shifted(
         &self,
-        forward: F,
-        strikes: &[F],
-        market_vols: &[F],
-        time_to_expiry: F,
-        beta: F,
-        shift: F,
+        forward: f64,
+        strikes: &[f64],
+        market_vols: &[f64],
+        time_to_expiry: f64,
+        beta: f64,
+        shift: f64,
     ) -> Result<SABRParameters> {
         if strikes.len() != market_vols.len() {
             return Err(Error::Internal);
@@ -473,7 +473,7 @@ impl SABRCalibrator {
 
         // Apply shift to all rates
         let shifted_forward = forward + shift;
-        let shifted_strikes: Vec<F> = strikes.iter().map(|&s| s + shift).collect();
+        let shifted_strikes: Vec<f64> = strikes.iter().map(|&s| s + shift).collect();
 
         // Validate shifted rates are positive
         if shifted_forward <= 0.0 || shifted_strikes.iter().any(|&s| s <= 0.0) {
@@ -502,11 +502,11 @@ impl SABRCalibrator {
     /// Calibrate SABR parameters to market implied volatilities using multi-dimensional solver
     pub fn calibrate(
         &self,
-        forward: F,
-        strikes: &[F],
-        market_vols: &[F],
-        time_to_expiry: F,
-        beta: F, // Beta is usually fixed
+        forward: f64,
+        strikes: &[f64],
+        market_vols: &[f64],
+        time_to_expiry: f64,
+        beta: f64, // Beta is usually fixed
     ) -> Result<SABRParameters> {
         if strikes.len() != market_vols.len() {
             return Err(Error::Internal);
@@ -522,7 +522,7 @@ impl SABRCalibrator {
         // Define objective function: sum of squared volatility errors
         let strikes_vec = strikes.to_vec();
         let market_vols_vec = market_vols.to_vec();
-        let objective = move |params: &[F]| -> F {
+        let objective = move |params: &[f64]| -> f64 {
             let alpha = params[0];
             let nu = params[1];
             let rho = params[2];
@@ -572,11 +572,11 @@ impl SABRCalibrator {
     /// Calibrate SABR parameters with analytical derivatives for improved performance
     pub fn calibrate_with_derivatives(
         &self,
-        forward: F,
-        strikes: &[F],
-        market_vols: &[F],
-        time_to_expiry: F,
-        beta: F,
+        forward: f64,
+        strikes: &[f64],
+        market_vols: &[f64],
+        time_to_expiry: f64,
+        beta: f64,
     ) -> Result<SABRParameters> {
         if strikes.len() != market_vols.len() {
             return Err(Error::Internal);
@@ -606,7 +606,7 @@ impl SABRCalibrator {
             .with_max_iterations(self.max_iterations);
 
         // Define objective function: sum of squared volatility errors
-        let objective = move |params: &[F]| -> F {
+        let objective = move |params: &[f64]| -> f64 {
             let alpha = params[0];
             let nu = params[1];
             let rho = params[2];
@@ -666,12 +666,12 @@ impl SABRCalibrator {
     /// Calibrate shifted SABR with analytical derivatives
     pub fn calibrate_shifted_with_derivatives(
         &self,
-        forward: F,
-        strikes: &[F],
-        market_vols: &[F],
-        time_to_expiry: F,
-        beta: F,
-        shift: F,
+        forward: f64,
+        strikes: &[f64],
+        market_vols: &[f64],
+        time_to_expiry: f64,
+        beta: f64,
+        shift: f64,
     ) -> Result<SABRParameters> {
         if strikes.len() != market_vols.len() {
             return Err(Error::Internal);
@@ -679,7 +679,7 @@ impl SABRCalibrator {
 
         // Apply shift to all rates
         let shifted_forward = forward + shift;
-        let shifted_strikes: Vec<F> = strikes.iter().map(|&s| s + shift).collect();
+        let shifted_strikes: Vec<f64> = strikes.iter().map(|&s| s + shift).collect();
 
         // Validate shifted rates are positive
         if shifted_forward <= 0.0 || shifted_strikes.iter().any(|&s| s <= 0.0) {
@@ -706,9 +706,9 @@ impl SABRCalibrator {
     }
 
     /// Find ATM volatility from market data
-    fn find_atm_vol(&self, forward: F, strikes: &[F], vols: &[F]) -> Result<F> {
+    fn find_atm_vol(&self, forward: f64, strikes: &[f64], vols: &[f64]) -> Result<f64> {
         // Find the strike closest to forward
-        let mut min_diff = F::INFINITY;
+        let mut min_diff = f64::INFINITY;
         let mut atm_vol = vols[0];
 
         for (i, &strike) in strikes.iter().enumerate() {
@@ -732,13 +732,13 @@ impl Default for SABRCalibrator {
 /// SABR smile generator for creating volatility surfaces
 pub struct SABRSmile {
     model: SABRModel,
-    forward: F,
-    time_to_expiry: F,
+    forward: f64,
+    time_to_expiry: f64,
 }
 
 impl SABRSmile {
     /// Create new smile generator
-    pub fn new(model: SABRModel, forward: F, time_to_expiry: F) -> Self {
+    pub fn new(model: SABRModel, forward: f64, time_to_expiry: f64) -> Self {
         Self {
             model,
             forward,
@@ -747,7 +747,7 @@ impl SABRSmile {
     }
 
     /// Generate volatility smile for given strikes
-    pub fn generate_smile(&self, strikes: &[F]) -> Result<Vec<F>> {
+    pub fn generate_smile(&self, strikes: &[f64]) -> Result<Vec<f64>> {
         let mut vols = Vec::with_capacity(strikes.len());
 
         for &strike in strikes {
@@ -761,7 +761,7 @@ impl SABRSmile {
     }
 
     /// Generate strike from delta
-    pub fn strike_from_delta(&self, delta: F, is_call: bool) -> Result<F> {
+    pub fn strike_from_delta(&self, delta: f64, is_call: bool) -> Result<f64> {
         // This requires iterative solving
         // Simplified version using ATM vol as approximation
         let atm_vol = self
@@ -783,7 +783,7 @@ impl SABRSmile {
 }
 
 /// Helper function for normal CDF inverse (simplified)
-fn normal_inverse_cdf(p: F) -> F {
+fn normal_inverse_cdf(p: f64) -> f64 {
     // Simplified approximation - in production use a proper implementation
     if p <= 0.0 || p >= 1.0 {
         return if p <= 0.0 { -3.0 } else { 3.0 };

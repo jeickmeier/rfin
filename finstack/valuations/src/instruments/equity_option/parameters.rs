@@ -3,7 +3,7 @@
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::F;
+
 
 /// Equity option specific parameters.
 ///
@@ -21,12 +21,12 @@ pub struct EquityOptionParams {
     /// Settlement type (Cash/Physical)
     pub settlement: SettlementType,
     /// Contract size (shares per contract)
-    pub contract_size: F,
+    pub contract_size: f64,
 }
 
 impl EquityOptionParams {
     /// Create new equity option parameters
-    pub fn new(strike: Money, expiry: Date, option_type: OptionType, contract_size: F) -> Self {
+    pub fn new(strike: Money, expiry: Date, option_type: OptionType, contract_size: f64) -> Self {
         Self {
             strike,
             expiry,
@@ -38,12 +38,12 @@ impl EquityOptionParams {
     }
 
     /// Create European call option parameters
-    pub fn european_call(strike: Money, expiry: Date, contract_size: F) -> Self {
+    pub fn european_call(strike: Money, expiry: Date, contract_size: f64) -> Self {
         Self::new(strike, expiry, OptionType::Call, contract_size)
     }
 
     /// Create European put option parameters  
-    pub fn european_put(strike: Money, expiry: Date, contract_size: F) -> Self {
+    pub fn european_put(strike: Money, expiry: Date, contract_size: f64) -> Self {
         Self::new(strike, expiry, OptionType::Put, contract_size)
     }
 

@@ -4,7 +4,7 @@
 
 use crate::instruments::basket::types::{AssetType, Basket, ConstituentReference};
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Calculate effective exposure by asset type
 pub struct AssetExposureCalculator {
@@ -18,7 +18,7 @@ impl AssetExposureCalculator {
 }
 
 impl MetricCalculator for AssetExposureCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let basket = context.instrument_as::<Basket>()?;
         let mut total_exposure = 0.0;
         for constituent in &basket.constituents {

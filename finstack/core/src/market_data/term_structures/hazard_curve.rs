@@ -25,7 +25,7 @@ use crate::{
     error::InputError,
     market_data::traits::{Survival, TermStructure},
     types::CurveId,
-    F,
+
 };
 
 /// Piecewise‐constant credit hazard curve.
@@ -41,11 +41,11 @@ pub struct HazardCurve {
     id: CurveId,
     base: Date,
     /// Time grid in years from base date; strictly increasing (first may be 0.0)
-    knots: Box<[F]>,
+    knots: Box<[f64]>,
     /// Piecewise-constant hazard rates λ ≥ 0; same length as `knots`.
-    lambdas: Box<[F]>,
+    lambdas: Box<[f64]>,
     /// Recovery rate used during calibration/reporting (metadata)
-    recovery_rate: F,
+    recovery_rate: f64,
     /// Optional issuer metadata
     issuer: Option<String>,
     /// Debt seniority
@@ -55,9 +55,9 @@ pub struct HazardCurve {
     /// Day count convention for converting dates→times (metadata)
     day_count: DayCount,
     /// Stored market par spreads used to bootstrap this curve (for reporting)
-    par_tenors: Box<[F]>,
+    par_tenors: Box<[f64]>,
     /// Par spreads in basis points at `par_tenors`
-    par_spreads_bp: Box<[F]>,
+    par_spreads_bp: Box<[f64]>,
 }
 
 /// Serializable state of a HazardCurve
@@ -72,7 +72,7 @@ pub struct HazardCurveState {
     #[cfg_attr(feature = "serde", serde(flatten))]
     points: super::common::StateKnotPoints,
     /// Recovery rate
-    pub recovery_rate: F,
+    pub recovery_rate: f64,
     /// Optional issuer
     pub issuer: Option<String>,
     /// Seniority
@@ -82,7 +82,7 @@ pub struct HazardCurveState {
     /// Day count convention
     pub day_count: DayCount,
     /// Par spread points for reporting
-    pub par_points: Vec<(F, F)>,
+    pub par_points: Vec<(f64, f64)>,
 }
 
 impl HazardCurve {
@@ -103,12 +103,12 @@ impl HazardCurve {
 
     /// Survival probability S(t) up to time `t` (in **years**).
     #[must_use]
-    pub fn sp(&self, t: F) -> F {
+    pub fn sp(&self, t: f64) -> f64 {
         if t <= 0.0 {
             return 1.0;
         }
-        let mut accum: F = 0.0;
-        let mut prev: F = 0.0;
+        let mut accum: f64 = 0.0;
+        let mut prev: f64 = 0.0;
         for (i, &k) in self.knots.iter().enumerate() {
             let dt = if t <= k { t - prev } else { k - prev };
             accum += self.lambdas[i] * dt;
@@ -126,7 +126,7 @@ impl HazardCurve {
 
     /// Default probability between `t1` and `t2`.
     #[must_use]
-    pub fn default_prob(&self, t1: F, t2: F) -> F {
+    pub fn default_prob(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 >= t1);
         let sp1 = self.sp(t1);
         let sp2 = self.sp(t2);
@@ -143,7 +143,7 @@ impl HazardCurve {
     }
 
     /// Recovery rate metadata used when mapping spreads↔hazards during bootstrap.
-    pub fn recovery_rate(&self) -> F {
+    pub fn recovery_rate(&self) -> f64 {
         self.recovery_rate
     }
 
@@ -153,7 +153,7 @@ impl HazardCurve {
     }
 
     /// Access the knot points (time, lambda) for inspection or modification.
-    pub fn knot_points(&self) -> impl Iterator<Item = (F, F)> + '_ {
+    pub fn knot_points(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
         self.knots
             .iter()
             .zip(self.lambdas.iter())
@@ -161,7 +161,7 @@ impl HazardCurve {
     }
 
     /// Access the par spread points for inspection.
-    pub fn par_spread_points(&self) -> impl Iterator<Item = (F, F)> + '_ {
+    pub fn par_spread_points(&self) -> impl Iterator<Item = (f64, f64)> + '_ {
         self.par_tenors
             .iter()
             .zip(self.par_spreads_bp.iter())
@@ -198,8 +198,8 @@ impl HazardCurve {
     /// Create a new curve with hazard rates shifted by a constant amount.
     /// Uses the same ID with a "_BUMPED" suffix.
     /// Negative shifts are clamped to zero to ensure non-negative hazard rates.
-    pub fn with_hazard_shift(&self, shift: F) -> crate::Result<HazardCurve> {
-        let shifted_points: Vec<(F, F)> = self
+    pub fn with_hazard_shift(&self, shift: f64) -> crate::Result<HazardCurve> {
+        let shifted_points: Vec<(f64, f64)> = self
             .knot_points()
             .map(|(t, lambda)| (t, (lambda + shift).max(0.0)))
             .collect();
@@ -232,7 +232,7 @@ impl HazardCurve {
 
     /// Return an interpolated par spread in basis points for reporting.
     /// Linear interpolation in spread, with log-linear fallback when values are positive and requested.
-    pub fn quoted_spread_bp(&self, t: F, method: ParInterp) -> F {
+    pub fn quoted_spread_bp(&self, t: f64, method: ParInterp) -> f64 {
         let n = self.par_tenors.len();
         if n == 0 {
             return 0.0;
@@ -269,13 +269,13 @@ impl HazardCurve {
     #[cfg(feature = "serde")]
     /// Extract serializable state
     pub fn to_state(&self) -> HazardCurveState {
-        let knot_points: Vec<(F, F)> = self
+        let knot_points: Vec<(f64, f64)> = self
             .knots
             .iter()
             .zip(self.lambdas.iter())
             .map(|(&t, &lambda)| (t, lambda))
             .collect();
-        let par_points: Vec<(F, F)> = self
+        let par_points: Vec<(f64, f64)> = self
             .par_tenors
             .iter()
             .zip(self.par_spreads_bp.iter())
@@ -325,7 +325,7 @@ impl HazardCurve {
 
 impl Survival for HazardCurve {
     #[inline]
-    fn sp(&self, t: F) -> F {
+    fn sp(&self, t: f64) -> f64 {
         self.sp(t)
     }
 }
@@ -341,13 +341,13 @@ impl TermStructure for HazardCurve {
 pub struct HazardCurveBuilder {
     id: CurveId,
     base: Date,
-    points: Vec<(F, F)>, // (t, lambda)
-    recovery_rate: F,
+    points: Vec<(f64, f64)>, // (t, lambda)
+    recovery_rate: f64,
     issuer: Option<String>,
     seniority: Option<Seniority>,
     currency: Option<Currency>,
     day_count: DayCount,
-    par_points: Vec<(F, F)>, // (t, spread_bp)
+    par_points: Vec<(f64, f64)>, // (t, spread_bp)
 }
 
 impl HazardCurveBuilder {
@@ -377,14 +377,14 @@ impl HazardCurveBuilder {
         self
     }
     /// Set recovery rate metadata.
-    pub fn recovery_rate(mut self, r: F) -> Self {
+    pub fn recovery_rate(mut self, r: f64) -> Self {
         self.recovery_rate = r;
         self
     }
     /// Supply knot points `(t, λ)` where λ is the hazard rate.
     pub fn knots<I>(mut self, pts: I) -> Self
     where
-        I: IntoIterator<Item = (F, F)>,
+        I: IntoIterator<Item = (f64, f64)>,
     {
         self.points.extend(pts);
         self
@@ -392,7 +392,7 @@ impl HazardCurveBuilder {
     /// Store the market par spreads used for bootstrap for reporting.
     pub fn par_spreads<I>(mut self, pts: I) -> Self
     where
-        I: IntoIterator<Item = (F, F)>,
+        I: IntoIterator<Item = (f64, f64)>,
     {
         self.par_points.extend(pts);
         self
@@ -409,13 +409,13 @@ impl HazardCurveBuilder {
         }
         let mut points = self.points;
         points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        let (kvec, lvec): (Vec<F>, Vec<F>) = points.into_iter().unzip();
+        let (kvec, lvec): (Vec<f64>, Vec<f64>) = points.into_iter().unzip();
         if kvec.len() > 1 {
             crate::math::interp::utils::validate_knots(&kvec)?;
         }
         let mut par_pts = self.par_points;
         par_pts.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        let (p_ten, p_spd): (Vec<F>, Vec<F>) = par_pts.into_iter().unzip();
+        let (p_ten, p_spd): (Vec<f64>, Vec<f64>) = par_pts.into_iter().unzip();
         Ok(HazardCurve {
             id: self.id,
             base: self.base,

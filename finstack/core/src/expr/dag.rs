@@ -404,7 +404,7 @@ impl PushdownAnalyzer {
         let boundary_cost: usize = boundaries.len() * 10; // Materialization overhead
 
         if total_cost > 0 {
-            (total_cost as f64) / ((polars_cost + scalar_cost + boundary_cost) as f64)
+            (total_cost as f64) / (polars_cost + scalar_cost + boundary_cost) as f64
         } else {
             1.0
         }

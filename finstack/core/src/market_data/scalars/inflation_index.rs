@@ -113,7 +113,7 @@ pub struct InflationIndex {
     /// Currency of the index
     pub currency: Currency,
     /// Optional monthly seasonality factors (index by month-1)
-    seasonality: Option<[f64; 12]>,
+    seasonality: Option<[f64;  12]>,
 }
 
 impl InflationIndex {
@@ -158,7 +158,7 @@ impl InflationIndex {
     }
 
     /// Add seasonal adjustment factors (one per calendar month).
-    pub fn with_seasonality(mut self, factors: [f64; 12]) -> Result<Self> {
+    pub fn with_seasonality(mut self, factors: [f64;  12]) -> Result<Self> {
         self.seasonality = Some(factors);
         Ok(self)
     }
@@ -300,7 +300,7 @@ pub struct InflationIndexState {
     /// Lag policy
     pub lag: InflationLag,
     /// Optional seasonality factors
-    pub seasonality: Option<[f64; 12]>,
+    pub seasonality: Option<[f64;  12]>,
 }
 
 #[cfg(feature = "serde")]
@@ -357,7 +357,7 @@ pub struct InflationIndexBuilder {
     observations: Vec<(Date, f64)>,
     interpolation: InflationInterpolation,
     lag: InflationLag,
-    seasonality: Option<[f64; 12]>,
+    seasonality: Option<[f64;  12]>,
 }
 
 impl InflationIndexBuilder {
@@ -398,7 +398,7 @@ impl InflationIndexBuilder {
     }
 
     /// Set seasonal adjustment factors (one per month).
-    pub fn with_seasonality(mut self, factors: [f64; 12]) -> Self {
+    pub fn with_seasonality(mut self, factors: [f64;  12]) -> Self {
         self.seasonality = Some(factors);
         self
     }

@@ -2,12 +2,12 @@
 
 use crate::instruments::fx_option::FxOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::F;
+
 
 pub struct BucketedDv01Calculator;
 
 impl MetricCalculator for BucketedDv01Calculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let opt_ref: &FxOption = context.instrument_as()?;
         let opt = opt_ref.clone();
 

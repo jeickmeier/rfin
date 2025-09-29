@@ -4,7 +4,6 @@ use crate::currency::Currency;
 use crate::dates::Date;
 use crate::error::InputError;
 use crate::money::Money;
-use crate::F;
 
 /// Enumeration of cash-flow kinds for classification and ordering.
 ///
@@ -183,7 +182,7 @@ pub enum AmortizationSpec {
     /// Fixed percentage of original notional paid each period (capped by remaining outstanding).
     PercentPerPeriod {
         /// Fraction of original notional paid per period (e.g., 0.05 = 5%).
-        pct: F,
+        pct: f64,
     },
     /// Custom principal exchanges on specific dates (absolute cash amounts).
     /// Positive amounts reduce outstanding (i.e., principal paid by issuer).

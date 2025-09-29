@@ -2,13 +2,13 @@
 
 use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 
 /// Real yield calculator for ILB
 pub struct RealYieldCalculator;
 
 impl MetricCalculator for RealYieldCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let ilb: &InflationLinkedBond = context.instrument_as()?;
         let clean_price = ilb.quoted_clean.ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {

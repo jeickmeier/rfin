@@ -1,6 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::F;
+
 
 /// I-Spread: bond YTM minus interpolated swap par rate at same maturity.
 ///
@@ -14,7 +14,7 @@ impl MetricCalculator for ISpreadCalculator {
         &[MetricId::Ytm]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
         // Bond YTM from dependencies

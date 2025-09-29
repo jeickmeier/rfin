@@ -13,7 +13,7 @@
 //!   via the generic `TreeValuator` trait.
 
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 use super::tree_framework::{state_keys, NodeState, StateVariables, TreeModel, TreeValuator};
 
@@ -23,15 +23,15 @@ pub struct TwoFactorBinomialConfig {
     /// Number of time steps.
     pub steps: usize,
     /// Equity volatility (annualized, fraction).
-    pub equity_vol: F,
+    pub equity_vol: f64,
     /// Dividend yield (fraction per annum).
-    pub dividend_yield: F,
+    pub dividend_yield: f64,
     /// Short-rate volatility (annualized, fraction).
-    pub rate_vol: F,
+    pub rate_vol: f64,
     /// Base (constant) short rate used in equity risk-neutral drift.
-    pub base_rate_for_equity_drift: F,
+    pub base_rate_for_equity_drift: f64,
     /// Instantaneous correlation between equity and rate shocks.
-    pub correlation: F,
+    pub correlation: f64,
 }
 
 impl Default for TwoFactorBinomialConfig {
@@ -61,11 +61,11 @@ impl TwoFactorBinomialTree {
     /// Convenience constructor.
     pub fn equity_and_rates(
         steps: usize,
-        equity_vol: F,
-        dividend_yield: F,
-        rate_vol: F,
-        base_rate: F,
-        correlation: F,
+        equity_vol: f64,
+        dividend_yield: f64,
+        rate_vol: f64,
+        base_rate: f64,
+        correlation: f64,
     ) -> Self {
         Self::new(TwoFactorBinomialConfig {
             steps,
@@ -78,7 +78,7 @@ impl TwoFactorBinomialTree {
     }
 
     #[inline]
-    fn joint_probabilities(&self, p_s: F, p_r: F) -> (F, F, F, F) {
+    fn joint_probabilities(&self, p_s: f64, p_r: f64) -> (f64, f64, f64, f64) {
         // Bernoulli coupling to inject correlation
         let var_s = p_s * (1.0 - p_s);
         let var_r = p_r * (1.0 - p_r);
@@ -112,16 +112,16 @@ impl TreeModel for TwoFactorBinomialTree {
     fn price<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         if self.config.steps == 0 || time_to_maturity <= 0.0 {
             return Err(Error::Internal);
         }
 
         let steps = self.config.steps;
-        let dt = time_to_maturity / steps as F;
+        let dt = time_to_maturity / steps as f64;
 
         // Extract initial state
         let spot0 = *initial_vars.get(state_keys::SPOT).ok_or(Error::Internal)?;
@@ -145,7 +145,7 @@ impl TreeModel for TwoFactorBinomialTree {
         let (p_uu, p_ud, p_du, p_dd) = self.joint_probabilities(p_s, p_r);
 
         // Terminal payoff grid: (steps+1) x (steps+1)
-        let mut values: Vec<Vec<F>> = vec![vec![0.0; steps + 1]; steps + 1];
+        let mut values: Vec<Vec<f64>> = vec![vec![0.0; steps + 1]; steps + 1];
         let mut vars = initial_vars.clone();
 
         for (i, row) in values.iter_mut().enumerate() {
@@ -154,9 +154,9 @@ impl TreeModel for TwoFactorBinomialTree {
                 let r_t = r0 * u_r.powi(j as i32) * d_r.powi((steps - j) as i32);
                 vars.insert(state_keys::SPOT, s_t);
                 vars.insert(state_keys::INTEREST_RATE, r_t.max(1e-8));
-                vars.insert("step", steps as F);
-                vars.insert("node_i", i as F);
-                vars.insert("node_j", j as F);
+                vars.insert("step", steps as f64);
+                vars.insert("node_i", i as f64);
+                vars.insert("node_j", j as f64);
                 vars.insert("time", time_to_maturity);
 
                 let state = NodeState::new(steps, time_to_maturity, vars.clone(), market_context);
@@ -166,7 +166,7 @@ impl TreeModel for TwoFactorBinomialTree {
 
         // Backward induction over steps
         for k in (0..steps).rev() {
-            let mut new_values: Vec<Vec<F>> = vec![vec![0.0; k + 1]; k + 1];
+            let mut new_values: Vec<Vec<f64>> = vec![vec![0.0; k + 1]; k + 1];
             for i in 0..=k {
                 // Equity spot at node (k,i)
                 let s_t = spot0 * u_s.powi(i as i32) * d_s.powi((k - i) as i32);
@@ -184,12 +184,12 @@ impl TreeModel for TwoFactorBinomialTree {
 
                     vars.insert(state_keys::SPOT, s_t);
                     vars.insert(state_keys::INTEREST_RATE, r_t.max(1e-8));
-                    vars.insert("step", k as F);
-                    vars.insert("node_i", i as F);
-                    vars.insert("node_j", j as F);
-                    vars.insert("time", k as F * dt);
+                    vars.insert("step", k as f64);
+                    vars.insert("node_i", i as f64);
+                    vars.insert("node_j", j as f64);
+                    vars.insert("time", k as f64 * dt);
 
-                    let state = NodeState::new(k, k as F * dt, vars.clone(), market_context);
+                    let state = NodeState::new(k, k as f64 * dt, vars.clone(), market_context);
                     new_values[i][j] = valuator.value_at_node(&state, cont)?;
                 }
             }
@@ -207,15 +207,15 @@ mod tests {
     use crate::instruments::common::models::tree_framework::single_factor_equity_state;
 
     struct TestCallValuator {
-        strike: F,
+        strike: f64,
     }
 
     impl TreeValuator for TestCallValuator {
-        fn value_at_maturity(&self, state: &NodeState) -> Result<F> {
+        fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
             let s = state.spot().ok_or(Error::Internal)?;
             Ok((s - self.strike).max(0.0))
         }
-        fn value_at_node(&self, _state: &NodeState, continuation_value: F) -> Result<F> {
+        fn value_at_node(&self, _state: &NodeState, continuation_value: f64) -> Result<f64> {
             Ok(continuation_value)
         }
     }

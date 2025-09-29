@@ -11,15 +11,15 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Configuration for the FX option calculator.
 #[derive(Debug, Clone)]
 pub struct FxOptionCalculatorConfig {
     /// Days per year basis for theta scaling (e.g., 365.0).
-    pub theta_days_per_year: F,
+    pub theta_days_per_year: f64,
     /// Initial guess for implied volatility solver.
-    pub iv_initial_guess: F,
+    pub iv_initial_guess: f64,
 }
 
 impl Default for FxOptionCalculatorConfig {
@@ -79,7 +79,7 @@ impl FxOptionCalculator {
         inst: &FxOption,
         curves: &MarketContext,
         as_of: Date,
-    ) -> Result<(F, F, F, F, F)> {
+    ) -> Result<(f64, f64, f64, f64, f64)> {
         let t = self.year_fraction(as_of, inst.expiry, inst.day_count)?;
 
         // Discount curves provide domestic and foreign zero rates
@@ -115,7 +115,7 @@ impl FxOptionCalculator {
         inst: &FxOption,
         curves: &MarketContext,
         as_of: Date,
-    ) -> Result<(F, F, F, F)> {
+    ) -> Result<(f64, f64, f64, f64)> {
         let t = self.year_fraction(as_of, inst.expiry, inst.day_count)?;
 
         let domestic_disc = curves.get_discount_ref(inst.domestic_disc_id.as_str())?;
@@ -137,7 +137,7 @@ impl FxOptionCalculator {
 
     /// Utility: compute year fraction using instrument day-count.
     #[inline]
-    pub fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
+    pub fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<f64> {
         dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 
@@ -145,11 +145,11 @@ impl FxOptionCalculator {
     pub fn price_gk_with_inputs(
         &self,
         inst: &FxOption,
-        spot: F,
-        r_d: F,
-        r_f: F,
-        sigma: F,
-        t: F,
+        spot: f64,
+        r_d: f64,
+        r_f: f64,
+        sigma: f64,
+        t: f64,
     ) -> Result<Money> {
         if t <= 0.0 {
             let intrinsic = match inst.option_type {
@@ -175,25 +175,25 @@ impl FxOptionCalculator {
         inst: &FxOption,
         curves: &MarketContext,
         as_of: Date,
-        target_price: F,
-        initial_guess: Option<F>,
-    ) -> Result<F> {
+        target_price: f64,
+        initial_guess: Option<f64>,
+    ) -> Result<f64> {
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, t) = self.collect_inputs_no_vol(inst, curves, as_of)?;
         if t <= 0.0 || spot <= 0.0 {
             return Ok(0.0);
         }
 
-        let price_for_sigma = |sigma: F| -> F {
+        let price_for_sigma = |sigma: f64| -> f64 {
             if sigma <= 0.0 {
-                return F::NAN;
+                return f64::NAN;
             }
             let unit_price = price_gk_core(spot, inst.strike, r_d, r_f, sigma, t, inst.option_type);
             unit_price * inst.notional.amount()
         };
 
         let target = target_price;
-        let f = |x: F| -> F {
+        let f = |x: f64| -> f64 {
             let sigma = x.exp();
             price_for_sigma(sigma) - target
         };
@@ -324,16 +324,16 @@ impl FxOptionCalculator {
 /// Cash greeks for an FX option (scaled by notional amount).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct FxOptionGreeks {
-    pub delta: F,
-    pub gamma: F,
-    pub vega: F,
-    pub theta: F,
-    pub rho_domestic: F,
-    pub rho_foreign: F,
+    pub delta: f64,
+    pub gamma: f64,
+    pub vega: f64,
+    pub theta: f64,
+    pub rho_domestic: f64,
+    pub rho_foreign: f64,
 }
 
 #[inline]
-fn price_gk_core(spot: F, strike: F, r_d: F, r_f: F, sigma: F, t: F, option_type: OptionType) -> F {
+fn price_gk_core(spot: f64, strike: f64, r_d: f64, r_f: f64, sigma: f64, t: f64, option_type: OptionType) -> f64 {
     let d1 = d1(spot, strike, r_d, sigma, t, r_f);
     let d2 = d2(spot, strike, r_d, sigma, t, r_f);
     match option_type {

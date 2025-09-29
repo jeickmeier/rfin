@@ -1,6 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::F;
+
 
 /// Calculates dirty price for bonds (clean price + accrued interest).
 pub struct DirtyPriceCalculator;
@@ -10,7 +10,7 @@ impl MetricCalculator for DirtyPriceCalculator {
         &[MetricId::Accrued]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
         // Dirty price only makes sense if we have a quoted clean price
@@ -44,7 +44,7 @@ impl MetricCalculator for CleanPriceCalculator {
         &[MetricId::Accrued]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
         // If we have quoted clean price, return currency value

@@ -6,7 +6,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+
 
 /// Interest Rate Future instrument.
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
@@ -26,7 +26,7 @@ pub struct InterestRateFuture {
     /// Rate period end date
     pub period_end: Date,
     /// Quoted future price (e.g., 99.25)
-    pub quoted_price: F,
+    pub quoted_price: f64,
     /// Day count convention
     pub day_count: DayCount,
     /// Position side (Long or Short)
@@ -45,15 +45,15 @@ pub struct InterestRateFuture {
 #[derive(Clone, Debug)]
 pub struct FutureContractSpecs {
     /// Face value of contract
-    pub face_value: F,
+    pub face_value: f64,
     /// Tick size
-    pub tick_size: F,
+    pub tick_size: f64,
     /// Tick value in currency units
-    pub tick_value: F,
+    pub tick_value: f64,
     /// Number of delivery months
     pub delivery_months: u8,
     /// Convexity adjustment (for long-dated contracts)
-    pub convexity_adjustment: Option<F>,
+    pub convexity_adjustment: Option<f64>,
 }
 
 impl Default for FutureContractSpecs {
@@ -109,7 +109,7 @@ impl InterestRateFuture {
     }
 
     /// Get implied rate from quoted price.
-    pub fn implied_rate(&self) -> F {
+    pub fn implied_rate(&self) -> f64 {
         (100.0 - self.quoted_price) / 100.0
     }
 
@@ -196,7 +196,7 @@ impl InterestRateFuture {
     /// Derive contract tick value for the instrument accrual.
     ///
     /// tick_value ≈ Face × tau(period_start, period_end) × 1bp × (tick_size / 1bp)
-    pub fn derived_tick_value(&self) -> finstack_core::Result<F> {
+    pub fn derived_tick_value(&self) -> finstack_core::Result<f64> {
         let tau = self
             .day_count
             .year_fraction(

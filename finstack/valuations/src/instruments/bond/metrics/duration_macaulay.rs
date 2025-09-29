@@ -2,7 +2,7 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::F;
+
 
 /// Calculates Macaulay duration for bonds.
 pub struct MacaulayDurationCalculator;
@@ -12,7 +12,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
         &[MetricId::Ytm]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let ytm = context
             .computed
             .get(&MetricId::Ytm)

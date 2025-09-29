@@ -3,7 +3,7 @@
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_core::F;
+
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -113,7 +113,7 @@ impl std::str::FromStr for SettlementType {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EquityOptionParams {
     /// Option strike price
-    pub strike: F,
+    pub strike: f64,
     /// Option expiry date
     pub expiry: Date,
     /// Option type (Call/Put)
@@ -128,7 +128,7 @@ pub struct EquityOptionParams {
 
 impl EquityOptionParams {
     /// Create new equity option parameters
-    pub fn new(strike: F, expiry: Date, option_type: OptionType, notional: Money) -> Self {
+    pub fn new(strike: f64, expiry: Date, option_type: OptionType, notional: Money) -> Self {
         Self {
             strike,
             expiry,
@@ -140,12 +140,12 @@ impl EquityOptionParams {
     }
 
     /// Create European call parameters
-    pub fn european_call(strike: F, expiry: Date, notional: Money) -> Self {
+    pub fn european_call(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Call, notional)
     }
 
     /// Create European put parameters
-    pub fn european_put(strike: F, expiry: Date, notional: Money) -> Self {
+    pub fn european_put(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Put, notional)
     }
 
@@ -167,7 +167,7 @@ impl EquityOptionParams {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FxOptionParams {
     /// Strike rate (FX rate)
-    pub strike: F,
+    pub strike: f64,
     /// Option expiry date
     pub expiry: Date,
     /// Option type (Call/Put)
@@ -182,7 +182,7 @@ pub struct FxOptionParams {
 
 impl FxOptionParams {
     /// Create new FX option parameters
-    pub fn new(strike: F, expiry: Date, option_type: OptionType, notional: Money) -> Self {
+    pub fn new(strike: f64, expiry: Date, option_type: OptionType, notional: Money) -> Self {
         Self {
             strike,
             expiry,
@@ -194,12 +194,12 @@ impl FxOptionParams {
     }
 
     /// Create European call option parameters
-    pub fn european_call(strike: F, expiry: Date, notional: Money) -> Self {
+    pub fn european_call(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Call, notional)
     }
 
     /// Create European put option parameters  
-    pub fn european_put(strike: F, expiry: Date, notional: Money) -> Self {
+    pub fn european_put(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Put, notional)
     }
 
@@ -223,7 +223,7 @@ pub struct CreditParams {
     /// Reference entity (issuer being protected)
     pub reference_entity: String,
     /// Recovery rate (0.0 to 1.0)
-    pub recovery_rate: F,
+    pub recovery_rate: f64,
     /// Credit curve identifier
     pub credit_curve_id: CurveId,
 }
@@ -232,7 +232,7 @@ impl CreditParams {
     /// Create new credit parameters
     pub fn new(
         reference_entity: impl Into<String>,
-        recovery_rate: F,
+        recovery_rate: f64,
         credit_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self {
@@ -264,7 +264,7 @@ impl CreditParams {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct InterestRateOptionParams {
     /// Strike rate for the option
-    pub strike: F,
+    pub strike: f64,
     /// Option expiry date
     pub expiry: Date,
     /// Option type (Cap/Floor)
@@ -280,7 +280,7 @@ pub struct InterestRateOptionParams {
 impl InterestRateOptionParams {
     /// Create new IR option parameters
     pub fn new(
-        strike: F,
+        strike: f64,
         expiry: Date,
         option_type: OptionType,
         tenor: impl Into<String>,

@@ -15,7 +15,7 @@
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 use std::collections::HashMap;
 
 /// Standard state variable keys for consistency
@@ -39,7 +39,7 @@ pub mod state_keys {
 }
 
 /// Map of state variables for a tree node
-pub type StateVariables = HashMap<&'static str, F>;
+pub type StateVariables = HashMap<&'static str, f64>;
 
 /// Complete state information for a node in the pricing tree
 #[derive(Clone)]
@@ -47,7 +47,7 @@ pub struct NodeState<'a> {
     /// Time step index (0 to N)
     pub step: usize,
     /// Time in years from valuation date
-    pub time: F,
+    pub time: f64,
     /// Map of all state variables at this node
     pub vars: StateVariables,
     /// Access to market context for additional data
@@ -62,7 +62,7 @@ pub struct BarrierState {
     /// Whether barrier has been hit during the path
     pub barrier_hit: bool,
     /// Barrier level (for checking)
-    pub barrier_level: F,
+    pub barrier_level: f64,
     /// Barrier type
     pub barrier_type: BarrierType,
 }
@@ -90,7 +90,7 @@ impl<'a> NodeState<'a> {
     /// Create a new node state
     pub fn new(
         step: usize,
-        time: F,
+        time: f64,
         vars: StateVariables,
         market_context: &'a MarketContext,
     ) -> Self {
@@ -106,7 +106,7 @@ impl<'a> NodeState<'a> {
     /// Create a new node state with barrier tracking
     pub fn new_with_barrier(
         step: usize,
-        time: F,
+        time: f64,
         vars: StateVariables,
         market_context: &'a MarketContext,
         barrier_state: BarrierState,
@@ -121,27 +121,27 @@ impl<'a> NodeState<'a> {
     }
 
     /// Get a state variable by key
-    pub fn get_var(&self, key: &str) -> Option<F> {
+    pub fn get_var(&self, key: &str) -> Option<f64> {
         self.vars.get(key).copied()
     }
 
     /// Get a state variable by key with a default value
-    pub fn get_var_or(&self, key: &str, default: F) -> F {
+    pub fn get_var_or(&self, key: &str, default: f64) -> f64 {
         self.vars.get(key).copied().unwrap_or(default)
     }
 
     /// Get spot price (convenience method)
-    pub fn spot(&self) -> Option<F> {
+    pub fn spot(&self) -> Option<f64> {
         self.get_var(state_keys::SPOT)
     }
 
     /// Get interest rate (convenience method)
-    pub fn interest_rate(&self) -> Option<F> {
+    pub fn interest_rate(&self) -> Option<f64> {
         self.get_var(state_keys::INTEREST_RATE)
     }
 
     /// Get credit spread (convenience method)
-    pub fn credit_spread(&self) -> Option<F> {
+    pub fn credit_spread(&self) -> Option<f64> {
         self.get_var(state_keys::CREDIT_SPREAD)
     }
 
@@ -151,7 +151,7 @@ impl<'a> NodeState<'a> {
     }
 
     /// Update barrier state based on current spot price
-    pub fn update_barrier_state(&mut self, spot_price: F) {
+    pub fn update_barrier_state(&mut self, spot_price: f64) {
         if let Some(ref mut barrier_state) = self.barrier_state {
             if !barrier_state.barrier_hit {
                 let hit = match barrier_state.barrier_type {
@@ -211,13 +211,13 @@ impl<'a> NodeState<'a> {
 /// Trait for instrument-specific valuation logic on a tree
 pub trait TreeValuator {
     /// Calculate the instrument's value at a terminal node (maturity)
-    fn value_at_maturity(&self, state: &NodeState) -> Result<F>;
+    fn value_at_maturity(&self, state: &NodeState) -> Result<f64>;
 
     /// Calculate the instrument's value at an intermediate node
     ///
     /// This method implements the core decision logic (e.g., hold vs. exercise)
     /// and receives the discounted expected continuation value from child nodes.
-    fn value_at_node(&self, state: &NodeState, continuation_value: F) -> Result<F>;
+    fn value_at_node(&self, state: &NodeState, continuation_value: f64) -> Result<f64>;
 }
 
 /// Trait for generic tree models (binomial, trinomial, etc.)
@@ -232,10 +232,10 @@ pub trait TreeModel {
     fn price<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-    ) -> Result<F>;
+    ) -> Result<f64>;
 
     /// Calculate Greeks using finite differences
     ///
@@ -248,10 +248,10 @@ pub trait TreeModel {
     fn calculate_greeks<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-        bump_size: Option<F>,
+        bump_size: Option<f64>,
     ) -> Result<TreeGreeks> {
         let bump = bump_size.unwrap_or(0.01);
 
@@ -334,17 +334,17 @@ pub trait TreeModel {
 #[derive(Clone, Debug)]
 pub struct TreeGreeks {
     /// Instrument price
-    pub price: F,
+    pub price: f64,
     /// Delta (spot sensitivity)
-    pub delta: F,
+    pub delta: f64,
     /// Gamma (curvature)
-    pub gamma: F,
+    pub gamma: f64,
     /// Vega (volatility sensitivity)
-    pub vega: F,
+    pub vega: f64,
     /// Theta (time decay)
-    pub theta: F,
+    pub theta: f64,
     /// Rho (interest rate sensitivity)
-    pub rho: F,
+    pub rho: f64,
 }
 
 /// Tree branching type for evolution
@@ -362,7 +362,7 @@ pub struct TreeParameters {
     /// Number of time steps
     pub steps: usize,
     /// Time step size
-    pub dt: F,
+    pub dt: f64,
     /// Tree branching type
     pub branching: TreeBranching,
     /// Evolution parameters for each state variable
@@ -373,26 +373,26 @@ pub struct TreeParameters {
 #[derive(Clone, Debug)]
 pub struct EvolutionParams {
     /// Volatility for this factor
-    pub volatility: F,
+    pub volatility: f64,
     /// Drift rate (e.g., r-q for equity)
-    pub drift: F,
+    pub drift: f64,
     /// Up factor
-    pub up_factor: F,
+    pub up_factor: f64,
     /// Down factor  
-    pub down_factor: F,
+    pub down_factor: f64,
     /// Middle factor (for trinomial)
-    pub middle_factor: Option<F>,
+    pub middle_factor: Option<f64>,
     /// Probability of up move
-    pub prob_up: F,
+    pub prob_up: f64,
     /// Probability of down move
-    pub prob_down: F,
+    pub prob_down: f64,
     /// Probability of middle move (for trinomial)
-    pub prob_middle: Option<F>,
+    pub prob_middle: Option<f64>,
 }
 
 impl EvolutionParams {
     /// Create evolution parameters for a single equity factor (CRR model)
-    pub fn equity_crr(volatility: F, risk_free_rate: F, dividend_yield: F, dt: F) -> Self {
+    pub fn equity_crr(volatility: f64, risk_free_rate: f64, dividend_yield: f64, dt: f64) -> Self {
         let u = (volatility * dt.sqrt()).exp();
         let d = 1.0 / u;
         let drift = risk_free_rate - dividend_yield;
@@ -411,7 +411,7 @@ impl EvolutionParams {
     }
 
     /// Create evolution parameters for trinomial tree
-    pub fn equity_trinomial(volatility: F, risk_free_rate: F, dividend_yield: F, dt: F) -> Self {
+    pub fn equity_trinomial(volatility: f64, risk_free_rate: f64, dividend_yield: f64, dt: f64) -> Self {
         let u = (volatility * (2.0 * dt).sqrt()).exp();
         let d = 1.0 / u;
         let m = 1.0;
@@ -438,7 +438,7 @@ impl EvolutionParams {
     }
 
     /// Create evolution parameters for interest rate factor (Vasicek-style)
-    pub fn interest_rate(mean_reversion: F, long_term_rate: F, volatility: F, dt: F) -> Self {
+    pub fn interest_rate(mean_reversion: f64, long_term_rate: f64, volatility: f64, dt: f64) -> Self {
         // Simplified Vasicek evolution for demonstration
         let drift = mean_reversion * long_term_rate * dt;
         let vol_factor = volatility * dt.sqrt();
@@ -468,11 +468,11 @@ pub enum BarrierStyle {
 #[derive(Clone, Debug)]
 pub struct BarrierSpec {
     /// Up barrier level (S >= up triggers a touch)
-    pub up_level: Option<F>,
+    pub up_level: Option<f64>,
     /// Down barrier level (S <= down triggers a touch)
-    pub down_level: Option<F>,
+    pub down_level: Option<f64>,
     /// Rebate amount paid immediately upon knock-out
-    pub rebate: F,
+    pub rebate: f64,
     /// Barrier style (engine only enforces KnockOut directly)
     pub style: BarrierStyle,
 }
@@ -484,26 +484,26 @@ pub struct RecombiningInputs<'a, V: TreeValuator> {
     pub branching: TreeBranching,
     pub steps: usize,
     pub initial_vars: StateVariables,
-    pub time_to_maturity: F,
+    pub time_to_maturity: f64,
     pub market_context: &'a MarketContext,
     pub valuator: &'a V,
-    pub up_factor: F,
-    pub down_factor: F,
-    pub middle_factor: Option<F>,
-    pub prob_up: F,
-    pub prob_down: F,
-    pub prob_middle: Option<F>,
-    pub interest_rate: F,
+    pub up_factor: f64,
+    pub down_factor: f64,
+    pub middle_factor: Option<f64>,
+    pub prob_up: f64,
+    pub prob_down: f64,
+    pub prob_middle: Option<f64>,
+    pub interest_rate: f64,
     /// Optional barrier configuration (discrete monitoring per step)
     pub barrier: Option<BarrierSpec>,
 }
 
-pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>) -> Result<F> {
-    let dt = inputs.time_to_maturity / inputs.steps as F;
+pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>) -> Result<f64> {
+    let dt = inputs.time_to_maturity / inputs.steps as f64;
     let df = (-inputs.interest_rate * dt).exp();
 
     // Helper: evaluate barrier touch at a given spot
-    let barrier_touch = |spot: F| -> (bool, bool, bool, F) {
+    let barrier_touch = |spot: f64| -> (bool, bool, bool, f64) {
         if let Some(spec) = &inputs.barrier {
             let touched_up = spec.up_level.map(|lvl| spot >= lvl).unwrap_or(false);
             let touched_down = spec.down_level.map(|lvl| spot <= lvl).unwrap_or(false);
@@ -568,7 +568,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     let continuation =
                         df * (inputs.prob_up * values[i + 1] + inputs.prob_down * values[i]);
 
-                    let time_t = step as F * dt;
+                    let time_t = step as f64 * dt;
                     node_vars.insert(state_keys::SPOT, spot_t);
                     node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
                     node_vars.insert(
@@ -644,7 +644,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     let spot_t = spot0
                         * inputs.up_factor.powi(net_moves.max(0))
                         * inputs.down_factor.powi((-net_moves).max(0));
-                    let time_t = step as F * dt;
+                    let time_t = step as f64 * dt;
 
                     // Child indices: up=j+2, mid=j+1, down=j
                     let up_idx = j + 2;
@@ -680,8 +680,8 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
 
 /// Map Bermudan exercise dates (as year fractions relative to maturity) to tree step indices
 pub fn map_exercise_dates_to_steps(
-    exercise_dates: &[F],
-    total_time: F,
+    exercise_dates: &[f64],
+    total_time: f64,
     steps: usize,
 ) -> Vec<usize> {
     let mut out = Vec::new();
@@ -694,7 +694,7 @@ pub fn map_exercise_dates_to_steps(
         } else {
             0.0
         };
-        let step = (ratio * steps as F).round() as usize;
+        let step = (ratio * steps as f64).round() as usize;
         if step <= steps {
             out.push(step);
         }
@@ -720,7 +720,7 @@ pub fn map_date_to_step(
         .year_fraction(base_date, event_date, DayCountCtx::default())
         .unwrap_or(0.0)
         .clamp(0.0, ttm);
-    let step_index = ((t_event / ttm) * steps as F).round() as usize;
+    let step_index = ((t_event / ttm) * steps as f64).round() as usize;
     step_index.min(steps)
 }
 
@@ -740,10 +740,10 @@ pub fn map_dates_to_steps(
 
 /// Helper function to create initial state variables for single-factor equity model
 pub fn single_factor_equity_state(
-    spot: F,
-    risk_free_rate: F,
-    dividend_yield: F,
-    volatility: F,
+    spot: f64,
+    risk_free_rate: f64,
+    dividend_yield: f64,
+    volatility: f64,
 ) -> StateVariables {
     let mut vars = HashMap::new();
     vars.insert(state_keys::SPOT, spot);
@@ -755,11 +755,11 @@ pub fn single_factor_equity_state(
 
 /// Helper function to create initial state variables for two-factor model
 pub fn two_factor_equity_rates_state(
-    spot: F,
-    risk_free_rate: F,
-    dividend_yield: F,
-    equity_volatility: F,
-    rate_volatility: F,
+    spot: f64,
+    risk_free_rate: f64,
+    dividend_yield: f64,
+    equity_volatility: f64,
+    rate_volatility: f64,
 ) -> StateVariables {
     let mut vars = HashMap::new();
     vars.insert(state_keys::SPOT, spot);

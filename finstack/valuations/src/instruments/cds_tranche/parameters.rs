@@ -1,6 +1,6 @@
 //! CDS Tranche specific parameters.
 
-use finstack_core::{dates::Date, money::Money, F};
+use finstack_core::{dates::Date, money::Money};
 
 /// CDS Tranche specific parameters.
 ///
@@ -12,15 +12,15 @@ pub struct CDSTrancheParams {
     /// Index series
     pub series: u16,
     /// Attachment point as percentage
-    pub attach_pct: F,
+    pub attach_pct: f64,
     /// Detachment point as percentage
-    pub detach_pct: F,
+    pub detach_pct: f64,
     /// Notional amount
     pub notional: Money,
     /// Maturity date
     pub maturity: Date,
     /// Running coupon in basis points
-    pub running_coupon_bp: F,
+    pub running_coupon_bp: f64,
 }
 
 impl CDSTrancheParams {
@@ -28,11 +28,11 @@ impl CDSTrancheParams {
     pub fn new(
         index_name: impl Into<String>,
         series: u16,
-        attach_pct: F,
-        detach_pct: F,
+        attach_pct: f64,
+        detach_pct: f64,
         notional: Money,
         maturity: Date,
-        running_coupon_bp: F,
+        running_coupon_bp: f64,
     ) -> Self {
         Self {
             index_name: index_name.into(),
@@ -51,7 +51,7 @@ impl CDSTrancheParams {
         series: u16,
         notional: Money,
         maturity: Date,
-        running_coupon_bp: F,
+        running_coupon_bp: f64,
     ) -> Self {
         Self::new(
             index_name,
@@ -70,7 +70,7 @@ impl CDSTrancheParams {
         series: u16,
         notional: Money,
         maturity: Date,
-        running_coupon_bp: F,
+        running_coupon_bp: f64,
     ) -> Self {
         Self::new(
             index_name,

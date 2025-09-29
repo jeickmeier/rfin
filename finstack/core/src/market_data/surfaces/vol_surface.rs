@@ -25,7 +25,7 @@
 
 use crate::{
     error::InputError, market_data::traits::TermStructure, math::interp::utils::locate_segment,
-    types::CurveId, Error, F,
+    types::CurveId, Error,
 };
 use ndarray::Array2;
 
@@ -34,9 +34,9 @@ use ndarray::Array2;
 /// Note: Use `to_state()` and `from_state()` for serialization.
 pub struct VolSurface {
     id: CurveId,
-    expiries: Box<[F]>,
-    strikes: Box<[F]>,
-    vols: Array2<F>, // shape: (expiries.len(), strikes.len())
+    expiries: Box<[f64]>,
+    strikes: Box<[f64]>,
+    vols: Array2<f64>, // shape: (expiries.len(), strikes.len())
 }
 
 /// Serializable state of a VolSurface
@@ -47,11 +47,11 @@ pub struct VolSurfaceState {
     /// Surface identifier
     pub id: String,
     /// Expiry times in years
-    pub expiries: Vec<F>,
+    pub expiries: Vec<f64>,
     /// Strike prices
-    pub strikes: Vec<F>,
+    pub strikes: Vec<f64>,
     /// Volatility values in row-major order
-    pub vols_row_major: Vec<F>,
+    pub vols_row_major: Vec<f64>,
 }
 
 impl VolSurface {
@@ -80,19 +80,19 @@ impl VolSurface {
     }
 
     #[inline]
-    fn bilinear(q11: F, q21: F, q12: F, q22: F, t: F, u: F) -> F {
+    fn bilinear(q11: f64, q21: f64, q12: f64, q22: f64, t: f64, u: f64) -> f64 {
         (1.0 - t) * (1.0 - u) * q11 + t * (1.0 - u) * q21 + (1.0 - t) * u * q12 + t * u * q22
     }
 
     /// Bilinear interpolation of vol for given expiry and strike.
     /// Panics if coordinates are out of bounds - prefer value_checked for safety.
-    pub fn value(&self, expiry: F, strike: F) -> F {
+    pub fn value(&self, expiry: f64, strike: f64) -> f64 {
         self.value_checked(expiry, strike)
             .expect("expiry or strike out of bounds")
     }
 
     /// Safe evaluation: returns `Err` if either coordinate is out of bounds.
-    pub fn value_checked(&self, expiry: F, strike: F) -> crate::Result<F> {
+    pub fn value_checked(&self, expiry: f64, strike: f64) -> crate::Result<f64> {
         let (ie0, exact_e) = self.value_indices(self.expiries.as_ref(), expiry)?;
         let (is0, exact_s) = self.value_indices(self.strikes.as_ref(), strike)?;
         if exact_e && exact_s {
@@ -122,7 +122,7 @@ impl VolSurface {
     }
 
     /// Clamped evaluation: clamps to edge values when outside the grid.
-    pub fn value_clamped(&self, mut expiry: F, mut strike: F) -> F {
+    pub fn value_clamped(&self, mut expiry: f64, mut strike: f64) -> f64 {
         if expiry < self.expiries[0] {
             expiry = self.expiries[0];
         } else if expiry > *self.expiries.last().unwrap() {
@@ -137,7 +137,7 @@ impl VolSurface {
     }
 
     #[inline]
-    fn value_indices(&self, xs: &[F], x: F) -> Result<(usize, bool), Error> {
+    fn value_indices(&self, xs: &[f64], x: f64) -> Result<(usize, bool), Error> {
         let i = locate_segment(xs, x)?;
         let exact = xs[i] == x;
         Ok((i, exact))
@@ -149,12 +149,12 @@ impl VolSurface {
     }
 
     /// Returns the expiries axis (years).
-    pub fn expiries(&self) -> &[F] {
+    pub fn expiries(&self) -> &[f64] {
         &self.expiries
     }
 
     /// Returns the strikes axis.
-    pub fn strikes(&self) -> &[F] {
+    pub fn strikes(&self) -> &[f64] {
         &self.strikes
     }
 
@@ -166,7 +166,7 @@ impl VolSurface {
     #[cfg(feature = "serde")]
     /// Extract serializable state
     pub fn to_state(&self) -> VolSurfaceState {
-        let vols_flat: Vec<F> = self.vols.iter().copied().collect();
+        let vols_flat: Vec<f64> = self.vols.iter().copied().collect();
         VolSurfaceState {
             id: self.id.to_string(),
             expiries: self.expiries.to_vec(),
@@ -199,31 +199,31 @@ impl TermStructure for VolSurface {
 /// Fluent builder for [`VolSurface`].
 pub struct VolSurfaceBuilder {
     id: CurveId,
-    expiries: Vec<F>,
-    strikes: Vec<F>,
-    vols: Vec<Vec<F>>, // row-major expiries
+    expiries: Vec<f64>,
+    strikes: Vec<f64>,
+    vols: Vec<Vec<f64>>, // row-major expiries
 }
 
 impl VolSurfaceBuilder {
     /// Set the vector of option **expiries** (years).
-    pub fn expiries(mut self, exps: &[F]) -> Self {
+    pub fn expiries(mut self, exps: &[f64]) -> Self {
         self.expiries.extend_from_slice(exps);
         self
     }
     /// Set the vector of option **strikes**.
-    pub fn strikes(mut self, ks: &[F]) -> Self {
+    pub fn strikes(mut self, ks: &[f64]) -> Self {
         self.strikes.extend_from_slice(ks);
         self
     }
     /// Append a row of implied volatilities corresponding to the previously
     /// set strikes. Rows must be added in the **same order** as expiries.
-    pub fn data(mut self, row: &[F]) -> Self {
+    pub fn data(mut self, row: &[f64]) -> Self {
         self.vols.push(row.to_vec());
         self
     }
 
     /// Alias for data(): clearer intent that each call appends a row.
-    pub fn row(self, row: &[F]) -> Self {
+    pub fn row(self, row: &[f64]) -> Self {
         self.data(row)
     }
 
@@ -252,7 +252,7 @@ impl VolSurfaceBuilder {
                 }
             }
         }
-        let flat: Vec<F> = self.vols.into_iter().flatten().collect();
+        let flat: Vec<f64> = self.vols.into_iter().flatten().collect();
         let array =
             Array2::from_shape_vec((self.expiries.len(), self.strikes.len()), flat).unwrap();
         Ok(VolSurface {
@@ -268,9 +268,9 @@ impl VolSurface {
     /// Construct directly from axes and a row-major flat values array.
     pub fn from_grid(
         id: impl AsRef<str>,
-        expiries: &[F],
-        strikes: &[F],
-        vols_row_major: &[F],
+        expiries: &[f64],
+        strikes: &[f64],
+        vols_row_major: &[f64],
     ) -> crate::Result<Self> {
         if expiries.is_empty() || strikes.is_empty() {
             return Err(InputError::TooFewPoints.into());

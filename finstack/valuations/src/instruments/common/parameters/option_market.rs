@@ -1,7 +1,7 @@
 //! Option market parameters used by pricing models.
 
 use super::market::OptionType;
-use finstack_core::F;
+
 
 /// Option market parameters for pricing models.
 ///
@@ -9,17 +9,17 @@ use finstack_core::F;
 #[derive(Clone, Debug)]
 pub struct OptionMarketParams {
     /// Current spot/forward price
-    pub spot: F,
+    pub spot: f64,
     /// Strike price
-    pub strike: F,
+    pub strike: f64,
     /// Risk-free rate
-    pub rate: F,
+    pub rate: f64,
     /// Volatility
-    pub volatility: F,
+    pub volatility: f64,
     /// Time to expiry in years
-    pub time_to_expiry: F,
+    pub time_to_expiry: f64,
     /// Dividend yield or cost of carry
-    pub dividend_yield: F,
+    pub dividend_yield: f64,
     /// Option type (Call/Put)
     pub option_type: OptionType,
 }
@@ -27,12 +27,12 @@ pub struct OptionMarketParams {
 impl OptionMarketParams {
     /// Create option market parameters
     pub fn new(
-        spot: F,
-        strike: F,
-        rate: F,
-        volatility: F,
-        time_to_expiry: F,
-        dividend_yield: F,
+        spot: f64,
+        strike: f64,
+        rate: f64,
+        volatility: f64,
+        time_to_expiry: f64,
+        dividend_yield: f64,
         option_type: OptionType,
     ) -> Self {
         Self {
@@ -47,7 +47,7 @@ impl OptionMarketParams {
     }
 
     /// Create call option market parameters
-    pub fn call(spot: F, strike: F, rate: F, volatility: F, time_to_expiry: F) -> Self {
+    pub fn call(spot: f64, strike: f64, rate: f64, volatility: f64, time_to_expiry: f64) -> Self {
         Self::new(
             spot,
             strike,
@@ -60,7 +60,7 @@ impl OptionMarketParams {
     }
 
     /// Create put option market parameters
-    pub fn put(spot: F, strike: F, rate: F, volatility: F, time_to_expiry: F) -> Self {
+    pub fn put(spot: f64, strike: f64, rate: f64, volatility: f64, time_to_expiry: f64) -> Self {
         Self::new(
             spot,
             strike,
@@ -73,7 +73,7 @@ impl OptionMarketParams {
     }
 
     /// Set dividend yield
-    pub fn with_dividend_yield(mut self, dividend_yield: F) -> Self {
+    pub fn with_dividend_yield(mut self, dividend_yield: f64) -> Self {
         self.dividend_yield = dividend_yield;
         self
     }

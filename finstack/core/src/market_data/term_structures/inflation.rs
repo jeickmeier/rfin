@@ -22,18 +22,18 @@ use super::common::{build_interp, split_points};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     error::InputError, market_data::traits::TermStructure, math::interp::types::Interp,
-    types::CurveId, F,
+    types::CurveId,
 };
 
 /// Real or breakeven inflation curve expressed as CPI index levels.
 #[derive(Debug)]
 pub struct InflationCurve {
     id: CurveId,
-    base_cpi: F,
+    base_cpi: f64,
     /// Knot times in **years**.
-    knots: Box<[F]>,
+    knots: Box<[f64]>,
     /// CPI index levels at each knot.
-    cpi_levels: Box<[F]>,
+    cpi_levels: Box<[f64]>,
     interp: Interp,
 }
 
@@ -45,7 +45,7 @@ pub struct InflationCurveState {
     #[cfg_attr(feature = "serde", serde(flatten))]
     common_id: super::common::StateId,
     /// Base CPI level at t=0
-    pub base_cpi: F,
+    pub base_cpi: f64,
     #[cfg_attr(feature = "serde", serde(flatten))]
     points: super::common::StateKnotPoints,
     #[cfg_attr(feature = "serde", serde(flatten))]
@@ -78,7 +78,7 @@ impl InflationCurve {
     }
 
     /// CPI level at time `t` (years).
-    pub fn cpi(&self, t: F) -> F {
+    pub fn cpi(&self, t: f64) -> f64 {
         if t <= 0.0 {
             return self.base_cpi;
         }
@@ -86,7 +86,7 @@ impl InflationCurve {
     }
 
     /// Simple annualised inflation rate between `t1` and `t2`.
-    pub fn inflation_rate(&self, t1: F, t2: F) -> F {
+    pub fn inflation_rate(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1);
         let c1 = self.cpi(t1);
         let c2 = self.cpi(t2);
@@ -101,19 +101,19 @@ impl InflationCurve {
 
     /// Underlying bootstrap knot times (years).
     #[inline]
-    pub fn knots(&self) -> &[F] {
+    pub fn knots(&self) -> &[f64] {
         &self.knots
     }
 
     /// CPI levels provided at each knot.
     #[inline]
-    pub fn cpi_levels(&self) -> &[F] {
+    pub fn cpi_levels(&self) -> &[f64] {
         &self.cpi_levels
     }
 
     /// Base CPI level at t = 0.
     #[inline]
-    pub fn base_cpi(&self) -> F {
+    pub fn base_cpi(&self) -> f64 {
         self.base_cpi
     }
 }
@@ -130,21 +130,21 @@ impl TermStructure for InflationCurve {
 /// Fluent builder for [`InflationCurve`].
 pub struct InflationCurveBuilder {
     id: CurveId,
-    base_cpi: F,
-    points: Vec<(F, F)>, // (t, cpi)
+    base_cpi: f64,
+    points: Vec<(f64, f64)>, // (t, cpi)
     style: InterpStyle,
 }
 
 impl InflationCurveBuilder {
     /// Set the **base CPI** level at t = 0.
-    pub fn base_cpi(mut self, cpi: F) -> Self {
+    pub fn base_cpi(mut self, cpi: f64) -> Self {
         self.base_cpi = cpi;
         self
     }
     /// Supply knot points `(t, cpi_level)`.
     pub fn knots<I>(mut self, pts: I) -> Self
     where
-        I: IntoIterator<Item = (F, F)>,
+        I: IntoIterator<Item = (f64, f64)>,
     {
         self.points.extend(pts);
         self
@@ -166,7 +166,7 @@ impl InflationCurveBuilder {
         if self.points.iter().any(|&(_, c)| c <= 0.0) {
             return Err(InputError::NonPositiveValue.into());
         }
-        let (kvec, cvec): (Vec<F>, Vec<F>) = split_points(self.points);
+        let (kvec, cvec): (Vec<f64>, Vec<f64>) = split_points(self.points);
         crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let cpi_levels = cvec.into_boxed_slice();
@@ -194,7 +194,7 @@ impl InflationCurveBuilder {
 impl InflationCurve {
     /// Extract serializable state
     pub fn to_state(&self) -> InflationCurveState {
-        let knot_points: Vec<(F, F)> = self
+        let knot_points: Vec<(f64, f64)> = self
             .knots
             .iter()
             .copied()

@@ -8,7 +8,7 @@ use finstack_core::market_data::traits::Survival;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_core::F;
+
 
 use crate::instruments::cds::pricer::CDSPricer;
 
@@ -114,7 +114,7 @@ impl CreditDefaultSwap {
     pub fn buy_protection(
         id: impl Into<InstrumentId>,
         notional: Money,
-        spread_bp: F,
+        spread_bp: f64,
         start: Date,
         maturity: Date,
         disc_id: impl Into<finstack_core::types::CurveId>,
@@ -157,7 +157,7 @@ impl CreditDefaultSwap {
     pub fn sell_protection(
         id: impl Into<InstrumentId>,
         notional: Money,
-        spread_bp: F,
+        spread_bp: f64,
         start: Date,
         maturity: Date,
         disc_id: impl Into<finstack_core::types::CurveId>,
@@ -200,7 +200,7 @@ impl CreditDefaultSwap {
     pub fn high_yield(
         id: impl Into<InstrumentId>,
         notional: Money,
-        spread_bp: F,
+        spread_bp: f64,
         start: Date,
         maturity: Date,
         side: PayReceive,
@@ -246,10 +246,10 @@ impl CreditDefaultSwap {
         notional: Money,
         side: PayReceive,
         convention: CDSConvention,
-        spread_bp: F,
+        spread_bp: f64,
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
-        recovery_rate: F,
+        recovery_rate: f64,
         disc_id: impl Into<finstack_core::types::CurveId>,
         credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
@@ -347,7 +347,7 @@ impl CreditDefaultSwap {
         &self,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> finstack_core::Result<F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = CDSPricer::new();
         let as_of = disc.base_date();
         pricer.par_spread(self, disc, surv, as_of)
@@ -358,7 +358,7 @@ impl CreditDefaultSwap {
         &self,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> finstack_core::Result<F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = CDSPricer::new();
         let as_of = disc.base_date();
         pricer.risky_annuity(self, disc, surv, as_of)
@@ -369,14 +369,14 @@ impl CreditDefaultSwap {
         &self,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> finstack_core::Result<F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = CDSPricer::new();
         let as_of = disc.base_date();
         pricer.risky_pv01(self, disc, surv, as_of)
     }
 
     /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
-    pub fn cs01(&self, curves: &MarketContext) -> finstack_core::Result<F> {
+    pub fn cs01(&self, curves: &MarketContext) -> finstack_core::Result<f64> {
         let pricer = CDSPricer::new();
         pricer.cs01(
             self,

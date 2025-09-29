@@ -8,13 +8,13 @@
 use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::FxQuery;
-use finstack_core::F;
+
 
 /// Forward points (far rate - near rate).
 pub struct ForwardPoints;
 
 impl MetricCalculator for ForwardPoints {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let fx_swap: &FxSwap = context.instrument_as()?;
         let curves = context.curves.clone();
         let as_of = context.as_of;

@@ -7,13 +7,13 @@
 
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 
 /// Calculator for repo accrued interest (currency amount).
 pub struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let as_of = context.as_of;
         let (discount_curve_id, day_count, start_date, maturity, notional_amount, effective_rate) = {
             let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;

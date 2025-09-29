@@ -5,7 +5,7 @@ use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+
 
 /// Direction from the perspective of paying fixed real vs receiving inflation
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,7 +53,7 @@ pub struct InflationSwap {
     /// Maturity date
     pub maturity: Date,
     /// Fixed real rate (as decimal)
-    pub fixed_rate: F,
+    pub fixed_rate: f64,
     /// Inflation index identifier (e.g., US-CPI-U)
     pub inflation_id: &'static str,
     /// Discount curve identifier (quote currency)
@@ -76,7 +76,7 @@ impl InflationSwap {
         &self,
         curves: &MarketContext,
         discount_base: Date,
-    ) -> finstack_core::Result<F> {
+    ) -> finstack_core::Result<f64> {
         let inflation_index = curves.inflation_index_ref(self.inflation_id);
         let inflation_curve = curves.get_inflation_ref(self.inflation_id)?;
 
@@ -186,7 +186,7 @@ impl InflationSwap {
     }
 
     /// Fixed rate that sets the swap's present value to zero (par real rate)
-    pub fn par_rate(&self, curves: &MarketContext) -> finstack_core::Result<F> {
+    pub fn par_rate(&self, curves: &MarketContext) -> finstack_core::Result<f64> {
         let disc = curves.get_discount_ref(self.disc_id.as_str())?;
         let base = disc.base_date();
         let index_ratio = self.projected_index_ratio(curves, base)?;

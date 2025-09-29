@@ -2,13 +2,13 @@
 
 use crate::instruments::cds_option::CdsOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Rho calculator for credit options on CDS spreads.
 pub struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let _option: &CdsOption = context.instrument_as()?;
         let t = {
             let option: &CdsOption = context.instrument_as()?;

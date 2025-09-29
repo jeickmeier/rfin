@@ -6,13 +6,13 @@
 
 use crate::instruments::fx_spot::FxSpot;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 
 /// Calculates the FX spot rate as `quote_amount / base_amount`.
 pub struct SpotRateCalculator;
 
 impl MetricCalculator for SpotRateCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let fx: &FxSpot = context.instrument_as()?;
         let base_amt = fx.effective_notional().amount();
         if base_amt == 0.0 {

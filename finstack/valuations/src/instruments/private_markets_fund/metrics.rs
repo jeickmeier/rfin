@@ -5,13 +5,13 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
-use finstack_core::F;
+
 
 /// LP Internal Rate of Return calculator.
 pub struct LpIrrCalculator;
 
 impl MetricCalculator for LpIrrCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
         let lp_flows = ledger.lp_cashflows();
@@ -28,7 +28,7 @@ impl MetricCalculator for LpIrrCalculator {
 pub struct GpIrrCalculator;
 
 impl MetricCalculator for GpIrrCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
 
@@ -60,7 +60,7 @@ impl MetricCalculator for GpIrrCalculator {
         // GP has no initial investment, so IRR is based on distributions only
         // For GP, we calculate the return on carry basis (not meaningful as traditional IRR)
         // Return total GP carry as a percentage of total fund proceeds
-        let total_gp_carry: F = gp_flows.iter().map(|(_, amount)| amount.amount()).sum();
+        let total_gp_carry: f64 = gp_flows.iter().map(|(_, amount)| amount.amount()).sum();
         Ok(total_gp_carry)
     }
 }
@@ -69,10 +69,10 @@ impl MetricCalculator for GpIrrCalculator {
 pub struct MoicLpCalculator;
 
 impl MetricCalculator for MoicLpCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let pe: &PrivateMarketsFund = context.instrument_as()?;
 
-        let total_contributions: F = pe
+        let total_contributions: f64 = pe
             .events
             .iter()
             .filter(|e| {
@@ -81,7 +81,7 @@ impl MetricCalculator for MoicLpCalculator {
             .map(|e| e.amount.amount())
             .sum();
 
-        let total_distributions: F = pe
+        let total_distributions: f64 = pe
             .events
             .iter()
             .filter(|e| {
@@ -106,11 +106,11 @@ impl MetricCalculator for MoicLpCalculator {
 pub struct DpiLpCalculator;
 
 impl MetricCalculator for DpiLpCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
 
-        let total_contributions: F = pe
+        let total_contributions: f64 = pe
             .events
             .iter()
             .filter(|e| {
@@ -119,7 +119,7 @@ impl MetricCalculator for DpiLpCalculator {
             .map(|e| e.amount.amount())
             .sum();
 
-        let total_lp_distributions: F = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
+        let total_lp_distributions: f64 = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
 
         if total_contributions <= 1e-6 {
             return Ok(0.0);
@@ -133,11 +133,11 @@ impl MetricCalculator for DpiLpCalculator {
 pub struct TvpiLpCalculator;
 
 impl MetricCalculator for TvpiLpCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
 
-        let total_contributions: F = pe
+        let total_contributions: f64 = pe
             .events
             .iter()
             .filter(|e| {
@@ -148,7 +148,7 @@ impl MetricCalculator for TvpiLpCalculator {
 
         // TVPI = (Distributions + Residual NAV) / Contributions
         // For simplicity, assume residual NAV = unreturned capital
-        let total_lp_distributions: F = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
+        let total_lp_distributions: f64 = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
 
         let residual_nav = ledger
             .rows
@@ -168,7 +168,7 @@ impl MetricCalculator for TvpiLpCalculator {
 pub struct CarryAccruedCalculator;
 
 impl MetricCalculator for CarryAccruedCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
 
@@ -182,7 +182,7 @@ impl MetricCalculator for CarryAccruedCalculator {
 }
 
 /// Helper function to calculate IRR using robust root finding.
-pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_core::Result<F> {
+pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_core::Result<f64> {
     if flows.len() < 2 {
         return Err(finstack_core::error::InputError::TooFewPoints.into());
     }

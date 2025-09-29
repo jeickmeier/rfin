@@ -78,7 +78,7 @@ impl Default for SeriesInterpolation {
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum MarketScalar {
     /// Unitless numeric (e.g., equity beta, recovery rate assumption)
-    Unitless(crate::F),
+    Unitless(f64),
     /// Monetary price or amount with currency
     Price(crate::money::Money),
 }
@@ -144,7 +144,7 @@ impl ScalarTimeSeries {
     /// ```
     pub fn new(
         id: impl AsRef<str>,
-        observations: Vec<(Date, crate::F)>,
+        observations: Vec<(Date, f64)>,
         currency: Option<Currency>,
     ) -> Result<Self> {
         if observations.is_empty() {
@@ -152,7 +152,7 @@ impl ScalarTimeSeries {
         }
 
         let mut dates: Vec<i32> = Vec::with_capacity(observations.len());
-        let mut values: Vec<crate::F> = Vec::with_capacity(observations.len());
+        let mut values: Vec<f64> = Vec::with_capacity(observations.len());
         for (d, v) in observations {
             let days = crate::dates::utils::date_to_days_since_epoch(d);
             dates.push(days);
@@ -249,7 +249,7 @@ impl ScalarTimeSeries {
     /// let linear = series.clone().with_interpolation(SeriesInterpolation::Linear);
     /// assert!(linear.value_on(jan).unwrap() > 10.0);
     /// ```
-    pub fn value_on(&self, date: Date) -> Result<crate::F> {
+    pub fn value_on(&self, date: Date) -> Result<f64> {
         let days = crate::dates::utils::date_to_days_since_epoch(date);
         self.values_on_days(&[days]).map(|v| v[0])
     }
@@ -259,7 +259,7 @@ impl ScalarTimeSeries {
     /// The returned vector is aligned with the input order. Step interpolation
     /// carries the last observation forward while Linear blends between
     /// neighboring observations.
-    pub fn values_on(&self, dates: &[Date]) -> Result<Vec<crate::F>> {
+    pub fn values_on(&self, dates: &[Date]) -> Result<Vec<f64>> {
         let query_days: Vec<i32> = dates
             .iter()
             .map(|&d| crate::dates::utils::date_to_days_since_epoch(d))
@@ -269,7 +269,7 @@ impl ScalarTimeSeries {
 
     /// Internal vectorized lookup using days since epoch.
     /// Leverages Polars native operations for optimal performance.
-    fn values_on_days(&self, query_days: &[i32]) -> Result<Vec<crate::F>> {
+    fn values_on_days(&self, query_days: &[i32]) -> Result<Vec<f64>> {
         if query_days.is_empty() {
             return Ok(Vec::new());
         }
@@ -288,7 +288,7 @@ impl ScalarTimeSeries {
 
         // Convert to Vec once for all lookups
         let date_vec: Vec<i32> = dates_series.into_no_null_iter().collect();
-        let value_vec: Vec<crate::F> = values_series.into_no_null_iter().collect();
+        let value_vec: Vec<f64> = values_series.into_no_null_iter().collect();
 
         // Vectorized interpolation with optimized branch prediction
         match self.interpolation {
@@ -305,9 +305,9 @@ impl ScalarTimeSeries {
     fn vectorized_step_interpolation(
         &self,
         date_vec: &[i32],
-        value_vec: &[crate::F],
+        value_vec: &[f64],
         query_days: &[i32],
-    ) -> Result<Vec<crate::F>> {
+    ) -> Result<Vec<f64>> {
         let mut result = Vec::with_capacity(query_days.len());
 
         for &query_day in query_days {
@@ -331,9 +331,9 @@ impl ScalarTimeSeries {
     fn vectorized_linear_interpolation(
         &self,
         date_vec: &[i32],
-        value_vec: &[crate::F],
+        value_vec: &[f64],
         query_days: &[i32],
-    ) -> Result<Vec<crate::F>> {
+    ) -> Result<Vec<f64>> {
         let mut result = Vec::with_capacity(query_days.len());
 
         for &query_day in query_days {
@@ -346,11 +346,11 @@ impl ScalarTimeSeries {
                         *value_vec.last().unwrap() // Use last value for dates after series
                     } else {
                         // Linear interpolation between adjacent points
-                        let x0 = date_vec[idx - 1] as crate::F;
-                        let x1 = date_vec[idx] as crate::F;
+                        let x0 = date_vec[idx - 1] as f64;
+                        let x1 = date_vec[idx] as f64;
                         let y0 = value_vec[idx - 1];
                         let y1 = value_vec[idx];
-                        let weight = (query_day as crate::F - x0) / (x1 - x0);
+                        let weight = (query_day as f64 - x0) / (x1 - x0);
                         y0 + weight * (y1 - y0)
                     }
                 }
@@ -376,7 +376,7 @@ pub struct ScalarTimeSeriesState {
     /// Optional currency
     pub currency: Option<Currency>,
     /// Observations as (date, value) pairs
-    pub observations: Vec<(Date, crate::F)>,
+    pub observations: Vec<(Date, f64)>,
     /// Interpolation method
     pub interpolation: SeriesInterpolation,
 }
@@ -398,7 +398,7 @@ impl ScalarTimeSeries {
             .f64()
             .map_err(|_| crate::Error::Internal)?;
 
-        let observations: Vec<(Date, crate::F)> = dates
+        let observations: Vec<(Date, f64)> = dates
             .into_no_null_iter()
             .zip(values.into_no_null_iter())
             .map(|(d, v)| (crate::dates::utils::days_since_epoch_to_date(d), v))

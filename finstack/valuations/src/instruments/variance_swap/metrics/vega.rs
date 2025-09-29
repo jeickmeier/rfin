@@ -2,13 +2,13 @@
 
 use super::super::types::VarianceSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Calculate vega (sensitivity to 1% change in volatility).
 pub struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let swap = context.instrument_as::<VarianceSwap>()?;
 
         // Try to get current implied vol; otherwise approximate using strike

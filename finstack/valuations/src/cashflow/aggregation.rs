@@ -1,7 +1,7 @@
 //! Currency-preserving aggregation of cashflows into `Period`s.
 
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 use indexmap::IndexMap;
 
 /// A single dated cashflow (date, money). Generic across instruments.
@@ -18,9 +18,9 @@ pub type DatedFlow = (Date, Money);
 pub fn aggregate_by_period(
     flows: &[DatedFlow],
     periods: &[Period],
-) -> IndexMap<PeriodId, IndexMap<Currency, F>> {
+) -> IndexMap<PeriodId, IndexMap<Currency, f64>> {
     use core::cmp::Ordering;
-    let mut out: IndexMap<PeriodId, IndexMap<Currency, F>> = IndexMap::new();
+    let mut out: IndexMap<PeriodId, IndexMap<Currency, f64>> = IndexMap::new();
 
     if flows.is_empty() || periods.is_empty() {
         return out;
@@ -44,7 +44,7 @@ pub fn aggregate_by_period(
             }
         }
 
-        let mut per_ccy: IndexMap<Currency, F> = IndexMap::new();
+        let mut per_ccy: IndexMap<Currency, f64> = IndexMap::new();
         let mut i = lo;
         while i < sorted.len() {
             let (d, m) = sorted[i];

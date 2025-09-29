@@ -11,7 +11,7 @@ use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::prelude::Currency;
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 use ordered_float::OrderedFloat;
 use std::collections::BTreeMap;
 
@@ -47,13 +47,13 @@ pub struct VolSurfaceCalibrator {
     /// Surface identifier
     pub surface_id: String,
     /// Fixed beta parameter for SABR model
-    pub beta: F,
+    pub beta: f64,
     /// Calibration configuration
     pub config: CalibrationConfig,
     /// Target expiry grid
-    pub target_expiries: Vec<F>,
+    pub target_expiries: Vec<f64>,
     /// Target strike grid  
-    pub target_strikes: Vec<F>,
+    pub target_strikes: Vec<f64>,
     /// Base date for time-to-expiry calculations
     pub base_date: Date,
     /// Day count used for mapping option expiries to time-to-expiry
@@ -70,9 +70,9 @@ impl VolSurfaceCalibrator {
     /// Create a new volatility surface calibrator.
     pub fn new(
         surface_id: impl Into<String>,
-        beta: F,
-        target_expiries: Vec<F>,
-        target_strikes: Vec<F>,
+        beta: f64,
+        target_expiries: Vec<f64>,
+        target_strikes: Vec<f64>,
     ) -> Self {
         Self {
             surface_id: surface_id.into(),
@@ -128,10 +128,10 @@ impl VolSurfaceCalibrator {
     fn calibrate_internal(
         &self,
         quotes: &[VolQuote],
-        forward_curve: &dyn Fn(F) -> F, // Forward price/rate as function of time
+        forward_curve: &dyn Fn(f64) -> f64, // Forward price/rate as function of time
     ) -> Result<(VolSurface, CalibrationReport)> {
         // Group quotes by time-to-expiry (years) using OrderedFloat keys (deterministic ordering)
-        let mut quotes_by_expiry: BTreeMap<OrderedFloat<F>, Vec<&VolQuote>> = BTreeMap::new();
+        let mut quotes_by_expiry: BTreeMap<OrderedFloat<f64>, Vec<&VolQuote>> = BTreeMap::new();
 
         for quote in quotes {
             if let VolQuote::OptionVol { expiry, .. } = quote {
@@ -156,7 +156,7 @@ impl VolSurfaceCalibrator {
         }
 
         // Calibrate SABR parameters for each expiry
-        let mut sabr_params_by_expiry: BTreeMap<OrderedFloat<F>, SABRParameters> = BTreeMap::new();
+        let mut sabr_params_by_expiry: BTreeMap<OrderedFloat<f64>, SABRParameters> = BTreeMap::new();
         let mut all_residuals = BTreeMap::new();
         let mut residual_key_counter: usize = 0;
         let sabr_calibrator = SABRCalibrator::new()
@@ -286,9 +286,9 @@ impl VolSurfaceCalibrator {
     /// Build volatility grid from calibrated SABR parameters.
     fn build_vol_grid(
         &self,
-        sabr_params: &BTreeMap<OrderedFloat<F>, SABRParameters>,
-        forward_curve: &dyn Fn(F) -> F,
-    ) -> Result<Vec<F>> {
+        sabr_params: &BTreeMap<OrderedFloat<f64>, SABRParameters>,
+        forward_curve: &dyn Fn(f64) -> f64,
+    ) -> Result<Vec<f64>> {
         let mut vol_grid =
             Vec::with_capacity(self.target_expiries.len() * self.target_strikes.len());
 
@@ -313,11 +313,11 @@ impl VolSurfaceCalibrator {
     /// Interpolate SABR parameters between calibrated expiries.
     fn interpolate_sabr_params(
         &self,
-        sabr_params: &BTreeMap<OrderedFloat<F>, SABRParameters>,
-        target_expiry: F,
+        sabr_params: &BTreeMap<OrderedFloat<f64>, SABRParameters>,
+        target_expiry: f64,
     ) -> Result<SABRParameters> {
         // Find bracketing expiries
-        let mut expiries: Vec<F> = sabr_params.keys().map(|k| k.into_inner()).collect();
+        let mut expiries: Vec<f64> = sabr_params.keys().map(|k| k.into_inner()).collect();
         expiries.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         if expiries.is_empty() {
@@ -617,7 +617,7 @@ mod tests {
             SABRParameters::new(0.25, 1.0, 0.35, -0.1).unwrap(),
         );
 
-        let forward_fn = |_t: F| 100.0; // Flat forward
+        let forward_fn = |_t: f64| 100.0; // Flat forward
 
         let vol_grid = calibrator.build_vol_grid(&params_map, &forward_fn).unwrap();
 

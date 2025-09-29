@@ -16,7 +16,7 @@ use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 use super::parameters::SwaptionParams;
 
@@ -85,7 +85,7 @@ pub struct Swaption {
     pub id: InstrumentId,
     pub option_type: OptionType,
     pub notional: Money,
-    pub strike_rate: F,
+    pub strike_rate: f64,
     pub expiry: Date,
     pub swap_start: Date,
     pub swap_end: Date,
@@ -190,7 +190,7 @@ impl Swaption {
     }
 
     /// Black (lognormal) model PV using forward swap rate and annuity.
-    pub fn price_black(&self, disc: &dyn Discounting, volatility: F, as_of: Date) -> Result<Money> {
+    pub fn price_black(&self, disc: &dyn Discounting, volatility: f64, as_of: Date) -> Result<Money> {
         let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
         if time_to_expiry <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
@@ -239,12 +239,12 @@ impl Swaption {
 
     /// Utility: compute year fraction using instrument's day count in a stable way.
     #[inline]
-    pub fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
+    pub fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<f64> {
         dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 
     /// Discounted fixed-leg PV01 (annuity) of the underlying swap schedule.
-    pub fn swap_annuity(&self, disc: &dyn Discounting, as_of: Date) -> Result<F> {
+    pub fn swap_annuity(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
         let mut annuity = 0.0;
         let sched = crate::cashflow::builder::build_dates(
             self.swap_start,
@@ -270,7 +270,7 @@ impl Swaption {
     }
 
     /// Forward par swap rate implied by discount factors and annuity.
-    pub fn forward_swap_rate(&self, disc: &dyn Discounting, as_of: Date) -> Result<F> {
+    pub fn forward_swap_rate(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
         let t_start = self.year_fraction(as_of, self.swap_start, self.day_count)?;
         let t_end = self.year_fraction(as_of, self.swap_end, self.day_count)?;
         let df_start = disc.df(t_start);

@@ -10,7 +10,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+
 
 /// Forward Rate Agreement instrument.
 ///
@@ -30,7 +30,7 @@ pub struct ForwardRateAgreement {
     /// Interest period end date
     pub end_date: Date,
     /// Fixed rate (decimal, e.g., 0.05 for 5%)
-    pub fixed_rate: F,
+    pub fixed_rate: f64,
     /// Day count convention for interest accrual
     pub day_count: DayCount,
     /// Reset lag in business days (fixing to value date)

@@ -1,6 +1,6 @@
 use crate::instruments::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 /// Calculator for the par spread on the primary leg that sets NPV to zero.
 ///
@@ -20,7 +20,7 @@ impl MetricCalculator for ParSpreadCalculator {
         &[MetricId::BasisAnnuityPrimary]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Use dependency and drop borrow
         let annuity = context
             .computed

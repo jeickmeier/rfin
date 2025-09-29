@@ -2,7 +2,7 @@
 
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::instruments::common::traits::Attributes;
@@ -23,7 +23,7 @@ pub struct Bond {
     /// Principal amount of the bond.
     pub notional: Money,
     /// Annual coupon rate (e.g., 0.05 for 5%).
-    pub coupon: F,
+    pub coupon: f64,
     /// Coupon payment frequency.
     pub freq: finstack_core::dates::Frequency,
     /// Day count convention for accrual.
@@ -69,7 +69,7 @@ pub struct CallPut {
     /// Exercise date of the option.
     pub date: Date,
     /// Redemption price as percentage of par amount.
-    pub price_pct_of_par: F,
+    pub price_pct_of_par: f64,
 }
 
 /// Schedule of call and put options for a bond.
@@ -87,9 +87,9 @@ pub struct BondFloatSpec {
     /// Forward curve identifier for the floating index (e.g., USD-SOFR-3M).
     pub fwd_id: CurveId,
     /// Margin over the index in basis points.
-    pub margin_bp: F,
+    pub margin_bp: f64,
     /// Gearing multiplier on the index rate.
-    pub gearing: F,
+    pub gearing: f64,
     /// Reset lag in days applied to the fixing date (business-day adjusted Following).
     pub reset_lag_days: i32,
 }
@@ -99,7 +99,7 @@ impl Bond {
     pub fn fixed_semiannual(
         id: impl Into<InstrumentId>,
         notional: Money,
-        coupon_rate: F,
+        coupon_rate: f64,
         issue: Date,
         maturity: Date,
         disc_id: impl Into<CurveId>,
@@ -127,7 +127,7 @@ impl Bond {
     pub fn treasury(
         id: impl Into<InstrumentId>,
         notional: Money,
-        coupon_rate: F,
+        coupon_rate: f64,
         issue: Date,
         maturity: Date,
     ) -> Self {
@@ -172,7 +172,7 @@ impl Bond {
         maturity: Date,
         disc_id: impl Into<CurveId>,
         fwd_id: impl Into<CurveId>,
-        margin_bp: F,
+        margin_bp: f64,
     ) -> Self {
         Self::builder()
             .id(id.into())
@@ -207,7 +207,7 @@ impl Bond {
         id: impl Into<InstrumentId>,
         schedule: CashFlowSchedule,
         disc_id: impl Into<CurveId>,
-        quoted_clean: Option<F>,
+        quoted_clean: Option<f64>,
     ) -> finstack_core::Result<Self> {
         // Extract parameters from the schedule
         let notional = schedule.notional.initial;

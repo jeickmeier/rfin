@@ -3,7 +3,7 @@
 use crate::instruments::irs::PayReceive;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::F;
+
 
 /// Swaption-specific parameters.
 ///
@@ -13,7 +13,7 @@ pub struct SwaptionParams {
     /// Notional amount
     pub notional: Money,
     /// Strike rate (fixed rate)
-    pub strike_rate: F,
+    pub strike_rate: f64,
     /// Swaption expiry date
     pub expiry: Date,
     /// Underlying swap start date
@@ -28,7 +28,7 @@ impl SwaptionParams {
     /// Create payer swaption parameters
     pub fn payer(
         notional: Money,
-        strike_rate: F,
+        strike_rate: f64,
         expiry: Date,
         swap_start: Date,
         swap_end: Date,
@@ -46,7 +46,7 @@ impl SwaptionParams {
     /// Create receiver swaption parameters
     pub fn receiver(
         notional: Money,
-        strike_rate: F,
+        strike_rate: f64,
         expiry: Date,
         swap_start: Date,
         swap_end: Date,

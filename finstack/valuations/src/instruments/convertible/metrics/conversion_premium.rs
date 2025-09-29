@@ -3,7 +3,7 @@
 //! Computes conversion premium = bond_price / (spot * conversion_ratio) - 1.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 use crate::instruments::convertible::types::ConvertibleBond;
 
@@ -11,7 +11,7 @@ use crate::instruments::convertible::types::ConvertibleBond;
 pub struct ConversionPremiumCalculator;
 
 impl MetricCalculator for ConversionPremiumCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
         // Get current bond price from context
         let bond_price = context.base_value.amount();

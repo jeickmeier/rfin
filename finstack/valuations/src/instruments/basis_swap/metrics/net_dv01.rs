@@ -1,5 +1,5 @@
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{error::InputError, Error, Result, F};
+use finstack_core::{error::InputError, Error, Result};
 
 /// Net DV01 calculator (primary leg DV01 minus reference leg DV01).
 #[derive(Default)]
@@ -11,7 +11,7 @@ impl MetricCalculator for NetDv01Calculator {
         DEPS
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let primary = context
             .computed
             .get(&MetricId::BasisDv01Primary)

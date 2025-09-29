@@ -5,7 +5,6 @@
 
 use super::{hazard_curve::HazardCurve, BaseCorrelationCurve};
 use crate::prelude::*;
-use crate::F;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -21,7 +20,7 @@ pub struct CreditIndexData {
     /// Number of constituents in the credit index (e.g., 125 for CDX IG)
     pub num_constituents: u16,
     /// Default recovery rate for the index (typically 40% for senior unsecured)
-    pub recovery_rate: F,
+    pub recovery_rate: f64,
     /// Hazard curve for the index as a whole
     pub index_credit_curve: Arc<HazardCurve>,
     /// Base correlation curve mapping detachment points to correlations
@@ -113,7 +112,7 @@ impl CreditIndexData {
 #[derive(Default)]
 pub struct CreditIndexDataBuilder {
     num_constituents: Option<u16>,
-    recovery_rate: Option<F>,
+    recovery_rate: Option<f64>,
     index_credit_curve: Option<Arc<HazardCurve>>,
     base_correlation_curve: Option<Arc<BaseCorrelationCurve>>,
     issuer_credit_curves: Option<HashMap<String, Arc<HazardCurve>>>,
@@ -127,7 +126,7 @@ impl CreditIndexDataBuilder {
     }
 
     /// Set the recovery rate (fraction between 0.0 and 1.0).
-    pub fn recovery_rate(mut self, rate: F) -> Self {
+    pub fn recovery_rate(mut self, rate: f64) -> Self {
         self.recovery_rate = Some(rate);
         self
     }

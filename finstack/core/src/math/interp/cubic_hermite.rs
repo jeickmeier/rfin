@@ -2,7 +2,7 @@ use std::boxed::Box;
 
 use super::InterpFn;
 use crate::math::interp::utils::validate_knots;
-use crate::{math::interp::ExtrapolationPolicy, F};
+use crate::{math::interp::ExtrapolationPolicy};
 
 /// Monotone cubic-Hermite discount-factor interpolator (PCHIP / Fritsch-Carlson).
 ///
@@ -14,9 +14,9 @@ use crate::{math::interp::ExtrapolationPolicy, F};
 /// See unit tests and `examples/` for usage.
 #[derive(Debug)]
 pub struct CubicHermite {
-    knots: Box<[F]>, // strictly increasing times
-    dfs: Box<[F]>,   // discount factors (positive)
-    ms: Box<[F]>,    // first-derivative values at each knot
+    knots: Box<[f64]>, // strictly increasing times
+    dfs: Box<[f64]>,   // discount factors (positive)
+    ms: Box<[f64]>,    // first-derivative values at each knot
     extrapolation_policy: ExtrapolationPolicy,
 }
 
@@ -29,8 +29,8 @@ impl CubicHermite {
     /// * `extrapolation_policy` – policy for out-of-bounds evaluation.
     #[allow(clippy::boxed_local)]
     pub fn new(
-        knots: Box<[F]>,
-        dfs: Box<[F]>,
+        knots: Box<[f64]>,
+        dfs: Box<[f64]>,
         extrapolation_policy: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), dfs.len());
@@ -60,7 +60,7 @@ impl CubicHermite {
 }
 
 impl InterpFn for CubicHermite {
-    fn interp(&self, x: F) -> F {
+    fn interp(&self, x: f64) -> f64 {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
             return match self.extrapolation_policy {
@@ -119,7 +119,7 @@ impl InterpFn for CubicHermite {
         h00 * f0 + h10 * h * m0 + h01 * f1 + h11 * h * m1
     }
 
-    fn interp_prime(&self, x: F) -> F {
+    fn interp_prime(&self, x: f64) -> f64 {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
             return match self.extrapolation_policy {
@@ -174,7 +174,7 @@ impl InterpFn for CubicHermite {
 /// Compute shape-preserving slopes using the Fritsch-Carlson monotone scheme
 /// (a.k.a. PCHIP slopes).
 #[inline]
-fn compute_monotone_slopes(xs: &[F], ys: &[F]) -> Box<[F]> {
+fn compute_monotone_slopes(xs: &[f64], ys: &[f64]) -> Box<[f64]> {
     let n = xs.len();
     debug_assert_eq!(n, ys.len());
 
@@ -187,7 +187,7 @@ fn compute_monotone_slopes(xs: &[F], ys: &[F]) -> Box<[F]> {
     let mut ms = vec![0.0; n];
 
     // Compute intervals in a single iterator pass.
-    let (h, delta): (Vec<F>, Vec<F>) = xs
+    let (h, delta): (Vec<f64>, Vec<f64>) = xs
         .windows(2)
         .zip(ys.windows(2))
         .map(|(xw, yw)| {
@@ -245,8 +245,8 @@ impl serde::Serialize for CubicHermite {
         use serde::Serialize;
         #[derive(Serialize)]
         struct CubicHermiteData<'a> {
-            knots: &'a [F],
-            dfs: &'a [F],
+            knots: &'a [f64],
+            dfs: &'a [f64],
             extrapolation_policy: ExtrapolationPolicy,
         }
         let data = CubicHermiteData {
@@ -267,8 +267,8 @@ impl<'de> serde::Deserialize<'de> for CubicHermite {
         use serde::Deserialize;
         #[derive(Deserialize)]
         struct CubicHermiteData {
-            knots: Vec<F>,
-            dfs: Vec<F>,
+            knots: Vec<f64>,
+            dfs: Vec<f64>,
             extrapolation_policy: ExtrapolationPolicy,
         }
         let data = CubicHermiteData::deserialize(deserializer)?;

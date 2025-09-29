@@ -6,15 +6,15 @@
 
 use crate::math::interp::types::Interp;
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
-use crate::{Error, Result, F};
+use crate::{Error, Result};
 
 /// Build an `Interp` with unified error mapping (crate::Result) for callers
 /// whose builders return `crate::Result<T>` (Forward/Inflation).
 #[inline]
 pub(crate) fn build_interp(
     style: InterpStyle,
-    knots: Box<[F]>,
-    values: Box<[F]>,
+    knots: Box<[f64]>,
+    values: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
 ) -> Result<Interp> {
     style
@@ -26,8 +26,8 @@ pub(crate) fn build_interp(
 #[inline]
 pub(crate) fn build_interp_input_error(
     style: InterpStyle,
-    knots: Box<[F]>,
-    values: Box<[F]>,
+    knots: Box<[f64]>,
+    values: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
 ) -> crate::Result<Interp> {
     style
@@ -37,7 +37,7 @@ pub(crate) fn build_interp_input_error(
 
 /// Convenience to split points (t, v) into separate vectors.
 #[inline]
-pub(crate) fn split_points(points: Vec<(F, F)>) -> (Vec<F>, Vec<F>) {
+pub(crate) fn split_points(points: Vec<(f64, f64)>) -> (Vec<f64>, Vec<f64>) {
     points.into_iter().unzip()
 }
 
@@ -56,7 +56,7 @@ pub(crate) struct StateId {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub(crate) struct StateKnotPoints {
     /// Time/value pairs used to construct the curve
-    pub knot_points: Vec<(F, F)>,
+    pub knot_points: Vec<(f64, f64)>,
 }
 
 #[cfg(feature = "serde")]

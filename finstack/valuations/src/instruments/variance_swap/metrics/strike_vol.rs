@@ -2,13 +2,13 @@
 
 use super::super::types::VarianceSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Calculate strike in volatility terms.
 pub struct StrikeVolCalculator;
 
 impl MetricCalculator for StrikeVolCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let swap = context.instrument_as::<VarianceSwap>()?;
         Ok(swap.strike_variance.sqrt())
     }

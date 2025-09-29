@@ -4,7 +4,7 @@
 //! for improved convergence and flexibility in modeling complex instruments.
 
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 use super::tree_framework::{
     price_recombining_tree, state_keys, RecombiningInputs, StateVariables, TreeBranching,
@@ -49,7 +49,7 @@ impl TrinomialTree {
     }
 
     /// Calculate trinomial tree parameters
-    fn calculate_parameters(&self, r: F, sigma: F, t: F, q: F) -> Result<(F, F, F, F, F, F)> {
+    fn calculate_parameters(&self, r: f64, sigma: f64, t: f64, q: f64) -> Result<(f64, f64, f64, f64, f64, f64)> {
         if t <= 0.0 || sigma <= 0.0 {
             return Err(Error::Internal);
         }
@@ -115,10 +115,10 @@ impl TrinomialTree {
     pub fn price_generic<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Extract required parameters from state variables
         let r = *initial_vars
             .get(state_keys::INTEREST_RATE)
@@ -157,20 +157,20 @@ impl TreeModel for TrinomialTree {
     fn price<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         self.price_generic(initial_vars, time_to_maturity, market_context, valuator)
     }
 
     fn calculate_greeks<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-        bump_size: Option<F>,
+        bump_size: Option<f64>,
     ) -> Result<TreeGreeks> {
         let bump = bump_size.unwrap_or(0.01);
 
@@ -256,16 +256,16 @@ mod tests {
 
     // Simple test valuator that returns intrinsic value of a call option
     struct TestCallValuator {
-        strike: F,
+        strike: f64,
     }
 
     impl TreeValuator for TestCallValuator {
-        fn value_at_maturity(&self, state: &NodeState) -> Result<F> {
+        fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
             let spot = state.spot().unwrap_or(0.0);
             Ok((spot - self.strike).max(0.0))
         }
 
-        fn value_at_node(&self, _state: &NodeState, continuation_value: F) -> Result<F> {
+        fn value_at_node(&self, _state: &NodeState, continuation_value: f64) -> Result<f64> {
             // European-style: just return continuation value
             Ok(continuation_value)
         }

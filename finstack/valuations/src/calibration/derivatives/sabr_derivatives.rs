@@ -7,21 +7,21 @@ use super::sabr_model_params::SABRModelParams;
 #[cfg(test)]
 use crate::instruments::common::models::SABRParameters;
 use finstack_core::math::solver_multi::AnalyticalDerivatives;
-use finstack_core::F;
+
 
 /// Market data for SABR calibration.
 #[derive(Clone, Debug)]
 pub struct SABRMarketData {
     /// Forward price
-    pub forward: F,
+    pub forward: f64,
     /// Time to expiry
-    pub time_to_expiry: F,
+    pub time_to_expiry: f64,
     /// Strike prices
-    pub strikes: Vec<F>,
+    pub strikes: Vec<f64>,
     /// Market implied volatilities
-    pub market_vols: Vec<F>,
+    pub market_vols: Vec<f64>,
     /// Fixed beta parameter
-    pub beta: F,
+    pub beta: f64,
 }
 
 /// Analytical derivatives provider for SABR calibration.
@@ -49,7 +49,7 @@ impl SABRCalibrationDerivatives {
     /// acceptable for calibration stability and performance. For users
     /// requiring fully analytical derivatives, consider switching to the
     /// LM solver without derivatives or extending these expressions.
-    fn sabr_vol_and_derivatives(&self, strike: F, alpha: F, nu: F, rho: F) -> (F, F, F, F) {
+    fn sabr_vol_and_derivatives(&self, strike: f64, alpha: f64, nu: f64, rho: f64) -> (f64, f64, f64, f64) {
         let f = self.market_data.forward;
         let k = strike;
         let t = self.market_data.time_to_expiry;
@@ -94,7 +94,7 @@ impl SABRCalibrationDerivatives {
     }
 
     /// Compute ATM volatility and derivatives.
-    fn sabr_atm_vol_and_derivatives(&self, alpha: F, nu: F, rho: F) -> (F, F, F, F) {
+    fn sabr_atm_vol_and_derivatives(&self, alpha: f64, nu: f64, rho: f64) -> (f64, f64, f64, f64) {
         let f = self.market_data.forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
@@ -130,12 +130,12 @@ impl SABRCalibrationDerivatives {
     /// Partial derivative with respect to alpha.
     fn d_vol_d_alpha_impl(
         &self,
-        _strike: F,
+        _strike: f64,
         sabr_params: &SABRModelParams,
-        _vol: F,
-        x: F,
-        term2: F,
-    ) -> F {
+        _vol: f64,
+        x: f64,
+        term2: f64,
+    ) -> f64 {
         let f = self.market_data.forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
@@ -156,12 +156,12 @@ impl SABRCalibrationDerivatives {
     /// Partial derivative with respect to nu (vol of vol).
     fn d_vol_d_nu_impl(
         &self,
-        _strike: F,
+        _strike: f64,
         sabr_params: &SABRModelParams,
-        _vol: F,
-        x: F,
-        _term2: F,
-    ) -> F {
+        _vol: f64,
+        x: f64,
+        _term2: f64,
+    ) -> f64 {
         let f = self.market_data.forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
@@ -179,12 +179,12 @@ impl SABRCalibrationDerivatives {
     /// Partial derivative with respect to rho (correlation).
     fn d_vol_d_rho_impl(
         &self,
-        _strike: F,
+        _strike: f64,
         sabr_params: &SABRModelParams,
-        _vol: F,
-        x: F,
-        _term2: F,
-    ) -> F {
+        _vol: f64,
+        x: f64,
+        _term2: f64,
+    ) -> f64 {
         let f = self.market_data.forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
@@ -200,7 +200,7 @@ impl SABRCalibrationDerivatives {
 }
 
 impl AnalyticalDerivatives for SABRCalibrationDerivatives {
-    fn gradient(&self, params: &[F], gradient: &mut [F]) {
+    fn gradient(&self, params: &[f64], gradient: &mut [f64]) {
         // params = [alpha, nu, rho]
         if params.len() != 3 || gradient.len() != 3 {
             return;
@@ -285,7 +285,7 @@ mod tests {
         let mut numerical_grad = [0.0; 3];
 
         // Helper to compute objective
-        let objective = |p: &[F]| -> F {
+        let objective = |p: &[f64]| -> f64 {
             let alpha = p[0];
             let nu = p[1];
             let rho = p[2];

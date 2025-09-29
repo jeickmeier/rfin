@@ -3,7 +3,7 @@
 use crate::instruments::cds::{CDSConvention, PayReceive};
 use crate::instruments::common::parameters::CreditParams;
 use finstack_core::money::Money;
-use finstack_core::F;
+
 
 /// Constituent definition for CDS Index parameters (credit + weight).
 #[derive(Clone, Debug)]
@@ -11,7 +11,7 @@ pub struct CDSIndexConstituentParam {
     /// Credit configuration for the issuer
     pub credit: CreditParams,
     /// Weight in the index notional (sum across names typically = 1.0)
-    pub weight: F,
+    pub weight: f64,
 }
 
 /// CDS Index specific parameters.
@@ -26,11 +26,11 @@ pub struct CDSIndexParams {
     /// Index version number
     pub version: u16,
     /// Fixed coupon in basis points
-    pub fixed_coupon_bp: F,
+    pub fixed_coupon_bp: f64,
     /// Optional basket of underlying issuers (credit params + weights)
     pub constituents: Option<Vec<CDSIndexConstituentParam>>,
     /// Index factor (fraction of surviving notional since series inception)
-    pub index_factor: Option<F>,
+    pub index_factor: Option<f64>,
 }
 
 impl CDSIndexParams {
@@ -39,7 +39,7 @@ impl CDSIndexParams {
         index_name: impl Into<String>,
         series: u16,
         version: u16,
-        fixed_coupon_bp: F,
+        fixed_coupon_bp: f64,
     ) -> Self {
         Self {
             index_name: index_name.into(),
@@ -52,17 +52,17 @@ impl CDSIndexParams {
     }
 
     /// Create CDX North America Investment Grade parameters
-    pub fn cdx_na_ig(series: u16, version: u16, fixed_coupon_bp: F) -> Self {
+    pub fn cdx_na_ig(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
         Self::new("CDX.NA.IG", series, version, fixed_coupon_bp)
     }
 
     /// Create CDX North America High Yield parameters
-    pub fn cdx_na_hy(series: u16, version: u16, fixed_coupon_bp: F) -> Self {
+    pub fn cdx_na_hy(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
         Self::new("CDX.NA.HY", series, version, fixed_coupon_bp)
     }
 
     /// Create iTraxx Europe parameters
-    pub fn itraxx_europe(series: u16, version: u16, fixed_coupon_bp: F) -> Self {
+    pub fn itraxx_europe(series: u16, version: u16, fixed_coupon_bp: f64) -> Self {
         Self::new("iTraxx Europe", series, version, fixed_coupon_bp)
     }
 
@@ -86,7 +86,7 @@ impl CDSIndexParams {
             self.constituents = None;
             return self;
         }
-        let w = 1.0 / (list.len() as F);
+        let w = 1.0 / (list.len() as f64);
         let cons = list
             .into_iter()
             .map(|credit| CDSIndexConstituentParam { credit, weight: w })
@@ -96,7 +96,7 @@ impl CDSIndexParams {
     }
 
     /// Set an explicit index factor (0..=1). If omitted, defaults to 1.0.
-    pub fn with_index_factor(mut self, factor: F) -> Self {
+    pub fn with_index_factor(mut self, factor: f64) -> Self {
         self.index_factor = Some(factor);
         self
     }

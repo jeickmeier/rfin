@@ -5,7 +5,6 @@
 //! implemented on concrete types for better API discoverability.
 
 use crate::dates::Date;
-use crate::F;
 
 // -----------------------------------------------------------------------------
 // Minimal traits for polymorphism only
@@ -50,18 +49,18 @@ pub trait Discounting: TermStructure {
     /// Base (valuation) date of the curve.
     fn base_date(&self) -> Date;
     /// Discount factor at time `t` (year fraction from the base date).
-    fn df(&self, t: F) -> F;
+    fn df(&self, t: f64) -> f64;
 }
 
 /// Minimal trait for forward curve polymorphism where needed.
 /// Most code should call methods directly on `ForwardCurve`.
 pub trait Forward: TermStructure {
     /// Simple forward rate starting at time `t`.
-    fn rate(&self, t: F) -> F;
+    fn rate(&self, t: f64) -> f64;
 
     /// Average rate over `[t1, t2]`.
     #[inline]
-    fn rate_period(&self, t1: F, t2: F) -> F {
+    fn rate_period(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1, "t2 must be after t1");
         (self.rate(t1) + self.rate(t2)) * 0.5
     }
@@ -71,7 +70,7 @@ pub trait Forward: TermStructure {
 /// Most code should call methods directly on `HazardCurve`.
 pub trait Survival: TermStructure {
     /// Survival probability up to time `t`.
-    fn sp(&self, t: F) -> F;
+    fn sp(&self, t: f64) -> f64;
 }
 
 /// Minimal trait for term structure polymorphism where needed.
@@ -105,11 +104,11 @@ mod tests {
 
     struct FlatCurve {
         id: CurveId,
-        df_const: F,
+        df_const: f64,
     }
 
     impl FlatCurve {
-        fn new(id: &'static str, df_const: F) -> Self {
+        fn new(id: &'static str, df_const: f64) -> Self {
             Self {
                 id: CurveId::new(id),
                 df_const,
@@ -127,7 +126,7 @@ mod tests {
         fn base_date(&self) -> Date {
             Date::from_calendar_date(2025, time::Month::January, 1).unwrap()
         }
-        fn df(&self, _t: F) -> F {
+        fn df(&self, _t: f64) -> f64 {
             self.df_const
         }
     }

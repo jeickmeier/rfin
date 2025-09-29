@@ -4,7 +4,7 @@
 //! Leverages pricing helpers from `pricing`.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 use crate::instruments::convertible::types::ConvertibleBond;
 
@@ -12,7 +12,7 @@ use crate::instruments::convertible::types::ConvertibleBond;
 pub struct ParityCalculator;
 
 impl MetricCalculator for ParityCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
         bond.parity(&context.curves)
     }

@@ -1,5 +1,5 @@
 use super::InterpFn;
-use crate::{error::InputError, math::interp::ExtrapolationPolicy, F};
+use crate::{error::InputError, math::interp::ExtrapolationPolicy};
 use std::vec::Vec;
 
 /// Interpolator that performs linear interpolation on the natural logarithm
@@ -9,7 +9,7 @@ use std::vec::Vec;
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LogLinearDf {
-    knots: Box<[F]>,
+    knots: Box<[f64]>,
     #[cfg_attr(
         feature = "serde",
         serde(
@@ -17,7 +17,7 @@ pub struct LogLinearDf {
             deserialize_with = "deserialize_log_dfs"
         )
     )]
-    log_dfs: Box<[F]>,
+    log_dfs: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
 }
 
@@ -25,8 +25,8 @@ impl LogLinearDf {
     /// Construct a **log‐linear** DF interpolator (constant zero rate).
     #[allow(clippy::boxed_local)]
     pub fn new(
-        knots: Box<[F]>,
-        dfs: Box<[F]>,
+        knots: Box<[f64]>,
+        dfs: Box<[f64]>,
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), dfs.len());
@@ -35,7 +35,7 @@ impl LogLinearDf {
         }
         crate::math::interp::utils::validate_knots(&knots)?;
         crate::math::interp::utils::validate_positive_series(&dfs)?;
-        let log_dfs: Vec<F> = dfs.iter().map(|d| d.ln()).collect();
+        let log_dfs: Vec<f64> = dfs.iter().map(|d| d.ln()).collect();
         Ok(Self {
             knots,
             log_dfs: log_dfs.into_boxed_slice(),
@@ -44,7 +44,7 @@ impl LogLinearDf {
     }
 
     #[inline]
-    fn segment_slope(&self, left_index: usize, right_index: usize) -> F {
+    fn segment_slope(&self, left_index: usize, right_index: usize) -> f64 {
         let x0 = self.knots[left_index];
         let x1 = self.knots[right_index];
         let y0 = self.log_dfs[left_index];
@@ -62,7 +62,7 @@ impl LogLinearDf {
 }
 
 impl InterpFn for LogLinearDf {
-    fn interp(&self, x: F) -> F {
+    fn interp(&self, x: f64) -> f64 {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
             return match self.extrapolation {
@@ -101,7 +101,7 @@ impl InterpFn for LogLinearDf {
         (y0 + w * (y1 - y0)).exp()
     }
 
-    fn interp_prime(&self, x: F) -> F {
+    fn interp_prime(&self, x: f64) -> f64 {
         // For log-linear interpolation: f(x) = exp(y0 + w*(y1-y0)) where w = (x-x0)/(x1-x0)
         // The derivative is: df/dx = f(x) * (y1-y0)/(x1-x0)
 
@@ -142,22 +142,22 @@ impl InterpFn for LogLinearDf {
 }
 
 #[cfg(feature = "serde")]
-fn serialize_log_dfs<S>(log_dfs: &[F], serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_log_dfs<S>(log_dfs: &[f64], serializer: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
     use serde::Serialize;
-    let dfs: Vec<F> = log_dfs.iter().map(|log_df| log_df.exp()).collect();
+    let dfs: Vec<f64> = log_dfs.iter().map(|log_df| log_df.exp()).collect();
     dfs.serialize(serializer)
 }
 
 #[cfg(feature = "serde")]
-fn deserialize_log_dfs<'de, D>(deserializer: D) -> Result<Box<[F]>, D::Error>
+fn deserialize_log_dfs<'de, D>(deserializer: D) -> Result<Box<[f64]>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     use serde::Deserialize;
-    let dfs: Vec<F> = Vec::deserialize(deserializer)?;
-    let log_dfs: Vec<F> = dfs.iter().map(|df| df.ln()).collect();
+    let dfs: Vec<f64> = Vec::deserialize(deserializer)?;
+    let log_dfs: Vec<f64> = dfs.iter().map(|df| df.ln()).collect();
     Ok(log_dfs.into_boxed_slice())
 }

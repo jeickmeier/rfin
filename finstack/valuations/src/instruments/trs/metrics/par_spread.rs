@@ -1,6 +1,6 @@
 use super::FinancingAnnuityCalculator;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 
@@ -16,7 +16,7 @@ impl MetricCalculator for ParSpreadCalculator {
         &[MetricId::FinancingAnnuity]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Financing annuity
         let annuity = FinancingAnnuityCalculator.calculate(context)?;
         if annuity.abs() < 1e-10 {

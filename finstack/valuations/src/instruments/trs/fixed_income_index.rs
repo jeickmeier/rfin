@@ -6,7 +6,7 @@ use crate::{
     instruments::common::traits::Attributes,
 };
 use finstack_core::{
-    dates::Date, market_data::MarketContext, money::Money, types::InstrumentId, Result, F,
+    dates::Date, market_data::MarketContext, money::Money, types::InstrumentId, Result,
 };
 
 /// Fixed Income Index Total Return Swap instrument.
@@ -42,7 +42,7 @@ pub struct FIIndexTotalReturnSwap {
     /// Trade side (receive/pay total return).
     pub side: TrsSide,
     /// Initial index level (if known, otherwise fetched from market).
-    pub initial_level: Option<F>,
+    pub initial_level: Option<f64>,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
 }
@@ -112,7 +112,7 @@ impl FIIndexTotalReturnSwap {
     ///
     /// # Returns
     /// Financing annuity (sum of discounted year fractions × notional).
-    pub fn financing_annuity(&self, curves: &MarketContext, as_of: Date) -> Result<F> {
+    pub fn financing_annuity(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
         use crate::instruments::trs::pricing::engine::TrsEngine;
         TrsEngine::financing_annuity(
             &self.financing,

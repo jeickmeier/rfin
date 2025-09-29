@@ -7,7 +7,7 @@
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::types::CurveId;
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 use super::tree_framework::{NodeState, StateVariables, TreeGreeks, TreeModel, TreeValuator};
 
@@ -28,9 +28,9 @@ pub struct ShortRateTreeConfig {
     /// Tree model type
     pub model: ShortRateModel,
     /// Interest rate volatility (annualized)
-    pub volatility: F,
+    pub volatility: f64,
     /// Mean reversion parameter (for mean-reverting models)
-    pub mean_reversion: Option<F>,
+    pub mean_reversion: Option<f64>,
 }
 
 impl Default for ShortRateTreeConfig {
@@ -49,11 +49,11 @@ impl Default for ShortRateTreeConfig {
 pub struct ShortRateTree {
     config: ShortRateTreeConfig,
     /// Calibrated short rates at each node: rates[step][node]
-    rates: Vec<Vec<F>>,
+    rates: Vec<Vec<f64>>,
     /// Transition probabilities: probs[step] gives (p_up, p_down) for that step
-    probs: Vec<(F, F)>,
+    probs: Vec<(f64, f64)>,
     /// Time steps in years
-    time_steps: Vec<F>,
+    time_steps: Vec<f64>,
     /// Discount curve used for calibration
     calibration_curve_id: CurveId,
 }
@@ -71,7 +71,7 @@ impl ShortRateTree {
     }
 
     /// Create a Ho-Lee tree with specified parameters
-    pub fn ho_lee(steps: usize, volatility: F) -> Self {
+    pub fn ho_lee(steps: usize, volatility: f64) -> Self {
         Self::new(ShortRateTreeConfig {
             steps,
             model: ShortRateModel::HoLee,
@@ -81,7 +81,7 @@ impl ShortRateTree {
     }
 
     /// Create a Black-Derman-Toy tree with specified parameters
-    pub fn black_derman_toy(steps: usize, volatility: F, mean_reversion: F) -> Self {
+    pub fn black_derman_toy(steps: usize, volatility: f64, mean_reversion: f64) -> Self {
         Self::new(ShortRateTreeConfig {
             steps,
             model: ShortRateModel::BlackDermanToy,
@@ -94,13 +94,13 @@ impl ShortRateTree {
     pub fn calibrate(
         &mut self,
         discount_curve: &dyn Discounting,
-        time_to_maturity: F,
+        time_to_maturity: f64,
     ) -> Result<()> {
         self.calibration_curve_id = CurveId::new("CALIBRATED");
 
         // Build time grid
-        let dt = time_to_maturity / self.config.steps as F;
-        self.time_steps = (0..=self.config.steps).map(|i| i as F * dt).collect();
+        let dt = time_to_maturity / self.config.steps as f64;
+        self.time_steps = (0..=self.config.steps).map(|i| i as f64 * dt).collect();
 
         // Initialize data structures
         self.rates = vec![Vec::new(); self.config.steps + 1];
@@ -115,7 +115,7 @@ impl ShortRateTree {
     }
 
     /// Calibrate Ho-Lee model parameters
-    fn calibrate_ho_lee(&mut self, discount_curve: &dyn Discounting, dt: F) -> Result<()> {
+    fn calibrate_ho_lee(&mut self, discount_curve: &dyn Discounting, dt: f64) -> Result<()> {
         let sigma = self.config.volatility;
 
         // Initialize first step with current short rate
@@ -174,11 +174,11 @@ impl ShortRateTree {
     fn calculate_ho_lee_drift(
         &self,
         discount_curve: &dyn Discounting,
-        current_time: F,
-        next_time: F,
-        current_rates: &[F],
-        dt: F,
-    ) -> Result<F> {
+        current_time: f64,
+        next_time: f64,
+        current_rates: &[f64],
+        dt: f64,
+    ) -> Result<f64> {
         // For Ho-Lee calibration, theta is chosen so that the expected
         // discount factor matches the market curve
 
@@ -186,7 +186,7 @@ impl ShortRateTree {
         let expected_rate = if current_rates.is_empty() {
             0.03 // Fallback
         } else {
-            current_rates.iter().sum::<F>() / current_rates.len() as F
+            current_rates.iter().sum::<f64>() / current_rates.len() as f64
         };
 
         // Calculate theta using the forward rate implied by the discount curve
@@ -212,7 +212,7 @@ impl ShortRateTree {
     ///
     /// Implements proper BDT calibration that matches the discount curve at each step
     /// by solving for the drift parameter using state-price recursion and root finding.
-    fn calibrate_bdt(&mut self, discount_curve: &dyn Discounting, dt: F) -> Result<()> {
+    fn calibrate_bdt(&mut self, discount_curve: &dyn Discounting, dt: f64) -> Result<()> {
         use finstack_core::math::{HybridSolver, Solver};
 
         let sigma = self.config.volatility;
@@ -252,12 +252,12 @@ impl ShortRateTree {
             let current_rates = &self.rates[step];
 
             // Solve for drift parameter alpha such that model ZCB price matches market
-            let objective = |alpha: F| -> F {
+            let objective = |alpha: f64| -> f64 {
                 // Calculate model ZCB price with this alpha
                 let mut model_price = 0.0;
 
                 for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
-                    let rate = alpha * u.powf(num_nodes as F - 1.0 - 2.0 * j as F);
+                    let rate = alpha * u.powf(num_nodes as f64 - 1.0 - 2.0 * j as f64);
                     let rate_clamped = rate.max(1e-6); // Ensure positive
                     let discount_factor = (-rate_clamped * dt).exp();
                     model_price += state_price * discount_factor;
@@ -272,7 +272,7 @@ impl ShortRateTree {
             } else {
                 // Use geometric mean of previous step rates as initial guess
                 let mean_rate =
-                    current_rates.iter().map(|&r| r.ln()).sum::<F>() / current_rates.len() as F;
+                    current_rates.iter().map(|&r| r.ln()).sum::<f64>() / current_rates.len() as f64;
                 mean_rate.exp()
             };
 
@@ -296,21 +296,21 @@ impl ShortRateTree {
             let mut next_state_prices = vec![0.0; next_nodes];
 
             for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
-                let current_rate = alpha * u.powf(num_nodes as F - 1.0 - 2.0 * j as F);
+                let current_rate = alpha * u.powf(num_nodes as f64 - 1.0 - 2.0 * j as f64);
                 let rate_clamped = current_rate.max(1e-6);
                 let discount_factor = (-rate_clamped * dt).exp();
                 let state_price_contribution = state_price * discount_factor;
 
                 // Up move: j -> j+1
                 if j + 1 < next_nodes {
-                    let up_rate = alpha * u.powf(next_nodes as F - 1.0 - 2.0 * (j + 1) as F);
+                    let up_rate = alpha * u.powf(next_nodes as f64 - 1.0 - 2.0 * (j + 1) as f64);
                     next_rates[j + 1] = up_rate.max(1e-6);
                     next_state_prices[j + 1] += state_price_contribution * p;
                 }
 
                 // Down move: j -> j
                 if j < next_nodes {
-                    let down_rate = alpha * u.powf(next_nodes as F - 1.0 - 2.0 * j as F);
+                    let down_rate = alpha * u.powf(next_nodes as f64 - 1.0 - 2.0 * j as f64);
                     next_rates[j] = down_rate.max(1e-6);
                     next_state_prices[j] += state_price_contribution * (1.0 - p);
                 }
@@ -324,7 +324,7 @@ impl ShortRateTree {
     }
 
     /// Get the short rate at a specific node
-    pub fn rate_at_node(&self, step: usize, node: usize) -> Result<F> {
+    pub fn rate_at_node(&self, step: usize, node: usize) -> Result<f64> {
         if step >= self.rates.len() || node >= self.rates[step].len() {
             return Err(Error::Internal);
         }
@@ -332,7 +332,7 @@ impl ShortRateTree {
     }
 
     /// Get transition probabilities at a step
-    pub fn probabilities(&self, step: usize) -> Result<(F, F)> {
+    pub fn probabilities(&self, step: usize) -> Result<(f64, f64)> {
         if step >= self.probs.len() {
             return Err(Error::Internal);
         }
@@ -340,7 +340,7 @@ impl ShortRateTree {
     }
 
     /// Get time at step
-    pub fn time_at_step(&self, step: usize) -> Result<F> {
+    pub fn time_at_step(&self, step: usize) -> Result<f64> {
         if step >= self.time_steps.len() {
             return Err(Error::Internal);
         }
@@ -352,16 +352,16 @@ impl TreeModel for ShortRateTree {
     fn price<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         if self.rates.is_empty() {
             return Err(Error::Internal); // Tree not calibrated
         }
 
         let steps = self.config.steps;
-        let dt = time_to_maturity / steps as F;
+        let dt = time_to_maturity / steps as f64;
 
         // Get OAS from initial variables (default to 0)
         let oas = initial_vars.get("oas").copied().unwrap_or(0.0);
@@ -372,10 +372,10 @@ impl TreeModel for ShortRateTree {
 
         for (node, _rate) in self.rates[terminal_step].iter().enumerate() {
             // Create state for terminal node
-            let time = terminal_step as F * dt;
+            let time = terminal_step as f64 * dt;
             let mut vars = initial_vars.clone();
-            vars.insert("step", terminal_step as F);
-            vars.insert("node", node as F);
+            vars.insert("step", terminal_step as f64);
+            vars.insert("node", node as f64);
             vars.insert("time", time);
             vars.insert("interest_rate", self.rates[terminal_step][node]);
 
@@ -408,10 +408,10 @@ impl TreeModel for ShortRateTree {
                 };
 
                 // Create state for this node
-                let time = step as F * dt;
+                let time = step as f64 * dt;
                 let mut vars = initial_vars.clone();
-                vars.insert("step", step as F);
-                vars.insert("node", node as F);
+                vars.insert("step", step as f64);
+                vars.insert("node", node as f64);
                 vars.insert("time", time);
                 vars.insert("interest_rate", r_node);
                 vars.insert("oas", oas);
@@ -431,10 +431,10 @@ impl TreeModel for ShortRateTree {
     fn calculate_greeks<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-        _bump_size: Option<F>,
+        _bump_size: Option<f64>,
     ) -> Result<TreeGreeks> {
         // Base price
         let base_price = self.price(

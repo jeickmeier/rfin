@@ -11,13 +11,13 @@
 
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 
 /// Par rate for FRAs (fixed rate that zeroes PV).
 pub struct FraParRateCalculator;
 
 impl MetricCalculator for FraParRateCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let fra: &ForwardRateAgreement = context.instrument_as()?;
 
         // Base date for time mapping (consistent with engine and IRS metrics)

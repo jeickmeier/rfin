@@ -1,6 +1,6 @@
 //! FX Swap specific parameters.
 
-use finstack_core::{dates::Date, money::Money, F};
+use finstack_core::{dates::Date, money::Money};
 
 /// FX Swap specific parameters.
 ///
@@ -14,9 +14,9 @@ pub struct FxSwapParams {
     /// Base notional amount
     pub base_notional: Money,
     /// Optional near leg rate (if fixed)
-    pub near_rate: Option<F>,
+    pub near_rate: Option<f64>,
     /// Optional far leg rate (if fixed)
-    pub far_rate: Option<F>,
+    pub far_rate: Option<f64>,
 }
 
 impl FxSwapParams {
@@ -32,13 +32,13 @@ impl FxSwapParams {
     }
 
     /// Set near leg rate
-    pub fn with_near_rate(mut self, rate: F) -> Self {
+    pub fn with_near_rate(mut self, rate: f64) -> Self {
         self.near_rate = Some(rate);
         self
     }
 
     /// Set far leg rate
-    pub fn with_far_rate(mut self, rate: F) -> Self {
+    pub fn with_far_rate(mut self, rate: f64) -> Self {
         self.far_rate = Some(rate);
         self
     }

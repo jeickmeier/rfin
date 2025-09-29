@@ -1,6 +1,6 @@
 use crate::instruments::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 
 /// Calculates discount factor at end date for deposits.
 ///
@@ -9,7 +9,7 @@ use finstack_core::F;
 pub struct DfEndCalculator;
 
 impl MetricCalculator for DfEndCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let deposit: &Deposit = context.instrument_as()?;
 
         let disc = context.curves.get_discount_ref(deposit.disc_id.clone())?;

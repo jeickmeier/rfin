@@ -1,6 +1,6 @@
 use crate::instruments::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 
 /// Calculates year fraction for deposits.
 ///
@@ -13,7 +13,7 @@ use finstack_core::F;
 pub struct YearFractionCalculator;
 
 impl MetricCalculator for YearFractionCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let deposit: &Deposit = context.instrument_as()?;
         deposit.day_count.year_fraction(
             deposit.start,

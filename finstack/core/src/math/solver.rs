@@ -19,14 +19,14 @@
 //! assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
 //! ```
 
-use crate::{Result, F};
+use crate::{Result};
 
 /// Generic solver trait for 1D root finding.
 pub trait Solver: Send + Sync {
     /// Solve f(x) = 0 starting from initial guess.
-    fn solve<Func>(&self, f: Func, initial_guess: F) -> Result<F>
+    fn solve<Func>(&self, f: Func, initial_guess: f64) -> Result<f64>
     where
-        Func: Fn(F) -> F;
+        Func: Fn(f64) -> f64;
 }
 
 /// Newton-Raphson solver with automatic derivative estimation.
@@ -34,11 +34,11 @@ pub trait Solver: Send + Sync {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NewtonSolver {
     /// Convergence tolerance
-    pub tolerance: F,
+    pub tolerance: f64,
     /// Maximum iterations
     pub max_iterations: usize,
     /// Finite difference step for derivative estimation
-    pub fd_step: F,
+    pub fd_step: f64,
 }
 
 impl Default for NewtonSolver {
@@ -58,7 +58,7 @@ impl NewtonSolver {
     }
 
     /// Set tolerance.
-    pub fn with_tolerance(mut self, tolerance: F) -> Self {
+    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
         self.tolerance = tolerance;
         self
     }
@@ -71,12 +71,12 @@ impl NewtonSolver {
 }
 
 impl Solver for NewtonSolver {
-    fn solve<Func>(&self, f: Func, initial_guess: F) -> Result<F>
+    fn solve<Func>(&self, f: Func, initial_guess: f64) -> Result<f64>
     where
-        Func: Fn(F) -> F,
+        Func: Fn(f64) -> f64,
     {
         // Use automatic differentiation via finite differences
-        let derivative = |x: F| -> F {
+        let derivative = |x: f64| -> f64 {
             let f_plus = f(x + self.fd_step);
             let f_minus = f(x - self.fd_step);
             (f_plus - f_minus) / (2.0 * self.fd_step)
@@ -88,10 +88,10 @@ impl Solver for NewtonSolver {
 
 impl NewtonSolver {
     /// Core Newton-Raphson method implementation.
-    fn newton_method<Func, DFunc>(&self, f: Func, f_prime: DFunc, x0: F) -> Result<F>
+    fn newton_method<Func, DFunc>(&self, f: Func, f_prime: DFunc, x0: f64) -> Result<f64>
     where
-        Func: Fn(F) -> F,
-        DFunc: Fn(F) -> F,
+        Func: Fn(f64) -> f64,
+        DFunc: Fn(f64) -> f64,
     {
         use crate::error::InputError;
 
@@ -137,13 +137,13 @@ impl NewtonSolver {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BrentSolver {
     /// Convergence tolerance
-    pub tolerance: F,
+    pub tolerance: f64,
     /// Maximum iterations
     pub max_iterations: usize,
     /// Bracket expansion factor
-    pub bracket_expansion: F,
+    pub bracket_expansion: f64,
     /// Initial bracket size (adaptive to initial guess if None)
-    pub initial_bracket_size: Option<F>,
+    pub initial_bracket_size: Option<f64>,
 }
 
 impl Default for BrentSolver {
@@ -164,21 +164,21 @@ impl BrentSolver {
     }
 
     /// Set tolerance.
-    pub fn with_tolerance(mut self, tolerance: F) -> Self {
+    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
         self.tolerance = tolerance;
         self
     }
 
     /// Set initial bracket size. If None, will use adaptive sizing.
-    pub fn with_initial_bracket_size(mut self, size: Option<F>) -> Self {
+    pub fn with_initial_bracket_size(mut self, size: Option<f64>) -> Self {
         self.initial_bracket_size = size;
         self
     }
 
     /// Find bracket around the root starting from initial guess.
-    fn find_bracket<Func>(&self, f: &Func, initial_guess: F) -> Result<(F, F)>
+    fn find_bracket<Func>(&self, f: &Func, initial_guess: f64) -> Result<(f64, f64)>
     where
-        Func: Fn(F) -> F,
+        Func: Fn(f64) -> f64,
     {
         // Calculate adaptive initial bracket size
         let initial_size = self.initial_bracket_size.unwrap_or_else(|| {
@@ -214,9 +214,9 @@ impl BrentSolver {
 }
 
 impl Solver for BrentSolver {
-    fn solve<Func>(&self, f: Func, initial_guess: F) -> Result<F>
+    fn solve<Func>(&self, f: Func, initial_guess: f64) -> Result<f64>
     where
-        Func: Fn(F) -> F,
+        Func: Fn(f64) -> f64,
     {
         let (a, b) = self.find_bracket(&f, initial_guess)?;
         self.brent_method(f, a, b)
@@ -227,9 +227,9 @@ impl BrentSolver {
     /// Core Brent's method implementation.
     ///
     /// Requirements: `f(lo)` and `f(hi)` must have opposite signs.
-    fn brent_method<Func>(&self, mut f: Func, lo: F, hi: F) -> Result<F>
+    fn brent_method<Func>(&self, mut f: Func, lo: f64, hi: f64) -> Result<f64>
     where
-        Func: FnMut(F) -> F,
+        Func: FnMut(f64) -> f64,
     {
         use crate::error::InputError;
 
@@ -276,7 +276,7 @@ impl BrentSolver {
                 fc = fa;
             }
             // Convergence checks
-            let tol1 = 2.0 * F::EPSILON * b.abs() + 0.5 * self.tolerance;
+            let tol1 = 2.0 * f64::EPSILON * b.abs() + 0.5 * self.tolerance;
             let xm = 0.5 * (c - b);
             if xm.abs() <= tol1 || fb == 0.0 {
                 return Ok(b);
@@ -349,7 +349,7 @@ impl HybridSolver {
     ///
     /// This ensures consistent convergence criteria regardless of which
     /// method ultimately succeeds.
-    pub fn with_tolerance(mut self, tolerance: F) -> Self {
+    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
         self.newton.tolerance = tolerance;
         self.brent.tolerance = tolerance;
         self
@@ -366,9 +366,9 @@ impl HybridSolver {
 }
 
 impl Solver for HybridSolver {
-    fn solve<Func>(&self, f: Func, initial_guess: F) -> Result<F>
+    fn solve<Func>(&self, f: Func, initial_guess: f64) -> Result<f64>
     where
-        Func: Fn(F) -> F,
+        Func: Fn(f64) -> f64,
     {
         // Try Newton first
         match self.newton.solve(&f, initial_guess) {
@@ -390,7 +390,7 @@ mod tests {
         let solver = NewtonSolver::new();
 
         // Solve x^2 - 2 = 0 (root should be sqrt(2))
-        let f = |x: F| x * x - 2.0;
+        let f = |x: f64| x * x - 2.0;
         let root = solver.solve(f, 1.0).unwrap();
 
         assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
@@ -401,7 +401,7 @@ mod tests {
         let solver = BrentSolver::new();
 
         // Solve x^3 - x - 1 = 0 (has root around 1.32)
-        let f = |x: F| x * x * x - x - 1.0;
+        let f = |x: f64| x * x * x - x - 1.0;
         let root = solver.solve(f, 1.0).unwrap();
 
         assert!(f(root).abs() < 1e-10);
@@ -413,7 +413,7 @@ mod tests {
         let solver = HybridSolver::new();
 
         // Function with discontinuous derivative (Newton may fail)
-        let f = |x: F| if x > 0.0 { x - 1.0 } else { -x - 1.0 };
+        let f = |x: f64| if x > 0.0 { x - 1.0 } else { -x - 1.0 };
         let root = solver.solve(f, 0.5).unwrap();
 
         assert!(f(root).abs() < 1e-10);
@@ -425,7 +425,7 @@ mod tests {
         let solver = BrentSolver::new();
 
         // Solve x - 100 = 0 (root at x = 100)
-        let f = |x: F| x - 100.0;
+        let f = |x: f64| x - 100.0;
         let root = solver.solve(f, 95.0).unwrap(); // Start near the root
 
         assert!(f(root).abs() < 1e-10);

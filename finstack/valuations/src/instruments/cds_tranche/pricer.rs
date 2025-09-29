@@ -47,7 +47,7 @@ use finstack_core::math::{
     norm_cdf as standard_normal_cdf, norm_pdf, standard_normal_inv_cdf, GaussHermiteQuadrature,
 };
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 
 #[cfg(test)]
 use finstack_core::math::log_factorial;
@@ -61,31 +61,31 @@ pub struct CDSTranchePricerConfig {
     /// Whether to use issuer-specific curves if available
     pub use_issuer_curves: bool,
     /// Minimum correlation value for numerical stability
-    pub min_correlation: F,
+    pub min_correlation: f64,
     /// Maximum correlation value for numerical stability  
-    pub max_correlation: F,
+    pub max_correlation: f64,
     /// CS01 bump size (interpreted according to `cs01_bump_units`)
-    pub cs01_bump_size: F,
+    pub cs01_bump_size: f64,
     /// Units for CS01 bump: hazard-rate bp or spread bp (additive)
     pub cs01_bump_units: Cs01BumpUnits,
     /// Correlation bump for correlation delta calculation (absolute)
-    pub corr_bump_abs: F,
+    pub corr_bump_abs: f64,
     /// Whether to use mid-period discounting for protection leg (default coverage timing)
     pub mid_period_protection: bool,
     /// Whether to include accrual-on-default in the premium leg
     pub accrual_on_default_enabled: bool,
     /// Smooth boundary width for correlation clamping transitions
-    pub corr_boundary_width: F,
+    pub corr_boundary_width: f64,
     /// Fraction of incremental loss allocated to accrual-on-default (AoD)
-    pub aod_allocation_fraction: F,
+    pub aod_allocation_fraction: f64,
     /// Numerical tolerance used by integration and boundary checks
-    pub numerical_tolerance: F,
+    pub numerical_tolerance: f64,
     /// Clip parameter for CDF arguments to avoid overflow
-    pub cdf_clip: F,
+    pub cdf_clip: f64,
     /// Correlation band within which to use standard quadrature
-    pub adaptive_integration_low: F,
+    pub adaptive_integration_low: f64,
     /// Correlation band within which to use standard quadrature
-    pub adaptive_integration_high: F,
+    pub adaptive_integration_high: f64,
     /// Stub convention for schedule generation
     pub schedule_stub: StubKind,
     /// If true, generate ISDA coupon dates (IMM-20 schedule)
@@ -93,15 +93,15 @@ pub struct CDSTranchePricerConfig {
     /// Heterogeneous issuer method when issuer curves are available
     pub hetero_method: HeteroMethod,
     /// Grid step for exact convolution method (fraction of portfolio notional)
-    pub grid_step: F,
+    pub grid_step: f64,
     /// Minimum variance threshold for SPA to avoid division by zero
-    pub spa_variance_floor: F,
+    pub spa_variance_floor: f64,
     /// Probability clamp epsilon to avoid 0/1 extremes in probits/CDFs
-    pub probability_clip: F,
+    pub probability_clip: f64,
     /// LGD floor to avoid zero exposure in corner cases
-    pub lgd_floor: F,
+    pub lgd_floor: f64,
     /// Minimum grid step to avoid degenerate convolution buckets
-    pub grid_step_min: F,
+    pub grid_step_min: f64,
     /// Hard cap on convolution PMF points before falling back to SPA
     pub max_grid_points: usize,
 }
@@ -239,7 +239,7 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         index_data: &CreditIndexData,
         maturity: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let attach_pct = tranche.attach_pct;
         let detach_pct = tranche.detach_pct;
 
@@ -285,7 +285,7 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         index_data: &CreditIndexData,
         date: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let attach_pct = tranche.attach_pct;
         let detach_pct = tranche.detach_pct;
 
@@ -333,7 +333,7 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         index_data: &CreditIndexData,
         dates: &[Date],
-    ) -> Result<Vec<(Date, F)>> {
+    ) -> Result<Vec<(Date, f64)>> {
         let mut el_curve = Vec::with_capacity(dates.len());
 
         for &date in dates {
@@ -357,11 +357,11 @@ impl CDSTranchePricer {
     /// * `maturity` - Maturity date for loss calculation
     fn calculate_equity_tranche_loss(
         &self,
-        detachment_pct: F,
-        correlation: F,
+        detachment_pct: f64,
+        correlation: f64,
         index_data: &CreditIndexData,
         maturity: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Heterogeneous path if enabled and issuer curves present
         if self.params.use_issuer_curves && index_data.has_issuer_curves() {
             self.calculate_equity_tranche_loss_hetero(
@@ -380,7 +380,7 @@ impl CDSTranchePricer {
             let maturity_years = self.years_from_base(index_data, maturity);
             let default_prob = self.get_default_probability(index_data, maturity_years)?;
             let default_threshold = standard_normal_inv_cdf(default_prob);
-            let integrand = |z: F| {
+            let integrand = |z: f64| {
                 let p = self.conditional_default_probability_enhanced(
                     default_threshold,
                     correlation,
@@ -408,23 +408,23 @@ impl CDSTranchePricer {
     /// Heterogeneous equity tranche loss via semi-analytical SPA or exact convolution fallback
     fn calculate_equity_tranche_loss_hetero(
         &self,
-        detachment_pct: F,
-        correlation: F,
+        detachment_pct: f64,
+        correlation: f64,
         index_data: &CreditIndexData,
         maturity: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Precompute unconditional PD_i(t)
         let t = self.years_from_base(index_data, maturity);
         let recovery = index_data.recovery_rate;
         let lgd = 1.0 - recovery;
-        let weights = 1.0 / (index_data.num_constituents as F);
+        let weights = 1.0 / (index_data.num_constituents as f64);
         let tranche_width = detachment_pct / 100.0;
 
         // Quadrature setup
         let quad = self.select_quadrature();
 
         // Build unconditional PD_i and their probit thresholds
-        let mut pd_i: Vec<F> = Vec::with_capacity(index_data.num_constituents as usize);
+        let mut pd_i: Vec<f64> = Vec::with_capacity(index_data.num_constituents as usize);
         if let Some(curves) = &index_data.issuer_credit_curves {
             for _id in curves.keys() {
                 let curve = index_data.get_issuer_curve(_id);
@@ -448,7 +448,7 @@ impl CDSTranchePricer {
                 let maturity_years = t;
                 let default_prob = self.get_default_probability(index_data, maturity_years)?;
                 let default_threshold = standard_normal_inv_cdf(default_prob);
-                let integrand = |z: F| {
+                let integrand = |z: f64| {
                     let p = self.conditional_default_probability_enhanced(
                         default_threshold,
                         correlation,
@@ -473,13 +473,13 @@ impl CDSTranchePricer {
             }
         }
         let eps = self.params.probability_clip;
-        let probit_i: Vec<F> = pd_i
+        let probit_i: Vec<f64> = pd_i
             .iter()
             .map(|&p| standard_normal_inv_cdf(p.max(eps).min(1.0 - eps)))
             .collect();
 
         // Integrand over common factor Z
-        let integrand = |z: F| -> F {
+        let integrand = |z: f64| -> f64 {
             // Conditional default probs p_i(z)
             let sqrt_rho = correlation.sqrt();
             let sqrt_1mr = (1.0 - correlation).sqrt();
@@ -540,14 +540,14 @@ impl CDSTranchePricer {
     /// SPA-only helper for performance fallback from exact convolution
     fn calculate_equity_tranche_loss_hetero_spa_only(
         &self,
-        probit_i: &[F],
-        correlation: F,
-        k: F,
-        lgd: F,
-        weight: F,
-    ) -> F {
+        probit_i: &[f64],
+        correlation: f64,
+        k: f64,
+        lgd: f64,
+        weight: f64,
+    ) -> f64 {
         let quad = self.select_quadrature();
-        let integrand = |z: F| -> F {
+        let integrand = |z: f64| -> f64 {
             let sqrt_rho = correlation.sqrt();
             let sqrt_1mr = (1.0 - correlation).sqrt();
             let mut mean = 0.0;
@@ -578,12 +578,12 @@ impl CDSTranchePricer {
     /// Exact convolution fallback (coarse grid) for heterogeneous conditional equity tranche loss
     fn hetero_exact_convolution(
         &self,
-        detachment_pct: F,
-        correlation: F,
-        probit_i: &[F],
-        lgd: F,
-        weight: F,
-    ) -> F {
+        detachment_pct: f64,
+        correlation: f64,
+        probit_i: &[f64],
+        lgd: f64,
+        weight: f64,
+    ) -> f64 {
         // Coarse grid size and step (configurable in future)
         let k = detachment_pct / 100.0;
         let grid_step = self.params.grid_step.max(self.params.grid_step_min);
@@ -604,7 +604,7 @@ impl CDSTranchePricer {
         let sqrt_rho = correlation.sqrt();
         let sqrt_1mr = (1.0 - correlation).sqrt();
 
-        let integrand = |z: F| {
+        let integrand = |z: f64| {
             // Start with delta at 0 loss
             let mut pmf = vec![0.0f64; 1];
             pmf[0] = 1.0;
@@ -657,12 +657,12 @@ impl CDSTranchePricer {
     #[cfg(test)]
     fn conditional_default_probability(
         &self,
-        default_threshold: F,
-        correlation: F,
-        market_factor: F,
-    ) -> F {
+        default_threshold: f64,
+        correlation: f64,
+        market_factor: f64,
+    ) -> f64 {
         let sqrt_rho = correlation.sqrt();
-        let one_minus_rho: F = 1.0 - correlation;
+        let one_minus_rho: f64 = 1.0 - correlation;
         let sqrt_one_minus_rho = one_minus_rho.sqrt();
 
         let conditional_threshold =
@@ -678,10 +678,10 @@ impl CDSTranchePricer {
     /// P(default | Z) = Φ((Φ⁻¹(PD) - √ρ * Z) / √(1-ρ))
     fn conditional_default_probability_enhanced(
         &self,
-        default_threshold: F,
-        correlation: F,
-        market_factor: F,
-    ) -> F {
+        default_threshold: f64,
+        correlation: f64,
+        market_factor: f64,
+    ) -> f64 {
         // Apply smooth correlation boundaries to avoid numerical discontinuities
         let correlation = self.smooth_correlation_boundary(correlation);
 
@@ -704,7 +704,7 @@ impl CDSTranchePricer {
         let sqrt_one_minus_rho = if one_minus_rho < self.params.numerical_tolerance {
             self.params.numerical_tolerance.sqrt() // Minimum practical value to avoid division by zero
         } else {
-            let one_minus_rho: F = 1.0 - correlation;
+            let one_minus_rho: f64 = 1.0 - correlation;
             one_minus_rho.sqrt()
         };
 
@@ -723,7 +723,7 @@ impl CDSTranchePricer {
     ///
     /// Uses a smooth transition function near the boundaries to maintain numerical
     /// stability while preserving the underlying mathematical relationships.
-    fn smooth_correlation_boundary(&self, correlation: F) -> F {
+    fn smooth_correlation_boundary(&self, correlation: f64) -> f64 {
         let min_corr = self.params.min_correlation;
         let max_corr = self.params.max_correlation;
         let width = self.params.corr_boundary_width;
@@ -748,12 +748,12 @@ impl CDSTranchePricer {
     fn conditional_equity_tranche_loss(
         &self,
         num_constituents: usize,
-        detachment_notional: F,
-        conditional_default_prob: F,
-        recovery_rate: F,
-    ) -> F {
+        detachment_notional: f64,
+        conditional_default_prob: f64,
+        recovery_rate: f64,
+    ) -> f64 {
         let loss_given_default = 1.0 - recovery_rate;
-        let individual_notional = 1.0 / num_constituents as F; // Normalized to 1.0 total
+        let individual_notional = 1.0 / num_constituents as f64; // Normalized to 1.0 total
 
         let mut expected_loss = 0.0;
 
@@ -763,7 +763,7 @@ impl CDSTranchePricer {
                 binomial_probability(num_constituents, k, conditional_default_prob);
 
             // Portfolio loss given k defaults
-            let portfolio_loss = k as F * individual_notional * loss_given_default;
+            let portfolio_loss = k as f64 * individual_notional * loss_given_default;
 
             // Tranche loss (equity tranche [0, detachment_notional])
             let tranche_loss = portfolio_loss.min(detachment_notional);
@@ -785,7 +785,7 @@ impl CDSTranchePricer {
         index_data: &CreditIndexData,
         discount_curve: &dyn Discounting,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let coupon = tranche.running_coupon_bp / 10000.0; // Convert bp to decimal
         let tranche_notional = tranche.notional.amount();
 
@@ -869,7 +869,7 @@ impl CDSTranchePricer {
         index_data: &CreditIndexData,
         discount_curve: &dyn Discounting,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let tranche_notional = tranche.notional.amount();
 
         // Generate payment schedule and expected loss curve
@@ -910,14 +910,14 @@ impl CDSTranchePricer {
     fn get_default_probability(
         &self,
         index_data: &CreditIndexData,
-        maturity_years: F,
-    ) -> Result<F> {
+        maturity_years: f64,
+    ) -> Result<f64> {
         let survival_prob = index_data.index_credit_curve.sp(maturity_years);
         Ok(1.0 - survival_prob)
     }
 
     /// Calculate years from the credit curve base date.
-    fn years_from_base(&self, index_data: &CreditIndexData, date: Date) -> F {
+    fn years_from_base(&self, index_data: &CreditIndexData, date: Date) -> f64 {
         let dc = index_data.index_credit_curve.day_count();
         dc.year_fraction(
             index_data.index_credit_curve.base_date(),
@@ -934,13 +934,13 @@ impl CDSTranchePricer {
     fn bump_base_correlation(
         &self,
         original_curve: &finstack_core::market_data::term_structures::BaseCorrelationCurve,
-        bump_abs: F,
+        bump_abs: f64,
     ) -> finstack_core::Result<finstack_core::market_data::term_structures::BaseCorrelationCurve>
     {
         use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 
         // Extract original points and apply bump
-        let bumped_points: Vec<(F, F)> = original_curve
+        let bumped_points: Vec<(f64, f64)> = original_curve
             .detachment_points()
             .iter()
             .zip(original_curve.correlations().iter())
@@ -963,7 +963,7 @@ impl CDSTranchePricer {
     fn bump_index_hazard(
         &self,
         original_index: &CreditIndexData,
-        delta_lambda: F,
+        delta_lambda: f64,
     ) -> Result<CreditIndexData> {
         // Create bumped hazard curve
         let bumped_hazard_curve = original_index
@@ -1021,7 +1021,7 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let pv = self.price_tranche(tranche, market_ctx, as_of)?;
         Ok(pv.amount())
     }
@@ -1032,7 +1032,7 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Create bumped tranche with +1bp running coupon
         let mut bumped_tranche = tranche.clone();
         bumped_tranche.running_coupon_bp += 1.0;
@@ -1051,7 +1051,7 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let discount_curve = market_ctx.get_discount_ref(tranche.disc_id.clone())?;
         let index_data = match market_ctx.credit_index_ref(&tranche.credit_index_id) {
             Ok(data) => data,
@@ -1079,7 +1079,7 @@ impl CDSTranchePricer {
         &self,
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let index_data_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
         self.calculate_expected_tranche_loss(tranche, index_data_arc, tranche.maturity)
     }
@@ -1090,7 +1090,7 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Get base price
         let base_pv = self.price_tranche(tranche, market_ctx, as_of)?.amount();
 
@@ -1131,7 +1131,7 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Get base price
         let base_pv = self.price_tranche(tranche, market_ctx, as_of)?.amount();
 
@@ -1172,11 +1172,11 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
         _as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let index_data = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
 
         // For homogeneous pool, one name default impact
-        let individual_weight = 1.0 / (index_data.num_constituents as F); // Portfolio weight per name
+        let individual_weight = 1.0 / (index_data.num_constituents as f64); // Portfolio weight per name
         let loss_given_default = 1.0 - index_data.recovery_rate;
         let individual_loss = individual_weight * loss_given_default; // As fraction of portfolio
 
@@ -1677,7 +1677,7 @@ mod tests {
         // EL should be non-decreasing and bounded [0,1]
         // Allow for small numerical deviations due to base correlation model limitations
         // The base correlation model can have inconsistencies at knot points
-        const NUMERICAL_TOLERANCE: F = 0.01; // Allow up to 1% EL fraction decrease
+        const NUMERICAL_TOLERANCE: f64 = 0.01; // Allow up to 1% EL fraction decrease
 
         for (i, &(_, el_fraction)) in curve.iter().enumerate() {
             assert!(

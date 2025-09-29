@@ -5,13 +5,13 @@
 //! when requesting metrics-only runs that include PV.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 
 /// Returns PV from the metric context base value.
 pub struct FraPvCalculator;
 
 impl MetricCalculator for FraPvCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         Ok(context.base_value.amount())
     }
 }

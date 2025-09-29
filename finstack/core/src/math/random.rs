@@ -6,7 +6,6 @@
 //! For production use with advanced generators (PCG, etc.), implement
 //! the RandomNumberGenerator trait in the consuming crates.
 
-use crate::F;
 
 /// Random number generator trait for statistical sampling.
 ///
@@ -14,13 +13,13 @@ use crate::F;
 /// and stochastic sampling algorithms.
 pub trait RandomNumberGenerator {
     /// Generate uniform random number in [0, 1)
-    fn uniform(&mut self) -> F;
+    fn uniform(&mut self) -> f64;
 
     /// Generate normal random number with specified mean and standard deviation
-    fn normal(&mut self, mean: F, std_dev: F) -> F;
+    fn normal(&mut self, mean: f64, std_dev: f64) -> f64;
 
     /// Generate Bernoulli random boolean with probability p
-    fn bernoulli(&mut self, p: F) -> bool;
+    fn bernoulli(&mut self, p: f64) -> bool;
 }
 
 /// Simple deterministic RNG for testing and basic simulations.
@@ -31,7 +30,7 @@ pub trait RandomNumberGenerator {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SimpleRng {
     state: u64,
-    cached_normal: Option<F>, // Instance-based cache for Box-Muller
+    cached_normal: Option<f64>, // Instance-based cache for Box-Muller
 }
 
 impl SimpleRng {
@@ -52,13 +51,13 @@ impl SimpleRng {
 }
 
 impl RandomNumberGenerator for SimpleRng {
-    fn uniform(&mut self) -> F {
+    fn uniform(&mut self) -> f64 {
         // Convert to [0, 1) using upper bits for better quality
         let bits = self.next_u64() >> 11; // Use upper 53 bits for double precision
-        (bits as F) / (1u64 << 53) as F
+        (bits as f64) / (1u64 << 53) as f64
     }
 
-    fn normal(&mut self, mean: F, std_dev: F) -> F {
+    fn normal(&mut self, mean: f64, std_dev: f64) -> f64 {
         // Box-Muller transform with instance-based cache
         if let Some(cached) = self.cached_normal.take() {
             return mean + std_dev * cached;
@@ -75,7 +74,7 @@ impl RandomNumberGenerator for SimpleRng {
         mean + z0
     }
 
-    fn bernoulli(&mut self, p: F) -> bool {
+    fn bernoulli(&mut self, p: f64) -> bool {
         self.uniform() < p
     }
 }

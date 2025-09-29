@@ -14,7 +14,6 @@
 //! ```
 
 use super::random::RandomNumberGenerator;
-use crate::F;
 
 /// Calculate binomial probability: P(X = k) where X ~ Binomial(n, p)
 ///
@@ -27,7 +26,7 @@ use crate::F;
 ///
 /// # Returns
 /// The probability P(X = k)
-pub fn binomial_probability(n: usize, k: usize, p: F) -> F {
+pub fn binomial_probability(n: usize, k: usize, p: f64) -> f64 {
     if k > n {
         return 0.0;
     }
@@ -40,7 +39,7 @@ pub fn binomial_probability(n: usize, k: usize, p: F) -> F {
 
     // Use log-space calculation to avoid overflow for large n
     let log_prob =
-        log_binomial_coefficient(n, k) + (k as F) * p.ln() + ((n - k) as F) * (1.0 - p).ln();
+        log_binomial_coefficient(n, k) + (k as f64) * p.ln() + ((n - k) as f64) * (1.0 - p).ln();
     log_prob.exp()
 }
 
@@ -54,9 +53,9 @@ pub fn binomial_probability(n: usize, k: usize, p: F) -> F {
 ///
 /// # Returns
 /// ln(n! / (k! * (n-k)!))
-pub fn log_binomial_coefficient(n: usize, k: usize) -> F {
+pub fn log_binomial_coefficient(n: usize, k: usize) -> f64 {
     if k > n {
-        return F::NEG_INFINITY;
+        return f64::NEG_INFINITY;
     }
     if k == 0 || k == n {
         return 0.0;
@@ -74,16 +73,16 @@ pub fn log_binomial_coefficient(n: usize, k: usize) -> F {
 ///
 /// # Returns
 /// ln(n!)
-pub fn log_factorial(n: usize) -> F {
+pub fn log_factorial(n: usize) -> f64 {
     if n == 0 || n == 1 {
         return 0.0;
     }
     if n < 20 {
         // Exact calculation for small n: ln(n!) = ln(1) + ln(2) + ... + ln(n)
-        (2..=n).map(|i| (i as F).ln()).sum()
+        (2..=n).map(|i| (i as f64).ln()).sum()
     } else {
         // Stirling's approximation: ln(n!) ≈ n*ln(n) - n + 0.5*ln(2πn)
-        let n_f = n as F;
+        let n_f = n as f64;
         n_f * n_f.ln() - n_f + 0.5 * (2.0 * std::f64::consts::PI * n_f).ln()
     }
 }
@@ -100,7 +99,7 @@ pub fn log_factorial(n: usize) -> F {
 ///
 /// # Returns
 /// Random sample from Beta(alpha, beta) distribution
-pub fn sample_beta(rng: &mut dyn RandomNumberGenerator, alpha: F, beta: F) -> F {
+pub fn sample_beta(rng: &mut dyn RandomNumberGenerator, alpha: f64, beta: f64) -> f64 {
     // Use inverse transform for simple cases
     if alpha == 1.0 && beta == 1.0 {
         return rng.uniform();
@@ -162,7 +161,7 @@ mod tests {
         // Test edge cases
         assert_eq!(log_binomial_coefficient(5, 0), 0.0);
         assert_eq!(log_binomial_coefficient(5, 5), 0.0);
-        assert_eq!(log_binomial_coefficient(3, 5), F::NEG_INFINITY);
+        assert_eq!(log_binomial_coefficient(3, 5), f64::NEG_INFINITY);
     }
 
     #[test]
@@ -176,7 +175,7 @@ mod tests {
         assert!((0.0..=1.0).contains(&uniform_sample));
 
         // Test that samples are in [0, 1]
-        let samples: Vec<F> = (0..100)
+        let samples: Vec<f64> = (0..100)
             .map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 2.0, 2.0))
             .collect();
         for sample in samples {

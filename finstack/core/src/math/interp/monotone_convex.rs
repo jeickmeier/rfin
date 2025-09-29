@@ -1,6 +1,6 @@
 use super::InterpFn;
 use crate::math::interp::utils::validate_knots;
-use crate::{math::interp::ExtrapolationPolicy, F};
+use crate::{math::interp::ExtrapolationPolicy};
 use std::boxed::Box;
 use std::vec::Vec;
 
@@ -30,9 +30,9 @@ use std::vec::Vec;
 #[derive(Debug)]
 pub struct MonotoneConvex {
     /// Knot times _tᵢ_ (strictly increasing).  Length ≥ 2.
-    knots: Box<[F]>,
+    knots: Box<[f64]>,
     /// Original discount factors _P(tᵢ)_.  Same length as `knots`.
-    dfs: Box<[F]>,
+    dfs: Box<[f64]>,
     /// Per-segment cubic coefficients (a,b,c,d) in ln-DF space.
     /// For segment i with normalized parameter s ∈ [0,1]:
     /// y(s) = a + b*s + c*s² + d*s³ where y = -ln(P)
@@ -43,7 +43,7 @@ pub struct MonotoneConvex {
     /// - c = 3*m[i] - 2*d[i] - d[i+1] (ensures C¹ continuity)
     /// - d = d[i] + d[i+1] - 2*m[i] (ensures slope constraints)
     ///   where m[i] is the secant slope and d[i] are the monotone derivatives.
-    coeffs: Box<[(F, F, F, F)]>,
+    coeffs: Box<[(f64, f64, f64, f64)]>,
     /// Extrapolation policy for out-of-bounds evaluation.
     extrapolation: ExtrapolationPolicy,
 }
@@ -65,8 +65,8 @@ impl MonotoneConvex {
     /// * `InputError::Invalid`             – DF increases between knots.
     #[allow(clippy::boxed_local)]
     pub fn new(
-        knots: Box<[F]>,
-        dfs: Box<[F]>,
+        knots: Box<[f64]>,
+        dfs: Box<[f64]>,
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), dfs.len());
@@ -89,16 +89,16 @@ impl MonotoneConvex {
 
     /// Compute cubic coefficients for each segment according to the
     /// Hagan–West monotone–convex algorithm.
-    fn build_coeffs(knots: &[F], dfs: &[F]) -> Box<[(F, F, F, F)]> {
+    fn build_coeffs(knots: &[f64], dfs: &[f64]) -> Box<[(f64, f64, f64, f64)]> {
         let n = knots.len();
         debug_assert!(n >= 2);
 
         // Convert to continuously-compounded zero yields y = −ln P.
-        let y: Vec<F> = dfs.iter().map(|&p| -p.ln()).collect();
+        let y: Vec<f64> = dfs.iter().map(|&p| -p.ln()).collect();
 
         // Δt and secant slopes m_i
-        let mut dt: Vec<F> = Vec::with_capacity(n - 1);
-        let mut m: Vec<F> = Vec::with_capacity(n - 1);
+        let mut dt: Vec<f64> = Vec::with_capacity(n - 1);
+        let mut m: Vec<f64> = Vec::with_capacity(n - 1);
         for i in 0..n - 1 {
             let h = knots[i + 1] - knots[i];
             dt.push(h);
@@ -106,7 +106,7 @@ impl MonotoneConvex {
         }
 
         // Step 1: initial derivatives d_i using monotone slope selection.
-        let mut d: Vec<F> = vec![0.0; n];
+        let mut d: Vec<f64> = vec![0.0; n];
         d[0] = m[0];
         d[n - 1] = m[n - 2];
         for i in 1..n - 1 {
@@ -146,7 +146,7 @@ impl MonotoneConvex {
         // Construct coefficients (a,b,c,d) for each segment's cubic polynomial.
         // These coefficients define y(s) = a + b*s + c*s² + d*s³ in normalized
         // coordinates where s ∈ [0,1] spans each segment.
-        let mut coeffs: Vec<(F, F, F, F)> = Vec::with_capacity(n - 1);
+        let mut coeffs: Vec<(f64, f64, f64, f64)> = Vec::with_capacity(n - 1);
         for i in 0..n - 1 {
             let h = dt[i];
             let a = y[i]; // y-value at left endpoint
@@ -169,7 +169,7 @@ impl MonotoneConvex {
 }
 
 impl InterpFn for MonotoneConvex {
-    fn interp(&self, x: F) -> F {
+    fn interp(&self, x: f64) -> f64 {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
             return match self.extrapolation {
@@ -215,7 +215,7 @@ impl InterpFn for MonotoneConvex {
         (-y).exp()
     }
 
-    fn interp_prime(&self, x: F) -> F {
+    fn interp_prime(&self, x: f64) -> f64 {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
             return match self.extrapolation {
@@ -274,7 +274,7 @@ impl InterpFn for MonotoneConvex {
 /// This threshold is used to:
 /// - Avoid harmonic mean calculation when slopes are near zero
 /// - Skip convexity constraint scaling for flat segments
-pub(crate) const EPS: F = F::EPSILON * 100.0;
+pub(crate) const EPS: f64 = f64::EPSILON * 100.0;
 
 #[cfg(feature = "serde")]
 impl serde::Serialize for MonotoneConvex {
@@ -285,8 +285,8 @@ impl serde::Serialize for MonotoneConvex {
         use serde::Serialize;
         #[derive(Serialize)]
         struct MonotoneConvexData<'a> {
-            knots: &'a [F],
-            dfs: &'a [F],
+            knots: &'a [f64],
+            dfs: &'a [f64],
             extrapolation: ExtrapolationPolicy,
         }
         let data = MonotoneConvexData {
@@ -307,8 +307,8 @@ impl<'de> serde::Deserialize<'de> for MonotoneConvex {
         use serde::Deserialize;
         #[derive(Deserialize)]
         struct MonotoneConvexData {
-            knots: Vec<F>,
-            dfs: Vec<F>,
+            knots: Vec<f64>,
+            dfs: Vec<f64>,
             extrapolation: ExtrapolationPolicy,
         }
         let data = MonotoneConvexData::deserialize(deserializer)?;

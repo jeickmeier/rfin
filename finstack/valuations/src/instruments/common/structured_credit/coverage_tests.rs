@@ -2,7 +2,7 @@
 
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::F;
+
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
@@ -30,9 +30,9 @@ pub struct TestDefinition {
     /// How to calculate denominator
     pub denominator: DenominatorDefinition,
     /// Required minimum level
-    pub trigger_level: F,
+    pub trigger_level: f64,
     /// Higher level required to cure breach
-    pub cure_level: Option<F>,
+    pub cure_level: Option<f64>,
 }
 
 /// Definition of test numerator calculation
@@ -42,7 +42,7 @@ pub enum NumeratorDefinition {
     /// Pool principal adjusted for defaults and haircuts
     AdjustedPoolPrincipal {
         /// Haircuts by rating for market value adjustments
-        haircuts: HashMap<CreditRating, F>,
+        haircuts: HashMap<CreditRating, f64>,
         /// Whether to exclude defaulted assets
         exclude_defaulted: bool,
         /// Whether to apply recovery assumptions
@@ -55,7 +55,7 @@ pub enum NumeratorDefinition {
         /// Include interest from recoveries
         include_recoveries: bool,
         /// Annualization factor
-        annualization_factor: F,
+        annualization_factor: f64,
     },
     /// Par value of performing assets
     ParValue {
@@ -83,7 +83,7 @@ pub enum DenominatorDefinition {
         /// Tranche identifiers
         tranches: Vec<String>,
         /// Annualization factor
-        annualization_factor: F,
+        annualization_factor: f64,
     },
     /// Custom calculation
     Custom { description: String },
@@ -94,13 +94,13 @@ pub enum DenominatorDefinition {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TestResults {
     /// OC ratios by tranche
-    pub oc_ratios: HashMap<String, F>,
+    pub oc_ratios: HashMap<String, f64>,
     /// IC ratios by tranche
-    pub ic_ratios: HashMap<String, F>,
+    pub ic_ratios: HashMap<String, f64>,
     /// Par value test ratio
-    pub par_value_ratio: Option<F>,
+    pub par_value_ratio: Option<f64>,
     /// Custom test results
-    pub custom_results: HashMap<String, F>,
+    pub custom_results: HashMap<String, f64>,
     /// List of breached tests
     pub breached_tests: Vec<BreachedTest>,
     /// Payment diversion details
@@ -113,8 +113,8 @@ pub struct TestResults {
 pub struct BreachedTest {
     pub test_name: String,
     pub tranche_id: String,
-    pub current_level: F,
-    pub required_level: F,
+    pub current_level: f64,
+    pub required_level: f64,
     pub breach_date: Date,
     pub consequences_applied: Vec<TriggerConsequence>,
 }
@@ -177,8 +177,8 @@ impl CoverageTests {
     pub fn add_oc_test(
         &mut self,
         tranche_id: String,
-        trigger_level: F,
-        cure_level: Option<F>,
+        trigger_level: f64,
+        cure_level: Option<f64>,
     ) -> &mut Self {
         let test_name = format!("{}_OC", tranche_id);
         let test_def = TestDefinition {
@@ -203,8 +203,8 @@ impl CoverageTests {
     pub fn add_ic_test(
         &mut self,
         tranche_id: String,
-        trigger_level: F,
-        cure_level: Option<F>,
+        trigger_level: f64,
+        cure_level: Option<f64>,
     ) -> &mut Self {
         let test_name = format!("{}_IC", tranche_id);
         let test_def = TestDefinition {
@@ -300,12 +300,12 @@ impl CoverageTests {
         test_def: &TestDefinition,
         pool: &AssetPool,
         tranches: &TrancheStructure,
-    ) -> finstack_core::Result<F> {
+    ) -> finstack_core::Result<f64> {
         let numerator = self.calculate_numerator(&test_def.numerator, pool)?;
         let denominator = self.calculate_denominator(&test_def.denominator, pool, tranches)?;
 
         if denominator == 0.0 {
-            Ok(F::INFINITY) // Perfect coverage when denominator is zero
+            Ok(f64::INFINITY) // Perfect coverage when denominator is zero
         } else {
             Ok(numerator / denominator)
         }
@@ -316,7 +316,7 @@ impl CoverageTests {
         &self,
         def: &NumeratorDefinition,
         pool: &AssetPool,
-    ) -> finstack_core::Result<F> {
+    ) -> finstack_core::Result<f64> {
         match def {
             NumeratorDefinition::AdjustedPoolPrincipal {
                 haircuts,
@@ -382,7 +382,7 @@ impl CoverageTests {
         def: &DenominatorDefinition,
         _pool: &AssetPool,
         tranches: &TrancheStructure,
-    ) -> finstack_core::Result<F> {
+    ) -> finstack_core::Result<f64> {
         match def {
             DenominatorDefinition::SeniorTranches { up_to_seniority } => {
                 let total = tranches
@@ -441,7 +441,7 @@ impl CoverageTests {
     }
 
     /// Default haircuts by credit rating
-    fn default_haircuts() -> HashMap<CreditRating, F> {
+    fn default_haircuts() -> HashMap<CreditRating, f64> {
         let mut haircuts = HashMap::new();
         haircuts.insert(CreditRating::AAA, 0.0);
         haircuts.insert(CreditRating::AA, 0.0);
@@ -473,8 +473,8 @@ impl CoverageTestEngine {
         pool: &AssetPool,
         tranche: &AbsTranche,
         tranches: &TrancheStructure,
-        haircuts: &HashMap<CreditRating, F>,
-    ) -> F {
+        haircuts: &HashMap<CreditRating, f64>,
+    ) -> f64 {
         // Numerator: Adjusted pool value
         let mut pool_value = 0.0;
         for asset in &pool.assets {
@@ -501,7 +501,7 @@ impl CoverageTestEngine {
         let denominator = senior_balance + tranche.current_balance.amount();
 
         if denominator == 0.0 {
-            F::INFINITY
+            f64::INFINITY
         } else {
             pool_value / denominator
         }
@@ -512,8 +512,8 @@ impl CoverageTestEngine {
         pool: &AssetPool,
         tranche: &AbsTranche,
         tranches: &TrancheStructure,
-        annualization_factor: F,
-    ) -> F {
+        annualization_factor: f64,
+    ) -> f64 {
         // Numerator: Pool interest (annualized)
         let pool_interest =
             pool.weighted_avg_coupon() * pool.performing_balance().amount() * annualization_factor;
@@ -536,19 +536,19 @@ impl CoverageTestEngine {
         interest_due += tranche.current_balance.amount() * rate * annualization_factor;
 
         if interest_due == 0.0 {
-            F::INFINITY
+            f64::INFINITY
         } else {
             pool_interest / interest_due
         }
     }
 
     /// Calculate par value test ratio
-    pub fn calculate_par_value_ratio(pool: &AssetPool, tranches: &TrancheStructure) -> F {
+    pub fn calculate_par_value_ratio(pool: &AssetPool, tranches: &TrancheStructure) -> f64 {
         let par_value = pool.performing_balance().amount();
         let aggregate_tranche_balance = tranches.total_size.amount();
 
         if aggregate_tranche_balance == 0.0 {
-            F::INFINITY
+            f64::INFINITY
         } else {
             par_value / aggregate_tranche_balance
         }

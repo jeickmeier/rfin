@@ -8,7 +8,7 @@ use crate::cashflow::builder::CashFlowSchedule;
 use crate::cashflow::primitives::AmortizationSpec;
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_core::types::CurveId;
-use finstack_core::F;
+
 
 /// Specification for how bond cashflows should be generated.
 ///
@@ -19,7 +19,7 @@ pub enum CashflowSpec {
     /// Standard fixed-rate bond with regular coupon payments.
     Fixed {
         /// Annual coupon rate (e.g., 0.05 for 5%).
-        coupon: F,
+        coupon: f64,
         /// Payment frequency.
         freq: Frequency,
         /// Day count convention for accrual.
@@ -31,9 +31,9 @@ pub enum CashflowSpec {
         /// Forward curve identifier for the floating index.
         index_id: CurveId,
         /// Margin over the index in basis points.
-        margin_bp: F,
+        margin_bp: f64,
         /// Gearing multiplier on the index rate.
-        gearing: F,
+        gearing: f64,
         /// Reset lag in days.
         reset_lag_days: i32,
         /// Payment frequency.
@@ -56,12 +56,12 @@ pub enum CashflowSpec {
 
 impl CashflowSpec {
     /// Create a standard fixed-rate specification.
-    pub fn fixed(coupon: F, freq: Frequency, dc: DayCount) -> Self {
+    pub fn fixed(coupon: f64, freq: Frequency, dc: DayCount) -> Self {
         Self::Fixed { coupon, freq, dc }
     }
 
     /// Create a floating-rate specification.
-    pub fn floating(index_id: CurveId, margin_bp: F, freq: Frequency, dc: DayCount) -> Self {
+    pub fn floating(index_id: CurveId, margin_bp: f64, freq: Frequency, dc: DayCount) -> Self {
         Self::Floating {
             index_id,
             margin_bp,

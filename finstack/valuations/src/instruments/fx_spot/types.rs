@@ -11,7 +11,7 @@ use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::money::fx::FxProvider;
 use finstack_core::prelude::*;
 use finstack_core::types::InstrumentId;
-use finstack_core::F;
+
 
 /// FX Spot instrument (1 unit of `base` priced in `quote`).
 ///
@@ -36,7 +36,7 @@ pub struct FxSpot {
     pub settlement_lag_days: Option<i32>,
     /// Optional spot rate (if not provided, will look up from market data)
     #[builder(optional)]
-    pub spot_rate: Option<F>,
+    pub spot_rate: Option<f64>,
     /// Optional notional amount in base currency (defaults to 1)
     #[builder(optional)]
     pub notional: Option<Money>,
@@ -115,7 +115,7 @@ impl FxSpot {
     }
 
     /// Set the spot rate
-    pub fn with_rate(mut self, rate: F) -> Self {
+    pub fn with_rate(mut self, rate: f64) -> Self {
         self.spot_rate = Some(rate);
         self
     }

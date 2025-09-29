@@ -14,7 +14,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 use std::sync::Arc;
 use time::Duration;
 
@@ -130,7 +130,7 @@ impl InflationSource {
         }
     }
 
-    fn ratio(&self, bond: &InflationLinkedBond, date: Date) -> Result<F> {
+    fn ratio(&self, bond: &InflationLinkedBond, date: Date) -> Result<f64> {
         match self {
             Self::Index(index) => bond.index_ratio(date, index.as_ref()),
             Self::Curve(curve) => bond.index_ratio_from_curve(date, curve.as_ref()),
@@ -146,7 +146,7 @@ pub struct InflationLinkedBond {
     /// Notional amount (in real terms)
     pub notional: Money,
     /// Real coupon rate (as decimal)
-    pub real_coupon: F,
+    pub real_coupon: f64,
     /// Coupon frequency
     pub freq: Frequency,
     /// Day count convention
@@ -156,7 +156,7 @@ pub struct InflationLinkedBond {
     /// Maturity date
     pub maturity: Date,
     /// Base CPI/index value at issue
-    pub base_index: F,
+    pub base_index: f64,
     /// Base date for index (may differ from issue date)
     pub base_date: Date,
     /// Indexation method
@@ -176,7 +176,7 @@ pub struct InflationLinkedBond {
     /// Inflation index identifier
     pub inflation_id: CurveId,
     /// Quoted clean price (if available)
-    pub quoted_clean: Option<F>,
+    pub quoted_clean: Option<f64>,
     /// Additional attributes
     pub attributes: Attributes,
 }
@@ -248,7 +248,7 @@ impl InflationLinkedBond {
     }
 
     /// Calculate index ratio for a given date
-    pub fn index_ratio(&self, date: Date, inflation_index: &InflationIndex) -> Result<F> {
+    pub fn index_ratio(&self, date: Date, inflation_index: &InflationIndex) -> Result<f64> {
         // Validate interpolation policy vs indexation method for common standards
         match self.indexation_method {
             IndexationMethod::TIPS | IndexationMethod::Canadian => {
@@ -300,7 +300,7 @@ impl InflationLinkedBond {
         &self,
         date: Date,
         inflation_curve: &InflationCurve,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let reference_date = match self.lag {
             InflationLag::Months(m) => finstack_core::dates::add_months(date, -(m as i32)),
             InflationLag::Days(d) => date - Duration::days(d as i64),
@@ -338,7 +338,7 @@ impl InflationLinkedBond {
     }
 
     /// Calculate index ratio sourcing inflation data from the market context
-    pub fn index_ratio_from_market(&self, date: Date, curves: &MarketContext) -> Result<F> {
+    pub fn index_ratio_from_market(&self, date: Date, curves: &MarketContext) -> Result<f64> {
         let source = self.inflation_source(curves)?;
         source.ratio(self, date)
     }
@@ -382,7 +382,7 @@ impl InflationLinkedBond {
     }
 
     /// Calculate real yield (yield in real terms, before inflation)
-    pub fn real_yield(&self, clean_price: F, curves: &MarketContext, as_of: Date) -> Result<F> {
+    pub fn real_yield(&self, clean_price: f64, curves: &MarketContext, as_of: Date) -> Result<f64> {
         use crate::instruments::bond::pricing::helpers::YieldCompounding;
         use crate::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
 
@@ -421,10 +421,10 @@ impl InflationLinkedBond {
     /// Calculate breakeven inflation rate
     pub fn breakeven_inflation(
         &self,
-        nominal_bond_yield: F,
+        nominal_bond_yield: f64,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<F> {
+    ) -> finstack_core::Result<f64> {
         let real_yield = self.real_yield(self.quoted_clean.unwrap_or(100.0), curves, as_of)?;
 
         // Fisher equation: (1 + nominal) = (1 + real) * (1 + inflation)
@@ -433,7 +433,7 @@ impl InflationLinkedBond {
     }
 
     /// Calculate inflation-adjusted duration
-    pub fn real_duration(&self, curves: &MarketContext, as_of: Date) -> Result<F> {
+    pub fn real_duration(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
         // Determine a base clean price to center the bump around
         let base_clean = self.quoted_clean.unwrap_or(100.0);
         // Compute base yield
@@ -446,7 +446,7 @@ impl InflationLinkedBond {
         };
         let flows = self.build_schedule(curves, as_of)?;
         // Convert price from ytm helpers returns currency units; convert back to clean per-100 notionally
-        let price_from_yield = |y: f64| -> F {
+        let price_from_yield = |y: f64| -> f64 {
             price_from_ytm_compounded_params(
                 self.dc,
                 self.freq,

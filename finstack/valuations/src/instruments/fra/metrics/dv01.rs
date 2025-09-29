@@ -7,13 +7,13 @@
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::F;
+
 
 /// Analytic DV01 for FRAs.
 pub struct FraDv01Calculator;
 
 impl MetricCalculator for FraDv01Calculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let fra: &ForwardRateAgreement = context.instrument_as()?;
 
         let disc = context.curves.get_discount_ref(fra.disc_id.as_str())?;

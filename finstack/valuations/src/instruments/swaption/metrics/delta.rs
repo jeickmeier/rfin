@@ -8,13 +8,13 @@ use crate::instruments::common::parameters::OptionType;
 use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
-use finstack_core::F;
+
 
 /// Delta calculator for swaptions
 pub struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
         let disc = context.curves.get_discount_ref(option.disc_id.as_ref())?;
         let t = option.year_fraction(context.as_of, option.expiry, option.day_count)?;

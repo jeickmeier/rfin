@@ -5,7 +5,7 @@
 
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::MetricContext;
-use finstack_core::F;
+
 
 /// Iterate over caplets/floorlets and aggregate contributions.
 ///
@@ -16,9 +16,9 @@ pub fn aggregate_over_caplets<FN>(
     option: &InterestRateOption,
     context: &MetricContext,
     mut f: FN,
-) -> finstack_core::Result<F>
+) -> finstack_core::Result<f64>
 where
-    FN: FnMut(F, F, F) -> F,
+    FN: FnMut(f64, f64, f64) -> f64,
 {
     // Get market curves
     let disc_curve = context.curves.get_discount_ref(option.disc_id.as_ref())?;
@@ -28,7 +28,7 @@ where
     // Helper to compute contribution for a single period
     let mut accumulate = |start: finstack_core::dates::Date,
                           end: finstack_core::dates::Date|
-     -> finstack_core::Result<F> {
+     -> finstack_core::Result<f64> {
         let t_fix = option.day_count.year_fraction(
             base_date,
             start,

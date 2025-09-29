@@ -6,7 +6,7 @@
 use crate::instruments::{irs::ParRateMethod, InterestRateSwap};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
-use finstack_core::F;
+
 
 /// Par rate calculator for IRS.
 pub struct ParRateCalculator;
@@ -16,7 +16,7 @@ impl MetricCalculator for ParRateCalculator {
         &[MetricId::Annuity]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
         let disc = context.curves.get_discount(irs.fixed.disc_id.clone())?;

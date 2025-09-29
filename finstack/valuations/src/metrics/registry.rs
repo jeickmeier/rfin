@@ -6,7 +6,7 @@
 
 use super::ids::MetricId;
 use super::traits::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 use hashbrown::HashMap;
 use std::sync::Arc;
 
@@ -243,7 +243,7 @@ impl MetricRegistry {
         &self,
         metric_ids: &[MetricId],
         context: &mut MetricContext,
-    ) -> finstack_core::Result<HashMap<MetricId, F>> {
+    ) -> finstack_core::Result<HashMap<MetricId, f64>> {
         // Build dependency graph and compute order for this instrument type
         let instrument_type = instrument_type_tag(context.instrument.key());
         let order = self.resolve_dependencies(metric_ids, instrument_type)?;
@@ -302,7 +302,7 @@ impl MetricRegistry {
     pub fn compute_all(
         &self,
         context: &mut MetricContext,
-    ) -> finstack_core::Result<HashMap<MetricId, F>> {
+    ) -> finstack_core::Result<HashMap<MetricId, f64>> {
         let instrument_type = instrument_type_tag(context.instrument.key());
         let applicable = self.metrics_for_instrument(instrument_type);
         self.compute(&applicable, context)

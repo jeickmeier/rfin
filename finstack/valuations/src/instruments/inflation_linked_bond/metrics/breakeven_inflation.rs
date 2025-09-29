@@ -3,13 +3,13 @@
 use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
-use finstack_core::F;
+
 
 /// Breakeven inflation calculator for ILB
 pub struct BreakevenInflationCalculator;
 
 impl MetricCalculator for BreakevenInflationCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let ilb: &InflationLinkedBond = context.instrument_as()?;
         let curves = context.curves.as_ref();
         let disc_curve = curves.get_discount_ref(ilb.disc_id.as_str())?;

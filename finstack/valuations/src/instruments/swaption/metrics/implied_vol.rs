@@ -9,13 +9,13 @@ use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::prelude::Result;
-use finstack_core::F;
+
 
 /// Implied Volatility calculator for swaptions
 pub struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
 
         // Fetch discount curve
@@ -31,7 +31,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         let target_pv = context.base_value.amount();
 
         // Build objective in log-vol space x = ln(sigma)
-        let f = |x: F| -> F {
+        let f = |x: f64| -> f64 {
             let sigma = x.exp();
             // Use Black pricing along the same path as instrument pricing (not SABR)
             // since we are solving for the equivalent Black vol.

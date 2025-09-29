@@ -1,6 +1,6 @@
 //! Calibration reporting and diagnostics.
 
-use finstack_core::F;
+
 use std::collections::BTreeMap;
 
 /// Calibration diagnostic report.
@@ -9,15 +9,15 @@ pub struct CalibrationReport {
     /// Calibration success flag
     pub success: bool,
     /// Final residuals by instrument
-    pub residuals: BTreeMap<String, F>,
+    pub residuals: BTreeMap<String, f64>,
     /// Number of iterations taken
     pub iterations: usize,
     /// Final objective function value
-    pub objective_value: F,
+    pub objective_value: f64,
     /// Maximum absolute residual
-    pub max_residual: F,
+    pub max_residual: f64,
     /// Root mean square error
-    pub rmse: F,
+    pub rmse: f64,
     /// Convergence reason
     pub convergence_reason: String,
     /// Calibration metadata
@@ -27,7 +27,7 @@ pub struct CalibrationReport {
 impl CalibrationReport {
     /// Convenience constructor covering the common case of a completed calibration.
     pub fn new(
-        residuals: BTreeMap<String, F>,
+        residuals: BTreeMap<String, f64>,
         iterations: usize,
         success: bool,
         convergence_reason: impl Into<String>,
@@ -36,7 +36,7 @@ impl CalibrationReport {
         // hard failure doesn't drown out useful residual magnitudes. If all
         // residuals are penalties, we fall back to the raw max.
         let penalty = crate::calibration::PENALTY;
-        let finite_vals: Vec<F> = residuals
+        let finite_vals: Vec<f64> = residuals
             .values()
             .copied()
             .filter(|r| r.is_finite() && r.abs() < penalty * 0.5)
@@ -49,11 +49,11 @@ impl CalibrationReport {
         let rmse = if residuals.is_empty() {
             0.0
         } else if finite_vals.is_empty() {
-            let sum_sq: F = residuals.values().map(|r| r * r).sum();
-            (sum_sq / residuals.len() as F).sqrt()
+            let sum_sq: f64 = residuals.values().map(|r| r * r).sum();
+            (sum_sq / residuals.len() as f64).sqrt()
         } else {
-            let sum_sq: F = finite_vals.iter().map(|r| r * r).sum();
-            (sum_sq / finite_vals.len() as F).sqrt()
+            let sum_sq: f64 = finite_vals.iter().map(|r| r * r).sum();
+            (sum_sq / finite_vals.len() as f64).sqrt()
         };
 
         Self {
@@ -83,7 +83,7 @@ impl CalibrationReport {
 
     pub fn for_type(
         calibration_type: impl Into<String>,
-        residuals: BTreeMap<String, F>,
+        residuals: BTreeMap<String, f64>,
         iterations: usize,
     ) -> Self {
         let type_str = calibration_type.into();
@@ -98,9 +98,9 @@ impl Default for CalibrationReport {
             success: false,
             residuals: BTreeMap::new(),
             iterations: 0,
-            objective_value: F::INFINITY,
-            max_residual: F::INFINITY,
-            rmse: F::INFINITY,
+            objective_value: f64::INFINITY,
+            max_residual: f64::INFINITY,
+            rmse: f64::INFINITY,
             convergence_reason: "Not started".to_string(),
             metadata: BTreeMap::new(),
         }

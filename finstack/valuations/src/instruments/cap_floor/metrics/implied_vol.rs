@@ -7,13 +7,13 @@ use crate::instruments::cap_floor::pricing::black::{price_caplet_floorlet, Caple
 use crate::instruments::cap_floor::{InterestRateOption, RateOptionType};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Implied volatility calculator using Black model
 pub struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &InterestRateOption = context.instrument_as()?;
 
         // Need market price to solve for implied volatility
@@ -74,7 +74,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         };
 
         // Objective function: Black price - market price = 0
-        let objective = |vol: F| {
+        let objective = |vol: f64| {
             if vol <= 0.0 {
                 return market_price; // High error for negative vols
             }

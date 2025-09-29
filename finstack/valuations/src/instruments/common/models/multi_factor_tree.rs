@@ -9,7 +9,7 @@
 //!       optimizations are deferred (see TODOs in `tree_framework`).
 
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 use super::tree_framework::{NodeState, StateVariables, TreeModel, TreeValuator};
 
@@ -29,7 +29,7 @@ pub struct MultiFactorConfig {
     /// Number of time steps shared across factors.
     pub steps: usize,
     /// Correlation matrix (row-major N×N). Dimensions must match `factors.len()`.
-    pub correlation: Vec<F>,
+    pub correlation: Vec<f64>,
     /// Factor descriptors (ordering must match correlation).
     pub factor_types: Vec<FactorType>,
 }
@@ -64,10 +64,10 @@ impl TreeModel for MultiFactorTree {
     fn price<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         if self.config.steps == 0 {
             return Err(Error::Internal);
         }

@@ -9,7 +9,7 @@ use finstack_core::dates::Date;
 use finstack_core::dates::{BusinessDayConvention, DayCountCtx, StubKind};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::F;
+
 use time::Duration;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,19 +24,19 @@ pub enum YieldCompounding {
 #[inline]
 pub fn periods_per_year(
     freq: finstack_core::dates::Frequency,
-) -> finstack_core::Result<finstack_core::F> {
+) -> finstack_core::Result<f64> {
     match freq {
         finstack_core::dates::Frequency::Months(m) => {
             if m == 0 {
                 return Err(finstack_core::error::InputError::Invalid.into());
             }
-            Ok(12.0 / (m as finstack_core::F))
+            Ok(12.0 / (m as f64))
         }
         finstack_core::dates::Frequency::Days(d) => {
             if d == 0 {
                 return Err(finstack_core::error::InputError::Invalid.into());
             }
-            Ok(365.0 / (d as finstack_core::F))
+            Ok(365.0 / (d as f64))
         }
         _ => Err(finstack_core::error::InputError::Invalid.into()),
     }
@@ -44,11 +44,11 @@ pub fn periods_per_year(
 
 #[inline]
 pub fn df_from_yield(
-    ytm: finstack_core::F,
-    t: finstack_core::F,
+    ytm: f64,
+    t: f64,
     comp: YieldCompounding,
     bond_freq: finstack_core::dates::Frequency,
-) -> finstack_core::Result<finstack_core::F> {
+) -> finstack_core::Result<f64> {
     if t <= 0.0 {
         return Ok(1.0);
     }
@@ -56,7 +56,7 @@ pub fn df_from_yield(
         YieldCompounding::Simple => 1.0 / (1.0 + ytm * t),
         YieldCompounding::Annual => (1.0 + ytm).powf(-t),
         YieldCompounding::Periodic(m) => {
-            let m = m as finstack_core::F;
+            let m = m as f64;
             (1.0 + ytm / m).powf(-m * t)
         }
         YieldCompounding::Continuous => (-ytm * t).exp(),
@@ -71,8 +71,8 @@ pub fn price_from_ytm(
     bond: &Bond,
     flows: &[(finstack_core::dates::Date, finstack_core::money::Money)],
     as_of: finstack_core::dates::Date,
-    ytm: finstack_core::F,
-) -> finstack_core::Result<finstack_core::F> {
+    ytm: f64,
+) -> finstack_core::Result<f64> {
     price_from_ytm_compounded(bond, flows, as_of, ytm, YieldCompounding::Street)
 }
 
@@ -83,9 +83,9 @@ pub fn price_from_ytm_compounded_params(
     freq: finstack_core::dates::Frequency,
     flows: &[(finstack_core::dates::Date, finstack_core::money::Money)],
     as_of: finstack_core::dates::Date,
-    ytm: finstack_core::F,
+    ytm: f64,
     comp: YieldCompounding,
-) -> finstack_core::Result<finstack_core::F> {
+) -> finstack_core::Result<f64> {
     let mut pv = 0.0;
     for &(date, amount) in flows {
         if date <= as_of {
@@ -106,9 +106,9 @@ pub fn price_from_ytm_compounded(
     bond: &Bond,
     flows: &[(finstack_core::dates::Date, finstack_core::money::Money)],
     as_of: finstack_core::dates::Date,
-    ytm: finstack_core::F,
+    ytm: f64,
     comp: YieldCompounding,
-) -> finstack_core::Result<finstack_core::F> {
+) -> finstack_core::Result<f64> {
     price_from_ytm_compounded_params(bond.dc, bond.freq, flows, as_of, ytm, comp)
 }
 
@@ -118,7 +118,7 @@ pub fn price_from_ytw(
     curves: &MarketContext,
     as_of: Date,
     dirty_price_target: Money,
-) -> finstack_core::Result<F> {
+) -> finstack_core::Result<f64> {
     // Build or reuse flows
     let flows = bond.build_schedule(curves, as_of)?;
 
@@ -177,8 +177,8 @@ pub fn price_from_z_spread(
     bond: &Bond,
     curves: &MarketContext,
     as_of: Date,
-    z: F,
-) -> finstack_core::Result<F> {
+    z: f64,
+) -> finstack_core::Result<f64> {
     let flows = bond.build_schedule(curves, as_of)?;
     let disc = curves.get_discount_ref(bond.disc_id.clone())?;
     let base_date = disc.base_date();
@@ -203,8 +203,8 @@ pub fn price_from_oas(
     bond: &Bond,
     curves: &MarketContext,
     as_of: Date,
-    oas_bp: F,
-) -> finstack_core::Result<F> {
+    oas_bp: f64,
+) -> finstack_core::Result<f64> {
     // Use the short-rate tree directly to price at a given OAS
     use crate::instruments::bond::pricing::tree_pricer::BondValuator;
     use crate::instruments::common::models::{
@@ -232,8 +232,8 @@ fn price_from_annuity_spread(
     bond: &Bond,
     curves: &MarketContext,
     as_of: Date,
-    spread: F,
-) -> finstack_core::Result<F> {
+    spread: f64,
+) -> finstack_core::Result<f64> {
     let flows = bond.build_schedule(curves, as_of)?;
     let disc = curves.get_discount_ref(bond.disc_id.clone())?;
     let mut pv = 0.0;
@@ -266,8 +266,8 @@ pub fn price_from_i_spread(
     bond: &Bond,
     curves: &MarketContext,
     as_of: Date,
-    i_spread: F,
-) -> finstack_core::Result<F> {
+    i_spread: f64,
+) -> finstack_core::Result<f64> {
     price_from_annuity_spread(bond, curves, as_of, i_spread)
 }
 
@@ -276,8 +276,8 @@ pub fn price_from_asw_spread(
     bond: &Bond,
     curves: &MarketContext,
     as_of: Date,
-    asw_spread: F,
-) -> finstack_core::Result<F> {
+    asw_spread: f64,
+) -> finstack_core::Result<f64> {
     price_from_annuity_spread(bond, curves, as_of, asw_spread)
 }
 
@@ -286,8 +286,8 @@ pub fn price_from_dm(
     bond: &Bond,
     curves: &MarketContext,
     as_of: Date,
-    dm: F,
-) -> finstack_core::Result<F> {
+    dm: f64,
+) -> finstack_core::Result<f64> {
     if bond.float.is_none() {
         return Ok(bond.value(curves, as_of)?.amount());
     }
@@ -311,7 +311,7 @@ pub fn default_schedule_params() -> (StubKind, BusinessDayConvention, Option<&'s
 pub fn compute_accrued_interest(
     bond: &Bond,
     as_of: finstack_core::dates::Date,
-) -> finstack_core::Result<F> {
+) -> finstack_core::Result<f64> {
     use crate::cashflow::primitives::CFKind;
     // Prefer custom coupon flows when available
     if let Some(ref custom) = bond.custom_cashflows {
@@ -390,7 +390,7 @@ pub fn compute_accrued_interest_with_context(
     bond: &Bond,
     curves: &MarketContext,
     as_of: finstack_core::dates::Date,
-) -> finstack_core::Result<F> {
+) -> finstack_core::Result<f64> {
     // If fixed or custom flows exist, fall back to standard helper and return
     if bond.float.is_none() || bond.custom_cashflows.is_some() {
         return compute_accrued_interest(bond, as_of);

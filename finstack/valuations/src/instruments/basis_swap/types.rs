@@ -9,7 +9,7 @@ use finstack_core::{
     market_data::MarketContext,
     money::Money,
     types::{CurveId, InstrumentId},
-    Result, F,
+    Result,
 };
 
 // Re-export from common parameters
@@ -27,7 +27,7 @@ struct _RemovedBasisSwapLeg {
     /// Business day convention for date adjustments.
     pub bdc: BusinessDayConvention,
     /// Optional spread in decimal form (e.g., 0.0005 for 5 basis points).
-    pub spread: F,
+    pub spread: f64,
 }
 
 /// Basis swap instrument that exchanges two floating rate payments with different tenors.
@@ -249,7 +249,7 @@ impl BasisSwap {
         leg: &BasisSwapLeg,
         schedule: &PeriodSchedule,
         curves: &MarketContext,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let disc = curves.get_discount_ref(self.discount_curve_id.clone())?;
         let mut annuity = 0.0;
         let mut prev = schedule.dates[0];

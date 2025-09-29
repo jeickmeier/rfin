@@ -7,7 +7,7 @@
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::error::InputError;
 use finstack_core::math::solver::{HybridSolver, Solver};
-use finstack_core::F;
+
 
 /// Calculates XIRR (Extended Internal Rate of Return) for a series of cash flows.
 ///
@@ -29,7 +29,7 @@ use finstack_core::F;
 /// - Cannot converge to a solution within tolerance
 ///
 /// See unit tests and `examples/` for usage.
-pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result<F> {
+pub fn xirr(cash_flows: &[(Date, f64)], guess: Option<f64>) -> finstack_core::Result<f64> {
     // Validate inputs
     if cash_flows.len() < 2 {
         return Err(InputError::TooFewPoints.into());
@@ -44,7 +44,7 @@ pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result
     let dc = DayCount::Act365F; // Standard day count for XIRR
 
     // Precompute (year_fraction, amount) once for performance
-    let years_and_amounts: Vec<(F, F)> = cash_flows
+    let years_and_amounts: Vec<(f64, f64)> = cash_flows
         .iter()
         .map(|&(date, amount)| {
             let years = dc
@@ -59,7 +59,7 @@ pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result
         .collect();
 
     // NPV function for root finding
-    let npv = |rate: F| -> F {
+    let npv = |rate: f64| -> f64 {
         let mut sum = 0.0;
         for &(years, amount) in &years_and_amounts {
             let discount = (1.0 + rate).powf(years);
@@ -78,7 +78,7 @@ pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result
 }
 
 /// Checks if cash flows have at least one sign change.
-fn has_sign_change(cash_flows: &[(Date, F)]) -> bool {
+fn has_sign_change(cash_flows: &[(Date, f64)]) -> bool {
     if cash_flows.len() < 2 {
         return false;
     }
@@ -226,7 +226,7 @@ mod tests {
         assert!(npv.abs() < 1.0); // NPV should be very close to zero
     }
 
-    fn compute_npv(flows: &[(Date, F)], rate: F) -> F {
+    fn compute_npv(flows: &[(Date, f64)], rate: f64) -> f64 {
         let first_date = flows[0].0;
         let dc = DayCount::Act365F;
         let mut sum = 0.0;

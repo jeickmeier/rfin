@@ -21,7 +21,7 @@ use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -30,12 +30,12 @@ use finstack_core::money::Money;
 #[derive(Clone, Debug)]
 pub struct TreePricerConfig {
     pub tree_steps: usize,
-    pub volatility: F,
-    pub tolerance: F,
+    pub volatility: f64,
+    pub tolerance: f64,
     pub max_iterations: usize,
     /// Optional initial bracket size (in basis points) for the root solver.
     /// Defaults to 1000 bps when `None`.
-    pub initial_bracket_size_bp: Option<F>,
+    pub initial_bracket_size_bp: Option<f64>,
 }
 
 impl Default for TreePricerConfig {
@@ -52,23 +52,23 @@ impl Default for TreePricerConfig {
 
 pub struct BondValuator {
     bond: Bond,
-    coupon_map: HashMap<usize, F>,
-    call_map: HashMap<usize, F>,
-    put_map: HashMap<usize, F>,
-    time_steps: Vec<F>,
+    coupon_map: HashMap<usize, f64>,
+    call_map: HashMap<usize, f64>,
+    put_map: HashMap<usize, f64>,
+    time_steps: Vec<f64>,
     /// Optional recovery rate sourced from a hazard curve in MarketContext
-    recovery_rate: Option<F>,
+    recovery_rate: Option<f64>,
 }
 
 impl BondValuator {
     pub fn new(
         bond: Bond,
         market_context: &MarketContext,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         tree_steps: usize,
     ) -> Result<Self> {
-        let dt = time_to_maturity / tree_steps as F;
-        let time_steps: Vec<F> = (0..=tree_steps).map(|i| i as F * dt).collect();
+        let dt = time_to_maturity / tree_steps as f64;
+        let time_steps: Vec<f64> = (0..=tree_steps).map(|i| i as f64 * dt).collect();
 
         let curves = market_context;
         let base_date = market_context
@@ -88,7 +88,7 @@ impl BondValuator {
                     )
                     .unwrap_or(0.0);
                 // Map to the nearest forward step using ceil and clamp to [1, tree_steps]
-                let raw = (time_frac / time_to_maturity) * tree_steps as F;
+                let raw = (time_frac / time_to_maturity) * tree_steps as f64;
                 let mut step = raw.ceil() as usize;
                 if step == 0 {
                     step = 1;
@@ -113,7 +113,7 @@ impl BondValuator {
                             finstack_core::dates::DayCountCtx::default(),
                         )
                         .unwrap_or(0.0);
-                    let raw = (time_frac / time_to_maturity) * tree_steps as F;
+                    let raw = (time_frac / time_to_maturity) * tree_steps as f64;
                     let mut step = raw.ceil() as usize;
                     if step == 0 {
                         step = 1;
@@ -135,7 +135,7 @@ impl BondValuator {
                             finstack_core::dates::DayCountCtx::default(),
                         )
                         .unwrap_or(0.0);
-                    let raw = (time_frac / time_to_maturity) * tree_steps as F;
+                    let raw = (time_frac / time_to_maturity) * tree_steps as f64;
                     let mut step = raw.ceil() as usize;
                     if step == 0 {
                         step = 1;
@@ -152,7 +152,7 @@ impl BondValuator {
         // Try to source recovery rate from a hazard curve whose ID matches the bond's credit curve ID.
         // Convention: credit (hazard) curve ID == hazard curve ID. For compatibility, we also try a
         // fallback suffix of "-CREDIT".
-        let mut recovery_rate: Option<F> = None;
+        let mut recovery_rate: Option<f64> = None;
         if let Ok(hc) = market_context.get_hazard(bond.disc_id.as_str()) {
             recovery_rate = Some(hc.recovery_rate());
         } else if let Ok(hc) =
@@ -173,13 +173,13 @@ impl BondValuator {
 }
 
 impl TreeValuator for BondValuator {
-    fn value_at_maturity(&self, _state: &NodeState) -> Result<F> {
+    fn value_at_maturity(&self, _state: &NodeState) -> Result<f64> {
         let final_step = self.time_steps.len() - 1;
         let cashflow = self.coupon_map.get(&final_step).copied().unwrap_or(0.0);
         Ok(cashflow)
     }
 
-    fn value_at_node(&self, state: &NodeState, continuation_value: F) -> Result<F> {
+    fn value_at_node(&self, state: &NodeState, continuation_value: f64) -> Result<f64> {
         let step = state.step;
         let coupon = self.coupon_map.get(&step).copied().unwrap_or(0.0);
 
@@ -234,8 +234,8 @@ impl TreePricer {
         bond: &Bond,
         market_context: &MarketContext,
         as_of: Date,
-        clean_price_pct_of_par: F,
-    ) -> Result<F> {
+        clean_price_pct_of_par: f64,
+    ) -> Result<f64> {
         // clean_price_pct_of_par is expected to be the CLEAN price quoted in percent of par.
         // Convert to currency and add accrued interest (currency) to form the dirty target.
         let accrued_ccy = self.calculate_accrued_interest(bond, market_context, as_of)?;
@@ -300,7 +300,7 @@ impl TreePricer {
             self.config.tree_steps,
         )?;
 
-        let objective_fn = |oas: F| -> F {
+        let objective_fn = |oas: f64| -> f64 {
             let mut vars = StateVariables::new();
             if use_rates_credit {
                 vars.insert(tf_keys::INTEREST_RATE, discount_curve.zero(0.0));
@@ -355,7 +355,7 @@ impl TreePricer {
         bond: &Bond,
         _market_context: &MarketContext,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Prefer context-aware helper for FRNs; MarketContext available here
         super::helpers::compute_accrued_interest_with_context(bond, _market_context, as_of)
     }
@@ -371,8 +371,8 @@ pub fn calculate_oas(
     bond: &Bond,
     market_context: &MarketContext,
     as_of: Date,
-    clean_price: F,
-) -> Result<F> {
+    clean_price: f64,
+) -> Result<f64> {
     let calculator = TreePricer::new();
     calculator.calculate_oas(bond, market_context, as_of, clean_price)
 }

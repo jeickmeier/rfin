@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::types::id::IndexId;
 use finstack_core::types::CurveId;
-use finstack_core::F;
+
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -87,7 +87,7 @@ pub struct EquityUnderlyingParams {
     /// Optional dividend yield identifier
     pub dividend_yield_id: Option<String>,
     /// Contract size (shares per contract)
-    pub contract_size: F,
+    pub contract_size: f64,
     /// Base currency for pricing
     pub currency: Currency,
 }
@@ -111,7 +111,7 @@ impl EquityUnderlyingParams {
     }
 
     /// Set contract size
-    pub fn with_contract_size(mut self, size: F) -> Self {
+    pub fn with_contract_size(mut self, size: f64) -> Self {
         self.contract_size = size;
         self
     }
@@ -142,7 +142,7 @@ pub struct IndexUnderlyingParams {
     /// Optional convexity identifier for risk calculations
     pub convexity_id: Option<String>,
     /// Contract size (index units per contract, defaults to 1.0)
-    pub contract_size: F,
+    pub contract_size: f64,
 }
 
 impl IndexUnderlyingParams {
@@ -177,7 +177,7 @@ impl IndexUnderlyingParams {
     }
 
     /// Set contract size
-    pub fn with_contract_size(mut self, size: F) -> Self {
+    pub fn with_contract_size(mut self, size: f64) -> Self {
         self.contract_size = size;
         self
     }

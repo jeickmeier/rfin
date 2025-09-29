@@ -1,4 +1,4 @@
-use finstack_core::F;
+
 use serde::{Deserialize, Serialize};
 
 /// Covenant check result.
@@ -11,10 +11,10 @@ pub struct CovenantReport {
     pub passed: bool,
 
     /// Actual value of the metric
-    pub actual_value: Option<F>,
+    pub actual_value: Option<f64>,
 
     /// Required threshold
-    pub threshold: Option<F>,
+    pub threshold: Option<f64>,
 
     /// Details or explanation
     pub details: Option<String>,
@@ -44,13 +44,13 @@ impl CovenantReport {
     }
 
     /// Add actual value to the report.
-    pub fn with_actual(mut self, value: F) -> Self {
+    pub fn with_actual(mut self, value: f64) -> Self {
         self.actual_value = Some(value);
         self
     }
 
     /// Add threshold to the report.
-    pub fn with_threshold(mut self, threshold: F) -> Self {
+    pub fn with_threshold(mut self, threshold: f64) -> Self {
         self.threshold = Some(threshold);
         self
     }

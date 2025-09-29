@@ -369,7 +369,7 @@ from_numeric_tuple!(f64, i64, u64);
 #[macro_export]
 macro_rules! money {
     ($amount:expr, $code:ident) => {
-        $crate::money::Money::new($amount as f64, $crate::currency::Currency::$code)
+        $crate::money::Money::new($amount, $crate::currency::Currency::$code)
     };
 }
 

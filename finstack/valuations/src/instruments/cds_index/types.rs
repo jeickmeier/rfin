@@ -37,7 +37,7 @@ pub struct CDSIndexConstituent {
     /// Credit configuration for the issuer (includes hazard curve id and recovery)
     pub credit: CreditParams,
     /// Weight of the issuer in the index notional (e.g., 1/125.0 for CDX IG)
-    pub weight: finstack_core::F,
+    pub weight: f64,
 }
 
 /// CDS Index instrument definition
@@ -54,7 +54,7 @@ pub struct CDSIndex {
     /// Notional amount of the index
     pub notional: Money,
     /// Index factor (fraction of surviving notional since series inception)
-    pub index_factor: finstack_core::F,
+    pub index_factor: f64,
     /// Protection buyer/seller perspective
     pub side: CdsPayReceive,
     /// Regional ISDA convention
@@ -164,7 +164,7 @@ impl CDSIndex {
             self.pricing = IndexPricing::SingleCurve;
             return self;
         }
-        let w = 1.0 / (list.len() as finstack_core::F);
+        let w = 1.0 / (list.len() as f64);
         self.constituents = list
             .into_iter()
             .map(|credit| CDSIndexConstituent { credit, weight: w })
@@ -220,7 +220,7 @@ impl CDSIndex {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
         pricer.par_spread(self, curves, as_of)
     }
@@ -230,7 +230,7 @@ impl CDSIndex {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
         pricer.risky_pv01(self, curves, as_of)
     }
@@ -240,7 +240,7 @@ impl CDSIndex {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
         pricer.cs01(self, curves, as_of)
     }

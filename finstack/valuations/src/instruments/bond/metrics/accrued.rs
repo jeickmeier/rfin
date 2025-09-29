@@ -1,7 +1,7 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 
 /// Calculates accrued interest for bonds.
 ///
@@ -13,7 +13,7 @@ use finstack_core::F;
 pub struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         // Borrow bond once to compute accrued and optionally cache flows/hints
         let (accrued_amt, disc_id, dc, maybe_flows) = {
             let bond: &Bond = context.instrument_as()?;

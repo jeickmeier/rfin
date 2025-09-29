@@ -21,7 +21,7 @@ pub enum ExprNode {
     /// Reference a column by name.
     Column(String),
     /// Literal scalar value using the crate's numeric type alias.
-    Literal(crate::F),
+    Literal(f64),
     /// Call a registered function with positional arguments.
     Call(Function, Vec<Expr>),
 }
@@ -36,7 +36,7 @@ impl Expr {
     }
 
     /// Create a new literal value.
-    pub fn literal(value: crate::F) -> Self {
+    pub fn literal(value: f64) -> Self {
         Self {
             id: None,
             node: ExprNode::Literal(value),
@@ -167,7 +167,7 @@ pub enum Function {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EvaluationResult {
     /// The computed values.
-    pub values: Vec<crate::F>,
+    pub values: Vec<f64>,
     /// Execution metadata stamped into result.
     pub metadata: crate::config::ResultsMeta,
 }

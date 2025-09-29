@@ -7,7 +7,7 @@ use finstack_core::dates::Frequency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, HybridSolver, Solver};
 use finstack_core::money::Money;
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 use super::helpers::YieldCompounding;
 
@@ -15,14 +15,14 @@ use super::helpers::YieldCompounding;
 pub struct YtmPricingSpec {
     pub day_count: DayCount,
     pub notional: Money,
-    pub coupon_rate: F,
+    pub coupon_rate: f64,
     pub compounding: YieldCompounding,
     pub frequency: Frequency,
 }
 
 #[derive(Clone, Debug)]
 pub struct YtmSolverConfig {
-    pub tolerance: F,
+    pub tolerance: f64,
     pub max_iterations: usize,
     pub use_smart_guess: bool,
     pub use_newton: bool,
@@ -65,7 +65,7 @@ impl YtmSolver {
         as_of: Date,
         target_price: Money,
         spec: YtmPricingSpec,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let target = target_price.amount();
         if target <= 0.0 {
             return Err(finstack_core::Error::from(
@@ -117,11 +117,11 @@ impl YtmSolver {
         &self,
         cashflows: &[(Date, Money)],
         as_of: Date,
-        yield_rate: F,
+        yield_rate: f64,
         day_count: DayCount,
         comp: YieldCompounding,
         freq: Frequency,
-    ) -> F {
+    ) -> f64 {
         super::helpers::price_from_ytm_compounded_params(
             day_count, freq, cashflows, as_of, yield_rate, comp,
         )
@@ -135,8 +135,8 @@ impl YtmSolver {
         target_price: Money,
         day_count: DayCount,
         notional: Money,
-        coupon_rate: F,
-    ) -> Result<F> {
+        coupon_rate: f64,
+    ) -> Result<f64> {
         let current_yield = coupon_rate * notional.amount() / target_price.amount();
         let maturity = cashflows
             .last()
@@ -164,7 +164,7 @@ pub fn solve_ytm(
     as_of: Date,
     target_price: Money,
     spec: YtmPricingSpec,
-) -> Result<F> {
+) -> Result<f64> {
     let solver = YtmSolver::new();
     solver.solve(cashflows, as_of, target_price, spec)
 }

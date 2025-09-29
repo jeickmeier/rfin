@@ -11,7 +11,7 @@ use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_core::F;
+
 
 use super::parameters::CdsOptionParams;
 
@@ -21,7 +21,7 @@ pub struct CdsOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Strike spread in basis points
-    pub strike_spread_bp: F,
+    pub strike_spread_bp: f64,
     /// Option type (Call = right to buy protection, Put = right to sell protection)
     pub option_type: OptionType,
     /// Exercise style
@@ -37,7 +37,7 @@ pub struct CdsOption {
     /// Settlement type
     pub settlement: SettlementType,
     /// Recovery rate assumption
-    pub recovery_rate: F,
+    pub recovery_rate: f64,
     /// Discount curve identifier
     pub disc_id: finstack_core::types::CurveId,
     /// Hazard curve identifier
@@ -51,9 +51,9 @@ pub struct CdsOption {
     /// If true, the underlying is a CDS index; else single-name CDS
     pub underlying_is_index: bool,
     /// Optional index factor scaling for index underlying
-    pub index_factor: Option<F>,
+    pub index_factor: Option<f64>,
     /// Forward spread adjustment (bp) to apply for forward computation
-    pub forward_spread_adjust_bp: F,
+    pub forward_spread_adjust_bp: f64,
 }
 
 impl CdsOption {
@@ -110,7 +110,7 @@ impl CdsOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
@@ -153,7 +153,7 @@ impl CdsOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
@@ -196,7 +196,7 @@ impl CdsOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
@@ -239,7 +239,7 @@ impl CdsOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let t = self.day_count.year_fraction(
             as_of,
             self.expiry,
@@ -286,9 +286,9 @@ impl CdsOption {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
-        target_price: finstack_core::F,
-        initial_guess: Option<finstack_core::F>,
-    ) -> finstack_core::Result<finstack_core::F> {
+        target_price: f64,
+        initial_guess: Option<f64>,
+    ) -> finstack_core::Result<f64> {
         let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
         pricer.implied_vol(self, curves, as_of, target_price, initial_guess)
     }

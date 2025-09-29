@@ -1,6 +1,6 @@
 use crate::instruments::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::F;
+
 
 /// Calculates implied DF(end) from quoted rate.
 ///
@@ -16,7 +16,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
         &[MetricId::DfStart, MetricId::Yf]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let deposit: &Deposit = context.instrument_as()?;
 
         let r = deposit.quote_rate.ok_or_else(|| {

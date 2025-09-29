@@ -6,13 +6,13 @@
 use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
-use finstack_core::F;
+
 
 /// Rho calculator for swaptions (per 1%)
 pub struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
         let disc = context.curves.get_discount(option.disc_id.clone())?;
 

@@ -1,5 +1,5 @@
 use super::InterpFn;
-use crate::{error::InputError, math::interp::ExtrapolationPolicy, F};
+use crate::{error::InputError, math::interp::ExtrapolationPolicy};
 
 /// Piece-wise linear interpolation on discount factors.
 ///
@@ -7,8 +7,8 @@ use crate::{error::InputError, math::interp::ExtrapolationPolicy, F};
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LinearDf {
-    knots: Box<[F]>,
-    dfs: Box<[F]>,
+    knots: Box<[f64]>,
+    dfs: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
 }
 
@@ -20,8 +20,8 @@ impl LinearDf {
     /// or the data is invalid.
     #[allow(clippy::boxed_local)]
     pub fn new(
-        knots: Box<[F]>,
-        dfs: Box<[F]>,
+        knots: Box<[f64]>,
+        dfs: Box<[f64]>,
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), dfs.len());
@@ -50,7 +50,7 @@ impl LinearDf {
 
 impl LinearDf {
     #[inline]
-    fn segment_slope(&self, left_index: usize, right_index: usize) -> F {
+    fn segment_slope(&self, left_index: usize, right_index: usize) -> f64 {
         let x0 = self.knots[left_index];
         let x1 = self.knots[right_index];
         let y0 = self.dfs[left_index];
@@ -60,7 +60,7 @@ impl LinearDf {
 }
 
 impl InterpFn for LinearDf {
-    fn interp(&self, x: F) -> F {
+    fn interp(&self, x: f64) -> f64 {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
             return match self.extrapolation {
@@ -99,7 +99,7 @@ impl InterpFn for LinearDf {
         df0 + w * (df1 - df0)
     }
 
-    fn interp_prime(&self, x: F) -> F {
+    fn interp_prime(&self, x: f64) -> f64 {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
             return match self.extrapolation {

@@ -8,13 +8,13 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::DateExt;
 use finstack_core::prelude::Result;
-use finstack_core::F;
+
 
 /// Theta calculator for swaptions (daily)
 pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
 
         // Base PV from context

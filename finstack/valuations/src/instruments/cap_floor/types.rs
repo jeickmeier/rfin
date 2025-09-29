@@ -6,7 +6,7 @@ use crate::instruments::{ExerciseStyle, SettlementType};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+
 
 use super::parameters::InterestRateOptionParams;
 
@@ -33,7 +33,7 @@ pub struct InterestRateOption {
     /// Notional amount
     pub notional: Money,
     /// Strike rate (as decimal, e.g., 0.05 for 5%)
-    pub strike_rate: F,
+    pub strike_rate: f64,
     /// Start date of underlying period
     pub start_date: Date,
     /// End date of underlying period
@@ -102,7 +102,7 @@ impl InterestRateOption {
     pub fn new_cap(
         id: impl Into<InstrumentId>,
         notional: Money,
-        strike_rate: F,
+        strike_rate: f64,
         start_date: Date,
         end_date: Date,
         frequency: Frequency,
@@ -129,7 +129,7 @@ impl InterestRateOption {
     pub fn new_floor(
         id: impl Into<InstrumentId>,
         notional: Money,
-        strike_rate: F,
+        strike_rate: f64,
         start_date: Date,
         end_date: Date,
         frequency: Frequency,

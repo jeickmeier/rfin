@@ -29,7 +29,7 @@ use crate::{
     market_data::traits::{Discounting, TermStructure},
     math::interp::types::Interp,
     types::CurveId,
-    F,
+
 };
 
 /// Piece-wise discount factor curve supporting several interpolation styles.
@@ -40,9 +40,9 @@ pub struct DiscountCurve {
     /// Day-count basis used to convert dates → time for discounting.
     day_count: DayCount,
     /// Knot times in **years**.
-    knots: Box<[F]>,
+    knots: Box<[f64]>,
     /// Discount factors (unitless).
-    dfs: Box<[F]>,
+    dfs: Box<[f64]>,
     interp: Interp,
     /// Interpolation style (stored for serialization and bumping)
     style: InterpStyle,
@@ -96,7 +96,7 @@ impl DiscountCurve {
 
     /// Continuously-compounded zero rate.
     #[inline]
-    pub fn zero(&self, t: F) -> F {
+    pub fn zero(&self, t: f64) -> f64 {
         if t == 0.0 {
             return 0.0;
         }
@@ -105,7 +105,7 @@ impl DiscountCurve {
 
     /// Simple forward rate between `t1` and `t2`.
     #[inline]
-    pub fn forward(&self, t1: F, t2: F) -> F {
+    pub fn forward(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1, "forward requires t2 > t1");
         let z1 = self.zero(t1) * t1;
         let z2 = self.zero(t2) * t2;
@@ -115,7 +115,7 @@ impl DiscountCurve {
     /// Batch evaluation helper (parallel over `times` slice when compiled
     /// with the `parallel` feature).
     #[cfg_attr(docsrs, doc(cfg(feature = "parallel")))]
-    pub fn df_batch(&self, times: &[F]) -> Vec<F> {
+    pub fn df_batch(&self, times: &[f64]) -> Vec<f64> {
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
@@ -133,7 +133,7 @@ impl DiscountCurve {
     /// the curve base `base` and `day_count`.
     /// This is equivalent to `disc.df(t)` where `t` is the year fraction from `base` to `date`.
     #[inline]
-    pub fn df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> F {
+    pub fn df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> f64 {
         let t = if date == self.base {
             0.0
         } else {
@@ -145,7 +145,7 @@ impl DiscountCurve {
 
     /// Convenience: discount factor on a specific date using the curve's own day-count.
     #[inline]
-    pub fn df_on_date_curve(&self, date: Date) -> F {
+    pub fn df_on_date_curve(&self, date: Date) -> f64 {
         let t = if date == self.base {
             0.0
         } else {
@@ -159,7 +159,7 @@ impl DiscountCurve {
     /// Static convenience: discount factor on a specific date given any discount curve.
     /// For backward compatibility with existing code.
     #[inline]
-    pub fn df_on(disc: &dyn Discounting, base: Date, date: Date, dc: crate::dates::DayCount) -> F {
+    pub fn df_on(disc: &dyn Discounting, base: Date, date: Date, dc: crate::dates::DayCount) -> f64 {
         let t = if date == base {
             0.0
         } else {
@@ -172,9 +172,9 @@ impl DiscountCurve {
     /// Create a new curve with a parallel rate bump applied in basis points.
     ///
     /// Uses df_bumped(t) = df_original(t) * exp(-bump * t), where bump = bp / 10_000.
-    pub fn with_parallel_bump(&self, bp: F) -> Self {
+    pub fn with_parallel_bump(&self, bp: f64) -> Self {
         let bump_rate = bp / 10_000.0;
-        let bumped_points: Vec<(F, F)> = self
+        let bumped_points: Vec<(f64, f64)> = self
             .knots
             .iter()
             .zip(self.dfs.iter())
@@ -204,7 +204,7 @@ impl DiscountCurve {
     /// Upstream interpolation then distributes the effect within the segment.
     ///
     /// If the curve has fewer than 2 knots, falls back to a parallel bump.
-    pub fn with_key_rate_bump_years(&self, t: F, bp: F) -> Self {
+    pub fn with_key_rate_bump_years(&self, t: f64, bp: f64) -> Self {
         if self.knots.len() < 2 {
             return self.with_parallel_bump(bp);
         }
@@ -236,7 +236,7 @@ impl DiscountCurve {
         let bump_rate = bp / 10_000.0;
         let factor = (-bump_rate * dt).exp();
 
-        let mut bumped_points: Vec<(F, F)> = Vec::with_capacity(self.knots.len());
+        let mut bumped_points: Vec<(f64, f64)> = Vec::with_capacity(self.knots.len());
         for (idx, (&tt, &df)) in self.knots.iter().zip(self.dfs.iter()).enumerate() {
             let new_df = if idx > i { df * factor } else { df };
             bumped_points.push((tt, new_df));
@@ -254,19 +254,19 @@ impl DiscountCurve {
     }
     /// Discount factor at time `t` (helper calling the underlying interpolator).
     #[inline]
-    pub fn df(&self, t: F) -> F {
+    pub fn df(&self, t: f64) -> f64 {
         self.interp.interp(t)
     }
 
     /// Raw knot times (t) in **years** passed at construction.
     #[inline]
-    pub fn knots(&self) -> &[F] {
+    pub fn knots(&self) -> &[f64] {
         &self.knots
     }
 
     /// Raw discount factors corresponding to each knot.
     #[inline]
-    pub fn dfs(&self) -> &[F] {
+    pub fn dfs(&self) -> &[f64] {
         &self.dfs
     }
 
@@ -293,7 +293,7 @@ impl DiscountCurve {
     pub fn to_forward_curve(
         &self,
         forward_id: impl Into<CurveId>,
-        tenor_years: F,
+        tenor_years: f64,
     ) -> crate::Result<super::forward_curve::ForwardCurve> {
         use super::forward_curve::ForwardCurve;
 
@@ -365,7 +365,7 @@ impl DiscountCurve {
     pub fn to_forward_curve_with_interp(
         &self,
         forward_id: impl Into<CurveId>,
-        tenor_years: F,
+        tenor_years: f64,
         interp_style: InterpStyle,
     ) -> crate::Result<super::forward_curve::ForwardCurve> {
         use super::forward_curve::ForwardCurve;
@@ -430,7 +430,7 @@ impl DiscountCurve {
     #[cfg(feature = "serde")]
     /// Extract serializable state
     pub fn to_state(&self) -> DiscountCurveState {
-        let knot_points: Vec<(F, F)> = self
+        let knot_points: Vec<(f64, f64)> = self
             .knots
             .iter()
             .zip(self.dfs.iter())
@@ -495,7 +495,7 @@ pub struct DiscountCurveBuilder {
     id: CurveId,
     base: Date,
     day_count: DayCount,
-    points: Vec<(F, F)>, // (t, df)
+    points: Vec<(f64, f64)>, // (t, df)
     style: InterpStyle,
     extrapolation: ExtrapolationPolicy,
     require_monotonic: bool, // Critical for credit curves
@@ -516,7 +516,7 @@ impl DiscountCurveBuilder {
     /// the discount factor.
     pub fn knots<I>(mut self, pts: I) -> Self
     where
-        I: IntoIterator<Item = (F, F)>,
+        I: IntoIterator<Item = (f64, f64)>,
     {
         self.points.extend(pts);
         self
@@ -549,7 +549,7 @@ impl DiscountCurveBuilder {
             return Err(crate::error::InputError::NonPositiveValue.into());
         }
 
-        let (knots_vec, dfs_vec): (Vec<F>, Vec<F>) = split_points(self.points);
+        let (knots_vec, dfs_vec): (Vec<f64>, Vec<f64>) = split_points(self.points);
         crate::math::interp::utils::validate_knots(&knots_vec)
             .map_err(|_| crate::error::InputError::NonMonotonicKnots)?;
 
@@ -589,7 +589,7 @@ impl Discounting for DiscountCurve {
     }
 
     #[inline]
-    fn df(&self, t: F) -> F {
+    fn df(&self, t: f64) -> f64 {
         self.interp.interp(t)
     }
 }

@@ -13,7 +13,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use finstack_core::F;
+
 
 /// Stateless pricing engine for `Equity` instruments.
 #[derive(Debug, Default, Clone, Copy)]
@@ -55,7 +55,7 @@ impl EquityPricer {
     ///
     /// Attempts to read from market context using the key format
     /// "{ticker}-DIVYIELD". When not present, defaults to 0.0.
-    pub fn dividend_yield(&self, inst: &Equity, curves: &MarketContext) -> Result<F> {
+    pub fn dividend_yield(&self, inst: &Equity, curves: &MarketContext) -> Result<f64> {
         inst.dividend_yield(curves)
     }
 
@@ -70,7 +70,7 @@ impl EquityPricer {
         inst: &Equity,
         curves: &MarketContext,
         as_of: Date,
-        t: F,
+        t: f64,
     ) -> Result<Money> {
         let s0 = self.price_per_share(inst, curves, as_of)?;
         let dy = self.dividend_yield(inst, curves)?;
@@ -87,7 +87,7 @@ impl EquityPricer {
         inst: &Equity,
         curves: &MarketContext,
         as_of: Date,
-        t: F,
+        t: f64,
     ) -> Result<Money> {
         let per_share = self.forward_price_per_share(inst, curves, as_of, t)?;
         Ok(Money::new(

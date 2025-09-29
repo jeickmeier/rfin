@@ -17,7 +17,7 @@ use crate::instruments::cds_index::{CDSIndex, IndexPricing};
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 /// Par spread denominator method for indices in constituents mode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -35,7 +35,7 @@ pub struct CDSIndexPricerConfig {
     /// How to compute the par spread denominator in constituents aggregation.
     pub par_spread_method: ParSpreadMethod,
     /// Tolerance for weight sum validation.
-    pub weight_sum_tol: F,
+    pub weight_sum_tol: f64,
     /// If true and ∑w deviates within a looser bound, renormalize for pricing.
     pub normalize_weights: bool,
     /// If true, scale index notional by `index.index_factor`.
@@ -115,7 +115,7 @@ impl CDSIndexPricer {
     }
 
     /// Par spread in basis points that sets NPV to zero.
-    pub fn par_spread(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<F> {
+    pub fn par_spread(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<f64> {
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         match index.pricing {
             IndexPricing::SingleCurve => {
@@ -151,7 +151,7 @@ impl CDSIndexPricer {
     }
 
     /// Risky PV01 (absolute currency units) aggregated by pricing mode.
-    pub fn risky_pv01(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<F> {
+    pub fn risky_pv01(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<f64> {
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         match index.pricing {
             IndexPricing::SingleCurve => {
@@ -175,7 +175,7 @@ impl CDSIndexPricer {
     }
 
     /// CS01 (approximate) aggregated by pricing mode.
-    pub fn cs01(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<F> {
+    pub fn cs01(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<f64> {
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         match index.pricing {
             IndexPricing::SingleCurve => {
@@ -232,7 +232,7 @@ impl CDSIndexPricer {
             return Err(finstack_core::error::InputError::TooFewPoints.into());
         }
         // Validate weights and prepare effective weights (optionally renormalized)
-        let sum_w: F = index.constituents.iter().map(|c| c.weight).sum();
+        let sum_w: f64 = index.constituents.iter().map(|c| c.weight).sum();
         if index.constituents.iter().any(|c| c.weight < 0.0) {
             return Err(finstack_core::error::InputError::Invalid.into());
         }

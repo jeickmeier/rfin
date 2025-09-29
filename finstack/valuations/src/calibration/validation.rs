@@ -8,7 +8,7 @@ use finstack_core::market_data::term_structures::{
     discount_curve::DiscountCurve, forward_curve::ForwardCurve, hazard_curve::HazardCurve,
     inflation::InflationCurve, BaseCorrelationCurve,
 };
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 use std::collections::BTreeMap;
 
 /// Validation error details
@@ -17,7 +17,7 @@ pub struct ValidationError {
     pub constraint: String,
     pub location: String,
     pub details: String,
-    pub values: BTreeMap<String, F>,
+    pub values: BTreeMap<String, f64>,
 }
 
 impl ValidationError {
@@ -34,7 +34,7 @@ impl ValidationError {
         }
     }
 
-    pub fn with_value(mut self, key: impl Into<String>, value: F) -> Self {
+    pub fn with_value(mut self, key: impl Into<String>, value: f64) -> Self {
         self.values.insert(key.into(), value);
         self
     }
@@ -634,15 +634,15 @@ pub struct ValidationConfig {
     /// Enable forward rate positivity check
     pub check_forward_positivity: bool,
     /// Minimum allowed forward rate (can be slightly negative)
-    pub min_forward_rate: F,
+    pub min_forward_rate: f64,
     /// Maximum allowed forward rate
-    pub max_forward_rate: F,
+    pub max_forward_rate: f64,
     /// Enable monotonicity checks
     pub check_monotonicity: bool,
     /// Enable arbitrage checks
     pub check_arbitrage: bool,
     /// Numerical tolerance for comparisons
-    pub tolerance: F,
+    pub tolerance: f64,
 }
 
 impl Default for ValidationConfig {

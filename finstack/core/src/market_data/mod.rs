@@ -31,7 +31,3 @@ pub use crate::math::interp::utils::validate_knots;
 pub use context::MarketContext;
 // Re-export dividend schedule types for convenience
 pub use dividends::*;
-
-/// Numeric precision alias re-exported from the surrounding crate so that
-/// downstream code can simply `use finstack_core::market_data::F`.
-pub use crate::F;

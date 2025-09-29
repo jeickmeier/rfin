@@ -4,13 +4,13 @@
 //! computed by the instrument's pricing implementation.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 
 /// Returns PV from the metric context base value.
 pub struct IrFuturePvCalculator;
 
 impl MetricCalculator for IrFuturePvCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         Ok(context.base_value.amount())
     }
 }

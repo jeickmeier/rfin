@@ -1,7 +1,7 @@
 use crate::instruments::common::metrics::bucketed_dv01::GenericBucketedDv01WithContext;
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{error::InputError, Error, Result, F};
+use finstack_core::{error::InputError, Error, Result};
 
 /// Bucketed DV01 calculator that dispatches to the appropriate TRS variant.
 ///
@@ -12,7 +12,7 @@ use finstack_core::{error::InputError, Error, Result, F};
 pub struct TrsBucketedDv01Calculator;
 
 impl MetricCalculator for TrsBucketedDv01Calculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         if context
             .instrument
             .as_any()

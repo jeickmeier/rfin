@@ -2,13 +2,13 @@
 
 use crate::instruments::cap_floor::{InterestRateOption, RateOptionType};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Delta calculator (Black model forward delta, aggregated for caps/floors)
 pub struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &InterestRateOption = context.instrument_as()?;
         super::common::aggregate_over_caplets(option, context, |forward, sigma, t_fix| {
             let is_cap = matches!(

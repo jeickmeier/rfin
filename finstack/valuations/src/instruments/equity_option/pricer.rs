@@ -12,10 +12,10 @@ use crate::instruments::equity_option::types::EquityOption;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
-const DAYS_PER_YEAR: F = 365.0;
-const ONE_PERCENT: F = 100.0;
+const DAYS_PER_YEAR: f64 = 365.0;
+const ONE_PERCENT: f64 = 100.0;
 
 /// Present value using Black–Scholes; result currency is the strike currency.
 pub fn npv(inst: &EquityOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
@@ -45,7 +45,7 @@ pub fn collect_inputs(
     inst: &EquityOption,
     curves: &MarketContext,
     as_of: Date,
-) -> Result<(F, F, F, F, F)> {
+) -> Result<(f64, f64, f64, f64, f64)> {
     let t = year_fraction(as_of, inst.expiry, inst.day_count)?;
 
     // Discount curve -> zero rate
@@ -85,13 +85,13 @@ pub fn collect_inputs(
 
 /// Year fraction helper using instrument day-count.
 #[inline]
-pub fn year_fraction(start: Date, end: Date, dc: DayCount) -> Result<F> {
+pub fn year_fraction(start: Date, end: Date, dc: DayCount) -> Result<f64> {
     dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
 }
 
 /// Unit price under Black–Scholes (no contract size scaling).
 #[inline]
-pub fn price_bs_unit(spot: F, strike: F, r: F, q: F, sigma: F, t: F, option_type: OptionType) -> F {
+pub fn price_bs_unit(spot: f64, strike: f64, r: f64, q: f64, sigma: f64, t: f64, option_type: OptionType) -> f64 {
     if t <= 0.0 {
         return match option_type {
             OptionType::Call => (spot - strike).max(0.0),
@@ -115,11 +115,11 @@ pub fn price_bs_unit(spot: F, strike: F, r: F, q: F, sigma: F, t: F, option_type
 /// Cash greeks for an equity option (scaled by contract size; vega per 1% vol).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EquityOptionGreeks {
-    pub delta: F,
-    pub gamma: F,
-    pub vega: F,
-    pub theta: F,
-    pub rho: F,
+    pub delta: f64,
+    pub gamma: f64,
+    pub vega: f64,
+    pub theta: f64,
+    pub rho: f64,
 }
 
 /// Compute greeks consistent with the pricing inputs.
@@ -208,22 +208,22 @@ pub fn compute_greeks(
 /// Unit greeks (per share, not scaled by contract size).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct UnitGreeks {
-    pub delta: F,
-    pub gamma: F,
-    pub vega: F,  // per 1% vol
-    pub theta: F, // per day
-    pub rho: F,   // per 1% rate
+    pub delta: f64,
+    pub gamma: f64,
+    pub vega: f64,  // per 1% vol
+    pub theta: f64, // per day
+    pub rho: f64,   // per 1% rate
 }
 
 /// Compute unit greeks from explicit inputs (no market lookups).
 #[inline]
 pub fn greeks_unit(
-    spot: F,
-    strike: F,
-    r: F,
-    q: F,
-    sigma: F,
-    t: F,
+    spot: f64,
+    strike: f64,
+    r: f64,
+    q: f64,
+    sigma: f64,
+    t: f64,
     option_type: OptionType,
 ) -> UnitGreeks {
     if t <= 0.0 {

@@ -1,6 +1,6 @@
 use crate::instruments::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 /// Calculator for the discounted accrual sum (annuity) of a basis swap leg.
 ///
@@ -32,7 +32,7 @@ impl AnnuityCalculator {
 }
 
 impl MetricCalculator for AnnuityCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument = context.instrument.clone();
         let swap = instrument
             .as_any()

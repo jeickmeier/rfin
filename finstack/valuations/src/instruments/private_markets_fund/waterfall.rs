@@ -9,7 +9,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 use indexmap::IndexMap;
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -57,7 +57,7 @@ impl Default for CatchUpMode {
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum Hurdle {
     /// IRR-based hurdle (annual rate)
-    Irr { rate: F },
+    Irr { rate: f64 },
     // Future: Moic { multiple: F } - can be added without breaking serde
 }
 
@@ -69,14 +69,14 @@ pub enum Tranche {
     /// Return LP capital contributions before any profit sharing
     ReturnOfCapital,
     /// Preferred return to LPs at specified IRR
-    PreferredIrr { irr: F },
+    PreferredIrr { irr: f64 },
     /// Catch-up allocation to GP
-    CatchUp { gp_share: F },
+    CatchUp { gp_share: f64 },
     /// Promote tier with hurdle and LP/GP split
     PromoteTier {
         hurdle: Hurdle,
-        lp_share: F,
-        gp_share: F,
+        lp_share: f64,
+        gp_share: f64,
     },
 }
 
@@ -99,7 +99,7 @@ pub struct ClawbackSpec {
     /// Whether clawback is enabled
     pub enable: bool,
     /// Optional percentage of GP carry held back until settlement
-    pub holdback_pct: Option<F>,
+    pub holdback_pct: Option<f64>,
     /// When to settle clawback
     pub settle_on: ClawbackSettle,
 }
@@ -219,17 +219,17 @@ impl WaterfallSpecBuilder {
         self
     }
 
-    pub fn preferred_irr(mut self, irr: F) -> Self {
+    pub fn preferred_irr(mut self, irr: f64) -> Self {
         self.tranches.push(Tranche::PreferredIrr { irr });
         self
     }
 
-    pub fn catchup(mut self, gp_share: F) -> Self {
+    pub fn catchup(mut self, gp_share: f64) -> Self {
         self.tranches.push(Tranche::CatchUp { gp_share });
         self
     }
 
-    pub fn promote_tier(mut self, hurdle_irr: F, lp_share: F, gp_share: F) -> Self {
+    pub fn promote_tier(mut self, hurdle_irr: f64, lp_share: f64, gp_share: f64) -> Self {
         self.tranches.push(Tranche::PromoteTier {
             hurdle: Hurdle::Irr { rate: hurdle_irr },
             lp_share,
@@ -355,7 +355,7 @@ pub struct AllocationRow {
     /// GP cumulative carry after allocation
     pub gp_carry_cum: Money,
     /// LP IRR to date (if calculable)
-    pub lp_irr_to_date: Option<F>,
+    pub lp_irr_to_date: Option<f64>,
     /// Optional note/description
     pub note: Option<String>,
 }
@@ -459,9 +459,9 @@ impl AllocationLedger {
 #[allow(clippy::too_many_arguments)]
 struct AllocationParams<'e> {
     total_amount: Money,
-    initial_lp_unreturned: F,
-    initial_gp_carry: F,
-    lp_distributed_cum_before: F,
+    initial_lp_unreturned: f64,
+    initial_gp_carry: f64,
+    lp_distributed_cum_before: f64,
     all_events: &'e [FundEvent],
     allocation_date: Date,
     currency: Currency,
@@ -568,7 +568,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         for event in events {
             if event.kind == FundEventKind::Distribution || event.kind == FundEventKind::Proceeds {
                 // Run waterfall allocation
-                let lp_distributed_so_far: F = ledger_rows.iter().map(|r| r.to_lp.amount()).sum();
+                let lp_distributed_so_far: f64 = ledger_rows.iter().map(|r| r.to_lp.amount()).sum();
                 let allocations = self.allocate_distribution(AllocationParams {
                     total_amount: event.amount,
                     initial_lp_unreturned: lp_unreturned,
@@ -623,7 +623,7 @@ impl<'a> EquityWaterfallEngine<'a> {
             .iter()
             .filter(|e| e.kind == FundEventKind::Contribution)
             .map(|e| e.amount.amount())
-            .sum::<F>();
+            .sum::<f64>();
 
         let mut total_gp_carry = 0.0;
         let currency = events
@@ -635,7 +635,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         for (deal_id, deal_events) in deals {
             // For each deal, allocate proceeds through the waterfall
             for event in deal_events {
-                let lp_distributed_so_far: F = ledger_rows.iter().map(|r| r.to_lp.amount()).sum();
+                let lp_distributed_so_far: f64 = ledger_rows.iter().map(|r| r.to_lp.amount()).sum();
                 let allocations = self.allocate_distribution(AllocationParams {
                     total_amount: event.amount,
                     initial_lp_unreturned: total_lp_unreturned,
@@ -669,10 +669,10 @@ impl<'a> EquityWaterfallEngine<'a> {
         let mut allocations = Vec::new();
 
         // Track LP allocated within this distribution call (prior tranches)
-        let mut lp_allocated_in_call_so_far: F = 0.0;
+        let mut lp_allocated_in_call_so_far: f64 = 0.0;
 
         // Precompute holdback percent (0.0 if none or clawback disabled)
-        let holdback_pct: F = (match &self.spec.clawback {
+        let holdback_pct: f64 = (match &self.spec.clawback {
             Some(c) if c.enable => c.holdback_pct.unwrap_or(0.0),
             _ => 0.0,
         })
@@ -718,7 +718,7 @@ impl<'a> EquityWaterfallEngine<'a> {
 
                 Tranche::CatchUp { gp_share } => {
                     // Determine target cumulative GP share from the next promote tier if available
-                    let mut target_gp_share: F = *gp_share; // fallback
+                    let mut target_gp_share: f64 = *gp_share; // fallback
                     for next in self.spec.tranches.iter().skip(idx + 1) {
                         if let Tranche::PromoteTier { gp_share, .. } = next {
                             target_gp_share = *gp_share;
@@ -727,7 +727,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                     }
 
                     // Compute contributions up to current date
-                    let total_contributions_to_date: F = params
+                    let total_contributions_to_date: f64 = params
                         .all_events
                         .iter()
                         .filter(|e| {
@@ -813,11 +813,11 @@ impl<'a> EquityWaterfallEngine<'a> {
     /// Calculate the amount needed for preferred return using robust root finding.
     fn calculate_preferred_amount(
         &self,
-        target_irr: F,
+        target_irr: f64,
         all_events: &[FundEvent],
         current_date: Date,
-        _lp_unreturned: F,
-    ) -> finstack_core::Result<F> {
+        _lp_unreturned: f64,
+    ) -> finstack_core::Result<f64> {
         // Build LP cashflow history up to current date, including contributions and prior distributions
         let mut lp_flows = Vec::new();
 
@@ -858,7 +858,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         };
 
         // Use broader bounds - sometimes large distributions needed for high IRR targets
-        let total_contributions: F = lp_flows
+        let total_contributions: f64 = lp_flows
             .iter()
             .filter(|(_, amount)| amount.amount() < 0.0)
             .map(|(_, amount)| amount.amount().abs())
@@ -895,7 +895,7 @@ impl<'a> EquityWaterfallEngine<'a> {
     }
 
     /// Calculate IRR for LP cashflows using Brent's method.
-    fn calculate_irr(&self, flows: &[(Date, Money)], base_date: Date) -> finstack_core::Result<F> {
+    fn calculate_irr(&self, flows: &[(Date, Money)], base_date: Date) -> finstack_core::Result<f64> {
         if flows.len() < 2 {
             return Err(finstack_core::error::InputError::TooFewPoints.into());
         }
@@ -933,7 +933,7 @@ impl<'a> EquityWaterfallEngine<'a> {
     }
 
     /// Calculate LP IRR to date.
-    fn calculate_lp_irr_to_date(&self, all_events: &[FundEvent], as_of_date: Date) -> Option<F> {
+    fn calculate_lp_irr_to_date(&self, all_events: &[FundEvent], as_of_date: Date) -> Option<f64> {
         let lp_flows: Vec<(Date, Money)> = all_events
             .iter()
             .filter(|e| e.date <= as_of_date)
@@ -969,12 +969,12 @@ impl<'a> EquityWaterfallEngine<'a> {
         let settlement_date = events.iter().map(|e| e.date).max().unwrap_or(last.date);
 
         // Compute total contributions and distributions from events (fund-level)
-        let total_contributions: F = events
+        let total_contributions: f64 = events
             .iter()
             .filter(|e| e.kind == FundEventKind::Contribution)
             .map(|e| e.amount.amount())
             .sum();
-        let total_distributions: F = events
+        let total_distributions: f64 = events
             .iter()
             .filter(|e| e.kind == FundEventKind::Distribution || e.kind == FundEventKind::Proceeds)
             .map(|e| e.amount.amount())
@@ -982,7 +982,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         let profit_total = (total_distributions - total_contributions).max(0.0);
 
         // Determine target GP share from first promote tier if present
-        let target_gp_share: F = self
+        let target_gp_share: f64 = self
             .spec
             .tranches
             .iter()
@@ -996,10 +996,10 @@ impl<'a> EquityWaterfallEngine<'a> {
         let allowed_gp_total = (profit_total * target_gp_share).max(0.0);
 
         // Paid GP to date (net of holdback)
-        let paid_gp_total: F = ledger_rows.iter().map(|r| r.to_gp.amount()).sum();
+        let paid_gp_total: f64 = ledger_rows.iter().map(|r| r.to_gp.amount()).sum();
 
         // Difference => settlement amount for GP (positive => pay GP; negative => GP returns)
-        let delta_gp: F = allowed_gp_total - paid_gp_total;
+        let delta_gp: f64 = allowed_gp_total - paid_gp_total;
 
         if delta_gp.abs() <= 1e-9 {
             return Ok(()); // Nothing to settle
@@ -1110,7 +1110,7 @@ mod tests {
         assert!(!roc_rows.is_empty());
 
         // LP should get back their $1M capital first
-        let total_lp_roc: F = roc_rows.iter().map(|r| r.to_lp.amount()).sum();
+        let total_lp_roc: f64 = roc_rows.iter().map(|r| r.to_lp.amount()).sum();
         assert!((total_lp_roc - 1000000.0).abs() < 1e-6);
     }
 
@@ -1187,8 +1187,8 @@ mod tests {
         let engine = EquityWaterfallEngine::new(&spec);
         let ledger = engine.run(&events).unwrap();
 
-        let total_gp: F = ledger.rows.iter().map(|r| r.to_gp.amount()).sum();
-        let total_lp: F = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
+        let total_gp: f64 = ledger.rows.iter().map(|r| r.to_gp.amount()).sum();
+        let total_lp: f64 = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
         let profit = (total_lp + total_gp) - 100.0;
 
         // Ensure profit positive and GP share ~20%

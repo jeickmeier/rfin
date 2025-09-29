@@ -1,6 +1,6 @@
 use crate::instruments::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 /// Calculator for the DV01 (dollar value of 1 basis point) of a basis swap leg.
 ///
@@ -40,7 +40,7 @@ impl MetricCalculator for Dv01Calculator {
         }
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let annuity = if self.is_primary {
             context
                 .computed

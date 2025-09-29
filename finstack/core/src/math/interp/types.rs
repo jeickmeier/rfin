@@ -1,6 +1,5 @@
 //! Interpolation types, enums, and factory.
 
-use crate::F;
 
 use super::traits::InterpFn;
 use super::{
@@ -9,7 +8,7 @@ use super::{
 };
 
 /// Epsilon for finite difference derivative calculations.
-pub const DERIVATIVE_EPSILON: F = 1e-6;
+pub const DERIVATIVE_EPSILON: f64 = 1e-6;
 
 /// Extrapolation policy for evaluation outside the knot range.
 #[derive(Copy, Clone, Debug, Default)]
@@ -60,7 +59,7 @@ pub(crate) enum Interp {
 
 impl Interp {
     #[inline]
-    pub(crate) fn interp(&self, x: F) -> F {
+    pub(crate) fn interp(&self, x: f64) -> f64 {
         match self {
             Interp::Linear(i) => i.interp(x),
             Interp::LogLinear(i) => i.interp(x),
@@ -72,7 +71,7 @@ impl Interp {
 
     #[inline]
     #[allow(dead_code)]
-    pub(crate) fn interp_prime(&self, x: F) -> F {
+    pub(crate) fn interp_prime(&self, x: f64) -> f64 {
         match self {
             Interp::Linear(i) => i.interp_prime(x),
             Interp::LogLinear(i) => i.interp_prime(x),
@@ -111,8 +110,8 @@ impl InterpStyle {
     /// Build a boxed interpolator implementing [`InterpFn`].
     pub fn build(
         self,
-        knots: Box<[F]>,
-        values: Box<[F]>,
+        knots: Box<[f64]>,
+        values: Box<[f64]>,
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Box<dyn InterpFn>> {
         match self {
@@ -132,8 +131,8 @@ impl InterpStyle {
     #[inline]
     pub(crate) fn build_enum(
         self,
-        knots: Box<[F]>,
-        values: Box<[F]>,
+        knots: Box<[f64]>,
+        values: Box<[f64]>,
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Interp> {
         let interp = match self {

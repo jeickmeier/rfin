@@ -1,6 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::F;
+
 
 /// Calculates modified duration for bonds.
 pub struct ModifiedDurationCalculator;
@@ -10,7 +10,7 @@ impl MetricCalculator for ModifiedDurationCalculator {
         &[MetricId::DurationMac]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
         let ytm = context

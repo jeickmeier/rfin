@@ -5,7 +5,7 @@
 
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_core::prelude::Currency;
-use finstack_core::F;
+
 
 /// Market convention configuration for swaption calibration
 #[derive(Clone, Debug)]
@@ -17,15 +17,15 @@ pub struct SwaptionMarketConvention {
     /// Float leg frequency  
     pub float_freq: Frequency,
     /// Standard expiry points (in years)
-    pub standard_expiries: Vec<F>,
+    pub standard_expiries: Vec<f64>,
     /// Standard tenor points (in years)
-    pub standard_tenors: Vec<F>,
+    pub standard_tenors: Vec<f64>,
     /// Minimum points for SABR calibration
     pub min_sabr_points: usize,
     /// Default volatility for missing data
-    pub default_vol: F,
+    pub default_vol: f64,
     /// Zero threshold for rate checks
-    pub zero_threshold: F,
+    pub zero_threshold: f64,
     /// Payment estimation method
     pub payment_estimation: PaymentEstimation,
 }
@@ -136,12 +136,12 @@ impl SwaptionMarketConvention {
     }
 
     /// Builder pattern for customization
-    pub fn with_expiries(mut self, expiries: Vec<F>) -> Self {
+    pub fn with_expiries(mut self, expiries: Vec<f64>) -> Self {
         self.standard_expiries = expiries;
         self
     }
 
-    pub fn with_tenors(mut self, tenors: Vec<F>) -> Self {
+    pub fn with_tenors(mut self, tenors: Vec<f64>) -> Self {
         self.standard_tenors = tenors;
         self
     }
@@ -161,12 +161,12 @@ impl SwaptionMarketConvention {
         self
     }
 
-    pub fn with_default_vol(mut self, vol: F) -> Self {
+    pub fn with_default_vol(mut self, vol: f64) -> Self {
         self.default_vol = vol;
         self
     }
 
-    pub fn with_zero_threshold(mut self, threshold: F) -> Self {
+    pub fn with_zero_threshold(mut self, threshold: f64) -> Self {
         self.zero_threshold = threshold;
         self
     }

@@ -6,7 +6,7 @@
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+
 
 use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::bond::CallPutSchedule;
@@ -69,7 +69,7 @@ pub enum ConversionEvent {
     ChangeOfControl,
     /// Forced conversion if share price meets threshold for a lookback period.
     PriceTrigger {
-        threshold: F,
+        threshold: f64,
         lookback_days: u32,
     },
 }
@@ -94,9 +94,9 @@ pub enum DividendAdjustment {
 #[derive(Clone, Debug)]
 pub struct ConversionSpec {
     /// Conversion ratio (shares per bond). If not provided, derive from price.
-    pub ratio: Option<F>,
+    pub ratio: Option<f64>,
     /// Conversion price (price per share). If not provided, derive from ratio.
-    pub price: Option<F>,
+    pub price: Option<f64>,
     /// Policy governing conversion timing/conditions.
     pub policy: ConversionPolicy,
     /// Anti-dilution protection policy.
@@ -119,7 +119,7 @@ impl ConvertibleBond {
     pub fn parity(
         &self,
         curves: &finstack_core::market_data::MarketContext,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let underlying_id = self
             .underlying_equity_id
             .as_ref()
@@ -138,8 +138,8 @@ impl ConvertibleBond {
     pub fn conversion_premium(
         &self,
         curves: &finstack_core::market_data::MarketContext,
-        bond_price: finstack_core::F,
-    ) -> finstack_core::Result<finstack_core::F> {
+        bond_price: f64,
+    ) -> finstack_core::Result<f64> {
         let underlying_id = self
             .underlying_equity_id
             .as_ref()
@@ -172,7 +172,7 @@ impl ConvertibleBond {
         &self,
         curves: &finstack_core::market_data::MarketContext,
         tree_type: Option<pricer::ConvertibleTreeType>,
-        bump_size: Option<finstack_core::F>,
+        bump_size: Option<f64>,
     ) -> finstack_core::Result<crate::instruments::common::models::TreeGreeks> {
         pricer::calculate_convertible_greeks(self, curves, tree_type.unwrap_or_default(), bump_size)
     }
@@ -181,7 +181,7 @@ impl ConvertibleBond {
     pub fn delta(
         &self,
         curves: &finstack_core::market_data::MarketContext,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, None, None)?;
         Ok(greeks.delta)
     }
@@ -190,7 +190,7 @@ impl ConvertibleBond {
     pub fn gamma(
         &self,
         curves: &finstack_core::market_data::MarketContext,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, None, None)?;
         Ok(greeks.gamma)
     }
@@ -199,7 +199,7 @@ impl ConvertibleBond {
     pub fn vega(
         &self,
         curves: &finstack_core::market_data::MarketContext,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, None, None)?;
         Ok(greeks.vega)
     }
@@ -208,7 +208,7 @@ impl ConvertibleBond {
     pub fn rho(
         &self,
         curves: &finstack_core::market_data::MarketContext,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, None, None)?;
         Ok(greeks.rho)
     }
@@ -217,7 +217,7 @@ impl ConvertibleBond {
     pub fn theta(
         &self,
         curves: &finstack_core::market_data::MarketContext,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let greeks = self.greeks(curves, None, None)?;
         Ok(greeks.theta)
     }

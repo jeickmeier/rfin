@@ -3,7 +3,7 @@
 //! Provides market-standard convexity adjustments to convert futures rates
 //! to forward rates, accounting for the daily margining of futures contracts.
 
-use finstack_core::F;
+
 
 /// Calculate convexity adjustment for interest rate futures.
 ///
@@ -24,10 +24,10 @@ use finstack_core::F;
 /// # Returns
 /// Convexity adjustment to add to futures rate to get forward rate
 pub fn calculate_convexity_adjustment(
-    time_to_expiry: F,
-    time_to_maturity: F,
-    rate_volatility: F,
-) -> F {
+    time_to_expiry: f64,
+    time_to_maturity: f64,
+    rate_volatility: f64,
+) -> f64 {
     // Hull-White approximation for convexity adjustment
     0.5 * rate_volatility * rate_volatility * time_to_expiry * time_to_maturity
 }
@@ -43,7 +43,7 @@ pub fn calculate_convexity_adjustment(
 ///
 /// # Returns
 /// Estimated annualized rate volatility
-pub fn estimate_rate_volatility(tenor_years: F, time_to_expiry: F) -> F {
+pub fn estimate_rate_volatility(tenor_years: f64, time_to_expiry: f64) -> f64 {
     // Base volatility depends on tenor
     let base_vol = if tenor_years <= 0.25 {
         0.0080 // 80bp for 3M rates
@@ -69,11 +69,11 @@ pub fn estimate_rate_volatility(tenor_years: F, time_to_expiry: F) -> F {
 /// * `rate_volatility` - Annualized rate volatility
 /// * `mean_reversion` - Mean reversion parameter (0 for Ho-Lee)
 pub fn ho_lee_convexity(
-    time_to_expiry: F,
-    time_to_maturity: F,
-    rate_volatility: F,
-    mean_reversion: F,
-) -> F {
+    time_to_expiry: f64,
+    time_to_maturity: f64,
+    rate_volatility: f64,
+    mean_reversion: f64,
+) -> f64 {
     if mean_reversion.abs() < 1e-10 {
         // Ho-Lee model (no mean reversion)
         calculate_convexity_adjustment(time_to_expiry, time_to_maturity, rate_volatility)
@@ -94,9 +94,9 @@ pub fn ho_lee_convexity(
 #[derive(Clone, Debug)]
 pub struct ConvexityParameters {
     /// Base rate volatility
-    pub base_volatility: F,
+    pub base_volatility: f64,
     /// Mean reversion parameter (0 for Ho-Lee)
-    pub mean_reversion: F,
+    pub mean_reversion: f64,
     /// Use Ho-Lee model instead of simple Hull-White
     pub use_ho_lee: bool,
 }
@@ -139,7 +139,7 @@ impl ConvexityParameters {
     }
 
     /// Calculate adjustment for given times
-    pub fn calculate_adjustment(&self, time_to_expiry: F, time_to_maturity: F) -> F {
+    pub fn calculate_adjustment(&self, time_to_expiry: f64, time_to_maturity: f64) -> f64 {
         let volatility = self.base_volatility * (1.0 + 0.1 * time_to_expiry).min(1.5);
 
         if self.use_ho_lee {

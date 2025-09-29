@@ -1,7 +1,7 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::F;
+
 
 /// Calculates Z-Spread (zero-volatility spread) for fixed-rate bonds.
 ///
@@ -19,10 +19,10 @@ impl MetricCalculator for ZSpreadCalculator {
         &[MetricId::Accrued]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         // Determine dirty market value in currency
         let bond: &Bond = context.instrument_as()?;
-        let target_value_ccy: F = if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price
+        let target_value_ccy: f64 = if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price
         {
             // Accrued from computed metrics (currency amount)
             let accrued_ccy = context
@@ -44,7 +44,7 @@ impl MetricCalculator for ZSpreadCalculator {
         // Objective: PV_z(z) - target_value_ccy = 0
         let curves = context.curves.as_ref().clone();
         let as_of = context.as_of;
-        let objective = |z: F| -> F {
+        let objective = |z: f64| -> f64 {
             match crate::instruments::bond::pricing::helpers::price_from_z_spread(
                 bond, &curves, as_of, z,
             ) {

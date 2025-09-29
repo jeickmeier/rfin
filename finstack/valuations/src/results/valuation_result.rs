@@ -1,6 +1,6 @@
 use crate::covenants::CovenantReport;
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 use indexmap::IndexMap;
 
 /// Complete valuation result with NPV and computed metrics.
@@ -17,7 +17,7 @@ pub struct ValuationResult {
     /// Present value of the instrument.
     pub value: Money,
     /// Computed risk measures and metrics.
-    pub measures: IndexMap<String, F>,
+    pub measures: IndexMap<String, f64>,
     /// Metadata about the calculation (timing, precision, etc.).
     pub meta: ResultsMeta,
     /// Covenant check results (if applicable).
@@ -59,7 +59,7 @@ impl ValuationResult {
 
     /// Add measures to the result.
     /// See unit tests and `examples/` for usage.
-    pub fn with_measures(mut self, measures: IndexMap<String, F>) -> Self {
+    pub fn with_measures(mut self, measures: IndexMap<String, f64>) -> Self {
         self.measures = measures;
         self
     }

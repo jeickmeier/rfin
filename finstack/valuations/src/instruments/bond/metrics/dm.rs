@@ -3,7 +3,7 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::F;
+
 
 /// Discount Margin (DM) for floating-rate bonds.
 ///
@@ -23,8 +23,8 @@ impl DiscountMarginCalculator {
         bond: &Bond,
         curves: &finstack_core::market_data::MarketContext,
         as_of: Date,
-        dm: F,
-    ) -> finstack_core::Result<F> {
+        dm: f64,
+    ) -> finstack_core::Result<f64> {
         price_helpers::price_from_dm(bond, curves, as_of, dm)
     }
 }
@@ -34,7 +34,7 @@ impl MetricCalculator for DiscountMarginCalculator {
         &[MetricId::Accrued]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
         // Determine dirty market price in currency
@@ -55,7 +55,7 @@ impl MetricCalculator for DiscountMarginCalculator {
         }
 
         // Root-find DM such that PV(dm) - dirty = 0
-        let objective = |dm: F| -> F {
+        let objective = |dm: f64| -> f64 {
             match Self::pv_given_dm(bond, &context.curves, context.as_of, dm) {
                 Ok(pv) => pv - dirty_ccy,
                 Err(_) => 1e12 * dm.signum(),

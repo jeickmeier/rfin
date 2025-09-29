@@ -9,7 +9,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+
 
 use super::parameters::CDSTrancheParams;
 use super::pricer;
@@ -55,15 +55,15 @@ pub struct CdsTranche {
     /// Series number (e.g., 37)
     pub series: u16,
     /// Attachment point in percent (e.g., 0.0 for equity)
-    pub attach_pct: F,
+    pub attach_pct: f64,
     /// Detachment point in percent (e.g., 3.0 for 0-3% tranche)
-    pub detach_pct: F,
+    pub detach_pct: f64,
     /// Notional amount of the tranche
     pub notional: Money,
     /// Maturity date of the tranche
     pub maturity: Date,
     /// Running coupon in basis points (e.g., 100 = 1.00%)
-    pub running_coupon_bp: F,
+    pub running_coupon_bp: f64,
     /// Payment frequency (typically quarterly)
     pub payment_frequency: Frequency,
     /// Day count (typically Act/360)
@@ -126,7 +126,7 @@ impl CdsTranche {
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_upfront(self, curves, as_of)
     }
@@ -136,7 +136,7 @@ impl CdsTranche {
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_spread_dv01(self, curves, as_of)
     }
@@ -146,13 +146,13 @@ impl CdsTranche {
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_par_spread(self, curves, as_of)
     }
 
     /// Calculate expected loss metric
-    pub fn expected_loss(&self, curves: &MarketContext) -> finstack_core::Result<finstack_core::F> {
+    pub fn expected_loss(&self, curves: &MarketContext) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_expected_loss(self, curves)
     }
@@ -162,7 +162,7 @@ impl CdsTranche {
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_jump_to_default(self, curves, as_of)
     }
@@ -172,7 +172,7 @@ impl CdsTranche {
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_cs01(self, curves, as_of)
     }
@@ -182,7 +182,7 @@ impl CdsTranche {
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<finstack_core::F> {
+    ) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_correlation_delta(self, curves, as_of)
     }

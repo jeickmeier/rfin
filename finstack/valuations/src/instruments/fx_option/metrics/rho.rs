@@ -2,12 +2,12 @@
 
 use crate::instruments::fx_option::FxOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 pub struct RhoDomesticCalculator;
 
 impl MetricCalculator for RhoDomesticCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &FxOption = context.instrument_as()?;
         let greeks = option.compute_greeks(&context.curves, context.as_of)?;
         Ok(greeks.rho_domestic)
@@ -21,7 +21,7 @@ impl MetricCalculator for RhoDomesticCalculator {
 pub struct RhoForeignCalculator;
 
 impl MetricCalculator for RhoForeignCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &FxOption = context.instrument_as()?;
         let greeks = option.compute_greeks(&context.curves, context.as_of)?;
         Ok(greeks.rho_foreign)

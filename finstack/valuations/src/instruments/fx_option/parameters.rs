@@ -3,7 +3,7 @@
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::F;
+
 
 /// FX option specific parameters.
 ///
@@ -11,7 +11,7 @@ use finstack_core::F;
 #[derive(Clone, Debug)]
 pub struct FxOptionParams {
     /// Strike rate (FX rate)
-    pub strike: F,
+    pub strike: f64,
     /// Option expiry date
     pub expiry: Date,
     /// Option type (Call/Put)
@@ -26,7 +26,7 @@ pub struct FxOptionParams {
 
 impl FxOptionParams {
     /// Create new FX option parameters
-    pub fn new(strike: F, expiry: Date, option_type: OptionType, notional: Money) -> Self {
+    pub fn new(strike: f64, expiry: Date, option_type: OptionType, notional: Money) -> Self {
         Self {
             strike,
             expiry,
@@ -38,12 +38,12 @@ impl FxOptionParams {
     }
 
     /// Create European call option parameters
-    pub fn european_call(strike: F, expiry: Date, notional: Money) -> Self {
+    pub fn european_call(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Call, notional)
     }
 
     /// Create European put option parameters  
-    pub fn european_put(strike: F, expiry: Date, notional: Money) -> Self {
+    pub fn european_put(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Put, notional)
     }
 

@@ -5,7 +5,7 @@
 
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 
 /// Calculate implied collateral return (mark-to-market gain/loss on collateral).
 pub struct ImpliedCollateralReturnCalculator;
@@ -15,7 +15,7 @@ impl MetricCalculator for ImpliedCollateralReturnCalculator {
         &[MetricId::CollateralValue, MetricId::RequiredCollateral]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;
         let collateral_value = context
             .computed

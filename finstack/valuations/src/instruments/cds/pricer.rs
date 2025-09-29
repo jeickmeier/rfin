@@ -18,20 +18,20 @@ use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 // Named approximation constant to avoid magic numbers
-const BUSINESS_DAYS_PER_YEAR_APPROX: F = 252.0;
+const BUSINESS_DAYS_PER_YEAR_APPROX: f64 = 252.0;
 
 /// ISDA 2014 standard constants used by the engine
 pub mod isda_constants {
-    use finstack_core::F;
+    
 
     /// Standard recovery rate for senior unsecured (40%)
-    pub const STANDARD_RECOVERY_SENIOR: F = 0.40;
+    pub const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 
     /// Standard recovery rate for subordinated (20%)
-    pub const STANDARD_RECOVERY_SUB: F = 0.20;
+    pub const STANDARD_RECOVERY_SUB: f64 = 0.20;
 
     /// Standard integration points per year for protection leg
     pub const STANDARD_INTEGRATION_POINTS: usize = 40;
@@ -40,7 +40,7 @@ pub mod isda_constants {
     pub const STANDARD_COUPON_DAY: u8 = 20;
 
     /// Tolerance for numerical calculations
-    pub const NUMERICAL_TOLERANCE: F = 1e-10;
+    pub const NUMERICAL_TOLERANCE: f64 = 1e-10;
 }
 
 /// Numerical integration method for protection leg
@@ -66,7 +66,7 @@ pub struct CDSPricerConfig {
     /// Use exact day count fractions
     pub exact_daycount: bool,
     /// Tolerance for iterative calculations
-    pub tolerance: F,
+    pub tolerance: f64,
     /// Integration method for protection leg calculation
     pub integration_method: IntegrationMethod,
     /// Use ISDA standard coupon dates (20th of Mar/Jun/Sep/Dec)
@@ -154,7 +154,7 @@ impl CDSPricer {
         let t_start = self.year_fraction(base_date, cds.premium.start, cds.premium.dc)?;
         let t_end = self.year_fraction(base_date, cds.premium.end, cds.premium.dc)?;
         let recovery = cds.protection.recovery_rate;
-        let delay_years = (cds.protection.settlement_delay as F) / BUSINESS_DAYS_PER_YEAR_APPROX;
+        let delay_years = (cds.protection.settlement_delay as f64) / BUSINESS_DAYS_PER_YEAR_APPROX;
 
         let protection_pv = match self.config.integration_method {
             IntegrationMethod::Midpoint => {
@@ -243,12 +243,12 @@ impl CDSPricer {
     /// Calculate accrual-on-default for a period using configured method
     fn calculate_accrual_on_default(
         &self,
-        spread: F,
-        t_start: F,
-        t_end: F,
+        spread: f64,
+        t_start: f64,
+        t_end: f64,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let period_length = t_end - t_start;
         match self.config.integration_method {
             IntegrationMethod::Midpoint => {
@@ -287,13 +287,13 @@ impl CDSPricer {
 
     fn accrual_on_default_midpoint(
         &self,
-        spread: F,
-        t_start: F,
-        _t_end: F,
-        period_length: F,
+        spread: f64,
+        t_start: f64,
+        _t_end: f64,
+        period_length: f64,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let num_steps = (period_length * self.config.steps_per_year as f64).ceil() as usize;
         let dt = period_length / num_steps as f64;
         let mut accrual_pv = 0.0;
@@ -312,18 +312,18 @@ impl CDSPricer {
 
     fn accrual_on_default_adaptive(
         &self,
-        spread: F,
-        t_start: F,
-        t_end: F,
-        _period_length: F,
+        spread: f64,
+        t_start: f64,
+        t_end: f64,
+        _period_length: f64,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         if t_start >= t_end || spread < 0.0 {
             return Err(Error::Internal);
         }
         let h = (t_end - t_start) * 1e-4;
-        let integrand = |t: F| {
+        let integrand = |t: f64| {
             let density = approx_default_density(surv, t, h, t_start, t_end);
             let accrued_time = (t - t_start).max(0.0);
             let df = disc.df(t);
@@ -340,18 +340,18 @@ impl CDSPricer {
 
     fn accrual_on_default_isda_exact(
         &self,
-        spread: F,
-        t_start: F,
-        _t_end: F,
-        period_length: F,
+        spread: f64,
+        t_start: f64,
+        _t_end: f64,
+        period_length: f64,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let steps = isda_constants::STANDARD_INTEGRATION_POINTS;
-        let dt = period_length / steps as F;
+        let dt = period_length / steps as f64;
         let mut accrual_pv = 0.0;
         for i in 0..steps {
-            let t = t_start + (i as F + 0.5) * dt;
+            let t = t_start + (i as f64 + 0.5) * dt;
             let accrual_fraction = (t - t_start) / period_length;
             let t1 = t - dt * 0.5;
             let t2 = t + dt * 0.5;
@@ -370,13 +370,13 @@ impl CDSPricer {
 
     fn protection_leg_midpoint(
         &self,
-        t_start: F,
-        t_end: F,
-        recovery: F,
-        delay_years: F,
+        t_start: f64,
+        t_end: f64,
+        recovery: f64,
+        delay_years: f64,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let num_steps = ((t_end - t_start) * self.config.steps_per_year as f64).ceil() as usize;
         let dt = (t_end - t_start) / num_steps as f64;
         let mut protection_pv = 0.0;
@@ -393,19 +393,19 @@ impl CDSPricer {
 
     fn protection_leg_gaussian_quadrature(
         &self,
-        t_start: F,
-        t_end: F,
-        recovery: F,
-        delay_years: F,
+        t_start: f64,
+        t_end: f64,
+        recovery: f64,
+        delay_years: f64,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         if t_start >= t_end || !(0.0..=1.0).contains(&recovery) {
             return Err(Error::Internal);
         }
         let h = (t_end - t_start) * 1e-4;
         let lgd = 1.0 - recovery;
-        let integrand = |t: F| {
+        let integrand = |t: f64| {
             let density = approx_default_density(surv, t, h, t_start, t_end);
             let df = disc.df(t + delay_years);
             lgd * density * df
@@ -415,19 +415,19 @@ impl CDSPricer {
 
     fn protection_leg_adaptive_simpson(
         &self,
-        t_start: F,
-        t_end: F,
-        recovery: F,
-        delay_years: F,
+        t_start: f64,
+        t_end: f64,
+        recovery: f64,
+        delay_years: f64,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         if t_start >= t_end || !(0.0..=1.0).contains(&recovery) {
             return Err(Error::Internal);
         }
         let h = (t_end - t_start) * 1e-4;
         let lgd = 1.0 - recovery;
-        let integrand = |t: F| {
+        let integrand = |t: f64| {
             let density = approx_default_density(surv, t, h, t_start, t_end);
             let df = disc.df(t + delay_years);
             lgd * density * df
@@ -443,22 +443,22 @@ impl CDSPricer {
 
     fn protection_leg_isda_exact(
         &self,
-        t_start: F,
-        t_end: F,
-        recovery: F,
-        delay_years: F,
+        t_start: f64,
+        t_end: f64,
+        recovery: f64,
+        delay_years: f64,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         if t_start >= t_end || !(0.0..=1.0).contains(&recovery) {
             return Err(Error::Internal);
         }
         let lgd = 1.0 - recovery;
         let steps_per_period = isda_constants::STANDARD_INTEGRATION_POINTS;
-        let dt = (t_end - t_start) / steps_per_period as F;
+        let dt = (t_end - t_start) / steps_per_period as f64;
         let mut integral = 0.0;
         for i in 0..steps_per_period {
-            let t1 = t_start + i as F * dt;
+            let t1 = t_start + i as f64 * dt;
             let t2 = t1 + dt;
             let sp1 = surv.sp(t1);
             let sp2 = surv.sp(t2);
@@ -517,7 +517,7 @@ impl CDSPricer {
         disc: &dyn Discounting,
         surv: &dyn Survival,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
         let denom = if self.config.par_spread_uses_full_premium {
             // Compute premium PV per 1bp including AoD
@@ -555,7 +555,7 @@ impl CDSPricer {
         disc: &dyn Discounting,
         surv: &dyn Survival,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let base_date = disc.base_date();
         let schedule = self.generate_schedule(cds, as_of)?;
         let mut per_bp_pv = 0.0;
@@ -584,7 +584,7 @@ impl CDSPricer {
         disc: &dyn Discounting,
         surv: &dyn Survival,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let base_date = disc.base_date();
         let schedule = self.generate_schedule(cds, as_of)?;
         let mut annuity = 0.0;
@@ -607,13 +607,13 @@ impl CDSPricer {
         disc: &dyn Discounting,
         surv: &dyn Survival,
         as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let risky_annuity = self.risky_annuity(cds, disc, surv, as_of)?;
         Ok(risky_annuity * cds.notional.amount() / 10000.0)
     }
 
     /// CS01 via risky PV01 approximation
-    pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<F> {
+    pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<f64> {
         let disc = curves.get_discount_ref(cds.premium.disc_id.clone())?;
         let surv = curves.get_hazard_ref(cds.protection.credit_id.clone())?;
         let base_npv = self.npv(cds, disc, surv, as_of)?;
@@ -666,7 +666,7 @@ impl CDSPricer {
     }
 
     /// Year fraction helper honoring exact day-count if configured
-    fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
+    fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<f64> {
         if self.config.exact_daycount {
             dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
         } else {
@@ -682,7 +682,7 @@ impl CDSPricer {
 
 // ----- Local helpers -----
 #[inline]
-fn approx_default_density(surv: &dyn Survival, t: F, h: F, t_start: F, t_end: F) -> F {
+fn approx_default_density(surv: &dyn Survival, t: f64, h: f64, t_start: f64, t_end: f64) -> f64 {
     // Finite-difference approximation of -dS/dt, clipped to [t_start, t_end]
     let hh = if h <= 0.0 {
         (t_end - t_start) * 1e-4
@@ -722,8 +722,8 @@ impl CDSBootstrapper {
     /// Bootstrap hazard curve from CDS spreads (tenor years, spread bps)
     pub fn bootstrap_hazard_curve(
         &self,
-        cds_spreads: &[(F, F)],
-        recovery_rate: F,
+        cds_spreads: &[(f64, f64)],
+        recovery_rate: f64,
         disc: &dyn Discounting,
         base_date: Date,
     ) -> Result<HazardCurve> {
@@ -749,9 +749,9 @@ impl CDSBootstrapper {
     fn create_synthetic_cds(
         &self,
         base_date: Date,
-        tenor_years: F,
-        spread_bps: F,
-        recovery_rate: F,
+        tenor_years: f64,
+        spread_bps: f64,
+        recovery_rate: f64,
     ) -> Result<CreditDefaultSwap> {
         let months = (tenor_years * 12.0).round() as i32;
         let end_date = add_months(base_date, months);
@@ -773,9 +773,9 @@ impl CDSBootstrapper {
         &self,
         cds: &CreditDefaultSwap,
         disc: &dyn Discounting,
-        target_spread_bps: F,
+        target_spread_bps: f64,
         pricer: &CDSPricer,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let mut hazard_rate = target_spread_bps / 10000.0 / (1.0 - cds.protection.recovery_rate);
         for _ in 0..20 {
             let surv = self.create_flat_hazard_curve(hazard_rate, cds)?;
@@ -799,7 +799,7 @@ impl CDSBootstrapper {
 
     fn create_flat_hazard_curve(
         &self,
-        hazard_rate: F,
+        hazard_rate: f64,
         cds: &CreditDefaultSwap,
     ) -> Result<HazardCurve> {
         HazardCurve::builder("TEMP")
@@ -820,8 +820,8 @@ mod tests {
         id: impl Into<String>,
         start_date: Date,
         end_date: Date,
-        spread_bp: F,
-        recovery_rate: F,
+        spread_bp: f64,
+        recovery_rate: f64,
     ) -> CreditDefaultSwap {
         CreditDefaultSwap::new_isda(
             finstack_core::types::InstrumentId::new(id),

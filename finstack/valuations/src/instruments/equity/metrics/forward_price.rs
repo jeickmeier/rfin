@@ -4,7 +4,7 @@
 
 use crate::instruments::equity::Equity;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 
 /// Computes the forward price per share over a horizon in years.
 ///
@@ -14,7 +14,7 @@ use finstack_core::F;
 pub struct ForwardPricePerShareCalculator;
 
 impl MetricCalculator for ForwardPricePerShareCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let equity: &Equity = context.instrument_as()?;
         let key = format!("{}-FWD_T", equity.ticker);
         let t = context

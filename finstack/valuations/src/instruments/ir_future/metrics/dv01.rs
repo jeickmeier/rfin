@@ -7,13 +7,13 @@
 
 use crate::instruments::ir_future::{InterestRateFuture, Position};
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::F;
+
 
 /// DV01 calculator for interest rate futures.
 pub struct IrFutureDv01Calculator;
 
 impl MetricCalculator for IrFutureDv01Calculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let fut: &InterestRateFuture = context.instrument_as()?;
 
         let tau = fut

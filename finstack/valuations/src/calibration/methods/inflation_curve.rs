@@ -14,7 +14,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
-use finstack_core::F;
+
 use std::collections::BTreeMap;
 
 /// Inflation curve bootstrapper using ZC inflation swaps.
@@ -27,7 +27,7 @@ pub struct InflationCurveCalibrator {
     /// Currency
     pub currency: Currency,
     /// Base CPI level at calibration date
-    pub base_cpi: F,
+    pub base_cpi: f64,
     /// Discount curve ID for valuation
     pub discount_id: CurveId,
     /// Day count used for mapping calendar dates to time-axis (knots)
@@ -39,7 +39,7 @@ pub struct InflationCurveCalibrator {
     /// Inflation lag (typically 3 months for CPI)
     pub inflation_lag: InflationLag,
     /// Monthly seasonality adjustment factors (12 values, one per month)
-    pub seasonality_adjustments: Option<[F; 12]>,
+    pub seasonality_adjustments: Option<[f64; 12]>,
     /// Interpolation method for inflation index
     pub inflation_interpolation: InflationInterpolation,
     /// Calibration configuration
@@ -52,7 +52,7 @@ impl InflationCurveCalibrator {
         curve_id: impl Into<CurveId>,
         base_date: finstack_core::dates::Date,
         currency: Currency,
-        base_cpi: F,
+        base_cpi: f64,
         discount_id: impl Into<CurveId>,
     ) -> Self {
         Self {
@@ -103,7 +103,7 @@ impl InflationCurveCalibrator {
 
     /// Set monthly seasonality adjustment factors (12 values, one per month).
     /// Factors should be close to 1.0 (e.g., 0.98 to 1.02 for ±2% adjustment).
-    pub fn with_seasonality_adjustments(mut self, factors: [F; 12]) -> Self {
+    pub fn with_seasonality_adjustments(mut self, factors: [f64; 12]) -> Self {
         self.seasonality_adjustments = Some(factors);
         self
     }
@@ -115,7 +115,7 @@ impl InflationCurveCalibrator {
     }
 
     /// Apply seasonality adjustment to a CPI value based on the month.
-    fn apply_seasonality(&self, cpi_value: F, date: finstack_core::dates::Date) -> F {
+    fn apply_seasonality(&self, cpi_value: f64, date: finstack_core::dates::Date) -> f64 {
         if let Some(factors) = &self.seasonality_adjustments {
             let month_idx = (date.month() as usize) - 1;
             cpi_value * factors[month_idx]
@@ -134,7 +134,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
         base_context: &MarketContext,
     ) -> Result<(InflationCurve, CalibrationReport)> {
         // Extract relevant inflation swap quotes for this index and sort by maturity
-        let mut quotes: Vec<(finstack_core::dates::Date, F, String)> = instruments
+        let mut quotes: Vec<(finstack_core::dates::Date, f64, String)> = instruments
             .iter()
             .filter_map(|q| match q {
                 InflationQuote::InflationSwap {
@@ -170,7 +170,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
         }
 
         // Start knots with CPI at base date
-        let mut knots: Vec<(F, F)> = vec![(0.0, self.base_cpi)];
+        let mut knots: Vec<(f64, f64)> = vec![(0.0, self.base_cpi)];
         let mut residuals = BTreeMap::new();
         // Use configured solver via factory to honor tolerance and iteration settings consistently
         // Use solve_1d helper directly
@@ -232,7 +232,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 let notional = Money::new(1_000_000.0, self.currency);
 
                 let base_date = self.base_date;
-                let objective = move |cpi_guess: F| -> F {
+                let objective = move |cpi_guess: f64| -> f64 {
                     if !cpi_guess.is_finite() || cpi_guess <= 0.0 {
                         return crate::calibration::penalize();
                     }
@@ -464,7 +464,7 @@ mod tests {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         // Create seasonality factors (e.g., higher inflation in summer months)
-        let seasonality_factors: [F; 12] = [
+        let seasonality_factors: [f64; 12] = [
             0.98, 0.98, 0.99, 1.00, 1.01, 1.02, // Jan-Jun
             1.02, 1.02, 1.01, 1.00, 0.99, 0.98, // Jul-Dec
         ];

@@ -6,13 +6,13 @@
 
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Par spread calculator for CDS
 pub struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context
             .curves

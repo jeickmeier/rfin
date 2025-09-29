@@ -4,7 +4,7 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::F;
+
 
 /// Asset Swap Spreads (Par and Market) using discount-curve annuity approximation.
 ///
@@ -22,7 +22,7 @@ fn fixed_leg_annuity(
     disc: &DiscountCurve,
     dc: finstack_core::dates::DayCount,
     schedule: &[finstack_core::dates::Date],
-) -> F {
+) -> f64 {
     if schedule.len() < 2 {
         return 0.0;
     }
@@ -62,7 +62,7 @@ fn pv_coupon_from_custom_schedule(
     disc: &DiscountCurve,
     schedule: &CashFlowSchedule,
     as_of: Date,
-) -> F {
+) -> f64 {
     let mut pv = 0.0;
     for cf in &schedule.flows {
         if cf.date <= as_of {
@@ -85,8 +85,8 @@ pub fn asw_par_with_forward(
     curves: &finstack_core::market_data::MarketContext,
     as_of: finstack_core::dates::Date,
     fwd_curve_id: &str,
-    float_spread_bp: F,
-) -> finstack_core::Result<F> {
+    float_spread_bp: f64,
+) -> finstack_core::Result<f64> {
     let disc = curves.get_discount_ref(bond.disc_id.clone())?;
     let fwd = curves.get_forward_ref(fwd_curve_id)?;
 
@@ -141,9 +141,9 @@ pub fn asw_market_with_forward(
     curves: &finstack_core::market_data::MarketContext,
     as_of: finstack_core::dates::Date,
     fwd_curve_id: &str,
-    float_spread_bp: F,
-    dirty_price_ccy: Option<F>,
-) -> finstack_core::Result<F> {
+    float_spread_bp: f64,
+    dirty_price_ccy: Option<f64>,
+) -> finstack_core::Result<f64> {
     let disc = curves.get_discount_ref(bond.disc_id.clone())?;
     let flows = bond.build_schedule(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
@@ -171,7 +171,7 @@ impl MetricCalculator for AssetSwapParCalculator {
         &[]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
         // If the bond has custom cashflows, compute ASW using a forward-based
@@ -228,7 +228,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         &[MetricId::Accrued]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let (disc_id, maturity, dc, notional_amt, quoted_clean, is_custom, coupon) = {
             let b: &Bond = context.instrument_as()?;
             (
@@ -349,7 +349,7 @@ impl MetricCalculator for AssetSwapParFwdCalculator {
         &[]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
         let disc = context.curves.get_discount_ref(bond.disc_id.as_str())?;
         let as_of = disc.base_date();
@@ -374,7 +374,7 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
         &[MetricId::Accrued]
     }
 
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
         let disc = context.curves.get_discount_ref(bond.disc_id.as_str())?;
         let as_of = disc.base_date();

@@ -9,7 +9,7 @@ use crate::instruments::common::models::NodeState;
 use crate::instruments::common::parameters::OptionMarketParams;
 use crate::instruments::{ExerciseStyle, OptionType};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 use std::collections::HashSet;
 
 // Import the generic tree framework
@@ -59,7 +59,7 @@ impl BinomialTree {
 
     /// Peizer–Pratt inversion used by Leisen–Reimer to map normal quantiles to
     /// binomial cumulative probabilities. Uses the common closed form used in LR (1996).
-    fn peizer_pratt_inversion(&self, z: F, n: usize) -> F {
+    fn peizer_pratt_inversion(&self, z: f64, n: usize) -> f64 {
         if n == 0 {
             return 0.5;
         }
@@ -86,13 +86,13 @@ impl BinomialTree {
     /// Calculate tree parameters based on model type
     fn calculate_parameters(
         &self,
-        spot: F,
-        strike: F,
-        r: F,
-        sigma: F,
-        t: F,
-        q: F,
-    ) -> Result<(F, F, F)> {
+        spot: f64,
+        strike: f64,
+        r: f64,
+        sigma: f64,
+        t: f64,
+        q: f64,
+    ) -> Result<(f64, f64, f64)> {
         if t <= 0.0 || sigma <= 0.0 {
             return Err(Error::Internal);
         }
@@ -189,7 +189,7 @@ impl BinomialTree {
         &self,
         market_params: &OptionMarketParams,
         exercise_steps: Option<&[usize]>,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Compute lattice parameters honoring the configured binomial model
         let (u, d, p) = self.calculate_parameters(
             market_params.spot,
@@ -205,13 +205,13 @@ impl BinomialTree {
             exercise_steps.map(|steps| steps.iter().copied().collect::<HashSet<usize>>());
 
         struct OptionValuator {
-            strike: F,
+            strike: f64,
             option_type: OptionType,
             exercise_steps: Option<HashSet<usize>>,
         }
 
         impl TreeValuator for OptionValuator {
-            fn value_at_maturity(&self, state: &NodeState) -> Result<F> {
+            fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
                 let s = state.spot().ok_or(Error::Internal)?;
                 Ok(match self.option_type {
                     OptionType::Call => (s - self.strike).max(0.0),
@@ -219,7 +219,7 @@ impl BinomialTree {
                 })
             }
 
-            fn value_at_node(&self, state: &NodeState, continuation_value: F) -> Result<F> {
+            fn value_at_node(&self, state: &NodeState, continuation_value: f64) -> Result<f64> {
                 if let Some(steps) = &self.exercise_steps {
                     if steps.contains(&state.step) {
                         let s = state.spot().ok_or(Error::Internal)?;
@@ -267,13 +267,13 @@ impl BinomialTree {
     }
 
     /// Price American option using binomial tree
-    pub fn price_american(&self, market_params: &OptionMarketParams) -> Result<F> {
+    pub fn price_american(&self, market_params: &OptionMarketParams) -> Result<f64> {
         let all_steps: Vec<usize> = (0..self.steps).collect();
         self.price_with_exercise(market_params, Some(&all_steps))
     }
 
     /// Price European option using binomial tree (for validation)
-    pub fn price_european(&self, market_params: &OptionMarketParams) -> Result<F> {
+    pub fn price_european(&self, market_params: &OptionMarketParams) -> Result<f64> {
         self.price_with_exercise(market_params, None)
     }
 
@@ -281,8 +281,8 @@ impl BinomialTree {
     pub fn price_bermudan(
         &self,
         market_params: &OptionMarketParams,
-        exercise_dates: &[F], // Times when exercise is allowed
-    ) -> Result<F> {
+        exercise_dates: &[f64], // Times when exercise is allowed
+    ) -> Result<f64> {
         let mut steps =
             map_exercise_dates_to_steps(exercise_dates, market_params.time_to_expiry, self.steps);
         steps.sort();
@@ -294,36 +294,36 @@ impl BinomialTree {
     pub fn price_up_and_out(
         &self,
         market_params: &OptionMarketParams,
-        barrier: F,
-        rebate: F,
-    ) -> Result<F> {
+        barrier: f64,
+        rebate: f64,
+    ) -> Result<f64> {
         self.price_barrier_out(market_params, Some(barrier), None, rebate)
     }
 
     pub fn price_down_and_out(
         &self,
         market_params: &OptionMarketParams,
-        barrier: F,
-        rebate: F,
-    ) -> Result<F> {
+        barrier: f64,
+        rebate: f64,
+    ) -> Result<f64> {
         self.price_barrier_out(market_params, None, Some(barrier), rebate)
     }
 
     pub fn price_up_and_in(
         &self,
         market_params: &OptionMarketParams,
-        barrier: F,
-        rebate: F,
-    ) -> Result<F> {
+        barrier: f64,
+        rebate: f64,
+    ) -> Result<f64> {
         self.price_barrier_in(market_params, Some(barrier), None, rebate)
     }
 
     pub fn price_down_and_in(
         &self,
         market_params: &OptionMarketParams,
-        barrier: F,
-        rebate: F,
-    ) -> Result<F> {
+        barrier: f64,
+        rebate: f64,
+    ) -> Result<f64> {
         self.price_barrier_in(market_params, None, Some(barrier), rebate)
     }
 
@@ -388,10 +388,10 @@ impl BinomialTree {
     pub fn price_barrier_out(
         &self,
         market_params: &OptionMarketParams,
-        up_level: Option<F>,
-        down_level: Option<F>,
-        rebate: F,
-    ) -> Result<F> {
+        up_level: Option<f64>,
+        down_level: Option<f64>,
+        rebate: f64,
+    ) -> Result<f64> {
         // Compute lattice parameters
         let (u, d, p) = self.calculate_parameters(
             market_params.spot,
@@ -404,19 +404,19 @@ impl BinomialTree {
 
         // Use same valuator as vanilla
         struct OptionValuator {
-            strike: F,
+            strike: f64,
             option_type: OptionType,
         }
 
         impl TreeValuator for OptionValuator {
-            fn value_at_maturity(&self, state: &NodeState) -> Result<F> {
+            fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
                 let s = state.spot().ok_or(Error::Internal)?;
                 Ok(match self.option_type {
                     OptionType::Call => (s - self.strike).max(0.0),
                     OptionType::Put => (self.strike - s).max(0.0),
                 })
             }
-            fn value_at_node(&self, _state: &NodeState, continuation_value: F) -> Result<F> {
+            fn value_at_node(&self, _state: &NodeState, continuation_value: f64) -> Result<f64> {
                 Ok(continuation_value)
             }
         }
@@ -467,10 +467,10 @@ impl BinomialTree {
     pub fn price_barrier_in(
         &self,
         market_params: &OptionMarketParams,
-        up_level: Option<F>,
-        down_level: Option<F>,
-        rebate: F,
-    ) -> Result<F> {
+        up_level: Option<f64>,
+        down_level: Option<f64>,
+        rebate: f64,
+    ) -> Result<f64> {
         // Validate: single barrier only for parity
         let num_barriers = up_level.is_some() as usize + down_level.is_some() as usize;
         if num_barriers != 1 {
@@ -490,10 +490,10 @@ impl BinomialTree {
     pub fn price_generic<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Extract required parameters from state variables
         let r = *initial_vars
             .get(state_keys::INTEREST_RATE)
@@ -532,13 +532,13 @@ impl BinomialTree {
 #[derive(Clone, Debug)]
 pub struct BinomialGreeks {
     /// Option price
-    pub price: F,
+    pub price: f64,
     /// Delta
-    pub delta: F,
+    pub delta: f64,
     /// Gamma
-    pub gamma: F,
+    pub gamma: f64,
     /// Theta
-    pub theta: F,
+    pub theta: f64,
 }
 
 /// Implementation of TreeModel trait for BinomialTree
@@ -546,20 +546,20 @@ impl TreeModel for BinomialTree {
     fn price<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         self.price_generic(initial_vars, time_to_maturity, market_context, valuator)
     }
 
     fn calculate_greeks<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-        bump_size: Option<F>,
+        bump_size: Option<f64>,
     ) -> Result<TreeGreeks> {
         let bump = bump_size.unwrap_or(0.01);
 

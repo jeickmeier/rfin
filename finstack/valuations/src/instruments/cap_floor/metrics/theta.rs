@@ -7,13 +7,13 @@ use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::DateExt;
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Theta calculator (daily bump-and-reprice)
 pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &InterestRateOption = context.instrument_as()?;
 
         // Base PV from context

@@ -7,7 +7,7 @@
 use crate::instruments::common::traits::{Attributes, Instrument};
 use finstack_core::prelude::*;
 use finstack_core::types::{id::PriceId, InstrumentId};
-use finstack_core::F;
+
 use std::sync::Arc;
 
 #[cfg(feature = "serde")]
@@ -133,9 +133,9 @@ pub struct BasketConstituent {
     /// Reference to the underlying asset
     pub reference: ConstituentReference,
     /// Weight in the basket (as a fraction, e.g., 0.05 = 5%)
-    pub weight: F,
+    pub weight: f64,
     /// Number of units for physical replication (optional)
-    pub units: Option<F>,
+    pub units: Option<f64>,
     /// Optional ticker symbol for reporting
     pub ticker: Option<String>,
 }
@@ -145,7 +145,7 @@ pub struct BasketConstituent {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BasketPricingConfig {
     /// Day basis used for fee accrual (e.g., 365.0 or 365.25). Avoid hardcoding in logic.
-    pub days_in_year: F,
+    pub days_in_year: f64,
     /// FX policy hint for conversions when constituent currency != basket currency.
     pub fx_policy: FxConversionPolicy,
 }
@@ -174,7 +174,7 @@ pub struct Basket {
     pub constituents: Vec<BasketConstituent>,
     /// Total expense ratio (as decimal, e.g., 0.0025 = 0.25%)
     /// This affects pricing through expense drag calculations
-    pub expense_ratio: F,
+    pub expense_ratio: f64,
     /// Base currency of the basket
     pub currency: Currency,
     /// Discount curve identifier for present value calculations
@@ -216,7 +216,7 @@ impl Basket {
     /// Validate basket consistency (weights sum to ~1.0, currency consistency, etc.)
     pub fn validate(&self) -> Result<()> {
         // Check weight sum
-        let total_weight: F = self.constituents.iter().map(|c| c.weight).sum();
+        let total_weight: f64 = self.constituents.iter().map(|c| c.weight).sum();
         if (total_weight - 1.0).abs() > 0.01 {
             return Err(Error::Input(finstack_core::error::InputError::Invalid));
         }

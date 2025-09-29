@@ -5,13 +5,13 @@
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
-use finstack_core::F;
+
 
 /// PV of the fixed leg of an IRS.
 pub struct FixedLegPvCalculator;
 
 impl MetricCalculator for FixedLegPvCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
         let disc = context.curves.get_discount(irs.fixed.disc_id.clone())?;
 

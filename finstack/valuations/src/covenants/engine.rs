@@ -70,12 +70,12 @@ impl Covenant {
 
 #[derive(Clone, Debug)]
 pub enum CovenantType {
-    MaxDebtToEBITDA { threshold: F },
-    MinInterestCoverage { threshold: F },
-    MinFixedChargeCoverage { threshold: F },
-    MaxTotalLeverage { threshold: F },
-    MaxSeniorLeverage { threshold: F },
-    MinAssetCoverage { threshold: F },
+    MaxDebtToEBITDA { threshold: f64 },
+    MinInterestCoverage { threshold: f64 },
+    MinFixedChargeCoverage { threshold: f64 },
+    MaxTotalLeverage { threshold: f64 },
+    MaxSeniorLeverage { threshold: f64 },
+    MinAssetCoverage { threshold: f64 },
     Negative { restriction: String },
     Affirmative { requirement: String },
     Custom { metric: String, test: ThresholdTest },
@@ -83,22 +83,22 @@ pub enum CovenantType {
 
 #[derive(Clone, Copy, Debug)]
 pub enum ThresholdTest {
-    Maximum(F),
-    Minimum(F),
+    Maximum(f64),
+    Minimum(f64),
 }
 
 #[derive(Clone, Debug)]
 pub enum CovenantConsequence {
     Default,
-    RateIncrease { bp_increase: F },
-    CashSweep { sweep_percentage: F },
+    RateIncrease { bp_increase: f64 },
+    CashSweep { sweep_percentage: f64 },
     BlockDistributions,
     RequireCollateral { description: String },
     AccelerateMaturity { new_maturity: Date },
 }
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -108,7 +108,7 @@ pub type CustomEvaluator = Arc<dyn Fn(&MetricContext) -> finstack_core::Result<b
 
 /// Type alias for custom metric calculators.
 pub type CustomMetricCalculator =
-    Arc<dyn Fn(&MetricContext) -> finstack_core::Result<finstack_core::F> + Send + Sync>;
+    Arc<dyn Fn(&MetricContext) -> finstack_core::Result<f64> + Send + Sync>;
 
 /// Covenant evaluation specification.
 #[derive(Clone)]
@@ -188,9 +188,9 @@ pub struct CovenantBreach {
     /// Date of the breach
     pub breach_date: Date,
     /// Actual value that caused the breach
-    pub actual_value: Option<F>,
+    pub actual_value: Option<f64>,
     /// Required threshold
-    pub threshold: Option<F>,
+    pub threshold: Option<f64>,
     /// Cure period end date (if applicable)
     pub cure_deadline: Option<Date>,
     /// Whether the breach has been cured
@@ -248,7 +248,7 @@ impl CovenantEngine {
     ) -> &mut Self
     where
         CalcFn:
-            Fn(&MetricContext) -> finstack_core::Result<finstack_core::F> + Send + Sync + 'static,
+            Fn(&MetricContext) -> finstack_core::Result<f64> + Send + Sync + 'static,
     {
         self.custom_metrics
             .insert(name.into(), Arc::new(calculator));
@@ -414,7 +414,7 @@ impl CovenantEngine {
         &self,
         spec: &CovenantSpec,
         context: &mut MetricContext,
-    ) -> finstack_core::Result<(bool, Option<F>, Option<F>)> {
+    ) -> finstack_core::Result<(bool, Option<f64>, Option<f64>)> {
         // Use custom evaluator if provided
         if let Some(ref evaluator) = spec.custom_evaluator {
             let passed = evaluator(context)?;
@@ -484,7 +484,7 @@ impl CovenantEngine {
         &self,
         context: &mut MetricContext,
         metric_id: &MetricId,
-    ) -> finstack_core::Result<F> {
+    ) -> finstack_core::Result<f64> {
         // Check if already computed
         if let Some(&value) = context.computed.get(metric_id) {
             return Ok(value);
@@ -589,10 +589,10 @@ pub trait InstrumentMutator {
     fn set_default_status(&mut self, is_default: bool, as_of: Date) -> finstack_core::Result<()>;
 
     /// Increase interest rate.
-    fn increase_rate(&mut self, increase: F) -> finstack_core::Result<()>;
+    fn increase_rate(&mut self, increase: f64) -> finstack_core::Result<()>;
 
     /// Set cash sweep percentage.
-    fn set_cash_sweep(&mut self, percentage: F) -> finstack_core::Result<()>;
+    fn set_cash_sweep(&mut self, percentage: f64) -> finstack_core::Result<()>;
 
     /// Block distributions.
     fn set_distribution_block(&mut self, blocked: bool) -> finstack_core::Result<()>;

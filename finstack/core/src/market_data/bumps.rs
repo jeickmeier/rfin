@@ -8,7 +8,6 @@ use super::term_structures::{
     forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
 };
 use crate::types::CurveId;
-use crate::F;
 
 // -----------------------------------------------------------------------------
 // Bump Specification Types
@@ -64,12 +63,12 @@ pub struct BumpSpec {
     /// Units the value is expressed in, controlling normalization.
     pub units: BumpUnits,
     /// Raw magnitude provided by the caller (interpreted using `units`).
-    pub value: F,
+    pub value: f64,
 }
 
 impl BumpSpec {
     /// Create an additive bump specified in basis points (e.g., 100.0 = 100bp = 1%).
-    pub fn parallel_bp(bump_bp: F) -> Self {
+    pub fn parallel_bp(bump_bp: f64) -> Self {
         Self {
             mode: BumpMode::Additive,
             units: BumpUnits::RateBp,
@@ -78,7 +77,7 @@ impl BumpSpec {
     }
 
     /// Create a multiplicative bump given as a factor (e.g., 1.1 = +10%).
-    pub fn multiplier(factor: F) -> Self {
+    pub fn multiplier(factor: f64) -> Self {
         Self {
             mode: BumpMode::Multiplicative,
             units: BumpUnits::Factor,
@@ -87,7 +86,7 @@ impl BumpSpec {
     }
 
     /// Create an additive inflation shift specified in percent (e.g., 2.0 = +2%).
-    pub fn inflation_shift_pct(bump_pct: F) -> Self {
+    pub fn inflation_shift_pct(bump_pct: f64) -> Self {
         Self {
             mode: BumpMode::Additive,
             units: BumpUnits::Percent,
@@ -96,7 +95,7 @@ impl BumpSpec {
     }
 
     /// Create an additive correlation shift specified in percent (e.g., 10.0 = +10%).
-    pub fn correlation_shift_pct(bump_pct: F) -> Self {
+    pub fn correlation_shift_pct(bump_pct: f64) -> Self {
         Self {
             mode: BumpMode::Additive,
             units: BumpUnits::Percent,
@@ -105,7 +104,7 @@ impl BumpSpec {
     }
 
     /// If additive, return the bump as a normalized fraction (e.g., 100bp -> 0.01, 2% -> 0.02).
-    pub(crate) fn additive_fraction(&self) -> Option<F> {
+    pub(crate) fn additive_fraction(&self) -> Option<f64> {
         if self.mode != BumpMode::Additive {
             return None;
         }
@@ -124,17 +123,17 @@ impl BumpSpec {
 // -----------------------------------------------------------------------------
 
 #[inline]
-pub(crate) fn id_bump_bp(id: &str, bp: F) -> CurveId {
+pub(crate) fn id_bump_bp(id: &str, bp: f64) -> CurveId {
     CurveId::new(format!("{}_bump_{:.0}bp", id, bp))
 }
 
 #[inline]
-pub(crate) fn id_spread_bp(id: &str, bp: F) -> CurveId {
+pub(crate) fn id_spread_bp(id: &str, bp: f64) -> CurveId {
     CurveId::new(format!("{}_spread_{:.0}bp", id, bp))
 }
 
 #[inline]
-pub(crate) fn id_bump_pct(id: &str, pct: F) -> CurveId {
+pub(crate) fn id_bump_pct(id: &str, pct: f64) -> CurveId {
     CurveId::new(format!("{}_bump_{:.0}pct", id, pct))
 }
 
@@ -179,7 +178,7 @@ impl Bumpable for ForwardCurve {
             _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
         };
 
-        let bumped_rates: Vec<(F, F)> = self
+        let bumped_rates: Vec<(f64, f64)> = self
             .knots()
             .iter()
             .copied()
@@ -222,7 +221,7 @@ impl Bumpable for HazardCurve {
             }
         };
 
-        let shifted_points: Vec<(F, F)> = self
+        let shifted_points: Vec<(f64, f64)> = self
             .knot_points()
             .map(|(t, lambda)| (t, (lambda + shift).max(0.0)))
             .collect();
@@ -255,7 +254,7 @@ impl Bumpable for InflationCurve {
             _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
         };
 
-        let bumped_points: Vec<(F, F)> = self
+        let bumped_points: Vec<(f64, f64)> = self
             .knots()
             .iter()
             .copied()
@@ -287,7 +286,7 @@ impl Bumpable for BaseCorrelationCurve {
             _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
         };
 
-        let bumped_points: Vec<(F, F)> = self
+        let bumped_points: Vec<(f64, f64)> = self
             .detachment_points()
             .iter()
             .copied()

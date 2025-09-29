@@ -2,13 +2,13 @@
 
 use super::super::types::VarianceSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Calculate time to maturity in years.
 pub struct TimeToMaturityCalculator;
 
 impl MetricCalculator for TimeToMaturityCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let swap = context.instrument_as::<VarianceSwap>()?;
         let as_of = context.as_of;
 

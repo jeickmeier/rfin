@@ -8,7 +8,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::Attributes;
@@ -32,7 +32,7 @@ pub struct Deposit {
 
     /// Optional quoted simple rate r (annualised) for the deposit.
     #[builder(optional)]
-    pub quote_rate: Option<F>,
+    pub quote_rate: Option<f64>,
     /// Discount curve id used for valuation and par extraction.
     pub disc_id: CurveId,
     /// Attributes for scenario selection and tagging.

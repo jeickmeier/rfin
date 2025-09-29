@@ -19,17 +19,17 @@ use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::money::Money;
 use finstack_core::prelude::Currency;
 use finstack_core::types::CurveId;
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 use std::collections::BTreeMap;
 
 /// Type alias for grouped quotes by expiry-tenor pairs
-type QuotesByExpiryTenor = BTreeMap<(u64, u64), Vec<(F, F)>>;
+type QuotesByExpiryTenor = BTreeMap<(u64, u64), Vec<(f64, f64)>>;
 
 /// Type alias for SABR parameters by expiry-tenor pairs  
 type SABRParamsByExpiryTenor = BTreeMap<(u64, u64), SABRParameters>;
 
 /// Convert a float to basis points for use as a map key
-fn to_basis_points(value: F) -> u64 {
+fn to_basis_points(value: f64) -> u64 {
     (value * 10000.0).round() as u64
 }
 
@@ -41,7 +41,7 @@ pub enum SwaptionVolConvention {
     /// Lognormal (Black) volatility as percentage
     Lognormal,
     /// Shifted lognormal for negative rates
-    ShiftedLognormal { shift: F },
+    ShiftedLognormal { shift: f64 },
 }
 
 /// ATM strike convention for swaptions.
@@ -63,7 +63,7 @@ pub struct SwaptionVolCalibrator {
     /// ATM strike convention
     pub atm_convention: AtmStrikeConvention,
     /// Fixed SABR beta (0 for normal, 1 for lognormal)
-    pub sabr_beta: F,
+    pub sabr_beta: f64,
     /// Base date for calculations
     pub base_date: Date,
     /// Discount curve ID for swap pricing
@@ -132,9 +132,9 @@ impl SwaptionVolCalibrator {
     fn calculate_forward_swap_rate(
         &self,
         expiry: Date,
-        tenor_years: F,
+        tenor_years: f64,
         context: &MarketContext,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let disc = context.get_discount_ref(self.disc_id.as_str())?;
         let swap_start = expiry;
         let swap_end = add_months(expiry, (tenor_years * 12.0) as i32);
@@ -178,7 +178,7 @@ impl SwaptionVolCalibrator {
         start: Date,
         end: Date,
         disc: &dyn finstack_core::market_data::traits::Discounting,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Use shared builder to avoid duplication and ensure consistency
         let sched = crate::cashflow::builder::build_dates(
             start,
@@ -217,9 +217,9 @@ impl SwaptionVolCalibrator {
     fn calculate_swap_annuity(
         &self,
         expiry: Date,
-        tenor_years: F,
+        tenor_years: f64,
         context: &MarketContext,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         let swap_start = expiry;
         let swap_end = add_months(expiry, (tenor_years * 12.0) as i32);
 
@@ -254,12 +254,12 @@ impl SwaptionVolCalibrator {
     /// Convert volatility between conventions.
     fn convert_volatility(
         &self,
-        vol: F,
+        vol: f64,
         from_convention: SwaptionVolConvention,
         to_convention: SwaptionVolConvention,
-        forward_rate: F,
-        time_to_expiry: F,
-    ) -> F {
+        forward_rate: f64,
+        time_to_expiry: f64,
+    ) -> f64 {
         // For robust cross-convention conversion, equate option prices
         // under a unit annuity using Bachelier (normal) and Black (lognormal)
         // models. This avoids off-ATM distortions of simple ratios.
@@ -267,7 +267,7 @@ impl SwaptionVolCalibrator {
         use finstack_core::math::{norm_cdf, norm_pdf};
 
         // Helper: Bachelier (normal) call price with unit annuity
-        fn bachelier_price(forward: F, strike: F, sigma_n: F, t: F) -> F {
+        fn bachelier_price(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
             if t <= 0.0 {
                 return (forward - strike).max(0.0);
             }
@@ -283,7 +283,7 @@ impl SwaptionVolCalibrator {
         }
 
         // Helper: Black (lognormal) call price with unit annuity
-        fn black_price(forward: F, strike: F, sigma: F, t: F) -> F {
+        fn black_price(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
             if t <= 0.0 {
                 return (forward - strike).max(0.0);
             }
@@ -297,7 +297,7 @@ impl SwaptionVolCalibrator {
         }
 
         // Helper: Black with shift (for shifted lognormal)
-        fn black_shifted_price(forward: F, strike: F, sigma: F, t: F, shift: F) -> F {
+        fn black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shift: f64) -> f64 {
             black_price(forward + shift, strike + shift, sigma, t)
         }
 
@@ -353,7 +353,7 @@ impl SwaptionVolCalibrator {
         let t = time_to_expiry.max(0.0);
 
         // Invert price to target convention by solving for sigma
-        let objective = |sigma: F| -> F {
+        let objective = |sigma: f64| -> f64 {
             let sigma_pos = sigma.abs();
             let p = match to_convention {
                 SwaptionVolConvention::Normal => bachelier_price(f, f, sigma_pos, t),
@@ -424,11 +424,11 @@ impl SwaptionVolCalibrator {
     /// Determine ATM strike based on convention.
     fn determine_atm_strike(
         &self,
-        forward_rate: F,
+        forward_rate: f64,
         _expiry: Date,
-        _tenor_years: F,
+        _tenor_years: f64,
         _context: &MarketContext,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         match self.atm_convention {
             AtmStrikeConvention::SwapRate | AtmStrikeConvention::ParRate => {
                 // For vanilla swaps, par rate = forward rate
@@ -443,7 +443,7 @@ impl SwaptionVolCalibrator {
         &self,
         sabr_params: &SABRParamsByExpiryTenor,
         context: &MarketContext,
-    ) -> Result<Vec<F>> {
+    ) -> Result<Vec<f64>> {
         let target_expiries = &self.market_conventions.standard_expiries;
         let target_tenors = &self.market_conventions.standard_tenors;
         let mut vol_grid = Vec::with_capacity(target_expiries.len() * target_tenors.len());
@@ -500,17 +500,17 @@ impl SwaptionVolCalibrator {
     /// Interpolate SABR volatility for points without direct calibration.
     fn interpolate_sabr_vol(
         &self,
-        target_expiry: F,
-        target_tenor: F,
+        target_expiry: f64,
+        target_tenor: f64,
         sabr_params: &SABRParamsByExpiryTenor,
         context: &MarketContext,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Find closest calibrated point using min_by instead of sorting entire list
         let closest = sabr_params
             .iter()
             .map(|((exp_bp, ten_bp), params)| {
-                let exp = *exp_bp as F / 10000.0;
-                let ten = *ten_bp as F / 10000.0;
+                let exp = *exp_bp as f64 / 10000.0;
+                let ten = *ten_bp as f64 / 10000.0;
                 let distance =
                     ((exp - target_expiry).powi(2) + (ten - target_tenor).powi(2)).sqrt();
                 (distance, params)
@@ -595,8 +595,8 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
                 continue; // Need minimum points for SABR
             }
 
-            let expiry_years = *expiry_bp as F / 10000.0;
-            let tenor_years = *tenor_bp as F / 10000.0;
+            let expiry_years = *expiry_bp as f64 / 10000.0;
+            let tenor_years = *tenor_bp as f64 / 10000.0;
             let expiry_date = add_months(self.base_date, (expiry_years * 12.0) as i32);
 
             // Calculate forward swap rate
@@ -612,8 +612,8 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
                 };
 
             // Extract strikes and vols
-            let mut strikes: Vec<F> = Vec::new();
-            let mut vols: Vec<F> = Vec::new();
+            let mut strikes: Vec<f64> = Vec::new();
+            let mut vols: Vec<f64> = Vec::new();
 
             for &(strike, vol) in strikes_vols {
                 strikes.push(strike);
@@ -633,7 +633,7 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
                 SwaptionVolConvention::ShiftedLognormal { shift } => {
                     // For shifted SABR, we need to shift the forward and strikes
                     let shifted_forward = forward + shift;
-                    let shifted_strikes: Vec<F> = strikes.iter().map(|&s| s + shift).collect();
+                    let shifted_strikes: Vec<f64> = strikes.iter().map(|&s| s + shift).collect();
 
                     // Calibrate with shifted values
                     let mut calibrated_params = sabr_calibrator.calibrate(

@@ -21,7 +21,7 @@
 use finstack_core::error::InputError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 use std::collections::HashMap;
 
 use crate::cashflow::builder::{cf, CashFlowSchedule};
@@ -51,19 +51,19 @@ impl Default for ConvertibleTreeType {
 /// Convertible bond valuator implementing the TreeValuator trait
 pub struct ConvertibleBondValuator {
     /// Conversion ratio (shares per bond)
-    conversion_ratio: F,
+    conversion_ratio: f64,
     /// Face value of the bond
-    face_value: F,
+    face_value: f64,
     /// Coupon cashflows mapped to tree steps
-    coupon_map: HashMap<usize, F>,
+    coupon_map: HashMap<usize, f64>,
     /// Call prices mapped to tree steps
-    call_map: HashMap<usize, F>,
+    call_map: HashMap<usize, f64>,
     /// Put prices mapped to tree steps
-    put_map: HashMap<usize, F>,
+    put_map: HashMap<usize, f64>,
     /// Conversion policy
     conversion_policy: ConversionPolicy,
     /// Time steps for the tree (in years)
-    time_steps: Vec<F>,
+    time_steps: Vec<f64>,
     /// Base date for time calculations
     base_date: Date,
 }
@@ -73,7 +73,7 @@ impl ConvertibleBondValuator {
     pub fn new(
         bond: &ConvertibleBond,
         cashflow_schedule: &CashFlowSchedule,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         steps: usize,
         base_date: Date,
     ) -> Result<Self> {
@@ -87,11 +87,11 @@ impl ConvertibleBondValuator {
         };
 
         // Map cashflows to tree steps
-        let dt = time_to_maturity / steps as F;
+        let dt = time_to_maturity / steps as f64;
         let mut time_steps = Vec::with_capacity(steps + 1);
 
         for i in 0..=steps {
-            time_steps.push(i as F * dt);
+            time_steps.push(i as f64 * dt);
         }
 
         // Process coupon cashflows (exclude reset-only events) using schedule day count
@@ -200,18 +200,18 @@ impl ConvertibleBondValuator {
     }
 
     /// Get call price at a given step (if callable)
-    fn call_price_at_step(&self, step: usize) -> Option<F> {
+    fn call_price_at_step(&self, step: usize) -> Option<f64> {
         self.call_map.get(&step).copied()
     }
 
     /// Get put price at a given step (if puttable)
-    fn put_price_at_step(&self, step: usize) -> Option<F> {
+    fn put_price_at_step(&self, step: usize) -> Option<f64> {
         self.put_map.get(&step).copied()
     }
 }
 
 impl TreeValuator for ConvertibleBondValuator {
-    fn value_at_maturity(&self, state: &NodeState) -> Result<F> {
+    fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
         let spot = state.spot().ok_or(Error::Internal)?;
 
         // At maturity, choose between conversion and redemption
@@ -224,7 +224,7 @@ impl TreeValuator for ConvertibleBondValuator {
         Ok(conversion_value.max(redemption_value) + final_coupon)
     }
 
-    fn value_at_node(&self, state: &NodeState, continuation_value: F) -> Result<F> {
+    fn value_at_node(&self, state: &NodeState, continuation_value: f64) -> Result<f64> {
         let spot = state.spot().ok_or(Error::Internal)?;
 
         // Start with continuation value plus any coupon at this step
@@ -260,7 +260,7 @@ fn extract_equity_state(
     maturity: Date,
     expected_currency: Currency,
     attributes: &Attributes,
-) -> Result<(F, F, F, F, F)> {
+) -> Result<(f64, f64, f64, f64, f64)> {
     // Get spot price
     let spot_price = ctx.price(underlying_id)?;
     let spot = match spot_price {
@@ -333,7 +333,7 @@ fn extract_equity_state(
     ))
 }
 
-fn resolve_unitless_scalar(ctx: &MarketContext, candidate_ids: &[String]) -> Result<Option<F>> {
+fn resolve_unitless_scalar(ctx: &MarketContext, candidate_ids: &[String]) -> Result<Option<f64>> {
     for id in candidate_ids {
         match ctx.price(id) {
             Ok(finstack_core::market_data::scalars::MarketScalar::Unitless(value)) => {
@@ -354,9 +354,9 @@ fn resolve_unitless_scalar(ctx: &MarketContext, candidate_ids: &[String]) -> Res
 fn resolve_volatility(
     ctx: &MarketContext,
     candidate_ids: &[String],
-    time_to_maturity: F,
-    spot: F,
-) -> Result<F> {
+    time_to_maturity: f64,
+    spot: f64,
+) -> Result<f64> {
     let mut first_missing: Option<String> = None;
 
     for id in candidate_ids {
@@ -400,11 +400,11 @@ fn resolve_volatility(
 /// Aggregated data required for tree pricing, prepared once to avoid duplication.
 struct PricingInputs {
     cashflow_schedule: CashFlowSchedule,
-    spot: F,
-    volatility: F,
-    dividend_yield: F,
-    risk_free_rate: F,
-    time_to_maturity: F,
+    spot: f64,
+    volatility: f64,
+    dividend_yield: f64,
+    risk_free_rate: f64,
+    time_to_maturity: f64,
 }
 
 /// Prepare all necessary inputs for pricing and greeks calculation.
@@ -502,7 +502,7 @@ pub fn calculate_convertible_greeks(
     bond: &ConvertibleBond,
     market_context: &MarketContext,
     tree_type: ConvertibleTreeType,
-    bump_size: Option<F>,
+    bump_size: Option<f64>,
 ) -> Result<TreeGreeks> {
     // Prepare all inputs
     let inputs = prepare_for_pricing(bond, market_context)?;
@@ -572,7 +572,7 @@ fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule
 }
 
 /// Calculate convertible bond parity
-pub fn calculate_parity(bond: &ConvertibleBond, current_spot: F) -> F {
+pub fn calculate_parity(bond: &ConvertibleBond, current_spot: f64) -> f64 {
     let conversion_ratio = if let Some(ratio) = bond.conversion.ratio {
         ratio
     } else if let Some(price) = bond.conversion.price {
@@ -585,7 +585,7 @@ pub fn calculate_parity(bond: &ConvertibleBond, current_spot: F) -> F {
 }
 
 /// Calculate conversion premium
-pub fn calculate_conversion_premium(bond_price: F, current_spot: F, conversion_ratio: F) -> F {
+pub fn calculate_conversion_premium(bond_price: f64, current_spot: f64, conversion_ratio: f64) -> f64 {
     let conversion_value = current_spot * conversion_ratio;
     if conversion_value > 0.0 {
         (bond_price / conversion_value) - 1.0

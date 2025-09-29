@@ -1,5 +1,5 @@
 use super::InterpFn;
-use crate::{math::interp::LogLinearDf, F};
+use crate::{math::interp::LogLinearDf};
 
 /// Flat-forward DF interpolator – constant instantaneous forward rate between knots.
 /// Implemented via linear interpolation on log DF (equivalent behaviour).
@@ -18,8 +18,8 @@ impl FlatFwd {
     /// same mathematical behaviour.
     #[allow(clippy::boxed_local)]
     pub fn new(
-        knots: Box<[F]>,
-        dfs: Box<[F]>,
+        knots: Box<[f64]>,
+        dfs: Box<[f64]>,
         extrapolation: crate::math::interp::ExtrapolationPolicy,
     ) -> crate::Result<Self> {
         Ok(Self {
@@ -35,11 +35,11 @@ impl FlatFwd {
 }
 
 impl InterpFn for FlatFwd {
-    fn interp(&self, x: F) -> F {
+    fn interp(&self, x: f64) -> f64 {
         self.inner.interp(x)
     }
 
-    fn interp_prime(&self, x: F) -> F {
+    fn interp_prime(&self, x: f64) -> f64 {
         self.inner.interp_prime(x)
     }
 }

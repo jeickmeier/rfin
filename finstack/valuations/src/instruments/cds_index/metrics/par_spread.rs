@@ -5,13 +5,13 @@
 
 use crate::instruments::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Par spread calculator for CDS Index
 pub struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let idx: &CDSIndex = context.instrument_as()?;
         idx.par_spread(&context.curves, context.as_of)
     }

@@ -12,7 +12,7 @@ use finstack_core::dates::{Date, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+
 use std::any::Any;
 use time::Month;
 
@@ -92,7 +92,7 @@ impl Cmbs {
     }
 
     /// Calculate current loss percentage of the pool.
-    pub fn current_loss_percentage(&self) -> F {
+    pub fn current_loss_percentage(&self) -> f64 {
         let total_balance = self.pool.total_balance().amount();
         if total_balance == 0.0 {
             return 0.0;
@@ -115,7 +115,7 @@ impl Cmbs {
     }
 
     /// Calculate expected life of the structure.
-    pub fn expected_life(&self, as_of: Date) -> finstack_core::Result<F> {
+    pub fn expected_life(&self, as_of: Date) -> finstack_core::Result<f64> {
         Ok(self.pool.weighted_avg_life(as_of))
     }
 }

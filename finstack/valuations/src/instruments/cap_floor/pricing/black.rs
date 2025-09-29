@@ -6,19 +6,19 @@ use crate::instruments::common::models::{d1 as bs_d1, d2 as bs_d2};
 use finstack_core::currency::Currency;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
-use finstack_core::F;
+
 
 /// Inputs for Black caplet/floorlet pricing
 #[derive(Clone, Copy, Debug)]
 pub struct CapletFloorletInputs {
     pub is_cap: bool,
-    pub notional: F,
-    pub strike: F,
-    pub forward: F,
-    pub discount_factor: F,
-    pub volatility: F,
-    pub time_to_fixing: F,
-    pub accrual_year_fraction: F,
+    pub notional: f64,
+    pub strike: f64,
+    pub forward: f64,
+    pub discount_factor: f64,
+    pub volatility: f64,
+    pub time_to_fixing: f64,
+    pub accrual_year_fraction: f64,
     pub currency: Currency,
 }
 
@@ -57,7 +57,7 @@ pub fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Res
 }
 
 /// Black forward delta (per unit forward).
-pub fn delta(is_cap: bool, strike: F, forward: F, sigma: F, t_fix: F) -> F {
+pub fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || sigma <= 0.0 {
         if is_cap {
             return if forward > strike { 1.0 } else { 0.0 };
@@ -74,7 +74,7 @@ pub fn delta(is_cap: bool, strike: F, forward: F, sigma: F, t_fix: F) -> F {
 }
 
 /// Black forward gamma (per unit forward).
-pub fn gamma(strike: F, forward: F, sigma: F, t_fix: F) -> F {
+pub fn gamma(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || sigma <= 0.0 || forward <= 0.0 {
         return 0.0;
     }
@@ -83,7 +83,7 @@ pub fn gamma(strike: F, forward: F, sigma: F, t_fix: F) -> F {
 }
 
 /// Black vega per 1% vol.
-pub fn vega_per_pct(strike: F, forward: F, sigma: F, t_fix: F) -> F {
+pub fn vega_per_pct(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || forward <= 0.0 {
         return 0.0;
     }

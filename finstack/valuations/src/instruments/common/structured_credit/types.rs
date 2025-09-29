@@ -1,7 +1,7 @@
 //! Shared structured credit enums and types used across instruments.
 
 use finstack_core::dates::Date;
-use finstack_core::F;
+
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -54,7 +54,7 @@ impl CreditRating {
     }
 
     /// Get rating factor for diversity score calculations
-    pub fn rating_factor(&self) -> F {
+    pub fn rating_factor(&self) -> f64 {
         match self {
             Self::AAA => 1.0,
             Self::AA => 2.0,
@@ -104,12 +104,12 @@ pub enum AssetType {
     /// Mortgage exposure
     Mortgage {
         property_type: PropertyType,
-        ltv: Option<F>,
+        ltv: Option<f64>,
     },
     /// Auto loan
     AutoLoan {
         vehicle_type: VehicleType,
-        ltv: Option<F>,
+        ltv: Option<f64>,
     },
     /// Credit card receivables
     CreditCard { portfolio_type: CardPortfolioType },

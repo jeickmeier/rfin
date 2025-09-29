@@ -9,7 +9,7 @@ use crate::currency::Currency;
 use crate::dates::Date;
 use crate::money::Money;
 use crate::types::CurveId;
-use crate::{Error, Result, F};
+use crate::{Error, Result};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -23,11 +23,11 @@ pub enum DividendKind {
     Cash(Money),
     /// Proportional yield (fraction per annum) to be applied over an accrual.
     /// This is metadata for models that approximate dividends as a yield.
-    Yield(F),
+    Yield(f64),
     /// Stock dividend specified as a ratio (e.g., 0.05 = 5% stock dividend).
     Stock {
         /// Stock distribution ratio; 0.05 corresponds to a 5% stock dividend.
-        ratio: F,
+        ratio: f64,
     },
 }
 
@@ -89,7 +89,7 @@ impl DividendSchedule {
     }
 
     /// Add a proportional yield event (metadata for models using yields).
-    pub fn add_yield(mut self, date: Date, dividend_yield: F) -> Self {
+    pub fn add_yield(mut self, date: Date, dividend_yield: f64) -> Self {
         self.events.push(DividendEvent {
             date,
             kind: DividendKind::Yield(dividend_yield),
@@ -98,7 +98,7 @@ impl DividendSchedule {
     }
 
     /// Add a stock dividend event given a ratio (e.g., 0.05 for 5%).
-    pub fn add_stock(mut self, date: Date, ratio: F) -> Self {
+    pub fn add_stock(mut self, date: Date, ratio: f64) -> Self {
         self.events.push(DividendEvent {
             date,
             kind: DividendKind::Stock { ratio },
@@ -193,7 +193,7 @@ impl DividendScheduleBuilder {
     }
 
     /// Add a yield dividend.
-    pub fn yield_div(mut self, date: Date, y: F) -> Self {
+    pub fn yield_div(mut self, date: Date, y: f64) -> Self {
         self.events.push(DividendEvent {
             date,
             kind: DividendKind::Yield(y),
@@ -202,7 +202,7 @@ impl DividendScheduleBuilder {
     }
 
     /// Add a stock dividend.
-    pub fn stock(mut self, date: Date, ratio: F) -> Self {
+    pub fn stock(mut self, date: Date, ratio: f64) -> Self {
         self.events.push(DividendEvent {
             date,
             kind: DividendKind::Stock { ratio },

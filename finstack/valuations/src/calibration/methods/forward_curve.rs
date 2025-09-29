@@ -20,7 +20,7 @@ use finstack_core::{
     math::{interp::InterpStyle, Solver},
     money::Money,
     types::CurveId,
-    Result, F,
+    Result,
 };
 use std::collections::BTreeMap;
 
@@ -33,7 +33,7 @@ pub struct ForwardCurveCalibrator {
     /// Forward curve identifier
     pub fwd_curve_id: CurveId,
     /// Tenor in years (e.g., 0.25 for 3M, 0.5 for 6M)
-    pub tenor_years: F,
+    pub tenor_years: f64,
     /// Base date for the curve
     pub base_date: Date,
     /// Currency
@@ -52,7 +52,7 @@ impl ForwardCurveCalibrator {
     /// Create a new forward curve calibrator.
     pub fn new(
         fwd_curve_id: impl Into<CurveId>,
-        tenor_years: F,
+        tenor_years: f64,
         base_date: Date,
         currency: Currency,
         discount_curve_id: impl Into<CurveId>,
@@ -87,7 +87,7 @@ impl ForwardCurveCalibrator {
         self
     }
 
-    fn ensure_anchor(knots: &mut Vec<(F, F)>, fallback_rate: F) {
+    fn ensure_anchor(knots: &mut Vec<(f64, f64)>, fallback_rate: f64) {
         if knots.is_empty() {
             knots.push((0.0, fallback_rate));
             return;
@@ -117,7 +117,7 @@ impl ForwardCurveCalibrator {
         sorted_quotes.sort_by_key(|q| self.get_maturity(q));
 
         // Initialize knots vector: (time, forward_rate)
-        let mut knots: Vec<(F, F)> = Vec::new();
+        let mut knots: Vec<(f64, f64)> = Vec::new();
         let mut residuals = BTreeMap::new();
         let mut total_iterations = 0;
         let mut residual_key_counter = 0;
@@ -149,7 +149,7 @@ impl ForwardCurveCalibrator {
             let base_context_clone = base_context.clone();
 
             // Define objective function
-            let objective = move |fwd_rate: F| -> F {
+            let objective = move |fwd_rate: f64| -> f64 {
                 // Build temporary forward curve with new knot
                 let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
                 temp_knots.extend_from_slice(&knots_clone);
@@ -293,18 +293,18 @@ impl ForwardCurveCalibrator {
         Ok((curve, report))
     }
 
-    fn solve_with_bracketing(&self, objective: &dyn Fn(F) -> F, initial: F) -> Result<Option<F>> {
+    fn solve_with_bracketing(&self, objective: &dyn Fn(f64) -> f64, initial: f64) -> Result<Option<f64>> {
         let value_initial = objective(initial);
         if value_initial.is_finite() && value_initial.abs() < self.config.tolerance {
             return Ok(Some(initial));
         }
 
-        let scan_points: [F; 19] = [
+        let scan_points: [f64; 19] = [
             -0.05, -0.025, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.075, 0.10, 0.15, 0.20, 0.25, 0.30,
             0.35, 0.40, 0.45, 0.50, 0.55,
         ];
 
-        let mut last_valid: Option<(F, F)> = None;
+        let mut last_valid: Option<(f64, f64)> = None;
         for &point in &scan_points {
             let value = objective(point);
             if !value.is_finite() || value.abs() >= crate::calibration::PENALTY / 10.0 {
@@ -338,7 +338,7 @@ impl ForwardCurveCalibrator {
     }
 
     /// Price an instrument for calibration.
-    fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<F> {
+    fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
         match quote {
             RatesQuote::FRA {
                 start,
@@ -558,7 +558,7 @@ impl ForwardCurveCalibrator {
     }
 
     /// Get initial guess for forward rate.
-    fn get_initial_guess(&self, quote: &RatesQuote, existing_knots: &[(F, F)]) -> F {
+    fn get_initial_guess(&self, quote: &RatesQuote, existing_knots: &[(f64, f64)]) -> f64 {
         match quote {
             RatesQuote::FRA { rate, .. } => *rate,
             RatesQuote::Future { price, specs, .. } => {
@@ -605,7 +605,7 @@ impl ForwardCurveCalibrator {
     fn frequency_matches_tenor(&self, freq: &Frequency) -> bool {
         match freq {
             Frequency::Months(m) => {
-                let freq_years = *m as F / 12.0;
+                let freq_years = *m as f64 / 12.0;
                 (freq_years - self.tenor_years).abs() < 1e-10
             }
             _ => false,

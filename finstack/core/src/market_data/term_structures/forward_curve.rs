@@ -30,7 +30,7 @@ use crate::{
     market_data::traits::{Forward, TermStructure},
     math::interp::types::Interp,
     types::CurveId,
-    F,
+
 };
 
 /// Forward-rate curve for an index with fixed tenor (e.g. 3-month SOFR).
@@ -43,11 +43,11 @@ pub struct ForwardCurve {
     /// Day-count basis used for accrual.
     day_count: DayCount,
     /// Index tenor in **years** (0.25 = 3M).
-    tenor: F,
+    tenor: f64,
     /// Knot times in **years** (strictly increasing, first may be 0.0).
-    knots: Box<[F]>,
+    knots: Box<[f64]>,
     /// Simple forward rates (e.g. 0.025 = 2.5 %).
-    forwards: Box<[F]>,
+    forwards: Box<[f64]>,
     interp: Interp,
 }
 
@@ -65,7 +65,7 @@ pub struct ForwardCurveState {
     /// Day count convention
     pub day_count: DayCount,
     /// Index tenor in years
-    pub tenor: F,
+    pub tenor: f64,
     #[cfg_attr(feature = "serde", serde(flatten))]
     points: super::common::StateKnotPoints,
     #[cfg_attr(feature = "serde", serde(flatten))]
@@ -74,7 +74,7 @@ pub struct ForwardCurveState {
 
 impl ForwardCurve {
     /// Start building a forward curve for `id` with tenor `tenor_years`.
-    pub fn builder(id: impl Into<CurveId>, tenor_years: F) -> ForwardCurveBuilder {
+    pub fn builder(id: impl Into<CurveId>, tenor_years: f64) -> ForwardCurveBuilder {
         ForwardCurveBuilder {
             id: id.into(),
             base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
@@ -88,7 +88,7 @@ impl ForwardCurve {
 
     /// Forward rate starting at time `t` (in years) for the curve’s tenor.
     #[inline]
-    pub fn rate(&self, t: F) -> F {
+    pub fn rate(&self, t: f64) -> f64 {
         self.interp.interp(t)
     }
 
@@ -106,19 +106,19 @@ impl ForwardCurve {
 
     /// Index tenor in **years** (e.g. 0.25 = 3M).
     #[inline]
-    pub fn tenor(&self) -> F {
+    pub fn tenor(&self) -> f64 {
         self.tenor
     }
 
     /// Raw knot times used to bootstrap the curve.
     #[inline]
-    pub fn knots(&self) -> &[F] {
+    pub fn knots(&self) -> &[f64] {
         &self.knots
     }
 
     /// Raw simple forward rates at each knot.
     #[inline]
-    pub fn forwards(&self) -> &[F] {
+    pub fn forwards(&self) -> &[f64] {
         &self.forwards
     }
 
@@ -135,7 +135,7 @@ impl ForwardCurve {
 
     /// Average rate over `[t1, t2]`.
     #[inline]
-    pub fn rate_period(&self, t1: F, t2: F) -> F {
+    pub fn rate_period(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1, "t2 must be after t1");
         (self.rate(t1) + self.rate(t2)) * 0.5
     }
@@ -143,7 +143,7 @@ impl ForwardCurve {
     #[cfg(feature = "serde")]
     /// Extract serializable state
     pub fn to_state(&self) -> ForwardCurveState {
-        let knot_points: Vec<(F, F)> = self
+        let knot_points: Vec<(f64, f64)> = self
             .knots
             .iter()
             .zip(self.forwards.iter())
@@ -185,8 +185,8 @@ pub struct ForwardCurveBuilder {
     base: Date,
     reset_lag: i32,
     day_count: DayCount,
-    tenor: F,
-    points: Vec<(F, F)>,
+    tenor: f64,
+    points: Vec<(f64, f64)>,
     style: InterpStyle,
 }
 
@@ -209,7 +209,7 @@ impl ForwardCurveBuilder {
     /// Supply knot points `(t, fwd)`.
     pub fn knots<I>(mut self, pts: I) -> Self
     where
-        I: IntoIterator<Item = (F, F)>,
+        I: IntoIterator<Item = (f64, f64)>,
     {
         self.points.extend(pts);
         self
@@ -225,7 +225,7 @@ impl ForwardCurveBuilder {
         if self.points.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
-        let (kvec, fvec): (Vec<F>, Vec<F>) = split_points(self.points);
+        let (kvec, fvec): (Vec<f64>, Vec<f64>) = split_points(self.points);
         crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let forwards = fvec.into_boxed_slice();
@@ -254,7 +254,7 @@ impl ForwardCurveBuilder {
 
 impl Forward for ForwardCurve {
     #[inline]
-    fn rate(&self, t: F) -> F {
+    fn rate(&self, t: f64) -> f64 {
         self.rate(t)
     }
 }

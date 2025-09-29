@@ -7,7 +7,7 @@
 
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::HazardCurve;
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 use super::tree_framework::{state_keys, NodeState, StateVariables, TreeModel, TreeValuator};
 
@@ -17,15 +17,15 @@ pub struct RatesCreditConfig {
     /// Number of time steps
     pub steps: usize,
     /// Short-rate volatility (annualized)
-    pub rate_vol: F,
+    pub rate_vol: f64,
     /// Credit hazard volatility (annualized)
-    pub hazard_vol: F,
+    pub hazard_vol: f64,
     /// Base short rate used for drift (optional; used for stability when missing from vars)
-    pub base_rate: F,
+    pub base_rate: f64,
     /// Base hazard used when missing from vars
-    pub base_hazard: F,
+    pub base_hazard: f64,
     /// Instantaneous correlation between rate and hazard shocks
-    pub correlation: F,
+    pub correlation: f64,
 }
 
 impl Default for RatesCreditConfig {
@@ -53,7 +53,7 @@ impl RatesCreditTree {
     }
 
     #[inline]
-    fn joint_probabilities(&self, p_r: F, p_h: F) -> (F, F, F, F) {
+    fn joint_probabilities(&self, p_r: f64, p_h: f64) -> (f64, f64, f64, f64) {
         // Correlated Bernoulli coupling
         let var_r = p_r * (1.0 - p_r);
         let var_h = p_h * (1.0 - p_h);
@@ -84,7 +84,7 @@ impl RatesCreditTree {
     ///
     /// Uses the first knot lambda as the base hazard and adopts the curve's
     /// recovery rate (returned to the caller for use in valuator logic).
-    pub fn align_hazard_from_curve(&mut self, curve: &HazardCurve) -> F {
+    pub fn align_hazard_from_curve(&mut self, curve: &HazardCurve) -> f64 {
         if let Some((_, lambda0)) = curve.knot_points().next() {
             self.config.base_hazard = lambda0.max(0.0);
         }
@@ -96,16 +96,16 @@ impl TreeModel for RatesCreditTree {
     fn price<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,
-        time_to_maturity: F,
+        time_to_maturity: f64,
         market_context: &MarketContext,
         valuator: &V,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         if self.config.steps == 0 || time_to_maturity <= 0.0 {
             return Err(Error::Internal);
         }
 
         let steps = self.config.steps;
-        let dt = time_to_maturity / steps as F;
+        let dt = time_to_maturity / steps as f64;
 
         // Initial state
         let r0 = initial_vars
@@ -129,7 +129,7 @@ impl TreeModel for RatesCreditTree {
         let (p_uu, p_ud, p_du, p_dd) = self.joint_probabilities(p_r, p_h);
 
         // Terminal payoff grid values[i][j] for i: rate ups, j: hazard ups
-        let mut values: Vec<Vec<F>> = vec![vec![0.0; steps + 1]; steps + 1];
+        let mut values: Vec<Vec<f64>> = vec![vec![0.0; steps + 1]; steps + 1];
         let mut vars = initial_vars.clone();
 
         for (i, row) in values.iter_mut().enumerate() {
@@ -139,9 +139,9 @@ impl TreeModel for RatesCreditTree {
 
                 vars.insert(state_keys::INTEREST_RATE, r_t.max(1e-8));
                 vars.insert(state_keys::HAZARD_RATE, h_t.max(0.0));
-                vars.insert("step", steps as F);
-                vars.insert("node_i", i as F);
-                vars.insert("node_j", j as F);
+                vars.insert("step", steps as f64);
+                vars.insert("node_i", i as f64);
+                vars.insert("node_j", j as f64);
                 vars.insert("time", time_to_maturity);
 
                 let state = NodeState::new(steps, time_to_maturity, vars.clone(), market_context);
@@ -151,7 +151,7 @@ impl TreeModel for RatesCreditTree {
 
         // Backward induction
         for k in (0..steps).rev() {
-            let mut new_values: Vec<Vec<F>> = vec![vec![0.0; k + 1]; k + 1];
+            let mut new_values: Vec<Vec<f64>> = vec![vec![0.0; k + 1]; k + 1];
             for i in 0..=k {
                 let r_t = r0 * u_r.powi(i as i32) * d_r.powi((k - i) as i32);
                 for j in 0..=k {
@@ -171,12 +171,12 @@ impl TreeModel for RatesCreditTree {
                     vars.insert(state_keys::HAZARD_RATE, h_t.max(0.0));
                     vars.insert("df", df);
                     vars.insert("dt", dt);
-                    vars.insert("step", k as F);
-                    vars.insert("node_i", i as F);
-                    vars.insert("node_j", j as F);
-                    vars.insert("time", k as F * dt);
+                    vars.insert("step", k as f64);
+                    vars.insert("node_i", i as f64);
+                    vars.insert("node_j", j as f64);
+                    vars.insert("time", k as f64 * dt);
 
-                    let state = NodeState::new(k, k as F * dt, vars.clone(), market_context);
+                    let state = NodeState::new(k, k as f64 * dt, vars.clone(), market_context);
                     new_values[i][j] = valuator.value_at_node(&state, cont)?;
                 }
             }
@@ -195,10 +195,10 @@ mod tests {
     struct DummyValuator;
 
     impl TreeValuator for DummyValuator {
-        fn value_at_maturity(&self, _state: &NodeState) -> Result<F> {
+        fn value_at_maturity(&self, _state: &NodeState) -> Result<f64> {
             Ok(1.0)
         }
-        fn value_at_node(&self, _state: &NodeState, continuation_value: F) -> Result<F> {
+        fn value_at_node(&self, _state: &NodeState, continuation_value: f64) -> Result<f64> {
             Ok(continuation_value)
         }
     }

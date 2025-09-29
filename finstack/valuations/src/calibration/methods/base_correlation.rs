@@ -16,7 +16,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
-use finstack_core::F;
+
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -29,19 +29,19 @@ pub enum CorrelationInterp {
 }
 
 /// Minimum correlation bound (1% to avoid numerical issues)
-const MIN_CORRELATION: F = 0.01;
+const MIN_CORRELATION: f64 = 0.01;
 
 /// Maximum correlation bound (99% to avoid numerical issues)
-const MAX_CORRELATION: F = 0.99;
+const MAX_CORRELATION: f64 = 0.99;
 
 /// Default initial correlation guess for equity tranches
-const INITIAL_CORRELATION_GUESS: F = 0.3;
+const INITIAL_CORRELATION_GUESS: f64 = 0.3;
 
 /// Correlation step size for monotonic assumption
-const CORRELATION_STEP: F = 0.05;
+const CORRELATION_STEP: f64 = 0.05;
 
 /// Maximum correlation for monotonic extrapolation
-const MAX_MONOTONIC_CORRELATION: F = 0.9;
+const MAX_MONOTONIC_CORRELATION: f64 = 0.9;
 
 /// Base correlation curve calibrator.
 #[derive(Clone, Debug)]
@@ -51,13 +51,13 @@ pub struct BaseCorrelationCalibrator {
     /// Index series number
     pub series: u16,
     /// Maturity for correlation curve (e.g., 5 years)
-    pub maturity_years: F,
+    pub maturity_years: f64,
     /// Base date for calibration
     pub base_date: Date,
     /// Discount curve identifier used for tranche PVs
     pub discount_curve_id: finstack_core::types::CurveId,
     /// Standard detachment points to calibrate
-    pub detachment_points: Vec<F>,
+    pub detachment_points: Vec<f64>,
     /// Calibration configuration
     pub config: CalibrationConfig,
     /// Interpolation used for base correlation between detachment points
@@ -69,7 +69,7 @@ impl BaseCorrelationCalibrator {
     pub fn new(
         index_id: impl Into<String>,
         series: u16,
-        maturity_years: F,
+        maturity_years: f64,
         base_date: Date,
     ) -> Self {
         Self {
@@ -87,7 +87,7 @@ impl BaseCorrelationCalibrator {
     }
 
     /// Set custom detachment points.
-    pub fn with_detachment_points(mut self, points: Vec<F>) -> Self {
+    pub fn with_detachment_points(mut self, points: Vec<f64>) -> Self {
         self.detachment_points = points;
         self
     }
@@ -183,7 +183,7 @@ impl BaseCorrelationCalibrator {
             }
         }
 
-        let mut solved_correlations: Vec<(F, F)> = Vec::new();
+        let mut solved_correlations: Vec<(f64, f64)> = Vec::new();
         let mut residuals = BTreeMap::new();
         let mut total_iterations = 0;
         let pricing_model = CDSTranchePricer::new();
@@ -210,7 +210,7 @@ impl BaseCorrelationCalibrator {
                 (last_correlation + CORRELATION_STEP).min(MAX_MONOTONIC_CORRELATION)
             };
 
-            let objective = |trial_correlation: F| -> F {
+            let objective = |trial_correlation: f64| -> f64 {
                 let mut temp_corr_points = solved_correlations.clone();
                 temp_corr_points.push((*detach_pct, trial_correlation));
 
@@ -291,9 +291,9 @@ impl BaseCorrelationCalibrator {
     /// Create synthetic CDS tranche for pricing.
     fn create_synthetic_tranche(
         &self,
-        attach_pct: F,
-        detach_pct: F,
-        running_spread_bp: F,
+        attach_pct: f64,
+        detach_pct: f64,
+        running_spread_bp: f64,
     ) -> Result<CdsTranche> {
         // Use proper calendar arithmetic instead of 365.25 approximation
         let months_to_add = (self.maturity_years * 12.0).round() as i32;
@@ -348,9 +348,9 @@ pub struct BaseCorrelationSurfaceCalibrator {
     /// Base date
     pub base_date: Date,
     /// Target maturities in years
-    pub target_maturities: Vec<F>,
+    pub target_maturities: Vec<f64>,
     /// Standard detachment points
-    pub detachment_points: Vec<F>,
+    pub detachment_points: Vec<f64>,
     /// Configuration
     pub config: CalibrationConfig,
     /// Day count used to map tranche maturities to years for grouping
@@ -363,7 +363,7 @@ impl BaseCorrelationSurfaceCalibrator {
         index_id: impl Into<String>,
         series: u16,
         base_date: Date,
-        target_maturities: Vec<F>,
+        target_maturities: Vec<f64>,
     ) -> Self {
         Self {
             index_id: index_id.into(),
@@ -382,11 +382,11 @@ impl BaseCorrelationSurfaceCalibrator {
         quotes: &[CreditQuote],
         market_context: &MarketContext,
     ) -> Result<(
-        BTreeMap<OrderedFloat<F>, BaseCorrelationCurve>,
+        BTreeMap<OrderedFloat<f64>, BaseCorrelationCurve>,
         CalibrationReport,
     )> {
         // Group quotes by maturity
-        let mut quotes_by_maturity: BTreeMap<OrderedFloat<F>, Vec<&CreditQuote>> = BTreeMap::new();
+        let mut quotes_by_maturity: BTreeMap<OrderedFloat<f64>, Vec<&CreditQuote>> = BTreeMap::new();
 
         for quote in quotes {
             if let CreditQuote::CDSTranche { maturity, .. } = quote {

@@ -70,6 +70,3 @@ pub mod cashflow;
 pub use error::Error;
 /// Convenient alias carrying the crate's unified [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;
-
-/// Numeric precision alias – f64 by default. Future work will allow swapping via features.
-pub type F = f64;

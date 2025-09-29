@@ -1,6 +1,6 @@
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Error, Result, F};
+use finstack_core::{Error, Result};
 
 /// Calculates IR01 (interest rate sensitivity) for a TRS.
 ///
@@ -9,7 +9,7 @@ use finstack_core::{Error, Result, F};
 pub struct TrsIR01Calculator;
 
 impl MetricCalculator for TrsIR01Calculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Compute annuity as a proxy for sensitivity
         let bump_size = 0.0001; // 1bp
         let annuity = if let Some(equity_trs) = context

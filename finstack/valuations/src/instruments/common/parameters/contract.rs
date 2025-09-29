@@ -1,6 +1,6 @@
 //! Contract specifications and general parameter types.
 
-use finstack_core::F;
+
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -10,14 +10,14 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ContractSpec {
     /// Number of units per contract
-    pub contract_size: F,
+    pub contract_size: f64,
     /// Optional multiplier for pricing
-    pub multiplier: Option<F>,
+    pub multiplier: Option<f64>,
 }
 
 impl ContractSpec {
     /// Create a new contract specification
-    pub fn new(contract_size: F) -> Self {
+    pub fn new(contract_size: f64) -> Self {
         Self {
             contract_size,
             multiplier: None,
@@ -30,7 +30,7 @@ impl ContractSpec {
     }
 
     /// Set the contract multiplier
-    pub fn with_multiplier(mut self, multiplier: F) -> Self {
+    pub fn with_multiplier(mut self, multiplier: f64) -> Self {
         self.multiplier = Some(multiplier);
         self
     }

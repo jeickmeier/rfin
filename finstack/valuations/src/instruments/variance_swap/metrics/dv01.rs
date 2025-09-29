@@ -3,13 +3,13 @@
 use super::super::types::VarianceSwap;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result, F};
+use finstack_core::{Result};
 
 /// Calculate DV01 (sensitivity to 1bp move in interest rates).
 pub struct Dv01Calculator;
 
 impl MetricCalculator for Dv01Calculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let swap = context.instrument_as::<VarianceSwap>()?;
         let as_of = context.as_of;
 

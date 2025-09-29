@@ -24,7 +24,7 @@
 
 use crate::error::InputError;
 use crate::math::random::RandomNumberGenerator;
-use crate::{Result, F};
+use crate::{Result};
 use ndarray::{Array1, Array2};
 
 /// Trait for functions that can provide analytical derivatives.
@@ -37,7 +37,7 @@ pub trait AnalyticalDerivatives {
     /// # Arguments
     /// * `params` - Current parameter values
     /// * `gradient` - Output buffer for gradient (must be same length as params)
-    fn gradient(&self, params: &[F], gradient: &mut [F]);
+    fn gradient(&self, params: &[f64], gradient: &mut [f64]);
 
     /// Compute the Jacobian matrix for a system of equations.
     ///
@@ -46,7 +46,7 @@ pub trait AnalyticalDerivatives {
     /// * `jacobian` - Output buffer for Jacobian matrix (rows = equations, cols = params)
     ///
     /// Default implementation returns None, indicating Jacobian is not available.
-    fn jacobian(&self, _params: &[F], _jacobian: &mut [Vec<F>]) -> Option<()> {
+    fn jacobian(&self, _params: &[f64], _jacobian: &mut [Vec<f64>]) -> Option<()> {
         None
     }
 
@@ -79,11 +79,11 @@ pub trait MultiSolver: Send + Sync {
     fn minimize<Obj>(
         &self,
         objective: Obj,
-        initial: &[F],
-        bounds: Option<&[(F, F)]>,
-    ) -> Result<Vec<F>>
+        initial: &[f64],
+        bounds: Option<&[(f64, f64)]>,
+    ) -> Result<Vec<f64>>
     where
-        Obj: Fn(&[F]) -> F;
+        Obj: Fn(&[f64]) -> f64;
 
     /// Solve system of equations f(x) = 0 using least squares.
     ///
@@ -93,12 +93,12 @@ pub trait MultiSolver: Send + Sync {
     ///
     /// # Returns
     /// Parameter vector that minimizes ||f(x)||²
-    fn solve_system<Res>(&self, residuals: Res, initial: &[F]) -> Result<Vec<F>>
+    fn solve_system<Res>(&self, residuals: Res, initial: &[f64]) -> Result<Vec<f64>>
     where
-        Res: Fn(&[F], &mut [F]),
+        Res: Fn(&[f64], &mut [f64]),
     {
         // Default implementation: convert to minimization problem
-        let objective = |params: &[F]| -> F {
+        let objective = |params: &[f64]| -> f64 {
             let mut resid = vec![0.0; initial.len()];
             residuals(params, &mut resid);
             resid.iter().map(|r| r * r).sum()
@@ -117,17 +117,17 @@ pub trait MultiSolver: Send + Sync {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LevenbergMarquardtSolver {
     /// Convergence tolerance for gradient norm
-    pub tolerance: F,
+    pub tolerance: f64,
     /// Maximum iterations
     pub max_iterations: usize,
     /// Initial damping parameter (lambda)
-    pub lambda_init: F,
+    pub lambda_init: f64,
     /// Factor for adjusting lambda (increase on failure, decrease on success)
-    pub lambda_factor: F,
+    pub lambda_factor: f64,
     /// Finite difference step size for Jacobian approximation
-    pub fd_step: F,
+    pub fd_step: f64,
     /// Minimum allowed step size (for numerical stability)
-    pub min_step_size: F,
+    pub min_step_size: f64,
 }
 
 impl Default for LevenbergMarquardtSolver {
@@ -150,7 +150,7 @@ impl LevenbergMarquardtSolver {
     }
 
     /// Set convergence tolerance.
-    pub fn with_tolerance(mut self, tolerance: F) -> Self {
+    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
         self.tolerance = tolerance;
         self
     }
@@ -162,21 +162,21 @@ impl LevenbergMarquardtSolver {
     }
 
     /// Set initial damping parameter.
-    pub fn with_lambda_init(mut self, lambda: F) -> Self {
+    pub fn with_lambda_init(mut self, lambda: f64) -> Self {
         self.lambda_init = lambda;
         self
     }
 
     /// Set finite difference step size.
-    pub fn with_fd_step(mut self, step: F) -> Self {
+    pub fn with_fd_step(mut self, step: f64) -> Self {
         self.fd_step = step;
         self
     }
 
     /// Compute Jacobian matrix using finite differences.
-    fn compute_jacobian<Obj>(&self, objective: &Obj, params: &[F]) -> Vec<Vec<F>>
+    fn compute_jacobian<Obj>(&self, objective: &Obj, params: &[f64]) -> Vec<Vec<f64>>
     where
-        Obj: Fn(&[F]) -> F,
+        Obj: Fn(&[f64]) -> f64,
     {
         let n = params.len();
         let mut jacobian = vec![vec![0.0; n]; 1]; // For scalar objective, Jacobian is 1×n
@@ -199,11 +199,11 @@ impl LevenbergMarquardtSolver {
     fn compute_gradient_with_analytical<Obj, D>(
         &self,
         objective: &Obj,
-        params: &[F],
+        params: &[f64],
         derivatives: Option<&D>,
-    ) -> Vec<F>
+    ) -> Vec<f64>
     where
-        Obj: Fn(&[F]) -> F,
+        Obj: Fn(&[f64]) -> f64,
         D: AnalyticalDerivatives,
     {
         if let Some(deriv) = derivatives {
@@ -223,11 +223,11 @@ impl LevenbergMarquardtSolver {
     fn compute_jacobian_system<Res>(
         &self,
         residuals: &Res,
-        params: &[F],
+        params: &[f64],
         n_residuals: usize,
-    ) -> Vec<Vec<F>>
+    ) -> Vec<Vec<f64>>
     where
-        Res: Fn(&[F], &mut [F]),
+        Res: Fn(&[f64], &mut [f64]),
     {
         let n_params = params.len();
         let mut jacobian = vec![vec![0.0; n_params]; n_residuals];
@@ -255,10 +255,10 @@ impl LevenbergMarquardtSolver {
     /// Solve the normal equations (J^T J + λI) δ = -J^T r
     fn solve_normal_equations(
         &self,
-        jacobian: &[Vec<F>],
-        residuals: &[F],
-        lambda: F,
-    ) -> Result<Vec<F>> {
+        jacobian: &[Vec<f64>],
+        residuals: &[f64],
+        lambda: f64,
+    ) -> Result<Vec<f64>> {
         let n = jacobian[0].len(); // Number of parameters
         let m = jacobian.len(); // Number of residuals
 
@@ -292,14 +292,14 @@ impl LevenbergMarquardtSolver {
     }
 
     /// Solve linear system using ndarray with improved numerical stability.
-    fn solve_linear_system(&self, a: &[Vec<F>], b: &[F]) -> Result<Vec<F>> {
+    fn solve_linear_system(&self, a: &[Vec<f64>], b: &[f64]) -> Result<Vec<f64>> {
         let n = a.len();
         if n == 0 || b.len() != n {
             return Err(InputError::Invalid.into());
         }
 
         // Convert to ndarray format for better memory layout and operations
-        let mut matrix = Array2::<F>::zeros((n, n));
+        let mut matrix = Array2::<f64>::zeros((n, n));
         for (i, row) in a.iter().enumerate() {
             if row.len() != n {
                 return Err(InputError::Invalid.into());
@@ -362,7 +362,7 @@ impl LevenbergMarquardtSolver {
     }
 
     /// Apply box constraints to parameters.
-    fn apply_bounds(&self, params: &mut [F], bounds: Option<&[(F, F)]>) {
+    fn apply_bounds(&self, params: &mut [f64], bounds: Option<&[(f64, f64)]>) {
         if let Some(bounds) = bounds {
             for (i, (lo, hi)) in bounds.iter().enumerate().take(params.len()) {
                 params[i] = params[i].clamp(*lo, *hi);
@@ -384,11 +384,11 @@ impl LevenbergMarquardtSolver {
         &self,
         objective: Obj,
         derivatives: &D,
-        initial: &[F],
-        bounds: Option<&[(F, F)]>,
-    ) -> Result<Vec<F>>
+        initial: &[f64],
+        bounds: Option<&[(f64, f64)]>,
+    ) -> Result<Vec<f64>>
     where
-        Obj: Fn(&[F]) -> F,
+        Obj: Fn(&[f64]) -> f64,
         D: AnalyticalDerivatives,
     {
         if initial.is_empty() {
@@ -406,7 +406,7 @@ impl LevenbergMarquardtSolver {
                 self.compute_gradient_with_analytical(&objective, &params, Some(derivatives));
 
             // Check convergence
-            let grad_norm: F = gradient.iter().map(|g| g * g).sum::<F>().sqrt();
+            let grad_norm: f64 = gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
             if grad_norm < self.tolerance {
                 return Ok(params);
             }
@@ -419,7 +419,7 @@ impl LevenbergMarquardtSolver {
             let step = self.solve_normal_equations(&jacobian, &residual, lambda)?;
 
             // Check step size
-            let step_norm: F = step.iter().map(|s| s * s).sum::<F>().sqrt();
+            let step_norm: f64 = step.iter().map(|s| s * s).sum::<f64>().sqrt();
             if step_norm < self.min_step_size {
                 return Ok(params);
             }
@@ -454,10 +454,10 @@ impl LevenbergMarquardtSolver {
         &self,
         residuals: Res,
         derivatives: &D,
-        initial: &[F],
-    ) -> Result<Vec<F>>
+        initial: &[f64],
+    ) -> Result<Vec<f64>>
     where
-        Res: Fn(&[F], &mut [F]),
+        Res: Fn(&[f64], &mut [f64]),
         D: AnalyticalDerivatives,
     {
         if initial.is_empty() {
@@ -494,7 +494,7 @@ impl LevenbergMarquardtSolver {
             };
 
             // Check convergence
-            let resid_norm: F = resid_vec.iter().map(|r| r * r).sum::<F>().sqrt();
+            let resid_norm: f64 = resid_vec.iter().map(|r| r * r).sum::<f64>().sqrt();
             if resid_norm < self.tolerance {
                 return Ok(params);
             }
@@ -503,7 +503,7 @@ impl LevenbergMarquardtSolver {
             let step = self.solve_normal_equations(&jacobian, &resid_vec, lambda)?;
 
             // Check step size
-            let step_norm: F = step.iter().map(|s| s * s).sum::<F>().sqrt();
+            let step_norm: f64 = step.iter().map(|s| s * s).sum::<f64>().sqrt();
             if step_norm < self.min_step_size {
                 return Ok(params);
             }
@@ -517,7 +517,7 @@ impl LevenbergMarquardtSolver {
             // Evaluate new residuals
             let mut new_resid = vec![0.0; n_residuals];
             residuals(&new_params, &mut new_resid);
-            let new_norm: F = new_resid.iter().map(|r| r * r).sum::<F>().sqrt();
+            let new_norm: f64 = new_resid.iter().map(|r| r * r).sum::<f64>().sqrt();
 
             // Accept or reject
             if new_norm < resid_norm {
@@ -538,11 +538,11 @@ impl MultiSolver for LevenbergMarquardtSolver {
     fn minimize<Obj>(
         &self,
         objective: Obj,
-        initial: &[F],
-        bounds: Option<&[(F, F)]>,
-    ) -> Result<Vec<F>>
+        initial: &[f64],
+        bounds: Option<&[(f64, f64)]>,
+    ) -> Result<Vec<f64>>
     where
-        Obj: Fn(&[F]) -> F,
+        Obj: Fn(&[f64]) -> f64,
     {
         if initial.is_empty() {
             return Err(InputError::Invalid.into());
@@ -556,10 +556,10 @@ impl MultiSolver for LevenbergMarquardtSolver {
         for _iter in 0..self.max_iterations {
             // Compute gradient (Jacobian for scalar function)
             let jacobian = self.compute_jacobian(&objective, &params);
-            let gradient: Vec<F> = jacobian[0].clone();
+            let gradient: Vec<f64> = jacobian[0].clone();
 
             // Check convergence
-            let grad_norm: F = gradient.iter().map(|g| g * g).sum::<F>().sqrt();
+            let grad_norm: f64 = gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
             if grad_norm < self.tolerance {
                 return Ok(params);
             }
@@ -571,7 +571,7 @@ impl MultiSolver for LevenbergMarquardtSolver {
             let step = self.solve_normal_equations(&jacobian, &residual, lambda)?;
 
             // Check step size
-            let step_norm: F = step.iter().map(|s| s * s).sum::<F>().sqrt();
+            let step_norm: f64 = step.iter().map(|s| s * s).sum::<f64>().sqrt();
             if step_norm < self.min_step_size {
                 return Ok(params);
             }
@@ -603,9 +603,9 @@ impl MultiSolver for LevenbergMarquardtSolver {
         Ok(best_params)
     }
 
-    fn solve_system<Res>(&self, residuals: Res, initial: &[F]) -> Result<Vec<F>>
+    fn solve_system<Res>(&self, residuals: Res, initial: &[f64]) -> Result<Vec<f64>>
     where
-        Res: Fn(&[F], &mut [F]),
+        Res: Fn(&[f64], &mut [f64]),
     {
         if initial.is_empty() {
             return Err(InputError::Invalid.into());
@@ -629,7 +629,7 @@ impl MultiSolver for LevenbergMarquardtSolver {
             let jacobian = self.compute_jacobian_system(&residuals, &params, n_residuals);
 
             // Check convergence
-            let resid_norm: F = resid_vec.iter().map(|r| r * r).sum::<F>().sqrt();
+            let resid_norm: f64 = resid_vec.iter().map(|r| r * r).sum::<f64>().sqrt();
             if resid_norm < self.tolerance {
                 return Ok(params);
             }
@@ -638,7 +638,7 @@ impl MultiSolver for LevenbergMarquardtSolver {
             let step = self.solve_normal_equations(&jacobian, &resid_vec, lambda)?;
 
             // Check step size
-            let step_norm: F = step.iter().map(|s| s * s).sum::<F>().sqrt();
+            let step_norm: f64 = step.iter().map(|s| s * s).sum::<f64>().sqrt();
             if step_norm < self.min_step_size {
                 return Ok(params);
             }
@@ -652,7 +652,7 @@ impl MultiSolver for LevenbergMarquardtSolver {
             // Evaluate new residuals
             let mut new_resid = vec![0.0; n_residuals];
             residuals(&new_params, &mut new_resid);
-            let new_norm: F = new_resid.iter().map(|r| r * r).sum::<F>().sqrt();
+            let new_norm: f64 = new_resid.iter().map(|r| r * r).sum::<f64>().sqrt();
 
             // Accept or reject
             if new_norm < resid_norm {
@@ -684,12 +684,12 @@ pub struct DifferentialEvolutionSolver {
     pub population_size: usize,
     /// Maximum number of generations
     pub max_generations: usize,
-    /// Mutation factor F (typically 0.5-2.0)
-    pub mutation_factor: F,
+    /// Mutation factor f64 (typically 0.5-2.0)
+    pub mutation_factor: f64,
     /// Crossover probability CR (typically 0.1-1.0)
-    pub crossover_prob: F,
+    pub crossover_prob: f64,
     /// Convergence tolerance
-    pub tolerance: F,
+    pub tolerance: f64,
     /// Random seed for reproducibility
     pub seed: Option<u64>,
 }
@@ -725,20 +725,20 @@ impl DifferentialEvolutionSolver {
         self
     }
 
-    /// Set mutation factor F.
-    pub fn with_mutation_factor(mut self, factor: F) -> Self {
+    /// Set mutation factor f64.
+    pub fn with_mutation_factor(mut self, factor: f64) -> Self {
         self.mutation_factor = factor;
         self
     }
 
     /// Set crossover probability.
-    pub fn with_crossover_prob(mut self, prob: F) -> Self {
+    pub fn with_crossover_prob(mut self, prob: f64) -> Self {
         self.crossover_prob = prob;
         self
     }
 
     /// Set convergence tolerance.
-    pub fn with_tolerance(mut self, tolerance: F) -> Self {
+    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
         self.tolerance = tolerance;
         self
     }
@@ -753,9 +753,9 @@ impl DifferentialEvolutionSolver {
     fn initialize_population(
         &self,
         n_params: usize,
-        bounds: Option<&[(F, F)]>,
+        bounds: Option<&[(f64, f64)]>,
         rng: &mut crate::math::random::SimpleRng,
-    ) -> Vec<Vec<F>> {
+    ) -> Vec<Vec<f64>> {
         let mut population = Vec::with_capacity(self.population_size);
 
         for _ in 0..self.population_size {
@@ -781,7 +781,7 @@ impl DifferentialEvolutionSolver {
     }
 
     /// Apply bounds to a candidate solution.
-    fn apply_bounds(&self, candidate: &mut [F], bounds: Option<&[(F, F)]>) {
+    fn apply_bounds(&self, candidate: &mut [f64], bounds: Option<&[(f64, f64)]>) {
         if let Some(bounds) = bounds {
             for (i, value) in candidate.iter_mut().enumerate() {
                 if i < bounds.len() {
@@ -795,17 +795,17 @@ impl DifferentialEvolutionSolver {
     /// Perform mutation and crossover to create trial vector.
     fn mutate_and_crossover(
         &self,
-        population: &[Vec<F>],
+        population: &[Vec<f64>],
         target_idx: usize,
         rng: &mut crate::math::random::SimpleRng,
-    ) -> Vec<F> {
+    ) -> Vec<f64> {
         let n = population.len();
         let dim = population[0].len();
 
         // Select three distinct random individuals (not target)
         let mut indices = Vec::new();
         while indices.len() < 3 {
-            let idx = (rng.uniform() * n as F) as usize % n;
+            let idx = (rng.uniform() * n as f64) as usize % n;
             if idx != target_idx && !indices.contains(&idx) {
                 indices.push(idx);
             }
@@ -817,11 +817,11 @@ impl DifferentialEvolutionSolver {
 
         // Create trial vector using DE/rand/1/bin strategy
         let mut trial = vec![0.0; dim];
-        let j_rand = (rng.uniform() * dim as F) as usize % dim; // Ensure at least one parameter from mutant
+        let j_rand = (rng.uniform() * dim as f64) as usize % dim; // Ensure at least one parameter from mutant
 
         for (j, trial_entry) in trial.iter_mut().enumerate().take(dim) {
             if rng.uniform() < self.crossover_prob || j == j_rand {
-                // Mutation: v = x_r1 + F * (x_r2 - x_r3)
+                // Mutation: v = x_r1 + f64 * (x_r2 - x_r3)
                 *trial_entry = population[r1][j]
                     + self.mutation_factor * (population[r2][j] - population[r3][j]);
             } else {
@@ -838,11 +838,11 @@ impl MultiSolver for DifferentialEvolutionSolver {
     fn minimize<Obj>(
         &self,
         objective: Obj,
-        initial: &[F],
-        bounds: Option<&[(F, F)]>,
-    ) -> Result<Vec<F>>
+        initial: &[f64],
+        bounds: Option<&[(f64, f64)]>,
+    ) -> Result<Vec<f64>>
     where
-        Obj: Fn(&[F]) -> F,
+        Obj: Fn(&[f64]) -> f64,
     {
         use crate::math::random::SimpleRng;
 
@@ -861,7 +861,7 @@ impl MultiSolver for DifferentialEvolutionSolver {
         self.apply_bounds(&mut population[0], bounds);
 
         // Evaluate initial population
-        let mut fitness: Vec<F> = population.iter().map(|ind| objective(ind)).collect();
+        let mut fitness: Vec<f64> = population.iter().map(|ind| objective(ind)).collect();
 
         // Find best individual
         let mut best_idx = 0;
@@ -903,10 +903,10 @@ impl MultiSolver for DifferentialEvolutionSolver {
             fitness = new_fitness;
 
             // Check convergence (population diversity)
-            let fitness_std: F = {
-                let mean = fitness.iter().sum::<F>() / fitness.len() as F;
+            let fitness_std: f64 = {
+                let mean = fitness.iter().sum::<f64>() / fitness.len() as f64;
                 let variance =
-                    fitness.iter().map(|f| (f - mean).powi(2)).sum::<F>() / fitness.len() as F;
+                    fitness.iter().map(|f| (f - mean).powi(2)).sum::<f64>() / fitness.len() as f64;
                 variance.sqrt()
             };
 
@@ -929,7 +929,7 @@ mod tests {
 
         // Minimize (x-2)^2 + (y-3)^2
         let objective =
-            |params: &[F]| -> F { (params[0] - 2.0).powi(2) + (params[1] - 3.0).powi(2) };
+            |params: &[f64]| -> f64 { (params[0] - 2.0).powi(2) + (params[1] - 3.0).powi(2) };
 
         let initial = vec![0.0, 0.0];
         let result = solver.minimize(objective, &initial, None).unwrap();
@@ -944,7 +944,7 @@ mod tests {
 
         // Minimize (x-5)^2 + (y-5)^2 with bounds
         let objective =
-            |params: &[F]| -> F { (params[0] - 5.0).powi(2) + (params[1] - 5.0).powi(2) };
+            |params: &[f64]| -> f64 { (params[0] - 5.0).powi(2) + (params[1] - 5.0).powi(2) };
 
         let initial = vec![0.0, 0.0];
         let bounds = vec![(0.0, 3.0), (0.0, 3.0)]; // Constrain solution
@@ -960,7 +960,7 @@ mod tests {
         let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-8);
 
         // Solve system: x + y = 5, x - y = 1 (solution: x=3, y=2)
-        let residuals = |params: &[F], resid: &mut [F]| {
+        let residuals = |params: &[f64], resid: &mut [f64]| {
             resid[0] = params[0] + params[1] - 5.0;
             resid[1] = params[0] - params[1] - 1.0;
         };
@@ -984,7 +984,7 @@ mod tests {
         let y_data = [11.0, 6.0, 3.0, 2.0, 3.0]; // y = x^2 - 2*x + 3
 
         // Least squares objective
-        let objective = move |params: &[F]| -> F {
+        let objective = move |params: &[f64]| -> f64 {
             let a = params[0];
             let b = params[1];
             let c = params[2];
@@ -1030,7 +1030,7 @@ mod tests {
 
         // Minimize simple quadratic (x-2)^2 + (y-3)^2
         let objective =
-            |params: &[F]| -> F { (params[0] - 2.0).powi(2) + (params[1] - 3.0).powi(2) };
+            |params: &[f64]| -> f64 { (params[0] - 2.0).powi(2) + (params[1] - 3.0).powi(2) };
 
         let initial = vec![0.0, 0.0];
         let result = solver.minimize(objective, &initial, None).unwrap();
@@ -1057,14 +1057,14 @@ mod tests {
 
         // Minimize Rastrigin function (multi-modal test function)
         // f(x) = 10n + Σ[x_i^2 - 10*cos(2π*x_i)]
-        let objective = |params: &[F]| -> F {
-            let n = params.len() as F;
+        let objective = |params: &[f64]| -> f64 {
+            let n = params.len() as f64;
             let pi2 = 2.0 * std::f64::consts::PI;
             10.0 * n
                 + params
                     .iter()
                     .map(|&x| x * x - 10.0 * (pi2 * x).cos())
-                    .sum::<F>()
+                    .sum::<f64>()
         };
 
         let initial = vec![2.5, 2.5];
@@ -1090,7 +1090,7 @@ mod tests {
             .with_max_generations(20)
             .with_seed(999);
 
-        let objective = |params: &[F]| -> F { params.iter().map(|x| x * x).sum() };
+        let objective = |params: &[f64]| -> f64 { params.iter().map(|x| x * x).sum() };
 
         let initial = vec![1.0, 2.0, 3.0];
         let result1 = solver1.minimize(objective, &initial, None).unwrap();
@@ -1108,7 +1108,7 @@ mod tests {
         struct QuadraticDerivatives;
 
         impl AnalyticalDerivatives for QuadraticDerivatives {
-            fn gradient(&self, params: &[F], gradient: &mut [F]) {
+            fn gradient(&self, params: &[f64], gradient: &mut [f64]) {
                 // f(x,y) = (x-2)^2 + (y-3)^2
                 gradient[0] = 2.0 * (params[0] - 2.0);
                 gradient[1] = 2.0 * (params[1] - 3.0);
@@ -1118,7 +1118,7 @@ mod tests {
         let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-10);
 
         let objective =
-            |params: &[F]| -> F { (params[0] - 2.0).powi(2) + (params[1] - 3.0).powi(2) };
+            |params: &[f64]| -> f64 { (params[0] - 2.0).powi(2) + (params[1] - 3.0).powi(2) };
 
         let derivatives = QuadraticDerivatives;
         let initial = vec![0.0, 0.0];
@@ -1137,11 +1137,11 @@ mod tests {
         struct CircleLineJacobian;
 
         impl AnalyticalDerivatives for CircleLineJacobian {
-            fn gradient(&self, _params: &[F], _gradient: &mut [F]) {
+            fn gradient(&self, _params: &[f64], _gradient: &mut [f64]) {
                 // Not used for this test
             }
 
-            fn jacobian(&self, params: &[F], jacobian: &mut [Vec<F>]) -> Option<()> {
+            fn jacobian(&self, params: &[f64], jacobian: &mut [Vec<f64>]) -> Option<()> {
                 let x = params[0];
                 let y = params[1];
 
@@ -1164,7 +1164,7 @@ mod tests {
 
         let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-10);
 
-        let residuals = |params: &[F], resid: &mut [F]| {
+        let residuals = |params: &[f64], resid: &mut [f64]| {
             resid[0] = params[0] * params[0] + params[1] * params[1] - 4.0;
             resid[1] = params[0] - params[1];
         };

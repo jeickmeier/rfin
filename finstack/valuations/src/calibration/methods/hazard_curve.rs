@@ -14,7 +14,7 @@ use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
-use finstack_core::F;
+
 use std::collections::BTreeMap;
 
 /// Hazard curve bootstrapper using CDS par spreads.
@@ -25,7 +25,7 @@ pub struct HazardCurveCalibrator {
     /// Seniority level (metadata)
     pub seniority: Seniority,
     /// Recovery rate assumption
-    pub recovery_rate: F,
+    pub recovery_rate: f64,
     /// Base date for the curve
     pub base_date: finstack_core::dates::Date,
     /// Currency (metadata)
@@ -49,7 +49,7 @@ impl HazardCurveCalibrator {
     pub fn new(
         entity: impl Into<String>,
         seniority: Seniority,
-        recovery_rate: F,
+        recovery_rate: f64,
         base_date: finstack_core::dates::Date,
         currency: Currency,
         discount_curve_id: impl Into<CurveId>,
@@ -71,7 +71,7 @@ impl HazardCurveCalibrator {
     pub fn new_with_default_discount(
         entity: impl Into<String>,
         seniority: Seniority,
-        recovery_rate: F,
+        recovery_rate: f64,
         base_date: finstack_core::dates::Date,
         currency: Currency,
     ) -> Self {
@@ -105,7 +105,7 @@ impl HazardCurveCalibrator {
         discount_curve_opt: Option<&dyn Discounting>,
     ) -> Result<(HazardCurve, CalibrationReport)> {
         // Extract CDS quotes for this entity and sort by maturity
-        let mut cds_quotes: Vec<(finstack_core::dates::Date, F, Option<F>)> = quotes
+        let mut cds_quotes: Vec<(finstack_core::dates::Date, f64, Option<f64>)> = quotes
             .iter()
             .filter_map(|q| match q {
                 CreditQuote::CDS {
@@ -136,9 +136,9 @@ impl HazardCurveCalibrator {
         cds_quotes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
         // Sequentially solve hazards per tenor to match market PV≈0
-        let mut hazard_knots: Vec<(F, F)> = Vec::new();
-        let mut par_knots: Vec<(F, F)> = Vec::new();
-        let mut residuals: BTreeMap<String, F> = BTreeMap::new();
+        let mut hazard_knots: Vec<(f64, f64)> = Vec::new();
+        let mut par_knots: Vec<(f64, f64)> = Vec::new();
+        let mut residuals: BTreeMap<String, f64> = BTreeMap::new();
         let mut total_iterations: usize = 0;
 
         for (maturity, market_spread_bp, upfront_pct_opt) in &cds_quotes {
@@ -176,7 +176,7 @@ impl HazardCurveCalibrator {
             let pricer = CDSPricer::new();
             let hazard_so_far = hazard_knots.clone();
 
-            let objective = |trial_lambda: F| -> F {
+            let objective = |trial_lambda: f64| -> f64 {
                 // Build temporary hazard curve with prior segments + trial point
                 let mut temp_knots = hazard_so_far.clone();
                 temp_knots.push((tenor_years, trial_lambda.max(0.0)));

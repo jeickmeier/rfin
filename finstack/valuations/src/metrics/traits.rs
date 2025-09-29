@@ -8,7 +8,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
-use finstack_core::F;
+
 use std::sync::Arc;
 
 /// Core trait for metric calculators.
@@ -28,12 +28,12 @@ pub trait MetricCalculator: Send + Sync {
     /// * `context` - Metric context containing instrument, market data, and cached results
     ///
     /// # Returns
-    /// The computed metric value as a `Result<F>`
+    /// The computed metric value as a `Result<f64>`
     ///
     /// # Errors
     /// Returns an error if the metric cannot be computed due to missing data
     /// or invalid instrument configuration.
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F>;
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64>;
 
     /// Lists metric IDs this calculator depends on.
     ///
@@ -65,7 +65,7 @@ pub struct Structured2D {
     /// Column labels (e.g., strikes, bumps)
     pub cols: Vec<String>,
     /// Matrix values; `values[r][c]` corresponds to `rows[r]`, `cols[c]`
-    pub values: Vec<Vec<F>>,
+    pub values: Vec<Vec<f64>>,
 }
 
 impl Structured2D {
@@ -95,7 +95,7 @@ pub struct Structured3D {
     /// Axis C labels (e.g., strikes or vol buckets)
     pub c: Vec<String>,
     /// 3D tensor values; `values[i][j][k]` corresponds to `a[i]`, `b[j]`, `c[k]`
-    pub values: Vec<Vec<Vec<F>>>,
+    pub values: Vec<Vec<Vec<f64>>>,
 }
 
 impl Structured3D {
@@ -148,12 +148,12 @@ pub struct MetricContext {
     pub base_value: Money,
 
     /// Previously computed metrics (by ID).
-    pub computed: hashbrown::HashMap<MetricId, F>,
+    pub computed: hashbrown::HashMap<MetricId, f64>,
 
     /// Previously computed 1D bucketed metrics (by ID).
     ///
     /// Example: `MetricId::BucketedDv01` -> [("1m", v1), ("3m", v2), ...]
-    pub computed_series: hashbrown::HashMap<MetricId, Vec<(String, F)>>,
+    pub computed_series: hashbrown::HashMap<MetricId, Vec<(String, f64)>>,
 
     /// Previously computed 2D structured metrics (by ID).
     ///
@@ -249,20 +249,20 @@ impl MetricContext {
     /// per-bucket keys; otherwise a default `base::bucket` composite key is used.
     pub fn store_bucketed_series<I, K>(&mut self, base_metric_id: MetricId, series: I)
     where
-        I: IntoIterator<Item = (K, F)>,
+        I: IntoIterator<Item = (K, f64)>,
         K: Into<String>,
     {
-        let collected: Vec<(String, F)> = series.into_iter().map(|(k, v)| (k.into(), v)).collect();
+        let collected: Vec<(String, f64)> = series.into_iter().map(|(k, v)| (k.into(), v)).collect();
         self.computed_series
             .insert(base_metric_id.clone(), collected.clone());
 
-        for (label, value) in collected {
+        for (label, value) in &collected {
             let key = if let Some(resolver) = &self.bucket_key_resolver {
-                resolver(&base_metric_id, &label, self.instrument.as_ref())
+                resolver(&base_metric_id, label, self.instrument.as_ref())
             } else {
                 Self::default_composite_key(&base_metric_id, &[label.as_str()])
             };
-            self.computed.insert(key, value);
+            self.computed.insert(key, *value);
         }
     }
 
@@ -274,7 +274,7 @@ impl MetricContext {
         base_metric_id: MetricId,
         rows: I,
         cols: J,
-        values: Vec<Vec<F>>,
+        values: Vec<Vec<f64>>,
     ) -> finstack_core::Result<()>
     where
         I: IntoIterator<Item = RS>,
@@ -310,7 +310,7 @@ impl MetricContext {
         a: IA,
         b: IB,
         c: IC,
-        values: Vec<Vec<Vec<F>>>,
+        values: Vec<Vec<Vec<f64>>>,
     ) -> finstack_core::Result<()>
     where
         IA: IntoIterator<Item = SA>,
@@ -345,7 +345,7 @@ impl MetricContext {
     }
 
     /// Retrieves a previously stored 1D bucketed series.
-    pub fn get_series(&self, id: &MetricId) -> Option<&Vec<(String, F)>> {
+    pub fn get_series(&self, id: &MetricId) -> Option<&Vec<(String, f64)>> {
         self.computed_series.get(id)
     }
 

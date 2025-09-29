@@ -9,7 +9,7 @@ use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::types::CurveId;
-use finstack_core::F;
+
 
 /// Trait for instruments that have a primary discount curve for valuation.
 pub trait HasDiscountCurve {
@@ -35,7 +35,7 @@ impl<I> MetricCalculator for GenericBucketedDv01<I>
 where
     I: Instrument + HasDiscountCurve + CashflowProvider + Clone + 'static,
 {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let disc_id = instrument.discount_curve_id().clone();
 
@@ -91,7 +91,7 @@ impl<I> MetricCalculator for GenericBucketedDv01WithContext<I>
 where
     I: Instrument + HasDiscountCurve + Clone + 'static,
 {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let disc_id = instrument.discount_curve_id().clone();
 

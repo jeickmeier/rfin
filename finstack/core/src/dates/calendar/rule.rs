@@ -148,8 +148,8 @@ impl Rule {
 
 // Add helper to compute Qing Ming day
 fn qing_ming_day(year: i32) -> u8 {
-    let y = year - 1900;
-    (5.59 + 0.2422 * y as f64 - ((y / 4) as f64).floor()) as u8
+    let y = (year - 1900) as f64;
+    (5.59 + 0.2422 * y - (y / 4.0).floor()) as u8
 }
 
 // Helper for Buddha's Birthday approximation (CNY +95 days)
@@ -158,14 +158,14 @@ fn buddhas_birthday_date(year: i32) -> Option<Date> {
 }
 
 fn vernal_equinox_jp(year: i32) -> Date {
-    let y = year - 1980;
-    let day = (20.8431 + 0.242194 * y as f64 - ((y / 4) as f64).floor()).floor() as u8;
+    let y = (year - 1980) as f64;
+    let day = (20.8431 + 0.242194 * y - (y / 4.0).floor()).floor() as u8;
     Date::from_calendar_date(year, Month::March, day).unwrap()
 }
 
 fn autumnal_equinox_jp(year: i32) -> Date {
-    let y = year - 1980;
-    let day = (23.2488 + 0.242194 * y as f64 - ((y / 4) as f64).floor()).floor() as u8;
+    let y = (year - 1980) as f64;
+    let day = (23.2488 + 0.242194 * y - (y / 4.0).floor()).floor() as u8;
     Date::from_calendar_date(year, Month::September, day).unwrap()
 }
 

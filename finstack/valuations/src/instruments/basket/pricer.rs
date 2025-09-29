@@ -10,16 +10,15 @@ use finstack_core::{
     market_data::MarketContext,
     money::{fx::FxQuery, Money},
     prelude::*,
-    F,
 };
 
 /// Internal valuation mode used to interpret weights/units per call site.
 #[derive(Debug, Clone)]
 enum ValueMode {
     /// Return per-share contribution; units require shares to be present.
-    PerShare { shares: Option<F> },
+    PerShare { shares: Option<f64> },
     /// Return total contribution; prefers units, else uses AUM, else shares.
-    Total { shares: Option<F>, aum: Option<F> },
+    Total { shares: Option<f64>, aum: Option<f64> },
 }
 
 /// Basket calculation engine that handles all pricing logic.
@@ -55,7 +54,7 @@ impl BasketCalculator {
         basket: &Basket,
         context: &MarketContext,
         as_of: Date,
-        shares_outstanding: F,
+        shares_outstanding: f64,
     ) -> Result<Money> {
         let mut per_share = 0.0;
         for constituent in &basket.constituents {
@@ -89,7 +88,7 @@ impl BasketCalculator {
         basket: &Basket,
         context: &MarketContext,
         as_of: Date,
-        shares_outstanding: Option<F>,
+        shares_outstanding: Option<f64>,
     ) -> Result<Money> {
         let mut total = 0.0;
         for constituent in &basket.constituents {
@@ -126,7 +125,7 @@ impl BasketCalculator {
         context: &MarketContext,
         as_of: Date,
         aum: Money,
-        shares_outstanding: F,
+        shares_outstanding: f64,
     ) -> Result<Money> {
         let aum_basket = self.to_basket_currency(basket, aum, basket.currency, context, as_of)?;
         let total = self.basket_value_with_aum(basket, context, as_of, aum_basket)?;
@@ -268,9 +267,9 @@ impl BasketCalculator {
     fn calculate_expense_drag(
         &self,
         basket: &Basket,
-        portfolio_value: F,
+        portfolio_value: f64,
         _as_of: Date,
-    ) -> Result<F> {
+    ) -> Result<f64> {
         // Simple daily accrual of expense ratio
         let daily_expense_rate = basket.expense_ratio / self.config.days_in_year;
         Ok(portfolio_value * daily_expense_rate)

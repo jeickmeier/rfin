@@ -11,7 +11,7 @@ use crate::instruments::common::traits::Attributes;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+
 
 use super::parameters::FxSwapParams;
 
@@ -36,10 +36,10 @@ pub struct FxSwap {
     pub foreign_disc_id: CurveId,
     /// Optional near leg FX rate (quote per base). If None, source from market.
     #[builder(optional)]
-    pub near_rate: Option<F>,
+    pub near_rate: Option<f64>,
     /// Optional far leg FX rate (quote per base). If None, source from forwards.
     #[builder(optional)]
-    pub far_rate: Option<F>,
+    pub far_rate: Option<f64>,
     /// Attributes for tagging and selection
     pub attributes: Attributes,
 }

@@ -1,4 +1,4 @@
-//! Day-count convention algorithms (ACT/360, ACT/365F, 30/360, 30E/360, ACT/ACT, ACT/ACT ISMA, Bus/252).
+//! Day-count convention algorithms (ACT/360, ACT/365f64, 30/360, 30E/360, ACT/ACT, ACT/ACT ISMA, Bus/252).
 //!
 //! The implementation follows the ISDA and ICMA/ISMA definitions where applicable and is **panic-free**.
 //! All helpers avoid heap allocation.
