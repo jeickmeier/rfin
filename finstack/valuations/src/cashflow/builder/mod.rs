@@ -51,6 +51,7 @@
 //! `schedule_utils`).
 
 mod compile;
+pub mod display;
 pub mod schedule;
 pub mod schedule_utils;
 mod state;

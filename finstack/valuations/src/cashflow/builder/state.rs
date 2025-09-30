@@ -198,7 +198,7 @@ fn emit_amortization_on(
                         new_flows.push(CashFlow {
                             date: d,
                             reset_date: None,
-                            amount: Money::new(-pay, params.ccy),
+                            amount: Money::new(pay, params.ccy),
                             kind: CFKind::Amortization,
                             accrual_factor: 0.0,
                         });
@@ -216,7 +216,7 @@ fn emit_amortization_on(
                         new_flows.push(CashFlow {
                             date: d,
                             reset_date: None,
-                            amount: Money::new(-pay, params.ccy),
+                            amount: Money::new(pay, params.ccy),
                             kind: CFKind::Amortization,
                             accrual_factor: 0.0,
                         });
@@ -233,7 +233,7 @@ fn emit_amortization_on(
                         new_flows.push(CashFlow {
                             date: d,
                             reset_date: None,
-                            amount: Money::new(-pay, params.ccy),
+                            amount: Money::new(pay, params.ccy),
                             kind: CFKind::Amortization,
                             accrual_factor: 0.0,
                         });
@@ -250,7 +250,7 @@ fn emit_amortization_on(
                         new_flows.push(CashFlow {
                             date: d,
                             reset_date: None,
-                            amount: Money::new(-pay, params.ccy),
+                            amount: Money::new(pay, params.ccy),
                             kind: CFKind::Amortization,
                             accrual_factor: 0.0,
                         });
