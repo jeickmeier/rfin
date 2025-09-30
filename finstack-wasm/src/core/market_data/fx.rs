@@ -1,0 +1,350 @@
+use crate::core::currency::JsCurrency;
+use crate::core::dates::date::JsDate;
+use crate::core::utils::{js_array_from_iter, js_error};
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::money::fx::{
+    FxConfig, FxConversionPolicy, FxMatrix, FxProvider, FxQuery, FxRateResult,
+};
+use std::collections::HashMap;
+use std::str::FromStr;
+use std::sync::{Arc, RwLock};
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsValue;
+
+#[wasm_bindgen]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum JsFxConversionPolicy {
+    CashflowDate,
+    PeriodEnd,
+    PeriodAverage,
+    Custom,
+}
+
+impl From<JsFxConversionPolicy> for FxConversionPolicy {
+    fn from(value: JsFxConversionPolicy) -> Self {
+        match value {
+            JsFxConversionPolicy::CashflowDate => FxConversionPolicy::CashflowDate,
+            JsFxConversionPolicy::PeriodEnd => FxConversionPolicy::PeriodEnd,
+            JsFxConversionPolicy::PeriodAverage => FxConversionPolicy::PeriodAverage,
+            JsFxConversionPolicy::Custom => FxConversionPolicy::Custom,
+        }
+    }
+}
+
+impl From<FxConversionPolicy> for JsFxConversionPolicy {
+    fn from(value: FxConversionPolicy) -> Self {
+        match value {
+            FxConversionPolicy::CashflowDate => JsFxConversionPolicy::CashflowDate,
+            FxConversionPolicy::PeriodEnd => JsFxConversionPolicy::PeriodEnd,
+            FxConversionPolicy::PeriodAverage => JsFxConversionPolicy::PeriodAverage,
+            FxConversionPolicy::Custom => JsFxConversionPolicy::Custom,
+            _ => JsFxConversionPolicy::Custom,
+        }
+    }
+}
+
+impl JsFxConversionPolicy {
+    pub fn from_name(name: &str) -> Result<JsFxConversionPolicy, JsValue> {
+        match name.to_ascii_lowercase().as_str() {
+            "cashflow_date" | "cashflow" | "spot" => Ok(JsFxConversionPolicy::CashflowDate),
+            "period_end" | "end" => Ok(JsFxConversionPolicy::PeriodEnd),
+            "period_average" | "average" => Ok(JsFxConversionPolicy::PeriodAverage),
+            "custom" => Ok(JsFxConversionPolicy::Custom),
+            other => Err(js_error(format!("Unknown FX conversion policy: {other}"))),
+        }
+    }
+
+    pub fn name(&self) -> String {
+        match self {
+            JsFxConversionPolicy::CashflowDate => "cashflow_date".to_string(),
+            JsFxConversionPolicy::PeriodEnd => "period_end".to_string(),
+            JsFxConversionPolicy::PeriodAverage => "period_average".to_string(),
+            JsFxConversionPolicy::Custom => "custom".to_string(),
+        }
+    }
+}
+
+#[wasm_bindgen(js_name = FxConfig)]
+#[derive(Clone, Debug)]
+pub struct JsFxConfig {
+    inner: FxConfig,
+}
+
+impl Default for JsFxConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[wasm_bindgen(js_class = FxConfig)]
+impl JsFxConfig {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsFxConfig {
+        JsFxConfig {
+            inner: FxConfig::default(),
+        }
+    }
+
+    #[wasm_bindgen(getter, js_name = pivotCurrency)]
+    pub fn pivot_currency(&self) -> JsCurrency {
+        JsCurrency::from_inner(self.inner.pivot_currency)
+    }
+
+    #[wasm_bindgen(js_name = setPivotCurrency)]
+    pub fn set_pivot_currency(&mut self, currency: &JsCurrency) {
+        self.inner.pivot_currency = currency.inner();
+    }
+
+    #[wasm_bindgen(getter, js_name = enableTriangulation)]
+    pub fn enable_triangulation(&self) -> bool {
+        self.inner.enable_triangulation
+    }
+
+    #[wasm_bindgen(js_name = setEnableTriangulation)]
+    pub fn set_enable_triangulation(&mut self, flag: bool) {
+        self.inner.enable_triangulation = flag;
+    }
+
+    #[wasm_bindgen(getter, js_name = cacheCapacity)]
+    pub fn cache_capacity(&self) -> usize {
+        self.inner.cache_capacity
+    }
+
+    #[wasm_bindgen(js_name = setCacheCapacity)]
+    pub fn set_cache_capacity(&mut self, capacity: usize) {
+        self.inner.cache_capacity = capacity;
+    }
+}
+
+#[wasm_bindgen(js_name = FxRateResult)]
+#[derive(Clone, Debug)]
+pub struct JsFxRateResult {
+    pub rate: f64,
+    pub triangulated: bool,
+}
+
+impl From<FxRateResult> for JsFxRateResult {
+    fn from(value: FxRateResult) -> Self {
+        JsFxRateResult {
+            rate: value.rate,
+            triangulated: value.triangulated,
+        }
+    }
+}
+
+#[derive(Default)]
+struct StaticFxProvider {
+    quotes: RwLock<HashMap<(Currency, Currency), f64>>,
+}
+
+impl StaticFxProvider {
+    fn new() -> Self {
+        Self {
+            quotes: RwLock::new(HashMap::new()),
+        }
+    }
+
+    fn set_quote(&self, from: Currency, to: Currency, rate: f64) {
+        self.quotes.write().unwrap().insert((from, to), rate);
+    }
+
+    fn set_quotes(&self, quotes: &[(Currency, Currency, f64)]) {
+        let mut guard = self.quotes.write().unwrap();
+        for &(from, to, rate) in quotes {
+            guard.insert((from, to), rate);
+        }
+    }
+
+    fn get_direct(&self, from: Currency, to: Currency) -> Option<f64> {
+        self.quotes.read().unwrap().get(&(from, to)).copied()
+    }
+}
+
+impl FxProvider for StaticFxProvider {
+    fn rate(
+        &self,
+        from: Currency,
+        to: Currency,
+        _on: Date,
+        _policy: FxConversionPolicy,
+    ) -> finstack_core::Result<f64> {
+        if from == to {
+            return Ok(1.0);
+        }
+        if let Some(rate) = self.get_direct(from, to) {
+            return Ok(rate);
+        }
+        if let Some(rate) = self.get_direct(to, from) {
+            if rate != 0.0 {
+                return Ok(1.0 / rate);
+            }
+        }
+        Err(finstack_core::error::InputError::NotFound {
+            id: format!("FX:{from}->{to}"),
+        }
+        .into())
+    }
+}
+
+fn parse_policy_value(policy: Option<JsValue>) -> Result<FxConversionPolicy, JsValue> {
+    match policy {
+        None => Ok(FxConversionPolicy::CashflowDate),
+        Some(value) if value.is_undefined() || value.is_null() => {
+            Ok(FxConversionPolicy::CashflowDate)
+        }
+        Some(value) => {
+            if let Some(label) = value.as_string() {
+                JsFxConversionPolicy::from_name(&label).map(Into::into)
+            } else if let Some(code) = value.as_f64() {
+                match code as u32 {
+                    0 => Ok(FxConversionPolicy::CashflowDate),
+                    1 => Ok(FxConversionPolicy::PeriodEnd),
+                    2 => Ok(FxConversionPolicy::PeriodAverage),
+                    3 => Ok(FxConversionPolicy::Custom),
+                    other => Err(js_error(format!(
+                        "Unknown FxConversionPolicy discriminant: {other}"
+                    ))),
+                }
+            } else {
+                Err(js_error(
+                    "policy must be a conversion policy enum or string name",
+                ))
+            }
+        }
+    }
+}
+
+#[wasm_bindgen(js_name = FxMatrix)]
+#[derive(Clone)]
+pub struct JsFxMatrix {
+    provider: Arc<StaticFxProvider>,
+    inner: Arc<FxMatrix>,
+}
+
+impl JsFxMatrix {
+    fn new_with(provider: Arc<StaticFxProvider>, config: FxConfig) -> Self {
+        let matrix = FxMatrix::with_config(provider.clone(), config);
+        Self {
+            provider,
+            inner: Arc::new(matrix),
+        }
+    }
+
+    pub(crate) fn inner(&self) -> Arc<FxMatrix> {
+        Arc::clone(&self.inner)
+    }
+}
+
+impl Default for JsFxMatrix {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[wasm_bindgen(js_class = FxMatrix)]
+impl JsFxMatrix {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsFxMatrix {
+        let provider = Arc::new(StaticFxProvider::new());
+        JsFxMatrix::new_with(provider, FxConfig::default())
+    }
+
+    #[wasm_bindgen(js_name = withConfig)]
+    pub fn with_config(config: &JsFxConfig) -> JsFxMatrix {
+        let provider = Arc::new(StaticFxProvider::new());
+        JsFxMatrix::new_with(provider, config.inner.clone())
+    }
+
+    #[wasm_bindgen(js_name = setQuote)]
+    pub fn set_quote(&self, from: &JsCurrency, to: &JsCurrency, rate: f64) {
+        let from_ccy = from.inner();
+        let to_ccy = to.inner();
+        self.provider.set_quote(from_ccy, to_ccy, rate);
+        self.inner.set_quote(from_ccy, to_ccy, rate);
+    }
+
+    #[wasm_bindgen(js_name = setQuotes)]
+    pub fn set_quotes(&self, quotes: js_sys::Array) -> Result<(), JsValue> {
+        let mut converted: Vec<(Currency, Currency, f64)> =
+            Vec::with_capacity(quotes.length() as usize);
+        for entry in quotes.iter() {
+            if !entry.is_object() {
+                return Err(js_error(
+                    "Each quote must be provided as [baseCurrencyCode, quoteCurrencyCode, rate]",
+                ));
+            }
+            let tuple = js_sys::Array::from(&entry);
+            if tuple.length() != 3 {
+                return Err(js_error(
+                    "Each quote must have three elements: [baseCurrencyCode, quoteCurrencyCode, rate]",
+                ));
+            }
+            let base_code = tuple
+                .get(0)
+                .as_string()
+                .ok_or_else(|| js_error("Currency codes must be strings"))?;
+            let quote_code = tuple
+                .get(1)
+                .as_string()
+                .ok_or_else(|| js_error("Currency codes must be strings"))?;
+            let rate = tuple
+                .get(2)
+                .as_f64()
+                .ok_or_else(|| js_error("Rate must be a number"))?;
+
+            let base_ccy = Currency::from_str(&base_code)
+                .map_err(|_| js_error(format!("Invalid base currency: {base_code}")))?;
+            let quote_ccy = Currency::from_str(&quote_code)
+                .map_err(|_| js_error(format!("Invalid quote currency: {quote_code}")))?;
+
+            converted.push((base_ccy, quote_ccy, rate));
+        }
+        self.provider.set_quotes(&converted);
+        for (from, to, rate) in converted {
+            self.inner.set_quote(from, to, rate);
+        }
+        Ok(())
+    }
+
+    #[wasm_bindgen(js_name = rate)]
+    pub fn rate(
+        &self,
+        from: &JsCurrency,
+        to: &JsCurrency,
+        on: &JsDate,
+        policy: JsValue,
+    ) -> Result<JsFxRateResult, JsValue> {
+        let parsed_policy = parse_policy_value(if policy.is_null() || policy.is_undefined() {
+            None
+        } else {
+            Some(policy)
+        })?;
+        let query = FxQuery::with_policy(from.inner(), to.inner(), on.inner(), parsed_policy);
+        let result = self
+            .inner
+            .rate(query)
+            .map_err(|e| js_error(e.to_string()))?;
+        Ok(JsFxRateResult::from(result))
+    }
+
+    #[wasm_bindgen(js_name = cacheStats)]
+    pub fn cache_stats(&self) -> js_sys::Array {
+        let (used, capacity) = self.inner.cache_stats();
+        js_array_from_iter(
+            [used as f64, capacity as f64]
+                .into_iter()
+                .map(JsValue::from_f64),
+        )
+    }
+
+    #[wasm_bindgen(js_name = clearCache)]
+    pub fn clear_cache(&self) {
+        self.inner.clear_cache();
+    }
+
+    #[wasm_bindgen(js_name = clearExpired)]
+    pub fn clear_expired(&self) {
+        self.inner.clear_expired();
+    }
+}

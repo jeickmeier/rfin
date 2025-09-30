@@ -18,8 +18,16 @@ Python bindings.
   decimal scales for ingest/output, mirroring the Python bindings.
 - `Calendar`/`BusinessDayConvention` – retrieve registry calendars, inspect
   holidays, and perform business-day adjustments.
+- `ScheduleBuilder`/`Schedule` – generate business-day aware cashflow schedules
+  with stub handling, end-of-month alignment, or CDS IMM rolls.
 - `DayCount`/`DayCountContext`/`Frequency` – compute year fractions using
   finstack's day-count conventions with optional calendar/frequency hints.
+- `PeriodId`/`PeriodPlan`/`FiscalConfig` – build calendar or fiscal period plans
+  with actual/forecast segmentation via `buildPeriods` and `buildFiscalPeriods`.
+- `DiscountCurve` – construct discount-factor term structures with selectable
+  interpolation and extrapolation policies.
+- `ForwardCurve`, `HazardCurve`, `InflationCurve`, `BaseCorrelationCurve` – additional
+  market data term structures for rates, credit, inflation, and tranche pricing.
 - IMM and utility helpers – IMM rolls, option expiries, month arithmetic, and
   epoch conversions via `daysSinceEpochToDate` and friends.
 
@@ -51,6 +59,12 @@ import init, {
     DayCount,
     DayCountContext,
     Frequency,
+    ScheduleBuilder,
+    StubKind,
+    DiscountCurve,
+    InterpStyle,
+    ExtrapolationPolicy,
+    buildPeriods,
     availableCalendars,
     adjust,
     Currency,
@@ -80,9 +94,32 @@ async function run() {
 
     const dayCount = DayCount.act365f();
     const ctx = new DayCountContext();
-    ctx.setFrequency(Frequency.SemiAnnual);
+    ctx.setFrequency(Frequency.semiAnnual());
     const yf = dayCount.yearFraction(tradeDate, adjusted, ctx);
     console.log(yf); // year fraction respecting DayCountContext
+
+    const schedule = new ScheduleBuilder(tradeDate, new FinstackDate(2025, 9, 30))
+        .frequency(Frequency.quarterly())
+        .stubRule(StubKind.none())
+        .adjustWith(BusinessDayConvention.ModifiedFollowing, nyc)
+        .endOfMonth(true)
+        .build();
+    console.log(schedule.toArray().map((d) => d.toString()));
+
+    const discountCurve = new DiscountCurve(
+        "USD-OIS",
+        tradeDate,
+        [0.0, 0.5, 1.0, 5.0],
+        [1.0, 0.99, 0.96, 0.85],
+        "act_365f",
+        InterpStyle.MonotoneConvex,
+        ExtrapolationPolicy.FlatForward,
+        true,
+    );
+    console.log(discountCurve.df(2.5));
+
+    const plan = buildPeriods("2024Q1..Q4", "2024Q2");
+    console.log(plan.toArray().map((period) => [period.id.code, period.isActual]));
 
     const cfg = new FinstackConfig();
     cfg.setRoundingMode(RoundingMode.AwayFromZero);
@@ -104,6 +141,12 @@ const {
     DayCount,
     DayCountContext,
     Frequency,
+    ScheduleBuilder,
+    StubKind,
+    DiscountCurve,
+    InterpStyle,
+    ExtrapolationPolicy,
+    buildPeriods,
     adjust,
     Currency,
     Money,
@@ -122,8 +165,29 @@ const date = new FinstackDate(2024, 3, 29);
 const calendar = new Calendar("gblo");
 const adjusted = adjust(date, BusinessDayConvention.ModifiedFollowing, calendar);
 const ctx = new DayCountContext();
-ctx.setFrequency(Frequency.Quarterly);
+ctx.setFrequency(Frequency.quarterly());
 console.log(DayCount.act365f().yearFraction(date, adjusted, ctx));
+
+const schedule = new ScheduleBuilder(date, new FinstackDate(2024, 12, 20))
+    .cdsImm()
+    .adjustWith(BusinessDayConvention.Following, calendar)
+    .build();
+console.log(schedule.toArray().map((d) => d.toString()));
+
+const plan = buildPeriods("2023Q3..2024Q2", null);
+console.log(plan.length);
+
+const discountCurve = new DiscountCurve(
+    "USD-OIS",
+    date,
+    [0.0, 1.0, 3.0],
+    [1.0, 0.95, 0.85],
+    "act_365f",
+    InterpStyle.Linear,
+    ExtrapolationPolicy.FlatZero,
+    false,
+);
+console.log(discountCurve.zero(2.0));
 ```
 
 ## Testing

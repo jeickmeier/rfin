@@ -18,6 +18,10 @@ impl JsMoney {
     pub(crate) fn from_inner(inner: Money) -> Self {
         Self { inner }
     }
+
+    pub(crate) fn inner(&self) -> Money {
+        self.inner
+    }
 }
 
 fn money_from_tuple(value: &JsValue) -> Result<Money, JsValue> {

@@ -45,6 +45,12 @@ pub struct JsFinstackConfig {
     inner: FinstackConfig,
 }
 
+impl Default for JsFinstackConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen(js_class = FinstackConfig)]
 impl JsFinstackConfig {
     #[wasm_bindgen(constructor)]
