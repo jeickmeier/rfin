@@ -8,7 +8,6 @@
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
 
-
 /// Calculator for repo accrued interest (currency amount).
 pub struct AccruedInterestCalculator;
 

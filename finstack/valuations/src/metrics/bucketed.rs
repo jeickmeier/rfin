@@ -10,7 +10,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 
-
 /// Standard IR key-rate buckets in years used for quick demos/tests.
 /// Example: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
 pub fn standard_ir_dv01_buckets() -> Vec<f64> {

@@ -6,7 +6,6 @@
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
 
-
 /// Calculate time to maturity in years.
 pub struct TimeToMaturityCalculator;
 

@@ -7,7 +7,6 @@ use crate::instruments::{irs::ParRateMethod, InterestRateSwap};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 
-
 /// Par rate calculator for IRS.
 pub struct ParRateCalculator;
 

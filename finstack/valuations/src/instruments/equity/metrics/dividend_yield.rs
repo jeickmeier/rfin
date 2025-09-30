@@ -3,7 +3,6 @@
 use crate::instruments::equity::Equity;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Computes the dividend yield using `{ticker}-DIVYIELD` if present, or 0.0.
 pub struct DividendYieldCalculator;
 

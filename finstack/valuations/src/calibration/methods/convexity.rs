@@ -3,8 +3,6 @@
 //! Provides market-standard convexity adjustments to convert futures rates
 //! to forward rates, accounting for the daily margining of futures contracts.
 
-
-
 /// Calculate convexity adjustment for interest rate futures.
 ///
 /// The convexity adjustment accounts for the difference between futures and forwards

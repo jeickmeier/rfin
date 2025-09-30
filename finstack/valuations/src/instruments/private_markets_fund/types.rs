@@ -11,7 +11,7 @@ use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// Private markets fund investment instrument.
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct PrivateMarketsFund {

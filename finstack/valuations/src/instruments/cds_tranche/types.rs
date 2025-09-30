@@ -10,7 +10,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-
 use super::parameters::CDSTrancheParams;
 use super::pricer;
 
@@ -46,7 +45,7 @@ impl std::str::FromStr for TrancheSide {
 }
 
 /// CDS Tranche instrument definition (boilerplate)
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct CdsTranche {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -122,31 +121,19 @@ impl CdsTranche {
     }
 
     /// Calculate upfront amount for the tranche
-    pub fn upfront(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
+    pub fn upfront(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_upfront(self, curves, as_of)
     }
 
     /// Calculate spread DV01 (sensitivity to 1bp change in running coupon)
-    pub fn spread_dv01(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
+    pub fn spread_dv01(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_spread_dv01(self, curves, as_of)
     }
 
     /// Calculate the par spread (running coupon in basis points).
-    pub fn par_spread(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
+    pub fn par_spread(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_par_spread(self, curves, as_of)
     }
@@ -168,11 +155,7 @@ impl CdsTranche {
     }
 
     /// Calculate CS01 (sensitivity to 1bp parallel shift in credit spreads)
-    pub fn cs01(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
+    pub fn cs01(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_cs01(self, curves, as_of)
     }

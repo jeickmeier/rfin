@@ -6,7 +6,6 @@
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_core::prelude::Currency;
 
-
 /// Market convention configuration for swaption calibration
 #[derive(Clone, Debug)]
 pub struct SwaptionMarketConvention {

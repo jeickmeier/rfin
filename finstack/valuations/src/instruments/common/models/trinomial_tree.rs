@@ -49,7 +49,13 @@ impl TrinomialTree {
     }
 
     /// Calculate trinomial tree parameters
-    fn calculate_parameters(&self, r: f64, sigma: f64, t: f64, q: f64) -> Result<(f64, f64, f64, f64, f64, f64)> {
+    fn calculate_parameters(
+        &self,
+        r: f64,
+        sigma: f64,
+        t: f64,
+        q: f64,
+    ) -> Result<(f64, f64, f64, f64, f64, f64)> {
         if t <= 0.0 || sigma <= 0.0 {
             return Err(Error::Internal);
         }

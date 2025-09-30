@@ -4,7 +4,6 @@ use crate::instruments::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
 
-
 /// Calculates IR01 (1bp nominal interest rate sensitivity) for inflation swaps.
 pub struct Ir01Calculator;
 

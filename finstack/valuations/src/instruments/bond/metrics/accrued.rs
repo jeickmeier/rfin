@@ -2,7 +2,6 @@ use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Calculates accrued interest for bonds.
 ///
 /// Computes the accrued interest since the last coupon payment up to the

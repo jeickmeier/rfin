@@ -2,7 +2,7 @@ use std::boxed::Box;
 
 use super::InterpFn;
 use crate::math::interp::utils::validate_knots;
-use crate::{math::interp::ExtrapolationPolicy};
+use crate::math::interp::ExtrapolationPolicy;
 
 /// Monotone cubic-Hermite discount-factor interpolator (PCHIP / Fritsch-Carlson).
 ///

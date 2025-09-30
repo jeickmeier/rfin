@@ -11,11 +11,10 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-
 use super::parameters::EquityOptionParams;
 
 /// Equity option instrument
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct EquityOption {
     pub id: InstrumentId,
     pub underlying_ticker: String,

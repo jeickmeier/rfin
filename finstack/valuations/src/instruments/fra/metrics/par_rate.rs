@@ -12,7 +12,6 @@
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Par rate for FRAs (fixed rate that zeroes PV).
 pub struct FraParRateCalculator;
 

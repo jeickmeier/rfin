@@ -26,7 +26,7 @@ use finstack_core::{
 ///     .notional(Money::new(1_000_000.0, Currency::USD))
 ///     .build();
 /// ```
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct EquityTotalReturnSwap {

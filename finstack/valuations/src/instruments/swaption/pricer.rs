@@ -29,7 +29,7 @@ impl Default for SimpleSwaptionBlackPricer {
     }
 }
 
-#[finstack_macros::register_pricer]
+#[finstack_valuations_macros::register_pricer]
 impl Pricer for SimpleSwaptionBlackPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::Swaption, self.model)

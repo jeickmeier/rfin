@@ -7,7 +7,6 @@
 use crate::instruments::fx_spot::FxSpot;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Calculates the FX spot rate as `quote_amount / base_amount`.
 pub struct SpotRateCalculator;
 

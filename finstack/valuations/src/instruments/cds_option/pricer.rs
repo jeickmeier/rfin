@@ -17,7 +17,7 @@ use finstack_core::market_data::term_structures::ParInterp;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::money::Money;
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Pricing engine for `CdsOption`.
 ///
@@ -303,7 +303,14 @@ impl CdsOptionPricer {
     }
 
     /// Theta per year, rate-sensitive term uses r provided by caller.
-    pub fn theta(&self, option: &CdsOption, forward_spread_bp: f64, r: f64, sigma: f64, t: f64) -> f64 {
+    pub fn theta(
+        &self,
+        option: &CdsOption,
+        forward_spread_bp: f64,
+        r: f64,
+        sigma: f64,
+        t: f64,
+    ) -> f64 {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
@@ -458,7 +465,7 @@ impl Default for SimpleCdsOptionBlackPricer {
     }
 }
 
-#[finstack_macros::register_pricer]
+#[finstack_valuations_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSOption, self.model_key)

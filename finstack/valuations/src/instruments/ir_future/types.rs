@@ -7,9 +7,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-
 /// Interest Rate Future instrument.
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct InterestRateFuture {
     /// Unique identifier
     pub id: InstrumentId,

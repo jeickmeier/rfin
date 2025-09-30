@@ -8,7 +8,6 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::error::InputError;
 use finstack_core::math::solver::{HybridSolver, Solver};
 
-
 /// Calculates XIRR (Extended Internal Rate of Return) for a series of cash flows.
 ///
 /// XIRR finds the discount rate that makes the net present value of all cash flows

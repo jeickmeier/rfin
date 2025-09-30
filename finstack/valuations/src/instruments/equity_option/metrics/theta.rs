@@ -2,7 +2,7 @@
 
 use crate::instruments::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 pub struct ThetaCalculator;
 

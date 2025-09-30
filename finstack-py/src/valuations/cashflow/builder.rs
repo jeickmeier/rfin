@@ -392,27 +392,31 @@ impl PyCashFlowSchedule {
     /// >>> df = pl.DataFrame(schedule.to_dataframe())
     /// >>> print(df)
     fn to_dataframe(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let df = self
-            .inner
-            .to_dataframe()
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("DataFrame error: {}", e)))?;
-        
+        let df = self.inner.to_dataframe().map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("DataFrame error: {}", e))
+        })?;
+
         // Convert Polars DataFrame to a Python dict
         let dict = PyDict::new(py);
-        
+
         for col_name in df.get_column_names_owned() {
-            let col = df.column(&col_name)
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Column error: {}", e)))?;
-            
+            let col = df.column(&col_name).map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Column error: {}", e))
+            })?;
+
             // Convert column to Python list
             let py_list = PyList::empty(py);
-            
+
             // Handle different column types
             if col_name.as_str() == "date" {
                 // Convert Julian days to ISO date strings
                 for idx in 0..col.len() {
-                    let val = col.get(idx)
-                        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Get error: {}", e)))?;
+                    let val = col.get(idx).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                            "Get error: {}",
+                            e
+                        ))
+                    })?;
                     if let Ok(days) = val.try_extract::<i32>() {
                         // Convert Julian day to time::Date then to ISO string
                         if let Ok(date) = time::Date::from_julian_day(days) {
@@ -427,8 +431,12 @@ impl PyCashFlowSchedule {
             } else {
                 // For numeric columns, extract as Option<f64>
                 for idx in 0..col.len() {
-                    let val = col.get(idx)
-                        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Get error: {}", e)))?;
+                    let val = col.get(idx).map_err(|e| {
+                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                            "Get error: {}",
+                            e
+                        ))
+                    })?;
                     if val.is_null() {
                         py_list.append(py.None())?;
                     } else if let Ok(num) = val.try_extract::<f64>() {
@@ -438,10 +446,10 @@ impl PyCashFlowSchedule {
                     }
                 }
             }
-            
+
             dict.set_item(col_name.as_str(), py_list)?;
         }
-        
+
         Ok(dict.into())
     }
 }

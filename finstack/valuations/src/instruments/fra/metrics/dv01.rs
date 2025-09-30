@@ -8,7 +8,6 @@ use crate::instruments::fra::ForwardRateAgreement;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-
 /// Analytic DV01 for FRAs.
 pub struct FraDv01Calculator;
 

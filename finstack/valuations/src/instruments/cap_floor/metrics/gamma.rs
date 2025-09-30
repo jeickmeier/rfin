@@ -2,7 +2,7 @@
 
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Gamma calculator (Black model forward gamma, aggregated for caps/floors)
 pub struct GammaCalculator;

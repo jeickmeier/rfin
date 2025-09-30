@@ -445,7 +445,11 @@ impl DiscountCurveCalibrator {
         Ok((curve, report))
     }
 
-    fn solve_with_bracketing(&self, objective: &dyn Fn(f64) -> f64, initial: f64) -> Result<Option<f64>> {
+    fn solve_with_bracketing(
+        &self,
+        objective: &dyn Fn(f64) -> f64,
+        initial: f64,
+    ) -> Result<Option<f64>> {
         let value_initial = objective(initial);
         if value_initial.is_finite() && value_initial.abs() < self.config.tolerance {
             return Ok(Some(initial));

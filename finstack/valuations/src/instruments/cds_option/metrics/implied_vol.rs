@@ -6,7 +6,7 @@
 
 use crate::instruments::cds_option::CdsOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Implied Volatility calculator for credit options on CDS spreads.
 pub struct ImpliedVolCalculator;

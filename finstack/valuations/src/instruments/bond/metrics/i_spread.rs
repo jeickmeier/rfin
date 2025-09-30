@@ -1,7 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
-
 /// I-Spread: bond YTM minus interpolated swap par rate at same maturity.
 ///
 /// Uses DiscountCurve zero rates to approximate par swap rate via discount-ratio formula

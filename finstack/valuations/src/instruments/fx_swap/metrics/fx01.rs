@@ -8,7 +8,6 @@ use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::FxQuery;
 
-
 /// FX01 (sensitivity to 1bp shift in spot rate).
 pub struct FX01;
 

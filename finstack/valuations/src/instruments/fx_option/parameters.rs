@@ -4,7 +4,6 @@ use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
-
 /// FX option specific parameters.
 ///
 /// Groups parameters specific to FX options.

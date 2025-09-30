@@ -9,7 +9,6 @@ use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::FxQuery;
 
-
 /// Carry PV calculator for FX swaps.
 pub struct CarryPv;
 

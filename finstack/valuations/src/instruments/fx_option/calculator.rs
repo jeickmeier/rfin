@@ -11,7 +11,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Configuration for the FX option calculator.
 #[derive(Debug, Clone)]
@@ -333,7 +333,15 @@ pub struct FxOptionGreeks {
 }
 
 #[inline]
-fn price_gk_core(spot: f64, strike: f64, r_d: f64, r_f: f64, sigma: f64, t: f64, option_type: OptionType) -> f64 {
+fn price_gk_core(
+    spot: f64,
+    strike: f64,
+    r_d: f64,
+    r_f: f64,
+    sigma: f64,
+    t: f64,
+    option_type: OptionType,
+) -> f64 {
     let d1 = d1(spot, strike, r_d, sigma, t, r_f);
     let d2 = d2(spot, strike, r_d, sigma, t, r_f);
     match option_type {

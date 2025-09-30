@@ -8,7 +8,6 @@ use super::sabr_model_params::SABRModelParams;
 use crate::instruments::common::models::SABRParameters;
 use finstack_core::math::solver_multi::AnalyticalDerivatives;
 
-
 /// Market data for SABR calibration.
 #[derive(Clone, Debug)]
 pub struct SABRMarketData {
@@ -49,7 +48,13 @@ impl SABRCalibrationDerivatives {
     /// acceptable for calibration stability and performance. For users
     /// requiring fully analytical derivatives, consider switching to the
     /// LM solver without derivatives or extending these expressions.
-    fn sabr_vol_and_derivatives(&self, strike: f64, alpha: f64, nu: f64, rho: f64) -> (f64, f64, f64, f64) {
+    fn sabr_vol_and_derivatives(
+        &self,
+        strike: f64,
+        alpha: f64,
+        nu: f64,
+        rho: f64,
+    ) -> (f64, f64, f64, f64) {
         let f = self.market_data.forward;
         let k = strike;
         let t = self.market_data.time_to_expiry;

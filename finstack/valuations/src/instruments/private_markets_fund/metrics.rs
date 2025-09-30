@@ -6,7 +6,6 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 
-
 /// LP Internal Rate of Return calculator.
 pub struct LpIrrCalculator;
 

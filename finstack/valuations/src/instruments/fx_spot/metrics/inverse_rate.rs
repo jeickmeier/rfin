@@ -6,7 +6,6 @@
 use crate::instruments::fx_spot::FxSpot;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Calculates the inverse of the spot rate (base per quote) if non-zero.
 pub struct InverseRateCalculator;
 

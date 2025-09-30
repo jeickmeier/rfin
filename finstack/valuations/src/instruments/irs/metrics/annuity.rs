@@ -7,7 +7,6 @@ use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 
-
 /// Calculates the fixed-leg annuity for an IRS.
 pub struct AnnuityCalculator;
 

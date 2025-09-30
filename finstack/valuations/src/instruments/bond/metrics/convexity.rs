@@ -3,7 +3,6 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 
-
 /// Calculates convexity for bonds.
 pub struct ConvexityCalculator;
 

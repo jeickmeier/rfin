@@ -5,7 +5,6 @@
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
 
-
 /// Calculate required collateral value including haircut.
 pub struct RequiredCollateralCalculator;
 

@@ -4,7 +4,6 @@
 
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Returns the quote amount (PV in quote currency).
 pub struct QuoteAmountCalculator;
 

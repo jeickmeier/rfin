@@ -7,7 +7,6 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
 
-
 /// Calculate funding risk (repo rate sensitivity).
 pub struct FundingRiskCalculator;
 

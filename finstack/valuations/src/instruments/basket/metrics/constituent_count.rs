@@ -4,7 +4,7 @@
 
 use crate::instruments::basket::types::Basket;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Calculate number of constituents in the basket
 pub struct ConstituentCountCalculator;

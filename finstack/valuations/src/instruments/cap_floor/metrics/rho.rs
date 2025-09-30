@@ -6,7 +6,7 @@
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::BumpSpec;
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Rho calculator (per 1%)
 pub struct RhoCalculator;

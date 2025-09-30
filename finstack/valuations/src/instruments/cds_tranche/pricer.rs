@@ -48,7 +48,6 @@ use finstack_core::math::{
 };
 use finstack_core::prelude::*;
 
-
 #[cfg(test)]
 use finstack_core::math::log_factorial;
 // use finstack_core::types::CurveId;
@@ -1232,7 +1231,7 @@ impl Default for SimpleCdsTrancheHazardPricer {
     }
 }
 
-#[finstack_macros::register_pricer]
+#[finstack_valuations_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSTranche, self.model_key)

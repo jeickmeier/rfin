@@ -4,7 +4,6 @@ use finstack_core::currency::Currency;
 use finstack_core::types::id::IndexId;
 use finstack_core::types::CurveId;
 
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

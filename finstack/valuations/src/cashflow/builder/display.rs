@@ -128,7 +128,7 @@ impl CashFlowSchedule {
                 None
             });
             fee_col.push(if row.fee != 0.0 { Some(row.fee) } else { None });
-            
+
             // Calculate total payment (cash the investor receives this period)
             // Includes: fixed coupons, floating coupons, amortization
             // Excludes: PIK (not cash), initial notional (outflow), fees (typically outflow)
@@ -142,9 +142,7 @@ impl CashFlowSchedule {
             // Calculate rates (before updating outstanding so we use pre-flow outstanding)
             // Note: stub is already included in row.fixed due to aggregation above
             let cash_interest = row.fixed + row.float_reset;
-            let cash_rate = if cash_interest > 0.0
-                && outstanding != 0.0
-                && row.accrual_factor > 0.0
+            let cash_rate = if cash_interest > 0.0 && outstanding != 0.0 && row.accrual_factor > 0.0
             {
                 Some((cash_interest / outstanding.abs()) / row.accrual_factor * 100.0)
             } else {
@@ -157,14 +155,12 @@ impl CashFlowSchedule {
                 None
             };
 
-            let float_rate = if row.float_reset > 0.0
-                && outstanding != 0.0
-                && row.accrual_factor > 0.0
-            {
-                Some((row.float_reset / outstanding.abs()) / row.accrual_factor * 100.0)
-            } else {
-                None
-            };
+            let float_rate =
+                if row.float_reset > 0.0 && outstanding != 0.0 && row.accrual_factor > 0.0 {
+                    Some((row.float_reset / outstanding.abs()) / row.accrual_factor * 100.0)
+                } else {
+                    None
+                };
 
             cash_rate_col.push(cash_rate);
             pik_rate_col.push(pik_rate);

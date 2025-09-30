@@ -2,7 +2,7 @@
 
 use super::super::types::VarianceSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Calculate strike in volatility terms.
 pub struct StrikeVolCalculator;

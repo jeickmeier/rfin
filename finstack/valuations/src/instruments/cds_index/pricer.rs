@@ -309,7 +309,7 @@ impl Default for SimpleCdsIndexHazardPricer {
     }
 }
 
-#[finstack_macros::register_pricer]
+#[finstack_valuations_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleCdsIndexHazardPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSIndex, self.model_key)

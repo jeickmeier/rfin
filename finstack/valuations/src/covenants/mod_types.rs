@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Serialize};
 
 /// Covenant check result.

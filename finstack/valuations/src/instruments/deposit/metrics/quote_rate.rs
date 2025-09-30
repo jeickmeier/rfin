@@ -1,7 +1,6 @@
 use crate::instruments::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Quoted rate passthrough for deposits.
 ///
 /// Returns the quoted simple rate from the instrument; errors if missing.

@@ -25,7 +25,10 @@ pub enum WaterfallStep {
     TrusteeFees { amount: Money },
 
     /// Pay senior management fees
-    SeniorManagementFee { rate: f64, base_calculation: FeeBase },
+    SeniorManagementFee {
+        rate: f64,
+        base_calculation: FeeBase,
+    },
 
     /// Pay hedge counterparty (if applicable)
     HedgePayments,
@@ -49,7 +52,10 @@ pub enum WaterfallStep {
     },
 
     /// Pay subordinated management fees
-    SubordinatedManagementFee { rate: f64, base_calculation: FeeBase },
+    SubordinatedManagementFee {
+        rate: f64,
+        base_calculation: FeeBase,
+    },
 
     /// Build or release reserve account
     ReserveAccount {

@@ -18,9 +18,7 @@ fn leak_str(value: &str) -> &'static str {
 fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
     match label {
         None => Ok(OptionType::Call),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| PyValueError::new_err(e)),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

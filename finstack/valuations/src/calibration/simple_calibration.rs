@@ -184,7 +184,12 @@ impl SimpleCalibration {
 
                 let mut knots: Vec<(f64, f64)> = Vec::new();
                 for rq in &rates_quotes {
-                    if let RatesQuote::Deposit { maturity, rate, day_count } = rq {
+                    if let RatesQuote::Deposit {
+                        maturity,
+                        rate,
+                        day_count,
+                    } = rq
+                    {
                         let t = day_count
                             .year_fraction(self.base_date, *maturity, DayCountCtx::default())
                             .unwrap_or(0.0)

@@ -58,7 +58,7 @@ impl PayReceive {
 ///
 /// A variance swap is a forward contract on realized variance with payoff:
 /// Notional * (Realized Variance - Strike Variance)
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct VarianceSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -212,9 +212,9 @@ impl VarianceSwap {
         } else if let Some(days) = self.observation_freq.days() {
             // Handle day-based frequencies
             match days {
-                1 => 252.0,             // Daily (trading days)
-                7 => 52.0,              // Weekly
-                14 => 26.0,             // Bi-weekly
+                1 => 252.0,               // Daily (trading days)
+                7 => 52.0,                // Weekly
+                14 => 26.0,               // Bi-weekly
                 _ => 365.0 / days as f64, // General day-based approximation
             }
         } else {

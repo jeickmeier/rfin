@@ -7,7 +7,6 @@ use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
 
-
 /// Rho calculator for swaptions (per 1%)
 pub struct RhoCalculator;
 

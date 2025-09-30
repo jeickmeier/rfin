@@ -12,7 +12,7 @@ use crate::instruments::equity_option::types::EquityOption;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::{Result};
+use finstack_core::Result;
 
 const DAYS_PER_YEAR: f64 = 365.0;
 const ONE_PERCENT: f64 = 100.0;
@@ -91,7 +91,15 @@ pub fn year_fraction(start: Date, end: Date, dc: DayCount) -> Result<f64> {
 
 /// Unit price under Black–Scholes (no contract size scaling).
 #[inline]
-pub fn price_bs_unit(spot: f64, strike: f64, r: f64, q: f64, sigma: f64, t: f64, option_type: OptionType) -> f64 {
+pub fn price_bs_unit(
+    spot: f64,
+    strike: f64,
+    r: f64,
+    q: f64,
+    sigma: f64,
+    t: f64,
+    option_type: OptionType,
+) -> f64 {
     if t <= 0.0 {
         return match option_type {
             OptionType::Call => (spot - strike).max(0.0),
@@ -323,7 +331,7 @@ impl Default for SimpleEquityOptionBlackPricer {
     }
 }
 
-#[finstack_macros::register_pricer]
+#[finstack_valuations_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::EquityOption, self.model)

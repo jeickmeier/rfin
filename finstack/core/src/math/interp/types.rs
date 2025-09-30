@@ -1,6 +1,5 @@
 //! Interpolation types, enums, and factory.
 
-
 use super::traits::InterpFn;
 use super::{
     cubic_hermite::CubicHermite, flat_fwd::FlatFwd, linear::LinearDf, log_linear::LogLinearDf,

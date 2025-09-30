@@ -30,7 +30,7 @@ mod tests {
     use finstack_core::market_data::traits::{Discounting, TermStructure};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
-    
+
     use time::Month;
 
     struct FlatCurve {

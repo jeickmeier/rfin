@@ -1,6 +1,5 @@
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
-
 /// Calculates par rate for deposits.
 ///
 /// Computes the simple rate that makes the deposit worth par (face value) at

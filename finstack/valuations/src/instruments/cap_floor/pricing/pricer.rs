@@ -29,7 +29,7 @@ impl Default for SimpleCapFloorBlackPricer {
     }
 }
 
-#[finstack_macros::register_pricer]
+#[finstack_valuations_macros::register_pricer]
 impl Pricer for SimpleCapFloorBlackPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::CapFloor, self.model)

@@ -31,7 +31,7 @@ pub use crate::instruments::common::parameters::legs::FloatLegSpec;
 ///
 /// Represents a standard interest rate swap where one party pays
 /// a fixed rate and the other pays a floating rate plus spread.
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct InterestRateSwap {
     /// Unique identifier for the swap.
     pub id: InstrumentId,
@@ -146,7 +146,7 @@ impl InterestRateSwap {
         notional: Money,
         start: Date,
         end: Date,
-        primary_spread_bp: f64,   // Spread on the "fixed" leg (really floating)
+        primary_spread_bp: f64, // Spread on the "fixed" leg (really floating)
         reference_spread_bp: f64, // Spread on the "float" leg
     ) -> Self {
         // Approximate basis swap by using fixed leg to carry the primary spread as a fixed coupon

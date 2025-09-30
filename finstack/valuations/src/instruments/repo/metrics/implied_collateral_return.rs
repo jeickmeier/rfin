@@ -6,7 +6,6 @@
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::*;
 
-
 /// Calculate implied collateral return (mark-to-market gain/loss on collateral).
 pub struct ImpliedCollateralReturnCalculator;
 

@@ -80,7 +80,7 @@ impl std::str::FromStr for SwaptionExercise {
 }
 
 /// Swaption instrument
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct Swaption {
     pub id: InstrumentId,
     pub option_type: OptionType,
@@ -190,7 +190,12 @@ impl Swaption {
     }
 
     /// Black (lognormal) model PV using forward swap rate and annuity.
-    pub fn price_black(&self, disc: &dyn Discounting, volatility: f64, as_of: Date) -> Result<Money> {
+    pub fn price_black(
+        &self,
+        disc: &dyn Discounting,
+        volatility: f64,
+        as_of: Date,
+    ) -> Result<Money> {
         let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
         if time_to_expiry <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));

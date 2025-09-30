@@ -25,7 +25,6 @@ const BUSINESS_DAYS_PER_YEAR_APPROX: f64 = 252.0;
 
 /// ISDA 2014 standard constants used by the engine
 pub mod isda_constants {
-    
 
     /// Standard recovery rate for senior unsecured (40%)
     pub const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
@@ -613,7 +612,12 @@ impl CDSPricer {
     }
 
     /// CS01 via risky PV01 approximation
-    pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<f64> {
+    pub fn cs01(
+        &self,
+        cds: &CreditDefaultSwap,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<f64> {
         let disc = curves.get_discount_ref(cds.premium.disc_id.clone())?;
         let surv = curves.get_hazard_ref(cds.protection.credit_id.clone())?;
         let base_npv = self.npv(cds, disc, surv, as_of)?;

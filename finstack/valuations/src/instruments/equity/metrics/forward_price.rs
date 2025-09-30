@@ -5,7 +5,6 @@
 use crate::instruments::equity::Equity;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Computes the forward price per share over a horizon in years.
 ///
 /// Horizon resolution order:

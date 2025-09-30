@@ -2,7 +2,7 @@
 
 use super::super::types::VarianceSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Calculate vega (sensitivity to 1% change in volatility).
 pub struct VegaCalculator;

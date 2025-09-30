@@ -6,7 +6,6 @@ use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

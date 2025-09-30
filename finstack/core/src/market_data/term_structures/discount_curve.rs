@@ -29,7 +29,6 @@ use crate::{
     market_data::traits::{Discounting, TermStructure},
     math::interp::types::Interp,
     types::CurveId,
-
 };
 
 /// Piece-wise discount factor curve supporting several interpolation styles.
@@ -159,7 +158,12 @@ impl DiscountCurve {
     /// Static convenience: discount factor on a specific date given any discount curve.
     /// For backward compatibility with existing code.
     #[inline]
-    pub fn df_on(disc: &dyn Discounting, base: Date, date: Date, dc: crate::dates::DayCount) -> f64 {
+    pub fn df_on(
+        disc: &dyn Discounting,
+        base: Date,
+        date: Date,
+        dc: crate::dates::DayCount,
+    ) -> f64 {
         let t = if date == base {
             0.0
         } else {

@@ -50,8 +50,6 @@
 //!    - Always calibrate discount curve first
 //!    - Then calibrate forward curves with discount curve in context
 
-
-
 // Submodules
 mod config;
 pub mod derivatives;

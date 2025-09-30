@@ -3,12 +3,12 @@ members = [
     "finstack/core",
     "finstack/statements",
     "finstack/valuations",
+    "finstack/valuations/macros",
     "finstack/portfolio",
     "finstack/io",
     "finstack-py",
     "finstack-wasm",
-    "finstack",
-    "finstack-macros"
+    "finstack"
 ]
 resolver = "2"
 
@@ -17,10 +17,10 @@ default-members = [
     "finstack/core",
     "finstack/statements", 
     "finstack/valuations",
+    "finstack/valuations/macros",
     "finstack/portfolio",
     "finstack/io",
-    "finstack",
-    "finstack-macros"
+    "finstack"
 ]
 
 [workspace.package]

@@ -4,7 +4,7 @@
 
 use crate::instruments::basket::types::{AssetType, Basket, ConstituentReference};
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Calculate effective exposure by asset type
 pub struct AssetExposureCalculator {

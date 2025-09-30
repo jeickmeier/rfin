@@ -122,7 +122,12 @@ impl SABRModel {
     ///
     /// This is the standard SABR formula from Hagan et al. (2002) with enhanced
     /// numerical stability and support for negative rates through shifting.
-    pub fn implied_volatility(&self, forward: f64, strike: f64, time_to_expiry: f64) -> Result<f64> {
+    pub fn implied_volatility(
+        &self,
+        forward: f64,
+        strike: f64,
+        time_to_expiry: f64,
+    ) -> Result<f64> {
         // Apply shift if using shifted SABR for negative rates
         let (effective_forward, effective_strike) = if let Some(shift) = self.params.shift {
             (forward + shift, strike + shift)

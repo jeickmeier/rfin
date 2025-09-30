@@ -8,7 +8,6 @@ use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
 
-
 /// Vega calculator for swaptions
 pub struct VegaCalculator;
 

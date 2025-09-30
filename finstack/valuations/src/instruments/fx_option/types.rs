@@ -9,13 +9,13 @@ use finstack_core::dates::Date;
 // Pricing/greeks live in pricing engine; keep types minimal.
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 use super::calculator::{FxOptionCalculator, FxOptionGreeks};
 use super::parameters::FxOptionParams;
 
 /// FX option instrument (Garman-Kohlhagen model)
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct FxOption {
     pub id: InstrumentId,
     pub base_currency: Currency,

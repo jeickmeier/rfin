@@ -3,7 +3,6 @@
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::types::CurveId;
 
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

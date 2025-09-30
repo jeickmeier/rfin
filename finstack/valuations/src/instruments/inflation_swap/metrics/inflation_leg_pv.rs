@@ -3,7 +3,6 @@
 use crate::instruments::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Calculates PV of inflation leg for inflation swaps.
 pub struct InflationLegPvCalculator;
 

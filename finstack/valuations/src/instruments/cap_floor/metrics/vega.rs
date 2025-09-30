@@ -2,7 +2,7 @@
 
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Vega calculator (Black model vega per 1% vol, aggregated for caps/floors)
 pub struct VegaCalculator;

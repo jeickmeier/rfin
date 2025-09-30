@@ -6,7 +6,6 @@
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::MetricContext;
 
-
 /// Iterate over caplets/floorlets and aggregate contributions.
 ///
 /// The supplied function `f` should return the "per-unit" measure for a single

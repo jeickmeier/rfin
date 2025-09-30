@@ -895,7 +895,11 @@ impl<'a> EquityWaterfallEngine<'a> {
     }
 
     /// Calculate IRR for LP cashflows using Brent's method.
-    fn calculate_irr(&self, flows: &[(Date, Money)], base_date: Date) -> finstack_core::Result<f64> {
+    fn calculate_irr(
+        &self,
+        flows: &[(Date, Money)],
+        base_date: Date,
+    ) -> finstack_core::Result<f64> {
         if flows.len() < 2 {
             return Err(finstack_core::error::InputError::TooFewPoints.into());
         }

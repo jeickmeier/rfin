@@ -3,7 +3,7 @@
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::BumpSpec;
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Forward PV01 calculator (per 1bp parallel forward curve bump)
 pub struct ForwardPv01Calculator;

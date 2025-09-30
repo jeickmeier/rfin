@@ -109,7 +109,9 @@ impl std::str::FromStr for InstrumentType {
             "fx_swap" | "fxswap" => Ok(InstrumentType::FxSwap),
             "inflation_linked_bond" | "ilb" => Ok(InstrumentType::InflationLinkedBond),
             "inflation_swap" => Ok(InstrumentType::InflationSwap),
-            "interest_rate_future" | "ir_future" | "irfuture" => Ok(InstrumentType::InterestRateFuture),
+            "interest_rate_future" | "ir_future" | "irfuture" => {
+                Ok(InstrumentType::InterestRateFuture)
+            }
             "variance_swap" | "varianceswap" => Ok(InstrumentType::VarianceSwap),
             "equity" => Ok(InstrumentType::Equity),
             "repo" => Ok(InstrumentType::Repo),
@@ -314,14 +316,14 @@ inventory::collect!(PricerRegistration);
 /// All 40+ instrument pricers are now self-registering at compile time.
 pub fn create_standard_registry() -> PricerRegistry {
     let mut registry = PricerRegistry::new();
-    
+
     // Collect all auto-registered pricers
     for registration in inventory::iter::<PricerRegistration> {
         let pricer = (registration.ctor)();
         let key = pricer.key();
         registry.register_pricer(key, pricer);
     }
-    
+
     registry
 }
 
@@ -355,99 +357,317 @@ mod tests {
         let registry = create_standard_registry();
 
         // Bond pricers
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::Bond, ModelKey::Discounting)).is_some(),
-            "Bond Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::Bond, ModelKey::Tree)).is_some(),
-            "Bond OAS pricer should be auto-registered");
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::Bond, ModelKey::Discounting))
+                .is_some(),
+            "Bond Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::Bond, ModelKey::Tree))
+                .is_some(),
+            "Bond OAS pricer should be auto-registered"
+        );
 
         // Interest Rate pricers
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::IRS, ModelKey::Discounting)).is_some(),
-            "IRS Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::FRA, ModelKey::Discounting)).is_some(),
-            "FRA Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CapFloor, ModelKey::Black76)).is_some(),
-            "CapFloor Black76 pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CapFloor, ModelKey::Discounting)).is_some(),
-            "CapFloor Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::Swaption, ModelKey::Black76)).is_some(),
-            "Swaption Black76 pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::Swaption, ModelKey::Discounting)).is_some(),
-            "Swaption Discounting pricer should be auto-registered");
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::IRS, ModelKey::Discounting))
+                .is_some(),
+            "IRS Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::FRA, ModelKey::Discounting))
+                .is_some(),
+            "FRA Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::CapFloor, ModelKey::Black76))
+                .is_some(),
+            "CapFloor Black76 pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::CapFloor,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "CapFloor Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::Swaption, ModelKey::Black76))
+                .is_some(),
+            "Swaption Black76 pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::Swaption,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "Swaption Discounting pricer should be auto-registered"
+        );
 
         // Credit pricers
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CDS, ModelKey::HazardRate)).is_some(),
-            "CDS HazardRate pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CDS, ModelKey::Discounting)).is_some(),
-            "CDS Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CDSIndex, ModelKey::HazardRate)).is_some(),
-            "CDSIndex HazardRate pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CDSIndex, ModelKey::Discounting)).is_some(),
-            "CDSIndex Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CDSOption, ModelKey::Black76)).is_some(),
-            "CDSOption Black76 pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CDSOption, ModelKey::Discounting)).is_some(),
-            "CDSOption Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CDSTranche, ModelKey::HazardRate)).is_some(),
-            "CDSTranche HazardRate pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CDSTranche, ModelKey::Discounting)).is_some(),
-            "CDSTranche Discounting pricer should be auto-registered");
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::CDS, ModelKey::HazardRate))
+                .is_some(),
+            "CDS HazardRate pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::CDS, ModelKey::Discounting))
+                .is_some(),
+            "CDS Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::CDSIndex,
+                    ModelKey::HazardRate
+                ))
+                .is_some(),
+            "CDSIndex HazardRate pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::CDSIndex,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "CDSIndex Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::CDSOption, ModelKey::Black76))
+                .is_some(),
+            "CDSOption Black76 pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::CDSOption,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "CDSOption Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::CDSTranche,
+                    ModelKey::HazardRate
+                ))
+                .is_some(),
+            "CDSTranche HazardRate pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::CDSTranche,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "CDSTranche Discounting pricer should be auto-registered"
+        );
 
         // FX pricers
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::FxSpot, ModelKey::Discounting)).is_some(),
-            "FxSpot Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::FxOption, ModelKey::Black76)).is_some(),
-            "FxOption Black76 pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::FxOption, ModelKey::Discounting)).is_some(),
-            "FxOption Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::FxSwap, ModelKey::Discounting)).is_some(),
-            "FxSwap Discounting pricer should be auto-registered");
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::FxSpot,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "FxSpot Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::FxOption, ModelKey::Black76))
+                .is_some(),
+            "FxOption Black76 pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::FxOption,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "FxOption Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::FxSwap,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "FxSwap Discounting pricer should be auto-registered"
+        );
 
         // Equity pricers
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::Equity, ModelKey::Discounting)).is_some(),
-            "Equity Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::EquityOption, ModelKey::Black76)).is_some(),
-            "EquityOption Black76 pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::EquityOption, ModelKey::Discounting)).is_some(),
-            "EquityOption Discounting pricer should be auto-registered");
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::Equity,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "Equity Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::EquityOption,
+                    ModelKey::Black76
+                ))
+                .is_some(),
+            "EquityOption Black76 pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::EquityOption,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "EquityOption Discounting pricer should be auto-registered"
+        );
 
         // Basic pricers
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::Deposit, ModelKey::Discounting)).is_some(),
-            "Deposit Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::InterestRateFuture, ModelKey::Discounting)).is_some(),
-            "InterestRateFuture Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::BasisSwap, ModelKey::Discounting)).is_some(),
-            "BasisSwap Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::Repo, ModelKey::Discounting)).is_some(),
-            "Repo Discounting pricer should be auto-registered");
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::Deposit,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "Deposit Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::InterestRateFuture,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "InterestRateFuture Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::BasisSwap,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "BasisSwap Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::Repo, ModelKey::Discounting))
+                .is_some(),
+            "Repo Discounting pricer should be auto-registered"
+        );
 
         // Inflation pricers
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::InflationSwap, ModelKey::Discounting)).is_some(),
-            "InflationSwap Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::InflationLinkedBond, ModelKey::Discounting)).is_some(),
-            "InflationLinkedBond Discounting pricer should be auto-registered");
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::InflationSwap,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "InflationSwap Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::InflationLinkedBond,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "InflationLinkedBond Discounting pricer should be auto-registered"
+        );
 
         // Complex pricers
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::VarianceSwap, ModelKey::Discounting)).is_some(),
-            "VarianceSwap Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::Basket, ModelKey::Discounting)).is_some(),
-            "Basket Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::Convertible, ModelKey::Discounting)).is_some(),
-            "Convertible Discounting pricer should be auto-registered");
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::VarianceSwap,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "VarianceSwap Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::Basket,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "Basket Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::Convertible,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "Convertible Discounting pricer should be auto-registered"
+        );
 
         // Structured credit pricers
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::ABS, ModelKey::Discounting)).is_some(),
-            "ABS Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CLO, ModelKey::Discounting)).is_some(),
-            "CLO Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::CMBS, ModelKey::Discounting)).is_some(),
-            "CMBS Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::RMBS, ModelKey::Discounting)).is_some(),
-            "RMBS Discounting pricer should be auto-registered");
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::ABS, ModelKey::Discounting))
+                .is_some(),
+            "ABS Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::CLO, ModelKey::Discounting))
+                .is_some(),
+            "CLO Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::CMBS, ModelKey::Discounting))
+                .is_some(),
+            "CMBS Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::RMBS, ModelKey::Discounting))
+                .is_some(),
+            "RMBS Discounting pricer should be auto-registered"
+        );
 
         // TRS and Private Markets
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::TRS, ModelKey::Discounting)).is_some(),
-            "TRS Discounting pricer should be auto-registered");
-        assert!(registry.get_pricer(PricerKey::new(InstrumentType::PrivateMarketsFund, ModelKey::Discounting)).is_some(),
-            "PrivateMarketsFund Discounting pricer should be auto-registered");
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(InstrumentType::TRS, ModelKey::Discounting))
+                .is_some(),
+            "TRS Discounting pricer should be auto-registered"
+        );
+        assert!(
+            registry
+                .get_pricer(PricerKey::new(
+                    InstrumentType::PrivateMarketsFund,
+                    ModelKey::Discounting
+                ))
+                .is_some(),
+            "PrivateMarketsFund Discounting pricer should be auto-registered"
+        );
     }
 }

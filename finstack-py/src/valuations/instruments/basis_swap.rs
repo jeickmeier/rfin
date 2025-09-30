@@ -34,9 +34,7 @@ fn parse_frequency(label: Option<&str>) -> PyResult<Frequency> {
 fn parse_stub(label: Option<&str>) -> PyResult<finstack_core::dates::StubKind> {
     match label {
         None => Ok(finstack_core::dates::StubKind::None),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| PyValueError::new_err(e)),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

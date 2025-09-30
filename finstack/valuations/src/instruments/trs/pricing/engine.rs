@@ -5,7 +5,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-
 use super::super::types::{FinancingLegSpec, TrsScheduleSpec};
 
 /// Common TRS pricing engine for shared calculations.

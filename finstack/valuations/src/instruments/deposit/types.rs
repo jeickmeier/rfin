@@ -9,7 +9,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::Attributes;
 
@@ -17,7 +16,7 @@ use crate::instruments::common::traits::Attributes;
 ///
 /// Represents a single-period deposit where principal is exchanged
 /// at start and principal plus interest at maturity.
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct Deposit {
     /// Unique identifier for the deposit.
     pub id: InstrumentId,

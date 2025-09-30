@@ -9,7 +9,6 @@ use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::DateExt;
 use finstack_core::prelude::Result;
 
-
 /// Theta calculator for swaptions (daily)
 pub struct ThetaCalculator;
 

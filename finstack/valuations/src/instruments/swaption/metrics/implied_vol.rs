@@ -10,7 +10,6 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::prelude::Result;
 
-
 /// Implied Volatility calculator for swaptions
 pub struct ImpliedVolCalculator;
 

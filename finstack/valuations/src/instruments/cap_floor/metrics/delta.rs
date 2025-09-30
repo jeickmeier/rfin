@@ -2,7 +2,7 @@
 
 use crate::instruments::cap_floor::{InterestRateOption, RateOptionType};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Delta calculator (Black model forward delta, aggregated for caps/floors)
 pub struct DeltaCalculator;

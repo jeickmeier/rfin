@@ -3,7 +3,6 @@
 use crate::instruments::equity::Equity;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Computes the price per share for an `Equity`.
 pub struct PricePerShareCalculator;
 

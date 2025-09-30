@@ -3,7 +3,6 @@
 use crate::instruments::fx_option::FxOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
-
 pub struct BucketedDv01Calculator;
 
 impl MetricCalculator for BucketedDv01Calculator {

@@ -18,7 +18,10 @@ enum ValueMode {
     /// Return per-share contribution; units require shares to be present.
     PerShare { shares: Option<f64> },
     /// Return total contribution; prefers units, else uses AUM, else shares.
-    Total { shares: Option<f64>, aum: Option<f64> },
+    Total {
+        shares: Option<f64>,
+        aum: Option<f64>,
+    },
 }
 
 /// Basket calculation engine that handles all pricing logic.

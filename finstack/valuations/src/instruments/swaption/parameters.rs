@@ -4,7 +4,6 @@ use crate::instruments::irs::PayReceive;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
-
 /// Swaption-specific parameters.
 ///
 /// Groups swaption parameters beyond basic option parameters.

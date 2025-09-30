@@ -3,7 +3,7 @@
 //! Computes conversion premium = bond_price / (spot * conversion_ratio) - 1.
 
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 use crate::instruments::convertible::types::ConvertibleBond;
 

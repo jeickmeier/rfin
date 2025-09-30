@@ -21,9 +21,7 @@ fn leak_optional_str(value: Option<&str>) -> Option<&'static str> {
 fn parse_repo_type(label: Option<&str>) -> PyResult<RepoType> {
     match label {
         None => Ok(RepoType::Term),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| PyValueError::new_err(e)),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

@@ -3,7 +3,6 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::money::Money;
 
-
 /// Calculates yield to maturity for bonds.
 ///
 /// Computes the internal rate of return that equates the present value of

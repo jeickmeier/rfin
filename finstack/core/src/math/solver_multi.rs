@@ -24,7 +24,7 @@
 
 use crate::error::InputError;
 use crate::math::random::RandomNumberGenerator;
-use crate::{Result};
+use crate::Result;
 use ndarray::{Array1, Array2};
 
 /// Trait for functions that can provide analytical derivatives.

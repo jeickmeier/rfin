@@ -6,7 +6,6 @@
 //! For production use with advanced generators (PCG, etc.), implement
 //! the RandomNumberGenerator trait in the consuming crates.
 
-
 /// Random number generator trait for statistical sampling.
 ///
 /// This trait provides the basic interface needed for Monte Carlo simulations

@@ -164,7 +164,7 @@ impl Default for BasketPricingConfig {
 /// This basket represents a collection of financial instruments or market data references
 /// that can be valued as a portfolio. It focuses purely on pricing functionality without
 /// ETF-specific operational features like creation/redemption mechanics.
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Basket {

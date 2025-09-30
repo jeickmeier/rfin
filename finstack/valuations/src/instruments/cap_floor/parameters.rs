@@ -34,7 +34,12 @@ pub struct InterestRateOptionParams {
 
 impl InterestRateOptionParams {
     /// Create cap parameters
-    pub fn cap(notional: Money, strike_rate: f64, frequency: Frequency, day_count: DayCount) -> Self {
+    pub fn cap(
+        notional: Money,
+        strike_rate: f64,
+        frequency: Frequency,
+        day_count: DayCount,
+    ) -> Self {
         Self {
             rate_option_type: RateOptionType::Cap,
             notional,

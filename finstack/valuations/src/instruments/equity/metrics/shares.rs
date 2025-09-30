@@ -3,7 +3,6 @@
 use crate::instruments::equity::Equity;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Computes the effective number of shares for an `Equity`.
 pub struct SharesCalculator;
 

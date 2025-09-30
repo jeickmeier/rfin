@@ -4,7 +4,6 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::math::solver::{BrentSolver, Solver};
 
-
 /// Discount Margin (DM) for floating-rate bonds.
 ///
 /// Definition: constant additive spread (decimal, e.g., 0.01 = 100bp) over the

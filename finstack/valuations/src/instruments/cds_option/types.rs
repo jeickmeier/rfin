@@ -12,7 +12,6 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 
-
 use super::parameters::CdsOptionParams;
 
 /// Credit option instrument (option on CDS spread)

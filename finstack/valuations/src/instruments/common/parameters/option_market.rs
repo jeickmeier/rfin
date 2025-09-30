@@ -2,7 +2,6 @@
 
 use super::market::OptionType;
 
-
 /// Option market parameters for pricing models.
 ///
 /// Groups market data parameters commonly used in option pricing functions.

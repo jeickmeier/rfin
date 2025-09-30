@@ -16,7 +16,7 @@
 //! ```
 
 use crate::error::InputError;
-use crate::{Error};
+use crate::Error;
 
 // Removed over-engineered parameter bundling structs - use direct parameters instead
 
@@ -272,7 +272,13 @@ where
 ///
 /// # Returns
 /// Approximate integral value with estimated error control
-pub fn adaptive_quadrature<F2>(f: F2, a: f64, b: f64, tol: f64, max_depth: usize) -> Result<f64, Error>
+pub fn adaptive_quadrature<F2>(
+    f: F2,
+    a: f64,
+    b: f64,
+    tol: f64,
+    max_depth: usize,
+) -> Result<f64, Error>
 where
     F2: Fn(f64) -> f64 + Copy,
 {

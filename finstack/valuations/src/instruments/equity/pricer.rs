@@ -14,7 +14,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-
 /// Stateless pricing engine for `Equity` instruments.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct EquityPricer;
@@ -114,7 +113,7 @@ impl Default for SimpleEquityDiscountingPricer {
     }
 }
 
-#[finstack_macros::register_pricer]
+#[finstack_valuations_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(

@@ -7,7 +7,6 @@ use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 
-
 /// PV of the floating leg of an IRS.
 pub struct FloatLegPvCalculator;
 

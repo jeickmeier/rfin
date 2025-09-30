@@ -6,7 +6,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, InstrumentId};
 
-
 /// Direction from the perspective of paying fixed real vs receiving inflation
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PayReceiveInflation {
@@ -42,7 +41,7 @@ impl std::str::FromStr for PayReceiveInflation {
 ///
 /// Minimal fields to represent a zero-coupon inflation swap. We keep this
 /// intentionally compact until full pricing is implemented.
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct InflationSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,

@@ -1,7 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
-
 const ONE_BP: f64 = 0.0001;
 
 /// Calculates CS01 (credit spread sensitivity) for bonds.

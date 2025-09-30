@@ -3,7 +3,6 @@
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::prelude::*;
 
-
 /// Interest rate instrument quotes for yield curve calibration.
 #[derive(Clone, Debug)]
 pub enum RatesQuote {

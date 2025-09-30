@@ -7,7 +7,7 @@ use finstack_core::dates::Frequency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, HybridSolver, Solver};
 use finstack_core::money::Money;
-use finstack_core::{Result};
+use finstack_core::Result;
 
 use super::helpers::YieldCompounding;
 

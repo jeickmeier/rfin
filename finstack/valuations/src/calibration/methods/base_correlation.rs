@@ -17,7 +17,6 @@ use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 
-
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -386,7 +385,8 @@ impl BaseCorrelationSurfaceCalibrator {
         CalibrationReport,
     )> {
         // Group quotes by maturity
-        let mut quotes_by_maturity: BTreeMap<OrderedFloat<f64>, Vec<&CreditQuote>> = BTreeMap::new();
+        let mut quotes_by_maturity: BTreeMap<OrderedFloat<f64>, Vec<&CreditQuote>> =
+            BTreeMap::new();
 
         for quote in quotes {
             if let CreditQuote::CDSTranche { maturity, .. } = quote {

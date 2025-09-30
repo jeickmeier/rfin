@@ -2,7 +2,6 @@
 
 use core::fmt::Debug;
 
-
 use super::types::DERIVATIVE_EPSILON;
 
 /// Object-safe interpolation trait.

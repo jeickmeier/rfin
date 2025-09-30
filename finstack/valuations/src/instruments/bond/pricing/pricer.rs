@@ -43,7 +43,7 @@ impl Default for SimpleBondOasPricer {
     }
 }
 
-#[finstack_macros::register_pricer]
+#[finstack_valuations_macros::register_pricer]
 impl Pricer for SimpleBondOasPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::Bond, ModelKey::Tree)

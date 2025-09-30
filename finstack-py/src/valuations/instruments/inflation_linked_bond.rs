@@ -17,18 +17,14 @@ use std::fmt;
 fn parse_indexation_method(label: Option<&str>) -> PyResult<IndexationMethod> {
     match label {
         None => Ok(IndexationMethod::TIPS),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| PyValueError::new_err(e)),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 
 fn parse_deflation_protection(label: Option<&str>) -> PyResult<DeflationProtection> {
     match label {
         None => Ok(DeflationProtection::MaturityOnly),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| PyValueError::new_err(e)),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

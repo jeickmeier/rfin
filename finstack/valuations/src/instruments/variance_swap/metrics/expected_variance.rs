@@ -2,7 +2,7 @@
 
 use super::super::types::VarianceSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Calculate the expected variance (blend of realized and forward).
 pub struct ExpectedVarianceCalculator;

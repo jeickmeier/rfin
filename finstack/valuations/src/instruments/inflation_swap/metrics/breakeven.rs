@@ -3,7 +3,6 @@
 use crate::instruments::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Calculates breakeven inflation rate for inflation swaps.
 ///
 /// Computes the fixed rate that makes the swap's present value zero.

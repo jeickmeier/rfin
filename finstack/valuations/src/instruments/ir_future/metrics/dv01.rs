@@ -8,7 +8,6 @@
 use crate::instruments::ir_future::{InterestRateFuture, Position};
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// DV01 calculator for interest rate futures.
 pub struct IrFutureDv01Calculator;
 

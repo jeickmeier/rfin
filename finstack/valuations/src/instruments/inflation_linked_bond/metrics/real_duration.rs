@@ -3,7 +3,6 @@
 use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Real duration calculator for ILB
 pub struct RealDurationCalculator;
 

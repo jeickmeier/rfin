@@ -2,7 +2,6 @@
 
 use finstack_core::dates::Date;
 
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

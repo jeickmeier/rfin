@@ -7,7 +7,6 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, Stu
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-
 use super::parameters::InterestRateOptionParams;
 
 /// Type of interest rate option
@@ -24,7 +23,7 @@ pub enum RateOptionType {
 }
 
 /// Interest rate option instrument
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct InterestRateOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

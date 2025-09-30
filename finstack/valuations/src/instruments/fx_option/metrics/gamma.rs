@@ -2,7 +2,7 @@
 
 use crate::instruments::fx_option::FxOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 pub struct GammaCalculator;
 

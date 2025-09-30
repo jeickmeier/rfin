@@ -12,11 +12,10 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, InstrumentId};
 
-
 use super::parameters::FxSwapParams;
 
 /// FX Swap instrument definition
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct FxSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,

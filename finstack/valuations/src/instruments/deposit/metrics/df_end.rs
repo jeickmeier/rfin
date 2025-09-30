@@ -1,7 +1,6 @@
 use crate::instruments::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Calculates discount factor at end date for deposits.
 ///
 /// Computes the present value of 1 received at the deposit end date,

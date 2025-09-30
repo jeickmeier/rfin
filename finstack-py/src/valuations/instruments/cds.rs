@@ -104,8 +104,7 @@ impl fmt::Display for PyCdsPayReceive {
 }
 
 pub(crate) fn normalize_cds_side(name: &str) -> PyResult<PayReceive> {
-    name.parse()
-        .map_err(|e: String| PyValueError::new_err(e))
+    name.parse().map_err(|e: String| PyValueError::new_err(e))
 }
 
 /// Credit default swap wrapper with helper constructors.

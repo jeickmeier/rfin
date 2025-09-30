@@ -30,7 +30,6 @@ use crate::{
     market_data::traits::{Forward, TermStructure},
     math::interp::types::Interp,
     types::CurveId,
-
 };
 
 /// Forward-rate curve for an index with fixed tenor (e.g. 3-month SOFR).

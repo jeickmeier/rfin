@@ -247,8 +247,7 @@ impl CovenantEngine {
         calculator: CalcFn,
     ) -> &mut Self
     where
-        CalcFn:
-            Fn(&MetricContext) -> finstack_core::Result<f64> + Send + Sync + 'static,
+        CalcFn: Fn(&MetricContext) -> finstack_core::Result<f64> + Send + Sync + 'static,
     {
         self.custom_metrics
             .insert(name.into(), Arc::new(calculator));

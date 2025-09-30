@@ -1,7 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
-
 /// Calculates modified duration for bonds.
 pub struct ModifiedDurationCalculator;
 

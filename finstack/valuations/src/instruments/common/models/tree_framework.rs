@@ -15,7 +15,7 @@
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::{Result};
+use finstack_core::Result;
 use std::collections::HashMap;
 
 /// Standard state variable keys for consistency
@@ -411,7 +411,12 @@ impl EvolutionParams {
     }
 
     /// Create evolution parameters for trinomial tree
-    pub fn equity_trinomial(volatility: f64, risk_free_rate: f64, dividend_yield: f64, dt: f64) -> Self {
+    pub fn equity_trinomial(
+        volatility: f64,
+        risk_free_rate: f64,
+        dividend_yield: f64,
+        dt: f64,
+    ) -> Self {
         let u = (volatility * (2.0 * dt).sqrt()).exp();
         let d = 1.0 / u;
         let m = 1.0;
@@ -438,7 +443,12 @@ impl EvolutionParams {
     }
 
     /// Create evolution parameters for interest rate factor (Vasicek-style)
-    pub fn interest_rate(mean_reversion: f64, long_term_rate: f64, volatility: f64, dt: f64) -> Self {
+    pub fn interest_rate(
+        mean_reversion: f64,
+        long_term_rate: f64,
+        volatility: f64,
+        dt: f64,
+    ) -> Self {
         // Simplified Vasicek evolution for demonstration
         let drift = mean_reversion * long_term_rate * dt;
         let vol_factor = volatility * dt.sqrt();

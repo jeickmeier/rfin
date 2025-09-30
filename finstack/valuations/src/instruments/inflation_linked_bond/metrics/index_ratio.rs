@@ -3,7 +3,6 @@
 use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Index ratio calculator for ILB
 pub struct IndexRatioCalculator;
 

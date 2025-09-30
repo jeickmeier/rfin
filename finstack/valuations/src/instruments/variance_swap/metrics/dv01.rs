@@ -3,7 +3,7 @@
 use super::super::types::VarianceSwap;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Calculate DV01 (sensitivity to 1bp move in interest rates).
 pub struct Dv01Calculator;

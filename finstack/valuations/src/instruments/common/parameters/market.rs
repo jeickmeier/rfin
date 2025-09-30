@@ -4,7 +4,6 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

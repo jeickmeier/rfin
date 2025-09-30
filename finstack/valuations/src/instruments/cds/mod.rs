@@ -16,7 +16,6 @@ pub use types::PayReceive;
 pub use types::PremiumLegSpec;
 pub use types::ProtectionLegSpec;
 
-
 // Auto-register CDS pricers (HazardRate and Discounting models)
 inventory::submit! {
     crate::pricer::PricerRegistration {

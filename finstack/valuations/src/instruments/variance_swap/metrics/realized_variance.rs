@@ -3,7 +3,7 @@
 use super::super::types::VarianceSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::math::stats::realized_variance;
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Calculate the current realized variance to date.
 pub struct RealizedVarianceCalculator;

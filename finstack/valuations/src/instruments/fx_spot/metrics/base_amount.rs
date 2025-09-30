@@ -5,7 +5,6 @@
 use crate::instruments::fx_spot::FxSpot;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Returns the base amount (notional) in base currency units.
 pub struct BaseAmountCalculator;
 

@@ -9,7 +9,6 @@ use crate::cashflow::primitives::AmortizationSpec;
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_core::types::CurveId;
 
-
 /// Specification for how bond cashflows should be generated.
 ///
 /// This enum makes it clear which cashflow generation methods are mutually exclusive,

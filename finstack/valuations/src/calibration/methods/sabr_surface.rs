@@ -11,7 +11,7 @@ use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::prelude::Currency;
-use finstack_core::{Result};
+use finstack_core::Result;
 use ordered_float::OrderedFloat;
 use std::collections::BTreeMap;
 
@@ -156,7 +156,8 @@ impl VolSurfaceCalibrator {
         }
 
         // Calibrate SABR parameters for each expiry
-        let mut sabr_params_by_expiry: BTreeMap<OrderedFloat<f64>, SABRParameters> = BTreeMap::new();
+        let mut sabr_params_by_expiry: BTreeMap<OrderedFloat<f64>, SABRParameters> =
+            BTreeMap::new();
         let mut all_residuals = BTreeMap::new();
         let mut residual_key_counter: usize = 0;
         let sabr_calibrator = SABRCalibrator::new()

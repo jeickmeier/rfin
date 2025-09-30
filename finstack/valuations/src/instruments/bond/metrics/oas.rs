@@ -1,7 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
-
 /// Calculates Option-Adjusted Spread for bonds with embedded options.
 ///
 /// Uses short-rate trees to value callable/putable bonds and solve for the

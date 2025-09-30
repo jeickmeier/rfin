@@ -12,7 +12,6 @@ use finstack_core::money::fx::FxProvider;
 use finstack_core::prelude::*;
 use finstack_core::types::InstrumentId;
 
-
 /// FX Spot instrument (1 unit of `base` priced in `quote`).
 ///
 /// Represents the spot exchange rate between two currencies.
@@ -20,7 +19,7 @@ use finstack_core::types::InstrumentId;
 /// are needed to buy one unit of the base currency.
 ///
 /// See unit tests and `examples/` for usage.
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct FxSpot {
     /// Unique identifier for the FX pair
     pub id: InstrumentId,

@@ -1,7 +1,6 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
-
 /// Calculates dirty price for bonds (clean price + accrued interest).
 pub struct DirtyPriceCalculator;
 

@@ -9,7 +9,6 @@ use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
 
-
 /// Delta calculator for swaptions
 pub struct DeltaCalculator;
 

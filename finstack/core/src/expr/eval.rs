@@ -241,12 +241,7 @@ impl CompiledExpr {
     }
 
     /// Simple evaluation without DAG planning (legacy path).
-    fn eval_simple<C: ExpressionContext>(
-        &self,
-        ctx: &C,
-        cols: &[&[f64]],
-        expr: &Expr,
-    ) -> Vec<f64> {
+    fn eval_simple<C: ExpressionContext>(&self, ctx: &C, cols: &[&[f64]], expr: &Expr) -> Vec<f64> {
         let len = cols.first().map(|c| c.len()).unwrap_or(0);
         let mut out = vec![0.0; len];
         match &expr.node {
@@ -336,11 +331,7 @@ impl CompiledExpr {
     // --- Helper evaluators (scalar path) ---
 
     #[inline]
-    fn rolling_apply(
-        base: &[f64],
-        win: usize,
-        mut op: impl FnMut(&[f64]) -> f64,
-    ) -> Vec<f64> {
+    fn rolling_apply(base: &[f64], win: usize, mut op: impl FnMut(&[f64]) -> f64) -> Vec<f64> {
         let len = base.len();
         let mut out = vec![0.0; len];
         Self::rolling_apply_into(base, win, &mut out, &mut op);
@@ -371,13 +362,7 @@ impl CompiledExpr {
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
             let base = &arg_results[0];
             let n = arg_results[1][0] as usize;
-            out.extend((0..len).map(|i| {
-                if i < n {
-                    f64::NAN
-                } else {
-                    base[i - n]
-                }
-            }));
+            out.extend((0..len).map(|i| if i < n { f64::NAN } else { base[i - n] }));
         }
         out
     }
@@ -388,13 +373,7 @@ impl CompiledExpr {
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
             let base = &arg_results[0];
             let n = arg_results[1][0] as usize;
-            out.extend((0..len).map(|i| {
-                if i + n >= len {
-                    f64::NAN
-                } else {
-                    base[i + n]
-                }
-            }));
+            out.extend((0..len).map(|i| if i + n >= len { f64::NAN } else { base[i + n] }));
         }
         out
     }
@@ -504,9 +483,7 @@ impl CompiledExpr {
         }
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
-        Self::rolling_apply(base, win, |w| {
-            w.iter().copied().sum::<f64>() / win as f64
-        })
+        Self::rolling_apply(base, win, |w| w.iter().copied().sum::<f64>() / win as f64)
     }
 
     fn eval_rolling_sum(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
@@ -897,8 +874,7 @@ impl CompiledExpr {
                         alpha_f64
                     };
                     ema = ((1.0 - weight) * ema) + (weight * value);
-                    ema_sq = ((1.0 - weight) * ema_sq)
-                        + (weight * value * value);
+                    ema_sq = ((1.0 - weight) * ema_sq) + (weight * value * value);
                     let variance = ema_sq - ema * ema;
                     out.push(if variance > 0.0 { variance.sqrt() } else { 0.0 });
                 } else {
@@ -938,8 +914,7 @@ impl CompiledExpr {
                         alpha_f64
                     };
                     ema = ((1.0 - weight) * ema) + (weight * value);
-                    ema_sq = ((1.0 - weight) * ema_sq)
-                        + (weight * value * value);
+                    ema_sq = ((1.0 - weight) * ema_sq) + (weight * value * value);
                     let variance = ema_sq - ema * ema;
                     out.push(if variance > 0.0 { variance } else { 0.0 });
                 } else {

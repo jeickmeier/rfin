@@ -19,7 +19,7 @@
 //! assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
 //! ```
 
-use crate::{Result};
+use crate::Result;
 
 /// Generic solver trait for 1D root finding.
 pub trait Solver: Send + Sync {

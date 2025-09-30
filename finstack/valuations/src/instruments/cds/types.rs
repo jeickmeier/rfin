@@ -9,7 +9,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 
-
 use crate::instruments::cds::pricer::CDSPricer;
 
 /// CDS payment types
@@ -88,7 +87,7 @@ pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, Protectio
 // Removed legacy spec structs with string ids; use types from parameters::legs with CurveId.
 
 /// Credit Default Swap instrument
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct CreditDefaultSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,

@@ -1,7 +1,6 @@
 use crate::instruments::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Calculates year fraction for deposits.
 ///
 /// Computes the time period between start and end dates using the deposit's

@@ -5,7 +5,6 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-
 /// Asset Swap Spreads (Par and Market) using discount-curve annuity approximation.
 ///
 /// Par ASW: spread s such that PV of fixed coupons at (df * (1 + s*alpha)) equals par.

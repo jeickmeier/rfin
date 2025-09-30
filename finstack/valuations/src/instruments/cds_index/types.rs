@@ -41,7 +41,7 @@ pub struct CDSIndexConstituent {
 }
 
 /// CDS Index instrument definition
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct CDSIndex {
     /// Unique instrument identifier
     pub id: InstrumentId,

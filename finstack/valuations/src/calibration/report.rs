@@ -1,6 +1,5 @@
 //! Calibration reporting and diagnostics.
 
-
 use std::collections::BTreeMap;
 
 /// Calibration diagnostic report.

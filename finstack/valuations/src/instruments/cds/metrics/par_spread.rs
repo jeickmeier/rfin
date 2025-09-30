@@ -6,7 +6,7 @@
 
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Par spread calculator for CDS
 pub struct ParSpreadCalculator;

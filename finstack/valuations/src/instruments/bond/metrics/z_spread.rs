@@ -2,7 +2,6 @@ use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{BrentSolver, Solver};
 
-
 /// Calculates Z-Spread (zero-volatility spread) for fixed-rate bonds.
 ///
 /// Market-standard definition: constant additive spread `z` to the base
@@ -22,24 +21,24 @@ impl MetricCalculator for ZSpreadCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         // Determine dirty market value in currency
         let bond: &Bond = context.instrument_as()?;
-        let target_value_ccy: f64 = if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price
-        {
-            // Accrued from computed metrics (currency amount)
-            let accrued_ccy = context
-                .computed
-                .get(&MetricId::Accrued)
-                .copied()
-                .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                        id: "metric:Accrued".to_string(),
-                    })
-                })?;
-            // Convert clean price (quote, pct of par) to currency and add accrued currency
-            clean_px * bond.notional.amount() / 100.0 + accrued_ccy
-        } else {
-            // Fallback to base PV if no market quote
-            context.base_value.amount()
-        };
+        let target_value_ccy: f64 =
+            if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
+                // Accrued from computed metrics (currency amount)
+                let accrued_ccy = context
+                    .computed
+                    .get(&MetricId::Accrued)
+                    .copied()
+                    .ok_or_else(|| {
+                        finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                            id: "metric:Accrued".to_string(),
+                        })
+                    })?;
+                // Convert clean price (quote, pct of par) to currency and add accrued currency
+                clean_px * bond.notional.amount() / 100.0 + accrued_ccy
+            } else {
+                // Fallback to base PV if no market quote
+                context.base_value.amount()
+            };
 
         // Objective: PV_z(z) - target_value_ccy = 0
         let curves = context.curves.as_ref().clone();

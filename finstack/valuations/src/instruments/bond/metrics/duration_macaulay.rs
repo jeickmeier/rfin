@@ -3,7 +3,6 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
-
 /// Calculates Macaulay duration for bonds.
 pub struct MacaulayDurationCalculator;
 

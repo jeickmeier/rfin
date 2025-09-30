@@ -1,9 +1,38 @@
+//! FinancialBuilder derive macro for generating type-safe builder patterns.
+
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields, ItemImpl};
+use syn::{parse_macro_input, Data, DeriveInput, Fields};
 
-#[proc_macro_derive(FinancialBuilder, attributes(builder))]
-pub fn derive_financial_builder(input: TokenStream) -> TokenStream {
+/// Implementation of the FinancialBuilder derive macro.
+///
+/// Automatically generates a type-safe builder with:
+/// - Required fields (non-Option types must be set)
+/// - Optional fields (Option<T> or marked with #[builder(optional)])
+/// - Validation on build (e.g., start_date < maturity)
+/// - Ergonomic setter methods
+///
+/// # Example
+///
+/// ```ignore
+/// #[derive(FinancialBuilder)]
+/// pub struct Bond {
+///     pub id: InstrumentId,
+///     pub notional: Money,
+///     pub coupon: f64,
+///     pub maturity: Date,
+///     pub attributes: Attributes,
+/// }
+///
+/// // Generated builder usage:
+/// let bond = Bond::builder()
+///     .id(id)
+///     .notional(notional)
+///     .coupon(0.05)
+///     .maturity(maturity)
+///     .build()?;
+/// ```
+pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let struct_name = input.ident.clone();
 
@@ -196,39 +225,5 @@ pub fn derive_financial_builder(input: TokenStream) -> TokenStream {
         }
     };
 
-    TokenStream::from(expanded)
-}
-
-/// Auto-register a Pricer implementation with the global pricer registry.
-///
-/// This attribute macro should be placed on an `impl Pricer for T` block.
-/// It will automatically register an instance of the pricer using the `inventory` crate.
-///
-/// # Example
-///
-/// ```ignore
-/// #[register_pricer]
-/// impl Pricer for SimpleBondDiscountingPricer {
-///     // ... implementation
-/// }
-/// ```
-#[proc_macro_attribute]
-pub fn register_pricer(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemImpl);
-    
-    // Extract the type being implemented
-    let self_ty = &input.self_ty;
-    
-    // Generate the inventory submission using crate:: for internal use
-    let expanded = quote! {
-        #input
-        
-        inventory::submit! {
-            crate::pricer::PricerRegistration {
-                ctor: || Box::new(<#self_ty>::new()),
-            }
-        }
-    };
-    
     TokenStream::from(expanded)
 }

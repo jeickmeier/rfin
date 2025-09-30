@@ -4,7 +4,6 @@ use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
-
 /// Equity option specific parameters.
 ///
 /// Groups parameters specific to equity options, including Money-denominated strike.

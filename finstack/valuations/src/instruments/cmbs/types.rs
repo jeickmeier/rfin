@@ -20,7 +20,7 @@ use time::Month;
 use serde::{Deserialize, Serialize};
 
 /// Primary CMBS instrument representation.
-#[derive(Debug, Clone, finstack_macros::FinancialBuilder)]
+#[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Cmbs {
     /// Unique instrument identifier

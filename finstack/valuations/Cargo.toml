@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 finstack-core = { path = "../core" }
-finstack-macros = { path = "../../finstack-macros" }
+finstack-valuations-macros = { path = "macros" }
 once_cell = "1.18"
 inventory = "0.3"
 hashbrown = "0.14"

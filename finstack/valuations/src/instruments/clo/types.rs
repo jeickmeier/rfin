@@ -19,7 +19,7 @@ use std::any::Any;
 use serde::{Deserialize, Serialize};
 
 /// Primary CLO instrument representation.
-#[derive(Debug, Clone, finstack_macros::FinancialBuilder)]
+#[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Clo {
     /// Unique instrument identifier

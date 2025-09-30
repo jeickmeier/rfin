@@ -5,7 +5,7 @@
 
 use crate::instruments::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Par spread calculator for CDS Index
 pub struct ParSpreadCalculator;

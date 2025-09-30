@@ -3,7 +3,6 @@
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 use finstack_core::prelude::*;
 
-
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
@@ -16,7 +15,7 @@ pub use crate::cashflow::primitives::AmortizationSpec;
 ///
 /// Supports call/put schedules, amortization, quoted prices for
 /// yield-to-maturity calculations, and custom cashflow schedules.
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct Bond {
     /// Unique identifier for the bond.
     pub id: InstrumentId,

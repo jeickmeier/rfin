@@ -7,7 +7,6 @@ use finstack_core::currency::Currency;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 
-
 /// Inputs for Black caplet/floorlet pricing
 #[derive(Clone, Copy, Debug)]
 pub struct CapletFloorletInputs {

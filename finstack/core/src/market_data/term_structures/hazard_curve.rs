@@ -25,7 +25,6 @@ use crate::{
     error::InputError,
     market_data::traits::{Survival, TermStructure},
     types::CurveId,
-
 };
 
 /// Piecewise‐constant credit hazard curve.

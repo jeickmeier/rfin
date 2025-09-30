@@ -4,7 +4,6 @@ use crate::instruments::cds::{CDSConvention, PayReceive};
 use crate::instruments::common::parameters::CreditParams;
 use finstack_core::money::Money;
 
-
 /// Constituent definition for CDS Index parameters (credit + weight).
 #[derive(Clone, Debug)]
 pub struct CDSIndexConstituentParam {

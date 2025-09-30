@@ -16,9 +16,7 @@ use std::fmt;
 fn parse_position(label: Option<&str>) -> PyResult<Position> {
     match label {
         None => Ok(Position::Long),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| PyValueError::new_err(e)),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

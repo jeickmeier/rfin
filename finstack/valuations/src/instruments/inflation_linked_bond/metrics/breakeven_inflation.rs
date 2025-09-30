@@ -4,7 +4,6 @@ use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
 
-
 /// Breakeven inflation calculator for ILB
 pub struct BreakevenInflationCalculator;
 

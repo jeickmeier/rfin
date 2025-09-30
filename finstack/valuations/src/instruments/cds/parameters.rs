@@ -4,8 +4,6 @@
 //! for default settlement. Keep this lightweight and serde-stable; prefer
 //! constructing with `new` or one of the standard presets.
 
-
-
 /// ISDA-style recovery rate presets (named constants; do not hard-code literals).
 pub const RECOVERY_SENIOR_UNSECURED: f64 = 0.40;
 pub const RECOVERY_SUBORDINATED: f64 = 0.20;

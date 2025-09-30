@@ -7,7 +7,7 @@ use crate::instruments::cap_floor::pricing::black::{price_caplet_floorlet, Caple
 use crate::instruments::cap_floor::{InterestRateOption, RateOptionType};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{BrentSolver, Solver};
-use finstack_core::{Result};
+use finstack_core::Result;
 
 /// Implied volatility calculator using Black model
 pub struct ImpliedVolCalculator;

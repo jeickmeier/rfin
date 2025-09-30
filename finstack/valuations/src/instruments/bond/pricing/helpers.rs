@@ -22,9 +22,7 @@ pub enum YieldCompounding {
 }
 
 #[inline]
-pub fn periods_per_year(
-    freq: finstack_core::dates::Frequency,
-) -> finstack_core::Result<f64> {
+pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core::Result<f64> {
     match freq {
         finstack_core::dates::Frequency::Months(m) => {
             if m == 0 {

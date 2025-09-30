@@ -68,7 +68,7 @@ struct _RemovedBasisSwapLeg {
 ///     CurveId::new("OIS"),
 /// );
 /// ```
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct BasisSwap {
     /// Unique identifier for this instrument.
     pub id: InstrumentId,

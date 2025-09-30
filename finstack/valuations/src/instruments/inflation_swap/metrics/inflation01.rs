@@ -4,7 +4,6 @@ use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
 
-
 /// Calculates Inflation01 (1bp inflation rate sensitivity) for inflation swaps.
 pub struct Inflation01Calculator;
 

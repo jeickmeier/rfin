@@ -8,7 +8,6 @@ use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::FxQuery;
 
-
 /// Domestic IR01 (sensitivity to 1bp parallel shift in domestic curve).
 pub struct DomesticIR01;
 

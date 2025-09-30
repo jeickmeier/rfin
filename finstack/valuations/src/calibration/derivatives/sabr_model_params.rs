@@ -1,7 +1,5 @@
 //! SABR model parameters used for calibration derivatives.
 
-
-
 #[derive(Clone, Debug)]
 pub struct SABRModelParams {
     pub alpha: f64,

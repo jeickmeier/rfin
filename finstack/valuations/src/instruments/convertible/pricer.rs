@@ -585,7 +585,11 @@ pub fn calculate_parity(bond: &ConvertibleBond, current_spot: f64) -> f64 {
 }
 
 /// Calculate conversion premium
-pub fn calculate_conversion_premium(bond_price: f64, current_spot: f64, conversion_ratio: f64) -> f64 {
+pub fn calculate_conversion_premium(
+    bond_price: f64,
+    current_spot: f64,
+    conversion_ratio: f64,
+) -> f64 {
     let conversion_value = current_spot * conversion_ratio;
     if conversion_value > 0.0 {
         (bond_price / conversion_value) - 1.0
@@ -611,7 +615,7 @@ impl Default for SimpleConvertibleDiscountingPricer {
     }
 }
 
-#[finstack_macros::register_pricer]
+#[finstack_valuations_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(

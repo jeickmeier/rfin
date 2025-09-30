@@ -8,7 +8,6 @@ use crate::instruments::irs::PayReceive;
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
-
 /// DV01 calculator for IRS.
 pub struct Dv01Calculator;
 

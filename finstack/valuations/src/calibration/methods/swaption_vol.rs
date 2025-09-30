@@ -19,7 +19,7 @@ use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::money::Money;
 use finstack_core::prelude::Currency;
 use finstack_core::types::CurveId;
-use finstack_core::{Result};
+use finstack_core::Result;
 use std::collections::BTreeMap;
 
 /// Type alias for grouped quotes by expiry-tenor pairs

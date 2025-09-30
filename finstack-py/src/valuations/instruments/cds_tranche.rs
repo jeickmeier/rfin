@@ -14,9 +14,7 @@ use std::fmt;
 fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
     match label {
         None => Ok(TrancheSide::BuyProtection),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| PyValueError::new_err(e)),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

@@ -4,7 +4,6 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
-
 /// Calculates yield-to-worst for bonds with call/put schedules.
 pub struct YtwCalculator;
 

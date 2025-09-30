@@ -17,9 +17,7 @@ fn leak_str(value: &str) -> &'static str {
 fn parse_side(label: Option<&str>) -> PyResult<PayReceiveInflation> {
     match label {
         None => Ok(PayReceiveInflation::PayFixed),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| PyValueError::new_err(e)),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

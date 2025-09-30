@@ -6,7 +6,6 @@
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
 
-
 /// Calculate repo interest amount.
 pub struct RepoInterestCalculator;
 

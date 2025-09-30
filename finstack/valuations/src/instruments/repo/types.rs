@@ -141,7 +141,7 @@ impl CollateralSpec {
 }
 
 /// Repurchase Agreement instrument.
-#[derive(Debug, Clone, finstack_macros::FinancialBuilder)]
+#[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Repo {
     /// Unique instrument identifier

@@ -252,7 +252,8 @@ impl MetricContext {
         I: IntoIterator<Item = (K, f64)>,
         K: Into<String>,
     {
-        let collected: Vec<(String, f64)> = series.into_iter().map(|(k, v)| (k.into(), v)).collect();
+        let collected: Vec<(String, f64)> =
+            series.into_iter().map(|(k, v)| (k.into(), v)).collect();
         self.computed_series
             .insert(base_metric_id.clone(), collected.clone());
 

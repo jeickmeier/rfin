@@ -7,7 +7,6 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-
 use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::bond::CallPutSchedule;
 use crate::instruments::common::traits::Attributes;
@@ -19,7 +18,7 @@ use super::pricer;
 /// This fixed income instrument combines debt characteristics (coupons, principal)
 /// with equity optionality (conversion rights). Uses the CashflowBuilder for
 /// robust schedule generation and tree-based pricing for the hybrid valuation.
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct ConvertibleBond {
     /// Unique identifier for the instrument.
     pub id: InstrumentId,

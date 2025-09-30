@@ -10,7 +10,6 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::types::CurveId;
 
-
 /// Trait for instruments that have a primary discount curve for valuation.
 pub trait HasDiscountCurve {
     /// Get the instrument's primary discount curve ID.

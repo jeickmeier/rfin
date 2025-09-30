@@ -5,7 +5,6 @@
 
 use crate::metrics::{MetricCalculator, MetricContext};
 
-
 /// Returns PV from the metric context base value.
 pub struct IrFuturePvCalculator;
 

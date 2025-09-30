@@ -22,18 +22,14 @@ fn leak_vol_id(label: Option<&str>) -> &'static str {
 fn parse_settlement(label: Option<&str>) -> PyResult<SwaptionSettlement> {
     match label {
         None => Ok(SwaptionSettlement::Physical),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| PyValueError::new_err(e)),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 
 fn parse_exercise(label: Option<&str>) -> PyResult<SwaptionExercise> {
     match label {
         None => Ok(SwaptionExercise::European),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| PyValueError::new_err(e)),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

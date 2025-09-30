@@ -14,7 +14,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
-use finstack_core::{Result};
+use finstack_core::Result;
 use std::sync::Arc;
 use time::Duration;
 
@@ -139,7 +139,7 @@ impl InflationSource {
 }
 
 /// Inflation-Linked Bond instrument
-#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 pub struct InflationLinkedBond {
     /// Unique instrument identifier
     pub id: InstrumentId,
