@@ -190,6 +190,31 @@ const discountCurve = new DiscountCurve(
 console.log(discountCurve.zero(2.0));
 ```
 
+## Examples
+
+The `examples/` directory contains a full-featured React + TypeScript + Vite application demonstrating finstack-wasm usage in a realistic browser environment.
+
+To run the examples:
+
+```bash
+# Build the WASM package first
+npm run build
+
+# Install example dependencies
+npm run examples:install
+
+# Run the development server
+npm run examples:dev
+```
+
+The examples demonstrate:
+- Period planning with fiscal quarters
+- Market data management (discount curves, FX, time series)
+- Proper WASM memory management patterns
+- TypeScript type safety with finstack-wasm
+
+See `examples/README.md` for more details.
+
 ## Testing
 
 ```bash

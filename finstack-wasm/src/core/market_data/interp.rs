@@ -4,88 +4,120 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
 #[wasm_bindgen(js_name = InterpStyle)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum JsInterpStyle {
-    Linear,
-    LogLinear,
-    MonotoneConvex,
-    CubicHermite,
-    FlatFwd,
+#[derive(Clone, Copy, Debug)]
+pub struct JsInterpStyle {
+    inner: InterpStyle,
+}
+
+impl JsInterpStyle {
+    #[allow(dead_code)]
+    pub(crate) fn inner(&self) -> InterpStyle {
+        self.inner
+    }
+
+    fn new(inner: InterpStyle) -> Self {
+        Self { inner }
+    }
 }
 
 impl From<JsInterpStyle> for InterpStyle {
     fn from(value: JsInterpStyle) -> Self {
-        match value {
-            JsInterpStyle::Linear => InterpStyle::Linear,
-            JsInterpStyle::LogLinear => InterpStyle::LogLinear,
-            JsInterpStyle::MonotoneConvex => InterpStyle::MonotoneConvex,
-            JsInterpStyle::CubicHermite => InterpStyle::CubicHermite,
-            JsInterpStyle::FlatFwd => InterpStyle::FlatFwd,
-        }
+        value.inner
     }
 }
 
 impl From<InterpStyle> for JsInterpStyle {
     fn from(value: InterpStyle) -> Self {
-        match value {
-            InterpStyle::Linear => JsInterpStyle::Linear,
-            InterpStyle::LogLinear => JsInterpStyle::LogLinear,
-            InterpStyle::MonotoneConvex => JsInterpStyle::MonotoneConvex,
-            InterpStyle::CubicHermite => JsInterpStyle::CubicHermite,
-            InterpStyle::FlatFwd => JsInterpStyle::FlatFwd,
-            _ => JsInterpStyle::Linear,
-        }
+        Self::new(value)
     }
 }
 
 #[wasm_bindgen(js_class = InterpStyle)]
 impl JsInterpStyle {
+    #[wasm_bindgen(js_name = Linear)]
+    pub fn linear() -> JsInterpStyle {
+        Self::new(InterpStyle::Linear)
+    }
+
+    #[wasm_bindgen(js_name = LogLinear)]
+    pub fn log_linear() -> JsInterpStyle {
+        Self::new(InterpStyle::LogLinear)
+    }
+
+    #[wasm_bindgen(js_name = MonotoneConvex)]
+    pub fn monotone_convex() -> JsInterpStyle {
+        Self::new(InterpStyle::MonotoneConvex)
+    }
+
+    #[wasm_bindgen(js_name = CubicHermite)]
+    pub fn cubic_hermite() -> JsInterpStyle {
+        Self::new(InterpStyle::CubicHermite)
+    }
+
+    #[wasm_bindgen(js_name = FlatFwd)]
+    pub fn flat_fwd() -> JsInterpStyle {
+        Self::new(InterpStyle::FlatFwd)
+    }
+
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsInterpStyle, JsValue> {
         match name.to_ascii_lowercase().as_str() {
-            "linear" => Ok(JsInterpStyle::Linear),
-            "log_linear" | "loglinear" => Ok(JsInterpStyle::LogLinear),
-            "monotone_convex" | "monotoneconvex" => Ok(JsInterpStyle::MonotoneConvex),
-            "cubic_hermite" | "cubichermite" => Ok(JsInterpStyle::CubicHermite),
-            "flat_fwd" | "flat_forward" | "flatforward" => Ok(JsInterpStyle::FlatFwd),
+            "linear" => Ok(Self::linear()),
+            "log_linear" | "loglinear" => Ok(Self::log_linear()),
+            "monotone_convex" | "monotoneconvex" => Ok(Self::monotone_convex()),
+            "cubic_hermite" | "cubichermite" => Ok(Self::cubic_hermite()),
+            "flat_fwd" | "flat_forward" | "flatforward" => Ok(Self::flat_fwd()),
             other => Err(js_error(format!("Unknown interpolation style: {other}"))),
         }
     }
 }
 
 #[wasm_bindgen(js_name = ExtrapolationPolicy)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum JsExtrapolationPolicy {
-    FlatZero,
-    FlatForward,
+#[derive(Clone, Copy, Debug)]
+pub struct JsExtrapolationPolicy {
+    inner: ExtrapolationPolicy,
+}
+
+impl JsExtrapolationPolicy {
+    #[allow(dead_code)]
+    pub(crate) fn inner(&self) -> ExtrapolationPolicy {
+        self.inner
+    }
+
+    fn new(inner: ExtrapolationPolicy) -> Self {
+        Self { inner }
+    }
 }
 
 impl From<JsExtrapolationPolicy> for ExtrapolationPolicy {
     fn from(value: JsExtrapolationPolicy) -> Self {
-        match value {
-            JsExtrapolationPolicy::FlatZero => ExtrapolationPolicy::FlatZero,
-            JsExtrapolationPolicy::FlatForward => ExtrapolationPolicy::FlatForward,
-        }
+        value.inner
     }
 }
 
 impl From<ExtrapolationPolicy> for JsExtrapolationPolicy {
     fn from(value: ExtrapolationPolicy) -> Self {
-        match value {
-            ExtrapolationPolicy::FlatZero => JsExtrapolationPolicy::FlatZero,
-            ExtrapolationPolicy::FlatForward => JsExtrapolationPolicy::FlatForward,
-            _ => JsExtrapolationPolicy::FlatZero,
-        }
+        Self::new(value)
     }
 }
 
 #[wasm_bindgen(js_class = ExtrapolationPolicy)]
 impl JsExtrapolationPolicy {
+    #[wasm_bindgen(js_name = FlatZero)]
+    pub fn flat_zero() -> JsExtrapolationPolicy {
+        Self::new(ExtrapolationPolicy::FlatZero)
+    }
+
+    #[wasm_bindgen(js_name = FlatForward)]
+    pub fn flat_forward() -> JsExtrapolationPolicy {
+        Self::new(ExtrapolationPolicy::FlatForward)
+    }
+
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsExtrapolationPolicy, JsValue> {
         match name.to_ascii_lowercase().as_str() {
-            "flat_zero" | "flatzero" => Ok(JsExtrapolationPolicy::FlatZero),
-            "flat_forward" | "flatforward" | "flat_fwd" => Ok(JsExtrapolationPolicy::FlatForward),
+            "flat_zero" | "flatzero" => Ok(Self::flat_zero()),
+            "flat_forward" | "flatforward" | "flat_fwd" => Ok(Self::flat_forward()),
             other => Err(js_error(format!("Unknown extrapolation policy: {other}"))),
         }
     }

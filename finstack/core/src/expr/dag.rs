@@ -20,8 +20,6 @@ pub struct DagNode {
     pub dependencies: Vec<u64>,
     /// Reference count (how many other nodes depend on this).
     pub ref_count: usize,
-    /// Whether this node can be executed in Polars.
-    pub polars_eligible: bool,
     /// Estimated cost of computing this node.
     pub cost: usize,
 }
@@ -93,10 +91,6 @@ impl DagBuilder {
         // Build topological order (dependencies first)
         let ordered_nodes = self.topological_sort(&root_ids);
 
-        // Determine Polars eligibility in topological order so that
-        // dependency flags are available when evaluating parents.
-        self.determine_polars_eligibility_topo(&ordered_nodes);
-
         // Generate cache strategy
         let cache_strategy = self.generate_cache_strategy(&ordered_nodes);
 
@@ -135,8 +129,7 @@ impl DagBuilder {
             id,
             expr: expr.clone(),
             dependencies,
-            ref_count: 0,           // Will be calculated later
-            polars_eligible: false, // Will be determined later
+            ref_count: 0, // Will be calculated later
             cost,
         };
 
@@ -180,57 +173,6 @@ impl DagBuilder {
             if let Some(node) = self.nodes.get_mut(&id) {
                 node.ref_count = count;
             }
-        }
-    }
-
-    /// Determine which nodes are eligible for Polars execution using a
-    /// topological sweep so dependencies are processed first.
-    fn determine_polars_eligibility_topo(&mut self, ordered_nodes: &[DagNode]) {
-        // Local map to avoid borrowing issues while mutating self.nodes
-        let mut elig: HashMap<u64, bool> = HashMap::with_capacity(self.nodes.len());
-        for n in ordered_nodes {
-            let is_eligible = match &n.expr.node {
-                ExprNode::Column(_) | ExprNode::Literal(_) => true,
-                ExprNode::Call(func, _args) => {
-                    let func_ok = self.function_supports_polars(*func);
-                    let deps_ok = n
-                        .dependencies
-                        .iter()
-                        .all(|d| elig.get(d).copied().unwrap_or(false));
-                    func_ok && deps_ok
-                }
-            };
-            elig.insert(n.id, is_eligible);
-            if let Some(node_mut) = self.nodes.get_mut(&n.id) {
-                node_mut.polars_eligible = is_eligible;
-            }
-        }
-    }
-
-    /// Check if a function supports Polars lowering.
-    fn function_supports_polars(&self, func: Function) -> bool {
-        match func {
-            Function::Lag | Function::Lead | Function::Diff | Function::PctChange => true,
-            Function::RollingMean | Function::RollingSum => true,
-
-            // Cumulative functions use scalar implementation for determinism
-            Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => false,
-            // Statistical functions now support Polars lowering
-            Function::Std | Function::Var | Function::Median => true,
-            // Rolling statistical functions use scalar fallback for now
-            Function::RollingStd | Function::RollingVar | Function::RollingMedian => false,
-            // Complex EWM functions still use scalar fallback
-            Function::EwmMean => false,
-
-            // New functions
-            Function::Shift => true,
-            // Keep rolling min/max/count as scalar/unsupported until mapped
-            Function::RollingMin | Function::RollingMax => false,
-            Function::Rank
-            | Function::Quantile
-            | Function::RollingCount
-            | Function::EwmStd
-            | Function::EwmVar => false,
         }
     }
 
@@ -344,69 +286,27 @@ impl DagBuilder {
     }
 }
 
-/// Pushdown boundary detection - determines optimal Polars/scalar split points.
+/// Execution analysis for optimization hints.
+///
+/// Note: With Polars removed, this provides basic execution statistics
+/// without vectorization-specific boundary analysis.
 pub struct PushdownAnalyzer;
 
 impl PushdownAnalyzer {
-    /// Analyze an execution plan and determine optimal pushdown boundaries.
-    pub fn analyze_boundaries(plan: &ExecutionPlan) -> PushdownBoundaries {
-        let polars_subtrees = Vec::new();
-        let mut scalar_nodes = HashSet::new();
-        let mut boundaries = Vec::new();
+    /// Analyze an execution plan and provide basic statistics.
+    ///
+    /// Returns a simplified analysis structure with execution cost estimates.
+    pub fn analyze_boundaries(_plan: &ExecutionPlan) -> PushdownBoundaries {
+        let optimized_subtrees = Vec::new();
+        let boundaries = Vec::new();
 
-        // Find contiguous Polars-eligible subtrees
-        for node in &plan.nodes {
-            if !node.polars_eligible {
-                scalar_nodes.insert(node.id);
-            }
-        }
+        // All nodes use scalar execution
+        let speedup = 1.0; // Scalar execution baseline
 
-        // Identify boundary points where we switch from Polars to scalar
-        for node in &plan.nodes {
-            if node.polars_eligible {
-                // Check if any dependency requires scalar execution
-                let has_scalar_deps = node
-                    .dependencies
-                    .iter()
-                    .any(|&dep_id| scalar_nodes.contains(&dep_id));
-
-                if has_scalar_deps {
-                    boundaries.push(PushdownBoundary {
-                        node_id: node.id,
-                        boundary_type: BoundaryType::PolarsTScalar,
-                        materialization_required: true,
-                    });
-                }
-            }
-        }
-
-        let speedup = Self::estimate_speedup(&plan.nodes, &boundaries);
         PushdownBoundaries {
             boundaries,
-            polars_subtrees,
+            optimized_subtrees,
             estimated_speedup: speedup,
-        }
-    }
-
-    fn estimate_speedup(nodes: &[DagNode], boundaries: &[PushdownBoundary]) -> f64 {
-        let total_cost: usize = nodes.iter().map(|n| n.cost).sum();
-        let polars_cost: usize = nodes
-            .iter()
-            .filter(|n| n.polars_eligible)
-            .map(|n| n.cost / 3) // Assume Polars is ~3x faster
-            .sum();
-        let scalar_cost: usize = nodes
-            .iter()
-            .filter(|n| !n.polars_eligible)
-            .map(|n| n.cost)
-            .sum();
-
-        let boundary_cost: usize = boundaries.len() * 10; // Materialization overhead
-
-        if total_cost > 0 {
-            (total_cost as f64) / (polars_cost + scalar_cost + boundary_cost) as f64
-        } else {
-            1.0
         }
     }
 }
@@ -417,9 +317,9 @@ impl PushdownAnalyzer {
 pub struct PushdownBoundaries {
     /// Specific boundary points.
     pub boundaries: Vec<PushdownBoundary>,
-    /// Polars-eligible subtrees.
-    pub polars_subtrees: Vec<Vec<u64>>,
-    /// Estimated speedup from pushdown.
+    /// Optimized execution subtrees.
+    pub optimized_subtrees: Vec<Vec<u64>>,
+    /// Estimated speedup from optimization.
     pub estimated_speedup: f64,
 }
 
@@ -435,12 +335,12 @@ pub struct PushdownBoundary {
     pub materialization_required: bool,
 }
 
-/// Types of pushdown boundaries.
+/// Types of execution boundaries.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BoundaryType {
-    /// Transition from Polars-eligible to scalar-only.
-    PolarsTScalar,
-    /// Transition from scalar back to Polars-eligible.
-    ScalarToPolars,
+    /// Transition point between execution strategies.
+    OptimizedToScalar,
+    /// Transition from scalar back to optimized execution.
+    ScalarToOptimized,
 }

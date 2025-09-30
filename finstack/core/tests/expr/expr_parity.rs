@@ -382,17 +382,18 @@ fn test_edge_cases() {
 }
 
 #[test]
-fn test_polars_parity() {
+fn test_scalar_evaluation_all_functions() {
     let (ctx, data) = test_data();
     let slices = to_slice_refs(&data);
 
-    // Test functions that have Polars lowering
+    // Test that all functions work correctly with scalar evaluation
     let functions_to_test = vec![
         (Function::Lag, vec![col("values"), lit(1.0)]),
         (Function::Lead, vec![col("values"), lit(1.0)]),
         (Function::Diff, vec![col("values"), lit(1.0)]),
         (Function::CumSum, vec![col("values")]),
         (Function::CumProd, vec![col("values")]),
+        (Function::RollingMean, vec![col("values"), lit(3.0)]),
     ];
 
     for (func, args) in functions_to_test {
@@ -401,14 +402,12 @@ fn test_polars_parity() {
         // Get scalar result
         let scalar_result = expr.eval(&ctx, &slices, EvalOpts::default()).values;
 
-        // Check that Polars lowering is available for these functions
-        if let Some(_polars_expr) = expr.to_polars_expr() {
-            // For now, just verify the lowering doesn't panic
-            // In a full implementation, we would compare Polars vs scalar results
-            println!("Function {:?} has Polars lowering", func);
-        }
-
         // Ensure scalar evaluation worked
         assert_eq!(scalar_result.len(), data[0].len());
+        
+        // Verify all results are finite or NaN where expected
+        for val in &scalar_result {
+            assert!(val.is_finite() || val.is_nan(), "Function {:?} produced invalid value", func);
+        }
     }
 }

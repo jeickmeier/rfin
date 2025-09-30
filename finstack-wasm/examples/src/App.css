@@ -1,0 +1,107 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: left;
+}
+
+h1 {
+  font-size: 2.5rem;
+  line-height: 1.1;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.intro {
+  font-size: 1.1rem;
+  color: #888;
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.example-section {
+  margin: 3rem 0;
+  padding: 2rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.example-section h2 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  color: #646cff;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+thead {
+  background-color: rgba(100, 108, 255, 0.1);
+}
+
+th,
+td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #333;
+}
+
+th {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+}
+
+tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.data-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem 2rem;
+  margin-top: 1rem;
+}
+
+.data-list dt {
+  font-weight: 600;
+  color: #888;
+}
+
+.data-list dd {
+  font-family: 'Courier New', monospace;
+  font-size: 1.1rem;
+}
+
+.error {
+  color: #ff6b6b;
+  padding: 1rem;
+  background-color: rgba(255, 107, 107, 0.1);
+  border: 1px solid #ff6b6b;
+  border-radius: 4px;
+}
+
+@media (prefers-color-scheme: light) {
+  .example-section {
+    border-color: #ddd;
+    background-color: rgba(0, 0, 0, 0.02);
+  }
+
+  th,
+  td {
+    border-bottom-color: #ddd;
+  }
+
+  tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .error {
+    background-color: rgba(255, 107, 107, 0.1);
+  }
+}

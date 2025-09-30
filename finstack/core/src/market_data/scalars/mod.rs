@@ -33,10 +33,13 @@
 //! assert!(value > 100.0 && value < 101.0);
 //! ```
 
+/// Lightweight storage for time series data.
+mod storage;
+
 /// Generic market primitives: scalars and ad-hoc time series.
 pub mod primitives;
 
-/// Inflation index data (CPI/RPI) using Polars DataFrames.
+/// Inflation index data (CPI/RPI) with lagging and seasonality support.
 pub mod inflation_index;
 
 // Re-export for ergonomic access

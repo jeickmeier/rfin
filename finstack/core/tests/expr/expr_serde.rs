@@ -149,7 +149,6 @@ fn test_dag_node_serde() {
         expr: Expr::column("x"),
         dependencies: vec![2, 3],
         ref_count: 2,
-        polars_eligible: true,
         cost: 10,
     };
 
@@ -159,7 +158,6 @@ fn test_dag_node_serde() {
     assert_eq!(node.id, deserialized.id);
     assert_eq!(node.dependencies, deserialized.dependencies);
     assert_eq!(node.ref_count, deserialized.ref_count);
-    assert_eq!(node.polars_eligible, deserialized.polars_eligible);
     assert_eq!(node.cost, deserialized.cost);
 }
 
@@ -171,7 +169,6 @@ fn test_execution_plan_serde() {
             expr: Expr::column("x"),
             dependencies: vec![],
             ref_count: 1,
-            polars_eligible: true,
             cost: 1,
         },
         DagNode {
@@ -179,7 +176,6 @@ fn test_execution_plan_serde() {
             expr: Expr::literal(5.0),
             dependencies: vec![],
             ref_count: 1,
-            polars_eligible: true,
             cost: 1,
         },
     ];
@@ -300,8 +296,8 @@ fn test_simple_context_serde() {
 
 #[test]
 fn test_boundary_type_serde() {
-    let boundary1 = BoundaryType::PolarsTScalar;
-    let boundary2 = BoundaryType::ScalarToPolars;
+    let boundary1 = BoundaryType::OptimizedToScalar;
+    let boundary2 = BoundaryType::ScalarToOptimized;
 
     let json1 = serde_json::to_string(&boundary1).expect("Failed to serialize BoundaryType");
     let deserialized1: BoundaryType =
@@ -312,13 +308,13 @@ fn test_boundary_type_serde() {
         serde_json::from_str(&json2).expect("Failed to deserialize BoundaryType");
 
     match deserialized1 {
-        BoundaryType::PolarsTScalar => {}
-        _ => panic!("Expected PolarsTScalar"),
+        BoundaryType::OptimizedToScalar => {}
+        _ => panic!("Expected OptimizedToScalar"),
     }
 
     match deserialized2 {
-        BoundaryType::ScalarToPolars => {}
-        _ => panic!("Expected ScalarToPolars"),
+        BoundaryType::ScalarToOptimized => {}
+        _ => panic!("Expected ScalarToOptimized"),
     }
 }
 

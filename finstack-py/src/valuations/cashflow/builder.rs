@@ -4,7 +4,7 @@ use crate::core::utils::py_to_date;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder as val_builder;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
+use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
 
 /// Coupon split type (cash, PIK, split) mirroring valuations builder.
@@ -365,93 +365,6 @@ impl PyCashFlowSchedule {
         Ok(PyList::new(py, items)?.into())
     }
 
-    #[pyo3(text_signature = "(self)")]
-    /// Convert cashflow schedule to a Polars DataFrame for display and analysis.
-    ///
-    /// Returns
-    /// -------
-    /// dict
-    ///     Dictionary suitable for conversion to polars.DataFrame with pl.DataFrame(dict).
-    ///     
-    ///     Keys include:
-    ///     - date: Payment dates (ISO format strings)
-    ///     - fixed: Fixed coupon cash payments (includes stub periods)
-    ///     - float_reset: Floating rate cash payments
-    ///     - pik: Payment-in-kind interest (capitalizes, not cash)
-    ///     - amortization: Principal repayments (cash)
-    ///     - fee: Fee payments
-    ///     - total_payment: Total cash received (fixed + float + amortization)
-    ///     - cash_rate_pct: Cash coupon rate (%)
-    ///     - pik_rate_pct: PIK coupon rate (%)
-    ///     - float_rate_pct: All-in floating rate (%)
-    ///     - outstanding_notional: Outstanding principal
-    ///     
-    /// Examples
-    /// --------
-    /// >>> import polars as pl
-    /// >>> df = pl.DataFrame(schedule.to_dataframe())
-    /// >>> print(df)
-    fn to_dataframe(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let df = self.inner.to_dataframe().map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("DataFrame error: {}", e))
-        })?;
-
-        // Convert Polars DataFrame to a Python dict
-        let dict = PyDict::new(py);
-
-        for col_name in df.get_column_names_owned() {
-            let col = df.column(&col_name).map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Column error: {}", e))
-            })?;
-
-            // Convert column to Python list
-            let py_list = PyList::empty(py);
-
-            // Handle different column types
-            if col_name.as_str() == "date" {
-                // Convert Julian days to ISO date strings
-                for idx in 0..col.len() {
-                    let val = col.get(idx).map_err(|e| {
-                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                            "Get error: {}",
-                            e
-                        ))
-                    })?;
-                    if let Ok(days) = val.try_extract::<i32>() {
-                        // Convert Julian day to time::Date then to ISO string
-                        if let Ok(date) = time::Date::from_julian_day(days) {
-                            py_list.append(date.to_string())?;
-                        } else {
-                            py_list.append(py.None())?;
-                        }
-                    } else {
-                        py_list.append(py.None())?;
-                    }
-                }
-            } else {
-                // For numeric columns, extract as Option<f64>
-                for idx in 0..col.len() {
-                    let val = col.get(idx).map_err(|e| {
-                        PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                            "Get error: {}",
-                            e
-                        ))
-                    })?;
-                    if val.is_null() {
-                        py_list.append(py.None())?;
-                    } else if let Ok(num) = val.try_extract::<f64>() {
-                        py_list.append(num)?;
-                    } else {
-                        py_list.append(py.None())?;
-                    }
-                }
-            }
-
-            dict.set_item(col_name.as_str(), py_list)?;
-        }
-
-        Ok(dict.into())
-    }
 }
 
 pub(crate) fn register<'py>(

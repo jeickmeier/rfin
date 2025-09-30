@@ -1,4 +1,4 @@
-//! Scalar evaluator and Polars lowering with DAG planning and caching.
+//! Scalar evaluator with DAG planning and caching.
 
 use super::{
     ast::*,
@@ -6,9 +6,6 @@ use super::{
     context::ExpressionContext,
     dag::{DagBuilder, ExecutionPlan},
 };
-use polars::prelude as pl;
-use polars::prelude::{IntoColumn, IntoLazy, NamedFrom};
-use std::collections::HashSet;
 use std::sync::Mutex;
 use std::vec::Vec;
 
@@ -23,7 +20,7 @@ use std::vec::Vec;
 /// let cols: [&[f64]; 1] = [&x];
 /// let expr = CompiledExpr::new(Expr::column("x"));
 /// let out = expr.eval(&ctx, &cols, EvalOpts { plan: None, cache_budget_mb: Some(16) });
-/// assert_eq!(out.values, vec![1.0, 2.0, 3.0]);
+/// # assert_eq!(out.values, vec![1.0, 2.0, 3.0]);
 /// ```
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -118,17 +115,14 @@ impl CompiledExpr {
 
     /// Unified evaluation entrypoint returning values with execution metadata.
     ///
-    /// This replaces legacy variants and will use either a provided plan,
-    /// an internal plan, or a minimal scalar/Polars path.
+    /// Uses scalar implementations for all functions, with optional DAG planning
+    /// and caching for complex expressions.
     pub fn eval<C: ExpressionContext>(
         &self,
         ctx: &C,
         cols: &[&[f64]],
         opts: EvalOpts,
     ) -> EvaluationResult {
-        // Retain a start instant for potential external profiling; unused here.
-        let _ = std::time::Instant::now();
-
         // Decide on execution plan preference: opts > self > none
         let plan_to_use: Option<ExecutionPlan> = if let Some(p) = opts.plan {
             Some(p)
@@ -186,12 +180,8 @@ impl CompiledExpr {
                 Vec::new()
             }
         } else {
-            // No plan: try Polars lowering for the whole expression first
-            if let Some(v) = self.eval_via_polars(ctx, cols, &self.ast) {
-                v
-            } else {
-                self.eval_simple(ctx, cols, &self.ast)
-            }
+            // No plan: use simple scalar evaluation
+            self.eval_simple(ctx, cols, &self.ast)
         };
 
         // Stamp minimal metadata only at IO boundaries; evaluator does not record timings/cache/parallel
@@ -203,7 +193,7 @@ impl CompiledExpr {
         }
     }
 
-    /// Evaluate a single DAG node.
+    /// Evaluate a single DAG node using scalar implementation.
     fn eval_node<C: ExpressionContext>(
         &self,
         ctx: &C,
@@ -211,13 +201,6 @@ impl CompiledExpr {
         node: &super::dag::DagNode,
         results: &std::collections::HashMap<u64, Vec<f64>>,
     ) -> Vec<f64> {
-        // If node is Polars-eligible, attempt evaluation via Polars
-        if node.polars_eligible {
-            if let Some(v) = self.eval_via_polars(ctx, cols, &node.expr) {
-                return v;
-            }
-        }
-
         match &node.expr.node {
             ExprNode::Column(name) => {
                 let idx = ctx.resolve_index(name).expect("unknown column");
@@ -267,68 +250,7 @@ impl CompiledExpr {
         out
     }
 
-    // --- Polars evaluation helper ---
-
-    fn eval_via_polars<C: ExpressionContext>(
-        &self,
-        ctx: &C,
-        cols: &[&[f64]],
-        expr: &Expr,
-    ) -> Option<Vec<f64>> {
-        // Lower to a Polars Expr; if not possible, return None
-        let pexpr = Self {
-            ast: expr.clone(),
-            plan: None,
-            cache: None,
-            scratch: Mutex::new(ScratchArena::default()),
-        }
-        .to_polars_expr()?;
-        let names = Self::collect_column_names(expr);
-        if names.is_empty() {
-            // A pure literal expression - defer to scalar path to match row count semantics.
-            return None;
-        }
-        // Build a DataFrame with just the required columns
-        let mut columns: Vec<pl::Column> = Vec::with_capacity(names.len());
-        for name in names.iter() {
-            let idx = ctx.resolve_index(name)?;
-            let f64_vec: Vec<f64> = cols[idx].to_vec();
-            let s = pl::Series::new(name.as_str().into(), f64_vec);
-            columns.push(s.into_column());
-        }
-        let df = pl::DataFrame::new(columns).ok()?;
-        let lf = df.lazy();
-        let out = lf.select([pexpr.alias("__out")]).collect().ok()?;
-        let s = out.column("__out").ok()?.clone();
-        let vals: Vec<f64> = s
-            .f64()
-            .ok()?
-            .into_iter()
-            .map(|o| o.unwrap_or(f64::NAN))
-            .collect();
-        Some(vals)
-    }
-
-    fn collect_column_names(expr: &Expr) -> HashSet<String> {
-        fn walk(e: &Expr, acc: &mut HashSet<String>) {
-            match &e.node {
-                ExprNode::Column(name) => {
-                    acc.insert(name.clone());
-                }
-                ExprNode::Literal(_) => {}
-                ExprNode::Call(_, args) => {
-                    for a in args {
-                        walk(a, acc);
-                    }
-                }
-            }
-        }
-        let mut set = HashSet::new();
-        walk(expr, &mut set);
-        set
-    }
-
-    // --- Helper evaluators (scalar path) ---
+    // --- Scalar evaluators ---
 
     #[inline]
     fn rolling_apply(base: &[f64], win: usize, mut op: impl FnMut(&[f64]) -> f64) -> Vec<f64> {
@@ -962,185 +884,4 @@ impl CompiledExpr {
             Function::EwmVar => self.eval_ewm_var(arg_results),
         }
     }
-
-    /// Lower to a Polars expression when possible.
-    pub fn to_polars_expr(&self) -> Option<polars::lazy::dsl::Expr> {
-        use polars::lazy::dsl::{col, lit};
-        match &self.ast.node {
-            ExprNode::Column(name) => Some(col(name)),
-            ExprNode::Literal(v) => Some(lit(*v)),
-            ExprNode::Call(fun, args) => match fun {
-                Function::Lag => {
-                    Self::lower_binary(&args[0], &args[1], |x, n| x.shift(lit(arg_as_i64(n))))
-                }
-                Function::Lead => {
-                    Self::lower_binary(&args[0], &args[1], |x, n| x.shift(lit(-(arg_as_i64(n)))))
-                }
-                Function::Diff => Self::lower_unary_int(&args[0], args.get(1), |x, n| {
-                    x.clone() - x.shift(lit(n as i64))
-                }),
-                Function::PctChange => Self::lower_unary_int(&args[0], args.get(1), |x, n| {
-                    (x.clone() / x.shift(lit(n as i64))) - lit(1.0)
-                }),
-                Function::RollingMean => Some({
-                    let n = arg_as_usize(&args[1]);
-                    let base = Self {
-                        ast: args[0].clone(),
-                        plan: None,
-                        cache: None,
-                        scratch: Mutex::new(ScratchArena::default()),
-                    }
-                    .to_polars_expr()
-                    .unwrap();
-                    let mut acc = base.clone();
-                    for k in 1..n {
-                        acc = acc + base.clone().shift(lit(k as i64));
-                    }
-                    acc / lit(n as f64)
-                }),
-                Function::RollingSum => Some({
-                    let n = arg_as_usize(&args[1]);
-                    let base = Self {
-                        ast: args[0].clone(),
-                        plan: None,
-                        cache: None,
-                        scratch: Mutex::new(ScratchArena::default()),
-                    }
-                    .to_polars_expr()
-                    .unwrap();
-                    let mut acc = base.clone();
-                    for k in 1..n {
-                        acc = acc + base.clone().shift(lit(k as i64));
-                    }
-                    acc
-                }),
-                // Cumulative functions - fallback to scalar implementation for determinism
-                Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => {
-                    // Cumulative functions use scalar implementation for consistent behavior
-                    None
-                }
-
-                // Statistical functions
-                Function::Std => Some({
-                    let base = Self {
-                        ast: args[0].clone(),
-                        plan: None,
-                        cache: None,
-                        scratch: Mutex::new(ScratchArena::default()),
-                    }
-                    .to_polars_expr()
-                    .unwrap();
-                    base.std(1) // ddof=1 for sample standard deviation
-                }),
-                Function::Var => Some({
-                    let base = Self {
-                        ast: args[0].clone(),
-                        plan: None,
-                        cache: None,
-                        scratch: Mutex::new(ScratchArena::default()),
-                    }
-                    .to_polars_expr()
-                    .unwrap();
-                    base.var(1) // ddof=1 for sample variance
-                }),
-                Function::Median => Some({
-                    let base = Self {
-                        ast: args[0].clone(),
-                        plan: None,
-                        cache: None,
-                        scratch: Mutex::new(ScratchArena::default()),
-                    }
-                    .to_polars_expr()
-                    .unwrap();
-                    base.median()
-                }),
-                // Complex EWM functions still use scalar fallback for now
-                Function::EwmMean => None,
-
-                // Rolling statistical functions - fallback to scalar for complex operations
-                Function::RollingStd | Function::RollingVar | Function::RollingMedian => {
-                    // Complex rolling statistical functions require scalar implementation
-                    None
-                }
-
-                // New time-series functions with possible Polars lowering
-                Function::Shift => {
-                    let base = Self {
-                        ast: args[0].clone(),
-                        plan: None,
-                        cache: None,
-                        scratch: Mutex::new(ScratchArena::default()),
-                    }
-                    .to_polars_expr()?;
-                    let n = arg_as_i64(&args[1]);
-                    Some(base.shift(lit(n as f64)))
-                }
-
-                Function::RollingMin => {
-                    // Use scalar fallback for now - proper rolling min/max need window options
-                    None
-                }
-
-                Function::RollingMax => {
-                    // Use scalar fallback for now - proper rolling min/max need window options
-                    None
-                }
-
-                // Complex functions: use scalar fallback for determinism
-                Function::Rank
-                | Function::Quantile
-                | Function::RollingCount
-                | Function::EwmStd
-                | Function::EwmVar => None,
-            },
-        }
-    }
-
-    fn lower_unary_int<FN>(e: &Expr, n: Option<&Expr>, f: FN) -> Option<polars::prelude::Expr>
-    where
-        FN: FnOnce(polars::prelude::Expr, usize) -> polars::prelude::Expr,
-    {
-        let x = Self {
-            ast: e.clone(),
-            plan: None,
-            cache: None,
-            scratch: Mutex::new(ScratchArena::default()),
-        }
-        .to_polars_expr()?;
-        let n = n
-            .map(|n_expr| match &n_expr.node {
-                ExprNode::Literal(val) => (*val as i64).max(0) as usize,
-                _ => 1,
-            })
-            .unwrap_or(1);
-        Some(f(x, n))
-    }
-
-    fn lower_binary<FN>(lhs: &Expr, rhs: &Expr, f: FN) -> Option<polars::prelude::Expr>
-    where
-        FN: FnOnce(polars::prelude::Expr, &Expr) -> polars::prelude::Expr,
-    {
-        let x = Self {
-            ast: lhs.clone(),
-            plan: None,
-            cache: None,
-            scratch: Mutex::new(ScratchArena::default()),
-        }
-        .to_polars_expr()?;
-        Some(f(x, rhs))
-    }
 }
-
-fn arg_as_usize(e: &Expr) -> usize {
-    match &e.node {
-        ExprNode::Literal(v) => (*v as i64).max(0) as usize,
-        _ => 0,
-    }
-}
-fn arg_as_i64(e: &Expr) -> i64 {
-    match &e.node {
-        ExprNode::Literal(v) => (*v as i64).abs(),
-        _ => 0,
-    }
-}
-// Note: arg_as_f64 removed as unused helper

@@ -33,8 +33,8 @@ pub use core::dates::{
 };
 pub use core::market_data::{
     BaseCorrelationCurve, CreditIndexData, DiscountCurve, DividendEvent, DividendSchedule,
-    DividendScheduleBuilder, ExtrapolationPolicy, ForwardCurve, FxConfig, FxConversionPolicy,
-    FxMatrix, FxRateResult, HazardCurve, InflationCurve, InterpStyle, MarketContext, MarketScalar,
+    DividendScheduleBuilder, ForwardCurve, FxConfig, FxConversionPolicy,
+    FxMatrix, FxRateResult, HazardCurve, InflationCurve, MarketContext, MarketScalar,
     ScalarTimeSeries, SeriesInterpolation, VolSurface,
 };
 pub use core::money::JsMoney as Money;

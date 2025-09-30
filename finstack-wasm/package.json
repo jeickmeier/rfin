@@ -7,7 +7,10 @@
   "scripts": {
     "build": "wasm-pack build --target web --out-dir pkg",
     "build:node": "wasm-pack build --target nodejs --out-dir pkg-node",
-    "test": "wasm-pack test --chrome --firefox --headless"
+    "test": "wasm-pack test --chrome --firefox --headless",
+    "examples:install": "cd examples && npm install",
+    "examples:dev": "cd examples && npm run dev",
+    "examples:build": "cd examples && npm run build"
   },
   "repository": {
     "type": "git",

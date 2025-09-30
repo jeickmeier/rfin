@@ -4,11 +4,6 @@
 //! without having to import each one individually.
 //! Downstream crates should prefer `use finstack_core::prelude::*;`.
 //!
-//! Note: Polars functionality should be imported directly where needed:
-//! ```rust
-//! use polars::prelude::*;
-//! ```
-//!
 //! # Most-used quick guide
 //!
 //! - `Currency`, `Money`: currency-safe amounts

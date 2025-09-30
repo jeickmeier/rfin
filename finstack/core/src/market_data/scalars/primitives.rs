@@ -9,11 +9,11 @@
 //! Both are integrated into the [`crate::market_data::MarketContext`]
 //! so downstream code can reference them by `CurveId` alongside other curves.
 
+use super::storage::TimeSeriesStorage;
 use crate::currency::Currency;
 use crate::dates::Date;
 use crate::types::CurveId;
 use crate::{error::InputError, Result};
-use polars::prelude::*;
 #[cfg(test)]
 use time::Duration as TimeDuration;
 
@@ -85,8 +85,8 @@ pub enum MarketScalar {
 
 /// Generic date-indexed time series with configurable interpolation.
 ///
-/// Note: This struct cannot be directly serialized due to the internal DataFrame.
-/// Use `to_state()` and `from_state()` for serialization.
+/// Stores observations in a lightweight columnar format optimized for
+/// time-series lookups with step or linear interpolation.
 ///
 /// # Examples
 /// ```rust
@@ -112,8 +112,8 @@ pub enum MarketScalar {
 pub struct ScalarTimeSeries {
     id: CurveId,
     currency: Option<Currency>,
-    /// DataFrame with schema: date (i32 days since epoch), value (f64)
-    data: DataFrame,
+    /// Lightweight storage: parallel arrays of dates (days since epoch) and values
+    data: TimeSeriesStorage,
     interpolation: SeriesInterpolation,
 }
 
@@ -151,37 +151,19 @@ impl ScalarTimeSeries {
             return Err(crate::Error::Input(InputError::TooFewPoints));
         }
 
-        let mut dates: Vec<i32> = Vec::with_capacity(observations.len());
-        let mut values: Vec<f64> = Vec::with_capacity(observations.len());
-        for (d, v) in observations {
-            let days = crate::dates::utils::date_to_days_since_epoch(d);
-            dates.push(days);
-            values.push(v);
-        }
+        // Convert dates to days since epoch
+        let observations_i32: Vec<(i32, f64)> = observations
+            .into_iter()
+            .map(|(d, v)| (crate::dates::utils::date_to_days_since_epoch(d), v))
+            .collect();
 
-        let df = DataFrame::new(vec![
-            Series::new("date".into(), dates).into_column(),
-            Series::new("value".into(), values).into_column(),
-        ])
-        .map_err(|_| crate::Error::Internal)?
-        .sort(["date"], SortMultipleOptions::default())
-        .map_err(|_| crate::Error::Internal)?;
-
-        // Check for strictly increasing dates (no duplicates)
-        let date_col = df.column("date").map_err(|_| crate::Error::Internal)?;
-        let dates_series = date_col.as_series().ok_or(crate::Error::Internal)?;
-        if dates_series
-            .n_unique()
-            .map_err(|_| crate::Error::Internal)?
-            != dates_series.len()
-        {
-            return Err(crate::Error::Input(InputError::NonMonotonicKnots));
-        }
+        // Create storage (handles sorting and duplicate detection)
+        let data = TimeSeriesStorage::new(observations_i32)?;
 
         Ok(Self {
             id: CurveId::from(id.as_ref()),
             currency,
-            data: df,
+            data,
             interpolation: SeriesInterpolation::default(),
         })
     }
@@ -268,35 +250,22 @@ impl ScalarTimeSeries {
     }
 
     /// Internal vectorized lookup using days since epoch.
-    /// Leverages Polars native operations for optimal performance.
     fn values_on_days(&self, query_days: &[i32]) -> Result<Vec<f64>> {
         if query_days.is_empty() {
             return Ok(Vec::new());
         }
 
-        // For efficiency, cache the extracted vectors and use optimized lookup
-        let date_col = self
-            .data
-            .column("date")
-            .map_err(|_| crate::Error::Internal)?;
-        let value_col = self
-            .data
-            .column("value")
-            .map_err(|_| crate::Error::Internal)?;
-        let dates_series = date_col.i32().map_err(|_| crate::Error::Internal)?;
-        let values_series = value_col.f64().map_err(|_| crate::Error::Internal)?;
-
-        // Convert to Vec once for all lookups
-        let date_vec: Vec<i32> = dates_series.into_no_null_iter().collect();
-        let value_vec: Vec<f64> = values_series.into_no_null_iter().collect();
+        // Access storage arrays directly
+        let date_vec = self.data.dates();
+        let value_vec = self.data.values();
 
         // Vectorized interpolation with optimized branch prediction
         match self.interpolation {
             SeriesInterpolation::Step => {
-                self.vectorized_step_interpolation(&date_vec, &value_vec, query_days)
+                self.vectorized_step_interpolation(date_vec, value_vec, query_days)
             }
             SeriesInterpolation::Linear => {
-                self.vectorized_linear_interpolation(&date_vec, &value_vec, query_days)
+                self.vectorized_linear_interpolation(date_vec, value_vec, query_days)
             }
         }
     }
@@ -361,9 +330,27 @@ impl ScalarTimeSeries {
         Ok(result)
     }
 
-    /// Expose the underlying DataFrame for advanced consumers.
-    pub fn as_dataframe(&self) -> &DataFrame {
-        &self.data
+    /// Get observations as (Date, value) pairs.
+    ///
+    /// Returns all stored observations in chronological order.
+    pub fn observations(&self) -> Vec<(Date, f64)> {
+        self.data
+            .iter()
+            .map(|(days, value)| {
+                let date = crate::dates::utils::days_since_epoch_to_date(days);
+                (date, value)
+            })
+            .collect()
+    }
+
+    /// Get the number of observations in the series.
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    /// Check if the series is empty.
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 }
 
@@ -385,24 +372,7 @@ pub struct ScalarTimeSeriesState {
 impl ScalarTimeSeries {
     /// Extract serializable state
     pub fn to_state(&self) -> Result<ScalarTimeSeriesState> {
-        let dates = self
-            .data
-            .column("date")
-            .map_err(|_| crate::Error::Internal)?
-            .i32()
-            .map_err(|_| crate::Error::Internal)?;
-        let values = self
-            .data
-            .column("value")
-            .map_err(|_| crate::Error::Internal)?
-            .f64()
-            .map_err(|_| crate::Error::Internal)?;
-
-        let observations: Vec<(Date, f64)> = dates
-            .into_no_null_iter()
-            .zip(values.into_no_null_iter())
-            .map(|(d, v)| (crate::dates::utils::days_since_epoch_to_date(d), v))
-            .collect();
+        let observations = self.observations();
 
         Ok(ScalarTimeSeriesState {
             id: self.id.to_string(),

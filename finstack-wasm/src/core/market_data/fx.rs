@@ -12,55 +12,76 @@ use std::sync::{Arc, RwLock};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
-#[wasm_bindgen]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum JsFxConversionPolicy {
-    CashflowDate,
-    PeriodEnd,
-    PeriodAverage,
-    Custom,
+#[wasm_bindgen(js_name = FxConversionPolicy)]
+#[derive(Clone, Copy, Debug)]
+pub struct JsFxConversionPolicy {
+    inner: FxConversionPolicy,
+}
+
+impl JsFxConversionPolicy {
+    #[allow(dead_code)]
+    pub(crate) fn inner(&self) -> FxConversionPolicy {
+        self.inner
+    }
+
+    fn new(inner: FxConversionPolicy) -> Self {
+        Self { inner }
+    }
 }
 
 impl From<JsFxConversionPolicy> for FxConversionPolicy {
     fn from(value: JsFxConversionPolicy) -> Self {
-        match value {
-            JsFxConversionPolicy::CashflowDate => FxConversionPolicy::CashflowDate,
-            JsFxConversionPolicy::PeriodEnd => FxConversionPolicy::PeriodEnd,
-            JsFxConversionPolicy::PeriodAverage => FxConversionPolicy::PeriodAverage,
-            JsFxConversionPolicy::Custom => FxConversionPolicy::Custom,
-        }
+        value.inner
     }
 }
 
 impl From<FxConversionPolicy> for JsFxConversionPolicy {
     fn from(value: FxConversionPolicy) -> Self {
-        match value {
-            FxConversionPolicy::CashflowDate => JsFxConversionPolicy::CashflowDate,
-            FxConversionPolicy::PeriodEnd => JsFxConversionPolicy::PeriodEnd,
-            FxConversionPolicy::PeriodAverage => JsFxConversionPolicy::PeriodAverage,
-            FxConversionPolicy::Custom => JsFxConversionPolicy::Custom,
-            _ => JsFxConversionPolicy::Custom,
-        }
+        Self::new(value)
     }
 }
 
+#[wasm_bindgen(js_class = FxConversionPolicy)]
 impl JsFxConversionPolicy {
+    #[wasm_bindgen(js_name = CashflowDate)]
+    pub fn cashflow_date() -> JsFxConversionPolicy {
+        Self::new(FxConversionPolicy::CashflowDate)
+    }
+
+    #[wasm_bindgen(js_name = PeriodEnd)]
+    pub fn period_end() -> JsFxConversionPolicy {
+        Self::new(FxConversionPolicy::PeriodEnd)
+    }
+
+    #[wasm_bindgen(js_name = PeriodAverage)]
+    pub fn period_average() -> JsFxConversionPolicy {
+        Self::new(FxConversionPolicy::PeriodAverage)
+    }
+
+    #[wasm_bindgen(js_name = Custom)]
+    pub fn custom() -> JsFxConversionPolicy {
+        Self::new(FxConversionPolicy::Custom)
+    }
+
+    #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsFxConversionPolicy, JsValue> {
         match name.to_ascii_lowercase().as_str() {
-            "cashflow_date" | "cashflow" | "spot" => Ok(JsFxConversionPolicy::CashflowDate),
-            "period_end" | "end" => Ok(JsFxConversionPolicy::PeriodEnd),
-            "period_average" | "average" => Ok(JsFxConversionPolicy::PeriodAverage),
-            "custom" => Ok(JsFxConversionPolicy::Custom),
+            "cashflow_date" | "cashflow" | "spot" => Ok(Self::cashflow_date()),
+            "period_end" | "end" => Ok(Self::period_end()),
+            "period_average" | "average" => Ok(Self::period_average()),
+            "custom" => Ok(Self::custom()),
             other => Err(js_error(format!("Unknown FX conversion policy: {other}"))),
         }
     }
 
+    #[wasm_bindgen(js_name = name)]
     pub fn name(&self) -> String {
-        match self {
-            JsFxConversionPolicy::CashflowDate => "cashflow_date".to_string(),
-            JsFxConversionPolicy::PeriodEnd => "period_end".to_string(),
-            JsFxConversionPolicy::PeriodAverage => "period_average".to_string(),
-            JsFxConversionPolicy::Custom => "custom".to_string(),
+        match self.inner {
+            FxConversionPolicy::CashflowDate => "cashflow_date".to_string(),
+            FxConversionPolicy::PeriodEnd => "period_end".to_string(),
+            FxConversionPolicy::PeriodAverage => "period_average".to_string(),
+            FxConversionPolicy::Custom => "custom".to_string(),
+            _ => "custom".to_string(),
         }
     }
 }
@@ -187,6 +208,7 @@ impl FxProvider for StaticFxProvider {
     }
 }
 
+#[allow(dead_code)]
 fn parse_policy_value(policy: Option<JsValue>) -> Result<FxConversionPolicy, JsValue> {
     match policy {
         None => Ok(FxConversionPolicy::CashflowDate),
@@ -313,14 +335,9 @@ impl JsFxMatrix {
         from: &JsCurrency,
         to: &JsCurrency,
         on: &JsDate,
-        policy: JsValue,
+        policy: &JsFxConversionPolicy,
     ) -> Result<JsFxRateResult, JsValue> {
-        let parsed_policy = parse_policy_value(if policy.is_null() || policy.is_undefined() {
-            None
-        } else {
-            Some(policy)
-        })?;
-        let query = FxQuery::with_policy(from.inner(), to.inner(), on.inner(), parsed_policy);
+        let query = FxQuery::with_policy(from.inner(), to.inner(), on.inner(), policy.inner());
         let result = self
             .inner
             .rate(query)

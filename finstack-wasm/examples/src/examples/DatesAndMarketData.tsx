@@ -13,6 +13,9 @@ import init, {
   FxConfig,
   FxConversionPolicy,
   FxMatrix,
+  DayCount,
+  InterpStyle,
+  ExtrapolationPolicy,
 } from "finstack-wasm";
 
 type PeriodRow = {
@@ -46,21 +49,17 @@ export const PeriodPlanExample: React.FC = () => {
         await init();
         const plan = buildPeriods("2024Q1..Q4", "2024Q2");
         const raw = plan.toArray();
-        const rows: PeriodRow[] = raw.map((period: Period) => {
-          const id = period.id.code;
-          const start = toIso(period.start);
-          const end = toIso(period.end);
-          const isActual = period.isActual;
-          period.id.free();
-          period.start.free();
-          period.end.free();
-          period.free();
-          return { id, start, end, isActual };
-        });
-        plan.free();
+        const rows: PeriodRow[] = raw.map((period: Period) => ({
+          id: period.id.code,
+          start: toIso(period.start),
+          end: toIso(period.end),
+          isActual: period.isActual,
+        }));
+        
         if (!cancelled) {
           setPeriods(rows);
         }
+
       } catch (err) {
         if (!cancelled) {
           setError((err as Error).message);
@@ -77,7 +76,7 @@ export const PeriodPlanExample: React.FC = () => {
   }
 
   return (
-    <section>
+    <section className="example-section">
       <h2>Fiscal Quarter Plan</h2>
       <table>
         <thead>
@@ -112,63 +111,65 @@ export const MarketDataExample: React.FC = () => {
     (async () => {
       try {
         await init();
+        
+        // Create currencies and base date
         const usd = new Currency("USD");
         const eur = new Currency("EUR");
         const baseDate = new FsDate(2024, 1, 2);
+        
+        // Create discount curve
         const curve = new DiscountCurve(
           "USD-OIS",
           baseDate,
-          [0.0, 0.5, 1.0, 2.0],
-          [1.0, 0.9905, 0.979, 0.955],
+          new Float64Array([0.0, 0.5, 1.0, 2.0]),
+          new Float64Array([1.0, 0.9905, 0.979, 0.955]),
           "act_365f",
           "monotone_convex",
           "flat_forward",
           true
         );
 
+        // Create CPI time series
         const cpiDates = [new FsDate(2023, 12, 31), new FsDate(2024, 3, 31)];
         const series = new ScalarTimeSeries(
           "US-CPI",
           cpiDates,
-          [300.1, 302.8],
+          new Float64Array([300.1, 302.8]),
           usd,
-          SeriesInterpolation.Linear
+          SeriesInterpolation.Linear()
         );
-        cpiDates.forEach((d) => d.free());
 
-        const fxConfig = new FxConfig();
-        fxConfig.setPivotCurrency(usd);
-        fxConfig.setEnableTriangulation(true);
-        fxConfig.setCacheCapacity(32);
-        const fx = FxMatrix.withConfig(fxConfig);
+        // Create FX matrix and set quote
+        const fx = new FxMatrix();
         fx.setQuote(usd, eur, 0.92);
 
+        // Query FX rate
+        const policy = FxConversionPolicy.CashflowDate();
+        const fxQuote = fx.rate(usd, eur, baseDate, policy);
+        const fxRate = fxQuote.rate;
+
+        // Create market context and insert data
         const context = new MarketContext();
         context.insertDiscount(curve);
         context.insertFx(fx);
         context.insertSeries(series);
 
+        // Add equity price
         const priceMoney = Money.fromCode(102.45, "USD");
         const equitySpot = MarketScalar.price(priceMoney);
         context.insertPrice("AAPL", equitySpot);
 
+        // Query data from context
         const fetchedCurve = context.discount("USD-OIS");
         const discountFactor = fetchedCurve.df(1.0);
-        fetchedCurve.free();
 
-        const fxQuote = fx.rate(usd, eur, baseDate, FxConversionPolicy.CashflowDate);
-        const fxRate = fxQuote.rate;
-        fxQuote.free();
-
+        const fetchedSeries = context.series("US-CPI");
         const lookThroughDate = new FsDate(2024, 2, 15);
-        const cpiLevel = series.valueOn(lookThroughDate);
-        lookThroughDate.free();
+        const cpiLevel = fetchedSeries.valueOn(lookThroughDate);
 
         const storedSpot = context.price("AAPL");
         const moneyValue = storedSpot.value as Money;
         const equitySpotAmount = moneyValue.amount;
-        moneyValue.free();
-        storedSpot.free();
 
         if (!cancelled) {
           setSnapshot({
@@ -179,16 +180,6 @@ export const MarketDataExample: React.FC = () => {
           });
         }
 
-        equitySpot.free();
-        priceMoney.free();
-        context.free();
-        fx.free();
-        fxConfig.free();
-        series.free();
-        curve.free();
-        baseDate.free();
-        usd.free();
-        eur.free();
       } catch (err) {
         if (!cancelled) {
           setError((err as Error).message);
@@ -209,9 +200,9 @@ export const MarketDataExample: React.FC = () => {
   }
 
   return (
-    <section>
+    <section className="example-section">
       <h2>Market Data Snapshot</h2>
-      <dl>
+      <dl className="data-list">
         <dt>1Y Discount Factor</dt>
         <dd>{snapshot.discountFactor.toFixed(6)}</dd>
         <dt>USD/EUR Spot</dt>
@@ -224,13 +215,3 @@ export const MarketDataExample: React.FC = () => {
     </section>
   );
 };
-
-const DatesAndMarketDataExamples: React.FC = () => (
-  <main>
-    <h1>finstack-wasm TSX Examples</h1>
-    <PeriodPlanExample />
-    <MarketDataExample />
-  </main>
-);
-
-export default DatesAndMarketDataExamples;

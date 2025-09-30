@@ -31,7 +31,6 @@ use super::primitives::{ScalarTimeSeries, SeriesInterpolation};
 use crate::currency::Currency;
 use crate::dates::Date;
 use crate::{Error, Result};
-use polars::prelude::*;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -95,7 +94,7 @@ impl Default for InflationLag {
     }
 }
 
-/// Inflation index provider using Polars DataFrames.
+/// Inflation index provider.
 ///
 /// Stores CPI/RPI observations, applies lagging, and optionally injects
 /// monthly seasonality factors. The underlying [`ScalarTimeSeries`] is kept
@@ -195,25 +194,33 @@ impl InflationIndex {
 
     /// Get the date range covered by observations
     pub fn date_range(&self) -> Result<(Date, Date)> {
-        let date_col = self
-            .series
-            .as_dataframe()
-            .column("date")
-            .map_err(|_| Error::Internal)?;
-        let date_values = date_col.i32().map_err(|_| Error::Internal)?;
-
-        let min_days = date_values.min().ok_or(Error::Internal)?;
-        let max_days = date_values.max().ok_or(Error::Internal)?;
-
-        let start_date = crate::dates::utils::days_since_epoch_to_date(min_days);
-        let end_date = crate::dates::utils::days_since_epoch_to_date(max_days);
+        let observations = self.series.observations();
+        
+        if observations.is_empty() {
+            return Err(Error::Internal);
+        }
+        
+        let start_date = observations.first().map(|(d, _)| *d).ok_or(Error::Internal)?;
+        let end_date = observations.last().map(|(d, _)| *d).ok_or(Error::Internal)?;
 
         Ok((start_date, end_date))
     }
 
-    /// Get the underlying DataFrame (for advanced operations)
-    pub fn as_dataframe(&self) -> &DataFrame {
-        self.series.as_dataframe()
+    /// Get all observations as (Date, value) pairs.
+    ///
+    /// Returns observations in chronological order.
+    pub fn observations(&self) -> Vec<(Date, f64)> {
+        self.series.observations()
+    }
+
+    /// Get the number of observations in the index.
+    pub fn len(&self) -> usize {
+        self.series.len()
+    }
+
+    /// Check if the index is empty.
+    pub fn is_empty(&self) -> bool {
+        self.series.is_empty()
     }
 
     /// Expose current interpolation setting for bump/rebuild helpers.
@@ -225,40 +232,6 @@ impl InflationIndex {
         self.lag
     }
 
-    /// Create from an existing DataFrame
-    ///
-    /// DataFrame must have columns: date (i32), value (f64), optionally seasonality (f64)
-    pub fn from_dataframe(
-        id: impl Into<String>,
-        data: DataFrame,
-        currency: Currency,
-    ) -> Result<Self> {
-        // Validate schema and reconstruct observations
-        let column_names = data.get_column_names();
-        let has_date = column_names.iter().any(|name| name.as_str() == "date");
-        let has_value = column_names.iter().any(|name| name.as_str() == "value");
-        if !has_date || !has_value {
-            return Err(Error::Input(crate::error::InputError::Invalid));
-        }
-
-        let dates = data
-            .column("date")
-            .map_err(|_| Error::Internal)?
-            .i32()
-            .map_err(|_| Error::Internal)?;
-        let values = data
-            .column("value")
-            .map_err(|_| Error::Internal)?
-            .f64()
-            .map_err(|_| Error::Internal)?;
-        let observations: Vec<(Date, f64)> = dates
-            .into_no_null_iter()
-            .zip(values.into_no_null_iter())
-            .map(|(d, v)| (crate::dates::utils::days_since_epoch_to_date(d), v))
-            .collect();
-
-        Self::new(id, observations, currency)
-    }
 
     // Private helper methods
 
@@ -307,24 +280,7 @@ pub struct InflationIndexState {
 impl InflationIndex {
     /// Extract serializable state
     pub fn to_state(&self) -> crate::Result<InflationIndexState> {
-        // Extract observations from the underlying series DataFrame
-        let df = self.series.as_dataframe();
-        let dates = df
-            .column("date")
-            .map_err(|_| crate::Error::Internal)?
-            .i32()
-            .map_err(|_| crate::Error::Internal)?;
-        let values = df
-            .column("value")
-            .map_err(|_| crate::Error::Internal)?
-            .f64()
-            .map_err(|_| crate::Error::Internal)?;
-
-        let observations: Vec<(Date, f64)> = dates
-            .into_no_null_iter()
-            .zip(values.into_no_null_iter())
-            .map(|(d, v)| (crate::dates::utils::days_since_epoch_to_date(d), v))
-            .collect();
+        let observations = self.observations();
 
         Ok(InflationIndexState {
             id: self.id.clone(),

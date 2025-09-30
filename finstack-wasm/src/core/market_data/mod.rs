@@ -15,7 +15,6 @@ pub use fx::{
     JsFxConfig as FxConfig, JsFxConversionPolicy as FxConversionPolicy, JsFxMatrix as FxMatrix,
     JsFxRateResult as FxRateResult,
 };
-pub use interp::{JsExtrapolationPolicy as ExtrapolationPolicy, JsInterpStyle as InterpStyle};
 pub use scalars::{
     JsMarketScalar as MarketScalar, JsScalarTimeSeries as ScalarTimeSeries,
     JsSeriesInterpolation as SeriesInterpolation,

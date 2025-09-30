@@ -160,17 +160,15 @@ fn test_dag_builder_shared_subexpressions() {
 }
 
 #[test]
-fn test_dag_polars_eligibility() {
+fn test_dag_multiple_function_types() {
     let mut builder = DagBuilder::new();
 
-    // Create expressions with different Polars eligibility
+    // Create expressions with different function types
     let col_x = Expr::column("x");
     let lit_2 = Expr::literal(2.0);
 
-    // RollingMean is Polars-eligible
+    // Test various function types in the DAG
     let rolling_mean = Expr::call(Function::RollingMean, vec![col_x.clone(), lit_2.clone()]);
-
-    // CumSum is not Polars-eligible (uses scalar for determinism)
     let cum_sum = Expr::call(Function::CumSum, vec![col_x.clone()]);
 
     let meta = ResultsMeta {

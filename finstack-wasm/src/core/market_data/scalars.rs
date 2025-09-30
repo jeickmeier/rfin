@@ -7,44 +7,61 @@ use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
-#[wasm_bindgen]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum JsSeriesInterpolation {
-    Step,
-    Linear,
+#[wasm_bindgen(js_name = SeriesInterpolation)]
+#[derive(Clone, Copy, Debug)]
+pub struct JsSeriesInterpolation {
+    inner: SeriesInterpolation,
+}
+
+impl JsSeriesInterpolation {
+    #[allow(dead_code)]
+    pub(crate) fn inner(&self) -> SeriesInterpolation {
+        self.inner
+    }
+
+    fn new(inner: SeriesInterpolation) -> Self {
+        Self { inner }
+    }
 }
 
 impl From<JsSeriesInterpolation> for SeriesInterpolation {
     fn from(value: JsSeriesInterpolation) -> Self {
-        match value {
-            JsSeriesInterpolation::Step => SeriesInterpolation::Step,
-            JsSeriesInterpolation::Linear => SeriesInterpolation::Linear,
-        }
+        value.inner
     }
 }
 
 impl From<SeriesInterpolation> for JsSeriesInterpolation {
     fn from(value: SeriesInterpolation) -> Self {
-        match value {
-            SeriesInterpolation::Step => JsSeriesInterpolation::Step,
-            SeriesInterpolation::Linear => JsSeriesInterpolation::Linear,
-        }
+        Self::new(value)
     }
 }
 
+#[wasm_bindgen(js_class = SeriesInterpolation)]
 impl JsSeriesInterpolation {
+    #[wasm_bindgen(js_name = Step)]
+    pub fn step() -> JsSeriesInterpolation {
+        Self::new(SeriesInterpolation::Step)
+    }
+
+    #[wasm_bindgen(js_name = Linear)]
+    pub fn linear() -> JsSeriesInterpolation {
+        Self::new(SeriesInterpolation::Linear)
+    }
+
+    #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsSeriesInterpolation, JsValue> {
         match name.to_ascii_lowercase().as_str() {
-            "step" => Ok(JsSeriesInterpolation::Step),
-            "linear" => Ok(JsSeriesInterpolation::Linear),
+            "step" => Ok(Self::step()),
+            "linear" => Ok(Self::linear()),
             other => Err(js_error(format!("Unknown interpolation style: {other}"))),
         }
     }
 
+    #[wasm_bindgen(js_name = name)]
     pub fn name(&self) -> String {
-        match self {
-            JsSeriesInterpolation::Step => "step".to_string(),
-            JsSeriesInterpolation::Linear => "linear".to_string(),
+        match self.inner {
+            SeriesInterpolation::Step => "step".to_string(),
+            SeriesInterpolation::Linear => "linear".to_string(),
         }
     }
 }
@@ -123,7 +140,7 @@ impl JsScalarTimeSeries {
         id: &str,
         dates: Vec<JsDate>,
         values: Vec<f64>,
-        currency: Option<JsCurrency>,
+        currency: &JsCurrency,
         interpolation: Option<JsSeriesInterpolation>,
     ) -> Result<JsScalarTimeSeries, JsValue> {
         if dates.len() != values.len() {
@@ -141,7 +158,7 @@ impl JsScalarTimeSeries {
             .map(|(d, v)| (d.inner(), v))
             .collect();
 
-        let mut series = ScalarTimeSeries::new(id, observations, currency.map(|c| c.inner()))
+        let mut series = ScalarTimeSeries::new(id, observations, Some(currency.inner()))
             .map_err(|e| js_error(e.to_string()))?;
 
         if let Some(mode) = interpolation {
