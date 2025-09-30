@@ -319,6 +319,21 @@ impl PyCashflowBuilder {
             .map(PyCashFlowSchedule::new)
             .map_err(core_to_py)
     }
+
+    #[pyo3(text_signature = "(self, market)")]
+    /// Build the cashflow schedule with market curves for floating rate computation.
+    /// 
+    /// When a market context is provided, floating rate coupons include the forward rate
+    /// from the curve: `coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * year_fraction`
+    /// 
+    /// Without curves (or using `build()`), only the margin is used:
+    /// `coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction`
+    fn build_with_curves(&self, market: crate::core::market_data::PyMarketContext) -> PyResult<PyCashFlowSchedule> {
+        self.inner
+            .build_with_curves(Some(&market.inner))
+            .map(PyCashFlowSchedule::new)
+            .map_err(core_to_py)
+    }
 }
 
 /// CashflowSchedule wrapper exposing holder-side flows and metadata.

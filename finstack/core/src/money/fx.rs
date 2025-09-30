@@ -8,34 +8,28 @@
 //! The public surface remains stable:
 //! - [`FxProvider`] trait for on-demand quotes
 //! - [`FxMatrix`] offering [`FxMatrix::rate`] for consumers and [`crate::market_data::context::MarketContext`]
+//! - [`providers`] module with standard provider implementations
 //!
 //! # Examples
 //! ```rust
 //! use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxQuery};
+//! use finstack_core::money::fx::providers::SimpleFxProvider;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::Date;
 //! use std::sync::Arc;
 //! use time::Month;
 //!
-//! struct StaticFx;
-//! impl FxProvider for StaticFx {
-//!     fn rate(&self, from: Currency, to: Currency, _on: Date, _policy: FxConversionPolicy)
-//!         -> finstack_core::Result<f64>
-//!     {
-//!         let rate = match (from, to) {
-//!             (Currency::EUR, Currency::USD) => 1.1,
-//!             (Currency::USD, Currency::EUR) => 0.9,
-//!             _ => 1.0,
-//!         };
-//!         Ok(rate)
-//!     }
-//! }
+//! let provider = Arc::new(SimpleFxProvider::new());
+//! provider.set_quote(Currency::EUR, Currency::USD, 1.1);
 //!
-//! let matrix = FxMatrix::new(Arc::new(StaticFx));
+//! let matrix = FxMatrix::new(provider.clone());
 //! let date = Date::from_calendar_date(2024, Month::January, 5).unwrap();
 //! let res = matrix.rate(FxQuery::new(Currency::EUR, Currency::USD, date)).unwrap();
 //! assert_eq!(res.rate, 1.1);
 //! ```
+
+/// Standard FX provider implementations.
+pub mod providers;
 
 use crate::currency::Currency;
 use crate::dates::Date;

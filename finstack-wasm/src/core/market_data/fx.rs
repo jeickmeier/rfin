@@ -2,13 +2,12 @@ use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
 use crate::core::utils::{js_array_from_iter, js_error};
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::{
-    FxConfig, FxConversionPolicy, FxMatrix, FxProvider, FxQuery, FxRateResult,
+    FxConfig, FxConversionPolicy, FxMatrix, FxQuery, FxRateResult,
 };
-use std::collections::HashMap;
 use std::str::FromStr;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -154,59 +153,7 @@ impl From<FxRateResult> for JsFxRateResult {
     }
 }
 
-#[derive(Default)]
-struct StaticFxProvider {
-    quotes: RwLock<HashMap<(Currency, Currency), f64>>,
-}
-
-impl StaticFxProvider {
-    fn new() -> Self {
-        Self {
-            quotes: RwLock::new(HashMap::new()),
-        }
-    }
-
-    fn set_quote(&self, from: Currency, to: Currency, rate: f64) {
-        self.quotes.write().unwrap().insert((from, to), rate);
-    }
-
-    fn set_quotes(&self, quotes: &[(Currency, Currency, f64)]) {
-        let mut guard = self.quotes.write().unwrap();
-        for &(from, to, rate) in quotes {
-            guard.insert((from, to), rate);
-        }
-    }
-
-    fn get_direct(&self, from: Currency, to: Currency) -> Option<f64> {
-        self.quotes.read().unwrap().get(&(from, to)).copied()
-    }
-}
-
-impl FxProvider for StaticFxProvider {
-    fn rate(
-        &self,
-        from: Currency,
-        to: Currency,
-        _on: Date,
-        _policy: FxConversionPolicy,
-    ) -> finstack_core::Result<f64> {
-        if from == to {
-            return Ok(1.0);
-        }
-        if let Some(rate) = self.get_direct(from, to) {
-            return Ok(rate);
-        }
-        if let Some(rate) = self.get_direct(to, from) {
-            if rate != 0.0 {
-                return Ok(1.0 / rate);
-            }
-        }
-        Err(finstack_core::error::InputError::NotFound {
-            id: format!("FX:{from}->{to}"),
-        }
-        .into())
-    }
-}
+// SimpleFxProvider is now provided by finstack-core
 
 #[allow(dead_code)]
 fn parse_policy_value(policy: Option<JsValue>) -> Result<FxConversionPolicy, JsValue> {
@@ -240,12 +187,12 @@ fn parse_policy_value(policy: Option<JsValue>) -> Result<FxConversionPolicy, JsV
 #[wasm_bindgen(js_name = FxMatrix)]
 #[derive(Clone)]
 pub struct JsFxMatrix {
-    provider: Arc<StaticFxProvider>,
+    provider: Arc<SimpleFxProvider>,
     inner: Arc<FxMatrix>,
 }
 
 impl JsFxMatrix {
-    fn new_with(provider: Arc<StaticFxProvider>, config: FxConfig) -> Self {
+    fn new_with(provider: Arc<SimpleFxProvider>, config: FxConfig) -> Self {
         let matrix = FxMatrix::with_config(provider.clone(), config);
         Self {
             provider,
@@ -268,13 +215,13 @@ impl Default for JsFxMatrix {
 impl JsFxMatrix {
     #[wasm_bindgen(constructor)]
     pub fn new() -> JsFxMatrix {
-        let provider = Arc::new(StaticFxProvider::new());
+        let provider = Arc::new(SimpleFxProvider::new());
         JsFxMatrix::new_with(provider, FxConfig::default())
     }
 
     #[wasm_bindgen(js_name = withConfig)]
     pub fn with_config(config: &JsFxConfig) -> JsFxMatrix {
-        let provider = Arc::new(StaticFxProvider::new());
+        let provider = Arc::new(SimpleFxProvider::new());
         JsFxMatrix::new_with(provider, config.inner.clone())
     }
 

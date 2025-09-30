@@ -1,6 +1,7 @@
 import { ComponentType } from 'react';
 
 import { CashflowBasicsExample } from './CashflowBasics';
+import { CashflowBuilderExample } from './CashflowBuilderExample';
 import { MarketDataExample } from './DatesAndMarketData';
 import { BondsValuationExample } from './BondsValuation';
 import {
@@ -94,6 +95,13 @@ export const EXAMPLES: ExampleDefinition[] = [
     description: 'Construct fixed, floating, fee, and principal cashflows with tuple views.',
     group: 'Cashflows',
     Component: CashflowBasicsExample,
+  },
+  {
+    slug: 'cashflow-builder',
+    title: 'Cashflow Builder',
+    description: 'Composable builder for complex coupon structures: fixed/floating, cash/PIK, amortization, step-ups.',
+    group: 'Cashflows',
+    Component: CashflowBuilderExample,
   },
   {
     slug: 'math-showcase',

@@ -8,6 +8,10 @@ mod valuations;
 pub use core::cashflow::{
     JsAmortizationSpec as AmortizationSpec, JsCFKind as CFKind, JsCashFlow as CashFlow,
 };
+pub use valuations::cashflow::{
+    CashflowBuilder, CashFlowSchedule, CouponType, FixedCouponSpec,
+    FloatCouponParams, FloatingCouponSpec, ScheduleParams,
+};
 pub use core::config::{JsFinstackConfig as FinstackConfig, JsRoundingMode as RoundingMode};
 pub use core::currency::JsCurrency as Currency;
 pub use core::dates::add_months as addMonths;

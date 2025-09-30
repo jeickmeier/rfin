@@ -12,18 +12,12 @@ use crate::core::currency::PyCurrency;
 // use crate::core::common::args::{ExtrapolationPolicyArg, CurrencyArg};
 use crate::core::error::core_to_py;
 use crate::core::utils::py_to_date;
-use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
-use finstack_core::error::InputError;
-use finstack_core::money::fx::{
-    FxConfig, FxConversionPolicy, FxMatrix, FxProvider, FxQuery, FxRateResult,
-};
-use parking_lot::RwLock;
+use finstack_core::money::fx::providers::SimpleFxProvider;
+use finstack_core::money::fx::{FxConfig, FxConversionPolicy, FxMatrix, FxQuery, FxRateResult};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Parse a snake/lower-case label into an FX conversion policy.
@@ -270,59 +264,7 @@ impl From<FxRateResult> for PyFxRateResult {
     }
 }
 
-#[derive(Default)]
-struct StaticFxProvider {
-    quotes: RwLock<HashMap<(Currency, Currency), f64>>,
-}
-
-impl StaticFxProvider {
-    fn new() -> Self {
-        Self {
-            quotes: RwLock::new(HashMap::new()),
-        }
-    }
-
-    fn set_quote(&self, from: Currency, to: Currency, rate: f64) {
-        self.quotes.write().insert((from, to), rate);
-    }
-
-    fn set_quotes(&self, quotes: &[(Currency, Currency, f64)]) {
-        let mut guard = self.quotes.write();
-        for &(from, to, rate) in quotes {
-            guard.insert((from, to), rate);
-        }
-    }
-
-    fn get_direct(&self, from: Currency, to: Currency) -> Option<f64> {
-        self.quotes.read().get(&(from, to)).copied()
-    }
-}
-
-impl FxProvider for StaticFxProvider {
-    fn rate(
-        &self,
-        from: Currency,
-        to: Currency,
-        _on: Date,
-        _policy: FxConversionPolicy,
-    ) -> finstack_core::Result<f64> {
-        if from == to {
-            return Ok(1.0);
-        }
-        if let Some(rate) = self.get_direct(from, to) {
-            return Ok(rate);
-        }
-        if let Some(rate) = self.get_direct(to, from) {
-            if rate != 0.0 {
-                return Ok(1.0 / rate);
-            }
-        }
-        Err(InputError::NotFound {
-            id: format!("FX:{from}->{to}"),
-        }
-        .into())
-    }
-}
+// SimpleFxProvider is now provided by finstack-core
 
 /// Coerce an optional Python object into an `FxConversionPolicy`.
 ///
@@ -359,12 +301,12 @@ fn parse_policy(_py: Python<'_>, policy: Option<Bound<'_, PyAny>>) -> PyResult<F
 #[pyclass(module = "finstack.core.market_data.fx", name = "FxMatrix", unsendable)]
 #[derive(Clone)]
 pub struct PyFxMatrix {
-    provider: Arc<StaticFxProvider>,
+    provider: Arc<SimpleFxProvider>,
     pub(crate) inner: Arc<FxMatrix>,
 }
 
 impl PyFxMatrix {
-    fn new_with(provider: Arc<StaticFxProvider>, config: FxConfig) -> Self {
+    fn new_with(provider: Arc<SimpleFxProvider>, config: FxConfig) -> Self {
         let matrix = FxMatrix::with_config(provider.clone(), config);
         Self {
             provider,
@@ -390,7 +332,7 @@ impl PyFxMatrix {
     #[pyo3(signature = (*, config=None))]
     #[pyo3(text_signature = "(*, config=None)")]
     fn ctor(config: Option<&PyFxConfig>) -> Self {
-        let provider = Arc::new(StaticFxProvider::new());
+        let provider = Arc::new(SimpleFxProvider::new());
         let cfg = config.map(|c| c.inner.clone()).unwrap_or_default();
         Self::new_with(provider, cfg)
     }

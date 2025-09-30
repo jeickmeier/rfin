@@ -315,3 +315,4 @@ const depositResult = registry.priceDepositWithMetrics(deposit, model, market, m
 - WASM Memory FAQ: `finstack-wasm/examples/README.md`
 - Rust Pricing Registry: `finstack/valuations/src/pricer/`
 
+

@@ -110,6 +110,27 @@ Mirrors the Python `cashflow_basics.py` walkthrough:
 3. **Schedule Utilities**
    - Sorting flows chronologically for schedule previews
 
+### Cashflow Builder (`CashflowBuilderExample.tsx`)
+
+**NEW**: Composable builder for complex coupon structures with full Python parity:
+
+1. **Fixed and Floating Coupons**
+   - Simple fixed-rate bonds (quarterly, semi-annual, annual)
+   - Floating-rate notes with index + margin (e.g., SOFR + 150 bps)
+2. **Payment Types**
+   - Cash coupons (100% cash payment)
+   - PIK coupons (100% capitalized into principal)
+   - Split coupons (e.g., 70% cash / 30% PIK)
+3. **Amortization**
+   - Linear amortization to final balance
+   - Step amortization schedules
+4. **Advanced Programs**
+   - Step-up coupons (4% → 5% → 6% over time)
+   - Payment split programs (cash → 50/50 → PIK transitions)
+5. **Builder Pattern**
+   - Fluent chainable API
+   - Matches Python `CashflowBuilder` capabilities
+
 ### Math Utilities (`MathShowcase.tsx`)
 
 Feature parity with `math_core_showcase.py`:

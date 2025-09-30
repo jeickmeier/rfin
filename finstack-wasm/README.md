@@ -4,9 +4,10 @@ WebAssembly bindings for the Finstack financial computation library.
 
 ## Currently exposed APIs
 
-The initial release focuses on the `finstack-core` primitives that underpin the
-Python bindings.
+The bindings provide comprehensive coverage of finstack-core and finstack-valuations,
+achieving feature parity with the Python bindings.
 
+### Core Primitives
 - `Date` – construct calendar dates, inspect components, and adjust by weekdays.
 - `Currency` – create ISO-4217 currencies by code or numeric identifier and
   enumerate the compiled set via `Currency.all()`.
@@ -16,6 +17,8 @@ Python bindings.
   `Currency` instance.
 - `FinstackConfig`/`RoundingMode` – manage rounding strategies and per-currency
   decimal scales for ingest/output, mirroring the Python bindings.
+
+### Dates & Calendars
 - `Calendar`/`BusinessDayConvention` – retrieve registry calendars, inspect
   holidays, and perform business-day adjustments.
 - `ScheduleBuilder`/`Schedule` – generate business-day aware cashflow schedules
@@ -24,12 +27,36 @@ Python bindings.
   finstack's day-count conventions with optional calendar/frequency hints.
 - `PeriodId`/`PeriodPlan`/`FiscalConfig` – build calendar or fiscal period plans
   with actual/forecast segmentation via `buildPeriods` and `buildFiscalPeriods`.
+- IMM and utility helpers – IMM rolls, option expiries, month arithmetic, and
+  epoch conversions via `daysSinceEpochToDate` and friends.
+
+### Market Data
 - `DiscountCurve` – construct discount-factor term structures with selectable
   interpolation and extrapolation policies.
 - `ForwardCurve`, `HazardCurve`, `InflationCurve`, `BaseCorrelationCurve` – additional
   market data term structures for rates, credit, inflation, and tranche pricing.
-- IMM and utility helpers – IMM rolls, option expiries, month arithmetic, and
-  epoch conversions via `daysSinceEpochToDate` and friends.
+- `MarketContext` – aggregate curves, surfaces, FX matrices, and scalars for pricing.
+- `FxMatrix`/`FxConversionPolicy` – multi-currency conversion with triangulation support.
+- `VolSurface` – two-dimensional implied volatility surfaces.
+- `ScalarTimeSeries` – time series data with interpolation.
+
+### Cashflows & Instruments
+- `CashFlow`/`CFKind`/`AmortizationSpec` – primitive cashflow types with fixed, floating,
+  PIK, fee, and amortization support.
+- **`CashflowBuilder`** – **NEW**: composable builder for complex coupon structures with:
+  - Fixed and floating coupons
+  - Cash/PIK/split payment types
+  - Amortization schedules (linear, step)
+  - Step-up coupon programs
+  - Payment split programs (cash-to-PIK transitions)
+- `CouponType`, `ScheduleParams`, `FixedCouponSpec`, `FloatingCouponSpec` – supporting
+  types for the builder pattern.
+- `Bond` – fixed-income instruments with helper methods for common structures.
+- `Deposit` – money-market deposits with simple interest.
+
+### Pricing & Metrics
+- `PricerRegistry` – instrument pricing with model selection.
+- `ValuationResult` – pricing results with present value and risk metrics.
 
 Additional modules (dates, calendars, market data, valuations) will be ported
 incrementally until the WASM bindings reach parity with `finstack-py`.
@@ -71,6 +98,13 @@ import init, {
     Money,
     FinstackConfig,
     RoundingMode,
+    CashflowBuilder,
+    CashFlowSchedule,
+    CouponType,
+    ScheduleParams,
+    FixedCouponSpec,
+    FloatingCouponSpec,
+    FloatCouponParams,
 } from './pkg/finstack_wasm.js';
 
 async function run() {
@@ -127,6 +161,23 @@ async function run() {
     cfg.setIngestScale(usd, 4);
     const highPrecision = Money.fromConfig(1.23456, usd, cfg);
     console.log(highPrecision.toTuple()); // [1.2346, Currency('USD')]
+
+    // Cashflow builder example
+    const notional = Money.fromCode(1_000_000, 'USD');
+    const issue = new FinstackDate(2025, 1, 15);
+    const maturity = new FinstackDate(2030, 1, 15);
+
+    const schedule = ScheduleParams.quarterlyAct360();
+    const fixedSpec = new FixedCouponSpec(0.05, schedule, CouponType.Cash());
+
+    const cashflowSchedule = new CashflowBuilder()
+        .principal(notional, issue, maturity)
+        .fixedCf(fixedSpec)
+        .build();
+
+    console.log('Total flows:', cashflowSchedule.length);
+    console.log('Notional:', cashflowSchedule.notional.format());
+    console.log('Day count:', cashflowSchedule.dayCount.name);
 }
 
 run();
@@ -210,7 +261,7 @@ npm run examples:install
 npm run examples:dev
 ```
 
-The examples demonstrate comprehensive functionality:
+The examples demonstrate comprehensive functionality with **feature parity to the Python bindings**:
 
 ### Date & Calendar Features
 - Date construction and manipulation (weekdays, quarters, fiscal years)
@@ -223,11 +274,33 @@ The examples demonstrate comprehensive functionality:
 
 ### Market Data Features
 - Discount curves with interpolation
+- Forward, hazard, inflation, and base correlation curves
 - FX matrices and rate lookups
 - Time series with interpolation
 - Market context for data storage
+- Volatility surfaces
+
+### Cashflow & Valuation Features
+- **Cashflow Builder** – composable builder for complex coupon structures:
+  - Fixed and floating coupons
+  - Cash/PIK/split payment types
+  - Amortization schedules
+  - Step-up coupon programs
+  - Payment split programs
+- Primitive cashflows (fixed, floating, PIK, fees, principal)
+- Bond instruments with valuation metrics
+- Deposit instruments
+- Pricing registry with standard models
+
+### Math Utilities
+- Numerical integration (Gauss-Hermite, Gauss-Legendre, adaptive Simpson)
+- Root finding solvers (Newton, Brent, Hybrid)
+- Distribution helpers (binomial probabilities)
+
+All features include:
 - Proper WASM memory management patterns
 - TypeScript type safety
+- Complete documentation
 
 See `examples/README.md` for detailed documentation.
 
