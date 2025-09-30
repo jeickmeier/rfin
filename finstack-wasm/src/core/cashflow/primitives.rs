@@ -199,7 +199,7 @@ impl JsCashFlow {
 
     #[wasm_bindgen(getter, js_name = resetDate)]
     pub fn reset_date(&self) -> Option<JsDate> {
-        self.inner.reset_date.map(|d| JsDate::from_core(d))
+        self.inner.reset_date.map(JsDate::from_core)
     }
 
     #[wasm_bindgen(getter)]
@@ -284,7 +284,7 @@ impl JsAmortizationSpec {
         }
         let schedule = dates
             .into_iter()
-            .zip(remaining.into_iter())
+            .zip(remaining)
             .map(|(d, m)| (d.inner(), m.inner()))
             .collect();
         Ok(AmortizationSpec::StepRemaining { schedule }.into())
@@ -307,7 +307,7 @@ impl JsAmortizationSpec {
         }
         let items = dates
             .into_iter()
-            .zip(amounts.into_iter())
+            .zip(amounts)
             .map(|(d, m)| (d.inner(), m.inner()))
             .collect();
         Ok(AmortizationSpec::CustomPrincipal { items }.into())

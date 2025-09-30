@@ -1,28 +1,28 @@
 import React, { useEffect, useState } from 'react';
+import { Route, Routes } from 'react-router-dom';
 import init from 'finstack-wasm';
-import { MarketDataExample } from './examples/DatesAndMarketData';
-import { CashflowBasicsExample } from './examples/CashflowBasics';
-import { MathShowcaseExample } from './examples/MathShowcase';
-import {
-  DateConstructionExample,
-  DateUtilitiesExample,
-  CalendarExample,
-  DayCountExample,
-  ScheduleBuilderExample,
-  PeriodPlansExample,
-  IMMDatesExample,
-  FrequencyExample,
-} from './examples/DatesShowcase';
 import './App.css';
+import ExamplePage from './pages/ExamplePage';
+import Home from './pages/Home';
+import NotFound from './pages/NotFound';
+
+// Global flag to ensure WASM is only initialized once across all hot reloads
+let wasmInitialized = false;
 
 const App: React.FC = () => {
-  const [wasmReady, setWasmReady] = useState(false);
+  const [wasmReady, setWasmReady] = useState(wasmInitialized);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Initialize WASM once at app level
+    // Only initialize WASM once, even across hot module reloads
+    if (wasmInitialized) {
+      setWasmReady(true);
+      return;
+    }
+
     init()
       .then(() => {
+        wasmInitialized = true;
         setWasmReady(true);
       })
       .catch((err) => {
@@ -30,66 +30,25 @@ const App: React.FC = () => {
       });
   }, []);
 
-  if (error) {
-    return (
-      <main className="container">
-        <h1>finstack-wasm Examples</h1>
-        <p className="error">{error}</p>
-      </main>
-    );
-  }
-
-  if (!wasmReady) {
-    return (
-      <main className="container">
-        <h1>finstack-wasm Examples</h1>
-        <p>Loading WASM module...</p>
-      </main>
-    );
-  }
-
   return (
     <main className="container">
-      <h1>finstack-wasm TypeScript Examples</h1>
-      <p className="intro">
-        Comprehensive examples demonstrating the usage of finstack-wasm in a React + TypeScript environment.
-        These examples mirror the Python bindings and showcase date handling, calendars, schedules, and market data.
-      </p>
-
-      <div style={{ borderTop: '2px solid #646cff', paddingTop: '2rem', marginTop: '2rem' }}>
-        <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#646cff' }}>
-          Date & Calendar Functionality
-        </h2>
-        <DateConstructionExample />
-        <DateUtilitiesExample />
-        <CalendarExample />
-        <DayCountExample />
-        <ScheduleBuilderExample />
-        <PeriodPlansExample />
-        <IMMDatesExample />
-        <FrequencyExample />
-      </div>
-
-      <div style={{ borderTop: '2px solid #646cff', paddingTop: '2rem', marginTop: '2rem' }}>
-        <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#646cff' }}>
-          Market Data
-        </h2>
-        <MarketDataExample />
-      </div>
-
-      <div style={{ borderTop: '2px solid #646cff', paddingTop: '2rem', marginTop: '2rem' }}>
-        <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#646cff' }}>
-          Cashflow Primitives
-        </h2>
-        <CashflowBasicsExample />
-      </div>
-
-      <div style={{ borderTop: '2px solid #646cff', paddingTop: '2rem', marginTop: '2rem' }}>
-        <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#646cff' }}>
-          Math Utilities
-        </h2>
-        <MathShowcaseExample />
-      </div>
+      {error ? (
+        <>
+          <h1>finstack-wasm Examples</h1>
+          <p className="error">{error}</p>
+        </>
+      ) : !wasmReady ? (
+        <>
+          <h1>finstack-wasm Examples</h1>
+          <p>Loading WASM module...</p>
+        </>
+      ) : (
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/examples/:slug" element={<ExamplePage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      )}
     </main>
   );
 };

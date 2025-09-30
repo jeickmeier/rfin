@@ -37,7 +37,7 @@ use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::adjust;
 use finstack_core::dates::calendar::calendar_by_id;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
 use time::Duration;
@@ -120,6 +120,7 @@ fn emit_float_coupons_on(
     outstanding_after: &hashbrown::HashMap<Date, f64>,
     outstanding_fallback: f64,
     ccy: Currency,
+    curves: Option<&finstack_core::market_data::MarketContext>,
 ) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
     let mut pik_to_add = 0.0;
     let mut new_flows: Vec<CashFlow> = Vec::new();
@@ -133,8 +134,32 @@ fn emit_float_coupons_on(
             let yf =
                 spec.dc
                     .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
-            let margin_rate = (spec.margin_bp * 1e-4) * spec.gearing;
-            let coupon_total = base_out * (margin_rate * yf);
+            
+            // Compute total rate: forward_rate * gearing + margin
+            let total_rate = if let Some(ctx) = curves {
+                // If curves are available, look up the forward rate
+                if let Ok(fwd) = ctx.get_forward_ref(spec.index_id.clone()) {
+                    let mut reset_date = d - Duration::days(spec.reset_lag_days as i64);
+                    if let Some(id) = spec.calendar_id {
+                        if let Some(cal) = calendar_by_id(id) {
+                            reset_date = adjust(reset_date, spec.bdc, cal)?;
+                        }
+                    }
+                    let t_reset = fwd.day_count()
+                        .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())
+                        .unwrap_or(0.0);
+                    let forward_rate = fwd.rate(t_reset);
+                    forward_rate * spec.gearing + spec.margin_bp * 1e-4
+                } else {
+                    // Curve not found, fall back to margin only
+                    (spec.margin_bp * 1e-4) * spec.gearing
+                }
+            } else {
+                // No curves provided, use margin only
+                (spec.margin_bp * 1e-4) * spec.gearing
+            };
+            
+            let coupon_total = base_out * (total_rate * yf);
 
             let mut reset_date = d - Duration::days(spec.reset_lag_days as i64);
             if let Some(id) = spec.calendar_id {
@@ -496,6 +521,7 @@ fn process_one_date(
     mut state: BuildState,
     ctx: &BuildContext,
     amort_setup: &AmortizationSetup,
+    curves: Option<&finstack_core::market_data::MarketContext>,
 ) -> finstack_core::Result<BuildState> {
     // Coupons
     let (pik_f, mut fixed_flows) = emit_fixed_coupons_on(
@@ -511,6 +537,7 @@ fn process_one_date(
         &state.outstanding_after,
         state.outstanding,
         ctx.ccy,
+        curves,
     )?;
     let pik_to_add = pik_f + pik_fl;
     state.flows.append(&mut fixed_flows);
@@ -847,6 +874,17 @@ impl CashflowBuilder {
 
     /// Builds the complete cashflow schedule.
     pub fn build(&self) -> finstack_core::Result<CashFlowSchedule> {
+        self.build_with_curves(None)
+    }
+
+    /// Build the cashflow schedule with optional market curves for floating rate computation.
+    ///
+    /// When curves are provided, floating rate coupons include the forward rate:
+    /// `coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * year_fraction`
+    ///
+    /// Without curves, only the margin is used:
+    /// `coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction`
+    pub fn build_with_curves(&self, curves: Option<&finstack_core::market_data::MarketContext>) -> finstack_core::Result<CashFlowSchedule> {
         // 1) Validate core inputs
         let (notional, issue, maturity) = validate_core_inputs(self)?;
 
@@ -891,7 +929,7 @@ impl CashflowBuilder {
 
         // 6) Fold over dates producing flows deterministically
         for &d in dates.iter().skip(1) {
-            state = process_one_date(d, state, &ctx, &amort_setup)?;
+            state = process_one_date(d, state, &ctx, &amort_setup, curves)?;
         }
 
         // 7) Finalize flows and produce meta/day count (use actual specs used)

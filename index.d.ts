@@ -109,6 +109,138 @@ export class Money {
   format(): string;
 }
 
+export class ValuationResult {
+  readonly instrumentId: string;
+  readonly asOf: Date;
+  readonly presentValue: Money;
+  metric(name: string): number | undefined;
+  readonly measures: Map<string, number>;
+}
+
+export class PricerRegistry {
+  constructor();
+  priceBond(bond: Bond, model: string, market: MarketContext): ValuationResult;
+  priceBondWithMetrics(
+    bond: Bond,
+    model: string,
+    market: MarketContext,
+    metrics: string[]
+  ): ValuationResult;
+  priceDeposit(deposit: Deposit, model: string, market: MarketContext): ValuationResult;
+  priceDepositWithMetrics(
+    deposit: Deposit,
+    model: string,
+    market: MarketContext,
+    metrics: string[]
+  ): ValuationResult;
+}
+
+export function createStandardRegistry(): PricerRegistry;
+
+export class Bond {
+  static fixedSemiannual(
+    instrumentId: string,
+    notional: Money,
+    couponRate: number,
+    issue: Date,
+    maturity: Date,
+    discountCurve: string,
+    quotedCleanPrice?: number
+  ): Bond;
+  static zeroCoupon(
+    instrumentId: string,
+    notional: Money,
+    issue: Date,
+    maturity: Date,
+    discountCurve: string,
+    quotedCleanPrice?: number
+  ): Bond;
+  static floating(
+    instrumentId: string,
+    notional: Money,
+    issue: Date,
+    maturity: Date,
+    discountCurve: string,
+    forwardCurve: string,
+    marginBp: number,
+    quotedCleanPrice?: number
+  ): Bond;
+  static pikToggle(
+    instrumentId: string,
+    notional: Money,
+    couponRate: number,
+    cashPct: number,
+    pikPct: number,
+    issue: Date,
+    maturity: Date,
+    discountCurve: string,
+    quotedCleanPrice: number | undefined,
+    market: MarketContext
+  ): Bond;
+  static fixedToFloating(
+    instrumentId: string,
+    notional: Money,
+    fixedRate: number,
+    switchDate: Date,
+    forwardCurve: string,
+    marginBp: number,
+    issue: Date,
+    maturity: Date,
+    frequency: Frequency,
+    dayCount: DayCount,
+    discountCurve: string,
+    quotedCleanPrice: number | undefined,
+    market: MarketContext
+  ): Bond;
+  constructor(
+    instrumentId: string,
+    notional: Money,
+    issue: Date,
+    maturity: Date,
+    discountCurve: string,
+    couponRate: number,
+    frequency: Frequency,
+    dayCount: DayCount,
+    businessDayConvention: BusinessDayConvention,
+    calendarId?: string,
+    stubKind?: StubKind,
+    amortization?: AmortizationSpec,
+    callSchedule?: Array<[string, number]>,
+    putSchedule?: Array<[string, number]>,
+    quotedCleanPrice?: number,
+    forwardCurve?: string,
+    floatMarginBp?: number,
+    floatGearing?: number,
+    floatResetLagDays?: number,
+    hazardCurve?: string
+  );
+  readonly instrumentId: string;
+  readonly notional: Money;
+  readonly issue: Date;
+  readonly maturity: Date;
+  readonly frequency: Frequency;
+  readonly dayCount: string;
+  readonly quotedCleanPrice?: number;
+  getCashflows(market: MarketContext): Array<[Date, Money, string, number]>;
+}
+
+export class Deposit {
+  constructor(
+    instrumentId: string,
+    notional: Money,
+    start: Date,
+    end: Date,
+    dayCount: DayCount,
+    discountCurve: string,
+    quoteRate?: number
+  );
+  readonly instrumentId: string;
+  readonly notional: Money;
+  readonly start: Date;
+  readonly end: Date;
+  readonly quoteRate?: number;
+}
+
 export type CashFlowTuple = [
   date: Date,
   amount: Money,

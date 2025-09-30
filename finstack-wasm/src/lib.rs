@@ -3,6 +3,7 @@
 use wasm_bindgen::prelude::*;
 
 mod core;
+mod valuations;
 
 pub use core::cashflow::{
     JsAmortizationSpec as AmortizationSpec, JsCFKind as CFKind, JsCashFlow as CashFlow,
@@ -47,6 +48,11 @@ pub use core::math::{
     NewtonSolver,
 };
 pub use core::money::JsMoney as Money;
+pub use valuations::instruments::{Bond, Deposit};
+pub use valuations::pricer::{
+    create_standard_registry_js as createStandardRegistry, JsPricerRegistry as PricerRegistry,
+};
+pub use valuations::results::JsValuationResult as ValuationResult;
 
 #[cfg(feature = "console_error_panic_hook")]
 fn init_panic_hook() {

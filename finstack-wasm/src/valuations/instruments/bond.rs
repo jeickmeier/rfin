@@ -1,0 +1,504 @@
+use crate::core::cashflow::primitives::JsAmortizationSpec;
+use crate::core::dates::calendar::JsBusinessDayConvention;
+use crate::core::dates::date::JsDate;
+use crate::core::dates::daycount::{JsDayCount, JsFrequency};
+use crate::core::dates::schedule::JsStubKind;
+use crate::core::money::JsMoney;
+use crate::core::utils::js_error;
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
+use finstack_core::dates::Date as CoreDate;
+use finstack_valuations::instruments::bond::{Bond, BondFloatSpec, CallPut, CallPutSchedule};
+use finstack_valuations::instruments::PricingOverrides;
+use finstack_valuations::pricer::InstrumentType;
+use js_sys::{Array, Reflect};
+use time::Month;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsValue;
+
+fn parse_iso_date(value: &str) -> Result<CoreDate, JsValue> {
+    let parts: Vec<&str> = value.split('-').collect();
+    if parts.len() != 3 {
+        return Err(js_error(format!(
+            "Date '{value}' must be in ISO format YYYY-MM-DD"
+        )));
+    }
+    let year: i32 = parts[0]
+        .parse()
+        .map_err(|_| js_error(format!("Invalid year component in date '{value}'")))?;
+    let month: u8 = parts[1]
+        .parse()
+        .map_err(|_| js_error(format!("Invalid month component in date '{value}'")))?;
+    let day: u8 = parts[2]
+        .parse()
+        .map_err(|_| js_error(format!("Invalid day component in date '{value}'")))?;
+    let month_enum = Month::try_from(month)
+        .map_err(|_| js_error(format!("Month component must be 1-12 in date '{value}'")))?;
+    CoreDate::from_calendar_date(year, month_enum, day)
+        .map_err(|e| js_error(format!("Invalid date '{value}': {e}")))
+}
+
+fn parse_call_put_entries(
+    entries: Option<Array>,
+    label: &str,
+) -> Result<Option<Vec<CallPut>>, JsValue> {
+    if let Some(array) = entries {
+        let mut out: Vec<CallPut> = Vec::with_capacity(array.length() as usize);
+        for item in array.iter() {
+            if Array::is_array(&item) {
+                let pair = Array::from(&item);
+                if pair.length() != 2 {
+                    return Err(js_error(format!(
+                        "{label} entries must be [dateString, pricePct] pairs"
+                    )));
+                }
+                let date_value = pair.get(0);
+                let price_value = pair.get(1);
+                let date_str = date_value.as_string().ok_or_else(|| {
+                    js_error(format!(
+                        "{label} entries must provide date strings in ISO format"
+                    ))
+                })?;
+                let price_pct = price_value.as_f64().ok_or_else(|| {
+                    js_error(format!("{label} entries must provide numeric prices"))
+                })?;
+                out.push(CallPut {
+                    date: parse_iso_date(&date_str)?,
+                    price_pct_of_par: price_pct,
+                });
+            } else if item.is_object() {
+                let date_value = Reflect::get(&item, &JsValue::from_str("date")).map_err(|_| {
+                    js_error(format!(
+                        "{label} objects must contain a 'date' property as ISO string"
+                    ))
+                })?;
+                let price_value =
+                    Reflect::get(&item, &JsValue::from_str("pricePct")).map_err(|_| {
+                        js_error(format!(
+                            "{label} objects must contain a 'pricePct' numeric property"
+                        ))
+                    })?;
+                let date_str = date_value.as_string().ok_or_else(|| {
+                    js_error(format!(
+                        "{label} objects must provide date strings in ISO format"
+                    ))
+                })?;
+                let price_pct = price_value.as_f64().ok_or_else(|| {
+                    js_error(format!(
+                        "{label} objects must provide numeric pricePct values"
+                    ))
+                })?;
+                out.push(CallPut {
+                    date: parse_iso_date(&date_str)?,
+                    price_pct_of_par: price_pct,
+                });
+            } else {
+                return Err(js_error(format!(
+                    "{label} entries must be arrays [dateString, pricePct] or objects"
+                )));
+            }
+        }
+        Ok(Some(out))
+    } else {
+        Ok(None)
+    }
+}
+
+#[wasm_bindgen(js_name = Bond)]
+#[derive(Clone, Debug)]
+pub struct JsBond {
+    inner: Bond,
+}
+
+impl JsBond {
+    pub(crate) fn new(inner: Bond) -> Self {
+        Self { inner }
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn inner(&self) -> Bond {
+        self.inner.clone()
+    }
+}
+
+#[wasm_bindgen(js_class = Bond)]
+impl JsBond {
+    #[wasm_bindgen(constructor)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn builder(
+        instrument_id: &str,
+        notional: &JsMoney,
+        issue: &JsDate,
+        maturity: &JsDate,
+        discount_curve: &str,
+        coupon_rate: Option<f64>,
+        frequency: Option<JsFrequency>,
+        day_count: Option<JsDayCount>,
+        business_day_convention: Option<JsBusinessDayConvention>,
+        calendar_id: Option<String>,
+        stub_kind: Option<JsStubKind>,
+        amortization: Option<JsAmortizationSpec>,
+        call_schedule: Option<Array>,
+        put_schedule: Option<Array>,
+        quoted_clean_price: Option<f64>,
+        forward_curve: Option<String>,
+        float_margin_bp: Option<f64>,
+        float_gearing: Option<f64>,
+        float_reset_lag_days: Option<i32>,
+        hazard_curve: Option<String>,
+    ) -> Result<JsBond, JsValue> {
+        let mut builder = Bond::builder()
+            .id(instrument_id_from_str(instrument_id))
+            .notional(notional.inner())
+            .issue(issue.inner())
+            .maturity(maturity.inner())
+            .disc_id(curve_id_from_str(discount_curve));
+
+        if let Some(rate) = coupon_rate {
+            builder = builder.coupon(rate);
+        }
+        if let Some(freq) = frequency {
+            builder = builder.freq(freq.inner());
+        }
+        if let Some(dc) = day_count {
+            builder = builder.dc(dc.inner());
+        }
+        if let Some(conv) = business_day_convention {
+            builder = builder.bdc(conv.into());
+        }
+        if let Some(stub) = stub_kind {
+            builder = builder.stub(stub.inner());
+        }
+        if let Some(amort) = amortization {
+            builder = builder.amortization(amort.inner());
+        }
+        if let Some(price) = quoted_clean_price {
+            builder =
+                builder.pricing_overrides(PricingOverrides::default().with_clean_price(price));
+        }
+        if let Some(hazard) = hazard_curve {
+            builder = builder.hazard_id_opt(Some(curve_id_from_str(&hazard)));
+        }
+        if let Some(cal) = optional_static_str(calendar_id) {
+            builder = builder.calendar_id_opt(Some(cal));
+        }
+
+        if call_schedule.is_some() || put_schedule.is_some() {
+            let mut schedule = CallPutSchedule::default();
+            if let Some(calls) = parse_call_put_entries(call_schedule, "Call schedule")? {
+                schedule.calls = calls;
+            }
+            if let Some(puts) = parse_call_put_entries(put_schedule, "Put schedule")? {
+                schedule.puts = puts;
+            }
+            builder = builder.call_put_opt(Some(schedule));
+        }
+
+        if let Some(curve) = forward_curve {
+            let spec = BondFloatSpec {
+                fwd_id: curve_id_from_str(&curve),
+                margin_bp: float_margin_bp.unwrap_or(0.0),
+                gearing: float_gearing.unwrap_or(1.0),
+                reset_lag_days: float_reset_lag_days.unwrap_or(2),
+            };
+            builder = builder.float_opt(Some(spec));
+        }
+
+        builder
+            .build()
+            .map(JsBond::new)
+            .map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = fixedSemiannual)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn fixed_semiannual(
+        instrument_id: &str,
+        notional: &JsMoney,
+        coupon_rate: f64,
+        issue: &JsDate,
+        maturity: &JsDate,
+        discount_curve: &str,
+        quoted_clean_price: Option<f64>,
+    ) -> JsBond {
+        let mut bond = Bond::fixed_semiannual(
+            instrument_id_from_str(instrument_id),
+            notional.inner(),
+            coupon_rate,
+            issue.inner(),
+            maturity.inner(),
+            curve_id_from_str(discount_curve),
+        );
+        if let Some(price) = quoted_clean_price {
+            bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
+        }
+        JsBond::new(bond)
+    }
+
+    #[wasm_bindgen(js_name = treasury)]
+    pub fn treasury(
+        instrument_id: &str,
+        notional: &JsMoney,
+        coupon_rate: f64,
+        issue: &JsDate,
+        maturity: &JsDate,
+        quoted_clean_price: Option<f64>,
+    ) -> JsBond {
+        let mut bond = Bond::treasury(
+            instrument_id_from_str(instrument_id),
+            notional.inner(),
+            coupon_rate,
+            issue.inner(),
+            maturity.inner(),
+        );
+        if let Some(price) = quoted_clean_price {
+            bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
+        }
+        JsBond::new(bond)
+    }
+
+    #[wasm_bindgen(js_name = zeroCoupon)]
+    pub fn zero_coupon(
+        instrument_id: &str,
+        notional: &JsMoney,
+        issue: &JsDate,
+        maturity: &JsDate,
+        discount_curve: &str,
+        quoted_clean_price: Option<f64>,
+    ) -> JsBond {
+        let mut bond = Bond::zero_coupon(
+            instrument_id_from_str(instrument_id),
+            notional.inner(),
+            issue.inner(),
+            maturity.inner(),
+            curve_id_from_str(discount_curve),
+        );
+        if let Some(price) = quoted_clean_price {
+            bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
+        }
+        JsBond::new(bond)
+    }
+
+    #[wasm_bindgen(js_name = floating)]
+    pub fn floating(
+        instrument_id: &str,
+        notional: &JsMoney,
+        issue: &JsDate,
+        maturity: &JsDate,
+        discount_curve: &str,
+        forward_curve: &str,
+        margin_bp: f64,
+        quoted_clean_price: Option<f64>,
+    ) -> JsBond {
+        let mut bond = Bond::floating(
+            instrument_id_from_str(instrument_id),
+            notional.inner(),
+            issue.inner(),
+            maturity.inner(),
+            curve_id_from_str(discount_curve),
+            curve_id_from_str(forward_curve),
+            margin_bp,
+        );
+        if let Some(price) = quoted_clean_price {
+            bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
+        }
+        JsBond::new(bond)
+    }
+
+    #[wasm_bindgen(js_name = pikToggle)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn pik_toggle(
+        instrument_id: &str,
+        notional: &JsMoney,
+        coupon_rate: f64,
+        cash_pct: f64,
+        pik_pct: f64,
+        issue: &JsDate,
+        maturity: &JsDate,
+        discount_curve: &str,
+        quoted_clean_price: Option<f64>,
+        market: &crate::core::market_data::context::JsMarketContext,
+    ) -> Result<JsBond, JsValue> {
+        Bond::pik_toggle(
+            instrument_id_from_str(instrument_id),
+            notional.inner(),
+            coupon_rate,
+            cash_pct,
+            pik_pct,
+            issue.inner(),
+            maturity.inner(),
+            curve_id_from_str(discount_curve),
+            quoted_clean_price,
+            &market.inner(),
+        )
+        .map(JsBond::new)
+        .map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = fixedToFloating)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn fixed_to_floating(
+        instrument_id: &str,
+        notional: &JsMoney,
+        fixed_rate: f64,
+        switch_date: &JsDate,
+        forward_curve: &str,
+        margin_bp: f64,
+        issue: &JsDate,
+        maturity: &JsDate,
+        frequency: &JsFrequency,
+        day_count: &JsDayCount,
+        discount_curve: &str,
+        quoted_clean_price: Option<f64>,
+        market: &crate::core::market_data::context::JsMarketContext,
+    ) -> Result<JsBond, JsValue> {
+        Bond::fixed_to_floating(
+            instrument_id_from_str(instrument_id),
+            notional.inner(),
+            fixed_rate,
+            switch_date.inner(),
+            curve_id_from_str(forward_curve),
+            margin_bp,
+            issue.inner(),
+            maturity.inner(),
+            frequency.inner(),
+            day_count.inner(),
+            curve_id_from_str(discount_curve),
+            quoted_clean_price,
+            &market.inner(),
+        )
+        .map(JsBond::new)
+        .map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(getter, js_name = instrumentId)]
+    pub fn instrument_id(&self) -> String {
+        self.inner.id.as_str().to_string()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn notional(&self) -> JsMoney {
+        JsMoney::from_inner(self.inner.notional)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn coupon(&self) -> f64 {
+        self.inner.coupon
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn frequency(&self) -> JsFrequency {
+        JsFrequency::from_inner(self.inner.freq)
+    }
+
+    #[wasm_bindgen(getter, js_name = dayCount)]
+    pub fn day_count(&self) -> String {
+        format!("{:?}", self.inner.dc)
+    }
+
+    #[wasm_bindgen(getter, js_name = businessDayConvention)]
+    pub fn business_day_convention(&self) -> JsBusinessDayConvention {
+        self.inner.bdc.into()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn issue(&self) -> JsDate {
+        JsDate::from_core(self.inner.issue)
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn maturity(&self) -> JsDate {
+        JsDate::from_core(self.inner.maturity)
+    }
+
+    #[wasm_bindgen(getter, js_name = discountCurve)]
+    pub fn discount_curve(&self) -> String {
+        self.inner.disc_id.as_str().to_string()
+    }
+
+    #[wasm_bindgen(getter, js_name = hazardCurve)]
+    pub fn hazard_curve(&self) -> Option<String> {
+        self.inner
+            .hazard_id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+    }
+
+    #[wasm_bindgen(getter, js_name = quotedCleanPrice)]
+    pub fn quoted_clean_price(&self) -> Option<f64> {
+        self.inner.pricing_overrides.quoted_clean_price
+    }
+
+    /// Get the cashflow schedule for this bond.
+    /// 
+    /// Returns an array of cashflow tuples: [date, amount, kind, outstanding_balance]
+    /// For floating rate bonds, the amounts are computed using the market context.
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(&self, market: &crate::core::market_data::context::JsMarketContext) -> Result<Array, JsValue> {
+        use crate::core::dates::date::JsDate;
+        use crate::core::money::JsMoney;
+        use finstack_core::cashflow::primitives::CFKind;
+        
+        // Use the Bond's get_full_schedule method with market curves
+        let sched = self.inner.get_full_schedule(&market.inner())
+            .map_err(|e| js_error(e.to_string()))?;
+        
+        // Get outstanding path (properly calculated by the Rust library)
+        let outstanding_path = sched.outstanding_path();
+        
+        // Convert to JS arrays
+        let result = Array::new();
+        
+        for (idx, cf) in sched.flows.iter().enumerate() {
+            let entry = Array::new();
+            entry.push(&JsDate::from_core(cf.date).into());
+            entry.push(&JsMoney::from_inner(cf.amount).into());
+            
+            // Add kind as string
+            // Stubs are treated as their underlying type (Fixed/Float/PIK) not as a separate category
+            let kind_str = match cf.kind {
+                CFKind::Fixed | CFKind::Stub => {
+                    // Classify stub based on bond type
+                    if self.inner.float.is_some() {
+                        "Float"
+                    } else {
+                        "Fixed"
+                    }
+                },
+                CFKind::FloatReset => "Float",
+                CFKind::Notional => "Notional",
+                CFKind::PIK => "PIK",
+                CFKind::Amortization => "Amortization",
+                CFKind::Fee => "Fee",
+                _ => "Other",
+            };
+            entry.push(&JsValue::from_str(kind_str));
+            
+            // Get outstanding balance from the path
+            let outstanding = outstanding_path.get(idx)
+                .map(|(_, m)| m.amount())
+                .unwrap_or(0.0);
+            entry.push(&JsValue::from_f64(outstanding));
+            result.push(&entry);
+        }
+        
+        Ok(result)
+    }
+
+    #[wasm_bindgen(js_name = instrumentType)]
+    pub fn instrument_type(&self) -> u16 {
+        InstrumentType::Bond as u16
+    }
+
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string_js(&self) -> String {
+        format!(
+            "Bond(id='{}', coupon={:.4}, maturity='{}')",
+            self.inner.id, self.inner.coupon, self.inner.maturity
+        )
+    }
+
+    #[wasm_bindgen(js_name = clone)]
+    pub fn clone_js(&self) -> JsBond {
+        JsBond::new(self.inner.clone())
+    }
+}

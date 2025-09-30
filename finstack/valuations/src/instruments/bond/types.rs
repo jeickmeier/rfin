@@ -257,6 +257,182 @@ impl Bond {
         self.custom_cashflows = Some(schedule);
         self
     }
+
+    /// Create a PIK-toggle bond with split cash/PIK coupons.
+    ///
+    /// # Arguments
+    /// * `id` - Instrument identifier
+    /// * `notional` - Principal amount
+    /// * `coupon_rate` - Annual coupon rate (e.g., 0.08 for 8%)
+    /// * `cash_pct` - Percentage paid in cash (e.g., 0.5 for 50%)
+    /// * `pik_pct` - Percentage capitalized as PIK (e.g., 0.5 for 50%)
+    /// * `issue` - Issue date
+    /// * `maturity` - Maturity date
+    /// * `disc_id` - Discount curve identifier
+    /// * `quoted_clean` - Optional quoted clean price
+    pub fn pik_toggle(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        coupon_rate: f64,
+        cash_pct: f64,
+        pik_pct: f64,
+        issue: Date,
+        maturity: Date,
+        disc_id: impl Into<CurveId>,
+        quoted_clean: Option<f64>,
+        curves: &finstack_core::market_data::MarketContext,
+    ) -> Result<Self> {
+        use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType};
+        
+        // Build cashflow schedule with PIK split
+        let custom_schedule = cf()
+            .principal(notional, issue, maturity)
+            .fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Split { cash_pct, pik_pct },
+                rate: coupon_rate,
+                freq: finstack_core::dates::Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            })
+            .build_with_curves(Some(curves))?;
+        
+        Self::from_cashflows(id, custom_schedule, disc_id, quoted_clean)
+    }
+
+    /// Create a fixed-to-floating bond that starts with fixed coupons then switches to floating.
+    ///
+    /// # Arguments
+    /// * `id` - Instrument identifier
+    /// * `notional` - Principal amount
+    /// * `fixed_rate` - Fixed coupon rate for initial period
+    /// * `switch_date` - Date when bond switches from fixed to floating
+    /// * `fwd_id` - Forward curve identifier for floating period
+    /// * `margin_bp` - Margin in basis points over the forward rate
+    /// * `issue` - Issue date
+    /// * `maturity` - Maturity date
+    /// * `freq` - Payment frequency
+    /// * `dc` - Day count convention
+    /// * `disc_id` - Discount curve identifier
+    /// * `quoted_clean` - Optional quoted clean price
+    pub fn fixed_to_floating(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        fixed_rate: f64,
+        switch_date: Date,
+        fwd_id: impl Into<CurveId>,
+        margin_bp: f64,
+        issue: Date,
+        maturity: Date,
+        freq: finstack_core::dates::Frequency,
+        dc: DayCount,
+        disc_id: impl Into<CurveId>,
+        quoted_clean: Option<f64>,
+        curves: &finstack_core::market_data::MarketContext,
+    ) -> Result<Self> {
+        use crate::cashflow::builder::{cf, CouponType};
+        
+        // Build cashflow schedule with fixed then floating windows
+        let mut b = cf();
+        b.principal(notional, issue, maturity);
+        
+        // Fixed window: issue to switch date
+        b.add_fixed_coupon_window(
+            issue,
+            switch_date,
+            fixed_rate,
+            crate::cashflow::builder::ScheduleParams {
+                freq,
+                dc,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            },
+            CouponType::Cash,
+        );
+        
+        // Floating window: switch date to maturity
+        b.add_float_coupon_window(
+            switch_date,
+            maturity,
+            crate::cashflow::builder::FloatCouponParams {
+                index_id: fwd_id.into(),
+                margin_bp,
+                gearing: 1.0,
+                reset_lag_days: 2,
+            },
+            crate::cashflow::builder::ScheduleParams {
+                freq,
+                dc,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            },
+            CouponType::Cash,
+        );
+        
+        let custom_schedule = b.build_with_curves(Some(curves))?;
+        Self::from_cashflows(id, custom_schedule, disc_id, quoted_clean)
+    }
+
+    /// Get the full cashflow schedule with kinds for this bond.
+    ///
+    /// This returns the complete `CashFlowSchedule` including all cashflow types
+    /// (Fixed, Float, PIK, Amortization, Notional, etc.) and metadata.
+    /// 
+    /// For floating rate bonds, requires market curves to properly compute floating
+    /// coupon amounts (forward rate + discount margin).
+    /// 
+    /// Note: Amortization amounts are stored as POSITIVE values in the schedule.
+    pub fn get_full_schedule(&self, curves: &finstack_core::market_data::MarketContext) -> Result<CashFlowSchedule> {
+        use crate::cashflow::builder::{cf, FixedCouponSpec, FloatingCouponSpec, CouponType};
+        
+        // If custom cashflows are set, return them directly
+        if let Some(ref custom) = self.custom_cashflows {
+            return Ok(custom.clone());
+        }
+
+        // Build the schedule using the cashflow builder
+        let mut b = cf();
+        b.principal(self.notional, self.issue, self.maturity);
+        
+        // Add amortization if present
+        if let Some(am) = &self.amortization {
+            b.amortization(am.clone());
+        }
+        
+        // Add coupon specification (fixed or floating)
+        if let Some(ref fl) = self.float {
+            // Floating rate bond
+            b.floating_cf(FloatingCouponSpec {
+                index_id: fl.fwd_id.clone(),
+                margin_bp: fl.margin_bp,
+                gearing: fl.gearing,
+                reset_lag_days: fl.reset_lag_days,
+                coupon_type: CouponType::Cash,
+                freq: self.freq,
+                dc: self.dc,
+                bdc: self.bdc,
+                calendar_id: self.calendar_id,
+                stub: self.stub,
+            });
+        } else {
+            // Fixed rate bond
+            b.fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: self.coupon,
+                freq: self.freq,
+                dc: self.dc,
+                bdc: self.bdc,
+                calendar_id: self.calendar_id,
+                stub: self.stub,
+            });
+        }
+        
+        // Build the schedule with market curves for floating rate computation
+        b.build_with_curves(Some(curves))
+    }
 }
 
 // Explicit trait implementations for better IDE support and code clarity

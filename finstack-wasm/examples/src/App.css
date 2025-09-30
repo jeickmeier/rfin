@@ -19,6 +19,12 @@ h1 {
   margin-bottom: 3rem;
 }
 
+.page-lead {
+  font-size: 1.05rem;
+  color: #999;
+  margin-bottom: 2rem;
+}
+
 .example-section {
   margin: 3rem 0;
   padding: 2rem;
@@ -116,6 +122,94 @@ tbody tr:hover {
   border-radius: 4px;
 }
 
+.example-group {
+  margin: 3rem 0;
+}
+
+.example-group h2 {
+  font-size: 2rem;
+  margin-bottom: 1.5rem;
+  color: #646cff;
+}
+
+.example-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.example-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border: 1px solid #333;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.example-card:hover {
+  transform: translateY(-4px);
+  border-color: #646cff;
+  box-shadow: 0 12px 24px rgba(100, 108, 255, 0.15);
+}
+
+.example-card h3 {
+  font-size: 1.25rem;
+  color: #f0f0ff;
+}
+
+.example-card p {
+  flex-grow: 1;
+  color: #b0b0d0;
+  line-height: 1.5;
+}
+
+.example-card__cta {
+  font-weight: 600;
+  color: #a8afff;
+}
+
+.breadcrumb {
+  margin-bottom: 1.5rem;
+}
+
+.breadcrumb a {
+  color: #646cff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.example-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.not-found {
+  text-align: center;
+  padding: 4rem 0;
+}
+
+.not-found__link {
+  display: inline-block;
+  margin-top: 1.5rem;
+  color: #646cff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.not-found__link:hover {
+  text-decoration: underline;
+}
+
 @media (prefers-color-scheme: light) {
   .example-section {
     border-color: #ddd;
@@ -133,5 +227,22 @@ tbody tr:hover {
 
   .error {
     background-color: rgba(255, 107, 107, 0.1);
+  }
+
+  .example-card {
+    border-color: #ddd;
+    background: rgba(0, 0, 0, 0.02);
+  }
+
+  .example-card h3 {
+    color: #2d2d4d;
+  }
+
+  .example-card p {
+    color: #4d4d6d;
+  }
+
+  .example-card__cta {
+    color: #3f49ff;
   }
 }

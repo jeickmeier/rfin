@@ -189,6 +189,10 @@ pub struct JsDayCount {
 }
 
 impl JsDayCount {
+    pub(crate) fn inner(&self) -> DayCount {
+        self.inner
+    }
+
     fn new(inner: DayCount) -> Self {
         Self { inner }
     }

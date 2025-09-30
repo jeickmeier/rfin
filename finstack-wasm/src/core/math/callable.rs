@@ -75,7 +75,7 @@ struct JsCallableProxy<'a> {
     error: &'a RefCell<Option<JsValue>>,
 }
 
-impl<'a> JsCallableProxy<'a> {
+impl JsCallableProxy<'_> {
     fn invoke(&self, x: f64) -> f64 {
         match self.func.call1(&JsValue::UNDEFINED, &JsValue::from_f64(x)) {
             Ok(value) => value.as_f64().unwrap_or_else(|| {

@@ -92,7 +92,10 @@ impl CashFlowSchedule {
     }
 
     /// Outstanding principal path computed from principal/PIK/amortization flows.
-    /// Assumes economic signs: amortization negative, PIK positive, final notional positive redemption.
+    /// 
+    /// Note: Amortization amounts in the schedule are stored as POSITIVE values
+    /// (the builder internally manages the reduction of outstanding balance).
+    /// PIK amounts are positive and increase outstanding.
     ///
     /// Example
     /// -------
@@ -107,14 +110,14 @@ impl CashFlowSchedule {
     /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     /// let notional = Notional { initial: Money::new(100.0, Currency::USD), amort: Default::default() };
     /// let flows = vec![
-    ///   CashFlow { date: base, reset_date: None, amount: Money::new(-10.0, Currency::USD), kind: CFKind::Amortization, accrual_factor: 0.0 },
-    ///   CashFlow { date: base, reset_date: None, amount: Money::new(  5.0, Currency::USD), kind: CFKind::PIK,          accrual_factor: 0.0 },
+    ///   CashFlow { date: base, reset_date: None, amount: Money::new(10.0, Currency::USD), kind: CFKind::Amortization, accrual_factor: 0.0 },
+    ///   CashFlow { date: base, reset_date: None, amount: Money::new(5.0, Currency::USD), kind: CFKind::PIK, accrual_factor: 0.0 },
     /// ];
     /// let s = CashFlowSchedule { flows, notional, day_count: finstack_core::dates::DayCount::Act365F, meta: CashflowMeta::default() };
     /// let path = s.outstanding_path();
     /// assert_eq!(path.len(), 2);
-    /// assert_eq!(path[0].1.amount(), 90.0);
-    /// assert_eq!(path[1].1.amount(), 95.0);
+    /// assert_eq!(path[0].1.amount(), 90.0);  // 100 - 10 = 90
+    /// assert_eq!(path[1].1.amount(), 95.0);  // 90 + 5 = 95
     /// ```
     pub fn outstanding_path(&self) -> Vec<(Date, Money)> {
         let mut out = Vec::new();
@@ -123,7 +126,9 @@ impl CashFlowSchedule {
         for cf in &self.flows {
             match cf.kind {
                 CFKind::Amortization => {
-                    outstanding += cf.amount.amount(); // amount is negative
+                    // Amortization amounts are stored as positive in the builder
+                    // but economically represent principal reductions
+                    outstanding -= cf.amount.amount();
                 }
                 CFKind::PIK => {
                     outstanding += cf.amount.amount(); // adds to outstanding
@@ -156,6 +161,8 @@ impl CashFlowSchedule {
 
     /// End-of-date outstanding path: one entry per unique date after applying
     /// Amortization/PIK on that date. Redemption does not reduce outstanding here.
+    /// 
+    /// Note: Amortization amounts in the schedule are stored as POSITIVE values.
     pub fn outstanding_by_date(&self) -> Vec<(Date, Money)> {
         let mut result: Vec<(Date, Money)> = Vec::new();
         if self.flows.is_empty() {
@@ -173,7 +180,7 @@ impl CashFlowSchedule {
             while j < self.flows.len() && self.flows[j].date == d {
                 match self.flows[j].kind {
                     CFKind::Amortization => {
-                        outstanding += self.flows[j].amount.amount();
+                        outstanding -= self.flows[j].amount.amount(); // Subtract positive amount
                     }
                     CFKind::PIK => {
                         outstanding += self.flows[j].amount.amount();
