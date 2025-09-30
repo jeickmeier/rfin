@@ -74,6 +74,7 @@ import init, {
 } from './pkg/finstack_wasm.js';
 
 async function run() {
+    // Initialize WASM module once at application startup
     await init();
 
     const tradeDate = new FinstackDate(2024, 9, 30);
@@ -130,6 +131,8 @@ async function run() {
 
 run();
 ```
+
+**Important**: Call `init()` only once at application startup. Calling it multiple times will reinitialize WASM memory and cause memory corruption errors.
 
 ### Node.js
 
@@ -192,7 +195,7 @@ console.log(discountCurve.zero(2.0));
 
 ## Examples
 
-The `examples/` directory contains a full-featured React + TypeScript + Vite application demonstrating finstack-wasm usage in a realistic browser environment.
+The `examples/` directory contains a full-featured React + TypeScript + Vite application demonstrating finstack-wasm usage in a realistic browser environment with **feature parity to the Python bindings**.
 
 To run the examples:
 
@@ -207,13 +210,26 @@ npm run examples:install
 npm run examples:dev
 ```
 
-The examples demonstrate:
-- Period planning with fiscal quarters
-- Market data management (discount curves, FX, time series)
-- Proper WASM memory management patterns
-- TypeScript type safety with finstack-wasm
+The examples demonstrate comprehensive functionality:
 
-See `examples/README.md` for more details.
+### Date & Calendar Features
+- Date construction and manipulation (weekdays, quarters, fiscal years)
+- Date utilities (month arithmetic, leap years, epoch conversions)
+- Holiday calendars and business day adjustments
+- Day count conventions (Act/360, Act/365F, 30/360, Act/Act, BUS/252)
+- Schedule generation (monthly, quarterly, semi-annual, CDS IMM)
+- Period plans (calendar and fiscal periods)
+- IMM dates and option expiries
+
+### Market Data Features
+- Discount curves with interpolation
+- FX matrices and rate lookups
+- Time series with interpolation
+- Market context for data storage
+- Proper WASM memory management patterns
+- TypeScript type safety
+
+See `examples/README.md` for detailed documentation.
 
 ## Testing
 

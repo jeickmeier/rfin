@@ -78,6 +78,36 @@ tbody tr:hover {
   font-size: 1.1rem;
 }
 
+.inline-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0 2rem;
+}
+
+.inline-cards .card {
+  flex: 1 1 140px;
+  padding: 1rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: rgba(100, 108, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.inline-cards .card strong {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #cfcfff;
+}
+
+.inline-cards .card span {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+}
+
 .error {
   color: #ff6b6b;
   padding: 1rem;

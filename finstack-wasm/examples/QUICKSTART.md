@@ -51,19 +51,26 @@ This will:
 
 ## What You'll See
 
-The example application demonstrates:
+The example application demonstrates comprehensive date and market data functionality with feature parity to the Python bindings:
 
-1. **Period Plan Example**
-   - Generates fiscal quarters (2024 Q1-Q4)
-   - Shows period IDs, start/end dates, and actual/forecast status
-   - Demonstrates period DSL parsing
+### Date & Calendar Functionality
 
-2. **Market Data Example**
-   - Creates a USD discount curve (OIS)
-   - Builds an FX matrix with USD/EUR rates
-   - Interpolates CPI time series data
-   - Stores and retrieves equity spot prices
-   - Shows proper WASM memory management
+1. **Date Construction & Properties** - Creating dates, accessing components, weekend checks, quarter/fiscal year
+2. **Date Utilities** - Month arithmetic, month-end handling, leap years, epoch conversions
+3. **Calendars & Business Day Adjustments** - Holiday calendars, business day checks, adjustment conventions
+4. **Day Count Conventions** - Act/360, Act/365F, 30/360, Act/Act (ISDA/ISMA), BUS/252 with contexts
+5. **Schedule Builder** - Monthly/quarterly/semi-annual schedules with stub rules and CDS IMM
+6. **Period Plans** - Calendar and fiscal periods with actual/forecast segmentation
+7. **IMM Dates & Option Expiries** - IMM dates, CDS rolls, equity option expiries
+8. **Frequency Conventions** - Standard and custom frequencies
+
+### Market Data
+
+- USD discount curve (OIS)
+- FX matrix with USD/EUR rates
+- CPI time series interpolation
+- Equity spot prices
+- Proper WASM memory management
 
 ## Troubleshooting
 

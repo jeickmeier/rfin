@@ -109,6 +109,169 @@ export class Money {
   format(): string;
 }
 
+export type CashFlowTuple = [
+  date: Date,
+  amount: Money,
+  kind: CFKind,
+  accrualFactor: number,
+  resetDate: Date | null
+];
+
+export class CFKind {
+  static Fixed(): CFKind;
+  static FloatReset(): CFKind;
+  static Notional(): CFKind;
+  static PIK(): CFKind;
+  static Amortization(): CFKind;
+  static Fee(): CFKind;
+  static Stub(): CFKind;
+  static fromName(name: string): CFKind;
+  free(): void;
+  readonly name: string;
+  toString(): string;
+}
+
+export class CashFlow {
+  static fixed(date: Date, amount: Money, accrualFactor?: number): CashFlow;
+  static floating(
+    date: Date,
+    amount: Money,
+    resetDate?: Date | null,
+    accrualFactor?: number
+  ): CashFlow;
+  static pik(date: Date, amount: Money): CashFlow;
+  static amortization(date: Date, amount: Money): CashFlow;
+  static principalExchange(date: Date, amount: Money): CashFlow;
+  static fee(date: Date, amount: Money): CashFlow;
+  free(): void;
+  readonly kind: CFKind;
+  readonly date: Date;
+  readonly resetDate: Date | undefined;
+  readonly amount: Money;
+  accrualFactor: number;
+  toTuple(): CashFlowTuple;
+}
+
+export class AmortizationSpec {
+  static none(): AmortizationSpec;
+  static linearTo(finalNotional: Money): AmortizationSpec;
+  static stepRemaining(dates: Date[], remaining: Money[]): AmortizationSpec;
+  static percentPerPeriod(pct: number): AmortizationSpec;
+  static customPrincipal(dates: Date[], amounts: Money[]): AmortizationSpec;
+  free(): void;
+  toString(): string;
+  toSchedule(): Array<[Date, Money]>;
+}
+
+export function binomialProbability(
+  trials: number,
+  successes: number,
+  probability: number
+): number;
+export function logBinomialCoefficient(trials: number, successes: number): number;
+export function logFactorial(value: number): number;
+
+export class GaussHermiteQuadrature {
+  constructor(order: number);
+  static order5(): GaussHermiteQuadrature;
+  static order7(): GaussHermiteQuadrature;
+  static order10(): GaussHermiteQuadrature;
+  readonly order: number;
+  points(): number[];
+  weights(): number[];
+  integrate(func: (x: number) => number): number;
+  integrateAdaptive(func: (x: number) => number, tolerance: number): number;
+  toString(): string;
+  free(): void;
+}
+
+export function simpsonRule(
+  func: (x: number) => number,
+  a: number,
+  b: number,
+  intervals: number
+): number;
+export function adaptiveSimpson(
+  func: (x: number) => number,
+  a: number,
+  b: number,
+  tol: number,
+  maxDepth: number
+): number;
+export function adaptiveQuadrature(
+  func: (x: number) => number,
+  a: number,
+  b: number,
+  tol: number,
+  maxDepth: number
+): number;
+export function gaussLegendreIntegrate(
+  func: (x: number) => number,
+  a: number,
+  b: number,
+  order: number
+): number;
+export function gaussLegendreIntegrateComposite(
+  func: (x: number) => number,
+  a: number,
+  b: number,
+  order: number,
+  panels: number
+): number;
+export function gaussLegendreIntegrateAdaptive(
+  func: (x: number) => number,
+  a: number,
+  b: number,
+  order: number,
+  tol: number,
+  maxDepth: number
+): number;
+export function trapezoidalRule(
+  func: (x: number) => number,
+  a: number,
+  b: number,
+  intervals: number
+): number;
+
+export class NewtonSolver {
+  constructor(
+    tolerance?: number | null,
+    maxIterations?: number | null,
+    fdStep?: number | null
+  );
+  tolerance: number;
+  maxIterations: number;
+  fdStep: number;
+  solve(func: (x: number) => number, initialGuess: number): number;
+  toString(): string;
+  free(): void;
+}
+
+export class BrentSolver {
+  constructor(
+    tolerance?: number | null,
+    maxIterations?: number | null,
+    bracketExpansion?: number | null,
+    initialBracketSize?: number | null
+  );
+  tolerance: number;
+  maxIterations: number;
+  bracketExpansion: number;
+  initialBracketSize: number | undefined;
+  solve(func: (x: number) => number, initialGuess: number): number;
+  toString(): string;
+  free(): void;
+}
+
+export class HybridSolver {
+  constructor(tolerance?: number | null, maxIterations?: number | null);
+  tolerance: number;
+  maxIterations: number;
+  solve(func: (x: number) => number, initialGuess: number): number;
+  toString(): string;
+  free(): void;
+}
+
 export class Date {
   constructor(year: number, month: number, day: number);
   free(): void;

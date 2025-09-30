@@ -364,7 +364,6 @@ impl PyCashFlowSchedule {
             .collect();
         Ok(PyList::new(py, items)?.into())
     }
-
 }
 
 pub(crate) fn register<'py>(

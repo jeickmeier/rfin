@@ -1,105 +1,22 @@
 import React, { useEffect, useState } from "react";
-import init, {
+import {
   Date as FsDate,
   Money,
-  Period,
-  buildPeriods,
   DiscountCurve,
   MarketContext,
   MarketScalar,
   ScalarTimeSeries,
   SeriesInterpolation,
   Currency,
-  FxConfig,
   FxConversionPolicy,
   FxMatrix,
-  DayCount,
-  InterpStyle,
-  ExtrapolationPolicy,
 } from "finstack-wasm";
-
-type PeriodRow = {
-  id: string;
-  start: string;
-  end: string;
-  isActual: boolean;
-};
 
 type MarketSnapshot = {
   discountFactor: number;
   fxRate: number;
   cpiLevel: number;
   equitySpot: number;
-};
-
-const toIso = (date: FsDate) => {
-  const month = String(date.month).padStart(2, "0");
-  const day = String(date.day).padStart(2, "0");
-  return `${date.year}-${month}-${day}`;
-};
-
-export const PeriodPlanExample: React.FC = () => {
-  const [periods, setPeriods] = useState<PeriodRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        await init();
-        const plan = buildPeriods("2024Q1..Q4", "2024Q2");
-        const raw = plan.toArray();
-        const rows: PeriodRow[] = raw.map((period: Period) => ({
-          id: period.id.code,
-          start: toIso(period.start),
-          end: toIso(period.end),
-          isActual: period.isActual,
-        }));
-        
-        if (!cancelled) {
-          setPeriods(rows);
-        }
-
-      } catch (err) {
-        if (!cancelled) {
-          setError((err as Error).message);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (error) {
-    return <p className="error">{error}</p>;
-  }
-
-  return (
-    <section className="example-section">
-      <h2>Fiscal Quarter Plan</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Period</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Actual?</th>
-          </tr>
-        </thead>
-        <tbody>
-          {periods.map((row) => (
-            <tr key={row.id}>
-              <td>{row.id}</td>
-              <td>{row.start}</td>
-              <td>{row.end}</td>
-              <td>{row.isActual ? "yes" : "no"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
-  );
 };
 
 export const MarketDataExample: React.FC = () => {
@@ -110,8 +27,6 @@ export const MarketDataExample: React.FC = () => {
     let cancelled = false;
     (async () => {
       try {
-        await init();
-        
         // Create currencies and base date
         const usd = new Currency("USD");
         const eur = new Currency("EUR");

@@ -4,6 +4,9 @@ use wasm_bindgen::prelude::*;
 
 mod core;
 
+pub use core::cashflow::{
+    JsAmortizationSpec as AmortizationSpec, JsCFKind as CFKind, JsCashFlow as CashFlow,
+};
 pub use core::config::{JsFinstackConfig as FinstackConfig, JsRoundingMode as RoundingMode};
 pub use core::currency::JsCurrency as Currency;
 pub use core::dates::add_months as addMonths;
@@ -33,9 +36,15 @@ pub use core::dates::{
 };
 pub use core::market_data::{
     BaseCorrelationCurve, CreditIndexData, DiscountCurve, DividendEvent, DividendSchedule,
-    DividendScheduleBuilder, ForwardCurve, FxConfig, FxConversionPolicy,
-    FxMatrix, FxRateResult, HazardCurve, InflationCurve, MarketContext, MarketScalar,
-    ScalarTimeSeries, SeriesInterpolation, VolSurface,
+    DividendScheduleBuilder, ForwardCurve, FxConfig, FxConversionPolicy, FxMatrix, FxRateResult,
+    HazardCurve, InflationCurve, MarketContext, MarketScalar, ScalarTimeSeries,
+    SeriesInterpolation, VolSurface,
+};
+pub use core::math::{
+    adaptiveQuadrature, adaptiveSimpson, binomialProbability, gaussLegendreIntegrate,
+    gaussLegendreIntegrateAdaptive, gaussLegendreIntegrateComposite, logBinomialCoefficient,
+    logFactorial, simpsonRule, trapezoidalRule, BrentSolver, GaussHermiteQuadrature, HybridSolver,
+    NewtonSolver,
 };
 pub use core::money::JsMoney as Money;
 

@@ -111,7 +111,10 @@ impl TimeSeriesStorage {
 
     /// Iterator over (date, value) pairs.
     pub(super) fn iter(&self) -> impl Iterator<Item = (i32, f64)> + '_ {
-        self.dates.iter().zip(self.values.iter()).map(|(&d, &v)| (d, v))
+        self.dates
+            .iter()
+            .zip(self.values.iter())
+            .map(|(&d, &v)| (d, v))
     }
 }
 

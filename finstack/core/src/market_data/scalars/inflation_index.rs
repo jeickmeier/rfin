@@ -195,13 +195,19 @@ impl InflationIndex {
     /// Get the date range covered by observations
     pub fn date_range(&self) -> Result<(Date, Date)> {
         let observations = self.series.observations();
-        
+
         if observations.is_empty() {
             return Err(Error::Internal);
         }
-        
-        let start_date = observations.first().map(|(d, _)| *d).ok_or(Error::Internal)?;
-        let end_date = observations.last().map(|(d, _)| *d).ok_or(Error::Internal)?;
+
+        let start_date = observations
+            .first()
+            .map(|(d, _)| *d)
+            .ok_or(Error::Internal)?;
+        let end_date = observations
+            .last()
+            .map(|(d, _)| *d)
+            .ok_or(Error::Internal)?;
 
         Ok((start_date, end_date))
     }
@@ -231,7 +237,6 @@ impl InflationIndex {
     pub fn lag(&self) -> InflationLag {
         self.lag
     }
-
 
     // Private helper methods
 
