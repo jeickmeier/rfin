@@ -101,7 +101,19 @@ achieving feature parity with the Python bindings.
 - `ValuationResult` – pricing results with present value and risk metrics.
 - Instrument-specific pricing methods (e.g., `priceBond`, `priceCreditDefaultSwap`, etc.).
 
-**Feature Parity**: The WASM bindings now have complete feature parity with `finstack-py`.
+### Calibration
+- `DiscountCurveCalibrator` – calibrate discount curves from deposits and swaps.
+- `ForwardCurveCalibrator` – calibrate forward curves from FRAs and swaps.
+- `HazardCurveCalibrator` – calibrate credit hazard curves from CDS quotes.
+- `InflationCurveCalibrator` – calibrate inflation curves from inflation swap quotes.
+- `VolSurfaceCalibrator` – calibrate implied volatility surfaces from option quotes.
+- `SimpleCalibration` – one-shot multi-curve calibration workflow.
+- `CalibrationConfig` – configure solver strategy, tolerance, and iterations.
+- `SolverKind` – choose optimization method (Newton, Brent, Hybrid, LM, DE).
+- `RatesQuote`, `CreditQuote`, `VolQuote`, `InflationQuote` – market quote types for calibration.
+- `CalibrationReport` – detailed convergence diagnostics and residuals.
+
+**Feature Parity**: The WASM bindings now have complete feature parity with `finstack-py`, including calibration.
 
 ## Building
 
@@ -122,6 +134,9 @@ wasm-pack build --target nodejs
 
 ```javascript
 import init, {
+    // NOTE: For complete import list, see below
+    
+    // Core essentials shown here for brevity
     // Dates & Calendars
     Date as FinstackDate,
     Calendar,
@@ -191,6 +206,22 @@ import init, {
     createStandardRegistry,
     PricerRegistry,
     ValuationResult,
+    
+    // Calibration
+    CalibrationConfig,
+    CalibrationReport,
+    DiscountCurveCalibrator,
+    ForwardCurveCalibrator,
+    HazardCurveCalibrator,
+    InflationCurveCalibrator,
+    VolSurfaceCalibrator,
+    SimpleCalibration,
+    SolverKind,
+    RatesQuote,
+    CreditQuote,
+    VolQuote,
+    InflationQuote,
+    MarketQuote,
 } from './pkg/finstack_wasm.js';
 
 async function run() {
@@ -297,6 +328,40 @@ async function run() {
     );
     const cdsResult = registry.priceCreditDefaultSwap(cds, 'discounting', market);
     console.log('CDS PV:', cdsResult.presentValue.format());
+    
+    // Example: Calibrate a discount curve from market quotes
+    const calibrationConfig = CalibrationConfig.multiCurve()
+        .withSolverKind(SolverKind.Hybrid())
+        .withMaxIterations(40);
+    
+    const discountCalibrator = new DiscountCurveCalibrator(
+        'USD-OIS',
+        tradeDate,
+        'USD'
+    ).withConfig(calibrationConfig);
+    
+    const quotes = [
+        RatesQuote.deposit(new FinstackDate(2024, 11, 1), 0.045, 'act_360'),
+        RatesQuote.swap(
+            new FinstackDate(2025, 9, 30),
+            0.047,
+            Frequency.annual(),
+            Frequency.quarterly(),
+            '30_360',
+            'act_360',
+            'USD-SOFR'
+        ),
+    ];
+    
+    try {
+        const [curve, report] = discountCalibrator.calibrate(quotes, null);
+        console.log('Calibration success:', report.success);
+        console.log('Iterations:', report.iterations);
+        console.log('Max residual:', report.maxResidual);
+        console.log('Discount factor at 1Y:', curve.df(1.0));
+    } catch (err) {
+        console.log('Calibration failed (expected with minimal quotes):', err);
+    }
 }
 
 run();
@@ -380,7 +445,7 @@ npm run examples:install
 npm run examples:dev
 ```
 
-The examples demonstrate comprehensive functionality with **feature parity to the Python bindings**:
+The examples demonstrate comprehensive functionality with **feature parity to the Python bindings**, including calibration:
 
 ### Date & Calendar Features
 - Date construction and manipulation (weekdays, quarters, fiscal years)
@@ -415,6 +480,17 @@ The examples demonstrate comprehensive functionality with **feature parity to th
 - Numerical integration (Gauss-Hermite, Gauss-Legendre, adaptive Simpson)
 - Root finding solvers (Newton, Brent, Hybrid)
 - Distribution helpers (binomial probabilities)
+
+### Calibration Features (100% Python Parity)
+- **Discount Curve Calibration** – fit curves to deposit and swap quotes
+- **Forward Curve Calibration** – calibrate forward curves from FRAs and swaps
+- **Hazard Curve Calibration** – calibrate credit curves from CDS spreads
+- **Inflation Curve Calibration** – calibrate CPI curves from inflation swap quotes
+- **Vol Surface Calibration** – calibrate implied vol surfaces from option/swaption quotes
+- **Simple Multi-Curve Workflow** – one-shot calibration for full market context
+- **Solver Configuration** – choose optimization strategy (Newton, Brent, Hybrid, LM, DE)
+- **Convergence Diagnostics** – inspect iterations, residuals, and success metrics
+- **Quote Types** – rates, credit, vol, and inflation market quotes
 
 All features include:
 - Proper WASM memory management patterns

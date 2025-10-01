@@ -52,6 +52,16 @@ pub use core::math::{
     NewtonSolver,
 };
 pub use core::money::JsMoney as Money;
+pub use valuations::calibration::{
+    JsCalibrationConfig as CalibrationConfig, JsCalibrationReport as CalibrationReport,
+    JsCreditQuote as CreditQuote, JsDiscountCurveCalibrator as DiscountCurveCalibrator,
+    JsForwardCurveCalibrator as ForwardCurveCalibrator,
+    JsHazardCurveCalibrator as HazardCurveCalibrator, JsInflationQuote as InflationQuote,
+    JsInflationCurveCalibrator as InflationCurveCalibrator, JsMarketQuote as MarketQuote,
+    JsMultiCurveConfig as MultiCurveConfig, JsRatesQuote as RatesQuote,
+    JsSimpleCalibration as SimpleCalibration, JsSolverKind as SolverKind,
+    JsVolQuote as VolQuote, JsVolSurfaceCalibrator as VolSurfaceCalibrator,
+};
 pub use valuations::instruments::{
     Abs, BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, Clo, Cmbs, ConvertibleBond,
     CreditDefaultSwap, Deposit, Equity, EquityOption, EquityTotalReturnSwap,

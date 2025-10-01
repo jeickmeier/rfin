@@ -1,5 +1,6 @@
 import { ComponentType } from 'react';
 
+import { CalibrationExample } from './CalibrationExample';
 import { CashflowBasicsExample } from './CashflowBasics';
 import { CashflowBuilderExample } from './CashflowBuilderExample';
 import { MarketDataExample } from './DatesAndMarketData';
@@ -171,6 +172,13 @@ export const EXAMPLES: ExampleDefinition[] = [
     description: 'Baskets, ABS, CLO, and private markets funds with JSON definitions.',
     group: 'Valuations',
     Component: StructuredProductsExample,
+  },
+  {
+    slug: 'calibration',
+    title: 'Curve Calibration',
+    description: 'Calibrate discount and forward curves from market quotes using numerical optimization.',
+    group: 'Calibration',
+    Component: CalibrationExample,
   },
 ];
 

@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  BasisSwap,
-  BasisSwapLeg,
   Date as FsDate,
   DiscountCurve,
   ForwardCurve,
