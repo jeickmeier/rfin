@@ -1,4 +1,5 @@
 use crate::core::dates::date::JsDate;
+use crate::core::error::calendar_not_found;
 use crate::core::utils::js_error;
 use finstack_core::dates::calendar::business_days::{CalendarMetadata, HolidayCalendar};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
@@ -161,7 +162,7 @@ pub(crate) fn resolve_calendar_ref(code: &str) -> Result<&'static dyn HolidayCal
     let normalized = code.to_ascii_lowercase();
     registry
         .resolve_str(&normalized)
-        .ok_or_else(|| js_error(format!("Unknown calendar code: {code}")))
+        .ok_or_else(|| calendar_not_found(code))
 }
 
 fn build_calendar(code: &str) -> Result<JsCalendar, JsValue> {

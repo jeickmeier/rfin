@@ -1,5 +1,5 @@
+use crate::core::common::parse::parse_rounding_mode;
 use crate::core::currency::JsCurrency;
-use crate::core::utils::js_error;
 use finstack_core::config::{FinstackConfig, RoundingMode};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
@@ -79,8 +79,7 @@ impl JsFinstackConfig {
 
     #[wasm_bindgen(js_name = setRoundingModeLabel)]
     pub fn set_rounding_mode_label(&mut self, label: &str) -> Result<(), JsValue> {
-        let mode = parse_rounding_label(label)
-            .ok_or_else(|| js_error(format!("Unknown rounding mode: {label}")))?;
+        let mode = parse_rounding_mode(label)?;
         self.inner.rounding.mode = mode;
         Ok(())
     }
@@ -117,16 +116,5 @@ impl JsFinstackConfig {
 impl JsFinstackConfig {
     pub(crate) fn inner(&self) -> &FinstackConfig {
         &self.inner
-    }
-}
-
-fn parse_rounding_label(label: &str) -> Option<RoundingMode> {
-    match label.to_ascii_lowercase().as_str() {
-        "bankers" | "bankers_rounding" | "bankersrounding" => Some(RoundingMode::Bankers),
-        "away_from_zero" | "awayfromzero" => Some(RoundingMode::AwayFromZero),
-        "toward_zero" | "towardzero" | "truncate" => Some(RoundingMode::TowardZero),
-        "floor" => Some(RoundingMode::Floor),
-        "ceil" | "ceiling" => Some(RoundingMode::Ceil),
-        _ => None,
     }
 }

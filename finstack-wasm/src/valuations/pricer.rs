@@ -1,3 +1,4 @@
+use crate::core::error::core_to_js;
 use crate::core::market_data::context::JsMarketContext;
 use crate::core::utils::js_error;
 use crate::valuations::instruments::{
@@ -39,7 +40,7 @@ fn pricing_error_to_js(err: finstack_valuations::pricer::PricingError) -> JsValu
 }
 
 fn core_error_to_js(err: finstack_core::Error) -> JsValue {
-    js_error(err.to_string())
+    core_to_js(err)
 }
 
 fn price_with_optional_metrics(
@@ -784,6 +785,7 @@ impl JsPricerRegistry {
         let instrument = fund.inner();
         price_with_optional_metrics(&self.inner, &instrument, model_key, market, None)
     }
+
 }
 
 #[wasm_bindgen(js_name = createStandardRegistry)]

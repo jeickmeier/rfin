@@ -1,5 +1,6 @@
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::parse_day_count_label;
+use crate::core::error::core_to_js;
 use crate::core::market_data::interp::{parse_extrapolation, parse_interp_style};
 use crate::core::utils::{js_array_from_iter, js_error};
 use finstack_core::currency::Currency as CoreCurrency;
@@ -19,7 +20,7 @@ use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
-fn parse_day_count(value: &JsValue) -> Result<Option<DayCount>, JsValue> {
+fn parse_day_count_jsvalue(value: &JsValue) -> Result<Option<DayCount>, JsValue> {
     if value.is_undefined() || value.is_null() {
         return Ok(None);
     }
@@ -127,7 +128,7 @@ impl JsDiscountCurve {
         let points: Vec<(f64, f64)> = times.into_iter().zip(discount_factors).collect();
         let style = parse_interp_value(&interp)?;
         let extrap = parse_extrap_value(&extrapolation)?;
-        let picked_day_count = parse_day_count(&day_count)?.unwrap_or(DayCount::Act365F);
+        let picked_day_count = parse_day_count_jsvalue(&day_count)?.unwrap_or(DayCount::Act365F);
 
         let mut builder = DiscountCurve::builder(id)
             .base_date(base_date.inner())
@@ -140,7 +141,7 @@ impl JsDiscountCurve {
             builder = builder.require_monotonic();
         }
 
-        let curve = builder.build().map_err(|e| js_error(e.to_string()))?;
+        let curve = builder.build().map_err(core_to_js)?;
         Ok(JsDiscountCurve {
             inner: Arc::new(curve),
         })
@@ -175,7 +176,7 @@ impl JsDiscountCurve {
 
     #[wasm_bindgen(js_name = dfOnDate)]
     pub fn df_on_date(&self, date: &JsDate, day_count: JsValue) -> Result<f64, JsValue> {
-        let dc = parse_day_count(&day_count)?.unwrap_or(self.inner.day_count());
+        let dc = parse_day_count_jsvalue(&day_count)?.unwrap_or(self.inner.day_count());
         let yf = dc
             .year_fraction(self.base_date(), date.inner(), DayCountCtx::default())
             .map_err(|e| js_error(e.to_string()))?;
@@ -226,14 +227,14 @@ impl JsForwardCurve {
             .knots(times.into_iter().zip(forwards))
             .set_interp(style);
 
-        if let Some(dc) = parse_day_count(&day_count)? {
+        if let Some(dc) = parse_day_count_jsvalue(&day_count)? {
             builder = builder.day_count(dc);
         }
         if let Some(lag) = reset_lag {
             builder = builder.reset_lag(lag);
         }
 
-        let curve = builder.build().map_err(|e| js_error(e.to_string()))?;
+        let curve = builder.build().map_err(core_to_js)?;
         Ok(JsForwardCurve {
             inner: Arc::new(curve),
         })
@@ -321,7 +322,7 @@ impl JsHazardCurve {
         if let Some(r) = recovery_rate {
             builder = builder.recovery_rate(r);
         }
-        if let Some(dc) = parse_day_count(&day_count)? {
+        if let Some(dc) = parse_day_count_jsvalue(&day_count)? {
             builder = builder.day_count(dc);
         }
         if let Some(name) = issuer {
@@ -345,7 +346,7 @@ impl JsHazardCurve {
             builder = builder.par_spreads(tenors.into_iter().zip(spreads));
         }
 
-        let curve = builder.build().map_err(|e| js_error(e.to_string()))?;
+        let curve = builder.build().map_err(core_to_js)?;
         Ok(JsHazardCurve {
             inner: Arc::new(curve),
         })

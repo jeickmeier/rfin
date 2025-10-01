@@ -1,4 +1,5 @@
-use crate::core::utils::{js_array_from_iter, js_error};
+use crate::core::error::unknown_currency;
+use crate::core::utils::js_array_from_iter;
 use finstack_core::currency::Currency;
 use std::str::FromStr;
 use strum::IntoEnumIterator;
@@ -27,14 +28,14 @@ impl JsCurrency {
     pub fn new(code: &str) -> Result<JsCurrency, JsValue> {
         Currency::from_str(code)
             .map(Self::from_inner)
-            .map_err(|_| js_error(format!("Unknown currency code: {code}")))
+            .map_err(|_| unknown_currency(code))
     }
 
     #[wasm_bindgen(js_name = fromNumeric)]
     pub fn from_numeric(numeric: u16) -> Result<JsCurrency, JsValue> {
         Currency::try_from(numeric)
             .map(Self::from_inner)
-            .map_err(|_| js_error(format!("Unknown currency numeric code: {numeric}")))
+            .map_err(|_| unknown_currency(&format!("numeric:{numeric}")))
     }
 
     #[wasm_bindgen(getter)]
