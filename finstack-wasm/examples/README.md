@@ -144,6 +144,56 @@ Feature parity with `math_core_showcase.py`:
 3. **Root Finding**
    - Newton, Brent, and hybrid solvers applied to classic equations
 
+### Interest Rate Derivatives (`RatesInstruments.tsx`)
+
+Comprehensive rates derivatives suite:
+
+1. **Interest Rate Swaps** - Plain-vanilla fixed-for-floating swaps
+2. **FRAs** - Forward rate agreements with fixing and settlement
+3. **Swaptions** - Options on interest rate swaps (payer/receiver)
+4. **Basis Swaps** - Floating-for-floating basis swaps
+5. **Caps & Floors** - Interest rate options with Black pricing
+6. **IR Futures** - Interest rate futures contracts
+
+### FX Instruments (`FxInstruments.tsx`)
+
+Foreign exchange instruments:
+
+1. **FX Spot** - Spot foreign exchange transactions
+2. **FX Options** - European calls and puts on FX rates
+3. **FX Swaps** - Near and far leg FX swaps
+
+### Credit Derivatives (`CreditInstruments.tsx`)
+
+Credit instruments with survival probability modeling:
+
+1. **CDS** - Single-name credit default swaps
+2. **CDS Index** - Standardized credit indices
+3. **CDS Tranches** - Synthetic CDO tranches with base correlation
+4. **CDS Options** - Options on credit spreads
+
+### Equity Instruments (`EquityInstruments.tsx`)
+
+Equity spot and derivatives:
+
+1. **Equity Spot** - Stock positions with pricing
+2. **Equity Options** - European calls and puts with Greeks
+
+### Inflation Instruments (`InflationInstruments.tsx`)
+
+Inflation-linked products:
+
+1. **Inflation-Linked Bonds** - TIPS-style bonds with CPI indexation
+2. **Inflation Swaps** - Zero-coupon inflation swaps
+
+### Structured Products (`StructuredProducts.tsx`)
+
+Complex structured instruments using JSON definitions:
+
+1. **Baskets** - Multi-asset baskets with constituent weighting
+2. **Private Markets Funds** - PE/credit funds with waterfall structures
+3. **ABS, CLO, CMBS, RMBS** - Asset-backed and mortgage securities (available via JSON)
+
 ## Key Patterns
 
 ### Initialization

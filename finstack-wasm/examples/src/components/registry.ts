@@ -16,6 +16,12 @@ import {
 } from './DatesShowcase';
 import { DepositValuationExample } from './DepositsValuation';
 import { MathShowcaseExample } from './MathShowcase';
+import { RatesInstrumentsExample } from './RatesInstruments';
+import { FxInstrumentsExample } from './FxInstruments';
+import { CreditInstrumentsExample } from './CreditInstruments';
+import { EquityInstrumentsExample } from './EquityInstruments';
+import { InflationInstrumentsExample } from './InflationInstruments';
+import { StructuredProductsExample } from './StructuredProducts';
 
 export type ExampleDefinition = {
   slug: string;
@@ -123,6 +129,48 @@ export const EXAMPLES: ExampleDefinition[] = [
     description: 'Accrue interest on money-market deposits and compare quoted vs curve-implied rates.',
     group: 'Valuations',
     Component: DepositValuationExample,
+  },
+  {
+    slug: 'rates-instruments',
+    title: 'Interest Rate Derivatives',
+    description: 'IRS, FRA, swaptions, basis swaps, caps/floors, and IR futures.',
+    group: 'Valuations',
+    Component: RatesInstrumentsExample,
+  },
+  {
+    slug: 'fx-instruments',
+    title: 'FX Instruments',
+    description: 'FX spot, options, and swaps with multi-currency pricing.',
+    group: 'Valuations',
+    Component: FxInstrumentsExample,
+  },
+  {
+    slug: 'credit-instruments',
+    title: 'Credit Derivatives',
+    description: 'CDS, CDS indices, tranches, and options on credit spreads.',
+    group: 'Valuations',
+    Component: CreditInstrumentsExample,
+  },
+  {
+    slug: 'equity-instruments',
+    title: 'Equity Instruments',
+    description: 'Equity positions and European-style equity options.',
+    group: 'Valuations',
+    Component: EquityInstrumentsExample,
+  },
+  {
+    slug: 'inflation-instruments',
+    title: 'Inflation Instruments',
+    description: 'Inflation-linked bonds (TIPS) and zero-coupon inflation swaps.',
+    group: 'Valuations',
+    Component: InflationInstrumentsExample,
+  },
+  {
+    slug: 'structured-products',
+    title: 'Structured Products',
+    description: 'Baskets, ABS, CLO, and private markets funds with JSON definitions.',
+    group: 'Valuations',
+    Component: StructuredProductsExample,
   },
 ];
 

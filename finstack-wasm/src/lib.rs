@@ -52,7 +52,13 @@ pub use core::math::{
     NewtonSolver,
 };
 pub use core::money::JsMoney as Money;
-pub use valuations::instruments::{Bond, Deposit};
+pub use valuations::instruments::{
+    Abs, BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, Clo, Cmbs, ConvertibleBond,
+    CreditDefaultSwap, Deposit, Equity, EquityOption, EquityTotalReturnSwap,
+    FiIndexTotalReturnSwap, ForwardRateAgreement, FxOption, FxSpot, FxSwap, InflationLinkedBond,
+    InflationSwap, InterestRateFuture, InterestRateOption, InterestRateSwap, PrivateMarketsFund,
+    Repo, Rmbs, Swaption, VarianceSwap,
+};
 pub use valuations::pricer::{
     create_standard_registry_js as createStandardRegistry, JsPricerRegistry as PricerRegistry,
 };

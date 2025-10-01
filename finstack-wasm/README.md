@@ -43,7 +43,7 @@ achieving feature parity with the Python bindings.
 ### Cashflows & Instruments
 - `CashFlow`/`CFKind`/`AmortizationSpec` – primitive cashflow types with fixed, floating,
   PIK, fee, and amortization support.
-- **`CashflowBuilder`** – **NEW**: composable builder for complex coupon structures with:
+- **`CashflowBuilder`** – composable builder for complex coupon structures with:
   - Fixed and floating coupons
   - Cash/PIK/split payment types
   - Amortization schedules (linear, step)
@@ -51,15 +51,57 @@ achieving feature parity with the Python bindings.
   - Payment split programs (cash-to-PIK transitions)
 - `CouponType`, `ScheduleParams`, `FixedCouponSpec`, `FloatingCouponSpec` – supporting
   types for the builder pattern.
-- `Bond` – fixed-income instruments with helper methods for common structures.
+
+#### Rates Instruments
+- `Bond` – fixed-income instruments with helpers for fixed, floating, zero-coupon, and callable bonds.
 - `Deposit` – money-market deposits with simple interest.
+- `InterestRateSwap` – plain-vanilla fixed-for-floating interest rate swaps.
+- `ForwardRateAgreement` – FRA instruments for forward rate exposure.
+- `Swaption` – options on interest rate swaps (payer/receiver).
+- `BasisSwap` – floating-for-floating basis swaps.
+- `InterestRateOption` – interest rate caps and floors.
+- `InterestRateFuture` – interest rate futures contracts.
+
+#### FX Instruments
+- `FxSpot` – foreign exchange spot transactions.
+- `FxOption` – FX options (European call/put).
+- `FxSwap` – FX swap contracts with near and far legs.
+
+#### Credit Instruments
+- `CreditDefaultSwap` – single-name CDS (buy/sell protection).
+- `CDSIndex` – standardized CDS index positions.
+- `CdsTranche` – synthetic CDO tranches.
+- `CdsOption` – options on CDS spreads.
+
+#### Equity Instruments
+- `Equity` – equity spot positions.
+- `EquityOption` – equity options (European call/put).
+- `EquityTotalReturnSwap` – equity total return swaps.
+- `FiIndexTotalReturnSwap` – fixed-income index total return swaps.
+
+#### Inflation Instruments
+- `InflationLinkedBond` – inflation-linked bonds (TIPS-style).
+- `InflationSwap` – zero-coupon inflation swaps.
+
+#### Structured Products
+- `Basket` – multi-asset baskets (JSON-based).
+- `Abs` – asset-backed securities (JSON-based).
+- `Clo` – collateralized loan obligations (JSON-based).
+- `Cmbs` – commercial mortgage-backed securities (JSON-based).
+- `Rmbs` – residential mortgage-backed securities (JSON-based).
+- `PrivateMarketsFund` – private equity/credit funds with waterfall structures (JSON-based).
+
+#### Other Instruments
+- `Repo` – repurchase agreements with collateral.
+- `VarianceSwap` – variance swap contracts.
+- `ConvertibleBond` – convertible bond instruments.
 
 ### Pricing & Metrics
 - `PricerRegistry` – instrument pricing with model selection.
 - `ValuationResult` – pricing results with present value and risk metrics.
+- Instrument-specific pricing methods (e.g., `priceBond`, `priceCreditDefaultSwap`, etc.).
 
-Additional modules (dates, calendars, market data, valuations) will be ported
-incrementally until the WASM bindings reach parity with `finstack-py`.
+**Feature Parity**: The WASM bindings now have complete feature parity with `finstack-py`.
 
 ## Building
 
@@ -80,6 +122,7 @@ wasm-pack build --target nodejs
 
 ```javascript
 import init, {
+    // Dates & Calendars
     Date as FinstackDate,
     Calendar,
     BusinessDayConvention,
@@ -88,16 +131,26 @@ import init, {
     Frequency,
     ScheduleBuilder,
     StubKind,
-    DiscountCurve,
-    InterpStyle,
-    ExtrapolationPolicy,
     buildPeriods,
     availableCalendars,
     adjust,
+    
+    // Core Primitives
     Currency,
     Money,
     FinstackConfig,
     RoundingMode,
+    
+    // Market Data
+    DiscountCurve,
+    ForwardCurve,
+    HazardCurve,
+    InflationCurve,
+    MarketContext,
+    FxMatrix,
+    VolSurface,
+    
+    // Cashflow Builder
     CashflowBuilder,
     CashFlowSchedule,
     CouponType,
@@ -105,6 +158,39 @@ import init, {
     FixedCouponSpec,
     FloatingCouponSpec,
     FloatCouponParams,
+    
+    // Instruments
+    Bond,
+    Deposit,
+    InterestRateSwap,
+    ForwardRateAgreement,
+    Swaption,
+    BasisSwap,
+    InterestRateOption,
+    FxSpot,
+    FxOption,
+    FxSwap,
+    CreditDefaultSwap,
+    CDSIndex,
+    CdsTranche,
+    Equity,
+    EquityOption,
+    Repo,
+    InflationLinkedBond,
+    InflationSwap,
+    VarianceSwap,
+    ConvertibleBond,
+    Basket,
+    Abs,
+    Clo,
+    Cmbs,
+    Rmbs,
+    PrivateMarketsFund,
+    
+    // Pricing
+    createStandardRegistry,
+    PricerRegistry,
+    ValuationResult,
 } from './pkg/finstack_wasm.js';
 
 async function run() {
@@ -178,6 +264,39 @@ async function run() {
     console.log('Total flows:', cashflowSchedule.length);
     console.log('Notional:', cashflowSchedule.notional.format());
     console.log('Day count:', cashflowSchedule.dayCount.name);
+
+    // Price instruments using the registry
+    const registry = createStandardRegistry();
+    
+    // Example: Price an interest rate swap
+    const swap = InterestRateSwap.usdPayFixed(
+        'swap_1',
+        Money.fromCode(10_000_000, 'USD'),
+        0.0325,
+        tradeDate,
+        new FinstackDate(2029, 9, 30)
+    );
+    const swapResult = registry.priceInterestRateSwapWithMetrics(
+        swap,
+        'discounting',
+        market,
+        ['dv01', 'annuity', 'par_rate']
+    );
+    console.log('Swap PV:', swapResult.presentValue.format());
+    console.log('Swap DV01:', swapResult.metric('dv01'));
+    
+    // Example: Price a credit default swap
+    const cds = CreditDefaultSwap.buyProtection(
+        'cds_1',
+        Money.fromCode(5_000_000, 'USD'),
+        120.0, // spread in bps
+        tradeDate,
+        new FinstackDate(2029, 9, 30),
+        'USD-OIS',
+        'ACME-HAZARD'
+    );
+    const cdsResult = registry.priceCreditDefaultSwap(cds, 'discounting', market);
+    console.log('CDS PV:', cdsResult.presentValue.format());
 }
 
 run();
