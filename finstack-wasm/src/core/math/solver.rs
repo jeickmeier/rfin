@@ -1,8 +1,60 @@
 use crate::core::error::js_error;
-use crate::core::math::callable::JsCallable;
 use finstack_core::math::solver::{BrentSolver, HybridSolver, NewtonSolver, Solver};
+use js_sys::Function;
+use std::cell::RefCell;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
+
+// Helper to safely call JS functions and convert errors
+fn call_js_fn_safe(f: &Function, x: f64) -> Result<f64, JsValue> {
+    let result = f.call1(&JsValue::NULL, &JsValue::from_f64(x))?;
+    result
+        .as_f64()
+        .ok_or_else(|| js_error("Callback must return a number"))
+}
+
+// Copy-able closure wrapper for JS callbacks
+#[derive(Clone, Copy)]
+struct JsClosureAdapter<'a> {
+    func: &'a Function,
+    error_cell: &'a RefCell<Option<JsValue>>,
+}
+
+impl<'a> JsClosureAdapter<'a> {
+    fn invoke(&self, x: f64) -> f64 {
+        match call_js_fn_safe(self.func, x) {
+            Ok(value) => value,
+            Err(err) => {
+                *self.error_cell.borrow_mut() = Some(err);
+                panic!("JS callback error");
+            }
+        }
+    }
+}
+
+// Execute a function with panic catching for JS callbacks
+fn run_with_panic_catch<R>(
+    error_cell: &RefCell<Option<JsValue>>,
+    eval: impl FnOnce() -> R,
+) -> Result<R, JsValue> {
+    match catch_unwind(AssertUnwindSafe(eval)) {
+        Ok(value) => {
+            if let Some(err) = error_cell.borrow_mut().take() {
+                Err(err)
+            } else {
+                Ok(value)
+            }
+        }
+        Err(_) => {
+            if let Some(err) = error_cell.borrow_mut().take() {
+                Err(err)
+            } else {
+                Err(js_error("JavaScript callback failed"))
+            }
+        }
+    }
+}
 
 #[wasm_bindgen(js_name = NewtonSolver)]
 pub struct JsNewtonSolver {
@@ -134,12 +186,15 @@ impl JsNewtonSolver {
     /// ```
     #[wasm_bindgen(js_name = solve)]
     pub fn solve(&self, func: &JsValue, initial_guess: f64) -> Result<f64, JsValue> {
-        let callable = JsCallable::new(func)?;
-        let closure = callable.closure();
-        callable.run_core(
-            || Solver::solve(&self.inner, closure, initial_guess),
-            |err| js_error(err.to_string()),
-        )
+        let func = func
+            .dyn_ref::<Function>()
+            .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+        let error_cell = RefCell::new(None);
+        let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+        let result = run_with_panic_catch(&error_cell, || {
+            Solver::solve(&self.inner, |x| adapter.invoke(x), initial_guess)
+        })?;
+        result.map_err(|err| js_error(err.to_string()))
     }
 
     /// String representation of the solver configuration.
@@ -312,12 +367,15 @@ impl JsBrentSolver {
     /// ```
     #[wasm_bindgen(js_name = solve)]
     pub fn solve(&self, func: &JsValue, initial_guess: f64) -> Result<f64, JsValue> {
-        let callable = JsCallable::new(func)?;
-        let closure = callable.closure();
-        callable.run_core(
-            || Solver::solve(&self.inner, closure, initial_guess),
-            |err| js_error(err.to_string()),
-        )
+        let func = func
+            .dyn_ref::<Function>()
+            .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+        let error_cell = RefCell::new(None);
+        let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+        let result = run_with_panic_catch(&error_cell, || {
+            Solver::solve(&self.inner, |x| adapter.invoke(x), initial_guess)
+        })?;
+        result.map_err(|err| js_error(err.to_string()))
     }
 
     /// String representation of the solver configuration.
@@ -448,12 +506,15 @@ impl JsHybridSolver {
     /// ```
     #[wasm_bindgen(js_name = solve)]
     pub fn solve(&self, func: &JsValue, initial_guess: f64) -> Result<f64, JsValue> {
-        let callable = JsCallable::new(func)?;
-        let closure = callable.closure();
-        callable.run_core(
-            || Solver::solve(&self.inner, closure, initial_guess),
-            |err| js_error(err.to_string()),
-        )
+        let func = func
+            .dyn_ref::<Function>()
+            .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+        let error_cell = RefCell::new(None);
+        let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+        let result = run_with_panic_catch(&error_cell, || {
+            Solver::solve(&self.inner, |x| adapter.invoke(x), initial_guess)
+        })?;
+        result.map_err(|err| js_error(err.to_string()))
     }
 
     /// String representation of the solver configuration.

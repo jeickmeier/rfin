@@ -1,9 +1,61 @@
 use crate::core::error::js_error;
-use crate::core::math::callable::JsCallable;
 use finstack_core::math::integration as core_integration;
 use finstack_core::math::integration::GaussHermiteQuadrature;
+use js_sys::Function;
+use std::cell::RefCell;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
+
+// Helper to safely call JS functions and convert errors
+fn call_js_fn_safe(f: &Function, x: f64) -> Result<f64, JsValue> {
+    let result = f.call1(&JsValue::NULL, &JsValue::from_f64(x))?;
+    result
+        .as_f64()
+        .ok_or_else(|| js_error("Callback must return a number"))
+}
+
+// Copy-able closure wrapper for JS callbacks
+#[derive(Clone, Copy)]
+struct JsClosureAdapter<'a> {
+    func: &'a Function,
+    error_cell: &'a RefCell<Option<JsValue>>,
+}
+
+impl<'a> JsClosureAdapter<'a> {
+    fn invoke(&self, x: f64) -> f64 {
+        match call_js_fn_safe(self.func, x) {
+            Ok(value) => value,
+            Err(err) => {
+                *self.error_cell.borrow_mut() = Some(err);
+                panic!("JS callback error");
+            }
+        }
+    }
+}
+
+// Execute a function with panic catching for JS callbacks
+fn run_with_panic_catch<R>(
+    error_cell: &RefCell<Option<JsValue>>,
+    eval: impl FnOnce() -> R,
+) -> Result<R, JsValue> {
+    match catch_unwind(AssertUnwindSafe(eval)) {
+        Ok(value) => {
+            if let Some(err) = error_cell.borrow_mut().take() {
+                Err(err)
+            } else {
+                Ok(value)
+            }
+        }
+        Err(_) => {
+            if let Some(err) = error_cell.borrow_mut().take() {
+                Err(err)
+            } else {
+                Err(js_error("JavaScript callback failed"))
+            }
+        }
+    }
+}
 
 #[wasm_bindgen(js_name = GaussHermiteQuadrature)]
 pub struct JsGaussHermiteQuadrature {
@@ -141,9 +193,12 @@ impl JsGaussHermiteQuadrature {
     /// ```
     #[wasm_bindgen(js_name = integrate)]
     pub fn integrate(&self, func: &JsValue) -> Result<f64, JsValue> {
-        let callable = JsCallable::new(func)?;
-        let closure = callable.closure();
-        callable.run_value(|| self.inner.integrate(closure))
+        let func = func
+            .dyn_ref::<Function>()
+            .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+        let error_cell = RefCell::new(None);
+        let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+        run_with_panic_catch(&error_cell, || self.inner.integrate(|x| adapter.invoke(x)))
     }
 
     /// Integrate with adaptive tolerance using recursive subdivision.
@@ -169,9 +224,12 @@ impl JsGaussHermiteQuadrature {
     /// ```
     #[wasm_bindgen(js_name = integrateAdaptive)]
     pub fn integrate_adaptive(&self, func: &JsValue, tolerance: f64) -> Result<f64, JsValue> {
-        let callable = JsCallable::new(func)?;
-        let closure = callable.closure();
-        callable.run_value(|| self.inner.integrate_adaptive(closure, tolerance))
+        let func = func
+            .dyn_ref::<Function>()
+            .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+        let error_cell = RefCell::new(None);
+        let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+        run_with_panic_catch(&error_cell, || self.inner.integrate_adaptive(|x| adapter.invoke(x), tolerance))
     }
 
     /// String representation of the quadrature rule.
@@ -207,12 +265,15 @@ impl JsGaussHermiteQuadrature {
 /// ```
 #[wasm_bindgen(js_name = simpsonRule)]
 pub fn simpson_rule(func: &JsValue, a: f64, b: f64, intervals: usize) -> Result<f64, JsValue> {
-    let callable = JsCallable::new(func)?;
-    let closure = callable.closure();
-    callable.run_core(
-        || core_integration::simpson_rule(closure, a, b, intervals),
-        |err| js_error(err.to_string()),
-    )
+    let func = func
+        .dyn_ref::<Function>()
+        .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+    let error_cell = RefCell::new(None);
+    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let result = run_with_panic_catch(&error_cell, || {
+        core_integration::simpson_rule(|x| adapter.invoke(x), a, b, intervals)
+    })?;
+    result.map_err(|err| js_error(err.to_string()))
 }
 
 /// Adaptive Simpson's rule with automatic subdivision for desired tolerance.
@@ -247,12 +308,15 @@ pub fn adaptive_simpson(
     tol: f64,
     max_depth: usize,
 ) -> Result<f64, JsValue> {
-    let callable = JsCallable::new(func)?;
-    let closure = callable.closure();
-    callable.run_core(
-        || core_integration::adaptive_simpson(closure, a, b, tol, max_depth),
-        |err| js_error(err.to_string()),
-    )
+    let func = func
+        .dyn_ref::<Function>()
+        .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+    let error_cell = RefCell::new(None);
+    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let result = run_with_panic_catch(&error_cell, || {
+        core_integration::adaptive_simpson(|x| adapter.invoke(x), a, b, tol, max_depth)
+    })?;
+    result.map_err(|err| js_error(err.to_string()))
 }
 
 /// Alias for adaptiveSimpson (same implementation).
@@ -303,12 +367,15 @@ pub fn gauss_legendre_integrate(
     b: f64,
     order: usize,
 ) -> Result<f64, JsValue> {
-    let callable = JsCallable::new(func)?;
-    let closure = callable.closure();
-    callable.run_core(
-        || core_integration::gauss_legendre_integrate(closure, a, b, order),
-        |err| js_error(err.to_string()),
-    )
+    let func = func
+        .dyn_ref::<Function>()
+        .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+    let error_cell = RefCell::new(None);
+    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let result = run_with_panic_catch(&error_cell, || {
+        core_integration::gauss_legendre_integrate(|x| adapter.invoke(x), a, b, order)
+    })?;
+    result.map_err(|err| js_error(err.to_string()))
 }
 
 /// Composite Gauss-Legendre quadrature with multiple panels.
@@ -343,12 +410,15 @@ pub fn gauss_legendre_integrate_composite(
     order: usize,
     panels: usize,
 ) -> Result<f64, JsValue> {
-    let callable = JsCallable::new(func)?;
-    let closure = callable.closure();
-    callable.run_core(
-        || core_integration::gauss_legendre_integrate_composite(closure, a, b, order, panels),
-        |err| js_error(err.to_string()),
-    )
+    let func = func
+        .dyn_ref::<Function>()
+        .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+    let error_cell = RefCell::new(None);
+    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let result = run_with_panic_catch(&error_cell, || {
+        core_integration::gauss_legendre_integrate_composite(|x| adapter.invoke(x), a, b, order, panels)
+    })?;
+    result.map_err(|err| js_error(err.to_string()))
 }
 
 /// Adaptive Gauss-Legendre quadrature with automatic subdivision.
@@ -386,16 +456,17 @@ pub fn gauss_legendre_integrate_adaptive(
     tol: f64,
     max_depth: usize,
 ) -> Result<f64, JsValue> {
-    let callable = JsCallable::new(func)?;
-    let closure = callable.closure();
-    callable.run_core(
-        || {
-            core_integration::gauss_legendre_integrate_adaptive(
-                closure, a, b, order, tol, max_depth,
-            )
-        },
-        |err| js_error(err.to_string()),
-    )
+    let func = func
+        .dyn_ref::<Function>()
+        .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+    let error_cell = RefCell::new(None);
+    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let result = run_with_panic_catch(&error_cell, || {
+        core_integration::gauss_legendre_integrate_adaptive(
+            |x| adapter.invoke(x), a, b, order, tol, max_depth,
+        )
+    })?;
+    result.map_err(|err| js_error(err.to_string()))
 }
 
 /// Trapezoidal rule for numerical integration.
@@ -418,10 +489,13 @@ pub fn gauss_legendre_integrate_adaptive(
 /// ```
 #[wasm_bindgen(js_name = trapezoidalRule)]
 pub fn trapezoidal_rule(func: &JsValue, a: f64, b: f64, intervals: usize) -> Result<f64, JsValue> {
-    let callable = JsCallable::new(func)?;
-    let closure = callable.closure();
-    callable.run_core(
-        || core_integration::trapezoidal_rule(closure, a, b, intervals),
-        |err| js_error(err.to_string()),
-    )
+    let func = func
+        .dyn_ref::<Function>()
+        .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+    let error_cell = RefCell::new(None);
+    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let result = run_with_panic_catch(&error_cell, || {
+        core_integration::trapezoidal_rule(|x| adapter.invoke(x), a, b, intervals)
+    })?;
+    result.map_err(|err| js_error(err.to_string()))
 }

@@ -1,4 +1,3 @@
-mod callable;
 pub mod distributions;
 pub mod integration;
 pub mod solver;
