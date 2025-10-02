@@ -93,6 +93,12 @@ pub struct JsPricingRequest {
     metrics: Option<Vec<MetricId>>,
 }
 
+impl Default for JsPricingRequest {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen(js_class = PricingRequest)]
 impl JsPricingRequest {
     /// Create a new pricing request with no additional metrics.

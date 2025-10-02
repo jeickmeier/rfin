@@ -14,6 +14,30 @@ use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
+/// Discriminant for curve type in dynamic dispatch.
+///
+/// Enables generic curve retrieval without knowing the exact curve type at compile time.
+///
+/// # Example
+/// ```javascript
+/// const ctx = new MarketContext();
+/// const curve = ctx.getCurve("USD-SOFR", CurveKind.Discount);
+/// ```
+#[wasm_bindgen(js_name = CurveKind)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JsCurveKind {
+    /// Discount curve for present value calculations
+    Discount = 0,
+    /// Forward rate curve for projection
+    Forward = 1,
+    /// Hazard rate curve for credit risk
+    Hazard = 2,
+    /// Inflation curve for CPI/RPI indexation
+    Inflation = 3,
+    /// Base correlation curve for structured credit
+    BaseCorrelation = 4,
+}
+
 fn stats_to_object(stats: ContextStats) -> js_sys::Object {
     use js_sys::{Object, Reflect};
 
@@ -178,6 +202,83 @@ impl JsMarketContext {
             .map_collateral_mut(csa_code, CurveId::from(curve_id));
     }
 
+    /// Generic curve retrieval with dynamic dispatch.
+    ///
+    /// Retrieves a curve of any type by ID and kind discriminant. Returns a `JsValue`
+    /// that can be cast to the appropriate curve type.
+    ///
+    /// # Arguments
+    /// * `id` - The curve identifier
+    /// * `kind` - The curve type discriminant
+    ///
+    /// # Returns
+    /// A `JsValue` containing the curve, which can be downcast to the specific type
+    /// (e.g., `JsDiscountCurve`, `JsForwardCurve`, etc.)
+    ///
+    /// # Example
+    /// ```javascript
+    /// const ctx = new MarketContext();
+    /// const curve = ctx.getCurve("USD-SOFR", CurveKind.Discount);
+    /// // curve is a JsDiscountCurve
+    /// ```
+    #[wasm_bindgen(js_name = getCurve)]
+    pub fn get_curve(&self, id: &str, kind: JsCurveKind) -> Result<JsValue, JsValue> {
+        match kind {
+            JsCurveKind::Discount => {
+                let arc = self
+                    .inner
+                    .get_discount(id)
+                    .map_err(|e| js_error(e.to_string()))?;
+                Ok(JsDiscountCurve::from_arc(arc).into())
+            }
+            JsCurveKind::Forward => {
+                let arc = self
+                    .inner
+                    .get_forward(id)
+                    .map_err(|e| js_error(e.to_string()))?;
+                Ok(JsForwardCurve::from_arc(arc).into())
+            }
+            JsCurveKind::Hazard => {
+                let arc = self
+                    .inner
+                    .get_hazard(id)
+                    .map_err(|e| js_error(e.to_string()))?;
+                Ok(JsHazardCurve::from_arc(arc).into())
+            }
+            JsCurveKind::Inflation => {
+                let arc = self
+                    .inner
+                    .get_inflation(id)
+                    .map_err(|e| js_error(e.to_string()))?;
+                Ok(JsInflationCurve::from_arc(arc).into())
+            }
+            JsCurveKind::BaseCorrelation => {
+                let arc = self
+                    .inner
+                    .get_base_correlation(id)
+                    .map_err(|e| js_error(e.to_string()))?;
+                Ok(JsBaseCorrelationCurve::from_arc(arc).into())
+            }
+        }
+    }
+
+    /// Retrieves a discount curve by ID.
+    ///
+    /// Type-safe convenience method for discount curve retrieval.
+    /// Internally calls `get_curve` with `CurveKind::Discount`.
+    ///
+    /// # Arguments
+    /// * `id` - The curve identifier
+    ///
+    /// # Returns
+    /// A `JsDiscountCurve` instance
+    ///
+    /// # Example
+    /// ```javascript
+    /// const ctx = new MarketContext();
+    /// const curve = ctx.discount("USD-SOFR");
+    /// const df = curve.df("2025-12-31");
+    /// ```
     #[wasm_bindgen(js_name = discount)]
     pub fn discount(&self, id: &str) -> Result<JsDiscountCurve, JsValue> {
         let arc = self
@@ -187,6 +288,23 @@ impl JsMarketContext {
         Ok(JsDiscountCurve::from_arc(arc))
     }
 
+    /// Retrieves a forward rate curve by ID.
+    ///
+    /// Type-safe convenience method for forward curve retrieval.
+    /// Internally calls `get_curve` with `CurveKind::Forward`.
+    ///
+    /// # Arguments
+    /// * `id` - The curve identifier
+    ///
+    /// # Returns
+    /// A `JsForwardCurve` instance
+    ///
+    /// # Example
+    /// ```javascript
+    /// const ctx = new MarketContext();
+    /// const curve = ctx.forward("USD-SOFR");
+    /// const rate = curve.forwardRate("2025-01-01", "2025-07-01");
+    /// ```
     #[wasm_bindgen(js_name = forward)]
     pub fn forward(&self, id: &str) -> Result<JsForwardCurve, JsValue> {
         let arc = self
@@ -196,6 +314,23 @@ impl JsMarketContext {
         Ok(JsForwardCurve::from_arc(arc))
     }
 
+    /// Retrieves a hazard rate curve by ID.
+    ///
+    /// Type-safe convenience method for hazard curve retrieval.
+    /// Internally calls `get_curve` with `CurveKind::Hazard`.
+    ///
+    /// # Arguments
+    /// * `id` - The curve identifier
+    ///
+    /// # Returns
+    /// A `JsHazardCurve` instance
+    ///
+    /// # Example
+    /// ```javascript
+    /// const ctx = new MarketContext();
+    /// const curve = ctx.hazard("AAPL-5Y");
+    /// const sp = curve.survivalProbability("2025-12-31");
+    /// ```
     #[wasm_bindgen(js_name = hazard)]
     pub fn hazard(&self, id: &str) -> Result<JsHazardCurve, JsValue> {
         let arc = self
@@ -205,6 +340,23 @@ impl JsMarketContext {
         Ok(JsHazardCurve::from_arc(arc))
     }
 
+    /// Retrieves an inflation curve by ID.
+    ///
+    /// Type-safe convenience method for inflation curve retrieval.
+    /// Internally calls `get_curve` with `CurveKind::Inflation`.
+    ///
+    /// # Arguments
+    /// * `id` - The curve identifier
+    ///
+    /// # Returns
+    /// A `JsInflationCurve` instance
+    ///
+    /// # Example
+    /// ```javascript
+    /// const ctx = new MarketContext();
+    /// const curve = ctx.inflation("US-CPI");
+    /// const index = curve.indexValue("2025-12-31");
+    /// ```
     #[wasm_bindgen(js_name = inflation)]
     pub fn inflation(&self, id: &str) -> Result<JsInflationCurve, JsValue> {
         let arc = self
@@ -214,6 +366,23 @@ impl JsMarketContext {
         Ok(JsInflationCurve::from_arc(arc))
     }
 
+    /// Retrieves a base correlation curve by ID.
+    ///
+    /// Type-safe convenience method for base correlation curve retrieval.
+    /// Internally calls `get_curve` with `CurveKind::BaseCorrelation`.
+    ///
+    /// # Arguments
+    /// * `id` - The curve identifier
+    ///
+    /// # Returns
+    /// A `JsBaseCorrelationCurve` instance
+    ///
+    /// # Example
+    /// ```javascript
+    /// const ctx = new MarketContext();
+    /// const curve = ctx.baseCorrelation("CDX-IG");
+    /// const corr = curve.correlation("2025-12-31", 0.05);
+    /// ```
     #[wasm_bindgen(js_name = baseCorrelation)]
     pub fn base_correlation(&self, id: &str) -> Result<JsBaseCorrelationCurve, JsValue> {
         let arc = self

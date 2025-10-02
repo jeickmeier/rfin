@@ -36,9 +36,9 @@ pub use core::dates::{
     third_wednesday as thirdWednesday,
 };
 pub use core::market_data::{
-    BaseCorrelationCurve, CreditIndexData, DiscountCurve, DividendEvent, DividendSchedule,
-    DividendScheduleBuilder, ForwardCurve, FxConfig, FxConversionPolicy, FxMatrix, FxRateResult,
-    HazardCurve, InflationCurve, MarketContext, MarketScalar, ScalarTimeSeries,
+    BaseCorrelationCurve, CreditIndexData, CurveKind, DiscountCurve, DividendEvent,
+    DividendSchedule, DividendScheduleBuilder, ForwardCurve, FxConfig, FxConversionPolicy, FxMatrix,
+    FxRateResult, HazardCurve, InflationCurve, MarketContext, MarketScalar, ScalarTimeSeries,
     SeriesInterpolation, VolSurface,
 };
 pub use core::math::{

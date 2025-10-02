@@ -6,7 +6,7 @@ pub mod scalars;
 pub mod surfaces;
 pub mod term_structures;
 
-pub use context::JsMarketContext as MarketContext;
+pub use context::{JsCurveKind as CurveKind, JsMarketContext as MarketContext};
 pub use dividends::{
     JsDividendEvent as DividendEvent, JsDividendSchedule as DividendSchedule,
     JsDividendScheduleBuilder as DividendScheduleBuilder,
