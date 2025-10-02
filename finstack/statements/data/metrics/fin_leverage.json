@@ -1,0 +1,67 @@
+{
+  "namespace": "fin",
+  "schema_version": 1,
+  "metrics": [
+    {
+      "id": "debt_to_equity",
+      "name": "Debt to Equity",
+      "formula": "total_debt / total_equity",
+      "description": "Total debt divided by total equity",
+      "category": "leverage",
+      "unit_type": "ratio",
+      "requires": ["total_debt", "total_equity"],
+      "tags": ["leverage", "solvency"]
+    },
+    {
+      "id": "debt_to_assets",
+      "name": "Debt to Assets",
+      "formula": "total_debt / total_assets",
+      "description": "Total debt divided by total assets",
+      "category": "leverage",
+      "unit_type": "ratio",
+      "requires": ["total_debt", "total_assets"],
+      "tags": ["leverage", "solvency"]
+    },
+    {
+      "id": "equity_multiplier",
+      "name": "Equity Multiplier",
+      "formula": "total_assets / total_equity",
+      "description": "Total assets divided by total equity",
+      "category": "leverage",
+      "unit_type": "ratio",
+      "requires": ["total_assets", "total_equity"],
+      "tags": ["leverage"]
+    },
+    {
+      "id": "debt_to_ebitda",
+      "name": "Debt to EBITDA",
+      "formula": "total_debt / (revenue - cogs - opex + depreciation + amortization)",
+      "description": "Total debt divided by EBITDA",
+      "category": "leverage",
+      "unit_type": "ratio",
+      "requires": ["total_debt", "revenue", "cogs", "opex", "depreciation", "amortization"],
+      "tags": ["leverage", "credit"]
+    },
+    {
+      "id": "interest_coverage",
+      "name": "Interest Coverage",
+      "formula": "(revenue - cogs - opex + depreciation + amortization) / interest_expense",
+      "description": "EBITDA divided by interest expense",
+      "category": "leverage",
+      "unit_type": "ratio",
+      "requires": ["revenue", "cogs", "opex", "depreciation", "amortization", "interest_expense"],
+      "tags": ["leverage", "credit", "coverage"]
+    },
+    {
+      "id": "debt_service_coverage",
+      "name": "Debt Service Coverage",
+      "formula": "(revenue - cogs - opex + depreciation + amortization) / (interest_expense + principal_payment)",
+      "description": "EBITDA divided by total debt service (interest + principal)",
+      "category": "leverage",
+      "unit_type": "ratio",
+      "requires": ["revenue", "cogs", "opex", "depreciation", "amortization", "interest_expense", "principal_payment"],
+      "tags": ["leverage", "credit", "coverage"]
+    }
+  ]
+}
+

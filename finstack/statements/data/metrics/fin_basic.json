@@ -1,0 +1,67 @@
+{
+  "namespace": "fin",
+  "schema_version": 1,
+  "metrics": [
+    {
+      "id": "gross_profit",
+      "name": "Gross Profit",
+      "formula": "revenue - cogs",
+      "description": "Revenue minus cost of goods sold",
+      "category": "income_statement",
+      "unit_type": "currency",
+      "requires": ["revenue", "cogs"],
+      "tags": ["income_statement", "profitability"]
+    },
+    {
+      "id": "operating_income",
+      "name": "Operating Income",
+      "formula": "revenue - cogs - opex",
+      "description": "Revenue minus cost of goods sold and operating expenses",
+      "category": "income_statement",
+      "unit_type": "currency",
+      "requires": ["revenue", "cogs", "opex"],
+      "tags": ["income_statement", "profitability"]
+    },
+    {
+      "id": "ebitda",
+      "name": "EBITDA",
+      "formula": "revenue - cogs - opex + depreciation + amortization",
+      "description": "Earnings before interest, taxes, depreciation, and amortization",
+      "category": "income_statement",
+      "unit_type": "currency",
+      "requires": ["revenue", "cogs", "opex", "depreciation", "amortization"],
+      "tags": ["income_statement", "profitability", "cash_proxy"]
+    },
+    {
+      "id": "ebit",
+      "name": "EBIT",
+      "formula": "revenue - cogs - opex",
+      "description": "Earnings before interest and taxes",
+      "category": "income_statement",
+      "unit_type": "currency",
+      "requires": ["revenue", "cogs", "opex"],
+      "tags": ["income_statement", "profitability"]
+    },
+    {
+      "id": "ebt",
+      "name": "EBT",
+      "formula": "revenue - cogs - opex - interest_expense",
+      "description": "Earnings before tax",
+      "category": "income_statement",
+      "unit_type": "currency",
+      "requires": ["revenue", "cogs", "opex", "interest_expense"],
+      "tags": ["income_statement", "profitability"]
+    },
+    {
+      "id": "net_income",
+      "name": "Net Income",
+      "formula": "revenue - cogs - opex - interest_expense - taxes",
+      "description": "Earnings after all expenses and taxes",
+      "category": "income_statement",
+      "unit_type": "currency",
+      "requires": ["revenue", "cogs", "opex", "interest_expense", "taxes"],
+      "tags": ["income_statement", "profitability", "bottom_line"]
+    }
+  ]
+}
+

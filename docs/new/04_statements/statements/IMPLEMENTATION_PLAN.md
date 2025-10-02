@@ -467,7 +467,7 @@ stats = ["dep:rand"]
 ## Phase 6: Capital Structure Integration (Week 6-7)
 
 ### Goals
-- Build debt instruments from specs
+- Using valuations/ functionality add debt instruments from specs
 - Aggregate cashflows by period
 - Calculate interest expense and principal schedules
 - Do not duplicate instruments and cashflows, use the valuations/ crate
@@ -475,7 +475,7 @@ stats = ["dep:rand"]
 ### PR #6.1 — Instrument Construction
 
 **Deliverables:**
-- [ ] Implement `DebtInstrumentSpec` types (Bond, Swap, Generic)
+- [ ] Implement `DebtInstrumentSpec` types (Bond, Loan, Swap)
 - [ ] Build instruments from specs using valuations
 - [ ] Unit tests for each instrument type
 

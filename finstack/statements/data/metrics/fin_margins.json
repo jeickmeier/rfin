@@ -1,0 +1,67 @@
+{
+  "namespace": "fin",
+  "schema_version": 1,
+  "metrics": [
+    {
+      "id": "gross_margin",
+      "name": "Gross Margin %",
+      "formula": "(revenue - cogs) / revenue",
+      "description": "Gross profit as percentage of revenue",
+      "category": "margins",
+      "unit_type": "percentage",
+      "requires": ["revenue", "cogs"],
+      "tags": ["margins", "profitability"]
+    },
+    {
+      "id": "operating_margin",
+      "name": "Operating Margin %",
+      "formula": "(revenue - cogs - opex) / revenue",
+      "description": "Operating income as percentage of revenue",
+      "category": "margins",
+      "unit_type": "percentage",
+      "requires": ["revenue", "cogs", "opex"],
+      "tags": ["margins", "profitability"]
+    },
+    {
+      "id": "ebitda_margin",
+      "name": "EBITDA Margin %",
+      "formula": "(revenue - cogs - opex + depreciation + amortization) / revenue",
+      "description": "EBITDA as percentage of revenue",
+      "category": "margins",
+      "unit_type": "percentage",
+      "requires": ["revenue", "cogs", "opex", "depreciation", "amortization"],
+      "tags": ["margins", "profitability"]
+    },
+    {
+      "id": "net_margin",
+      "name": "Net Margin %",
+      "formula": "(revenue - cogs - opex - interest_expense - taxes) / revenue",
+      "description": "Net income as percentage of revenue",
+      "category": "margins",
+      "unit_type": "percentage",
+      "requires": ["revenue", "cogs", "opex", "interest_expense", "taxes"],
+      "tags": ["margins", "profitability"]
+    },
+    {
+      "id": "cogs_as_pct_revenue",
+      "name": "COGS as % of Revenue",
+      "formula": "cogs / revenue",
+      "description": "Cost of goods sold as percentage of revenue",
+      "category": "margins",
+      "unit_type": "percentage",
+      "requires": ["cogs", "revenue"],
+      "tags": ["margins", "efficiency"]
+    },
+    {
+      "id": "opex_as_pct_revenue",
+      "name": "OpEx as % of Revenue",
+      "formula": "opex / revenue",
+      "description": "Operating expenses as percentage of revenue",
+      "category": "margins",
+      "unit_type": "percentage",
+      "requires": ["opex", "revenue"],
+      "tags": ["margins", "efficiency"]
+    }
+  ]
+}
+

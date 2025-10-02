@@ -1,0 +1,47 @@
+{
+  "namespace": "fin",
+  "schema_version": 1,
+  "metrics": [
+    {
+      "id": "roe",
+      "name": "Return on Equity",
+      "formula": "(revenue - cogs - opex - interest_expense - taxes) / total_equity",
+      "description": "Net income as percentage of shareholder equity",
+      "category": "returns",
+      "unit_type": "percentage",
+      "requires": ["revenue", "cogs", "opex", "interest_expense", "taxes", "total_equity"],
+      "tags": ["returns", "profitability"]
+    },
+    {
+      "id": "roa",
+      "name": "Return on Assets",
+      "formula": "(revenue - cogs - opex - interest_expense - taxes) / total_assets",
+      "description": "Net income as percentage of total assets",
+      "category": "returns",
+      "unit_type": "percentage",
+      "requires": ["revenue", "cogs", "opex", "interest_expense", "taxes", "total_assets"],
+      "tags": ["returns", "profitability"]
+    },
+    {
+      "id": "roic",
+      "name": "Return on Invested Capital",
+      "formula": "(revenue - cogs - opex) / (total_debt + total_equity)",
+      "description": "Operating income as percentage of invested capital",
+      "category": "returns",
+      "unit_type": "percentage",
+      "requires": ["revenue", "cogs", "opex", "total_debt", "total_equity"],
+      "tags": ["returns", "profitability"]
+    },
+    {
+      "id": "roce",
+      "name": "Return on Capital Employed",
+      "formula": "(revenue - cogs - opex) / (total_assets - current_liabilities)",
+      "description": "EBIT as percentage of capital employed",
+      "category": "returns",
+      "unit_type": "percentage",
+      "requires": ["revenue", "cogs", "opex", "total_assets", "current_liabilities"],
+      "tags": ["returns", "profitability"]
+    }
+  ]
+}
+

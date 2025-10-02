@@ -1,0 +1,449 @@
+//! Integration tests for the dynamic metric registry.
+
+use finstack_statements::prelude::*;
+use finstack_statements::registry::{MetricDefinition, MetricRegistry, Registry, UnitType};
+use indexmap::IndexMap;
+
+#[test]
+fn test_load_builtins() {
+    let mut registry = Registry::new();
+    registry.load_builtins().unwrap();
+
+    // Should have loaded metrics from all four files
+    assert!(!registry.is_empty());
+
+    // Check that fin namespace exists
+    let namespaces = registry.namespaces();
+    assert!(namespaces.contains(&"fin"));
+}
+
+#[test]
+fn test_builtin_basic_metrics() {
+    let mut registry = Registry::new();
+    registry.load_builtins().unwrap();
+
+    // Test some basic metrics
+    assert!(registry.has("fin.gross_profit"));
+    assert!(registry.has("fin.operating_income"));
+    assert!(registry.has("fin.ebitda"));
+    assert!(registry.has("fin.net_income"));
+
+    let gross_profit = registry.get("fin.gross_profit").unwrap();
+    assert_eq!(gross_profit.definition.formula, "revenue - cogs");
+}
+
+#[test]
+fn test_builtin_margin_metrics() {
+    let mut registry = Registry::new();
+    registry.load_builtins().unwrap();
+
+    // Test margin metrics
+    assert!(registry.has("fin.gross_margin"));
+    assert!(registry.has("fin.operating_margin"));
+    assert!(registry.has("fin.ebitda_margin"));
+    assert!(registry.has("fin.net_margin"));
+
+    let gross_margin = registry.get("fin.gross_margin").unwrap();
+    assert_eq!(gross_margin.definition.formula, "(revenue - cogs) / revenue");
+    assert_eq!(
+        gross_margin.definition.unit_type,
+        Some(UnitType::Percentage)
+    );
+}
+
+#[test]
+fn test_builtin_return_metrics() {
+    let mut registry = Registry::new();
+    registry.load_builtins().unwrap();
+
+    // Test return metrics
+    assert!(registry.has("fin.roe"));
+    assert!(registry.has("fin.roa"));
+    assert!(registry.has("fin.roic"));
+
+    let roe = registry.get("fin.roe").unwrap();
+    assert_eq!(roe.definition.formula, "(revenue - cogs - opex - interest_expense - taxes) / total_equity");
+}
+
+#[test]
+fn test_builtin_leverage_metrics() {
+    let mut registry = Registry::new();
+    registry.load_builtins().unwrap();
+
+    // Test leverage metrics
+    assert!(registry.has("fin.debt_to_equity"));
+    assert!(registry.has("fin.debt_to_ebitda"));
+    assert!(registry.has("fin.interest_coverage"));
+
+    let interest_coverage = registry.get("fin.interest_coverage").unwrap();
+    assert_eq!(
+        interest_coverage.definition.formula,
+        "(revenue - cogs - opex + depreciation + amortization) / interest_expense"
+    );
+}
+
+#[test]
+fn test_load_from_json_str() {
+    let json = r#"{
+        "namespace": "test",
+        "schema_version": 1,
+        "metrics": [
+            {
+                "id": "gross_margin",
+                "name": "Gross Margin",
+                "formula": "gross_profit / revenue",
+                "description": "Margin percentage",
+                "category": "margins",
+                "unit_type": "percentage"
+            }
+        ]
+    }"#;
+
+    let mut registry = Registry::new();
+    registry.load_from_json_str(json).unwrap();
+
+    assert!(registry.has("test.gross_margin"));
+    assert_eq!(registry.len(), 1);
+}
+
+#[test]
+fn test_namespace_listing() {
+    let json = r#"{
+        "namespace": "test",
+        "metrics": [
+            {
+                "id": "metric1",
+                "name": "Metric 1",
+                "formula": "a + b"
+            },
+            {
+                "id": "metric2",
+                "name": "Metric 2",
+                "formula": "c - d"
+            }
+        ]
+    }"#;
+
+    let mut registry = Registry::new();
+    registry.load_from_json_str(json).unwrap();
+
+    let test_metrics: Vec<_> = registry.namespace("test").collect();
+    assert_eq!(test_metrics.len(), 2);
+}
+
+#[test]
+fn test_duplicate_metric_error() {
+    let json = r#"{
+        "namespace": "test",
+        "metrics": [
+            {
+                "id": "gross_margin",
+                "name": "Gross Margin",
+                "formula": "gross_profit / revenue"
+            }
+        ]
+    }"#;
+
+    let mut registry = Registry::new();
+    registry.load_from_json_str(json).unwrap();
+
+    // Try to load again
+    let result = registry.load_from_json_str(json);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_invalid_formula_error() {
+    let json = r#"{
+        "namespace": "test",
+        "metrics": [
+            {
+                "id": "invalid",
+                "name": "Invalid",
+                "formula": "a + + b"
+            }
+        ]
+    }"#;
+
+    let mut registry = Registry::new();
+    let result = registry.load_from_json_str(json);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_multiple_namespaces() {
+    let json1 = r#"{
+        "namespace": "test1",
+        "metrics": [
+            {"id": "m1", "name": "M1", "formula": "a + b"}
+        ]
+    }"#;
+
+    let json2 = r#"{
+        "namespace": "test2",
+        "metrics": [
+            {"id": "m2", "name": "M2", "formula": "c - d"}
+        ]
+    }"#;
+
+    let mut registry = Registry::new();
+    registry.load_from_json_str(json1).unwrap();
+    registry.load_from_json_str(json2).unwrap();
+
+    let namespaces = registry.namespaces();
+    assert_eq!(namespaces.len(), 2);
+    assert!(namespaces.contains(&"test1"));
+    assert!(namespaces.contains(&"test2"));
+}
+
+#[test]
+fn test_model_builder_with_builtin_metrics() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+            ],
+        )
+        .value(
+            "cogs",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(60_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(66_000.0)),
+            ],
+        )
+        .with_builtin_metrics()
+        .unwrap()
+        .build()
+        .unwrap();
+
+    // Should have revenue, cogs, and all built-in metrics
+    assert!(model.has_node("revenue"));
+    assert!(model.has_node("cogs"));
+    assert!(model.has_node("fin.gross_profit"));
+    assert!(model.has_node("fin.gross_margin"));
+}
+
+#[test]
+fn test_evaluate_model_with_select_metrics() {
+    // Don't load ALL metrics with .with_builtin_metrics() - just add the ones we need
+    let mut registry = Registry::new();
+    registry.load_builtins().unwrap();
+
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+            ],
+        )
+        .value(
+            "cogs",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(60_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(66_000.0)),
+            ],
+        )
+        .add_metric_from_registry("fin.gross_profit", &registry)
+        .unwrap()
+        .add_metric_from_registry("fin.gross_margin", &registry)
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model, false).unwrap();
+
+    // Check that fin.gross_profit was calculated correctly
+    let q1_gross_profit = results
+        .get("fin.gross_profit", &PeriodId::quarter(2025, 1))
+        .unwrap();
+    assert_eq!(q1_gross_profit, 40_000.0); // 100,000 - 60,000
+
+    let q2_gross_profit = results
+        .get("fin.gross_profit", &PeriodId::quarter(2025, 2))
+        .unwrap();
+    assert_eq!(q2_gross_profit, 44_000.0); // 110,000 - 66,000
+
+    // Check that fin.gross_margin was calculated correctly
+    let q1_gross_margin = results
+        .get("fin.gross_margin", &PeriodId::quarter(2025, 1))
+        .unwrap();
+    assert!((q1_gross_margin - 0.4).abs() < 0.0001); // 40,000 / 100,000 = 0.4
+
+    let q2_gross_margin = results
+        .get("fin.gross_margin", &PeriodId::quarter(2025, 2))
+        .unwrap();
+    assert!((q2_gross_margin - 0.4).abs() < 0.0001); // 44,000 / 110,000 = 0.4
+}
+
+#[test]
+fn test_add_metric_from_registry() {
+    let mut registry = Registry::new();
+    registry.load_builtins().unwrap();
+
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+            ],
+        )
+        .value(
+            "cogs",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(60_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(66_000.0)),
+            ],
+        )
+        .add_metric_from_registry("fin.gross_profit", &registry)
+        .unwrap()
+        .add_metric_from_registry("fin.gross_margin", &registry)
+        .unwrap()
+        .build()
+        .unwrap();
+
+    // Should only have revenue, cogs, and the two explicitly added metrics
+    assert!(model.has_node("revenue"));
+    assert!(model.has_node("cogs"));
+    assert!(model.has_node("fin.gross_profit"));
+    assert!(model.has_node("fin.gross_margin"));
+    assert!(!model.has_node("fin.operating_income")); // Not added
+}
+
+#[test]
+fn test_metric_definition_qualified_id() {
+    let metric = MetricDefinition {
+        id: "gross_margin".into(),
+        name: "Gross Margin".into(),
+        formula: "gross_profit / revenue".into(),
+        description: None,
+        category: None,
+        unit_type: None,
+        requires: vec![],
+        tags: vec![],
+        meta: IndexMap::new(),
+    };
+
+    assert_eq!(metric.qualified_id("fin"), "fin.gross_margin");
+}
+
+#[test]
+fn test_metric_registry_serialization() {
+    let json = r#"{
+        "namespace": "test",
+        "schema_version": 1,
+        "metrics": [
+            {
+                "id": "test_metric",
+                "name": "Test Metric",
+                "formula": "a + b",
+                "description": "A test metric",
+                "category": "test",
+                "unit_type": "ratio",
+                "requires": ["a", "b"],
+                "tags": ["test"]
+            }
+        ]
+    }"#;
+
+    let registry: MetricRegistry = serde_json::from_str(json).unwrap();
+    assert_eq!(registry.namespace, "test");
+    assert_eq!(registry.schema_version, 1);
+    assert_eq!(registry.metrics.len(), 1);
+
+    let metric = &registry.metrics[0];
+    assert_eq!(metric.id, "test_metric");
+    assert_eq!(metric.name, "Test Metric");
+    assert_eq!(metric.formula, "a + b");
+    assert_eq!(metric.unit_type, Some(UnitType::Ratio));
+}
+
+#[test]
+fn test_complete_pl_model_with_select_registry_metrics() {
+    let mut registry = Registry::new();
+    registry.load_builtins().unwrap();
+
+    let model = ModelBuilder::new("P&L Model")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1_000_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(1_100_000.0)),
+            ],
+        )
+        .value(
+            "cogs",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(600_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(660_000.0)),
+            ],
+        )
+        .value(
+            "opex",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(200_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(220_000.0)),
+            ],
+        )
+        .value(
+            "depreciation",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(50_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(50_000.0)),
+            ],
+        )
+        .value(
+            "amortization",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(10_000.0)),
+            ],
+        )
+        // Only add the metrics we can calculate with the given inputs
+        .add_metric_from_registry("fin.gross_profit", &registry)
+        .unwrap()
+        .add_metric_from_registry("fin.operating_income", &registry)
+        .unwrap()
+        .add_metric_from_registry("fin.ebitda", &registry)
+        .unwrap()
+        .add_metric_from_registry("fin.gross_margin", &registry)
+        .unwrap()
+        .add_metric_from_registry("fin.operating_margin", &registry)
+        .unwrap()
+        .add_metric_from_registry("fin.ebitda_margin", &registry)
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model, false).unwrap();
+
+    // Test Q1 calculations
+    let q1 = PeriodId::quarter(2025, 1);
+    assert_eq!(results.get("fin.gross_profit", &q1).unwrap(), 400_000.0);
+    assert_eq!(results.get("fin.operating_income", &q1).unwrap(), 200_000.0);
+    assert_eq!(results.get("fin.ebitda", &q1).unwrap(), 260_000.0);
+    assert!((results.get("fin.gross_margin", &q1).unwrap() - 0.4).abs() < 0.0001);
+    assert!((results.get("fin.operating_margin", &q1).unwrap() - 0.2).abs() < 0.0001);
+
+    // Test Q2 calculations
+    let q2 = PeriodId::quarter(2025, 2);
+    assert_eq!(results.get("fin.gross_profit", &q2).unwrap(), 440_000.0);
+    assert_eq!(results.get("fin.operating_income", &q2).unwrap(), 220_000.0);
+    assert_eq!(results.get("fin.ebitda", &q2).unwrap(), 280_000.0);
+    assert!((results.get("fin.gross_margin", &q2).unwrap() - 0.4).abs() < 0.0001);
+    assert!((results.get("fin.operating_margin", &q2).unwrap() - 0.2).abs() < 0.0001);
+}
+

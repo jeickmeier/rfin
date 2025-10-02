@@ -72,6 +72,21 @@ cargo run --example statements_phase3_example
 cargo run --example statements_phase4_example
 ```
 
+**[statements_phase5_example.rs](./statements_phase5_example.rs)**
+- Demonstrates Phase 5 dynamic registry features
+- Loading built-in financial metrics (22 standard metrics)
+- Exploring metrics by namespace (fin.*)
+- Creating custom metrics from JSON
+- Namespace management and collision prevention
+- Registry integration with ModelBuilder
+- Selective vs. bulk metric loading
+- Evaluating models with registry metrics
+- Complete P&L with margin and profitability metrics
+
+```bash
+cargo run --example statements_phase5_example
+```
+
 ### Valuations Crate
 
 **[bond_custom_cashflows_example.rs](./bond_custom_cashflows_example.rs)**

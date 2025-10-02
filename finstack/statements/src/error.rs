@@ -116,4 +116,14 @@ impl Error {
     pub fn invalid_input(msg: impl Into<String>) -> Self {
         Self::InvalidInput(msg.into())
     }
+
+    /// Create a registry error with context
+    pub fn registry(msg: impl Into<String>) -> Self {
+        Self::Registry(msg.into())
+    }
+
+    /// Create a forecast error with context
+    pub fn forecast(msg: impl Into<String>) -> Self {
+        Self::Forecast(msg.into())
+    }
 }

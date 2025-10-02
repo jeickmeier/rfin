@@ -244,6 +244,111 @@ impl ModelBuilder<Ready> {
         self
     }
 
+    /// Load built-in metrics (fin.* namespace) and add them to the model.
+    ///
+    /// This is a convenience method that loads standard financial metrics
+    /// and adds all of them to the model.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("test")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .value("revenue", &[])
+    ///     .value("cogs", &[])
+    ///     .with_builtin_metrics()?
+    ///     .build()?;
+    ///
+    /// // Now you can use metrics like fin.gross_profit
+    /// assert!(model.has_node("fin.gross_profit"));
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn with_builtin_metrics(mut self) -> Result<Self> {
+        let mut registry = crate::registry::Registry::new();
+        registry.load_builtins()?;
+
+        // Add all metrics from the registry as calculated nodes
+        for (qualified_id, stored_metric) in registry.all_metrics() {
+            let node = NodeSpec::new(qualified_id.to_string(), NodeType::Calculated)
+                .with_name(stored_metric.definition.name.clone())
+                .with_formula(stored_metric.definition.formula.clone());
+            self.nodes.insert(qualified_id.to_string(), node);
+        }
+
+        Ok(self)
+    }
+
+    /// Load metrics from a JSON file and add them to the model.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("test")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .with_metrics("metrics/custom.json")?
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn with_metrics(mut self, path: &str) -> Result<Self> {
+        let mut registry = crate::registry::Registry::new();
+        registry.load_from_json(path)?;
+
+        // Add all metrics from the registry as calculated nodes
+        for (qualified_id, stored_metric) in registry.all_metrics() {
+            let node = NodeSpec::new(qualified_id.to_string(), NodeType::Calculated)
+                .with_name(stored_metric.definition.name.clone())
+                .with_formula(stored_metric.definition.formula.clone());
+            self.nodes.insert(qualified_id.to_string(), node);
+        }
+
+        Ok(self)
+    }
+
+    /// Add a specific metric from a registry.
+    ///
+    /// This allows selectively adding metrics from a registry instead of
+    /// adding all of them.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_statements::registry::Registry;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut registry = Registry::new();
+    /// registry.load_builtins()?;
+    ///
+    /// let model = ModelBuilder::new("test")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .value("revenue", &[])
+    ///     .value("cogs", &[])
+    ///     .add_metric_from_registry("fin.gross_profit", &registry)?
+    ///     .add_metric_from_registry("fin.gross_margin", &registry)?
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn add_metric_from_registry(
+        mut self,
+        qualified_id: &str,
+        registry: &crate::registry::Registry,
+    ) -> Result<Self> {
+        let stored_metric = registry.get(qualified_id)?;
+
+        let node = NodeSpec::new(qualified_id.to_string(), NodeType::Calculated)
+            .with_name(stored_metric.definition.name.clone())
+            .with_formula(stored_metric.definition.formula.clone());
+
+        self.nodes.insert(qualified_id.to_string(), node);
+        Ok(self)
+    }
+
     /// Build the final model specification.
     ///
     /// This validates the model and returns a `FinancialModelSpec`.
