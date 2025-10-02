@@ -12,10 +12,4 @@ where
     array
 }
 
-/// Convert a message into a JavaScript Error value.
-/// 
-/// Note: Also available via crate::core::error::js_error for consistency.
-#[inline]
-pub(crate) fn js_error(message: impl Into<String>) -> JsValue {
-    JsValue::from(js_sys::Error::new(&message.into()))
-}
+// Note: js_error is now unified in crate::core::error for consistency

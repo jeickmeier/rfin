@@ -40,8 +40,7 @@ pub fn normalize_label(input: &str) -> String {
     
     trimmed
         .to_ascii_lowercase()
-        .replace('-', "_")
-        .replace('/', "_")
+        .replace(['-', '/'], "_")
 }
 
 #[cfg(test)]

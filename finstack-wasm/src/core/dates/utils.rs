@@ -1,5 +1,5 @@
 use crate::core::dates::date::JsDate;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use finstack_core::dates::utils as core_utils;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;

@@ -1,7 +1,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::money::JsMoney;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_valuations::instruments::cap_floor::InterestRateOption;

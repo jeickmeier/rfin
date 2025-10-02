@@ -14,7 +14,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::{JsDayCount, JsFrequency};
 use crate::core::dates::schedule::JsStubKind;
 use crate::core::money::JsMoney;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use crate::valuations::common::curve_id_from_str;
 use finstack_valuations::cashflow::builder::types::{
     CouponType as CoreCouponType, FixedCouponSpec as CoreFixedCouponSpec,
@@ -258,6 +258,12 @@ pub struct JsCashflowBuilder {
     inner: CoreCashflowBuilder,
 }
 
+impl Default for JsCashflowBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen(js_class = CashflowBuilder)]
 impl JsCashflowBuilder {
     /// Create a new cashflow builder.
@@ -430,7 +436,7 @@ impl JsCashflowBuilder {
     #[wasm_bindgen(js_name = buildWithCurves)]
     pub fn build_with_curves(self, market: &crate::core::market_data::context::JsMarketContext) -> Result<JsCashFlowSchedule, JsValue> {
         let schedule = self.inner
-            .build_with_curves(Some(&market.inner()))
+            .build_with_curves(Some(market.inner()))
             .map_err(|e| js_error(e.to_string()))?;
         Ok(JsCashFlowSchedule::new(schedule))
     }

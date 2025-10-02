@@ -1,6 +1,6 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::calendar_not_found;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use finstack_core::dates::calendar::business_days::{CalendarMetadata, HolidayCalendar};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{adjust as core_adjust, BusinessDayConvention};

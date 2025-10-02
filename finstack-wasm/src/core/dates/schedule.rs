@@ -1,7 +1,7 @@
 use crate::core::dates::calendar::{resolve_calendar_ref, JsBusinessDayConvention, JsCalendar};
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsFrequency;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use finstack_core::dates::Date as CoreDate;
 use finstack_core::dates::{ScheduleBuilder as CoreScheduleBuilder, StubKind};
 use wasm_bindgen::prelude::*;

@@ -1,6 +1,6 @@
 use crate::core::dates::calendar::{resolve_calendar_ref, JsCalendar};
 use crate::core::dates::date::JsDate;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use finstack_core::dates::{DayCount, DayCountCtx, Frequency};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;

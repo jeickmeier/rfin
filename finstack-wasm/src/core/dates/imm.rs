@@ -1,5 +1,5 @@
 use crate::core::dates::date::JsDate;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use finstack_core::dates::{
     imm_option_expiry, next_cds_date, next_equity_option_expiry, next_imm, next_imm_option_expiry,
     third_friday, third_wednesday,

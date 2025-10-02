@@ -1,7 +1,8 @@
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
-use crate::core::utils::{js_array_from_iter, js_error};
+use crate::core::utils::js_array_from_iter;
+use crate::core::error::js_error;
 use finstack_core::market_data::dividends::{
     DividendEvent, DividendKind, DividendSchedule, DividendScheduleBuilder,
 };

@@ -1,6 +1,6 @@
 use crate::core::error::core_to_js;
 use crate::core::market_data::context::JsMarketContext;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use crate::valuations::instruments::{
     Abs as JsAbs, BasisSwap as JsBasisSwap, Basket as JsBasket, Bond as JsBond, CDSIndex as JsCDSIndex,
     CdsOption as JsCdsOption, CdsTranche as JsCdsTranche, Clo as JsClo, Cmbs as JsCmbs,
@@ -86,11 +86,41 @@ impl JsPricerRegistry {
 
 #[wasm_bindgen(js_class = PricerRegistry)]
 impl JsPricerRegistry {
+    /// Create an empty pricing registry (use createStandardRegistry() for pre-loaded engines).
+    ///
+    /// @returns {PricerRegistry} Registry without any registered pricing engines
+    ///
+    /// @example
+    /// ```javascript
+    /// // Typically use the standard registry instead:
+    /// const registry = createStandardRegistry();
+    ///
+    /// // But you can create an empty one for custom engines:
+    /// const custom = new PricerRegistry();
+    /// ```
     #[wasm_bindgen(constructor)]
     pub fn new_empty() -> JsPricerRegistry {
         JsPricerRegistry::new(PricerRegistry::new())
     }
 
+    /// Price a bond instrument using the specified model and market data.
+    ///
+    /// @param {Bond} bond - Bond instrument created via Bond constructors
+    /// @param {string} model - Pricing model key ("discounting", "tree", etc.)
+    /// @param {MarketContext} market - Market data context with curves and scalars
+    /// @returns {ValuationResult} Pricing result with present value and metadata
+    /// @throws {Error} If the model is unsupported or required market data is missing
+    ///
+    /// @example
+    /// ```javascript
+    /// const registry = createStandardRegistry();
+    /// const bond = Bond.fixedSemiannual("bond1", notional, 0.05, issue, maturity, "USD-OIS");
+    /// const market = new MarketContext();
+    /// market.insertDiscount(discountCurve);
+    ///
+    /// const result = registry.priceBond(bond, "discounting", market);
+    /// console.log(result.presentValue.format());  // "USD 1,023,456.78"
+    /// ```
     #[wasm_bindgen(js_name = priceBond)]
     pub fn price_bond(
         &self,
@@ -103,6 +133,29 @@ impl JsPricerRegistry {
         price_with_optional_metrics(&self.inner, &instrument, model_key, market, None)
     }
 
+    /// Price a bond and compute requested risk metrics.
+    ///
+    /// @param {Bond} bond - Bond instrument
+    /// @param {string} model - Pricing model key
+    /// @param {MarketContext} market - Market context
+    /// @param {Array<string>} metrics - Metric names (e.g., ["dv01", "duration_mod", "ytm"])
+    /// @returns {ValuationResult} Pricing result with present value and computed metrics
+    /// @throws {Error} If pricing fails or metrics cannot be computed
+    ///
+    /// @example
+    /// ```javascript
+    /// const result = registry.priceBondWithMetrics(
+    ///   bond,
+    ///   "discounting",
+    ///   market,
+    ///   ["clean_price", "accrued", "ytm", "duration_mod", "dv01", "z_spread"]
+    /// );
+    ///
+    /// console.log(`PV: ${result.presentValue.format()}`);
+    /// console.log(`Clean Price: ${result.metric("clean_price")}`);
+    /// console.log(`YTM: ${(result.metric("ytm") * 100).toFixed(2)}%`);
+    /// console.log(`Duration: ${result.metric("duration_mod").toFixed(4)}`);
+    /// ```
     #[wasm_bindgen(js_name = priceBondWithMetrics)]
     pub fn price_bond_with_metrics(
         &self,
@@ -788,6 +841,43 @@ impl JsPricerRegistry {
 
 }
 
+/// Create a pricing registry populated with all standard finstack pricers.
+///
+/// This is the main entry point for instrument valuation. The standard registry
+/// includes pricing engines for all supported instrument types (bonds, swaps,
+/// options, credit derivatives, etc.) using common models like discounting,
+/// Black-76, and hazard rate approaches.
+///
+/// @returns {PricerRegistry} Registry with all built-in pricing engines loaded
+///
+/// @example
+/// ```javascript
+/// import { createStandardRegistry, Bond, Money, MarketContext, DiscountCurve, Date } from 'finstack-wasm';
+///
+/// const registry = createStandardRegistry();
+///
+/// // Create market data
+/// const baseDate = new Date(2024, 1, 2);
+/// const curve = new DiscountCurve("USD-OIS", baseDate, ...);
+/// const market = new MarketContext();
+/// market.insertDiscount(curve);
+///
+/// // Price instruments
+/// const bond = Bond.fixedSemiannual(...);
+/// const bondResult = registry.priceBond(bond, "discounting", market);
+///
+/// const swap = InterestRateSwap.usdReceiveFixed(...);
+/// const swapResult = registry.priceInterestRateSwapWithMetrics(
+///   swap,
+///   "discounting",
+///   market,
+///   ["dv01", "annuity", "par_rate"]
+/// );
+///
+/// console.log(`Bond PV: ${bondResult.presentValue.format()}`);
+/// console.log(`Swap PV: ${swapResult.presentValue.format()}`);
+/// console.log(`Swap DV01: ${swapResult.metric("dv01")}`);
+/// ```
 #[wasm_bindgen(js_name = createStandardRegistry)]
 pub fn create_standard_registry_js() -> JsPricerRegistry {
     JsPricerRegistry::new(create_standard_registry())

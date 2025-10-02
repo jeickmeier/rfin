@@ -1,5 +1,5 @@
 use crate::core::currency::JsCurrency;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use serde_json;
 use finstack_valuations::instruments::private_markets_fund::PrivateMarketsFund;
 use finstack_valuations::pricer::InstrumentType;

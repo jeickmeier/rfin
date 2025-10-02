@@ -1,4 +1,4 @@
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use js_sys::Function;
 use std::cell::RefCell;
 use std::panic::{catch_unwind, AssertUnwindSafe};

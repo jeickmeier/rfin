@@ -270,6 +270,7 @@ impl Bond {
     /// * `maturity` - Maturity date
     /// * `disc_id` - Discount curve identifier
     /// * `quoted_clean` - Optional quoted clean price
+    #[allow(clippy::too_many_arguments)]
     pub fn pik_toggle(
         id: impl Into<InstrumentId>,
         notional: Money,
@@ -316,6 +317,7 @@ impl Bond {
     /// * `dc` - Day count convention
     /// * `disc_id` - Discount curve identifier
     /// * `quoted_clean` - Optional quoted clean price
+    #[allow(clippy::too_many_arguments)]
     pub fn fixed_to_floating(
         id: impl Into<InstrumentId>,
         notional: Money,

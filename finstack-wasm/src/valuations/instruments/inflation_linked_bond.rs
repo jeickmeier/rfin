@@ -1,7 +1,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::money::JsMoney;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;

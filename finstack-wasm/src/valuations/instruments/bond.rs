@@ -4,7 +4,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::{JsDayCount, JsFrequency};
 use crate::core::dates::schedule::JsStubKind;
 use crate::core::money::JsMoney;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_core::dates::Date as CoreDate;
 use finstack_valuations::instruments::bond::{Bond, BondFloatSpec, CallPut, CallPutSchedule};
@@ -279,6 +279,7 @@ impl JsBond {
     }
 
     #[wasm_bindgen(js_name = floating)]
+    #[allow(clippy::too_many_arguments)]
     pub fn floating(
         instrument_id: &str,
         notional: &JsMoney,
@@ -328,7 +329,7 @@ impl JsBond {
             maturity.inner(),
             curve_id_from_str(discount_curve),
             quoted_clean_price,
-            &market.inner(),
+            market.inner(),
         )
         .map(JsBond::new)
         .map_err(|e| js_error(e.to_string()))
@@ -364,7 +365,7 @@ impl JsBond {
             day_count.inner(),
             curve_id_from_str(discount_curve),
             quoted_clean_price,
-            &market.inner(),
+            market.inner(),
         )
         .map(JsBond::new)
         .map_err(|e| js_error(e.to_string()))
@@ -439,7 +440,7 @@ impl JsBond {
         use finstack_core::cashflow::primitives::CFKind;
         
         // Use the Bond's get_full_schedule method with market curves
-        let sched = self.inner.get_full_schedule(&market.inner())
+        let sched = self.inner.get_full_schedule(market.inner())
             .map_err(|e| js_error(e.to_string()))?;
         
         // Get outstanding path (properly calculated by the Rust library)

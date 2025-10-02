@@ -6,7 +6,8 @@ use crate::core::market_data::term_structures::{
     JsBaseCorrelationCurve, JsCreditIndexData, JsDiscountCurve, JsForwardCurve, JsHazardCurve,
     JsInflationCurve,
 };
-use crate::core::utils::{js_array_from_iter, js_error};
+use crate::core::utils::js_array_from_iter;
+use crate::core::error::js_error;
 use finstack_core::market_data::context::{ContextStats, MarketContext};
 use finstack_core::types::CurveId;
 use std::sync::Arc;

@@ -1,5 +1,5 @@
 use crate::core::dates::date::JsDate;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use finstack_core::dates::{build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId};
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;

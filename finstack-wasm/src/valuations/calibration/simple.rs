@@ -30,27 +30,13 @@ impl JsSimpleCalibration {
 
         let cfg = config
             .map(|c| c.inner())
-            .unwrap_or_else(finstack_valuations::calibration::CalibrationConfig::default);
+            .unwrap_or_default();
 
         let inner = SimpleCalibration::new(base_date.inner(), ccy).with_config(cfg);
 
         Ok(Self { inner })
     }
 
-    /// Add entity seniority mapping.
-    #[wasm_bindgen(js_name = addEntitySeniority)]
-    pub fn add_entity_seniority(
-        &mut self,
-        _entity: &str,
-        _seniority: &str,
-    ) -> Result<(), JsValue> {
-        // SimpleCalibration doesn't implement Clone, so we need to rebuild
-        // Store the entity seniority for use during calibrate
-        // For now, just return an error suggesting to pass config during construction
-        Err(JsValue::from_str(
-            "addEntitySeniority not supported in WASM; pass entity_seniority in CalibrationConfig during construction",
-        ))
-    }
 
     /// Calibrate to market quotes.
     #[wasm_bindgen]

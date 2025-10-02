@@ -1,7 +1,7 @@
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use finstack_valuations::instruments::fx_option::FxOption;
 use finstack_valuations::instruments::fx_spot::FxSpot;

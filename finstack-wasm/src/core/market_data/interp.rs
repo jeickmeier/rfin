@@ -1,4 +1,4 @@
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;

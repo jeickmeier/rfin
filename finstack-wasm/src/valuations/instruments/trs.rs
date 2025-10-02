@@ -1,7 +1,7 @@
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
-use crate::core::utils::js_error;
+use crate::core::error::js_error;
 use crate::valuations::common::instrument_id_from_str;
 use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
 use finstack_valuations::instruments::common::parameters::underlying::{

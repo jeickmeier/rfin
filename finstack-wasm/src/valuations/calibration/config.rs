@@ -112,9 +112,10 @@ impl JsMultiCurveConfig {
     /// Create a new multi-curve configuration.
     #[wasm_bindgen(constructor)]
     pub fn new(calibrate_basis: bool, enforce_separation: bool) -> Self {
-        let mut config = MultiCurveConfig::default();
-        config.calibrate_basis = calibrate_basis;
-        config.enforce_separation = enforce_separation;
+        let config = MultiCurveConfig {
+            calibrate_basis,
+            enforce_separation,
+        };
         Self { inner: config }
     }
 
@@ -157,7 +158,7 @@ impl JsMultiCurveConfig {
 
 /// Calibration configuration with solver settings and tolerances.
 #[wasm_bindgen(js_name = CalibrationConfig)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct JsCalibrationConfig {
     inner: CalibrationConfig,
 }

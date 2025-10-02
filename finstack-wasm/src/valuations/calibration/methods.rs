@@ -16,7 +16,7 @@ use finstack_valuations::calibration::methods::{
 use finstack_valuations::calibration::{Calibrator, CreditQuote, InflationQuote, RatesQuote, VolQuote};
 use wasm_bindgen::prelude::*;
 
-/// Discount curve calibrator.
+/// Discount curve calibrator for bootstrapping OIS/Treasury curves.
 #[wasm_bindgen(js_name = DiscountCurveCalibrator)]
 #[derive(Clone)]
 pub struct JsDiscountCurveCalibrator {
@@ -26,6 +26,21 @@ pub struct JsDiscountCurveCalibrator {
 #[wasm_bindgen(js_class = DiscountCurveCalibrator)]
 impl JsDiscountCurveCalibrator {
     /// Create a new discount curve calibrator.
+    ///
+    /// @param {string} curve_id - Identifier for the calibrated curve (e.g., "USD-OIS")
+    /// @param {Date} base_date - Valuation date corresponding to t=0
+    /// @param {string} currency - Currency code ("USD", "EUR", etc.)
+    /// @returns {DiscountCurveCalibrator} Calibrator ready to fit curves to market quotes
+    /// @throws {Error} If currency code is invalid
+    ///
+    /// @example
+    /// ```javascript
+    /// const calibrator = new DiscountCurveCalibrator(
+    ///   "USD-OIS",
+    ///   new Date(2024, 1, 2),
+    ///   "USD"
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     pub fn new(
         curve_id: &str,
@@ -40,7 +55,20 @@ impl JsDiscountCurveCalibrator {
         })
     }
 
-    /// Set calibration configuration.
+    /// Configure the calibrator with solver settings and tolerances.
+    ///
+    /// @param {CalibrationConfig} config - Configuration with solver kind, tolerance, iterations
+    /// @returns {DiscountCurveCalibrator} New calibrator with updated configuration
+    ///
+    /// @example
+    /// ```javascript
+    /// const config = CalibrationConfig.multiCurve()
+    ///   .withSolverKind(SolverKind.Hybrid())
+    ///   .withMaxIterations(40);
+    ///
+    /// const calibrator = new DiscountCurveCalibrator("USD-OIS", baseDate, "USD")
+    ///   .withConfig(config);
+    /// ```
     #[wasm_bindgen(js_name = withConfig)]
     pub fn with_config(&self, config: &JsCalibrationConfig) -> JsDiscountCurveCalibrator {
         Self {
@@ -48,7 +76,29 @@ impl JsDiscountCurveCalibrator {
         }
     }
 
-    /// Calibrate to market quotes.
+    /// Calibrate the discount curve to market quotes.
+    ///
+    /// Fits the curve to deposit and swap quotes using numerical optimization.
+    /// Returns a tuple of [calibrated_curve, calibration_report].
+    ///
+    /// @param {Array<RatesQuote>} quotes - Market quotes (deposits, swaps) to fit
+    /// @param {MarketContext | null} market - Optional existing market context
+    /// @returns {Array} Tuple [DiscountCurve, CalibrationReport]
+    /// @throws {Error} If calibration fails or quotes are insufficient
+    ///
+    /// @example
+    /// ```javascript
+    /// const quotes = [
+    ///   RatesQuote.deposit(new Date(2024, 2, 1), 0.0450, 'act_360'),
+    ///   RatesQuote.swap(new Date(2025, 1, 2), 0.0475, Frequency.annual(),
+    ///                   Frequency.quarterly(), '30_360', 'act_360', 'USD-SOFR')
+    /// ];
+    ///
+    /// const [curve, report] = calibrator.calibrate(quotes, null);
+    /// console.log('Success:', report.success);
+    /// console.log('Iterations:', report.iterations);
+    /// console.log('DF at 1Y:', curve.df(1.0));
+    /// ```
     #[wasm_bindgen]
     pub fn calibrate(
         &self,
@@ -64,7 +114,7 @@ impl JsDiscountCurveCalibrator {
 
         let (curve, report) = self
             .inner
-            .calibrate(&rust_quotes, &base_context)
+            .calibrate(&rust_quotes, base_context)
             .map_err(|e| JsValue::from_str(&format!("Calibration failed: {}", e)))?;
 
         // Return as [curve, report] array
@@ -126,7 +176,7 @@ impl JsForwardCurveCalibrator {
 
         let (curve, report) = self
             .inner
-            .calibrate(&rust_quotes, &market.inner())
+            .calibrate(&rust_quotes, market.inner())
             .map_err(|e| JsValue::from_str(&format!("Calibration failed: {}", e)))?;
 
         // Return as [curve, report] array

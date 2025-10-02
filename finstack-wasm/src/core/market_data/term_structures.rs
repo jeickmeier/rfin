@@ -2,7 +2,8 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::parse_day_count_label;
 use crate::core::error::core_to_js;
 use crate::core::market_data::interp::{parse_extrapolation, parse_interp_style};
-use crate::core::utils::{js_array_from_iter, js_error};
+use crate::core::utils::js_array_from_iter;
+use crate::core::error::js_error;
 use finstack_core::currency::Currency as CoreCurrency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::term_structures::{
@@ -102,6 +103,37 @@ impl JsDiscountCurve {
 
 #[wasm_bindgen(js_class = DiscountCurve)]
 impl JsDiscountCurve {
+    /// Create a discount curve with (time, discount_factor) knot points.
+    ///
+    /// @param {string} id - Curve identifier used to retrieve it later from MarketContext
+    /// @param {Date} base_date - Anchor date corresponding to t = 0
+    /// @param {Array<number> | Float64Array} times - Time knots in years from base_date
+    /// @param {Array<number> | Float64Array} discount_factors - Discount factor values at each time point
+    /// @param {string} day_count - Day count convention (e.g., "act_365f", "30_360")
+    /// @param {string} interp - Interpolation style ("linear", "monotone_convex", "log_linear", etc.)
+    /// @param {string} extrapolation - Extrapolation policy ("flat_zero", "flat_forward")
+    /// @param {boolean} require_monotonic - Enforce monotonically decreasing discount factors
+    /// @returns {DiscountCurve} Curve object exposing discount factor and zero rate helpers
+    /// @throws {Error} If knots are invalid, times/factors length mismatch, or fewer than 2 points
+    ///
+    /// @example
+    /// ```javascript
+    /// const baseDate = new Date(2024, 1, 2);
+    /// const curve = new DiscountCurve(
+    ///   "USD-OIS",
+    ///   baseDate,
+    ///   [0.0, 0.5, 1.0, 2.0, 5.0],                    // times in years
+    ///   [1.0, 0.9975, 0.9950, 0.9850, 0.9650],        // discount factors
+    ///   "act_365f",                                    // day count
+    ///   "monotone_convex",                             // interpolation
+    ///   "flat_forward",                                // extrapolation
+    ///   true                                           // require monotonic
+    /// );
+    ///
+    /// console.log(curve.df(1.0));       // 0.9950 (discount factor at 1 year)
+    /// console.log(curve.zero(1.0));     // ~0.005012 (zero rate at 1 year)
+    /// console.log(curve.forward(0.5, 1.0));  // forward rate 0.5y → 1y
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

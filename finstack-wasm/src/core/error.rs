@@ -1,4 +1,4 @@
-//! Error conversion utilities for WASM bindings.
+//! Unified error handling for WASM bindings.
 //!
 //! Provides standardized error mapping from finstack-core errors to JavaScript
 //! Error objects. This mirrors the Python bindings' error handling approach
@@ -64,18 +64,84 @@ pub(crate) fn calendar_not_found(id: &str) -> JsValue {
 }
 
 /// Create a JavaScript Error for an unknown business day convention.
+#[allow(dead_code)]
 pub(crate) fn unknown_business_day_convention(name: &str) -> JsValue {
     js_error(format!("Unknown business day convention: {name}"))
 }
 
 /// Create a JavaScript Error for an unknown rounding mode.
+#[allow(dead_code)]
 pub(crate) fn unknown_rounding_mode(name: &str) -> JsValue {
     js_error(format!("Unknown rounding mode: {name}"))
 }
 
-/// Helper to create a JavaScript Error from any message.
+/// Unified error creation for JavaScript.
+/// 
+/// This is the single source of truth for creating JavaScript errors.
+/// Use this instead of duplicating error creation logic.
 #[inline]
-fn js_error(message: impl Into<String>) -> JsValue {
+pub(crate) fn js_error(message: impl Into<String>) -> JsValue {
     JsValue::from(js_sys::Error::new(&message.into()))
+}
+
+/// Macro for creating JavaScript errors with formatted messages.
+#[macro_export]
+macro_rules! js_err {
+    ($($arg:tt)*) => {
+        $crate::core::error::js_error(format!($($arg)*))
+    };
+}
+
+/// Convert any error type to a JavaScript error.
+/// 
+/// This trait provides a unified way to convert various error types
+/// to JavaScript errors with consistent formatting.
+#[allow(dead_code)]
+pub(crate) trait ToJsError {
+    fn to_js_error(self) -> JsValue;
+}
+
+impl ToJsError for Error {
+    fn to_js_error(self) -> JsValue {
+        core_to_js(self)
+    }
+}
+
+impl ToJsError for InputError {
+    fn to_js_error(self) -> JsValue {
+        input_to_js(self)
+    }
+}
+
+impl<T> ToJsError for Result<T, Error> {
+    fn to_js_error(self) -> JsValue {
+        match self {
+            Ok(_) => js_error("Unexpected success in error conversion"),
+            Err(e) => e.to_js_error(),
+        }
+    }
+}
+
+impl<T> ToJsError for Result<T, InputError> {
+    fn to_js_error(self) -> JsValue {
+        match self {
+            Ok(_) => js_error("Unexpected success in error conversion"),
+            Err(e) => e.to_js_error(),
+        }
+    }
+}
+
+/// Convert a string error message to JavaScript error.
+impl ToJsError for &str {
+    fn to_js_error(self) -> JsValue {
+        js_error(self.to_string())
+    }
+}
+
+/// Convert a string error message to JavaScript error.
+impl ToJsError for String {
+    fn to_js_error(self) -> JsValue {
+        js_error(self)
+    }
 }
 
