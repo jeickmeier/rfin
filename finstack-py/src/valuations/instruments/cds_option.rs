@@ -1,7 +1,7 @@
 // use crate::core::error::core_to_py; // not used in this module currently
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{extract_curve_id, extract_instrument_id, leak_str, PyInstrumentType};
 use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
 use finstack_valuations::instruments::cds_option::CdsOption;
 use finstack_valuations::instruments::common::parameters::{CreditParams, OptionType};
@@ -10,10 +10,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
-
-fn leak_str(value: &str) -> &'static str {
-    Box::leak(value.to_string().into_boxed_str())
-}
 
 fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
     match label {

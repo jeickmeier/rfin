@@ -20,11 +20,6 @@ use pyo3::types::{PyDict, PyList, PyModule};
 use pyo3::Bound;
 use std::collections::HashMap;
 
-#[allow(dead_code)]
-fn take_and_replace(context: &mut MarketContext) -> MarketContext {
-    std::mem::take(context)
-}
-
 /// Aggregates curves, surfaces, FX matrices, and scalar data for pricing.
 ///
 /// Parameters
@@ -47,11 +42,6 @@ pub struct PyMarketContext {
 }
 
 impl PyMarketContext {
-    #[allow(dead_code)]
-    fn replace_inner(&mut self, next: MarketContext) {
-        self.inner = next;
-    }
-
     fn stats_to_dict(py: Python<'_>, stats: ContextStats) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
         dict.set_item("total_curves", stats.total_curves)?;

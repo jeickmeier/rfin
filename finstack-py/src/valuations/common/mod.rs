@@ -448,6 +448,31 @@ pub(crate) fn extract_instrument_id(value: &Bound<'_, PyAny>) -> PyResult<Instru
     ))
 }
 
+/// Leak a string to obtain a 'static lifetime reference.
+///
+/// This is useful when binding Rust types that require `&'static str` but
+/// we need to convert from Python strings or owned Strings. The memory
+/// will persist for the lifetime of the program.
+pub(crate) fn leak_str(value: &str) -> &'static str {
+    Box::leak(value.to_string().into_boxed_str())
+}
+
+/// Leak an optional string to obtain an Option<&'static str>.
+pub(crate) fn leak_optional_str(value: Option<&str>) -> Option<&'static str> {
+    value.map(leak_str)
+}
+
+/// Parse an optional payments-per-year value into a Frequency.
+///
+/// Defaults to 4 (quarterly) if None is provided.
+pub(crate) fn frequency_from_payments_per_year(
+    payments_per_year: Option<u32>,
+) -> PyResult<finstack_core::dates::Frequency> {
+    use finstack_core::dates::Frequency;
+    let payments = payments_per_year.unwrap_or(4);
+    Frequency::from_payments_per_year(payments).map_err(|e| PyValueError::new_err(e))
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,

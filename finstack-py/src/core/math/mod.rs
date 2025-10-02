@@ -3,6 +3,7 @@ mod distributions;
 mod integration;
 mod solver;
 
+use crate::core::common::reexport::reexport_from_submodule;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -45,20 +46,5 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     };
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
-    Ok(())
-}
-
-fn reexport_from_submodule(
-    parent: &Bound<'_, PyModule>,
-    submodule: &str,
-    names: &[&'static str],
-) -> PyResult<()> {
-    let handle = parent.getattr(submodule)?;
-    let module = handle.downcast::<PyModule>()?;
-    for &name in names {
-        if let Ok(value) = module.getattr(name) {
-            parent.setattr(name, value)?;
-        }
-    }
     Ok(())
 }

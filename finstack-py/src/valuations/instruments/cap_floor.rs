@@ -2,26 +2,19 @@ use crate::core::common::args::DayCountArg;
 // use crate::core::error::core_to_py; // not used in this module currently
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
-use finstack_core::dates::{DayCount, Frequency};
+use crate::valuations::common::{
+    extract_curve_id, extract_instrument_id, frequency_from_payments_per_year, leak_str,
+    PyInstrumentType,
+};
+use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::cap_floor::InterestRateOption;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
 
-fn frequency_from_payments(payments_per_year: Option<u32>) -> PyResult<Frequency> {
-    let payments = payments_per_year.unwrap_or(4);
-    Frequency::from_payments_per_year(payments).map_err(|e| PyValueError::new_err(e))
-}
-
 fn leak_vol_id(vol: Option<&str>) -> &'static str {
-    if let Some(value) = vol {
-        Box::leak(value.to_owned().into_boxed_str())
-    } else {
-        "IR-CAP-VOL"
-    }
+    vol.map_or("IR-CAP-VOL", leak_str)
 }
 
 fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
@@ -121,7 +114,7 @@ impl PyInterestRateOption {
         let end = py_to_date(&end_date)?;
         let disc = extract_curve_id(&discount_curve)?;
         let fwd = extract_curve_id(&forward_curve)?;
-        let freq = frequency_from_payments(payments_per_year)?;
+        let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
         let vol_id = leak_vol_id(vol_surface);
 
@@ -186,7 +179,7 @@ impl PyInterestRateOption {
         let end = py_to_date(&end_date)?;
         let disc = extract_curve_id(&discount_curve)?;
         let fwd = extract_curve_id(&forward_curve)?;
-        let freq = frequency_from_payments(payments_per_year)?;
+        let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
         let vol_id = leak_vol_id(vol_surface);
 

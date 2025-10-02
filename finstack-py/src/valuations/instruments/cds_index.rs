@@ -1,7 +1,7 @@
 // use crate::core::error::core_to_py; // not used directly
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{extract_curve_id, extract_instrument_id, leak_str, PyInstrumentType};
 use crate::valuations::instruments::cds::normalize_cds_side;
 use finstack_valuations::instruments::cds::{CDSConvention, PayReceive};
 use finstack_valuations::instruments::cds_index::parameters::{
@@ -16,7 +16,7 @@ use pyo3::Bound;
 use std::fmt;
 
 fn leak_curve_id(curve: &finstack_core::types::CurveId) -> &'static str {
-    Box::leak(curve.as_str().to_string().into_boxed_str())
+    leak_str(curve.as_str())
 }
 
 /// CDS index instrument binding exposing a simplified constructor.

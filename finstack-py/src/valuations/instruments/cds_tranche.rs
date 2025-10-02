@@ -2,8 +2,11 @@ use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
 use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
+use crate::valuations::common::{
+    extract_curve_id, extract_instrument_id, frequency_from_payments_per_year, leak_optional_str,
+    PyInstrumentType,
+};
+use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -16,18 +19,6 @@ fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
         None => Ok(TrancheSide::BuyProtection),
         Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
     }
-}
-
-fn parse_frequency(payments_per_year: Option<u32>) -> PyResult<Frequency> {
-    let payments = payments_per_year.unwrap_or(4);
-    Frequency::from_payments_per_year(payments).map_err(|e| PyValueError::new_err(e))
-}
-
-fn leak_optional_str(value: Option<&str>) -> Option<&'static str> {
-    value.map(|v| {
-        let leaked: &'static str = Box::leak(v.to_string().into_boxed_str());
-        leaked
-    })
 }
 
 /// CDS tranche wrapper exposing a simplified constructor.
@@ -145,7 +136,7 @@ impl PyCdsTranche {
         let disc_curve = extract_curve_id(&discount_curve)?;
         let credit_curve = extract_curve_id(&credit_index_curve)?;
         let side_value = parse_tranche_side(side)?;
-        let freq = parse_frequency(payments_per_year)?;
+        let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract()?;
             value
