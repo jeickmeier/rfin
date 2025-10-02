@@ -11,6 +11,7 @@ import {
   HazardCurve,
   MarketContext,
   Money,
+  PricingRequest,
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
@@ -115,12 +116,8 @@ export const CreditInstrumentsExample: React.FC = () => {
           'ACME-HZD',
           null
         );
-        const cdsResult = registry.priceCreditDefaultSwapWithMetrics(
-          cds,
-          'discounting',
-          market,
-          ['par_spread', 'pv01']
-        );
+        const cdsOpts = new PricingRequest().withMetrics(['par_spread', 'pv01']);
+        const cdsResult = registry.priceCreditDefaultSwap(cds, 'discounting', market, cdsOpts);
         results.push({
           name: 'ACME 5Y CDS',
           type: 'CreditDefaultSwap',
@@ -151,12 +148,8 @@ export const CreditInstrumentsExample: React.FC = () => {
           0.4,
           null
         );
-        const indexResult = registry.priceCDSIndexWithMetrics(
-          index,
-          'discounting',
-          market,
-          ['par_spread']
-        );
+        const indexOpts = new PricingRequest().withMetrics(['par_spread']);
+        const indexResult = registry.priceCDSIndex(index, 'discounting', market, indexOpts);
         results.push({
           name: 'CDX.NA.IG S42 V1',
           type: 'CDSIndex',

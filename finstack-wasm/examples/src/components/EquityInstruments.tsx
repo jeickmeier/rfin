@@ -8,6 +8,7 @@ import {
   MarketContext,
   MarketScalar,
   Money,
+  PricingRequest,
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
@@ -88,12 +89,8 @@ export const EquityInstrumentsExample: React.FC = () => {
           Money.fromCode(150.0, 'USD'),
           100.0
         );
-        const callResult = registry.priceEquityOptionWithMetrics(
-          call,
-          'discounting',
-          market,
-          ['delta', 'gamma']
-        );
+        const callOpts = new PricingRequest().withMetrics(['delta', 'gamma']);
+        const callResult = registry.priceEquityOption(call, 'discounting', market, callOpts);
         results.push({
           name: 'AAPL Call @ $150 (1Y)',
           type: 'EquityOption',

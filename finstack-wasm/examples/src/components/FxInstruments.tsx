@@ -9,6 +9,7 @@ import {
   FxSwap,
   MarketContext,
   Money,
+  PricingRequest,
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
@@ -108,12 +109,8 @@ export const FxInstrumentsExample: React.FC = () => {
           new FsDate(2025, 1, 2),
           Money.fromCode(2_000_000, 'EUR')
         );
-        const callResult = registry.priceFxOptionWithMetrics(
-          call,
-          'discounting',
-          market,
-          ['delta']
-        );
+        const callOpts = new PricingRequest().withMetrics(['delta']);
+        const callResult = registry.priceFxOption(call, 'discounting', market, callOpts);
         results.push({
           name: '1Y Call @ 1.10',
           type: 'FxOption',

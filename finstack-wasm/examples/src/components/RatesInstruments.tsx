@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Date as FsDate,
+  DayCount,
   DiscountCurve,
   ForwardCurve,
   ForwardRateAgreement,
@@ -9,10 +10,10 @@ import {
   InterestRateSwap,
   MarketContext,
   Money,
+  PricingRequest,
   Swaption,
   VolSurface,
   createStandardRegistry,
-  DayCount,
 } from 'finstack-wasm';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -95,12 +96,8 @@ export const RatesInstrumentsExample: React.FC = () => {
           asOf,
           new FsDate(2029, 1, 2)
         );
-        const swapResult = registry.priceInterestRateSwapWithMetrics(
-          swap,
-          'discounting',
-          market,
-          ['dv01', 'annuity', 'par_rate']
-        );
+        const swapOpts = new PricingRequest().withMetrics(['dv01', 'annuity', 'par_rate']);
+        const swapResult = registry.priceInterestRateSwap(swap, 'discounting', market, swapOpts);
         results.push({
           name: '5Y IRS (Receive Fixed)',
           type: 'InterestRateSwap',
@@ -123,12 +120,8 @@ export const RatesInstrumentsExample: React.FC = () => {
           2,
           true
         );
-        const fraResult = registry.priceForwardRateAgreementWithMetrics(
-          fra,
-          'discounting',
-          market,
-          ['par_rate']
-        );
+        const fraOpts = new PricingRequest().withMetrics(['par_rate']);
+        const fraResult = registry.priceForwardRateAgreement(fra, 'discounting', market, fraOpts);
         results.push({
           name: '3x6 FRA',
           type: 'ForwardRateAgreement',

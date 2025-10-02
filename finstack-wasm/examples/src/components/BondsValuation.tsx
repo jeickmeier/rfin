@@ -10,6 +10,7 @@ import {
   Frequency,
   MarketContext,
   Money,
+  PricingRequest,
   StubKind,
   createStandardRegistry,
 } from 'finstack-wasm';
@@ -96,7 +97,8 @@ export const BondsValuationExample: React.FC = () => {
         }
 
         const evaluateBond = (bond: Bond, bondName: string): BondRow => {
-          const result = registry.priceBondWithMetrics(bond, 'discounting', market, metricKeys);
+          const opts = new PricingRequest().withMetrics(metricKeys);
+          const result = registry.priceBond(bond, 'discounting', market, opts);
           
           // Extract primitives immediately to avoid GC issues
           const presentValue = result.presentValue.amount;
