@@ -1,5 +1,5 @@
+use crate::core::common::parse::ParseFromString;
 use crate::core::dates::date::JsDate;
-use crate::core::dates::daycount::parse_day_count_label;
 use crate::core::error::core_to_js;
 use crate::core::error::js_error;
 use crate::core::market_data::interp::{parse_extrapolation, parse_interp_style};
@@ -26,9 +26,7 @@ fn parse_day_count_jsvalue(value: &JsValue) -> Result<Option<DayCount>, JsValue>
         return Ok(None);
     }
     if let Some(name) = value.as_string() {
-        parse_day_count_label(&name)
-            .ok_or_else(|| js_error(format!("Unknown day-count convention: {name}")))
-            .map(Some)
+        DayCount::parse_from_string(&name).map(Some)
     } else {
         Err(js_error(
             "dayCount must be provided as a string identifier (e.g. 'act_365f')",

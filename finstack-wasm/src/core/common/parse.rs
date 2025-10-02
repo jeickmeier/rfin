@@ -227,6 +227,7 @@ impl ParseFromString for Frequency {
 /// Parse an optional label string, returning a default value if None.
 ///
 /// This is a convenience helper for parsing optional configuration strings.
+#[allow(dead_code)]
 pub(crate) fn parse_optional_with_default<T: ParseFromString>(
     label: Option<String>,
     default: T,
