@@ -169,6 +169,7 @@ nom = "7"
 
 **Deliverables:**
 - [ ] Add `rolling_mean`, `rolling_sum`, `rolling_std`
+- [ ] Add period aware TTM (Trailing Twelve Months) rolling window functionality. 4 Quarters / 12 Months / 1 year depending on period frequency
 - [ ] Map to core's rolling functions
 - [ ] Unit tests for window semantics
 

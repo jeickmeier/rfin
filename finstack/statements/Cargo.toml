@@ -7,4 +7,28 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-finstack-core = { path = "../core" }
+finstack-core = { path = "../core", features = ["serde"] }
+finstack-valuations = { path = "../valuations", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+indexmap = { version = "2", features = ["serde"] }
+thiserror = "1"
+nom = "7"
+
+[dev-dependencies]
+indexmap = { version = "2", features = ["serde"] }
+
+[features]
+default = []
+capital_structure = ["dep:finstack-valuations"]
+stats = []
+parallel = ["finstack-core/parallel"]
+full = ["capital_structure", "stats", "parallel"]
+
+[[example]]
+name = "statements_phase1_example"
+path = "../../examples/rust/statements_phase1_example.rs"
+
+[[example]]
+name = "statements_phase2_example"
+path = "../../examples/rust/statements_phase2_example.rs"
