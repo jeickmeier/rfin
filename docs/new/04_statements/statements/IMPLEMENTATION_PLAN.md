@@ -299,6 +299,7 @@ Path: revenue → cogs → gross_profit → revenue
 - Implement deterministic forecast methods
 - Implement statistical forecast methods
 - Ensure determinism with seeds
+- Aim for easy extensibility, there will be more methods in the future
 
 ### PR #4.1 — Forward Fill
 
@@ -326,7 +327,20 @@ Path: revenue → cogs → gross_profit → revenue
 
 ---
 
-### PR #4.3 — Statistical Forecasting (Normal)
+### PR #4.3 — Curve Percentage
+
+**Deliverables:**
+- [ ] Implement `CurvePct` method
+- [ ] Apply specific value to each period: curve=[0.05, 0.06, 0.05], `v[1] = v[0] * 0.05`, `v[2] = v[1] * 0.06`, `v[3] = v[2] * 0.05`
+- [ ] Unit tests with various lengths of curves, and values
+
+**Acceptance:**
+- Curve calculations match expected values
+- Handles negative growth, handle curve length doesn't match forecast periods
+
+---
+
+### PR #4.4 — Statistical Forecasting (Normal)
 
 **Deliverables:**
 - [ ] Implement `Normal` forecast method
@@ -346,7 +360,7 @@ stats = ["dep:rand"]
 
 ---
 
-### PR #4.4 — Log-Normal Forecasting
+### PR #4.5 — Log-Normal Forecasting
 
 **Deliverables:**
 - [ ] Implement `LogNormal` method
@@ -359,7 +373,7 @@ stats = ["dep:rand"]
 
 ---
 
-### PR #4.5 — Override Method
+### PR #4.6 — Override Method
 
 **Deliverables:**
 - [ ] Implement `Override` with sparse period map
@@ -456,6 +470,7 @@ stats = ["dep:rand"]
 - Build debt instruments from specs
 - Aggregate cashflows by period
 - Calculate interest expense and principal schedules
+- Do not duplicate instruments and cashflows, use the valuations/ crate
 
 ### PR #6.1 — Instrument Construction
 
@@ -539,7 +554,7 @@ capital_structure = ["dep:finstack-valuations"]
 
 ### Goals
 - Implement results structure
-- Export to Polars DataFrame (long/wide format)
+- Export to Polars DataFrame (long/wide format) - Optional Feature
 - Stamp metadata
 
 ### PR #7.1 — Results Structure

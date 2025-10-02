@@ -4,7 +4,7 @@ mod node;
 mod value;
 mod model;
 
-pub use node::{NodeSpec, NodeType};
+pub use node::{NodeSpec, NodeType, ForecastSpec, ForecastMethod};
 pub use value::AmountOrScalar;
 pub use model::FinancialModelSpec;
 

@@ -32,3 +32,7 @@ path = "../../examples/rust/statements_phase1_example.rs"
 [[example]]
 name = "statements_phase2_example"
 path = "../../examples/rust/statements_phase2_example.rs"
+
+[[example]]
+name = "statements_phase3_example"
+path = "../../examples/rust/statements_phase3_example.rs"

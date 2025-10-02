@@ -41,6 +41,21 @@ cargo run --example statements_phase1_example
 cargo run --example statements_phase2_example
 ```
 
+**[statements_phase3_example.rs](./statements_phase3_example.rs)**
+- Demonstrates Phase 3 evaluator features
+- Model evaluation with value and calculated nodes
+- Arithmetic and comparison operations
+- DAG construction and topological sorting
+- Precedence resolution (Value > Forecast > Formula)
+- Circular dependency detection
+- Multi-period sequential evaluation
+- Complete P&L statement with derived metrics
+- Results metadata and performance tracking
+
+```bash
+cargo run --example statements_phase3_example
+```
+
 ### Valuations Crate
 
 **[bond_custom_cashflows_example.rs](./bond_custom_cashflows_example.rs)**

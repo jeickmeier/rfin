@@ -57,12 +57,19 @@
 //! - ✅ Rolling window functions (rolling_mean, rolling_sum, rolling_std)
 //! - ✅ Statistical functions (std, var, median)
 //!
+//! ### Phase 3: Evaluator ✅
+//! - ✅ Evaluation context (`StatementContext`)
+//! - ✅ Basic evaluator with period-by-period evaluation
+//! - ✅ DAG construction and topological sort
+//! - ✅ Precedence resolution (Value > Forecast > Formula)
+//! - ✅ Where clause masking
+//! - ✅ Circular dependency detection
+//!
 //! Future phases will add:
-//! - Evaluator with DAG and precedence resolution
-//! - Forecast methods
+//! - Forecast methods (forward fill, growth, statistical)
 //! - Dynamic metric registry
 //! - Capital structure integration
-//! - Results and DataFrame export
+//! - DataFrame export (Polars)
 
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
@@ -71,6 +78,7 @@ pub mod error;
 pub mod types;
 pub mod builder;
 pub mod dsl;
+pub mod evaluator;
 
 /// Commonly used types and traits.
 ///
@@ -83,6 +91,7 @@ pub mod prelude {
     pub use crate::builder::{ModelBuilder, NeedPeriods, Ready};
     pub use crate::error::{Error, Result};
     pub use crate::types::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
+    pub use crate::evaluator::{Evaluator, Results};
 
     // Re-export commonly used types from finstack-core
     pub use finstack_core::dates::{build_periods, Period, PeriodId};
