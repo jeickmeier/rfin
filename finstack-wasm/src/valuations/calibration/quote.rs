@@ -1,25 +1,11 @@
 //! Quote types for calibration in WASM.
 
+use crate::core::common::parse::ParseFromString;
 use crate::core::dates::{Date, Frequency};
 use finstack_valuations::calibration::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
 };
 use wasm_bindgen::prelude::*;
-
-/// Parse a day count string into a DayCount enum.
-fn parse_day_count(s: &str) -> Result<finstack_core::dates::DayCount, JsValue> {
-    use finstack_core::dates::DayCount;
-    let normalized = s.to_ascii_lowercase().replace('/', "_");
-    match normalized.as_str() {
-        "act_360" | "actual_360" => Ok(DayCount::Act360),
-        "act_365f" | "actual_365f" => Ok(DayCount::Act365F),
-        "30_360" | "thirty_360" => Ok(DayCount::Thirty360),
-        "30e_360" | "thirty_e_360" => Ok(DayCount::ThirtyE360),
-        "act_act" | "actual_actual" => Ok(DayCount::ActAct),
-        "act_act_isma" | "actual_actual_isma" => Ok(DayCount::ActActIsma),
-        _ => Err(JsValue::from_str(&format!("Unknown day count: {}", s))),
-    }
-}
 
 /// Future contract specifications.
 #[wasm_bindgen(js_name = FutureSpecs)]
@@ -50,7 +36,8 @@ impl JsFutureSpecs {
         delivery_months: u8,
         day_count: &str,
     ) -> Result<JsFutureSpecs, JsValue> {
-        let dc = parse_day_count(day_count)?;
+        use finstack_core::dates::DayCount;
+        let dc = DayCount::parse_from_string(day_count)?;
         let specs = FutureSpecs {
             multiplier,
             face_value,
@@ -93,7 +80,8 @@ impl JsRatesQuote {
     /// Create a deposit quote.
     #[wasm_bindgen(js_name = deposit)]
     pub fn deposit(maturity: &Date, rate: f64, day_count: &str) -> Result<JsRatesQuote, JsValue> {
-        let dc = parse_day_count(day_count)?;
+        use finstack_core::dates::DayCount;
+        let dc = DayCount::parse_from_string(day_count)?;
         Ok(Self {
             inner: RatesQuote::Deposit {
                 maturity: maturity.inner(),
@@ -111,7 +99,8 @@ impl JsRatesQuote {
         rate: f64,
         day_count: &str,
     ) -> Result<JsRatesQuote, JsValue> {
-        let dc = parse_day_count(day_count)?;
+        use finstack_core::dates::DayCount;
+        let dc = DayCount::parse_from_string(day_count)?;
         Ok(Self {
             inner: RatesQuote::FRA {
                 start: start.inner(),
@@ -133,8 +122,9 @@ impl JsRatesQuote {
         float_dc: &str,
         index: &str,
     ) -> Result<JsRatesQuote, JsValue> {
-        let fixed_day_count = parse_day_count(fixed_dc)?;
-        let float_day_count = parse_day_count(float_dc)?;
+        use finstack_core::dates::DayCount;
+        let fixed_day_count = DayCount::parse_from_string(fixed_dc)?;
+        let float_day_count = DayCount::parse_from_string(float_dc)?;
 
         Ok(Self {
             inner: RatesQuote::Swap {

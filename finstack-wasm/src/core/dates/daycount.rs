@@ -1,3 +1,4 @@
+use crate::core::common::parse::ParseFromString;
 use crate::core::dates::calendar::{resolve_calendar_ref, JsCalendar};
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
@@ -247,9 +248,7 @@ impl JsDayCount {
 
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsDayCount, JsValue> {
-        parse_day_count_label(name)
-            .ok_or_else(|| js_error(format!("Unknown day-count convention: {name}")))
-            .map(JsDayCount::new)
+        DayCount::parse_from_string(name).map(JsDayCount::new)
     }
 
     #[wasm_bindgen(getter)]
@@ -283,24 +282,5 @@ impl JsDayCount {
         self.inner
             .year_fraction(start.inner(), end.inner(), ctx)
             .map_err(|e| js_error(e.to_string()))
-    }
-}
-
-/// Parse a day count label into a DayCount enum value.
-///
-/// Accepts various string formats (e.g., "act/360", "Act_360", "ACT-360")
-/// and normalizes them before matching.
-pub(crate) fn parse_day_count_label(label: &str) -> Option<DayCount> {
-    let normalized = label.to_ascii_lowercase().replace([' ', '-', '/'], "_");
-    match normalized.as_str() {
-        "act_360" | "actual_360" | "act360" => Some(DayCount::Act360),
-        "act_365f" | "actual_365f" | "act365f" => Some(DayCount::Act365F),
-        "act_365l" | "actual_365l" | "act365l" | "act_365afb" => Some(DayCount::Act365L),
-        "30_360" | "30u_360" | "thirty_360" => Some(DayCount::Thirty360),
-        "30e_360" | "30_360e" | "thirty_e_360" => Some(DayCount::ThirtyE360),
-        "act_act" | "actual_actual" | "actact" | "act_act_isda" => Some(DayCount::ActAct),
-        "act_act_isma" | "actactisma" | "icma" => Some(DayCount::ActActIsma),
-        "bus_252" | "business_252" | "bus252" => Some(DayCount::Bus252),
-        _ => None,
     }
 }

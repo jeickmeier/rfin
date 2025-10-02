@@ -1,3 +1,4 @@
+use crate::core::common::parse::ParseFromString;
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
@@ -16,20 +17,6 @@ fn kind_label(kind: CFKind) -> &'static str {
         CFKind::Fee => "fee",
         CFKind::Stub => "stub",
         _ => "unknown",
-    }
-}
-
-fn parse_kind(name: &str) -> Option<CFKind> {
-    let normalized = name.trim().to_ascii_lowercase().replace([' ', '-'], "_");
-    match normalized.as_str() {
-        "fixed" => Some(CFKind::Fixed),
-        "float_reset" => Some(CFKind::FloatReset),
-        "notional" => Some(CFKind::Notional),
-        "pik" => Some(CFKind::PIK),
-        "amortization" | "amort" => Some(CFKind::Amortization),
-        "fee" => Some(CFKind::Fee),
-        "stub" => Some(CFKind::Stub),
-        _ => None,
     }
 }
 
@@ -128,9 +115,7 @@ impl JsCFKind {
     /// ```
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsCFKind, JsValue> {
-        parse_kind(name)
-            .map(Into::into)
-            .ok_or_else(|| js_error(format!("Unknown cashflow kind: {name}")))
+        CFKind::parse_from_string(name).map(Into::into)
     }
 
     /// String name of this cashflow kind.

@@ -63,17 +63,8 @@ pub(crate) fn calendar_not_found(id: &str) -> JsValue {
     js_error(format!("Calendar not found: {id}"))
 }
 
-/// Create a JavaScript Error for an unknown business day convention.
-#[allow(dead_code)]
-pub(crate) fn unknown_business_day_convention(name: &str) -> JsValue {
-    js_error(format!("Unknown business day convention: {name}"))
-}
-
-/// Create a JavaScript Error for an unknown rounding mode.
-#[allow(dead_code)]
-pub(crate) fn unknown_rounding_mode(name: &str) -> JsValue {
-    js_error(format!("Unknown rounding mode: {name}"))
-}
+// Note: unknown_business_day_convention and unknown_rounding_mode removed.
+// These were unused - parsing now happens centrally via ParseFromString trait.
 
 /// Unified error creation for JavaScript.
 ///
@@ -113,23 +104,9 @@ impl ToJsError for InputError {
     }
 }
 
-impl<T> ToJsError for Result<T, Error> {
-    fn to_js_error(self) -> JsValue {
-        match self {
-            Ok(_) => js_error("Unexpected success in error conversion"),
-            Err(e) => e.to_js_error(),
-        }
-    }
-}
-
-impl<T> ToJsError for Result<T, InputError> {
-    fn to_js_error(self) -> JsValue {
-        match self {
-            Ok(_) => js_error("Unexpected success in error conversion"),
-            Err(e) => e.to_js_error(),
-        }
-    }
-}
+// Note: Result<T, Error> implementations removed - they don't make sense
+// since you'd only call .to_js_error() on the Err variant directly.
+// Use .map_err(|e| e.to_js_error()) or core_to_js/input_to_js directly.
 
 /// Convert a string error message to JavaScript error.
 impl ToJsError for &str {

@@ -1,3 +1,10 @@
+//! Parsing utilities for valuations-specific types.
+//!
+//! Delegates to core parsing module for common types (DayCount, Frequency, etc.)
+//! and provides parsing for instrument-specific types.
+
+use crate::core::common::parse::ParseFromString;
+use crate::core::common::labels::normalize_label;
 use crate::core::error::js_error;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_core::math::stats::RealizedVarMethod;
@@ -14,83 +21,40 @@ use finstack_valuations::instruments::swaption::{SwaptionExercise, SwaptionSettl
 use finstack_valuations::instruments::variance_swap::PayReceive as VarSwapPayReceive;
 use wasm_bindgen::JsValue;
 
-/// Normalizes a label string for consistent parsing (lowercase, underscore normalization)
-pub(crate) fn normalize_label(label: &str) -> String {
-    label.to_lowercase().replace('-', "_")
-}
-
-/// Trait for parsing JavaScript string labels into strongly-typed Rust enums
+/// Trait for parsing JavaScript string labels into strongly-typed Rust enums.
 ///
-/// This trait standardizes parsing across all instrument bindings, replacing
-/// scattered parse_X() helper functions with a unified approach.
+/// For common types like DayCount, Frequency, etc., use ParseFromString from
+/// crate::core::common::parse instead. This trait is for valuations-specific types.
 pub(crate) trait FromJsLabel: Sized {
-    /// Parse a string label into the target type
-    ///
-    /// # Arguments
-    /// * `label` - The string label to parse (case-insensitive)
-    ///
-    /// # Returns
-    /// * `Ok(Self)` if parsing succeeded
-    /// * `Err(JsValue)` with a user-friendly error message if parsing failed
+    /// Parse a string label into the target type.
     fn from_label(label: &str) -> Result<Self, JsValue>;
 }
 
 // ============================================================================
-// Date/Schedule Types
+// Date/Schedule Types - Delegate to Core
 // ============================================================================
 
 impl FromJsLabel for Frequency {
     fn from_label(label: &str) -> Result<Self, JsValue> {
-        let normalized = normalize_label(label);
-        match normalized.as_str() {
-            "monthly" => Ok(Frequency::monthly()),
-            "quarterly" => Ok(Frequency::quarterly()),
-            "semi_annual" | "semiannual" => Ok(Frequency::semi_annual()),
-            "annual" => Ok(Frequency::annual()),
-            _ => Err(js_error(format!("Unknown frequency: {}", label))),
-        }
+        Frequency::parse_from_string(label)
     }
 }
 
 impl FromJsLabel for DayCount {
     fn from_label(label: &str) -> Result<Self, JsValue> {
-        let normalized = normalize_label(label);
-        match normalized.as_str() {
-            "act_360" | "act360" => Ok(DayCount::Act360),
-            "act_365f" | "act365f" => Ok(DayCount::Act365F),
-            "act_act" | "actact" => Ok(DayCount::ActAct),
-            "thirty_360" | "30_360" | "30360" => Ok(DayCount::Thirty360),
-            _ => Err(js_error(format!("Unknown day count: {}", label))),
-        }
+        DayCount::parse_from_string(label)
     }
 }
 
 impl FromJsLabel for StubKind {
     fn from_label(label: &str) -> Result<Self, JsValue> {
-        let normalized = normalize_label(label);
-        match normalized.as_str() {
-            "none" => Ok(StubKind::None),
-            _ => normalized
-                .parse()
-                .map_err(|e: String| js_error(format!("Invalid stub kind: {}", e))),
-        }
+        StubKind::parse_from_string(label)
     }
 }
 
 impl FromJsLabel for BusinessDayConvention {
     fn from_label(label: &str) -> Result<Self, JsValue> {
-        let normalized = normalize_label(label);
-        match normalized.as_str() {
-            "following" => Ok(BusinessDayConvention::Following),
-            "modified_following" | "modifiedfollowing" => {
-                Ok(BusinessDayConvention::ModifiedFollowing)
-            }
-            "preceding" => Ok(BusinessDayConvention::Preceding),
-            _ => Err(js_error(format!(
-                "Invalid business day convention: {}",
-                label
-            ))),
-        }
+        BusinessDayConvention::parse_from_string(label)
     }
 }
 
@@ -276,7 +240,10 @@ impl FromJsLabel for RealizedVarMethod {
 // Helper Functions for Optional Values
 // ============================================================================
 
-/// Parses an optional label string, returning a default value if None
+/// Parses an optional label string, returning a default value if None.
+///
+/// Note: This uses FromJsLabel trait for valuations-specific types.
+/// For core types, prefer crate::core::common::parse::parse_optional_with_default.
 pub(crate) fn parse_optional_with_default<T: FromJsLabel>(
     label: Option<String>,
     default: T,

@@ -12,9 +12,29 @@ use finstack_valuations::instruments::common::parameters::CreditParams;
 use finstack_valuations::pricer::InstrumentType;
 use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
+use std::collections::HashSet;
+use std::sync::Mutex;
 
-fn leak_curve_id(curve: &finstack_core::types::CurveId) -> &'static str {
-    Box::leak(curve.as_str().to_string().into_boxed_str())
+// String interning cache to avoid memory leaks while still satisfying 'static lifetime requirements.
+// This is a workaround for the core API requiring 'static str.
+// TODO: Ideally, the core API should be updated to accept non-static strings.
+static CURVE_ID_CACHE: Mutex<Option<HashSet<&'static str>>> = Mutex::new(None);
+
+fn intern_curve_id(curve: &finstack_core::types::CurveId) -> &'static str {
+    let curve_str = curve.as_str();
+    
+    let mut cache = CURVE_ID_CACHE.lock().unwrap();
+    let cache = cache.get_or_insert_with(HashSet::new);
+    
+    // Check if already interned
+    if let Some(&existing) = cache.get(curve_str) {
+        return existing;
+    }
+    
+    // Intern the new string
+    let leaked: &'static str = Box::leak(curve_str.to_string().into_boxed_str());
+    cache.insert(leaked);
+    leaked
 }
 
 #[wasm_bindgen(js_name = CDSIndex)]
@@ -80,8 +100,8 @@ impl JsCDSIndex {
             start_date.inner(),
             maturity.inner(),
             &credit_params,
-            leak_curve_id(&disc_curve),
-            leak_curve_id(&credit_curve_id),
+            intern_curve_id(&disc_curve),
+            intern_curve_id(&credit_curve_id),
         );
 
         Ok(JsCDSIndex::from_inner(index))

@@ -1,3 +1,4 @@
+use crate::core::common::parse::ParseFromString;
 use crate::core::dates::calendar::{resolve_calendar_ref, JsBusinessDayConvention, JsCalendar};
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsFrequency;
@@ -57,16 +58,7 @@ impl JsStubKind {
 
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsStubKind, JsValue> {
-        let normalized = name.to_ascii_lowercase().replace(['-', ' '], "_");
-        let stub = match normalized.as_str() {
-            "none" => StubKind::None,
-            "short_front" => StubKind::ShortFront,
-            "short_back" => StubKind::ShortBack,
-            "long_front" => StubKind::LongFront,
-            "long_back" => StubKind::LongBack,
-            _ => return Err(js_error(format!("Unknown stub kind: {name}"))),
-        };
-        Ok(JsStubKind::new(stub))
+        StubKind::parse_from_string(name).map(JsStubKind::new)
     }
 
     #[wasm_bindgen(js_name = name)]

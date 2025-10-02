@@ -1,3 +1,4 @@
+use crate::core::common::parse::ParseFromString;
 use crate::core::dates::date::JsDate;
 use crate::core::error::calendar_not_found;
 use crate::core::error::js_error;
@@ -42,22 +43,9 @@ impl From<BusinessDayConvention> for JsBusinessDayConvention {
     }
 }
 
-fn parse_business_day_convention(label: &str) -> Option<JsBusinessDayConvention> {
-    let normalized = label.to_ascii_lowercase().replace([' ', '-'], "_");
-    match normalized.as_str() {
-        "unadjusted" => Some(JsBusinessDayConvention::Unadjusted),
-        "following" => Some(JsBusinessDayConvention::Following),
-        "modified_following" => Some(JsBusinessDayConvention::ModifiedFollowing),
-        "preceding" => Some(JsBusinessDayConvention::Preceding),
-        "modified_preceding" => Some(JsBusinessDayConvention::ModifiedPreceding),
-        _ => None,
-    }
-}
-
 #[wasm_bindgen(js_name = businessDayConventionFromName)]
 pub fn business_day_convention_from_name(name: &str) -> Result<JsBusinessDayConvention, JsValue> {
-    parse_business_day_convention(name)
-        .ok_or_else(|| js_error(format!("Unknown business-day convention: {name}")))
+    BusinessDayConvention::parse_from_string(name).map(Into::into)
 }
 
 #[wasm_bindgen(js_name = businessDayConventionName)]
