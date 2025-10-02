@@ -3,10 +3,10 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::pricer::InstrumentType;
-use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = BasisSwapLeg)]

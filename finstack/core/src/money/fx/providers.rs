@@ -270,4 +270,3 @@ mod tests {
         assert_eq!(gbp_usd, 1.25);
     }
 }
-

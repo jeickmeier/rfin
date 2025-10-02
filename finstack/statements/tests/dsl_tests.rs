@@ -1,7 +1,7 @@
 //! DSL tests for Phase 2 (PR #2.1-#2.6)
 
-use finstack_statements::dsl::{parse_formula, compile, parse_and_compile, BinOp, StmtExpr};
 use finstack_core::expr::{ExprNode, Function};
+use finstack_statements::dsl::{compile, parse_and_compile, parse_formula, BinOp, StmtExpr};
 
 // ============================================================================
 // PR #2.1 — DSL Parser Tests
@@ -297,7 +297,7 @@ fn test_parse_whitespace_tolerance() {
     let result1 = parse_formula("revenue-cogs").unwrap();
     let result2 = parse_formula("revenue - cogs").unwrap();
     let result3 = parse_formula("revenue  -  cogs").unwrap();
-    
+
     // All should parse to the same structure
     assert_eq!(result1, result2);
     assert_eq!(result2, result3);
@@ -335,7 +335,7 @@ fn test_parse_error_empty() {
 fn test_compile_literal() {
     let ast = StmtExpr::literal(42.0);
     let expr = compile(&ast).unwrap();
-    
+
     match expr.node {
         ExprNode::Literal(v) => assert_eq!(v, 42.0),
         _ => panic!("Expected Literal"),
@@ -346,7 +346,7 @@ fn test_compile_literal() {
 fn test_compile_node_ref() {
     let ast = StmtExpr::node_ref("revenue");
     let expr = compile(&ast).unwrap();
-    
+
     match expr.node {
         ExprNode::Column(ref name) => assert_eq!(name, "revenue"),
         _ => panic!("Expected Column"),
@@ -355,14 +355,10 @@ fn test_compile_node_ref() {
 
 #[test]
 fn test_compile_arithmetic() {
-    let ast = StmtExpr::bin_op(
-        BinOp::Add,
-        StmtExpr::literal(1.0),
-        StmtExpr::literal(2.0),
-    );
-    
+    let ast = StmtExpr::bin_op(BinOp::Add, StmtExpr::literal(1.0), StmtExpr::literal(2.0));
+
     let expr = compile(&ast).unwrap();
-    
+
     // Should compile to a synthetic function call
     match expr.node {
         ExprNode::Call(..) => {}
@@ -376,9 +372,9 @@ fn test_compile_function_lag() {
         "lag",
         vec![StmtExpr::node_ref("revenue"), StmtExpr::literal(1.0)],
     );
-    
+
     let expr = compile(&ast).unwrap();
-    
+
     match expr.node {
         ExprNode::Call(Function::Lag, args) => {
             assert_eq!(args.len(), 2);
@@ -391,7 +387,7 @@ fn test_compile_function_lag() {
 fn test_compile_from_parse() {
     let ast = parse_formula("revenue - cogs").unwrap();
     let expr = compile(&ast).unwrap();
-    
+
     // Should compile successfully
     match expr.node {
         ExprNode::Call(..) => {}
@@ -403,14 +399,14 @@ fn test_compile_from_parse() {
 fn test_compile_complex_expression() {
     let ast = parse_formula("(revenue - cogs) / revenue").unwrap();
     let expr = compile(&ast);
-    
+
     assert!(expr.is_ok());
 }
 
 #[test]
 fn test_parse_and_compile_integration() {
     let expr = parse_and_compile("revenue * 0.6").unwrap();
-    
+
     match expr.node {
         ExprNode::Call(..) => {}
         _ => panic!("Expected Call for multiplication"),
@@ -463,11 +459,11 @@ fn test_parse_pct_change() {
 #[test]
 fn test_compile_time_series_operators() {
     let functions = vec!["lag", "lead", "diff", "pct_change"];
-    
+
     for func in functions {
         let formula = format!("{}(revenue, 1)", func);
         let expr = parse_and_compile(&formula).unwrap();
-        
+
         match expr.node {
             ExprNode::Call(..) => {}
             _ => panic!("Expected Call for {}", func),
@@ -512,11 +508,11 @@ fn test_parse_rolling_std() {
 #[test]
 fn test_compile_rolling_functions() {
     let functions = vec!["rolling_mean", "rolling_sum", "rolling_std"];
-    
+
     for func in functions {
         let formula = format!("{}(revenue, 4)", func);
         let expr = parse_and_compile(&formula).unwrap();
-        
+
         match expr.node {
             ExprNode::Call(..) => {}
             _ => panic!("Expected Call for {}", func),
@@ -546,11 +542,11 @@ fn test_parse_ttm_equivalent() {
 #[test]
 fn test_parse_statistical_functions() {
     let functions = vec!["mean", "median", "std", "var"];
-    
+
     for func in functions {
         let formula = format!("{}(revenue)", func);
         let result = parse_formula(&formula).unwrap();
-        
+
         match result {
             StmtExpr::Call { func: f, .. } => assert_eq!(f, func),
             _ => panic!("Expected {} call", func),
@@ -561,7 +557,7 @@ fn test_parse_statistical_functions() {
 #[test]
 fn test_compile_statistical_functions() {
     let expr = parse_and_compile("std(revenue)").unwrap();
-    
+
     match expr.node {
         ExprNode::Call(Function::Std, args) => {
             assert_eq!(args.len(), 1);
@@ -626,7 +622,7 @@ fn test_parse_custom_coalesce() {
 fn test_compile_custom_functions() {
     // Custom functions should compile to synthetic calls
     let functions = vec!["sum", "mean", "annualize", "ttm", "coalesce"];
-    
+
     for func in functions {
         let formula = if func == "sum" || func == "coalesce" {
             format!("{}(revenue, 0)", func)
@@ -635,7 +631,7 @@ fn test_compile_custom_functions() {
         } else {
             format!("{}(revenue)", func)
         };
-        
+
         let expr = parse_and_compile(&formula);
         assert!(expr.is_ok(), "Failed to compile {}", func);
     }
@@ -679,4 +675,3 @@ fn test_complex_leverage_ratio() {
     let expr = parse_and_compile(formula);
     assert!(expr.is_ok());
 }
-

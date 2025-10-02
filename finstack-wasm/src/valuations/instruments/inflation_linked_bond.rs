@@ -49,7 +49,8 @@ impl JsInflationLinkedBond {
         let indexation_method = parse_optional_with_default(indexation, IndexationMethod::TIPS)?;
         let freq = parse_optional_with_default(frequency, Frequency::semi_annual())?;
         let dc = day_count.map(|d| d.inner()).unwrap_or(DayCount::ActAct);
-        let deflation = parse_optional_with_default(deflation_protection, DeflationProtection::MaturityOnly)?;
+        let deflation =
+            parse_optional_with_default(deflation_protection, DeflationProtection::MaturityOnly)?;
 
         let params = InflationLinkedBondParams::new(
             notional.inner(),

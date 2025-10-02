@@ -3,11 +3,11 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::fx_option::FxOption;
 use finstack_valuations::instruments::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx_swap::FxSwap;
 use finstack_valuations::pricer::InstrumentType;
-use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 // ===========================
@@ -88,11 +88,7 @@ impl JsFxSpot {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!(
-            "FxSpot(id='{}', pair='{}')",
-            self.0.id,
-            self.0.pair_name()
-        )
+        format!("FxSpot(id='{}', pair='{}')", self.0.id, self.0.pair_name())
     }
 
     #[wasm_bindgen(js_name = clone)]
@@ -198,10 +194,7 @@ impl JsFxOption {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!(
-            "FxOption(id='{}', strike={:.4})",
-            self.0.id, self.0.strike
-        )
+        format!("FxOption(id='{}', strike={:.4})", self.0.id, self.0.strike)
     }
 
     #[wasm_bindgen(js_name = clone)]

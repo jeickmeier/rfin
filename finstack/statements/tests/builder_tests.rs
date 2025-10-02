@@ -95,7 +95,10 @@ fn test_value_node_single_period() {
         .unwrap()
         .value(
             "revenue",
-            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0))],
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(100_000.0),
+            )],
         )
         .build()
         .unwrap();
@@ -109,10 +112,7 @@ fn test_value_node_single_period() {
 
     let values = node.values.as_ref().unwrap();
     assert_eq!(values.len(), 1);
-    assert_eq!(
-        values[&PeriodId::quarter(2025, 1)].value(),
-        100_000.0
-    );
+    assert_eq!(values[&PeriodId::quarter(2025, 1)].value(), 100_000.0);
 }
 
 #[test]
@@ -123,9 +123,18 @@ fn test_value_node_multiple_periods() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(121_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(121_000.0),
+                ),
             ],
         )
         .build()
@@ -211,8 +220,14 @@ fn test_multiple_nodes() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -267,8 +282,14 @@ fn test_basic_pl_model() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(11_000_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(10_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(11_000_000.0),
+                ),
             ],
         )
         // COGS as 60% of revenue
@@ -278,8 +299,14 @@ fn test_basic_pl_model() {
         .value(
             "opex",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(2_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(2_100_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(2_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(2_100_000.0),
+                ),
             ],
         )
         // Derived metrics
@@ -354,4 +381,3 @@ fn test_model_with_multiple_currencies() {
         Some(Currency::EUR)
     );
 }
-

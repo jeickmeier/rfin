@@ -19,7 +19,7 @@ use nom::{
 ///
 /// ```rust
 /// use finstack_statements::dsl::parse_formula;
-/// 
+///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let ast = parse_formula("revenue - cogs")?;
 /// # Ok(())
@@ -74,7 +74,7 @@ fn logical_and(input: &str) -> IResult<&str, StmtExpr> {
 // Comparison operators
 fn comparison(input: &str) -> IResult<&str, StmtExpr> {
     let (input, first) = additive(input)?;
-    
+
     let (input, opt_op_and_expr) = opt(tuple((
         delimited(
             multispace0,
@@ -145,10 +145,9 @@ fn multiplicative(input: &str) -> IResult<&str, StmtExpr> {
 // Unary operators
 fn unary(input: &str) -> IResult<&str, StmtExpr> {
     alt((
-        map(
-            preceded(char('-'), unary),
-            |expr| StmtExpr::unary_op(UnaryOp::Neg, expr),
-        ),
+        map(preceded(char('-'), unary), |expr| {
+            StmtExpr::unary_op(UnaryOp::Neg, expr)
+        }),
         primary,
     ))(input)
 }
@@ -183,7 +182,10 @@ fn if_then_else(input: &str) -> IResult<&str, StmtExpr> {
     let (input, _) = multispace0(input)?;
     let (input, _) = char(')')(input)?;
 
-    Ok((input, StmtExpr::if_then_else(condition, then_expr, else_expr)))
+    Ok((
+        input,
+        StmtExpr::if_then_else(condition, then_expr, else_expr),
+    ))
 }
 
 // Function call
@@ -191,10 +193,8 @@ fn function_call(input: &str) -> IResult<&str, StmtExpr> {
     let (input, name) = identifier_string(input)?;
     let (input, _) = multispace0(input)?;
     let (input, _) = char('(')(input)?;
-    let (input, args) = separated_list0(
-        delimited(multispace0, char(','), multispace0),
-        expression,
-    )(input)?;
+    let (input, args) =
+        separated_list0(delimited(multispace0, char(','), multispace0), expression)(input)?;
     let (input, _) = char(')')(input)?;
 
     Ok((input, StmtExpr::call(name, args)))
@@ -369,7 +369,9 @@ mod tests {
     fn test_parse_negative_number() {
         let result = parse_formula("-5").unwrap();
         match result {
-            StmtExpr::UnaryOp { op: UnaryOp::Neg, .. } => {}
+            StmtExpr::UnaryOp {
+                op: UnaryOp::Neg, ..
+            } => {}
             _ => panic!("Expected unary negation"),
         }
     }
@@ -403,4 +405,3 @@ mod tests {
         assert!(result.is_err());
     }
 }
-

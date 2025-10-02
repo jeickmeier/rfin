@@ -1,4 +1,5 @@
 use crate::core::error::js_error;
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::abs::Abs;
 use finstack_valuations::instruments::basket::Basket;
 use finstack_valuations::instruments::clo::Clo;
@@ -6,7 +7,6 @@ use finstack_valuations::instruments::cmbs::Cmbs;
 use finstack_valuations::instruments::rmbs::Rmbs;
 use finstack_valuations::pricer::InstrumentType;
 use serde_json;
-use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 // ===========================

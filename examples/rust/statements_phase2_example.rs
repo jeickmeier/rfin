@@ -7,8 +7,8 @@
 //! - Compilation to core Expr
 //! - All supported operators and functions
 
-use finstack_statements::dsl::{parse_formula, compile, parse_and_compile, StmtExpr};
 use finstack_core::expr::{ExprNode, Function};
+use finstack_statements::dsl::{compile, parse_and_compile, parse_formula, StmtExpr};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 Finstack Statements - Phase 2 DSL Example\n");
@@ -16,35 +16,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 1: Basic Arithmetic
     example_1_arithmetic()?;
-    
+
     // Example 2: AST Inspection
     example_2_ast_inspection()?;
-    
+
     // Example 3: Compilation
     example_3_compilation()?;
-    
+
     // Example 4: Time-Series Functions
     example_4_time_series()?;
-    
+
     // Example 5: Rolling Window Functions
     example_5_rolling_windows()?;
-    
+
     // Example 6: Statistical Functions
     example_6_statistical()?;
-    
+
     // Example 7: Conditional Expressions
     example_7_conditionals()?;
-    
+
     // Example 8: Complex Expressions
     example_8_complex()?;
-    
+
     // Example 9: Error Handling
     example_9_error_handling()?;
 
     println!("\n═══════════════════════════════════════════════════════════");
     println!("✅ Phase 2 DSL features demonstrated successfully!");
     println!("═══════════════════════════════════════════════════════════\n");
-    
+
     println!("Next Steps:");
     println!("  • Phase 3: Evaluator to execute formulas");
     println!("  • Phase 4: Forecast methods");
@@ -87,9 +87,9 @@ fn example_2_ast_inspection() -> Result<(), Box<dyn std::error::Error>> {
 
     let formula = "(revenue - cogs) / revenue";
     println!("Formula: {}\n", formula);
-    
+
     let ast = parse_formula(formula)?;
-    
+
     println!("AST Structure:");
     print_ast(&ast, 0);
 
@@ -121,7 +121,11 @@ fn print_ast(expr: &StmtExpr, indent: usize) {
                 print_ast(arg, indent + 1);
             }
         }
-        StmtExpr::IfThenElse { condition, then_expr, else_expr } => {
+        StmtExpr::IfThenElse {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
             println!("{}IfThenElse", prefix);
             println!("{}  condition:", prefix);
             print_ast(condition, indent + 2);
@@ -139,13 +143,13 @@ fn example_3_compilation() -> Result<(), Box<dyn std::error::Error>> {
 
     let formula = "revenue * 1.05";
     println!("Formula: {}", formula);
-    
+
     let ast = parse_formula(formula)?;
     let expr = compile(&ast)?;
-    
+
     println!("  Parsed to AST: {:?}", ast);
     println!("  Compiled to core Expr: {:?}", expr.node);
-    
+
     // Or use the convenience function
     let expr2 = parse_and_compile(formula)?;
     println!("  Using parse_and_compile(): {:?}", expr2.node);
@@ -163,14 +167,17 @@ fn example_4_time_series() -> Result<(), Box<dyn std::error::Error>> {
         ("lead(revenue, 1)", "Next period value"),
         ("diff(revenue, 1)", "First difference"),
         ("pct_change(revenue, 1)", "Period-over-period growth"),
-        ("pct_change(revenue, 4)", "Year-over-year growth (quarterly)"),
+        (
+            "pct_change(revenue, 4)",
+            "Year-over-year growth (quarterly)",
+        ),
     ];
 
     for (formula, description) in formulas {
         let expr = parse_and_compile(formula)?;
         println!("  {}", description);
         println!("    Formula: {}", formula);
-        
+
         // Check if it compiled to a core Function
         if let ExprNode::Call(func, _) = expr.node {
             println!("    → Compiled to core function: {:?}", func);
@@ -189,8 +196,14 @@ fn example_5_rolling_windows() -> Result<(), Box<dyn std::error::Error>> {
 
     let formulas = vec![
         ("rolling_mean(revenue, 4)", "4-period moving average"),
-        ("rolling_sum(revenue, 4)", "4-period rolling sum (TTM for quarterly)"),
-        ("rolling_sum(revenue, 12)", "12-period rolling sum (TTM for monthly)"),
+        (
+            "rolling_sum(revenue, 4)",
+            "4-period rolling sum (TTM for quarterly)",
+        ),
+        (
+            "rolling_sum(revenue, 12)",
+            "12-period rolling sum (TTM for monthly)",
+        ),
         ("rolling_std(revenue, 4)", "4-period rolling std dev"),
         ("rolling_min(revenue, 4)", "4-period rolling minimum"),
         ("rolling_max(revenue, 4)", "4-period rolling maximum"),
@@ -200,7 +213,7 @@ fn example_5_rolling_windows() -> Result<(), Box<dyn std::error::Error>> {
         let expr = parse_and_compile(formula)?;
         println!("  {}", description);
         println!("    Formula: {}", formula);
-        
+
         if let ExprNode::Call(func, _) = expr.node {
             println!("    → Core function: {:?}", func);
         }
@@ -228,7 +241,7 @@ fn example_6_statistical() -> Result<(), Box<dyn std::error::Error>> {
     for (formula, description) in formulas {
         let expr = parse_and_compile(formula)?;
         println!("  {}: {}", description, formula);
-        
+
         if let ExprNode::Call(func, args) = &expr.node {
             match func {
                 Function::Std | Function::Var | Function::Median => {
@@ -294,35 +307,29 @@ fn example_8_complex() -> Result<(), Box<dyn std::error::Error>> {
     println!("───────────────────────────────────────────────────────────\n");
 
     let examples = vec![
-        (
-            "(revenue - cogs) / revenue",
-            "Gross margin calculation"
-        ),
+        ("(revenue - cogs) / revenue", "Gross margin calculation"),
         (
             "rolling_mean(pct_change(revenue, 1), 4)",
-            "4-period average of MoM growth"
+            "4-period average of MoM growth",
         ),
         (
             "debt_balance / rolling_sum(ebitda, 4)",
-            "Leverage ratio (Debt/TTM EBITDA)"
+            "Leverage ratio (Debt/TTM EBITDA)",
         ),
         (
             "if(revenue > 1000000, rolling_mean(revenue, 4), lag(revenue, 1))",
-            "Conditional with nested functions"
+            "Conditional with nested functions",
         ),
-        (
-            "(revenue - cogs - opex) / revenue",
-            "Operating margin"
-        ),
+        ("(revenue - cogs - opex) / revenue", "Operating margin"),
     ];
 
     for (formula, description) in examples {
         println!("  {}", description);
         println!("    Formula: {}", formula);
-        
+
         let expr = parse_and_compile(formula)?;
         println!("    ✓ Parsed and compiled successfully");
-        
+
         // Show some details about the compiled expression
         match &expr.node {
             ExprNode::Call(_func, args) => {
@@ -369,4 +376,3 @@ fn example_9_error_handling() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     Ok(())
 }
-

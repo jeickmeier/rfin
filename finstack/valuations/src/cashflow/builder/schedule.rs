@@ -92,7 +92,7 @@ impl CashFlowSchedule {
     }
 
     /// Outstanding principal path computed from principal/PIK/amortization flows.
-    /// 
+    ///
     /// Note: Amortization amounts in the schedule are stored as POSITIVE values
     /// (the builder internally manages the reduction of outstanding balance).
     /// PIK amounts are positive and increase outstanding.
@@ -161,7 +161,7 @@ impl CashFlowSchedule {
 
     /// End-of-date outstanding path: one entry per unique date after applying
     /// Amortization/PIK on that date. Redemption does not reduce outstanding here.
-    /// 
+    ///
     /// Note: Amortization amounts in the schedule are stored as POSITIVE values.
     pub fn outstanding_by_date(&self) -> Vec<(Date, Money)> {
         let mut result: Vec<(Date, Money)> = Vec::new();

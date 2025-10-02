@@ -23,19 +23,19 @@ pub fn resolve_node_value(
             return Ok(NodeValueSource::Value(amount_or_scalar.value()));
         }
     }
-    
+
     // 2. Check for forecast (only in forecast periods, not actuals)
     if !is_actual_period && !node_spec.forecasts.is_empty() {
         // For Phase 3, we return a marker that forecast is available
         // Actual forecast evaluation will be implemented in Phase 4
         return Ok(NodeValueSource::Forecast);
     }
-    
+
     // 3. Check for formula (lowest precedence, always available as fallback)
     if let Some(formula) = &node_spec.formula_text {
         return Ok(NodeValueSource::Formula(formula.clone()));
     }
-    
+
     // 4. No resolution method available
     match node_spec.node_type {
         NodeType::Value => Err(Error::eval(format!(
@@ -58,10 +58,10 @@ pub fn resolve_node_value(
 pub enum NodeValueSource {
     /// Explicit value
     Value(f64),
-    
+
     /// Forecast (to be evaluated in Phase 4)
     Forecast,
-    
+
     /// Formula to evaluate
     Formula(String),
 }
@@ -71,17 +71,17 @@ impl NodeValueSource {
     pub fn is_value(&self) -> bool {
         matches!(self, Self::Value(_))
     }
-    
+
     /// Check if this is a forecast.
     pub fn is_forecast(&self) -> bool {
         matches!(self, Self::Forecast)
     }
-    
+
     /// Check if this is a formula.
     pub fn is_formula(&self) -> bool {
         matches!(self, Self::Formula(_))
     }
-    
+
     /// Get the value if this is an explicit value.
     pub fn as_value(&self) -> Option<f64> {
         match self {
@@ -89,7 +89,7 @@ impl NodeValueSource {
             _ => None,
         }
     }
-    
+
     /// Get the formula if this is a formula.
     pub fn as_formula(&self) -> Option<&str> {
         match self {
@@ -104,75 +104,71 @@ mod tests {
     use super::*;
     use crate::types::AmountOrScalar;
     use indexmap::IndexMap;
-    
+
     #[test]
     fn test_value_precedence() {
         let mut values = IndexMap::new();
         values.insert(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0));
-        
+
         let node = NodeSpec::new("revenue", NodeType::Mixed)
             .with_values(values)
             .with_formula("revenue * 1.05");
-        
+
         let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
-        
+
         // Should use explicit value, not formula
         assert!(source.is_value());
         assert_eq!(source.as_value(), Some(100.0));
     }
-    
+
     #[test]
     fn test_formula_fallback() {
-        let node = NodeSpec::new("cogs", NodeType::Calculated)
-            .with_formula("revenue * 0.6");
-        
+        let node = NodeSpec::new("cogs", NodeType::Calculated).with_formula("revenue * 0.6");
+
         let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
-        
+
         // Should use formula
         assert!(source.is_formula());
         assert_eq!(source.as_formula(), Some("revenue * 0.6"));
     }
-    
+
     #[test]
     fn test_value_node_missing_value_error() {
         let node = NodeSpec::new("revenue", NodeType::Value);
-        
+
         let result = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true);
-        
+
         // Should error because no value provided
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_forecast_in_forecast_period() {
-        use crate::types::{ForecastSpec, ForecastMethod};
-        
-        let mut node = NodeSpec::new("revenue", NodeType::Mixed)
-            .with_formula("lag(revenue, 1)");
+        use crate::types::{ForecastMethod, ForecastSpec};
+
+        let mut node = NodeSpec::new("revenue", NodeType::Mixed).with_formula("lag(revenue, 1)");
         node.forecasts.push(ForecastSpec {
             method: ForecastMethod::GrowthPct,
             params: IndexMap::new(),
         });
-        
+
         // In forecast period, should prefer forecast over formula
         let source = resolve_node_value(&node, &PeriodId::quarter(2025, 3), false).unwrap();
         assert!(source.is_forecast());
     }
-    
+
     #[test]
     fn test_formula_in_actual_period() {
-        use crate::types::{ForecastSpec, ForecastMethod};
-        
-        let mut node = NodeSpec::new("revenue", NodeType::Mixed)
-            .with_formula("lag(revenue, 1)");
+        use crate::types::{ForecastMethod, ForecastSpec};
+
+        let mut node = NodeSpec::new("revenue", NodeType::Mixed).with_formula("lag(revenue, 1)");
         node.forecasts.push(ForecastSpec {
             method: ForecastMethod::GrowthPct,
             params: IndexMap::new(),
         });
-        
+
         // In actual period, should use formula (not forecast)
         let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
         assert!(source.is_formula());
     }
 }
-

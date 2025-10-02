@@ -80,15 +80,13 @@ impl ModelBuilder<NeedPeriods> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn periods(
-        self,
-        range: &str,
-        actuals_until: Option<&str>,
-    ) -> Result<ModelBuilder<Ready>> {
+    pub fn periods(self, range: &str, actuals_until: Option<&str>) -> Result<ModelBuilder<Ready>> {
         let period_plan = build_periods(range, actuals_until)?;
 
         if period_plan.periods.is_empty() {
-            return Err(Error::period("Period range must contain at least one period"));
+            return Err(Error::period(
+                "Period range must contain at least one period",
+            ));
         }
 
         Ok(ModelBuilder {
@@ -103,7 +101,9 @@ impl ModelBuilder<NeedPeriods> {
     /// Define periods explicitly (for advanced use cases).
     pub fn periods_explicit(self, periods: Vec<Period>) -> Result<ModelBuilder<Ready>> {
         if periods.is_empty() {
-            return Err(Error::period("Period list must contain at least one period"));
+            return Err(Error::period(
+                "Period list must contain at least one period",
+            ));
         }
 
         Ok(ModelBuilder {
@@ -138,7 +138,11 @@ impl ModelBuilder<Ready> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn value(mut self, node_id: impl Into<String>, values: &[(PeriodId, AmountOrScalar)]) -> Self {
+    pub fn value(
+        mut self,
+        node_id: impl Into<String>,
+        values: &[(PeriodId, AmountOrScalar)],
+    ) -> Self {
         let node_id = node_id.into();
         let values_map: IndexMap<PeriodId, AmountOrScalar> = values.iter().cloned().collect();
 
@@ -164,7 +168,11 @@ impl ModelBuilder<Ready> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn compute(mut self, node_id: impl Into<String>, formula: impl Into<String>) -> Result<Self> {
+    pub fn compute(
+        mut self,
+        node_id: impl Into<String>,
+        formula: impl Into<String>,
+    ) -> Result<Self> {
         let node_id = node_id.into();
         let formula = formula.into();
 
@@ -177,6 +185,57 @@ impl ModelBuilder<Ready> {
 
         self.nodes.insert(node_id, node);
         Ok(self)
+    }
+
+    /// Add a forecast specification to an existing node.
+    ///
+    /// This allows forecasting values into future periods using various methods.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_statements::types::{AmountOrScalar, ForecastSpec, ForecastMethod};
+    /// # use finstack_core::dates::PeriodId;
+    /// # use indexmap::indexmap;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("test")
+    ///     .periods("2025Q1..Q4", Some("2025Q2"))?
+    ///     .value("revenue", &[
+    ///         (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
+    ///         (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+    ///     ])
+    ///     .forecast("revenue", ForecastSpec {
+    ///         method: ForecastMethod::GrowthPct,
+    ///         params: indexmap! { "rate".into() => serde_json::json!(0.05) },
+    ///     })
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn forecast(
+        mut self,
+        node_id: impl Into<String>,
+        forecast_spec: crate::types::ForecastSpec,
+    ) -> Self {
+        let node_id = node_id.into();
+
+        // Get or create the node (converting to Mixed type if needed)
+        if let Some(node) = self.nodes.get_mut(&node_id) {
+            // Add forecast to existing node
+            node.forecasts.push(forecast_spec);
+
+            // Ensure node type is Mixed if it has forecasts
+            if matches!(node.node_type, NodeType::Value) {
+                node.node_type = NodeType::Mixed;
+            }
+        } else {
+            // Create new Mixed node with just the forecast
+            let node = NodeSpec::new(node_id.clone(), NodeType::Mixed).with_forecast(forecast_spec);
+            self.nodes.insert(node_id, node);
+        }
+
+        self
     }
 
     /// Add metadata to the model.
@@ -247,7 +306,10 @@ mod tests {
 
         assert_eq!(model.nodes.len(), 1);
         assert!(model.has_node("revenue"));
-        assert_eq!(model.get_node("revenue").unwrap().node_type, NodeType::Value);
+        assert_eq!(
+            model.get_node("revenue").unwrap().node_type,
+            NodeType::Value
+        );
     }
 
     #[test]
@@ -308,4 +370,3 @@ mod tests {
         assert!(!model.periods[3].is_actual); // Q4 (forecast)
     }
 }
-

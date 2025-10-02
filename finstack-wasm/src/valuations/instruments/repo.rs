@@ -116,10 +116,7 @@ impl JsRepo {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!(
-            "Repo(id='{}', rate={:.4})",
-            self.0.id, self.0.repo_rate
-        )
+        format!("Repo(id='{}', rate={:.4})", self.0.id, self.0.repo_rate)
     }
 
     #[wasm_bindgen(js_name = clone)]

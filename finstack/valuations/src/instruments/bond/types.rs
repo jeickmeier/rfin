@@ -283,8 +283,8 @@ impl Bond {
         quoted_clean: Option<f64>,
         curves: &finstack_core::market_data::MarketContext,
     ) -> Result<Self> {
-        use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType};
-        
+        use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec};
+
         // Build cashflow schedule with PIK split
         let custom_schedule = cf()
             .principal(notional, issue, maturity)
@@ -298,7 +298,7 @@ impl Bond {
                 stub: StubKind::None,
             })
             .build_with_curves(Some(curves))?;
-        
+
         Self::from_cashflows(id, custom_schedule, disc_id, quoted_clean)
     }
 
@@ -334,11 +334,11 @@ impl Bond {
         curves: &finstack_core::market_data::MarketContext,
     ) -> Result<Self> {
         use crate::cashflow::builder::{cf, CouponType};
-        
+
         // Build cashflow schedule with fixed then floating windows
         let mut b = cf();
         b.principal(notional, issue, maturity);
-        
+
         // Fixed window: issue to switch date
         b.add_fixed_coupon_window(
             issue,
@@ -353,7 +353,7 @@ impl Bond {
             },
             CouponType::Cash,
         );
-        
+
         // Floating window: switch date to maturity
         b.add_float_coupon_window(
             switch_date,
@@ -373,7 +373,7 @@ impl Bond {
             },
             CouponType::Cash,
         );
-        
+
         let custom_schedule = b.build_with_curves(Some(curves))?;
         Self::from_cashflows(id, custom_schedule, disc_id, quoted_clean)
     }
@@ -382,14 +382,17 @@ impl Bond {
     ///
     /// This returns the complete `CashFlowSchedule` including all cashflow types
     /// (Fixed, Float, PIK, Amortization, Notional, etc.) and metadata.
-    /// 
+    ///
     /// For floating rate bonds, requires market curves to properly compute floating
     /// coupon amounts (forward rate + discount margin).
-    /// 
+    ///
     /// Note: Amortization amounts are stored as POSITIVE values in the schedule.
-    pub fn get_full_schedule(&self, curves: &finstack_core::market_data::MarketContext) -> Result<CashFlowSchedule> {
-        use crate::cashflow::builder::{cf, FixedCouponSpec, FloatingCouponSpec, CouponType};
-        
+    pub fn get_full_schedule(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+    ) -> Result<CashFlowSchedule> {
+        use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, FloatingCouponSpec};
+
         // If custom cashflows are set, return them directly
         if let Some(ref custom) = self.custom_cashflows {
             return Ok(custom.clone());
@@ -398,12 +401,12 @@ impl Bond {
         // Build the schedule using the cashflow builder
         let mut b = cf();
         b.principal(self.notional, self.issue, self.maturity);
-        
+
         // Add amortization if present
         if let Some(am) = &self.amortization {
             b.amortization(am.clone());
         }
-        
+
         // Add coupon specification (fixed or floating)
         if let Some(ref fl) = self.float {
             // Floating rate bond
@@ -431,7 +434,7 @@ impl Bond {
                 stub: self.stub,
             });
         }
-        
+
         // Build the schedule with market curves for floating rate computation
         b.build_with_curves(Some(curves))
     }

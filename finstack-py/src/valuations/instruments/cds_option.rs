@@ -1,7 +1,9 @@
 // use crate::core::error::core_to_py; // not used in this module currently
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, leak_str, PyInstrumentType};
+use crate::valuations::common::{
+    extract_curve_id, extract_instrument_id, leak_str, PyInstrumentType,
+};
 use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
 use finstack_valuations::instruments::cds_option::CdsOption;
 use finstack_valuations::instruments::common::parameters::{CreditParams, OptionType};

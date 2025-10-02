@@ -60,12 +60,12 @@
 //! ```
 
 pub mod ast;
-pub mod parser;
 pub mod compiler;
+pub mod parser;
 
-pub use ast::{StmtExpr, BinOp, UnaryOp};
-pub use parser::parse_formula;
+pub use ast::{BinOp, StmtExpr, UnaryOp};
 pub use compiler::compile;
+pub use parser::parse_formula;
 
 /// Parse and compile a formula in one step.
 ///
@@ -85,4 +85,3 @@ pub fn parse_and_compile(formula: &str) -> crate::error::Result<finstack_core::e
     let ast = parse_formula(formula)?;
     compile(&ast)
 }
-

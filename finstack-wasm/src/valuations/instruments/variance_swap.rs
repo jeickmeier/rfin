@@ -8,7 +8,9 @@ use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
 use finstack_core::math::stats::RealizedVarMethod;
 use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::variance_swap::{PayReceive as VarSwapPayReceive, VarianceSwap};
+use finstack_valuations::instruments::variance_swap::{
+    PayReceive as VarSwapPayReceive, VarianceSwap,
+};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

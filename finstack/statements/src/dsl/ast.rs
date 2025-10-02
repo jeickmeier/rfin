@@ -163,11 +163,7 @@ mod tests {
 
     #[test]
     fn test_bin_op() {
-        let expr = StmtExpr::bin_op(
-            BinOp::Add,
-            StmtExpr::literal(1.0),
-            StmtExpr::literal(2.0),
-        );
+        let expr = StmtExpr::bin_op(BinOp::Add, StmtExpr::literal(1.0), StmtExpr::literal(2.0));
 
         match expr {
             StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Add),
@@ -191,4 +187,3 @@ mod tests {
         }
     }
 }
-

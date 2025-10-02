@@ -137,12 +137,13 @@ pub enum ForecastMethod {
     /// Compound growth: v[t] = v[t-1] * (1 + rate)
     GrowthPct,
 
+    /// Period-specific growth rates: v[t] = v[t-1] * (1 + curve[t])
+    CurvePct,
+
     /// Sample from normal distribution (deterministic with seed)
-    #[cfg(feature = "stats")]
     Normal,
 
     /// Sample from log-normal distribution (deterministic with seed)
-    #[cfg(feature = "stats")]
     LogNormal,
 
     /// Explicit period overrides
@@ -154,4 +155,3 @@ pub enum ForecastMethod {
     /// Seasonal pattern (additive/multiplicative)
     Seasonal,
 }
-

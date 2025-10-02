@@ -3,6 +3,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::instrument_id_from_str;
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
 use finstack_valuations::instruments::common::parameters::underlying::{
     EquityUnderlyingParams, IndexUnderlyingParams,
@@ -11,7 +12,6 @@ use finstack_valuations::instruments::trs::{
     EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsScheduleSpec, TrsSide,
 };
 use finstack_valuations::pricer::InstrumentType;
-use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 // Simplified TRS schedule spec for WASM

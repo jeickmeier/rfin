@@ -1,8 +1,8 @@
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_valuations::pricer::InstrumentType;
-use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = EquityOption)]

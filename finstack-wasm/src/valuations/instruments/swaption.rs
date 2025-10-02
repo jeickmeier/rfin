@@ -2,10 +2,10 @@ use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::{Swaption, SwaptionExercise, SwaptionSettlement};
 use finstack_valuations::pricer::InstrumentType;
-use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = Swaption)]
@@ -41,7 +41,8 @@ impl JsSwaption {
     ) -> Result<JsSwaption, JsValue> {
         let vol_id = optional_static_str(vol_surface).unwrap_or("SWAPTION-VOL");
         let exercise_style = parse_optional_with_default(exercise, SwaptionExercise::European)?;
-        let settlement_type = parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
+        let settlement_type =
+            parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
 
         let params = SwaptionParams::payer(
             notional.inner(),
@@ -81,7 +82,8 @@ impl JsSwaption {
     ) -> Result<JsSwaption, JsValue> {
         let vol_id = optional_static_str(vol_surface).unwrap_or("SWAPTION-VOL");
         let exercise_style = parse_optional_with_default(exercise, SwaptionExercise::European)?;
-        let settlement_type = parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
+        let settlement_type =
+            parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
 
         let params = SwaptionParams::receiver(
             notional.inner(),

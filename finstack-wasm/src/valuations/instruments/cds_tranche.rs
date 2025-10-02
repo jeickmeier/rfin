@@ -4,10 +4,10 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::pricer::InstrumentType;
-use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CdsTranche)]

@@ -3,8 +3,8 @@
 //! Delegates to core parsing module for common types (DayCount, Frequency, etc.)
 //! and provides parsing for instrument-specific types.
 
-use crate::core::common::parse::ParseFromString;
 use crate::core::common::labels::normalize_label;
+use crate::core::common::parse::ParseFromString;
 use crate::core::error::js_error;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_core::math::stats::RealizedVarMethod;
@@ -208,9 +208,9 @@ impl FromJsLabel for DeflationProtection {
         let normalized = normalize_label(label);
         match normalized.as_str() {
             "maturity_only" | "maturityonly" => Ok(DeflationProtection::MaturityOnly),
-            _ => normalized.parse().map_err(|e: String| {
-                js_error(format!("Invalid deflation protection: {}", e))
-            }),
+            _ => normalized
+                .parse()
+                .map_err(|e: String| js_error(format!("Invalid deflation protection: {}", e))),
         }
     }
 }
@@ -253,4 +253,3 @@ pub(crate) fn parse_optional_with_default<T: FromJsLabel>(
         None => Ok(default),
     }
 }
-

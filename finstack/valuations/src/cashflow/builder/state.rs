@@ -134,7 +134,7 @@ fn emit_float_coupons_on(
             let yf =
                 spec.dc
                     .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
-            
+
             // Compute total rate: forward_rate * gearing + margin
             let total_rate = if let Some(ctx) = curves {
                 // If curves are available, look up the forward rate
@@ -145,7 +145,8 @@ fn emit_float_coupons_on(
                             reset_date = adjust(reset_date, spec.bdc, cal)?;
                         }
                     }
-                    let t_reset = fwd.day_count()
+                    let t_reset = fwd
+                        .day_count()
                         .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())
                         .unwrap_or(0.0);
                     let forward_rate = fwd.rate(t_reset);
@@ -158,7 +159,7 @@ fn emit_float_coupons_on(
                 // No curves provided, use margin only
                 (spec.margin_bp * 1e-4) * spec.gearing
             };
-            
+
             let coupon_total = base_out * (total_rate * yf);
 
             let mut reset_date = d - Duration::days(spec.reset_lag_days as i64);
@@ -884,7 +885,10 @@ impl CashflowBuilder {
     ///
     /// Without curves, only the margin is used:
     /// `coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction`
-    pub fn build_with_curves(&self, curves: Option<&finstack_core::market_data::MarketContext>) -> finstack_core::Result<CashFlowSchedule> {
+    pub fn build_with_curves(
+        &self,
+        curves: Option<&finstack_core::market_data::MarketContext>,
+    ) -> finstack_core::Result<CashFlowSchedule> {
         // 1) Validate core inputs
         let (notional, issue, maturity) = validate_core_inputs(self)?;
 

@@ -56,6 +56,22 @@ cargo run --example statements_phase2_example
 cargo run --example statements_phase3_example
 ```
 
+**[statements_phase4_example.rs](./statements_phase4_example.rs)**
+- Demonstrates Phase 4 forecasting features
+- Forward Fill: Carry last value forward
+- Growth Percentage: Compound growth rates
+- Curve Percentage: Period-specific growth rates
+- Override: Explicit period values with forward fill
+- Normal Distribution: Statistical forecast with deterministic seeding
+- LogNormal Distribution: Always-positive statistical forecast
+- Forecast integration with formula dependencies
+- Complete P&L with mixed forecast methods
+- Negative growth scenarios
+
+```bash
+cargo run --example statements_phase4_example
+```
+
 ### Valuations Crate
 
 **[bond_custom_cashflows_example.rs](./bond_custom_cashflows_example.rs)**

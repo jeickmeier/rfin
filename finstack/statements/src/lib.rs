@@ -74,11 +74,12 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
-pub mod error;
-pub mod types;
 pub mod builder;
 pub mod dsl;
+pub mod error;
 pub mod evaluator;
+pub mod forecast;
+pub mod types;
 
 /// Commonly used types and traits.
 ///
@@ -90,11 +91,13 @@ pub mod evaluator;
 pub mod prelude {
     pub use crate::builder::{ModelBuilder, NeedPeriods, Ready};
     pub use crate::error::{Error, Result};
-    pub use crate::types::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
     pub use crate::evaluator::{Evaluator, Results};
+    pub use crate::types::{
+        AmountOrScalar, FinancialModelSpec, ForecastMethod, ForecastSpec, NodeSpec, NodeType,
+    };
 
     // Re-export commonly used types from finstack-core
+    pub use finstack_core::currency::Currency;
     pub use finstack_core::dates::{build_periods, Period, PeriodId};
     pub use finstack_core::money::Money;
-    pub use finstack_core::currency::Currency;
 }

@@ -1,9 +1,9 @@
 use crate::core::currency::JsCurrency;
 use crate::core::error::js_error;
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::private_markets_fund::PrivateMarketsFund;
 use finstack_valuations::pricer::InstrumentType;
 use serde_json;
-use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = PrivateMarketsFund)]

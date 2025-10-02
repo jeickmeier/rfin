@@ -14,7 +14,7 @@ use std::str::FromStr;
 use wasm_bindgen::JsValue;
 
 /// Parse a currency from a JavaScript value (string code expected).
-/// 
+///
 /// Kept for API completeness even if currently unused.
 #[allow(dead_code)]
 pub(crate) fn parse_currency(value: &JsValue) -> Result<Currency, JsValue> {

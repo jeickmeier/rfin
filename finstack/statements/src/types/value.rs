@@ -104,4 +104,3 @@ mod tests {
         assert_eq!(amount.currency(), Some(Currency::EUR));
     }
 }
-

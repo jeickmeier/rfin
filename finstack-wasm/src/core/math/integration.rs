@@ -197,7 +197,10 @@ impl JsGaussHermiteQuadrature {
             .dyn_ref::<Function>()
             .ok_or_else(|| js_error("Expected a JavaScript function"))?;
         let error_cell = RefCell::new(None);
-        let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+        let adapter = JsClosureAdapter {
+            func,
+            error_cell: &error_cell,
+        };
         run_with_panic_catch(&error_cell, || self.inner.integrate(|x| adapter.invoke(x)))
     }
 
@@ -228,8 +231,14 @@ impl JsGaussHermiteQuadrature {
             .dyn_ref::<Function>()
             .ok_or_else(|| js_error("Expected a JavaScript function"))?;
         let error_cell = RefCell::new(None);
-        let adapter = JsClosureAdapter { func, error_cell: &error_cell };
-        run_with_panic_catch(&error_cell, || self.inner.integrate_adaptive(|x| adapter.invoke(x), tolerance))
+        let adapter = JsClosureAdapter {
+            func,
+            error_cell: &error_cell,
+        };
+        run_with_panic_catch(&error_cell, || {
+            self.inner
+                .integrate_adaptive(|x| adapter.invoke(x), tolerance)
+        })
     }
 
     /// String representation of the quadrature rule.
@@ -269,7 +278,10 @@ pub fn simpson_rule(func: &JsValue, a: f64, b: f64, intervals: usize) -> Result<
         .dyn_ref::<Function>()
         .ok_or_else(|| js_error("Expected a JavaScript function"))?;
     let error_cell = RefCell::new(None);
-    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let adapter = JsClosureAdapter {
+        func,
+        error_cell: &error_cell,
+    };
     let result = run_with_panic_catch(&error_cell, || {
         core_integration::simpson_rule(|x| adapter.invoke(x), a, b, intervals)
     })?;
@@ -312,7 +324,10 @@ pub fn adaptive_simpson(
         .dyn_ref::<Function>()
         .ok_or_else(|| js_error("Expected a JavaScript function"))?;
     let error_cell = RefCell::new(None);
-    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let adapter = JsClosureAdapter {
+        func,
+        error_cell: &error_cell,
+    };
     let result = run_with_panic_catch(&error_cell, || {
         core_integration::adaptive_simpson(|x| adapter.invoke(x), a, b, tol, max_depth)
     })?;
@@ -371,7 +386,10 @@ pub fn gauss_legendre_integrate(
         .dyn_ref::<Function>()
         .ok_or_else(|| js_error("Expected a JavaScript function"))?;
     let error_cell = RefCell::new(None);
-    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let adapter = JsClosureAdapter {
+        func,
+        error_cell: &error_cell,
+    };
     let result = run_with_panic_catch(&error_cell, || {
         core_integration::gauss_legendre_integrate(|x| adapter.invoke(x), a, b, order)
     })?;
@@ -414,9 +432,18 @@ pub fn gauss_legendre_integrate_composite(
         .dyn_ref::<Function>()
         .ok_or_else(|| js_error("Expected a JavaScript function"))?;
     let error_cell = RefCell::new(None);
-    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let adapter = JsClosureAdapter {
+        func,
+        error_cell: &error_cell,
+    };
     let result = run_with_panic_catch(&error_cell, || {
-        core_integration::gauss_legendre_integrate_composite(|x| adapter.invoke(x), a, b, order, panels)
+        core_integration::gauss_legendre_integrate_composite(
+            |x| adapter.invoke(x),
+            a,
+            b,
+            order,
+            panels,
+        )
     })?;
     result.map_err(|err| js_error(err.to_string()))
 }
@@ -460,10 +487,18 @@ pub fn gauss_legendre_integrate_adaptive(
         .dyn_ref::<Function>()
         .ok_or_else(|| js_error("Expected a JavaScript function"))?;
     let error_cell = RefCell::new(None);
-    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let adapter = JsClosureAdapter {
+        func,
+        error_cell: &error_cell,
+    };
     let result = run_with_panic_catch(&error_cell, || {
         core_integration::gauss_legendre_integrate_adaptive(
-            |x| adapter.invoke(x), a, b, order, tol, max_depth,
+            |x| adapter.invoke(x),
+            a,
+            b,
+            order,
+            tol,
+            max_depth,
         )
     })?;
     result.map_err(|err| js_error(err.to_string()))
@@ -493,7 +528,10 @@ pub fn trapezoidal_rule(func: &JsValue, a: f64, b: f64, intervals: usize) -> Res
         .dyn_ref::<Function>()
         .ok_or_else(|| js_error("Expected a JavaScript function"))?;
     let error_cell = RefCell::new(None);
-    let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+    let adapter = JsClosureAdapter {
+        func,
+        error_cell: &error_cell,
+    };
     let result = run_with_panic_catch(&error_cell, || {
         core_integration::trapezoidal_rule(|x| adapter.invoke(x), a, b, intervals)
     })?;

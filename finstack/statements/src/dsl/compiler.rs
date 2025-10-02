@@ -23,24 +23,20 @@ use finstack_core::expr::{Expr, Function};
 pub fn compile(ast: &StmtExpr) -> Result<Expr> {
     match ast {
         StmtExpr::Literal(val) => Ok(Expr::literal(*val)),
-        
+
         StmtExpr::NodeRef(name) => Ok(Expr::column(name.clone())),
-        
-        StmtExpr::BinOp { op, left, right } => {
-            compile_bin_op(*op, left, right)
-        }
-        
-        StmtExpr::UnaryOp { op, operand } => {
-            compile_unary_op(*op, operand)
-        }
-        
-        StmtExpr::Call { func, args } => {
-            compile_function_call(func, args)
-        }
-        
-        StmtExpr::IfThenElse { condition, then_expr, else_expr } => {
-            compile_if_then_else(condition, then_expr, else_expr)
-        }
+
+        StmtExpr::BinOp { op, left, right } => compile_bin_op(*op, left, right),
+
+        StmtExpr::UnaryOp { op, operand } => compile_unary_op(*op, operand),
+
+        StmtExpr::Call { func, args } => compile_function_call(func, args),
+
+        StmtExpr::IfThenElse {
+            condition,
+            then_expr,
+            else_expr,
+        } => compile_if_then_else(condition, then_expr, else_expr),
     }
 }
 
@@ -51,7 +47,7 @@ pub fn compile(ast: &StmtExpr) -> Result<Expr> {
 fn compile_bin_op(op: BinOp, left: &StmtExpr, right: &StmtExpr) -> Result<Expr> {
     let left_expr = compile(left)?;
     let right_expr = compile(right)?;
-    
+
     // For Phase 2, we'll represent arithmetic operations as pseudo-functions
     // These will need custom handling in the evaluator
     let func_name = match op {
@@ -69,27 +65,28 @@ fn compile_bin_op(op: BinOp, left: &StmtExpr, right: &StmtExpr) -> Result<Expr> 
         BinOp::And => "and",
         BinOp::Or => "or",
     };
-    
+
     // Create a synthetic function call node
     // This will need special handling in the evaluator since these aren't real Function variants
-    Ok(create_synthetic_call(func_name, vec![left_expr, right_expr]))
+    Ok(create_synthetic_call(
+        func_name,
+        vec![left_expr, right_expr],
+    ))
 }
 
 /// Compile unary operations.
 fn compile_unary_op(op: UnaryOp, operand: &StmtExpr) -> Result<Expr> {
     let operand_expr = compile(operand)?;
-    
+
     match op {
         UnaryOp::Neg => {
             // Represent as: 0 - operand
-            Ok(create_synthetic_call("sub", vec![
-                Expr::literal(0.0),
-                operand_expr,
-            ]))
+            Ok(create_synthetic_call(
+                "sub",
+                vec![Expr::literal(0.0), operand_expr],
+            ))
         }
-        UnaryOp::Not => {
-            Ok(create_synthetic_call("not", vec![operand_expr]))
-        }
+        UnaryOp::Not => Ok(create_synthetic_call("not", vec![operand_expr])),
     }
 }
 
@@ -97,7 +94,7 @@ fn compile_unary_op(op: UnaryOp, operand: &StmtExpr) -> Result<Expr> {
 fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
     let compiled_args: Result<Vec<_>> = args.iter().map(compile).collect();
     let compiled_args = compiled_args?;
-    
+
     // Map DSL function names to core Function enum
     let func = match func_name {
         "lag" => Some(Function::Lag),
@@ -127,7 +124,7 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
         "quantile" => Some(Function::Quantile),
         _ => None,
     };
-    
+
     if let Some(f) = func {
         Ok(Expr::call(f, compiled_args))
     } else {
@@ -137,12 +134,19 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
 }
 
 /// Compile if-then-else expressions.
-fn compile_if_then_else(condition: &StmtExpr, then_expr: &StmtExpr, else_expr: &StmtExpr) -> Result<Expr> {
+fn compile_if_then_else(
+    condition: &StmtExpr,
+    then_expr: &StmtExpr,
+    else_expr: &StmtExpr,
+) -> Result<Expr> {
     let cond = compile(condition)?;
     let then_branch = compile(then_expr)?;
     let else_branch = compile(else_expr)?;
-    
-    Ok(create_synthetic_call("if", vec![cond, then_branch, else_branch]))
+
+    Ok(create_synthetic_call(
+        "if",
+        vec![cond, then_branch, else_branch],
+    ))
 }
 
 /// Create a synthetic function call for operations not in core's Function enum.
@@ -153,22 +157,22 @@ fn create_synthetic_call(name: &str, args: Vec<Expr>) -> Expr {
     // We store the function name in the expression by creating a special column reference
     // Format: "__stmt_fn::<name>" as a marker
     // The actual args are stored as a Call to a placeholder function
-    
+
     // For now, we'll use a hack: encode the function name in the column reference
     // and wrap it with the first core function as a placeholder
     // This is NOT ideal but works for Phase 2 implementation
     //
     // A better solution would be to extend core's Function enum or create a wrapper
-    
+
     // Store function name as a literal string by encoding it
     // This will require custom evaluator logic
     let marker = Expr::column(format!("__stmt_fn::{}", name));
-    
+
     // Return a call structure with the marker and args
     // We'll use CumSum as a placeholder since it's harmless
     let mut all_args = vec![marker];
     all_args.extend(args);
-    
+
     Expr::call(Function::CumSum, all_args)
 }
 
@@ -182,7 +186,7 @@ mod tests {
     fn test_compile_literal() {
         let ast = StmtExpr::literal(42.0);
         let expr = compile(&ast).unwrap();
-        
+
         match expr.node {
             ExprNode::Literal(v) => assert_eq!(v, 42.0),
             _ => panic!("Expected Literal"),
@@ -193,7 +197,7 @@ mod tests {
     fn test_compile_node_ref() {
         let ast = StmtExpr::node_ref("revenue");
         let expr = compile(&ast).unwrap();
-        
+
         match expr.node {
             ExprNode::Column(ref name) => assert_eq!(name, "revenue"),
             _ => panic!("Expected Column"),
@@ -202,14 +206,10 @@ mod tests {
 
     #[test]
     fn test_compile_addition() {
-        let ast = StmtExpr::bin_op(
-            BinOp::Add,
-            StmtExpr::literal(1.0),
-            StmtExpr::literal(2.0),
-        );
-        
+        let ast = StmtExpr::bin_op(BinOp::Add, StmtExpr::literal(1.0), StmtExpr::literal(2.0));
+
         let expr = compile(&ast).unwrap();
-        
+
         // Should compile to a synthetic function call
         match expr.node {
             ExprNode::Call(..) => {}
@@ -223,9 +223,9 @@ mod tests {
             "lag",
             vec![StmtExpr::node_ref("revenue"), StmtExpr::literal(1.0)],
         );
-        
+
         let expr = compile(&ast).unwrap();
-        
+
         match expr.node {
             ExprNode::Call(Function::Lag, args) => {
                 assert_eq!(args.len(), 2);
@@ -238,7 +238,7 @@ mod tests {
     fn test_compile_from_parse() {
         let ast = parse_formula("revenue - cogs").unwrap();
         let expr = compile(&ast).unwrap();
-        
+
         // Should compile successfully
         match expr.node {
             ExprNode::Call(..) => {}
@@ -250,8 +250,7 @@ mod tests {
     fn test_compile_complex_expression() {
         let ast = parse_formula("(revenue - cogs) / revenue").unwrap();
         let expr = compile(&ast);
-        
+
         assert!(expr.is_ok());
     }
 }
-

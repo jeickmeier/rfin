@@ -14,6 +14,5 @@ mod precedence;
 
 pub use context::StatementContext;
 pub use core::{Evaluator, Results, ResultsMeta};
-pub use dag::{DependencyGraph, evaluate_order};
+pub use dag::{evaluate_order, DependencyGraph};
 pub use precedence::{resolve_node_value, NodeValueSource};
-

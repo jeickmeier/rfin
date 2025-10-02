@@ -46,14 +46,26 @@ fn example_1_simple_evaluation() -> Result<()> {
 
     let model = ModelBuilder::new("Simple Model")
         .periods("2025Q1..Q2", None)?
-        .value("revenue", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-            (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-        ])
-        .value("cogs", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(60_000.0)),
-            (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(66_000.0)),
-        ])
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+            ],
+        )
+        .value(
+            "cogs",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(60_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(66_000.0)),
+            ],
+        )
         .build()?;
 
     let mut evaluator = Evaluator::new();
@@ -63,7 +75,10 @@ fn example_1_simple_evaluation() -> Result<()> {
     for period in &model.periods {
         let revenue = results.get("revenue", &period.id).unwrap();
         let cogs = results.get("cogs", &period.id).unwrap();
-        println!("  {} → Revenue: {:.0}, COGS: {:.0}", period.id, revenue, cogs);
+        println!(
+            "  {} → Revenue: {:.0}, COGS: {:.0}",
+            period.id, revenue, cogs
+        );
     }
 
     println!("\n✅ Simple evaluation complete\n");
@@ -79,10 +94,19 @@ fn example_2_arithmetic_operations() -> Result<()> {
 
     let model = ModelBuilder::new("Arithmetic Model")
         .periods("2025Q1..Q2", None)?
-        .value("revenue", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-            (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-        ])
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+            ],
+        )
         .compute("cogs", "revenue * 0.6")?
         .compute("gross_profit", "revenue - cogs")?
         .compute("gross_margin", "gross_profit / revenue")?
@@ -118,9 +142,10 @@ fn example_3_dependency_chain() -> Result<()> {
 
     let model = ModelBuilder::new("Dependency Chain")
         .periods("2025Q1..Q1", None)?
-        .value("base", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
-        ])
+        .value(
+            "base",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+        )
         .compute("step1", "base * 2")?
         .compute("step2", "step1 + 10")?
         .compute("step3", "step2 * 3")?
@@ -134,11 +159,26 @@ fn example_3_dependency_chain() -> Result<()> {
 
     let period = PeriodId::quarter(2025, 1);
     println!("\nEvaluation order:");
-    println!("  base         = {:.0}", results.get("base", &period).unwrap());
-    println!("  step1        = base * 2     = {:.0}", results.get("step1", &period).unwrap());
-    println!("  step2        = step1 + 10   = {:.0}", results.get("step2", &period).unwrap());
-    println!("  step3        = step2 * 3    = {:.0}", results.get("step3", &period).unwrap());
-    println!("  final_result = step3 - 50   = {:.0}", results.get("final_result", &period).unwrap());
+    println!(
+        "  base         = {:.0}",
+        results.get("base", &period).unwrap()
+    );
+    println!(
+        "  step1        = base * 2     = {:.0}",
+        results.get("step1", &period).unwrap()
+    );
+    println!(
+        "  step2        = step1 + 10   = {:.0}",
+        results.get("step2", &period).unwrap()
+    );
+    println!(
+        "  step3        = step2 * 3    = {:.0}",
+        results.get("step3", &period).unwrap()
+    );
+    println!(
+        "  final_result = step3 - 50   = {:.0}",
+        results.get("final_result", &period).unwrap()
+    );
 
     println!("\n✅ Dependency chain evaluated in topological order\n");
     Ok(())
@@ -156,12 +196,27 @@ fn example_4_precedence_resolution() -> Result<()> {
     let model = ModelBuilder::new("Precedence Model")
         .periods("2025Q1..Q4", Some("2025Q2"))?
         // Revenue: explicit values for all periods (Value node)
-        .value("revenue", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-            (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-            (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(115_000.0)),
-            (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(120_000.0)),
-        ])
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(115_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+            ],
+        )
         // COGS: always calculated from revenue (Calculated node)
         .compute("cogs", "revenue * 0.6")?
         // Gross profit: calculated (Calculated node)
@@ -176,14 +231,20 @@ fn example_4_precedence_resolution() -> Result<()> {
     println!("  cogs          → Calculated node (formula: revenue * 0.6)");
     println!("  gross_profit  → Calculated node (formula: revenue - cogs)");
     println!("\nResults:");
-    println!("{:<10} {:>12} {:>12} {:>12}", "Period", "Revenue", "COGS", "Gross Profit");
+    println!(
+        "{:<10} {:>12} {:>12} {:>12}",
+        "Period", "Revenue", "COGS", "Gross Profit"
+    );
     println!("{}", "-".repeat(50));
 
     for period in &model.periods {
         let revenue = results.get("revenue", &period.id).unwrap();
         let cogs = results.get("cogs", &period.id).unwrap();
         let gross_profit = results.get("gross_profit", &period.id).unwrap();
-        println!("{:<10} {:>12.0} {:>12.0} {:>12.0}", period.id, revenue, cogs, gross_profit);
+        println!(
+            "{:<10} {:>12.0} {:>12.0} {:>12.0}",
+            period.id, revenue, cogs, gross_profit
+        );
     }
 
     println!("\n✅ Value nodes always use explicit values");
@@ -201,17 +262,35 @@ fn example_5_complete_pl_model() -> Result<()> {
     let model = ModelBuilder::new("Acme Corp P&L")
         .periods("2025Q1..Q2", None)?
         // Revenue
-        .value("revenue", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10_000_000.0)),
-            (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(11_000_000.0)),
-        ])
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(10_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(11_000_000.0),
+                ),
+            ],
+        )
         // Cost of goods sold (60% of revenue)
         .compute("cogs", "revenue * 0.6")?
         // Operating expenses
-        .value("opex", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(2_000_000.0)),
-            (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(2_100_000.0)),
-        ])
+        .value(
+            "opex",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(2_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(2_100_000.0),
+                ),
+            ],
+        )
         // Derived metrics
         .compute("gross_profit", "revenue - cogs")?
         .compute("operating_income", "gross_profit - opex")?
@@ -281,7 +360,7 @@ fn example_6_circular_dependency() -> Result<()> {
         .periods("2025Q1..Q1", None)?
         .compute("a", "b + 1")?
         .compute("b", "c + 1")?
-        .compute("c", "a + 1")?  // Creates circular dependency
+        .compute("c", "a + 1")? // Creates circular dependency
         .build();
 
     match result {
@@ -298,7 +377,10 @@ fn example_6_circular_dependency() -> Result<()> {
             }
         }
         Err(e) => {
-            println!("\n✅ Error during build (may catch circular dependency early): {}", e);
+            println!(
+                "\n✅ Error during build (may catch circular dependency early): {}",
+                e
+            );
         }
     }
 
@@ -316,9 +398,13 @@ fn example_7_multi_period_evaluation() -> Result<()> {
     let model = ModelBuilder::new("Multi-Period Model")
         .periods("2025Q1..Q4", Some("2025Q1"))?
         // Q1 has actual value
-        .value("revenue", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1_000_000.0)),
-        ])
+        .value(
+            "revenue",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(1_000_000.0),
+            )],
+        )
         // Q2-Q4 will use formula fallback
         .compute("revenue", "1100000")?
         // COGS is 60% of revenue
@@ -332,7 +418,10 @@ fn example_7_multi_period_evaluation() -> Result<()> {
     let results = evaluator.evaluate(&model, false)?;
 
     println!("Sequential period evaluation:\n");
-    println!("{:<10} {:>15} {:>15} {:>15} {:>10}", "Period", "Revenue", "COGS", "Gross Profit", "Margin %");
+    println!(
+        "{:<10} {:>15} {:>15} {:>15} {:>10}",
+        "Period", "Revenue", "COGS", "Gross Profit", "Margin %"
+    );
     println!("{}", "-".repeat(70));
 
     for period in &model.periods {
@@ -341,11 +430,12 @@ fn example_7_multi_period_evaluation() -> Result<()> {
         let gross_profit = results.get("gross_profit", &period.id).unwrap();
         let margin = results.get("margin", &period.id).unwrap() * 100.0;
 
-        println!("{:<10} {:>15.0} {:>15.0} {:>15.0} {:>9.1}%",
-            period.id, revenue, cogs, gross_profit, margin);
+        println!(
+            "{:<10} {:>15.0} {:>15.0} {:>15.0} {:>9.1}%",
+            period.id, revenue, cogs, gross_profit, margin
+        );
     }
 
     println!("\n✅ Multi-period evaluation complete\n");
     Ok(())
 }
-

@@ -24,14 +24,14 @@ pub enum Error {
     #[error("Node not found: {node_id}")]
     NodeNotFound {
         /// ID of the node that was not found
-        node_id: String
+        node_id: String,
     },
 
     /// Circular dependency detected
     #[error("Circular dependency detected: {}", format_path(.path))]
     CircularDependency {
         /// Path through the circular dependency
-        path: Vec<String>
+        path: Vec<String>,
     },
 
     /// Currency mismatch error
@@ -117,4 +117,3 @@ impl Error {
         Self::InvalidInput(msg.into())
     }
 }
-

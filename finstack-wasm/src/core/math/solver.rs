@@ -190,7 +190,10 @@ impl JsNewtonSolver {
             .dyn_ref::<Function>()
             .ok_or_else(|| js_error("Expected a JavaScript function"))?;
         let error_cell = RefCell::new(None);
-        let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+        let adapter = JsClosureAdapter {
+            func,
+            error_cell: &error_cell,
+        };
         let result = run_with_panic_catch(&error_cell, || {
             Solver::solve(&self.inner, |x| adapter.invoke(x), initial_guess)
         })?;
@@ -371,7 +374,10 @@ impl JsBrentSolver {
             .dyn_ref::<Function>()
             .ok_or_else(|| js_error("Expected a JavaScript function"))?;
         let error_cell = RefCell::new(None);
-        let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+        let adapter = JsClosureAdapter {
+            func,
+            error_cell: &error_cell,
+        };
         let result = run_with_panic_catch(&error_cell, || {
             Solver::solve(&self.inner, |x| adapter.invoke(x), initial_guess)
         })?;
@@ -510,7 +516,10 @@ impl JsHybridSolver {
             .dyn_ref::<Function>()
             .ok_or_else(|| js_error("Expected a JavaScript function"))?;
         let error_cell = RefCell::new(None);
-        let adapter = JsClosureAdapter { func, error_cell: &error_cell };
+        let adapter = JsClosureAdapter {
+            func,
+            error_cell: &error_cell,
+        };
         let result = run_with_panic_catch(&error_cell, || {
             Solver::solve(&self.inner, |x| adapter.invoke(x), initial_guess)
         })?;

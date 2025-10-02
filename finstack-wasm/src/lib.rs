@@ -37,9 +37,9 @@ pub use core::dates::{
 };
 pub use core::market_data::{
     BaseCorrelationCurve, CreditIndexData, CurveKind, DiscountCurve, DividendEvent,
-    DividendSchedule, DividendScheduleBuilder, ForwardCurve, FxConfig, FxConversionPolicy, FxMatrix,
-    FxRateResult, HazardCurve, InflationCurve, MarketContext, MarketScalar, ScalarTimeSeries,
-    SeriesInterpolation, VolSurface,
+    DividendSchedule, DividendScheduleBuilder, ForwardCurve, FxConfig, FxConversionPolicy,
+    FxMatrix, FxRateResult, HazardCurve, InflationCurve, MarketContext, MarketScalar,
+    ScalarTimeSeries, SeriesInterpolation, VolSurface,
 };
 pub use core::math::{
     adaptiveQuadrature, adaptiveSimpson, binomialProbability, gaussLegendreIntegrate,

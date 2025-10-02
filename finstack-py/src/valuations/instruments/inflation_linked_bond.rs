@@ -2,7 +2,9 @@ use crate::core::common::args::DayCountArg;
 use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, leak_optional_str, PyInstrumentType};
+use crate::valuations::common::{
+    extract_curve_id, extract_instrument_id, leak_optional_str, PyInstrumentType,
+};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
 use finstack_valuations::instruments::inflation_linked_bond::{
