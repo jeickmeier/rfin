@@ -1,8 +1,9 @@
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo, RepoType};
 use finstack_valuations::pricer::InstrumentType;
@@ -41,17 +42,15 @@ impl JsRepoCollateral {
 
 #[wasm_bindgen(js_name = Repo)]
 #[derive(Clone, Debug)]
-pub struct JsRepo {
-    inner: Repo,
-}
+pub struct JsRepo(Repo);
 
-impl JsRepo {
-    pub(crate) fn from_inner(inner: Repo) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsRepo {
+    type Inner = Repo;
+    fn from_inner(inner: Repo) -> Self {
+        JsRepo(inner)
     }
-
-    pub(crate) fn inner(&self) -> Repo {
-        self.inner.clone()
+    fn inner(&self) -> Repo {
+        self.0.clone()
     }
 }
 
@@ -96,27 +95,27 @@ impl JsRepo {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = cashAmount)]
     pub fn cash_amount(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.cash_amount)
+        JsMoney::from_inner(self.0.cash_amount)
     }
 
     #[wasm_bindgen(getter, js_name = repoRate)]
     pub fn repo_rate(&self) -> f64 {
-        self.inner.repo_rate
+        self.0.repo_rate
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]
     pub fn start_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.start_date)
+        JsDate::from_core(self.0.start_date)
     }
 
     #[wasm_bindgen(getter)]
     pub fn maturity(&self) -> JsDate {
-        JsDate::from_core(self.inner.maturity)
+        JsDate::from_core(self.0.maturity)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -126,12 +125,14 @@ impl JsRepo {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("Repo(id='{}', rate={:.4})", self.inner.id, self.inner.repo_rate)
+        format!(
+            "Repo(id='{}', rate={:.4})",
+            self.0.id, self.0.repo_rate
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsRepo {
-        JsRepo::from_inner(self.inner.clone())
+        JsRepo::from_inner(self.0.clone())
     }
 }
-

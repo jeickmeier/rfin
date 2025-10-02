@@ -16,15 +16,14 @@ use wasm_bindgen::JsValue;
 #[allow(dead_code)]
 pub(crate) fn parse_currency(value: &JsValue) -> Result<Currency, JsValue> {
     if let Some(code) = value.as_string() {
-        Currency::from_str(&code)
-            .map_err(|_| crate::core::error::unknown_currency(&code))
+        Currency::from_str(&code).map_err(|_| crate::core::error::unknown_currency(&code))
     } else {
         Err(js_error("Expected currency code string (e.g., 'USD')"))
     }
 }
 
 /// Unified parsing trait for types that can be parsed from strings.
-/// 
+///
 /// This trait provides a consistent interface for parsing various
 /// finstack types from string labels with proper error handling.
 pub(crate) trait ParseFromString: Sized {
@@ -64,7 +63,10 @@ impl ParseFromString for BusinessDayConvention {
             "modified_following" => Ok(BusinessDayConvention::ModifiedFollowing),
             "preceding" => Ok(BusinessDayConvention::Preceding),
             "modified_preceding" => Ok(BusinessDayConvention::ModifiedPreceding),
-            _ => Err(js_error(format!("Unknown business day convention: {}", label))),
+            _ => Err(js_error(format!(
+                "Unknown business day convention: {}",
+                label
+            ))),
         }
     }
 }
@@ -123,7 +125,7 @@ pub(crate) fn parse_business_day_convention(
     if value.is_undefined() || value.is_null() {
         return Ok(default);
     }
-    
+
     if let Some(name) = value.as_string() {
         BusinessDayConvention::parse_from_string(&name)
     } else {
@@ -144,14 +146,11 @@ pub(crate) fn parse_rounding_mode(name: &str) -> Result<RoundingMode, JsValue> {
 
 /// Parse an interpolation style from a string label.
 #[allow(dead_code)]
-pub(crate) fn parse_interp_style(
-    name: &str,
-    default: InterpStyle,
-) -> Result<InterpStyle, JsValue> {
+pub(crate) fn parse_interp_style(name: &str, default: InterpStyle) -> Result<InterpStyle, JsValue> {
     if name.is_empty() {
         return Ok(default);
     }
-    
+
     InterpStyle::parse_from_string(name)
 }
 
@@ -160,4 +159,3 @@ pub(crate) fn parse_interp_style(
 pub(crate) fn parse_extrapolation_policy(name: &str) -> Result<ExtrapolationPolicy, JsValue> {
     ExtrapolationPolicy::parse_from_string(name)
 }
-

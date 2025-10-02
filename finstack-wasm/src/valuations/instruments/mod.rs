@@ -1,3 +1,5 @@
+mod wrapper;
+
 mod basis_swap;
 mod bond;
 mod cap_floor;
@@ -22,6 +24,9 @@ mod swaption;
 mod trs;
 mod variance_swap;
 
+// Re-export wrapper trait for internal use
+pub(crate) use wrapper::InstrumentWrapper;
+
 pub use basis_swap::JsBasisSwap as BasisSwap;
 pub use bond::JsBond as Bond;
 pub use cap_floor::JsInterestRateOption as InterestRateOption;
@@ -41,7 +46,12 @@ pub use ir_future::JsInterestRateFuture as InterestRateFuture;
 pub use irs::JsInterestRateSwap as InterestRateSwap;
 pub use private_markets_fund::JsPrivateMarketsFund as PrivateMarketsFund;
 pub use repo::JsRepo as Repo;
-pub use structured::{JsAbs as Abs, JsBasket as Basket, JsClo as Clo, JsCmbs as Cmbs, JsRmbs as Rmbs};
+pub use structured::{
+    JsAbs as Abs, JsBasket as Basket, JsClo as Clo, JsCmbs as Cmbs, JsRmbs as Rmbs,
+};
 pub use swaption::JsSwaption as Swaption;
-pub use trs::{JsEquityTotalReturnSwap as EquityTotalReturnSwap, JsFiIndexTotalReturnSwap as FiIndexTotalReturnSwap};
+pub use trs::{
+    JsEquityTotalReturnSwap as EquityTotalReturnSwap,
+    JsFiIndexTotalReturnSwap as FiIndexTotalReturnSwap,
+};
 pub use variance_swap::JsVarianceSwap as VarianceSwap;

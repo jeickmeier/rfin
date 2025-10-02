@@ -1,9 +1,9 @@
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::parse_day_count_label;
 use crate::core::error::core_to_js;
+use crate::core::error::js_error;
 use crate::core::market_data::interp::{parse_extrapolation, parse_interp_style};
 use crate::core::utils::js_array_from_iter;
-use crate::core::error::js_error;
 use finstack_core::currency::Currency as CoreCurrency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::term_structures::{

@@ -1,11 +1,12 @@
 use crate::core::dates::date::JsDate;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
 use finstack_valuations::instruments::cds_option::CdsOption;
 use finstack_valuations::instruments::common::parameters::{CreditParams, OptionType};
 use finstack_valuations::pricer::InstrumentType;
+use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 fn parse_option_type(label: Option<String>) -> Result<OptionType, JsValue> {
@@ -20,17 +21,15 @@ fn parse_option_type(label: Option<String>) -> Result<OptionType, JsValue> {
 
 #[wasm_bindgen(js_name = CdsOption)]
 #[derive(Clone, Debug)]
-pub struct JsCdsOption {
-    inner: CdsOption,
-}
+pub struct JsCdsOption(CdsOption);
 
-impl JsCdsOption {
-    pub(crate) fn from_inner(inner: CdsOption) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsCdsOption {
+    type Inner = CdsOption;
+    fn from_inner(inner: CdsOption) -> Self {
+        JsCdsOption(inner)
     }
-
-    pub(crate) fn inner(&self) -> CdsOption {
-        self.inner.clone()
+    fn inner(&self) -> CdsOption {
+        self.0.clone()
     }
 }
 
@@ -54,9 +53,11 @@ impl JsCdsOption {
     ) -> Result<JsCdsOption, JsValue> {
         let option_type_value = parse_option_type(option_type)?;
         let recovery = recovery_rate.unwrap_or(0.40);
-        
+
         if !(0.0..=1.0).contains(&recovery) {
-            return Err(js_error("recovery_rate must be between 0 and 1".to_string()));
+            return Err(js_error(
+                "recovery_rate must be between 0 and 1".to_string(),
+            ));
         }
 
         let mut option_params = CdsOptionParams::new(
@@ -74,7 +75,7 @@ impl JsCdsOption {
 
         let credit = curve_id_from_str(credit_curve);
         let credit_params = CreditParams::new("CDS_OPTION", recovery, credit.clone());
-        
+
         let disc_str = optional_static_str(Some(discount_curve.to_string()))
             .ok_or_else(|| js_error("discount curve required".to_string()))?;
         let vol_str = optional_static_str(Some(vol_surface.to_string()))
@@ -93,27 +94,27 @@ impl JsCdsOption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter, js_name = strikeSpreadBp)]
     pub fn strike_spread_bp(&self) -> f64 {
-        self.inner.strike_spread_bp
+        self.0.strike_spread_bp
     }
 
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {
-        JsDate::from_core(self.inner.expiry)
+        JsDate::from_core(self.0.expiry)
     }
 
     #[wasm_bindgen(getter, js_name = cdsMaturity)]
     pub fn cds_maturity(&self) -> JsDate {
-        JsDate::from_core(self.inner.cds_maturity)
+        JsDate::from_core(self.0.cds_maturity)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -125,13 +126,12 @@ impl JsCdsOption {
     pub fn to_string_js(&self) -> String {
         format!(
             "CdsOption(id='{}', strike_bp={:.1})",
-            self.inner.id, self.inner.strike_spread_bp
+            self.0.id, self.0.strike_spread_bp
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsCdsOption {
-        JsCdsOption::from_inner(self.inner.clone())
+        JsCdsOption::from_inner(self.0.clone())
     }
 }
-

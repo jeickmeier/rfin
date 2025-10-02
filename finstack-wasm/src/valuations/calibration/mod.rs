@@ -14,4 +14,3 @@ pub use methods::{
 pub use quote::{JsCreditQuote, JsInflationQuote, JsMarketQuote, JsRatesQuote, JsVolQuote};
 pub use report::JsCalibrationReport;
 pub use simple::JsSimpleCalibration;
-

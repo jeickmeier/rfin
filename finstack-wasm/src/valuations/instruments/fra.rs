@@ -1,25 +1,24 @@
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::fra::ForwardRateAgreement;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = ForwardRateAgreement)]
 #[derive(Clone, Debug)]
-pub struct JsForwardRateAgreement {
-    inner: ForwardRateAgreement,
-}
+pub struct JsForwardRateAgreement(ForwardRateAgreement);
 
-impl JsForwardRateAgreement {
-    pub(crate) fn from_inner(inner: ForwardRateAgreement) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsForwardRateAgreement {
+    type Inner = ForwardRateAgreement;
+    fn from_inner(inner: ForwardRateAgreement) -> Self {
+        JsForwardRateAgreement(inner)
     }
-
-    pub(crate) fn inner(&self) -> ForwardRateAgreement {
-        self.inner.clone()
+    fn inner(&self) -> ForwardRateAgreement {
+        self.0.clone()
     }
 }
 
@@ -68,42 +67,42 @@ impl JsForwardRateAgreement {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        self.inner.fixed_rate
+        self.0.fixed_rate
     }
 
     #[wasm_bindgen(getter, js_name = fixingDate)]
     pub fn fixing_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.fixing_date)
+        JsDate::from_core(self.0.fixing_date)
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]
     pub fn start_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.start_date)
+        JsDate::from_core(self.0.start_date)
     }
 
     #[wasm_bindgen(getter, js_name = endDate)]
     pub fn end_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.end_date)
+        JsDate::from_core(self.0.end_date)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.0.disc_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]
     pub fn forward_curve(&self) -> String {
-        self.inner.forward_id.as_str().to_string()
+        self.0.forward_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -115,13 +114,12 @@ impl JsForwardRateAgreement {
     pub fn to_string_js(&self) -> String {
         format!(
             "ForwardRateAgreement(id='{}', fixed_rate={:.4})",
-            self.inner.id, self.inner.fixed_rate
+            self.0.id, self.0.fixed_rate
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsForwardRateAgreement {
-        JsForwardRateAgreement::from_inner(self.inner.clone())
+        JsForwardRateAgreement::from_inner(self.0.clone())
     }
 }
-

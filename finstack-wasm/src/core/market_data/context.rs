@@ -1,3 +1,4 @@
+use crate::core::error::js_error;
 use crate::core::market_data::dividends::JsDividendSchedule;
 use crate::core::market_data::fx::JsFxMatrix;
 use crate::core::market_data::scalars::{JsMarketScalar, JsScalarTimeSeries};
@@ -7,7 +8,6 @@ use crate::core::market_data::term_structures::{
     JsInflationCurve,
 };
 use crate::core::utils::js_array_from_iter;
-use crate::core::error::js_error;
 use finstack_core::market_data::context::{ContextStats, MarketContext};
 use finstack_core::types::CurveId;
 use std::sync::Arc;

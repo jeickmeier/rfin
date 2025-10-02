@@ -269,4 +269,3 @@ impl JsCalibrationConfig {
         Self::from_inner(next)
     }
 }
-

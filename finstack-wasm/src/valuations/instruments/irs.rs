@@ -1,23 +1,22 @@
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
 use crate::valuations::common::instrument_id_from_str;
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::irs::InterestRateSwap;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = InterestRateSwap)]
 #[derive(Clone, Debug)]
-pub struct JsInterestRateSwap {
-    inner: InterestRateSwap,
-}
+pub struct JsInterestRateSwap(InterestRateSwap);
 
-impl JsInterestRateSwap {
-    pub(crate) fn from_inner(inner: InterestRateSwap) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsInterestRateSwap {
+    type Inner = InterestRateSwap;
+    fn from_inner(inner: InterestRateSwap) -> Self {
+        JsInterestRateSwap(inner)
     }
-
-    pub(crate) fn inner(&self) -> InterestRateSwap {
-        self.inner.clone()
+    fn inner(&self) -> InterestRateSwap {
+        self.0.clone()
     }
 }
 
@@ -61,42 +60,42 @@ impl JsInterestRateSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        self.inner.fixed.rate
+        self.0.fixed.rate
     }
 
     #[wasm_bindgen(getter, js_name = floatSpreadBp)]
     pub fn float_spread_bp(&self) -> f64 {
-        self.inner.float.spread_bp
+        self.0.float.spread_bp
     }
 
     #[wasm_bindgen(getter)]
     pub fn start(&self) -> JsDate {
-        JsDate::from_core(self.inner.fixed.start)
+        JsDate::from_core(self.0.fixed.start)
     }
 
     #[wasm_bindgen(getter)]
     pub fn end(&self) -> JsDate {
-        JsDate::from_core(self.inner.fixed.end)
+        JsDate::from_core(self.0.fixed.end)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.inner.fixed.disc_id.as_str().to_string()
+        self.0.fixed.disc_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]
     pub fn forward_curve(&self) -> String {
-        self.inner.float.fwd_id.as_str().to_string()
+        self.0.float.fwd_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -108,13 +107,12 @@ impl JsInterestRateSwap {
     pub fn to_string_js(&self) -> String {
         format!(
             "InterestRateSwap(id='{}', notional={}, fixed_rate={:.4})",
-            self.inner.id, self.inner.notional, self.inner.fixed.rate
+            self.0.id, self.0.notional, self.0.fixed.rate
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsInterestRateSwap {
-        JsInterestRateSwap::from_inner(self.inner.clone())
+        JsInterestRateSwap::from_inner(self.0.clone())
     }
 }
-

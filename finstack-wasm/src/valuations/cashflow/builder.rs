@@ -13,15 +13,17 @@ use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::{JsDayCount, JsFrequency};
 use crate::core::dates::schedule::JsStubKind;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::curve_id_from_str;
 use finstack_valuations::cashflow::builder::types::{
     CouponType as CoreCouponType, FixedCouponSpec as CoreFixedCouponSpec,
     FloatCouponParams as CoreFloatCouponParams, FloatingCouponSpec as CoreFloatingCouponSpec,
     ScheduleParams as CoreScheduleParams,
 };
-use finstack_valuations::cashflow::builder::{CashFlowSchedule as CoreCashFlowSchedule, CashflowBuilder as CoreCashflowBuilder};
+use finstack_valuations::cashflow::builder::{
+    CashFlowSchedule as CoreCashFlowSchedule, CashflowBuilder as CoreCashflowBuilder,
+};
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
@@ -57,11 +59,11 @@ impl JsCouponType {
     }
 
     /// Create a split coupon type with specified cash and PIK percentages.
-    /// 
+    ///
     /// # Arguments
     /// * `cashPct` - Percentage paid in cash (0.0 to 1.0)
     /// * `pikPct` - Percentage capitalized into principal (0.0 to 1.0)
-    /// 
+    ///
     /// Note: cash_pct + pik_pct should sum to ~1.0
     #[wasm_bindgen(js_name = split)]
     pub fn split(cash_pct: f64, pik_pct: f64) -> JsCouponType {
@@ -99,14 +101,16 @@ impl JsScheduleParams {
             let leaked: &'static str = Box::leak(s.into_boxed_str());
             leaked
         });
-        
+
         JsScheduleParams {
             inner: CoreScheduleParams {
                 freq: frequency.inner(),
                 dc: day_count.inner(),
                 bdc: business_day_convention.into(),
                 calendar_id: cal,
-                stub: stub_kind.map(|s| s.inner()).unwrap_or(finstack_core::dates::StubKind::None),
+                stub: stub_kind
+                    .map(|s| s.inner())
+                    .unwrap_or(finstack_core::dates::StubKind::None),
             },
         }
     }
@@ -146,7 +150,7 @@ pub struct JsFixedCouponSpec {
 #[wasm_bindgen(js_class = FixedCouponSpec)]
 impl JsFixedCouponSpec {
     /// Create a fixed coupon specification.
-    /// 
+    ///
     /// # Arguments
     /// * `rate` - Annual coupon rate in decimal form (e.g., 0.05 for 5%)
     /// * `schedule` - Schedule parameters (frequency, day count, etc.)
@@ -182,7 +186,7 @@ pub struct JsFloatCouponParams {
 #[wasm_bindgen(js_class = FloatCouponParams)]
 impl JsFloatCouponParams {
     /// Create floating coupon parameters.
-    /// 
+    ///
     /// # Arguments
     /// * `indexId` - Forward curve identifier (e.g., "USD-SOFR-3M")
     /// * `marginBp` - Margin in basis points (e.g., 150.0 for +150 bps)
@@ -216,7 +220,7 @@ pub struct JsFloatingCouponSpec {
 #[wasm_bindgen(js_class = FloatingCouponSpec)]
 impl JsFloatingCouponSpec {
     /// Create a floating coupon specification.
-    /// 
+    ///
     /// # Arguments
     /// * `params` - Floating coupon parameters (index, margin, gearing, reset lag)
     /// * `schedule` - Schedule parameters (frequency, day count, etc.)
@@ -246,7 +250,7 @@ impl JsFloatingCouponSpec {
 }
 
 /// Composable cashflow builder for creating complex coupon structures.
-/// 
+///
 /// Supports:
 /// - Fixed and floating coupons
 /// - Cash/PIK/split payment types
@@ -275,7 +279,7 @@ impl JsCashflowBuilder {
     }
 
     /// Set principal details and instrument horizon.
-    /// 
+    ///
     /// # Arguments
     /// * `notional` - Initial notional amount
     /// * `issue` - Issue date
@@ -287,12 +291,13 @@ impl JsCashflowBuilder {
         issue: &JsDate,
         maturity: &JsDate,
     ) -> JsCashflowBuilder {
-        self.inner.principal(notional.inner(), issue.inner(), maturity.inner());
+        self.inner
+            .principal(notional.inner(), issue.inner(), maturity.inner());
         self
     }
 
     /// Configure amortization on the current notional.
-    /// 
+    ///
     /// # Arguments
     /// * `spec` - Amortization specification (linear, step, etc.)
     #[wasm_bindgen]
@@ -302,7 +307,7 @@ impl JsCashflowBuilder {
     }
 
     /// Add a fixed coupon specification.
-    /// 
+    ///
     /// # Arguments
     /// * `spec` - Fixed coupon specification (rate, schedule, payment type)
     #[wasm_bindgen(js_name = fixedCf)]
@@ -312,7 +317,7 @@ impl JsCashflowBuilder {
     }
 
     /// Add a floating coupon specification.
-    /// 
+    ///
     /// # Arguments
     /// * `spec` - Floating coupon specification (index, margin, schedule, payment type)
     #[wasm_bindgen(js_name = floatingCf)]
@@ -322,7 +327,7 @@ impl JsCashflowBuilder {
     }
 
     /// Add a fixed step-up coupon program.
-    /// 
+    ///
     /// # Arguments
     /// * `steps` - Array of [dateString, rate] pairs defining rate changes
     /// * `schedule` - Schedule parameters for all periods
@@ -335,7 +340,7 @@ impl JsCashflowBuilder {
         default_split: &JsCouponType,
     ) -> Result<JsCashflowBuilder, JsValue> {
         let mut parsed_steps = Vec::with_capacity(steps.length() as usize);
-        
+
         for item in steps.iter() {
             if !Array::is_array(&item) {
                 return Err(js_error("Each step must be an array [dateString, rate]"));
@@ -344,47 +349,57 @@ impl JsCashflowBuilder {
             if pair.length() != 2 {
                 return Err(js_error("Each step must be [dateString, rate]"));
             }
-            
-            let date_str = pair.get(0).as_string()
+
+            let date_str = pair
+                .get(0)
+                .as_string()
                 .ok_or_else(|| js_error("Step date must be a string in YYYY-MM-DD format"))?;
-            let rate = pair.get(1).as_f64()
+            let rate = pair
+                .get(1)
+                .as_f64()
                 .ok_or_else(|| js_error("Step rate must be a number"))?;
-            
+
             let date = parse_iso_date(&date_str)?;
             parsed_steps.push((date, rate));
         }
-        
-        self.inner.fixed_stepup(&parsed_steps, schedule.inner(), default_split.inner());
+
+        self.inner
+            .fixed_stepup(&parsed_steps, schedule.inner(), default_split.inner());
         Ok(self)
     }
 
     /// Add a payment split program defining cash/PIK transitions.
-    /// 
+    ///
     /// # Arguments
     /// * `steps` - Array of [dateString, CouponType] pairs defining payment type changes
     #[wasm_bindgen(js_name = paymentSplitProgram)]
     pub fn payment_split_program(mut self, steps: &Array) -> Result<JsCashflowBuilder, JsValue> {
         let mut parsed_steps = Vec::with_capacity(steps.length() as usize);
-        
+
         for item in steps.iter() {
             if !Array::is_array(&item) {
-                return Err(js_error("Each step must be an array [dateString, CouponType]"));
+                return Err(js_error(
+                    "Each step must be an array [dateString, CouponType]",
+                ));
             }
             let pair = Array::from(&item);
             if pair.length() != 2 {
                 return Err(js_error("Each step must be [dateString, CouponType]"));
             }
-            
-            let date_str = pair.get(0).as_string()
+
+            let date_str = pair
+                .get(0)
+                .as_string()
                 .ok_or_else(|| js_error("Step date must be a string in YYYY-MM-DD format"))?;
-            
+
             // Extract CouponType from the second element
             // Since JsCouponType is a struct, we need to check string representation
             // For now, we'll expect users to pass the CouponType object directly
             // We'll document this pattern in examples
-            let coupon_type_str = pair.get(1).as_string()
-                .ok_or_else(|| js_error("Second element must be 'cash', 'pik', or 'split:X:Y' string"))?;
-            
+            let coupon_type_str = pair.get(1).as_string().ok_or_else(|| {
+                js_error("Second element must be 'cash', 'pik', or 'split:X:Y' string")
+            })?;
+
             let coupon_type = if coupon_type_str.eq_ignore_ascii_case("cash") {
                 CoreCouponType::Cash
             } else if coupon_type_str.eq_ignore_ascii_case("pik") {
@@ -392,30 +407,36 @@ impl JsCashflowBuilder {
             } else if coupon_type_str.starts_with("split:") {
                 let parts: Vec<&str> = coupon_type_str.split(':').collect();
                 if parts.len() != 3 {
-                    return Err(js_error("Split format must be 'split:cashPct:pikPct' (e.g., 'split:0.7:0.3')"));
+                    return Err(js_error(
+                        "Split format must be 'split:cashPct:pikPct' (e.g., 'split:0.7:0.3')",
+                    ));
                 }
-                let cash_pct: f64 = parts[1].parse()
+                let cash_pct: f64 = parts[1]
+                    .parse()
                     .map_err(|_| js_error("Invalid cash percentage in split"))?;
-                let pik_pct: f64 = parts[2].parse()
+                let pik_pct: f64 = parts[2]
+                    .parse()
                     .map_err(|_| js_error("Invalid PIK percentage in split"))?;
                 CoreCouponType::Split { cash_pct, pik_pct }
             } else {
-                return Err(js_error("Coupon type must be 'cash', 'pik', or 'split:X:Y'"));
+                return Err(js_error(
+                    "Coupon type must be 'cash', 'pik', or 'split:X:Y'",
+                ));
             };
-            
+
             let date = parse_iso_date(&date_str)?;
             parsed_steps.push((date, coupon_type));
         }
-        
+
         self.inner.payment_split_program(&parsed_steps);
         Ok(self)
     }
 
     /// Build the complete cashflow schedule without market curves.
-    /// 
+    ///
     /// For floating rate coupons, only the margin is used in the calculation.
     /// To incorporate forward rates from market curves, use `buildWithCurves()` instead.
-    /// 
+    ///
     /// Returns a CashFlowSchedule containing all generated cashflows.
     #[wasm_bindgen]
     pub fn build(self) -> Result<JsCashFlowSchedule, JsValue> {
@@ -424,18 +445,22 @@ impl JsCashflowBuilder {
     }
 
     /// Build the cashflow schedule with market curves for floating rate computation.
-    /// 
+    ///
     /// When a market context is provided, floating rate coupons include the forward rate:
     /// `coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * year_fraction`
-    /// 
+    ///
     /// Without curves (or using `build()`), only the margin is used:
     /// `coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction`
-    /// 
+    ///
     /// # Arguments
     /// * `market` - Market context containing forward curves
     #[wasm_bindgen(js_name = buildWithCurves)]
-    pub fn build_with_curves(self, market: &crate::core::market_data::context::JsMarketContext) -> Result<JsCashFlowSchedule, JsValue> {
-        let schedule = self.inner
+    pub fn build_with_curves(
+        self,
+        market: &crate::core::market_data::context::JsMarketContext,
+    ) -> Result<JsCashFlowSchedule, JsValue> {
+        let schedule = self
+            .inner
             .build_with_curves(Some(market.inner()))
             .map_err(|e| js_error(e.to_string()))?;
         Ok(JsCashFlowSchedule::new(schedule))
@@ -453,7 +478,7 @@ impl JsCashFlowSchedule {
     pub(crate) fn new(inner: CoreCashFlowSchedule) -> Self {
         Self { inner }
     }
-    
+
     #[allow(dead_code)]
     pub(crate) fn inner(&self) -> &CoreCashFlowSchedule {
         &self.inner
@@ -486,7 +511,7 @@ impl JsCashFlowSchedule {
     }
 
     /// Get all cashflows in the schedule.
-    /// 
+    ///
     /// Returns an array of CashFlow objects.
     #[wasm_bindgen]
     pub fn flows(&self) -> Array {
@@ -507,14 +532,14 @@ impl JsCashFlowSchedule {
 // Helper function to parse ISO date strings (YYYY-MM-DD)
 fn parse_iso_date(value: &str) -> Result<finstack_core::dates::Date, JsValue> {
     use time::Month;
-    
+
     let parts: Vec<&str> = value.split('-').collect();
     if parts.len() != 3 {
         return Err(js_error(format!(
             "Date '{value}' must be in ISO format YYYY-MM-DD"
         )));
     }
-    
+
     let year: i32 = parts[0]
         .parse()
         .map_err(|_| js_error(format!("Invalid year in date '{value}'")))?;
@@ -524,11 +549,10 @@ fn parse_iso_date(value: &str) -> Result<finstack_core::dates::Date, JsValue> {
     let day: u8 = parts[2]
         .parse()
         .map_err(|_| js_error(format!("Invalid day in date '{value}'")))?;
-    
+
     let month_enum = Month::try_from(month)
         .map_err(|_| js_error(format!("Month must be 1-12 in date '{value}'")))?;
-    
+
     finstack_core::dates::Date::from_calendar_date(year, month_enum, day)
         .map_err(|e| js_error(format!("Invalid date '{value}': {e}")))
 }
-

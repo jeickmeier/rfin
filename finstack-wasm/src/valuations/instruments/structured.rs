@@ -1,11 +1,12 @@
 use crate::core::error::js_error;
-use serde_json;
 use finstack_valuations::instruments::abs::Abs;
 use finstack_valuations::instruments::basket::Basket;
 use finstack_valuations::instruments::clo::Clo;
 use finstack_valuations::instruments::cmbs::Cmbs;
 use finstack_valuations::instruments::rmbs::Rmbs;
 use finstack_valuations::pricer::InstrumentType;
+use serde_json;
+use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 // ===========================
@@ -14,17 +15,15 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = Basket)]
 #[derive(Clone, Debug)]
-pub struct JsBasket {
-    inner: Basket,
-}
+pub struct JsBasket(Basket);
 
-impl JsBasket {
-    pub(crate) fn from_inner(inner: Basket) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsBasket {
+    type Inner = Basket;
+    fn from_inner(inner: Basket) -> Self {
+        JsBasket(inner)
     }
-
-    pub(crate) fn inner(&self) -> Basket {
-        self.inner.clone()
+    fn inner(&self) -> Basket {
+        self.0.clone()
     }
 }
 
@@ -39,12 +38,12 @@ impl JsBasket {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -56,14 +55,14 @@ impl JsBasket {
     pub fn to_string_js(&self) -> String {
         format!(
             "Basket(id='{}', constituents={})",
-            self.inner.id,
-            self.inner.constituents.len()
+            self.0.id,
+            self.0.constituents.len()
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsBasket {
-        JsBasket::from_inner(self.inner.clone())
+        JsBasket::from_inner(self.0.clone())
     }
 }
 
@@ -73,17 +72,15 @@ impl JsBasket {
 
 #[wasm_bindgen(js_name = Abs)]
 #[derive(Clone, Debug)]
-pub struct JsAbs {
-    inner: Abs,
-}
+pub struct JsAbs(Abs);
 
-impl JsAbs {
-    pub(crate) fn from_inner(inner: Abs) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsAbs {
+    type Inner = Abs;
+    fn from_inner(inner: Abs) -> Self {
+        JsAbs(inner)
     }
-
-    pub(crate) fn inner(&self) -> Abs {
-        self.inner.clone()
+    fn inner(&self) -> Abs {
+        self.0.clone()
     }
 }
 
@@ -98,12 +95,12 @@ impl JsAbs {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -113,12 +110,16 @@ impl JsAbs {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("Abs(id='{}', tranches={})", self.inner.id, self.inner.tranches.tranches.len())
+        format!(
+            "Abs(id='{}', tranches={})",
+            self.0.id,
+            self.0.tranches.tranches.len()
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsAbs {
-        JsAbs::from_inner(self.inner.clone())
+        JsAbs::from_inner(self.0.clone())
     }
 }
 
@@ -128,17 +129,15 @@ impl JsAbs {
 
 #[wasm_bindgen(js_name = Clo)]
 #[derive(Clone, Debug)]
-pub struct JsClo {
-    inner: Clo,
-}
+pub struct JsClo(Clo);
 
-impl JsClo {
-    pub(crate) fn from_inner(inner: Clo) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsClo {
+    type Inner = Clo;
+    fn from_inner(inner: Clo) -> Self {
+        JsClo(inner)
     }
-
-    pub(crate) fn inner(&self) -> Clo {
-        self.inner.clone()
+    fn inner(&self) -> Clo {
+        self.0.clone()
     }
 }
 
@@ -153,12 +152,12 @@ impl JsClo {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -168,12 +167,16 @@ impl JsClo {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("Clo(id='{}', tranches={})", self.inner.id, self.inner.tranches.tranches.len())
+        format!(
+            "Clo(id='{}', tranches={})",
+            self.0.id,
+            self.0.tranches.tranches.len()
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsClo {
-        JsClo::from_inner(self.inner.clone())
+        JsClo::from_inner(self.0.clone())
     }
 }
 
@@ -183,17 +186,15 @@ impl JsClo {
 
 #[wasm_bindgen(js_name = Cmbs)]
 #[derive(Clone, Debug)]
-pub struct JsCmbs {
-    inner: Cmbs,
-}
+pub struct JsCmbs(Cmbs);
 
-impl JsCmbs {
-    pub(crate) fn from_inner(inner: Cmbs) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsCmbs {
+    type Inner = Cmbs;
+    fn from_inner(inner: Cmbs) -> Self {
+        JsCmbs(inner)
     }
-
-    pub(crate) fn inner(&self) -> Cmbs {
-        self.inner.clone()
+    fn inner(&self) -> Cmbs {
+        self.0.clone()
     }
 }
 
@@ -208,12 +209,12 @@ impl JsCmbs {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -223,12 +224,16 @@ impl JsCmbs {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("Cmbs(id='{}', tranches={})", self.inner.id, self.inner.tranches.tranches.len())
+        format!(
+            "Cmbs(id='{}', tranches={})",
+            self.0.id,
+            self.0.tranches.tranches.len()
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsCmbs {
-        JsCmbs::from_inner(self.inner.clone())
+        JsCmbs::from_inner(self.0.clone())
     }
 }
 
@@ -238,17 +243,15 @@ impl JsCmbs {
 
 #[wasm_bindgen(js_name = Rmbs)]
 #[derive(Clone, Debug)]
-pub struct JsRmbs {
-    inner: Rmbs,
-}
+pub struct JsRmbs(Rmbs);
 
-impl JsRmbs {
-    pub(crate) fn from_inner(inner: Rmbs) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsRmbs {
+    type Inner = Rmbs;
+    fn from_inner(inner: Rmbs) -> Self {
+        JsRmbs(inner)
     }
-
-    pub(crate) fn inner(&self) -> Rmbs {
-        self.inner.clone()
+    fn inner(&self) -> Rmbs {
+        self.0.clone()
     }
 }
 
@@ -263,12 +266,12 @@ impl JsRmbs {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -278,12 +281,15 @@ impl JsRmbs {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("Rmbs(id='{}', tranches={})", self.inner.id, self.inner.tranches.tranches.len())
+        format!(
+            "Rmbs(id='{}', tranches={})",
+            self.0.id,
+            self.0.tranches.tranches.len()
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsRmbs {
-        JsRmbs::from_inner(self.inner.clone())
+        JsRmbs::from_inner(self.0.clone())
     }
 }
-

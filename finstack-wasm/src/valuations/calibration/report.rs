@@ -102,4 +102,3 @@ impl JsCalibrationReport {
         self.inner.metadata.get(key).cloned()
     }
 }
-

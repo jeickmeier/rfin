@@ -1,10 +1,11 @@
 use crate::core::dates::date::JsDate;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::pricer::InstrumentType;
+use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 fn parse_frequency(label: Option<String>) -> Result<Frequency, JsValue> {
@@ -77,17 +78,15 @@ impl JsBasisSwapLeg {
 
 #[wasm_bindgen(js_name = BasisSwap)]
 #[derive(Clone, Debug)]
-pub struct JsBasisSwap {
-    inner: BasisSwap,
-}
+pub struct JsBasisSwap(BasisSwap);
 
-impl JsBasisSwap {
-    pub(crate) fn from_inner(inner: BasisSwap) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsBasisSwap {
+    type Inner = BasisSwap;
+    fn from_inner(inner: BasisSwap) -> Self {
+        JsBasisSwap(inner)
     }
-
-    pub(crate) fn inner(&self) -> BasisSwap {
-        self.inner.clone()
+    fn inner(&self) -> BasisSwap {
+        self.0.clone()
     }
 }
 
@@ -128,17 +127,17 @@ impl JsBasisSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.inner.discount_curve_id.as_str().to_string()
+        self.0.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -148,12 +147,11 @@ impl JsBasisSwap {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("BasisSwap(id='{}')", self.inner.id)
+        format!("BasisSwap(id='{}')", self.0.id)
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsBasisSwap {
-        JsBasisSwap::from_inner(self.inner.clone())
+        JsBasisSwap::from_inner(self.0.clone())
     }
 }
-

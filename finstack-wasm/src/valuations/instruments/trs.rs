@@ -1,7 +1,7 @@
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::instrument_id_from_str;
 use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
 use finstack_valuations::instruments::common::parameters::underlying::{
@@ -11,6 +11,7 @@ use finstack_valuations::instruments::trs::{
     EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsScheduleSpec, TrsSide,
 };
 use finstack_valuations::pricer::InstrumentType;
+use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 fn parse_curve_id(value: &str) -> String {
@@ -36,7 +37,8 @@ impl JsTrsScheduleSpec {
             return Err(js_error("Schedule end must be after start".to_string()));
         }
 
-        let spec = TrsScheduleSpec::from_params(start.inner(), end.inner(), schedule_params.inner());
+        let spec =
+            TrsScheduleSpec::from_params(start.inner(), end.inner(), schedule_params.inner());
         Ok(JsTrsScheduleSpec { inner: spec })
     }
 }
@@ -118,17 +120,15 @@ impl JsIndexUnderlying {
 // Equity TRS
 #[wasm_bindgen(js_name = EquityTotalReturnSwap)]
 #[derive(Clone, Debug)]
-pub struct JsEquityTotalReturnSwap {
-    inner: EquityTotalReturnSwap,
-}
+pub struct JsEquityTotalReturnSwap(EquityTotalReturnSwap);
 
-impl JsEquityTotalReturnSwap {
-    pub(crate) fn from_inner(inner: EquityTotalReturnSwap) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsEquityTotalReturnSwap {
+    type Inner = EquityTotalReturnSwap;
+    fn from_inner(inner: EquityTotalReturnSwap) -> Self {
+        JsEquityTotalReturnSwap(inner)
     }
-
-    pub(crate) fn inner(&self) -> EquityTotalReturnSwap {
-        self.inner.clone()
+    fn inner(&self) -> EquityTotalReturnSwap {
+        self.0.clone()
     }
 }
 
@@ -167,12 +167,12 @@ impl JsEquityTotalReturnSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -182,29 +182,30 @@ impl JsEquityTotalReturnSwap {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("EquityTotalReturnSwap(id='{}', notional={})", self.inner.id, self.inner.notional)
+        format!(
+            "EquityTotalReturnSwap(id='{}', notional={})",
+            self.0.id, self.0.notional
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsEquityTotalReturnSwap {
-        JsEquityTotalReturnSwap::from_inner(self.inner.clone())
+        JsEquityTotalReturnSwap::from_inner(self.0.clone())
     }
 }
 
 // FI Index TRS
 #[wasm_bindgen(js_name = FiIndexTotalReturnSwap)]
 #[derive(Clone, Debug)]
-pub struct JsFiIndexTotalReturnSwap {
-    inner: FIIndexTotalReturnSwap,
-}
+pub struct JsFiIndexTotalReturnSwap(FIIndexTotalReturnSwap);
 
-impl JsFiIndexTotalReturnSwap {
-    pub(crate) fn from_inner(inner: FIIndexTotalReturnSwap) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsFiIndexTotalReturnSwap {
+    type Inner = FIIndexTotalReturnSwap;
+    fn from_inner(inner: FIIndexTotalReturnSwap) -> Self {
+        JsFiIndexTotalReturnSwap(inner)
     }
-
-    pub(crate) fn inner(&self) -> FIIndexTotalReturnSwap {
-        self.inner.clone()
+    fn inner(&self) -> FIIndexTotalReturnSwap {
+        self.0.clone()
     }
 }
 
@@ -243,12 +244,12 @@ impl JsFiIndexTotalReturnSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -258,12 +259,14 @@ impl JsFiIndexTotalReturnSwap {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("FiIndexTotalReturnSwap(id='{}', notional={})", self.inner.id, self.inner.notional)
+        format!(
+            "FiIndexTotalReturnSwap(id='{}', notional={})",
+            self.0.id, self.0.notional
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsFiIndexTotalReturnSwap {
-        JsFiIndexTotalReturnSwap::from_inner(self.inner.clone())
+        JsFiIndexTotalReturnSwap::from_inner(self.0.clone())
     }
 }
-

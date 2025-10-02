@@ -6,4 +6,3 @@
 // Currently empty - placeholder for future development
 // When implemented, will expose expression parsing, evaluation,
 // and optimization capabilities similar to finstack-core expr module
-

@@ -1,8 +1,9 @@
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsFrequency;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
 use finstack_core::math::stats::RealizedVarMethod;
 use finstack_valuations::instruments::common::traits::Attributes;
@@ -25,23 +26,23 @@ fn parse_method(label: Option<String>) -> Result<RealizedVarMethod, JsValue> {
         Some("garman_klass") => Ok(RealizedVarMethod::GarmanKlass),
         Some("rogers_satchell") => Ok(RealizedVarMethod::RogersSatchell),
         Some("yang_zhang") => Ok(RealizedVarMethod::YangZhang),
-        Some(other) => Err(js_error(format!("Unknown realized variance method: {other}"))),
+        Some(other) => Err(js_error(format!(
+            "Unknown realized variance method: {other}"
+        ))),
     }
 }
 
 #[wasm_bindgen(js_name = VarianceSwap)]
 #[derive(Clone, Debug)]
-pub struct JsVarianceSwap {
-    inner: VarianceSwap,
-}
+pub struct JsVarianceSwap(VarianceSwap);
 
-impl JsVarianceSwap {
-    pub(crate) fn from_inner(inner: VarianceSwap) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsVarianceSwap {
+    type Inner = VarianceSwap;
+    fn from_inner(inner: VarianceSwap) -> Self {
+        JsVarianceSwap(inner)
     }
-
-    pub(crate) fn inner(&self) -> VarianceSwap {
-        self.inner.clone()
+    fn inner(&self) -> VarianceSwap {
+        self.0.clone()
     }
 }
 
@@ -66,7 +67,9 @@ impl JsVarianceSwap {
         }
 
         if maturity.inner() <= start_date.inner() {
-            return Err(js_error("Maturity must be after observation start".to_string()));
+            return Err(js_error(
+                "Maturity must be after observation start".to_string(),
+            ));
         }
 
         let method = parse_method(realized_method)?;
@@ -92,12 +95,12 @@ impl JsVarianceSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = strikeVariance)]
     pub fn strike_variance(&self) -> f64 {
-        self.inner.strike_variance
+        self.0.strike_variance
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -109,13 +112,12 @@ impl JsVarianceSwap {
     pub fn to_string_js(&self) -> String {
         format!(
             "VarianceSwap(id='{}', strike_var={})",
-            self.inner.id, self.inner.strike_variance
+            self.0.id, self.0.strike_variance
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsVarianceSwap {
-        JsVarianceSwap::from_inner(self.inner.clone())
+        JsVarianceSwap::from_inner(self.0.clone())
     }
 }
-

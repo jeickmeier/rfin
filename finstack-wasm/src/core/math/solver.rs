@@ -1,5 +1,5 @@
-use crate::core::math::callable::JsCallable;
 use crate::core::error::js_error;
+use crate::core::math::callable::JsCallable;
 use finstack_core::math::solver::{BrentSolver, HybridSolver, NewtonSolver, Solver};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;

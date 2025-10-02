@@ -1,11 +1,12 @@
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::pricer::InstrumentType;
+use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 fn parse_tranche_side(label: Option<String>) -> Result<TrancheSide, JsValue> {
@@ -26,17 +27,15 @@ fn parse_frequency(payments_per_year: Option<u32>) -> Result<Frequency, JsValue>
 
 #[wasm_bindgen(js_name = CdsTranche)]
 #[derive(Clone, Debug)]
-pub struct JsCdsTranche {
-    inner: CdsTranche,
-}
+pub struct JsCdsTranche(CdsTranche);
 
-impl JsCdsTranche {
-    pub(crate) fn from_inner(inner: CdsTranche) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsCdsTranche {
+    type Inner = CdsTranche;
+    fn from_inner(inner: CdsTranche) -> Self {
+        JsCdsTranche(inner)
     }
-
-    pub(crate) fn inner(&self) -> CdsTranche {
-        self.inner.clone()
+    fn inner(&self) -> CdsTranche {
+        self.0.clone()
     }
 }
 
@@ -94,32 +93,32 @@ impl JsCdsTranche {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter, js_name = attachPct)]
     pub fn attach_pct(&self) -> f64 {
-        self.inner.attach_pct
+        self.0.attach_pct
     }
 
     #[wasm_bindgen(getter, js_name = detachPct)]
     pub fn detach_pct(&self) -> f64 {
-        self.inner.detach_pct
+        self.0.detach_pct
     }
 
     #[wasm_bindgen(getter, js_name = runningCouponBp)]
     pub fn running_coupon_bp(&self) -> f64 {
-        self.inner.running_coupon_bp
+        self.0.running_coupon_bp
     }
 
     #[wasm_bindgen(getter)]
     pub fn maturity(&self) -> JsDate {
-        JsDate::from_core(self.inner.maturity)
+        JsDate::from_core(self.0.maturity)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -131,13 +130,12 @@ impl JsCdsTranche {
     pub fn to_string_js(&self) -> String {
         format!(
             "CdsTranche(id='{}', attach={:.2}%, detach={:.2}%)",
-            self.inner.id, self.inner.attach_pct, self.inner.detach_pct
+            self.0.id, self.0.attach_pct, self.0.detach_pct
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsCdsTranche {
-        JsCdsTranche::from_inner(self.inner.clone())
+        JsCdsTranche::from_inner(self.0.clone())
     }
 }
-

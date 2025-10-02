@@ -1,18 +1,19 @@
 use crate::core::error::core_to_js;
-use crate::core::market_data::context::JsMarketContext;
 use crate::core::error::js_error;
+use crate::core::market_data::context::JsMarketContext;
 use crate::valuations::instruments::{
-    Abs as JsAbs, BasisSwap as JsBasisSwap, Basket as JsBasket, Bond as JsBond, CDSIndex as JsCDSIndex,
-    CdsOption as JsCdsOption, CdsTranche as JsCdsTranche, Clo as JsClo, Cmbs as JsCmbs,
-    ConvertibleBond as JsConvertibleBond, CreditDefaultSwap as JsCreditDefaultSwap,
+    Abs as JsAbs, BasisSwap as JsBasisSwap, Basket as JsBasket, Bond as JsBond,
+    CDSIndex as JsCDSIndex, CdsOption as JsCdsOption, CdsTranche as JsCdsTranche, Clo as JsClo,
+    Cmbs as JsCmbs, ConvertibleBond as JsConvertibleBond, CreditDefaultSwap as JsCreditDefaultSwap,
     Deposit as JsDeposit, Equity as JsEquity, EquityOption as JsEquityOption,
-    EquityTotalReturnSwap as JsEquityTotalReturnSwap, FiIndexTotalReturnSwap as JsFiIndexTotalReturnSwap,
+    EquityTotalReturnSwap as JsEquityTotalReturnSwap,
+    FiIndexTotalReturnSwap as JsFiIndexTotalReturnSwap,
     ForwardRateAgreement as JsForwardRateAgreement, FxOption as JsFxOption, FxSpot as JsFxSpot,
     FxSwap as JsFxSwap, InflationLinkedBond as JsInflationLinkedBond,
-    InflationSwap as JsInflationSwap, InterestRateFuture as JsInterestRateFuture,
-    InterestRateOption as JsInterestRateOption, InterestRateSwap as JsInterestRateSwap,
-    PrivateMarketsFund as JsPrivateMarketsFund, Repo as JsRepo, Rmbs as JsRmbs, Swaption as JsSwaption,
-    VarianceSwap as JsVarianceSwap,
+    InflationSwap as JsInflationSwap, InstrumentWrapper,
+    InterestRateFuture as JsInterestRateFuture, InterestRateOption as JsInterestRateOption,
+    InterestRateSwap as JsInterestRateSwap, PrivateMarketsFund as JsPrivateMarketsFund,
+    Repo as JsRepo, Rmbs as JsRmbs, Swaption as JsSwaption, VarianceSwap as JsVarianceSwap,
 };
 use crate::valuations::results::JsValuationResult;
 use finstack_valuations::instruments::build_with_metrics_dyn;
@@ -838,7 +839,6 @@ impl JsPricerRegistry {
         let instrument = fund.inner();
         price_with_optional_metrics(&self.inner, &instrument, model_key, market, None)
     }
-
 }
 
 /// Create a pricing registry populated with all standard finstack pricers.

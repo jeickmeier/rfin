@@ -8,10 +8,6 @@ mod valuations;
 pub use core::cashflow::{
     JsAmortizationSpec as AmortizationSpec, JsCFKind as CFKind, JsCashFlow as CashFlow,
 };
-pub use valuations::cashflow::{
-    CashflowBuilder, CashFlowSchedule, CouponType, FixedCouponSpec,
-    FloatCouponParams, FloatingCouponSpec, ScheduleParams,
-};
 pub use core::config::{JsFinstackConfig as FinstackConfig, JsRoundingMode as RoundingMode};
 pub use core::currency::JsCurrency as Currency;
 pub use core::dates::add_months as addMonths;
@@ -56,11 +52,16 @@ pub use valuations::calibration::{
     JsCalibrationConfig as CalibrationConfig, JsCalibrationReport as CalibrationReport,
     JsCreditQuote as CreditQuote, JsDiscountCurveCalibrator as DiscountCurveCalibrator,
     JsForwardCurveCalibrator as ForwardCurveCalibrator,
-    JsHazardCurveCalibrator as HazardCurveCalibrator, JsInflationQuote as InflationQuote,
-    JsInflationCurveCalibrator as InflationCurveCalibrator, JsMarketQuote as MarketQuote,
-    JsMultiCurveConfig as MultiCurveConfig, JsRatesQuote as RatesQuote,
-    JsSimpleCalibration as SimpleCalibration, JsSolverKind as SolverKind,
-    JsVolQuote as VolQuote, JsVolSurfaceCalibrator as VolSurfaceCalibrator,
+    JsHazardCurveCalibrator as HazardCurveCalibrator,
+    JsInflationCurveCalibrator as InflationCurveCalibrator, JsInflationQuote as InflationQuote,
+    JsMarketQuote as MarketQuote, JsMultiCurveConfig as MultiCurveConfig,
+    JsRatesQuote as RatesQuote, JsSimpleCalibration as SimpleCalibration,
+    JsSolverKind as SolverKind, JsVolQuote as VolQuote,
+    JsVolSurfaceCalibrator as VolSurfaceCalibrator,
+};
+pub use valuations::cashflow::{
+    CashFlowSchedule, CashflowBuilder, CouponType, FixedCouponSpec, FloatCouponParams,
+    FloatingCouponSpec, ScheduleParams,
 };
 pub use valuations::instruments::{
     Abs, BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, Clo, Cmbs, ConvertibleBond,

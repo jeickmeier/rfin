@@ -28,15 +28,12 @@ impl JsSimpleCalibration {
             .parse()
             .map_err(|_| JsValue::from_str(&format!("Unknown currency: {}", base_currency)))?;
 
-        let cfg = config
-            .map(|c| c.inner())
-            .unwrap_or_default();
+        let cfg = config.map(|c| c.inner()).unwrap_or_default();
 
         let inner = SimpleCalibration::new(base_date.inner(), ccy).with_config(cfg);
 
         Ok(Self { inner })
     }
-
 
     /// Calibrate to market quotes.
     #[wasm_bindgen]
@@ -55,4 +52,3 @@ impl JsSimpleCalibration {
         Ok(result.into())
     }
 }
-

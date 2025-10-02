@@ -1,7 +1,7 @@
 use crate::core::dates::date::JsDate;
+use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::core::utils::js_array_from_iter;
-use crate::core::error::js_error;
 use finstack_core::cashflow::primitives::{AmortizationSpec, CFKind, CashFlow};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;

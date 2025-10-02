@@ -1,7 +1,8 @@
 use crate::core::dates::date::JsDate;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::convertible::{
     AntiDilutionPolicy, ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond,
     DividendAdjustment,
@@ -76,17 +77,15 @@ impl JsConversionSpec {
 
 #[wasm_bindgen(js_name = ConvertibleBond)]
 #[derive(Clone, Debug)]
-pub struct JsConvertibleBond {
-    inner: ConvertibleBond,
-}
+pub struct JsConvertibleBond(ConvertibleBond);
 
-impl JsConvertibleBond {
-    pub(crate) fn from_inner(inner: ConvertibleBond) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsConvertibleBond {
+    type Inner = ConvertibleBond;
+    fn from_inner(inner: ConvertibleBond) -> Self {
+        JsConvertibleBond(inner)
     }
-
-    pub(crate) fn inner(&self) -> ConvertibleBond {
-        self.inner.clone()
+    fn inner(&self) -> ConvertibleBond {
+        self.0.clone()
     }
 }
 
@@ -122,22 +121,22 @@ impl JsConvertibleBond {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter, js_name = conversionRatio)]
     pub fn conversion_ratio(&self) -> Option<f64> {
-        self.inner.conversion.ratio
+        self.0.conversion.ratio
     }
 
     #[wasm_bindgen(getter, js_name = conversionPrice)]
     pub fn conversion_price(&self) -> Option<f64> {
-        self.inner.conversion.price
+        self.0.conversion.price
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -147,12 +146,14 @@ impl JsConvertibleBond {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("ConvertibleBond(id='{}', notional={})", self.inner.id, self.inner.notional)
+        format!(
+            "ConvertibleBond(id='{}', notional={})",
+            self.0.id, self.0.notional
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsConvertibleBond {
-        JsConvertibleBond::from_inner(self.inner.clone())
+        JsConvertibleBond::from_inner(self.0.clone())
     }
 }
-

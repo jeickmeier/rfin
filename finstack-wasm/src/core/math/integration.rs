@@ -1,5 +1,5 @@
-use crate::core::math::callable::JsCallable;
 use crate::core::error::js_error;
+use crate::core::math::callable::JsCallable;
 use finstack_core::math::integration as core_integration;
 use finstack_core::math::integration::GaussHermiteQuadrature;
 use wasm_bindgen::prelude::*;

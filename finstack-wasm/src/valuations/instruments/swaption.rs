@@ -1,10 +1,11 @@
 use crate::core::dates::date::JsDate;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::{Swaption, SwaptionExercise, SwaptionSettlement};
 use finstack_valuations::pricer::InstrumentType;
+use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 fn parse_settlement(label: Option<String>) -> Result<SwaptionSettlement, JsValue> {
@@ -27,17 +28,15 @@ fn parse_exercise(label: Option<String>) -> Result<SwaptionExercise, JsValue> {
 
 #[wasm_bindgen(js_name = Swaption)]
 #[derive(Clone, Debug)]
-pub struct JsSwaption {
-    inner: Swaption,
-}
+pub struct JsSwaption(Swaption);
 
-impl JsSwaption {
-    pub(crate) fn from_inner(inner: Swaption) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsSwaption {
+    type Inner = Swaption;
+    fn from_inner(inner: Swaption) -> Self {
+        JsSwaption(inner)
     }
-
-    pub(crate) fn inner(&self) -> Swaption {
-        self.inner.clone()
+    fn inner(&self) -> Swaption {
+        self.0.clone()
     }
 }
 
@@ -125,42 +124,42 @@ impl JsSwaption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> f64 {
-        self.inner.strike_rate
+        self.0.strike_rate
     }
 
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {
-        JsDate::from_core(self.inner.expiry)
+        JsDate::from_core(self.0.expiry)
     }
 
     #[wasm_bindgen(getter, js_name = swapStart)]
     pub fn swap_start(&self) -> JsDate {
-        JsDate::from_core(self.inner.swap_start)
+        JsDate::from_core(self.0.swap_start)
     }
 
     #[wasm_bindgen(getter, js_name = swapEnd)]
     pub fn swap_end(&self) -> JsDate {
-        JsDate::from_core(self.inner.swap_end)
+        JsDate::from_core(self.0.swap_end)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.0.disc_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]
     pub fn forward_curve(&self) -> String {
-        self.inner.forward_id.as_str().to_string()
+        self.0.forward_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -170,12 +169,14 @@ impl JsSwaption {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("Swaption(id='{}', strike={:.4})", self.inner.id, self.inner.strike_rate)
+        format!(
+            "Swaption(id='{}', strike={:.4})",
+            self.0.id, self.0.strike_rate
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsSwaption {
-        JsSwaption::from_inner(self.inner.clone())
+        JsSwaption::from_inner(self.0.clone())
     }
 }
-

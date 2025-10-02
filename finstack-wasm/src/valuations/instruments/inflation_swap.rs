@@ -1,10 +1,11 @@
 use crate::core::dates::date::JsDate;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use finstack_valuations::pricer::InstrumentType;
+use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 fn parse_side(label: Option<String>) -> Result<PayReceiveInflation, JsValue> {
@@ -28,17 +29,15 @@ fn parse_day_count(label: Option<String>) -> Result<DayCount, JsValue> {
 
 #[wasm_bindgen(js_name = InflationSwap)]
 #[derive(Clone, Debug)]
-pub struct JsInflationSwap {
-    inner: InflationSwap,
-}
+pub struct JsInflationSwap(InflationSwap);
 
-impl JsInflationSwap {
-    pub(crate) fn from_inner(inner: InflationSwap) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsInflationSwap {
+    type Inner = InflationSwap;
+    fn from_inner(inner: InflationSwap) -> Self {
+        JsInflationSwap(inner)
     }
-
-    pub(crate) fn inner(&self) -> InflationSwap {
-        self.inner.clone()
+    fn inner(&self) -> InflationSwap {
+        self.0.clone()
     }
 }
 
@@ -59,7 +58,7 @@ impl JsInflationSwap {
     ) -> Result<JsInflationSwap, JsValue> {
         let side_value = parse_side(side)?;
         let dc = parse_day_count(day_count)?;
-        
+
         let inflation_id = optional_static_str(Some(inflation_curve.to_string()))
             .ok_or_else(|| js_error("inflation_curve required".to_string()))?;
 
@@ -83,22 +82,22 @@ impl JsInflationSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        self.inner.fixed_rate
+        self.0.fixed_rate
     }
 
     #[wasm_bindgen(getter)]
     pub fn maturity(&self) -> JsDate {
-        JsDate::from_core(self.inner.maturity)
+        JsDate::from_core(self.0.maturity)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -110,13 +109,12 @@ impl JsInflationSwap {
     pub fn to_string_js(&self) -> String {
         format!(
             "InflationSwap(id='{}', fixed_rate={:.4})",
-            self.inner.id, self.inner.fixed_rate
+            self.0.id, self.0.fixed_rate
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsInflationSwap {
-        JsInflationSwap::from_inner(self.inner.clone())
+        JsInflationSwap::from_inner(self.0.clone())
     }
 }
-

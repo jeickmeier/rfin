@@ -13,12 +13,12 @@
 #[inline]
 pub fn normalize_label(input: &str) -> String {
     let trimmed = input.trim();
-    
+
     // Fast path: already lowercase and contains no '-' or '/'
     let mut has_dash = false;
     let mut has_slash = false;
     let mut has_upper = false;
-    
+
     for b in trimmed.as_bytes() {
         if *b == b'-' {
             has_dash = true;
@@ -33,14 +33,12 @@ pub fn normalize_label(input: &str) -> String {
             break;
         }
     }
-    
+
     if !has_dash && !has_slash && !has_upper {
         return trimmed.to_string();
     }
-    
-    trimmed
-        .to_ascii_lowercase()
-        .replace(['-', '/'], "_")
+
+    trimmed.to_ascii_lowercase().replace(['-', '/'], "_")
 }
 
 #[cfg(test)]
@@ -57,4 +55,3 @@ mod tests {
         assert_eq!(normalize_label("30/360"), "30_360");
     }
 }
-

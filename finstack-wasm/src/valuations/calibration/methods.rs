@@ -13,7 +13,9 @@ use finstack_valuations::calibration::methods::{
     DiscountCurveCalibrator, ForwardCurveCalibrator, HazardCurveCalibrator,
     InflationCurveCalibrator, VolSurfaceCalibrator,
 };
-use finstack_valuations::calibration::{Calibrator, CreditQuote, InflationQuote, RatesQuote, VolQuote};
+use finstack_valuations::calibration::{
+    Calibrator, CreditQuote, InflationQuote, RatesQuote, VolQuote,
+};
 use wasm_bindgen::prelude::*;
 
 /// Discount curve calibrator for bootstrapping OIS/Treasury curves.
@@ -107,10 +109,7 @@ impl JsDiscountCurveCalibrator {
     ) -> Result<JsValue, JsValue> {
         let rust_quotes: Vec<RatesQuote> = quotes.iter().map(|q| q.inner()).collect();
         let default_ctx = finstack_core::market_data::context::MarketContext::new();
-        let base_context = market
-            .as_ref()
-            .map(|m| m.inner())
-            .unwrap_or(&default_ctx);
+        let base_context = market.as_ref().map(|m| m.inner()).unwrap_or(&default_ctx);
 
         let (curve, report) = self
             .inner

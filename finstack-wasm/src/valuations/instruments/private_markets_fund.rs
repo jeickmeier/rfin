@@ -1,23 +1,22 @@
 use crate::core::currency::JsCurrency;
 use crate::core::error::js_error;
-use serde_json;
 use finstack_valuations::instruments::private_markets_fund::PrivateMarketsFund;
 use finstack_valuations::pricer::InstrumentType;
+use serde_json;
+use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = PrivateMarketsFund)]
 #[derive(Clone, Debug)]
-pub struct JsPrivateMarketsFund {
-    inner: PrivateMarketsFund,
-}
+pub struct JsPrivateMarketsFund(PrivateMarketsFund);
 
-impl JsPrivateMarketsFund {
-    pub(crate) fn from_inner(inner: PrivateMarketsFund) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsPrivateMarketsFund {
+    type Inner = PrivateMarketsFund;
+    fn from_inner(inner: PrivateMarketsFund) -> Self {
+        JsPrivateMarketsFund(inner)
     }
-
-    pub(crate) fn inner(&self) -> PrivateMarketsFund {
-        self.inner.clone()
+    fn inner(&self) -> PrivateMarketsFund {
+        self.0.clone()
     }
 }
 
@@ -32,17 +31,17 @@ impl JsPrivateMarketsFund {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.currency)
+        JsCurrency::from_inner(self.0.currency)
     }
 
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<String, JsValue> {
-        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+        serde_json::to_string_pretty(&self.0).map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -52,12 +51,15 @@ impl JsPrivateMarketsFund {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("PrivateMarketsFund(id='{}', events={})", self.inner.id, self.inner.events.len())
+        format!(
+            "PrivateMarketsFund(id='{}', events={})",
+            self.0.id,
+            self.0.events.len()
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsPrivateMarketsFund {
-        JsPrivateMarketsFund::from_inner(self.inner.clone())
+        JsPrivateMarketsFund::from_inner(self.0.clone())
     }
 }
-

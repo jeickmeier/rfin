@@ -1,11 +1,12 @@
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_valuations::instruments::cap_floor::InterestRateOption;
 use finstack_valuations::pricer::InstrumentType;
+use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 fn frequency_from_payments(payments_per_year: Option<u32>) -> Result<Frequency, JsValue> {
@@ -20,17 +21,15 @@ fn extract_day_count(dc: Option<JsDayCount>) -> DayCount {
 
 #[wasm_bindgen(js_name = InterestRateOption)]
 #[derive(Clone, Debug)]
-pub struct JsInterestRateOption {
-    inner: InterestRateOption,
-}
+pub struct JsInterestRateOption(InterestRateOption);
 
-impl JsInterestRateOption {
-    pub(crate) fn from_inner(inner: InterestRateOption) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsInterestRateOption {
+    type Inner = InterestRateOption;
+    fn from_inner(inner: InterestRateOption) -> Self {
+        JsInterestRateOption(inner)
     }
-
-    pub(crate) fn inner(&self) -> InterestRateOption {
-        self.inner.clone()
+    fn inner(&self) -> InterestRateOption {
+        self.0.clone()
     }
 }
 
@@ -106,37 +105,37 @@ impl JsInterestRateOption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> f64 {
-        self.inner.strike_rate
+        self.0.strike_rate
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]
     pub fn start_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.start_date)
+        JsDate::from_core(self.0.start_date)
     }
 
     #[wasm_bindgen(getter, js_name = endDate)]
     pub fn end_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.end_date)
+        JsDate::from_core(self.0.end_date)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.0.disc_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]
     pub fn forward_curve(&self) -> String {
-        self.inner.forward_id.as_str().to_string()
+        self.0.forward_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -148,13 +147,12 @@ impl JsInterestRateOption {
     pub fn to_string_js(&self) -> String {
         format!(
             "InterestRateOption(id='{}', strike={:.4})",
-            self.inner.id, self.inner.strike_rate
+            self.0.id, self.0.strike_rate
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsInterestRateOption {
-        JsInterestRateOption::from_inner(self.inner.clone())
+        JsInterestRateOption::from_inner(self.0.clone())
     }
 }
-

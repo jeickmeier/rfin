@@ -1,12 +1,10 @@
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
-use crate::core::utils::js_array_from_iter;
 use crate::core::error::js_error;
+use crate::core::utils::js_array_from_iter;
 use finstack_core::currency::Currency;
 use finstack_core::money::fx::providers::SimpleFxProvider;
-use finstack_core::money::fx::{
-    FxConfig, FxConversionPolicy, FxMatrix, FxQuery, FxRateResult,
-};
+use finstack_core::money::fx::{FxConfig, FxConversionPolicy, FxMatrix, FxQuery, FxRateResult};
 use std::str::FromStr;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;

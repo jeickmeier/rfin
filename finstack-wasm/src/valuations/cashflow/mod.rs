@@ -6,4 +6,3 @@ pub use builder::{
     JsFloatCouponParams as FloatCouponParams, JsFloatingCouponSpec as FloatingCouponSpec,
     JsScheduleParams as ScheduleParams,
 };
-

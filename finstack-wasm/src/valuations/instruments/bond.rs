@@ -3,9 +3,10 @@ use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::{JsDayCount, JsFrequency};
 use crate::core::dates::schedule::JsStubKind;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::Date as CoreDate;
 use finstack_valuations::instruments::bond::{Bond, BondFloatSpec, CallPut, CallPutSchedule};
 use finstack_valuations::instruments::PricingOverrides;
@@ -105,18 +106,15 @@ fn parse_call_put_entries(
 
 #[wasm_bindgen(js_name = Bond)]
 #[derive(Clone, Debug)]
-pub struct JsBond {
-    inner: Bond,
-}
+pub struct JsBond(Bond);
 
-impl JsBond {
-    pub(crate) fn new(inner: Bond) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsBond {
+    type Inner = Bond;
+    fn from_inner(inner: Bond) -> Self {
+        JsBond(inner)
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> Bond {
-        self.inner.clone()
+    fn inner(&self) -> Bond {
+        self.0.clone()
     }
 }
 
@@ -205,7 +203,7 @@ impl JsBond {
 
         builder
             .build()
-            .map(JsBond::new)
+            .map(JsBond::from_inner)
             .map_err(|e| js_error(e.to_string()))
     }
 
@@ -231,7 +229,7 @@ impl JsBond {
         if let Some(price) = quoted_clean_price {
             bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
         }
-        JsBond::new(bond)
+        JsBond::from_inner(bond)
     }
 
     #[wasm_bindgen(js_name = treasury)]
@@ -253,7 +251,7 @@ impl JsBond {
         if let Some(price) = quoted_clean_price {
             bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
         }
-        JsBond::new(bond)
+        JsBond::from_inner(bond)
     }
 
     #[wasm_bindgen(js_name = zeroCoupon)]
@@ -275,7 +273,7 @@ impl JsBond {
         if let Some(price) = quoted_clean_price {
             bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
         }
-        JsBond::new(bond)
+        JsBond::from_inner(bond)
     }
 
     #[wasm_bindgen(js_name = floating)]
@@ -302,7 +300,7 @@ impl JsBond {
         if let Some(price) = quoted_clean_price {
             bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
         }
-        JsBond::new(bond)
+        JsBond::from_inner(bond)
     }
 
     #[wasm_bindgen(js_name = pikToggle)]
@@ -331,7 +329,7 @@ impl JsBond {
             quoted_clean_price,
             market.inner(),
         )
-        .map(JsBond::new)
+        .map(JsBond::from_inner)
         .map_err(|e| js_error(e.to_string()))
     }
 
@@ -367,104 +365,106 @@ impl JsBond {
             quoted_clean_price,
             market.inner(),
         )
-        .map(JsBond::new)
+        .map(JsBond::from_inner)
         .map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter)]
     pub fn coupon(&self) -> f64 {
-        self.inner.coupon
+        self.0.coupon
     }
 
     #[wasm_bindgen(getter)]
     pub fn frequency(&self) -> JsFrequency {
-        JsFrequency::from_inner(self.inner.freq)
+        JsFrequency::from_inner(self.0.freq)
     }
 
     #[wasm_bindgen(getter, js_name = dayCount)]
     pub fn day_count(&self) -> String {
-        format!("{:?}", self.inner.dc)
+        format!("{:?}", self.0.dc)
     }
 
     #[wasm_bindgen(getter, js_name = businessDayConvention)]
     pub fn business_day_convention(&self) -> JsBusinessDayConvention {
-        self.inner.bdc.into()
+        self.0.bdc.into()
     }
 
     #[wasm_bindgen(getter)]
     pub fn issue(&self) -> JsDate {
-        JsDate::from_core(self.inner.issue)
+        JsDate::from_core(self.0.issue)
     }
 
     #[wasm_bindgen(getter)]
     pub fn maturity(&self) -> JsDate {
-        JsDate::from_core(self.inner.maturity)
+        JsDate::from_core(self.0.maturity)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.0.disc_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = hazardCurve)]
     pub fn hazard_curve(&self) -> Option<String> {
-        self.inner
-            .hazard_id
-            .as_ref()
-            .map(|id| id.as_str().to_string())
+        self.0.hazard_id.as_ref().map(|id| id.as_str().to_string())
     }
 
     #[wasm_bindgen(getter, js_name = quotedCleanPrice)]
     pub fn quoted_clean_price(&self) -> Option<f64> {
-        self.inner.pricing_overrides.quoted_clean_price
+        self.0.pricing_overrides.quoted_clean_price
     }
 
     /// Get the cashflow schedule for this bond.
-    /// 
+    ///
     /// Returns an array of cashflow tuples: [date, amount, kind, outstanding_balance]
     /// For floating rate bonds, the amounts are computed using the market context.
     #[wasm_bindgen(js_name = getCashflows)]
-    pub fn get_cashflows(&self, market: &crate::core::market_data::context::JsMarketContext) -> Result<Array, JsValue> {
+    pub fn get_cashflows(
+        &self,
+        market: &crate::core::market_data::context::JsMarketContext,
+    ) -> Result<Array, JsValue> {
         use crate::core::dates::date::JsDate;
         use crate::core::money::JsMoney;
         use finstack_core::cashflow::primitives::CFKind;
-        
+
         // Use the Bond's get_full_schedule method with market curves
-        let sched = self.inner.get_full_schedule(market.inner())
+        let sched = self
+            .0
+            .get_full_schedule(market.inner())
             .map_err(|e| js_error(e.to_string()))?;
-        
+
         // Get outstanding path (properly calculated by the Rust library)
         let outstanding_path = sched.outstanding_path();
-        
+
         // Convert to JS arrays
         let result = Array::new();
-        
+
         for (idx, cf) in sched.flows.iter().enumerate() {
             let entry = Array::new();
             entry.push(&JsDate::from_core(cf.date).into());
             entry.push(&JsMoney::from_inner(cf.amount).into());
-            
+
             // Add kind as string
             // Stubs are treated as their underlying type (Fixed/Float/PIK) not as a separate category
             let kind_str = match cf.kind {
                 CFKind::Fixed | CFKind::Stub => {
                     // Classify stub based on bond type
-                    if self.inner.float.is_some() {
+                    if self.0.float.is_some() {
                         "Float"
                     } else {
                         "Fixed"
                     }
-                },
+                }
                 CFKind::FloatReset => "Float",
                 CFKind::Notional => "Notional",
                 CFKind::PIK => "PIK",
@@ -473,15 +473,16 @@ impl JsBond {
                 _ => "Other",
             };
             entry.push(&JsValue::from_str(kind_str));
-            
+
             // Get outstanding balance from the path
-            let outstanding = outstanding_path.get(idx)
+            let outstanding = outstanding_path
+                .get(idx)
                 .map(|(_, m)| m.amount())
                 .unwrap_or(0.0);
             entry.push(&JsValue::from_f64(outstanding));
             result.push(&entry);
         }
-        
+
         Ok(result)
     }
 
@@ -494,12 +495,12 @@ impl JsBond {
     pub fn to_string_js(&self) -> String {
         format!(
             "Bond(id='{}', coupon={:.4}, maturity='{}')",
-            self.inner.id, self.inner.coupon, self.inner.maturity
+            self.0.id, self.0.coupon, self.0.maturity
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsBond {
-        JsBond::new(self.inner.clone())
+        JsBond::from_inner(self.0.clone())
     }
 }

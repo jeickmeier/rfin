@@ -1,12 +1,13 @@
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use finstack_valuations::instruments::fx_option::FxOption;
 use finstack_valuations::instruments::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx_swap::FxSwap;
 use finstack_valuations::pricer::InstrumentType;
+use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
 // ===========================
@@ -15,17 +16,15 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = FxSpot)]
 #[derive(Clone, Debug)]
-pub struct JsFxSpot {
-    inner: FxSpot,
-}
+pub struct JsFxSpot(FxSpot);
 
-impl JsFxSpot {
-    pub(crate) fn from_inner(inner: FxSpot) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsFxSpot {
+    type Inner = FxSpot;
+    fn from_inner(inner: FxSpot) -> Self {
+        JsFxSpot(inner)
     }
-
-    pub(crate) fn inner(&self) -> FxSpot {
-        self.inner.clone()
+    fn inner(&self) -> FxSpot {
+        self.0.clone()
     }
 }
 
@@ -64,22 +63,22 @@ impl JsFxSpot {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = baseCurrency)]
     pub fn base_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.base)
+        JsCurrency::from_inner(self.0.base)
     }
 
     #[wasm_bindgen(getter, js_name = quoteCurrency)]
     pub fn quote_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.quote)
+        JsCurrency::from_inner(self.0.quote)
     }
 
     #[wasm_bindgen(getter, js_name = pairName)]
     pub fn pair_name(&self) -> String {
-        self.inner.pair_name()
+        self.0.pair_name()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -89,12 +88,16 @@ impl JsFxSpot {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("FxSpot(id='{}', pair='{}')", self.inner.id, self.inner.pair_name())
+        format!(
+            "FxSpot(id='{}', pair='{}')",
+            self.0.id,
+            self.0.pair_name()
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsFxSpot {
-        JsFxSpot::from_inner(self.inner.clone())
+        JsFxSpot::from_inner(self.0.clone())
     }
 }
 
@@ -104,17 +107,15 @@ impl JsFxSpot {
 
 #[wasm_bindgen(js_name = FxOption)]
 #[derive(Clone, Debug)]
-pub struct JsFxOption {
-    inner: FxOption,
-}
+pub struct JsFxOption(FxOption);
 
-impl JsFxOption {
-    pub(crate) fn from_inner(inner: FxOption) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsFxOption {
+    type Inner = FxOption;
+    fn from_inner(inner: FxOption) -> Self {
+        JsFxOption(inner)
     }
-
-    pub(crate) fn inner(&self) -> FxOption {
-        self.inner.clone()
+    fn inner(&self) -> FxOption {
+        self.0.clone()
     }
 }
 
@@ -162,32 +163,32 @@ impl JsFxOption {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = baseCurrency)]
     pub fn base_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.base_currency)
+        JsCurrency::from_inner(self.0.base_currency)
     }
 
     #[wasm_bindgen(getter, js_name = quoteCurrency)]
     pub fn quote_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.quote_currency)
+        JsCurrency::from_inner(self.0.quote_currency)
     }
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> f64 {
-        self.inner.strike
+        self.0.strike
     }
 
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {
-        JsDate::from_core(self.inner.expiry)
+        JsDate::from_core(self.0.expiry)
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -199,13 +200,13 @@ impl JsFxOption {
     pub fn to_string_js(&self) -> String {
         format!(
             "FxOption(id='{}', strike={:.4})",
-            self.inner.id, self.inner.strike
+            self.0.id, self.0.strike
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsFxOption {
-        JsFxOption::from_inner(self.inner.clone())
+        JsFxOption::from_inner(self.0.clone())
     }
 }
 
@@ -215,17 +216,15 @@ impl JsFxOption {
 
 #[wasm_bindgen(js_name = FxSwap)]
 #[derive(Clone, Debug)]
-pub struct JsFxSwap {
-    inner: FxSwap,
-}
+pub struct JsFxSwap(FxSwap);
 
-impl JsFxSwap {
-    pub(crate) fn from_inner(inner: FxSwap) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsFxSwap {
+    type Inner = FxSwap;
+    fn from_inner(inner: FxSwap) -> Self {
+        JsFxSwap(inner)
     }
-
-    pub(crate) fn inner(&self) -> FxSwap {
-        self.inner.clone()
+    fn inner(&self) -> FxSwap {
+        self.0.clone()
     }
 }
 
@@ -270,32 +269,32 @@ impl JsFxSwap {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = baseCurrency)]
     pub fn base_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.base_currency)
+        JsCurrency::from_inner(self.0.base_currency)
     }
 
     #[wasm_bindgen(getter, js_name = quoteCurrency)]
     pub fn quote_currency(&self) -> JsCurrency {
-        JsCurrency::from_inner(self.inner.quote_currency)
+        JsCurrency::from_inner(self.0.quote_currency)
     }
 
     #[wasm_bindgen(getter, js_name = baseNotional)]
     pub fn base_notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.base_notional)
+        JsMoney::from_inner(self.0.base_notional)
     }
 
     #[wasm_bindgen(getter, js_name = nearDate)]
     pub fn near_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.near_date)
+        JsDate::from_core(self.0.near_date)
     }
 
     #[wasm_bindgen(getter, js_name = farDate)]
     pub fn far_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.far_date)
+        JsDate::from_core(self.0.far_date)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -307,13 +306,12 @@ impl JsFxSwap {
     pub fn to_string_js(&self) -> String {
         format!(
             "FxSwap(id='{}', near='{}', far='{}')",
-            self.inner.id, self.inner.near_date, self.inner.far_date
+            self.0.id, self.0.near_date, self.0.far_date
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsFxSwap {
-        JsFxSwap::from_inner(self.inner.clone())
+        JsFxSwap::from_inner(self.0.clone())
     }
 }
-

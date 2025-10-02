@@ -76,7 +76,7 @@ pub(crate) fn unknown_rounding_mode(name: &str) -> JsValue {
 }
 
 /// Unified error creation for JavaScript.
-/// 
+///
 /// This is the single source of truth for creating JavaScript errors.
 /// Use this instead of duplicating error creation logic.
 #[inline]
@@ -93,7 +93,7 @@ macro_rules! js_err {
 }
 
 /// Convert any error type to a JavaScript error.
-/// 
+///
 /// This trait provides a unified way to convert various error types
 /// to JavaScript errors with consistent formatting.
 #[allow(dead_code)]
@@ -144,4 +144,3 @@ impl ToJsError for String {
         js_error(self)
     }
 }
-

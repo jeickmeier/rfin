@@ -229,4 +229,3 @@ impl JsMoney {
         Ok(Self::from_inner(Money::new(amount, currency)))
     }
 }
-

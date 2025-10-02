@@ -1,8 +1,9 @@
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
-use crate::core::money::JsMoney;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::ir_future::{
     FutureContractSpecs, InterestRateFuture, Position,
@@ -22,17 +23,15 @@ fn parse_position(label: Option<String>) -> Result<Position, JsValue> {
 
 #[wasm_bindgen(js_name = InterestRateFuture)]
 #[derive(Clone, Debug)]
-pub struct JsInterestRateFuture {
-    inner: InterestRateFuture,
-}
+pub struct JsInterestRateFuture(InterestRateFuture);
 
-impl JsInterestRateFuture {
-    pub(crate) fn from_inner(inner: InterestRateFuture) -> Self {
-        Self { inner }
+impl InstrumentWrapper for JsInterestRateFuture {
+    type Inner = InterestRateFuture;
+    fn from_inner(inner: InterestRateFuture) -> Self {
+        JsInterestRateFuture(inner)
     }
-
-    pub(crate) fn inner(&self) -> InterestRateFuture {
-        self.inner.clone()
+    fn inner(&self) -> InterestRateFuture {
+        self.0.clone()
     }
 }
 
@@ -79,17 +78,17 @@ impl JsInterestRateFuture {
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
-        self.inner.id.as_str().to_string()
+        self.0.id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter)]
     pub fn notional(&self) -> JsMoney {
-        JsMoney::from_inner(self.inner.notional)
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter, js_name = quotedPrice)]
     pub fn quoted_price(&self) -> f64 {
-        self.inner.quoted_price
+        self.0.quoted_price
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
@@ -101,13 +100,12 @@ impl JsInterestRateFuture {
     pub fn to_string_js(&self) -> String {
         format!(
             "InterestRateFuture(id='{}', price={:.2})",
-            self.inner.id, self.inner.quoted_price
+            self.0.id, self.0.quoted_price
         )
     }
 
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsInterestRateFuture {
-        JsInterestRateFuture::from_inner(self.inner.clone())
+        JsInterestRateFuture::from_inner(self.0.clone())
     }
 }
-
