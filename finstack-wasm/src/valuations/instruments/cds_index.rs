@@ -1,8 +1,9 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
-use finstack_valuations::instruments::cds::{CDSConvention, PayReceive};
+use finstack_valuations::instruments::cds::{CDSConvention, PayReceive as CdsPayReceive};
 use finstack_valuations::instruments::cds_index::parameters::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
@@ -11,16 +12,6 @@ use finstack_valuations::instruments::common::parameters::CreditParams;
 use finstack_valuations::pricer::InstrumentType;
 use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
-
-fn parse_cds_side(label: Option<String>) -> Result<PayReceive, JsValue> {
-    match label.as_deref() {
-        None | Some("pay_protection") => Ok(PayReceive::PayProtection),
-        Some("receive_protection") => Ok(PayReceive::ReceiveProtection),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| js_error(format!("Invalid CDS side: {e}"))),
-    }
-}
 
 fn leak_curve_id(curve: &finstack_core::types::CurveId) -> &'static str {
     Box::leak(curve.as_str().to_string().into_boxed_str())
@@ -59,7 +50,7 @@ impl JsCDSIndex {
         recovery_rate: Option<f64>,
         index_factor: Option<f64>,
     ) -> Result<JsCDSIndex, JsValue> {
-        let side_value = parse_cds_side(side)?;
+        let side_value = parse_optional_with_default(side, CdsPayReceive::PayProtection)?;
         let recovery = recovery_rate.unwrap_or(0.40);
 
         if !(0.0..=1.0).contains(&recovery) {

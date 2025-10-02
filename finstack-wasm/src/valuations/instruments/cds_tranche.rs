@@ -2,28 +2,13 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::pricer::InstrumentType;
 use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
-
-fn parse_tranche_side(label: Option<String>) -> Result<TrancheSide, JsValue> {
-    match label.as_deref() {
-        None | Some("buy_protection") => Ok(TrancheSide::BuyProtection),
-        Some("sell_protection") => Ok(TrancheSide::SellProtection),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| js_error(format!("Invalid tranche side: {e}"))),
-    }
-}
-
-fn parse_frequency(payments_per_year: Option<u32>) -> Result<Frequency, JsValue> {
-    let payments = payments_per_year.unwrap_or(4);
-    Frequency::from_payments_per_year(payments)
-        .map_err(|e| js_error(format!("Invalid payments per year: {e}")))
-}
 
 #[wasm_bindgen(js_name = CdsTranche)]
 #[derive(Clone, Debug)]
@@ -64,8 +49,12 @@ impl JsCdsTranche {
             ));
         }
 
-        let side_value = parse_tranche_side(side)?;
-        let freq = parse_frequency(payments_per_year)?;
+        let side_value = parse_optional_with_default(side, TrancheSide::BuyProtection)?;
+        let freq = match payments_per_year {
+            Some(ppy) => Frequency::from_payments_per_year(ppy)
+                .map_err(|e| js_error(format!("Invalid payments per year: {}", e)))?,
+            None => Frequency::quarterly(),
+        };
         let dc = day_count.map(|d| d.inner()).unwrap_or(DayCount::Act360);
 
         let builder = CdsTranche::builder()

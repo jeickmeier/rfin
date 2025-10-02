@@ -14,10 +14,6 @@ use finstack_valuations::pricer::InstrumentType;
 use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
 
-fn parse_curve_id(value: &str) -> String {
-    value.to_string()
-}
-
 // Simplified TRS schedule spec for WASM
 #[wasm_bindgen(js_name = TrsScheduleSpec)]
 #[derive(Clone, Debug)]
@@ -61,8 +57,8 @@ impl JsFinancingLegSpec {
     ) -> JsFinancingLegSpec {
         JsFinancingLegSpec {
             inner: FinancingLegSpec::new(
-                parse_curve_id(discount_curve),
-                parse_curve_id(forward_curve),
+                discount_curve.to_string(),
+                forward_curve.to_string(),
                 spread_bp.unwrap_or(0.0),
                 day_count.inner(),
             ),

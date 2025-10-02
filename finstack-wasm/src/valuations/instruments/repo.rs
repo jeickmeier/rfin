@@ -2,22 +2,13 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo, RepoType};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
-
-fn parse_repo_type(label: Option<String>) -> Result<RepoType, JsValue> {
-    match label.as_deref() {
-        None | Some("term") => Ok(RepoType::Term),
-        Some("open") => Ok(RepoType::Open),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| js_error(format!("Invalid repo type: {e}"))),
-    }
-}
 
 #[wasm_bindgen(js_name = RepoCollateral)]
 #[derive(Clone, Debug)]
@@ -70,7 +61,7 @@ impl JsRepo {
         haircut: Option<f64>,
         day_count: Option<JsDayCount>,
     ) -> Result<JsRepo, JsValue> {
-        let repo_type_value = parse_repo_type(repo_type)?;
+        let repo_type_value = parse_optional_with_default(repo_type, RepoType::Term)?;
         let dc = day_count.map(|d| d.inner()).unwrap_or(DayCount::Act360);
 
         let builder = Repo::builder()

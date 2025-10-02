@@ -1,6 +1,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
 use finstack_valuations::instruments::cds_option::CdsOption;
@@ -8,16 +9,6 @@ use finstack_valuations::instruments::common::parameters::{CreditParams, OptionT
 use finstack_valuations::pricer::InstrumentType;
 use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
-
-fn parse_option_type(label: Option<String>) -> Result<OptionType, JsValue> {
-    match label.as_deref() {
-        None | Some("call") => Ok(OptionType::Call),
-        Some("put") => Ok(OptionType::Put),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| js_error(format!("Invalid option type: {e}"))),
-    }
-}
 
 #[wasm_bindgen(js_name = CdsOption)]
 #[derive(Clone, Debug)]
@@ -51,7 +42,7 @@ impl JsCdsOption {
         underlying_is_index: Option<bool>,
         index_factor: Option<f64>,
     ) -> Result<JsCdsOption, JsValue> {
-        let option_type_value = parse_option_type(option_type)?;
+        let option_type_value = parse_optional_with_default(option_type, OptionType::Call)?;
         let recovery = recovery_rate.unwrap_or(0.40);
 
         if !(0.0..=1.0).contains(&recovery) {

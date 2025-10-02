@@ -1,3 +1,5 @@
+pub(crate) mod parse;
+
 use finstack_core::types::{CurveId, InstrumentId};
 
 pub(crate) fn instrument_id_from_str(id: &str) -> InstrumentId {

@@ -1,31 +1,13 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use finstack_valuations::pricer::InstrumentType;
 use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
-
-fn parse_side(label: Option<String>) -> Result<PayReceiveInflation, JsValue> {
-    match label.as_deref() {
-        None | Some("pay_fixed") => Ok(PayReceiveInflation::PayFixed),
-        Some("receive_fixed") => Ok(PayReceiveInflation::ReceiveFixed),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| js_error(format!("Invalid side: {e}"))),
-    }
-}
-
-fn parse_day_count(label: Option<String>) -> Result<DayCount, JsValue> {
-    match label.as_deref() {
-        None | Some("act_act") => Ok(DayCount::ActAct),
-        Some("act_360") => Ok(DayCount::Act360),
-        Some("act_365f") => Ok(DayCount::Act365F),
-        Some(other) => Err(js_error(format!("Unsupported day_count: {other}"))),
-    }
-}
 
 #[wasm_bindgen(js_name = InflationSwap)]
 #[derive(Clone, Debug)]
@@ -56,8 +38,8 @@ impl JsInflationSwap {
         side: Option<String>,
         day_count: Option<String>,
     ) -> Result<JsInflationSwap, JsValue> {
-        let side_value = parse_side(side)?;
-        let dc = parse_day_count(day_count)?;
+        let side_value = parse_optional_with_default(side, PayReceiveInflation::PayFixed)?;
+        let dc = parse_optional_with_default(day_count, DayCount::ActAct)?;
 
         let inflation_id = optional_static_str(Some(inflation_curve.to_string()))
             .ok_or_else(|| js_error("inflation_curve required".to_string()))?;

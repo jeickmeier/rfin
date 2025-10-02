@@ -2,35 +2,15 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsFrequency;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
 use finstack_core::math::stats::RealizedVarMethod;
 use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::variance_swap::{PayReceive, VarianceSwap};
+use finstack_valuations::instruments::variance_swap::{PayReceive as VarSwapPayReceive, VarianceSwap};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
-
-fn parse_side(label: Option<String>) -> Result<PayReceive, JsValue> {
-    match label.as_deref() {
-        None | Some("receive") => Ok(PayReceive::Receive),
-        Some("pay") => Ok(PayReceive::Pay),
-        Some(other) => Err(js_error(format!("Unknown variance direction: {other}"))),
-    }
-}
-
-fn parse_method(label: Option<String>) -> Result<RealizedVarMethod, JsValue> {
-    match label.as_deref() {
-        None | Some("close_to_close") => Ok(RealizedVarMethod::CloseToClose),
-        Some("parkinson") => Ok(RealizedVarMethod::Parkinson),
-        Some("garman_klass") => Ok(RealizedVarMethod::GarmanKlass),
-        Some("rogers_satchell") => Ok(RealizedVarMethod::RogersSatchell),
-        Some("yang_zhang") => Ok(RealizedVarMethod::YangZhang),
-        Some(other) => Err(js_error(format!(
-            "Unknown realized variance method: {other}"
-        ))),
-    }
-}
 
 #[wasm_bindgen(js_name = VarianceSwap)]
 #[derive(Clone, Debug)]
@@ -72,8 +52,8 @@ impl JsVarianceSwap {
             ));
         }
 
-        let method = parse_method(realized_method)?;
-        let direction = parse_side(side)?;
+        let method = parse_optional_with_default(realized_method, RealizedVarMethod::CloseToClose)?;
+        let direction = parse_optional_with_default(side, VarSwapPayReceive::Receive)?;
 
         let swap = VarianceSwap {
             id: instrument_id_from_str(instrument_id),

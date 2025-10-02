@@ -2,6 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
@@ -10,16 +11,6 @@ use finstack_valuations::instruments::ir_future::{
 };
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
-
-fn parse_position(label: Option<String>) -> Result<Position, JsValue> {
-    match label.as_deref() {
-        None | Some("long") => Ok(Position::Long),
-        Some("short") => Ok(Position::Short),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| js_error(format!("Invalid position: {e}"))),
-    }
-}
 
 #[wasm_bindgen(js_name = InterestRateFuture)]
 #[derive(Clone, Debug)]
@@ -52,7 +43,7 @@ impl JsInterestRateFuture {
         position: Option<String>,
         day_count: Option<JsDayCount>,
     ) -> Result<JsInterestRateFuture, JsValue> {
-        let position_value = parse_position(position)?;
+        let position_value = parse_optional_with_default(position, Position::Long)?;
         let dc = day_count.map(|d| d.inner()).unwrap_or(DayCount::Act360);
 
         let builder = InterestRateFuture::builder()

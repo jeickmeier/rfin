@@ -1,40 +1,13 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::pricer::InstrumentType;
 use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
-
-fn parse_frequency(label: Option<String>) -> Result<Frequency, JsValue> {
-    match label.as_deref() {
-        None | Some("quarterly") => Ok(Frequency::quarterly()),
-        Some("monthly") => Ok(Frequency::monthly()),
-        Some("semi_annual") | Some("semiannual") => Ok(Frequency::semi_annual()),
-        Some("annual") => Ok(Frequency::annual()),
-        Some(other) => Err(js_error(format!("Unsupported frequency: {other}"))),
-    }
-}
-
-fn parse_day_count(label: Option<String>) -> Result<DayCount, JsValue> {
-    match label.as_deref() {
-        None | Some("act_360") => Ok(DayCount::Act360),
-        Some("act_365f") => Ok(DayCount::Act365F),
-        Some("thirty_360") | Some("30_360") => Ok(DayCount::Thirty360),
-        Some(other) => Err(js_error(format!("Unsupported day count: {other}"))),
-    }
-}
-
-fn parse_stub(label: Option<String>) -> Result<StubKind, JsValue> {
-    match label.as_deref() {
-        None | Some("none") => Ok(StubKind::None),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| js_error(format!("Invalid stub kind: {e}"))),
-    }
-}
 
 #[wasm_bindgen(js_name = BasisSwapLeg)]
 #[derive(Clone, Debug)]
@@ -51,8 +24,8 @@ impl JsBasisSwapLeg {
         day_count: Option<String>,
         spread: Option<f64>,
     ) -> Result<JsBasisSwapLeg, JsValue> {
-        let freq = parse_frequency(frequency)?;
-        let dc = parse_day_count(day_count)?;
+        let freq = parse_optional_with_default(frequency, Frequency::quarterly())?;
+        let dc = parse_optional_with_default(day_count, DayCount::Act360)?;
 
         Ok(JsBasisSwapLeg {
             inner: BasisSwapLeg {
@@ -105,7 +78,7 @@ impl JsBasisSwap {
         calendar: Option<String>,
         stub: Option<String>,
     ) -> Result<JsBasisSwap, JsValue> {
-        let stub_kind = parse_stub(stub)?;
+        let stub_kind = parse_optional_with_default(stub, StubKind::None)?;
 
         let builder = BasisSwap::builder()
             .id(instrument_id_from_str(instrument_id))

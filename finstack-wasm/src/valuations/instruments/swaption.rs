@@ -1,30 +1,12 @@
 use crate::core::dates::date::JsDate;
-use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::{Swaption, SwaptionExercise, SwaptionSettlement};
 use finstack_valuations::pricer::InstrumentType;
 use crate::valuations::instruments::InstrumentWrapper;
 use wasm_bindgen::prelude::*;
-
-fn parse_settlement(label: Option<String>) -> Result<SwaptionSettlement, JsValue> {
-    match label.as_deref() {
-        None | Some("physical") => Ok(SwaptionSettlement::Physical),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| js_error(format!("Invalid settlement type: {e}"))),
-    }
-}
-
-fn parse_exercise(label: Option<String>) -> Result<SwaptionExercise, JsValue> {
-    match label.as_deref() {
-        None | Some("european") => Ok(SwaptionExercise::European),
-        Some(s) => s
-            .parse()
-            .map_err(|e: String| js_error(format!("Invalid exercise style: {e}"))),
-    }
-}
 
 #[wasm_bindgen(js_name = Swaption)]
 #[derive(Clone, Debug)]
@@ -58,8 +40,8 @@ impl JsSwaption {
         settlement: Option<String>,
     ) -> Result<JsSwaption, JsValue> {
         let vol_id = optional_static_str(vol_surface).unwrap_or("SWAPTION-VOL");
-        let exercise_style = parse_exercise(exercise)?;
-        let settlement_type = parse_settlement(settlement)?;
+        let exercise_style = parse_optional_with_default(exercise, SwaptionExercise::European)?;
+        let settlement_type = parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
 
         let params = SwaptionParams::payer(
             notional.inner(),
@@ -98,8 +80,8 @@ impl JsSwaption {
         settlement: Option<String>,
     ) -> Result<JsSwaption, JsValue> {
         let vol_id = optional_static_str(vol_surface).unwrap_or("SWAPTION-VOL");
-        let exercise_style = parse_exercise(exercise)?;
-        let settlement_type = parse_settlement(settlement)?;
+        let exercise_style = parse_optional_with_default(exercise, SwaptionExercise::European)?;
+        let settlement_type = parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
 
         let params = SwaptionParams::receiver(
             notional.inner(),
