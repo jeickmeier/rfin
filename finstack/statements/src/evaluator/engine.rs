@@ -131,11 +131,8 @@ impl Evaluator {
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
     ) -> Result<IndexMap<String, f64>> {
         // Create evaluation context
-        let mut context = StatementContext::new(
-            *period_id,
-            node_to_column.clone(),
-            historical.clone(),
-        );
+        let mut context =
+            StatementContext::new(*period_id, node_to_column.clone(), historical.clone());
 
         // Evaluate nodes in topological order
         for node_id in eval_order {
@@ -196,8 +193,14 @@ mod tests {
             .value(
                 "revenue",
                 &[
-                    (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                    (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                    (
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(100_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(110_000.0),
+                    ),
                 ],
             )
             .build()
@@ -224,8 +227,14 @@ mod tests {
             .value(
                 "revenue",
                 &[
-                    (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                    (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                    (
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(100_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(110_000.0),
+                    ),
                 ],
             )
             .compute("cogs", "revenue * 0.6")
@@ -265,4 +274,3 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("Circular"));
     }
 }
-

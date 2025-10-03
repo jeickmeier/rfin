@@ -92,15 +92,14 @@ impl ExtensionRegistry {
 
     /// Get metadata for all registered extensions.
     pub fn list_metadata(&self) -> Vec<ExtensionMetadata> {
-        self.extensions
-            .values()
-            .map(|ext| ext.metadata())
-            .collect()
+        self.extensions.values().map(|ext| ext.metadata()).collect()
     }
 
     /// Iterate over all registered extensions.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &dyn Extension)> {
-        self.extensions.iter().map(|(name, ext)| (name.as_str(), ext.as_ref()))
+        self.extensions
+            .iter()
+            .map(|(name, ext)| (name.as_str(), ext.as_ref()))
     }
 
     /// Set the execution order.
@@ -362,4 +361,3 @@ mod tests {
         assert!(registry.is_empty());
     }
 }
-

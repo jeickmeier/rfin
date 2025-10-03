@@ -33,13 +33,14 @@
 //! registry.register(Box::new(MyExtension));
 //! ```
 
+mod corkscrew;
 mod plugin;
 mod registry;
-mod corkscrew;
 mod scorecards;
 
-pub use plugin::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult, ExtensionStatus};
-pub use registry::ExtensionRegistry;
 pub use corkscrew::CorkscrewExtension;
+pub use plugin::{
+    Extension, ExtensionContext, ExtensionMetadata, ExtensionResult, ExtensionStatus,
+};
+pub use registry::ExtensionRegistry;
 pub use scorecards::CreditScorecardExtension;
-

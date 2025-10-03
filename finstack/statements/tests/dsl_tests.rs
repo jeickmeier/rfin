@@ -634,7 +634,11 @@ fn test_compile_custom_functions() {
 
         let expr = parse_and_compile(&formula);
         // These custom functions are not yet supported, so they should fail
-        assert!(expr.is_err(), "Expected {} to fail compilation (not yet supported)", func);
+        assert!(
+            expr.is_err(),
+            "Expected {} to fail compilation (not yet supported)",
+            func
+        );
     }
 }
 

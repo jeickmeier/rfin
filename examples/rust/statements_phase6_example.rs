@@ -51,10 +51,22 @@ fn main() -> Result<()> {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(50_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(52_000_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(54_000_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(56_000_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(50_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(52_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(54_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(56_000_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")?
@@ -71,7 +83,10 @@ fn main() -> Result<()> {
         )?
         .build()?;
 
-    println!("   ✓ Model created with {} nodes", model_with_bond.nodes.len());
+    println!(
+        "   ✓ Model created with {} nodes",
+        model_with_bond.nodes.len()
+    );
     println!("   ✓ Bond added to capital structure\n");
 
     // Verify capital structure
@@ -94,10 +109,22 @@ fn main() -> Result<()> {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(50_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(52_000_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(54_000_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(56_000_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(50_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(52_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(54_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(56_000_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")?
@@ -131,13 +158,19 @@ fn main() -> Result<()> {
         )?
         .build()?;
 
-    println!("   ✓ Model created with {} nodes", model_full_cs.nodes.len());
-    
+    println!(
+        "   ✓ Model created with {} nodes",
+        model_full_cs.nodes.len()
+    );
+
     {
         let cs = model_full_cs.capital_structure.as_ref().unwrap();
-        println!("   ✓ Capital structure with {} debt instruments", cs.debt_instruments.len());
+        println!(
+            "   ✓ Capital structure with {} debt instruments",
+            cs.debt_instruments.len()
+        );
         println!();
-        
+
         println!("   Debt Stack:");
         for instr in &cs.debt_instruments {
             match instr {
@@ -175,9 +208,9 @@ fn main() -> Result<()> {
         println!("   Instruments are stored as serialized JSON in the model\n");
 
         use finstack_statements::types::DebtInstrumentSpec;
-        
+
         let cs = model_full_cs.capital_structure.as_ref().unwrap();
-        
+
         println!("   Stored Instruments:");
         for instr in &cs.debt_instruments {
             match instr {
@@ -235,9 +268,15 @@ fn main() -> Result<()> {
     println!("   Model: {}", model_full_cs.id);
     println!("   • Periods: {}", model_full_cs.periods.len());
     println!("   • Nodes: {}", model_full_cs.nodes.len());
-    println!("   • Capital Structure Instruments: {}", 
-        model_full_cs.capital_structure.as_ref().map(|cs| cs.debt_instruments.len()).unwrap_or(0));
-    
+    println!(
+        "   • Capital Structure Instruments: {}",
+        model_full_cs
+            .capital_structure
+            .as_ref()
+            .map(|cs| cs.debt_instruments.len())
+            .unwrap_or(0)
+    );
+
     {
         if model_full_cs.capital_structure.is_some() {
             println!("\n   ✓ Model contains serializable instrument specifications");
@@ -254,15 +293,21 @@ fn main() -> Result<()> {
 
     // Note: In future phases, we'll be able to reference cs.* in formulas
     // For now, we demonstrate the structure is available for evaluation
-    
+
     let complete_model = ModelBuilder::new("Complete LBO P&L")
         .periods("2025Q1..2025Q2", None)?
         // Revenue
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(50_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(52_000_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(50_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(52_000_000.0),
+                ),
             ],
         )
         // Operating expenses
@@ -274,15 +319,27 @@ fn main() -> Result<()> {
         .value(
             "depreciation",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(500_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(500_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(500_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(500_000.0),
+                ),
             ],
         )
         .value(
             "amortization",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(250_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(250_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(250_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(250_000.0),
+                ),
             ],
         )
         .compute("ebit", "ebitda - depreciation - amortization")?
@@ -316,10 +373,7 @@ fn main() -> Result<()> {
     for node_id in &["revenue", "gross_profit", "ebitda", "ebit"] {
         let q1_val = results.get(node_id, &PeriodId::quarter(2025, 1)).unwrap();
         let q2_val = results.get(node_id, &PeriodId::quarter(2025, 2)).unwrap();
-        println!(
-            "   {:<19} | ${:>13.0} | ${:>13.0}",
-            node_id, q1_val, q2_val
-        );
+        println!("   {:<19} | ${:>13.0} | ${:>13.0}", node_id, q1_val, q2_val);
     }
     println!();
 
@@ -354,8 +408,8 @@ fn main() -> Result<()> {
 
 /// Create a market context with sample curves for demonstration
 fn create_market_context() -> finstack_core::Result<MarketContext> {
-    let base_date = Date::from_calendar_date(2025, Month::January, 1)
-        .expect("Failed to create base date");
+    let base_date =
+        Date::from_calendar_date(2025, Month::January, 1).expect("Failed to create base date");
 
     // Create discount curve (USD-OIS)
     let discount_curve = DiscountCurve::builder("USD-OIS")
@@ -393,4 +447,3 @@ fn create_market_context() -> finstack_core::Result<MarketContext> {
 
     Ok(market_ctx)
 }
-

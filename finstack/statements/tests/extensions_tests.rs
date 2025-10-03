@@ -1,10 +1,10 @@
 //! Integration tests for the extension system.
 
-use finstack_statements::prelude::*;
 use finstack_statements::extensions::{
-    Extension, ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult,
-    ExtensionStatus, CorkscrewExtension, CreditScorecardExtension,
+    CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext, ExtensionMetadata,
+    ExtensionRegistry, ExtensionResult, ExtensionStatus,
 };
+use finstack_statements::prelude::*;
 use indexmap::indexmap;
 
 // ============================================================================
@@ -155,7 +155,10 @@ fn test_extension_execution() {
 
     assert_eq!(result.status, ExtensionStatus::Success);
     assert_eq!(result.message, "Validation passed");
-    assert_eq!(result.data.get("node_count").unwrap(), &serde_json::json!(1));
+    assert_eq!(
+        result.data.get("node_count").unwrap(),
+        &serde_json::json!(1)
+    );
     assert_eq!(
         result.data.get("period_count").unwrap(),
         &serde_json::json!(2)
@@ -244,13 +247,11 @@ fn test_extension_execution_order_invalid() {
         .unwrap();
 
     // Try to set execution order with non-existent extension
-    let result = registry.set_execution_order(vec!["simple_validator".into(), "nonexistent".into()]);
+    let result =
+        registry.set_execution_order(vec!["simple_validator".into(), "nonexistent".into()]);
 
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("not registered"));
+    assert!(result.unwrap_err().to_string().contains("not registered"));
 }
 
 // ============================================================================
@@ -461,8 +462,8 @@ fn test_extension_result_with_data() {
 
 #[test]
 fn test_extension_result_serialization() {
-    let result = ExtensionResult::success("Test completed")
-        .with_data("count", serde_json::json!(5));
+    let result =
+        ExtensionResult::success("Test completed").with_data("count", serde_json::json!(5));
 
     let json = serde_json::to_string(&result).unwrap();
     let deserialized: ExtensionResult = serde_json::from_str(&json).unwrap();
@@ -553,4 +554,3 @@ fn test_complete_workflow_with_extensions() {
         ExtensionStatus::NotImplemented
     );
 }
-

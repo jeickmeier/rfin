@@ -44,7 +44,10 @@ fn test_builtin_margin_metrics() {
     assert!(registry.has("fin.net_margin"));
 
     let gross_margin = registry.get("fin.gross_margin").unwrap();
-    assert_eq!(gross_margin.definition.formula, "(revenue - cogs) / revenue");
+    assert_eq!(
+        gross_margin.definition.formula,
+        "(revenue - cogs) / revenue"
+    );
     assert_eq!(
         gross_margin.definition.unit_type,
         Some(UnitType::Percentage)
@@ -62,7 +65,10 @@ fn test_builtin_return_metrics() {
     assert!(registry.has("fin.roic"));
 
     let roe = registry.get("fin.roe").unwrap();
-    assert_eq!(roe.definition.formula, "(revenue - cogs - opex - interest_expense - taxes) / total_equity");
+    assert_eq!(
+        roe.definition.formula,
+        "(revenue - cogs - opex - interest_expense - taxes) / total_equity"
+    );
 }
 
 #[test]
@@ -204,8 +210,14 @@ fn test_model_builder_with_builtin_metrics() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
             ],
         )
         .value(
@@ -239,8 +251,14 @@ fn test_evaluate_model_with_select_metrics() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
             ],
         )
         .value(
@@ -294,8 +312,14 @@ fn test_add_metric_from_registry() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
             ],
         )
         .value(
@@ -379,22 +403,40 @@ fn test_complete_pl_model_with_select_registry_metrics() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(1_100_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(1_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(1_100_000.0),
+                ),
             ],
         )
         .value(
             "cogs",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(600_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(660_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(600_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(660_000.0),
+                ),
             ],
         )
         .value(
             "opex",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(200_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(220_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(200_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(220_000.0),
+                ),
             ],
         )
         .value(
@@ -446,4 +488,3 @@ fn test_complete_pl_model_with_select_registry_metrics() {
     assert!((results.get("fin.gross_margin", &q2).unwrap() - 0.4).abs() < 0.0001);
     assert!((results.get("fin.operating_margin", &q2).unwrap() - 0.2).abs() < 0.0001);
 }
-

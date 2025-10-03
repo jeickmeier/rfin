@@ -14,4 +14,3 @@
 // This module is currently a placeholder.
 // The actual metrics are loaded via Registry::load_builtins()
 // which uses include_str!() to embed the JSON files.
-

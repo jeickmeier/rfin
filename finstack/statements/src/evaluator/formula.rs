@@ -5,17 +5,14 @@ use crate::evaluator::context::StatementContext;
 use finstack_core::expr::{Expr, Function};
 
 /// Evaluate a compiled expression.
-pub(crate) fn evaluate_formula(
-    expr: &Expr,
-    context: &StatementContext,
-) -> Result<f64> {
+pub(crate) fn evaluate_formula(expr: &Expr, context: &StatementContext) -> Result<f64> {
     evaluate_expr(expr, context)
 }
 
 /// Recursively evaluate an expression.
 pub(crate) fn evaluate_expr(expr: &Expr, context: &StatementContext) -> Result<f64> {
     use finstack_core::expr::{BinOp, ExprNode, UnaryOp};
-    
+
     match &expr.node {
         ExprNode::Literal(val) => Ok(*val),
         ExprNode::Column(name) => context.get_value(name),
@@ -23,7 +20,7 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &StatementContext) -> Result<f
         ExprNode::BinOp { op, left, right } => {
             let left_val = evaluate_expr(left, context)?;
             let right_val = evaluate_expr(right, context)?;
-            
+
             let result = match op {
                 // Arithmetic
                 BinOp::Add => left_val + right_val,
@@ -37,18 +34,66 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &StatementContext) -> Result<f
                     }
                 }
                 BinOp::Mod => left_val % right_val,
-                
+
                 // Comparison (return 1.0 for true, 0.0 for false)
-                BinOp::Eq => if left_val == right_val { 1.0 } else { 0.0 },
-                BinOp::Ne => if left_val != right_val { 1.0 } else { 0.0 },
-                BinOp::Lt => if left_val < right_val { 1.0 } else { 0.0 },
-                BinOp::Le => if left_val <= right_val { 1.0 } else { 0.0 },
-                BinOp::Gt => if left_val > right_val { 1.0 } else { 0.0 },
-                BinOp::Ge => if left_val >= right_val { 1.0 } else { 0.0 },
-                
+                BinOp::Eq => {
+                    if left_val == right_val {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Ne => {
+                    if left_val != right_val {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Lt => {
+                    if left_val < right_val {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Le => {
+                    if left_val <= right_val {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Gt => {
+                    if left_val > right_val {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Ge => {
+                    if left_val >= right_val {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+
                 // Logical (treat non-zero as true)
-                BinOp::And => if left_val != 0.0 && right_val != 0.0 { 1.0 } else { 0.0 },
-                BinOp::Or => if left_val != 0.0 || right_val != 0.0 { 1.0 } else { 0.0 },
+                BinOp::And => {
+                    if left_val != 0.0 && right_val != 0.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Or => {
+                    if left_val != 0.0 || right_val != 0.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
             };
             Ok(result)
         }
@@ -56,7 +101,13 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &StatementContext) -> Result<f
             let val = evaluate_expr(operand, context)?;
             let result = match op {
                 UnaryOp::Neg => -val,
-                UnaryOp::Not => if val == 0.0 { 1.0 } else { 0.0 },
+                UnaryOp::Not => {
+                    if val == 0.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
             };
             Ok(result)
         }
@@ -76,11 +127,7 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &StatementContext) -> Result<f
 }
 
 /// Evaluate a function call.
-fn evaluate_function(
-    func: &Function,
-    args: &[Expr],
-    _context: &StatementContext,
-) -> Result<f64> {
+fn evaluate_function(func: &Function, args: &[Expr], _context: &StatementContext) -> Result<f64> {
     // Handle real functions from finstack-core
     match func {
         Function::Lag => {

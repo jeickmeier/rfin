@@ -115,50 +115,92 @@ fn main() -> Result<()> {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(11_000_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(10_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(11_000_000.0),
+                ),
             ],
         )
         .value(
             "cogs",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(6_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(6_600_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(6_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(6_600_000.0),
+                ),
             ],
         )
         .value(
             "opex",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(2_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(2_100_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(2_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(2_100_000.0),
+                ),
             ],
         )
         .value(
             "depreciation",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(200_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(200_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(200_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(200_000.0),
+                ),
             ],
         )
         .value(
             "amortization",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(100_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
             ],
         )
         .value(
             "interest_expense",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(150_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(145_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(150_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(145_000.0),
+                ),
             ],
         )
         .value(
             "taxes",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(400_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(470_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(400_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(470_000.0),
+                ),
             ],
         )
         // Add specific metrics from registry (only those with satisfied dependencies)
@@ -176,7 +218,10 @@ fn main() -> Result<()> {
         .add_metric_from_registry("fin.opex_as_pct_revenue", &registry)?
         .build()?;
 
-    println!("   ✓ Model has {} nodes (base + registry metrics)", model_with_registry.nodes.len());
+    println!(
+        "   ✓ Model has {} nodes (base + registry metrics)",
+        model_with_registry.nodes.len()
+    );
 
     // Evaluate
     let mut evaluator = Evaluator::new();
@@ -184,13 +229,34 @@ fn main() -> Result<()> {
 
     println!("\n   Sample Results (2025Q1):");
     let q1 = PeriodId::quarter(2025, 1);
-    println!("   • Revenue:            ${:>12.2}", results.get("revenue", &q1).unwrap());
-    println!("   • Gross Profit:       ${:>12.2}", results.get("fin.gross_profit", &q1).unwrap());
-    println!("   • Gross Margin:       {:>13.1}%", results.get("fin.gross_margin", &q1).unwrap() * 100.0);
-    println!("   • EBITDA:             ${:>12.2}", results.get("fin.ebitda", &q1).unwrap());
-    println!("   • EBITDA Margin:      {:>13.1}%", results.get("fin.ebitda_margin", &q1).unwrap() * 100.0);
-    println!("   • Net Income:         ${:>12.2}", results.get("fin.net_income", &q1).unwrap());
-    println!("   • Net Margin:         {:>13.1}%", results.get("fin.net_margin", &q1).unwrap() * 100.0);
+    println!(
+        "   • Revenue:            ${:>12.2}",
+        results.get("revenue", &q1).unwrap()
+    );
+    println!(
+        "   • Gross Profit:       ${:>12.2}",
+        results.get("fin.gross_profit", &q1).unwrap()
+    );
+    println!(
+        "   • Gross Margin:       {:>13.1}%",
+        results.get("fin.gross_margin", &q1).unwrap() * 100.0
+    );
+    println!(
+        "   • EBITDA:             ${:>12.2}",
+        results.get("fin.ebitda", &q1).unwrap()
+    );
+    println!(
+        "   • EBITDA Margin:      {:>13.1}%",
+        results.get("fin.ebitda_margin", &q1).unwrap() * 100.0
+    );
+    println!(
+        "   • Net Income:         ${:>12.2}",
+        results.get("fin.net_income", &q1).unwrap()
+    );
+    println!(
+        "   • Net Margin:         {:>13.1}%",
+        results.get("fin.net_margin", &q1).unwrap() * 100.0
+    );
     println!();
 
     // -------------------------------------------------------------------------
@@ -205,36 +271,66 @@ fn main() -> Result<()> {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(11_000_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(10_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(11_000_000.0),
+                ),
             ],
         )
         .value(
             "cogs",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(6_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(6_600_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(6_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(6_600_000.0),
+                ),
             ],
         )
         .value(
             "opex",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(2_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(2_100_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(2_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(2_100_000.0),
+                ),
             ],
         )
         .value(
             "other_income",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(120_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
             ],
         )
         .value(
             "interest_expense",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(150_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(145_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(150_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(145_000.0),
+                ),
             ],
         )
         // Add only specific metrics we need
@@ -248,7 +344,10 @@ fn main() -> Result<()> {
         .add_metric_from_registry("custom.profit_margin", &registry)?
         .build()?;
 
-    println!("   ✓ Model has {} nodes (base + selected metrics)", model_selective.nodes.len());
+    println!(
+        "   ✓ Model has {} nodes (base + selected metrics)",
+        model_selective.nodes.len()
+    );
 
     // Evaluate
     let results = evaluator.evaluate(&model_selective, false)?;
@@ -268,7 +367,10 @@ fn main() -> Result<()> {
         let q2_val = results.get(node_id, &PeriodId::quarter(2025, 2)).unwrap();
 
         let (q1_fmt, q2_fmt) = if node_id.contains("margin") {
-            (format!("{:>13.1}%", q1_val * 100.0), format!("{:>13.1}%", q2_val * 100.0))
+            (
+                format!("{:>13.1}%", q1_val * 100.0),
+                format!("{:>13.1}%", q2_val * 100.0),
+            )
         } else {
             (format!("${:>12.0}", q1_val), format!("${:>12.0}", q2_val))
         };
@@ -283,8 +385,14 @@ fn main() -> Result<()> {
     println!("6. Namespace Isolation");
     println!("   Demonstrating how namespaces prevent metric collisions\n");
 
-    println!("   Metrics in 'fin' namespace:    {}", registry.namespace("fin").count());
-    println!("   Metrics in 'custom' namespace: {}", registry.namespace("custom").count());
+    println!(
+        "   Metrics in 'fin' namespace:    {}",
+        registry.namespace("fin").count()
+    );
+    println!(
+        "   Metrics in 'custom' namespace: {}",
+        registry.namespace("custom").count()
+    );
     println!("   Total metrics in registry:     {}", registry.len());
     println!();
 
@@ -308,4 +416,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-

@@ -159,9 +159,9 @@ impl Registry {
     /// # }
     /// ```
     pub fn get(&self, qualified_id: &str) -> Result<&StoredMetric> {
-        self.metrics.get(qualified_id).ok_or_else(|| {
-            Error::registry(format!("Metric not found: '{}'", qualified_id))
-        })
+        self.metrics
+            .get(qualified_id)
+            .ok_or_else(|| Error::registry(format!("Metric not found: '{}'", qualified_id)))
     }
 
     /// Check if a metric exists.
@@ -187,7 +187,10 @@ impl Registry {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn namespace<'a>(&'a self, namespace: &'a str) -> impl Iterator<Item = (&'a str, &'a StoredMetric)> + 'a {
+    pub fn namespace<'a>(
+        &'a self,
+        namespace: &'a str,
+    ) -> impl Iterator<Item = (&'a str, &'a StoredMetric)> + 'a {
         self.metrics
             .iter()
             .filter(move |(_id, m)| m.namespace == namespace)
@@ -334,4 +337,3 @@ mod tests {
         assert!(namespaces.contains(&"test2"));
     }
 }
-

@@ -53,15 +53,12 @@ pub(crate) fn evaluate_forecast(
     forecast_cache.insert(node_spec.node_id.clone(), forecast_results.clone());
 
     // Return value for requested period
-    forecast_results
-        .get(period_id)
-        .copied()
-        .ok_or_else(|| {
-            Error::eval(format!(
-                "Forecast did not produce value for period {:?}",
-                period_id
-            ))
-        })
+    forecast_results.get(period_id).copied().ok_or_else(|| {
+        Error::eval(format!(
+            "Forecast did not produce value for period {:?}",
+            period_id
+        ))
+    })
 }
 
 /// Determine the base value for forecasting.
@@ -77,11 +74,7 @@ fn determine_base_value(
     context: &StatementContext,
 ) -> Result<f64> {
     // Try to get last actual period value
-    let last_actual_period = model
-        .periods
-        .iter()
-        .filter(|p| p.is_actual)
-        .last();
+    let last_actual_period = model.periods.iter().filter(|p| p.is_actual).last();
 
     if let Some(last_actual) = last_actual_period {
         // Check node's explicit values
@@ -111,4 +104,3 @@ fn determine_base_value(
         node_spec.node_id
     )))
 }
-

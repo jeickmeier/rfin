@@ -14,8 +14,14 @@ fn test_export_to_polars_long() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -50,8 +56,14 @@ fn test_export_to_polars_long_filtered() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -90,8 +102,14 @@ fn test_export_to_polars_wide() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -136,7 +154,10 @@ fn test_export_complete_pl_model() {
         .unwrap()
         .value(
             "revenue",
-            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0))],
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(100_000.0),
+            )],
         )
         .forecast(
             "revenue",
@@ -196,10 +217,22 @@ fn test_export_with_multiple_periods() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
             ],
         )
         .compute("doubled", "revenue * 2")
@@ -235,8 +268,14 @@ fn test_export_with_builtin_metrics() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
             ],
         )
         .value(
@@ -320,4 +359,3 @@ fn test_export_preserves_period_order() {
     assert_eq!(values.get(2), Some(3.0));
     assert_eq!(values.get(3), Some(4.0));
 }
-

@@ -142,9 +142,7 @@ impl Extension for CorkscrewExtension {
         ExtensionMetadata {
             name: "corkscrew".into(),
             version: "0.1.0".into(),
-            description: Some(
-                "Balance sheet roll-forward validation (corkscrew analysis)".into(),
-            ),
+            description: Some("Balance sheet roll-forward validation (corkscrew analysis)".into()),
             author: Some("Finstack Team".into()),
         }
     }
@@ -154,15 +152,18 @@ impl Extension for CorkscrewExtension {
         Ok(ExtensionResult::not_implemented(
             "Corkscrew analysis is not yet implemented. \
              This extension will validate balance sheet roll-forward schedules \
-             in a future release. See documentation for planned features."
+             in a future release. See documentation for planned features.",
         )
-        .with_data("planned_features", serde_json::json!([
-            "Balance sheet articulation validation",
-            "Period-to-period roll-forward tracking",
-            "Inconsistency detection",
-            "Configurable tolerance for rounding",
-            "Support for assets, liabilities, and equity"
-        ])))
+        .with_data(
+            "planned_features",
+            serde_json::json!([
+                "Balance sheet articulation validation",
+                "Period-to-period roll-forward tracking",
+                "Inconsistency detection",
+                "Configurable tolerance for rounding",
+                "Support for assets, liabilities, and equity"
+            ]),
+        ))
     }
 
     fn is_enabled(&self) -> bool {
@@ -271,7 +272,10 @@ mod tests {
         let mut extension = CorkscrewExtension::new();
         let result = extension.execute(&context).unwrap();
 
-        assert_eq!(result.status, super::super::plugin::ExtensionStatus::NotImplemented);
+        assert_eq!(
+            result.status,
+            super::super::plugin::ExtensionStatus::NotImplemented
+        );
         assert!(result.message.contains("not yet implemented"));
     }
 
@@ -325,4 +329,3 @@ mod tests {
         assert_eq!(deserialized, AccountType::Asset);
     }
 }
-

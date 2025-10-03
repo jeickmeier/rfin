@@ -155,9 +155,7 @@ impl Extension for CreditScorecardExtension {
         ExtensionMetadata {
             name: "credit_scorecard".into(),
             version: "0.1.0".into(),
-            description: Some(
-                "Credit rating and stress testing based on financial metrics".into(),
-            ),
+            description: Some("Credit rating and stress testing based on financial metrics".into()),
             author: Some("Finstack Team".into()),
         }
     }
@@ -167,15 +165,18 @@ impl Extension for CreditScorecardExtension {
         Ok(ExtensionResult::not_implemented(
             "Credit scorecard analysis is not yet implemented. \
              This extension will provide credit rating assignment based on \
-             financial metrics in a future release. See documentation for planned features."
+             financial metrics in a future release. See documentation for planned features.",
         )
-        .with_data("planned_features", serde_json::json!([
-            "Credit rating assignment based on financial metrics",
-            "Weighted scoring across multiple metrics",
-            "Configurable rating scales and thresholds",
-            "Support for multiple rating agencies (S&P, Moody's, Fitch)",
-            "Rating history tracking across periods"
-        ])))
+        .with_data(
+            "planned_features",
+            serde_json::json!([
+                "Credit rating assignment based on financial metrics",
+                "Weighted scoring across multiple metrics",
+                "Configurable rating scales and thresholds",
+                "Support for multiple rating agencies (S&P, Moody's, Fitch)",
+                "Rating history tracking across periods"
+            ]),
+        ))
     }
 
     fn is_enabled(&self) -> bool {
@@ -300,7 +301,10 @@ mod tests {
         let mut extension = CreditScorecardExtension::new();
         let result = extension.execute(&context).unwrap();
 
-        assert_eq!(result.status, super::super::plugin::ExtensionStatus::NotImplemented);
+        assert_eq!(
+            result.status,
+            super::super::plugin::ExtensionStatus::NotImplemented
+        );
         assert!(result.message.contains("not yet implemented"));
     }
 

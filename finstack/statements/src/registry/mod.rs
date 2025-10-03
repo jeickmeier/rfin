@@ -28,12 +28,11 @@
 //! # }
 //! ```
 
-mod schema;
-mod dynamic;
 mod builtins;
+mod dynamic;
+mod schema;
 mod validation;
 
-pub use schema::{MetricDefinition, MetricRegistry, UnitType};
 pub use dynamic::Registry;
+pub use schema::{MetricDefinition, MetricRegistry, UnitType};
 pub use validation::validate_metric_definition;
-

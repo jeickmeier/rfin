@@ -1,8 +1,8 @@
 //! Core extension trait and types.
 
+use crate::error::Result;
 use crate::evaluator::Results;
 use crate::types::FinancialModelSpec;
-use crate::error::Result;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -294,4 +294,3 @@ mod tests {
         assert_eq!(deserialized, ExtensionStatus::Success);
     }
 }
-

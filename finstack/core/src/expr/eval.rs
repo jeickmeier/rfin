@@ -222,20 +222,38 @@ impl CompiledExpr {
             }
             ExprNode::BinOp { op, .. } => {
                 // Binary operations should have exactly 2 dependencies
-                let left = results.get(&node.dependencies[0]).cloned().unwrap_or_else(Vec::new);
-                let right = results.get(&node.dependencies[1]).cloned().unwrap_or_else(Vec::new);
+                let left = results
+                    .get(&node.dependencies[0])
+                    .cloned()
+                    .unwrap_or_else(Vec::new);
+                let right = results
+                    .get(&node.dependencies[1])
+                    .cloned()
+                    .unwrap_or_else(Vec::new);
                 Self::eval_bin_op(*op, &left, &right)
             }
             ExprNode::UnaryOp { op, .. } => {
                 // Unary operations should have exactly 1 dependency
-                let operand = results.get(&node.dependencies[0]).cloned().unwrap_or_else(Vec::new);
+                let operand = results
+                    .get(&node.dependencies[0])
+                    .cloned()
+                    .unwrap_or_else(Vec::new);
                 Self::eval_unary_op(*op, &operand)
             }
             ExprNode::IfThenElse { .. } => {
                 // If-then-else should have exactly 3 dependencies
-                let condition = results.get(&node.dependencies[0]).cloned().unwrap_or_else(Vec::new);
-                let then_vals = results.get(&node.dependencies[1]).cloned().unwrap_or_else(Vec::new);
-                let else_vals = results.get(&node.dependencies[2]).cloned().unwrap_or_else(Vec::new);
+                let condition = results
+                    .get(&node.dependencies[0])
+                    .cloned()
+                    .unwrap_or_else(Vec::new);
+                let then_vals = results
+                    .get(&node.dependencies[1])
+                    .cloned()
+                    .unwrap_or_else(Vec::new);
+                let else_vals = results
+                    .get(&node.dependencies[2])
+                    .cloned()
+                    .unwrap_or_else(Vec::new);
                 Self::eval_if_then_else(&condition, &then_vals, &else_vals)
             }
         }
@@ -889,30 +907,84 @@ impl CompiledExpr {
         use super::ast::BinOp;
         let len = left.len().max(right.len());
         let mut out = Vec::with_capacity(len);
-        
+
         for i in 0..len {
             let l = *left.get(i).unwrap_or(&0.0);
             let r = *right.get(i).unwrap_or(&0.0);
-            
+
             let result = match op {
                 // Arithmetic
                 BinOp::Add => l + r,
                 BinOp::Sub => l - r,
                 BinOp::Mul => l * r,
-                BinOp::Div => if r == 0.0 { f64::NAN } else { l / r },
+                BinOp::Div => {
+                    if r == 0.0 {
+                        f64::NAN
+                    } else {
+                        l / r
+                    }
+                }
                 BinOp::Mod => l % r,
-                
+
                 // Comparison (return 1.0 for true, 0.0 for false)
-                BinOp::Eq => if l == r { 1.0 } else { 0.0 },
-                BinOp::Ne => if l != r { 1.0 } else { 0.0 },
-                BinOp::Lt => if l < r { 1.0 } else { 0.0 },
-                BinOp::Le => if l <= r { 1.0 } else { 0.0 },
-                BinOp::Gt => if l > r { 1.0 } else { 0.0 },
-                BinOp::Ge => if l >= r { 1.0 } else { 0.0 },
-                
+                BinOp::Eq => {
+                    if l == r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Ne => {
+                    if l != r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Lt => {
+                    if l < r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Le => {
+                    if l <= r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Gt => {
+                    if l > r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Ge => {
+                    if l >= r {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+
                 // Logical (treat non-zero as true)
-                BinOp::And => if l != 0.0 && r != 0.0 { 1.0 } else { 0.0 },
-                BinOp::Or => if l != 0.0 || r != 0.0 { 1.0 } else { 0.0 },
+                BinOp::And => {
+                    if l != 0.0 && r != 0.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                BinOp::Or => {
+                    if l != 0.0 || r != 0.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
             };
             out.push(result);
         }
@@ -926,7 +998,13 @@ impl CompiledExpr {
             .iter()
             .map(|&val| match op {
                 UnaryOp::Neg => -val,
-                UnaryOp::Not => if val == 0.0 { 1.0 } else { 0.0 },
+                UnaryOp::Not => {
+                    if val == 0.0 {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
             })
             .collect()
     }
@@ -935,12 +1013,12 @@ impl CompiledExpr {
     fn eval_if_then_else(condition: &[f64], then_vals: &[f64], else_vals: &[f64]) -> Vec<f64> {
         let len = condition.len().max(then_vals.len()).max(else_vals.len());
         let mut out = Vec::with_capacity(len);
-        
+
         for i in 0..len {
             let cond = *condition.get(i).unwrap_or(&0.0);
             let then_val = *then_vals.get(i).unwrap_or(&0.0);
             let else_val = *else_vals.get(i).unwrap_or(&0.0);
-            
+
             out.push(if cond != 0.0 { then_val } else { else_val });
         }
         out

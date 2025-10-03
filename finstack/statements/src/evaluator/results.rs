@@ -76,7 +76,10 @@ impl Results {
     ///
     /// If `node_filter` is empty, all nodes are included.
     #[cfg(feature = "polars_export")]
-    pub fn to_polars_long_filtered(&self, node_filter: &[&str]) -> Result<polars::prelude::DataFrame> {
+    pub fn to_polars_long_filtered(
+        &self,
+        node_filter: &[&str],
+    ) -> Result<polars::prelude::DataFrame> {
         crate::results::export::to_polars_long_filtered(self, node_filter)
     }
 
@@ -88,4 +91,3 @@ impl Results {
         crate::results::export::to_polars_wide(self)
     }
 }
-

@@ -152,4 +152,3 @@ mod tests {
         assert_eq!(metric.qualified_id("fin"), "fin.gross_margin");
     }
 }
-

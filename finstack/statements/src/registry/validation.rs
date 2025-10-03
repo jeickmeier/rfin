@@ -113,4 +113,3 @@ mod tests {
         assert!(validate_metric_definition(&metric, "fin").is_err());
     }
 }
-

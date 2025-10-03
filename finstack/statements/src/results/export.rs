@@ -45,7 +45,9 @@ pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
         Series::new("period_id".into(), period_ids).into(),
         Series::new("value".into(), values).into(),
     ])
-    .map_err(|e| crate::error::Error::invalid_input(format!("Failed to create DataFrame: {}", e)))?;
+    .map_err(|e| {
+        crate::error::Error::invalid_input(format!("Failed to create DataFrame: {}", e))
+    })?;
 
     Ok(df)
 }
@@ -88,7 +90,9 @@ pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Resul
         Series::new("period_id".into(), period_ids).into(),
         Series::new("value".into(), values).into(),
     ])
-    .map_err(|e| crate::error::Error::invalid_input(format!("Failed to create DataFrame: {}", e)))?;
+    .map_err(|e| {
+        crate::error::Error::invalid_input(format!("Failed to create DataFrame: {}", e))
+    })?;
 
     Ok(df)
 }
@@ -121,8 +125,12 @@ pub fn to_polars_wide(results: &Results) -> Result<DataFrame> {
     all_periods.dedup();
 
     if all_periods.is_empty() {
-        return DataFrame::new(vec![Series::new("period_id".into(), Vec::<String>::new()).into()])
-            .map_err(|e| crate::error::Error::invalid_input(format!("Failed to create empty DataFrame: {}", e)));
+        return DataFrame::new(vec![
+            Series::new("period_id".into(), Vec::<String>::new()).into()
+        ])
+        .map_err(|e| {
+            crate::error::Error::invalid_input(format!("Failed to create empty DataFrame: {}", e))
+        });
     }
 
     // Start with period_id column
@@ -141,8 +149,9 @@ pub fn to_polars_wide(results: &Results) -> Result<DataFrame> {
         series_list.push(Series::new(node_id.as_str().into(), node_values).into());
     }
 
-    let df = DataFrame::new(series_list)
-        .map_err(|e| crate::error::Error::invalid_input(format!("Failed to create DataFrame: {}", e)))?;
+    let df = DataFrame::new(series_list).map_err(|e| {
+        crate::error::Error::invalid_input(format!("Failed to create DataFrame: {}", e))
+    })?;
 
     Ok(df)
 }

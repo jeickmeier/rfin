@@ -167,7 +167,11 @@ mod tests {
 
     #[test]
     fn test_compile_addition() {
-        let ast = StmtExpr::bin_op(StmtBinOp::Add, StmtExpr::literal(1.0), StmtExpr::literal(2.0));
+        let ast = StmtExpr::bin_op(
+            StmtBinOp::Add,
+            StmtExpr::literal(1.0),
+            StmtExpr::literal(2.0),
+        );
 
         let expr = compile(&ast).unwrap();
 
