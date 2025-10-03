@@ -82,6 +82,7 @@ pub mod error;
 pub mod evaluator;
 pub mod forecast;
 pub mod registry;
+pub mod results;
 pub mod types;
 
 /// Commonly used types and traits.

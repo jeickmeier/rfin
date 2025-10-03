@@ -51,6 +51,50 @@ impl Results {
     pub fn get(&self, node_id: &str, period_id: &PeriodId) -> Option<f64> {
         self.nodes.get(node_id)?.get(period_id).copied()
     }
+
+    /// Export results to long-format Polars DataFrame.
+    ///
+    /// Schema: `(node_id, period_id, value)`
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let df = results.to_polars_long()?;
+    /// ```
+    #[cfg(feature = "polars_export")]
+    pub fn to_polars_long(&self) -> Result<polars::prelude::DataFrame> {
+        crate::results::export::to_polars_long(self)
+    }
+
+    /// Export results to long-format Polars DataFrame with node filtering.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_filter` - List of node IDs to include
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let df = results.to_polars_long_filtered(&["revenue", "cogs"])?;
+    /// ```
+    #[cfg(feature = "polars_export")]
+    pub fn to_polars_long_filtered(&self, node_filter: &[&str]) -> Result<polars::prelude::DataFrame> {
+        crate::results::export::to_polars_long_filtered(self, node_filter)
+    }
+
+    /// Export results to wide-format Polars DataFrame.
+    ///
+    /// Schema: periods as rows, nodes as columns
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let df = results.to_polars_wide()?;
+    /// ```
+    #[cfg(feature = "polars_export")]
+    pub fn to_polars_wide(&self) -> Result<polars::prelude::DataFrame> {
+        crate::results::export::to_polars_wide(self)
+    }
 }
 
 impl Default for Results {

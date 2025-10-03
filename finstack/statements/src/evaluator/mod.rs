@@ -8,7 +8,7 @@
 //! - Handling where clause masking
 
 mod context;
-mod core;
+pub mod core;
 mod dag;
 mod precedence;
 
