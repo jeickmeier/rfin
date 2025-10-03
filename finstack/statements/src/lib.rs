@@ -80,6 +80,7 @@ pub mod capital_structure;
 pub mod dsl;
 pub mod error;
 pub mod evaluator;
+pub mod extensions;
 pub mod forecast;
 pub mod registry;
 pub mod results;
@@ -96,6 +97,10 @@ pub mod prelude {
     pub use crate::builder::{ModelBuilder, NeedPeriods, Ready};
     pub use crate::error::{Error, Result};
     pub use crate::evaluator::{Evaluator, Results};
+    pub use crate::extensions::{
+        CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext,
+        ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,
+    };
     pub use crate::registry::Registry;
     pub use crate::types::{
         AmountOrScalar, FinancialModelSpec, ForecastMethod, ForecastSpec, NodeSpec, NodeType,
