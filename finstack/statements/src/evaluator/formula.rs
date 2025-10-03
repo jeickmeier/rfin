@@ -4,24 +4,12 @@ use crate::error::{Error, Result};
 use crate::evaluator::context::StatementContext;
 use finstack_core::expr::{Expr, Function};
 
-/// Compiled expression wrapper.
-#[derive(Debug, Clone)]
-pub(crate) struct CompiledExpr {
-    pub expr: Expr,
-}
-
-impl CompiledExpr {
-    pub fn new(expr: Expr) -> Self {
-        Self { expr }
-    }
-}
-
 /// Evaluate a compiled expression.
 pub(crate) fn evaluate_formula(
-    compiled: &CompiledExpr,
+    expr: &Expr,
     context: &StatementContext,
 ) -> Result<f64> {
-    evaluate_expr(&compiled.expr, context)
+    evaluate_expr(expr, context)
 }
 
 /// Recursively evaluate an expression.

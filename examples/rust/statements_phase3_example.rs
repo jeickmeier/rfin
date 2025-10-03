@@ -368,7 +368,7 @@ fn example_6_circular_dependency() -> Result<()> {
             // Model builds successfully, but evaluation should fail
             let mut evaluator = Evaluator::new();
             match evaluator.evaluate(&model, false) {
-                Err(Error::CircularDependency { path }) => {
+                Err(Error::CircularDependency(path)) => {
                     println!("\n✅ Circular dependency detected!");
                     println!("   Cycle path: {}", path.join(" → "));
                 }

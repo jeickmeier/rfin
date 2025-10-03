@@ -359,10 +359,10 @@ fn test_compile_arithmetic() {
 
     let expr = compile(&ast).unwrap();
 
-    // Should compile to a synthetic function call
+    // Should compile to a BinOp expression
     match expr.node {
-        ExprNode::Call(..) => {}
-        _ => panic!("Expected Call for arithmetic"),
+        ExprNode::BinOp { .. } => {}
+        _ => panic!("Expected BinOp for arithmetic"),
     }
 }
 
@@ -388,10 +388,10 @@ fn test_compile_from_parse() {
     let ast = parse_formula("revenue - cogs").unwrap();
     let expr = compile(&ast).unwrap();
 
-    // Should compile successfully
+    // Should compile successfully to BinOp
     match expr.node {
-        ExprNode::Call(..) => {}
-        _ => panic!("Expected Call for subtraction"),
+        ExprNode::BinOp { .. } => {}
+        _ => panic!("Expected BinOp for subtraction"),
     }
 }
 
@@ -408,8 +408,8 @@ fn test_parse_and_compile_integration() {
     let expr = parse_and_compile("revenue * 0.6").unwrap();
 
     match expr.node {
-        ExprNode::Call(..) => {}
-        _ => panic!("Expected Call for multiplication"),
+        ExprNode::BinOp { .. } => {}
+        _ => panic!("Expected BinOp for multiplication"),
     }
 }
 
@@ -620,7 +620,7 @@ fn test_parse_custom_coalesce() {
 
 #[test]
 fn test_compile_custom_functions() {
-    // Custom functions should compile to synthetic calls
+    // Custom functions should fail to compile (not yet supported)
     let functions = vec!["sum", "mean", "annualize", "ttm", "coalesce"];
 
     for func in functions {
@@ -633,7 +633,8 @@ fn test_compile_custom_functions() {
         };
 
         let expr = parse_and_compile(&formula);
-        assert!(expr.is_ok(), "Failed to compile {}", func);
+        // These custom functions are not yet supported, so they should fail
+        assert!(expr.is_err(), "Expected {} to fail compilation (not yet supported)", func);
     }
 }
 

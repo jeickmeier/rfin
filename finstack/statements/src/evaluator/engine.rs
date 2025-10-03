@@ -5,11 +5,12 @@ use crate::error::{Error, Result};
 use crate::evaluator::context::StatementContext;
 use crate::evaluator::dag::{evaluate_order, DependencyGraph};
 use crate::evaluator::forecast_eval;
-use crate::evaluator::formula::{evaluate_formula, CompiledExpr};
+use crate::evaluator::formula::evaluate_formula;
 use crate::evaluator::precedence::{resolve_node_value, NodeValueSource};
 use crate::evaluator::results::{Results, ResultsMeta};
 use crate::types::FinancialModelSpec;
 use finstack_core::dates::PeriodId;
+use finstack_core::expr::Expr;
 use indexmap::IndexMap;
 use std::time::Instant;
 
@@ -19,7 +20,7 @@ use std::time::Instant;
 /// nodes period-by-period according to precedence rules.
 pub struct Evaluator {
     /// Cached compiled expressions
-    compiled_cache: IndexMap<String, CompiledExpr>,
+    compiled_cache: IndexMap<String, Expr>,
 
     /// Cached forecast results: node_id → (period_id → value)
     forecast_cache: IndexMap<String, IndexMap<PeriodId, f64>>,
@@ -111,8 +112,7 @@ impl Evaluator {
             if let Some(formula_text) = &node_spec.formula_text {
                 if !self.compiled_cache.contains_key(node_id) {
                     let expr = dsl::parse_and_compile(formula_text)?;
-                    self.compiled_cache
-                        .insert(node_id.clone(), CompiledExpr::new(expr));
+                    self.compiled_cache.insert(node_id.clone(), expr);
                 }
             }
         }
@@ -160,10 +160,10 @@ impl Evaluator {
                 }
                 NodeValueSource::Formula(_) => {
                     // Evaluate formula
-                    let compiled = self.compiled_cache.get(node_id).ok_or_else(|| {
+                    let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
                         Error::eval(format!("No compiled formula for node '{}'", node_id))
                     })?;
-                    evaluate_formula(compiled, &context)?
+                    evaluate_formula(expr, &context)?
                 }
             };
 

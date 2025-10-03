@@ -21,27 +21,19 @@ pub enum Error {
     Eval(String),
 
     /// Node not found in model
-    #[error("Node not found: {node_id}")]
-    NodeNotFound {
-        /// ID of the node that was not found
-        node_id: String,
-    },
+    #[error("Node not found: {0}")]
+    NodeNotFound(String),
 
     /// Circular dependency detected
-    #[error("Circular dependency detected: {}", format_path(.path))]
-    CircularDependency {
-        /// Path through the circular dependency
-        path: Vec<String>,
-    },
+    #[error("Circular dependency detected: {}", format_path(.0))]
+    CircularDependency(Vec<String>),
 
     /// Currency mismatch error
-    #[error("Currency mismatch: expected {expected}, found {found}")]
-    CurrencyMismatch {
-        /// Expected currency
-        expected: finstack_core::currency::Currency,
-        /// Found currency
-        found: finstack_core::currency::Currency,
-    },
+    #[error("Currency mismatch: expected {0}, found {1}")]
+    CurrencyMismatch(
+        finstack_core::currency::Currency,
+        finstack_core::currency::Currency,
+    ),
 
     /// Period validation error
     #[error("Period error: {0}")]
@@ -128,14 +120,12 @@ impl Error {
 
     /// Create a node not found error
     pub fn node_not_found(node_id: impl Into<String>) -> Self {
-        Self::NodeNotFound {
-            node_id: node_id.into(),
-        }
+        Self::NodeNotFound(node_id.into())
     }
 
     /// Create a circular dependency error
     pub fn circular_dependency(path: Vec<String>) -> Self {
-        Self::CircularDependency { path }
+        Self::CircularDependency(path)
     }
 
     /// Create a currency mismatch error
@@ -143,7 +133,7 @@ impl Error {
         expected: finstack_core::currency::Currency,
         found: finstack_core::currency::Currency,
     ) -> Self {
-        Self::CurrencyMismatch { expected, found }
+        Self::CurrencyMismatch(expected, found)
     }
 
     /// Create a capital structure error

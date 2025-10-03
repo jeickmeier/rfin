@@ -3,11 +3,18 @@
 //! This module provides integration between financial models and capital structure
 //! (debt instruments like bonds, swaps, loans) via the `finstack-valuations` crate.
 //!
+//! ## ⚠️ Status: Partially Implemented
+//! **TODO (PR #6.6):** DSL integration for `cs.*` namespace is NOT yet implemented.
+//! - `cs.interest_expense.*` references will not work in formulas
+//! - `cs.principal_payment.*` references will not work in formulas
+//! - `cs.debt_balance.*` references will not work in formulas
+//! - See PHASE6_SUMMARY.md "Remaining Work" section for details
+//!
 //! ## Features
-//! - Construct bonds, swaps, and other debt instruments from specifications
-//! - Generate cashflow schedules from instruments
-//! - Aggregate cashflows by period (interest, principal, fees)
-//! - Provide DSL access to capital structure metrics via `cs.*` namespace
+//! - ✅ Construct bonds, swaps, and other debt instruments from specifications
+//! - ✅ Generate cashflow schedules from instruments
+//! - ✅ Aggregate cashflows by period (interest, principal, fees)
+//! - ❌ Provide DSL access to capital structure metrics via `cs.*` namespace (NOT IMPLEMENTED)
 //!
 //! ## Example
 //! ```ignore

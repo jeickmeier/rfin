@@ -59,11 +59,13 @@ pub fn aggregate_instrument_cashflows(
             if let Some(period) = find_period_containing_date(periods, *flow_date) {
                 let breakdown = instrument_periods.get_mut(&period.id).unwrap();
                 
-                // Classify cashflow type
-                // For now, we'll use a simple heuristic:
-                // - Positive flows are principal receipts (bonds from holder perspective pay out)
-                // - Negative flows are interest/principal payments
-                // This is simplified - in reality we'd need CFKind from the schedule
+                // FIXME: Simplified cashflow classification using sign-based heuristics
+                // TODO: Use CFKind from cashflow schedule for precise classification
+                // Current limitations:
+                // - Cannot distinguish between interest and principal payments accurately
+                // - Assumes negative = interest, positive = principal receipt
+                // - Should use CFKind::Interest, CFKind::Principal from schedule
+                // See PHASE6_SUMMARY.md for details
                 
                 let value = amount.amount();
                 if value < 0.0 {
@@ -77,13 +79,17 @@ pub fn aggregate_instrument_cashflows(
             }
         }
         
-        // Calculate outstanding balance for each period
-        // This is a simplified calculation - in reality we'd track the amortization schedule
+        // FIXME: Simplified debt balance tracking
+        // TODO: Track actual notional schedule from instrument amortization spec
+        // Current limitations:
+        // - Uses simple balance = previous_balance - principal_payment
+        // - Should track actual notional amortization schedule
+        // - Doesn't handle revolving facilities (draws/repayments)
+        // See PHASE6_SUMMARY.md for details
         for period in periods {
             let breakdown = instrument_periods.get_mut(&period.id).unwrap();
             
             // Simple model: balance decreases by principal payments
-            // In reality, would need to track actual notional schedule
             if outstanding_balance == 0.0 {
                 // Initialize from notional if first flow
                 if let Some((_, first_amount)) = flows.first() {

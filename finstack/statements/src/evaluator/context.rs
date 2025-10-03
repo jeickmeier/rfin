@@ -43,9 +43,7 @@ impl StatementContext {
         let idx = self
             .node_to_column
             .get(node_id)
-            .ok_or_else(|| Error::NodeNotFound {
-                node_id: node_id.to_string(),
-            })?;
+            .ok_or_else(|| Error::node_not_found(node_id))?;
         self.current_values[*idx] = value;
         Ok(())
     }
@@ -55,9 +53,7 @@ impl StatementContext {
         let idx = self
             .node_to_column
             .get(node_id)
-            .ok_or_else(|| Error::NodeNotFound {
-                node_id: node_id.to_string(),
-            })?;
+            .ok_or_else(|| Error::node_not_found(node_id))?;
         let value = self.current_values[*idx];
 
         if value.is_nan() {

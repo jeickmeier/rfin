@@ -57,7 +57,7 @@ impl DependencyGraph {
     pub fn detect_cycles(&self) -> Result<()> {
         for node_id in self.dependencies.keys() {
             if let Some(cycle) = self.find_cycle_from(node_id) {
-                return Err(Error::CircularDependency { path: cycle });
+                return Err(Error::circular_dependency(cycle));
             }
         }
         Ok(())
