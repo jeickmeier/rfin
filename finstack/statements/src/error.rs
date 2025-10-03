@@ -63,8 +63,7 @@ pub enum Error {
     #[error("Registry error: {0}")]
     Registry(String),
 
-    /// Capital structure error (feature-gated)
-    #[cfg(feature = "capital_structure")]
+    /// Capital structure error
     #[error("Capital structure error: {0}")]
     CapitalStructure(String),
 
@@ -125,5 +124,30 @@ impl Error {
     /// Create a forecast error with context
     pub fn forecast(msg: impl Into<String>) -> Self {
         Self::Forecast(msg.into())
+    }
+
+    /// Create a node not found error
+    pub fn node_not_found(node_id: impl Into<String>) -> Self {
+        Self::NodeNotFound {
+            node_id: node_id.into(),
+        }
+    }
+
+    /// Create a circular dependency error
+    pub fn circular_dependency(path: Vec<String>) -> Self {
+        Self::CircularDependency { path }
+    }
+
+    /// Create a currency mismatch error
+    pub fn currency_mismatch(
+        expected: finstack_core::currency::Currency,
+        found: finstack_core::currency::Currency,
+    ) -> Self {
+        Self::CurrencyMismatch { expected, found }
+    }
+
+    /// Create a capital structure error
+    pub fn capital_structure(msg: impl Into<String>) -> Self {
+        Self::CapitalStructure(msg.into())
     }
 }

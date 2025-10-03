@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 finstack-core = { path = "../core", features = ["serde"] }
-finstack-valuations = { path = "../valuations", optional = true }
+finstack-valuations = { path = "../valuations" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 indexmap = { version = "2", features = ["serde"] }
@@ -22,10 +22,9 @@ time = { version = "0.3", features = ["macros"] }
 
 [features]
 default = []
-capital_structure = ["dep:finstack-valuations"]
 parallel = ["finstack-core/parallel"]
 polars_export = ["dep:polars"]
-full = ["capital_structure", "parallel", "polars_export"]
+full = ["parallel", "polars_export"]
 
 [[example]]
 name = "statements_phase1_example"
@@ -50,7 +49,6 @@ path = "../../examples/rust/statements_phase5_example.rs"
 [[example]]
 name = "statements_phase6_example"
 path = "../../examples/rust/statements_phase6_example.rs"
-required-features = ["capital_structure"]
 
 [[example]]
 name = "statements_phase7_example"

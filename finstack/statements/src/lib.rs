@@ -7,7 +7,7 @@
 //!
 //! - **Declarative modeling** with a rich DSL for formulas
 //! - **Time-series forecasting** with deterministic and statistical methods
-//! - **Capital structure integration** for debt/equity tracking (feature-gated)
+//! - **Capital structure integration** for debt/equity tracking
 //! - **Dynamic metric registry** (no recompilation needed)
 //! - **Currency-safe arithmetic** with explicit FX handling
 //! - **Deterministic evaluation** (serial ≡ parallel)
@@ -75,7 +75,6 @@
 #![warn(missing_docs)]
 
 pub mod builder;
-#[cfg(feature = "capital_structure")]
 pub mod capital_structure;
 pub mod dsl;
 pub mod error;

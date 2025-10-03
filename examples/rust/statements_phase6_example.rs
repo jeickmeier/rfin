@@ -4,7 +4,7 @@
 //! modeling debt instruments (bonds, swaps, loans) and automatically calculating
 //! their impact on financial statements through period-aligned cashflow aggregation.
 //!
-//! Run with: cargo run --example statements_phase6_example --features capital_structure
+//! Run with: cargo run --example statements_phase6_example
 
 use finstack_core::{
     currency::Currency,
@@ -75,7 +75,6 @@ fn main() -> Result<()> {
     println!("   ✓ Bond added to capital structure\n");
 
     // Verify capital structure
-    #[cfg(feature = "capital_structure")]
     {
         let cs = model_with_bond.capital_structure.as_ref().unwrap();
         println!("   Capital Structure Summary:");
@@ -134,7 +133,6 @@ fn main() -> Result<()> {
 
     println!("   ✓ Model created with {} nodes", model_full_cs.nodes.len());
     
-    #[cfg(feature = "capital_structure")]
     {
         let cs = model_full_cs.capital_structure.as_ref().unwrap();
         println!("   ✓ Capital structure with {} debt instruments", cs.debt_instruments.len());
@@ -172,7 +170,6 @@ fn main() -> Result<()> {
     // -------------------------------------------------------------------------
     // 4. Capital Structure Specification
     // -------------------------------------------------------------------------
-    #[cfg(feature = "capital_structure")]
     {
         println!("4. Capital Structure Specification");
         println!("   Instruments are stored as serialized JSON in the model\n");
@@ -241,7 +238,6 @@ fn main() -> Result<()> {
     println!("   • Capital Structure Instruments: {}", 
         model_full_cs.capital_structure.as_ref().map(|cs| cs.debt_instruments.len()).unwrap_or(0));
     
-    #[cfg(feature = "capital_structure")]
     {
         if model_full_cs.capital_structure.is_some() {
             println!("\n   ✓ Model contains serializable instrument specifications");
@@ -327,7 +323,6 @@ fn main() -> Result<()> {
     }
     println!();
 
-    #[cfg(feature = "capital_structure")]
     {
         println!("   ✓ Capital structure instruments tracked separately");
         println!("   ✓ Cashflows available for integration into P&L");

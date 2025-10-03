@@ -3,7 +3,7 @@
 #[cfg(feature = "polars_export")]
 use crate::error::Result;
 #[cfg(feature = "polars_export")]
-use crate::evaluator::core::Results;
+use crate::evaluator::Results;
 #[cfg(feature = "polars_export")]
 use finstack_core::dates::PeriodId;
 #[cfg(feature = "polars_export")]
@@ -150,7 +150,7 @@ pub fn to_polars_wide(results: &Results) -> Result<DataFrame> {
 #[cfg(all(test, feature = "polars_export"))]
 mod tests {
     use super::*;
-    use crate::evaluator::core::ResultsMeta;
+    use crate::evaluator::ResultsMeta;
     use finstack_core::dates::PeriodId;
     use indexmap::IndexMap;
 

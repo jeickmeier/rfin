@@ -1,6 +1,6 @@
 //! Core extension trait and types.
 
-use crate::evaluator::core::Results;
+use crate::evaluator::Results;
 use crate::types::FinancialModelSpec;
 use crate::error::Result;
 use indexmap::IndexMap;

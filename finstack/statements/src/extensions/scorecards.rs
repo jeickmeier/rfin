@@ -290,7 +290,7 @@ mod tests {
 
     #[test]
     fn test_scorecard_execute_not_implemented() {
-        use crate::evaluator::core::Results;
+        use crate::evaluator::Results;
         use crate::types::FinancialModelSpec;
 
         let model = FinancialModelSpec::new("test", Vec::new());

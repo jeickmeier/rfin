@@ -21,8 +21,7 @@ pub struct FinancialModelSpec {
     /// Map of node_id → NodeSpec
     pub nodes: IndexMap<String, NodeSpec>,
 
-    /// Capital structure specification (optional, feature-gated)
-    #[cfg(feature = "capital_structure")]
+    /// Capital structure specification (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capital_structure: Option<CapitalStructureSpec>,
 
@@ -42,7 +41,6 @@ impl FinancialModelSpec {
             id: id.into(),
             periods,
             nodes: IndexMap::new(),
-            #[cfg(feature = "capital_structure")]
             capital_structure: None,
             meta: IndexMap::new(),
             schema_version: 1,
@@ -74,8 +72,7 @@ fn default_schema_version() -> u32 {
     1
 }
 
-/// Capital structure specification (feature-gated).
-#[cfg(feature = "capital_structure")]
+/// Capital structure specification.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CapitalStructureSpec {
@@ -92,8 +89,7 @@ pub struct CapitalStructureSpec {
     pub meta: IndexMap<String, serde_json::Value>,
 }
 
-/// Debt instrument specification (feature-gated).
-#[cfg(feature = "capital_structure")]
+/// Debt instrument specification.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum DebtInstrumentSpec {

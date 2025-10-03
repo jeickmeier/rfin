@@ -127,6 +127,76 @@ pub struct ForecastSpec {
     pub params: IndexMap<String, serde_json::Value>,
 }
 
+impl ForecastSpec {
+    /// Create a forward-fill forecast (carry last value forward).
+    pub fn forward_fill() -> Self {
+        Self {
+            method: ForecastMethod::ForwardFill,
+            params: IndexMap::new(),
+        }
+    }
+
+    /// Create a growth percentage forecast.
+    ///
+    /// # Arguments
+    /// * `rate` - Growth rate (e.g., 0.05 for 5% growth)
+    pub fn growth(rate: f64) -> Self {
+        let mut params = IndexMap::new();
+        params.insert("rate".into(), serde_json::json!(rate));
+        Self {
+            method: ForecastMethod::GrowthPct,
+            params,
+        }
+    }
+
+    /// Create a curve percentage forecast.
+    ///
+    /// # Arguments
+    /// * `curve` - Vector of growth rates per period
+    pub fn curve(curve: Vec<f64>) -> Self {
+        let mut params = IndexMap::new();
+        params.insert("curve".into(), serde_json::json!(curve));
+        Self {
+            method: ForecastMethod::CurvePct,
+            params,
+        }
+    }
+
+    /// Create a normal distribution forecast.
+    ///
+    /// # Arguments
+    /// * `mean` - Mean value
+    /// * `std_dev` - Standard deviation
+    /// * `seed` - Random seed for deterministic results
+    pub fn normal(mean: f64, std_dev: f64, seed: u64) -> Self {
+        let mut params = IndexMap::new();
+        params.insert("mean".into(), serde_json::json!(mean));
+        params.insert("std_dev".into(), serde_json::json!(std_dev));
+        params.insert("seed".into(), serde_json::json!(seed));
+        Self {
+            method: ForecastMethod::Normal,
+            params,
+        }
+    }
+
+    /// Create a log-normal distribution forecast.
+    ///
+    /// # Arguments
+    /// * `mean` - Mean value
+    /// * `std_dev` - Standard deviation
+    /// * `seed` - Random seed for deterministic results
+    pub fn lognormal(mean: f64, std_dev: f64, seed: u64) -> Self {
+        let mut params = IndexMap::new();
+        params.insert("mean".into(), serde_json::json!(mean));
+        params.insert("std_dev".into(), serde_json::json!(std_dev));
+        params.insert("seed".into(), serde_json::json!(seed));
+        Self {
+            method: ForecastMethod::LogNormal,
+            params,
+        }
+    }
+}
+
 /// Available forecast methods.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
