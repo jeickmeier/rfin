@@ -45,6 +45,8 @@ pub struct ModelBuilder<State> {
     periods: Vec<Period>,
     nodes: IndexMap<String, NodeSpec>,
     meta: IndexMap<String, serde_json::Value>,
+    #[cfg(feature = "capital_structure")]
+    pub(crate) capital_structure: Option<crate::types::CapitalStructureSpec>,
     _state: PhantomData<State>,
 }
 
@@ -58,6 +60,8 @@ impl ModelBuilder<NeedPeriods> {
             periods: Vec::new(),
             nodes: IndexMap::new(),
             meta: IndexMap::new(),
+            #[cfg(feature = "capital_structure")]
+            capital_structure: None,
             _state: PhantomData,
         }
     }
@@ -94,6 +98,8 @@ impl ModelBuilder<NeedPeriods> {
             periods: period_plan.periods,
             nodes: self.nodes,
             meta: self.meta,
+            #[cfg(feature = "capital_structure")]
+            capital_structure: self.capital_structure,
             _state: PhantomData,
         })
     }
@@ -111,6 +117,8 @@ impl ModelBuilder<NeedPeriods> {
             periods,
             nodes: self.nodes,
             meta: self.meta,
+            #[cfg(feature = "capital_structure")]
+            capital_structure: self.capital_structure,
             _state: PhantomData,
         })
     }
@@ -362,6 +370,10 @@ impl ModelBuilder<Ready> {
         let mut spec = FinancialModelSpec::new(self.id, self.periods);
         spec.nodes = self.nodes;
         spec.meta = self.meta;
+        #[cfg(feature = "capital_structure")]
+        {
+            spec.capital_structure = self.capital_structure;
+        }
 
         Ok(spec)
     }

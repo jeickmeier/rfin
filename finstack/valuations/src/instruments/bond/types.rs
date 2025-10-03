@@ -16,6 +16,7 @@ pub use crate::cashflow::primitives::AmortizationSpec;
 /// Supports call/put schedules, amortization, quoted prices for
 /// yield-to-maturity calculations, and custom cashflow schedules.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Bond {
     /// Unique identifier for the bond.
     pub id: InstrumentId,
@@ -30,6 +31,7 @@ pub struct Bond {
     /// Business day convention for schedule/payment adjustments.
     pub bdc: BusinessDayConvention,
     /// Optional calendar identifier for schedule adjustments.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub calendar_id: Option<&'static str>,
     /// Stub handling rule for the schedule.
     pub stub: StubKind,
@@ -43,18 +45,22 @@ pub struct Bond {
     /// hazard-rate pricing is enabled.
     pub hazard_id: Option<CurveId>,
     /// Pricing overrides (including quoted clean price)
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub pricing_overrides: PricingOverrides,
     /// Optional call/put schedule (dates and redemption prices as % of par amount).
     pub call_put: Option<CallPutSchedule>,
     /// Optional amortization specification (principal paid during life).
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub amortization: Option<AmortizationSpec>,
     /// Optional pre-built cashflow schedule. If provided, this will be used instead of
     /// generating cashflows from coupon/amortization specifications.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub custom_cashflows: Option<CashFlowSchedule>,
     /// Optional floating-rate specification (FRN). When present, coupons are
     /// projected off a forward index with margin and gearing.
     pub float: Option<BondFloatSpec>,
     /// Attributes for scenario selection and tagging.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub attributes: Attributes,
     /// Settlement convention: number of settlement days after trade date.
     pub settlement_days: Option<u32>,
@@ -64,6 +70,7 @@ pub struct Bond {
 
 /// Call or put option on a bond.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CallPut {
     /// Exercise date of the option.
     pub date: Date,
@@ -73,6 +80,7 @@ pub struct CallPut {
 
 /// Schedule of call and put options for a bond.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CallPutSchedule {
     /// Call options (issuer can redeem early).
     pub calls: Vec<CallPut>,
@@ -82,6 +90,7 @@ pub struct CallPutSchedule {
 
 /// Floating-rate parameters for FRN-style bonds.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BondFloatSpec {
     /// Forward curve identifier for the floating index (e.g., USD-SOFR-3M).
     pub fwd_id: CurveId,

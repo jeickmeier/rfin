@@ -32,6 +32,7 @@ pub use crate::instruments::common::parameters::legs::FloatLegSpec;
 /// Represents a standard interest rate swap where one party pays
 /// a fixed rate and the other pays a floating rate plus spread.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InterestRateSwap {
     /// Unique identifier for the swap.
     pub id: InstrumentId,
@@ -44,6 +45,7 @@ pub struct InterestRateSwap {
     /// Floating leg specification.
     pub float: FloatLegSpec,
     /// Attributes for scenario selection and tagging.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub attributes: Attributes,
 }
 

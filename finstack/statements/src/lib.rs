@@ -75,6 +75,8 @@
 #![warn(missing_docs)]
 
 pub mod builder;
+#[cfg(feature = "capital_structure")]
+pub mod capital_structure;
 pub mod dsl;
 pub mod error;
 pub mod evaluator;

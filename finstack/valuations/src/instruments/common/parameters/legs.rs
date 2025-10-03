@@ -65,6 +65,7 @@ pub struct FixedLegSpec {
     /// Business day convention for payment dates
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub calendar_id: Option<&'static str>,
     /// Stub period handling rule
     pub stub: StubKind,
@@ -95,6 +96,7 @@ pub struct FloatLegSpec {
     /// Business day convention for payment dates
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub calendar_id: Option<&'static str>,
     /// Stub period handling rule
     pub stub: StubKind,
@@ -137,6 +139,7 @@ pub struct PremiumLegSpec {
     /// Business day convention
     pub bdc: BusinessDayConvention,
     /// Holiday calendar identifier
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub calendar_id: Option<&'static str>,
     /// Day count convention
     pub dc: DayCount,

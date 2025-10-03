@@ -98,11 +98,26 @@ pub struct CapitalStructureSpec {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum DebtInstrumentSpec {
     /// Fixed-rate bond
-    Bond { id: String, spec: serde_json::Value },
+    Bond {
+        /// Instrument identifier
+        id: String,
+        /// Instrument specification (JSON)
+        spec: serde_json::Value,
+    },
     /// Interest rate swap
-    Swap { id: String, spec: serde_json::Value },
+    Swap {
+        /// Instrument identifier
+        id: String,
+        /// Instrument specification (JSON)
+        spec: serde_json::Value,
+    },
     /// Generic debt instrument (custom JSON spec)
-    Generic { id: String, spec: serde_json::Value },
+    Generic {
+        /// Instrument identifier
+        id: String,
+        /// Instrument specification (JSON)
+        spec: serde_json::Value,
+    },
 }
 
 #[cfg(test)]
