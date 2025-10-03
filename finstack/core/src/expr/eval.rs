@@ -220,6 +220,24 @@ impl CompiledExpr {
 
                 self.eval_function(*func, &arg_results, ctx, cols)
             }
+            ExprNode::BinOp { op, .. } => {
+                // Binary operations should have exactly 2 dependencies
+                let left = results.get(&node.dependencies[0]).cloned().unwrap_or_else(Vec::new);
+                let right = results.get(&node.dependencies[1]).cloned().unwrap_or_else(Vec::new);
+                Self::eval_bin_op(*op, &left, &right)
+            }
+            ExprNode::UnaryOp { op, .. } => {
+                // Unary operations should have exactly 1 dependency
+                let operand = results.get(&node.dependencies[0]).cloned().unwrap_or_else(Vec::new);
+                Self::eval_unary_op(*op, &operand)
+            }
+            ExprNode::IfThenElse { .. } => {
+                // If-then-else should have exactly 3 dependencies
+                let condition = results.get(&node.dependencies[0]).cloned().unwrap_or_else(Vec::new);
+                let then_vals = results.get(&node.dependencies[1]).cloned().unwrap_or_else(Vec::new);
+                let else_vals = results.get(&node.dependencies[2]).cloned().unwrap_or_else(Vec::new);
+                Self::eval_if_then_else(&condition, &then_vals, &else_vals)
+            }
         }
     }
 
@@ -245,6 +263,25 @@ impl CompiledExpr {
                     .map(|arg| self.eval_simple(ctx, cols, arg))
                     .collect();
                 return self.eval_function(*fun, &arg_results, ctx, cols);
+            }
+            ExprNode::BinOp { op, left, right } => {
+                let left_result = self.eval_simple(ctx, cols, left);
+                let right_result = self.eval_simple(ctx, cols, right);
+                return Self::eval_bin_op(*op, &left_result, &right_result);
+            }
+            ExprNode::UnaryOp { op, operand } => {
+                let operand_result = self.eval_simple(ctx, cols, operand);
+                return Self::eval_unary_op(*op, &operand_result);
+            }
+            ExprNode::IfThenElse {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
+                let cond_result = self.eval_simple(ctx, cols, condition);
+                let then_result = self.eval_simple(ctx, cols, then_expr);
+                let else_result = self.eval_simple(ctx, cols, else_expr);
+                return Self::eval_if_then_else(&cond_result, &then_result, &else_result);
             }
         }
         out
@@ -843,6 +880,68 @@ impl CompiledExpr {
                     out.push(f64::NAN);
                 }
             }
+        }
+        out
+    }
+
+    /// Evaluate a binary operation element-wise.
+    fn eval_bin_op(op: super::ast::BinOp, left: &[f64], right: &[f64]) -> Vec<f64> {
+        use super::ast::BinOp;
+        let len = left.len().max(right.len());
+        let mut out = Vec::with_capacity(len);
+        
+        for i in 0..len {
+            let l = *left.get(i).unwrap_or(&0.0);
+            let r = *right.get(i).unwrap_or(&0.0);
+            
+            let result = match op {
+                // Arithmetic
+                BinOp::Add => l + r,
+                BinOp::Sub => l - r,
+                BinOp::Mul => l * r,
+                BinOp::Div => if r == 0.0 { f64::NAN } else { l / r },
+                BinOp::Mod => l % r,
+                
+                // Comparison (return 1.0 for true, 0.0 for false)
+                BinOp::Eq => if l == r { 1.0 } else { 0.0 },
+                BinOp::Ne => if l != r { 1.0 } else { 0.0 },
+                BinOp::Lt => if l < r { 1.0 } else { 0.0 },
+                BinOp::Le => if l <= r { 1.0 } else { 0.0 },
+                BinOp::Gt => if l > r { 1.0 } else { 0.0 },
+                BinOp::Ge => if l >= r { 1.0 } else { 0.0 },
+                
+                // Logical (treat non-zero as true)
+                BinOp::And => if l != 0.0 && r != 0.0 { 1.0 } else { 0.0 },
+                BinOp::Or => if l != 0.0 || r != 0.0 { 1.0 } else { 0.0 },
+            };
+            out.push(result);
+        }
+        out
+    }
+
+    /// Evaluate a unary operation element-wise.
+    fn eval_unary_op(op: super::ast::UnaryOp, operand: &[f64]) -> Vec<f64> {
+        use super::ast::UnaryOp;
+        operand
+            .iter()
+            .map(|&val| match op {
+                UnaryOp::Neg => -val,
+                UnaryOp::Not => if val == 0.0 { 1.0 } else { 0.0 },
+            })
+            .collect()
+    }
+
+    /// Evaluate if-then-else element-wise.
+    fn eval_if_then_else(condition: &[f64], then_vals: &[f64], else_vals: &[f64]) -> Vec<f64> {
+        let len = condition.len().max(then_vals.len()).max(else_vals.len());
+        let mut out = Vec::with_capacity(len);
+        
+        for i in 0..len {
+            let cond = *condition.get(i).unwrap_or(&0.0);
+            let then_val = *then_vals.get(i).unwrap_or(&0.0);
+            let else_val = *else_vals.get(i).unwrap_or(&0.0);
+            
+            out.push(if cond != 0.0 { then_val } else { else_val });
         }
         out
     }

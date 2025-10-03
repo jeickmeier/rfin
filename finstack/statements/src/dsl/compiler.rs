@@ -1,8 +1,8 @@
 //! Compiler from Statements DSL AST to core Expr.
 
-use crate::dsl::ast::{BinOp, StmtExpr, UnaryOp};
+use crate::dsl::ast::{BinOp as StmtBinOp, StmtExpr, UnaryOp as StmtUnaryOp};
 use crate::error::Result;
-use finstack_core::expr::{Expr, Function};
+use finstack_core::expr::{BinOp as CoreBinOp, Expr, Function, UnaryOp as CoreUnaryOp};
 
 /// Compile a `StmtExpr` AST to core's `Expr`.
 ///
@@ -41,53 +41,40 @@ pub fn compile(ast: &StmtExpr) -> Result<Expr> {
 }
 
 /// Compile binary operations.
-///
-/// Note: Core's Function enum doesn't have arithmetic operators, so we
-/// implement them as synthetic function calls for now.
-fn compile_bin_op(op: BinOp, left: &StmtExpr, right: &StmtExpr) -> Result<Expr> {
+fn compile_bin_op(op: StmtBinOp, left: &StmtExpr, right: &StmtExpr) -> Result<Expr> {
     let left_expr = compile(left)?;
     let right_expr = compile(right)?;
 
-    // For Phase 2, we'll represent arithmetic operations as pseudo-functions
-    // These will need custom handling in the evaluator
-    let func_name = match op {
-        BinOp::Add => "add",
-        BinOp::Sub => "sub",
-        BinOp::Mul => "mul",
-        BinOp::Div => "div",
-        BinOp::Mod => "mod",
-        BinOp::Eq => "eq",
-        BinOp::Ne => "ne",
-        BinOp::Lt => "lt",
-        BinOp::Le => "le",
-        BinOp::Gt => "gt",
-        BinOp::Ge => "ge",
-        BinOp::And => "and",
-        BinOp::Or => "or",
+    // Map statement BinOp to core BinOp
+    let core_op = match op {
+        StmtBinOp::Add => CoreBinOp::Add,
+        StmtBinOp::Sub => CoreBinOp::Sub,
+        StmtBinOp::Mul => CoreBinOp::Mul,
+        StmtBinOp::Div => CoreBinOp::Div,
+        StmtBinOp::Mod => CoreBinOp::Mod,
+        StmtBinOp::Eq => CoreBinOp::Eq,
+        StmtBinOp::Ne => CoreBinOp::Ne,
+        StmtBinOp::Lt => CoreBinOp::Lt,
+        StmtBinOp::Le => CoreBinOp::Le,
+        StmtBinOp::Gt => CoreBinOp::Gt,
+        StmtBinOp::Ge => CoreBinOp::Ge,
+        StmtBinOp::And => CoreBinOp::And,
+        StmtBinOp::Or => CoreBinOp::Or,
     };
 
-    // Create a synthetic function call node
-    // This will need special handling in the evaluator since these aren't real Function variants
-    Ok(create_synthetic_call(
-        func_name,
-        vec![left_expr, right_expr],
-    ))
+    Ok(Expr::bin_op(core_op, left_expr, right_expr))
 }
 
 /// Compile unary operations.
-fn compile_unary_op(op: UnaryOp, operand: &StmtExpr) -> Result<Expr> {
+fn compile_unary_op(op: StmtUnaryOp, operand: &StmtExpr) -> Result<Expr> {
     let operand_expr = compile(operand)?;
 
-    match op {
-        UnaryOp::Neg => {
-            // Represent as: 0 - operand
-            Ok(create_synthetic_call(
-                "sub",
-                vec![Expr::literal(0.0), operand_expr],
-            ))
-        }
-        UnaryOp::Not => Ok(create_synthetic_call("not", vec![operand_expr])),
-    }
+    let core_op = match op {
+        StmtUnaryOp::Neg => CoreUnaryOp::Neg,
+        StmtUnaryOp::Not => CoreUnaryOp::Not,
+    };
+
+    Ok(Expr::unary_op(core_op, operand_expr))
 }
 
 /// Compile function calls.
@@ -128,8 +115,12 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
     if let Some(f) = func {
         Ok(Expr::call(f, compiled_args))
     } else {
-        // For custom functions (sum, mean, annualize, ttm, etc.), create synthetic calls
-        Ok(create_synthetic_call(func_name, compiled_args))
+        // For custom functions not in the core Function enum, we need special handling
+        // For now, return an error indicating the function is not supported
+        Err(crate::error::Error::eval(format!(
+            "Custom function '{}' is not yet supported. Only core statistical functions are available.",
+            func_name
+        )))
     }
 }
 
@@ -143,37 +134,7 @@ fn compile_if_then_else(
     let then_branch = compile(then_expr)?;
     let else_branch = compile(else_expr)?;
 
-    Ok(create_synthetic_call(
-        "if",
-        vec![cond, then_branch, else_branch],
-    ))
-}
-
-/// Create a synthetic function call for operations not in core's Function enum.
-///
-/// This is a temporary solution for Phase 2. These will need custom evaluation
-/// logic in the statements evaluator.
-fn create_synthetic_call(name: &str, args: Vec<Expr>) -> Expr {
-    // We store the function name in the expression by creating a special column reference
-    // Format: "__stmt_fn::<name>" as a marker
-    // The actual args are stored as a Call to a placeholder function
-
-    // For now, we'll use a hack: encode the function name in the column reference
-    // and wrap it with the first core function as a placeholder
-    // This is NOT ideal but works for Phase 2 implementation
-    //
-    // A better solution would be to extend core's Function enum or create a wrapper
-
-    // Store function name as a literal string by encoding it
-    // This will require custom evaluator logic
-    let marker = Expr::column(format!("__stmt_fn::{}", name));
-
-    // Return a call structure with the marker and args
-    // We'll use CumSum as a placeholder since it's harmless
-    let mut all_args = vec![marker];
-    all_args.extend(args);
-
-    Expr::call(Function::CumSum, all_args)
+    Ok(Expr::if_then_else(cond, then_branch, else_branch))
 }
 
 #[cfg(test)]
@@ -206,14 +167,14 @@ mod tests {
 
     #[test]
     fn test_compile_addition() {
-        let ast = StmtExpr::bin_op(BinOp::Add, StmtExpr::literal(1.0), StmtExpr::literal(2.0));
+        let ast = StmtExpr::bin_op(StmtBinOp::Add, StmtExpr::literal(1.0), StmtExpr::literal(2.0));
 
         let expr = compile(&ast).unwrap();
 
-        // Should compile to a synthetic function call
+        // Should compile to a BinOp expression
         match expr.node {
-            ExprNode::Call(..) => {}
-            _ => panic!("Expected Call for arithmetic"),
+            ExprNode::BinOp { .. } => {}
+            _ => panic!("Expected BinOp for arithmetic"),
         }
     }
 
@@ -239,10 +200,10 @@ mod tests {
         let ast = parse_formula("revenue - cogs").unwrap();
         let expr = compile(&ast).unwrap();
 
-        // Should compile successfully
+        // Should compile successfully to a BinOp
         match expr.node {
-            ExprNode::Call(..) => {}
-            _ => panic!("Expected Call for subtraction"),
+            ExprNode::BinOp { .. } => {}
+            _ => panic!("Expected BinOp for subtraction"),
         }
     }
 

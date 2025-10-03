@@ -119,6 +119,26 @@ impl DagBuilder {
                 .iter()
                 .map(|arg| self.process_expression(arg.clone()))
                 .collect(),
+            ExprNode::BinOp { left, right, .. } => {
+                vec![
+                    self.process_expression((**left).clone()),
+                    self.process_expression((**right).clone()),
+                ]
+            }
+            ExprNode::UnaryOp { operand, .. } => {
+                vec![self.process_expression((**operand).clone())]
+            }
+            ExprNode::IfThenElse {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
+                vec![
+                    self.process_expression((**condition).clone()),
+                    self.process_expression((**then_expr).clone()),
+                    self.process_expression((**else_expr).clone()),
+                ]
+            }
         };
 
         // Estimate cost
@@ -181,6 +201,9 @@ impl DagBuilder {
         match &expr.node {
             ExprNode::Column(_) => 1,
             ExprNode::Literal(_) => 1,
+            ExprNode::BinOp { .. } => 2, // Basic arithmetic/comparison/logical operations
+            ExprNode::UnaryOp { .. } => 2,
+            ExprNode::IfThenElse { .. } => 3, // Conditional evaluation
             ExprNode::Call(func, args) => {
                 let base_cost = match func {
                     Function::Lag | Function::Lead => 5,

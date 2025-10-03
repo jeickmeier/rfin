@@ -341,6 +341,15 @@ fn example_8_complex() -> Result<(), Box<dyn std::error::Error>> {
             ExprNode::Column(name) => {
                 println!("    → Column reference: {}", name);
             }
+            ExprNode::BinOp { .. } => {
+                println!("    → Binary operation");
+            }
+            ExprNode::UnaryOp { .. } => {
+                println!("    → Unary operation");
+            }
+            ExprNode::IfThenElse { .. } => {
+                println!("    → Conditional expression");
+            }
         }
         println!();
     }

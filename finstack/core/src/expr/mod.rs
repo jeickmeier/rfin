@@ -54,7 +54,7 @@ pub mod dag;
 mod eval;
 
 // Public API - simplified surface for end users
-pub use ast::{EvaluationResult, Expr, ExprNode, Function};
+pub use ast::{BinOp, EvaluationResult, Expr, ExprNode, Function, UnaryOp};
 pub use context::{ExpressionContext, SimpleContext};
 pub use eval::{CompiledExpr, EvalOpts};
 
