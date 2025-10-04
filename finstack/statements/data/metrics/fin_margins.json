@@ -5,41 +5,41 @@
     {
       "id": "gross_margin",
       "name": "Gross Margin %",
-      "formula": "(revenue - cogs) / revenue",
+      "formula": "gross_profit / revenue",
       "description": "Gross profit as percentage of revenue",
       "category": "margins",
       "unit_type": "percentage",
-      "requires": ["revenue", "cogs"],
+      "requires": ["revenue", "gross_profit"],
       "tags": ["margins", "profitability"]
     },
     {
       "id": "operating_margin",
       "name": "Operating Margin %",
-      "formula": "(revenue - cogs - opex) / revenue",
+      "formula": "operating_income / revenue",
       "description": "Operating income as percentage of revenue",
       "category": "margins",
       "unit_type": "percentage",
-      "requires": ["revenue", "cogs", "opex"],
+      "requires": ["revenue", "operating_income"],
       "tags": ["margins", "profitability"]
     },
     {
       "id": "ebitda_margin",
       "name": "EBITDA Margin %",
-      "formula": "(revenue - cogs - opex + depreciation + amortization) / revenue",
+      "formula": "ebitda / revenue",
       "description": "EBITDA as percentage of revenue",
       "category": "margins",
       "unit_type": "percentage",
-      "requires": ["revenue", "cogs", "opex", "depreciation", "amortization"],
+      "requires": ["revenue", "ebitda"],
       "tags": ["margins", "profitability"]
     },
     {
       "id": "net_margin",
       "name": "Net Margin %",
-      "formula": "(revenue - cogs - opex - interest_expense - taxes) / revenue",
+      "formula": "net_income / revenue",
       "description": "Net income as percentage of revenue",
       "category": "margins",
       "unit_type": "percentage",
-      "requires": ["revenue", "cogs", "opex", "interest_expense", "taxes"],
+      "requires": ["revenue", "net_income"],
       "tags": ["margins", "profitability"]
     },
     {

@@ -46,7 +46,7 @@ fn test_builtin_margin_metrics() {
     let gross_margin = registry.get("fin.gross_margin").unwrap();
     assert_eq!(
         gross_margin.definition.formula,
-        "(revenue - cogs) / revenue"
+        "gross_profit / revenue"
     );
     assert_eq!(
         gross_margin.definition.unit_type,
@@ -487,4 +487,144 @@ fn test_complete_pl_model_with_select_registry_metrics() {
     assert_eq!(results.get("fin.ebitda", &q2).unwrap(), 280_000.0);
     assert!((results.get("fin.gross_margin", &q2).unwrap() - 0.4).abs() < 0.0001);
     assert!((results.get("fin.operating_margin", &q2).unwrap() - 0.2).abs() < 0.0001);
+}
+
+#[test]
+fn test_inter_metric_dependencies_in_model() {
+    // Test that metrics can reference other metrics
+    let json = r#"{
+        "namespace": "custom",
+        "metrics": [
+            {
+                "id": "gross_profit",
+                "name": "Gross Profit",
+                "formula": "revenue - cogs"
+            },
+            {
+                "id": "gross_margin",
+                "name": "Gross Margin",
+                "formula": "gross_profit / revenue"
+            },
+            {
+                "id": "ebitda",
+                "name": "EBITDA",
+                "formula": "gross_profit - opex"
+            },
+            {
+                "id": "ebitda_margin",
+                "name": "EBITDA Margin",
+                "formula": "ebitda / revenue"
+            }
+        ]
+    }"#;
+
+    let mut registry = Registry::new();
+    registry.load_from_json_str(json).unwrap();
+
+    // Build a model and add only the top-level metrics
+    // Dependencies should be automatically added
+    let model = ModelBuilder::new("Test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1_000_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(1_100_000.0)),
+            ],
+        )
+        .value(
+            "cogs",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(600_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(660_000.0)),
+            ],
+        )
+        .value(
+            "opex",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(200_000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(220_000.0)),
+            ],
+        )
+        // Only add ebitda_margin - should automatically add gross_profit and ebitda
+        .add_metric_from_registry("custom.ebitda_margin", &registry)
+        .unwrap()
+        .build()
+        .unwrap();
+
+    // Evaluate the model
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model, false).unwrap();
+
+    // Verify that all dependencies were added and calculated correctly
+    let q1 = PeriodId::quarter(2025, 1);
+    assert_eq!(results.get("custom.gross_profit", &q1).unwrap(), 400_000.0);
+    assert_eq!(results.get("custom.ebitda", &q1).unwrap(), 200_000.0);
+    assert!((results.get("custom.ebitda_margin", &q1).unwrap() - 0.2).abs() < 0.0001);
+
+    let q2 = PeriodId::quarter(2025, 2);
+    assert_eq!(results.get("custom.gross_profit", &q2).unwrap(), 440_000.0);
+    assert_eq!(results.get("custom.ebitda", &q2).unwrap(), 220_000.0);
+    assert!((results.get("custom.ebitda_margin", &q2).unwrap() - 0.2).abs() < 0.0001);
+}
+
+#[test]
+fn test_deep_dependency_chain() {
+    // Test a deep chain of metric dependencies
+    let json = r#"{
+        "namespace": "chain",
+        "metrics": [
+            {
+                "id": "level1",
+                "name": "Level 1",
+                "formula": "base * 2"
+            },
+            {
+                "id": "level2",
+                "name": "Level 2",
+                "formula": "level1 + 10"
+            },
+            {
+                "id": "level3",
+                "name": "Level 3",
+                "formula": "level2 * 1.5"
+            },
+            {
+                "id": "level4",
+                "name": "Level 4",
+                "formula": "level3 / 2"
+            }
+        ]
+    }"#;
+
+    let mut registry = Registry::new();
+    registry.load_from_json_str(json).unwrap();
+
+    let model = ModelBuilder::new("Test")
+        .periods("2025Q1..Q1", None)
+        .unwrap()
+        .value(
+            "base",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+        )
+        // Only add level4 - should automatically add all dependencies
+        .add_metric_from_registry("chain.level4", &registry)
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model, false).unwrap();
+
+    let q1 = PeriodId::quarter(2025, 1);
+    // base = 100
+    // level1 = 100 * 2 = 200
+    // level2 = 200 + 10 = 210
+    // level3 = 210 * 1.5 = 315
+    // level4 = 315 / 2 = 157.5
+    assert_eq!(results.get("chain.level1", &q1).unwrap(), 200.0);
+    assert_eq!(results.get("chain.level2", &q1).unwrap(), 210.0);
+    assert_eq!(results.get("chain.level3", &q1).unwrap(), 315.0);
+    assert_eq!(results.get("chain.level4", &q1).unwrap(), 157.5);
 }
