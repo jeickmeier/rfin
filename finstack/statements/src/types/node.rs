@@ -225,3 +225,13 @@ pub enum ForecastMethod {
     /// Seasonal pattern (additive/multiplicative)
     Seasonal,
 }
+
+/// Seasonal decomposition mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SeasonalMode {
+    /// Additive seasonality: Y = Trend + Seasonal + Error
+    Additive,
+    /// Multiplicative seasonality: Y = Trend * Seasonal * Error
+    Multiplicative,
+}

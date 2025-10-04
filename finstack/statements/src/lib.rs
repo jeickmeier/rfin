@@ -114,7 +114,7 @@ pub mod types;
 pub use error::{Error, Result};
 pub use types::{
     AmountOrScalar, CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec, ForecastMethod,
-    ForecastSpec, NodeSpec, NodeType,
+    ForecastSpec, NodeSpec, NodeType, SeasonalMode,
 };
 
 /// Commonly used types and traits.
@@ -135,10 +135,11 @@ pub mod prelude {
     pub use crate::registry::Registry;
     pub use crate::types::{
         AmountOrScalar, FinancialModelSpec, ForecastMethod, ForecastSpec, NodeSpec, NodeType,
+        SeasonalMode,
     };
 
     // Re-export commonly used types from finstack-core
     pub use finstack_core::currency::Currency;
-    pub use finstack_core::dates::{build_periods, Period, PeriodId};
+    pub use finstack_core::dates::{build_periods, Period, PeriodId, PeriodKind};
     pub use finstack_core::money::Money;
 }

@@ -74,7 +74,9 @@ pub mod calendar;
 pub use calendar::registry::CalendarRegistry;
 
 mod periods;
-pub use periods::{build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKey};
+pub use periods::{
+    build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKey, PeriodKind,
+};
 
 pub mod utils;
 pub use utils::{

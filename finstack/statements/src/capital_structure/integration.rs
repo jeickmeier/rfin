@@ -8,7 +8,6 @@ use crate::error::Result;
 use crate::types::DebtInstrumentSpec;
 use finstack_core::dates::{Date, Period, PeriodId};
 use finstack_core::market_data::MarketContext;
-use finstack_valuations::cashflow::aggregation::aggregate_by_period;
 use finstack_valuations::cashflow::primitives::CFKind;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::{Bond, InterestRateSwap};
@@ -54,17 +53,10 @@ pub fn aggregate_instrument_cashflows(
             instrument_periods.insert(period.id, CashflowBreakdown::default());
         }
 
-        // Convert to DatedFlow for period aggregation
-        let dated_flows: Vec<(Date, finstack_core::money::Money)> = full_schedule
-            .flows
-            .iter()
-            .map(|cf| (cf.date, cf.amount))
-            .collect();
-
-        // Use valuations aggregate_by_period for proper currency-preserving aggregation
-        let _period_flows = aggregate_by_period(&dated_flows, periods);
-
         // Classify cashflows using precise CFKind information (NO MORE HEURISTICS!)
+        // Note: We use full_schedule.flows directly rather than aggregate_by_period because
+        // we need access to CFKind metadata for precise classification, which is preserved
+        // in the full schedule but lost in simple aggregation.
         for cf in &full_schedule.flows {
             if let Some(period_id) = periods
                 .iter()

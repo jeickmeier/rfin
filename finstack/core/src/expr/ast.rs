@@ -318,7 +318,7 @@ pub enum Function {
     EwmStd,
     /// Exponentially weighted moving variance.
     EwmVar,
-    
+
     // Custom financial functions
     /// Sum multiple values, skipping NaN values.
     Sum,

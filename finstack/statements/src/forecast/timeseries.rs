@@ -1,6 +1,7 @@
 //! Time-series forecasting methods with trend detection and seasonal decomposition.
 
 use crate::error::{Error, Result};
+use crate::types::SeasonalMode;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
@@ -115,8 +116,41 @@ fn timeseries_forecast_with_trend(
 
         "exponential" => {
             // Double exponential smoothing (Holt's method)
-            let alpha = params.get("alpha").and_then(|v| v.as_f64()).unwrap_or(0.3);
-            let beta = params.get("beta").and_then(|v| v.as_f64()).unwrap_or(0.1);
+            // Both parameters are required per market standards (no universal defaults)
+            let alpha = params
+                .get("alpha")
+                .and_then(|v| v.as_f64())
+                .ok_or_else(|| {
+                    Error::forecast(
+                        "'alpha' parameter required for exponential smoothing. \
+                     Typical range: 0.05 (slow/stable) to 0.3 (fast/responsive). \
+                     Industry standard: alpha = 2/(n+1) where n is smoothing window. \
+                     Example: alpha = 0.2 for moderate smoothing.",
+                    )
+                })?;
+
+            let beta = params.get("beta").and_then(|v| v.as_f64()).ok_or_else(|| {
+                Error::forecast(
+                    "'beta' parameter required for exponential smoothing trend. \
+                     Typical range: 0.05 (slow trend) to 0.2 (fast trend). \
+                     Should typically be less than alpha. \
+                     Example: beta = 0.1 for moderate trend responsiveness.",
+                )
+            })?;
+
+            // Validate parameter ranges
+            if !(0.0..=1.0).contains(&alpha) {
+                return Err(Error::forecast(format!(
+                    "alpha must be in (0, 1), got {}. Typical values: 0.05 to 0.3",
+                    alpha
+                )));
+            }
+            if !(0.0..=1.0).contains(&beta) {
+                return Err(Error::forecast(format!(
+                    "beta must be in (0, 1), got {}. Typical values: 0.05 to 0.2",
+                    beta
+                )));
+            }
 
             let (level, trend) = double_exponential_smoothing(&hist_data, alpha, beta);
 
@@ -127,8 +161,30 @@ fn timeseries_forecast_with_trend(
         }
 
         "moving_average" => {
-            // Simple moving average with optional trend
-            let window = params.get("window").and_then(|v| v.as_u64()).unwrap_or(3) as usize;
+            // Simple moving average with trend extrapolation
+            let window = params
+                .get("window")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| {
+                    Error::forecast(
+                        "'window' parameter required for moving average forecast. \
+                     Common values: 3 (short-term), 5-10 (medium-term), 20+ (long-term). \
+                     Must be less than the number of historical periods. \
+                     Example: window = 3 for 3-period moving average.",
+                    )
+                })? as usize;
+
+            if window == 0 {
+                return Err(Error::forecast("window must be greater than 0"));
+            }
+            if window > hist_data.len() {
+                return Err(Error::forecast(format!(
+                    "window ({}) cannot exceed historical data length ({})",
+                    window,
+                    hist_data.len()
+                )));
+            }
+
             let window = window.min(hist_data.len());
 
             // Calculate moving average of last 'window' periods
@@ -219,10 +275,10 @@ fn double_exponential_smoothing(data: &[f64], alpha: f64, beta: f64) -> (f64, f6
 /// # Parameters
 ///
 /// * `historical` - Array of historical values (need 2+ seasons)
-/// * `season_length` - Length of seasonal cycle (default: 4 for quarterly, 12 for monthly)
+/// * `season_length` - Length of seasonal cycle (required)
 /// * `growth` - Growth rate to apply to trend (default: 0.0)
 /// * `pattern` - Optional explicit seasonal pattern (backward compatibility)
-/// * `mode` - "additive" or "multiplicative" (default: "additive")
+/// * `mode` - SeasonalMode enum: "additive" or "multiplicative" (required)
 pub fn seasonal_forecast(
     base_value: f64,
     forecast_periods: &[PeriodId],
@@ -262,11 +318,16 @@ pub fn seasonal_forecast(
 
     let season_length = seasonal_factors.len();
 
-    // Get mode (additive or multiplicative)
-    let mode = params
-        .get("mode")
-        .and_then(|v| v.as_str())
-        .unwrap_or("multiplicative");
+    // Get mode (type-safe enum)
+    let mode = params.get("mode").ok_or_else(|| {
+        Error::forecast(
+            "'mode' parameter required for seasonal forecast. \
+             Must be either 'additive' or 'multiplicative'.",
+        )
+    })?;
+    let mode: SeasonalMode = serde_json::from_value(mode.clone()).map_err(|_| {
+        Error::forecast("Invalid 'mode' parameter. Must be 'additive' or 'multiplicative'.")
+    })?;
 
     // Get optional growth rate
     let growth = params.get("growth").and_then(|v| v.as_f64()).unwrap_or(0.0);
@@ -282,15 +343,10 @@ pub fn seasonal_forecast(
         let season_idx = i % season_length;
         let seasonal_factor = seasonal_factors[season_idx];
 
-        // Apply seasonal adjustment
+        // Apply seasonal adjustment (type-safe match)
         let value = match mode {
-            "additive" => current_base + seasonal_factor,
-            "multiplicative" => current_base * seasonal_factor,
-            _ => {
-                return Err(Error::forecast(
-                    "Mode must be 'additive' or 'multiplicative'",
-                ))
-            }
+            SeasonalMode::Additive => current_base + seasonal_factor,
+            SeasonalMode::Multiplicative => current_base * seasonal_factor,
         };
 
         results.insert(*period_id, value);
@@ -314,11 +370,17 @@ fn seasonal_forecast_with_decomposition(
     // Convert to f64 array
     let hist_data: Vec<f64> = historical.iter().filter_map(|v| v.as_f64()).collect();
 
-    // Get season length (default to 4 for quarterly, 12 for monthly)
+    // Get season length (required parameter - no default per market standards)
     let season_length = params
         .get("season_length")
         .and_then(|v| v.as_u64())
-        .unwrap_or(4) as usize; // Default to 4 for quarterly patterns
+        .ok_or_else(|| {
+            Error::forecast(
+                "'season_length' parameter required for seasonal decomposition. \
+             Common values: 4 (quarterly), 12 (monthly). \
+             Must match the cyclical pattern in your data.",
+            )
+        })? as usize;
 
     if hist_data.len() < season_length * 2 {
         return Err(Error::forecast(format!(
@@ -337,11 +399,16 @@ fn seasonal_forecast_with_decomposition(
     // Get growth rate for trend projection
     let growth = params.get("growth").and_then(|v| v.as_f64()).unwrap_or(0.0);
 
-    // Get mode
-    let mode = params
-        .get("mode")
-        .and_then(|v| v.as_str())
-        .unwrap_or("additive");
+    // Get mode (type-safe enum)
+    let mode = params.get("mode").ok_or_else(|| {
+        Error::forecast(
+            "'mode' parameter required for seasonal forecast. \
+             Must be either 'additive' or 'multiplicative'.",
+        )
+    })?;
+    let mode: SeasonalMode = serde_json::from_value(mode.clone()).map_err(|_| {
+        Error::forecast("Invalid 'mode' parameter. Must be 'additive' or 'multiplicative'.")
+    })?;
 
     // Project forward
     let mut results = IndexMap::new();
@@ -356,10 +423,10 @@ fn seasonal_forecast_with_decomposition(
         let season_idx = (hist_data.len() + i) % season_length;
         let seasonal_value = seasonal.get(season_idx).copied().unwrap_or(0.0);
 
-        // Combine based on mode
+        // Combine based on mode (type-safe match)
         let value = match mode {
-            "additive" => trend_value + seasonal_value,
-            "multiplicative" => {
+            SeasonalMode::Additive => trend_value + seasonal_value,
+            SeasonalMode::Multiplicative => {
                 // For multiplicative, seasonal is a factor
                 let seasonal_factor = if trend[0] != 0.0 {
                     1.0 + seasonal_value / trend[0]
@@ -368,10 +435,10 @@ fn seasonal_forecast_with_decomposition(
                 };
                 trend_value * seasonal_factor
             }
-            _ => trend_value + seasonal_value, // Default to additive
         };
 
-        results.insert(*period_id, value.max(0.0)); // Ensure non-negative
+        // Allow negative values for financial metrics (losses, declines, etc.)
+        results.insert(*period_id, value);
     }
 
     Ok(results)

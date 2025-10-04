@@ -12,15 +12,42 @@ use core::fmt;
 use core::str::FromStr;
 use time::Month;
 
-// Period categories supported in this module.
+/// Period frequency type.
+///
+/// Defines the frequency of periods (quarterly, monthly, etc.).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-enum PeriodKind {
+pub enum PeriodKind {
+    /// Quarterly periods (4 per year)
     Quarterly,
+    /// Monthly periods (12 per year)
     Monthly,
+    /// Weekly periods (52 per year, non-ISO 8601)
     Weekly,
+    /// Semi-annual periods (2 per year)
     SemiAnnual,
+    /// Annual periods (1 per year)
     Annual,
+}
+
+impl PeriodKind {
+    /// Get the number of periods per year for this frequency.
+    ///
+    /// # Returns
+    /// - Quarterly: 4
+    /// - Monthly: 12
+    /// - Weekly: 52
+    /// - Semi-Annual: 2
+    /// - Annual: 1
+    pub fn periods_per_year(self) -> u8 {
+        match self {
+            PeriodKind::Quarterly => 4,
+            PeriodKind::Monthly => 12,
+            PeriodKind::Weekly => 52,
+            PeriodKind::SemiAnnual => 2,
+            PeriodKind::Annual => 1,
+        }
+    }
 }
 
 /// Identifier for a period like 2025Q1 or 2025M03.
@@ -80,6 +107,73 @@ impl PeriodId {
             index: 1,
             kind: PeriodKind::Annual,
         }
+    }
+
+    /// Get the period kind (frequency).
+    ///
+    /// # Returns
+    /// The frequency type of this period (Quarterly, Monthly, etc.)
+    pub fn kind(&self) -> PeriodKind {
+        self.kind
+    }
+
+    /// Get the number of periods per year for this frequency.
+    ///
+    /// # Returns
+    /// - Quarterly: 4
+    /// - Monthly: 12
+    /// - Weekly: 52
+    /// - Semi-Annual: 2
+    /// - Annual: 1
+    ///
+    /// # Example
+    /// ```
+    /// use finstack_core::dates::PeriodId;
+    ///
+    /// let q1 = PeriodId::quarter(2025, 1);
+    /// assert_eq!(q1.periods_per_year(), 4);
+    ///
+    /// let m1 = PeriodId::month(2025, 1);
+    /// assert_eq!(m1.periods_per_year(), 12);
+    /// ```
+    pub fn periods_per_year(&self) -> u8 {
+        self.kind.periods_per_year()
+    }
+
+    /// Step forward to the next period.
+    ///
+    /// # Example
+    /// ```
+    /// use finstack_core::dates::PeriodId;
+    ///
+    /// let q1 = PeriodId::quarter(2025, 1);
+    /// let q2 = q1.next().unwrap();
+    /// assert_eq!(q2, PeriodId::quarter(2025, 2));
+    ///
+    /// let q4 = PeriodId::quarter(2025, 4);
+    /// let next_q1 = q4.next().unwrap();
+    /// assert_eq!(next_q1, PeriodId::quarter(2026, 1));
+    /// ```
+    pub fn next(self) -> crate::Result<Self> {
+        step(self)
+    }
+
+    /// Step backward to the previous period.
+    ///
+    /// # Example
+    /// ```
+    /// use finstack_core::dates::PeriodId;
+    ///
+    /// let q2 = PeriodId::quarter(2025, 2);
+    /// let q1 = q2.prev().unwrap();
+    /// assert_eq!(q1, PeriodId::quarter(2025, 1));
+    ///
+    /// let q1 = PeriodId::quarter(2025, 1);
+    /// let prev_q4 = q1.prev().unwrap();
+    /// assert_eq!(prev_q4, PeriodId::quarter(2024, 4));
+    /// ```
+    pub fn prev(self) -> crate::Result<Self> {
+        step_backward(self)
     }
 }
 
@@ -646,6 +740,49 @@ fn step(mut id: PeriodId) -> crate::Result<PeriodId> {
         }
         PeriodKind::Annual => {
             id.year += 1;
+            id.index = 1;
+        }
+    }
+    Ok(id)
+}
+
+/// Step backward by one period (inverse of step).
+fn step_backward(mut id: PeriodId) -> crate::Result<PeriodId> {
+    match id.kind {
+        PeriodKind::Quarterly => {
+            if id.index == 1 {
+                id.year -= 1;
+                id.index = 4;
+            } else {
+                id.index -= 1;
+            }
+        }
+        PeriodKind::Monthly => {
+            if id.index == 1 {
+                id.year -= 1;
+                id.index = 12;
+            } else {
+                id.index -= 1;
+            }
+        }
+        PeriodKind::Weekly => {
+            if id.index == 1 {
+                id.year -= 1;
+                id.index = 53;
+            } else {
+                id.index -= 1;
+            }
+        }
+        PeriodKind::SemiAnnual => {
+            if id.index == 1 {
+                id.year -= 1;
+                id.index = 2;
+            } else {
+                id.index -= 1;
+            }
+        }
+        PeriodKind::Annual => {
+            id.year -= 1;
             id.index = 1;
         }
     }

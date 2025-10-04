@@ -1,7 +1,7 @@
 //! Evaluation context for statement formulas.
 
 use crate::error::{Error, Result};
-use finstack_core::dates::PeriodId;
+use finstack_core::dates::{PeriodId, PeriodKind};
 use indexmap::IndexMap;
 
 /// Evaluation context for a single period.
@@ -11,6 +11,9 @@ use indexmap::IndexMap;
 pub struct EvaluationContext {
     /// Current period being evaluated
     pub period_id: PeriodId,
+
+    /// Period frequency (quarterly, monthly, etc.)
+    pub period_kind: PeriodKind,
 
     /// Map of node_id → column index for the current period
     pub node_to_column: IndexMap<String, usize>,
@@ -34,8 +37,10 @@ impl EvaluationContext {
         historical_results: IndexMap<PeriodId, IndexMap<String, f64>>,
     ) -> Self {
         let num_nodes = node_to_column.len();
+        let period_kind = period_id.kind(); // Extract period frequency from period_id
         Self {
             period_id,
+            period_kind,
             node_to_column,
             historical_results,
             current_values: vec![None; num_nodes],

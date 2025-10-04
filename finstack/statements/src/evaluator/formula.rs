@@ -23,7 +23,15 @@ use finstack_core::dates::PeriodId;
 use finstack_core::expr::{Expr, ExprNode, Function};
 use std::collections::BTreeMap;
 
-/// Epsilon value for floating point comparisons
+/// Epsilon value for floating point comparisons.
+///
+/// Set to 1e-10 for rate/ratio comparisons (basis point precision level).
+/// This is appropriate for:
+/// - Interest rate comparisons (0.01 basis point precision)
+/// - Ratio comparisons (leverage, margins)
+/// - Percentage change comparisons
+///
+/// Note: For currency comparisons, use the Money type with Decimal arithmetic, not f64.
 const EPSILON: f64 = 1e-10;
 
 /// Convert boolean to f64 (1.0 for true, 0.0 for false).
@@ -142,24 +150,30 @@ fn calculate_mean(values: &[f64]) -> Result<f64> {
 }
 
 /// Calculate standard deviation of values.
+///
+/// Uses sample standard deviation (sqrt of sample variance) per financial industry standards.
 fn calculate_std(values: &[f64]) -> Result<f64> {
-    if values.len() <= 1 {
-        return Ok(0.0);
+    if values.len() < 2 {
+        return Ok(f64::NAN); // Undefined for < 2 values with sample variance
     }
     let variance = calculate_variance(values)?;
     Ok(variance.sqrt())
 }
 
 /// Calculate variance of values.
+///
+/// Uses sample variance (Bessel's correction with n-1 denominator) per financial industry standards.
+/// This is the unbiased estimator required by Bloomberg, Excel VAR.S(), pandas.var(ddof=1), etc.
 fn calculate_variance(values: &[f64]) -> Result<f64> {
     if values.is_empty() {
         return Ok(f64::NAN);
     }
     if values.len() == 1 {
-        return Ok(0.0);
+        return Ok(f64::NAN); // Undefined for single value with sample variance
     }
     let mean = calculate_mean(values)?;
-    Ok(values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64)
+    // Use sample variance (n-1) per market standards (Bessel's correction)
+    Ok(values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (values.len() - 1) as f64)
 }
 
 /// Calculate median of values.
@@ -179,109 +193,25 @@ fn calculate_median(values: &[f64]) -> Result<f64> {
 
 /// Helper to offset a PeriodId by N periods.
 /// Positive offset goes forward, negative goes backward.
-fn offset_period(period: PeriodId, offset: i32) -> PeriodId {
+///
+/// Now uses core API methods (next/prev) to avoid code duplication.
+fn offset_period(period: PeriodId, offset: i32) -> Result<PeriodId> {
     if offset == 0 {
-        return period;
+        return Ok(period);
     }
 
     let mut result = period;
     let steps = offset.unsigned_abs() as usize;
 
     for _ in 0..steps {
-        if offset > 0 {
-            // Move forward
-            result = step_forward(result);
+        result = if offset > 0 {
+            result.next()?
         } else {
-            // Move backward
-            result = step_backward(result);
-        }
+            result.prev()?
+        };
     }
 
-    result
-}
-
-/// Move a period forward by one step.
-fn step_forward(id: PeriodId) -> PeriodId {
-    match id {
-        PeriodId { year, index, .. } if id.to_string().contains('Q') => {
-            // Quarterly
-            if index == 4 {
-                PeriodId::quarter(year + 1, 1)
-            } else {
-                PeriodId::quarter(year, index + 1)
-            }
-        }
-        PeriodId { year, index, .. } if id.to_string().contains('M') => {
-            // Monthly
-            if index == 12 {
-                PeriodId::month(year + 1, 1)
-            } else {
-                PeriodId::month(year, index + 1)
-            }
-        }
-        PeriodId { year, index, .. } if id.to_string().contains('W') => {
-            // Weekly
-            if index >= 52 {
-                PeriodId::week(year + 1, 1)
-            } else {
-                PeriodId::week(year, index + 1)
-            }
-        }
-        PeriodId { year, index, .. } if id.to_string().contains('H') => {
-            // Half-year / Semi-annual
-            if index == 2 {
-                PeriodId::half(year + 1, 1)
-            } else {
-                PeriodId::half(year, 2)
-            }
-        }
-        PeriodId { year, .. } => {
-            // Annual
-            PeriodId::annual(year + 1)
-        }
-    }
-}
-
-/// Move a period backward by one step.
-fn step_backward(id: PeriodId) -> PeriodId {
-    match id {
-        PeriodId { year, index, .. } if id.to_string().contains('Q') => {
-            // Quarterly
-            if index == 1 {
-                PeriodId::quarter(year - 1, 4)
-            } else {
-                PeriodId::quarter(year, index - 1)
-            }
-        }
-        PeriodId { year, index, .. } if id.to_string().contains('M') => {
-            // Monthly
-            if index == 1 {
-                PeriodId::month(year - 1, 12)
-            } else {
-                PeriodId::month(year, index - 1)
-            }
-        }
-        PeriodId { year, index, .. } if id.to_string().contains('W') => {
-            // Weekly
-            if index == 1 {
-                PeriodId::week(year - 1, 52)
-            } else {
-                PeriodId::week(year, index - 1)
-            }
-        }
-        PeriodId { year, index, .. } if id.to_string().contains('H') => {
-            // Half-year / Semi-annual
-            if index == 1 {
-                PeriodId::half(year - 1, 2)
-            } else {
-                PeriodId::half(year, 1)
-            }
-        }
-        PeriodId { year, .. } => {
-            // Annual
-            PeriodId::annual(year - 1)
-        }
-    }
+    Ok(result)
 }
 
 /// Recursively evaluate an expression.
@@ -379,7 +309,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             }
 
             // Calculate the target period
-            let target_period = offset_period(context.period_id, -lag_periods);
+            let target_period = offset_period(context.period_id, -lag_periods)?;
 
             // If it's a simple column reference, look it up in historical results
             if let ExprNode::Column(node_name) = &args[0].node {
@@ -428,7 +358,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 }
 
                 // Get the lagged value
-                let target_period = offset_period(context.period_id, -lag_periods);
+                let target_period = offset_period(context.period_id, -lag_periods)?;
                 if let Some(lagged_value) = context.get_historical_value(node_name, &target_period)
                 {
                     Ok(current_value - lagged_value)
@@ -471,7 +401,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 }
 
                 // Get the lagged value
-                let target_period = offset_period(context.period_id, -lag_periods);
+                let target_period = offset_period(context.period_id, -lag_periods)?;
                 if let Some(lagged_value) = context.get_historical_value(node_name, &target_period)
                 {
                     if lagged_value.abs() < EPSILON {
@@ -516,7 +446,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             };
 
             if values.is_empty() {
-                return Ok(0.0);
+                return Ok(f64::NAN); // Return NaN for insufficient data (market standard)
             }
 
             match func {
@@ -571,7 +501,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             };
 
             if values.is_empty() {
-                return Ok(0.0);
+                return Ok(f64::NAN); // Return NaN for insufficient data (market standard)
             }
 
             match func {
@@ -762,18 +692,22 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         Function::Ttm => {
             require_args("ttm", args, 1)?;
 
-            // For column references, get rolling sum
+            // Determine window size based on period frequency (market standard)
+            let window = context.period_kind.periods_per_year() as usize;
+
+            // For column references, get rolling sum over appropriate window
             if let ExprNode::Column(node_name) = &args[0].node {
-                let values = collect_rolling_window_values(node_name, context, 4)?;
+                let values = collect_rolling_window_values(node_name, context, window)?;
                 let sum: f64 = values.iter().filter(|v| !v.is_nan()).sum();
                 Ok(sum)
             } else {
-                // For complex expressions, just evaluate current value * 4
+                // For complex expressions, annualize by multiplying by periods per year
                 let value = evaluate_expr(&args[0], context)?;
                 if value.is_nan() {
                     Ok(f64::NAN)
                 } else {
-                    Ok(value * 4.0)
+                    let annualization_factor = window as f64;
+                    Ok(value * annualization_factor)
                 }
             }
         }

@@ -325,6 +325,7 @@ fn test_all_features_integrated() {
                 "historical".into() => serde_json::json!([50_000, 52_000, 55_000, 58_000, 60_000]),
                 "method".into() => serde_json::json!("exponential"),
                 "alpha".into() => serde_json::json!(0.3),
+                "beta".into() => serde_json::json!(0.1),
             },
         })
         // Statistical calculations
