@@ -17,6 +17,7 @@ use crate::instruments::common::traits::Attributes;
 /// Represents a single-period deposit where principal is exchanged
 /// at start and principal plus interest at maturity.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Deposit {
     /// Unique identifier for the deposit.
     pub id: InstrumentId,

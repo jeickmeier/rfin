@@ -443,6 +443,126 @@ impl CashflowProvider for InterestRateSwap {
         }
         Ok(flows)
     }
+
+    /// Build full cashflow schedule with CFKind metadata for precise classification.
+    ///
+    /// This creates a proper CashFlowSchedule with CFKind information for each leg,
+    /// enabling precise classification of fixed vs floating rate payments.
+    fn build_full_schedule(
+        &self,
+        _curves: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        use crate::cashflow::builder::{cf, FloatingCouponSpec};
+        use crate::cashflow::primitives::{CFKind, CashFlow, Notional};
+
+        // Build both legs using the builder to get proper CFKind classification
+        let mut fixed_b = cf();
+        fixed_b
+            .principal(self.notional, self.fixed.start, self.fixed.end)
+            .fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: self.fixed.rate,
+                freq: self.fixed.freq,
+                dc: self.fixed.dc,
+                bdc: self.fixed.bdc,
+                calendar_id: self.fixed.calendar_id,
+                stub: self.fixed.stub,
+            });
+        let fixed_sched = fixed_b.build()?;
+
+        let mut float_b = cf();
+        float_b
+            .principal(self.notional, self.float.start, self.float.end)
+            .floating_cf(FloatingCouponSpec {
+                index_id: self.float.fwd_id.clone(),
+                margin_bp: self.float.spread_bp,
+                gearing: 1.0,
+                coupon_type: CouponType::Cash,
+                freq: self.float.freq,
+                dc: self.float.dc,
+                bdc: self.float.bdc,
+                calendar_id: self.float.calendar_id,
+                stub: self.float.stub,
+                reset_lag_days: self.float.reset_lag_days,
+            });
+        let float_sched = float_b.build()?;
+
+        // Combine flows from both legs with proper CFKind classification
+        let mut all_flows: Vec<CashFlow> = Vec::new();
+
+        // Add fixed leg flows
+        for cf in fixed_sched.flows {
+            if cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub {
+                let amt = match self.side {
+                    PayReceive::ReceiveFixed => cf.amount,
+                    PayReceive::PayFixed => cf.amount * -1.0,
+                };
+                all_flows.push(CashFlow {
+                    date: cf.date,
+                    reset_date: cf.reset_date,
+                    amount: amt,
+                    kind: cf.kind, // Preserve precise CFKind
+                    accrual_factor: cf.accrual_factor,
+                });
+            }
+        }
+
+        // Add floating leg flows
+        for cf in float_sched.flows {
+            if cf.kind == CFKind::FloatReset {
+                let amt = match self.side {
+                    PayReceive::ReceiveFixed => cf.amount * -1.0,
+                    PayReceive::PayFixed => cf.amount,
+                };
+                all_flows.push(CashFlow {
+                    date: cf.date,
+                    reset_date: cf.reset_date,
+                    amount: amt,
+                    kind: cf.kind, // Preserve precise CFKind
+                    accrual_factor: cf.accrual_factor,
+                });
+            }
+        }
+
+        // Sort flows by date and CFKind priority
+        all_flows.sort_by(|a, b| {
+            use core::cmp::Ordering;
+            match a.date.cmp(&b.date) {
+                Ordering::Equal => {
+                    // Use kind ranking logic from cashflow builder
+                    let rank_a = match a.kind {
+                        CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
+                        CFKind::Fee => 1,
+                        CFKind::Amortization => 2,
+                        CFKind::PIK => 3,
+                        CFKind::Notional => 4,
+                        _ => 5,
+                    };
+                    let rank_b = match b.kind {
+                        CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
+                        CFKind::Fee => 1,
+                        CFKind::Amortization => 2,
+                        CFKind::PIK => 3,
+                        CFKind::Notional => 4,
+                        _ => 5,
+                    };
+                    rank_a.cmp(&rank_b)
+                }
+                other => other,
+            }
+        });
+
+        // Create notional spec for swap (notional doesn't amortize)
+        let notional = Notional::par(self.notional.amount(), self.notional.currency());
+
+        Ok(crate::cashflow::builder::CashFlowSchedule {
+            flows: all_flows,
+            notional,
+            day_count: self.fixed.dc, // Use fixed leg day count as representative
+            meta: Default::default(),
+        })
+    }
 }
 
 impl crate::instruments::common::HasDiscountCurve for InterestRateSwap {

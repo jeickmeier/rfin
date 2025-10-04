@@ -82,7 +82,7 @@ impl Evaluator {
 
         // Compute capital structure cashflows if market context is provided
         let cs_cashflows = if let (Some(market_ctx), Some(as_of)) = (market_ctx, as_of) {
-            model.compute_capital_structure_cashflows(market_ctx, as_of)?
+            self.compute_cs_cashflows(model, market_ctx, as_of)?
         } else {
             None
         };
@@ -155,6 +155,72 @@ impl Evaluator {
             }
         }
         Ok(())
+    }
+
+    /// Compute capital structure cashflows from model's instrument specifications.
+    ///
+    /// This is a private method that encapsulates all capital structure computation logic.
+    /// It builds instruments from the model's specs and aggregates cashflows by period.
+    ///
+    /// # Arguments
+    /// * `model` - The financial model containing capital structure specs
+    /// * `market_ctx` - Market context with discount/forward curves
+    /// * `as_of` - Valuation date for pricing
+    ///
+    /// # Returns
+    /// Returns `Some(cashflows)` if capital structure is defined, `None` otherwise.
+    fn compute_cs_cashflows(
+        &self,
+        model: &FinancialModelSpec,
+        market_ctx: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<Option<crate::capital_structure::CapitalStructureCashflows>> {
+        use crate::capital_structure::integration;
+        use crate::types::DebtInstrumentSpec;
+        use finstack_valuations::cashflow::traits::CashflowProvider;
+        use std::sync::Arc;
+
+        // Return None if no capital structure is defined
+        let cs_spec = match &model.capital_structure {
+            Some(cs) => cs,
+            None => return Ok(None),
+        };
+
+        // Build instruments from specifications using valuations types directly
+        let mut instruments: IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>> =
+            IndexMap::new();
+
+        for debt_spec in &cs_spec.debt_instruments {
+            match debt_spec {
+                DebtInstrumentSpec::Bond { id, .. } => {
+                    let bond = integration::build_bond_from_spec(debt_spec)?;
+                    instruments.insert(id.clone(), Arc::new(bond));
+                }
+                DebtInstrumentSpec::Swap { id, .. } => {
+                    let swap = integration::build_swap_from_spec(debt_spec)?;
+                    instruments.insert(id.clone(), Arc::new(swap));
+                }
+                DebtInstrumentSpec::Generic { id, .. } => {
+                    // For generic instruments, we can't build them automatically yet
+                    // This would need custom deserialization logic
+                    return Err(Error::capital_structure(format!(
+                        "Cannot automatically compute cashflows for generic debt instrument '{}'. \
+                         Generic instruments require manual cashflow specification.",
+                        id
+                    )));
+                }
+            }
+        }
+
+        // Aggregate cashflows by period using valuations cashflow aggregation
+        let cashflows = integration::aggregate_instrument_cashflows(
+            &instruments,
+            &model.periods,
+            market_ctx,
+            as_of,
+        )?;
+
+        Ok(Some(cashflows))
     }
 
     /// Evaluate a single period.

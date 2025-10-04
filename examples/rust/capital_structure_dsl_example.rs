@@ -145,43 +145,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Example 5: Access computed capital structure cashflows
-    println!("\n5. Capital structure cashflows (automatically computed):");
-
-    // The cashflows are computed internally during evaluation from bond definitions
-    // We can access them by computing them again for display purposes
-    let cs_cashflows = model.compute_capital_structure_cashflows(&market_ctx, as_of)?;
-
-    if let Some(cashflows) = cs_cashflows {
-        let q1 = PeriodId::quarter(2025, 1);
-
-        if let Some(total) = cashflows.totals.get(&q1) {
-            println!("   Q1 2025 Totals:");
-            println!("     Interest expense: ${:.2}", total.interest_expense);
-            println!("     Principal payment: ${:.2}", total.principal_payment);
-            println!("     Debt balance: ${:.2}", total.debt_balance);
-        }
-
-        println!("\n   By Instrument:");
-        for (instrument_id, periods) in &cashflows.by_instrument {
-            if let Some(breakdown) = periods.get(&q1) {
-                println!("     {}:", instrument_id);
-                println!("       Interest: ${:.2}", breakdown.interest_expense);
-                println!("       Principal: ${:.2}", breakdown.principal_payment);
-                println!("       Balance: ${:.2}", breakdown.debt_balance);
-            }
-        }
-    }
-
-    // Example 6: Formulas with cs.* references
-    println!("\n6. Formula examples with cs.* references:");
+    // Example 5: Formulas with cs.* references
+    println!("\n5. Formula examples with cs.* references:");
     println!("   - Net income: revenue - cogs - opex - cs.interest_expense.total");
     println!("   - Interest coverage: ebitda / cs.interest_expense.total");
     println!("   - Debt service coverage: ebitda / (cs.interest_expense.total + cs.principal_payment.total)");
     println!("   - Leverage: cs.debt_balance.total / ebitda");
 
-    // Example 7: Build extended model with cs.* formulas
-    println!("\n7. Building model with cs.* formulas:");
+    // Example 6: Build extended model with cs.* formulas
+    println!("\n6. Building model with cs.* formulas:");
 
     let extended_model = ModelBuilder::new("LBO Model Extended")
         .periods("2025Q1..2025Q1", Some("2025Q1"))? // Single period for simplicity

@@ -17,6 +17,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// the difference between the realized rate and the fixed rate, paid at
 /// the start of the interest period (FRA convention).
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ForwardRateAgreement {
     /// Unique identifier
     pub id: InstrumentId,

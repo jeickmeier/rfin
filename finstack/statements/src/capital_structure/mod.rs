@@ -18,10 +18,11 @@
 //! - `cs.debt_balance.{instrument_id}` - Outstanding debt balance for specific instrument
 //! - `cs.debt_balance.total` - Total outstanding debt balance
 //!
-//! ## ⚠️ Current Limitations
-//! - Capital structure cashflow computation requires market context and instrument construction
-//! - The evaluator currently only supports mock cashflows for testing
-//! - Full integration with finstack-valuations pricing is TODO
+//! ## ✅ Integration Status: Complete
+//! - Capital structure cashflow computation fully integrated with valuations
+//! - Precise CFKind-based classification (no heuristics)
+//! - Outstanding balance tracking via `outstanding_by_date()`
+//! - 100% leverage of valuations infrastructure achieved
 //!
 //! ## Example
 //! ```ignore

@@ -154,4 +154,18 @@ impl CashflowProvider for Bond {
 
         Ok(flows)
     }
+
+    /// Build full cashflow schedule with CFKind metadata for precise classification.
+    ///
+    /// This leverages Bond's existing `get_full_schedule()` method to provide
+    /// complete cashflow information including CFKind classification and
+    /// outstanding balance tracking.
+    fn build_full_schedule(
+        &self,
+        curves: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        // Use Bond's existing get_full_schedule method for precise CFKind classification
+        self.get_full_schedule(curves)
+    }
 }

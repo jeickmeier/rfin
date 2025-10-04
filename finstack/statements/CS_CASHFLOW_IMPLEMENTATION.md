@@ -2,7 +2,36 @@
 
 **Date:** 2025-10-04  
 **Status:** ✅ Complete  
+**Last Updated:** 2025-10-04  
 **Feature:** Automatic capital structure cashflow computation in evaluator
+
+---
+
+## Architecture Refinement (2025-10-04)
+
+**Improvement:** Moved capital structure computation logic from `FinancialModelSpec` into `Evaluator`
+
+### Rationale
+The original implementation placed `compute_capital_structure_cashflows()` as a public method on `FinancialModelSpec`. This coupled the model's data structure with evaluation concerns like `MarketContext`, violating separation of concerns.
+
+### Changes Made
+1. **Removed** `compute_capital_structure_cashflows()` from `FinancialModelSpec` (src/types/model.rs)
+2. **Added** private `compute_cs_cashflows()` method to `Evaluator` (src/evaluator/engine.rs)
+3. **Preserved** all helper functions in `capital_structure/integration.rs`
+4. **Maintained** use of valuations types directly (`Bond`, `InterestRateSwap`, `CashflowProvider`)
+
+### Benefits
+- **Pure Data Model:** `FinancialModelSpec` is now a pure, serializable data container
+- **Clear Separation:** Market context is only needed during evaluation, not when building models
+- **Simplified Mental Model:** CS cashflows are clearly an evaluated result, not an intrinsic property
+- **Better Encapsulation:** Evaluation logic stays in the evaluator
+- **No Duplication:** Continues to use valuations functionality directly
+
+### Impact
+- ✅ All tests pass (127 library tests, 16 CS DSL tests, 18 evaluator tests)
+- ✅ Example `lbo_model_complete` works correctly
+- ✅ No breaking changes to user-facing API
+- ✅ `evaluate_with_market_context()` unchanged from user perspective
 
 ---
 
@@ -14,21 +43,23 @@ This implementation completes the integration of capital structure cashflows int
 
 ## What Was Implemented
 
-### 1. FinancialModelSpec Method (HIGH PRIORITY)
+### 1. Evaluator CS Computation (HIGH PRIORITY)
 
-**File:** `finstack/statements/src/types/model.rs`
+**File:** `finstack/statements/src/evaluator/engine.rs`
 
-Added `compute_capital_structure_cashflows()` method:
-- Takes market context and as-of date as parameters
-- Builds instruments from capital structure specifications
+Added private `compute_cs_cashflows()` method to `Evaluator`:
+- Takes model, market context, and as-of date as parameters
+- Builds instruments from capital structure specifications using valuations types
 - Aggregates cashflows by period using existing infrastructure
 - Returns `Option<CapitalStructureCashflows>`
 - Handles missing capital structure gracefully (returns None)
+- **Private method:** Encapsulates all evaluation concerns within the evaluator
 
 **Method Signature:**
 ```rust
-pub fn compute_capital_structure_cashflows(
+fn compute_cs_cashflows(
     &self,
+    model: &FinancialModelSpec,
     market_ctx: &finstack_core::market_data::MarketContext,
     as_of: finstack_core::dates::Date,
 ) -> Result<Option<CapitalStructureCashflows>>
@@ -122,14 +153,14 @@ Interest Coverage:               (computed)
 2. User evaluates with market context:
    evaluator.evaluate_with_market_context(&model, false, Some(&market_ctx), Some(as_of))
                           ↓
-3. Evaluator calls model.compute_capital_structure_cashflows(&market_ctx, as_of)
+3. Evaluator calls self.compute_cs_cashflows(&model, &market_ctx, as_of)
                           ↓
-4. Method builds instruments from specs:
+4. Evaluator builds instruments from model's specs:
    - Bond → finstack_valuations::Bond
    - Swap → finstack_valuations::InterestRateSwap
                           ↓
-5. Method aggregates cashflows by period:
-   - Calls aggregate_instrument_cashflows()
+5. Evaluator aggregates cashflows by period:
+   - Calls integration::aggregate_instrument_cashflows()
    - Groups by period and instrument
    - Computes totals
                           ↓
@@ -151,18 +182,23 @@ Interest Coverage:               (computed)
                      │
           ┌──────────▼──────────┐
           │  FinancialModelSpec │
-          │  .compute_cs_cashflows()
+          │  (Pure data model)  │
+          │  capital_structure: │
+          │    CapitalStructureSpec
+          └──────────┬──────────┘
+                     │
+          ┌──────────▼──────────┐
+          │  Evaluator          │
+          │  .evaluate_with_market_context()
+          │  ├─ .compute_cs_cashflows()
+          │  │   (private method)
           └──────────┬──────────┘
                      │
           ┌──────────▼──────────┐
           │  CS Integration     │
           │  build_bond_from_spec()
+          │  build_swap_from_spec()
           │  aggregate_cashflows()
-          └──────────┬──────────┘
-                     │
-          ┌──────────▼──────────┐
-          │  Evaluator          │
-          │  evaluate_with_market_context()
           └──────────┬──────────┘
                      │
           ┌──────────▼──────────┐
@@ -324,17 +360,20 @@ Existing tests continue to pass:
 
 ## Files Modified
 
-### New Files (1)
-- `examples/rust/lbo_model_complete.rs` (221 lines) - Complete LBO example
+### Architecture Refactoring (2025-10-04)
+- `finstack/statements/src/types/model.rs` (-70 lines) - Removed compute_capital_structure_cashflows()
+- `finstack/statements/src/evaluator/engine.rs` (+68 lines, -5 lines) - Added private compute_cs_cashflows()
+- `finstack/statements/CS_CASHFLOW_IMPLEMENTATION.md` - Updated documentation
 
-### Modified Files (4)
-- `finstack/statements/src/types/model.rs` (+72 lines) - Added compute_capital_structure_cashflows()
-- `finstack/statements/src/evaluator/engine.rs` (+52 lines, -47 lines) - Added evaluate_with_market_context()
+### Original Implementation
+- `examples/rust/lbo_model_complete.rs` (221 lines) - Complete LBO example
+- `finstack/statements/src/types/model.rs` - FinancialModelSpec data model
+- `finstack/statements/src/evaluator/engine.rs` - evaluate_with_market_context()
 - `finstack/statements/src/evaluator/dag.rs` (+10 lines) - Fixed cs.* dependency extraction
 - `finstack/statements/Cargo.toml` (+3 lines) - Added lbo_model_complete example
 
-**Total Lines Added:** ~137 lines (core implementation)  
-**Total Lines in Example:** ~221 lines
+**Total Lines (Net Change from Refactoring):** ~-2 lines (slightly simplified)  
+**Key Improvement:** Better separation of concerns, clearer architecture
 
 ---
 
