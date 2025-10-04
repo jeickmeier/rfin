@@ -6,6 +6,8 @@ pub mod default_models;
 pub mod pool;
 pub mod prepayment;
 pub mod reinvestment;
+pub mod scenario_runner;
+pub mod scenarios;
 pub mod tranches;
 pub mod types;
 pub mod types_extended;
@@ -47,4 +49,12 @@ pub use default_models::{
     ConstantRecoveryModel, CreditCardChargeOffModel, CreditFactors, DefaultBehavior,
     DefaultModelFactory, MarketFactors, MortgageDefaultModel, RecoveryBehavior, SDAModel,
     VectorDefaultModel,
+};
+
+// Scenario framework
+pub use scenario_runner::ScenarioRunner;
+pub use scenarios::{
+    DefaultScenario, DefaultTimingShape, MarketScenario, PrepaymentScenario,
+    ScenarioBuilder, ScenarioComparison, ScenarioLibrary, ScenarioResult,
+    StructuredCreditScenario,
 };
