@@ -562,8 +562,8 @@ pub fn calculate_convertible_greeks(
 fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule> {
     let mut builder = cf();
     builder.principal(bond.notional, bond.issue, bond.maturity);
-    if let Some(fixed_spec) = bond.fixed_coupon {
-        builder.fixed_cf(fixed_spec);
+    if let Some(fixed_spec) = &bond.fixed_coupon {
+        builder.fixed_cf(fixed_spec.clone());
     }
     if let Some(floating_spec) = &bond.floating_coupon {
         builder.floating_cf(floating_spec.clone());

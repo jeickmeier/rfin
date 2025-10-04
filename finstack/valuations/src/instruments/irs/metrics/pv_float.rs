@@ -24,7 +24,7 @@ impl MetricCalculator for FloatLegPvCalculator {
             irs.float.freq,
             irs.float.stub,
             irs.float.bdc,
-            irs.float.calendar_id,
+            irs.float.calendar_id.as_deref(),
         );
         let dates: Vec<Date> = sched.dates;
         if dates.len() < 2 {

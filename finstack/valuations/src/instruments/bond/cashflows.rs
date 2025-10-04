@@ -68,7 +68,7 @@ impl CashflowProvider for Bond {
                 self.freq,
                 self.stub,
                 self.bdc,
-                self.calendar_id,
+                self.calendar_id.as_deref(),
             );
             let periods = schedule.dates;
             if periods.len() < 2 {
@@ -92,7 +92,7 @@ impl CashflowProvider for Bond {
 
                 // Reset date adjusted by reset lag and calendar
                 let mut reset_date = start - Duration::days(fl.reset_lag_days as i64);
-                if let Some(id) = self.calendar_id {
+                if let Some(id) = &self.calendar_id {
                     if let Some(cal) = calendar_by_id(id) {
                         reset_date = adjust(reset_date, self.bdc, cal)?;
                     }

@@ -35,15 +35,15 @@ pub(crate) fn finalize_flows(
         }
     });
 
-    let mut cals: Vec<&'static str> = Vec::new();
+    let mut cals: Vec<String> = Vec::new();
     for s in fixed {
-        if let Some(id) = s.calendar_id {
-            cals.push(id);
+        if let Some(id) = &s.calendar_id {
+            cals.push(id.clone());
         }
     }
     for s in floating {
-        if let Some(id) = s.calendar_id {
-            cals.push(id);
+        if let Some(id) = &s.calendar_id {
+            cals.push(id.clone());
         }
     }
     cals.sort_unstable();
@@ -65,7 +65,7 @@ pub(crate) fn finalize_flows(
 /// Tracks referenced calendar IDs so callers can understand adjustment context.
 #[derive(Debug, Clone, Default)]
 pub struct CashflowMeta {
-    pub calendar_ids: Vec<&'static str>,
+    pub calendar_ids: Vec<String>,
 }
 
 /// Cashflow schedule output from the composable builder.

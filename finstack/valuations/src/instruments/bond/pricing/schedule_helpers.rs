@@ -34,7 +34,7 @@ pub fn build_bond_schedule(
     freq: Frequency,
     stub: StubKind,
     bdc: BusinessDayConvention,
-    calendar_id: Option<&'static str>,
+    calendar_id: Option<&str>,
 ) -> Vec<Date> {
     let builder = ScheduleBuilder::new(as_of, maturity)
         .frequency(freq)

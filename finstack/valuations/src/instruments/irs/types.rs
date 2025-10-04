@@ -67,7 +67,7 @@ impl InterestRateSwap {
             freq: sched.freq,
             dc: sched.dc,
             bdc: sched.bdc,
-            calendar_id: sched.calendar_id,
+            calendar_id: sched.calendar_id.clone(),
             stub: sched.stub,
             start,
             end,
@@ -81,7 +81,7 @@ impl InterestRateSwap {
             freq: sched.freq,
             dc: sched.dc,
             bdc: sched.bdc,
-            calendar_id: sched.calendar_id,
+            calendar_id: sched.calendar_id.clone(),
             stub: sched.stub,
             reset_lag_days: 2,
             start,
@@ -112,7 +112,7 @@ impl InterestRateSwap {
             freq: sched.freq,
             dc: sched.dc,
             bdc: sched.bdc,
-            calendar_id: sched.calendar_id,
+            calendar_id: sched.calendar_id.clone(),
             stub: sched.stub,
             start,
             end,
@@ -126,7 +126,7 @@ impl InterestRateSwap {
             freq: sched.freq,
             dc: sched.dc,
             bdc: sched.bdc,
-            calendar_id: sched.calendar_id,
+            calendar_id: sched.calendar_id.clone(),
             stub: sched.stub,
             reset_lag_days: 2,
             start,
@@ -159,7 +159,7 @@ impl InterestRateSwap {
             freq: sched.freq,
             dc: sched.dc,
             bdc: sched.bdc,
-            calendar_id: sched.calendar_id,
+            calendar_id: sched.calendar_id.clone(),
             stub: sched.stub,
             start,
             end,
@@ -173,7 +173,7 @@ impl InterestRateSwap {
             freq: sched.freq,
             dc: sched.dc,
             bdc: sched.bdc,
-            calendar_id: sched.calendar_id,
+            calendar_id: sched.calendar_id.clone(),
             stub: sched.stub,
             reset_lag_days: 2,
             start,
@@ -202,7 +202,7 @@ impl InterestRateSwap {
                 freq: self.fixed.freq,
                 dc: self.fixed.dc,
                 bdc: self.fixed.bdc,
-                calendar_id: self.fixed.calendar_id,
+                calendar_id: self.fixed.calendar_id.clone(),
                 stub: self.fixed.stub,
             });
         let sched = b.build()?;
@@ -233,7 +233,7 @@ impl InterestRateSwap {
             .stub_rule(self.float.stub);
 
         let sched_dates: Vec<Date> = {
-            let sched = if let Some(id) = self.float.calendar_id {
+            let sched = if let Some(id) = &self.float.calendar_id {
                 if let Some(cal) = calendar_by_id(id) {
                     builder.adjust_with(self.float.bdc, cal).build()?
                 } else {
@@ -317,7 +317,7 @@ impl InterestRateSwap {
                         .frequency(self.float.freq)
                         .stub_rule(self.float.stub);
                         let sched_dates: Vec<_> = {
-                            let sched = if let Some(id) = self.float.calendar_id {
+                            let sched = if let Some(id) = &self.float.calendar_id {
                                 if let Some(cal) = calendar_by_id(id) {
                                     builder.adjust_with(self.float.bdc, cal).build()?
                                 } else {
@@ -398,7 +398,7 @@ impl CashflowProvider for InterestRateSwap {
                 freq: self.fixed.freq,
                 dc: self.fixed.dc,
                 bdc: self.fixed.bdc,
-                calendar_id: self.fixed.calendar_id,
+                calendar_id: self.fixed.calendar_id.clone(),
                 stub: self.fixed.stub,
             });
         let fixed_sched = fixed_b.build()?;
@@ -414,7 +414,7 @@ impl CashflowProvider for InterestRateSwap {
                 freq: self.float.freq,
                 dc: self.float.dc,
                 bdc: self.float.bdc,
-                calendar_id: self.float.calendar_id,
+                calendar_id: self.float.calendar_id.clone(),
                 stub: self.float.stub,
                 reset_lag_days: self.float.reset_lag_days,
             });
@@ -466,7 +466,7 @@ impl CashflowProvider for InterestRateSwap {
                 freq: self.fixed.freq,
                 dc: self.fixed.dc,
                 bdc: self.fixed.bdc,
-                calendar_id: self.fixed.calendar_id,
+                calendar_id: self.fixed.calendar_id.clone(),
                 stub: self.fixed.stub,
             });
         let fixed_sched = fixed_b.build()?;
@@ -482,7 +482,7 @@ impl CashflowProvider for InterestRateSwap {
                 freq: self.float.freq,
                 dc: self.float.dc,
                 bdc: self.float.bdc,
-                calendar_id: self.float.calendar_id,
+                calendar_id: self.float.calendar_id.clone(),
                 stub: self.float.stub,
                 reset_lag_days: self.float.reset_lag_days,
             });

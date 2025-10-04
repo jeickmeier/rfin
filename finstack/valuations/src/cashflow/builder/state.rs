@@ -140,7 +140,7 @@ fn emit_float_coupons_on(
                 // If curves are available, look up the forward rate
                 if let Ok(fwd) = ctx.get_forward_ref(spec.index_id.clone()) {
                     let mut reset_date = d - Duration::days(spec.reset_lag_days as i64);
-                    if let Some(id) = spec.calendar_id {
+                    if let Some(id) = &spec.calendar_id {
                         if let Some(cal) = calendar_by_id(id) {
                             reset_date = adjust(reset_date, spec.bdc, cal)?;
                         }
@@ -163,7 +163,7 @@ fn emit_float_coupons_on(
             let coupon_total = base_out * (total_rate * yf);
 
             let mut reset_date = d - Duration::days(spec.reset_lag_days as i64);
-            if let Some(id) = spec.calendar_id {
+            if let Some(id) = &spec.calendar_id {
                 if let Some(cal) = calendar_by_id(id) {
                     reset_date = adjust(reset_date, spec.bdc, cal)?;
                 }
@@ -782,7 +782,7 @@ impl CashflowBuilder {
         let maturity = self.maturity.expect("maturity must be set before stepup");
         let mut prev = issue;
         for &(end, rate) in steps {
-            self.add_fixed_coupon_window(prev, end, rate, schedule, default_split);
+            self.add_fixed_coupon_window(prev, end, rate, schedule.clone(), default_split);
             prev = end;
         }
         if prev != maturity {
@@ -809,7 +809,13 @@ impl CashflowBuilder {
         for &(end, margin_bp) in steps {
             let mut params = base_params.clone();
             params.margin_bp = margin_bp;
-            self.add_float_coupon_window(prev, end, params, schedule, default_split);
+            self.add_float_coupon_window(
+                prev,
+                end,
+                params.clone(),
+                schedule.clone(),
+                default_split,
+            );
             prev = end;
         }
         if prev != maturity {

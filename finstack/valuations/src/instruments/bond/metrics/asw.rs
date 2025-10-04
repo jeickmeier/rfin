@@ -204,7 +204,7 @@ impl MetricCalculator for AssetSwapParCalculator {
             bond.freq,
             bond.stub,
             bond.bdc,
-            bond.calendar_id,
+            bond.calendar_id.as_deref(),
         );
         if sched.len() < 2 {
             return Ok(0.0);
@@ -303,7 +303,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 bond.freq,
                 bond.stub,
                 bond.bdc,
-                bond.calendar_id,
+                bond.calendar_id.as_deref(),
             );
             let ann = fixed_leg_annuity(disc, dc, &sched);
             notional_amt * coupon * ann
@@ -320,7 +320,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             bond.freq,
             bond.stub,
             bond.bdc,
-            bond.calendar_id,
+            bond.calendar_id.as_deref(),
         );
         let ann = fixed_leg_annuity(disc, dc, &sched);
         if ann == 0.0 || notional_amt == 0.0 {

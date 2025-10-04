@@ -400,7 +400,7 @@ pub(super) fn compute_coupon_schedules(
             chosen_coupon.schedule.freq,
             chosen_coupon.schedule.stub,
             chosen_coupon.schedule.bdc,
-            chosen_coupon.schedule.calendar_id,
+            chosen_coupon.schedule.calendar_id.as_deref(),
         );
         let dates = sched.dates;
         if dates.len() < 2 {
@@ -415,10 +415,10 @@ pub(super) fn compute_coupon_schedules(
                     freq: chosen_coupon.schedule.freq,
                     dc: chosen_coupon.schedule.dc,
                     bdc: chosen_coupon.schedule.bdc,
-                    calendar_id: chosen_coupon.schedule.calendar_id,
+                    calendar_id: chosen_coupon.schedule.calendar_id.clone(),
                     stub: chosen_coupon.schedule.stub,
                 };
-                used_fixed_specs.push(spec);
+                used_fixed_specs.push(spec.clone());
                 fixed_schedules.push((spec, dates, sched.prev, sched.first_or_last));
             }
             CouponSpec::Float {
@@ -436,7 +436,7 @@ pub(super) fn compute_coupon_schedules(
                     freq: chosen_coupon.schedule.freq,
                     dc: chosen_coupon.schedule.dc,
                     bdc: chosen_coupon.schedule.bdc,
-                    calendar_id: chosen_coupon.schedule.calendar_id,
+                    calendar_id: chosen_coupon.schedule.calendar_id.clone(),
                     stub: chosen_coupon.schedule.stub,
                     reset_lag_days: *reset_lag_days,
                 };

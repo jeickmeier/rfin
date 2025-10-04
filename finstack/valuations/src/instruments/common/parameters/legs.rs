@@ -66,7 +66,7 @@ pub struct FixedLegSpec {
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     /// Stub period handling rule
     pub stub: StubKind,
     /// Start date of the fixed leg
@@ -97,7 +97,7 @@ pub struct FloatLegSpec {
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     /// Stub period handling rule
     pub stub: StubKind,
     /// Reset lag in business days for floating rate

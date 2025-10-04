@@ -351,7 +351,7 @@ pub fn compute_accrued_interest(
         bond.freq,
         bond.stub,
         bond.bdc,
-        bond.calendar_id,
+        bond.calendar_id.as_deref(),
     );
     for window in sched.dates.windows(2) {
         let start_date = window[0];
@@ -405,7 +405,7 @@ pub fn compute_accrued_interest_with_context(
         bond.freq,
         bond.stub,
         bond.bdc,
-        bond.calendar_id,
+        bond.calendar_id.as_deref(),
     );
     let dates = sched.dates;
     for w in dates.windows(2) {
@@ -414,7 +414,7 @@ pub fn compute_accrued_interest_with_context(
         if start <= as_of && as_of < end {
             // Determine reset date and forward time
             let mut reset_date = start - Duration::days(fl.reset_lag_days as i64);
-            if let Some(id) = bond.calendar_id {
+            if let Some(id) = &bond.calendar_id {
                 if let Some(cal) = calendar_by_id(id) {
                     reset_date = adjust(reset_date, bond.bdc, cal)?;
                 }

@@ -20,7 +20,7 @@ impl MetricCalculator for FixedLegPvCalculator {
             irs.fixed.freq,
             irs.fixed.stub,
             irs.fixed.bdc,
-            irs.fixed.calendar_id,
+            irs.fixed.calendar_id.as_deref(),
         );
         let dates: Vec<Date> = sched.dates;
         if dates.len() < 2 {

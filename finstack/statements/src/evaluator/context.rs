@@ -73,7 +73,7 @@ impl EvaluationContext {
             .node_to_column
             .get(node_id)
             .ok_or_else(|| Error::node_not_found(node_id))?;
-        
+
         match self.current_values[*idx] {
             Some(value) => Ok(value),
             None => Err(Error::eval(format!(

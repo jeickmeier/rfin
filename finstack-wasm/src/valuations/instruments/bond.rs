@@ -5,7 +5,7 @@ use crate::core::dates::daycount::{JsDayCount, JsFrequency};
 use crate::core::dates::schedule::JsStubKind;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::Date as CoreDate;
 use finstack_valuations::instruments::bond::{Bond, BondFloatSpec, CallPut, CallPutSchedule};
@@ -176,7 +176,7 @@ impl JsBond {
         if let Some(hazard) = hazard_curve {
             builder = builder.hazard_id_opt(Some(curve_id_from_str(&hazard)));
         }
-        if let Some(cal) = optional_static_str(calendar_id) {
+        if let Some(cal) = calendar_id {
             builder = builder.calendar_id_opt(Some(cal));
         }
 

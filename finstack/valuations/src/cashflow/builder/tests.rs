@@ -36,7 +36,7 @@ fn linear_vs_step_parity() {
         .amortization(AmortizationSpec::LinearTo {
             final_notional: Money::new(0.0, Currency::USD),
         })
-        .fixed_cf(fixed);
+        .fixed_cf(fixed.clone());
     let s1 = b1.build().unwrap();
 
     // Step schedule equivalent
@@ -57,7 +57,7 @@ fn linear_vs_step_parity() {
     let mut b2 = cf();
     b2.principal(init, issue, maturity)
         .amortization(AmortizationSpec::StepRemaining { schedule: pairs })
-        .fixed_cf(fixed);
+        .fixed_cf(fixed.clone());
     let s2 = b2.build().unwrap();
 
     assert_eq!(s1.flows.len(), s2.flows.len());
@@ -85,7 +85,7 @@ fn pik_capitalization_increases_outstanding() {
     };
 
     let mut b = cf();
-    b.principal(init, issue, maturity).fixed_cf(fixed);
+    b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let s = b.build().unwrap();
     let path = s.outstanding_path();
     // Find last outstanding before redemption
@@ -121,7 +121,7 @@ fn ordering_invariants_within_date() {
     let mut b = cf();
     b.principal(init, issue, maturity)
         .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
-        .fixed_cf(fixed);
+        .fixed_cf(fixed.clone());
     let s = b.build().unwrap();
 
     // On coupon dates where multiple flows exist, enforce order: Fixed/Stub -> Amortization -> PIK -> Notional
@@ -155,7 +155,7 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
     let init = Money::new(1_000_000.0, Currency::USD);
 
     let mut b = cf();
-    b.principal(init, issue, maturity).fixed_cf(fixed);
+    b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let schedule = b.build().unwrap();
 
     let curve = CoreDiscCurve::builder("USD-OIS")
@@ -195,7 +195,7 @@ fn detects_stub_periods() {
     let init = Money::new(1_000_000.0, Currency::USD);
 
     let mut b = cf();
-    b.principal(init, issue, maturity).fixed_cf(fixed);
+    b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let schedule = b.build().unwrap();
 
     // Find coupon flows (not notional)
@@ -236,7 +236,7 @@ fn outstanding_by_date_dedup_and_values() {
     let mut b = cf();
     b.principal(init, issue, maturity)
         .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
-        .fixed_cf(fixed);
+        .fixed_cf(fixed.clone());
     let s = b.build().unwrap();
 
     let end_by_date = s.outstanding_by_date();

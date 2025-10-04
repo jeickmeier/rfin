@@ -1000,7 +1000,7 @@ impl CDSTranchePricer {
                 tranche.payment_frequency,
                 self.params.schedule_stub,
                 tranche.business_day_convention,
-                tranche.calendar_id,
+                tranche.calendar_id.as_deref(),
             );
             schedule.dates
         };

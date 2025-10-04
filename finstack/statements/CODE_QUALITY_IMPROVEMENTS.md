@@ -48,7 +48,7 @@ Implemented comprehensive code quality improvements and enabled automatic generi
 - ✅ InterestRateSwap (pay-fixed/receive-fixed)
 - ✅ Deposit (term deposits for cash management) - **NEW!**
 - ✅ ForwardRateAgreement (FRA) - **NEW!**
-- ⚠️ Repo (blocked by `'static` lifetime constraint on `calendar_id` field)
+- ✅ Repo (repurchase agreements) - **NEW! (fixed by changing calendar_id to String)**
 
 **Impact:**
 - Users can now add Deposit and FRA instruments via `add_custom_debt()`
@@ -236,11 +236,11 @@ let model = ModelBuilder::new("Hedged Model")
 
 ## Known Limitations
 
-### Repo Deserialization Blocked
-**Issue:** Repo has `calendar_id: Option<&'static str>` field requiring static lifetime  
-**Impact:** Cannot deserialize Repo from arbitrary JSON  
-**Workaround:** Repo must be constructed directly in Rust code, then serialized  
-**Future Fix:** Change Repo's `calendar_id` to `Option<String>` in valuations (requires discussion)
+### Repo Deserialization Fixed ✅
+**Issue:** Repo had `calendar_id: Option<&'static str>` field requiring static lifetime  
+**Solution:** Changed `calendar_id` to `Option<String>` in valuations (and all related types)  
+**Status:** ✅ Repo now works with add_custom_debt() and JSON deserialization  
+**Impact:** All debt instruments (Bond, IRS, Deposit, FRA, Repo) now fully supported
 
 ---
 

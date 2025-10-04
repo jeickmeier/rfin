@@ -462,6 +462,11 @@ pub(crate) fn leak_optional_str(value: Option<&str>) -> Option<&'static str> {
     value.map(leak_str)
 }
 
+/// Convert an optional string to owned String.
+pub(crate) fn to_optional_string(value: Option<&str>) -> Option<String> {
+    value.map(|s| s.to_string())
+}
+
 /// Parse an optional payments-per-year value into a Frequency.
 ///
 /// Defaults to 4 (quarterly) if None is provided.

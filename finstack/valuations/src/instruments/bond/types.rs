@@ -32,7 +32,7 @@ pub struct Bond {
     pub bdc: BusinessDayConvention,
     /// Optional calendar identifier for schedule adjustments.
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     /// Stub handling rule for the schedule.
     pub stub: StubKind,
     /// Issue date of the bond.
@@ -428,7 +428,7 @@ impl Bond {
                 freq: self.freq,
                 dc: self.dc,
                 bdc: self.bdc,
-                calendar_id: self.calendar_id,
+                calendar_id: self.calendar_id.clone(),
                 stub: self.stub,
             });
         } else {
@@ -439,7 +439,7 @@ impl Bond {
                 freq: self.freq,
                 dc: self.dc,
                 bdc: self.bdc,
-                calendar_id: self.calendar_id,
+                calendar_id: self.calendar_id.clone(),
                 stub: self.stub,
             });
         }

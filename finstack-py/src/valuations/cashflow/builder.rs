@@ -49,7 +49,7 @@ impl PyCouponType {
     name = "ScheduleParams",
     frozen
 )]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct PyScheduleParams {
     pub(crate) inner: val_builder::ScheduleParams,
 }
@@ -66,17 +66,12 @@ impl PyScheduleParams {
         calendar_id: Option<&str>,
         stub: Option<crate::core::dates::schedule::PyStubKind>,
     ) -> Self {
-        let s_owned = calendar_id.map(|s| s.to_string());
-        let cal_static: Option<&'static str> = s_owned.map(|owned| {
-            let leaked: &'static mut str = Box::leak(owned.into_boxed_str());
-            &*leaked
-        });
         Self {
             inner: val_builder::ScheduleParams {
                 freq: freq.inner,
                 dc: day_count.inner,
                 bdc: bdc.inner,
-                calendar_id: cal_static,
+                calendar_id: calendar_id.map(|s| s.to_string()),
                 stub: stub
                     .map(|s| s.inner)
                     .unwrap_or(finstack_core::dates::StubKind::None),
@@ -110,7 +105,7 @@ impl PyScheduleParams {
     name = "FixedCouponSpec",
     frozen
 )]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct PyFixedCouponSpec {
     pub(crate) inner: val_builder::FixedCouponSpec,
 }
@@ -264,8 +259,8 @@ impl PyCashflowBuilder {
     }
 
     #[pyo3(text_signature = "(self, spec)")]
-    fn fixed_cf(&mut self, spec: PyFixedCouponSpec) -> Self {
-        self.inner.fixed_cf(spec.inner);
+    fn fixed_cf(&mut self, spec: &PyFixedCouponSpec) -> Self {
+        self.inner.fixed_cf(spec.inner.clone());
         Self {
             inner: self.inner.clone(),
         }
@@ -284,7 +279,7 @@ impl PyCashflowBuilder {
     fn fixed_stepup(
         &mut self,
         steps: Vec<(Bound<'_, PyAny>, f64)>,
-        schedule: PyScheduleParams,
+        schedule: &PyScheduleParams,
         default_split: PyCouponType,
     ) -> Self {
         let mut rust_steps: Vec<(time::Date, f64)> = Vec::with_capacity(steps.len());
@@ -292,7 +287,7 @@ impl PyCashflowBuilder {
             rust_steps.push((py_to_date(&d).expect("valid date"), r));
         }
         self.inner
-            .fixed_stepup(&rust_steps, schedule.inner, default_split.inner);
+            .fixed_stepup(&rust_steps, schedule.inner.clone(), default_split.inner);
         Self {
             inner: self.inner.clone(),
         }

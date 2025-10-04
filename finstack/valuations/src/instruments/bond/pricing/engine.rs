@@ -27,7 +27,7 @@ impl BondEngine {
         // Settlement PV: start discounting from settlement date if provided
         let settle_date = if let Some(sd_u32) = bond.settlement_days {
             let sd: i32 = sd_u32 as i32;
-            if let Some(id) = bond.calendar_id {
+            if let Some(id) = &bond.calendar_id {
                 if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
                     // Walk business days using the provided calendar
                     let mut d = as_of;

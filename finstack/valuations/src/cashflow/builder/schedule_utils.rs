@@ -37,7 +37,7 @@ pub fn build_dates(
     freq: Frequency,
     stub: StubKind,
     bdc: BusinessDayConvention,
-    calendar_id: Option<&'static str>,
+    calendar_id: Option<&str>,
 ) -> PeriodSchedule {
     let builder = ScheduleBuilder::new(start, end)
         .frequency(freq)

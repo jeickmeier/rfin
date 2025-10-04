@@ -3,7 +3,7 @@ use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{
-    extract_curve_id, extract_instrument_id, frequency_from_payments_per_year, leak_optional_str,
+    extract_curve_id, extract_instrument_id, frequency_from_payments_per_year, to_optional_string,
     PyInstrumentType,
 };
 use finstack_core::dates::{BusinessDayConvention, DayCount};
@@ -167,7 +167,7 @@ impl PyCdsTranche {
         builder = builder.payment_frequency(freq);
         builder = builder.day_count(dc);
         builder = builder.business_day_convention(bdc);
-        builder = builder.calendar_id_opt(leak_optional_str(calendar));
+        builder = builder.calendar_id_opt(to_optional_string(calendar));
         builder = builder.disc_id(disc_curve);
         builder = builder.credit_index_id(credit_curve);
         builder = builder.side(side_value);

@@ -110,6 +110,13 @@ pub mod registry;
 pub mod results;
 pub mod types;
 
+// Re-export core types at crate root for ergonomic imports
+pub use error::{Error, Result};
+pub use types::{
+    AmountOrScalar, CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec, ForecastMethod,
+    ForecastSpec, NodeSpec, NodeType,
+};
+
 /// Commonly used types and traits.
 ///
 /// Import this module to get quick access to the most common types:

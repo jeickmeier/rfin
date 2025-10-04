@@ -11,6 +11,17 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::{Bond, InterestRateSwap};
 
+/// Helper to ensure capital structure exists and return mutable reference.
+fn ensure_capital_structure<State>(builder: &mut ModelBuilder<State>) -> &mut CapitalStructureSpec {
+    builder
+        .capital_structure
+        .get_or_insert_with(|| CapitalStructureSpec {
+            debt_instruments: vec![],
+            equity_instruments: vec![],
+            meta: indexmap::IndexMap::new(),
+        })
+}
+
 impl<State> ModelBuilder<State> {
     /// Add a bond to the capital structure.
     ///
@@ -42,15 +53,6 @@ impl<State> ModelBuilder<State> {
         maturity_date: Date,
         discount_curve_id: impl Into<String>,
     ) -> Result<Self> {
-        // Ensure capital structure exists
-        if self.capital_structure.is_none() {
-            self.capital_structure = Some(CapitalStructureSpec {
-                debt_instruments: vec![],
-                equity_instruments: vec![],
-                meta: indexmap::IndexMap::new(),
-            });
-        }
-
         let id_str: String = id.into();
 
         // Create bond using valuations crate
@@ -69,11 +71,12 @@ impl<State> ModelBuilder<State> {
         })?;
 
         // Add to capital structure
-        let cs = self.capital_structure.as_mut().unwrap();
-        cs.debt_instruments.push(DebtInstrumentSpec::Bond {
-            id: id_str,
-            spec: spec_json,
-        });
+        ensure_capital_structure(&mut self)
+            .debt_instruments
+            .push(DebtInstrumentSpec::Bond {
+                id: id_str,
+                spec: spec_json,
+            });
 
         Ok(self)
     }
@@ -112,15 +115,6 @@ impl<State> ModelBuilder<State> {
         _discount_curve_id: impl Into<String>,
         _forward_curve_id: impl Into<String>,
     ) -> Result<Self> {
-        // Ensure capital structure exists
-        if self.capital_structure.is_none() {
-            self.capital_structure = Some(CapitalStructureSpec {
-                debt_instruments: vec![],
-                equity_instruments: vec![],
-                meta: indexmap::IndexMap::new(),
-            });
-        }
-
         let id_str: String = id.into();
 
         // Create swap using valuations crate
@@ -137,11 +131,12 @@ impl<State> ModelBuilder<State> {
             .map_err(|e| crate::error::Error::build(format!("Failed to serialize swap: {}", e)))?;
 
         // Add to capital structure
-        let cs = self.capital_structure.as_mut().unwrap();
-        cs.debt_instruments.push(DebtInstrumentSpec::Swap {
-            id: id_str,
-            spec: spec_json,
-        });
+        ensure_capital_structure(&mut self)
+            .debt_instruments
+            .push(DebtInstrumentSpec::Swap {
+                id: id_str,
+                spec: spec_json,
+            });
 
         Ok(self)
     }
@@ -171,21 +166,13 @@ impl<State> ModelBuilder<State> {
     /// )?
     /// ```
     pub fn add_custom_debt(mut self, id: impl Into<String>, spec: serde_json::Value) -> Self {
-        // Ensure capital structure exists
-        if self.capital_structure.is_none() {
-            self.capital_structure = Some(CapitalStructureSpec {
-                debt_instruments: vec![],
-                equity_instruments: vec![],
-                meta: indexmap::IndexMap::new(),
-            });
-        }
-
         // Add to capital structure
-        let cs = self.capital_structure.as_mut().unwrap();
-        cs.debt_instruments.push(DebtInstrumentSpec::Generic {
-            id: id.into(),
-            spec,
-        });
+        ensure_capital_structure(&mut self)
+            .debt_instruments
+            .push(DebtInstrumentSpec::Generic {
+                id: id.into(),
+                spec,
+            });
 
         self
     }

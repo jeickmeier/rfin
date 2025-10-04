@@ -42,7 +42,7 @@ impl MetricCalculator for ParRateCalculator {
                     irs.float.freq,
                     irs.float.stub,
                     irs.float.bdc,
-                    irs.float.calendar_id,
+                    irs.float.calendar_id.as_deref(),
                 );
                 let schedule: Vec<Date> = fs.dates;
                 if schedule.len() < 2 {
@@ -85,7 +85,7 @@ impl MetricCalculator for ParRateCalculator {
                     irs.fixed.freq,
                     irs.fixed.stub,
                     irs.fixed.bdc,
-                    irs.fixed.calendar_id,
+                    irs.fixed.calendar_id.as_deref(),
                 );
                 let dates: Vec<Date> = sched.dates;
                 if dates.len() < 2 {

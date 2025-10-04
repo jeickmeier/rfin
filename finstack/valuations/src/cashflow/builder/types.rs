@@ -50,14 +50,14 @@ impl CouponType {
 }
 
 /// Fixed coupon specification.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct FixedCouponSpec {
     pub coupon_type: CouponType,
     pub rate: f64,
     pub freq: Frequency,
     pub dc: DayCount,
     pub bdc: BusinessDayConvention,
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     pub stub: StubKind,
 }
 
@@ -71,7 +71,7 @@ pub struct FloatingCouponSpec {
     pub freq: Frequency,
     pub dc: DayCount,
     pub bdc: BusinessDayConvention,
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     pub stub: StubKind,
     pub reset_lag_days: i32,
 }
@@ -104,12 +104,12 @@ pub enum FeeBase {
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ScheduleParams {
     pub freq: Frequency,
     pub dc: DayCount,
     pub bdc: BusinessDayConvention,
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     pub stub: StubKind,
 }
 
@@ -153,7 +153,7 @@ impl ScheduleParams {
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("USD"),
+            calendar_id: Some("USD".to_string()),
             stub: StubKind::None,
         }
     }
@@ -164,7 +164,7 @@ impl ScheduleParams {
             freq: Frequency::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("EUR"),
+            calendar_id: Some("EUR".to_string()),
             stub: StubKind::None,
         }
     }
@@ -178,7 +178,7 @@ pub struct FloatCouponParams {
     pub reset_lag_days: i32,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct FixedWindow {
     pub rate: f64,
     pub schedule: ScheduleParams,

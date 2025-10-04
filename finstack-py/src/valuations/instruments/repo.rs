@@ -3,7 +3,7 @@ use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{
-    extract_curve_id, extract_instrument_id, leak_optional_str, PyInstrumentType,
+    extract_curve_id, extract_instrument_id, to_optional_string, PyInstrumentType,
 };
 use finstack_core::dates::BusinessDayConvention;
 use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo, RepoType};
@@ -180,7 +180,7 @@ impl PyRepo {
         builder = builder.triparty(triparty.unwrap_or(false));
         builder = builder.day_count(day_count_value);
         builder = builder.bdc(bdc_value);
-        builder = builder.calendar_id_opt(leak_optional_str(calendar));
+        builder = builder.calendar_id_opt(to_optional_string(calendar));
         builder = builder.disc_id(disc_id);
 
         let repo = builder.build().map_err(core_to_py)?;

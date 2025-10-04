@@ -90,7 +90,7 @@ impl TrsScheduleSpec {
             self.params.freq,
             self.params.stub,
             self.params.bdc,
-            self.params.calendar_id,
+            self.params.calendar_id.as_deref(),
         )
     }
 }

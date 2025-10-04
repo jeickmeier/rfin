@@ -249,8 +249,7 @@ impl PyBond {
             builder = builder.bdc(conv.inner);
         }
         if let Some(cal) = calendar_id {
-            let leaked: &'static str = Box::leak(cal.to_string().into_boxed_str());
-            builder = builder.calendar_id_opt(Some(leaked));
+            builder = builder.calendar_id_opt(Some(cal.to_string()));
         }
         if let Some(c) = coupon_rate {
             builder = builder.coupon(c);

@@ -102,7 +102,7 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
         freq: Frequency::quarterly(),
         dc: DayCount::Thirty360,
         bdc: BusinessDayConvention::Following,
-        calendar_id: Some("usd"),
+        calendar_id: Some("usd".to_string()),
         stub: StubKind::None,
     };
 
@@ -112,7 +112,7 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
             issue,
             toggle_date,
             0.08,
-            schedule_params,
+            schedule_params.clone(),
             CouponType::Split {
                 cash_pct: 0.5,
                 pik_pct: 0.5,
@@ -178,7 +178,7 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
             freq: Frequency::semi_annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("eur"),
+            calendar_id: Some("eur".to_string()),
             stub: StubKind::ShortFront,
         })
         .build()?;

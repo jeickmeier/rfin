@@ -70,7 +70,7 @@ pub struct CdsTranche {
     /// Business day convention
     pub business_day_convention: BusinessDayConvention,
     /// Optional holiday calendar id
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     /// Discount curve identifier (by quote currency)
     pub disc_id: CurveId,
     /// Credit index identifier for survival/loss modeling (placeholder)
@@ -105,7 +105,7 @@ impl CdsTranche {
             payment_frequency: schedule_params.freq,
             day_count: schedule_params.dc,
             business_day_convention: schedule_params.bdc,
-            calendar_id: schedule_params.calendar_id,
+            calendar_id: schedule_params.calendar_id.clone(),
             disc_id: disc_id.into(),
             credit_index_id: credit_index_id.into(),
             side,

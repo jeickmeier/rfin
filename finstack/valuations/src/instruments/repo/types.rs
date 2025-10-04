@@ -167,7 +167,7 @@ pub struct Repo {
     /// Business day convention
     pub bdc: BusinessDayConvention,
     /// Optional calendar for business day adjustments
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     /// Discount curve identifier for valuation
     pub disc_id: CurveId,
     /// Attributes for scenario selection and tagging
@@ -198,7 +198,7 @@ impl Repo {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("target2"))
+            .calendar_id_opt(Some("target2".to_string()))
             .disc_id(disc_id.into())
             .attributes(Attributes::default())
             .build()
@@ -226,7 +226,7 @@ impl Repo {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("target2"))
+            .calendar_id_opt(Some("target2".to_string()))
             .disc_id(disc_id.into())
             .attributes(Attributes::default())
             .build()
@@ -255,7 +255,7 @@ impl Repo {
             .triparty(false)
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("target2"))
+            .calendar_id_opt(Some("target2".to_string()))
             .disc_id(disc_id.into())
             .attributes(Attributes::default())
             .build()

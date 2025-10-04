@@ -393,7 +393,7 @@ impl PyConvertibleBond {
 
         let call_put = parse_call_put_schedule(call_schedule, put_schedule)?;
 
-        let fixed_spec: Option<FixedCouponSpec> = fixed_coupon.map(|c| c.inner);
+        let fixed_spec: Option<FixedCouponSpec> = fixed_coupon.map(|c| c.inner.clone());
         let floating_spec: Option<FloatingCouponSpec> = floating_coupon.map(|c| c.inner.clone());
 
         let bond = ConvertibleBond {

@@ -34,9 +34,11 @@ impl DependencyGraph {
 
                 for dep in &node_deps {
                     // Add to this node's dependencies
+                    // SAFETY: All node_ids were initialized in the loop above
                     dependencies.get_mut(node_id).unwrap().insert(dep.clone());
 
                     // Add this node to the dependent's dependents list
+                    // SAFETY: dep is guaranteed to exist as it was extracted from model.nodes
                     dependents.get_mut(dep).unwrap().insert(node_id.clone());
                 }
             }
@@ -133,6 +135,7 @@ pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
         // Reduce in-degree of dependents
         if let Some(deps) = graph.dependents.get(&node) {
             for dependent in deps {
+                // SAFETY: All nodes in graph.dependents were initialized in in_degree map
                 let degree = in_degree.get_mut(dependent).unwrap();
                 *degree -= 1;
                 if *degree == 0 {

@@ -26,6 +26,44 @@ use std::collections::BTreeMap;
 /// Epsilon value for floating point comparisons
 const EPSILON: f64 = 1e-10;
 
+/// Convert boolean to f64 (1.0 for true, 0.0 for false).
+#[inline]
+fn bool_to_f64(b: bool) -> f64 {
+    if b {
+        1.0
+    } else {
+        0.0
+    }
+}
+
+/// Validate that a function has exactly the expected number of arguments.
+#[inline]
+fn require_args(func_name: &str, args: &[Expr], expected: usize) -> Result<()> {
+    if args.len() != expected {
+        return Err(Error::eval(format!(
+            "{}() requires exactly {} argument{}",
+            func_name,
+            expected,
+            if expected == 1 { "" } else { "s" }
+        )));
+    }
+    Ok(())
+}
+
+/// Validate that a function has at least the minimum number of arguments.
+#[inline]
+fn require_min_args(func_name: &str, args: &[Expr], min: usize) -> Result<()> {
+    if args.len() < min {
+        return Err(Error::eval(format!(
+            "{}() requires at least {} argument{}",
+            func_name,
+            min,
+            if min == 1 { "" } else { "s" }
+        )));
+    }
+    Ok(())
+}
+
 /// Evaluate a compiled expression.
 ///
 /// Handles both basic arithmetic operations (evaluated directly) and
@@ -285,65 +323,17 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<
                 }
                 BinOp::Mod => left_val % right_val,
 
-                // Comparison (return 1.0 for true, 0.0 for false)
-                BinOp::Eq => {
-                    if left_val == right_val {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
-                BinOp::Ne => {
-                    if left_val != right_val {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
-                BinOp::Lt => {
-                    if left_val < right_val {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
-                BinOp::Le => {
-                    if left_val <= right_val {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
-                BinOp::Gt => {
-                    if left_val > right_val {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
-                BinOp::Ge => {
-                    if left_val >= right_val {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
+                // Comparison operations
+                BinOp::Eq => bool_to_f64(left_val == right_val),
+                BinOp::Ne => bool_to_f64(left_val != right_val),
+                BinOp::Lt => bool_to_f64(left_val < right_val),
+                BinOp::Le => bool_to_f64(left_val <= right_val),
+                BinOp::Gt => bool_to_f64(left_val > right_val),
+                BinOp::Ge => bool_to_f64(left_val >= right_val),
 
-                // Logical (treat non-zero as true)
-                BinOp::And => {
-                    if left_val != 0.0 && right_val != 0.0 {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
-                BinOp::Or => {
-                    if left_val != 0.0 || right_val != 0.0 {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
+                // Logical operations
+                BinOp::And => bool_to_f64(left_val != 0.0 && right_val != 0.0),
+                BinOp::Or => bool_to_f64(left_val != 0.0 || right_val != 0.0),
             };
             Ok(result)
         }
@@ -351,13 +341,7 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<
             let val = evaluate_expr(operand, context)?;
             let result = match op {
                 UnaryOp::Neg => -val,
-                UnaryOp::Not => {
-                    if val == 0.0 {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
+                UnaryOp::Not => bool_to_f64(val == 0.0),
             };
             Ok(result)
         }
@@ -381,11 +365,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
     // Handle real functions from finstack-core
     match func {
         Function::Lag => {
-            if args.len() != 2 {
-                return Err(Error::eval(
-                    "lag() requires 2 arguments (expression, periods)",
-                ));
-            }
+            require_args("lag", args, 2)?;
 
             // Get the number of periods to lag
             let lag_periods = evaluate_expr(&args[1], context)? as i32;
@@ -520,12 +500,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         | Function::RollingMin
         | Function::RollingMax
         | Function::RollingCount => {
-            if args.len() != 2 {
-                return Err(Error::eval(format!(
-                    "{:?} requires 2 arguments (expression, window)",
-                    func
-                )));
-            }
+            require_args(&format!("{:?}", func), args, 2)?;
 
             let window = evaluate_expr(&args[1], context)? as usize;
             if window == 0 {
@@ -562,12 +537,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
 
         // Statistical functions (operate on all historical values)
         Function::Std | Function::Var | Function::Median => {
-            if args.is_empty() {
-                return Err(Error::eval(format!(
-                    "{:?} requires at least 1 argument",
-                    func
-                )));
-            }
+            require_min_args(&format!("{:?}", func), args, 1)?;
 
             // Collect all historical values
             let values = if let ExprNode::Column(node_name) = &args[0].node {
@@ -590,12 +560,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
 
         // Cumulative functions (operate on all historical values)
         Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => {
-            if args.is_empty() {
-                return Err(Error::eval(format!(
-                    "{:?} requires at least 1 argument",
-                    func
-                )));
-            }
+            require_min_args(&format!("{:?}", func), args, 1)?;
 
             // Collect all historical values
             let values = if let ExprNode::Column(node_name) = &args[0].node {
@@ -623,10 +588,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
 
         // Other functions
         Function::Shift => {
-            // Similar to lag but with different semantics
-            if args.len() != 2 {
-                return Err(Error::eval("shift() requires 2 arguments"));
-            }
+            require_args("shift", args, 2)?;
             let shift_periods = evaluate_expr(&args[1], context)? as i32;
 
             if shift_periods == 0 {
@@ -638,10 +600,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
 
         Function::Rank => {
-            // Rank the current value among all historical values
-            if args.is_empty() {
-                return Err(Error::eval("rank() requires at least one argument"));
-            }
+            require_min_args("rank", args, 1)?;
 
             // Get the value to rank
             let current_value = evaluate_expr(&args[0], context)?;
@@ -670,12 +629,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
 
         Function::Quantile => {
-            // Calculate quantile of a value in a distribution
-            if args.len() < 2 {
-                return Err(Error::eval(
-                    "quantile() requires 2 arguments: node and quantile",
-                ));
-            }
+            require_args("quantile", args, 2)?;
 
             // Get the quantile level (e.g., 0.25 for 25th percentile)
             let quantile = evaluate_expr(&args[1], context)?;
@@ -718,12 +672,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
 
         Function::EwmMean => {
-            // Exponentially weighted moving average
-            if args.len() < 2 {
-                return Err(Error::eval(
-                    "ewm_mean() requires 2 arguments: node and alpha",
-                ));
-            }
+            require_args("ewm_mean", args, 2)?;
 
             // Get smoothing factor (alpha)
             let alpha = evaluate_expr(&args[1], context)?;
@@ -769,10 +718,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
 
         // Custom financial functions with NaN handling
         Function::Sum => {
-            // Sum multiple values, skipping NaN
-            if args.is_empty() {
-                return Err(Error::eval("sum() requires at least one argument"));
-            }
+            require_min_args("sum", args, 1)?;
 
             let mut sum = 0.0;
             let mut has_valid = false;
@@ -793,10 +739,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
 
         Function::Mean => {
-            // Average of multiple values, skipping NaN
-            if args.is_empty() {
-                return Err(Error::eval("mean() requires at least one argument"));
-            }
+            require_min_args("mean", args, 1)?;
 
             let mut sum = 0.0;
             let mut count = 0;
@@ -817,10 +760,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
 
         Function::Ttm => {
-            // Trailing twelve months: rolling sum with window of 4 (for quarterly periods)
-            if args.len() != 1 {
-                return Err(Error::eval("ttm() requires exactly 1 argument"));
-            }
+            require_args("ttm", args, 1)?;
 
             // For column references, get rolling sum
             if let ExprNode::Column(node_name) = &args[0].node {
@@ -839,12 +779,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
 
         Function::Annualize => {
-            // Annualize a value: value * periods_per_year
-            if args.len() != 2 {
-                return Err(Error::eval(
-                    "annualize() requires 2 arguments (value, periods_per_year)",
-                ));
-            }
+            require_args("annualize", args, 2)?;
 
             let value = evaluate_expr(&args[0], context)?;
             let periods_per_year = evaluate_expr(&args[1], context)?;
@@ -857,10 +792,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
 
         Function::Coalesce => {
-            // Return first non-NaN/non-zero value
-            if args.len() < 2 {
-                return Err(Error::eval("coalesce() requires at least 2 arguments"));
-            }
+            require_min_args("coalesce", args, 2)?;
 
             for arg in args {
                 let value = evaluate_expr(arg, context)?;
@@ -874,12 +806,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
 
         Function::EwmStd | Function::EwmVar => {
-            // Exponentially weighted standard deviation/variance
-            if args.len() < 2 {
-                return Err(Error::eval(
-                    "ewm_std/var() requires 2 arguments: node and alpha",
-                ));
-            }
+            require_args(&format!("{:?}", func), args, 2)?;
 
             // Get smoothing factor (alpha)
             let alpha = evaluate_expr(&args[1], context)?;

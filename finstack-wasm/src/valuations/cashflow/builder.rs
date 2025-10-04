@@ -75,14 +75,14 @@ impl JsCouponType {
 
 /// Schedule parameters bundle for coupon generation.
 #[wasm_bindgen(js_name = ScheduleParams)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct JsScheduleParams {
     inner: CoreScheduleParams,
 }
 
 impl JsScheduleParams {
     pub(crate) fn inner(&self) -> CoreScheduleParams {
-        self.inner
+        self.inner.clone()
     }
 }
 
@@ -97,17 +97,12 @@ impl JsScheduleParams {
         calendar_id: Option<String>,
         stub_kind: Option<JsStubKind>,
     ) -> JsScheduleParams {
-        let cal = calendar_id.map(|s| {
-            let leaked: &'static str = Box::leak(s.into_boxed_str());
-            leaked
-        });
-
         JsScheduleParams {
             inner: CoreScheduleParams {
                 freq: frequency.inner(),
                 dc: day_count.inner(),
                 bdc: business_day_convention.into(),
-                calendar_id: cal,
+                calendar_id,
                 stub: stub_kind
                     .map(|s| s.inner())
                     .unwrap_or(finstack_core::dates::StubKind::None),
@@ -142,7 +137,7 @@ impl JsScheduleParams {
 
 /// Fixed coupon specification combining rate, schedule, and payment type.
 #[wasm_bindgen(js_name = FixedCouponSpec)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct JsFixedCouponSpec {
     inner: CoreFixedCouponSpec,
 }
@@ -312,7 +307,7 @@ impl JsCashflowBuilder {
     /// * `spec` - Fixed coupon specification (rate, schedule, payment type)
     #[wasm_bindgen(js_name = fixedCf)]
     pub fn fixed_cf(mut self, spec: &JsFixedCouponSpec) -> JsCashflowBuilder {
-        self.inner.fixed_cf(spec.inner);
+        self.inner.fixed_cf(spec.inner.clone());
         self
     }
 

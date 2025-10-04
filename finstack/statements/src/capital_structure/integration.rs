@@ -133,6 +133,7 @@ pub fn aggregate_instrument_cashflows(
 
         // Aggregate into totals
         for (period_id, breakdown) in &instrument_periods {
+            // SAFETY: All periods were initialized at function start
             let total = result.totals.get_mut(period_id).unwrap();
             total.interest_expense += breakdown.interest_expense;
             total.principal_payment += breakdown.principal_payment;
@@ -186,9 +187,11 @@ pub fn build_swap_from_spec(spec: &DebtInstrumentSpec) -> Result<InterestRateSwa
 /// Supported types:
 /// - Bond (fixed or floating rate bonds)
 /// - InterestRateSwap (pay-fixed or receive-fixed)
-/// - Deposit (term deposits for cash management) - requires serde feature in valuations
-/// - Repo (repurchase agreements) - requires serde feature in valuations
-/// - FRA (forward rate agreements) - requires serde feature in valuations
+/// - Deposit (term deposits for cash management)
+/// - FRA (forward rate agreements)
+/// - Repo (repurchase agreements)
+///
+/// All types require the serde feature to be enabled in valuations (enabled by default).
 ///
 /// # Returns
 /// A boxed trait object implementing CashflowProvider that can be used for cashflow generation.
@@ -221,25 +224,32 @@ pub fn build_any_instrument_from_spec(
             }
 
             // Try as Deposit (cash management)
-            if let Ok(deposit) = serde_json::from_value::<finstack_valuations::instruments::Deposit>(json_spec.clone()) {
+            if let Ok(deposit) = serde_json::from_value::<finstack_valuations::instruments::Deposit>(
+                json_spec.clone(),
+            ) {
                 return Ok(Arc::new(deposit));
             }
 
             // Try as FRA (forward rate hedge)
-            if let Ok(fra) = serde_json::from_value::<finstack_valuations::instruments::ForwardRateAgreement>(json_spec.clone()) {
+            if let Ok(fra) = serde_json::from_value::<
+                finstack_valuations::instruments::ForwardRateAgreement,
+            >(json_spec.clone())
+            {
                 return Ok(Arc::new(fra));
             }
 
-            // Note: Repo cannot be deserialized from JSON due to 'static lifetime requirement
-            // on calendar_id field. This would require changing Repo's design in valuations.
-            // For now, Repo must be constructed directly and serialized to work.
+            // Try as Repo (repurchase agreement)
+            if let Ok(repo) =
+                serde_json::from_value::<finstack_valuations::instruments::Repo>(json_spec.clone())
+            {
+                return Ok(Arc::new(repo));
+            }
 
             // If all deserialization attempts fail, return an error
             Err(crate::error::Error::build(format!(
                 "Failed to deserialize generic debt instrument '{}' as any known type. \
-                 Tried: Bond, InterestRateSwap, Deposit, ForwardRateAgreement. \
-                 The JSON structure must match one of these types exactly. \
-                 Note: Repo requires direct construction due to lifetime constraints.",
+                 Tried: Bond, InterestRateSwap, Deposit, ForwardRateAgreement, Repo. \
+                 The JSON structure must match one of these types exactly.",
                 id
             )))
         }
