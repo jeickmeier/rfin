@@ -20,9 +20,6 @@ use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
 
-// Named approximation constant to avoid magic numbers
-const BUSINESS_DAYS_PER_YEAR_APPROX: f64 = 252.0;
-
 /// ISDA 2014 standard constants used by the engine
 pub mod isda_constants {
 
@@ -40,6 +37,15 @@ pub mod isda_constants {
 
     /// Tolerance for numerical calculations
     pub const NUMERICAL_TOLERANCE: f64 = 1e-10;
+
+    /// Business days per year for North America (US markets)
+    pub const BUSINESS_DAYS_PER_YEAR_US: f64 = 252.0;
+
+    /// Business days per year for Europe (UK markets)
+    pub const BUSINESS_DAYS_PER_YEAR_UK: f64 = 250.0;
+
+    /// Business days per year for Asia (Japan markets)
+    pub const BUSINESS_DAYS_PER_YEAR_JP: f64 = 255.0;
 }
 
 /// Numerical integration method for protection leg
@@ -77,6 +83,9 @@ pub struct CDSPricerConfig {
     pub gl_order: usize,
     /// Maximum recursion depth for AdaptiveSimpson integration
     pub adaptive_max_depth: usize,
+    /// Business days per year for settlement delay calculations (region-specific).
+    /// Default: 252 (US), alternatives: 250 (UK), 255 (Japan)
+    pub business_days_per_year: f64,
 }
 
 impl Default for CDSPricerConfig {
@@ -86,7 +95,7 @@ impl Default for CDSPricerConfig {
 }
 
 impl CDSPricerConfig {
-    /// Create an ISDA 2014 standard compliant configuration
+    /// Create an ISDA 2014 standard compliant configuration (North America/US market)
     pub fn isda_standard() -> Self {
         Self {
             steps_per_year: isda_constants::STANDARD_INTEGRATION_POINTS,
@@ -98,6 +107,23 @@ impl CDSPricerConfig {
             par_spread_uses_full_premium: false,
             gl_order: 8,
             adaptive_max_depth: 12,
+            business_days_per_year: isda_constants::BUSINESS_DAYS_PER_YEAR_US,
+        }
+    }
+
+    /// Create an ISDA configuration for European markets (UK conventions)
+    pub fn isda_europe() -> Self {
+        Self {
+            business_days_per_year: isda_constants::BUSINESS_DAYS_PER_YEAR_UK,
+            ..Self::isda_standard()
+        }
+    }
+
+    /// Create an ISDA configuration for Asian markets (Japan conventions)
+    pub fn isda_asia() -> Self {
+        Self {
+            business_days_per_year: isda_constants::BUSINESS_DAYS_PER_YEAR_JP,
+            ..Self::isda_standard()
         }
     }
 
@@ -113,6 +139,7 @@ impl CDSPricerConfig {
             par_spread_uses_full_premium: false,
             gl_order: 4,
             adaptive_max_depth: 10,
+            business_days_per_year: isda_constants::BUSINESS_DAYS_PER_YEAR_US,
         }
     }
 }
@@ -153,7 +180,7 @@ impl CDSPricer {
         let t_start = self.year_fraction(base_date, cds.premium.start, cds.premium.dc)?;
         let t_end = self.year_fraction(base_date, cds.premium.end, cds.premium.dc)?;
         let recovery = cds.protection.recovery_rate;
-        let delay_years = (cds.protection.settlement_delay as f64) / BUSINESS_DAYS_PER_YEAR_APPROX;
+        let delay_years = (cds.protection.settlement_delay as f64) / self.config.business_days_per_year;
 
         let protection_pv = match self.config.integration_method {
             IntegrationMethod::Midpoint => {

@@ -142,6 +142,296 @@ impl InterestRateSwap {
             .expect("USD receive-fixed swap construction should not fail")
     }
 
+    /// Create a standard EUR pay-fixed swap with common market conventions.
+    ///
+    /// EUR swap market conventions:
+    /// - Fixed leg: Annual, 30/360
+    /// - Float leg: Semi-annual, Act/360 (€STR or EURIBOR-6M)
+    /// - BDC: Modified Following
+    /// - Calendar: TARGET2
+    pub fn eur_pay_fixed(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+    ) -> Self {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        
+        let fixed = FixedLegSpec {
+            disc_id: finstack_core::types::CurveId::from("EUR-ESTR"),
+            rate: fixed_rate,
+            freq: Frequency::annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("target2".to_string()),
+            stub: StubKind::None,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+        };
+        let float = FloatLegSpec {
+            disc_id: finstack_core::types::CurveId::from("EUR-ESTR"),
+            fwd_id: finstack_core::types::CurveId::from("EUR-EURIBOR-6M"),
+            spread_bp: 0.0,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("target2".to_string()),
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            start,
+            end,
+        };
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::PayFixed)
+            .fixed(fixed)
+            .float(float)
+            .build()
+            .expect("EUR pay-fixed swap construction should not fail")
+    }
+
+    /// Create a standard EUR receive-fixed swap with common market conventions.
+    pub fn eur_receive_fixed(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+    ) -> Self {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        
+        let fixed = FixedLegSpec {
+            disc_id: finstack_core::types::CurveId::from("EUR-ESTR"),
+            rate: fixed_rate,
+            freq: Frequency::annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("target2".to_string()),
+            stub: StubKind::None,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+        };
+        let float = FloatLegSpec {
+            disc_id: finstack_core::types::CurveId::from("EUR-ESTR"),
+            fwd_id: finstack_core::types::CurveId::from("EUR-EURIBOR-6M"),
+            spread_bp: 0.0,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("target2".to_string()),
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            start,
+            end,
+        };
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::ReceiveFixed)
+            .fixed(fixed)
+            .float(float)
+            .build()
+            .expect("EUR receive-fixed swap construction should not fail")
+    }
+
+    /// Create a standard GBP pay-fixed swap with common market conventions.
+    ///
+    /// GBP swap market conventions:
+    /// - Fixed leg: Semi-annual, Act/365
+    /// - Float leg: Semi-annual, Act/365 (SONIA)
+    /// - BDC: Modified Following
+    /// - Calendar: GBLO (London)
+    pub fn gbp_pay_fixed(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+    ) -> Self {
+        let sched = ScheduleParams::gbp_standard();
+        let fixed = FixedLegSpec {
+            disc_id: finstack_core::types::CurveId::from("GBP-SONIA"),
+            rate: fixed_rate,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id.clone(),
+            stub: sched.stub,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+        };
+        let float = FloatLegSpec {
+            disc_id: finstack_core::types::CurveId::from("GBP-SONIA"),
+            fwd_id: finstack_core::types::CurveId::from("GBP-SONIA"),
+            spread_bp: 0.0,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id.clone(),
+            stub: sched.stub,
+            reset_lag_days: 0, // SONIA has same-day fixing
+            start,
+            end,
+        };
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::PayFixed)
+            .fixed(fixed)
+            .float(float)
+            .build()
+            .expect("GBP pay-fixed swap construction should not fail")
+    }
+
+    /// Create a standard GBP receive-fixed swap with common market conventions.
+    pub fn gbp_receive_fixed(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+    ) -> Self {
+        let sched = ScheduleParams::gbp_standard();
+        let fixed = FixedLegSpec {
+            disc_id: finstack_core::types::CurveId::from("GBP-SONIA"),
+            rate: fixed_rate,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id.clone(),
+            stub: sched.stub,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+        };
+        let float = FloatLegSpec {
+            disc_id: finstack_core::types::CurveId::from("GBP-SONIA"),
+            fwd_id: finstack_core::types::CurveId::from("GBP-SONIA"),
+            spread_bp: 0.0,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id.clone(),
+            stub: sched.stub,
+            reset_lag_days: 0, // SONIA has same-day fixing
+            start,
+            end,
+        };
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::ReceiveFixed)
+            .fixed(fixed)
+            .float(float)
+            .build()
+            .expect("GBP receive-fixed swap construction should not fail")
+    }
+
+    /// Create a standard JPY pay-fixed swap with common market conventions.
+    ///
+    /// JPY swap market conventions:
+    /// - Fixed leg: Semi-annual, Act/365
+    /// - Float leg: Semi-annual, Act/365 (TONA)
+    /// - BDC: Modified Following
+    /// - Calendar: JPTO (Tokyo)
+    pub fn jpy_pay_fixed(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+    ) -> Self {
+        let sched = ScheduleParams::jpy_standard();
+        let fixed = FixedLegSpec {
+            disc_id: finstack_core::types::CurveId::from("JPY-TONA"),
+            rate: fixed_rate,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id.clone(),
+            stub: sched.stub,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+        };
+        let float = FloatLegSpec {
+            disc_id: finstack_core::types::CurveId::from("JPY-TONA"),
+            fwd_id: finstack_core::types::CurveId::from("JPY-TONA"),
+            spread_bp: 0.0,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id.clone(),
+            stub: sched.stub,
+            reset_lag_days: 0, // TONA has same-day fixing
+            start,
+            end,
+        };
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::PayFixed)
+            .fixed(fixed)
+            .float(float)
+            .build()
+            .expect("JPY pay-fixed swap construction should not fail")
+    }
+
+    /// Create a standard JPY receive-fixed swap with common market conventions.
+    pub fn jpy_receive_fixed(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+    ) -> Self {
+        let sched = ScheduleParams::jpy_standard();
+        let fixed = FixedLegSpec {
+            disc_id: finstack_core::types::CurveId::from("JPY-TONA"),
+            rate: fixed_rate,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id.clone(),
+            stub: sched.stub,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+        };
+        let float = FloatLegSpec {
+            disc_id: finstack_core::types::CurveId::from("JPY-TONA"),
+            fwd_id: finstack_core::types::CurveId::from("JPY-TONA"),
+            spread_bp: 0.0,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id.clone(),
+            stub: sched.stub,
+            reset_lag_days: 0, // TONA has same-day fixing
+            start,
+            end,
+        };
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::ReceiveFixed)
+            .fixed(fixed)
+            .float(float)
+            .build()
+            .expect("JPY receive-fixed swap construction should not fail")
+    }
+
     /// Create a basis swap (float vs float with different indices/spreads).
     pub fn usd_basis_swap(
         id: InstrumentId,

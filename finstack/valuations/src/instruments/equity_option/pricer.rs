@@ -14,7 +14,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-const DAYS_PER_YEAR: f64 = 365.0;
+/// Trading days per year for equity options (market standard for theta calculations)
+const TRADING_DAYS_PER_YEAR: f64 = 252.0;
 const ONE_PERCENT: f64 = 100.0;
 
 /// Present value using Black–Scholes; result currency is the strike currency.
@@ -189,13 +190,13 @@ pub fn compute_greeks(
             let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
             let term2 = q * spot * cdf_d1 * exp_q_t;
             let term3 = -r * inst.strike.amount() * exp_r_t * cdf_d2;
-            (term1 + term2 + term3) / DAYS_PER_YEAR
+            (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
         }
         OptionType::Put => {
             let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
             let term2 = -q * spot * cdf_m_d1 * exp_q_t;
             let term3 = r * inst.strike.amount() * exp_r_t * cdf_m_d2;
-            (term1 + term2 + term3) / DAYS_PER_YEAR
+            (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
         }
     };
     let rho_unit = match inst.option_type {
@@ -283,13 +284,13 @@ pub fn greeks_unit(
             let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
             let term2 = q * spot * cdf_d1 * exp_q_t;
             let term3 = -r * strike * exp_r_t * cdf_d2;
-            (term1 + term2 + term3) / DAYS_PER_YEAR
+            (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
         }
         OptionType::Put => {
             let term1 = -spot * pdf_d1 * sigma * exp_q_t / (2.0 * sqrt_t);
             let term2 = -q * spot * cdf_m_d1 * exp_q_t;
             let term3 = r * strike * exp_r_t * cdf_m_d2;
-            (term1 + term2 + term3) / DAYS_PER_YEAR
+            (term1 + term2 + term3) / TRADING_DAYS_PER_YEAR
         }
     };
     let rho = match option_type {

@@ -168,6 +168,28 @@ impl ScheduleParams {
             stub: StubKind::None,
         }
     }
+
+    /// GBP market standard (semi-annual, Act/365, Modified Following, GBP calendar)
+    pub fn gbp_standard() -> Self {
+        Self {
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("GBP".to_string()),
+            stub: StubKind::None,
+        }
+    }
+
+    /// JPY market standard (semi-annual, Act/365, Modified Following, JPY calendar)
+    pub fn jpy_standard() -> Self {
+        Self {
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("JPY".to_string()),
+            stub: StubKind::None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

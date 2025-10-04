@@ -202,15 +202,17 @@ impl Swaption {
         }
         let forward_rate = self.forward_swap_rate(disc, as_of)?;
         let annuity = self.swap_annuity(disc, as_of)?;
-        let variance = volatility.powi(2) * time_to_expiry;
 
-        // Use stable handling if variance is near zero
-        if variance <= 0.0 || !variance.is_finite() {
+        // Use stable handling if volatility is near zero
+        if volatility <= 0.0 || !volatility.is_finite() {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
-        let sqrt_var = variance.sqrt();
-        let d1 = ((forward_rate / self.strike_rate).ln() + 0.5 * variance) / sqrt_var;
-        let d2 = d1 - sqrt_var;
+
+        // Use centralized Black76 helpers for forward-based pricing
+        use crate::instruments::common::models::{d1_black76, d2_black76};
+        let d1 = d1_black76(forward_rate, self.strike_rate, volatility, time_to_expiry);
+        let d2 = d2_black76(forward_rate, self.strike_rate, volatility, time_to_expiry);
+        
         let value = match self.option_type {
             OptionType::Call => {
                 annuity

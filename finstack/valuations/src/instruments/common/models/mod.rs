@@ -12,7 +12,7 @@ pub mod two_factor_binomial;
 pub mod two_factor_rates_credit;
 
 pub use binomial_tree::{BinomialTree, TreeType};
-pub use black::{d1, d2};
+pub use black::{d1, d1_black76, d2, d2_black76};
 pub use finstack_core::math::{norm_cdf, norm_pdf};
 pub use sabr::{SABRCalibrator, SABRModel, SABRParameters, SABRSmile};
 pub use short_rate_tree::{short_rate_keys, ShortRateModel, ShortRateTree, ShortRateTreeConfig};

@@ -36,12 +36,9 @@ impl MetricCalculator for VegaCalculator {
                 .value_clamped(t, option.strike_rate)
         };
 
-        let variance = sigma * sigma * t;
-        let d1 = if variance > 0.0 {
-            ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt()
-        } else {
-            0.0
-        };
+        // Use centralized Black76 helper for forward-based pricing
+        use crate::instruments::common::models::d1_black76;
+        let d1 = d1_black76(forward, option.strike_rate, sigma, t);
 
         let vega =
             forward * finstack_core::math::norm_pdf(d1) * t.sqrt() / super::config::VOL_PCT_SCALE;

@@ -40,8 +40,9 @@ impl MetricCalculator for GammaCalculator {
             return Ok(0.0);
         }
 
-        let variance = sigma * sigma * t;
-        let d1 = ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt();
+        // Use centralized Black76 helper for forward-based pricing
+        use crate::instruments::common::models::d1_black76;
+        let d1 = d1_black76(forward, option.strike_rate, sigma, t);
         let gamma = finstack_core::math::norm_pdf(d1) / (forward * sigma * t.sqrt());
 
         // Scale by notional and annuity for cash gamma

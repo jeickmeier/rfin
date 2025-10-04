@@ -145,7 +145,7 @@ impl Bond {
             .coupon(coupon_rate)
             .issue(issue)
             .maturity(maturity)
-            .freq(finstack_core::dates::Frequency::annual())
+            .freq(finstack_core::dates::Frequency::semi_annual())
             .dc(DayCount::ActActIsma)
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
@@ -167,6 +167,105 @@ impl Bond {
         disc_id: impl Into<CurveId>,
     ) -> Self {
         Self::fixed_semiannual(id, notional, 0.0, issue, maturity, disc_id)
+    }
+
+    /// Create a German government bond (Bundesanleihe/Bund).
+    ///
+    /// German government bond market conventions:
+    /// - Frequency: Annual
+    /// - Day count: Act/Act (ISMA)
+    /// - BDC: Following
+    /// - Calendar: Frankfurt (DEFR)
+    pub fn german_bund(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        coupon_rate: f64,
+        issue: Date,
+        maturity: Date,
+    ) -> Self {
+        Self::builder()
+            .id(id.into())
+            .notional(notional)
+            .coupon(coupon_rate)
+            .issue(issue)
+            .maturity(maturity)
+            .freq(finstack_core::dates::Frequency::annual())
+            .dc(DayCount::ActActIsma)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(Some("defr".to_string()))
+            .stub(StubKind::None)
+            .disc_id(CurveId::new("EUR-BUND"))
+            .hazard_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("German bund construction should not fail")
+    }
+
+    /// Create a UK government bond (Gilt).
+    ///
+    /// UK gilt market conventions:
+    /// - Frequency: Semi-annual
+    /// - Day count: Act/Act (ISMA)
+    /// - BDC: Following
+    /// - Calendar: London (GBLO)
+    pub fn uk_gilt(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        coupon_rate: f64,
+        issue: Date,
+        maturity: Date,
+    ) -> Self {
+        Self::builder()
+            .id(id.into())
+            .notional(notional)
+            .coupon(coupon_rate)
+            .issue(issue)
+            .maturity(maturity)
+            .freq(finstack_core::dates::Frequency::semi_annual())
+            .dc(DayCount::ActActIsma)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(Some("gblo".to_string()))
+            .stub(StubKind::None)
+            .disc_id(CurveId::new("GBP-GILT"))
+            .hazard_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("UK gilt construction should not fail")
+    }
+
+    /// Create a French government bond (OAT - Obligation Assimilable du Trésor).
+    ///
+    /// French OAT market conventions:
+    /// - Frequency: Annual
+    /// - Day count: Act/Act (ISMA)
+    /// - BDC: Following
+    /// - Calendar: TARGET2 (Eurozone)
+    pub fn french_oat(
+        id: impl Into<InstrumentId>,
+        notional: Money,
+        coupon_rate: f64,
+        issue: Date,
+        maturity: Date,
+    ) -> Self {
+        Self::builder()
+            .id(id.into())
+            .notional(notional)
+            .coupon(coupon_rate)
+            .issue(issue)
+            .maturity(maturity)
+            .freq(finstack_core::dates::Frequency::annual())
+            .dc(DayCount::ActActIsma)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(Some("target2".to_string()))
+            .stub(StubKind::None)
+            .disc_id(CurveId::new("EUR-OAT"))
+            .hazard_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("French OAT construction should not fail")
     }
 
     /// Create a simple floating-rate note (FRN) with typical conventions.

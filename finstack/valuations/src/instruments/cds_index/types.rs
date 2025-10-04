@@ -114,7 +114,7 @@ impl CDSIndex {
             protection: ProtectionLegSpec {
                 credit_id: credit_id.into(),
                 recovery_rate: credit_params.recovery_rate,
-                settlement_delay: 3,
+                settlement_delay: construction_params.convention.settlement_delay(),
             },
             pricing: IndexPricing::SingleCurve,
             constituents: Vec::new(),

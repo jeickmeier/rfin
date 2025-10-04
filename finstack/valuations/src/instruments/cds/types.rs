@@ -79,6 +79,18 @@ impl CDSConvention {
     pub fn stub_convention(&self) -> StubKind {
         StubKind::ShortFront
     }
+
+    /// Get the standard settlement delay in business days
+    ///
+    /// Returns the number of business days between trade date and settlement
+    /// for standard CDS conventions by region.
+    pub fn settlement_delay(&self) -> u16 {
+        match self {
+            CDSConvention::IsdaNa | CDSConvention::IsdaEu => 3,
+            CDSConvention::IsdaAs => 3, // Most Asian markets use 3 days (some use 2)
+            CDSConvention::Custom => 3, // Default to 3 days
+        }
+    }
 }
 
 // Re-export from common parameters
@@ -119,16 +131,17 @@ impl CreditDefaultSwap {
         disc_id: impl Into<finstack_core::types::CurveId>,
         credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
-        let dc = CDSConvention::IsdaNa.day_count();
-        let freq = CDSConvention::IsdaNa.frequency();
-        let bdc = CDSConvention::IsdaNa.business_day_convention();
-        let stub = CDSConvention::IsdaNa.stub_convention();
+        let convention = CDSConvention::IsdaNa;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
 
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
             .side(PayReceive::PayProtection)
-            .convention(CDSConvention::IsdaNa)
+            .convention(convention)
             .premium(PremiumLegSpec {
                 start,
                 end: maturity,
@@ -143,7 +156,7 @@ impl CreditDefaultSwap {
             .protection(ProtectionLegSpec {
                 credit_id: credit_id.into(),
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
-                settlement_delay: 3,
+                settlement_delay: convention.settlement_delay(),
             })
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -162,16 +175,17 @@ impl CreditDefaultSwap {
         disc_id: impl Into<finstack_core::types::CurveId>,
         credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
-        let dc = CDSConvention::IsdaNa.day_count();
-        let freq = CDSConvention::IsdaNa.frequency();
-        let bdc = CDSConvention::IsdaNa.business_day_convention();
-        let stub = CDSConvention::IsdaNa.stub_convention();
+        let convention = CDSConvention::IsdaNa;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
 
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
             .side(PayReceive::ReceiveProtection)
-            .convention(CDSConvention::IsdaNa)
+            .convention(convention)
             .premium(PremiumLegSpec {
                 start,
                 end: maturity,
@@ -186,7 +200,7 @@ impl CreditDefaultSwap {
             .protection(ProtectionLegSpec {
                 credit_id: credit_id.into(),
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
-                settlement_delay: 3,
+                settlement_delay: convention.settlement_delay(),
             })
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -206,16 +220,17 @@ impl CreditDefaultSwap {
         disc_id: impl Into<finstack_core::types::CurveId>,
         credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
-        let dc = CDSConvention::IsdaNa.day_count();
-        let freq = CDSConvention::IsdaNa.frequency();
-        let bdc = CDSConvention::IsdaNa.business_day_convention();
-        let stub = CDSConvention::IsdaNa.stub_convention();
+        let convention = CDSConvention::IsdaNa;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
 
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
             .side(side)
-            .convention(CDSConvention::IsdaNa)
+            .convention(convention)
             .premium(PremiumLegSpec {
                 start,
                 end: maturity,
@@ -230,7 +245,7 @@ impl CreditDefaultSwap {
             .protection(ProtectionLegSpec {
                 credit_id: credit_id.into(),
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_HIGH_YIELD_DEFAULT,
-                settlement_delay: 3,
+                settlement_delay: convention.settlement_delay(),
             })
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -276,7 +291,7 @@ impl CreditDefaultSwap {
             protection: ProtectionLegSpec {
                 credit_id: credit_id.into(),
                 recovery_rate,
-                settlement_delay: 3,
+                settlement_delay: convention.settlement_delay(),
             },
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
