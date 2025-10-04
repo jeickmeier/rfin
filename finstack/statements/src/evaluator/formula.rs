@@ -80,6 +80,31 @@ pub(crate) fn evaluate_formula(expr: &Expr, context: &EvaluationContext) -> Resu
     evaluate_expr(expr, context)
 }
 
+/// Collect historical values sorted chronologically.
+///
+/// Returns a BTreeMap of period → value for all historical periods plus current.
+/// This is a common helper used by rolling window and statistical functions.
+fn collect_historical_values_sorted(
+    node_name: &str,
+    context: &EvaluationContext,
+) -> Result<BTreeMap<PeriodId, f64>> {
+    let mut sorted_periods = BTreeMap::new();
+
+    // Add historical values
+    for (period, values) in &context.historical_results {
+        if let Some(value) = values.get(node_name) {
+            sorted_periods.insert(*period, *value);
+        }
+    }
+
+    // Add current period value if it exists
+    if let Ok(current) = context.get_value(node_name) {
+        sorted_periods.insert(context.period_id, current);
+    }
+
+    Ok(sorted_periods)
+}
+
 /// Collect values for a rolling window in chronological order.
 /// Returns values from oldest to newest within the window.
 fn collect_rolling_window_values(
@@ -91,27 +116,13 @@ fn collect_rolling_window_values(
         return Ok(Vec::new());
     }
 
-    // Use BTreeMap to sort periods chronologically
-    let mut sorted_periods = BTreeMap::new();
-
-    // Add historical values
-    for (period, values) in &context.historical_results {
-        if let Some(value) = values.get(node_name) {
-            sorted_periods.insert(*period, *value);
-        }
-    }
-
-    // Add current period value if it exists
-    if let Ok(current) = context.get_value(node_name) {
-        sorted_periods.insert(context.period_id, current);
-    }
+    let sorted = collect_historical_values_sorted(node_name, context)?;
 
     // Collect the most recent `window_size` values
-    let mut values: Vec<f64> = sorted_periods
-        .into_iter()
+    let mut values: Vec<f64> = sorted
+        .into_values()
         .rev() // Most recent first
         .take(window_size)
-        .map(|(_, v)| v)
         .collect();
 
     // Reverse to get chronological order (oldest to newest)
@@ -122,23 +133,8 @@ fn collect_rolling_window_values(
 
 /// Collect all historical values for a node including current.
 fn collect_all_historical_values(node_name: &str, context: &EvaluationContext) -> Result<Vec<f64>> {
-    // Use BTreeMap to sort periods chronologically
-    let mut sorted_periods = BTreeMap::new();
-
-    // Add historical values
-    for (period, values) in &context.historical_results {
-        if let Some(value) = values.get(node_name) {
-            sorted_periods.insert(*period, *value);
-        }
-    }
-
-    // Add current period value if it exists
-    if let Ok(current) = context.get_value(node_name) {
-        sorted_periods.insert(context.period_id, current);
-    }
-
-    // Return values in chronological order
-    Ok(sorted_periods.into_values().collect())
+    let sorted = collect_historical_values_sorted(node_name, context)?;
+    Ok(sorted.into_values().collect())
 }
 
 /// Calculate mean of values.
@@ -740,13 +736,28 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
 
         Function::EwmStd | Function::EwmVar => {
-            require_args(&format!("{:?}", func), args, 2)?;
+            // EWM variance and std support 2 or 3 arguments:
+            // - 2 args: ewm_var(series, alpha) — non-bias-corrected (pandas adjust=False)
+            // - 3 args: ewm_var(series, alpha, adjust) — bias correction enabled if adjust=1.0
+            if args.len() < 2 || args.len() > 3 {
+                return Err(Error::eval(format!(
+                    "{}() requires 2 or 3 arguments (series, alpha, [adjust])",
+                    format!("{:?}", func).to_lowercase()
+                )));
+            }
 
             // Get smoothing factor (alpha)
             let alpha = evaluate_expr(&args[1], context)?;
             if !(0.0..=1.0).contains(&alpha) {
                 return Err(Error::eval("ewm alpha must be between 0 and 1"));
             }
+
+            // Get optional bias correction flag (default: false for backward compatibility)
+            let adjust = if args.len() == 3 {
+                evaluate_expr(&args[2], context)? != 0.0
+            } else {
+                false
+            };
 
             // Get node name
             let node_name = if let ExprNode::Column(name) = &args[0].node {
@@ -779,10 +790,17 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             let mut ewm_mean = values[0].1;
             let mut ewm_var = 0.0;
 
-            for (_, value) in values.iter().skip(1) {
+            for (i, (_, value)) in values.iter().enumerate().skip(1) {
                 let diff = value - ewm_mean;
                 ewm_mean = alpha * value + (1.0 - alpha) * ewm_mean;
                 ewm_var = (1.0 - alpha) * (ewm_var + alpha * diff * diff);
+
+                // Apply bias correction if requested (pandas adjust=True)
+                if adjust {
+                    // Bias correction factor: 1 / (1 - (1-alpha)^(i+1))
+                    let bias_factor = 1.0 / (1.0 - (1.0 - alpha).powi((i + 1) as i32));
+                    ewm_var *= bias_factor;
+                }
             }
 
             match func {

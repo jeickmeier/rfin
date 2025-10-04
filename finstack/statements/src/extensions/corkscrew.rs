@@ -107,8 +107,14 @@ pub enum AccountType {
     Equity,
 }
 
+/// Default tolerance for corkscrew validation (basis points).
+///
+/// Set to 0.01 (1 cent or 1 basis point) to accommodate normal rounding differences
+/// in financial calculations while catching meaningful discrepancies.
+const DEFAULT_CORKSCREW_TOLERANCE: f64 = 0.01;
+
 fn default_tolerance() -> f64 {
-    0.01
+    DEFAULT_CORKSCREW_TOLERANCE
 }
 
 impl CorkscrewExtension {
@@ -193,7 +199,12 @@ impl CorkscrewExtension {
             validation.max_error = validation.max_error.max(error);
             validation.periods_validated += 1;
 
-            if error > self.config.as_ref().map_or(0.01, |c| c.tolerance) {
+            if error
+                > self
+                    .config
+                    .as_ref()
+                    .map_or(DEFAULT_CORKSCREW_TOLERANCE, |c| c.tolerance)
+            {
                 validation.is_valid = false;
             }
         }

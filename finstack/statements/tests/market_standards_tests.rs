@@ -660,6 +660,108 @@ fn test_seasonal_allows_negative_values() {
 }
 
 // ============================================================================
+// EWM Bias Correction Tests (pandas parity)
+// ============================================================================
+
+#[test]
+fn test_ewm_var_without_bias_correction() {
+    // Test default behavior (adjust=False)
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "returns",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.10)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.05)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(0.15)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(0.08)),
+            ],
+        )
+        .compute("volatility", "ewm_var(returns, 0.3)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // Should return a valid non-negative variance
+    let vol = results
+        .get("volatility", &PeriodId::quarter(2025, 4))
+        .unwrap();
+    assert!(vol >= 0.0, "EWM variance should be non-negative");
+    assert!(!vol.is_nan(), "EWM variance should not be NaN");
+}
+
+#[test]
+fn test_ewm_var_with_bias_correction() {
+    // Test bias-corrected mode (adjust=True, pandas default)
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "returns",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.10)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.05)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(0.15)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(0.08)),
+            ],
+        )
+        .compute("volatility_adjusted", "ewm_var(returns, 0.3, 1.0)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // Bias-corrected variance should be valid
+    let vol_adj = results
+        .get("volatility_adjusted", &PeriodId::quarter(2025, 4))
+        .unwrap();
+    assert!(vol_adj >= 0.0, "Bias-corrected EWM variance should be non-negative");
+    assert!(!vol_adj.is_nan(), "Bias-corrected EWM variance should not be NaN");
+}
+
+#[test]
+fn test_ewm_std_with_bias_correction() {
+    // Test that std is sqrt of variance (with bias correction)
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "returns",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.10)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.05)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(0.15)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(0.08)),
+            ],
+        )
+        .compute("ewm_variance", "ewm_var(returns, 0.3, 1.0)")
+        .unwrap()
+        .compute("ewm_std_dev", "ewm_std(returns, 0.3, 1.0)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let variance = results
+        .get("ewm_variance", &PeriodId::quarter(2025, 4))
+        .unwrap();
+    let std_dev = results
+        .get("ewm_std_dev", &PeriodId::quarter(2025, 4))
+        .unwrap();
+
+    // Standard deviation should be sqrt of variance
+    assert!((std_dev - variance.sqrt()).abs() < 1e-10, "EWM std should equal sqrt(variance)");
+}
+
+// ============================================================================
 // Core API Tests
 // ============================================================================
 

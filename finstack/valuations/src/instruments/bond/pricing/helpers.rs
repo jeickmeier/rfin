@@ -21,6 +21,31 @@ pub enum YieldCompounding {
     Street,
 }
 
+/// Convert payment frequency to approximate periods per year.
+///
+/// **Important:** This function is for **frequency conversion only**, NOT day count conventions.
+///
+/// # Purpose
+/// This helper determines how many payment periods occur in a year based on the
+/// payment frequency. For example, semi-annual payments occur 2 times per year,
+/// monthly payments occur 12 times per year.
+///
+/// # Day Count Conventions
+/// Actual day count calculations (Actual/360, Actual/365, Actual/Actual, 30/360, etc.)
+/// are handled separately via the `DayCount` enum and `year_fraction()` methods in
+/// finstack-core. Those methods properly account for:
+/// - Leap years (Actual/Actual)
+/// - Different day count bases (360 vs 365)
+/// - Month length variations (30/360)
+///
+/// # Examples
+/// - Monthly payments (6 months): `12 / 6 = 2` periods/year (semi-annual frequency)
+/// - Daily payments (90 days): `365 / 90 ≈ 4.06` periods/year (approximate)
+///
+/// # Note on Daily Frequency
+/// For daily frequencies, this uses 365 as an approximation of annual periods.
+/// This is appropriate for frequency calculations but should NOT be confused with
+/// the Actual/365 day count convention used in accrual and discount factor calculations.
 #[inline]
 pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core::Result<f64> {
     match freq {
@@ -34,6 +59,9 @@ pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core:
             if d == 0 {
                 return Err(finstack_core::error::InputError::Invalid.into());
             }
+            // Use 365 as approximate annual basis for frequency calculations
+            // Note: This is NOT a day count convention - actual day count is handled
+            // via the DayCount enum (Actual/360, Actual/365, Actual/Actual, etc.)
             Ok(365.0 / (d as f64))
         }
         _ => Err(finstack_core::error::InputError::Invalid.into()),
