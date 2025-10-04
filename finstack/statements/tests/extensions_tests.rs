@@ -280,7 +280,10 @@ fn test_corkscrew_extension_placeholder() {
     let result = extension.execute(&context);
 
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("requires configuration"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("requires configuration"));
 }
 
 #[test]
@@ -331,7 +334,10 @@ fn test_scorecard_extension_placeholder() {
     let result = extension.execute(&context);
 
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("requires configuration"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("requires configuration"));
 }
 
 #[test]
@@ -555,7 +561,7 @@ fn test_complete_workflow_with_extensions() {
         .unwrap_err()
         .to_string()
         .contains("requires configuration"));
-    
+
     assert!(extension_results["credit_scorecard"].is_err());
     assert!(extension_results["credit_scorecard"]
         .as_ref()

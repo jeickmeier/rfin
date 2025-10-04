@@ -38,7 +38,7 @@ impl Evaluator {
             forecast_cache: IndexMap::new(),
         }
     }
-    
+
     /// Check if a model has time-series dependencies that require sequential evaluation.
     ///
     /// Returns true if any formula contains time-series functions like lag, lead, diff, etc.
@@ -117,17 +117,17 @@ impl Evaluator {
 
         // Check if we can use parallel evaluation
         let has_time_series_deps = self.has_time_series_dependencies(model);
-        
-        // Evaluate period-by-period  
+
+        // Evaluate period-by-period
         let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
         let mut results = Results::new();
-        
+
         if parallel && !has_time_series_deps {
             // Parallel evaluation when no inter-period dependencies
             #[cfg(feature = "parallel")]
             {
                 use rayon::prelude::*;
-                
+
                 let period_data: Vec<_> = model
                     .periods
                     .par_iter()
@@ -149,7 +149,7 @@ impl Evaluator {
 
                 for (period_id, result) in period_data {
                     let period_result = result?;
-                    
+
                     // Store in results
                     for (node_id, value) in &period_result {
                         results
@@ -160,7 +160,7 @@ impl Evaluator {
                     }
                 }
             }
-            
+
             #[cfg(not(feature = "parallel"))]
             {
                 // Fallback to sequential if parallel feature not enabled
@@ -235,7 +235,8 @@ impl Evaluator {
     /// # Arguments
     ///
     /// * `model` - The financial model specification
-    /// * `parallel` - Whether to use parallel evaluation (TODO: not yet implemented)
+    /// * `parallel` - Whether to use parallel evaluation. When enabled with the `parallel` feature,
+    ///                periods without inter-period dependencies are evaluated in parallel
     ///
     /// # Returns
     ///
@@ -254,7 +255,7 @@ impl Evaluator {
                 .par_iter()
                 .flat_map(|(node_id, node_spec)| {
                     let mut results = Vec::new();
-                    
+
                     // Compile formula if present
                     if let Some(formula_text) = &node_spec.formula_text {
                         if !self.compiled_cache.contains_key(*node_id) {
@@ -264,7 +265,7 @@ impl Evaluator {
                             }
                         }
                     }
-                    
+
                     // Compile where clause if present
                     if let Some(where_text) = &node_spec.where_text {
                         let where_key = format!("__where__{}", node_id);
@@ -275,18 +276,18 @@ impl Evaluator {
                             }
                         }
                     }
-                    
+
                     results
                 })
                 .collect();
-            
+
             // Collect results and check for errors
             for result in compiled {
                 let (key, expr) = result?;
                 self.compiled_cache.insert(key, expr);
             }
         }
-        
+
         #[cfg(not(feature = "parallel"))]
         {
             // Sequential compilation
@@ -298,7 +299,7 @@ impl Evaluator {
                         self.compiled_cache.insert(node_id.clone(), expr);
                     }
                 }
-                
+
                 // Compile where clause if present
                 if let Some(where_text) = &node_spec.where_text {
                     let where_key = format!("__where__{}", node_id);

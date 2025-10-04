@@ -28,29 +28,34 @@ pub fn normal_forecast(
 ) -> Result<IndexMap<PeriodId, f64>> {
     // Extract parameters
     let mean = params.get("mean").and_then(|v| v.as_f64()).ok_or_else(|| {
-        Error::Forecast("Missing or invalid 'mean' parameter for Normal forecast".to_string())
+        Error::forecast(
+            "Missing or invalid 'mean' parameter for Normal forecast. \
+             Expected a number (e.g., 100000.0).",
+        )
     })?;
 
     let std_dev = params
         .get("std_dev")
         .and_then(|v| v.as_f64())
         .ok_or_else(|| {
-            Error::Forecast(
-                "Missing or invalid 'std_dev' parameter for Normal forecast".to_string(),
+            Error::forecast(
+                "Missing or invalid 'std_dev' parameter for Normal forecast. \
+                 Expected a positive number (e.g., 15000.0).",
             )
         })?;
 
     let seed = params.get("seed").and_then(|v| v.as_u64()).ok_or_else(|| {
-        Error::Forecast(
-            "Missing or invalid 'seed' parameter for Normal forecast (required for determinism)"
-                .to_string(),
+        Error::forecast(
+            "Missing or invalid 'seed' parameter for Normal forecast. \
+             A seed is required for deterministic sampling (e.g., 42).",
         )
     })?;
 
     if std_dev < 0.0 {
-        return Err(Error::Forecast(
-            "Standard deviation must be non-negative".to_string(),
-        ));
+        return Err(Error::forecast(format!(
+            "Standard deviation must be non-negative, got {}",
+            std_dev
+        )));
     }
 
     // Initialize RNG with seed
@@ -96,29 +101,34 @@ pub fn lognormal_forecast(
 ) -> Result<IndexMap<PeriodId, f64>> {
     // Extract parameters
     let mean = params.get("mean").and_then(|v| v.as_f64()).ok_or_else(|| {
-        Error::Forecast("Missing or invalid 'mean' parameter for LogNormal forecast".to_string())
+        Error::forecast(
+            "Missing or invalid 'mean' parameter for LogNormal forecast. \
+             Expected a number (e.g., 11.5).",
+        )
     })?;
 
     let std_dev = params
         .get("std_dev")
         .and_then(|v| v.as_f64())
         .ok_or_else(|| {
-            Error::Forecast(
-                "Missing or invalid 'std_dev' parameter for LogNormal forecast".to_string(),
+            Error::forecast(
+                "Missing or invalid 'std_dev' parameter for LogNormal forecast. \
+                 Expected a positive number (e.g., 0.15).",
             )
         })?;
 
     let seed = params.get("seed").and_then(|v| v.as_u64()).ok_or_else(|| {
-        Error::Forecast(
-            "Missing or invalid 'seed' parameter for LogNormal forecast (required for determinism)"
-                .to_string(),
+        Error::forecast(
+            "Missing or invalid 'seed' parameter for LogNormal forecast. \
+             A seed is required for deterministic sampling (e.g., 42).",
         )
     })?;
 
     if std_dev < 0.0 {
-        return Err(Error::Forecast(
-            "Standard deviation must be non-negative".to_string(),
-        ));
+        return Err(Error::forecast(format!(
+            "Standard deviation must be non-negative, got {}",
+            std_dev
+        )));
     }
 
     // Initialize RNG with seed

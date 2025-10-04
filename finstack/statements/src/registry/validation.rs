@@ -16,7 +16,9 @@ use crate::registry::schema::MetricDefinition;
 pub fn validate_metric_definition(metric: &MetricDefinition, namespace: &str) -> Result<()> {
     // Validate ID
     if metric.id.is_empty() {
-        return Err(Error::registry("Metric ID cannot be empty"));
+        return Err(Error::registry(
+            "Metric ID cannot be empty. Provide a unique identifier (e.g., 'gross_margin').",
+        ));
     }
 
     // Validate ID contains only valid characters
@@ -26,7 +28,8 @@ pub fn validate_metric_definition(metric: &MetricDefinition, namespace: &str) ->
         .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
     {
         return Err(Error::registry(format!(
-            "Invalid metric ID '{}': must contain only alphanumeric characters, underscores, or hyphens",
+            "Invalid metric ID '{}': must contain only alphanumeric characters, underscores, or hyphens. \
+             Example valid IDs: 'gross_margin', 'debt_to_equity', 'roi-ttm'",
             metric.id
         )));
     }
@@ -34,7 +37,7 @@ pub fn validate_metric_definition(metric: &MetricDefinition, namespace: &str) ->
     // Validate name
     if metric.name.is_empty() {
         return Err(Error::registry(format!(
-            "Metric '{}' has empty name",
+            "Metric '{}' has empty name. Provide a human-readable name (e.g., 'Gross Margin %').",
             metric.id
         )));
     }
@@ -42,7 +45,7 @@ pub fn validate_metric_definition(metric: &MetricDefinition, namespace: &str) ->
     // Validate formula
     if metric.formula.trim().is_empty() {
         return Err(Error::registry(format!(
-            "Metric '{}' has empty formula",
+            "Metric '{}' has empty formula. Provide a valid DSL expression (e.g., 'revenue - cogs').",
             metric.id
         )));
     }

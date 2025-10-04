@@ -251,7 +251,7 @@ impl ModelBuilder<Ready> {
         self.meta.insert(key.into(), value);
         self
     }
-    
+
     /// Add a where clause to the last added node.
     ///
     /// The where clause is a conditional expression that determines whether
@@ -383,7 +383,10 @@ impl ModelBuilder<Ready> {
         let namespace = qualified_id
             .split('.')
             .next()
-            .ok_or_else(|| Error::registry("Invalid qualified ID"))?;
+            .ok_or_else(|| Error::registry(format!(
+                "Invalid qualified ID '{}'. Expected format: 'namespace.metric_id' (e.g., 'fin.gross_margin')",
+                qualified_id
+            )))?;
 
         // Add all dependencies first (if not already added)
         for dep_id in dependencies {

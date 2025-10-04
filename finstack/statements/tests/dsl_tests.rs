@@ -298,11 +298,11 @@ fn test_parse_whitespace_tolerance() {
     // because hyphens are allowed in identifiers (for things like "BOND-001")
     let result1 = parse_formula("revenue-cogs").unwrap();
     assert!(matches!(result1, StmtExpr::NodeRef(_)));
-    
+
     // With spaces, it's parsed as subtraction
     let result2 = parse_formula("revenue - cogs").unwrap();
     let result3 = parse_formula("revenue  -  cogs").unwrap();
-    
+
     // These should parse to the same structure (subtraction)
     assert_eq!(result2, result3);
     assert!(matches!(result2, StmtExpr::BinOp { op: BinOp::Sub, .. }));
@@ -627,11 +627,11 @@ fn test_parse_custom_coalesce() {
 fn test_compile_custom_functions() {
     // Custom functions are now transformed to equivalent core expressions
     let tests = vec![
-        ("sum(revenue, cogs)", true), // Transforms to revenue + cogs
-        ("mean(revenue, cogs)", true), // Transforms to (revenue + cogs) / 2
+        ("sum(revenue, cogs)", true),    // Transforms to revenue + cogs
+        ("mean(revenue, cogs)", true),   // Transforms to (revenue + cogs) / 2
         ("annualize(revenue, 4)", true), // Transforms to revenue * 4
-        ("ttm(revenue)", true), // Transforms to rolling_sum(revenue, 4)
-        ("coalesce(revenue, 0)", true), // Transforms to if(revenue != 0, revenue, 0)
+        ("ttm(revenue)", true),          // Transforms to rolling_sum(revenue, 4)
+        ("coalesce(revenue, 0)", true),  // Transforms to if(revenue != 0, revenue, 0)
     ];
 
     for (formula, should_succeed) in tests {

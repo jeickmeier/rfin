@@ -27,14 +27,18 @@ pub fn apply_override(
 ) -> Result<IndexMap<PeriodId, f64>> {
     // Extract overrides parameter
     let overrides_json = params.get("overrides").ok_or_else(|| {
-        Error::Forecast("Missing 'overrides' parameter for Override method".to_string())
+        Error::forecast(
+            "Missing 'overrides' parameter for Override method. \
+             Expected a JSON object mapping period IDs to values (e.g., {\"2025Q2\": 120000}).",
+        )
     })?;
 
     let overrides_map: IndexMap<String, f64> = serde_json::from_value(overrides_json.clone())
-        .map_err(|_| {
-            Error::Forecast(
-                "Invalid 'overrides' parameter: expected map of period_id → value".to_string(),
-            )
+        .map_err(|e| {
+            Error::forecast(format!(
+                "Invalid 'overrides' parameter: expected map of period_id → value. Error: {}",
+                e
+            ))
         })?;
 
     let mut results = IndexMap::new();

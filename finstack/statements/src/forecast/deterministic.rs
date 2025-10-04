@@ -45,7 +45,10 @@ pub fn growth_pct(
 ) -> Result<IndexMap<PeriodId, f64>> {
     // Extract rate parameter
     let rate = params.get("rate").and_then(|v| v.as_f64()).ok_or_else(|| {
-        Error::Forecast("Missing or invalid 'rate' parameter for GrowthPct".to_string())
+        Error::forecast(
+            "Missing or invalid 'rate' parameter for GrowthPct forecast. \
+             Expected a number (e.g., 0.05 for 5% growth).",
+        )
     })?;
 
     let mut results = IndexMap::new();
@@ -81,17 +84,24 @@ pub fn curve_pct(
     params: &IndexMap<String, serde_json::Value>,
 ) -> Result<IndexMap<PeriodId, f64>> {
     // Extract curve parameter
-    let curve_json = params
-        .get("curve")
-        .ok_or_else(|| Error::Forecast("Missing 'curve' parameter for CurvePct".to_string()))?;
+    let curve_json = params.get("curve").ok_or_else(|| {
+        Error::forecast(
+            "Missing 'curve' parameter for CurvePct forecast. \
+             Expected an array of growth rates (e.g., [0.05, 0.06, 0.05]).",
+        )
+    })?;
 
-    let curve: Vec<f64> = serde_json::from_value(curve_json.clone()).map_err(|_| {
-        Error::Forecast("Invalid 'curve' parameter: expected array of numbers".to_string())
+    let curve: Vec<f64> = serde_json::from_value(curve_json.clone()).map_err(|e| {
+        Error::forecast(format!(
+            "Invalid 'curve' parameter: expected array of numbers. Error: {}",
+            e
+        ))
     })?;
 
     if curve.len() != forecast_periods.len() {
-        return Err(Error::Forecast(format!(
-            "Curve length ({}) does not match number of forecast periods ({})",
+        return Err(Error::forecast(format!(
+            "Curve length ({}) does not match number of forecast periods ({}). \
+             Provide exactly one growth rate per forecast period.",
             curve.len(),
             forecast_periods.len()
         )));

@@ -29,7 +29,7 @@ fn test_lag_function() {
         .get("lagged_revenue", &PeriodId::quarter(2025, 1))
         .unwrap()
         .is_nan());
-    
+
     // Q2: lag(110, 1) should be 100 (Q1 value)
     assert_eq!(
         results
@@ -299,7 +299,7 @@ fn test_complex_time_series() {
     // Q1: NaN since there's no prior period
     let q1_qoq = results.get("qoq_growth", &PeriodId::quarter(2025, 1));
     assert!(q1_qoq.is_some() && q1_qoq.unwrap().is_nan());
-    
+
     // Q2: (110-100)/100 = 0.10
     assert_eq!(
         results
@@ -307,7 +307,7 @@ fn test_complex_time_series() {
             .unwrap(),
         0.10
     );
-    
+
     // Q3 growth: (120-110)/110 ≈ 0.0909
     let q3_growth = results
         .get("qoq_growth", &PeriodId::quarter(2025, 3))
@@ -318,11 +318,11 @@ fn test_complex_time_series() {
     // Q1: NaN since qoq_growth is NaN
     let q1_accel = results.get("revenue_acceleration", &PeriodId::quarter(2025, 1));
     assert!(q1_accel.is_some() && q1_accel.unwrap().is_nan());
-    
+
     // Q2: NaN since there's no prior QoQ growth to diff against
     let q2_accel = results.get("revenue_acceleration", &PeriodId::quarter(2025, 2));
     assert!(q2_accel.is_some() && q2_accel.unwrap().is_nan());
-    
+
     // Q3 acceleration: 0.0909 - 0.10 ≈ -0.0091
     let q3_accel = results
         .get("revenue_acceleration", &PeriodId::quarter(2025, 3))

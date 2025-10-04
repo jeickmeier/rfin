@@ -10,7 +10,20 @@
 //!   - `fin_margins.json` - Margin calculations
 //!   - `fin_returns.json` - Return metrics (ROE, ROA, ROIC, etc.)
 //!   - `fin_leverage.json` - Leverage ratios
-
-// This module is currently a placeholder.
-// The actual metrics are loaded via Registry::load_builtins()
-// which uses include_str!() to embed the JSON files.
+//!
+//! ## Usage
+//!
+//! Built-in metrics are loaded via [`Registry::load_builtins()`](crate::registry::Registry::load_builtins),
+//! which uses `include_str!()` to embed the JSON metric definitions at compile time.
+//!
+//! ```rust
+//! use finstack_statements::registry::Registry;
+//!
+//! let mut registry = Registry::new();
+//! registry.load_builtins()?;
+//!
+//! // Access metrics from the fin.* namespace
+//! assert!(registry.has("fin.gross_profit"));
+//! assert!(registry.has("fin.gross_margin"));
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```

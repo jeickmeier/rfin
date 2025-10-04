@@ -71,7 +71,8 @@ impl EvaluationContext {
 
         if value.is_nan() {
             Err(Error::eval(format!(
-                "Node '{}' has not been evaluated yet in period {}",
+                "Node '{}' has not been evaluated yet in period {}. \
+                 This usually indicates a circular dependency or missing value.",
                 node_id, self.period_id
             )))
         } else {

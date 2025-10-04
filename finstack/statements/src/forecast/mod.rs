@@ -47,7 +47,9 @@ pub fn apply_forecast(
         ForecastMethod::Override => apply_override(base_value, forecast_periods, &spec.params),
         ForecastMethod::Normal => normal_forecast(base_value, forecast_periods, &spec.params),
         ForecastMethod::LogNormal => lognormal_forecast(base_value, forecast_periods, &spec.params),
-        ForecastMethod::TimeSeries => timeseries_forecast(base_value, forecast_periods, &spec.params),
+        ForecastMethod::TimeSeries => {
+            timeseries_forecast(base_value, forecast_periods, &spec.params)
+        }
         ForecastMethod::Seasonal => seasonal_forecast(base_value, forecast_periods, &spec.params),
     }
 }

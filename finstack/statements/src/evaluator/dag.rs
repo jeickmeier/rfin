@@ -144,7 +144,16 @@ pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
 
     // If we haven't processed all nodes, there's a cycle
     if result.len() != graph.dependencies.len() {
-        return Err(Error::eval("Circular dependency detected in model"));
+        let unprocessed: Vec<_> = graph
+            .dependencies
+            .keys()
+            .filter(|k| !result.contains(k))
+            .cloned()
+            .collect();
+        return Err(Error::eval(format!(
+            "Circular dependency detected in model. Affected nodes: {}",
+            unprocessed.join(", ")
+        )));
     }
 
     Ok(result)

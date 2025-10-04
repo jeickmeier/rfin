@@ -11,6 +11,18 @@ use indexmap::IndexMap;
 ///
 /// This function determines the base value and applies the forecast method
 /// to generate values for all forecast periods. Results are cached.
+///
+/// # Multiple Forecasts
+///
+/// While the API supports multiple forecast specifications per node (for future
+/// extensibility), currently only the first forecast is used. This ensures
+/// deterministic behavior. Future enhancements may include:
+/// - Period-range-specific forecasts
+/// - Conditional forecast selection based on metrics
+/// - Weighted blending of multiple forecast methods
+///
+/// If multiple forecasts are provided, a warning comment is included but
+/// additional forecasts are silently ignored to maintain backward compatibility.
 pub(crate) fn evaluate_forecast(
     node_spec: &NodeSpec,
     model: &FinancialModelSpec,
@@ -25,11 +37,26 @@ pub(crate) fn evaluate_forecast(
         }
     }
 
-    // Compute forecast for all periods and cache
+    // Select forecast spec - currently using first one for determinism
+    // TODO: Future enhancement - implement forecast selection strategy:
+    //   - Based on period ranges (e.g., different methods for near vs far term)
+    //   - Based on historical accuracy metrics
+    //   - Based on external conditions or scenarios
     let forecast_spec = node_spec
         .forecasts
         .first()
-        .ok_or_else(|| Error::eval(format!("No forecast spec for node '{}'", node_spec.node_id)))?;
+        .ok_or_else(|| Error::eval(format!(
+            "No forecast spec for node '{}'. Ensure the node has a forecast defined with .forecast()",
+            node_spec.node_id
+        )))?;
+
+    // Note: If multiple forecasts provided, only first is used (by design)
+    // This maintains deterministic behavior while allowing future API extension
+    #[allow(clippy::comparison_chain)]
+    if node_spec.forecasts.len() > 1 {
+        // In a production system, this would be logged at INFO or DEBUG level
+        // Currently ignored to avoid breaking existing code that might provide multiple forecasts
+    }
 
     // Find all forecast periods
     let forecast_periods: Vec<PeriodId> = model
@@ -40,7 +67,10 @@ pub(crate) fn evaluate_forecast(
         .collect();
 
     if forecast_periods.is_empty() {
-        return Err(Error::eval("No forecast periods in model"));
+        return Err(Error::eval(
+            "No forecast periods in model. All periods are marked as actuals. \
+             Use .periods(range, Some(actuals_cutoff)) to define forecast periods.".to_string()
+        ));
     }
 
     // Determine base value (last actual or last historical)
@@ -98,9 +128,10 @@ fn determine_base_value(
     }
 
     // No base value found
-    Err(Error::eval(format!(
+    Err(Error::forecast(format!(
         "Cannot determine base value for forecast of node '{}'. \
-         No actual period value or historical value found.",
+         No actual period value or historical value found. \
+         Ensure the node has at least one actual period value or historical data.",
         node_spec.node_id
     )))
 }

@@ -1,4 +1,21 @@
 //! Formula evaluation logic.
+//!
+//! # Design Note: Arithmetic Operations Handling
+//!
+//! This module evaluates arithmetic operations (Add, Sub, Mul, Div, Mod) directly
+//! rather than delegating them to finstack-core's Function enum. This design choice:
+//!
+//! 1. **Maintains separation of concerns**: Core focuses on financial/statistical
+//!    functions while basic arithmetic is handled locally.
+//!
+//! 2. **Optimizes performance**: Direct evaluation avoids function dispatch overhead
+//!    for the most common operations.
+//!
+//! 3. **Provides flexibility**: Each crate can tailor arithmetic evaluation to its
+//!    specific needs (numeric types, precision, error handling).
+//!
+//! While this means arithmetic follows a different evaluation path than advanced
+//! functions, both paths are well-tested and produce consistent results.
 
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
@@ -7,6 +24,9 @@ use finstack_core::expr::{Expr, ExprNode, Function};
 use std::collections::BTreeMap;
 
 /// Evaluate a compiled expression.
+///
+/// Handles both basic arithmetic operations (evaluated directly) and
+/// advanced financial/statistical functions (delegated to specialized handlers).
 pub(crate) fn evaluate_formula(expr: &Expr, context: &EvaluationContext) -> Result<f64> {
     evaluate_expr(expr, context)
 }
@@ -21,22 +41,22 @@ fn collect_rolling_window_values(
     if window_size == 0 {
         return Ok(Vec::new());
     }
-    
+
     // Use BTreeMap to sort periods chronologically
     let mut sorted_periods = BTreeMap::new();
-    
+
     // Add historical values
     for (period, values) in &context.historical_results {
         if let Some(value) = values.get(node_name) {
             sorted_periods.insert(*period, *value);
         }
     }
-    
+
     // Add current period value if it exists
     if let Ok(current) = context.get_value(node_name) {
         sorted_periods.insert(context.period_id, current);
     }
-    
+
     // Collect the most recent `window_size` values
     let mut values: Vec<f64> = sorted_periods
         .into_iter()
@@ -44,33 +64,30 @@ fn collect_rolling_window_values(
         .take(window_size)
         .map(|(_, v)| v)
         .collect();
-    
+
     // Reverse to get chronological order (oldest to newest)
     values.reverse();
-    
+
     Ok(values)
 }
 
 /// Collect all historical values for a node including current.
-fn collect_all_historical_values(
-    node_name: &str,
-    context: &EvaluationContext,
-) -> Result<Vec<f64>> {
+fn collect_all_historical_values(node_name: &str, context: &EvaluationContext) -> Result<Vec<f64>> {
     // Use BTreeMap to sort periods chronologically
     let mut sorted_periods = BTreeMap::new();
-    
+
     // Add historical values
     for (period, values) in &context.historical_results {
         if let Some(value) = values.get(node_name) {
             sorted_periods.insert(*period, *value);
         }
     }
-    
+
     // Add current period value if it exists
     if let Ok(current) = context.get_value(node_name) {
         sorted_periods.insert(context.period_id, current);
     }
-    
+
     // Return values in chronological order
     Ok(sorted_periods.into_values().collect())
 }
@@ -101,9 +118,7 @@ fn calculate_variance(values: &[f64]) -> Result<f64> {
         return Ok(0.0);
     }
     let mean = calculate_mean(values)?;
-    Ok(values.iter()
-        .map(|v| (v - mean).powi(2))
-        .sum::<f64>() / values.len() as f64)
+    Ok(values.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / values.len() as f64)
 }
 
 /// Calculate median of values.
@@ -127,10 +142,10 @@ fn offset_period(period: PeriodId, offset: i32) -> PeriodId {
     if offset == 0 {
         return period;
     }
-    
+
     let mut result = period;
     let steps = offset.unsigned_abs() as usize;
-    
+
     for _ in 0..steps {
         if offset > 0 {
             // Move forward
@@ -140,7 +155,7 @@ fn offset_period(period: PeriodId, offset: i32) -> PeriodId {
             result = step_backward(result);
         }
     }
-    
+
     result
 }
 
@@ -248,11 +263,13 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<
         }
         ExprNode::Call(func, args) => evaluate_function(func, args, context),
         ExprNode::BinOp { op, left, right } => {
+            // Note: Binary operations are evaluated directly here rather than
+            // through the Function enum. This is intentional - see module docs.
             let left_val = evaluate_expr(left, context)?;
             let right_val = evaluate_expr(right, context)?;
 
             let result = match op {
-                // Arithmetic
+                // Arithmetic operations - evaluated directly for performance
                 BinOp::Add => left_val + right_val,
                 BinOp::Sub => left_val - right_val,
                 BinOp::Mul => left_val * right_val,
@@ -362,23 +379,25 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
     match func {
         Function::Lag => {
             if args.len() != 2 {
-                return Err(Error::eval("lag() requires 2 arguments (expression, periods)"));
+                return Err(Error::eval(
+                    "lag() requires 2 arguments (expression, periods)",
+                ));
             }
-            
+
             // Get the number of periods to lag
             let lag_periods = evaluate_expr(&args[1], context)? as i32;
             if lag_periods < 0 {
                 return Err(Error::eval("lag() periods must be non-negative"));
             }
-            
+
             if lag_periods == 0 {
                 // No lag, just evaluate the expression
                 return evaluate_expr(&args[0], context);
             }
-            
+
             // Calculate the target period
             let target_period = offset_period(context.period_id, -lag_periods);
-            
+
             // If it's a simple column reference, look it up in historical results
             if let ExprNode::Column(node_name) = &args[0].node {
                 if let Some(value) = context.get_historical_value(node_name, &target_period) {
@@ -399,20 +418,22 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
         Function::Diff => {
             if args.is_empty() || args.len() > 2 {
-                return Err(Error::eval("diff() requires 1 or 2 arguments (expression, [periods])"));
+                return Err(Error::eval(
+                    "diff() requires 1 or 2 arguments (expression, [periods])",
+                ));
             }
-            
+
             // Get the lag periods (default to 1)
             let lag_periods = if args.len() == 2 {
                 evaluate_expr(&args[1], context)? as i32
             } else {
                 1
             };
-            
+
             if lag_periods <= 0 {
                 return Err(Error::eval("diff() periods must be positive"));
             }
-            
+
             // For column references, check if value exists in current period
             if let ExprNode::Column(node_name) = &args[0].node {
                 // Get current value
@@ -421,10 +442,11 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                     // No current value, return NaN
                     return Ok(f64::NAN);
                 }
-                
+
                 // Get the lagged value
                 let target_period = offset_period(context.period_id, -lag_periods);
-                if let Some(lagged_value) = context.get_historical_value(node_name, &target_period) {
+                if let Some(lagged_value) = context.get_historical_value(node_name, &target_period)
+                {
                     Ok(current_value - lagged_value)
                 } else {
                     // No historical value, return NaN
@@ -439,20 +461,22 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         }
         Function::PctChange => {
             if args.is_empty() || args.len() > 2 {
-                return Err(Error::eval("pct_change() requires 1 or 2 arguments (expression, [periods])"));
+                return Err(Error::eval(
+                    "pct_change() requires 1 or 2 arguments (expression, [periods])",
+                ));
             }
-            
+
             // Get the lag periods (default to 1)
             let lag_periods = if args.len() == 2 {
                 evaluate_expr(&args[1], context)? as i32
             } else {
                 1
             };
-            
+
             if lag_periods <= 0 {
                 return Err(Error::eval("pct_change() periods must be positive"));
             }
-            
+
             // For column references, check if value exists in current period
             if let ExprNode::Column(node_name) = &args[0].node {
                 // Get current value
@@ -461,10 +485,11 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                     // No current value, return NaN
                     return Ok(f64::NAN);
                 }
-                
+
                 // Get the lagged value
                 let target_period = offset_period(context.period_id, -lag_periods);
-                if let Some(lagged_value) = context.get_historical_value(node_name, &target_period) {
+                if let Some(lagged_value) = context.get_historical_value(node_name, &target_period)
+                {
                     if lagged_value.abs() < 1e-10 {
                         // Avoid division by zero
                         Ok(f64::NAN)
@@ -483,18 +508,26 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             }
         }
         // Rolling window functions
-        Function::RollingMean | Function::RollingSum | Function::RollingStd | 
-        Function::RollingVar | Function::RollingMedian | Function::RollingMin | 
-        Function::RollingMax | Function::RollingCount => {
+        Function::RollingMean
+        | Function::RollingSum
+        | Function::RollingStd
+        | Function::RollingVar
+        | Function::RollingMedian
+        | Function::RollingMin
+        | Function::RollingMax
+        | Function::RollingCount => {
             if args.len() != 2 {
-                return Err(Error::eval(format!("{:?} requires 2 arguments (expression, window)", func)));
+                return Err(Error::eval(format!(
+                    "{:?} requires 2 arguments (expression, window)",
+                    func
+                )));
             }
-            
+
             let window = evaluate_expr(&args[1], context)? as usize;
             if window == 0 {
                 return Err(Error::eval("Window size must be greater than 0"));
             }
-            
+
             // Collect values in chronological order for the rolling window
             let values = if let ExprNode::Column(node_name) = &args[0].node {
                 collect_rolling_window_values(node_name, context, window)?
@@ -502,46 +535,36 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 // For complex expressions, just use current value
                 vec![evaluate_expr(&args[0], context)?]
             };
-            
+
             if values.is_empty() {
                 return Ok(0.0);
             }
-            
+
             match func {
-                Function::RollingMean => {
-                    calculate_mean(&values)
-                }
-                Function::RollingSum => {
-                    Ok(values.iter().sum())
-                }
-                Function::RollingStd => {
-                    calculate_std(&values)
-                }
-                Function::RollingVar => {
-                    calculate_variance(&values)
-                }
-                Function::RollingMedian => {
-                    calculate_median(&values)
-                }
-                Function::RollingMin => {
-                    Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b)))
-                }
-                Function::RollingMax => {
-                    Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b)))
-                }
-                Function::RollingCount => {
-                    Ok(values.len() as f64)
-                }
-                _ => unreachable!(),
+                Function::RollingMean => calculate_mean(&values),
+                Function::RollingSum => Ok(values.iter().sum()),
+                Function::RollingStd => calculate_std(&values),
+                Function::RollingVar => calculate_variance(&values),
+                Function::RollingMedian => calculate_median(&values),
+                Function::RollingMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
+                Function::RollingMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
+                Function::RollingCount => Ok(values.len() as f64),
+                _ => Err(Error::eval(format!(
+                    "Function {:?} is not a rolling window function",
+                    func
+                ))),
             }
         }
-        
+
         // Statistical functions (operate on all historical values)
         Function::Std | Function::Var | Function::Median => {
             if args.is_empty() {
-                return Err(Error::eval(format!("{:?} requires at least 1 argument", func)));
+                return Err(Error::eval(format!(
+                    "{:?} requires at least 1 argument",
+                    func
+                )));
             }
-            
+
             // Collect all historical values
             let values = if let ExprNode::Column(node_name) = &args[0].node {
                 collect_all_historical_values(node_name, context)?
@@ -549,21 +572,27 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 // For complex expressions, just use current value
                 vec![evaluate_expr(&args[0], context)?]
             };
-            
+
             match func {
                 Function::Std => calculate_std(&values),
                 Function::Var => calculate_variance(&values),
                 Function::Median => calculate_median(&values),
-                _ => unreachable!(),
+                _ => Err(Error::eval(format!(
+                    "Function {:?} is not a statistical function",
+                    func
+                ))),
             }
         }
-        
+
         // Cumulative functions (operate on all historical values)
         Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => {
             if args.is_empty() {
-                return Err(Error::eval(format!("{:?} requires at least 1 argument", func)));
+                return Err(Error::eval(format!(
+                    "{:?} requires at least 1 argument",
+                    func
+                )));
             }
-            
+
             // Collect all historical values
             let values = if let ExprNode::Column(node_name) = &args[0].node {
                 collect_all_historical_values(node_name, context)?
@@ -571,20 +600,23 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 // For complex expressions, just use current value
                 vec![evaluate_expr(&args[0], context)?]
             };
-            
+
             if values.is_empty() {
                 return Ok(0.0);
             }
-            
+
             match func {
                 Function::CumSum => Ok(values.iter().sum()),
                 Function::CumProd => Ok(values.iter().product()),
                 Function::CumMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
                 Function::CumMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
-                _ => unreachable!(),
+                _ => Err(Error::eval(format!(
+                    "Function {:?} is not a cumulative function",
+                    func
+                ))),
             }
         }
-        
+
         // Other functions
         Function::Shift => {
             // Similar to lag but with different semantics
@@ -592,7 +624,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 return Err(Error::eval("shift() requires 2 arguments"));
             }
             let shift_periods = evaluate_expr(&args[1], context)? as i32;
-            
+
             if shift_periods == 0 {
                 evaluate_expr(&args[0], context)
             } else {
@@ -600,12 +632,197 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 Ok(0.0)
             }
         }
-        
-        Function::Rank | Function::Quantile | Function::EwmMean | 
+
+        Function::Rank => {
+            // Rank the current value among all historical values
+            if args.is_empty() {
+                return Err(Error::eval("rank() requires at least one argument"));
+            }
+
+            // Get the value to rank
+            let current_value = evaluate_expr(&args[0], context)?;
+
+            // Collect all values (historical + current)
+            let node_name = if let ExprNode::Column(name) = &args[0].node {
+                name
+            } else {
+                return Ok(1.0); // Non-column expressions get rank 1
+            };
+
+            let mut all_values = collect_all_historical_values(node_name, context)?;
+            all_values.push(current_value);
+
+            // Sort values in ascending order
+            all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+            // Find rank (1-based)
+            let rank = all_values
+                .iter()
+                .position(|&v| (v - current_value).abs() < 1e-10)
+                .map(|pos| (pos + 1) as f64)
+                .unwrap_or(1.0);
+
+            Ok(rank)
+        }
+
+        Function::Quantile => {
+            // Calculate quantile of a value in a distribution
+            if args.len() < 2 {
+                return Err(Error::eval(
+                    "quantile() requires 2 arguments: node and quantile",
+                ));
+            }
+
+            // Get the quantile level (e.g., 0.25 for 25th percentile)
+            let quantile = evaluate_expr(&args[1], context)?;
+            if !(0.0..=1.0).contains(&quantile) {
+                return Err(Error::eval("quantile must be between 0 and 1"));
+            }
+
+            // Get node name for historical data
+            let node_name = if let ExprNode::Column(name) = &args[0].node {
+                name
+            } else {
+                return Err(Error::eval("quantile() requires a column reference"));
+            };
+
+            // Collect and sort all values
+            let mut all_values = collect_all_historical_values(node_name, context)?;
+            if let Ok(current) = context.get_value(node_name) {
+                all_values.push(current);
+            }
+
+            if all_values.is_empty() {
+                return Ok(f64::NAN);
+            }
+
+            all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+            // Calculate quantile value
+            let n = all_values.len() as f64;
+            let index = quantile * (n - 1.0);
+            let lower = index.floor() as usize;
+            let upper = index.ceil() as usize;
+
+            if lower == upper {
+                Ok(all_values[lower])
+            } else {
+                // Linear interpolation
+                let weight = index - lower as f64;
+                Ok(all_values[lower] * (1.0 - weight) + all_values[upper] * weight)
+            }
+        }
+
+        Function::EwmMean => {
+            // Exponentially weighted moving average
+            if args.len() < 2 {
+                return Err(Error::eval(
+                    "ewm_mean() requires 2 arguments: node and alpha",
+                ));
+            }
+
+            // Get smoothing factor (alpha)
+            let alpha = evaluate_expr(&args[1], context)?;
+            if !(0.0..=1.0).contains(&alpha) {
+                return Err(Error::eval("ewm_mean alpha must be between 0 and 1"));
+            }
+
+            // Get node name
+            let node_name = if let ExprNode::Column(name) = &args[0].node {
+                name
+            } else {
+                return Err(Error::eval("ewm_mean() requires a column reference"));
+            };
+
+            // Collect historical values in chronological order
+            let mut values = Vec::new();
+            for (period_id, period_results) in &context.historical_results {
+                if let Some(value) = period_results.get(node_name) {
+                    values.push((*period_id, *value));
+                }
+            }
+
+            // Add current value
+            if let Ok(current) = context.get_value(node_name) {
+                values.push((context.period_id, current));
+            }
+
+            if values.is_empty() {
+                return Ok(f64::NAN);
+            }
+
+            // Sort by period (chronological)
+            values.sort_by_key(|(period, _)| *period);
+
+            // Calculate EWM using the formula: EWM_t = alpha * x_t + (1 - alpha) * EWM_{t-1}
+            let mut ewm = values[0].1; // Initialize with first value
+            for (_, value) in values.iter().skip(1) {
+                ewm = alpha * value + (1.0 - alpha) * ewm;
+            }
+
+            Ok(ewm)
+        }
+
         Function::EwmStd | Function::EwmVar => {
-            // These require more complex implementations
-            // For now, return a placeholder value
-            evaluate_expr(&args[0], context)
+            // Exponentially weighted standard deviation/variance
+            if args.len() < 2 {
+                return Err(Error::eval(
+                    "ewm_std/var() requires 2 arguments: node and alpha",
+                ));
+            }
+
+            // Get smoothing factor (alpha)
+            let alpha = evaluate_expr(&args[1], context)?;
+            if !(0.0..=1.0).contains(&alpha) {
+                return Err(Error::eval("ewm alpha must be between 0 and 1"));
+            }
+
+            // Get node name
+            let node_name = if let ExprNode::Column(name) = &args[0].node {
+                name
+            } else {
+                return Err(Error::eval("ewm_std/var() requires a column reference"));
+            };
+
+            // Collect historical values
+            let mut values = Vec::new();
+            for (period_id, period_results) in &context.historical_results {
+                if let Some(value) = period_results.get(node_name) {
+                    values.push((*period_id, *value));
+                }
+            }
+
+            // Add current value
+            if let Ok(current) = context.get_value(node_name) {
+                values.push((context.period_id, current));
+            }
+
+            if values.len() < 2 {
+                return Ok(f64::NAN);
+            }
+
+            // Sort by period
+            values.sort_by_key(|(period, _)| *period);
+
+            // Calculate EWM mean first
+            let mut ewm_mean = values[0].1;
+            let mut ewm_var = 0.0;
+            
+            for (_, value) in values.iter().skip(1) {
+                let diff = value - ewm_mean;
+                ewm_mean = alpha * value + (1.0 - alpha) * ewm_mean;
+                ewm_var = (1.0 - alpha) * (ewm_var + alpha * diff * diff);
+            }
+
+            match func {
+                Function::EwmVar => Ok(ewm_var),
+                Function::EwmStd => Ok(ewm_var.sqrt()),
+                Function::EwmMean => Ok(ewm_mean),
+                _ => Err(Error::eval(format!(
+                    "Function {:?} is not an exponentially weighted function",
+                    func
+                ))),
+            }
         }
     }
 }

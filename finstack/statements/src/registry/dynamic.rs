@@ -105,7 +105,9 @@ impl Registry {
 
         // Validate namespace
         if namespace.is_empty() {
-            return Err(Error::registry("Namespace cannot be empty"));
+            return Err(Error::registry(
+                "Namespace cannot be empty. Provide a namespace identifier (e.g., 'fin', 'custom')."
+            ));
         }
 
         // Track namespace
@@ -123,7 +125,7 @@ impl Registry {
             let qualified_id = metric.qualified_id(&namespace);
             if self.metrics.contains_key(&qualified_id) {
                 return Err(Error::registry(format!(
-                    "Duplicate metric ID: '{}'",
+                    "Duplicate metric ID: '{}'. This metric is already registered in the registry.",
                     qualified_id
                 )));
             }
@@ -163,9 +165,15 @@ impl Registry {
     /// # }
     /// ```
     pub fn get(&self, qualified_id: &str) -> Result<&StoredMetric> {
-        self.metrics
-            .get(qualified_id)
-            .ok_or_else(|| Error::registry(format!("Metric not found: '{}'", qualified_id)))
+        self.metrics.get(qualified_id).ok_or_else(|| {
+            let available: Vec<_> = self.metrics.keys().take(5).map(|s| s.as_str()).collect();
+            Error::registry(format!(
+                "Metric not found: '{}'. Available metrics include: {}{}",
+                qualified_id,
+                available.join(", "),
+                if self.metrics.len() > 5 { ", ..." } else { "" }
+            ))
+        })
     }
 
     /// Check if a metric exists.

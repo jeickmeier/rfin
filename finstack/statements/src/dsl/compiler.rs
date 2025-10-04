@@ -195,7 +195,9 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
             }
             _ => {
                 Err(crate::error::Error::eval(format!(
-                    "Function '{}' is not supported",
+                    "Function '{}' is not supported. \
+                     Supported functions include: lag, lead, diff, pct_change, rolling_*, ewm_*, std, var, median, \
+                     sum, mean, ttm, annualize, coalesce",
                     func_name
                 )))
             }
