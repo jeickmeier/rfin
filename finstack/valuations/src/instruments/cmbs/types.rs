@@ -2,7 +2,10 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::structured_credit::{
-    AssetPool, AssetType, CoverageTests, DealType, StructuredCreditWaterfall, TrancheStructure,
+    AssetPool, CoverageTests, DealType, StructuredCreditWaterfall, TrancheStructure,
+    PrepaymentBehavior, DefaultBehavior, RecoveryBehavior,
+    PrepaymentModelFactory, DefaultModelFactory,
+    MarketConditions, CreditFactors,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -14,13 +17,14 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 use std::any::Any;
+use std::sync::Arc;
 use time::Month;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Primary CMBS instrument representation.
-#[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder)]
+#[derive(Clone, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Cmbs {
     /// Unique instrument identifier
@@ -59,6 +63,28 @@ pub struct Cmbs {
 
     /// Attributes for scenario selection
     pub attributes: Attributes,
+
+    /// Prepayment model (commercial prepayment behavior)
+    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Cmbs::default_prepayment_arc"))]
+    pub prepayment_model: Arc<dyn PrepaymentBehavior>,
+
+    /// Default model for commercial loans
+    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Cmbs::default_default_arc"))]
+    pub default_model: Arc<dyn DefaultBehavior>,
+
+    /// Recovery model for commercial collateral
+    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Cmbs::default_recovery_arc"))]
+    pub recovery_model: Arc<dyn RecoveryBehavior>,
+
+    /// Market conditions (e.g., refi markets less relevant; seasonality)
+    pub market_conditions: MarketConditions,
+
+    /// Credit factors (DSCR/LTV proxies via `credit_factors` if extended later)
+    pub credit_factors: CreditFactors,
+
+    /// Instrument-level knobs
+    pub open_cpr: Option<f64>,
+    pub cdr_annual: Option<f64>,
 }
 
 impl Cmbs {
@@ -72,6 +98,10 @@ impl Cmbs {
         disc_id: impl Into<String>,
     ) -> Self {
         let id_str = id.into();
+        // Defaults for CMBS: commercial prepayment model via factory("cmbs"), commercial defaults
+        let prepay = PrepaymentModelFactory::create_default("cmbs");
+        let dflt = DefaultModelFactory::create_default_model("commercial");
+        let recv = DefaultModelFactory::create_recovery_model("commercial");
         Self {
             id: InstrumentId::new(id_str),
             deal_type: DealType::CMBS,
@@ -88,6 +118,13 @@ impl Cmbs {
             special_servicer_id: None,
             disc_id: CurveId::new(disc_id.into()),
             attributes: Attributes::new(),
+            prepayment_model: Arc::from(prepay),
+            default_model: Arc::from(dflt),
+            recovery_model: Arc::from(recv),
+            market_conditions: MarketConditions::default(),
+            credit_factors: CreditFactors::default(),
+            open_cpr: None,
+            cdr_annual: None,
         }
     }
 
@@ -126,46 +163,67 @@ impl CashflowProvider for Cmbs {
         _context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
-        let mut pool_flows = Vec::new();
-
-        for asset in &self.pool.assets {
-            match &asset.asset_type {
-                AssetType::Mortgage { .. } => {
-                    let monthly_interest = asset.balance.amount() * asset.rate / 12.0;
-                    let interest_payment = Money::new(monthly_interest, asset.balance.currency());
-                    let mut payment_date = as_of;
-                    for _ in 0..300 {
-                        payment_date = add_months(payment_date, 1);
-                        if payment_date <= asset.maturity {
-                            pool_flows.push((payment_date, interest_payment));
-                        }
-                    }
-                    if asset.maturity > as_of {
-                        pool_flows.push((asset.maturity, asset.balance));
-                    }
-                }
-                AssetType::Loan { .. } => {
-                    let quarterly_interest = asset.balance.amount() * asset.rate / 4.0;
-                    let interest_payment = Money::new(quarterly_interest, asset.balance.currency());
-                    let mut payment_date = as_of;
-                    for _ in 0..40 {
-                        payment_date = add_months(payment_date, 3);
-                        if payment_date <= asset.maturity {
-                            pool_flows.push((payment_date, interest_payment));
-                        }
-                    }
-                    if asset.maturity > as_of {
-                        pool_flows.push((asset.maturity, asset.balance));
-                    }
-                }
-                _ => {
-                    pool_flows.push((asset.maturity, asset.balance));
-                }
-            }
+        // Pool-level simulation with SMM/MDR
+        let mut flows: DatedFlows = Vec::new();
+        let base_ccy = self.pool.base_currency();
+        let mut outstanding = self.pool.total_balance();
+        if outstanding.amount() <= 0.0 {
+            return Ok(flows);
         }
 
-        pool_flows.sort_by_key(|(date, _)| *date);
-        Ok(pool_flows)
+        let months_per_period = self.payment_frequency.months().unwrap_or(1) as f64;
+        let wac = self.pool.weighted_avg_coupon();
+        let period_rate = wac * (months_per_period / 12.0);
+
+        let mut pay_date = self.first_payment_date.max(as_of);
+        while pay_date <= self.legal_maturity && outstanding.amount() > 0.0 {
+            let seasoning_months = {
+                let m = (pay_date.year() - self.closing_date.year()) * 12
+                    + (pay_date.month() as i32 - self.closing_date.month() as i32);
+                m.max(0) as u32
+            };
+
+            let smm = if let Some(open_cpr) = self.open_cpr {
+                // Convert open period CPR to SMM
+                crate::instruments::common::structured_credit::cpr_to_smm(open_cpr)
+            } else {
+                self.premium_smm(pay_date, seasoning_months)
+            };
+
+            let mdr = if let Some(cdr) = self.cdr_annual {
+                crate::instruments::common::structured_credit::cdr_to_mdr(cdr)
+            } else {
+                self.premium_mdr(pay_date, seasoning_months)
+            };
+
+            let interest_amt = Money::new(outstanding.amount() * period_rate, base_ccy);
+            let scheduled_prin = Money::new(0.0, base_ccy);
+            let prepay_amt = Money::new(outstanding.amount() * smm, base_ccy);
+            let default_amt = Money::new(outstanding.amount() * mdr, base_ccy);
+            let recovery_rate = self.recovery_model.recovery_rate(
+                pay_date,
+                6,
+                None,
+                default_amt,
+                &crate::instruments::common::structured_credit::MarketFactors::default(),
+            );
+            let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
+
+            let period_cash = interest_amt
+                .checked_add(scheduled_prin)?
+                .checked_add(prepay_amt)?
+                .checked_add(recovery_amt)?;
+            flows.push((pay_date, period_cash));
+
+            outstanding = outstanding
+                .checked_sub(scheduled_prin)?
+                .checked_sub(prepay_amt)?
+                .checked_sub(default_amt)?;
+
+            pay_date = add_months(pay_date, self.payment_frequency.months().unwrap_or(1) as i32);
+        }
+
+        Ok(flows)
     }
 }
 
@@ -224,5 +282,50 @@ impl crate::instruments::common::traits::InstrumentKind for Cmbs {
 impl crate::instruments::common::HasDiscountCurve for Cmbs {
     fn discount_curve_id(&self) -> &CurveId {
         &self.disc_id
+    }
+}
+
+impl Cmbs {
+    #[cfg(feature = "serde")]
+    fn default_prepayment_arc() -> Arc<dyn PrepaymentBehavior> {
+        Arc::from(PrepaymentModelFactory::create_default("cmbs"))
+    }
+
+    #[cfg(feature = "serde")]
+    fn default_default_arc() -> Arc<dyn DefaultBehavior> {
+        Arc::from(DefaultModelFactory::create_default_model("commercial"))
+    }
+
+    #[cfg(feature = "serde")]
+    fn default_recovery_arc() -> Arc<dyn RecoveryBehavior> {
+        Arc::from(DefaultModelFactory::create_recovery_model("commercial"))
+    }
+
+    #[inline]
+    fn premium_smm(&self, as_of: Date, seasoning_months: u32) -> f64 {
+        self.prepayment_model
+            .prepayment_rate(as_of, self.closing_date, seasoning_months, &self.market_conditions)
+            .max(0.0)
+    }
+
+    #[inline]
+    fn premium_mdr(&self, as_of: Date, seasoning_months: u32) -> f64 {
+        self.default_model
+            .default_rate(as_of, self.closing_date, seasoning_months, &self.credit_factors)
+            .max(0.0)
+    }
+}
+
+impl core::fmt::Debug for Cmbs {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Cmbs")
+            .field("id", &self.id)
+            .field("deal_type", &self.deal_type)
+            .field("closing_date", &self.closing_date)
+            .field("first_payment_date", &self.first_payment_date)
+            .field("legal_maturity", &self.legal_maturity)
+            .field("payment_frequency", &self.payment_frequency)
+            .field("disc_id", &self.disc_id)
+            .finish()
     }
 }

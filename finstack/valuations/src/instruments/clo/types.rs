@@ -2,7 +2,11 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::structured_credit::{
-    AssetPool, AssetType, CoverageTests, DealType, StructuredCreditWaterfall, TrancheStructure,
+    AssetPool, CoverageTests, DealType, StructuredCreditWaterfall, TrancheStructure,
+    // Prepayment/default frameworks
+    PrepaymentBehavior, DefaultBehavior, RecoveryBehavior,
+    PrepaymentModelFactory, DefaultModelFactory,
+    MarketConditions, CreditFactors,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -14,12 +18,13 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 use std::any::Any;
+use std::sync::Arc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Primary CLO instrument representation.
-#[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder)]
+#[derive(Clone, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Clo {
     /// Unique instrument identifier
@@ -58,9 +63,41 @@ pub struct Clo {
 
     /// Attributes for scenario selection
     pub attributes: Attributes,
+
+    /// Prepayment model (SMM) applied to pool cashflows
+    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Clo::default_prepayment_arc"))]
+    pub prepayment_model: Arc<dyn PrepaymentBehavior>,
+
+    /// Default model (MDR) applied to pool cashflows
+    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Clo::default_default_arc"))]
+    pub default_model: Arc<dyn DefaultBehavior>,
+
+    /// Recovery model used to convert defaults to recoveries
+    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Clo::default_recovery_arc"))]
+    pub recovery_model: Arc<dyn RecoveryBehavior>,
+
+    /// Market conditions for prepayment behavior
+    pub market_conditions: MarketConditions,
+
+    /// Credit factors for default behavior
+    pub credit_factors: CreditFactors,
 }
 
 impl Clo {
+    #[cfg(feature = "serde")]
+    fn default_prepayment_arc() -> Arc<dyn PrepaymentBehavior> {
+        Arc::from(PrepaymentModelFactory::create_cpr(0.15))
+    }
+
+    #[cfg(feature = "serde")]
+    fn default_default_arc() -> Arc<dyn DefaultBehavior> {
+        Arc::from(DefaultModelFactory::create_default_model("corporate"))
+    }
+
+    #[cfg(feature = "serde")]
+    fn default_recovery_arc() -> Arc<dyn RecoveryBehavior> {
+        Arc::from(DefaultModelFactory::create_recovery_model("corporate"))
+    }
     /// Create a new CLO instrument from its building blocks.
     pub fn new(
         id: impl Into<String>,
@@ -71,6 +108,10 @@ impl Clo {
         disc_id: impl Into<String>,
     ) -> Self {
         let id_str = id.into();
+        // Default CLO assumptions: corporate loan pool
+        let prepay = PrepaymentModelFactory::create_cpr(0.15); // 15% CPR default
+        let dflt = DefaultModelFactory::create_default_model("corporate");
+        let recv = DefaultModelFactory::create_recovery_model("corporate");
         Self {
             id: InstrumentId::new(id_str),
             deal_type: DealType::CLO,
@@ -87,6 +128,11 @@ impl Clo {
             servicer_id: None,
             disc_id: CurveId::new(disc_id.into()),
             attributes: Attributes::new(),
+            prepayment_model: Arc::from(prepay),
+            default_model: Arc::from(dflt),
+            recovery_model: Arc::from(recv),
+            market_conditions: MarketConditions::default(),
+            credit_factors: CreditFactors::default(),
         }
     }
 
@@ -124,64 +170,91 @@ impl Clo {
     }
 }
 
+impl core::fmt::Debug for Clo {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Clo")
+            .field("id", &self.id)
+            .field("deal_type", &self.deal_type)
+            .field("closing_date", &self.closing_date)
+            .field("first_payment_date", &self.first_payment_date)
+            .field("legal_maturity", &self.legal_maturity)
+            .field("payment_frequency", &self.payment_frequency)
+            .field("disc_id", &self.disc_id)
+            .finish()
+    }
+}
+
 impl CashflowProvider for Clo {
     fn build_schedule(
         &self,
         _context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
-        // 1. Get pool cashflows by aggregating individual asset cashflows
-        let mut pool_flows = Vec::new();
+        // Simplified pool-level simulation applying SMM (prepay) and MDR (default)
+        let mut flows: DatedFlows = Vec::new();
 
-        for asset in &self.pool.assets {
-            // Get cashflows based on asset type
-            match &asset.asset_type {
-                AssetType::Loan { .. } => {
-                    // Use existing loan cashflow generation if available
-                    // For now, simplified approach
-                    let quarterly_interest = asset.balance.amount() * asset.rate / 4.0;
-                    let interest_payment = Money::new(quarterly_interest, asset.balance.currency());
-
-                    // Generate quarterly payments (simplified)
-                    let mut payment_date = as_of;
-                    for _ in 0..20 {
-                        // 5 years of quarterly payments using core add_months
-                        payment_date = add_months(payment_date, 3);
-                        if payment_date <= asset.maturity {
-                            pool_flows.push((payment_date, interest_payment));
-                        }
-                    }
-
-                    // Principal at maturity (simplified)
-                    if asset.maturity > as_of {
-                        pool_flows.push((asset.maturity, asset.balance));
-                    }
-                }
-                AssetType::Bond { .. } => {
-                    // Similar logic for bonds
-                    let quarterly_interest = asset.balance.amount() * asset.rate / 4.0;
-                    let interest_payment = Money::new(quarterly_interest, asset.balance.currency());
-                    pool_flows.push((asset.maturity, interest_payment));
-                    pool_flows.push((asset.maturity, asset.balance));
-                }
-                _ => {
-                    // Generic asset - simplified cashflow
-                    pool_flows.push((asset.maturity, asset.balance));
-                }
-            }
+        let base_ccy = self.pool.base_currency();
+        let mut outstanding = self.pool.total_balance();
+        if outstanding.amount() <= 0.0 {
+            return Ok(flows);
         }
 
-        // 2. Sort pool flows by date
-        pool_flows.sort_by_key(|(date, _)| *date);
+        let months_per_period = self.payment_frequency.months().unwrap_or(3) as f64;
+        let wac = self.pool.weighted_avg_coupon();
+        // Periodic interest rate based on frequency
+        let period_rate = wac * (months_per_period / 12.0);
 
-        // 3. Apply pool behavior (prepayments/defaults) - simplified
-        // In a full implementation, this would use the loan simulation framework
+        let mut pay_date = self.first_payment_date.max(as_of);
+        while pay_date <= self.legal_maturity && outstanding.amount() > 0.0 {
+            // Seasoning relative to closing date
+            let seasoning_months = {
+                let m = (pay_date.year() - self.closing_date.year()) * 12
+                    + (pay_date.month() as i32 - self.closing_date.month() as i32);
+                m.max(0) as u32
+            };
 
-        // 4. Run through waterfall to get tranche-specific flows
-        // For now, return aggregated pool flows
-        // In full implementation, this would distribute through waterfall
+            // Prepayment and default rates
+            let smm = self.premium_smm(pay_date, seasoning_months);
+            let mdr = self.premium_mdr(pay_date, seasoning_months);
 
-        Ok(pool_flows)
+            // Interest on current outstanding
+            let interest_amt = Money::new(outstanding.amount() * period_rate, base_ccy);
+
+            // No scheduled amortization (bullet) in this simplified pass
+            let scheduled_prin = Money::new(0.0, base_ccy);
+
+            // Prepayments
+            let prepay_amt = Money::new(outstanding.amount() * smm, base_ccy);
+
+            // Defaults and recoveries (recovery received immediately for simplicity)
+            let default_amt = Money::new(outstanding.amount() * mdr, base_ccy);
+            let recovery_rate = self.recovery_model.recovery_rate(
+                pay_date,
+                6,
+                None,
+                default_amt,
+                &crate::instruments::common::structured_credit::MarketFactors::default(),
+            );
+            let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
+
+            // Cash collected this period (interest + principal components)
+            let period_cash = interest_amt
+                .checked_add(scheduled_prin)?
+                .checked_add(prepay_amt)?
+                .checked_add(recovery_amt)?;
+            flows.push((pay_date, period_cash));
+
+            // Update outstanding balance after scheduled principal, prepay, and default
+            outstanding = outstanding
+                .checked_sub(scheduled_prin)?
+                .checked_sub(prepay_amt)?
+                .checked_sub(default_amt)?;
+
+            // Advance to next period
+            pay_date = add_months(pay_date, self.payment_frequency.months().unwrap_or(3) as i32);
+        }
+
+        Ok(flows)
     }
 }
 
@@ -240,5 +313,21 @@ impl crate::instruments::common::traits::InstrumentKind for Clo {
 impl crate::instruments::common::HasDiscountCurve for Clo {
     fn discount_curve_id(&self) -> &CurveId {
         &self.disc_id
+    }
+}
+
+impl Clo {
+    #[inline]
+    fn premium_smm(&self, as_of: Date, seasoning_months: u32) -> f64 {
+        self.prepayment_model
+            .prepayment_rate(as_of, self.closing_date, seasoning_months, &self.market_conditions)
+            .max(0.0)
+    }
+
+    #[inline]
+    fn premium_mdr(&self, as_of: Date, seasoning_months: u32) -> f64 {
+        self.default_model
+            .default_rate(as_of, self.closing_date, seasoning_months, &self.credit_factors)
+            .max(0.0)
     }
 }
