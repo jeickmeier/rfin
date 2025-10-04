@@ -47,29 +47,55 @@
 //! - ✅ Type-state builder pattern (`ModelBuilder<NeedPeriods>`, `ModelBuilder<Ready>`)
 //! - ✅ Period integration using `finstack-core::dates::build_periods`
 //! - ✅ Value nodes with explicit period values
-//! - ✅ Basic calculated nodes with formulas (no evaluation yet)
+//! - ✅ Calculated nodes with formulas
 //!
 //! ### Phase 2: DSL Engine ✅
 //! - ✅ Parser for formula text (arithmetic, functions, operators)
 //! - ✅ AST representation (`StmtExpr`)
 //! - ✅ Compiler to core `Expr`
-//! - ✅ Time-series operators (lag, lead, diff, pct_change)
-//! - ✅ Rolling window functions (rolling_mean, rolling_sum, rolling_std)
-//! - ✅ Statistical functions (std, var, median)
+//! - ✅ Time-series operators (lag, lead, diff, pct_change) - fully implemented
+//! - ✅ Rolling window functions (all variants: mean, sum, std, var, median, min, max)
+//! - ✅ Statistical functions (std, var, median, cumsum, cumprod, cummin, cummax)
+//! - ✅ Custom functions (sum, mean, ttm, annualize, coalesce)
 //!
 //! ### Phase 3: Evaluator ✅
 //! - ✅ Evaluation context (`StatementContext`)
 //! - ✅ Basic evaluator with period-by-period evaluation
 //! - ✅ DAG construction and topological sort
 //! - ✅ Precedence resolution (Value > Forecast > Formula)
-//! - ✅ Where clause masking
+//! - ✅ Where clause masking (conditional node evaluation)
 //! - ✅ Circular dependency detection
+//! - ✅ Parallel formula compilation (with `parallel` feature)
 //!
-//! Future phases will add:
-//! - Forecast methods (forward fill, growth, statistical)
-//! - Dynamic metric registry
-//! - Capital structure integration
-//! - DataFrame export (Polars)
+//! ### Phase 4: Forecast Methods ✅
+//! - ✅ Forward fill
+//! - ✅ Growth percentage (compound growth)
+//! - ✅ Curve percentage (period-specific rates)
+//! - ✅ Normal distribution (deterministic with seed)
+//! - ✅ Log-normal distribution (always positive)
+//! - ✅ Override (sparse period values)
+//! - ✅ TimeSeries (external data reference)
+//! - ✅ Seasonal (patterns with optional growth)
+//!
+//! ### Phase 5: Dynamic Registry ✅
+//! - ✅ JSON schema for metrics
+//! - ✅ Registry loader
+//! - ✅ Built-in metrics (fin.* namespace)
+//! - ✅ Inter-metric dependencies
+//! - ✅ Namespace management
+//!
+//! ### Phase 6: Capital Structure ✅
+//! - ✅ Bond and swap instruments
+//! - ✅ Generic instrument support (automatic deserialization)
+//! - ✅ Cashflow computation with market context
+//! - ✅ `cs.*` namespace in DSL
+//! - ✅ Integration with finstack-valuations
+//!
+//! ### Phase 7: Extensions ✅
+//! - ✅ Extensions framework
+//! - ✅ Corkscrew extension (balance sheet roll-forward validation)
+//! - ✅ Credit scorecard extension (rating assignment)
+//! - ✅ Results export to Polars DataFrames
 
 #![deny(unsafe_code)]
 #![warn(missing_docs)]

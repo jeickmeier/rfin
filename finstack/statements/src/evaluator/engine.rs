@@ -14,6 +14,9 @@ use finstack_core::expr::Expr;
 use indexmap::IndexMap;
 use std::time::Instant;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 /// Evaluator for financial models.
 ///
 /// The evaluator compiles formulas, resolves dependencies, and evaluates
@@ -44,7 +47,9 @@ impl Evaluator {
     /// # Arguments
     ///
     /// * `model` - The financial model specification
-    /// * `parallel` - Whether to use parallel evaluation (TODO: not yet implemented)
+    /// * `parallel` - Whether to use parallel evaluation. Note: Due to inter-period and inter-node
+    ///                dependencies, parallel evaluation provides limited benefits. When enabled,
+    ///                only independent computations within formula evaluation are parallelized.
     /// * `market_ctx` - Optional market context for pricing instruments
     /// * `as_of` - Optional valuation date for pricing
     ///
@@ -146,11 +151,66 @@ impl Evaluator {
 
     /// Compile all formulas in the model.
     fn compile_formulas(&mut self, model: &FinancialModelSpec) -> Result<()> {
-        for (node_id, node_spec) in &model.nodes {
-            if let Some(formula_text) = &node_spec.formula_text {
-                if !self.compiled_cache.contains_key(node_id) {
-                    let expr = dsl::parse_and_compile(formula_text)?;
-                    self.compiled_cache.insert(node_id.clone(), expr);
+        #[cfg(feature = "parallel")]
+        {
+            // Parallel compilation of formulas - collect to Vec first for parallelization
+            let nodes_vec: Vec<_> = model.nodes.iter().collect();
+            let compiled: Vec<Result<(String, Expr)>> = nodes_vec
+                .par_iter()
+                .flat_map(|(node_id, node_spec)| {
+                    let mut results = Vec::new();
+                    
+                    // Compile formula if present
+                    if let Some(formula_text) = &node_spec.formula_text {
+                        if !self.compiled_cache.contains_key(*node_id) {
+                            match dsl::parse_and_compile(formula_text) {
+                                Ok(expr) => results.push(Ok(((*node_id).clone(), expr))),
+                                Err(e) => results.push(Err(e)),
+                            }
+                        }
+                    }
+                    
+                    // Compile where clause if present
+                    if let Some(where_text) = &node_spec.where_text {
+                        let where_key = format!("__where__{}", node_id);
+                        if !self.compiled_cache.contains_key(&where_key) {
+                            match dsl::parse_and_compile(where_text) {
+                                Ok(expr) => results.push(Ok((where_key, expr))),
+                                Err(e) => results.push(Err(e)),
+                            }
+                        }
+                    }
+                    
+                    results
+                })
+                .collect();
+            
+            // Collect results and check for errors
+            for result in compiled {
+                let (key, expr) = result?;
+                self.compiled_cache.insert(key, expr);
+            }
+        }
+        
+        #[cfg(not(feature = "parallel"))]
+        {
+            // Sequential compilation
+            for (node_id, node_spec) in &model.nodes {
+                // Compile formula if present
+                if let Some(formula_text) = &node_spec.formula_text {
+                    if !self.compiled_cache.contains_key(node_id) {
+                        let expr = dsl::parse_and_compile(formula_text)?;
+                        self.compiled_cache.insert(node_id.clone(), expr);
+                    }
+                }
+                
+                // Compile where clause if present
+                if let Some(where_text) = &node_spec.where_text {
+                    let where_key = format!("__where__{}", node_id);
+                    if !self.compiled_cache.contains_key(&where_key) {
+                        let expr = dsl::parse_and_compile(where_text)?;
+                        self.compiled_cache.insert(where_key, expr);
+                    }
                 }
             }
         }
@@ -191,25 +251,22 @@ impl Evaluator {
             IndexMap::new();
 
         for debt_spec in &cs_spec.debt_instruments {
-            match debt_spec {
+            let (id, instrument) = match debt_spec {
                 DebtInstrumentSpec::Bond { id, .. } => {
-                    let bond = integration::build_bond_from_spec(debt_spec)?;
-                    instruments.insert(id.clone(), Arc::new(bond));
+                    let instrument = integration::build_any_instrument_from_spec(debt_spec)?;
+                    (id.clone(), instrument)
                 }
                 DebtInstrumentSpec::Swap { id, .. } => {
-                    let swap = integration::build_swap_from_spec(debt_spec)?;
-                    instruments.insert(id.clone(), Arc::new(swap));
+                    let instrument = integration::build_any_instrument_from_spec(debt_spec)?;
+                    (id.clone(), instrument)
                 }
                 DebtInstrumentSpec::Generic { id, .. } => {
-                    // For generic instruments, we can't build them automatically yet
-                    // This would need custom deserialization logic
-                    return Err(Error::capital_structure(format!(
-                        "Cannot automatically compute cashflows for generic debt instrument '{}'. \
-                         Generic instruments require manual cashflow specification.",
-                        id
-                    )));
+                    // build_any_instrument_from_spec handles Generic by trying to deserialize as known types
+                    let instrument = integration::build_any_instrument_from_spec(debt_spec)?;
+                    (id.clone(), instrument)
                 }
-            }
+            };
+            instruments.insert(id, instrument);
         }
 
         // Aggregate cashflows by period using valuations cashflow aggregation
@@ -249,6 +306,20 @@ impl Evaluator {
             let node_spec = model
                 .get_node(node_id)
                 .ok_or_else(|| Error::eval(format!("Node '{}' not found in model", node_id)))?;
+
+            // Check where clause if present
+            if node_spec.where_text.is_some() {
+                let where_key = format!("__where__{}", node_id);
+                if let Some(where_expr) = self.compiled_cache.get(&where_key) {
+                    let where_result = evaluate_formula(where_expr, &context)?;
+                    // If where clause evaluates to false (0.0), skip this node
+                    if where_result == 0.0 {
+                        // Set value to 0.0 or NaN for masked nodes
+                        context.set_value(node_id, 0.0)?;
+                        continue;
+                    }
+                }
+            }
 
             // Resolve value using precedence: Value > Forecast > Formula
             let source = resolve_node_value(node_spec, period_id, is_actual)?;

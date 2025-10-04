@@ -125,12 +125,81 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
     if let Some(f) = func {
         Ok(Expr::call(f, compiled_args))
     } else {
-        // For custom functions not in the core Function enum, we need special handling
-        // For now, return an error indicating the function is not supported
-        Err(crate::error::Error::eval(format!(
-            "Custom function '{}' is not yet supported. Only core statistical functions are available.",
-            func_name
-        )))
+        // Handle custom functions that aren't in the core Function enum
+        match func_name {
+            "sum" => {
+                // Sum multiple values: sum(a, b, c, ...) = a + b + c + ...
+                if compiled_args.is_empty() {
+                    return Err(crate::error::Error::eval("sum() requires at least one argument"));
+                }
+                // Build a chain of additions
+                let mut result = compiled_args[0].clone();
+                for arg in &compiled_args[1..] {
+                    result = Expr::bin_op(finstack_core::expr::BinOp::Add, result, arg.clone());
+                }
+                Ok(result)
+            }
+            "mean" => {
+                // Average of values: mean(a, b, c) = (a + b + c) / count
+                if compiled_args.is_empty() {
+                    return Err(crate::error::Error::eval("mean() requires at least one argument"));
+                }
+                // Build sum
+                let mut sum = compiled_args[0].clone();
+                for arg in &compiled_args[1..] {
+                    sum = Expr::bin_op(finstack_core::expr::BinOp::Add, sum, arg.clone());
+                }
+                // Divide by count
+                Ok(Expr::bin_op(
+                    finstack_core::expr::BinOp::Div,
+                    sum,
+                    Expr::literal(compiled_args.len() as f64)
+                ))
+            }
+            "ttm" => {
+                // Trailing twelve months: ttm(expr) = rolling_sum(expr, 4) for quarterly periods
+                if compiled_args.len() != 1 {
+                    return Err(crate::error::Error::eval("ttm() requires exactly 1 argument"));
+                }
+                // Convert to rolling_sum with window of 4
+                Ok(Expr::call(Function::RollingSum, vec![compiled_args[0].clone(), Expr::literal(4.0)]))
+            }
+            "annualize" => {
+                // Annualize a value: annualize(value, periods_per_year)
+                if compiled_args.len() != 2 {
+                    return Err(crate::error::Error::eval("annualize() requires 2 arguments"));
+                }
+                // value * periods_per_year
+                Ok(Expr::bin_op(
+                    finstack_core::expr::BinOp::Mul,
+                    compiled_args[0].clone(),
+                    compiled_args[1].clone()
+                ))
+            }
+            "coalesce" => {
+                // Return first non-null/non-zero value: coalesce(a, b) = if(a != 0, a, b)
+                if compiled_args.len() != 2 {
+                    return Err(crate::error::Error::eval("coalesce() requires 2 arguments"));
+                }
+                // Create if-then-else: if a != 0 then a else b
+                let condition = Expr::bin_op(
+                    finstack_core::expr::BinOp::Ne,
+                    compiled_args[0].clone(),
+                    Expr::literal(0.0)
+                );
+                Ok(Expr::if_then_else(
+                    condition,
+                    compiled_args[0].clone(),
+                    compiled_args[1].clone()
+                ))
+            }
+            _ => {
+                Err(crate::error::Error::eval(format!(
+                    "Function '{}' is not supported",
+                    func_name
+                )))
+            }
+        }
     }
 }
 

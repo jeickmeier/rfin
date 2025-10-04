@@ -188,20 +188,24 @@ fn test_extension_execute_all() {
 
     let context = ExtensionContext::new(&model, &results);
 
-    // Execute all extensions
-    let extension_results = registry.execute_all(&context).unwrap();
+    // Execute all extensions (use safe version since corkscrew lacks config)
+    let extension_results = registry.execute_all_safe(&context);
 
     assert_eq!(extension_results.len(), 2);
     assert!(extension_results.contains_key("simple_validator"));
     assert!(extension_results.contains_key("corkscrew"));
 
     // Verify simple_validator succeeded
-    let validator_result = &extension_results["simple_validator"];
+    let validator_result = extension_results["simple_validator"].as_ref().unwrap();
     assert_eq!(validator_result.status, ExtensionStatus::Success);
 
-    // Verify corkscrew returned not implemented
-    let corkscrew_result = &extension_results["corkscrew"];
-    assert_eq!(corkscrew_result.status, ExtensionStatus::NotImplemented);
+    // Verify corkscrew errors due to missing config
+    assert!(extension_results["corkscrew"].is_err());
+    assert!(extension_results["corkscrew"]
+        .as_ref()
+        .unwrap_err()
+        .to_string()
+        .contains("requires configuration"));
 }
 
 #[test]
@@ -231,9 +235,9 @@ fn test_extension_execution_order() {
 
     let context = ExtensionContext::new(&model, &results);
 
-    let extension_results = registry.execute_all(&context).unwrap();
+    let extension_results = registry.execute_all_safe(&context);
 
-    // Verify execution order
+    // Verify execution order (keys are still in order even with safe execution)
     let keys: Vec<_> = extension_results.keys().cloned().collect();
     assert_eq!(keys, vec!["simple_validator", "corkscrew"]);
 }
@@ -272,11 +276,11 @@ fn test_corkscrew_extension_placeholder() {
     let context = ExtensionContext::new(&model, &results);
 
     let mut extension = CorkscrewExtension::new();
-    let result = extension.execute(&context).unwrap();
+    // Extension requires config, should error without it
+    let result = extension.execute(&context);
 
-    assert_eq!(result.status, ExtensionStatus::NotImplemented);
-    assert!(result.message.contains("not yet implemented"));
-    assert!(result.data.contains_key("planned_features"));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("requires configuration"));
 }
 
 #[test]
@@ -323,11 +327,11 @@ fn test_scorecard_extension_placeholder() {
     let context = ExtensionContext::new(&model, &results);
 
     let mut extension = CreditScorecardExtension::new();
-    let result = extension.execute(&context).unwrap();
+    // Extension requires config, should error without it
+    let result = extension.execute(&context);
 
-    assert_eq!(result.status, ExtensionStatus::NotImplemented);
-    assert!(result.message.contains("not yet implemented"));
-    assert!(result.data.contains_key("planned_features"));
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("requires configuration"));
 }
 
 #[test]
@@ -529,28 +533,33 @@ fn test_complete_workflow_with_extensions() {
         .register(Box::new(CreditScorecardExtension::new()))
         .unwrap();
 
-    // Create context and execute extensions
+    // Create context and execute extensions (use safe version since some lack config)
     let context = ExtensionContext::new(&model, &results);
-    let extension_results = registry.execute_all(&context).unwrap();
+    let extension_results = registry.execute_all_safe(&context);
 
-    // Verify all extensions ran
+    // Verify all extensions attempted
     assert_eq!(extension_results.len(), 3);
 
     // Verify simple validator succeeded
-    let validator_result = &extension_results["simple_validator"];
+    let validator_result = extension_results["simple_validator"].as_ref().unwrap();
     assert_eq!(validator_result.status, ExtensionStatus::Success);
     assert_eq!(
         validator_result.data.get("node_count").unwrap(),
         &serde_json::json!(3)
     );
 
-    // Verify placeholder extensions returned not implemented
-    assert_eq!(
-        extension_results["corkscrew"].status,
-        ExtensionStatus::NotImplemented
-    );
-    assert_eq!(
-        extension_results["credit_scorecard"].status,
-        ExtensionStatus::NotImplemented
-    );
+    // Verify extensions without config error out
+    assert!(extension_results["corkscrew"].is_err());
+    assert!(extension_results["corkscrew"]
+        .as_ref()
+        .unwrap_err()
+        .to_string()
+        .contains("requires configuration"));
+    
+    assert!(extension_results["credit_scorecard"].is_err());
+    assert!(extension_results["credit_scorecard"]
+        .as_ref()
+        .unwrap_err()
+        .to_string()
+        .contains("requires configuration"));
 }

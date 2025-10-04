@@ -15,6 +15,7 @@ indexmap = { version = "2", features = ["serde"] }
 thiserror = "1"
 nom = "7"
 polars = { version = "0.44", optional = true, default-features = false }
+rayon = { version = "1.7", optional = true }
 
 [dev-dependencies]
 indexmap = { version = "2", features = ["serde"] }
@@ -22,7 +23,7 @@ time = { version = "0.3", features = ["macros"] }
 
 [features]
 default = []
-parallel = ["finstack-core/parallel"]
+parallel = ["finstack-core/parallel", "dep:rayon"]
 polars_export = ["dep:polars"]
 full = ["parallel", "polars_export"]
 

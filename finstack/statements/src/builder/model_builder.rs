@@ -251,6 +251,35 @@ impl ModelBuilder<Ready> {
         self.meta.insert(key.into(), value);
         self
     }
+    
+    /// Add a where clause to the last added node.
+    ///
+    /// The where clause is a conditional expression that determines whether
+    /// the node should be evaluated for a given period. If the where clause
+    /// evaluates to false (0.0), the node value will be set to 0.0 for that period.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::prelude::*;
+    /// # use finstack_core::dates::PeriodId;
+    /// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("test")
+    ///     .periods("2025Q1..Q4", Some("2025Q2"))?
+    ///     .value("revenue", &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1500000.0))])
+    ///     .compute("bonus", "revenue * 0.01")?
+    ///     .with_where("revenue > 1000000")  // Only compute bonus if revenue > 1M
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use = "builder methods must be chained"]
+    pub fn with_where(mut self, where_clause: impl Into<String>) -> Self {
+        if let Some((_, last_node)) = self.nodes.last_mut() {
+            last_node.where_text = Some(where_clause.into());
+        }
+        self
+    }
 
     /// Load built-in metrics (fin.* namespace) and add them to the model.
     ///

@@ -11,10 +11,12 @@
 mod deterministic;
 mod override_method;
 mod statistical;
+mod timeseries;
 
 pub use deterministic::{curve_pct, forward_fill, growth_pct};
 pub use override_method::apply_override;
 pub use statistical::{lognormal_forecast, normal_forecast};
+pub use timeseries::{seasonal_forecast, timeseries_forecast};
 
 use crate::error::Result;
 use crate::types::ForecastSpec;
@@ -45,9 +47,7 @@ pub fn apply_forecast(
         ForecastMethod::Override => apply_override(base_value, forecast_periods, &spec.params),
         ForecastMethod::Normal => normal_forecast(base_value, forecast_periods, &spec.params),
         ForecastMethod::LogNormal => lognormal_forecast(base_value, forecast_periods, &spec.params),
-        _ => Err(crate::error::Error::Forecast(format!(
-            "Forecast method {:?} not yet implemented",
-            spec.method
-        ))),
+        ForecastMethod::TimeSeries => timeseries_forecast(base_value, forecast_periods, &spec.params),
+        ForecastMethod::Seasonal => seasonal_forecast(base_value, forecast_periods, &spec.params),
     }
 }

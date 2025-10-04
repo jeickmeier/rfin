@@ -11,7 +11,7 @@ mod context;
 mod dag;
 mod engine;
 mod forecast_eval;
-mod formula;
+pub(crate) mod formula;
 mod precedence;
 mod results;
 

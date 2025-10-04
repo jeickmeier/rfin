@@ -294,13 +294,18 @@ fn test_parse_complex_expression() {
 
 #[test]
 fn test_parse_whitespace_tolerance() {
+    // Note: "revenue-cogs" without spaces is parsed as a single identifier
+    // because hyphens are allowed in identifiers (for things like "BOND-001")
     let result1 = parse_formula("revenue-cogs").unwrap();
+    assert!(matches!(result1, StmtExpr::NodeRef(_)));
+    
+    // With spaces, it's parsed as subtraction
     let result2 = parse_formula("revenue - cogs").unwrap();
     let result3 = parse_formula("revenue  -  cogs").unwrap();
-
-    // All should parse to the same structure
-    assert_eq!(result1, result2);
+    
+    // These should parse to the same structure (subtraction)
     assert_eq!(result2, result3);
+    assert!(matches!(result2, StmtExpr::BinOp { op: BinOp::Sub, .. }));
 }
 
 #[test]
@@ -620,24 +625,22 @@ fn test_parse_custom_coalesce() {
 
 #[test]
 fn test_compile_custom_functions() {
-    // Custom functions should fail to compile (not yet supported)
-    let functions = vec!["sum", "mean", "annualize", "ttm", "coalesce"];
+    // Custom functions are now transformed to equivalent core expressions
+    let tests = vec![
+        ("sum(revenue, cogs)", true), // Transforms to revenue + cogs
+        ("mean(revenue, cogs)", true), // Transforms to (revenue + cogs) / 2
+        ("annualize(revenue, 4)", true), // Transforms to revenue * 4
+        ("ttm(revenue)", true), // Transforms to rolling_sum(revenue, 4)
+        ("coalesce(revenue, 0)", true), // Transforms to if(revenue != 0, revenue, 0)
+    ];
 
-    for func in functions {
-        let formula = if func == "sum" || func == "coalesce" {
-            format!("{}(revenue, 0)", func)
-        } else if func == "annualize" {
-            format!("{}(revenue, 4)", func)
-        } else {
-            format!("{}(revenue)", func)
-        };
-
-        let expr = parse_and_compile(&formula);
-        // These custom functions are not yet supported, so they should fail
-        assert!(
-            expr.is_err(),
-            "Expected {} to fail compilation (not yet supported)",
-            func
+    for (formula, should_succeed) in tests {
+        let expr = parse_and_compile(formula);
+        assert_eq!(
+            expr.is_ok(),
+            should_succeed,
+            "Formula '{}' compilation result unexpected",
+            formula
         );
     }
 }

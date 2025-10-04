@@ -159,6 +159,78 @@ pub fn build_swap_from_spec(spec: &DebtInstrumentSpec) -> Result<InterestRateSwa
     }
 }
 
+/// Build any debt instrument from a DebtInstrumentSpec.
+///
+/// This function attempts to deserialize a Generic spec as various known debt instrument types.
+/// It tries each type in order and returns the first successful deserialization.
+///
+/// Supported types:
+/// - Bond (fixed or floating rate bonds)
+/// - InterestRateSwap (pay-fixed or receive-fixed)
+/// - Deposit (term deposits for cash management) - requires serde feature in valuations
+/// - Repo (repurchase agreements) - requires serde feature in valuations
+/// - FRA (forward rate agreements) - requires serde feature in valuations
+///
+/// # Returns
+/// A boxed trait object implementing CashflowProvider that can be used for cashflow generation.
+pub fn build_any_instrument_from_spec(
+    spec: &DebtInstrumentSpec,
+) -> Result<Arc<dyn CashflowProvider + Send + Sync>> {
+    match spec {
+        DebtInstrumentSpec::Bond { .. } => {
+            let bond = build_bond_from_spec(spec)?;
+            Ok(Arc::new(bond))
+        }
+        DebtInstrumentSpec::Swap { .. } => {
+            let swap = build_swap_from_spec(spec)?;
+            Ok(Arc::new(swap))
+        }
+        DebtInstrumentSpec::Generic { id, spec: json_spec } => {
+            // Try to deserialize as known types in order of likelihood
+            
+            // Try as Bond first (most common)
+            if let Ok(bond) = serde_json::from_value::<Bond>(json_spec.clone()) {
+                return Ok(Arc::new(bond));
+            }
+            
+            // Try as InterestRateSwap
+            if let Ok(swap) = serde_json::from_value::<InterestRateSwap>(json_spec.clone()) {
+                return Ok(Arc::new(swap));
+            }
+            
+            // Try as Deposit (if valuations has serde support)
+            // Note: This requires Deposit to have serde derives in valuations crate
+            // Uncomment when available:
+            // if let Ok(deposit) = serde_json::from_value::<finstack_valuations::instruments::Deposit>(json_spec.clone()) {
+            //     return Ok(Arc::new(deposit));
+            // }
+            
+            // Try as Repo (if valuations has serde support)
+            // Note: This requires Repo to have serde derives in valuations crate
+            // Uncomment when available:
+            // if let Ok(repo) = serde_json::from_value::<finstack_valuations::instruments::Repo>(json_spec.clone()) {
+            //     return Ok(Arc::new(repo));
+            // }
+            
+            // Try as FRA (if valuations has serde support)
+            // Note: This requires FRA to have serde derives in valuations crate
+            // Uncomment when available:
+            // if let Ok(fra) = serde_json::from_value::<finstack_valuations::instruments::FRA>(json_spec.clone()) {
+            //     return Ok(Arc::new(fra));
+            // }
+            
+            // If all deserialization attempts fail, return an error
+            Err(crate::error::Error::build(format!(
+                "Failed to deserialize generic debt instrument '{}' as any known type. \
+                 Tried: Bond, InterestRateSwap. \
+                 The JSON structure must match one of these types exactly. \
+                 Additional types (Deposit, Repo, FRA) require serde support in valuations crate.",
+                id
+            )))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
