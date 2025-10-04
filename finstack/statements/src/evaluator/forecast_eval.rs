@@ -12,17 +12,22 @@ use indexmap::IndexMap;
 /// This function determines the base value and applies the forecast method
 /// to generate values for all forecast periods. Results are cached.
 ///
-/// # Multiple Forecasts
+/// # Forecast Selection Strategy
 ///
-/// While the API supports multiple forecast specifications per node (for future
-/// extensibility), currently only the first forecast is used. This ensures
-/// deterministic behavior. Future enhancements may include:
-/// - Period-range-specific forecasts
-/// - Conditional forecast selection based on metrics
-/// - Weighted blending of multiple forecast methods
+/// **Current Implementation:** Only the first forecast specification is used.
+/// This ensures deterministic, predictable behavior for all models.
 ///
-/// If multiple forecasts are provided, a warning comment is included but
-/// additional forecasts are silently ignored to maintain backward compatibility.
+/// **Design Rationale:** While the API accepts `Vec<ForecastSpec>` to maintain
+/// forward compatibility, using only the first forecast avoids ambiguity and
+/// ensures consistent results across evaluations.
+///
+/// **Future Enhancements (Low Priority):**
+/// - Period-range-specific forecasts (near-term vs far-term methods)
+/// - Conditional forecast selection based on model state or metrics
+/// - Weighted blending of multiple forecast methods with explicit strategies
+///
+/// If multiple forecasts are provided, additional forecasts are silently ignored
+/// to maintain backward compatibility and avoid breaking existing code.
 pub(crate) fn evaluate_forecast(
     node_spec: &NodeSpec,
     model: &FinancialModelSpec,
@@ -37,11 +42,9 @@ pub(crate) fn evaluate_forecast(
         }
     }
 
-    // Select forecast spec - currently using first one for determinism
-    // TODO: Future enhancement - implement forecast selection strategy:
-    //   - Based on period ranges (e.g., different methods for near vs far term)
-    //   - Based on historical accuracy metrics
-    //   - Based on external conditions or scenarios
+    // Select forecast spec - only the first one is used for determinism.
+    // Note: This is by design, not a limitation. Future versions may add
+    // an explicit selection strategy if multi-forecast use cases emerge.
     let forecast_spec = node_spec
         .forecasts
         .first()
@@ -69,7 +72,8 @@ pub(crate) fn evaluate_forecast(
     if forecast_periods.is_empty() {
         return Err(Error::eval(
             "No forecast periods in model. All periods are marked as actuals. \
-             Use .periods(range, Some(actuals_cutoff)) to define forecast periods.".to_string()
+             Use .periods(range, Some(actuals_cutoff)) to define forecast periods."
+                .to_string(),
         ));
     }
 

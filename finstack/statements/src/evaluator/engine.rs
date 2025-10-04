@@ -36,7 +36,6 @@ impl Evaluator {
         }
     }
 
-
     /// Evaluate a financial model over all periods with optional market context.
     ///
     /// This method allows you to provide market context for pricing capital structure instruments.

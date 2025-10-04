@@ -185,20 +185,20 @@ Load reusable metrics from JSON:
 
 ```toml
 [features]
-default = ["serde"]
-capital_structure = ["dep:finstack-valuations"]
-stats = ["dep:rand"]
-parallel = ["finstack-core/parallel"]
-full = ["capital_structure", "stats", "parallel"]
+default = []
+polars_export = ["dep:polars"]
+full = ["polars_export"]
 ```
+
+**Note:** Parallel evaluation is planned but not yet implemented. See [ARCHITECTURE.md](ARCHITECTURE.md#future-enhancements) for roadmap.
 
 **Key Dependencies:**
 - `finstack-core` - Period system, expression engine
-- `finstack-valuations` - Instruments (optional)
+- `finstack-valuations` - Instruments for capital structure integration
 - `serde`, `serde_json` - Serialization
 - `indexmap` - Deterministic maps
-- `nom` - Parser combinators
-- `rand` - Statistical forecasting (optional)
+- `nom` - DSL parser combinators
+- `polars` - DataFrame export (optional)
 
 ---
 

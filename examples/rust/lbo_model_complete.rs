@@ -163,11 +163,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Evaluating model with capital structure...");
     let mut evaluator = Evaluator::new();
 
-    let results = evaluator.evaluate_with_market_context(
-        &model,
-        Some(&market_ctx),
-        Some(as_of_date),
-    )?;
+    let results =
+        evaluator.evaluate_with_market_context(&model, Some(&market_ctx), Some(as_of_date))?;
 
     println!("Evaluation complete!\n");
 

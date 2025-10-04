@@ -98,21 +98,14 @@ Addressed misleading documentation and inconsistent error messages across the fi
 
 **Impact:** Updated to reflect full implementation status.
 
-#### Parallel Evaluation Documentation
-**File:** `src/evaluator/engine.rs`
+#### Parallel Evaluation Status
+**Current Status:** Not yet implemented (as of Phase 7 completion)
 
-**Before:**
-```rust
-/// * `parallel` - Whether to use parallel evaluation (TODO: not yet implemented)
-```
+Parallel evaluation of periods remains on the roadmap for future enhancement.
+The current implementation evaluates all periods sequentially (see `engine.rs:94`).
+This was mistakenly documented as complete in an earlier version of this file.
 
-**After:**
-```rust
-/// * `parallel` - Whether to use parallel evaluation. When enabled with the `parallel` feature,
-///                periods without inter-period dependencies are evaluated in parallel
-```
-
-**Impact:** Removed outdated TODO and clarified current parallel evaluation behavior.
+See [ARCHITECTURE.md](./ARCHITECTURE.md#future-enhancements) for planned implementation timeline.
 
 ---
 

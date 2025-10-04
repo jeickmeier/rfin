@@ -49,10 +49,11 @@ fn test_parse_identifier_with_namespace() {
 #[test]
 fn test_parse_addition() {
     let result = parse_formula("1 + 2").unwrap();
-    match result {
-        StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Add),
-        _ => panic!("Expected BinOp::Add"),
-    }
+    assert!(
+        matches!(result, StmtExpr::BinOp { op: BinOp::Add, .. }),
+        "Expected BinOp::Add, got {:?}",
+        result
+    );
 }
 
 #[test]
@@ -71,44 +72,51 @@ fn test_parse_subtraction() {
 #[test]
 fn test_parse_multiplication() {
     let result = parse_formula("revenue * 0.6").unwrap();
-    match result {
-        StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Mul),
-        _ => panic!("Expected BinOp::Mul"),
-    }
+    assert!(
+        matches!(result, StmtExpr::BinOp { op: BinOp::Mul, .. }),
+        "Expected BinOp::Mul, got {:?}",
+        result
+    );
 }
 
 #[test]
 fn test_parse_division() {
     let result = parse_formula("gross_profit / revenue").unwrap();
-    match result {
-        StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Div),
-        _ => panic!("Expected BinOp::Div"),
-    }
+    assert!(
+        matches!(result, StmtExpr::BinOp { op: BinOp::Div, .. }),
+        "Expected BinOp::Div, got {:?}",
+        result
+    );
 }
 
 #[test]
 fn test_parse_modulo() {
     let result = parse_formula("period_num % 4").unwrap();
-    match result {
-        StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Mod),
-        _ => panic!("Expected BinOp::Mod"),
-    }
+    assert!(
+        matches!(result, StmtExpr::BinOp { op: BinOp::Mod, .. }),
+        "Expected BinOp::Mod, got {:?}",
+        result
+    );
 }
 
 #[test]
 fn test_parse_parentheses() {
     let result = parse_formula("(1 + 2) * 3").unwrap();
-    match result {
-        StmtExpr::BinOp {
-            op: BinOp::Mul,
-            left,
-            ..
-        } => match *left {
-            StmtExpr::BinOp { op: BinOp::Add, .. } => {}
-            _ => panic!("Expected Add inside parentheses"),
-        },
-        _ => panic!("Expected Mul at top level"),
-    }
+    // Check outer operation
+    let StmtExpr::BinOp {
+        op: BinOp::Mul,
+        left,
+        ..
+    } = result
+    else {
+        panic!("Expected Mul at top level, got {:?}", result);
+    };
+    // Check inner operation
+    assert!(
+        matches!(*left, StmtExpr::BinOp { op: BinOp::Add, .. }),
+        "Expected Add inside parentheses, got {:?}",
+        left
+    );
 }
 
 #[test]
@@ -123,19 +131,21 @@ fn test_parse_nested_parentheses() {
 #[test]
 fn test_parse_comparison_gt() {
     let result = parse_formula("revenue > 1000000").unwrap();
-    match result {
-        StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Gt),
-        _ => panic!("Expected BinOp::Gt"),
-    }
+    assert!(
+        matches!(result, StmtExpr::BinOp { op: BinOp::Gt, .. }),
+        "Expected BinOp::Gt, got {:?}",
+        result
+    );
 }
 
 #[test]
 fn test_parse_comparison_gte() {
     let result = parse_formula("revenue >= 1000000").unwrap();
-    match result {
-        StmtExpr::BinOp { op, .. } => assert_eq!(op, BinOp::Ge),
-        _ => panic!("Expected BinOp::Ge"),
-    }
+    assert!(
+        matches!(result, StmtExpr::BinOp { op: BinOp::Ge, .. }),
+        "Expected BinOp::Ge, got {:?}",
+        result
+    );
 }
 
 #[test]
@@ -457,16 +467,20 @@ fn test_parse_pct_change() {
 
 #[test]
 fn test_compile_time_series_operators() {
-    let functions = vec!["lag", "lead", "diff", "pct_change"];
+    // Note: 'lead' is intentionally not supported in financial modeling
+    // to prevent forward-looking bias
+    let functions = vec!["lag", "diff", "pct_change"];
 
     for func in functions {
         let formula = format!("{}(revenue, 1)", func);
         let expr = parse_and_compile(&formula).unwrap();
 
-        match expr.node {
-            ExprNode::Call(..) => {}
-            _ => panic!("Expected Call for {}", func),
-        }
+        assert!(
+            matches!(expr.node, ExprNode::Call(..)),
+            "Expected Call for {}, got {:?}",
+            func,
+            expr.node
+        );
     }
 }
 

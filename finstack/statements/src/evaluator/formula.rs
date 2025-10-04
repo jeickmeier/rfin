@@ -764,6 +764,112 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             Ok(ewm)
         }
 
+        // Custom financial functions with NaN handling
+        Function::Sum => {
+            // Sum multiple values, skipping NaN
+            if args.is_empty() {
+                return Err(Error::eval("sum() requires at least one argument"));
+            }
+
+            let mut sum = 0.0;
+            let mut has_valid = false;
+
+            for arg in args {
+                let value = evaluate_expr(arg, context)?;
+                if !value.is_nan() {
+                    sum += value;
+                    has_valid = true;
+                }
+            }
+
+            if has_valid {
+                Ok(sum)
+            } else {
+                Ok(f64::NAN)
+            }
+        }
+
+        Function::Mean => {
+            // Average of multiple values, skipping NaN
+            if args.is_empty() {
+                return Err(Error::eval("mean() requires at least one argument"));
+            }
+
+            let mut sum = 0.0;
+            let mut count = 0;
+
+            for arg in args {
+                let value = evaluate_expr(arg, context)?;
+                if !value.is_nan() {
+                    sum += value;
+                    count += 1;
+                }
+            }
+
+            if count > 0 {
+                Ok(sum / count as f64)
+            } else {
+                Ok(f64::NAN)
+            }
+        }
+
+        Function::Ttm => {
+            // Trailing twelve months: rolling sum with window of 4 (for quarterly periods)
+            if args.len() != 1 {
+                return Err(Error::eval("ttm() requires exactly 1 argument"));
+            }
+
+            // For column references, get rolling sum
+            if let ExprNode::Column(node_name) = &args[0].node {
+                let values = collect_rolling_window_values(node_name, context, 4)?;
+                let sum: f64 = values.iter().filter(|v| !v.is_nan()).sum();
+                Ok(sum)
+            } else {
+                // For complex expressions, just evaluate current value * 4
+                let value = evaluate_expr(&args[0], context)?;
+                if value.is_nan() {
+                    Ok(f64::NAN)
+                } else {
+                    Ok(value * 4.0)
+                }
+            }
+        }
+
+        Function::Annualize => {
+            // Annualize a value: value * periods_per_year
+            if args.len() != 2 {
+                return Err(Error::eval(
+                    "annualize() requires 2 arguments (value, periods_per_year)",
+                ));
+            }
+
+            let value = evaluate_expr(&args[0], context)?;
+            let periods_per_year = evaluate_expr(&args[1], context)?;
+
+            if value.is_nan() || periods_per_year.is_nan() {
+                Ok(f64::NAN)
+            } else {
+                Ok(value * periods_per_year)
+            }
+        }
+
+        Function::Coalesce => {
+            // Return first non-NaN/non-zero value
+            if args.len() < 2 {
+                return Err(Error::eval("coalesce() requires at least 2 arguments"));
+            }
+
+            for arg in args {
+                let value = evaluate_expr(arg, context)?;
+                if !value.is_nan() && value != 0.0 {
+                    return Ok(value);
+                }
+            }
+
+            // If all values are NaN or zero, return the last one
+            evaluate_expr(&args[args.len() - 1], context)
+        }
+
         Function::EwmStd | Function::EwmVar => {
             // Exponentially weighted standard deviation/variance
             if args.len() < 2 {
@@ -808,7 +914,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             // Calculate EWM mean first
             let mut ewm_mean = values[0].1;
             let mut ewm_var = 0.0;
-            
+
             for (_, value) in values.iter().skip(1) {
                 let diff = value - ewm_mean;
                 ewm_mean = alpha * value + (1.0 - alpha) * ewm_mean;

@@ -95,9 +95,15 @@ pub fn aggregate_instrument_cashflows(
                             // PIK interest increases outstanding (negative interest expense)
                             breakdown.interest_expense += value;
                         }
+                        CFKind::Notional if cf.amount.amount() <= 0.0 => {
+                            // Negative notional flows (initial exchange) - typically netted against principal
+                            // For simplicity, we ignore these as they represent the initial funding, not ongoing cashflows
+                            // The debt_balance is tracked separately via outstanding_by_date()
+                        }
                         _ => {
-                            // Other types (rare) - log for debugging
-                            // Could add to interest_expense as conservative fallback
+                            // CFKind is non-exhaustive, so we need this catch-all for forward compatibility.
+                            // If new CFKind variants are added in the future, conservatively treat them as interest.
+                            // TODO: Log warning if this case is hit to help identify new cashflow types.
                             breakdown.interest_expense += value;
                         }
                     }

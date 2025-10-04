@@ -1059,6 +1059,11 @@ impl CompiledExpr {
             Function::RollingCount => self.eval_rolling_count(arg_results),
             Function::EwmStd => self.eval_ewm_std(arg_results),
             Function::EwmVar => self.eval_ewm_var(arg_results),
+            
+            // Custom financial functions (should be evaluated at the statements layer)
+            Function::Sum | Function::Mean | Function::Ttm | Function::Annualize | Function::Coalesce => {
+                panic!("Custom financial functions should be evaluated in the statements layer, not in core")
+            }
         }
     }
 }

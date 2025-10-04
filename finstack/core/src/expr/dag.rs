@@ -224,6 +224,11 @@ impl DagBuilder {
                     Function::RollingMin | Function::RollingMax => 30,
                     Function::RollingCount => 20,
                     Function::EwmStd | Function::EwmVar => 45,
+                    // Custom financial functions
+                    Function::Sum | Function::Mean => 5,
+                    Function::Annualize => 2,
+                    Function::Ttm => 30, // Similar cost to rolling functions
+                    Function::Coalesce => 3,
                 };
                 base_cost + args.len() * 5
             }

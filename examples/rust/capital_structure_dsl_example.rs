@@ -128,8 +128,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n4. Evaluating model (cashflows computed from bond definitions):");
 
     let mut evaluator = Evaluator::new();
-    let results =
-        evaluator.evaluate_with_market_context(&model, Some(&market_ctx), Some(as_of))?;
+    let results = evaluator.evaluate_with_market_context(&model, Some(&market_ctx), Some(as_of))?;
 
     println!(
         "   ✓ Model evaluated: {} nodes, {} periods",

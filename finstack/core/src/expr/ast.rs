@@ -318,6 +318,18 @@ pub enum Function {
     EwmStd,
     /// Exponentially weighted moving variance.
     EwmVar,
+    
+    // Custom financial functions
+    /// Sum multiple values, skipping NaN values.
+    Sum,
+    /// Average of multiple values, skipping NaN values.
+    Mean,
+    /// Annualize a value by multiplying by periods per year.
+    Annualize,
+    /// Trailing twelve months (rolling sum with window of 4 for quarterly).
+    Ttm,
+    /// Return first non-NaN/non-zero value (coalesce).
+    Coalesce,
 }
 
 // WindowSpec removed with time-window API cleanup

@@ -318,7 +318,7 @@ fn seasonal_forecast_with_decomposition(
     let season_length = params
         .get("season_length")
         .and_then(|v| v.as_u64())
-        .unwrap_or(4) as usize;  // Default to 4 for quarterly patterns
+        .unwrap_or(4) as usize; // Default to 4 for quarterly patterns
 
     if hist_data.len() < season_length * 2 {
         return Err(Error::forecast(format!(
@@ -387,7 +387,12 @@ fn decompose_series(data: &[f64], season_length: usize) -> (Vec<f64>, Vec<f64>, 
     let half_season = season_length / 2;
 
     // Use centered moving average for middle values
-    for (i, trend_val) in trend.iter_mut().enumerate().take(n.saturating_sub(half_season)).skip(half_season) {
+    for (i, trend_val) in trend
+        .iter_mut()
+        .enumerate()
+        .take(n.saturating_sub(half_season))
+        .skip(half_season)
+    {
         let window_start = i.saturating_sub(half_season);
         let window_end = (i + half_season + 1).min(n);
         let sum: f64 = data[window_start..window_end].iter().sum();
@@ -433,14 +438,14 @@ fn decompose_series(data: &[f64], season_length: usize) -> (Vec<f64>, Vec<f64>, 
     for (season, seasonal_val) in seasonal.iter_mut().enumerate().take(season_length) {
         let mut sum = 0.0;
         let mut count = 0;
-        
+
         let mut idx = season;
         while idx < n {
             sum += detrended[idx];
             count += 1;
             idx += season_length;
         }
-        
+
         if count > 0 {
             *seasonal_val = sum / count as f64;
         }
