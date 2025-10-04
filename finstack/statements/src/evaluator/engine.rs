@@ -21,6 +21,7 @@ use rayon::prelude::*;
 ///
 /// The evaluator compiles formulas, resolves dependencies, and evaluates
 /// nodes period-by-period according to precedence rules.
+#[derive(Clone)]
 pub struct Evaluator {
     /// Cached compiled expressions
     compiled_cache: IndexMap<String, Expr>,
@@ -36,6 +37,28 @@ impl Evaluator {
             compiled_cache: IndexMap::new(),
             forecast_cache: IndexMap::new(),
         }
+    }
+    
+    /// Check if a model has time-series dependencies that require sequential evaluation.
+    ///
+    /// Returns true if any formula contains time-series functions like lag, lead, diff, etc.
+    fn has_time_series_dependencies(&self, model: &FinancialModelSpec) -> bool {
+        for node in model.nodes.values() {
+            if let Some(formula_text) = &node.formula_text {
+                // Check for time-series function patterns
+                if formula_text.contains("lag(")
+                    || formula_text.contains("lead(")
+                    || formula_text.contains("diff(")
+                    || formula_text.contains("pct_change(")
+                    || formula_text.contains("rolling_")
+                    || formula_text.contains("ttm(")
+                    || formula_text.contains("shift(")
+                {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Evaluate a financial model over all periods with optional market context.
@@ -92,32 +115,104 @@ impl Evaluator {
             None
         };
 
-        // Evaluate period-by-period
+        // Check if we can use parallel evaluation
+        let has_time_series_deps = self.has_time_series_dependencies(model);
+        
+        // Evaluate period-by-period  
         let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
         let mut results = Results::new();
+        
+        if parallel && !has_time_series_deps {
+            // Parallel evaluation when no inter-period dependencies
+            #[cfg(feature = "parallel")]
+            {
+                use rayon::prelude::*;
+                
+                let period_data: Vec<_> = model
+                    .periods
+                    .par_iter()
+                    .map(|period| {
+                        // Clone evaluator for thread-local use
+                        let mut local_evaluator = self.clone();
+                        let result = local_evaluator.evaluate_period(
+                            model,
+                            &period.id,
+                            period.is_actual,
+                            &eval_order,
+                            &node_to_column,
+                            &IndexMap::new(), // No historical results in parallel mode
+                            cs_cashflows.as_ref(),
+                        );
+                        (period.id, result)
+                    })
+                    .collect();
 
-        for period in &model.periods {
-            let period_results = self.evaluate_period(
-                model,
-                &period.id,
-                period.is_actual,
-                &eval_order,
-                &node_to_column,
-                &historical,
-                cs_cashflows.as_ref(),
-            )?;
-
-            // Store in results
-            for (node_id, value) in &period_results {
-                results
-                    .nodes
-                    .entry(node_id.clone())
-                    .or_default()
-                    .insert(period.id, *value);
+                for (period_id, result) in period_data {
+                    let period_result = result?;
+                    
+                    // Store in results
+                    for (node_id, value) in &period_result {
+                        results
+                            .nodes
+                            .entry(node_id.clone())
+                            .or_default()
+                            .insert(period_id, *value);
+                    }
+                }
             }
+            
+            #[cfg(not(feature = "parallel"))]
+            {
+                // Fallback to sequential if parallel feature not enabled
+                for period in &model.periods {
+                    let period_results = self.evaluate_period(
+                        model,
+                        &period.id,
+                        period.is_actual,
+                        &eval_order,
+                        &node_to_column,
+                        &historical,
+                        cs_cashflows.as_ref(),
+                    )?;
 
-            // Add to historical context for next period
-            historical.insert(period.id, period_results);
+                    // Store in results
+                    for (node_id, value) in &period_results {
+                        results
+                            .nodes
+                            .entry(node_id.clone())
+                            .or_default()
+                            .insert(period.id, *value);
+                    }
+
+                    // Add to historical context for next period
+                    historical.insert(period.id, period_results);
+                }
+            }
+        } else {
+            // Sequential evaluation for models with time-series dependencies
+            for period in &model.periods {
+                let period_results = self.evaluate_period(
+                    model,
+                    &period.id,
+                    period.is_actual,
+                    &eval_order,
+                    &node_to_column,
+                    &historical,
+                    cs_cashflows.as_ref(),
+                )?;
+
+                // Store in results
+                for (node_id, value) in &period_results {
+                    results
+                        .nodes
+                        .entry(node_id.clone())
+                        .or_default()
+                        .insert(period.id, *value);
+                }
+
+                // Add to historical context for next period
+                historical.insert(period.id, period_results);
+            }
         }
 
         // Set metadata

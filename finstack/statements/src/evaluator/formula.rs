@@ -2,11 +2,230 @@
 
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
+use finstack_core::dates::PeriodId;
 use finstack_core::expr::{Expr, ExprNode, Function};
+use std::collections::BTreeMap;
 
 /// Evaluate a compiled expression.
 pub(crate) fn evaluate_formula(expr: &Expr, context: &EvaluationContext) -> Result<f64> {
     evaluate_expr(expr, context)
+}
+
+/// Collect values for a rolling window in chronological order.
+/// Returns values from oldest to newest within the window.
+fn collect_rolling_window_values(
+    node_name: &str,
+    context: &EvaluationContext,
+    window_size: usize,
+) -> Result<Vec<f64>> {
+    if window_size == 0 {
+        return Ok(Vec::new());
+    }
+    
+    // Use BTreeMap to sort periods chronologically
+    let mut sorted_periods = BTreeMap::new();
+    
+    // Add historical values
+    for (period, values) in &context.historical_results {
+        if let Some(value) = values.get(node_name) {
+            sorted_periods.insert(*period, *value);
+        }
+    }
+    
+    // Add current period value if it exists
+    if let Ok(current) = context.get_value(node_name) {
+        sorted_periods.insert(context.period_id, current);
+    }
+    
+    // Collect the most recent `window_size` values
+    let mut values: Vec<f64> = sorted_periods
+        .into_iter()
+        .rev() // Most recent first
+        .take(window_size)
+        .map(|(_, v)| v)
+        .collect();
+    
+    // Reverse to get chronological order (oldest to newest)
+    values.reverse();
+    
+    Ok(values)
+}
+
+/// Collect all historical values for a node including current.
+fn collect_all_historical_values(
+    node_name: &str,
+    context: &EvaluationContext,
+) -> Result<Vec<f64>> {
+    // Use BTreeMap to sort periods chronologically
+    let mut sorted_periods = BTreeMap::new();
+    
+    // Add historical values
+    for (period, values) in &context.historical_results {
+        if let Some(value) = values.get(node_name) {
+            sorted_periods.insert(*period, *value);
+        }
+    }
+    
+    // Add current period value if it exists
+    if let Ok(current) = context.get_value(node_name) {
+        sorted_periods.insert(context.period_id, current);
+    }
+    
+    // Return values in chronological order
+    Ok(sorted_periods.into_values().collect())
+}
+
+/// Calculate mean of values.
+fn calculate_mean(values: &[f64]) -> Result<f64> {
+    if values.is_empty() {
+        return Ok(f64::NAN);
+    }
+    Ok(values.iter().sum::<f64>() / values.len() as f64)
+}
+
+/// Calculate standard deviation of values.
+fn calculate_std(values: &[f64]) -> Result<f64> {
+    if values.len() <= 1 {
+        return Ok(0.0);
+    }
+    let variance = calculate_variance(values)?;
+    Ok(variance.sqrt())
+}
+
+/// Calculate variance of values.
+fn calculate_variance(values: &[f64]) -> Result<f64> {
+    if values.is_empty() {
+        return Ok(f64::NAN);
+    }
+    if values.len() == 1 {
+        return Ok(0.0);
+    }
+    let mean = calculate_mean(values)?;
+    Ok(values.iter()
+        .map(|v| (v - mean).powi(2))
+        .sum::<f64>() / values.len() as f64)
+}
+
+/// Calculate median of values.
+fn calculate_median(values: &[f64]) -> Result<f64> {
+    if values.is_empty() {
+        return Ok(f64::NAN);
+    }
+    let mut sorted = values.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let len = sorted.len();
+    if len % 2 == 0 {
+        Ok((sorted[len / 2 - 1] + sorted[len / 2]) / 2.0)
+    } else {
+        Ok(sorted[len / 2])
+    }
+}
+
+/// Helper to offset a PeriodId by N periods.
+/// Positive offset goes forward, negative goes backward.
+fn offset_period(period: PeriodId, offset: i32) -> PeriodId {
+    if offset == 0 {
+        return period;
+    }
+    
+    let mut result = period;
+    let steps = offset.unsigned_abs() as usize;
+    
+    for _ in 0..steps {
+        if offset > 0 {
+            // Move forward
+            result = step_forward(result);
+        } else {
+            // Move backward
+            result = step_backward(result);
+        }
+    }
+    
+    result
+}
+
+/// Move a period forward by one step.
+fn step_forward(id: PeriodId) -> PeriodId {
+    match id {
+        PeriodId { year, index, .. } if id.to_string().contains('Q') => {
+            // Quarterly
+            if index == 4 {
+                PeriodId::quarter(year + 1, 1)
+            } else {
+                PeriodId::quarter(year, index + 1)
+            }
+        }
+        PeriodId { year, index, .. } if id.to_string().contains('M') => {
+            // Monthly
+            if index == 12 {
+                PeriodId::month(year + 1, 1)
+            } else {
+                PeriodId::month(year, index + 1)
+            }
+        }
+        PeriodId { year, index, .. } if id.to_string().contains('W') => {
+            // Weekly
+            if index >= 52 {
+                PeriodId::week(year + 1, 1)
+            } else {
+                PeriodId::week(year, index + 1)
+            }
+        }
+        PeriodId { year, index, .. } if id.to_string().contains('H') => {
+            // Half-year / Semi-annual
+            if index == 2 {
+                PeriodId::half(year + 1, 1)
+            } else {
+                PeriodId::half(year, 2)
+            }
+        }
+        PeriodId { year, .. } => {
+            // Annual
+            PeriodId::annual(year + 1)
+        }
+    }
+}
+
+/// Move a period backward by one step.
+fn step_backward(id: PeriodId) -> PeriodId {
+    match id {
+        PeriodId { year, index, .. } if id.to_string().contains('Q') => {
+            // Quarterly
+            if index == 1 {
+                PeriodId::quarter(year - 1, 4)
+            } else {
+                PeriodId::quarter(year, index - 1)
+            }
+        }
+        PeriodId { year, index, .. } if id.to_string().contains('M') => {
+            // Monthly
+            if index == 1 {
+                PeriodId::month(year - 1, 12)
+            } else {
+                PeriodId::month(year, index - 1)
+            }
+        }
+        PeriodId { year, index, .. } if id.to_string().contains('W') => {
+            // Weekly
+            if index == 1 {
+                PeriodId::week(year - 1, 52)
+            } else {
+                PeriodId::week(year, index - 1)
+            }
+        }
+        PeriodId { year, index, .. } if id.to_string().contains('H') => {
+            // Half-year / Semi-annual
+            if index == 1 {
+                PeriodId::half(year - 1, 2)
+            } else {
+                PeriodId::half(year, 1)
+            }
+        }
+        PeriodId { year, .. } => {
+            // Annual
+            PeriodId::annual(year - 1)
+        }
+    }
 }
 
 /// Recursively evaluate an expression.
@@ -143,92 +362,124 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
     match func {
         Function::Lag => {
             if args.len() != 2 {
-                return Err(Error::eval("lag() requires 2 arguments"));
+                return Err(Error::eval("lag() requires 2 arguments (expression, periods)"));
             }
-            // Evaluate the expression to get the node name
-            let node_value = evaluate_expr(&args[0], context)?;
-            let lag_periods = evaluate_expr(&args[1], context)? as i32;
             
-            // For now, we'll use a simple approach: get the node name from the first arg
-            // In a full implementation, we'd need to handle arbitrary expressions
+            // Get the number of periods to lag
+            let lag_periods = evaluate_expr(&args[1], context)? as i32;
+            if lag_periods < 0 {
+                return Err(Error::eval("lag() periods must be non-negative"));
+            }
+            
+            if lag_periods == 0 {
+                // No lag, just evaluate the expression
+                return evaluate_expr(&args[0], context);
+            }
+            
+            // Calculate the target period
+            let target_period = offset_period(context.period_id, -lag_periods);
+            
+            // If it's a simple column reference, look it up in historical results
             if let ExprNode::Column(node_name) = &args[0].node {
-                // Find the lagged period
-                let current_period = context.period_id;
-                // This is simplified - in production we'd need proper period arithmetic
-                // For now, return the node value if lag is 0, otherwise look in historical
-                if lag_periods == 0 {
-                    context.get_value(node_name)
+                if let Some(value) = context.get_historical_value(node_name, &target_period) {
+                    Ok(value)
                 } else {
-                    // Look for the value in historical results
-                    // This would need proper period offset calculation
-                    context.get_historical_value(node_name, &current_period)
-                        .ok_or_else(|| Error::eval(format!("No historical value for {} with lag {}", node_name, lag_periods)))
+                    // No historical value found, return NaN
+                    Ok(f64::NAN)
                 }
             } else {
-                // If not a simple column reference, evaluate the expression
-                Ok(node_value)
+                // For complex expressions, we can't easily evaluate them in a different period context
+                // Return NaN to indicate the value is not available
+                Ok(f64::NAN)
             }
         }
         Function::Lead => {
-            if args.len() != 2 {
-                return Err(Error::eval("lead() requires 2 arguments"));
-            }
-            // Lead requires looking forward, which is more complex
-            // For now, return the current value as a placeholder
-            evaluate_expr(&args[0], context)
+            // Lead function is not supported
+            Err(Error::eval("lead() function is not supported"))
         }
         Function::Diff => {
             if args.is_empty() || args.len() > 2 {
-                return Err(Error::eval("diff() requires 1 or 2 arguments"));
+                return Err(Error::eval("diff() requires 1 or 2 arguments (expression, [periods])"));
             }
-            // Calculate first difference: current - lag(current, periods)
-            let current = evaluate_expr(&args[0], context)?;
-            let _lag_periods = if args.len() == 2 {
+            
+            // Get the lag periods (default to 1)
+            let lag_periods = if args.len() == 2 {
                 evaluate_expr(&args[1], context)? as i32
             } else {
-                1 // Default to lag of 1
+                1
             };
             
-            // Get lagged value
+            if lag_periods <= 0 {
+                return Err(Error::eval("diff() periods must be positive"));
+            }
+            
+            // For column references, check if value exists in current period
             if let ExprNode::Column(node_name) = &args[0].node {
-                if let Some(lagged_value) = context.get_historical_value(node_name, &context.period_id) {
-                    Ok(current - lagged_value)
+                // Get current value
+                let current_value = context.get_value(node_name).unwrap_or(f64::NAN);
+                if current_value.is_nan() {
+                    // No current value, return NaN
+                    return Ok(f64::NAN);
+                }
+                
+                // Get the lagged value
+                let target_period = offset_period(context.period_id, -lag_periods);
+                if let Some(lagged_value) = context.get_historical_value(node_name, &target_period) {
+                    Ok(current_value - lagged_value)
                 } else {
-                    // No historical value, return 0 or NaN
-                    Ok(0.0)
+                    // No historical value, return NaN
+                    Ok(f64::NAN)
                 }
             } else {
-                // Can't compute diff for complex expressions without history
-                Ok(0.0)
+                // For complex expressions, evaluate current value
+                let _current_value = evaluate_expr(&args[0], context)?;
+                // Can't get historical value for complex expressions
+                Ok(f64::NAN)
             }
         }
         Function::PctChange => {
             if args.is_empty() || args.len() > 2 {
-                return Err(Error::eval("pct_change() requires 1 or 2 arguments"));
+                return Err(Error::eval("pct_change() requires 1 or 2 arguments (expression, [periods])"));
             }
-            // Calculate percentage change: (current - lag) / lag
-            let current = evaluate_expr(&args[0], context)?;
-            let _lag_periods = if args.len() == 2 {
+            
+            // Get the lag periods (default to 1)
+            let lag_periods = if args.len() == 2 {
                 evaluate_expr(&args[1], context)? as i32
             } else {
-                1 // Default to lag of 1
+                1
             };
             
-            // Get lagged value
+            if lag_periods <= 0 {
+                return Err(Error::eval("pct_change() periods must be positive"));
+            }
+            
+            // For column references, check if value exists in current period
             if let ExprNode::Column(node_name) = &args[0].node {
-                if let Some(lagged_value) = context.get_historical_value(node_name, &context.period_id) {
-                    if lagged_value != 0.0 {
-                        Ok((current - lagged_value) / lagged_value)
+                // Get current value
+                let current_value = context.get_value(node_name).unwrap_or(f64::NAN);
+                if current_value.is_nan() {
+                    // No current value, return NaN
+                    return Ok(f64::NAN);
+                }
+                
+                // Get the lagged value
+                let target_period = offset_period(context.period_id, -lag_periods);
+                if let Some(lagged_value) = context.get_historical_value(node_name, &target_period) {
+                    if lagged_value.abs() < 1e-10 {
+                        // Avoid division by zero
+                        Ok(f64::NAN)
                     } else {
-                        Ok(f64::NAN) // Division by zero
+                        Ok((current_value - lagged_value) / lagged_value)
                     }
                 } else {
-                    // No historical value
-                    Ok(0.0)
+                    // No historical value, return NaN
+                    Ok(f64::NAN)
                 }
             } else {
-                // Can't compute pct_change for complex expressions without history
-                Ok(0.0)
+                // For complex expressions, evaluate current value
+                let _current_value = evaluate_expr(&args[0], context)?;
+                // Can't get historical value for complex expressions
+                Ok(f64::NAN)
             }
         }
         // Rolling window functions
@@ -244,144 +495,92 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 return Err(Error::eval("Window size must be greater than 0"));
             }
             
-            // Collect values from historical data for the window
-            let mut values = Vec::new();
-            
-            // Add current value
-            let current = evaluate_expr(&args[0], context)?;
-            values.push(current);
-            
-            // Add historical values if available
-            if let ExprNode::Column(node_name) = &args[0].node {
-                // Simplified: just use any available historical values
-                // In production, we'd need proper period lookback
-                for (_period, period_values) in &context.historical_results {
-                    if let Some(value) = period_values.get(node_name) {
-                        values.push(*value);
-                        if values.len() >= window {
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            // If we don't have enough values, use what we have
-            let actual_window = values.len().min(window);
-            if actual_window == 0 {
-                return Ok(0.0);
-            }
-            
-            match func {
-                Function::RollingMean => {
-                    Ok(values[..actual_window].iter().sum::<f64>() / actual_window as f64)
-                }
-                Function::RollingSum => {
-                    Ok(values[..actual_window].iter().sum())
-                }
-                Function::RollingStd => {
-                    // Calculate standard deviation
-                    let mean = values[..actual_window].iter().sum::<f64>() / actual_window as f64;
-                    let variance = values[..actual_window].iter()
-                        .map(|v| (v - mean).powi(2))
-                        .sum::<f64>() / actual_window as f64;
-                    Ok(variance.sqrt())
-                }
-                Function::RollingVar => {
-                    // Calculate variance
-                    let mean = values[..actual_window].iter().sum::<f64>() / actual_window as f64;
-                    Ok(values[..actual_window].iter()
-                        .map(|v| (v - mean).powi(2))
-                        .sum::<f64>() / actual_window as f64)
-                }
-                Function::RollingMedian => {
-                    // Calculate median
-                    let mut sorted = values[..actual_window].to_vec();
-                    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                    if actual_window % 2 == 0 {
-                        Ok((sorted[actual_window / 2 - 1] + sorted[actual_window / 2]) / 2.0)
-                    } else {
-                        Ok(sorted[actual_window / 2])
-                    }
-                }
-                Function::RollingMin => {
-                    Ok(values[..actual_window].iter().fold(f64::INFINITY, |a, b| a.min(*b)))
-                }
-                Function::RollingMax => {
-                    Ok(values[..actual_window].iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b)))
-                }
-                Function::RollingCount => {
-                    Ok(actual_window as f64)
-                }
-                _ => unreachable!(),
-            }
-        }
-        
-        // Statistical functions (operate on all historical values)
-        Function::Std | Function::Var | Function::Median | Function::CumSum | 
-        Function::CumProd | Function::CumMin | Function::CumMax => {
-            if args.is_empty() {
-                return Err(Error::eval(format!("{:?} requires at least 1 argument", func)));
-            }
-            
-            // Collect all values (current + historical)
-            let mut values = Vec::new();
-            let current = evaluate_expr(&args[0], context)?;
-            values.push(current);
-            
-            // Add historical values
-            if let ExprNode::Column(node_name) = &args[0].node {
-                for (_period, period_values) in &context.historical_results {
-                    if let Some(value) = period_values.get(node_name) {
-                        values.push(*value);
-                    }
-                }
-            }
+            // Collect values in chronological order for the rolling window
+            let values = if let ExprNode::Column(node_name) = &args[0].node {
+                collect_rolling_window_values(node_name, context, window)?
+            } else {
+                // For complex expressions, just use current value
+                vec![evaluate_expr(&args[0], context)?]
+            };
             
             if values.is_empty() {
                 return Ok(0.0);
             }
             
             match func {
-                Function::Std => {
-                    // Standard deviation
-                    let mean = values.iter().sum::<f64>() / values.len() as f64;
-                    let variance = values.iter()
-                        .map(|v| (v - mean).powi(2))
-                        .sum::<f64>() / values.len() as f64;
-                    Ok(variance.sqrt())
+                Function::RollingMean => {
+                    calculate_mean(&values)
                 }
-                Function::Var => {
-                    // Variance
-                    let mean = values.iter().sum::<f64>() / values.len() as f64;
-                    Ok(values.iter()
-                        .map(|v| (v - mean).powi(2))
-                        .sum::<f64>() / values.len() as f64)
-                }
-                Function::Median => {
-                    // Median
-                    values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                    if values.len() % 2 == 0 {
-                        Ok((values[values.len() / 2 - 1] + values[values.len() / 2]) / 2.0)
-                    } else {
-                        Ok(values[values.len() / 2])
-                    }
-                }
-                Function::CumSum => {
-                    // Cumulative sum up to current period
+                Function::RollingSum => {
                     Ok(values.iter().sum())
                 }
-                Function::CumProd => {
-                    // Cumulative product
-                    Ok(values.iter().product())
+                Function::RollingStd => {
+                    calculate_std(&values)
                 }
-                Function::CumMin => {
-                    // Cumulative minimum
+                Function::RollingVar => {
+                    calculate_variance(&values)
+                }
+                Function::RollingMedian => {
+                    calculate_median(&values)
+                }
+                Function::RollingMin => {
                     Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b)))
                 }
-                Function::CumMax => {
-                    // Cumulative maximum
+                Function::RollingMax => {
                     Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b)))
                 }
+                Function::RollingCount => {
+                    Ok(values.len() as f64)
+                }
+                _ => unreachable!(),
+            }
+        }
+        
+        // Statistical functions (operate on all historical values)
+        Function::Std | Function::Var | Function::Median => {
+            if args.is_empty() {
+                return Err(Error::eval(format!("{:?} requires at least 1 argument", func)));
+            }
+            
+            // Collect all historical values
+            let values = if let ExprNode::Column(node_name) = &args[0].node {
+                collect_all_historical_values(node_name, context)?
+            } else {
+                // For complex expressions, just use current value
+                vec![evaluate_expr(&args[0], context)?]
+            };
+            
+            match func {
+                Function::Std => calculate_std(&values),
+                Function::Var => calculate_variance(&values),
+                Function::Median => calculate_median(&values),
+                _ => unreachable!(),
+            }
+        }
+        
+        // Cumulative functions (operate on all historical values)
+        Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => {
+            if args.is_empty() {
+                return Err(Error::eval(format!("{:?} requires at least 1 argument", func)));
+            }
+            
+            // Collect all historical values
+            let values = if let ExprNode::Column(node_name) = &args[0].node {
+                collect_all_historical_values(node_name, context)?
+            } else {
+                // For complex expressions, just use current value
+                vec![evaluate_expr(&args[0], context)?]
+            };
+            
+            if values.is_empty() {
+                return Ok(0.0);
+            }
+            
+            match func {
+                Function::CumSum => Ok(values.iter().sum()),
+                Function::CumProd => Ok(values.iter().product()),
+                Function::CumMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
+                Function::CumMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
                 _ => unreachable!(),
             }
         }

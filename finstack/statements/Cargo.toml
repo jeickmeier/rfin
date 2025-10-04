@@ -22,7 +22,7 @@ indexmap = { version = "2", features = ["serde"] }
 time = { version = "0.3", features = ["macros"] }
 
 [features]
-default = []
+default = ["parallel"]
 parallel = ["finstack-core/parallel", "dep:rayon"]
 polars_export = ["dep:polars"]
 full = ["parallel", "polars_export"]
