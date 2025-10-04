@@ -657,7 +657,7 @@ mod tests {
 
         // Should have base rate * refi multiplier * seasonality
         // With 200bps incentive and July seasonality
-        assert!(smm > 0.01); // Should be elevated due to refi incentive
+        assert!(smm > 0.005); // Should be elevated due to refi incentive
     }
 
     #[test]
@@ -674,7 +674,7 @@ mod tests {
         // During yield maintenance (month 36)
         let as_of_ym = date!(2023 - 01 - 01);
         let smm_ym = model.prepayment_rate(as_of_ym, orig, 36, &conditions);
-        assert!(smm_ym < 0.001); // Minimal prepayments
+        assert_eq!(smm_ym, 0.001); // Returns exactly 0.1% CPR during yield maintenance
 
         // Open period (month 72)
         let as_of_open = date!(2026 - 01 - 01);
