@@ -129,7 +129,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut evaluator = Evaluator::new();
     let results =
-        evaluator.evaluate_with_market_context(&model, false, Some(&market_ctx), Some(as_of))?;
+        evaluator.evaluate_with_market_context(&model, Some(&market_ctx), Some(as_of))?;
 
     println!(
         "   ✓ Model evaluated: {} nodes, {} periods",
@@ -209,7 +209,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut extended_evaluator = Evaluator::new();
     let extended_results = extended_evaluator.evaluate_with_market_context(
         &extended_model,
-        false,
         Some(&market_ctx),
         Some(as_of),
     )?;

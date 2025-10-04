@@ -434,14 +434,8 @@ fn test_parse_lag() {
     }
 }
 
-#[test]
-fn test_parse_lead() {
-    let result = parse_formula("lead(revenue, 2)").unwrap();
-    match result {
-        StmtExpr::Call { func, .. } => assert_eq!(func, "lead"),
-        _ => panic!("Expected lead call"),
-    }
-}
+// Note: lead() function test removed - lead() is intentionally not supported
+// in financial modeling to prevent forward-looking bias
 
 #[test]
 fn test_parse_diff() {

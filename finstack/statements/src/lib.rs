@@ -10,7 +10,7 @@
 //! - **Capital structure integration** for debt/equity tracking
 //! - **Dynamic metric registry** (no recompilation needed)
 //! - **Currency-safe arithmetic** with explicit FX handling
-//! - **Deterministic evaluation** (serial ≡ parallel)
+//! - **Deterministic evaluation**
 //!
 //! ## Quick Start
 //!
@@ -65,7 +65,6 @@
 //! - ✅ Precedence resolution (Value > Forecast > Formula)
 //! - ✅ Where clause masking (conditional node evaluation)
 //! - ✅ Circular dependency detection
-//! - ✅ Parallel formula compilation (with `parallel` feature)
 //!
 //! ### Phase 4: Forecast Methods ✅
 //! - ✅ Forward fill

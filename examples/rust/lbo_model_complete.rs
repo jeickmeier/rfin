@@ -165,7 +165,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let results = evaluator.evaluate_with_market_context(
         &model,
-        false, // not parallel
         Some(&market_ctx),
         Some(as_of_date),
     )?;

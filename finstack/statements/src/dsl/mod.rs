@@ -18,7 +18,6 @@
 //!
 //! ### Time-Series Functions
 //! - `lag(expr, n)` - Previous n periods
-//! - `lead(expr, n)` - Next n periods
 //! - `diff(expr, n)` - First difference
 //! - `pct_change(expr, n)` - Percentage change
 //!

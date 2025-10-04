@@ -145,7 +145,7 @@ fn test_extension_execution() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Create extension context
     let context = ExtensionContext::new(&model, &results);
@@ -184,7 +184,7 @@ fn test_extension_execute_all() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let context = ExtensionContext::new(&model, &results);
 
@@ -231,7 +231,7 @@ fn test_extension_execution_order() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let context = ExtensionContext::new(&model, &results);
 
@@ -271,7 +271,7 @@ fn test_corkscrew_extension_placeholder() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let context = ExtensionContext::new(&model, &results);
 
@@ -325,7 +325,7 @@ fn test_scorecard_extension_placeholder() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let context = ExtensionContext::new(&model, &results);
 
@@ -380,7 +380,7 @@ fn test_extension_context_creation() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let context = ExtensionContext::new(&model, &results);
 
@@ -398,7 +398,7 @@ fn test_extension_context_with_config() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let config = serde_json::json!({"key": "value"});
     let context = ExtensionContext::new(&model, &results).with_config(&config);
@@ -416,7 +416,7 @@ fn test_extension_context_with_runtime_context() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let context = ExtensionContext::new(&model, &results)
         .add_context("key1", serde_json::json!("value1"))
@@ -522,7 +522,7 @@ fn test_complete_workflow_with_extensions() {
 
     // Evaluate the model
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Verify results
     assert_eq!(results.nodes.len(), 3);

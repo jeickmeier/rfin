@@ -225,7 +225,7 @@ fn main() -> Result<()> {
 
     // Evaluate
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model_with_registry, false)?;
+    let results = evaluator.evaluate(&model_with_registry)?;
 
     println!("\n   Sample Results (2025Q1):");
     let q1 = PeriodId::quarter(2025, 1);
@@ -350,7 +350,7 @@ fn main() -> Result<()> {
     );
 
     // Evaluate
-    let results = evaluator.evaluate(&model_selective, false)?;
+    let results = evaluator.evaluate(&model_selective)?;
 
     println!("\n   Results Comparison:");
     println!("   Period          | 2025Q1         | 2025Q2");

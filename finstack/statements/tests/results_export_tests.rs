@@ -32,7 +32,7 @@ fn test_export_to_polars_long() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let df = results.to_polars_long().unwrap();
 
@@ -74,7 +74,7 @@ fn test_export_to_polars_long_filtered() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Filter to just revenue and cogs
     let df = results
@@ -120,7 +120,7 @@ fn test_export_to_polars_wide() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let df = results.to_polars_wide().unwrap();
 
@@ -189,7 +189,7 @@ fn test_export_complete_pl_model() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Test long format
     let df_long = results.to_polars_long().unwrap();
@@ -241,7 +241,7 @@ fn test_export_with_multiple_periods() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Test long format
     let df_long = results.to_polars_long().unwrap();
@@ -293,7 +293,7 @@ fn test_export_with_builtin_metrics() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let df_wide = results.to_polars_wide().unwrap();
 
@@ -341,7 +341,7 @@ fn test_export_preserves_period_order() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let df_wide = results.to_polars_wide().unwrap();
 

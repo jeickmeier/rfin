@@ -49,7 +49,7 @@ fn test_advanced_statistical_functions_work() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Check rank function works (should not be 0)
     let q4_rank = results
@@ -102,7 +102,7 @@ fn test_timeseries_forecast_with_trend_detection() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Check that trend was detected and applied
     let q2_sales = results.get("sales", &PeriodId::quarter(2025, 2)).unwrap();
@@ -160,7 +160,7 @@ fn test_seasonal_forecast_with_decomposition() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1 is actual, Q2-Q4 are forecast
     let q1 = results
@@ -218,7 +218,7 @@ fn test_corkscrew_extension_validates() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Create extension without config
     let mut extension = CorkscrewExtension::new();
@@ -275,7 +275,7 @@ fn test_scorecard_extension_calculates() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Create extension without config
     let mut extension = CreditScorecardExtension::new();
@@ -338,7 +338,7 @@ fn test_all_features_integrated() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Verify all features produced meaningful results
     for quarter in 3..=4 {

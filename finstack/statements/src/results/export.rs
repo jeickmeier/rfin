@@ -190,7 +190,6 @@ mod tests {
                 eval_time_ms: Some(10),
                 num_nodes: 3,
                 num_periods: 2,
-                parallel: false,
             },
         }
     }

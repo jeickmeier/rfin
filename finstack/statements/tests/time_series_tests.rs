@@ -22,7 +22,7 @@ fn test_lag_function() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1: lag(100, 1) should be NaN (no prior period)
     assert!(results
@@ -75,7 +75,7 @@ fn test_lag_multiple_periods() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1 and Q2: lag(_, 2) should be NaN (no prior periods)
     assert!(results
@@ -124,7 +124,7 @@ fn test_diff_function() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1: diff(100) = NaN (no prior period)
     assert!(results
@@ -177,7 +177,7 @@ fn test_pct_change_function() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1: pct_change(100) = NaN (no prior period)
     assert!(results
@@ -234,7 +234,7 @@ fn test_yoy_growth() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // 2025Q1: (105 - 100) / 100 = 0.05
     assert_eq!(
@@ -269,7 +269,8 @@ fn test_yoy_growth() {
     );
 }
 
-// Lead function test removed as Lead is not supported
+// Note: lead() function is intentionally not supported in financial modeling
+// to prevent forward-looking bias in time series analysis
 
 #[test]
 fn test_complex_time_series() {
@@ -293,7 +294,7 @@ fn test_complex_time_series() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Check QoQ growth calculations
     // Q1: NaN since there's no prior period

@@ -32,7 +32,7 @@ fn test_forward_fill_forecast() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1-Q2 are actuals
     assert_eq!(
@@ -78,7 +78,7 @@ fn test_growth_pct_forecast() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1 is actual
     assert_eq!(
@@ -119,7 +119,7 @@ fn test_growth_pct_negative() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let q2 = results.get("revenue", &PeriodId::quarter(2025, 2)).unwrap();
     let q3 = results.get("revenue", &PeriodId::quarter(2025, 3)).unwrap();
@@ -153,7 +153,7 @@ fn test_curve_pct_forecast() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1 is actual
     assert_eq!(
@@ -199,7 +199,7 @@ fn test_override_forecast() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1 is actual
     assert_eq!(
@@ -253,7 +253,7 @@ fn test_forecast_with_formula_fallback() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Revenue should be forecasted
     let q3_revenue = results.get("revenue", &PeriodId::quarter(2025, 3)).unwrap();
@@ -293,7 +293,7 @@ fn test_multiple_periods_with_forecast() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Check that all periods are evaluated
     assert!(results
@@ -370,7 +370,7 @@ fn test_forecast_pl_model() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Check Q3 values (forecast period)
     let q3_revenue = results.get("revenue", &PeriodId::quarter(2025, 3)).unwrap();
@@ -441,10 +441,10 @@ fn test_normal_forecast_deterministic() {
         .unwrap();
 
     let mut evaluator1 = Evaluator::new();
-    let results1 = evaluator1.evaluate(&model1, false).unwrap();
+    let results1 = evaluator1.evaluate(&model1).unwrap();
 
     let mut evaluator2 = Evaluator::new();
-    let results2 = evaluator2.evaluate(&model2, false).unwrap();
+    let results2 = evaluator2.evaluate(&model2).unwrap();
 
     // Same seed should produce identical results
     assert_eq!(
@@ -484,7 +484,7 @@ fn test_lognormal_forecast_always_positive() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // All forecasted values should be positive
     assert!(results.get("revenue", &PeriodId::quarter(2025, 2)).unwrap() > 0.0);

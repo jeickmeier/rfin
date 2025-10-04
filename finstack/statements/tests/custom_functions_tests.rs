@@ -34,7 +34,7 @@ fn test_sum_function() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1: sum(10, 20, 30) = 60
     assert_eq!(
@@ -81,7 +81,7 @@ fn test_mean_function() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1: mean(10, 20, 30) = 20
     assert_eq!(
@@ -114,7 +114,7 @@ fn test_annualize_function() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1: annualize(1000, 4) = 4000
     assert_eq!(
@@ -160,7 +160,7 @@ fn test_coalesce_function() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1: coalesce(100, 50) = 100 (value1 is non-zero)
     assert_eq!(
@@ -202,7 +202,7 @@ fn test_ttm_function() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // TTM (rolling_sum with window=4) should sum the last 4 quarters
     // The current implementation of rolling_sum may not be correctly looking back
@@ -281,7 +281,7 @@ fn test_complex_custom_functions() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1 calculations
     assert_eq!(

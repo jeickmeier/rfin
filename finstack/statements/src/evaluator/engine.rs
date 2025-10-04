@@ -14,9 +14,6 @@ use finstack_core::expr::Expr;
 use indexmap::IndexMap;
 use std::time::Instant;
 
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
-
 /// Evaluator for financial models.
 ///
 /// The evaluator compiles formulas, resolves dependencies, and evaluates
@@ -39,27 +36,6 @@ impl Evaluator {
         }
     }
 
-    /// Check if a model has time-series dependencies that require sequential evaluation.
-    ///
-    /// Returns true if any formula contains time-series functions like lag, lead, diff, etc.
-    fn has_time_series_dependencies(&self, model: &FinancialModelSpec) -> bool {
-        for node in model.nodes.values() {
-            if let Some(formula_text) = &node.formula_text {
-                // Check for time-series function patterns
-                if formula_text.contains("lag(")
-                    || formula_text.contains("lead(")
-                    || formula_text.contains("diff(")
-                    || formula_text.contains("pct_change(")
-                    || formula_text.contains("rolling_")
-                    || formula_text.contains("ttm(")
-                    || formula_text.contains("shift(")
-                {
-                    return true;
-                }
-            }
-        }
-        false
-    }
 
     /// Evaluate a financial model over all periods with optional market context.
     ///
@@ -70,9 +46,6 @@ impl Evaluator {
     /// # Arguments
     ///
     /// * `model` - The financial model specification
-    /// * `parallel` - Whether to use parallel evaluation. Note: Due to inter-period and inter-node
-    ///                dependencies, parallel evaluation provides limited benefits. When enabled,
-    ///                only independent computations within formula evaluation are parallelized.
     /// * `market_ctx` - Optional market context for pricing instruments
     /// * `as_of` - Optional valuation date for pricing
     ///
@@ -82,7 +55,6 @@ impl Evaluator {
     pub fn evaluate_with_market_context(
         &mut self,
         model: &FinancialModelSpec,
-        parallel: bool,
         market_ctx: Option<&finstack_core::market_data::MarketContext>,
         as_of: Option<finstack_core::dates::Date>,
     ) -> Result<Results> {
@@ -115,104 +87,33 @@ impl Evaluator {
             None
         };
 
-        // Check if we can use parallel evaluation
-        let has_time_series_deps = self.has_time_series_dependencies(model);
-
         // Evaluate period-by-period
         let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
         let mut results = Results::new();
 
-        if parallel && !has_time_series_deps {
-            // Parallel evaluation when no inter-period dependencies
-            #[cfg(feature = "parallel")]
-            {
-                use rayon::prelude::*;
+        // Sequential evaluation for all models
+        for period in &model.periods {
+            let period_results = self.evaluate_period(
+                model,
+                &period.id,
+                period.is_actual,
+                &eval_order,
+                &node_to_column,
+                &historical,
+                cs_cashflows.as_ref(),
+            )?;
 
-                let period_data: Vec<_> = model
-                    .periods
-                    .par_iter()
-                    .map(|period| {
-                        // Clone evaluator for thread-local use
-                        let mut local_evaluator = self.clone();
-                        let result = local_evaluator.evaluate_period(
-                            model,
-                            &period.id,
-                            period.is_actual,
-                            &eval_order,
-                            &node_to_column,
-                            &IndexMap::new(), // No historical results in parallel mode
-                            cs_cashflows.as_ref(),
-                        );
-                        (period.id, result)
-                    })
-                    .collect();
-
-                for (period_id, result) in period_data {
-                    let period_result = result?;
-
-                    // Store in results
-                    for (node_id, value) in &period_result {
-                        results
-                            .nodes
-                            .entry(node_id.clone())
-                            .or_default()
-                            .insert(period_id, *value);
-                    }
-                }
+            // Store in results
+            for (node_id, value) in &period_results {
+                results
+                    .nodes
+                    .entry(node_id.clone())
+                    .or_default()
+                    .insert(period.id, *value);
             }
 
-            #[cfg(not(feature = "parallel"))]
-            {
-                // Fallback to sequential if parallel feature not enabled
-                for period in &model.periods {
-                    let period_results = self.evaluate_period(
-                        model,
-                        &period.id,
-                        period.is_actual,
-                        &eval_order,
-                        &node_to_column,
-                        &historical,
-                        cs_cashflows.as_ref(),
-                    )?;
-
-                    // Store in results
-                    for (node_id, value) in &period_results {
-                        results
-                            .nodes
-                            .entry(node_id.clone())
-                            .or_default()
-                            .insert(period.id, *value);
-                    }
-
-                    // Add to historical context for next period
-                    historical.insert(period.id, period_results);
-                }
-            }
-        } else {
-            // Sequential evaluation for models with time-series dependencies
-            for period in &model.periods {
-                let period_results = self.evaluate_period(
-                    model,
-                    &period.id,
-                    period.is_actual,
-                    &eval_order,
-                    &node_to_column,
-                    &historical,
-                    cs_cashflows.as_ref(),
-                )?;
-
-                // Store in results
-                for (node_id, value) in &period_results {
-                    results
-                        .nodes
-                        .entry(node_id.clone())
-                        .or_default()
-                        .insert(period.id, *value);
-                }
-
-                // Add to historical context for next period
-                historical.insert(period.id, period_results);
-            }
+            // Add to historical context for next period
+            historical.insert(period.id, period_results);
         }
 
         // Set metadata
@@ -220,7 +121,6 @@ impl Evaluator {
             eval_time_ms: Some(start.elapsed().as_millis() as u64),
             num_nodes: model.nodes.len(),
             num_periods: model.periods.len(),
-            parallel,
         };
 
         Ok(results)
@@ -235,78 +135,31 @@ impl Evaluator {
     /// # Arguments
     ///
     /// * `model` - The financial model specification
-    /// * `parallel` - Whether to use parallel evaluation. When enabled with the `parallel` feature,
-    ///                periods without inter-period dependencies are evaluated in parallel
-    ///
     /// # Returns
     ///
     /// Returns `Results` containing the evaluated values for all nodes and periods.
-    pub fn evaluate(&mut self, model: &FinancialModelSpec, parallel: bool) -> Result<Results> {
-        self.evaluate_with_market_context(model, parallel, None, None)
+    pub fn evaluate(&mut self, model: &FinancialModelSpec) -> Result<Results> {
+        self.evaluate_with_market_context(model, None, None)
     }
 
     /// Compile all formulas in the model.
     fn compile_formulas(&mut self, model: &FinancialModelSpec) -> Result<()> {
-        #[cfg(feature = "parallel")]
-        {
-            // Parallel compilation of formulas - collect to Vec first for parallelization
-            let nodes_vec: Vec<_> = model.nodes.iter().collect();
-            let compiled: Vec<Result<(String, Expr)>> = nodes_vec
-                .par_iter()
-                .flat_map(|(node_id, node_spec)| {
-                    let mut results = Vec::new();
-
-                    // Compile formula if present
-                    if let Some(formula_text) = &node_spec.formula_text {
-                        if !self.compiled_cache.contains_key(*node_id) {
-                            match dsl::parse_and_compile(formula_text) {
-                                Ok(expr) => results.push(Ok(((*node_id).clone(), expr))),
-                                Err(e) => results.push(Err(e)),
-                            }
-                        }
-                    }
-
-                    // Compile where clause if present
-                    if let Some(where_text) = &node_spec.where_text {
-                        let where_key = format!("__where__{}", node_id);
-                        if !self.compiled_cache.contains_key(&where_key) {
-                            match dsl::parse_and_compile(where_text) {
-                                Ok(expr) => results.push(Ok((where_key, expr))),
-                                Err(e) => results.push(Err(e)),
-                            }
-                        }
-                    }
-
-                    results
-                })
-                .collect();
-
-            // Collect results and check for errors
-            for result in compiled {
-                let (key, expr) = result?;
-                self.compiled_cache.insert(key, expr);
-            }
-        }
-
-        #[cfg(not(feature = "parallel"))]
-        {
-            // Sequential compilation
-            for (node_id, node_spec) in &model.nodes {
-                // Compile formula if present
-                if let Some(formula_text) = &node_spec.formula_text {
-                    if !self.compiled_cache.contains_key(node_id) {
-                        let expr = dsl::parse_and_compile(formula_text)?;
-                        self.compiled_cache.insert(node_id.clone(), expr);
-                    }
+        // Sequential compilation
+        for (node_id, node_spec) in &model.nodes {
+            // Compile formula if present
+            if let Some(formula_text) = &node_spec.formula_text {
+                if !self.compiled_cache.contains_key(node_id) {
+                    let expr = dsl::parse_and_compile(formula_text)?;
+                    self.compiled_cache.insert(node_id.clone(), expr);
                 }
+            }
 
-                // Compile where clause if present
-                if let Some(where_text) = &node_spec.where_text {
-                    let where_key = format!("__where__{}", node_id);
-                    if !self.compiled_cache.contains_key(&where_key) {
-                        let expr = dsl::parse_and_compile(where_text)?;
-                        self.compiled_cache.insert(where_key, expr);
-                    }
+            // Compile where clause if present
+            if let Some(where_text) = &node_spec.where_text {
+                let where_key = format!("__where__{}", node_id);
+                if !self.compiled_cache.contains_key(&where_key) {
+                    let expr = dsl::parse_and_compile(where_text)?;
+                    self.compiled_cache.insert(where_key, expr);
                 }
             }
         }
@@ -484,7 +337,7 @@ mod tests {
             .unwrap();
 
         let mut evaluator = Evaluator::new();
-        let results = evaluator.evaluate(&model, false).unwrap();
+        let results = evaluator.evaluate(&model).unwrap();
 
         assert_eq!(
             results.get("revenue", &PeriodId::quarter(2025, 1)),
@@ -520,7 +373,7 @@ mod tests {
             .unwrap();
 
         let mut evaluator = Evaluator::new();
-        let results = evaluator.evaluate(&model, false).unwrap();
+        let results = evaluator.evaluate(&model).unwrap();
 
         assert_eq!(
             results.get("cogs", &PeriodId::quarter(2025, 1)),
@@ -545,7 +398,7 @@ mod tests {
             .unwrap();
 
         let mut evaluator = Evaluator::new();
-        let result = evaluator.evaluate(&model, false);
+        let result = evaluator.evaluate(&model);
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Circular"));

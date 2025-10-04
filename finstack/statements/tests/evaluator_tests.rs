@@ -69,7 +69,7 @@ fn test_evaluate_value_nodes() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     assert_eq!(
         results.get("revenue", &PeriodId::quarter(2025, 1)),
@@ -115,7 +115,7 @@ fn test_evaluate_calculated_nodes() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Check COGS (60% of revenue)
     assert!((results.get("cogs", &PeriodId::quarter(2025, 1)).unwrap() - 60_000.0).abs() < 0.01);
@@ -167,7 +167,7 @@ fn test_evaluate_arithmetic_operations() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let q1 = PeriodId::quarter(2025, 1);
     assert_eq!(results.get("add", &q1), Some(13.0));
@@ -199,7 +199,7 @@ fn test_evaluate_comparison_operations() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let q1 = PeriodId::quarter(2025, 1);
     assert_eq!(results.get("gt", &q1), Some(1.0)); // true
@@ -228,7 +228,7 @@ fn test_evaluate_conditional() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Q1: revenue < 100k, no bonus
     assert_eq!(results.get("bonus", &PeriodId::quarter(2025, 1)), Some(0.0));
@@ -259,7 +259,7 @@ fn test_evaluate_complex_expression() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let margin = results
         .get("gross_margin", &PeriodId::quarter(2025, 1))
@@ -288,7 +288,7 @@ fn test_dag_simple_chain() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let q1 = PeriodId::quarter(2025, 1);
     assert_eq!(results.get("a", &q1), Some(10.0));
@@ -319,7 +319,7 @@ fn test_dag_multiple_dependencies() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let q1 = PeriodId::quarter(2025, 1);
     assert_eq!(results.get("revenue", &q1), Some(100.0));
@@ -344,7 +344,7 @@ fn test_circular_dependency_detection() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let result = evaluator.evaluate(&model, false);
+    let result = evaluator.evaluate(&model);
 
     assert!(result.is_err());
     let err = result.unwrap_err();
@@ -362,7 +362,7 @@ fn test_self_reference_cycle() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let result = evaluator.evaluate(&model, false);
+    let result = evaluator.evaluate(&model);
 
     assert!(result.is_err());
 }
@@ -456,7 +456,7 @@ fn test_complete_pl_model() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Check Q1 results
     let q1 = PeriodId::quarter(2025, 1);
@@ -479,7 +479,6 @@ fn test_complete_pl_model() {
     // Check metadata
     assert_eq!(results.meta.num_nodes, 6);
     assert_eq!(results.meta.num_periods, 2);
-    assert!(!results.meta.parallel);
     assert!(results.meta.eval_time_ms.is_some());
 }
 
@@ -503,7 +502,7 @@ fn test_multiple_periods_sequential() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     assert_eq!(
         results.get("doubled", &PeriodId::quarter(2025, 1)),
@@ -543,7 +542,7 @@ fn test_nested_parentheses() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let expected = ((100.0 - 60.0) - 20.0) / 100.0; // 0.2
     let actual = results.get("result", &PeriodId::quarter(2025, 1)).unwrap();
@@ -566,11 +565,10 @@ fn test_results_metadata() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     assert_eq!(results.meta.num_nodes, 1);
     assert_eq!(results.meta.num_periods, 2);
-    assert!(!results.meta.parallel);
     assert!(results.meta.eval_time_ms.is_some());
     assert!(results.meta.eval_time_ms.unwrap() < 1000); // Should be fast
 }

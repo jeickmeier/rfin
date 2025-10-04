@@ -95,7 +95,7 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
     // Map DSL function names to core Function enum
     let func = match func_name {
         "lag" => Some(Function::Lag),
-        "lead" => Some(Function::Lead),
+        // "lead" is intentionally not supported (no forward-looking in financial models)
         "diff" => Some(Function::Diff),
         "pct_change" => Some(Function::PctChange),
         "cumsum" => Some(Function::CumSum),

@@ -84,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Evaluate the model
     println!("Evaluating model...");
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Evaluation complete!");
     println!("  - {} nodes evaluated", results.meta.num_nodes);

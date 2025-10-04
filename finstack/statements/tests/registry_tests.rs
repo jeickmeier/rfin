@@ -273,7 +273,7 @@ fn test_evaluate_model_with_select_metrics() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Check that fin.gross_profit was calculated correctly
     let q1_gross_profit = results
@@ -467,7 +467,7 @@ fn test_complete_pl_model_with_select_registry_metrics() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Test Q1 calculations
     let q1 = PeriodId::quarter(2025, 1);
@@ -570,7 +570,7 @@ fn test_inter_metric_dependencies_in_model() {
 
     // Evaluate the model
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     // Verify that all dependencies were added and calculated correctly
     let q1 = PeriodId::quarter(2025, 1);
@@ -630,7 +630,7 @@ fn test_deep_dependency_chain() {
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false).unwrap();
+    let results = evaluator.evaluate(&model).unwrap();
 
     let q1 = PeriodId::quarter(2025, 1);
     // base = 100

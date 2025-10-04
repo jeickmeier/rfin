@@ -81,7 +81,7 @@ fn example_1_forward_fill() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Results:");
     for period in &model.periods {
@@ -125,7 +125,7 @@ fn example_2_growth_pct() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Results:");
     let mut prev_value = 100_000.0;
@@ -181,7 +181,7 @@ fn example_3_curve_pct() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Results:");
     let curve_rates = [0.05, 0.06, 0.05, 0.04];
@@ -243,7 +243,7 @@ fn example_4_override() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Results:");
     for period in &model.periods {
@@ -301,7 +301,7 @@ fn example_5_normal_forecast() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Results (deterministic with seed=42):");
     for period in &model.periods {
@@ -357,7 +357,7 @@ fn example_6_lognormal_forecast() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Results (all values guaranteed positive):");
     for period in &model.periods {
@@ -410,7 +410,7 @@ fn example_7_forecast_with_formulas() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Results:");
     println!(
@@ -521,7 +521,7 @@ fn example_8_complete_pl_with_forecasts() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("P&L Statement (in thousands):");
     println!(
@@ -590,7 +590,7 @@ fn example_9_negative_growth() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Results:");
     let mut prev_value = 100_000.0;

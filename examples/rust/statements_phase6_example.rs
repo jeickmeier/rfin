@@ -364,7 +364,7 @@ fn main() -> Result<()> {
 
     // Evaluate the model
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&complete_model, false)?;
+    let results = evaluator.evaluate(&complete_model)?;
 
     println!("   Income Statement Preview:");
     println!("   Metric              | 2025Q1         | 2025Q2");

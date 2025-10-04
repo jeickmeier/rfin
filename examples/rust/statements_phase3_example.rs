@@ -69,7 +69,7 @@ fn example_1_simple_evaluation() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Results:");
     for period in &model.periods {
@@ -113,7 +113,7 @@ fn example_2_arithmetic_operations() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Results:");
     for period in &model.periods {
@@ -155,7 +155,7 @@ fn example_3_dependency_chain() -> Result<()> {
     println!("Dependency chain: base → step1 → step2 → step3 → final_result");
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     let period = PeriodId::quarter(2025, 1);
     println!("\nEvaluation order:");
@@ -224,7 +224,7 @@ fn example_4_precedence_resolution() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Node types:");
     println!("  revenue       → Value node (explicit values)");
@@ -299,7 +299,7 @@ fn example_5_complete_pl_model() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Acme Corp - Profit & Loss Statement");
     println!("\n{:<25} {:>15} {:>15}", "Metric", "2025Q1", "2025Q2");
@@ -367,7 +367,7 @@ fn example_6_circular_dependency() -> Result<()> {
         Ok(model) => {
             // Model builds successfully, but evaluation should fail
             let mut evaluator = Evaluator::new();
-            match evaluator.evaluate(&model, false) {
+            match evaluator.evaluate(&model) {
                 Err(Error::CircularDependency(path)) => {
                     println!("\n✅ Circular dependency detected!");
                     println!("   Cycle path: {}", path.join(" → "));
@@ -415,7 +415,7 @@ fn example_7_multi_period_evaluation() -> Result<()> {
         .build()?;
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model, false)?;
+    let results = evaluator.evaluate(&model)?;
 
     println!("Sequential period evaluation:\n");
     println!(

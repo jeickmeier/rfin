@@ -413,8 +413,9 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             }
         }
         Function::Lead => {
-            // Lead function is not supported
-            Err(Error::eval("lead() function is not supported"))
+            // Lead function is intentionally not supported in financial modeling
+            // to prevent forward-looking bias in time series analysis
+            Err(Error::eval("lead() function is not available (forward-looking operations are not supported in financial modeling)"))
         }
         Function::Diff => {
             if args.is_empty() || args.len() > 2 {

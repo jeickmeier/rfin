@@ -27,9 +27,6 @@ pub struct ResultsMeta {
 
     /// Number of periods evaluated
     pub num_periods: usize,
-
-    /// Was evaluation parallel?
-    pub parallel: bool,
 }
 
 impl Results {
