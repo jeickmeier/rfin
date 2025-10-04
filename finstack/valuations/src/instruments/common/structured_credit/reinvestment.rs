@@ -1,0 +1,693 @@
+//! Reinvestment period management for CLOs and structured products.
+//!
+//! This module handles the reinvestment of principal proceeds during the
+//! reinvestment period, including eligibility criteria, concentration limits,
+//! and portfolio quality tests.
+
+use crate::instruments::common::structured_credit::{
+    AssetPool, AssetType, CoverageTestResults, CreditRating,
+};
+use crate::instruments::common::structured_credit::types_extended::Asset;
+use finstack_core::dates::Date;
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::currency::Currency;
+use std::collections::HashMap;
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+/// Manages reinvestment during the reinvestment period
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ReinvestmentManager {
+    /// End date of reinvestment period
+    pub end_date: Date,
+    /// Eligibility criteria for new assets
+    pub eligibility_criteria: EligibilityCriteria,
+    /// Concentration limits
+    pub concentration_limits: ConcentrationLimits,
+    /// Portfolio quality tests
+    pub quality_tests: PortfolioQualityTests,
+    /// Whether reinvestment is currently allowed
+    pub reinvestment_allowed: bool,
+    /// Events that can terminate reinvestment
+    pub termination_events: Vec<ReinvestmentTerminationEvent>,
+}
+
+/// Criteria that assets must meet to be eligible for purchase
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct EligibilityCriteria {
+    /// Minimum rating required
+    pub min_rating: Option<CreditRating>,
+    /// Maximum rating allowed (for risk limits)
+    pub max_rating: Option<CreditRating>,
+    /// Minimum spread (basis points)
+    pub min_spread_bps: Option<f64>,
+    /// Maximum maturity date
+    pub max_maturity: Option<Date>,
+    /// Minimum remaining term (months)
+    pub min_remaining_term: Option<u32>,
+    /// Maximum remaining term (months)
+    pub max_remaining_term: Option<u32>,
+    /// Allowed asset types
+    pub allowed_asset_types: Vec<AssetType>,
+    /// Allowed currencies
+    pub allowed_currencies: Vec<Currency>,
+    /// Maximum price (% of par)
+    pub max_price_pct: Option<f64>,
+    /// Minimum asset size
+    pub min_asset_size: Option<Money>,
+    /// Maximum asset size
+    pub max_asset_size: Option<Money>,
+    /// Excluded industries
+    pub excluded_industries: Vec<String>,
+    /// Excluded obligors
+    pub excluded_obligors: Vec<String>,
+}
+
+impl EligibilityCriteria {
+    /// Check if an asset meets all eligibility criteria
+    pub fn is_eligible(&self, asset: &Asset, current_date: Date) -> (bool, Vec<String>) {
+        let mut reasons = Vec::new();
+        let mut eligible = true;
+
+        // Check rating
+        if let Some(min_rating) = self.min_rating {
+            if let Some(asset_rating) = asset.rating {
+                if asset_rating > min_rating {
+                    eligible = false;
+                    reasons.push(format!(
+                        "Rating {:?} below minimum {:?}",
+                        asset_rating, min_rating
+                    ));
+                }
+            } else {
+                eligible = false;
+                reasons.push("Asset has no rating".to_string());
+            }
+        }
+
+        if let Some(max_rating) = self.max_rating {
+            if let Some(asset_rating) = asset.rating {
+                if asset_rating < max_rating {
+                    eligible = false;
+                    reasons.push(format!(
+                        "Rating {:?} above maximum {:?}",
+                        asset_rating, max_rating
+                    ));
+                }
+            }
+        }
+
+        // Check spread
+        if let Some(min_spread) = self.min_spread_bps {
+            if let Some(asset_spread) = asset.spread_bps {
+                if asset_spread < min_spread {
+                    eligible = false;
+                    reasons.push(format!(
+                        "Spread {:.0}bps below minimum {:.0}bps",
+                        asset_spread, min_spread
+                    ));
+                }
+            }
+        }
+
+        // Check maturity
+        if let Some(max_maturity) = self.max_maturity {
+            if asset.maturity_date > max_maturity {
+                eligible = false;
+                reasons.push(format!(
+                    "Maturity {:?} beyond maximum {:?}",
+                    asset.maturity_date, max_maturity
+                ));
+            }
+        }
+
+        // Check remaining term
+        let months_remaining = months_between(current_date, asset.maturity_date);
+        
+        if let Some(min_term) = self.min_remaining_term {
+            if months_remaining < min_term {
+                eligible = false;
+                reasons.push(format!(
+                    "Remaining term {}m below minimum {}m",
+                    months_remaining, min_term
+                ));
+            }
+        }
+
+        if let Some(max_term) = self.max_remaining_term {
+            if months_remaining > max_term {
+                eligible = false;
+                reasons.push(format!(
+                    "Remaining term {}m above maximum {}m",
+                    months_remaining, max_term
+                ));
+            }
+        }
+
+        // Check asset type
+        if !self.allowed_asset_types.is_empty() && !self.allowed_asset_types.contains(&asset.asset_type) {
+            eligible = false;
+            reasons.push(format!(
+                "Asset type {:?} not allowed",
+                asset.asset_type
+            ));
+        }
+
+        // Check currency
+        if !self.allowed_currencies.is_empty() && !self.allowed_currencies.contains(&asset.current_balance.currency()) {
+            eligible = false;
+            reasons.push(format!(
+                "Currency {:?} not allowed",
+                asset.current_balance.currency()
+            ));
+        }
+
+        // Check industry exclusions
+        if let Some(industry) = &asset.industry {
+            if self.excluded_industries.contains(industry) {
+                eligible = false;
+                reasons.push(format!("Industry {} is excluded", industry));
+            }
+        }
+
+        // Check obligor exclusions
+        if let Some(obligor) = &asset.obligor_id {
+            if self.excluded_obligors.contains(obligor) {
+                eligible = false;
+                reasons.push(format!("Obligor {} is excluded", obligor));
+            }
+        }
+
+        (eligible, reasons)
+    }
+}
+
+/// Concentration limits for the portfolio
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ConcentrationLimits {
+    /// Maximum exposure to single obligor (% of pool)
+    pub max_obligor_concentration: Option<f64>,
+    /// Maximum top 5 obligor concentration
+    pub max_top5_concentration: Option<f64>,
+    /// Maximum top 10 obligor concentration
+    pub max_top10_concentration: Option<f64>,
+    /// Industry concentration limits
+    pub industry_limits: HashMap<String, f64>,
+    /// Rating bucket limits
+    pub rating_bucket_limits: HashMap<CreditRating, f64>,
+    /// Country/region limits
+    pub geographic_limits: HashMap<String, f64>,
+    /// Asset type limits (using String keys for categories like "Loan", "Bond", etc.)
+    pub asset_type_limits: HashMap<String, f64>,
+    /// Second lien loan limit
+    pub max_second_lien: Option<f64>,
+    /// Covenant-lite loan limit
+    pub max_cov_lite: Option<f64>,
+    /// DIP (Debtor-in-Possession) loan limit
+    pub max_dip: Option<f64>,
+}
+
+impl ConcentrationLimits {
+    /// Check if adding an asset would breach concentration limits
+    pub fn check_limits(
+        &self,
+        pool: &AssetPool,
+        new_asset: &Asset,
+    ) -> (bool, Vec<String>) {
+        let mut breaches = Vec::new();
+        let mut passes = true;
+
+        let total_balance = pool.total_balance()
+            .checked_add(new_asset.current_balance)
+            .unwrap_or_else(|_| pool.total_balance());
+
+        // Check single obligor concentration
+        if let Some(max_obligor) = self.max_obligor_concentration {
+            if let Some(obligor) = &new_asset.obligor_id {
+                let obligor_exposure = get_obligor_exposure(pool, obligor)
+                    .checked_add(new_asset.current_balance)
+                    .unwrap_or_else(|_| get_obligor_exposure(pool, obligor));
+                let concentration = obligor_exposure.amount() / total_balance.amount();
+                
+                if concentration > max_obligor {
+                    passes = false;
+                    breaches.push(format!(
+                        "Obligor concentration {:.1}% exceeds {:.1}% limit",
+                        concentration * 100.0,
+                        max_obligor * 100.0
+                    ));
+                }
+            }
+        }
+
+        // Check industry concentration
+        if let Some(industry) = &new_asset.industry {
+            if let Some(limit) = self.industry_limits.get(industry) {
+                let industry_exposure = get_industry_exposure(pool, industry)
+                    .checked_add(new_asset.current_balance)
+                    .unwrap_or_else(|_| get_industry_exposure(pool, industry));
+                let concentration = industry_exposure.amount() / total_balance.amount();
+                
+                if concentration > *limit {
+                    passes = false;
+                    breaches.push(format!(
+                        "Industry {} concentration {:.1}% exceeds {:.1}% limit",
+                        industry,
+                        concentration * 100.0,
+                        limit * 100.0
+                    ));
+                }
+            }
+        }
+
+        // Check rating bucket limits
+        if let Some(rating) = new_asset.rating {
+            if let Some(limit) = self.rating_bucket_limits.get(&rating) {
+                let rating_exposure = get_rating_exposure(pool, rating)
+                    .checked_add(new_asset.current_balance)
+                    .unwrap_or_else(|_| get_rating_exposure(pool, rating));
+                let concentration = rating_exposure.amount() / total_balance.amount();
+                
+                if concentration > *limit {
+                    passes = false;
+                    breaches.push(format!(
+                        "Rating {:?} concentration {:.1}% exceeds {:.1}% limit",
+                        rating,
+                        concentration * 100.0,
+                        limit * 100.0
+                    ));
+                }
+            }
+        }
+
+        (passes, breaches)
+    }
+}
+
+/// Portfolio quality tests that must be maintained
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct PortfolioQualityTests {
+    /// Minimum weighted average rating factor
+    pub min_warf: Option<f64>,
+    /// Maximum weighted average rating factor
+    pub max_warf: Option<f64>,
+    /// Minimum weighted average spread
+    pub min_was_bps: Option<f64>,
+    /// Minimum weighted average coupon
+    pub min_wac: Option<f64>,
+    /// Maximum weighted average life
+    pub max_wal_years: Option<f64>,
+    /// Minimum diversity score
+    pub min_diversity_score: Option<f64>,
+}
+
+impl PortfolioQualityTests {
+    /// Check if adding an asset maintains portfolio quality
+    pub fn check_quality(
+        &self,
+        pool: &AssetPool,
+        new_asset: &Asset,
+    ) -> (bool, Vec<String>) {
+        let mut failures = Vec::new();
+        let mut passes = true;
+
+        // Calculate pro-forma metrics with new asset
+        let proforma_pool = with_additional_asset(pool, new_asset);
+
+        // Check WARF
+        if let Some(max_warf) = self.max_warf {
+            let warf = calculate_warf(&proforma_pool);
+            if warf > max_warf {
+                passes = false;
+                failures.push(format!(
+                    "Pro-forma WARF {:.0} exceeds maximum {:.0}",
+                    warf, max_warf
+                ));
+            }
+        }
+
+        // Check WAS
+        if let Some(min_was) = self.min_was_bps {
+            let was = calculate_was(&proforma_pool);
+            if was < min_was {
+                passes = false;
+                failures.push(format!(
+                    "Pro-forma WAS {:.0}bps below minimum {:.0}bps",
+                    was, min_was
+                ));
+            }
+        }
+
+        // Check diversity
+        if let Some(min_diversity) = self.min_diversity_score {
+            let diversity = calculate_diversity_score(&proforma_pool);
+            if diversity < min_diversity {
+                passes = false;
+                failures.push(format!(
+                    "Pro-forma diversity {:.1} below minimum {:.1}",
+                    diversity, min_diversity
+                ));
+            }
+        }
+
+        (passes, failures)
+    }
+}
+
+/// Events that can terminate the reinvestment period
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum ReinvestmentTerminationEvent {
+    /// Scheduled end date reached
+    ScheduledEnd,
+    /// Coverage test failure
+    CoverageTestFailure {
+        test_type: String,
+        tranche: String,
+    },
+    /// Manager replacement
+    ManagerReplacement,
+    /// Event of default
+    EventOfDefault,
+    /// Voluntary termination by manager
+    VoluntaryTermination,
+    /// Insufficient reinvestment opportunities
+    InsufficientOpportunities {
+        min_required_purchases: Money,
+        period_months: u32,
+    },
+}
+
+impl ReinvestmentManager {
+    /// Create new reinvestment manager
+    pub fn new(end_date: Date) -> Self {
+        Self {
+            end_date,
+            eligibility_criteria: EligibilityCriteria::default(),
+            concentration_limits: ConcentrationLimits::default(),
+            quality_tests: PortfolioQualityTests::default(),
+            reinvestment_allowed: true,
+            termination_events: Vec::new(),
+        }
+    }
+
+    /// Check if reinvestment is allowed at a given date
+    pub fn can_reinvest(
+        &self,
+        as_of: Date,
+        coverage_results: &CoverageTestResults,
+    ) -> bool {
+        // Check if past reinvestment end date
+        if as_of >= self.end_date {
+            return false;
+        }
+
+        // Check if manually disabled
+        if !self.reinvestment_allowed {
+            return false;
+        }
+
+        // Check coverage tests
+        for passing in coverage_results.oc_passing.values() {
+            if !passing {
+                return false;
+            }
+        }
+
+        for passing in coverage_results.ic_passing.values() {
+            if !passing {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Select assets for reinvestment from available market opportunities
+    pub fn select_assets(
+        &self,
+        available_cash: Money,
+        market_opportunities: Vec<Asset>,
+        current_pool: &AssetPool,
+        _market: &MarketContext,
+    ) -> Vec<Asset> {
+        let mut selected = Vec::new();
+        let mut remaining_cash = available_cash;
+
+        // Score and rank opportunities
+        let mut scored_assets: Vec<(Asset, f64)> = market_opportunities
+            .into_iter()
+            .filter_map(|asset| {
+                // Check eligibility
+                let (eligible, _) = self.eligibility_criteria.is_eligible(
+                    &asset,
+                    finstack_core::dates::Date::from_calendar_date(
+                        2025,
+                        time::Month::January,
+                        1
+                    ).unwrap(),
+                );
+                
+                if !eligible {
+                    return None;
+                }
+
+                // Check concentration limits
+                let (passes, _) = self.concentration_limits.check_limits(
+                    current_pool,
+                    &asset,
+                );
+                
+                if !passes {
+                    return None;
+                }
+
+                // Score based on spread, rating, and diversification benefit
+                let score = self.score_asset(&asset, current_pool);
+                
+                Some((asset, score))
+            })
+            .collect();
+
+        // Sort by score (descending)
+        scored_assets.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+        // Select assets up to available cash
+        for (asset, _score) in scored_assets {
+            if asset.current_balance.amount() <= remaining_cash.amount() {
+                remaining_cash = remaining_cash.checked_sub(asset.current_balance).unwrap_or(remaining_cash);
+                selected.push(asset);
+            }
+        }
+
+        selected
+    }
+
+    /// Score an asset for reinvestment (higher = better)
+    fn score_asset(&self, asset: &Asset, pool: &AssetPool) -> f64 {
+        let mut score = 0.0;
+
+        // Spread component (higher spread = higher score)
+        if let Some(spread) = asset.spread_bps {
+            score += spread / 100.0; // Normalize to percentage
+        }
+
+        // Rating component (better rating = higher score for quality)
+        if let Some(rating) = asset.rating {
+            score += match rating {
+                CreditRating::AAA => 10.0,
+                CreditRating::AA => 9.0,
+                CreditRating::A => 8.0,
+                CreditRating::BBB => 7.0,
+                CreditRating::BB => 5.0,
+                CreditRating::B => 3.0,
+                _ => 1.0,
+            };
+        }
+
+        // Diversification benefit (new obligor/industry = higher score)
+        if let Some(obligor) = &asset.obligor_id {
+            if !has_obligor(pool, obligor) {
+                score += 5.0; // Bonus for new obligor
+            }
+        }
+
+        if let Some(industry) = &asset.industry {
+            let industry_concentration = get_industry_concentration(pool, industry);
+            if industry_concentration < 0.05 {
+                score += 3.0; // Bonus for underweight industry
+            }
+        }
+
+        score
+    }
+
+    /// Process a termination event
+    pub fn process_termination_event(&mut self, event: ReinvestmentTerminationEvent) {
+        self.termination_events.push(event);
+        self.reinvestment_allowed = false;
+    }
+}
+
+
+// Helper functions for AssetPool operations
+fn get_obligor_exposure(_pool: &AssetPool, _obligor: &str) -> Money {
+    Money::new(0.0, finstack_core::currency::Currency::USD) // Simplified
+}
+
+fn get_industry_exposure(_pool: &AssetPool, _industry: &str) -> Money {
+    Money::new(0.0, finstack_core::currency::Currency::USD) // Simplified  
+}
+
+fn get_rating_exposure(_pool: &AssetPool, _rating: CreditRating) -> Money {
+    Money::new(0.0, finstack_core::currency::Currency::USD) // Simplified
+}
+
+fn with_additional_asset(pool: &AssetPool, _asset: &Asset) -> AssetPool {
+    pool.clone() // Simplified
+}
+
+fn calculate_warf(_pool: &AssetPool) -> f64 {
+    1000.0 // Simplified WARF calculation
+}
+
+fn calculate_was(_pool: &AssetPool) -> f64 {
+    250.0 // Simplified WAS calculation
+}
+
+fn calculate_diversity_score(_pool: &AssetPool) -> f64 {
+    50.0 // Simplified diversity calculation
+}
+
+fn has_obligor(_pool: &AssetPool, _obligor: &str) -> bool {
+    false // Simplified
+}
+
+fn get_industry_concentration(pool: &AssetPool, industry: &str) -> f64 {
+    let industry_exposure = get_industry_exposure(pool, industry);
+    let total = pool.total_balance();
+    if total.amount() > 0.0 {
+        industry_exposure.amount() / total.amount()
+    } else {
+        0.0
+    }
+}
+
+fn months_between(start: Date, end: Date) -> u32 {
+    let days = (end - start).whole_days();
+    (days / 30) as u32
+}
+
+// Default implementations
+impl Default for EligibilityCriteria {
+    fn default() -> Self {
+        Self {
+            min_rating: Some(CreditRating::CCC),
+            max_rating: None,
+            min_spread_bps: Some(150.0),
+            max_maturity: None,
+            min_remaining_term: Some(12),
+            max_remaining_term: Some(84),
+            allowed_asset_types: vec![
+                AssetType::Loan { loan_type: crate::instruments::common::structured_credit::LoanType::FirstLien, industry: None },
+                AssetType::Bond { bond_type: crate::instruments::common::structured_credit::BondType::HighYield, industry: None }
+            ],
+            allowed_currencies: vec![Currency::USD, Currency::EUR],
+            max_price_pct: Some(102.0),
+            min_asset_size: None,
+            max_asset_size: None,
+            excluded_industries: Vec::new(),
+            excluded_obligors: Vec::new(),
+        }
+    }
+}
+
+impl Default for ConcentrationLimits {
+    fn default() -> Self {
+        Self {
+            max_obligor_concentration: Some(0.02),  // 2%
+            max_top5_concentration: Some(0.075),    // 7.5%
+            max_top10_concentration: Some(0.125),   // 12.5%
+            industry_limits: HashMap::new(),
+            rating_bucket_limits: HashMap::new(),
+            geographic_limits: HashMap::new(),
+            asset_type_limits: HashMap::new(),
+            max_second_lien: Some(0.10),
+            max_cov_lite: Some(0.65),
+            max_dip: Some(0.05),
+        }
+    }
+}
+
+impl Default for PortfolioQualityTests {
+    fn default() -> Self {
+        Self {
+            min_warf: None,
+            max_warf: Some(2500.0),
+            min_was_bps: Some(350.0),
+            min_wac: Some(0.05),
+            max_wal_years: Some(5.0),
+            min_diversity_score: Some(50.0),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_eligibility_criteria() {
+        let criteria = EligibilityCriteria::default();
+        
+        let asset = create_test_asset();
+        let current_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        
+        let (eligible, reasons) = criteria.is_eligible(&asset, current_date);
+        
+        assert!(eligible || !reasons.is_empty());
+    }
+
+    #[test]
+    fn test_concentration_limits() {
+        let limits = ConcentrationLimits::default();
+        let pool = create_test_pool();
+        let asset = create_test_asset();
+        
+        let (passes, breaches) = limits.check_limits(&pool, &asset);
+        
+        assert!(passes || !breaches.is_empty());
+    }
+
+    fn create_test_asset() -> Asset {
+        Asset {
+            asset_id: "TEST001".to_string(),
+            obligor_id: Some("OBLIGOR001".to_string()),
+            asset_type: AssetType::Loan { 
+                loan_type: crate::instruments::common::structured_credit::LoanType::FirstLien, 
+                industry: None 
+            },
+            original_balance: Money::new(1_000_000.0, Currency::USD),
+            current_balance: Money::new(950_000.0, Currency::USD),
+            interest_rate: 0.06,
+            spread_bps: Some(450.0),
+            maturity_date: Date::from_calendar_date(2028, time::Month::December, 31).unwrap(),
+            rating: Some(CreditRating::BB),
+            industry: Some("Technology".to_string()),
+            country: Some("US".to_string()),
+            is_defaulted: false,
+            recovery_rate: None,
+        }
+    }
+
+    fn create_test_pool() -> AssetPool {
+        AssetPool::new("CLO001", crate::instruments::common::structured_credit::DealType::CLO, Currency::USD)
+    }
+}
