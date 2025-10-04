@@ -4,6 +4,7 @@
 //! and waterfall logic, providing a reusable ABS instrument representation.
 
 mod impl_waterfall;
+pub mod metrics;
 mod types;
 
 pub use types::Abs;

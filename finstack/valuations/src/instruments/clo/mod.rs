@@ -29,6 +29,7 @@
 //! # }
 //! ```
 
+pub mod metrics;
 mod types;
 
 pub use types::Clo;

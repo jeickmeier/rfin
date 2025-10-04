@@ -4,6 +4,7 @@
 //! commercial mortgage pools and tranche waterfalls.
 
 mod impl_waterfall;
+pub mod metrics;
 mod types;
 
 pub use types::Cmbs;

@@ -4,6 +4,7 @@
 //! mortgage-specific pool behavior and waterfall logic.
 
 mod impl_waterfall;
+pub mod metrics;
 mod types;
 
 pub use types::Rmbs;
