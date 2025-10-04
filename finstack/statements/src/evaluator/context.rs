@@ -19,7 +19,8 @@ pub struct EvaluationContext {
     pub historical_results: IndexMap<PeriodId, IndexMap<String, f64>>,
 
     /// Current period results being built
-    pub current_values: Vec<f64>,
+    /// Uses Option<f64> to distinguish between "not yet evaluated" (None) and "evaluated to NaN" (Some(NaN))
+    pub current_values: Vec<Option<f64>>,
 
     /// Capital structure cashflows (optional)
     pub capital_structure_cashflows: Option<crate::capital_structure::CapitalStructureCashflows>,
@@ -37,7 +38,7 @@ impl EvaluationContext {
             period_id,
             node_to_column,
             historical_results,
-            current_values: vec![f64::NAN; num_nodes],
+            current_values: vec![None; num_nodes],
             capital_structure_cashflows: None,
         }
     }
@@ -52,31 +53,34 @@ impl EvaluationContext {
     }
 
     /// Set the value for a node in the current period.
+    ///
+    /// Accepts any f64 value, including NaN. Use None to indicate "not yet evaluated".
     pub fn set_value(&mut self, node_id: &str, value: f64) -> Result<()> {
         let idx = self
             .node_to_column
             .get(node_id)
             .ok_or_else(|| Error::node_not_found(node_id))?;
-        self.current_values[*idx] = value;
+        self.current_values[*idx] = Some(value);
         Ok(())
     }
 
     /// Get the value for a node in the current period.
+    ///
+    /// Returns an error if the node has not been evaluated yet (value is None).
+    /// Returns Ok(NaN) if the node was evaluated but resulted in NaN.
     pub fn get_value(&self, node_id: &str) -> Result<f64> {
         let idx = self
             .node_to_column
             .get(node_id)
             .ok_or_else(|| Error::node_not_found(node_id))?;
-        let value = self.current_values[*idx];
-
-        if value.is_nan() {
-            Err(Error::eval(format!(
+        
+        match self.current_values[*idx] {
+            Some(value) => Ok(value),
+            None => Err(Error::eval(format!(
                 "Node '{}' has not been evaluated yet in period {}. \
                  This usually indicates a circular dependency or missing value.",
                 node_id, self.period_id
-            )))
-        } else {
-            Ok(value)
+            ))),
         }
     }
 
@@ -131,10 +135,15 @@ impl EvaluationContext {
     }
 
     /// Get all results as a map.
+    ///
+    /// Only includes nodes that have been evaluated (Some value).
+    /// Nodes with None are skipped (should not happen in valid evaluation).
     pub fn into_results(self) -> IndexMap<String, f64> {
         let mut results = IndexMap::new();
         for (node_id, idx) in &self.node_to_column {
-            results.insert(node_id.clone(), self.current_values[*idx]);
+            if let Some(value) = self.current_values[*idx] {
+                results.insert(node_id.clone(), value);
+            }
         }
         results
     }

@@ -13,44 +13,19 @@
 The `build_any_instrument_from_spec()` function has been added to `capital_structure/integration.rs`.
 This function tries to deserialize Generic specs as Deposit, Repo, Bond, or InterestRateSwap.
 
-### 2. Update `evaluator/engine.rs` (manual change needed)
+### 2. Update `evaluator/engine.rs` (✅ COMPLETE)
 
 **File**: `finstack/statements/src/evaluator/engine.rs`  
-**Location**: Lines 193-213 (in `compute_cs_cashflows` method)
+**Status**: ✅ Already implemented with simplified match pattern
 
-**Replace this:**
+**Current Implementation:**
 ```rust
         for debt_spec in &cs_spec.debt_instruments {
-            match debt_spec {
-                DebtInstrumentSpec::Bond { id, .. } => {
-                    let bond = integration::build_bond_from_spec(debt_spec)?;
-                    instruments.insert(id.clone(), Arc::new(bond));
-                }
-                DebtInstrumentSpec::Swap { id, .. } => {
-                    let swap = integration::build_swap_from_spec(debt_spec)?;
-                    instruments.insert(id.clone(), Arc::new(swap));
-                }
-                DebtInstrumentSpec::Generic { id, .. } => {
-                    // For generic instruments, we can't build them automatically yet
-                    // This would need custom deserialization logic
-                    return Err(Error::capital_structure(format!(
-                        "Cannot automatically compute cashflows for generic debt instrument '{}'. \
-                         Generic instruments require manual cashflow specification.",
-                        id
-                    )));
-                }
-            }
-        }
-```
-
-**With this:**
-```rust
-        for debt_spec in &cs_spec.debt_instruments {
+            // build_any_instrument_from_spec handles all variants (Bond, Swap, Generic)
             let (id, instrument) = match debt_spec {
                 DebtInstrumentSpec::Bond { id, .. }
                 | DebtInstrumentSpec::Swap { id, .. }
                 | DebtInstrumentSpec::Generic { id, .. } => {
-                    // Automatic construction works for Bond, Swap, Deposit, Repo, and future instruments!
                     let instrument = integration::build_any_instrument_from_spec(debt_spec)?;
                     (id.clone(), instrument)
                 }
@@ -59,7 +34,7 @@ This function tries to deserialize Generic specs as Deposit, Repo, Bond, or Inte
         }
 ```
 
-**That's it!** This simple change makes Generic work automatically.
+**Result:** ✅ Generic instruments now work automatically through type deserialization!
 
 ---
 

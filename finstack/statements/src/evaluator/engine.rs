@@ -199,17 +199,11 @@ impl Evaluator {
             IndexMap::new();
 
         for debt_spec in &cs_spec.debt_instruments {
+            // build_any_instrument_from_spec handles all variants (Bond, Swap, Generic)
             let (id, instrument) = match debt_spec {
-                DebtInstrumentSpec::Bond { id, .. } => {
-                    let instrument = integration::build_any_instrument_from_spec(debt_spec)?;
-                    (id.clone(), instrument)
-                }
-                DebtInstrumentSpec::Swap { id, .. } => {
-                    let instrument = integration::build_any_instrument_from_spec(debt_spec)?;
-                    (id.clone(), instrument)
-                }
-                DebtInstrumentSpec::Generic { id, .. } => {
-                    // build_any_instrument_from_spec handles Generic by trying to deserialize as known types
+                DebtInstrumentSpec::Bond { id, .. }
+                | DebtInstrumentSpec::Swap { id, .. }
+                | DebtInstrumentSpec::Generic { id, .. } => {
                     let instrument = integration::build_any_instrument_from_spec(debt_spec)?;
                     (id.clone(), instrument)
                 }

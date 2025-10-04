@@ -23,6 +23,9 @@ use finstack_core::dates::PeriodId;
 use finstack_core::expr::{Expr, ExprNode, Function};
 use std::collections::BTreeMap;
 
+/// Epsilon value for floating point comparisons
+const EPSILON: f64 = 1e-10;
+
 /// Evaluate a compiled expression.
 ///
 /// Handles both basic arithmetic operations (evaluated directly) and
@@ -491,7 +494,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 let target_period = offset_period(context.period_id, -lag_periods);
                 if let Some(lagged_value) = context.get_historical_value(node_name, &target_period)
                 {
-                    if lagged_value.abs() < 1e-10 {
+                    if lagged_value.abs() < EPSILON {
                         // Avoid division by zero
                         Ok(f64::NAN)
                     } else {
@@ -659,7 +662,7 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             // Find rank (1-based)
             let rank = all_values
                 .iter()
-                .position(|&v| (v - current_value).abs() < 1e-10)
+                .position(|&v| (v - current_value).abs() < EPSILON)
                 .map(|pos| (pos + 1) as f64)
                 .unwrap_or(1.0);
 

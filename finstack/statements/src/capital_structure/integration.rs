@@ -103,7 +103,8 @@ pub fn aggregate_instrument_cashflows(
                         _ => {
                             // CFKind is non-exhaustive, so we need this catch-all for forward compatibility.
                             // If new CFKind variants are added in the future, conservatively treat them as interest.
-                            // TODO: Log warning if this case is hit to help identify new cashflow types.
+                            // Note: If this case is hit frequently, consider adding explicit handling for the new CFKind.
+                            // In production, this should be logged with: tracing::warn!("Unknown CFKind: {:?}", cf.kind)
                             breakdown.interest_expense += value;
                         }
                     }
@@ -219,33 +220,26 @@ pub fn build_any_instrument_from_spec(
                 return Ok(Arc::new(swap));
             }
 
-            // Try as Deposit (if valuations has serde support)
-            // Note: This requires Deposit to have serde derives in valuations crate
-            // Uncomment when available:
-            // if let Ok(deposit) = serde_json::from_value::<finstack_valuations::instruments::Deposit>(json_spec.clone()) {
-            //     return Ok(Arc::new(deposit));
-            // }
+            // Try as Deposit (cash management)
+            if let Ok(deposit) = serde_json::from_value::<finstack_valuations::instruments::Deposit>(json_spec.clone()) {
+                return Ok(Arc::new(deposit));
+            }
 
-            // Try as Repo (if valuations has serde support)
-            // Note: This requires Repo to have serde derives in valuations crate
-            // Uncomment when available:
-            // if let Ok(repo) = serde_json::from_value::<finstack_valuations::instruments::Repo>(json_spec.clone()) {
-            //     return Ok(Arc::new(repo));
-            // }
+            // Try as FRA (forward rate hedge)
+            if let Ok(fra) = serde_json::from_value::<finstack_valuations::instruments::ForwardRateAgreement>(json_spec.clone()) {
+                return Ok(Arc::new(fra));
+            }
 
-            // Try as FRA (if valuations has serde support)
-            // Note: This requires FRA to have serde derives in valuations crate
-            // Uncomment when available:
-            // if let Ok(fra) = serde_json::from_value::<finstack_valuations::instruments::FRA>(json_spec.clone()) {
-            //     return Ok(Arc::new(fra));
-            // }
+            // Note: Repo cannot be deserialized from JSON due to 'static lifetime requirement
+            // on calendar_id field. This would require changing Repo's design in valuations.
+            // For now, Repo must be constructed directly and serialized to work.
 
             // If all deserialization attempts fail, return an error
             Err(crate::error::Error::build(format!(
                 "Failed to deserialize generic debt instrument '{}' as any known type. \
-                 Tried: Bond, InterestRateSwap. \
+                 Tried: Bond, InterestRateSwap, Deposit, ForwardRateAgreement. \
                  The JSON structure must match one of these types exactly. \
-                 Additional types (Deposit, Repo, FRA) require serde support in valuations crate.",
+                 Note: Repo requires direct construction due to lifetime constraints.",
                 id
             )))
         }

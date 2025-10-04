@@ -187,6 +187,10 @@ impl ModelBuilder<Ready> {
             return Err(Error::formula_parse("Formula cannot be empty"));
         }
 
+        // Validate formula syntax by attempting to parse and compile
+        // This catches syntax errors and invalid function arguments early
+        crate::dsl::parse_and_compile(&formula)?;
+
         let node = NodeSpec::new(node_id.clone(), NodeType::Calculated).with_formula(formula);
 
         self.nodes.insert(node_id, node);
