@@ -7,6 +7,8 @@ use crate::instruments::common::structured_credit::{
     PrepaymentBehavior, DefaultBehavior, RecoveryBehavior,
     PrepaymentModelFactory, DefaultModelFactory,
     MarketConditions, CreditFactors,
+    // Waterfall engine
+    WaterfallEngine,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -187,74 +189,11 @@ impl core::fmt::Debug for Clo {
 impl CashflowProvider for Clo {
     fn build_schedule(
         &self,
-        _context: &MarketContext,
+        context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
-        // Simplified pool-level simulation applying SMM (prepay) and MDR (default)
-        let mut flows: DatedFlows = Vec::new();
-
-        let base_ccy = self.pool.base_currency();
-        let mut outstanding = self.pool.total_balance();
-        if outstanding.amount() <= 0.0 {
-            return Ok(flows);
-        }
-
-        let months_per_period = self.payment_frequency.months().unwrap_or(3) as f64;
-        let wac = self.pool.weighted_avg_coupon();
-        // Periodic interest rate based on frequency
-        let period_rate = wac * (months_per_period / 12.0);
-
-        let mut pay_date = self.first_payment_date.max(as_of);
-        while pay_date <= self.legal_maturity && outstanding.amount() > 0.0 {
-            // Seasoning relative to closing date
-            let seasoning_months = {
-                let m = (pay_date.year() - self.closing_date.year()) * 12
-                    + (pay_date.month() as i32 - self.closing_date.month() as i32);
-                m.max(0) as u32
-            };
-
-            // Prepayment and default rates
-            let smm = self.premium_smm(pay_date, seasoning_months);
-            let mdr = self.premium_mdr(pay_date, seasoning_months);
-
-            // Interest on current outstanding
-            let interest_amt = Money::new(outstanding.amount() * period_rate, base_ccy);
-
-            // No scheduled amortization (bullet) in this simplified pass
-            let scheduled_prin = Money::new(0.0, base_ccy);
-
-            // Prepayments
-            let prepay_amt = Money::new(outstanding.amount() * smm, base_ccy);
-
-            // Defaults and recoveries (recovery received immediately for simplicity)
-            let default_amt = Money::new(outstanding.amount() * mdr, base_ccy);
-            let recovery_rate = self.recovery_model.recovery_rate(
-                pay_date,
-                6,
-                None,
-                default_amt,
-                &crate::instruments::common::structured_credit::MarketFactors::default(),
-            );
-            let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
-
-            // Cash collected this period (interest + principal components)
-            let period_cash = interest_amt
-                .checked_add(scheduled_prin)?
-                .checked_add(prepay_amt)?
-                .checked_add(recovery_amt)?;
-            flows.push((pay_date, period_cash));
-
-            // Update outstanding balance after scheduled principal, prepay, and default
-            outstanding = outstanding
-                .checked_sub(scheduled_prin)?
-                .checked_sub(prepay_amt)?
-                .checked_sub(default_amt)?;
-
-            // Advance to next period
-            pay_date = add_months(pay_date, self.payment_frequency.months().unwrap_or(3) as i32);
-        }
-
-        Ok(flows)
+        // Generate full tranche-specific cashflows with waterfall distribution
+        self.generate_tranche_cashflows(context, as_of)
     }
 }
 
@@ -317,6 +256,236 @@ impl crate::instruments::common::HasDiscountCurve for Clo {
 }
 
 impl Clo {
+    /// Generate complete tranche-specific cashflows using waterfall engine
+    fn generate_tranche_cashflows(
+        &self,
+        _context: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<DatedFlows> {
+        use crate::instruments::common::structured_credit::{
+            EnhancedCoverageTests, PaymentRecipient,
+        };
+        use std::collections::HashMap;
+
+        let base_ccy = self.pool.base_currency();
+        let mut pool_outstanding = self.pool.total_balance();
+        
+        if pool_outstanding.amount() <= 0.0 {
+            return Ok(Vec::new());
+        }
+
+        // Track tranche balances over time
+        let mut tranche_balances: HashMap<String, Money> = self.tranches
+            .tranches
+            .iter()
+            .map(|t| (t.id.to_string(), t.current_balance))
+            .collect();
+
+        // Store all tranche cashflows by tranche ID
+        let mut tranche_cashflow_map: HashMap<String, Vec<(Date, Money)>> = HashMap::new();
+        for tranche in &self.tranches.tranches {
+            tranche_cashflow_map.insert(tranche.id.to_string(), Vec::new());
+        }
+
+        // Initialize waterfall engine with standard CLO rules
+        let mut waterfall_engine = self.create_waterfall_engine();
+        
+        // Initialize enhanced coverage tests
+        let mut _coverage_tests = EnhancedCoverageTests {
+            oc_tests: HashMap::new(),
+            ic_tests: HashMap::new(),
+            par_value_test: None,
+            diversity_test: None,
+            warf_test: None,
+            was_test: None,
+        };
+
+        let months_per_period = self.payment_frequency.months().unwrap_or(3) as f64;
+        let mut pay_date = self.first_payment_date.max(as_of);
+
+        // Simulate period-by-period
+        while pay_date <= self.legal_maturity && pool_outstanding.amount() > 100.0 {
+            let seasoning_months = {
+                let m = (pay_date.year() - self.closing_date.year()) * 12
+                    + (pay_date.month() as i32 - self.closing_date.month() as i32);
+                m.max(0) as u32
+            };
+
+            // Step 1: Calculate pool collections
+            let wac = self.pool.weighted_avg_coupon();
+            let period_rate = wac * (months_per_period / 12.0);
+            let interest_collections = Money::new(pool_outstanding.amount() * period_rate, base_ccy);
+
+            // Step 2: Apply prepayments and defaults
+            let smm = self.premium_smm(pay_date, seasoning_months);
+            let mdr = self.premium_mdr(pay_date, seasoning_months);
+            
+            let prepay_amt = Money::new(pool_outstanding.amount() * smm, base_ccy);
+            let default_amt = Money::new(pool_outstanding.amount() * mdr, base_ccy);
+            
+            let recovery_rate = self.recovery_model.recovery_rate(
+                pay_date,
+                6,
+                None,
+                default_amt,
+                &crate::instruments::common::structured_credit::MarketFactors::default(),
+            );
+            let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
+
+            // Total principal available = prepayments + recoveries + scheduled (0 for now)
+            let scheduled_prin = Money::new(0.0, base_ccy);
+            let total_principal = scheduled_prin
+                .checked_add(prepay_amt)?
+                .checked_add(recovery_amt)?;
+
+            // Total cash available for distribution
+            let total_cash = interest_collections.checked_add(total_principal)?;
+
+            // Step 3: Run waterfall to distribute cash to tranches
+            let waterfall_result = waterfall_engine.apply_waterfall(
+                total_cash,
+                pay_date,
+                &self.tranches,
+                pool_outstanding,
+            )?;
+
+            // Step 4: Record tranche-specific cashflows
+            for tranche in &self.tranches.tranches {
+                let tranche_id = tranche.id.to_string();
+                
+                // Get payment to this tranche from waterfall
+                if let Some(payment) = waterfall_result.distributions.get(&PaymentRecipient::Tranche(tranche_id.clone())) {
+                    if payment.amount() > 0.0 {
+                        tranche_cashflow_map
+                            .get_mut(&tranche_id)
+                            .unwrap()
+                            .push((pay_date, *payment));
+                    }
+                    
+                    // Update tranche balance (assuming payments reduce balance)
+                    let interest_portion = Money::new(
+                        tranche_balances[&tranche_id].amount() * tranche.coupon.current_rate(pay_date) * (months_per_period / 12.0),
+                        base_ccy
+                    );
+                    let principal_payment = payment.checked_sub(interest_portion).unwrap_or(Money::new(0.0, base_ccy));
+                    
+                    if let Some(current) = tranche_balances.get_mut(&tranche_id) {
+                        *current = current.checked_sub(principal_payment).unwrap_or(*current);
+                    }
+                }
+            }
+
+            // Step 5: Update pool balance
+            pool_outstanding = pool_outstanding
+                .checked_sub(prepay_amt)?
+                .checked_sub(default_amt)?;
+
+            // Advance to next period
+            pay_date = add_months(pay_date, self.payment_frequency.months().unwrap_or(3) as i32);
+        }
+
+        // Aggregate all tranche cashflows into single schedule
+        // For now, sum across all tranches; in production would track separately
+        let mut all_flows: DatedFlows = Vec::new();
+        let mut flow_map: HashMap<Date, Money> = HashMap::new();
+        
+        for (_tranche_id, flows) in tranche_cashflow_map {
+            for (date, amount) in flows {
+                *flow_map.entry(date).or_insert(Money::new(0.0, base_ccy)) = 
+                    flow_map[&date].checked_add(amount)?;
+            }
+        }
+        
+        for (date, amount) in flow_map {
+            all_flows.push((date, amount));
+        }
+        all_flows.sort_by_key(|(d, _)| *d);
+
+        Ok(all_flows)
+    }
+
+    /// Create waterfall engine with standard CLO payment rules
+    fn create_waterfall_engine(&self) -> WaterfallEngine {
+        use crate::instruments::common::structured_credit::{
+            PaymentRule, PaymentRecipient, PaymentCalculation, ManagementFeeType,
+        };
+        
+        let mut engine = WaterfallEngine::new(self.pool.base_currency());
+        
+        // Priority 1: Trustee fees
+        engine.payment_rules.push(PaymentRule {
+            id: "trustee_fees".to_string(),
+            priority: 1,
+            recipient: PaymentRecipient::ServiceProvider("Trustee".to_string()),
+            calculation: PaymentCalculation::FixedAmount {
+                amount: Money::new(50_000.0, self.pool.base_currency()),
+            },
+            conditions: vec![],
+            divertible: false,
+        });
+        
+        // Priority 2: Senior management fee
+        engine.payment_rules.push(PaymentRule {
+            id: "senior_mgmt_fee".to_string(),
+            priority: 2,
+            recipient: PaymentRecipient::Manager(ManagementFeeType::Senior),
+            calculation: PaymentCalculation::PercentageOfCollateral {
+                rate: 0.01,
+                annual: true,
+            },
+            conditions: vec![],
+            divertible: false,
+        });
+        
+        // Add interest payments for each tranche in priority order
+        let mut sorted_tranches = self.tranches.tranches.clone();
+        sorted_tranches.sort_by_key(|t| t.payment_priority);
+        
+        let mut priority = 3;
+        for tranche in &sorted_tranches {
+            // Interest payment
+            engine.payment_rules.push(PaymentRule {
+                id: format!("{}_interest", tranche.id.as_str()),
+                priority,
+                recipient: PaymentRecipient::Tranche(tranche.id.to_string()),
+                calculation: PaymentCalculation::TrancheInterest {
+                    tranche_id: tranche.id.to_string(),
+                },
+                conditions: vec![],
+                divertible: false,
+            });
+            priority += 1;
+        }
+        
+        // Add principal payments for each tranche
+        for tranche in &sorted_tranches {
+            engine.payment_rules.push(PaymentRule {
+                id: format!("{}_principal", tranche.id.as_str()),
+                priority,
+                recipient: PaymentRecipient::Tranche(tranche.id.to_string()),
+                calculation: PaymentCalculation::TranchePrincipal {
+                    tranche_id: tranche.id.to_string(),
+                    target_balance: Some(Money::new(0.0, self.pool.base_currency())),
+                },
+                conditions: vec![],
+                divertible: true,
+            });
+            priority += 1;
+        }
+        
+        // Add equity distribution
+        engine.payment_rules.push(PaymentRule {
+            id: "equity_distribution".to_string(),
+            priority,
+            recipient: PaymentRecipient::Equity,
+            calculation: PaymentCalculation::ResidualCash,
+            conditions: vec![],
+            divertible: false,
+        });
+        
+        engine
+    }
+
     #[inline]
     fn premium_smm(&self, as_of: Date, seasoning_months: u32) -> f64 {
         self.prepayment_model

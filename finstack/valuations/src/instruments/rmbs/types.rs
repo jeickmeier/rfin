@@ -5,12 +5,11 @@ use crate::instruments::common::structured_credit::{
     AssetPool, CoverageTests, DealType, StructuredCreditWaterfall, TrancheStructure,
     PrepaymentBehavior, DefaultBehavior, RecoveryBehavior,
     PrepaymentModelFactory, DefaultModelFactory,
-    MarketConditions, CreditFactors, PSAModel, SDAModel,
+    MarketConditions, CreditFactors,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -161,73 +160,11 @@ impl Rmbs {
 impl CashflowProvider for Rmbs {
     fn build_schedule(
         &self,
-        _context: &MarketContext,
+        context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
-        // Pool-level monthly simulation with SMM/MDR
-        let mut flows: DatedFlows = Vec::new();
-        let base_ccy = self.pool.base_currency();
-        let mut outstanding = self.pool.total_balance();
-        if outstanding.amount() <= 0.0 {
-            return Ok(flows);
-        }
-
-        let months_per_period = self.payment_frequency.months().unwrap_or(1) as f64;
-        let wac = self.pool.weighted_avg_coupon();
-        let period_rate = wac * (months_per_period / 12.0);
-
-        let mut pay_date = self.first_payment_date.max(as_of);
-        while pay_date <= self.legal_maturity && outstanding.amount() > 0.0 {
-            let seasoning_months = {
-                let m = (pay_date.year() - self.closing_date.year()) * 12
-                    + (pay_date.month() as i32 - self.closing_date.month() as i32);
-                m.max(0) as u32
-            };
-
-            // Apply instrument-level PSA/SDA knobs if set
-            let smm = if self.psa_speed != 1.0 {
-                let psa = PSAModel::new(self.psa_speed);
-                let cpr = psa.cpr_at_month(seasoning_months);
-                crate::instruments::common::structured_credit::cpr_to_smm(cpr)
-            } else {
-                self.premium_smm(pay_date, seasoning_months)
-            };
-
-            let mdr = if self.sda_speed != 1.0 {
-                let sda = SDAModel { speed: self.sda_speed, ..Default::default() };
-                sda.default_rate(pay_date, self.closing_date, seasoning_months, &self.credit_factors)
-            } else {
-                self.premium_mdr(pay_date, seasoning_months)
-            };
-
-            let interest_amt = Money::new(outstanding.amount() * period_rate, base_ccy);
-            let scheduled_prin = Money::new(0.0, base_ccy);
-            let prepay_amt = Money::new(outstanding.amount() * smm, base_ccy);
-            let default_amt = Money::new(outstanding.amount() * mdr, base_ccy);
-            let recovery_rate = self.recovery_model.recovery_rate(
-                pay_date,
-                6,
-                None,
-                default_amt,
-                &crate::instruments::common::structured_credit::MarketFactors::default(),
-            );
-            let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
-
-            let period_cash = interest_amt
-                .checked_add(scheduled_prin)?
-                .checked_add(prepay_amt)?
-                .checked_add(recovery_amt)?;
-            flows.push((pay_date, period_cash));
-
-            outstanding = outstanding
-                .checked_sub(scheduled_prin)?
-                .checked_sub(prepay_amt)?
-                .checked_sub(default_amt)?;
-
-            pay_date = add_months(pay_date, self.payment_frequency.months().unwrap_or(1) as i32);
-        }
-
-        Ok(flows)
+        // Generate full tranche-specific cashflows with waterfall distribution
+        self.generate_tranche_cashflows_rmbs(context, as_of)
     }
 }
 
@@ -306,14 +243,14 @@ impl Rmbs {
     }
 
     #[inline]
-    fn premium_smm(&self, as_of: Date, seasoning_months: u32) -> f64 {
+    pub(super) fn premium_smm(&self, as_of: Date, seasoning_months: u32) -> f64 {
         self.prepayment_model
             .prepayment_rate(as_of, self.closing_date, seasoning_months, &self.market_conditions)
             .max(0.0)
     }
 
     #[inline]
-    fn premium_mdr(&self, as_of: Date, seasoning_months: u32) -> f64 {
+    pub(super) fn premium_mdr(&self, as_of: Date, seasoning_months: u32) -> f64 {
         self.default_model
             .default_rate(as_of, self.closing_date, seasoning_months, &self.credit_factors)
             .max(0.0)

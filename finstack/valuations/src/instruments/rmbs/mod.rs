@@ -3,6 +3,7 @@
 //! Uses the shared structured credit components to represent RMBS structures with
 //! mortgage-specific pool behavior and waterfall logic.
 
+mod impl_waterfall;
 mod types;
 
 pub use types::Rmbs;
