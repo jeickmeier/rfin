@@ -157,7 +157,7 @@ impl InterestRateSwap {
         end: Date,
     ) -> Self {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-        
+
         let fixed = FixedLegSpec {
             disc_id: finstack_core::types::CurveId::from("EUR-ESTR"),
             rate: fixed_rate,
@@ -203,7 +203,7 @@ impl InterestRateSwap {
         end: Date,
     ) -> Self {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-        
+
         let fixed = FixedLegSpec {
             disc_id: finstack_core::types::CurveId::from("EUR-ESTR"),
             rate: fixed_rate,

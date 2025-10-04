@@ -4,14 +4,14 @@
 //! reinvestment period, including eligibility criteria, concentration limits,
 //! and portfolio quality tests.
 
+use crate::instruments::common::structured_credit::types_extended::Asset;
 use crate::instruments::common::structured_credit::{
     AssetPool, AssetType, CoverageTestResults, CreditRating,
 };
-use crate::instruments::common::structured_credit::types_extended::Asset;
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::currency::Currency;
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
@@ -127,7 +127,7 @@ impl EligibilityCriteria {
 
         // Check remaining term
         let months_remaining = months_between(current_date, asset.maturity_date);
-        
+
         if let Some(min_term) = self.min_remaining_term {
             if months_remaining < min_term {
                 eligible = false;
@@ -149,16 +149,19 @@ impl EligibilityCriteria {
         }
 
         // Check asset type
-        if !self.allowed_asset_types.is_empty() && !self.allowed_asset_types.contains(&asset.asset_type) {
+        if !self.allowed_asset_types.is_empty()
+            && !self.allowed_asset_types.contains(&asset.asset_type)
+        {
             eligible = false;
-            reasons.push(format!(
-                "Asset type {:?} not allowed",
-                asset.asset_type
-            ));
+            reasons.push(format!("Asset type {:?} not allowed", asset.asset_type));
         }
 
         // Check currency
-        if !self.allowed_currencies.is_empty() && !self.allowed_currencies.contains(&asset.current_balance.currency()) {
+        if !self.allowed_currencies.is_empty()
+            && !self
+                .allowed_currencies
+                .contains(&asset.current_balance.currency())
+        {
             eligible = false;
             reasons.push(format!(
                 "Currency {:?} not allowed",
@@ -214,15 +217,12 @@ pub struct ConcentrationLimits {
 
 impl ConcentrationLimits {
     /// Check if adding an asset would breach concentration limits
-    pub fn check_limits(
-        &self,
-        pool: &AssetPool,
-        new_asset: &Asset,
-    ) -> (bool, Vec<String>) {
+    pub fn check_limits(&self, pool: &AssetPool, new_asset: &Asset) -> (bool, Vec<String>) {
         let mut breaches = Vec::new();
         let mut passes = true;
 
-        let total_balance = pool.total_balance()
+        let total_balance = pool
+            .total_balance()
             .checked_add(new_asset.current_balance)
             .unwrap_or_else(|_| pool.total_balance());
 
@@ -233,7 +233,7 @@ impl ConcentrationLimits {
                     .checked_add(new_asset.current_balance)
                     .unwrap_or_else(|_| get_obligor_exposure(pool, obligor));
                 let concentration = obligor_exposure.amount() / total_balance.amount();
-                
+
                 if concentration > max_obligor {
                     passes = false;
                     breaches.push(format!(
@@ -252,7 +252,7 @@ impl ConcentrationLimits {
                     .checked_add(new_asset.current_balance)
                     .unwrap_or_else(|_| get_industry_exposure(pool, industry));
                 let concentration = industry_exposure.amount() / total_balance.amount();
-                
+
                 if concentration > *limit {
                     passes = false;
                     breaches.push(format!(
@@ -272,7 +272,7 @@ impl ConcentrationLimits {
                     .checked_add(new_asset.current_balance)
                     .unwrap_or_else(|_| get_rating_exposure(pool, rating));
                 let concentration = rating_exposure.amount() / total_balance.amount();
-                
+
                 if concentration > *limit {
                     passes = false;
                     breaches.push(format!(
@@ -309,11 +309,7 @@ pub struct PortfolioQualityTests {
 
 impl PortfolioQualityTests {
     /// Check if adding an asset maintains portfolio quality
-    pub fn check_quality(
-        &self,
-        pool: &AssetPool,
-        new_asset: &Asset,
-    ) -> (bool, Vec<String>) {
+    pub fn check_quality(&self, pool: &AssetPool, new_asset: &Asset) -> (bool, Vec<String>) {
         let mut failures = Vec::new();
         let mut passes = true;
 
@@ -368,10 +364,7 @@ pub enum ReinvestmentTerminationEvent {
     /// Scheduled end date reached
     ScheduledEnd,
     /// Coverage test failure
-    CoverageTestFailure {
-        test_type: String,
-        tranche: String,
-    },
+    CoverageTestFailure { test_type: String, tranche: String },
     /// Manager replacement
     ManagerReplacement,
     /// Event of default
@@ -399,11 +392,7 @@ impl ReinvestmentManager {
     }
 
     /// Check if reinvestment is allowed at a given date
-    pub fn can_reinvest(
-        &self,
-        as_of: Date,
-        coverage_results: &CoverageTestResults,
-    ) -> bool {
+    pub fn can_reinvest(&self, as_of: Date, coverage_results: &CoverageTestResults) -> bool {
         // Check if past reinvestment end date
         if as_of >= self.end_date {
             return false;
@@ -448,30 +437,24 @@ impl ReinvestmentManager {
                 // Check eligibility
                 let (eligible, _) = self.eligibility_criteria.is_eligible(
                     &asset,
-                    finstack_core::dates::Date::from_calendar_date(
-                        2025,
-                        time::Month::January,
-                        1
-                    ).unwrap(),
+                    finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1)
+                        .unwrap(),
                 );
-                
+
                 if !eligible {
                     return None;
                 }
 
                 // Check concentration limits
-                let (passes, _) = self.concentration_limits.check_limits(
-                    current_pool,
-                    &asset,
-                );
-                
+                let (passes, _) = self.concentration_limits.check_limits(current_pool, &asset);
+
                 if !passes {
                     return None;
                 }
 
                 // Score based on spread, rating, and diversification benefit
                 let score = self.score_asset(&asset, current_pool);
-                
+
                 Some((asset, score))
             })
             .collect();
@@ -482,7 +465,9 @@ impl ReinvestmentManager {
         // Select assets up to available cash
         for (asset, _score) in scored_assets {
             if asset.current_balance.amount() <= remaining_cash.amount() {
-                remaining_cash = remaining_cash.checked_sub(asset.current_balance).unwrap_or(remaining_cash);
+                remaining_cash = remaining_cash
+                    .checked_sub(asset.current_balance)
+                    .unwrap_or(remaining_cash);
                 selected.push(asset);
             }
         }
@@ -536,14 +521,13 @@ impl ReinvestmentManager {
     }
 }
 
-
 // Helper functions for AssetPool operations
 fn get_obligor_exposure(_pool: &AssetPool, _obligor: &str) -> Money {
     Money::new(0.0, finstack_core::currency::Currency::USD) // Simplified
 }
 
 fn get_industry_exposure(_pool: &AssetPool, _industry: &str) -> Money {
-    Money::new(0.0, finstack_core::currency::Currency::USD) // Simplified  
+    Money::new(0.0, finstack_core::currency::Currency::USD) // Simplified
 }
 
 fn get_rating_exposure(_pool: &AssetPool, _rating: CreditRating) -> Money {
@@ -596,8 +580,14 @@ impl Default for EligibilityCriteria {
             min_remaining_term: Some(12),
             max_remaining_term: Some(84),
             allowed_asset_types: vec![
-                AssetType::Loan { loan_type: crate::instruments::common::structured_credit::LoanType::FirstLien, industry: None },
-                AssetType::Bond { bond_type: crate::instruments::common::structured_credit::BondType::HighYield, industry: None }
+                AssetType::Loan {
+                    loan_type: crate::instruments::common::structured_credit::LoanType::FirstLien,
+                    industry: None,
+                },
+                AssetType::Bond {
+                    bond_type: crate::instruments::common::structured_credit::BondType::HighYield,
+                    industry: None,
+                },
             ],
             allowed_currencies: vec![Currency::USD, Currency::EUR],
             max_price_pct: Some(102.0),
@@ -612,9 +602,9 @@ impl Default for EligibilityCriteria {
 impl Default for ConcentrationLimits {
     fn default() -> Self {
         Self {
-            max_obligor_concentration: Some(0.02),  // 2%
-            max_top5_concentration: Some(0.075),    // 7.5%
-            max_top10_concentration: Some(0.125),   // 12.5%
+            max_obligor_concentration: Some(0.02), // 2%
+            max_top5_concentration: Some(0.075),   // 7.5%
+            max_top10_concentration: Some(0.125),  // 12.5%
             industry_limits: HashMap::new(),
             rating_bucket_limits: HashMap::new(),
             geographic_limits: HashMap::new(),
@@ -646,12 +636,12 @@ mod tests {
     #[test]
     fn test_eligibility_criteria() {
         let criteria = EligibilityCriteria::default();
-        
+
         let asset = create_test_asset();
         let current_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-        
+
         let (eligible, reasons) = criteria.is_eligible(&asset, current_date);
-        
+
         assert!(eligible || !reasons.is_empty());
     }
 
@@ -660,9 +650,9 @@ mod tests {
         let limits = ConcentrationLimits::default();
         let pool = create_test_pool();
         let asset = create_test_asset();
-        
+
         let (passes, breaches) = limits.check_limits(&pool, &asset);
-        
+
         assert!(passes || !breaches.is_empty());
     }
 
@@ -670,9 +660,9 @@ mod tests {
         Asset {
             asset_id: "TEST001".to_string(),
             obligor_id: Some("OBLIGOR001".to_string()),
-            asset_type: AssetType::Loan { 
-                loan_type: crate::instruments::common::structured_credit::LoanType::FirstLien, 
-                industry: None 
+            asset_type: AssetType::Loan {
+                loan_type: crate::instruments::common::structured_credit::LoanType::FirstLien,
+                industry: None,
             },
             original_balance: Money::new(1_000_000.0, Currency::USD),
             current_balance: Money::new(950_000.0, Currency::USD),
@@ -688,6 +678,10 @@ mod tests {
     }
 
     fn create_test_pool() -> AssetPool {
-        AssetPool::new("CLO001", crate::instruments::common::structured_credit::DealType::CLO, Currency::USD)
+        AssetPool::new(
+            "CLO001",
+            crate::instruments::common::structured_credit::DealType::CLO,
+            Currency::USD,
+        )
     }
 }

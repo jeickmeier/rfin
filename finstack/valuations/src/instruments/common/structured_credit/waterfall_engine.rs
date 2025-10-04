@@ -4,11 +4,11 @@
 //! structured credit products, with support for coverage tests, diversions,
 //! and reserve accounts.
 
-use crate::instruments::common::structured_credit::TrancheStructure;
 use crate::instruments::common::structured_credit::types_extended::TrancheId;
+use crate::instruments::common::structured_credit::TrancheStructure;
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::currency::Currency;
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
@@ -128,19 +128,19 @@ pub enum PaymentCalculation {
     /// Interest due on tranche
     TrancheInterest { tranche_id: TrancheId },
     /// Principal due on tranche
-    TranchePrincipal { 
+    TranchePrincipal {
         tranche_id: TrancheId,
         target_balance: Option<Money>,
     },
     /// Amount needed to cure coverage test
-    CoverageTestCure { 
+    CoverageTestCure {
         test_type: CoverageTestType,
         tranche_id: TrancheId,
     },
     /// All remaining cash
     ResidualCash,
     /// Amount to fill reserve to target
-    ReserveFill { 
+    ReserveFill {
         reserve_id: String,
         target_amount: Money,
     },
@@ -156,7 +156,7 @@ pub enum PaymentCondition {
     /// Before a specific date
     BeforeDate { date: Date },
     /// Coverage test must be passing
-    CoverageTestPassing { 
+    CoverageTestPassing {
         test_type: CoverageTestType,
         tranche_id: TrancheId,
     },
@@ -170,10 +170,7 @@ pub enum PaymentCondition {
     /// Not in reinvestment period
     NotInReinvestmentPeriod,
     /// Reserve account has minimum
-    ReserveMinimum {
-        reserve_id: String,
-        minimum: Money,
-    },
+    ReserveMinimum { reserve_id: String, minimum: Money },
 }
 
 /// Types of coverage tests
@@ -348,7 +345,7 @@ impl WaterfallEngine {
 
             // Check if payment should be diverted
             let diverted = rule.divertible && self.should_divert(rule, &triggers_breached);
-            
+
             // Calculate payment amount
             let requested = self.calculate_payment_amount(
                 &rule.calculation,
@@ -375,12 +372,13 @@ impl WaterfallEngine {
 
             // Make payment
             if paid.amount() > 0.0 {
-                *distributions.entry(actual_recipient.clone()).or_insert(
-                    Money::new(0.0, self.base_currency)
-                ) = distributions.get(&actual_recipient)
+                *distributions
+                    .entry(actual_recipient.clone())
+                    .or_insert(Money::new(0.0, self.base_currency)) = distributions
+                    .get(&actual_recipient)
                     .unwrap_or(&Money::new(0.0, self.base_currency))
                     .checked_add(paid)?;
-                
+
                 remaining = remaining.checked_sub(paid)?;
             }
 
@@ -391,9 +389,9 @@ impl WaterfallEngine {
                 recipient: actual_recipient,
                 requested_amount: requested,
                 paid_amount: paid,
-                shortfall: requested.checked_sub(paid).unwrap_or(
-                    Money::new(0.0, self.base_currency)
-                ),
+                shortfall: requested
+                    .checked_sub(paid)
+                    .unwrap_or(Money::new(0.0, self.base_currency)),
                 diverted,
             });
         }
@@ -424,21 +422,20 @@ impl WaterfallEngine {
 
         for tranche in &tranches.tranches {
             // Calculate OC ratio: (Pool Balance) / (Tranche Balance + Senior Tranches)
-            let tranche_and_senior = self.calculate_tranche_and_senior_balance(
-                tranche.id.as_ref(),
-                tranches,
-            )?;
-            
+            let tranche_and_senior =
+                self.calculate_tranche_and_senior_balance(tranche.id.as_ref(), tranches)?;
+
             let oc_ratio = if tranche_and_senior.amount() > 0.0 {
                 pool_balance.amount() / tranche_and_senior.amount()
             } else {
                 f64::INFINITY
             };
-            
+
             oc_ratios.insert(tranche.id.to_string(), oc_ratio);
-            
+
             // Check against required OC level
-            let oc_required = tranche.oc_trigger
+            let oc_required = tranche
+                .oc_trigger
                 .as_ref()
                 .map(|t| t.trigger_level)
                 .unwrap_or(1.0);
@@ -466,14 +463,14 @@ impl WaterfallEngine {
         tranches: &TrancheStructure,
     ) -> finstack_core::Result<Money> {
         let mut total = Money::new(0.0, self.base_currency);
-        
+
         for tranche in &tranches.tranches {
             total = total.checked_add(tranche.current_balance)?;
             if tranche.id.as_str() == tranche_id {
                 break;
             }
         }
-        
+
         Ok(total)
     }
 
@@ -496,28 +493,42 @@ impl WaterfallEngine {
                         return false;
                     }
                 }
-                PaymentCondition::CoverageTestPassing { test_type, tranche_id } => {
+                PaymentCondition::CoverageTestPassing {
+                    test_type,
+                    tranche_id,
+                } => {
                     let passing = match test_type {
-                        CoverageTestType::OC => {
-                            coverage_ratios.oc_tests.get(tranche_id).copied().unwrap_or(false)
-                        }
-                        CoverageTestType::IC => {
-                            coverage_ratios.ic_tests.get(tranche_id).copied().unwrap_or(false)
-                        }
+                        CoverageTestType::OC => coverage_ratios
+                            .oc_tests
+                            .get(tranche_id)
+                            .copied()
+                            .unwrap_or(false),
+                        CoverageTestType::IC => coverage_ratios
+                            .ic_tests
+                            .get(tranche_id)
+                            .copied()
+                            .unwrap_or(false),
                         _ => true,
                     };
                     if !passing {
                         return false;
                     }
                 }
-                PaymentCondition::CoverageTestFailing { test_type, tranche_id } => {
+                PaymentCondition::CoverageTestFailing {
+                    test_type,
+                    tranche_id,
+                } => {
                     let failing = match test_type {
-                        CoverageTestType::OC => {
-                            !coverage_ratios.oc_tests.get(tranche_id).copied().unwrap_or(true)
-                        }
-                        CoverageTestType::IC => {
-                            !coverage_ratios.ic_tests.get(tranche_id).copied().unwrap_or(true)
-                        }
+                        CoverageTestType::OC => !coverage_ratios
+                            .oc_tests
+                            .get(tranche_id)
+                            .copied()
+                            .unwrap_or(true),
+                        CoverageTestType::IC => !coverage_ratios
+                            .ic_tests
+                            .get(tranche_id)
+                            .copied()
+                            .unwrap_or(true),
                         _ => false,
                     };
                     if !failing {
@@ -542,53 +553,64 @@ impl WaterfallEngine {
     ) -> finstack_core::Result<Money> {
         match calculation {
             PaymentCalculation::FixedAmount { amount } => Ok(*amount),
-            
+
             PaymentCalculation::PercentageOfCollateral { rate, annual } => {
                 let period_rate = if *annual { rate / 12.0 } else { *rate };
-                Ok(Money::new(pool_balance.amount() * period_rate, self.base_currency))
+                Ok(Money::new(
+                    pool_balance.amount() * period_rate,
+                    self.base_currency,
+                ))
             }
-            
+
             PaymentCalculation::TrancheInterest { tranche_id } => {
                 // Find tranche and calculate interest
-                let tranche = tranches.tranches.iter()
+                let tranche = tranches
+                    .tranches
+                    .iter()
                     .find(|t| t.id.as_str() == tranche_id)
-                    .ok_or_else(|| finstack_core::Error::Input(
-                        finstack_core::error::InputError::NotFound { 
-                            id: tranche_id.to_string() 
-                        }
-                    ))?;
-                
+                    .ok_or_else(|| {
+                        finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                            id: tranche_id.to_string(),
+                        })
+                    })?;
+
                 // Monthly interest = annual rate / 12 * balance
-                let current_date = finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1)
-                    .unwrap_or(finstack_core::dates::Date::MIN);
+                let current_date =
+                    finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1)
+                        .unwrap_or(finstack_core::dates::Date::MIN);
                 let monthly_rate = tranche.coupon.current_rate(current_date) / 12.0;
                 Ok(Money::new(
                     tranche.current_balance.amount() * monthly_rate,
-                    self.base_currency
+                    self.base_currency,
                 ))
             }
-            
-            PaymentCalculation::TranchePrincipal { tranche_id, target_balance } => {
-                let tranche = tranches.tranches.iter()
+
+            PaymentCalculation::TranchePrincipal {
+                tranche_id,
+                target_balance,
+            } => {
+                let tranche = tranches
+                    .tranches
+                    .iter()
                     .find(|t| t.id.as_str() == tranche_id)
-                    .ok_or_else(|| finstack_core::Error::Input(
-                        finstack_core::error::InputError::NotFound { 
-                            id: tranche_id.to_string() 
-                        }
-                    ))?;
-                
+                    .ok_or_else(|| {
+                        finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                            id: tranche_id.to_string(),
+                        })
+                    })?;
+
                 let target = target_balance.unwrap_or(Money::new(0.0, self.base_currency));
                 let payment = if tranche.current_balance.amount() > target.amount() {
                     tranche.current_balance.checked_sub(target)?
                 } else {
                     Money::new(0.0, self.base_currency)
                 };
-                
+
                 Ok(payment)
             }
-            
+
             PaymentCalculation::ResidualCash => Ok(available_cash),
-            
+
             _ => Ok(Money::new(0.0, self.base_currency)), // Other calculations TBD
         }
     }
@@ -600,16 +622,16 @@ impl WaterfallEngine {
         coverage_ratios: &CoverageRatios,
     ) -> bool {
         match trigger.trigger_test {
-            CoverageTestType::OC => {
-                !coverage_ratios.oc_tests.get(&trigger.tranche_id)
-                    .copied()
-                    .unwrap_or(true)
-            }
-            CoverageTestType::IC => {
-                !coverage_ratios.ic_tests.get(&trigger.tranche_id)
-                    .copied()
-                    .unwrap_or(true)
-            }
+            CoverageTestType::OC => !coverage_ratios
+                .oc_tests
+                .get(&trigger.tranche_id)
+                .copied()
+                .unwrap_or(true),
+            CoverageTestType::IC => !coverage_ratios
+                .ic_tests
+                .get(&trigger.tranche_id)
+                .copied()
+                .unwrap_or(true),
             _ => false,
         }
     }
@@ -627,8 +649,7 @@ impl WaterfallEngine {
     ) -> Option<PaymentRecipient> {
         // Find first active diversion trigger
         for trigger_id in breached_triggers {
-            if let Some(trigger) = self.diversion_triggers.iter()
-                .find(|t| t.id == *trigger_id) {
+            if let Some(trigger) = self.diversion_triggers.iter().find(|t| t.id == *trigger_id) {
                 return Some(trigger.divert_to.clone());
             }
         }
@@ -641,24 +662,24 @@ impl WaterfallEngine {
         distributions: &HashMap<PaymentRecipient, Money>,
     ) -> finstack_core::Result<HashMap<String, Money>> {
         let mut balances = HashMap::new();
-        
+
         for (recipient, amount) in distributions {
             if let PaymentRecipient::ReserveAccount(reserve_id) = recipient {
                 if let Some(reserve) = self.reserve_accounts.get_mut(reserve_id) {
                     reserve.balance = reserve.balance.checked_add(*amount)?;
-                    
+
                     // Apply cap if exists
                     if let Some(cap) = reserve.cap_balance {
                         if reserve.balance.amount() > cap.amount() {
                             reserve.balance = cap;
                         }
                     }
-                    
+
                     balances.insert(reserve_id.clone(), reserve.balance);
                 }
             }
         }
-        
+
         Ok(balances)
     }
 }
@@ -669,7 +690,7 @@ mod tests {
 
     fn create_test_waterfall() -> WaterfallEngine {
         let mut engine = WaterfallEngine::new(Currency::USD);
-        
+
         // Add standard CLO payment rules
         engine = engine
             .add_rule(PaymentRule {
@@ -703,7 +724,7 @@ mod tests {
                 conditions: vec![],
                 divertible: false,
             });
-        
+
         engine
     }
 
@@ -717,12 +738,10 @@ mod tests {
     #[test]
     fn test_payment_priority_ordering() {
         let waterfall = create_test_waterfall();
-        
+
         // Verify rules are sorted by priority
         for i in 1..waterfall.payment_rules.len() {
-            assert!(
-                waterfall.payment_rules[i].priority >= waterfall.payment_rules[i - 1].priority
-            );
+            assert!(waterfall.payment_rules[i].priority >= waterfall.payment_rules[i - 1].priority);
         }
     }
 }

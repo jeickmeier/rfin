@@ -212,7 +212,7 @@ impl Swaption {
         use crate::instruments::common::models::{d1_black76, d2_black76};
         let d1 = d1_black76(forward_rate, self.strike_rate, volatility, time_to_expiry);
         let d2 = d2_black76(forward_rate, self.strike_rate, volatility, time_to_expiry);
-        
+
         let value = match self.option_type {
             OptionType::Call => {
                 annuity

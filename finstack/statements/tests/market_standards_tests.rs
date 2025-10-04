@@ -721,8 +721,14 @@ fn test_ewm_var_with_bias_correction() {
     let vol_adj = results
         .get("volatility_adjusted", &PeriodId::quarter(2025, 4))
         .unwrap();
-    assert!(vol_adj >= 0.0, "Bias-corrected EWM variance should be non-negative");
-    assert!(!vol_adj.is_nan(), "Bias-corrected EWM variance should not be NaN");
+    assert!(
+        vol_adj >= 0.0,
+        "Bias-corrected EWM variance should be non-negative"
+    );
+    assert!(
+        !vol_adj.is_nan(),
+        "Bias-corrected EWM variance should not be NaN"
+    );
 }
 
 #[test]
@@ -758,7 +764,10 @@ fn test_ewm_std_with_bias_correction() {
         .unwrap();
 
     // Standard deviation should be sqrt of variance
-    assert!((std_dev - variance.sqrt()).abs() < 1e-10, "EWM std should equal sqrt(variance)");
+    assert!(
+        (std_dev - variance.sqrt()).abs() < 1e-10,
+        "EWM std should equal sqrt(variance)"
+    );
 }
 
 // ============================================================================

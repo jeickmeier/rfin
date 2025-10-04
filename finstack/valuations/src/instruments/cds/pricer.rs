@@ -180,7 +180,8 @@ impl CDSPricer {
         let t_start = self.year_fraction(base_date, cds.premium.start, cds.premium.dc)?;
         let t_end = self.year_fraction(base_date, cds.premium.end, cds.premium.dc)?;
         let recovery = cds.protection.recovery_rate;
-        let delay_years = (cds.protection.settlement_delay as f64) / self.config.business_days_per_year;
+        let delay_years =
+            (cds.protection.settlement_delay as f64) / self.config.business_days_per_year;
 
         let protection_pv = match self.config.integration_method {
             IntegrationMethod::Midpoint => {

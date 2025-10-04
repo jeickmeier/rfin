@@ -2,7 +2,9 @@
 
 pub mod coverage_tests;
 pub mod coverage_tests_enhanced;
+pub mod default_models;
 pub mod pool;
+pub mod prepayment;
 pub mod reinvestment;
 pub mod tranches;
 pub mod types;
@@ -11,25 +13,38 @@ pub mod waterfall;
 pub mod waterfall_engine;
 
 // Selective exports to avoid conflicts
-pub use coverage_tests::{CoverageTests};
+pub use coverage_tests::CoverageTests;
 pub use coverage_tests_enhanced::{
-    EnhancedCoverageTests, OCTest, ICTest, ParValueTest, DiversityTest,
-    WARFTest, WASTest, CoverageTestResults, calculate_all_coverage_tests,
+    calculate_all_coverage_tests, CoverageTestResults, DiversityTest, EnhancedCoverageTests,
+    ICTest, OCTest, ParValueTest, WARFTest, WASTest,
 };
 pub use pool::{AssetPool, PoolAsset};
 pub use reinvestment::{ReinvestmentManager, ReinvestmentTerminationEvent};
 pub use tranches::*;
 pub use types::{
-    DealType, CreditRating, TrancheSeniority, AssetType, LoanType, BondType,
-    PropertyType, VehicleType, CardPortfolioType, StudentLoanType,
-    PaymentMode, TriggerConsequence,
+    AssetType, BondType, CardPortfolioType, CreditRating, DealType, LoanType, PaymentMode,
+    PropertyType, StudentLoanType, TrancheSeniority, TriggerConsequence, VehicleType,
 };
 // Re-export CoverageTestType from waterfall_engine to avoid conflict
+pub use types_extended::{Asset, CouponType, Seniority, Tranche, TrancheCoverageTests, TrancheId};
+pub use waterfall::StructuredCreditWaterfall;
 pub use waterfall_engine::{
-    WaterfallEngine, PaymentRule, PaymentRecipient, PaymentCalculation,
-    PaymentCondition, DiversionTrigger, ReserveAccount, WaterfallResult,
-    PaymentRecord, CoverageRatios, PaymentPriority, ManagementFeeType,
-    CoverageTestType,
+    CoverageRatios, CoverageTestType, DiversionTrigger, ManagementFeeType, PaymentCalculation,
+    PaymentCondition, PaymentPriority, PaymentRecipient, PaymentRecord, PaymentRule,
+    ReserveAccount, WaterfallEngine, WaterfallResult,
 };
-pub use types_extended::{Asset, Tranche, TrancheId, TrancheCoverageTests, CouponType, Seniority};
-pub use waterfall::{StructuredCreditWaterfall};
+
+// Prepayment models
+pub use prepayment::{
+    calculate_seasoning_months, cpr_to_smm, psa_to_cpr, smm_to_cpr, AutoPrepaymentModel, CPRModel,
+    CommercialPrepaymentModel, CreditCardPaymentModel, MarketConditions, MortgagePrepaymentModel,
+    PSAModel, PrepaymentBehavior, PrepaymentModelFactory, StudentLoanPrepaymentModel, VectorModel,
+};
+
+// Default and recovery models
+pub use default_models::{
+    cdr_to_mdr, mdr_to_cdr, AutoDefaultModel, CDRModel, CollateralRecoveryModel,
+    ConstantRecoveryModel, CreditCardChargeOffModel, CreditFactors, DefaultBehavior,
+    DefaultModelFactory, MarketFactors, MortgageDefaultModel, RecoveryBehavior, SDAModel,
+    VectorDefaultModel,
+};
