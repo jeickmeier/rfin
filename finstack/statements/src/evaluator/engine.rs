@@ -35,17 +35,29 @@ impl Evaluator {
         }
     }
 
-    /// Evaluate a financial model over all periods.
+    /// Evaluate a financial model over all periods with optional market context.
+    ///
+    /// This method allows you to provide market context for pricing capital structure instruments.
+    /// If capital structure is defined but market context is not provided, capital structure
+    /// cashflows will not be computed (cs.* references will fail at runtime).
     ///
     /// # Arguments
     ///
     /// * `model` - The financial model specification
     /// * `parallel` - Whether to use parallel evaluation (TODO: not yet implemented)
+    /// * `market_ctx` - Optional market context for pricing instruments
+    /// * `as_of` - Optional valuation date for pricing
     ///
     /// # Returns
     ///
     /// Returns `Results` containing the evaluated values for all nodes and periods.
-    pub fn evaluate(&mut self, model: &FinancialModelSpec, parallel: bool) -> Result<Results> {
+    pub fn evaluate_with_market_context(
+        &mut self,
+        model: &FinancialModelSpec,
+        parallel: bool,
+        market_ctx: Option<&finstack_core::market_data::MarketContext>,
+        as_of: Option<finstack_core::dates::Date>,
+    ) -> Result<Results> {
         let start = Instant::now();
 
         // Clear forecast cache for new evaluation
@@ -68,6 +80,13 @@ impl Evaluator {
             .map(|(i, node_id)| (node_id.clone(), i))
             .collect();
 
+        // Compute capital structure cashflows if market context is provided
+        let cs_cashflows = if let (Some(market_ctx), Some(as_of)) = (market_ctx, as_of) {
+            model.compute_capital_structure_cashflows(market_ctx, as_of)?
+        } else {
+            None
+        };
+
         // Evaluate period-by-period
         let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
         let mut results = Results::new();
@@ -80,6 +99,7 @@ impl Evaluator {
                 &eval_order,
                 &node_to_column,
                 &historical,
+                cs_cashflows.as_ref(),
             )?;
 
             // Store in results
@@ -106,6 +126,24 @@ impl Evaluator {
         Ok(results)
     }
 
+    /// Evaluate a financial model over all periods.
+    ///
+    /// This is a convenience method that calls `evaluate_with_market_context` with no market context.
+    /// If your model uses capital structure with cs.* references, use `evaluate_with_market_context`
+    /// and provide market data.
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - The financial model specification
+    /// * `parallel` - Whether to use parallel evaluation (TODO: not yet implemented)
+    ///
+    /// # Returns
+    ///
+    /// Returns `Results` containing the evaluated values for all nodes and periods.
+    pub fn evaluate(&mut self, model: &FinancialModelSpec, parallel: bool) -> Result<Results> {
+        self.evaluate_with_market_context(model, parallel, None, None)
+    }
+
     /// Compile all formulas in the model.
     fn compile_formulas(&mut self, model: &FinancialModelSpec) -> Result<()> {
         for (node_id, node_spec) in &model.nodes {
@@ -129,10 +167,16 @@ impl Evaluator {
         eval_order: &[String],
         node_to_column: &IndexMap<String, usize>,
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
+        cs_cashflows: Option<&crate::capital_structure::CapitalStructureCashflows>,
     ) -> Result<IndexMap<String, f64>> {
         // Create evaluation context
         let mut context =
             StatementContext::new(*period_id, node_to_column.clone(), historical.clone());
+
+        // Add capital structure cashflows if available
+        if let Some(cs) = cs_cashflows {
+            context.capital_structure_cashflows = Some(cs.clone());
+        }
 
         // Evaluate nodes in topological order
         for node_id in eval_order {

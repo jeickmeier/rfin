@@ -20,6 +20,9 @@ pub struct StatementContext {
 
     /// Current period results being built
     pub current_values: Vec<f64>,
+
+    /// Capital structure cashflows (optional)
+    pub capital_structure_cashflows: Option<crate::capital_structure::CapitalStructureCashflows>,
 }
 
 impl StatementContext {
@@ -35,7 +38,17 @@ impl StatementContext {
             node_to_column,
             historical_results,
             current_values: vec![f64::NAN; num_nodes],
+            capital_structure_cashflows: None,
         }
+    }
+
+    /// Set capital structure cashflows for this context.
+    pub fn with_capital_structure(
+        mut self,
+        cashflows: crate::capital_structure::CapitalStructureCashflows,
+    ) -> Self {
+        self.capital_structure_cashflows = Some(cashflows);
+        self
     }
 
     /// Set the value for a node in the current period.
@@ -71,6 +84,45 @@ impl StatementContext {
         self.historical_results
             .get(period_id)
             .and_then(|period_results| period_results.get(node_id).copied())
+    }
+
+    /// Get capital structure value for the current period.
+    ///
+    /// # Arguments
+    /// * `component` - Component type: "interest_expense", "principal_payment", or "debt_balance"
+    /// * `instrument_or_total` - Instrument ID or "total" for aggregate
+    pub fn get_cs_value(&self, component: &str, instrument_or_total: &str) -> Result<f64> {
+        let cs_cashflows = self.capital_structure_cashflows.as_ref()
+            .ok_or_else(|| Error::capital_structure("No capital structure defined in model"))?;
+
+        let value = if instrument_or_total == "total" {
+            // Get total for all instruments
+            match component {
+                "interest_expense" => cs_cashflows.get_total_interest(&self.period_id),
+                "principal_payment" => cs_cashflows.get_total_principal(&self.period_id),
+                "debt_balance" => cs_cashflows.get_total_debt_balance(&self.period_id),
+                _ => return Err(Error::capital_structure(format!(
+                    "Unknown capital structure component: {}. Expected: interest_expense, principal_payment, or debt_balance",
+                    component
+                ))),
+            }
+        } else {
+            // Get value for specific instrument
+            match component {
+                "interest_expense" => cs_cashflows.get_interest(instrument_or_total, &self.period_id),
+                "principal_payment" => cs_cashflows.get_principal(instrument_or_total, &self.period_id),
+                "debt_balance" => cs_cashflows.get_debt_balance(instrument_or_total, &self.period_id),
+                _ => return Err(Error::capital_structure(format!(
+                    "Unknown capital structure component: {}. Expected: interest_expense, principal_payment, or debt_balance",
+                    component
+                ))),
+            }
+        };
+
+        value.ok_or_else(|| Error::capital_structure(format!(
+            "No capital structure data for component '{}' and instrument '{}' in period {}",
+            component, instrument_or_total, self.period_id
+        )))
     }
 
     /// Get all results as a map.

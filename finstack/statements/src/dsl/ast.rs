@@ -50,6 +50,14 @@ pub enum StmtExpr {
         /// Else branch
         else_expr: Box<StmtExpr>,
     },
+
+    /// Capital structure reference (e.g., cs.interest_expense.total)
+    CSRef {
+        /// Component (interest_expense, principal_payment, debt_balance)
+        component: String,
+        /// Instrument ID or "total" for aggregate
+        instrument_or_total: String,
+    },
 }
 
 /// Binary operators.
@@ -141,6 +149,14 @@ impl StmtExpr {
             condition: Box::new(condition),
             then_expr: Box::new(then_expr),
             else_expr: Box::new(else_expr),
+        }
+    }
+
+    /// Create a capital structure reference.
+    pub fn cs_ref(component: impl Into<String>, instrument_or_total: impl Into<String>) -> Self {
+        Self::CSRef {
+            component: component.into(),
+            instrument_or_total: instrument_or_total.into(),
         }
     }
 }

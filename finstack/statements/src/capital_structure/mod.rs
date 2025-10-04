@@ -3,18 +3,25 @@
 //! This module provides integration between financial models and capital structure
 //! (debt instruments like bonds, swaps, loans) via the `finstack-valuations` crate.
 //!
-//! ## ⚠️ Status: Partially Implemented
-//! **TODO (PR #6.6):** DSL integration for `cs.*` namespace is NOT yet implemented.
-//! - `cs.interest_expense.*` references will not work in formulas
-//! - `cs.principal_payment.*` references will not work in formulas
-//! - `cs.debt_balance.*` references will not work in formulas
-//! - See PHASE6_SUMMARY.md "Remaining Work" section for details
-//!
 //! ## Features
 //! - ✅ Construct bonds, swaps, and other debt instruments from specifications
 //! - ✅ Generate cashflow schedules from instruments
 //! - ✅ Aggregate cashflows by period (interest, principal, fees)
-//! - ❌ Provide DSL access to capital structure metrics via `cs.*` namespace (NOT IMPLEMENTED)
+//! - ✅ DSL access to capital structure metrics via `cs.*` namespace
+//!
+//! ## DSL Integration
+//! The `cs.*` namespace provides access to capital structure data in formulas:
+//! - `cs.interest_expense.{instrument_id}` - Interest expense for specific instrument
+//! - `cs.interest_expense.total` - Total interest expense across all instruments
+//! - `cs.principal_payment.{instrument_id}` - Principal payment for specific instrument
+//! - `cs.principal_payment.total` - Total principal payments across all instruments
+//! - `cs.debt_balance.{instrument_id}` - Outstanding debt balance for specific instrument
+//! - `cs.debt_balance.total` - Total outstanding debt balance
+//!
+//! ## ⚠️ Current Limitations
+//! - Capital structure cashflow computation requires market context and instrument construction
+//! - The evaluator currently only supports mock cashflows for testing
+//! - Full integration with finstack-valuations pricing is TODO
 //!
 //! ## Example
 //! ```ignore

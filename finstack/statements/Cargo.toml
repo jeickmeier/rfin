@@ -54,3 +54,11 @@ path = "../../examples/rust/statements_phase6_example.rs"
 name = "statements_phase7_example"
 path = "../../examples/rust/statements_phase7_example.rs"
 required-features = ["polars_export"]
+
+[[example]]
+name = "capital_structure_dsl_example"
+path = "../../examples/rust/capital_structure_dsl_example.rs"
+
+[[example]]
+name = "lbo_model_complete"
+path = "../../examples/rust/lbo_model_complete.rs"

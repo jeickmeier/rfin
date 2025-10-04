@@ -87,6 +87,31 @@ cargo run --example statements_phase4_example
 cargo run --example statements_phase5_example
 ```
 
+**[capital_structure_dsl_example.rs](./capital_structure_dsl_example.rs)**
+- Demonstrates cs.* DSL namespace for capital structure references
+- Parsing cs.interest_expense.total, cs.principal_payment.BOND-001, etc.
+- Compiling cs.* references into internal representation
+- Context setup with mock capital structure cashflows
+- Formula evaluation with cs.* data
+
+```bash
+cargo run --example capital_structure_dsl_example
+```
+
+**[lbo_model_complete.rs](./lbo_model_complete.rs)**
+- Complete end-to-end LBO (Leveraged Buyout) model example
+- Operating performance metrics with forecasts
+- Multiple debt instruments (senior and subordinated notes)
+- Formulas with cs.* references for interest, principal, and balances
+- Credit metrics (leverage, interest coverage, DSCR)
+- Automatic capital structure cashflow computation
+- Evaluation with market context
+- Comprehensive P&L and margin analysis
+
+```bash
+cargo run --example lbo_model_complete
+```
+
 ### Valuations Crate
 
 **[bond_custom_cashflows_example.rs](./bond_custom_cashflows_example.rs)**

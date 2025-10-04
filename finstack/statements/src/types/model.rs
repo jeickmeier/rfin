@@ -66,6 +66,77 @@ impl FinancialModelSpec {
     pub fn has_node(&self, node_id: &str) -> bool {
         self.nodes.contains_key(node_id)
     }
+
+    /// Compute capital structure cashflows from instrument specifications.
+    ///
+    /// This method builds instruments from the model's capital structure specifications
+    /// and aggregates their cashflows by period.
+    ///
+    /// # Arguments
+    /// * `market_ctx` - Market context with discount/forward curves
+    /// * `as_of` - Valuation date for pricing
+    ///
+    /// # Returns
+    /// Aggregated cashflows by instrument and period, or None if no capital structure is defined
+    ///
+    /// # Example
+    /// ```ignore
+    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_core::dates::Date;
+    ///
+    /// let market_ctx = MarketContext::default();
+    /// let as_of = Date::from_calendar_date(2025, time::Month::January, 1)?;
+    /// let cashflows = model.compute_capital_structure_cashflows(&market_ctx, as_of)?;
+    /// ```
+    pub fn compute_capital_structure_cashflows(
+        &self,
+        market_ctx: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> crate::error::Result<Option<crate::capital_structure::CapitalStructureCashflows>> {
+        // Return None if no capital structure is defined
+        let cs_spec = match &self.capital_structure {
+            Some(cs) => cs,
+            None => return Ok(None),
+        };
+
+        // Build instruments from specifications
+        use finstack_valuations::cashflow::traits::CashflowProvider;
+        use std::sync::Arc;
+        let mut instruments: IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>> =
+            IndexMap::new();
+
+        for debt_spec in &cs_spec.debt_instruments {
+            match debt_spec {
+                DebtInstrumentSpec::Bond { id, .. } => {
+                    let bond = crate::capital_structure::integration::build_bond_from_spec(debt_spec)?;
+                    instruments.insert(id.clone(), Arc::new(bond));
+                }
+                DebtInstrumentSpec::Swap { id, .. } => {
+                    let swap = crate::capital_structure::integration::build_swap_from_spec(debt_spec)?;
+                    instruments.insert(id.clone(), Arc::new(swap));
+                }
+                DebtInstrumentSpec::Generic { id, .. } => {
+                    // For generic instruments, we can't build them automatically yet
+                    // This would need custom deserialization logic
+                    return Err(crate::error::Error::capital_structure(format!(
+                        "Cannot automatically compute cashflows for generic debt instrument '{}'. \
+                         Generic instruments require manual cashflow specification.",
+                        id
+                    )));
+                }
+            }
+        }
+
+        // Aggregate cashflows by period
+        let cashflows = crate::capital_structure::integration::aggregate_instrument_cashflows(
+            &instruments,
+            &self.periods,
+            market_ctx,
+            as_of,
+        )?;
+
+        Ok(Some(cashflows))
+    }
 }
 
 fn default_schema_version() -> u32 {

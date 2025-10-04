@@ -15,7 +15,18 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &StatementContext) -> Result<f
 
     match &expr.node {
         ExprNode::Literal(val) => Ok(*val),
-        ExprNode::Column(name) => context.get_value(name),
+        ExprNode::Column(name) => {
+            // Check if this is a capital structure reference (format: __cs__component__instrument_or_total)
+            if name.starts_with("__cs__") {
+                let parts: Vec<&str> = name.split("__").collect();
+                if parts.len() == 4 && parts[0].is_empty() && parts[1] == "cs" {
+                    let component = parts[2];
+                    let instrument_or_total = parts[3];
+                    return context.get_cs_value(component, instrument_or_total);
+                }
+            }
+            context.get_value(name)
+        }
         ExprNode::Call(func, args) => evaluate_function(func, args, context),
         ExprNode::BinOp { op, left, right } => {
             let left_val = evaluate_expr(left, context)?;

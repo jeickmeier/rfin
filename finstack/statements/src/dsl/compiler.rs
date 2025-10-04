@@ -26,6 +26,13 @@ pub fn compile(ast: &StmtExpr) -> Result<Expr> {
 
         StmtExpr::NodeRef(name) => Ok(Expr::column(name.clone())),
 
+        // Capital structure references are encoded as special column names
+        // Format: __cs__component__instrument_or_total
+        StmtExpr::CSRef { component, instrument_or_total } => {
+            let encoded = format!("__cs__{}__{}",component, instrument_or_total);
+            Ok(Expr::column(encoded))
+        }
+
         StmtExpr::BinOp { op, left, right } => compile_bin_op(*op, left, right),
 
         StmtExpr::UnaryOp { op, operand } => compile_unary_op(*op, operand),
