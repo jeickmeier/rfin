@@ -1,16 +1,16 @@
 //! Formula evaluation logic.
 
 use crate::error::{Error, Result};
-use crate::evaluator::context::StatementContext;
+use crate::evaluator::context::EvaluationContext;
 use finstack_core::expr::{Expr, Function};
 
 /// Evaluate a compiled expression.
-pub(crate) fn evaluate_formula(expr: &Expr, context: &StatementContext) -> Result<f64> {
+pub(crate) fn evaluate_formula(expr: &Expr, context: &EvaluationContext) -> Result<f64> {
     evaluate_expr(expr, context)
 }
 
 /// Recursively evaluate an expression.
-pub(crate) fn evaluate_expr(expr: &Expr, context: &StatementContext) -> Result<f64> {
+pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<f64> {
     use finstack_core::expr::{BinOp, ExprNode, UnaryOp};
 
     match &expr.node {
@@ -138,7 +138,7 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &StatementContext) -> Result<f
 }
 
 /// Evaluate a function call.
-fn evaluate_function(func: &Function, args: &[Expr], _context: &StatementContext) -> Result<f64> {
+fn evaluate_function(func: &Function, args: &[Expr], _context: &EvaluationContext) -> Result<f64> {
     // Handle real functions from finstack-core
     match func {
         Function::Lag => {

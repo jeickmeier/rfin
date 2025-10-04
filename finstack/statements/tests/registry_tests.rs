@@ -44,10 +44,7 @@ fn test_builtin_margin_metrics() {
     assert!(registry.has("fin.net_margin"));
 
     let gross_margin = registry.get("fin.gross_margin").unwrap();
-    assert_eq!(
-        gross_margin.definition.formula,
-        "gross_profit / revenue"
-    );
+    assert_eq!(gross_margin.definition.formula, "gross_profit / revenue");
     assert_eq!(
         gross_margin.definition.unit_type,
         Some(UnitType::Percentage)
@@ -529,22 +526,40 @@ fn test_inter_metric_dependencies_in_model() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1_000_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(1_100_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(1_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(1_100_000.0),
+                ),
             ],
         )
         .value(
             "cogs",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(600_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(660_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(600_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(660_000.0),
+                ),
             ],
         )
         .value(
             "opex",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(200_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(220_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(200_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(220_000.0),
+                ),
             ],
         )
         // Only add ebitda_margin - should automatically add gross_profit and ebitda

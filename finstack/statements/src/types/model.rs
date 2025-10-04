@@ -108,11 +108,13 @@ impl FinancialModelSpec {
         for debt_spec in &cs_spec.debt_instruments {
             match debt_spec {
                 DebtInstrumentSpec::Bond { id, .. } => {
-                    let bond = crate::capital_structure::integration::build_bond_from_spec(debt_spec)?;
+                    let bond =
+                        crate::capital_structure::integration::build_bond_from_spec(debt_spec)?;
                     instruments.insert(id.clone(), Arc::new(bond));
                 }
                 DebtInstrumentSpec::Swap { id, .. } => {
-                    let swap = crate::capital_structure::integration::build_swap_from_spec(debt_spec)?;
+                    let swap =
+                        crate::capital_structure::integration::build_swap_from_spec(debt_spec)?;
                     instruments.insert(id.clone(), Arc::new(swap));
                 }
                 DebtInstrumentSpec::Generic { id, .. } => {

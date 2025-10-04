@@ -32,8 +32,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let ast1 = parse_formula("cs.interest_expense.total")?;
     match ast1 {
-        StmtExpr::CSRef { component, instrument_or_total } => {
-            println!("   ✓ Parsed as CSRef: component='{}', target='{}'", component, instrument_or_total);
+        StmtExpr::CSRef {
+            component,
+            instrument_or_total,
+        } => {
+            println!(
+                "   ✓ Parsed as CSRef: component='{}', target='{}'",
+                component, instrument_or_total
+            );
         }
         _ => println!("   ✗ Unexpected parse result"),
     }
@@ -42,20 +48,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n2. Building a model with capital structure:");
 
     let as_of = Date::from_calendar_date(2025, Month::January, 1)?;
-    let issue_date = Date::from_calendar_date(2024, Month::July, 1)?;  // Issue 6 months before to see coupons
+    let issue_date = Date::from_calendar_date(2024, Month::July, 1)?; // Issue 6 months before to see coupons
     let maturity_date = Date::from_calendar_date(2030, Month::January, 1)?;
 
     let model = ModelBuilder::new("LBO Model")
-        .periods("2025Q1..2025Q1", Some("2025Q1"))?  // Single period for simplicity
-        .value("revenue", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10_000_000.0)),
-        ])
-        .value("cogs", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(6_000_000.0)),
-        ])
-        .value("opex", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(2_000_000.0)),
-        ])
+        .periods("2025Q1..2025Q1", Some("2025Q1"))? // Single period for simplicity
+        .value(
+            "revenue",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(10_000_000.0),
+            )],
+        )
+        .value(
+            "cogs",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(6_000_000.0),
+            )],
+        )
+        .value(
+            "opex",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(2_000_000.0),
+            )],
+        )
         .compute("gross_profit", "revenue - cogs")?
         .compute("ebitda", "revenue - cogs - opex")?
         // Add bonds to capital structure
@@ -78,8 +96,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     println!("   ✓ Model built with {} nodes", model.nodes.len());
-    println!("   ✓ Capital structure defined: {} debt instruments", 
-        model.capital_structure.as_ref().unwrap().debt_instruments.len());
+    println!(
+        "   ✓ Capital structure defined: {} debt instruments",
+        model
+            .capital_structure
+            .as_ref()
+            .unwrap()
+            .debt_instruments
+            .len()
+    );
 
     // Example 3: Create market context for pricing
     println!("\n3. Creating market context:");
@@ -88,10 +113,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .base_date(as_of)
         .knots([
             (0.0, 1.0),
-            (0.25, 0.985),     // 3M: ~6% rate
-            (0.5, 0.97),       // 6M: ~6% rate
-            (1.0, 0.94),       // 1Y: ~6.2% rate
-            (5.0, 0.74),       // 5Y: ~6% rate
+            (0.25, 0.985), // 3M: ~6% rate
+            (0.5, 0.97),   // 6M: ~6% rate
+            (1.0, 0.94),   // 1Y: ~6.2% rate
+            (5.0, 0.74),   // 5Y: ~6% rate
         ])
         .set_interp(InterpStyle::Linear)
         .build()?;
@@ -103,11 +128,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n4. Evaluating model (cashflows computed from bond definitions):");
 
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate_with_market_context(&model, false, Some(&market_ctx), Some(as_of))?;
+    let results =
+        evaluator.evaluate_with_market_context(&model, false, Some(&market_ctx), Some(as_of))?;
 
-    println!("   ✓ Model evaluated: {} nodes, {} periods", 
-        results.meta.num_nodes, results.meta.num_periods);
-    
+    println!(
+        "   ✓ Model evaluated: {} nodes, {} periods",
+        results.meta.num_nodes, results.meta.num_periods
+    );
+
     // Display Q1 results
     let q1 = PeriodId::quarter(2025, 1);
     println!("\n   Q1 2025 Results:");
@@ -119,21 +147,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 5: Access computed capital structure cashflows
     println!("\n5. Capital structure cashflows (automatically computed):");
-    
+
     // The cashflows are computed internally during evaluation from bond definitions
     // We can access them by computing them again for display purposes
     let cs_cashflows = model.compute_capital_structure_cashflows(&market_ctx, as_of)?;
-    
+
     if let Some(cashflows) = cs_cashflows {
         let q1 = PeriodId::quarter(2025, 1);
-        
+
         if let Some(total) = cashflows.totals.get(&q1) {
             println!("   Q1 2025 Totals:");
             println!("     Interest expense: ${:.2}", total.interest_expense);
             println!("     Principal payment: ${:.2}", total.principal_payment);
             println!("     Debt balance: ${:.2}", total.debt_balance);
         }
-        
+
         println!("\n   By Instrument:");
         for (instrument_id, periods) in &cashflows.by_instrument {
             if let Some(breakdown) = periods.get(&q1) {
@@ -154,18 +182,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 7: Build extended model with cs.* formulas
     println!("\n7. Building model with cs.* formulas:");
-    
+
     let extended_model = ModelBuilder::new("LBO Model Extended")
-        .periods("2025Q1..2025Q1", Some("2025Q1"))?  // Single period for simplicity
-        .value("revenue", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10_000_000.0)),
-        ])
-        .value("cogs", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(6_000_000.0)),
-        ])
-        .value("opex", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(2_000_000.0)),
-        ])
+        .periods("2025Q1..2025Q1", Some("2025Q1"))? // Single period for simplicity
+        .value(
+            "revenue",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(10_000_000.0),
+            )],
+        )
+        .value(
+            "cogs",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(6_000_000.0),
+            )],
+        )
+        .value(
+            "opex",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(2_000_000.0),
+            )],
+        )
         .compute("gross_profit", "revenue - cogs")?
         .compute("ebitda", "revenue - cogs - opex")?
         .add_bond(
@@ -190,23 +230,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .compute("total_debt", "cs.debt_balance.total")?
         .compute("leverage_ratio", "cs.debt_balance.total / ebitda")?
         .build()?;
-    
+
     println!("   ✓ Extended model built with cs.* formulas");
-    
+
     // Evaluate extended model
     let mut extended_evaluator = Evaluator::new();
     let extended_results = extended_evaluator.evaluate_with_market_context(
         &extended_model,
         false,
         Some(&market_ctx),
-        Some(as_of)
+        Some(as_of),
     )?;
-    
+
     println!("\n   Extended model results for Q1 2025:");
     let q1 = PeriodId::quarter(2025, 1);
-    
+
     // Display key metrics
-    for node_id in &["interest_expense", "net_income", "total_debt", "leverage_ratio"] {
+    for node_id in &[
+        "interest_expense",
+        "net_income",
+        "total_debt",
+        "leverage_ratio",
+    ] {
         if let Some(value) = extended_results.get(node_id, &q1) {
             if *node_id == "leverage_ratio" {
                 println!("     {}: {:.2}x", node_id, value);
@@ -226,4 +271,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

@@ -8,7 +8,7 @@ use indexmap::IndexMap;
 ///
 /// Tracks node values for the current period and provides access to historical values.
 #[derive(Debug)]
-pub struct StatementContext {
+pub struct EvaluationContext {
     /// Current period being evaluated
     pub period_id: PeriodId,
 
@@ -25,7 +25,7 @@ pub struct StatementContext {
     pub capital_structure_cashflows: Option<crate::capital_structure::CapitalStructureCashflows>,
 }
 
-impl StatementContext {
+impl EvaluationContext {
     /// Create a new evaluation context for a period.
     pub fn new(
         period_id: PeriodId,
@@ -92,7 +92,9 @@ impl StatementContext {
     /// * `component` - Component type: "interest_expense", "principal_payment", or "debt_balance"
     /// * `instrument_or_total` - Instrument ID or "total" for aggregate
     pub fn get_cs_value(&self, component: &str, instrument_or_total: &str) -> Result<f64> {
-        let cs_cashflows = self.capital_structure_cashflows.as_ref()
+        let cs_cashflows = self
+            .capital_structure_cashflows
+            .as_ref()
             .ok_or_else(|| Error::capital_structure("No capital structure defined in model"))?;
 
         let value = if instrument_or_total == "total" {
@@ -119,10 +121,12 @@ impl StatementContext {
             }
         };
 
-        value.ok_or_else(|| Error::capital_structure(format!(
-            "No capital structure data for component '{}' and instrument '{}' in period {}",
-            component, instrument_or_total, self.period_id
-        )))
+        value.ok_or_else(|| {
+            Error::capital_structure(format!(
+                "No capital structure data for component '{}' and instrument '{}' in period {}",
+                component, instrument_or_total, self.period_id
+            ))
+        })
     }
 
     /// Get all results as a map.
@@ -146,7 +150,7 @@ mod tests {
         node_to_column.insert("cogs".to_string(), 1);
 
         let ctx =
-            StatementContext::new(PeriodId::quarter(2025, 1), node_to_column, IndexMap::new());
+            EvaluationContext::new(PeriodId::quarter(2025, 1), node_to_column, IndexMap::new());
 
         assert_eq!(ctx.current_values.len(), 2);
     }
@@ -157,7 +161,7 @@ mod tests {
         node_to_column.insert("revenue".to_string(), 0);
 
         let mut ctx =
-            StatementContext::new(PeriodId::quarter(2025, 1), node_to_column, IndexMap::new());
+            EvaluationContext::new(PeriodId::quarter(2025, 1), node_to_column, IndexMap::new());
 
         ctx.set_value("revenue", 100_000.0).unwrap();
         assert_eq!(ctx.get_value("revenue").unwrap(), 100_000.0);
@@ -173,7 +177,7 @@ mod tests {
         q1_results.insert("revenue".to_string(), 100_000.0);
         historical.insert(PeriodId::quarter(2025, 1), q1_results);
 
-        let ctx = StatementContext::new(PeriodId::quarter(2025, 2), node_to_column, historical);
+        let ctx = EvaluationContext::new(PeriodId::quarter(2025, 2), node_to_column, historical);
 
         let value = ctx.get_historical_value("revenue", &PeriodId::quarter(2025, 1));
         assert_eq!(value, Some(100_000.0));

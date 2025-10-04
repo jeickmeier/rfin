@@ -208,19 +208,22 @@ fn literal(input: &str) -> IResult<&str, StmtExpr> {
 // Identifier (node reference)
 fn identifier(input: &str) -> IResult<&str, StmtExpr> {
     let (input, id_str) = identifier_string(input)?;
-    
+
     // Check if this is a capital structure reference (cs.component.instrument_or_total)
     if id_str.starts_with("cs.") {
         let parts: Vec<&str> = id_str.split('.').collect();
         if parts.len() == 3 {
             // Valid cs reference: cs.component.instrument_or_total
-            return Ok((input, StmtExpr::CSRef {
-                component: parts[1].to_string(),
-                instrument_or_total: parts[2].to_string(),
-            }));
+            return Ok((
+                input,
+                StmtExpr::CSRef {
+                    component: parts[1].to_string(),
+                    instrument_or_total: parts[2].to_string(),
+                },
+            ));
         }
     }
-    
+
     Ok((input, StmtExpr::NodeRef(id_str)))
 }
 
@@ -229,7 +232,9 @@ fn identifier_string(input: &str) -> IResult<&str, String> {
     map(
         recognize(pair(
             take_while1(|c: char| c.is_alphabetic() || c == '_'),
-            nom::bytes::complete::take_while(|c: char| c.is_alphanumeric() || c == '_' || c == '.' || c == '-'),
+            nom::bytes::complete::take_while(|c: char| {
+                c.is_alphanumeric() || c == '_' || c == '.' || c == '-'
+            }),
         )),
         |s: &str| s.to_string(),
     )(input)

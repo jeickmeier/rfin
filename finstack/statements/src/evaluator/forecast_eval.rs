@@ -1,7 +1,7 @@
 //! Forecast evaluation logic.
 
 use crate::error::{Error, Result};
-use crate::evaluator::context::StatementContext;
+use crate::evaluator::context::EvaluationContext;
 use crate::forecast;
 use crate::types::{FinancialModelSpec, NodeSpec};
 use finstack_core::dates::PeriodId;
@@ -15,7 +15,7 @@ pub(crate) fn evaluate_forecast(
     node_spec: &NodeSpec,
     model: &FinancialModelSpec,
     period_id: &PeriodId,
-    context: &StatementContext,
+    context: &EvaluationContext,
     forecast_cache: &mut IndexMap<String, IndexMap<PeriodId, f64>>,
 ) -> Result<f64> {
     // Check cache first
@@ -71,7 +71,7 @@ fn determine_base_value(
     node_spec: &NodeSpec,
     _current_period_id: &PeriodId,
     model: &FinancialModelSpec,
-    context: &StatementContext,
+    context: &EvaluationContext,
 ) -> Result<f64> {
     // Try to get last actual period value
     let last_actual_period = model.periods.iter().filter(|p| p.is_actual).last();

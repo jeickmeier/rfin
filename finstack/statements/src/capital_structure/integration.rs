@@ -55,14 +55,14 @@ pub fn aggregate_instrument_cashflows(
         // Aggregate cashflows into periods
         // Note: Bond cashflows are from bondholder perspective (positive = receive cash)
         // We need issuer perspective (negative = pay cash), so we negate them
-        
+
         // First, estimate the initial notional from the largest cashflow (typically the redemption)
         let initial_notional = flows
             .iter()
             .map(|(_, amt)| amt.amount().abs())
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(0.0);
-        
+
         for (flow_date, amount) in &flows {
             // Find the period containing this cashflow
             if let Some(period) = find_period_containing_date(periods, *flow_date) {
@@ -77,7 +77,7 @@ pub fn aggregate_instrument_cashflows(
                 // See PHASE6_SUMMARY.md for details
 
                 let value = amount.amount().abs(); // Take absolute value
-                
+
                 // Heuristic: flows less than 20% of initial notional are likely interest
                 // This works for typical bonds but should be replaced with CFKind
                 if value < initial_notional * 0.2 {
@@ -97,19 +97,19 @@ pub fn aggregate_instrument_cashflows(
         // - Should track actual notional amortization schedule
         // - Doesn't handle revolving facilities (draws/repayments)
         // See PHASE6_SUMMARY.md for details
-        
+
         // Estimate initial notional from the largest cashflow (typically the redemption)
         let initial_notional = flows
             .iter()
             .map(|(_, amt)| amt.amount().abs())
             .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or(0.0);
-        
+
         let mut cumulative_principal = 0.0;
         for period in periods {
             let breakdown = instrument_periods.get_mut(&period.id).unwrap();
             cumulative_principal += breakdown.principal_payment;
-            
+
             // Outstanding balance = initial notional - cumulative principal paid
             breakdown.debt_balance = (initial_notional - cumulative_principal).max(0.0);
         }

@@ -134,8 +134,14 @@ fn print_ast(expr: &StmtExpr, indent: usize) {
             println!("{}  else:", prefix);
             print_ast(else_expr, indent + 2);
         }
-        StmtExpr::CSRef { component, instrument_or_total } => {
-            println!("{}CSRef('{}', '{}')", prefix, component, instrument_or_total);
+        StmtExpr::CSRef {
+            component,
+            instrument_or_total,
+        } => {
+            println!(
+                "{}CSRef('{}', '{}')",
+                prefix, component, instrument_or_total
+            );
         }
     }
 }

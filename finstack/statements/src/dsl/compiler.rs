@@ -28,8 +28,11 @@ pub fn compile(ast: &StmtExpr) -> Result<Expr> {
 
         // Capital structure references are encoded as special column names
         // Format: __cs__component__instrument_or_total
-        StmtExpr::CSRef { component, instrument_or_total } => {
-            let encoded = format!("__cs__{}__{}",component, instrument_or_total);
+        StmtExpr::CSRef {
+            component,
+            instrument_or_total,
+        } => {
+            let encoded = format!("__cs__{}__{}", component, instrument_or_total);
             Ok(Expr::column(encoded))
         }
 

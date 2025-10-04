@@ -337,8 +337,10 @@ impl Registry {
                     };
                     let after = formula.chars().nth(idx + metric_id.len());
 
-                    let before_ok = before.map_or(true, |c| !c.is_alphanumeric() && c != '_' && c != '.');
-                    let after_ok = after.map_or(true, |c| !c.is_alphanumeric() && c != '_' && c != '.');
+                    let before_ok =
+                        before.map_or(true, |c| !c.is_alphanumeric() && c != '_' && c != '.');
+                    let after_ok =
+                        after.map_or(true, |c| !c.is_alphanumeric() && c != '_' && c != '.');
 
                     before_ok && after_ok
                 });
@@ -581,7 +583,7 @@ mod tests {
 
         let mut registry = Registry::new();
         let result = registry.load_from_json_str(json);
-        
+
         // Should succeed even though metrics are in reverse dependency order
         assert!(result.is_ok());
         assert!(registry.has("test.gross_profit"));
@@ -610,7 +612,7 @@ mod tests {
 
         let mut registry = Registry::new();
         let result = registry.load_from_json_str(json);
-        
+
         // Should fail with circular dependency error
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
@@ -722,7 +724,9 @@ mod tests {
         assert!(registry.has("test.ebitda_margin"));
 
         // ebitda_margin depends on both ebitda (metric) and revenue (base node)
-        let deps = registry.get_metric_dependencies("test.ebitda_margin").unwrap();
+        let deps = registry
+            .get_metric_dependencies("test.ebitda_margin")
+            .unwrap();
         assert_eq!(deps.len(), 2); // gross_profit and ebitda
         assert!(deps.contains(&"test.gross_profit".to_string()));
         assert!(deps.contains(&"test.ebitda".to_string()));

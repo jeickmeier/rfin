@@ -15,7 +15,7 @@ mod formula;
 mod precedence;
 mod results;
 
-pub use context::StatementContext;
+pub use context::EvaluationContext;
 pub use dag::{evaluate_order, DependencyGraph};
 pub use engine::Evaluator;
 pub use precedence::{resolve_node_value, NodeValueSource};

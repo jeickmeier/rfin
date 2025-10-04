@@ -123,12 +123,14 @@ impl<'a> ExtensionContext<'a> {
     }
 
     /// Add a configuration.
+    #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_config(mut self, config: &'a serde_json::Value) -> Self {
         self.config = Some(config);
         self
     }
 
     /// Add runtime context data.
+    #[must_use = "builder methods take self by value and return the modified value"]
     pub fn add_context(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.runtime_context.insert(key.into(), value);
         self
@@ -203,18 +205,21 @@ impl ExtensionResult {
     }
 
     /// Add data to the result.
+    #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_data(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.data.insert(key.into(), value);
         self
     }
 
     /// Add a warning.
+    #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_warning(mut self, warning: impl Into<String>) -> Self {
         self.warnings.push(warning.into());
         self
     }
 
     /// Add an error.
+    #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_error(mut self, error: impl Into<String>) -> Self {
         self.errors.push(error.into());
         self

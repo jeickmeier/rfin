@@ -40,41 +40,57 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build the model
     let model = ModelBuilder::new("Acme Corp LBO")
         .periods("2025Q1..2025Q4", Some("2025Q1"))?
-        
         // Operating Metrics - Q1 actuals
-        .value("revenue", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(25_000_000.0)),
-        ])
-        .value("cogs", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(15_000_000.0)),
-        ])
-        .value("opex", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(5_000_000.0)),
-        ])
-        .value("depreciation", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(500_000.0)),
-        ])
-        .value("amortization", &[
-            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(250_000.0)),
-        ])
-        
+        .value(
+            "revenue",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(25_000_000.0),
+            )],
+        )
+        .value(
+            "cogs",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(15_000_000.0),
+            )],
+        )
+        .value(
+            "opex",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(5_000_000.0),
+            )],
+        )
+        .value(
+            "depreciation",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(500_000.0),
+            )],
+        )
+        .value(
+            "amortization",
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(250_000.0),
+            )],
+        )
         // Forecast operating metrics (5% quarterly growth)
         .forecast("revenue", ForecastSpec::growth(0.05))
-        .forecast("cogs", ForecastSpec::growth(0.04))  // Improving margin
-        .forecast("opex", ForecastSpec::growth(0.03))  // Operating leverage
+        .forecast("cogs", ForecastSpec::growth(0.04)) // Improving margin
+        .forecast("opex", ForecastSpec::growth(0.03)) // Operating leverage
         .forecast("depreciation", ForecastSpec::forward_fill())
         .forecast("amortization", ForecastSpec::forward_fill())
-        
         // P&L Calculations
         .compute("gross_profit", "revenue - cogs")?
         .compute("ebitda", "revenue - cogs - opex")?
         .compute("ebit", "ebitda - depreciation - amortization")?
-        
         // Capital Structure: Senior + Subordinated Notes
         .add_bond(
             "SENIOR-NOTES",
             Money::new(100_000_000.0, Currency::USD),
-            0.06,  // 6% coupon
+            0.06, // 6% coupon
             issue_date,
             maturity_date,
             "USD-OIS",
@@ -82,69 +98,74 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_bond(
             "SUB-NOTES",
             Money::new(50_000_000.0, Currency::USD),
-            0.09,  // 9% coupon (higher risk)
+            0.09, // 9% coupon (higher risk)
             issue_date,
             maturity_date,
             "USD-OIS",
         )?
-        
         // P&L with CS Integration
         .compute("interest_expense", "cs.interest_expense.total")?
         .compute("ebt", "ebit - cs.interest_expense.total")?
-        .compute("taxes", "if(ebt > 0, ebt * 0.25, 0)")?  // 25% tax rate
+        .compute("taxes", "if(ebt > 0, ebt * 0.25, 0)")? // 25% tax rate
         .compute("net_income", "ebt - taxes")?
-        
         // Margin Analysis
         .compute("gross_margin", "gross_profit / revenue")?
         .compute("ebitda_margin", "ebitda / revenue")?
         .compute("net_margin", "net_income / revenue")?
-        
         // Credit Metrics
         .compute("leverage", "cs.debt_balance.total / ebitda")?
         .compute("interest_coverage", "ebitda / cs.interest_expense.total")?
-        .compute("debt_service", "cs.interest_expense.total + cs.principal_payment.total")?
+        .compute(
+            "debt_service",
+            "cs.interest_expense.total + cs.principal_payment.total",
+        )?
         .compute("debt_service_coverage", "ebitda / debt_service")?
-        
         .build()?;
 
     println!("Model built successfully!");
     println!("  Nodes: {}", model.nodes.len());
     println!("  Periods: {}", model.periods.len());
-    println!("  Debt Instruments: {}\n", 
-        model.capital_structure.as_ref().unwrap().debt_instruments.len());
+    println!(
+        "  Debt Instruments: {}\n",
+        model
+            .capital_structure
+            .as_ref()
+            .unwrap()
+            .debt_instruments
+            .len()
+    );
 
     // Create market context with discount curve
     println!("Creating market context with USD discount curve...");
-    
+
     // Build USD-OIS discount curve (5-year flat at 5% for simplicity)
     // In production, this would come from market data feeds
     let usd_curve = DiscountCurve::builder("USD-OIS")
         .base_date(issue_date)
         .knots([
-            (0.0, 1.0),           // Today: DF = 1.0
-            (0.25, 0.9877),       // 3M: ~5% rate
-            (0.5, 0.9756),        // 6M
-            (1.0, 0.9512),        // 1Y
-            (2.0, 0.9048),        // 2Y
-            (3.0, 0.8607),        // 3Y
-            (5.0, 0.7788),        // 5Y: DF = exp(-0.05 * 5)
+            (0.0, 1.0),     // Today: DF = 1.0
+            (0.25, 0.9877), // 3M: ~5% rate
+            (0.5, 0.9756),  // 6M
+            (1.0, 0.9512),  // 1Y
+            (2.0, 0.9048),  // 2Y
+            (3.0, 0.8607),  // 3Y
+            (5.0, 0.7788),  // 5Y: DF = exp(-0.05 * 5)
         ])
         .set_interp(InterpStyle::Linear)
         .build()?;
-    
-    let market_ctx = MarketContext::new()
-        .insert_discount(usd_curve);
-    
+
+    let market_ctx = MarketContext::new().insert_discount(usd_curve);
+
     println!("  USD-OIS curve: 7 knots from 0Y to 5Y");
     println!("  Approx rate: ~5.0% flat\n");
 
     // Evaluate the model
     println!("Evaluating model with capital structure...");
     let mut evaluator = Evaluator::new();
-    
+
     let results = evaluator.evaluate_with_market_context(
         &model,
-        false,  // not parallel
+        false, // not parallel
         Some(&market_ctx),
         Some(as_of_date),
     )?;
@@ -154,7 +175,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Display results
     println!("=== Operating Performance (Q1 2025) ===");
     let q1 = PeriodId::quarter(2025, 1);
-    
+
     let revenue = results.get("revenue", &q1).unwrap();
     let cogs = results.get("cogs", &q1).unwrap();
     let opex = results.get("opex", &q1).unwrap();
@@ -190,7 +211,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(interest) = results.get("interest_expense", &q3) {
         println!("Interest Expense: ${:>15.2}", interest);
         let ebitda_q3 = results.get("ebitda", &q3).unwrap_or(0.0);
-        let coverage = if interest > 0.0 { ebitda_q3 / interest } else { 0.0 };
+        let coverage = if interest > 0.0 {
+            ebitda_q3 / interest
+        } else {
+            0.0
+        };
         println!("EBITDA:           ${:>15.2}", ebitda_q3);
         println!("Interest Coverage:       {:>10.2}x", coverage);
     }
@@ -215,7 +240,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let (Some(ebt), Some(taxes), Some(net_income)) = (ebt, taxes, net_income) {
         println!("EBIT:          ${:>15.2}", ebit);
-        println!("Interest:      ${:>15.2}", results.get("interest_expense", &q1).unwrap_or(0.0));
+        println!(
+            "Interest:      ${:>15.2}",
+            results.get("interest_expense", &q1).unwrap_or(0.0)
+        );
         println!("EBT:           ${:>15.2}", ebt);
         println!("Taxes:         ${:>15.2}", taxes);
         println!("Net Income:    ${:>15.2}", net_income);
@@ -226,8 +254,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let period = PeriodId::quarter(2025, quarter);
         if let Some(rev) = results.get("revenue", &period) {
             let eb = results.get("ebitda", &period).unwrap_or(0.0);
-            println!("Q{} 2025: Revenue=${:>12.0}  EBITDA=${:>12.0}", 
-                quarter, rev, eb);
+            println!(
+                "Q{} 2025: Revenue=${:>12.0}  EBITDA=${:>12.0}",
+                quarter, rev, eb
+            );
         }
     }
 
@@ -250,4 +280,3 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-

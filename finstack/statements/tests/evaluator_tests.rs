@@ -8,7 +8,7 @@ use finstack_statements::prelude::*;
 
 #[test]
 fn test_context_set_and_get_value() {
-    use finstack_statements::evaluator::StatementContext;
+    use finstack_statements::evaluator::EvaluationContext;
     use indexmap::IndexMap;
 
     let mut node_to_column = IndexMap::new();
@@ -16,7 +16,7 @@ fn test_context_set_and_get_value() {
     node_to_column.insert("cogs".to_string(), 1);
 
     let mut ctx =
-        StatementContext::new(PeriodId::quarter(2025, 1), node_to_column, IndexMap::new());
+        EvaluationContext::new(PeriodId::quarter(2025, 1), node_to_column, IndexMap::new());
 
     ctx.set_value("revenue", 100_000.0).unwrap();
     ctx.set_value("cogs", 60_000.0).unwrap();
@@ -27,10 +27,10 @@ fn test_context_set_and_get_value() {
 
 #[test]
 fn test_context_unknown_node_error() {
-    use finstack_statements::evaluator::StatementContext;
+    use finstack_statements::evaluator::EvaluationContext;
     use indexmap::IndexMap;
 
-    let ctx = StatementContext::new(PeriodId::quarter(2025, 1), IndexMap::new(), IndexMap::new());
+    let ctx = EvaluationContext::new(PeriodId::quarter(2025, 1), IndexMap::new(), IndexMap::new());
 
     let result = ctx.get_value("unknown");
     assert!(result.is_err());

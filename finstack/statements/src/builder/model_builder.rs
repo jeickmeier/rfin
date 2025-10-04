@@ -360,14 +360,14 @@ impl ModelBuilder<Ready> {
         for dep_id in dependencies {
             if !self.nodes.contains_key(&dep_id) {
                 let dep_metric = registry.get(&dep_id)?;
-                
+
                 // Update formula to use qualified references for metrics in the same namespace
                 let formula = self.qualify_metric_references(
                     &dep_metric.definition.formula,
                     namespace,
                     registry,
                 )?;
-                
+
                 let dep_node = NodeSpec::new(dep_id.clone(), NodeType::Calculated)
                     .with_name(dep_metric.definition.name.clone())
                     .with_formula(formula);
@@ -378,14 +378,14 @@ impl ModelBuilder<Ready> {
         // Add the requested metric (if not already added)
         if !self.nodes.contains_key(qualified_id) {
             let stored_metric = registry.get(qualified_id)?;
-            
+
             // Update formula to use qualified references for metrics in the same namespace
             let formula = self.qualify_metric_references(
                 &stored_metric.definition.formula,
                 namespace,
                 registry,
             )?;
-            
+
             let node = NodeSpec::new(qualified_id.to_string(), NodeType::Calculated)
                 .with_name(stored_metric.definition.name.clone())
                 .with_formula(formula);
@@ -423,12 +423,12 @@ impl ModelBuilder<Ready> {
         // Replace each unqualified metric reference with qualified one
         for metric_id in sorted_metrics {
             let qualified = format!("{}.{}", namespace, metric_id);
-            
+
             // Only replace if it's a standalone identifier
             let mut idx = 0;
             while let Some(pos) = result[idx..].find(&metric_id) {
                 let abs_pos = idx + pos;
-                
+
                 // Check if it's a standalone identifier
                 let before_ok = if abs_pos > 0 {
                     let before_char = result.chars().nth(abs_pos - 1);
@@ -436,7 +436,7 @@ impl ModelBuilder<Ready> {
                 } else {
                     true
                 };
-                
+
                 let after_pos = abs_pos + metric_id.len();
                 let after_ok = if after_pos < result.len() {
                     let after_char = result.chars().nth(after_pos);
@@ -444,7 +444,7 @@ impl ModelBuilder<Ready> {
                 } else {
                     true
                 };
-                
+
                 if before_ok && after_ok {
                     // Replace this occurrence
                     result.replace_range(abs_pos..after_pos, &qualified);

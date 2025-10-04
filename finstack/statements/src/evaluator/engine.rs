@@ -2,7 +2,7 @@
 
 use crate::dsl;
 use crate::error::{Error, Result};
-use crate::evaluator::context::StatementContext;
+use crate::evaluator::context::EvaluationContext;
 use crate::evaluator::dag::{evaluate_order, DependencyGraph};
 use crate::evaluator::forecast_eval;
 use crate::evaluator::formula::evaluate_formula;
@@ -171,7 +171,7 @@ impl Evaluator {
     ) -> Result<IndexMap<String, f64>> {
         // Create evaluation context
         let mut context =
-            StatementContext::new(*period_id, node_to_column.clone(), historical.clone());
+            EvaluationContext::new(*period_id, node_to_column.clone(), historical.clone());
 
         // Add capital structure cashflows if available
         if let Some(cs) = cs_cashflows {
