@@ -39,6 +39,33 @@ pub trait PrepaymentBehavior: dyn_clone::DynClone + Send + Sync {
 
 dyn_clone::clone_trait_object!(PrepaymentBehavior);
 
+/// Create a default prepayment model for an asset type
+pub fn prepayment_model_for(asset_type: &str) -> Box<dyn PrepaymentBehavior> {
+    match asset_type.to_lowercase().as_str() {
+        "mortgage" | "rmbs" => Box::new(MortgagePrepaymentModel::default()),
+        "auto" | "abs_auto" => Box::new(AutoPrepaymentModel::default()),
+        "card" | "credit_card" | "cc" => Box::new(CreditCardPaymentModel::default()),
+        "commercial" | "cmbs" | "cre" => Box::new(CommercialPrepaymentModel::default()),
+        "student" | "student_loan" => Box::new(StudentLoanPrepaymentModel::default()),
+        _ => Box::new(CPRModel::new(0.05)), // Default 5% CPR
+    }
+}
+
+/// Create a PSA model with specified speed
+pub fn psa_model(speed: f64) -> Box<dyn PrepaymentBehavior> {
+    Box::new(PSAModel::new(speed))
+}
+
+/// Create a constant CPR model
+pub fn cpr_model(annual_rate: f64) -> Box<dyn PrepaymentBehavior> {
+    Box::new(CPRModel::new(annual_rate))
+}
+
+/// Create a vector model from CPR schedule
+pub fn vector_model(cpr_vector: Vec<f64>, terminal_cpr: f64) -> Box<dyn PrepaymentBehavior> {
+    Box::new(VectorModel::new(cpr_vector, terminal_cpr))
+}
+
 /// Market conditions that affect prepayment behavior
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -482,37 +509,6 @@ impl PrepaymentBehavior for StudentLoanPrepaymentModel {
     }
 }
 
-/// Factory for creating prepayment models based on asset type
-pub struct PrepaymentModelFactory;
-
-impl PrepaymentModelFactory {
-    /// Create a default prepayment model for an asset type
-    pub fn create_default(asset_type: &str) -> Box<dyn PrepaymentBehavior> {
-        match asset_type.to_lowercase().as_str() {
-            "mortgage" | "rmbs" => Box::new(MortgagePrepaymentModel::default()),
-            "auto" | "abs_auto" => Box::new(AutoPrepaymentModel::default()),
-            "card" | "credit_card" | "cc" => Box::new(CreditCardPaymentModel::default()),
-            "commercial" | "cmbs" | "cre" => Box::new(CommercialPrepaymentModel::default()),
-            "student" | "student_loan" => Box::new(StudentLoanPrepaymentModel::default()),
-            _ => Box::new(CPRModel::new(0.05)), // Default 5% CPR
-        }
-    }
-
-    /// Create a PSA model with specified speed
-    pub fn create_psa(speed: f64) -> Box<dyn PrepaymentBehavior> {
-        Box::new(PSAModel::new(speed))
-    }
-
-    /// Create a constant CPR model
-    pub fn create_cpr(annual_rate: f64) -> Box<dyn PrepaymentBehavior> {
-        Box::new(CPRModel::new(annual_rate))
-    }
-
-    /// Create a vector model from CPR schedule
-    pub fn create_vector(cpr_vector: Vec<f64>, terminal_cpr: f64) -> Box<dyn PrepaymentBehavior> {
-        Box::new(VectorModel::new(cpr_vector, terminal_cpr))
-    }
-}
 
 // Utility functions
 
@@ -615,10 +611,10 @@ mod tests {
     }
 
     #[test]
-    fn test_factory_creation() {
-        let _mortgage = PrepaymentModelFactory::create_default("mortgage");
-        let _auto = PrepaymentModelFactory::create_default("auto");
-        let _psa = PrepaymentModelFactory::create_psa(2.0);
-        // Factory successfully creates models
+    fn test_model_creation() {
+        let _mortgage = prepayment_model_for("mortgage");
+        let _auto = prepayment_model_for("auto");
+        let _psa = psa_model(2.0);
+        // Successfully creates models
     }
 }

@@ -2,9 +2,8 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, DefaultModelFactory,
-    MarketConditions, PrepaymentBehavior, PrepaymentModelFactory, RecoveryBehavior,
-    StructuredCreditWaterfall, TrancheStructure,
+    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, MarketConditions,
+    PrepaymentBehavior, RecoveryBehavior, StructuredCreditWaterfall, TrancheStructure,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -118,9 +117,10 @@ impl Cmbs {
     ) -> Self {
         let id_str = id.into();
         // Defaults for CMBS: commercial prepayment model via factory("cmbs"), commercial defaults
-        let prepay = PrepaymentModelFactory::create_default("cmbs");
-        let dflt = DefaultModelFactory::create_default_model("commercial");
-        let recv = DefaultModelFactory::create_recovery_model("commercial");
+        use crate::instruments::common::structured_credit::{prepayment_model_for, default_model_for, recovery_model_for};
+        let prepay = prepayment_model_for("cmbs");
+        let dflt = default_model_for("commercial");
+        let recv = recovery_model_for("commercial");
         Self {
             id: InstrumentId::new(id_str),
             deal_type: DealType::CMBS,
@@ -249,17 +249,20 @@ impl crate::instruments::common::HasDiscountCurve for Cmbs {
 impl Cmbs {
     #[cfg(feature = "serde")]
     fn default_prepayment_arc() -> Arc<dyn PrepaymentBehavior> {
-        Arc::from(PrepaymentModelFactory::create_default("cmbs"))
+        use crate::instruments::common::structured_credit::prepayment_model_for;
+        Arc::from(prepayment_model_for("cmbs"))
     }
 
     #[cfg(feature = "serde")]
     fn default_default_arc() -> Arc<dyn DefaultBehavior> {
-        Arc::from(DefaultModelFactory::create_default_model("commercial"))
+        use crate::instruments::common::structured_credit::default_model_for;
+        Arc::from(default_model_for("commercial"))
     }
 
     #[cfg(feature = "serde")]
     fn default_recovery_arc() -> Arc<dyn RecoveryBehavior> {
-        Arc::from(DefaultModelFactory::create_recovery_model("commercial"))
+        use crate::instruments::common::structured_credit::recovery_model_for;
+        Arc::from(recovery_model_for("commercial"))
     }
 
     /// Create waterfall engine for CMBS (called by trait)

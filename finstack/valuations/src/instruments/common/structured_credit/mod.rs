@@ -47,19 +47,31 @@ pub use waterfall::{
 // Prepayment models - core types and commonly used models
 pub use prepayment::{
     calculate_seasoning_months,
+    cpr_model,
     cpr_to_smm,
+    prepayment_model_for,
+    psa_model,
     psa_to_cpr,
     smm_to_cpr,
+    vector_model,
     MarketConditions,
     PSAModel, // Used by RMBS
     PrepaymentBehavior,
-    PrepaymentModelFactory,
 };
 
 // Default and recovery models - core types and commonly used models
 pub use default_models::{
-    cdr_to_mdr, mdr_to_cdr, CDRModel, ConstantRecoveryModel, CreditFactors, DefaultBehavior,
-    DefaultModelFactory, MarketFactors, RecoveryBehavior, SDAModel,
+    cdr_to_mdr,
+    default_model_for,
+    mdr_to_cdr,
+    recovery_model_for,
+    CDRModel,
+    ConstantRecoveryModel,
+    CreditFactors,
+    DefaultBehavior,
+    MarketFactors,
+    RecoveryBehavior,
+    SDAModel,
 };
 
 // Scenario framework

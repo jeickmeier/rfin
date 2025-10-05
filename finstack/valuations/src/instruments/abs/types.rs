@@ -2,9 +2,8 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, DefaultModelFactory,
-    MarketConditions, PrepaymentBehavior, PrepaymentModelFactory, RecoveryBehavior,
-    StructuredCreditWaterfall, TrancheStructure,
+    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, MarketConditions,
+    PrepaymentBehavior, RecoveryBehavior, StructuredCreditWaterfall, TrancheStructure,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -118,9 +117,10 @@ impl Abs {
     ) -> Self {
         let id_str = id.into();
         // Generic ABS defaults (overridable by attributes or asset mix)
-        let prepay = PrepaymentModelFactory::create_default("auto");
-        let dflt = DefaultModelFactory::create_default_model("consumer");
-        let recv = DefaultModelFactory::create_recovery_model("consumer");
+        use crate::instruments::common::structured_credit::{prepayment_model_for, default_model_for, recovery_model_for};
+        let prepay = prepayment_model_for("auto");
+        let dflt = default_model_for("consumer");
+        let recv = recovery_model_for("consumer");
         Self {
             id: InstrumentId::new(id_str),
             deal_type: DealType::ABS,
@@ -328,17 +328,20 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
 impl Abs {
     #[cfg(feature = "serde")]
     fn default_prepayment_arc() -> Arc<dyn PrepaymentBehavior> {
-        Arc::from(PrepaymentModelFactory::create_default("auto"))
+        use crate::instruments::common::structured_credit::prepayment_model_for;
+        Arc::from(prepayment_model_for("auto"))
     }
 
     #[cfg(feature = "serde")]
     fn default_default_arc() -> Arc<dyn DefaultBehavior> {
-        Arc::from(DefaultModelFactory::create_default_model("consumer"))
+        use crate::instruments::common::structured_credit::default_model_for;
+        Arc::from(default_model_for("consumer"))
     }
 
     #[cfg(feature = "serde")]
     fn default_recovery_arc() -> Arc<dyn RecoveryBehavior> {
-        Arc::from(DefaultModelFactory::create_recovery_model("consumer"))
+        use crate::instruments::common::structured_credit::recovery_model_for;
+        Arc::from(recovery_model_for("consumer"))
     }
 
     /// Create waterfall engine for ABS (called by trait)

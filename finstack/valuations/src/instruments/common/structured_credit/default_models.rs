@@ -47,6 +47,16 @@ pub trait DefaultBehavior: dyn_clone::DynClone + Send + Sync {
 
 dyn_clone::clone_trait_object!(DefaultBehavior);
 
+/// Create default model for asset type
+pub fn default_model_for(asset_type: &str) -> Box<dyn DefaultBehavior> {
+    match asset_type.to_lowercase().as_str() {
+        "mortgage" | "rmbs" => Box::new(MortgageDefaultModel::default()),
+        "auto" | "abs_auto" => Box::new(AutoDefaultModel::default()),
+        "card" | "credit_card" => Box::new(CreditCardChargeOffModel::default()),
+        _ => Box::new(CDRModel::new(0.02)), // 2% CDR default
+    }
+}
+
 /// Trait for recovery modeling
 pub trait RecoveryBehavior: dyn_clone::DynClone + Send + Sync {
     /// Calculate expected recovery rate
@@ -79,6 +89,25 @@ pub trait RecoveryBehavior: dyn_clone::DynClone + Send + Sync {
 }
 
 dyn_clone::clone_trait_object!(RecoveryBehavior);
+
+/// Create recovery model for asset type
+pub fn recovery_model_for(asset_type: &str) -> Box<dyn RecoveryBehavior> {
+    match asset_type.to_lowercase().as_str() {
+        "mortgage" | "rmbs" => Box::new(CollateralRecoveryModel {
+            base_recovery: 0.60,
+            advance_rate: 0.90,
+            time_decay: 0.005,
+        }),
+        "auto" | "abs_auto" | "consumer" => Box::new(CollateralRecoveryModel {
+            base_recovery: 0.45,
+            advance_rate: 0.75,
+            time_decay: 0.02,
+        }),
+        "card" | "credit_card" => Box::new(ConstantRecoveryModel::new(0.05)),
+        "corporate" | "clo" | "commercial" => Box::new(ConstantRecoveryModel::new(0.40)),
+        _ => Box::new(ConstantRecoveryModel::new(0.30)),
+    }
+}
 
 /// Credit factors affecting default probability
 #[derive(Debug, Clone, Default)]
@@ -517,39 +546,6 @@ impl RecoveryBehavior for CollateralRecoveryModel {
     }
 }
 
-/// Factory for creating default and recovery models
-pub struct DefaultModelFactory;
-
-impl DefaultModelFactory {
-    /// Create default model for asset type
-    pub fn create_default_model(asset_type: &str) -> Box<dyn DefaultBehavior> {
-        match asset_type.to_lowercase().as_str() {
-            "mortgage" | "rmbs" => Box::new(MortgageDefaultModel::default()),
-            "auto" | "abs_auto" => Box::new(AutoDefaultModel::default()),
-            "card" | "credit_card" => Box::new(CreditCardChargeOffModel::default()),
-            _ => Box::new(CDRModel::new(0.02)), // 2% CDR default
-        }
-    }
-
-    /// Create recovery model for asset type
-    pub fn create_recovery_model(asset_type: &str) -> Box<dyn RecoveryBehavior> {
-        match asset_type.to_lowercase().as_str() {
-            "mortgage" | "rmbs" => Box::new(CollateralRecoveryModel {
-                base_recovery: 0.60,
-                advance_rate: 0.90,
-                time_decay: 0.005,
-            }),
-            "auto" | "abs_auto" | "consumer" => Box::new(CollateralRecoveryModel {
-                base_recovery: 0.45,
-                advance_rate: 0.75,
-                time_decay: 0.02,
-            }),
-            "card" | "credit_card" => Box::new(ConstantRecoveryModel::new(0.05)),
-            "corporate" | "clo" | "commercial" => Box::new(ConstantRecoveryModel::new(0.40)),
-            _ => Box::new(ConstantRecoveryModel::new(0.30)),
-        }
-    }
-}
 
 // Utility functions
 

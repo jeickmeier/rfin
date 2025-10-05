@@ -2,9 +2,8 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, DefaultModelFactory,
-    MarketConditions, PrepaymentBehavior, PrepaymentModelFactory, RecoveryBehavior,
-    StructuredCreditWaterfall, TrancheStructure,
+    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, MarketConditions,
+    PrepaymentBehavior, RecoveryBehavior, StructuredCreditWaterfall, TrancheStructure,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -118,9 +117,10 @@ impl Rmbs {
     ) -> Self {
         let id_str = id.into();
         // Defaults for RMBS: 100% PSA, SDA default model, mortgage recovery
-        let prepay = PrepaymentModelFactory::create_psa(1.0);
-        let dflt = DefaultModelFactory::create_default_model("rmbs");
-        let recv = DefaultModelFactory::create_recovery_model("mortgage");
+        use crate::instruments::common::structured_credit::{psa_model, default_model_for, recovery_model_for};
+        let prepay = psa_model(1.0);
+        let dflt = default_model_for("rmbs");
+        let recv = recovery_model_for("mortgage");
         let credit_factors = CreditFactors {
             ltv: Some(0.80),
             ..Default::default()
@@ -345,17 +345,20 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
 impl Rmbs {
     #[cfg(feature = "serde")]
     fn default_prepayment_arc() -> Arc<dyn PrepaymentBehavior> {
-        Arc::from(PrepaymentModelFactory::create_psa(1.0))
+        use crate::instruments::common::structured_credit::psa_model;
+        Arc::from(psa_model(1.0))
     }
 
     #[cfg(feature = "serde")]
     fn default_default_arc() -> Arc<dyn DefaultBehavior> {
-        Arc::from(DefaultModelFactory::create_default_model("rmbs"))
+        use crate::instruments::common::structured_credit::default_model_for;
+        Arc::from(default_model_for("rmbs"))
     }
 
     #[cfg(feature = "serde")]
     fn default_recovery_arc() -> Arc<dyn RecoveryBehavior> {
-        Arc::from(DefaultModelFactory::create_recovery_model("mortgage"))
+        use crate::instruments::common::structured_credit::recovery_model_for;
+        Arc::from(recovery_model_for("mortgage"))
     }
 
     /// Create waterfall engine for RMBS (called by trait)

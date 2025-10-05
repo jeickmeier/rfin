@@ -7,11 +7,9 @@ use crate::instruments::common::structured_credit::{
     CreditFactors,
     DealType,
     DefaultBehavior,
-    DefaultModelFactory,
     MarketConditions,
     // Prepayment/default frameworks
     PrepaymentBehavior,
-    PrepaymentModelFactory,
     RecoveryBehavior,
     StructuredCreditWaterfall,
     TrancheStructure,
@@ -116,17 +114,20 @@ pub struct Clo {
 impl Clo {
     #[cfg(feature = "serde")]
     fn default_prepayment_arc() -> Arc<dyn PrepaymentBehavior> {
-        Arc::from(PrepaymentModelFactory::create_cpr(0.15))
+        use crate::instruments::common::structured_credit::cpr_model;
+        Arc::from(cpr_model(0.15))
     }
 
     #[cfg(feature = "serde")]
     fn default_default_arc() -> Arc<dyn DefaultBehavior> {
-        Arc::from(DefaultModelFactory::create_default_model("corporate"))
+        use crate::instruments::common::structured_credit::default_model_for;
+        Arc::from(default_model_for("corporate"))
     }
 
     #[cfg(feature = "serde")]
     fn default_recovery_arc() -> Arc<dyn RecoveryBehavior> {
-        Arc::from(DefaultModelFactory::create_recovery_model("corporate"))
+        use crate::instruments::common::structured_credit::recovery_model_for;
+        Arc::from(recovery_model_for("corporate"))
     }
     /// Create a new CLO instrument from its building blocks.
     pub fn new(
@@ -139,9 +140,10 @@ impl Clo {
     ) -> Self {
         let id_str = id.into();
         // Default CLO assumptions: corporate loan pool
-        let prepay = PrepaymentModelFactory::create_cpr(0.15); // 15% CPR default
-        let dflt = DefaultModelFactory::create_default_model("corporate");
-        let recv = DefaultModelFactory::create_recovery_model("corporate");
+        use crate::instruments::common::structured_credit::{cpr_model, default_model_for, recovery_model_for};
+        let prepay = cpr_model(0.15); // 15% CPR default
+        let dflt = default_model_for("corporate");
+        let recv = recovery_model_for("corporate");
         Self {
             id: InstrumentId::new(id_str),
             deal_type: DealType::CLO,

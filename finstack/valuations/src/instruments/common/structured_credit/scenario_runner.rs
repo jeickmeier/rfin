@@ -195,9 +195,8 @@ impl ScenarioRunner {
     ) {
         // Apply prepayment scenario
         if let Some(PrepaymentScenario::ConstantCpr { cpr_annual }) = scenario.prepayment {
-            use crate::instruments::common::structured_credit::PrepaymentModelFactory;
-            clo.prepayment_model =
-                std::sync::Arc::from(PrepaymentModelFactory::create_cpr(cpr_annual));
+            use crate::instruments::common::structured_credit::cpr_model;
+            clo.prepayment_model = std::sync::Arc::from(cpr_model(cpr_annual));
         }
 
         // Apply default scenario
@@ -242,9 +241,8 @@ impl ScenarioRunner {
                     rmbs.psa_speed = *speed;
                 }
                 PrepaymentScenario::ConstantCpr { cpr_annual } => {
-                    use crate::instruments::common::structured_credit::PrepaymentModelFactory;
-                    rmbs.prepayment_model =
-                        std::sync::Arc::from(PrepaymentModelFactory::create_cpr(*cpr_annual));
+                    use crate::instruments::common::structured_credit::cpr_model;
+                    rmbs.prepayment_model = std::sync::Arc::from(cpr_model(*cpr_annual));
                 }
                 _ => {}
             }
