@@ -86,6 +86,14 @@ pub const CMBS_SPECIAL_SERVICER_FEE_BPS: f64 = 25.0;
 pub const RMBS_SERVICING_FEE_BPS: f64 = 25.0;
 
 // ============================================================================
+// Simulation Constants
+// ============================================================================
+/// Pool balance threshold to stop cashflow generation
+pub const POOL_BALANCE_CLEANUP_THRESHOLD: f64 = 100.0;
+/// Default resolution lag in months for cashflow generation
+pub const DEFAULT_RESOLUTION_LAG_MONTHS: u32 = 6;
+
+// ============================================================================
 // Prepayment Model Defaults
 // ============================================================================
 

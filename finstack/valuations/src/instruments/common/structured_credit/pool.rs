@@ -109,7 +109,7 @@ impl PoolAsset {
             id: id.into(),
             asset_type: AssetType::FirstLienLoan { industry: None },
             balance,
-            rate: spread_bps / 10_000.0, // Initialize with spread only
+            rate: spread_bps / super::constants::BASIS_POINTS_DIVISOR, // Initialize with spread only
             spread_bps: Some(spread_bps),
             index_id: Some(index_id.into()),
             maturity,
@@ -177,7 +177,8 @@ impl PoolAsset {
     ///
     /// Returns the explicit spread if available, otherwise derives from rate.
     pub fn spread_bps(&self) -> f64 {
-        self.spread_bps.unwrap_or(self.rate * 10_000.0)
+        self.spread_bps
+            .unwrap_or(self.rate * super::constants::BASIS_POINTS_DIVISOR)
     }
 
     /// Remaining term to maturity in years

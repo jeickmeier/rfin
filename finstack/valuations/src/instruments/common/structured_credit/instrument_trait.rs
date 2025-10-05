@@ -143,7 +143,9 @@ pub trait StructuredCreditInstrument {
         let mut pay_date = dates_first_payment_date.max(as_of);
 
         // Simulate period-by-period
-        while pay_date <= dates_legal_maturity && pool_outstanding.amount() > 100.0 {
+        while pay_date <= dates_legal_maturity
+            && pool_outstanding.amount() > super::constants::POOL_BALANCE_CLEANUP_THRESHOLD
+        {
             // Cache seasoning calculation for this period
             let seasoning_months = {
                 let m = (pay_date.year() - dates_closing_date.year()) * 12
@@ -166,7 +168,7 @@ pub trait StructuredCreditInstrument {
 
             let recovery_rate = models_recovery.recovery_rate(
                 pay_date,
-                6,
+                super::constants::DEFAULT_RESOLUTION_LAG_MONTHS,
                 None,
                 default_amt,
                 &MarketFactors::default(),
