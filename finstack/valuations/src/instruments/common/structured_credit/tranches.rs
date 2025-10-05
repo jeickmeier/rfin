@@ -465,7 +465,7 @@ impl TrancheStructure {
         // Check for gaps or overlaps
         let mut expected_attachment = 0.0;
         const TOLERANCE: f64 = super::constants::VALIDATION_TOLERANCE;
-        
+
         for tranche in &sorted_tranches {
             if (tranche.attachment_point - expected_attachment).abs() > TOLERANCE {
                 return Err(finstack_core::error::InputError::Invalid.into());
@@ -552,7 +552,7 @@ mod tests {
     use time::Month;
 
     fn test_date() -> Date {
-        Date::from_calendar_date(2025, Month::January, 1).unwrap()
+        Date::from_calendar_date(2024, Month::January, 1).unwrap()
     }
 
     #[test]

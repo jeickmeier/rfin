@@ -3,13 +3,11 @@
 //! This module provides a comprehensive, flexible waterfall implementation for
 //! distributing cashflows in CLOs, ABS, RMBS, CMBS and other structured products.
 
-use crate::instruments::common::structured_credit::{AssetPool, TestResults, TrancheStructure};
-use finstack_core::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode};
+use crate::instruments::common::structured_credit::TrancheStructure;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use indexmap::IndexMap;
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
@@ -318,6 +316,7 @@ impl WaterfallEngine {
                 tranches,
                 &tranche_index,
                 pool_balance,
+                payment_date,
             )?;
 
             // Check for diversion
@@ -408,12 +407,17 @@ impl WaterfallEngine {
         tranches: &TrancheStructure,
         tranche_index: &HashMap<&str, usize>,
         pool_balance: Money,
+        payment_date: Date,
     ) -> Result<Money> {
         match calculation {
             PaymentCalculation::FixedAmount { amount } => Ok(*amount),
 
             PaymentCalculation::PercentageOfCollateral { rate, annualized } => {
-                let period_rate = if *annualized { rate / 4.0 } else { *rate };
+                let period_rate = if *annualized {
+                    rate / super::constants::QUARTERLY_PERIODS_PER_YEAR
+                } else {
+                    *rate
+                };
                 Ok(Money::new(
                     pool_balance.amount() * period_rate,
                     self.base_currency,
@@ -423,10 +427,8 @@ impl WaterfallEngine {
             PaymentCalculation::TrancheInterest { tranche_id } => {
                 if let Some(&idx) = tranche_index.get(tranche_id.as_str()) {
                     let tranche = &tranches.tranches[idx];
-                    let rate = tranche.coupon.current_rate(
-                        Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
-                    );
-                    let period_rate = rate / 4.0; // Quarterly
+                    let rate = tranche.coupon.current_rate(payment_date);
+                    let period_rate = rate / super::constants::QUARTERLY_PERIODS_PER_YEAR;
                     Ok(Money::new(
                         tranche.current_balance.amount() * period_rate,
                         self.base_currency,
@@ -528,7 +530,10 @@ impl WaterfallEngine {
             priority,
             PaymentRecipient::ServiceProvider("Trustee".into()),
             PaymentCalculation::FixedAmount {
-                amount: Money::new(50000.0 / 4.0, base_currency),
+                amount: Money::new(
+                    50000.0 / super::constants::QUARTERLY_PERIODS_PER_YEAR,
+                    base_currency,
+                ),
             },
         ));
         priority += 1;
@@ -715,187 +720,6 @@ impl WaterfallBuilder {
     /// Build the waterfall engine
     pub fn build(self) -> WaterfallEngine {
         self.engine
-    }
-}
-
-// Legacy compatibility types (will be removed after migration)
-
-/// Allocation result for backward compatibility
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct WaterfallAllocation {
-    pub payment_date: Date,
-    pub total_available: Money,
-    pub payments: IndexMap<String, PaymentDetail>,
-    pub total_distributed: Money,
-    pub remaining: Money,
-    pub metadata: ResultsMeta,
-}
-
-/// Payment detail for backward compatibility
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct PaymentDetail {
-    pub amount: Money,
-    pub description: String,
-    pub waterfall_step: u32,
-}
-
-impl WaterfallAllocation {
-    pub fn new(payment_date: Date, total_available: Money) -> Self {
-        Self {
-            payment_date,
-            total_available,
-            payments: IndexMap::new(),
-            total_distributed: Money::new(0.0, total_available.currency()),
-            remaining: total_available,
-            metadata: ResultsMeta {
-                numeric_mode: NumericMode::F64,
-                rounding: RoundingContext {
-                    mode: RoundingMode::Bankers,
-                    ingest_scale_by_ccy: hashbrown::HashMap::<Currency, u32>::new(),
-                    output_scale_by_ccy: hashbrown::HashMap::<Currency, u32>::new(),
-                    version: 1,
-                },
-                fx_policy_applied: None,
-            },
-        }
-    }
-
-    pub fn add_payment(&mut self, recipient: &str, amount: Money, description: &str) {
-        self.payments.insert(
-            recipient.to_string(),
-            PaymentDetail {
-                amount,
-                description: description.to_string(),
-                waterfall_step: self.payments.len() as u32,
-            },
-        );
-        self.total_distributed = self
-            .total_distributed
-            .checked_add(amount)
-            .unwrap_or(self.total_distributed);
-        self.remaining = self.remaining.checked_sub(amount).unwrap_or(self.remaining);
-    }
-
-    pub fn tranche_payment(&self, tranche_id: &str) -> Option<Money> {
-        self.payments.get(tranche_id).map(|p| p.amount)
-    }
-}
-
-/// Legacy waterfall structure for compatibility
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct StructuredCreditWaterfall {
-    pub payment_mode: PaymentMode,
-    pub interest_waterfall: Vec<WaterfallStep>,
-    pub principal_waterfall: Vec<WaterfallStep>,
-    pub excess_spread_waterfall: Vec<WaterfallStep>,
-}
-
-/// Legacy waterfall step for compatibility
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum WaterfallStep {
-    TrusteeFees {
-        amount: Money,
-    },
-    SeniorManagementFee {
-        rate: f64,
-        base_calculation: FeeBase,
-    },
-    HedgePayments,
-    TrancheInterest {
-        tranche_id: String,
-        include_deferred: bool,
-    },
-    CoverageTest {
-        test_names: Vec<String>,
-        diversion_target: Option<String>,
-    },
-    TranchePrincipal {
-        tranche_id: String,
-        payment_type: PrincipalPaymentType,
-    },
-    SubordinatedManagementFee {
-        rate: f64,
-        base_calculation: FeeBase,
-    },
-    ReserveAccount {
-        target_amount: Money,
-        floor_amount: Money,
-    },
-    EquityDistribution,
-    Custom {
-        description: String,
-        priority: u32,
-    },
-}
-
-/// Legacy fee base for compatibility
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum FeeBase {
-    TranchePrincipal,
-    PoolPrincipal,
-    NetAssetValue,
-    FixedAmount(Money),
-}
-
-/// Legacy principal payment type for compatibility
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum PrincipalPaymentType {
-    ProRata,
-    Sequential,
-    Turbo,
-}
-
-impl StructuredCreditWaterfall {
-    pub fn default_clo() -> Self {
-        Self {
-            payment_mode: PaymentMode::ProRata,
-            interest_waterfall: Vec::new(),
-            principal_waterfall: Vec::new(),
-            excess_spread_waterfall: Vec::new(),
-        }
-    }
-
-    pub fn distribute(
-        &self,
-        available_cash: Money,
-        _pool: &AssetPool,
-        tranches: &TrancheStructure,
-        _coverage_results: &TestResults,
-        payment_date: Date,
-    ) -> Result<WaterfallAllocation> {
-        // Create a temporary engine for legacy compatibility
-        let mut engine = WaterfallEngine::standard_clo(available_cash.currency());
-        engine.payment_mode = self.payment_mode.clone();
-
-        let result = engine.apply_waterfall(
-            available_cash,
-            payment_date,
-            tranches,
-            available_cash, // Use available_cash as pool_balance for now
-        )?;
-
-        // Convert to legacy format
-        let mut allocation = WaterfallAllocation::new(payment_date, available_cash);
-        for (recipient, amount) in result.distributions {
-            let description = match recipient {
-                PaymentRecipient::ServiceProvider(s) => format!("Payment to {}", s),
-                PaymentRecipient::ManagerFee(fee_type) => {
-                    format!("{:?} Management Fee", fee_type)
-                }
-                PaymentRecipient::Tranche(id) => format!("Tranche {} Payment", id),
-                PaymentRecipient::ReserveAccount(id) => format!("Reserve Account {}", id),
-                PaymentRecipient::Equity => "Equity Distribution".to_string(),
-            };
-            allocation.add_payment(&description, amount, &description);
-        }
-
-        Ok(allocation)
     }
 }
 

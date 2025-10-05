@@ -404,11 +404,13 @@ impl CoverageTests {
 
             // Calculate interest for IC tests
             let pool_interest = Money::new(
-                pool.performing_balance().amount() * pool.weighted_avg_coupon() / 4.0,
+                pool.performing_balance().amount() * pool.weighted_avg_coupon()
+                    / super::constants::QUARTERLY_PERIODS_PER_YEAR,
                 base_ccy,
             );
             let tranche_interest = Money::new(
-                tranche.current_balance.amount() * tranche.coupon.current_rate(test_date) / 4.0,
+                tranche.current_balance.amount() * tranche.coupon.current_rate(test_date)
+                    / super::constants::QUARTERLY_PERIODS_PER_YEAR,
                 base_ccy,
             );
 

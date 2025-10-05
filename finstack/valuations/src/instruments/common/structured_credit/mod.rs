@@ -66,15 +66,12 @@ pub use tranches::{
 // ============================================================================
 
 pub use waterfall::{
-    ManagementFeeType,
-    PaymentCalculation,
-    PaymentRecipient,
-    PaymentRule,
-    StructuredCreditWaterfall, // Legacy compatibility
-    WaterfallBuilder,
-    WaterfallEngine,
-    WaterfallResult,
+    ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRule, WaterfallBuilder,
+    WaterfallEngine, WaterfallResult,
 };
+
+/// Type alias for backward compatibility with previous waterfall naming
+pub type StructuredCreditWaterfall = WaterfallEngine;
 
 // ============================================================================
 // Prepayment Models - Voluntary prepayment behavior
@@ -92,8 +89,8 @@ pub use prepayment::{
     vector_model,
     // Core types
     MarketConditions,
-    PrepaymentBehavior,
     PSAModel, // Commonly used in RMBS
+    PrepaymentBehavior,
 };
 
 // ============================================================================
@@ -103,9 +100,9 @@ pub use prepayment::{
 pub use default_models::{
     // Conversion utilities
     cdr_to_mdr,
-    mdr_to_cdr,
     // Factory functions
     default_model_for,
+    mdr_to_cdr,
     recovery_model_for,
     // Core types
     CDRModel,
@@ -122,12 +119,7 @@ pub use default_models::{
 // ============================================================================
 
 pub use coverage_tests::{
-    BreachedTest,
-    CoverageTest,
-    CoverageTests,
-    PaymentDiversion,
-    TestContext,
-    TestResult,
+    BreachedTest, CoverageTest, CoverageTests, PaymentDiversion, TestContext, TestResult,
     TestResults,
 };
 
@@ -142,13 +134,8 @@ pub use deal_config::{CoverageTestConfig, DealConfig, DealDates, DealFees, Defau
 // ============================================================================
 
 pub use scenarios::{
-    DefaultScenario,
-    DefaultTimingShape,
-    MarketScenario,
-    PrepaymentScenario,
-    ScenarioComparison,
-    ScenarioResult,
-    StructuredCreditScenario,
+    DefaultScenario, DefaultTimingShape, MarketScenario, PrepaymentScenario, ScenarioComparison,
+    ScenarioResult, StructuredCreditScenario,
 };
 
 // ============================================================================
@@ -161,5 +148,5 @@ pub use reinvestment::{ReinvestmentManager, ReinvestmentTerminationEvent};
 // Utilities & Common Traits - Shared infrastructure
 // ============================================================================
 
-pub use instrument_trait::{InstrumentDates, InstrumentModels, StructuredCreditInstrument};
+pub use instrument_trait::StructuredCreditInstrument;
 pub use rating_factors::{moodys_warf_factor, RatingFactorTable};

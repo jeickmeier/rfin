@@ -347,7 +347,7 @@ mod tests {
     use time::Month;
 
     fn test_date() -> Date {
-        Date::from_calendar_date(2025, Month::January, 1).unwrap()
+        Date::from_calendar_date(2024, Month::January, 1).unwrap()
     }
 
     #[test]

@@ -95,80 +95,12 @@ pub struct MarketScenario {
 impl StructuredCreditScenario {
     /// RMBS prepayment scenarios
     pub fn standard_rmbs_prepay() -> Vec<StructuredCreditScenario> {
-        vec![
-            StructuredCreditScenario {
-                id: "RMBS_50PSA".to_string(),
-                description: "Slow prepayments - 50% PSA".to_string(),
-                prepayment: Some(PrepaymentScenario::PsaSpeed { speed: 0.5 }),
-                default: None,
-                market: None,
-            },
-            StructuredCreditScenario {
-                id: "RMBS_100PSA".to_string(),
-                description: "Base case - 100% PSA".to_string(),
-                prepayment: Some(PrepaymentScenario::PsaSpeed { speed: 1.0 }),
-                default: None,
-                market: None,
-            },
-            StructuredCreditScenario {
-                id: "RMBS_150PSA".to_string(),
-                description: "Moderate prepayments - 150% PSA".to_string(),
-                prepayment: Some(PrepaymentScenario::PsaSpeed { speed: 1.5 }),
-                default: None,
-                market: None,
-            },
-            StructuredCreditScenario {
-                id: "RMBS_200PSA".to_string(),
-                description: "Fast prepayments - 200% PSA".to_string(),
-                prepayment: Some(PrepaymentScenario::PsaSpeed { speed: 2.0 }),
-                default: None,
-                market: None,
-            },
-            StructuredCreditScenario {
-                id: "RMBS_300PSA".to_string(),
-                description: "Very fast prepayments - 300% PSA".to_string(),
-                prepayment: Some(PrepaymentScenario::PsaSpeed { speed: 3.0 }),
-                default: None,
-                market: None,
-            },
-        ]
+        Self::psa_speed_ladder(vec![0.5, 1.0, 1.5, 2.0, 3.0])
     }
 
     /// RMBS default scenarios
     pub fn standard_rmbs_default() -> Vec<StructuredCreditScenario> {
-        vec![
-            StructuredCreditScenario {
-                id: "RMBS_50SDA".to_string(),
-                description: "Low defaults - 50% SDA".to_string(),
-                prepayment: None,
-                default: Some(DefaultScenario::SdaSpeed { speed: 0.5 }),
-                market: None,
-            },
-            StructuredCreditScenario {
-                id: "RMBS_100SDA".to_string(),
-                description: "Base defaults - 100% SDA".to_string(),
-                prepayment: None,
-                default: Some(DefaultScenario::SdaSpeed { speed: 1.0 }),
-                market: None,
-            },
-            StructuredCreditScenario {
-                id: "RMBS_200SDA".to_string(),
-                description: "Elevated defaults - 200% SDA".to_string(),
-                prepayment: None,
-                default: Some(DefaultScenario::SdaSpeed { speed: 2.0 }),
-                market: None,
-            },
-            StructuredCreditScenario {
-                id: "RMBS_STRESS".to_string(),
-                description: "Severe stress - 400% SDA, 60% severity".to_string(),
-                prepayment: None,
-                default: Some(DefaultScenario::CdrWithSeverity {
-                    cdr_annual: 0.024, // 400% SDA ≈ 2.4% CDR
-                    severity: 0.60,
-                }),
-                market: None,
-            },
-        ]
+        Self::cdr_ladder(vec![0.003, 0.006, 0.012, 0.024]) // SDA equivalents
     }
 
     /// CLO default scenarios
@@ -284,13 +216,15 @@ impl StructuredCreditScenario {
 
     /// Get all standard scenarios
     pub fn all_standard_scenarios() -> HashMap<String, Vec<StructuredCreditScenario>> {
-        let mut scenarios = HashMap::new();
-        scenarios.insert("RMBS_PREPAY".to_string(), Self::standard_rmbs_prepay());
-        scenarios.insert("RMBS_DEFAULT".to_string(), Self::standard_rmbs_default());
-        scenarios.insert("CLO_DEFAULT".to_string(), Self::standard_clo_default());
-        scenarios.insert("ABS_AUTO".to_string(), Self::standard_abs_auto());
-        scenarios.insert("COMBINED".to_string(), Self::standard_combined_stress());
-        scenarios
+        [
+            ("RMBS_PREPAY".to_string(), Self::standard_rmbs_prepay()),
+            ("RMBS_DEFAULT".to_string(), Self::standard_rmbs_default()),
+            ("CLO_DEFAULT".to_string(), Self::standard_clo_default()),
+            ("ABS_AUTO".to_string(), Self::standard_abs_auto()),
+            ("COMBINED".to_string(), Self::standard_combined_stress()),
+        ]
+        .into_iter()
+        .collect()
     }
 
     /// Generate PSA speed ladder for RMBS
@@ -410,72 +344,22 @@ impl StructuredCreditScenario {
     }
 
     /// Run multiple scenarios and generate comparison
-    pub fn run_comparison_clo(
+    ///
+    /// Generic method that works with CLO, RMBS, or ABS instruments.
+    /// Users should call the instrument-specific run methods directly.
+    pub fn run_comparison<F>(
         scenarios: &[StructuredCreditScenario],
-        clo: &crate::instruments::clo::Clo,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> Result<ScenarioComparison> {
-        use crate::instruments::common::traits::Instrument;
+        base_pv: f64,
+        base_wal: f64,
+        base_pool: &crate::instruments::common::structured_credit::AssetPool,
+        run_scenario: F,
+    ) -> Result<ScenarioComparison>
+    where
+        F: Fn(&StructuredCreditScenario) -> Result<ScenarioResult>,
+    {
+        let base_case = Self::build_scenario_result("BASE", base_pv, base_wal, base_pool)?;
 
-        let base_pv = clo.value(market, as_of)?;
-        let base_wal = clo.pool.weighted_avg_maturity(as_of);
-        let base_case = Self::build_scenario_result("BASE", base_pv.amount(), base_wal, &clo.pool)?;
-
-        let scenario_results: Result<Vec<_>> = scenarios
-            .iter()
-            .map(|s| s.run_clo(clo, market, as_of))
-            .collect();
-
-        Ok(ScenarioComparison {
-            base_case,
-            scenarios: scenario_results?,
-            sensitivities: HashMap::new(),
-        })
-    }
-
-    /// Run multiple scenarios on RMBS and generate comparison
-    pub fn run_comparison_rmbs(
-        scenarios: &[StructuredCreditScenario],
-        rmbs: &crate::instruments::rmbs::Rmbs,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> Result<ScenarioComparison> {
-        use crate::instruments::common::traits::Instrument;
-
-        let base_pv = rmbs.value(market, as_of)?;
-        let base_wal = rmbs.pool.weighted_avg_maturity(as_of);
-        let base_case = Self::build_scenario_result("BASE", base_pv.amount(), base_wal, &rmbs.pool)?;
-
-        let scenario_results: Result<Vec<_>> = scenarios
-            .iter()
-            .map(|s| s.run_rmbs(rmbs, market, as_of))
-            .collect();
-
-        Ok(ScenarioComparison {
-            base_case,
-            scenarios: scenario_results?,
-            sensitivities: HashMap::new(),
-        })
-    }
-
-    /// Run multiple scenarios on ABS and generate comparison
-    pub fn run_comparison_abs(
-        scenarios: &[StructuredCreditScenario],
-        abs: &crate::instruments::abs::Abs,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> Result<ScenarioComparison> {
-        use crate::instruments::common::traits::Instrument;
-
-        let base_pv = abs.value(market, as_of)?;
-        let base_wal = abs.pool.weighted_avg_maturity(as_of);
-        let base_case = Self::build_scenario_result("BASE", base_pv.amount(), base_wal, &abs.pool)?;
-
-        let scenario_results: Result<Vec<_>> = scenarios
-            .iter()
-            .map(|s| s.run_abs(abs, market, as_of))
-            .collect();
+        let scenario_results: Result<Vec<_>> = scenarios.iter().map(run_scenario).collect();
 
         Ok(ScenarioComparison {
             base_case,

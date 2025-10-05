@@ -138,4 +138,3 @@ pub const DEFAULT_MAX_COV_LITE: f64 = 0.65; // 65%
 
 /// Default maximum DIP concentration
 pub const DEFAULT_MAX_DIP: f64 = 0.05; // 5%
-

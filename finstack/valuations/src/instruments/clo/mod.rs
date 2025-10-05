@@ -6,9 +6,8 @@
 //! ```rust
 //! use finstack_valuations::instruments::clo::Clo;
 //! use finstack_valuations::instruments::common::structured_credit::{
-//!     AssetPool, DealType, TrancheStructure,
+//!     AssetPool, DealType, TrancheStructure, WaterfallBuilder,
 //! };
-//! use finstack_valuations::instruments::common::structured_credit::waterfall::WaterfallBuilder;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use time::Month;
@@ -17,8 +16,8 @@
 //! let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
 //! // ... populate pool assets ...
 //! let tranches = TrancheStructure::new(Vec::new())?;
-//! // Build a legacy-compatible CLO waterfall structure
-//! let waterfall = finstack_valuations::instruments::common::structured_credit::waterfall::StructuredCreditWaterfall::default_clo();
+//! // Build a CLO waterfall structure using the builder
+//! let waterfall = WaterfallBuilder::new(Currency::USD).build();
 //! let clo = Clo::new(
 //!     "CLO-2025-1",
 //!     pool,

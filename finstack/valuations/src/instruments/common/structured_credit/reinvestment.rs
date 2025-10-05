@@ -415,6 +415,7 @@ impl ReinvestmentManager {
         market_opportunities: Vec<PoolAsset>,
         current_pool: &AssetPool,
         _market: &MarketContext,
+        as_of: Date,
     ) -> Vec<PoolAsset> {
         let mut selected = Vec::new();
         let mut remaining_cash = available_cash;
@@ -425,11 +426,7 @@ impl ReinvestmentManager {
             .enumerate()
             .filter_map(|(i, asset)| {
                 // Check eligibility
-                let (eligible, _) = self.eligibility_criteria.is_eligible(
-                    asset,
-                    finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1)
-                        .unwrap(),
-                );
+                let (eligible, _) = self.eligibility_criteria.is_eligible(asset, as_of);
                 if !eligible {
                     return None;
                 }
@@ -656,7 +653,7 @@ mod tests {
         let criteria = EligibilityCriteria::default();
 
         let asset = create_test_asset();
-        let current_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let current_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
         let (eligible, reasons) = criteria.is_eligible(&asset, current_date);
 
