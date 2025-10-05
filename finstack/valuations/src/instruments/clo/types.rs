@@ -372,7 +372,7 @@ impl Clo {
         engine.payment_rules.push(PaymentRule {
             id: "senior_mgmt_fee".to_string(),
             priority: 2,
-            recipient: PaymentRecipient::ManagerFee { 
+            recipient: PaymentRecipient::ManagerFee {
                 fee_type: ManagementFeeType::Senior,
                 subordinated: false,
             },

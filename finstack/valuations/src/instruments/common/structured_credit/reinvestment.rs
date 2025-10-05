@@ -157,14 +157,12 @@ impl EligibilityCriteria {
 
         // Check currency
         if !self.allowed_currencies.is_empty()
-            && !self
-                .allowed_currencies
-                .contains(&asset.balance.currency())
+            && !self.allowed_currencies.contains(&asset.balance.currency())
         {
             eligible = false;
             reasons.push(format!(
-                    "Currency {:?} not allowed",
-                    asset.balance.currency()
+                "Currency {:?} not allowed",
+                asset.balance.currency()
             ));
         }
 

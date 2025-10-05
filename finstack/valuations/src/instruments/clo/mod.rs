@@ -17,7 +17,8 @@
 //! let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
 //! // ... populate pool assets ...
 //! let tranches = TrancheStructure::new(Vec::new())?;
-//! let waterfall = WaterfallBuilder::standard_clo(&tranches).build();
+//! // Build a legacy-compatible CLO waterfall structure
+//! let waterfall = finstack_valuations::instruments::common::structured_credit::waterfall::StructuredCreditWaterfall::default_clo();
 //! let clo = Clo::new(
 //!     "CLO-2025-1",
 //!     pool,

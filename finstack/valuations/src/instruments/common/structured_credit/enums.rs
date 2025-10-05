@@ -105,17 +105,11 @@ pub enum AssetType {
         ltv: Option<f64>,
     },
     /// Credit card receivables
-    CreditCard { 
-        portfolio_type: CardPortfolioType 
-    },
+    CreditCard { portfolio_type: CardPortfolioType },
     /// Student loan assets
-    StudentLoan { 
-        loan_type: StudentLoanType 
-    },
+    StudentLoan { loan_type: StudentLoanType },
     /// Equipment financing
-    Equipment { 
-        equipment_type: String 
-    },
+    Equipment { equipment_type: String },
     /// Generic asset placeholder
     Generic {
         description: String,
@@ -208,9 +202,7 @@ pub enum PaymentMode {
     },
     /// Hybrid mode with custom rules
     #[cfg_attr(feature = "serde", serde(alias = "hybrid"))]
-    Hybrid { 
-        description: String 
-    },
+    Hybrid { description: String },
 }
 
 /// Consequences when triggers are breached

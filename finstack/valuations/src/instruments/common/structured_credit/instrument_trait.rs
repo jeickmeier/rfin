@@ -5,9 +5,8 @@
 
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, CreditFactors, MarketConditions, MarketFactors,
-    PrepaymentBehavior, DefaultBehavior, RecoveryBehavior,
-    TrancheStructure, WaterfallEngine, PaymentRecipient,
+    AssetPool, CoverageTests, CreditFactors, DefaultBehavior, MarketConditions, MarketFactors,
+    PaymentRecipient, PrepaymentBehavior, RecoveryBehavior, TrancheStructure, WaterfallEngine,
 };
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::market_data::MarketContext;
@@ -39,7 +38,7 @@ pub trait StructuredCreditInstrument {
 
     /// Get reference to tranche structure
     fn tranches(&self) -> &TrancheStructure;
-    
+
     /// Get all date configurations at once
     fn dates(&self) -> InstrumentDates {
         InstrumentDates {
@@ -49,7 +48,7 @@ pub trait StructuredCreditInstrument {
             payment_frequency: self.payment_frequency(),
         }
     }
-    
+
     /// Get all model configurations at once
     fn models(&self) -> InstrumentModels {
         InstrumentModels {
@@ -150,7 +149,7 @@ pub trait StructuredCreditInstrument {
         if pool_outstanding.amount() <= 0.0 {
             return Ok(Vec::new());
         }
-        
+
         // Get all date and model configurations at once
         let dates = self.dates();
         let models = self.models();
@@ -294,11 +293,11 @@ pub trait StructuredCreditInstrument {
 fn add_months(date: Date, months: i32) -> Date {
     let year = date.year();
     let month = date.month() as i32;
-    
+
     let total_months = month + months;
     let new_year = year + ((total_months - 1) / 12);
     let new_month = ((total_months - 1) % 12) + 1;
-    
+
     Date::from_calendar_date(
         new_year,
         time::Month::try_from(new_month as u8).unwrap_or(time::Month::January),

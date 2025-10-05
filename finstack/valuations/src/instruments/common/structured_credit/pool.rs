@@ -204,8 +204,6 @@ impl PoolAsset {
     }
 }
 
-
-
 /// Reinvestment period and rules
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

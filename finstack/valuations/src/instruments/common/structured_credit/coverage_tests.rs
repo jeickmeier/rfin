@@ -10,9 +10,9 @@ use std::collections::HashMap;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use super::enums::{CreditRating, TriggerConsequence};
 use super::pool::AssetPool;
 use super::tranches::TrancheStructure;
-use super::enums::{CreditRating, TriggerConsequence};
 
 /// Overcollateralization test
 #[derive(Debug, Clone)]
@@ -350,7 +350,6 @@ impl Default for CoverageTests {
         Self::new()
     }
 }
-
 
 #[cfg(test)]
 mod tests {

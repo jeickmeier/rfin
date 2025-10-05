@@ -3,6 +3,7 @@
 pub mod coverage_tests;
 pub mod deal_config;
 pub mod default_models;
+pub mod enums;
 pub mod instrument_trait;
 pub mod pool;
 pub mod prepayment;
@@ -11,7 +12,6 @@ pub mod reinvestment;
 pub mod scenario_runner;
 pub mod scenarios;
 pub mod tranches;
-pub mod enums;
 pub mod waterfall; // Unified waterfall implementation
 
 // Core enum exports
@@ -30,23 +30,26 @@ pub use tranches::*;
 
 // Waterfall - core types
 pub use waterfall::{
-    WaterfallEngine, WaterfallBuilder, WaterfallResult,
-    StructuredCreditWaterfall, PaymentRule, PaymentRecipient,
-    PaymentCalculation, ManagementFeeType,
+    ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRule,
+    StructuredCreditWaterfall, WaterfallBuilder, WaterfallEngine, WaterfallResult,
 };
 
 // Prepayment models - core types and commonly used models
 pub use prepayment::{
-    MarketConditions, PrepaymentBehavior, PrepaymentModelFactory,
+    calculate_seasoning_months,
+    cpr_to_smm,
+    psa_to_cpr,
+    smm_to_cpr,
+    MarketConditions,
     PSAModel, // Used by RMBS
-    calculate_seasoning_months, cpr_to_smm, psa_to_cpr, smm_to_cpr,
+    PrepaymentBehavior,
+    PrepaymentModelFactory,
 };
 
-// Default and recovery models - core types and commonly used models  
+// Default and recovery models - core types and commonly used models
 pub use default_models::{
-    CreditFactors, DefaultBehavior, RecoveryBehavior, MarketFactors,
-    DefaultModelFactory, CDRModel, SDAModel, ConstantRecoveryModel,
-    cdr_to_mdr, mdr_to_cdr,
+    cdr_to_mdr, mdr_to_cdr, CDRModel, ConstantRecoveryModel, CreditFactors, DefaultBehavior,
+    DefaultModelFactory, MarketFactors, RecoveryBehavior, SDAModel,
 };
 
 // Scenario framework

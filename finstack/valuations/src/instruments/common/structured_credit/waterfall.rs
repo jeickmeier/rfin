@@ -3,9 +3,7 @@
 //! This module provides a comprehensive, flexible waterfall implementation for
 //! distributing cashflows in CLOs, ABS, RMBS, CMBS and other structured products.
 
-use crate::instruments::common::structured_credit::{
-    AssetPool, TestResults, TrancheStructure,
-};
+use crate::instruments::common::structured_credit::{AssetPool, TestResults, TrancheStructure};
 use finstack_core::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -26,7 +24,7 @@ pub enum PaymentRecipient {
     /// Service provider (trustee, admin, rating agency, etc.)
     ServiceProvider(String),
     /// Manager fee
-    ManagerFee { 
+    ManagerFee {
         fee_type: ManagementFeeType,
         subordinated: bool,
     },
@@ -52,18 +50,11 @@ pub enum ManagementFeeType {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum PaymentCalculation {
     /// Fixed amount
-    FixedAmount { 
-        amount: Money 
-    },
+    FixedAmount { amount: Money },
     /// Percentage of collateral balance
-    PercentageOfCollateral { 
-        rate: f64,
-        annualized: bool,
-    },
+    PercentageOfCollateral { rate: f64, annualized: bool },
     /// Interest due on tranche
-    TrancheInterest {
-        tranche_id: String,
-    },
+    TrancheInterest { tranche_id: String },
     /// Principal payment to tranche
     TranchePrincipal {
         tranche_id: String,
@@ -297,7 +288,8 @@ impl WaterfallEngine {
         let mut had_diversions = false;
 
         // Check which diversion triggers are active
-        let active_triggers: Vec<String> = self.diversion_triggers
+        let active_triggers: Vec<String> = self
+            .diversion_triggers
             .iter()
             .filter(|t| t.active)
             .map(|t| t.id.clone())
@@ -341,11 +333,16 @@ impl WaterfallEngine {
             } else {
                 remaining
             };
-            let shortfall = requested.checked_sub(paid).unwrap_or(Money::new(0.0, self.base_currency));
+            let shortfall = requested
+                .checked_sub(paid)
+                .unwrap_or(Money::new(0.0, self.base_currency));
 
-            *distributions.entry(recipient.clone()).or_insert(Money::new(0.0, self.base_currency)) = 
-                distributions.get(&recipient).unwrap_or(&Money::new(0.0, self.base_currency))
-                    .checked_add(paid)?;
+            *distributions
+                .entry(recipient.clone())
+                .or_insert(Money::new(0.0, self.base_currency)) = distributions
+                .get(&recipient)
+                .unwrap_or(&Money::new(0.0, self.base_currency))
+                .checked_add(paid)?;
 
             payment_records.push(PaymentRecord {
                 rule_id: rule.id.clone(),
@@ -403,26 +400,47 @@ impl WaterfallEngine {
     ) -> Result<Money> {
         match calculation {
             PaymentCalculation::FixedAmount { amount } => Ok(*amount),
-            
+
             PaymentCalculation::PercentageOfCollateral { rate, annualized } => {
                 let period_rate = if *annualized { rate / 4.0 } else { *rate };
-                Ok(Money::new(pool_balance.amount() * period_rate, self.base_currency))
+                Ok(Money::new(
+                    pool_balance.amount() * period_rate,
+                    self.base_currency,
+                ))
             }
-            
+
             PaymentCalculation::TrancheInterest { tranche_id } => {
-                if let Some(tranche) = tranches.tranches.iter().find(|t| t.id.as_str() == tranche_id) {
-                    let rate = tranche.coupon.current_rate(Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
+                if let Some(tranche) = tranches
+                    .tranches
+                    .iter()
+                    .find(|t| t.id.as_str() == tranche_id)
+                {
+                    let rate = tranche.coupon.current_rate(
+                        Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+                    );
                     let period_rate = rate / 4.0; // Quarterly
-                    Ok(Money::new(tranche.current_balance.amount() * period_rate, self.base_currency))
+                    Ok(Money::new(
+                        tranche.current_balance.amount() * period_rate,
+                        self.base_currency,
+                    ))
                 } else {
                     Ok(Money::new(0.0, self.base_currency))
                 }
             }
-            
-            PaymentCalculation::TranchePrincipal { tranche_id, target_balance } => {
-                if let Some(tranche) = tranches.tranches.iter().find(|t| t.id.as_str() == tranche_id) {
+
+            PaymentCalculation::TranchePrincipal {
+                tranche_id,
+                target_balance,
+            } => {
+                if let Some(tranche) = tranches
+                    .tranches
+                    .iter()
+                    .find(|t| t.id.as_str() == tranche_id)
+                {
                     if let Some(target) = target_balance {
-                        let payment = tranche.current_balance.checked_sub(*target)
+                        let payment = tranche
+                            .current_balance
+                            .checked_sub(*target)
                             .unwrap_or(Money::new(0.0, self.base_currency));
                         Ok(if payment.amount() <= available.amount() {
                             payment
@@ -440,17 +458,24 @@ impl WaterfallEngine {
                     Ok(Money::new(0.0, self.base_currency))
                 }
             }
-            
-            PaymentCalculation::CoverageTestCure { test_type: _, tranche_id: _ } => {
+
+            PaymentCalculation::CoverageTestCure {
+                test_type: _,
+                tranche_id: _,
+            } => {
                 // Simplified: would need coverage test results
                 Ok(Money::new(0.0, self.base_currency))
             }
-            
+
             PaymentCalculation::ResidualCash => Ok(available),
-            
-            PaymentCalculation::ReserveFill { reserve_id, target_amount } => {
+
+            PaymentCalculation::ReserveFill {
+                reserve_id,
+                target_amount,
+            } => {
                 if let Some(reserve) = self.reserve_accounts.get(reserve_id) {
-                    let needed = target_amount.checked_sub(reserve.balance)
+                    let needed = target_amount
+                        .checked_sub(reserve.balance)
                         .unwrap_or(Money::new(0.0, self.base_currency));
                     Ok(if needed.amount() <= available.amount() {
                         needed
@@ -464,23 +489,26 @@ impl WaterfallEngine {
         }
     }
 
-    fn update_reserve_balances(&mut self, distributions: &HashMap<PaymentRecipient, Money>) -> Result<HashMap<String, Money>> {
+    fn update_reserve_balances(
+        &mut self,
+        distributions: &HashMap<PaymentRecipient, Money>,
+    ) -> Result<HashMap<String, Money>> {
         let mut balances = HashMap::new();
-        
+
         for (id, reserve) in &mut self.reserve_accounts {
             if let Some(amount) = distributions.get(&PaymentRecipient::ReserveAccount(id.clone())) {
                 reserve.balance = reserve.balance.checked_add(*amount)?;
                 if let Some(cap) = reserve.cap_balance {
                     reserve.balance = if reserve.balance.amount() <= cap.amount() {
-                    reserve.balance
-                } else {
-                    cap
-                };
+                        reserve.balance
+                    } else {
+                        cap
+                    };
                 }
             }
             balances.insert(id.clone(), reserve.balance);
         }
-        
+
         Ok(balances)
     }
 
@@ -494,7 +522,9 @@ impl WaterfallEngine {
             "senior_expenses",
             priority,
             PaymentRecipient::ServiceProvider("Trustee".into()),
-            PaymentCalculation::FixedAmount { amount: Money::new(50000.0 / 4.0, base_currency) },
+            PaymentCalculation::FixedAmount {
+                amount: Money::new(50000.0 / 4.0, base_currency),
+            },
         ));
         priority += 1;
 
@@ -502,11 +532,14 @@ impl WaterfallEngine {
         engine = engine.add_rule(PaymentRule::new(
             "senior_mgmt_fee",
             priority,
-            PaymentRecipient::ManagerFee { 
+            PaymentRecipient::ManagerFee {
                 fee_type: ManagementFeeType::Senior,
                 subordinated: false,
             },
-            PaymentCalculation::PercentageOfCollateral { rate: 0.0015, annualized: true },
+            PaymentCalculation::PercentageOfCollateral {
+                rate: 0.0015,
+                annualized: true,
+            },
         ));
         priority += 1;
 
@@ -519,7 +552,8 @@ impl WaterfallEngine {
                     priority,
                     PaymentRecipient::Tranche(tranche_id.clone()),
                     PaymentCalculation::TrancheInterest { tranche_id },
-                ).divertible()
+                )
+                .divertible(),
             );
             priority += 1;
         }
@@ -532,7 +566,10 @@ impl WaterfallEngine {
                 fee_type: ManagementFeeType::Subordinated,
                 subordinated: true,
             },
-            PaymentCalculation::PercentageOfCollateral { rate: 0.0005, annualized: true },
+            PaymentCalculation::PercentageOfCollateral {
+                rate: 0.0005,
+                annualized: true,
+            },
         ));
         priority += 1;
 
@@ -586,8 +623,14 @@ impl WaterfallBuilder {
         self.engine = self.engine.add_rule(PaymentRule::new(
             format!("{}_mgmt_fee", if subordinated { "sub" } else { "senior" }),
             self.next_priority,
-            PaymentRecipient::ManagerFee { fee_type, subordinated },
-            PaymentCalculation::PercentageOfCollateral { rate, annualized: true },
+            PaymentRecipient::ManagerFee {
+                fee_type,
+                subordinated,
+            },
+            PaymentCalculation::PercentageOfCollateral {
+                rate,
+                annualized: true,
+            },
         ));
         self.next_priority += 1;
         self
@@ -599,13 +642,15 @@ impl WaterfallBuilder {
             format!("{}_interest", tranche_id.to_lowercase()),
             self.next_priority,
             PaymentRecipient::Tranche(tranche_id.into()),
-            PaymentCalculation::TrancheInterest { tranche_id: tranche_id.into() },
+            PaymentCalculation::TrancheInterest {
+                tranche_id: tranche_id.into(),
+            },
         );
-        
+
         if divertible {
             rule = rule.divertible();
         }
-        
+
         self.engine = self.engine.add_rule(rule);
         self.next_priority += 1;
         self
@@ -641,11 +686,15 @@ impl WaterfallBuilder {
     /// Add coverage test diversion trigger
     pub fn add_coverage_trigger(mut self, test_type: CoverageTestType, tranche_id: &str) -> Self {
         self.engine = self.engine.add_trigger(DiversionTrigger {
-            id: format!("{}_{}_trigger", tranche_id, match test_type {
-                CoverageTestType::OC => "oc",
-                CoverageTestType::IC => "ic",
-                _ => "test",
-            }),
+            id: format!(
+                "{}_{}_trigger",
+                tranche_id,
+                match test_type {
+                    CoverageTestType::OC => "oc",
+                    CoverageTestType::IC => "ic",
+                    _ => "test",
+                }
+            ),
             test_type,
             tranche_id: tranche_id.into(),
             divert_to: PaymentRecipient::Tranche("CLASS_A".to_string()), // Divert to senior
@@ -726,7 +775,10 @@ impl WaterfallAllocation {
                 waterfall_step: self.payments.len() as u32,
             },
         );
-        self.total_distributed = self.total_distributed.checked_add(amount).unwrap_or(self.total_distributed);
+        self.total_distributed = self
+            .total_distributed
+            .checked_add(amount)
+            .unwrap_or(self.total_distributed);
         self.remaining = self.remaining.checked_sub(amount).unwrap_or(self.remaining);
     }
 
@@ -749,16 +801,39 @@ pub struct StructuredCreditWaterfall {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum WaterfallStep {
-    TrusteeFees { amount: Money },
-    SeniorManagementFee { rate: f64, base_calculation: FeeBase },
+    TrusteeFees {
+        amount: Money,
+    },
+    SeniorManagementFee {
+        rate: f64,
+        base_calculation: FeeBase,
+    },
     HedgePayments,
-    TrancheInterest { tranche_id: String, include_deferred: bool },
-    CoverageTest { test_names: Vec<String>, diversion_target: Option<String> },
-    TranchePrincipal { tranche_id: String, payment_type: PrincipalPaymentType },
-    SubordinatedManagementFee { rate: f64, base_calculation: FeeBase },
-    ReserveAccount { target_amount: Money, floor_amount: Money },
+    TrancheInterest {
+        tranche_id: String,
+        include_deferred: bool,
+    },
+    CoverageTest {
+        test_names: Vec<String>,
+        diversion_target: Option<String>,
+    },
+    TranchePrincipal {
+        tranche_id: String,
+        payment_type: PrincipalPaymentType,
+    },
+    SubordinatedManagementFee {
+        rate: f64,
+        base_calculation: FeeBase,
+    },
+    ReserveAccount {
+        target_amount: Money,
+        floor_amount: Money,
+    },
     EquityDistribution,
-    Custom { description: String, priority: u32 },
+    Custom {
+        description: String,
+        priority: u32,
+    },
 }
 
 /// Legacy fee base for compatibility
@@ -801,12 +876,12 @@ impl StructuredCreditWaterfall {
         // Create a temporary engine for legacy compatibility
         let mut engine = WaterfallEngine::standard_clo(available_cash.currency());
         engine.payment_mode = self.payment_mode.clone();
-        
+
         let result = engine.apply_waterfall(
             available_cash,
             payment_date,
             tranches,
-            available_cash,  // Use available_cash as pool_balance for now
+            available_cash, // Use available_cash as pool_balance for now
         )?;
 
         // Convert to legacy format
@@ -814,14 +889,16 @@ impl StructuredCreditWaterfall {
         for (recipient, amount) in result.distributions {
             let description = match recipient {
                 PaymentRecipient::ServiceProvider(s) => format!("Payment to {}", s),
-                PaymentRecipient::ManagerFee { fee_type, .. } => format!("{:?} Management Fee", fee_type),
+                PaymentRecipient::ManagerFee { fee_type, .. } => {
+                    format!("{:?} Management Fee", fee_type)
+                }
                 PaymentRecipient::Tranche(id) => format!("Tranche {} Payment", id),
                 PaymentRecipient::ReserveAccount(id) => format!("Reserve Account {}", id),
                 PaymentRecipient::Equity => "Equity Distribution".to_string(),
             };
             allocation.add_payment(&description, amount, &description);
         }
-        
+
         Ok(allocation)
     }
 }
@@ -849,10 +926,25 @@ mod tests {
     #[test]
     fn test_payment_priority_ordering() {
         let mut waterfall = WaterfallEngine::new(Currency::USD);
-        
-        waterfall = waterfall.add_rule(PaymentRule::new("third", 3, PaymentRecipient::Equity, PaymentCalculation::ResidualCash));
-        waterfall = waterfall.add_rule(PaymentRule::new("first", 1, PaymentRecipient::Equity, PaymentCalculation::ResidualCash));
-        waterfall = waterfall.add_rule(PaymentRule::new("second", 2, PaymentRecipient::Equity, PaymentCalculation::ResidualCash));
+
+        waterfall = waterfall.add_rule(PaymentRule::new(
+            "third",
+            3,
+            PaymentRecipient::Equity,
+            PaymentCalculation::ResidualCash,
+        ));
+        waterfall = waterfall.add_rule(PaymentRule::new(
+            "first",
+            1,
+            PaymentRecipient::Equity,
+            PaymentCalculation::ResidualCash,
+        ));
+        waterfall = waterfall.add_rule(PaymentRule::new(
+            "second",
+            2,
+            PaymentRecipient::Equity,
+            PaymentCalculation::ResidualCash,
+        ));
 
         assert_eq!(waterfall.payment_rules[0].id, "first");
         assert_eq!(waterfall.payment_rules[1].id, "second");
