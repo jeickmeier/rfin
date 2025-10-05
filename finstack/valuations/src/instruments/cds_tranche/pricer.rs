@@ -50,7 +50,6 @@ use finstack_core::prelude::*;
 
 #[cfg(test)]
 use finstack_core::math::log_factorial;
-// use finstack_core::types::CurveId;
 
 /// Parameters for the Gaussian Copula pricing model.
 #[derive(Clone, Debug)]
