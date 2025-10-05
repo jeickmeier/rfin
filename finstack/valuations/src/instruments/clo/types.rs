@@ -394,7 +394,7 @@ impl Clo {
             let mut interest_id = String::with_capacity(tranche.id.len() + 9);
             interest_id.push_str(tranche.id.as_str());
             interest_id.push_str("_interest");
-            
+
             engine.payment_rules.push(PaymentRule {
                 id: interest_id,
                 priority,
@@ -413,7 +413,7 @@ impl Clo {
             let mut principal_id = String::with_capacity(tranche.id.len() + 10);
             principal_id.push_str(tranche.id.as_str());
             principal_id.push_str("_principal");
-            
+
             engine.payment_rules.push(PaymentRule {
                 id: principal_id,
                 priority,

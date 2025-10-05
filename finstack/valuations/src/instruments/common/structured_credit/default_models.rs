@@ -99,28 +99,17 @@ pub struct CreditFactors {
 }
 
 /// Market factors affecting recovery
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct MarketFactors {
     /// Property/collateral price index
     pub price_index: f64,
     /// Market liquidation discount
     pub liquidation_discount: f64,
-    /// Legal/foreclosure costs
-    pub foreclosure_costs: Money,
+    /// Legal/foreclosure costs (optional, defaults to 0 if None)
+    pub foreclosure_costs: Option<Money>,
     /// Time to resolution affects holding costs
     pub resolution_months: u32,
-}
-
-impl Default for MarketFactors {
-    fn default() -> Self {
-        Self {
-            price_index: 1.0,
-            liquidation_discount: 0.10,
-            foreclosure_costs: Money::new(5000.0, finstack_core::currency::Currency::USD),
-            resolution_months: 12,
-        }
-    }
 }
 
 /// Constant Default Rate (CDR) model
@@ -537,8 +526,11 @@ impl RecoveryBehavior for CollateralRecoveryModel {
                 * (1.0 - market_factors.liquidation_discount);
 
             // Subtract foreclosure costs
-            let net_collateral =
-                (adjusted_collateral - market_factors.foreclosure_costs.amount()).max(0.0);
+            let foreclosure_cost = market_factors
+                .foreclosure_costs
+                .map(|m| m.amount())
+                .unwrap_or(0.0);
+            let net_collateral = (adjusted_collateral - foreclosure_cost).max(0.0);
 
             // Apply time decay
             let decay_factor = 1.0 - (resolution_lag_months as f64 * self.time_decay);
@@ -645,6 +637,7 @@ mod tests {
         let model = CollateralRecoveryModel::default();
         let market = MarketFactors {
             price_index: 0.90, // 10% price decline
+            foreclosure_costs: Some(Money::new(5000.0, finstack_core::currency::Currency::USD)),
             ..Default::default()
         };
 

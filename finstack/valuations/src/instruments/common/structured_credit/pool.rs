@@ -245,7 +245,7 @@ impl Default for ReinvestmentCriteria {
 }
 
 /// Pool-level performance statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PoolStats {
     /// Weighted average coupon
@@ -268,23 +268,6 @@ pub struct PoolStats {
     pub recovery_rate: f64,
     /// Prepayment rate (annualized)
     pub prepayment_rate: f64,
-}
-
-impl Default for PoolStats {
-    fn default() -> Self {
-        Self {
-            weighted_avg_coupon: 0.0,
-            weighted_avg_spread: 0.0,
-            weighted_avg_life: 0.0,
-            weighted_avg_rating_factor: 0.0,
-            diversity_score: 0.0,
-            num_obligors: 0,
-            num_industries: 0,
-            cumulative_default_rate: 0.0,
-            recovery_rate: 0.4, // 40% default
-            prepayment_rate: 0.0,
-        }
-    }
 }
 
 /// Main asset pool structure

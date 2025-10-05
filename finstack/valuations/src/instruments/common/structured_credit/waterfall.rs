@@ -297,7 +297,8 @@ impl WaterfallEngine {
         }
 
         // Build tranche index for O(1) lookup by id
-        let mut tranche_index: HashMap<&str, usize> = HashMap::with_capacity(tranches.tranches.len());
+        let mut tranche_index: HashMap<&str, usize> =
+            HashMap::with_capacity(tranches.tranches.len());
         for (i, t) in tranches.tranches.iter().enumerate() {
             tranche_index.insert(t.id.as_str(), i);
         }

@@ -447,7 +447,8 @@ impl ReinvestmentManager {
             .collect();
 
         // Sort by score (descending)
-        scored_indices.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scored_indices
+            .sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Conservative reserve to minimize reallocations
         selected.reserve(scored_indices.len());
