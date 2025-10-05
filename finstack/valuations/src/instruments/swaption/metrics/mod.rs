@@ -19,31 +19,25 @@ pub use rho::RhoCalculator;
 pub use theta::ThetaCalculator;
 pub use vega::VegaCalculator;
 
-use crate::metrics::{MetricId, MetricRegistry};
-
-use std::sync::Arc;
+use crate::metrics::MetricRegistry;
 
 /// Register swaption metrics with the registry
 pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
-    registry.register_metric(MetricId::Delta, Arc::new(DeltaCalculator), &["Swaption"]);
-    registry.register_metric(MetricId::Gamma, Arc::new(GammaCalculator), &["Swaption"]);
-    registry.register_metric(MetricId::Vega, Arc::new(VegaCalculator), &["Swaption"]);
-    registry.register_metric(MetricId::Theta, Arc::new(ThetaCalculator), &["Swaption"]);
-    registry.register_metric(MetricId::Rho, Arc::new(RhoCalculator), &["Swaption"]);
-    registry.register_metric(
-        MetricId::BucketedDv01,
-        Arc::new(
-            crate::instruments::common::GenericBucketedDv01WithContext::<
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "Swaption",
+        metrics: [
+            (Delta, DeltaCalculator),
+            (Gamma, GammaCalculator),
+            (Vega, VegaCalculator),
+            (Theta, ThetaCalculator),
+            (Rho, RhoCalculator),
+            (ImpliedVol, ImpliedVolCalculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::Swaption,
-            >::default(),
-        ),
-        &["Swaption"],
-    );
-    registry.register_metric(
-        MetricId::ImpliedVol,
-        Arc::new(ImpliedVolCalculator),
-        &["Swaption"],
-    );
+            >::default()),
+        ]
+    }
 }
 
 /// Swaption metrics configuration constants.

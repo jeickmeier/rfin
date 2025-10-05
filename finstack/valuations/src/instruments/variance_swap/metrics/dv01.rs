@@ -1,6 +1,7 @@
 //! DV01 metric (PV sensitivity to a 1bp parallel rate move).
 
 use super::super::types::VarianceSwap;
+use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
@@ -22,6 +23,6 @@ impl MetricCalculator for Dv01Calculator {
             .day_count
             .year_fraction(as_of, swap.maturity, Default::default())?;
         // Signed DV01: dPV/d(rate) ≈ -PV * T
-        Ok(-pv.amount() * ttm * 0.0001)
+        Ok(-pv.amount() * ttm * ONE_BASIS_POINT)
     }
 }

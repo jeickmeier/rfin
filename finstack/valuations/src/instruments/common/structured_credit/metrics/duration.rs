@@ -1,5 +1,6 @@
 //! Duration calculators for structured credit.
 
+use crate::constants::ONE_BASIS_POINT;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::Result;
@@ -137,8 +138,8 @@ impl MetricCalculator for ModifiedDurationCalculator {
         let day_count = finstack_core::dates::DayCount::Act365F;
         let base_date = disc.base_date();
         
-        // Shift yield by 1bp (0.01%)
-        let yield_shift = 0.0001;
+        // Shift yield by 1bp
+        let yield_shift = ONE_BASIS_POINT;
         
         // Calculate PV with shifted discount factors
         let mut shifted_npv = 0.0;

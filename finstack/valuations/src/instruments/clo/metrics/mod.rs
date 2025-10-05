@@ -21,73 +21,40 @@ pub use wal::CloWalCalculator;
 pub use warf::CloWarfCalculator;
 pub use was::CloWasCalculator;
 
-use crate::metrics::{MetricContext, MetricId, MetricRegistry};
-use std::sync::Arc;
+use crate::metrics::{MetricContext, MetricRegistry};
 
 /// Register all CLO metrics
 pub fn register_clo_metrics(registry: &mut MetricRegistry) {
-    // WAL with prepayments
-    registry.register_metric(
-        MetricId::custom("clo_wal"),
-        Arc::new(CloWalCalculator),
-        &["CLO"],
-    );
-
-    // WARF - Weighted Average Rating Factor
-    registry.register_metric(
-        MetricId::custom("clo_warf"),
-        Arc::new(CloWarfCalculator),
-        &["CLO"],
-    );
-
-    // WAS - Weighted Average Spread
-    registry.register_metric(
-        MetricId::custom("clo_was"),
-        Arc::new(CloWasCalculator),
-        &["CLO"],
-    );
-
-    // WAC - Weighted Average Coupon (uses pool method)
-    registry.register_metric(
-        MetricId::custom("clo_wac"),
-        Arc::new(CloWacCalculator),
-        &["CLO"],
-    );
-
-    // Diversity Score
-    registry.register_metric(
-        MetricId::custom("clo_diversity"),
-        Arc::new(CloDiversityCalculator),
-        &["CLO"],
-    );
-
-    // OC Ratio (would be per tranche, using CLASS_A as example)
-    registry.register_metric(
-        MetricId::custom("clo_oc_ratio"),
-        Arc::new(CloOcRatioCalculator),
-        &["CLO"],
-    );
-
-    // IC Ratio
-    registry.register_metric(
-        MetricId::custom("clo_ic_ratio"),
-        Arc::new(CloIcRatioCalculator),
-        &["CLO"],
-    );
-
-    // Expected Default Rate
-    registry.register_metric(
-        MetricId::custom("clo_default_rate"),
-        Arc::new(CloDefaultRateCalculator),
-        &["CLO"],
-    );
-
-    // Expected Recovery Rate
-    registry.register_metric(
-        MetricId::custom("clo_recovery_rate"),
-        Arc::new(CloRecoveryRateCalculator),
-        &["CLO"],
-    );
+    use crate::instruments::common::structured_credit::metrics as sc;
+    
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "CLO",
+        metrics: [
+            // CLO-specific metrics
+            (WAL, CloWalCalculator),
+            (CloWarf, CloWarfCalculator),
+            (CloWas, CloWasCalculator),
+            (CloWac, CloWacCalculator),
+            (CloDiversity, CloDiversityCalculator),
+            (CloOcRatio, CloOcRatioCalculator),
+            (CloIcRatio, CloIcRatioCalculator),
+            (CloRecoveryRate, CloRecoveryRateCalculator),
+            // Shared structured credit metrics
+            (Accrued, sc::AccruedCalculator),
+            (DirtyPrice, sc::DirtyPriceCalculator),
+            (CleanPrice, sc::CleanPriceCalculator),
+            (DurationMac, sc::MacaulayDurationCalculator),
+            (DurationMod, sc::ModifiedDurationCalculator),
+            (ZSpread, sc::ZSpreadCalculator),
+            (Cs01, sc::Cs01Calculator),
+            (SpreadDuration, sc::SpreadDurationCalculator),
+            (Ytm, sc::YtmCalculator),
+            (WAM, sc::WamCalculator),
+            (CPR, sc::CprCalculator),  // Generic CPR handles CLO
+            (CDR, sc::CdrCalculator),  // Generic CDR handles CLO (replaces CloDefaultRate)
+        ]
+    }
 }
 
 /// WAC Calculator
@@ -173,27 +140,6 @@ impl crate::metrics::MetricCalculator for CloIcRatioCalculator {
             }
         } else {
             Ok(1.0)
-        }
-    }
-}
-
-/// Default Rate Calculator
-struct CloDefaultRateCalculator;
-
-impl crate::metrics::MetricCalculator for CloDefaultRateCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let clo = context
-            .instrument
-            .as_any()
-            .downcast_ref::<crate::instruments::clo::Clo>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
-
-        // Calculate cumulative default rate
-        let total_balance = clo.pool.total_balance();
-        if total_balance.amount() > 0.0 {
-            Ok(clo.pool.cumulative_defaults.amount() / total_balance.amount() * 100.0)
-        } else {
-            Ok(0.0)
         }
     }
 }

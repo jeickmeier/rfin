@@ -26,6 +26,7 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
 
+    // Custom metrics
     registry
         .register_metric(
             MetricId::custom("breakeven"),
@@ -43,32 +44,26 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             &["InflationSwap"],
         )
         .register_metric(
-            MetricId::Ir01,
-            Arc::new(ir01::Ir01Calculator),
-            &["InflationSwap"],
-        )
-        .register_metric(
             MetricId::custom("inflation01"),
             Arc::new(inflation01::Inflation01Calculator),
-            &["InflationSwap"],
-        )
-        .register_metric(
-            MetricId::ParRate,
-            Arc::new(par_rate::ParRateCalculator),
             &["InflationSwap"],
         )
         .register_metric(
             MetricId::custom("npv01"),
             Arc::new(ir01::Ir01Calculator),
             &["InflationSwap"],
-        )
-        .register_metric(
-            MetricId::BucketedDv01,
-            Arc::new(
-                crate::instruments::common::GenericBucketedDv01WithContext::<
-                    crate::instruments::InflationSwap,
-                >::default(),
-            ),
-            &["InflationSwap"],
         );
+    
+    // Standard metrics using macro
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "InflationSwap",
+        metrics: [
+            (Ir01, ir01::Ir01Calculator),
+            (ParRate, par_rate::ParRateCalculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+                crate::instruments::InflationSwap,
+            >::default()),
+        ]
+    }
 }

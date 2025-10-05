@@ -14,45 +14,36 @@ mod ltv;
 pub use dscr::CmbsDscrCalculator;
 pub use ltv::CmbsLtvCalculator;
 
-use crate::metrics::{MetricContext, MetricId, MetricRegistry};
-use std::sync::Arc;
+use crate::metrics::{MetricContext, MetricRegistry};
 
 /// Register all CMBS metrics
 pub fn register_cmbs_metrics(registry: &mut MetricRegistry) {
-    // DSCR - Debt Service Coverage Ratio
-    registry.register_metric(
-        MetricId::custom("cmbs_dscr"),
-        Arc::new(CmbsDscrCalculator),
-        &["CMBS"],
-    );
-
-    // WALTV - Weighted Average LTV
-    registry.register_metric(
-        MetricId::custom("cmbs_waltv"),
-        Arc::new(CmbsLtvCalculator),
-        &["CMBS"],
-    );
-
-    // WAL with commercial prepayment patterns
-    registry.register_metric(
-        MetricId::custom("cmbs_wal"),
-        Arc::new(CmbsWalCalculator),
-        &["CMBS"],
-    );
-
-    // Expected Default Rate
-    registry.register_metric(
-        MetricId::custom("cmbs_default_rate"),
-        Arc::new(CmbsDefaultRateCalculator),
-        &["CMBS"],
-    );
-
-    // Credit Enhancement
-    registry.register_metric(
-        MetricId::custom("cmbs_ce_level"),
-        Arc::new(CmbsCreditEnhancementCalculator),
-        &["CMBS"],
-    );
+    use crate::instruments::common::structured_credit::metrics as sc;
+    
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "CMBS",
+        metrics: [
+            // CMBS-specific metrics
+            (CmbsDscr, CmbsDscrCalculator),
+            (CmbsWaltv, CmbsLtvCalculator),
+            (WAL, CmbsWalCalculator),
+            (CmbsCreditEnhancement, CmbsCreditEnhancementCalculator),
+            // Shared structured credit metrics
+            (Accrued, sc::AccruedCalculator),
+            (DirtyPrice, sc::DirtyPriceCalculator),
+            (CleanPrice, sc::CleanPriceCalculator),
+            (DurationMac, sc::MacaulayDurationCalculator),
+            (DurationMod, sc::ModifiedDurationCalculator),
+            (ZSpread, sc::ZSpreadCalculator),
+            (Cs01, sc::Cs01Calculator),
+            (SpreadDuration, sc::SpreadDurationCalculator),
+            (Ytm, sc::YtmCalculator),
+            (WAM, sc::WamCalculator),
+            (CPR, sc::CprCalculator),  // Generic CPR handles CMBS
+            (CDR, sc::CdrCalculator),  // Generic CDR handles CMBS (replaces CmbsDefaultRate)
+        ]
+    }
 }
 
 /// WAL Calculator for CMBS
@@ -67,22 +58,6 @@ impl crate::metrics::MetricCalculator for CmbsWalCalculator {
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         Ok(cmbs.pool.weighted_avg_maturity(context.as_of))
-    }
-}
-
-/// Default Rate Calculator
-struct CmbsDefaultRateCalculator;
-
-impl crate::metrics::MetricCalculator for CmbsDefaultRateCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let cmbs = context
-            .instrument
-            .as_any()
-            .downcast_ref::<crate::instruments::cmbs::Cmbs>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
-
-        // Return current CDR assumption
-        Ok(cmbs.cdr_annual.unwrap_or(0.5)) // 0.5% CDR default for commercial
     }
 }
 

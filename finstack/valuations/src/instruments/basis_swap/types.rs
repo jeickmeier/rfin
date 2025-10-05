@@ -4,8 +4,10 @@
 //! capturing the basis spread between them (e.g., 3M vs 6M).
 
 use crate::cashflow::builder::schedule_utils::{build_dates, PeriodSchedule};
+#[allow(unused_imports)] // Used in doc examples and tests
+use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_core::{
-    dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind},
+    dates::{Date, DayCountCtx, StubKind},
     market_data::MarketContext,
     money::Money,
     types::{CurveId, InstrumentId},
@@ -14,21 +16,6 @@ use finstack_core::{
 
 // Re-export from common parameters
 pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
-
-/// Specification for one leg of a basis swap.
-#[derive(Clone, Debug)]
-struct _RemovedBasisSwapLeg {
-    /// Forward curve identifier for this leg.
-    pub forward_curve_id: CurveId,
-    /// Payment frequency for the leg.
-    pub frequency: Frequency,
-    /// Day count convention for accrual calculations.
-    pub day_count: DayCount,
-    /// Business day convention for date adjustments.
-    pub bdc: BusinessDayConvention,
-    /// Optional spread in decimal form (e.g., 0.0005 for 5 basis points).
-    pub spread: f64,
-}
 
 /// Basis swap instrument that exchanges two floating rate payments with different tenors.
 ///

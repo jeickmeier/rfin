@@ -7,19 +7,19 @@ pub struct NetDv01Calculator;
 
 impl MetricCalculator for NetDv01Calculator {
     fn dependencies(&self) -> &[MetricId] {
-        const DEPS: &[MetricId] = &[MetricId::BasisDv01Primary, MetricId::BasisDv01Reference];
+        const DEPS: &[MetricId] = &[MetricId::Dv01Primary, MetricId::Dv01Reference];
         DEPS
     }
 
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let primary = context
             .computed
-            .get(&MetricId::BasisDv01Primary)
+            .get(&MetricId::Dv01Primary)
             .copied()
             .ok_or(Error::Input(InputError::Invalid))?;
         let reference = context
             .computed
-            .get(&MetricId::BasisDv01Reference)
+            .get(&MetricId::Dv01Reference)
             .copied()
             .ok_or(Error::Input(InputError::Invalid))?;
         Ok(primary - reference)

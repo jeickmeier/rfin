@@ -34,67 +34,31 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::{MetricCalculator, MetricId};
     use std::sync::Arc;
 
+    // Shared calculator for AccruedInterest and Accrued aliases
     let accrued_calc: Arc<dyn MetricCalculator> =
         Arc::new(accrued_interest::AccruedInterestCalculator);
-    registry
-        .register_metric(
-            MetricId::AccruedInterest,
-            Arc::clone(&accrued_calc),
-            &["Repo"],
-        )
-        .register_metric(MetricId::Accrued, accrued_calc, &["Repo"])
-        .register_metric(
-            MetricId::CollateralValue,
-            Arc::new(collateral_value::CollateralValueCalculator),
-            &["Repo"],
-        )
-        .register_metric(
-            MetricId::RequiredCollateral,
-            Arc::new(required_collateral::RequiredCollateralCalculator),
-            &["Repo"],
-        )
-        .register_metric(
-            MetricId::CollateralCoverage,
-            Arc::new(collateral_coverage::CollateralCoverageCalculator),
-            &["Repo"],
-        )
-        .register_metric(
-            MetricId::RepoInterest,
-            Arc::new(repo_interest::RepoInterestCalculator),
-            &["Repo"],
-        )
-        .register_metric(
-            MetricId::Dv01,
-            Arc::new(dv01::RepoDv01Calculator),
-            &["Repo"],
-        )
-        .register_metric(
-            MetricId::FundingRisk,
-            Arc::new(funding_risk::FundingRiskCalculator),
-            &["Repo"],
-        )
-        .register_metric(
-            MetricId::EffectiveRate,
-            Arc::new(effective_rate::EffectiveRateCalculator),
-            &["Repo"],
-        )
-        .register_metric(
-            MetricId::TimeToMaturity,
-            Arc::new(time_to_maturity::TimeToMaturityCalculator),
-            &["Repo"],
-        )
-        .register_metric(
-            MetricId::ImpliedCollateralReturn,
-            Arc::new(implied_collateral_return::ImpliedCollateralReturnCalculator),
-            &["Repo"],
-        )
-        .register_metric(
-            MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01::<
+    registry.register_metric(MetricId::AccruedInterest, Arc::clone(&accrued_calc), &["Repo"]);
+    registry.register_metric(MetricId::Accrued, accrued_calc, &["Repo"]);
+    
+    // Standard metrics using macro
+    crate::register_metrics_chained! {
+        registry: registry,
+        instrument: "Repo",
+        metrics: [
+            (CollateralValue, collateral_value::CollateralValueCalculator),
+            (RequiredCollateral, required_collateral::RequiredCollateralCalculator),
+            (CollateralCoverage, collateral_coverage::CollateralCoverageCalculator),
+            (RepoInterest, repo_interest::RepoInterestCalculator),
+            (Dv01, dv01::RepoDv01Calculator),
+            (FundingRisk, funding_risk::FundingRiskCalculator),
+            (EffectiveRate, effective_rate::EffectiveRateCalculator),
+            (TimeToMaturity, time_to_maturity::TimeToMaturityCalculator),
+            (ImpliedCollateralReturn, implied_collateral_return::ImpliedCollateralReturnCalculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
                 crate::instruments::Repo,
             >::default()),
-            &["Repo"],
-        );
+        ]
+    };
 }
 
 #[cfg(test)]

@@ -22,53 +22,24 @@ mod rho;
 mod theta;
 mod vega;
 
-use crate::metrics::{MetricId, MetricRegistry};
-use std::sync::Arc;
+use crate::metrics::MetricRegistry;
 
 /// Register all InterestRateOption metrics with the registry
 pub fn register_interest_rate_option_metrics(registry: &mut MetricRegistry) {
-    registry.register_metric(
-        MetricId::Delta,
-        Arc::new(delta::DeltaCalculator),
-        &["InterestRateOption"],
-    );
-    registry.register_metric(
-        MetricId::Gamma,
-        Arc::new(gamma::GammaCalculator),
-        &["InterestRateOption"],
-    );
-    registry.register_metric(
-        MetricId::Vega,
-        Arc::new(vega::VegaCalculator),
-        &["InterestRateOption"],
-    );
-    registry.register_metric(
-        MetricId::Theta,
-        Arc::new(theta::ThetaCalculator),
-        &["InterestRateOption"],
-    );
-    registry.register_metric(
-        MetricId::Rho,
-        Arc::new(rho::RhoCalculator),
-        &["InterestRateOption"],
-    );
-    registry.register_metric(
-        MetricId::ImpliedVol,
-        Arc::new(implied_vol::ImpliedVolCalculator),
-        &["InterestRateOption"],
-    );
-    registry.register_metric(
-        MetricId::ForwardPv01,
-        Arc::new(forward_pv01::ForwardPv01Calculator),
-        &["InterestRateOption"],
-    );
-    registry.register_metric(
-        MetricId::BucketedDv01,
-        Arc::new(
-            crate::instruments::common::GenericBucketedDv01WithContext::<
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "InterestRateOption",
+        metrics: [
+            (Delta, delta::DeltaCalculator),
+            (Gamma, gamma::GammaCalculator),
+            (Vega, vega::VegaCalculator),
+            (Theta, theta::ThetaCalculator),
+            (Rho, rho::RhoCalculator),
+            (ImpliedVol, implied_vol::ImpliedVolCalculator),
+            (ForwardPv01, forward_pv01::ForwardPv01Calculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::cap_floor::InterestRateOption,
-            >::default(),
-        ),
-        &["InterestRateOption"],
-    );
+            >::default()),
+        ]
+    }
 }

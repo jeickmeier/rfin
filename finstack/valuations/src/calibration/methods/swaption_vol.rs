@@ -10,13 +10,10 @@ use crate::calibration::methods::swaption_market_conventions::SwaptionMarketConv
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
-use crate::instruments::swaption::Swaption;
-use crate::instruments::PricingOverrides;
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCountCtx, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
-use finstack_core::money::Money;
 use finstack_core::prelude::Currency;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
@@ -210,45 +207,6 @@ impl SwaptionVolCalibrator {
         }
 
         Ok(pv01)
-    }
-
-    /// Calculate swap annuity for a given expiry and tenor.
-    #[allow(dead_code)]
-    fn calculate_swap_annuity(
-        &self,
-        expiry: Date,
-        tenor_years: f64,
-        context: &MarketContext,
-    ) -> Result<f64> {
-        let swap_start = expiry;
-        let swap_end = add_months(expiry, (tenor_years * 12.0) as i32);
-
-        let swaption = Swaption {
-            id: "temp".into(),
-            option_type: crate::instruments::common::parameters::OptionType::Call,
-            notional: Money::new(1_000_000.0, self.currency),
-            strike_rate: 0.0,
-            expiry,
-            swap_start,
-            swap_end,
-            fixed_freq: self.market_conventions.fixed_freq,
-            float_freq: self.market_conventions.float_freq,
-            day_count: self.market_conventions.day_count,
-            exercise: crate::instruments::swaption::SwaptionExercise::European,
-            settlement: crate::instruments::swaption::SwaptionSettlement::Physical,
-            disc_id: self.disc_id.clone(),
-            forward_id: self
-                .forward_id
-                .map(|v| v.into())
-                .unwrap_or_else(|| self.disc_id.clone()),
-            vol_id: "dummy",
-            pricing_overrides: PricingOverrides::default(),
-            sabr_params: None,
-            attributes: Default::default(),
-        };
-
-        let disc = context.get_discount_ref(self.disc_id.as_str())?;
-        swaption.swap_annuity(disc, self.base_date)
     }
 
     /// Convert volatility between conventions.

@@ -33,76 +33,30 @@ pub use z_spread::ZSpreadCalculator;
 
 /// Registers all bond metrics to a registry.
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
-    use crate::metrics::MetricId;
-    use std::sync::Arc;
-
-    registry
-        .register_metric(
-            MetricId::Accrued,
-            Arc::new(AccruedInterestCalculator),
-            &["Bond"],
-        )
-        .register_metric(
-            MetricId::DirtyPrice,
-            Arc::new(DirtyPriceCalculator),
-            &["Bond"],
-        )
-        .register_metric(
-            MetricId::CleanPrice,
-            Arc::new(CleanPriceCalculator),
-            &["Bond"],
-        )
-        .register_metric(MetricId::Ytm, Arc::new(YtmCalculator), &["Bond"])
-        .register_metric(
-            MetricId::DurationMac,
-            Arc::new(MacaulayDurationCalculator),
-            &["Bond"],
-        )
-        .register_metric(
-            MetricId::DurationMod,
-            Arc::new(ModifiedDurationCalculator),
-            &["Bond"],
-        )
-        .register_metric(
-            MetricId::Convexity,
-            Arc::new(ConvexityCalculator),
-            &["Bond"],
-        )
-        .register_metric(MetricId::Ytw, Arc::new(YtwCalculator), &["Bond"])
-        .register_metric(MetricId::Oas, Arc::new(OasCalculator), &["Bond"])
-        .register_metric(MetricId::ZSpread, Arc::new(ZSpreadCalculator), &["Bond"])
-        .register_metric(MetricId::ISpread, Arc::new(ISpreadCalculator), &["Bond"])
-        .register_metric(
-            MetricId::DiscountMargin,
-            Arc::new(DiscountMarginCalculator),
-            &["Bond"],
-        )
-        .register_metric(
-            MetricId::ASWPar,
-            Arc::new(AssetSwapParCalculator),
-            &["Bond"],
-        )
-        .register_metric(
-            MetricId::ASWMarket,
-            Arc::new(AssetSwapMarketCalculator),
-            &["Bond"],
-        )
-        .register_metric(
-            MetricId::ASWParFwd,
-            Arc::new(AssetSwapParFwdCalculator),
-            &["Bond"],
-        )
-        .register_metric(
-            MetricId::ASWMarketFwd,
-            Arc::new(AssetSwapMarketFwdCalculator),
-            &["Bond"],
-        )
-        .register_metric(MetricId::Cs01, Arc::new(Cs01Calculator), &["Bond"])
-        .register_metric(
-            MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01::<
+    crate::register_metrics_chained! {
+        registry: registry,
+        instrument: "Bond",
+        metrics: [
+            (Accrued, AccruedInterestCalculator),
+            (DirtyPrice, DirtyPriceCalculator),
+            (CleanPrice, CleanPriceCalculator),
+            (Ytm, YtmCalculator),
+            (DurationMac, MacaulayDurationCalculator),
+            (DurationMod, ModifiedDurationCalculator),
+            (Convexity, ConvexityCalculator),
+            (Ytw, YtwCalculator),
+            (Oas, OasCalculator),
+            (ZSpread, ZSpreadCalculator),
+            (ISpread, ISpreadCalculator),
+            (DiscountMargin, DiscountMarginCalculator),
+            (ASWPar, AssetSwapParCalculator),
+            (ASWMarket, AssetSwapMarketCalculator),
+            (ASWParFwd, AssetSwapParFwdCalculator),
+            (ASWMarketFwd, AssetSwapMarketFwdCalculator),
+            (Cs01, Cs01Calculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
                 crate::instruments::Bond,
             >::default()),
-            &["Bond"],
-        );
+        ]
+    };
 }

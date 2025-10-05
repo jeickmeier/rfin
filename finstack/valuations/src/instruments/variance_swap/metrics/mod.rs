@@ -21,42 +21,22 @@ pub use time_to_maturity::TimeToMaturityCalculator;
 pub use variance_vega::VarianceVegaCalculator;
 pub use vega::VegaCalculator;
 
-use crate::metrics::{MetricId, MetricRegistry};
-use std::sync::Arc;
+use crate::metrics::MetricRegistry;
 
 /// Register variance swap metrics with the registry.
 pub fn register_variance_swap_metrics(registry: &mut MetricRegistry) {
-    registry
-        .register_metric(MetricId::Vega, Arc::new(VegaCalculator), &["VarianceSwap"]) // vega per 1% vol
-        .register_metric(MetricId::Dv01, Arc::new(Dv01Calculator), &["VarianceSwap"]) // IR DV01
-        .register_metric(
-            MetricId::VarianceVega,
-            Arc::new(VarianceVegaCalculator),
-            &["VarianceSwap"],
-        )
-        .register_metric(
-            MetricId::ExpectedVariance,
-            Arc::new(ExpectedVarianceCalculator),
-            &["VarianceSwap"],
-        )
-        .register_metric(
-            MetricId::RealizedVariance,
-            Arc::new(RealizedVarianceCalculator),
-            &["VarianceSwap"],
-        )
-        .register_metric(
-            MetricId::VarianceNotional,
-            Arc::new(VarianceNotionalCalculator),
-            &["VarianceSwap"],
-        )
-        .register_metric(
-            MetricId::VarianceStrikeVol,
-            Arc::new(StrikeVolCalculator),
-            &["VarianceSwap"],
-        )
-        .register_metric(
-            MetricId::VarianceTimeToMaturity,
-            Arc::new(TimeToMaturityCalculator),
-            &["VarianceSwap"],
-        );
+    crate::register_metrics_chained! {
+        registry: registry,
+        instrument: "VarianceSwap",
+        metrics: [
+            (Vega, VegaCalculator),
+            (Dv01, Dv01Calculator),
+            (VarianceVega, VarianceVegaCalculator),
+            (ExpectedVariance, ExpectedVarianceCalculator),
+            (RealizedVariance, RealizedVarianceCalculator),
+            (VarianceNotional, VarianceNotionalCalculator),
+            (VarianceStrikeVol, StrikeVolCalculator),
+            (VarianceTimeToMaturity, TimeToMaturityCalculator),
+        ]
+    };
 }

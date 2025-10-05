@@ -49,6 +49,7 @@
 
 pub mod calibration;
 pub mod cashflow;
+pub mod constants;
 pub mod pricer;
 pub mod results;
 

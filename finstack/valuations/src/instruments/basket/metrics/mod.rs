@@ -23,18 +23,12 @@ pub use expense_ratio::ExpenseRatioCalculator;
 
 /// Register all Basket metrics with the registry
 pub fn register_basket_metrics(registry: &mut MetricRegistry) {
-    use crate::metrics::MetricId;
-    use std::sync::Arc;
-
-    registry
-        .register_metric(
-            MetricId::ConstituentCount,
-            Arc::new(ConstituentCountCalculator),
-            &["Basket"],
-        )
-        .register_metric(
-            MetricId::ExpenseRatio,
-            Arc::new(ExpenseRatioCalculator),
-            &["Basket"],
-        );
+    crate::register_metrics_chained! {
+        registry: registry,
+        instrument: "Basket",
+        metrics: [
+            (ConstituentCount, ConstituentCountCalculator),
+            (ExpenseRatio, ExpenseRatioCalculator),
+        ]
+    };
 }

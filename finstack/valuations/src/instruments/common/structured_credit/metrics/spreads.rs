@@ -1,5 +1,6 @@
 //! Spread calculators for structured credit (Z-spread, CS01, Spread Duration).
 
+use crate::constants::ONE_BASIS_POINT;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::math::solver::{BrentSolver, Solver};
@@ -138,8 +139,8 @@ impl MetricCalculator for Cs01Calculator {
                 })
             })?;
         
-        // Bump spread by 1bp (0.0001)
-        let bumped_spread = base_spread + 0.0001;
+        // Bump spread by 1bp
+        let bumped_spread = base_spread + ONE_BASIS_POINT;
         
         // Get cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
@@ -236,9 +237,9 @@ impl MetricCalculator for SpreadDurationCalculator {
             return Ok(0.0);
         }
         
-        // Spread duration = CS01 / (Price × 0.0001)
+        // Spread duration = CS01 / (Price × 1bp)
         // This gives duration in years
-        let spread_duration = cs01 / (base_npv * 0.0001);
+        let spread_duration = cs01 / (base_npv * ONE_BASIS_POINT);
         
         Ok(spread_duration)
     }

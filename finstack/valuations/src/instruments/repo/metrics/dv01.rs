@@ -14,40 +14,21 @@ use hashbrown::HashMap;
 pub struct RepoDv01Calculator;
 
 impl MetricCalculator for RepoDv01Calculator {
-    fn calculate(&self, _context: &mut MetricContext) -> Result<f64> {
-        // Temporary conservative implementation to avoid propagating errors in tests
-        return Ok(0.0);
-        #[allow(unreachable_code)]
-        // Temporary defensive: always succeed; compute neutral DV01 if any prerequisite is missing
-        let repo = match _context.instrument_as::<crate::instruments::repo::Repo>() {
-            Ok(r) => r,
-            Err(_) => return Ok(0.0),
-        };
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;
 
-        // Base PV (defensive: on failure, return neutral sensitivity)
-        let base_pv = match repo.value(&_context.curves, _context.as_of) {
-            Ok(v) => v,
-            Err(_) => return Ok(0.0),
-        };
+        // Base PV
+        let base_pv = repo.value(&context.curves, context.as_of)?;
 
         // Parallel +1bp bump on discount curve
         let disc_curve_id = repo.disc_id.clone();
         let mut bumps = HashMap::new();
         bumps.insert(disc_curve_id, BumpSpec::parallel_bp(1.0));
-        let bumped_context = match _context.curves.bump(bumps) {
-            Ok(c) => c,
-            Err(_) => return Ok(0.0),
-        };
-        let bumped_pv = match repo.value(&bumped_context, _context.as_of) {
-            Ok(v) => v,
-            Err(_) => return Ok(0.0),
-        };
+        let bumped_context = context.curves.bump(bumps)?;
+        let bumped_pv = repo.value(&bumped_context, context.as_of)?;
 
         // DV01 = base_pv - bumped_pv
-        let dv01 = match base_pv.checked_sub(bumped_pv) {
-            Ok(x) => x,
-            Err(_) => return Ok(0.0),
-        };
+        let dv01 = base_pv.checked_sub(bumped_pv)?;
         Ok(dv01.amount())
     }
 }

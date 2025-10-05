@@ -18,52 +18,38 @@ pub use abs_speed::AbsSpeedCalculator;
 pub use delinquency::{AbsChargeOffCalculator, AbsDelinquencyCalculator};
 pub use excess_spread::{AbsCreditEnhancementCalculator, AbsExcessSpreadCalculator};
 
-use crate::metrics::{MetricContext, MetricId, MetricRegistry};
-use std::sync::Arc;
+use crate::metrics::{MetricContext, MetricRegistry};
 
 /// Register all ABS metrics
 pub fn register_abs_metrics(registry: &mut MetricRegistry) {
-    // ABS Speed (for auto loans)
-    registry.register_metric(
-        MetricId::custom("abs_speed"),
-        Arc::new(AbsSpeedCalculator),
-        &["ABS"],
-    );
-
-    // Delinquency Rate
-    registry.register_metric(
-        MetricId::custom("abs_delinquency"),
-        Arc::new(AbsDelinquencyCalculator),
-        &["ABS"],
-    );
-
-    // Charge-Off Rate
-    registry.register_metric(
-        MetricId::custom("abs_charge_off"),
-        Arc::new(AbsChargeOffCalculator),
-        &["ABS"],
-    );
-
-    // Excess Spread
-    registry.register_metric(
-        MetricId::custom("abs_excess_spread"),
-        Arc::new(AbsExcessSpreadCalculator),
-        &["ABS"],
-    );
-
-    // Credit Enhancement Level
-    registry.register_metric(
-        MetricId::custom("abs_ce_level"),
-        Arc::new(AbsCreditEnhancementCalculator),
-        &["ABS"],
-    );
-
-    // WAL
-    registry.register_metric(
-        MetricId::custom("abs_wal"),
-        Arc::new(AbsWalCalculator),
-        &["ABS"],
-    );
+    use crate::instruments::common::structured_credit::metrics as sc;
+    
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "ABS",
+        metrics: [
+            // ABS-specific metrics
+            (CPR, AbsSpeedCalculator),  // ABS prepayment speed (similar concept to CPR)
+            (AbsDelinquency, AbsDelinquencyCalculator),
+            (AbsChargeOff, AbsChargeOffCalculator),
+            (AbsExcessSpread, AbsExcessSpreadCalculator),
+            (AbsCreditEnhancement, AbsCreditEnhancementCalculator),
+            // Shared structured credit metrics
+            (WAL, AbsWalCalculator),
+            (Accrued, sc::AccruedCalculator),
+            (DirtyPrice, sc::DirtyPriceCalculator),
+            (CleanPrice, sc::CleanPriceCalculator),
+            (DurationMac, sc::MacaulayDurationCalculator),
+            (DurationMod, sc::ModifiedDurationCalculator),
+            (ZSpread, sc::ZSpreadCalculator),
+            (Cs01, sc::Cs01Calculator),
+            (SpreadDuration, sc::SpreadDurationCalculator),
+            (Ytm, sc::YtmCalculator),
+            (WAM, sc::WamCalculator),
+            (CPR, sc::CprCalculator),
+            (CDR, sc::CdrCalculator),
+        ]
+    }
 }
 
 /// WAL Calculator for ABS

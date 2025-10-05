@@ -20,42 +20,19 @@ use crate::metrics::MetricRegistry;
 
 /// Register all CDS Option metrics with the registry
 pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
-    use crate::metrics::MetricId;
-    use std::sync::Arc;
-
-    registry.register_metric(
-        MetricId::Delta,
-        Arc::new(delta::DeltaCalculator),
-        &["CdsOption"],
-    );
-    registry.register_metric(
-        MetricId::Gamma,
-        Arc::new(gamma::GammaCalculator),
-        &["CdsOption"],
-    );
-    registry.register_metric(
-        MetricId::Vega,
-        Arc::new(vega::VegaCalculator),
-        &["CdsOption"],
-    );
-    registry.register_metric(
-        MetricId::Theta,
-        Arc::new(theta::ThetaCalculator),
-        &["CdsOption"],
-    );
-    registry.register_metric(MetricId::Rho, Arc::new(rho::RhoCalculator), &["CdsOption"]);
-    registry.register_metric(
-        MetricId::ImpliedVol,
-        Arc::new(implied_vol::ImpliedVolCalculator),
-        &["CdsOption"],
-    );
-    registry.register_metric(
-        MetricId::BucketedDv01,
-        Arc::new(
-            crate::instruments::common::GenericBucketedDv01WithContext::<
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "CdsOption",
+        metrics: [
+            (Delta, delta::DeltaCalculator),
+            (Gamma, gamma::GammaCalculator),
+            (Vega, vega::VegaCalculator),
+            (Theta, theta::ThetaCalculator),
+            (Rho, rho::RhoCalculator),
+            (ImpliedVol, implied_vol::ImpliedVolCalculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::CdsOption,
-            >::default(),
-        ),
-        &["CdsOption"],
-    );
+            >::default()),
+        ]
+    }
 }

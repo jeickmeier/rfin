@@ -4,6 +4,7 @@
 //! DV01 ≈ Notional × tau(start, end) × DF(start) × 1bp
 //! Sign convention: receive-fixed → positive; pay-fixed → negative.
 
+use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -33,7 +34,7 @@ impl MetricCalculator for FraDv01Calculator {
 
         // Discount factor to settlement date (start of accrual)
         let df_start = DiscountCurve::df_on(disc, base, fra.start_date, fra.day_count);
-        let dv01 = fra.notional.amount() * tau * df_start * 1e-4;
+        let dv01 = fra.notional.amount() * tau * df_start * ONE_BASIS_POINT;
 
         Ok(if fra.pay_fixed { -dv01 } else { dv01 })
     }

@@ -28,49 +28,40 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
 
+    // Custom metrics
     registry
         .register_metric(
             MetricId::custom("upfront"),
             Arc::new(upfront::UpfrontCalculator),
-            &["CDSTranche"],
-        ) // upfront PV
-        .register_metric(
-            MetricId::ParSpread,
-            Arc::new(par_spread::ParSpreadCalculator),
             &["CDSTranche"],
         )
         .register_metric(
             MetricId::custom("spread_dv01"),
             Arc::new(spread_dv01::SpreadDv01Calculator),
             &["CDSTranche"],
-        ) // running coupon DV01
-        .register_metric(
-            MetricId::ExpectedLoss,
-            Arc::new(expected_loss::ExpectedLossCalculator),
-            &["CDSTranche"],
-        ) // total expected loss
-        .register_metric(
-            MetricId::JumpToDefault,
-            Arc::new(jump_to_default::JumpToDefaultCalculator),
-            &["CDSTranche"],
-        ) // JTD amount
+        )
         .register_metric(
             MetricId::custom("cs01"),
             Arc::new(cs01::Cs01Calculator),
             &["CDSTranche"],
-        ) // index hazard bump CS01
+        )
         .register_metric(
             MetricId::custom("correlation_delta"),
             Arc::new(correlation_delta::CorrelationDeltaCalculator),
             &["CDSTranche"],
-        )
-        .register_metric(
-            MetricId::BucketedDv01,
-            Arc::new(
-                crate::instruments::common::GenericBucketedDv01WithContext::<
-                    crate::instruments::CdsTranche,
-                >::default(),
-            ),
-            &["CDSTranche"],
         );
+    
+    // Standard metrics using macro
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "CDSTranche",
+        metrics: [
+            (ParSpread, par_spread::ParSpreadCalculator),
+            (ExpectedLoss, expected_loss::ExpectedLossCalculator),
+            (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+                crate::instruments::CdsTranche,
+            >::default()),
+        ]
+    }
 }

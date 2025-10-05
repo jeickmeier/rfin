@@ -5,6 +5,7 @@
 //! implied rate translates linearly to P&L scaled by the contract face and
 //! underlying accrual length.
 
+use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::ir_future::{InterestRateFuture, Position};
 use crate::metrics::{MetricCalculator, MetricContext};
 
@@ -37,7 +38,7 @@ impl MetricCalculator for IrFutureDv01Calculator {
             Position::Long => 1.0,
             Position::Short => -1.0,
         };
-        let dv01_per_contract = fut.contract_specs.face_value * tau * 1e-4;
+        let dv01_per_contract = fut.contract_specs.face_value * tau * ONE_BASIS_POINT;
         Ok(sign * contracts_scale * dv01_per_contract)
     }
 }

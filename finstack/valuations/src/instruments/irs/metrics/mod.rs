@@ -12,42 +12,18 @@ pub mod pv_float;
 
 /// Registers all IRS metrics into a provided registry.
 pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
-    use crate::metrics::MetricId;
-    use std::sync::Arc;
-
-    registry
-        .register_metric(
-            MetricId::Annuity,
-            Arc::new(annuity::AnnuityCalculator),
-            &["InterestRateSwap"],
-        )
-        .register_metric(
-            MetricId::ParRate,
-            Arc::new(par_rate::ParRateCalculator),
-            &["InterestRateSwap"],
-        )
-        .register_metric(
-            MetricId::Dv01,
-            Arc::new(dv01::Dv01Calculator),
-            &["InterestRateSwap"],
-        )
-        .register_metric(
-            MetricId::BucketedDv01,
-            Arc::new(
-                crate::instruments::common::GenericBucketedDv01WithContext::<
-                    crate::instruments::InterestRateSwap,
-                >::default(),
-            ),
-            &["InterestRateSwap"],
-        )
-        .register_metric(
-            MetricId::PvFixed,
-            Arc::new(pv_fixed::FixedLegPvCalculator),
-            &["InterestRateSwap"],
-        )
-        .register_metric(
-            MetricId::PvFloat,
-            Arc::new(pv_float::FloatLegPvCalculator),
-            &["InterestRateSwap"],
-        );
+    crate::register_metrics_chained! {
+        registry: registry,
+        instrument: "InterestRateSwap",
+        metrics: [
+            (Annuity, annuity::AnnuityCalculator),
+            (ParRate, par_rate::ParRateCalculator),
+            (Dv01, dv01::Dv01Calculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+                crate::instruments::InterestRateSwap,
+            >::default()),
+            (PvFixed, pv_fixed::FixedLegPvCalculator),
+            (PvFloat, pv_float::FloatLegPvCalculator),
+        ]
+    };
 }

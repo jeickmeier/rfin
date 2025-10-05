@@ -19,27 +19,14 @@ use crate::metrics::MetricRegistry;
 
 /// Register all Equity metrics with the registry
 pub fn register_equity_metrics(registry: &mut MetricRegistry) {
-    use crate::metrics::MetricId;
-    use std::sync::Arc;
-
-    registry.register_metric(
-        MetricId::EquityPricePerShare,
-        Arc::new(price_per_share::PricePerShareCalculator),
-        &["Equity"],
-    );
-    registry.register_metric(
-        MetricId::EquityShares,
-        Arc::new(shares::SharesCalculator),
-        &["Equity"],
-    );
-    registry.register_metric(
-        MetricId::EquityDividendYield,
-        Arc::new(dividend_yield::DividendYieldCalculator),
-        &["Equity"],
-    );
-    registry.register_metric(
-        MetricId::EquityForwardPrice,
-        Arc::new(forward_price::ForwardPricePerShareCalculator),
-        &["Equity"],
-    );
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "Equity",
+        metrics: [
+            (EquityPricePerShare, price_per_share::PricePerShareCalculator),
+            (EquityShares, shares::SharesCalculator),
+            (EquityDividendYield, dividend_yield::DividendYieldCalculator),
+            (EquityForwardPrice, forward_price::ForwardPricePerShareCalculator),
+        ]
+    }
 }

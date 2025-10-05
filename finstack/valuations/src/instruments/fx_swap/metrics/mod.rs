@@ -23,6 +23,7 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
 
+    // Custom metrics
     registry
         .register_metric(
             MetricId::custom("carry_pv"),
@@ -44,14 +45,16 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
             MetricId::custom("ir01_foreign"),
             Arc::new(ir01_foreign::ForeignIR01),
             &["FxSwap"],
-        )
-        .register_metric(
-            MetricId::BucketedDv01,
-            Arc::new(
-                crate::instruments::common::GenericBucketedDv01WithContext::<
-                    crate::instruments::FxSwap,
-                >::default(),
-            ),
-            &["FxSwap"],
         );
+    
+    // Standard metrics using macro
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "FxSwap",
+        metrics: [
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+                crate::instruments::FxSwap,
+            >::default()),
+        ]
+    }
 }

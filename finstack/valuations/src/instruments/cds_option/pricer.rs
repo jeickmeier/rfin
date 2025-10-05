@@ -147,24 +147,6 @@ impl CdsOptionPricer {
         Ok(forward_bp)
     }
 
-    #[allow(dead_code)]
-    fn compute_forward_bp(
-        &self,
-        option: &CdsOption,
-        tenor: f64,
-        hazard: &finstack_core::market_data::term_structures::hazard_curve::HazardCurve,
-    ) -> f64 {
-        let mut fwd_bp = if tenor > 0.0 {
-            hazard.quoted_spread_bp(tenor, self.config.forward_interp)
-        } else {
-            option.strike_spread_bp
-        };
-        if option.underlying_is_index {
-            fwd_bp += option.forward_spread_adjust_bp;
-        }
-        fwd_bp
-    }
-
     /// Black-on-spreads price for CDS option.
     pub fn credit_option_price(
         &self,

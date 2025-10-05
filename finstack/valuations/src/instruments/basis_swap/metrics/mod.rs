@@ -28,50 +28,49 @@ use std::sync::Arc;
 /// # Arguments
 /// * `registry` — The metric registry to register the calculators with
 pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
+    // Leg-specific metrics with primary/reference constructors (consistent with IRS)
     registry
         .register_metric(
-            MetricId::BasisAnnuityPrimary,
+            MetricId::AnnuityPrimary,
             Arc::new(AnnuityCalculator::primary()),
-            &["BasisSwap"],
-        ) // discounted accrual sum
-        .register_metric(
-            MetricId::BasisAnnuityReference,
-            Arc::new(AnnuityCalculator::reference()),
-            &["BasisSwap"],
-        ) // discounted accrual sum
-        .register_metric(
-            MetricId::BasisDv01Primary,
-            Arc::new(Dv01Calculator::primary()),
-            &["BasisSwap"],
-        ) // 1bp DV01
-        .register_metric(
-            MetricId::BasisDv01Reference,
-            Arc::new(Dv01Calculator::reference()),
-            &["BasisSwap"],
-        ) // 1bp DV01
-        .register_metric(MetricId::Dv01, Arc::new(NetDv01Calculator), &["BasisSwap"]) // Net DV01 (primary - reference)
-        .register_metric(
-            MetricId::BasisPvPrimary,
-            Arc::new(PvCalculator::primary()),
-            &["BasisSwap"],
-        ) // leg PV
-        .register_metric(
-            MetricId::BasisPvReference,
-            Arc::new(PvCalculator::reference()),
-            &["BasisSwap"],
-        ) // leg PV
-        .register_metric(
-            MetricId::BasisParSpread,
-            Arc::new(ParSpreadCalculator),
             &["BasisSwap"],
         )
         .register_metric(
-            MetricId::BucketedDv01,
-            Arc::new(
-                crate::instruments::common::GenericBucketedDv01WithContext::<
-                    crate::instruments::BasisSwap,
-                >::default(),
-            ),
+            MetricId::AnnuityReference,
+            Arc::new(AnnuityCalculator::reference()),
+            &["BasisSwap"],
+        )
+        .register_metric(
+            MetricId::Dv01Primary,
+            Arc::new(Dv01Calculator::primary()),
+            &["BasisSwap"],
+        )
+        .register_metric(
+            MetricId::Dv01Reference,
+            Arc::new(Dv01Calculator::reference()),
+            &["BasisSwap"],
+        )
+        .register_metric(
+            MetricId::PvPrimary,
+            Arc::new(PvCalculator::primary()),
+            &["BasisSwap"],
+        )
+        .register_metric(
+            MetricId::PvReference,
+            Arc::new(PvCalculator::reference()),
             &["BasisSwap"],
         );
+    
+    // Net metrics using macro
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "BasisSwap",
+        metrics: [
+            (Dv01, NetDv01Calculator),
+            (BasisParSpread, ParSpreadCalculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+                crate::instruments::BasisSwap,
+            >::default()),
+        ]
+    }
 }

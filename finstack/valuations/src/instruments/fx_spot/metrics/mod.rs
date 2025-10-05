@@ -20,28 +20,14 @@ use crate::metrics::MetricRegistry;
 
 /// Register all FX Spot metrics with the registry
 pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
-    use crate::metrics::MetricId;
-    use std::sync::Arc;
-
-    registry
-        .register_metric(
-            MetricId::custom("spot_rate"),
-            Arc::new(spot_rate::SpotRateCalculator),
-            &["FxSpot"],
-        )
-        .register_metric(
-            MetricId::custom("base_amount"),
-            Arc::new(base_amount::BaseAmountCalculator),
-            &["FxSpot"],
-        )
-        .register_metric(
-            MetricId::custom("quote_amount"),
-            Arc::new(quote_amount::QuoteAmountCalculator),
-            &["FxSpot"],
-        )
-        .register_metric(
-            MetricId::custom("inverse_rate"),
-            Arc::new(inverse_rate::InverseRateCalculator),
-            &["FxSpot"],
-        );
+    crate::register_metrics_chained! {
+        registry: registry,
+        instrument: "FxSpot",
+        metrics: [
+            (SpotRate, spot_rate::SpotRateCalculator),
+            (BaseAmount, base_amount::BaseAmountCalculator),
+            (QuoteAmount, quote_amount::QuoteAmountCalculator),
+            (InverseRate, inverse_rate::InverseRateCalculator),
+        ]
+    };
 }

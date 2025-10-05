@@ -17,14 +17,14 @@ pub struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {
     fn dependencies(&self) -> &[MetricId] {
-        &[MetricId::BasisAnnuityPrimary]
+        &[MetricId::AnnuityPrimary]
     }
 
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Use dependency and drop borrow
         let annuity = context
             .computed
-            .get(&MetricId::BasisAnnuityPrimary)
+            .get(&MetricId::AnnuityPrimary)
             .copied()
             .unwrap_or(0.0);
         if annuity == 0.0 {

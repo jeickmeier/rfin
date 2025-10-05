@@ -11,83 +11,42 @@
 //! - Credit Enhancement Levels
 //! - Expected Loss
 
-mod cpr;
 mod ltv;
 mod wal;
 
-pub use cpr::RmbsCprCalculator;
 pub use ltv::{RmbsFicoCalculator, RmbsLtvCalculator};
 pub use wal::RmbsWalCalculator;
 
-use crate::metrics::{MetricContext, MetricId, MetricRegistry};
-use std::sync::Arc;
+use crate::metrics::{MetricContext, MetricRegistry};
 
 /// Register all RMBS metrics
 pub fn register_rmbs_metrics(registry: &mut MetricRegistry) {
-    // CPR - Conditional Prepayment Rate
-    registry.register_metric(
-        MetricId::custom("rmbs_cpr"),
-        Arc::new(RmbsCprCalculator),
-        &["RMBS"],
-    );
-
-    // CDR - Conditional Default Rate
-    registry.register_metric(
-        MetricId::custom("rmbs_cdr"),
-        Arc::new(RmbsCdrCalculator),
-        &["RMBS"],
-    );
-
-    // Severity Rate
-    registry.register_metric(
-        MetricId::custom("rmbs_severity"),
-        Arc::new(RmbsSeverityCalculator),
-        &["RMBS"],
-    );
-
-    // WAL with prepayments
-    registry.register_metric(
-        MetricId::custom("rmbs_wal"),
-        Arc::new(RmbsWalCalculator),
-        &["RMBS"],
-    );
-
-    // WALTV - Weighted Average LTV
-    registry.register_metric(
-        MetricId::custom("rmbs_waltv"),
-        Arc::new(RmbsLtvCalculator),
-        &["RMBS"],
-    );
-
-    // WAFICO - Weighted Average FICO
-    registry.register_metric(
-        MetricId::custom("rmbs_wafico"),
-        Arc::new(RmbsFicoCalculator),
-        &["RMBS"],
-    );
-
-    // Expected Loss
-    registry.register_metric(
-        MetricId::custom("rmbs_expected_loss"),
-        Arc::new(RmbsExpectedLossCalculator),
-        &["RMBS"],
-    );
-}
-
-/// CDR Calculator
-struct RmbsCdrCalculator;
-
-impl crate::metrics::MetricCalculator for RmbsCdrCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let rmbs = context
-            .instrument
-            .as_any()
-            .downcast_ref::<crate::instruments::rmbs::Rmbs>()
-            .ok_or(finstack_core::error::InputError::Invalid)?;
-
-        // Return current CDR assumption based on SDA speed
-        // At peak (month 30), SDA 100% gives 0.6% CDR
-        Ok(rmbs.sda_speed * 0.6)
+    use crate::instruments::common::structured_credit::metrics as sc;
+    
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "RMBS",
+        metrics: [
+            // RMBS-specific metrics
+            (LossSeverity, RmbsSeverityCalculator),
+            (WAL, RmbsWalCalculator),
+            (RmbsWaltv, RmbsLtvCalculator),
+            (RmbsWafico, RmbsFicoCalculator),
+            (ExpectedLoss, RmbsExpectedLossCalculator),
+            // Shared structured credit metrics
+            (Accrued, sc::AccruedCalculator),
+            (DirtyPrice, sc::DirtyPriceCalculator),
+            (CleanPrice, sc::CleanPriceCalculator),
+            (DurationMac, sc::MacaulayDurationCalculator),
+            (DurationMod, sc::ModifiedDurationCalculator),
+            (ZSpread, sc::ZSpreadCalculator),
+            (Cs01, sc::Cs01Calculator),
+            (SpreadDuration, sc::SpreadDurationCalculator),
+            (Ytm, sc::YtmCalculator),
+            (WAM, sc::WamCalculator),
+            (CPR, sc::CprCalculator),  // Generic CPR handles RMBS
+            (CDR, sc::CdrCalculator),  // Generic CDR handles RMBS
+        ]
     }
 }
 

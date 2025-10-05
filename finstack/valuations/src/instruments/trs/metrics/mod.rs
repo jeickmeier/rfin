@@ -14,7 +14,7 @@ pub use ir01::TrsIR01Calculator;
 pub use par_spread::ParSpreadCalculator;
 // BucketedDv01Calculator now using generic implementation
 
-use crate::metrics::{MetricId, MetricRegistry};
+use crate::metrics::MetricRegistry;
 
 /// Registers all TRS metrics with the metric registry.
 ///
@@ -25,23 +25,15 @@ use crate::metrics::{MetricId, MetricRegistry};
 /// # Arguments
 /// * `registry` — Metric registry to add TRS metrics to
 pub fn register_trs_metrics(registry: &mut MetricRegistry) {
-    use std::sync::Arc;
-
-    registry.register_metric(MetricId::ParSpread, Arc::new(ParSpreadCalculator), &["TRS"]);
-    registry.register_metric(
-        MetricId::FinancingAnnuity,
-        Arc::new(FinancingAnnuityCalculator),
-        &["TRS"],
-    );
-    registry.register_metric(MetricId::Ir01, Arc::new(TrsIR01Calculator), &["TRS"]);
-    registry.register_metric(
-        MetricId::IndexDelta,
-        Arc::new(IndexDeltaCalculator),
-        &["TRS"],
-    );
-    registry.register_metric(
-        MetricId::BucketedDv01,
-        Arc::new(TrsBucketedDv01Calculator),
-        &["TRS"],
-    );
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "TRS",
+        metrics: [
+            (ParSpread, ParSpreadCalculator),
+            (FinancingAnnuity, FinancingAnnuityCalculator),
+            (Ir01, TrsIR01Calculator),
+            (IndexDelta, IndexDeltaCalculator),
+            (BucketedDv01, TrsBucketedDv01Calculator),
+        ]
+    }
 }

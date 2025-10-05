@@ -26,46 +26,24 @@ pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::{MetricCalculator, MetricId};
     use std::sync::Arc;
 
-    registry.register_metric(
-        MetricId::ParSpread,
-        Arc::new(par_spread::ParSpreadCalculator),
-        &["CDSIndex"],
-    );
-
+    // Shared calculator for RiskyPv01 and custom "pv01" alias
     let risky_pv01_calc: Arc<dyn MetricCalculator> = Arc::new(risky_pv01::RiskyPv01Calculator);
-    registry.register_metric(
-        MetricId::RiskyPv01,
-        Arc::clone(&risky_pv01_calc),
-        &["CDSIndex"],
-    );
+    registry.register_metric(MetricId::RiskyPv01, Arc::clone(&risky_pv01_calc), &["CDSIndex"]);
     registry.register_metric(MetricId::custom("pv01"), risky_pv01_calc, &["CDSIndex"]);
-    registry.register_metric(
-        MetricId::Cs01,
-        Arc::new(cs01::Cs01Calculator),
-        &["CDSIndex"],
-    );
-    registry.register_metric(
-        MetricId::ProtectionLegPv,
-        Arc::new(pv_protection::ProtectionLegPvCalculator),
-        &["CDSIndex"],
-    );
-    registry.register_metric(
-        MetricId::PremiumLegPv,
-        Arc::new(pv_premium::PremiumLegPvCalculator),
-        &["CDSIndex"],
-    );
-    registry.register_metric(
-        MetricId::HazardCs01,
-        Arc::new(hazard_cs01::HazardCs01Calculator),
-        &["CDSIndex"],
-    );
-    registry.register_metric(
-        MetricId::BucketedDv01,
-        Arc::new(
-            crate::instruments::common::GenericBucketedDv01WithContext::<
+
+    // Standard metrics using macro
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "CDSIndex",
+        metrics: [
+            (ParSpread, par_spread::ParSpreadCalculator),
+            (Cs01, cs01::Cs01Calculator),
+            (ProtectionLegPv, pv_protection::ProtectionLegPvCalculator),
+            (PremiumLegPv, pv_premium::PremiumLegPvCalculator),
+            (HazardCs01, hazard_cs01::HazardCs01Calculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::CDSIndex,
-            >::default(),
-        ),
-        &["CDSIndex"],
-    );
+            >::default()),
+        ]
+    }
 }

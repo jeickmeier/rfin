@@ -1,7 +1,7 @@
 //! Private markets fund metrics: IRR, MOIC, DPI, TVPI, and carry calculations.
 
 use crate::instruments::private_markets_fund::PrivateMarketsFund;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
+use crate::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
@@ -220,43 +220,18 @@ pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_c
 
 /// Register all private markets fund metrics.
 pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
-    use std::sync::Arc;
-
-    registry.register_metric(
-        MetricId::custom("lp_irr"),
-        Arc::new(LpIrrCalculator),
-        &["PrivateMarketsFund"],
-    );
-
-    registry.register_metric(
-        MetricId::custom("gp_irr"),
-        Arc::new(GpIrrCalculator),
-        &["PrivateMarketsFund"],
-    );
-
-    registry.register_metric(
-        MetricId::custom("moic_lp"),
-        Arc::new(MoicLpCalculator),
-        &["PrivateMarketsFund"],
-    );
-
-    registry.register_metric(
-        MetricId::custom("dpi_lp"),
-        Arc::new(DpiLpCalculator),
-        &["PrivateMarketsFund"],
-    );
-
-    registry.register_metric(
-        MetricId::custom("tvpi_lp"),
-        Arc::new(TvpiLpCalculator),
-        &["PrivateMarketsFund"],
-    );
-
-    registry.register_metric(
-        MetricId::custom("carry_accrued"),
-        Arc::new(CarryAccruedCalculator),
-        &["PrivateMarketsFund"],
-    );
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "PrivateMarketsFund",
+        metrics: [
+            (LpIrr, LpIrrCalculator),
+            (GpIrr, GpIrrCalculator),
+            (MoicLp, MoicLpCalculator),
+            (DpiLp, DpiLpCalculator),
+            (TvpiLp, TvpiLpCalculator),
+            (CarryAccrued, CarryAccruedCalculator),
+        ]
+    }
 }
 
 #[cfg(test)]

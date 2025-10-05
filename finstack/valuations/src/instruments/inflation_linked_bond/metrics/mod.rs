@@ -15,37 +15,21 @@ pub use real_duration::RealDurationCalculator;
 pub use real_yield::RealYieldCalculator;
 // BucketedDv01Calculator now using generic implementation
 
-use crate::metrics::{MetricId, MetricRegistry};
-use std::sync::Arc;
+use crate::metrics::MetricRegistry;
 
 /// Register all ILB metrics with the registry
 pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
-    registry
-        .register_metric(
-            MetricId::custom("real_yield"),
-            Arc::new(RealYieldCalculator),
-            &["InflationLinkedBond", "ILB"],
-        )
-        .register_metric(
-            MetricId::custom("index_ratio"),
-            Arc::new(IndexRatioCalculator),
-            &["InflationLinkedBond", "ILB"],
-        )
-        .register_metric(
-            MetricId::custom("real_duration"),
-            Arc::new(RealDurationCalculator),
-            &["InflationLinkedBond", "ILB"],
-        )
-        .register_metric(
-            MetricId::custom("breakeven_inflation"),
-            Arc::new(BreakevenInflationCalculator),
-            &["InflationLinkedBond", "ILB"],
-        )
-        .register_metric(
-            MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01::<
+    crate::register_metrics_chained! {
+        registry: registry,
+        instrument: "InflationLinkedBond",
+        metrics: [
+            (RealYield, RealYieldCalculator),
+            (IndexRatio, IndexRatioCalculator),
+            (RealDuration, RealDurationCalculator),
+            (BreakevenInflation, BreakevenInflationCalculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
                 crate::instruments::InflationLinkedBond,
             >::default()),
-            &["InflationLinkedBond"],
-        );
+        ]
+    };
 }

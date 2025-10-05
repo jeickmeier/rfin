@@ -12,56 +12,36 @@ mod risk_bucketed_dv01;
 mod theta;
 mod vega;
 
-use crate::metrics::{MetricId, MetricRegistry};
-use std::sync::Arc;
+use crate::metrics::MetricRegistry;
 
 /// Register FX option metrics with the registry.
 pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
-    registry.register_metric(
-        MetricId::Delta,
-        Arc::new(delta::DeltaCalculator),
-        &["FxOption"],
-    );
-
-    registry.register_metric(
-        MetricId::Gamma,
-        Arc::new(gamma::GammaCalculator),
-        &["FxOption"],
-    );
-
-    registry.register_metric(
-        MetricId::Vega,
-        Arc::new(vega::VegaCalculator),
-        &["FxOption"],
-    );
-
-    registry.register_metric(
-        MetricId::Theta,
-        Arc::new(theta::ThetaCalculator),
-        &["FxOption"],
-    );
-
+    use crate::metrics::MetricId;
+    use std::sync::Arc;
+    
+    // Custom metrics for rho split by domestic/foreign
     registry.register_metric(
         MetricId::custom("rho_domestic"),
         Arc::new(rho::RhoDomesticCalculator),
         &["FxOption"],
     );
-
     registry.register_metric(
         MetricId::custom("rho_foreign"),
         Arc::new(rho::RhoForeignCalculator),
         &["FxOption"],
     );
-
-    registry.register_metric(
-        MetricId::ImpliedVol,
-        Arc::new(implied_vol::ImpliedVolCalculator),
-        &["FxOption"],
-    );
-
-    registry.register_metric(
-        MetricId::BucketedDv01,
-        Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
-        &["FxOption"],
-    );
+    
+    // Standard metrics using macro
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "FxOption",
+        metrics: [
+            (Delta, delta::DeltaCalculator),
+            (Gamma, gamma::GammaCalculator),
+            (Vega, vega::VegaCalculator),
+            (Theta, theta::ThetaCalculator),
+            (ImpliedVol, implied_vol::ImpliedVolCalculator),
+            (BucketedDv01, risk_bucketed_dv01::BucketedDv01Calculator),
+        ]
+    }
 }

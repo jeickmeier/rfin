@@ -24,38 +24,26 @@ pub use par_rate::DepositParRateCalculator;
 pub use quote_rate::QuoteRateCalculator;
 pub use year_fraction::YearFractionCalculator;
 
-use crate::metrics::{MetricId, MetricRegistry};
-use std::sync::Arc;
+use crate::metrics::MetricRegistry;
 
 /// Registers all deposit metrics to a registry.
 ///
 /// Each metric is registered with the "Deposit" instrument type to ensure
 /// proper applicability filtering.
 pub fn register_deposit_metrics(registry: &mut MetricRegistry) {
-    registry
-        .register_metric(MetricId::Yf, Arc::new(YearFractionCalculator), &["Deposit"]) // accrual year fraction
-        .register_metric(MetricId::DfStart, Arc::new(DfStartCalculator), &["Deposit"]) // DF at start
-        .register_metric(MetricId::DfEnd, Arc::new(DfEndCalculator), &["Deposit"]) // DF at end
-        .register_metric(
-            MetricId::DepositParRate,
-            Arc::new(DepositParRateCalculator),
-            &["Deposit"],
-        ) // par simple rate
-        .register_metric(
-            MetricId::DfEndFromQuote,
-            Arc::new(DfEndFromQuoteCalculator),
-            &["Deposit"],
-        ) // implied DF(end)
-        .register_metric(
-            MetricId::QuoteRate,
-            Arc::new(QuoteRateCalculator),
-            &["Deposit"],
-        ) // quoted rate passthrough
-        .register_metric(
-            MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01::<
+    crate::register_metrics_chained! {
+        registry: registry,
+        instrument: "Deposit",
+        metrics: [
+            (Yf, YearFractionCalculator),
+            (DfStart, DfStartCalculator),
+            (DfEnd, DfEndCalculator),
+            (DepositParRate, DepositParRateCalculator),
+            (DfEndFromQuote, DfEndFromQuoteCalculator),
+            (QuoteRate, QuoteRateCalculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
                 crate::instruments::Deposit,
             >::default()),
-            &["Deposit"],
-        );
+        ]
+    };
 }

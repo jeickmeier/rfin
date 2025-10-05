@@ -134,8 +134,6 @@ define_metrics! {
     DurationMac => "duration_mac",
     /// Modified duration
     DurationMod => "duration_mod",
-    /// Credit duration
-    CreditDuration => "credit_duration",
     /// Convexity
     Convexity => "convexity",
 
@@ -265,20 +263,20 @@ define_metrics! {
     /// Index delta for TRS
     IndexDelta => "index_delta",
 
-    // Basis swap metrics
+    // Basis swap metrics (using consistent leg naming with IRS)
     /// PV of primary floating leg (includes spread)
-    BasisPvPrimary => "basis_pv_primary",
-    /// PV of reference floating leg
-    BasisPvReference => "basis_pv_reference",
-    /// Discounted accrual sum for primary leg (no notional multiplier)
-    BasisAnnuityPrimary => "basis_annuity_primary",
-    /// Discounted accrual sum for reference leg (no notional multiplier)
-    BasisAnnuityReference => "basis_annuity_reference",
-    /// DV01 (per 1bp) for primary leg (annuity * notional * 1bp)
-    BasisDv01Primary => "basis_dv01_primary",
-    /// DV01 (per 1bp) for reference leg (annuity * notional * 1bp)
-    BasisDv01Reference => "basis_dv01_reference",
-    /// Par spread (bp) on primary leg that makes NPV zero
+    PvPrimary => "pv_primary",
+    /// PV of reference floating leg  
+    PvReference => "pv_reference",
+    /// Annuity of primary leg
+    AnnuityPrimary => "annuity_primary",
+    /// Annuity of reference leg
+    AnnuityReference => "annuity_reference",
+    /// DV01 of primary leg
+    Dv01Primary => "dv01_primary",
+    /// DV01 of reference leg
+    Dv01Reference => "dv01_reference",
+    /// Par spread for basis swap
     BasisParSpread => "basis_par_spread",
 
     // Repo metrics
@@ -346,5 +344,101 @@ define_metrics! {
     
     /// DM01 - Discount margin sensitivity (for floating-rate CLO)
     Dm01 => "dm01",
+
+    // === ABS-specific Metrics ===
+    
+    /// Delinquency rate - Percentage of pool in delinquency
+    AbsDelinquency => "abs_delinquency",
+    
+    /// Charge-off rate - Percentage of pool charged off
+    AbsChargeOff => "abs_charge_off",
+    
+    /// Excess spread - Spread available to absorb losses
+    AbsExcessSpread => "abs_excess_spread",
+    
+    /// Credit enhancement level - Subordination as % of pool
+    AbsCreditEnhancement => "abs_ce_level",
+    
+    // === CLO-specific Metrics ===
+    
+    /// Weighted Average Rating Factor
+    CloWarf => "clo_warf",
+    
+    /// Weighted Average Spread
+    CloWas => "clo_was",
+    
+    /// Weighted Average Coupon
+    CloWac => "clo_wac",
+    
+    /// Portfolio diversity score
+    CloDiversity => "clo_diversity",
+    
+    /// Overcollateralization ratio
+    CloOcRatio => "clo_oc_ratio",
+    
+    /// Interest coverage ratio
+    CloIcRatio => "clo_ic_ratio",
+    
+    /// Average recovery rate on defaults
+    CloRecoveryRate => "clo_recovery_rate",
+    
+    // === CMBS-specific Metrics ===
+    
+    /// Debt Service Coverage Ratio
+    CmbsDscr => "cmbs_dscr",
+    
+    /// Weighted Average Loan-to-Value
+    CmbsWaltv => "cmbs_waltv",
+    
+    /// Credit Enhancement Level
+    CmbsCreditEnhancement => "cmbs_ce_level",
+    
+    // === RMBS-specific Metrics ===
+    
+    /// PSA prepayment speed (e.g., 100% PSA)
+    RmbsPsaSpeed => "rmbs_psa_speed",
+    
+    /// SDA default speed
+    RmbsSdaSpeed => "rmbs_sda_speed",
+    
+    /// Weighted Average LTV for RMBS
+    RmbsWaltv => "rmbs_waltv",
+    
+    /// Weighted Average FICO score
+    RmbsWafico => "rmbs_wafico",
+    
+    // === Inflation-Linked Bond Metrics ===
+    
+    /// Real yield (inflation-adjusted)
+    RealYield => "real_yield",
+    
+    /// Inflation index ratio
+    IndexRatio => "index_ratio",
+    
+    /// Real duration (inflation-adjusted duration)
+    RealDuration => "real_duration",
+    
+    /// Breakeven inflation rate
+    BreakevenInflation => "breakeven_inflation",
+
+    // === Private Equity / Private Markets Fund Metrics ===
+    
+    /// LP (Limited Partner) Internal Rate of Return
+    LpIrr => "lp_irr",
+    
+    /// GP (General Partner) Internal Rate of Return
+    GpIrr => "gp_irr",
+    
+    /// LP Multiple on Invested Capital
+    MoicLp => "moic_lp",
+    
+    /// LP Distributions to Paid In (DPI ratio)
+    DpiLp => "dpi_lp",
+    
+    /// LP Total Value to Paid In (TVPI ratio)
+    TvpiLp => "tvpi_lp",
+    
+    /// Accrued carry amount for GP
+    CarryAccrued => "carry_accrued",
 
 }

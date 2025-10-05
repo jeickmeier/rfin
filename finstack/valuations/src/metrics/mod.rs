@@ -25,6 +25,7 @@
 pub mod bucketed;
 pub mod declarative_registry;
 pub mod ids;
+pub mod registration_macro;
 pub mod registry;
 pub mod traits;
 

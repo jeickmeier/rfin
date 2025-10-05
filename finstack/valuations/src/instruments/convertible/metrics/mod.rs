@@ -21,50 +21,31 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
 
+    // Custom metrics (not in standard MetricId enum)
     registry.register_metric(
         MetricId::custom("parity"),
         Arc::new(parity::ParityCalculator),
         &["ConvertibleBond"],
     );
-
     registry.register_metric(
         MetricId::custom("conversion_premium"),
         Arc::new(conversion_premium::ConversionPremiumCalculator),
         &["ConvertibleBond"],
     );
 
-    registry.register_metric(
-        MetricId::Delta,
-        Arc::new(greeks::DeltaCalculator),
-        &["ConvertibleBond"],
-    );
-    registry.register_metric(
-        MetricId::Gamma,
-        Arc::new(greeks::GammaCalculator),
-        &["ConvertibleBond"],
-    );
-    registry.register_metric(
-        MetricId::Vega,
-        Arc::new(greeks::VegaCalculator),
-        &["ConvertibleBond"],
-    );
-    registry.register_metric(
-        MetricId::Rho,
-        Arc::new(greeks::RhoCalculator),
-        &["ConvertibleBond"],
-    );
-    registry.register_metric(
-        MetricId::Theta,
-        Arc::new(greeks::ThetaCalculator),
-        &["ConvertibleBond"],
-    );
-    registry.register_metric(
-        MetricId::BucketedDv01,
-        Arc::new(
-            crate::instruments::common::GenericBucketedDv01WithContext::<
+    // Standard metrics using macro
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "ConvertibleBond",
+        metrics: [
+            (Delta, greeks::DeltaCalculator),
+            (Gamma, greeks::GammaCalculator),
+            (Vega, greeks::VegaCalculator),
+            (Rho, greeks::RhoCalculator),
+            (Theta, greeks::ThetaCalculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::ConvertibleBond,
-            >::default(),
-        ),
-        &["ConvertibleBond"],
-    );
+            >::default()),
+        ]
+    }
 }

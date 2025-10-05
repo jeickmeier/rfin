@@ -34,9 +34,9 @@ impl Dv01Calculator {
 impl MetricCalculator for Dv01Calculator {
     fn dependencies(&self) -> &[MetricId] {
         if self.is_primary {
-            &[MetricId::BasisAnnuityPrimary]
+            &[MetricId::AnnuityPrimary]
         } else {
-            &[MetricId::BasisAnnuityReference]
+            &[MetricId::AnnuityReference]
         }
     }
 
@@ -44,13 +44,13 @@ impl MetricCalculator for Dv01Calculator {
         let annuity = if self.is_primary {
             context
                 .computed
-                .get(&MetricId::BasisAnnuityPrimary)
+                .get(&MetricId::AnnuityPrimary)
                 .copied()
                 .unwrap_or(0.0)
         } else {
             context
                 .computed
-                .get(&MetricId::BasisAnnuityReference)
+                .get(&MetricId::AnnuityReference)
                 .copied()
                 .unwrap_or(0.0)
         };
