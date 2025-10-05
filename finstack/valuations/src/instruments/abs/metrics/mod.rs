@@ -48,6 +48,9 @@ pub fn register_abs_metrics(registry: &mut MetricRegistry) {
             (WAM, sc::WamCalculator),
             (CPR, sc::CprCalculator),
             (CDR, sc::CdrCalculator),
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
+                crate::instruments::Abs,
+            >::default()),
         ]
     }
 }

@@ -53,6 +53,9 @@ pub fn register_clo_metrics(registry: &mut MetricRegistry) {
             (WAM, sc::WamCalculator),
             (CPR, sc::CprCalculator),  // Generic CPR handles CLO
             (CDR, sc::CdrCalculator),  // Generic CDR handles CLO (replaces CloDefaultRate)
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
+                crate::instruments::Clo,
+            >::default()),
         ]
     }
 }

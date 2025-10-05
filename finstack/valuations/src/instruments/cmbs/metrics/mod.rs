@@ -42,6 +42,9 @@ pub fn register_cmbs_metrics(registry: &mut MetricRegistry) {
             (WAM, sc::WamCalculator),
             (CPR, sc::CprCalculator),  // Generic CPR handles CMBS
             (CDR, sc::CdrCalculator),  // Generic CDR handles CMBS (replaces CmbsDefaultRate)
+            (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
+                crate::instruments::Cmbs,
+            >::default()),
         ]
     }
 }
