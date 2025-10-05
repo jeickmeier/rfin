@@ -140,7 +140,9 @@ impl Clo {
     ) -> Self {
         let id_str = id.into();
         // Default CLO assumptions: corporate loan pool
-        use crate::instruments::common::structured_credit::{cpr_model, default_model_for, recovery_model_for};
+        use crate::instruments::common::structured_credit::{
+            cpr_model, default_model_for, recovery_model_for,
+        };
         let prepay = cpr_model(0.15); // 15% CPR default
         let dflt = default_model_for("corporate");
         let recv = recovery_model_for("corporate");

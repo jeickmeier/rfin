@@ -6,6 +6,8 @@
 //! - Combined prepayment + default scenarios
 //! - Market stress scenarios
 
+use finstack_core::market_data::MarketContext;
+use finstack_core::Result;
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
@@ -90,12 +92,9 @@ pub struct MarketScenario {
     pub spread_shock_bps: Option<i32>,
 }
 
-/// Standard scenario library for structured credit
-pub struct ScenarioLibrary;
-
-impl ScenarioLibrary {
+impl StructuredCreditScenario {
     /// RMBS prepayment scenarios
-    pub fn rmbs_prepayment_scenarios() -> Vec<StructuredCreditScenario> {
+    pub fn standard_rmbs_prepay() -> Vec<StructuredCreditScenario> {
         vec![
             StructuredCreditScenario {
                 id: "RMBS_50PSA".to_string(),
@@ -136,7 +135,7 @@ impl ScenarioLibrary {
     }
 
     /// RMBS default scenarios
-    pub fn rmbs_default_scenarios() -> Vec<StructuredCreditScenario> {
+    pub fn standard_rmbs_default() -> Vec<StructuredCreditScenario> {
         vec![
             StructuredCreditScenario {
                 id: "RMBS_50SDA".to_string(),
@@ -173,7 +172,7 @@ impl ScenarioLibrary {
     }
 
     /// CLO default scenarios
-    pub fn clo_default_scenarios() -> Vec<StructuredCreditScenario> {
+    pub fn standard_clo_default() -> Vec<StructuredCreditScenario> {
         vec![
             StructuredCreditScenario {
                 id: "CLO_BASE".to_string(),
@@ -209,7 +208,7 @@ impl ScenarioLibrary {
     }
 
     /// ABS scenarios for auto loans
-    pub fn abs_auto_scenarios() -> Vec<StructuredCreditScenario> {
+    pub fn standard_abs_auto() -> Vec<StructuredCreditScenario> {
         vec![
             StructuredCreditScenario {
                 id: "AUTO_BASE".to_string(),
@@ -246,7 +245,7 @@ impl ScenarioLibrary {
     }
 
     /// Combined scenarios (prepayment + default)
-    pub fn combined_stress_scenarios() -> Vec<StructuredCreditScenario> {
+    pub fn standard_combined_stress() -> Vec<StructuredCreditScenario> {
         vec![
             StructuredCreditScenario {
                 id: "BEST_CASE".to_string(),
@@ -284,14 +283,411 @@ impl ScenarioLibrary {
     }
 
     /// Get all standard scenarios
-    pub fn all_scenarios() -> HashMap<String, Vec<StructuredCreditScenario>> {
+    pub fn all_standard_scenarios() -> HashMap<String, Vec<StructuredCreditScenario>> {
         let mut scenarios = HashMap::new();
-        scenarios.insert("RMBS_PREPAY".to_string(), Self::rmbs_prepayment_scenarios());
-        scenarios.insert("RMBS_DEFAULT".to_string(), Self::rmbs_default_scenarios());
-        scenarios.insert("CLO_DEFAULT".to_string(), Self::clo_default_scenarios());
-        scenarios.insert("ABS_AUTO".to_string(), Self::abs_auto_scenarios());
-        scenarios.insert("COMBINED".to_string(), Self::combined_stress_scenarios());
+        scenarios.insert("RMBS_PREPAY".to_string(), Self::standard_rmbs_prepay());
+        scenarios.insert("RMBS_DEFAULT".to_string(), Self::standard_rmbs_default());
+        scenarios.insert("CLO_DEFAULT".to_string(), Self::standard_clo_default());
+        scenarios.insert("ABS_AUTO".to_string(), Self::standard_abs_auto());
+        scenarios.insert("COMBINED".to_string(), Self::standard_combined_stress());
         scenarios
+    }
+
+    /// Generate PSA speed ladder for RMBS
+    pub fn psa_speed_ladder(speeds: Vec<f64>) -> Vec<StructuredCreditScenario> {
+        speeds
+            .into_iter()
+            .map(|speed| StructuredCreditScenario {
+                id: format!("PSA_{}", (speed * 100.0) as u32),
+                description: format!("{}% PSA prepayment speed", (speed * 100.0) as u32),
+                prepayment: Some(PrepaymentScenario::PsaSpeed { speed }),
+                default: None,
+                market: None,
+            })
+            .collect()
+    }
+
+    /// Generate CDR ladder for stress testing
+    pub fn cdr_ladder(cdrs: Vec<f64>) -> Vec<StructuredCreditScenario> {
+        cdrs.into_iter()
+            .map(|cdr| StructuredCreditScenario {
+                id: format!("CDR_{}", (cdr * 100.0) as u32),
+                description: format!("{}% annual CDR", (cdr * 100.0) as u32),
+                prepayment: None,
+                default: Some(DefaultScenario::ConstantCdr { cdr_annual: cdr }),
+                market: None,
+            })
+            .collect()
+    }
+
+    /// Default PSA speeds for scenario analysis
+    pub fn default_psa_speeds() -> Vec<f64> {
+        vec![0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
+    }
+
+    /// Default CDR rates for scenario analysis
+    pub fn default_cdr_rates() -> Vec<f64> {
+        vec![0.005, 0.01, 0.02, 0.03, 0.05, 0.075, 0.10, 0.15, 0.20]
+    }
+
+    /// Default severity rates for scenario analysis
+    pub fn default_severity_rates() -> Vec<f64> {
+        vec![0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80]
+    }
+
+    /// Run scenario on a CLO instrument
+    pub fn run_clo(
+        &self,
+        clo: &crate::instruments::clo::Clo,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<ScenarioResult> {
+        let mut clo_copy = clo.clone();
+        Self::apply_scenario_to_clo(&mut clo_copy, self);
+
+        use crate::instruments::common::traits::Instrument;
+        let pv = clo_copy.value(market, as_of)?;
+        let wal = clo_copy.pool.weighted_avg_life(as_of);
+
+        Ok(ScenarioResult {
+            scenario_id: self.id.clone(),
+            pv: pv.amount(),
+            wal,
+            duration: None,
+            total_defaults: clo_copy.pool.cumulative_defaults.amount(),
+            total_prepayments: clo_copy.pool.cumulative_prepayments.amount(),
+            total_recoveries: clo_copy.pool.cumulative_recoveries.amount(),
+            net_loss: (clo_copy.pool.cumulative_defaults.amount()
+                - clo_copy.pool.cumulative_recoveries.amount()),
+            oc_ratios: HashMap::new(),
+            ic_ratios: HashMap::new(),
+            custom_metrics: HashMap::new(),
+        })
+    }
+
+    /// Run scenario on an RMBS instrument
+    pub fn run_rmbs(
+        &self,
+        rmbs: &crate::instruments::rmbs::Rmbs,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<ScenarioResult> {
+        let mut rmbs_copy = rmbs.clone();
+        Self::apply_scenario_to_rmbs(&mut rmbs_copy, self);
+
+        use crate::instruments::common::traits::Instrument;
+        let pv = rmbs_copy.value(market, as_of)?;
+        let wal = rmbs_copy.pool.weighted_avg_life(as_of);
+
+        Ok(ScenarioResult {
+            scenario_id: self.id.clone(),
+            pv: pv.amount(),
+            wal,
+            duration: None,
+            total_defaults: rmbs_copy.pool.cumulative_defaults.amount(),
+            total_prepayments: rmbs_copy.pool.cumulative_prepayments.amount(),
+            total_recoveries: rmbs_copy.pool.cumulative_recoveries.amount(),
+            net_loss: (rmbs_copy.pool.cumulative_defaults.amount()
+                - rmbs_copy.pool.cumulative_recoveries.amount()),
+            oc_ratios: HashMap::new(),
+            ic_ratios: HashMap::new(),
+            custom_metrics: HashMap::new(),
+        })
+    }
+
+    /// Run scenario on an ABS instrument
+    pub fn run_abs(
+        &self,
+        abs: &crate::instruments::abs::Abs,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<ScenarioResult> {
+        let mut abs_copy = abs.clone();
+        Self::apply_scenario_to_abs(&mut abs_copy, self);
+
+        use crate::instruments::common::traits::Instrument;
+        let pv = abs_copy.value(market, as_of)?;
+        let wal = abs_copy.pool.weighted_avg_life(as_of);
+
+        Ok(ScenarioResult {
+            scenario_id: self.id.clone(),
+            pv: pv.amount(),
+            wal,
+            duration: None,
+            total_defaults: abs_copy.pool.cumulative_defaults.amount(),
+            total_prepayments: abs_copy.pool.cumulative_prepayments.amount(),
+            total_recoveries: abs_copy.pool.cumulative_recoveries.amount(),
+            net_loss: (abs_copy.pool.cumulative_defaults.amount()
+                - abs_copy.pool.cumulative_recoveries.amount()),
+            oc_ratios: HashMap::new(),
+            ic_ratios: HashMap::new(),
+            custom_metrics: HashMap::new(),
+        })
+    }
+
+    /// Run multiple scenarios and generate comparison
+    pub fn run_comparison_clo(
+        scenarios: &[StructuredCreditScenario],
+        clo: &crate::instruments::clo::Clo,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<ScenarioComparison> {
+        use crate::instruments::common::traits::Instrument;
+
+        // Base case
+        let base_pv = clo.value(market, as_of)?;
+        let base_wal = clo.pool.weighted_avg_life(as_of);
+        let base_case = ScenarioResult {
+            scenario_id: "BASE".to_string(),
+            pv: base_pv.amount(),
+            wal: base_wal,
+            duration: None,
+            total_defaults: clo.pool.cumulative_defaults.amount(),
+            total_prepayments: clo.pool.cumulative_prepayments.amount(),
+            total_recoveries: clo.pool.cumulative_recoveries.amount(),
+            net_loss: (clo.pool.cumulative_defaults.amount()
+                - clo.pool.cumulative_recoveries.amount()),
+            oc_ratios: HashMap::new(),
+            ic_ratios: HashMap::new(),
+            custom_metrics: HashMap::new(),
+        };
+
+        let scenario_results: Result<Vec<_>> = scenarios
+            .iter()
+            .map(|s| s.run_clo(clo, market, as_of))
+            .collect();
+
+        Ok(ScenarioComparison {
+            base_case,
+            scenarios: scenario_results?,
+            sensitivities: HashMap::new(),
+        })
+    }
+
+    /// Run multiple scenarios on RMBS and generate comparison
+    pub fn run_comparison_rmbs(
+        scenarios: &[StructuredCreditScenario],
+        rmbs: &crate::instruments::rmbs::Rmbs,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<ScenarioComparison> {
+        use crate::instruments::common::traits::Instrument;
+
+        let base_pv = rmbs.value(market, as_of)?;
+        let base_wal = rmbs.pool.weighted_avg_life(as_of);
+        let base_case = ScenarioResult {
+            scenario_id: "BASE".to_string(),
+            pv: base_pv.amount(),
+            wal: base_wal,
+            duration: None,
+            total_defaults: rmbs.pool.cumulative_defaults.amount(),
+            total_prepayments: rmbs.pool.cumulative_prepayments.amount(),
+            total_recoveries: rmbs.pool.cumulative_recoveries.amount(),
+            net_loss: (rmbs.pool.cumulative_defaults.amount()
+                - rmbs.pool.cumulative_recoveries.amount()),
+            oc_ratios: HashMap::new(),
+            ic_ratios: HashMap::new(),
+            custom_metrics: HashMap::new(),
+        };
+
+        let scenario_results: Result<Vec<_>> = scenarios
+            .iter()
+            .map(|s| s.run_rmbs(rmbs, market, as_of))
+            .collect();
+
+        Ok(ScenarioComparison {
+            base_case,
+            scenarios: scenario_results?,
+            sensitivities: HashMap::new(),
+        })
+    }
+
+    /// Run multiple scenarios on ABS and generate comparison
+    pub fn run_comparison_abs(
+        scenarios: &[StructuredCreditScenario],
+        abs: &crate::instruments::abs::Abs,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<ScenarioComparison> {
+        use crate::instruments::common::traits::Instrument;
+
+        let base_pv = abs.value(market, as_of)?;
+        let base_wal = abs.pool.weighted_avg_life(as_of);
+        let base_case = ScenarioResult {
+            scenario_id: "BASE".to_string(),
+            pv: base_pv.amount(),
+            wal: base_wal,
+            duration: None,
+            total_defaults: abs.pool.cumulative_defaults.amount(),
+            total_prepayments: abs.pool.cumulative_prepayments.amount(),
+            total_recoveries: abs.pool.cumulative_recoveries.amount(),
+            net_loss: (abs.pool.cumulative_defaults.amount()
+                - abs.pool.cumulative_recoveries.amount()),
+            oc_ratios: HashMap::new(),
+            ic_ratios: HashMap::new(),
+            custom_metrics: HashMap::new(),
+        };
+
+        let scenario_results: Result<Vec<_>> = scenarios
+            .iter()
+            .map(|s| s.run_abs(abs, market, as_of))
+            .collect();
+
+        Ok(ScenarioComparison {
+            base_case,
+            scenarios: scenario_results?,
+            sensitivities: HashMap::new(),
+        })
+    }
+
+    // Helper methods to apply scenarios
+
+    fn apply_scenario_to_clo(
+        clo: &mut crate::instruments::clo::Clo,
+        scenario: &StructuredCreditScenario,
+    ) {
+        // Apply prepayment scenario
+        if let Some(PrepaymentScenario::ConstantCpr { cpr_annual }) = scenario.prepayment {
+            use crate::instruments::common::structured_credit::cpr_model;
+            clo.prepayment_model = std::sync::Arc::from(cpr_model(cpr_annual));
+        }
+
+        // Apply default scenario
+        if let Some(ref default_scenario) = scenario.default {
+            match default_scenario {
+                DefaultScenario::ConstantCdr { cdr_annual } => {
+                    use crate::instruments::common::structured_credit::{
+                        CDRModel, DefaultBehavior,
+                    };
+                    clo.default_model = std::sync::Arc::from(
+                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
+                    );
+                }
+                DefaultScenario::CdrWithSeverity {
+                    cdr_annual,
+                    severity,
+                } => {
+                    use crate::instruments::common::structured_credit::{
+                        CDRModel, ConstantRecoveryModel, DefaultBehavior, RecoveryBehavior,
+                    };
+                    clo.default_model = std::sync::Arc::from(
+                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
+                    );
+                    let recovery = 1.0 - severity;
+                    clo.recovery_model =
+                        std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery))
+                            as Box<dyn RecoveryBehavior>);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn apply_scenario_to_rmbs(
+        rmbs: &mut crate::instruments::rmbs::Rmbs,
+        scenario: &StructuredCreditScenario,
+    ) {
+        // Apply prepayment scenario
+        if let Some(ref prepay_scenario) = scenario.prepayment {
+            match prepay_scenario {
+                PrepaymentScenario::PsaSpeed { speed } => {
+                    rmbs.psa_speed = *speed;
+                }
+                PrepaymentScenario::ConstantCpr { cpr_annual } => {
+                    use crate::instruments::common::structured_credit::cpr_model;
+                    rmbs.prepayment_model = std::sync::Arc::from(cpr_model(*cpr_annual));
+                }
+                _ => {}
+            }
+        }
+
+        // Apply default scenario
+        if let Some(ref default_scenario) = scenario.default {
+            match default_scenario {
+                DefaultScenario::SdaSpeed { speed } => {
+                    rmbs.sda_speed = *speed;
+                }
+                DefaultScenario::ConstantCdr { cdr_annual } => {
+                    use crate::instruments::common::structured_credit::{
+                        CDRModel, DefaultBehavior,
+                    };
+                    rmbs.default_model = std::sync::Arc::from(
+                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
+                    );
+                }
+                DefaultScenario::CdrWithSeverity {
+                    cdr_annual,
+                    severity,
+                } => {
+                    use crate::instruments::common::structured_credit::{
+                        CDRModel, ConstantRecoveryModel, DefaultBehavior, RecoveryBehavior,
+                    };
+                    rmbs.default_model = std::sync::Arc::from(
+                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
+                    );
+                    let recovery = 1.0 - severity;
+                    rmbs.recovery_model =
+                        std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery))
+                            as Box<dyn RecoveryBehavior>);
+                }
+                _ => {}
+            }
+        }
+
+        // Apply market scenario
+        if let Some(ref market_scenario) = scenario.market {
+            if let Some(refi_shock) = market_scenario.refi_rate_shock_bps {
+                rmbs.market_conditions.refi_rate += (refi_shock as f64) / 10000.0;
+            }
+            if let Some(hpa) = market_scenario.hpa_shock {
+                rmbs.market_conditions.hpa = Some(hpa);
+            }
+            if let Some(unemployment) = market_scenario.unemployment_rate {
+                rmbs.credit_factors.unemployment_rate = Some(unemployment);
+            }
+        }
+    }
+
+    fn apply_scenario_to_abs(
+        abs: &mut crate::instruments::abs::Abs,
+        scenario: &StructuredCreditScenario,
+    ) {
+        // Apply prepayment scenario
+        if let Some(ref prepay_scenario) = scenario.prepayment {
+            match prepay_scenario {
+                PrepaymentScenario::AbsSpeed { abs_monthly } => {
+                    abs.abs_speed = Some(*abs_monthly);
+                }
+                PrepaymentScenario::ConstantCpr { cpr_annual } => {
+                    use crate::instruments::common::structured_credit::cpr_to_smm;
+                    abs.abs_speed = Some(cpr_to_smm(*cpr_annual));
+                }
+                _ => {}
+            }
+        }
+
+        // Apply default scenario
+        if let Some(ref default_scenario) = scenario.default {
+            match default_scenario {
+                DefaultScenario::ConstantCdr { cdr_annual } => {
+                    abs.cdr_annual = Some(*cdr_annual);
+                }
+                DefaultScenario::CdrWithSeverity {
+                    cdr_annual,
+                    severity,
+                } => {
+                    use crate::instruments::common::structured_credit::{
+                        ConstantRecoveryModel, RecoveryBehavior,
+                    };
+                    abs.cdr_annual = Some(*cdr_annual);
+                    let recovery = 1.0 - severity;
+                    abs.recovery_model =
+                        std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery))
+                            as Box<dyn RecoveryBehavior>);
+                }
+                _ => {}
+            }
+        }
     }
 }
 
@@ -379,131 +775,26 @@ impl ScenarioComparison {
     }
 }
 
-/// Builder for creating scenario sets
-pub struct ScenarioBuilder {
-    scenarios: Vec<StructuredCreditScenario>,
-}
-
-impl ScenarioBuilder {
-    pub fn new() -> Self {
-        Self {
-            scenarios: Vec::new(),
-        }
-    }
-
-    /// Add a prepayment scenario
-    pub fn add_prepayment_scenario(
-        mut self,
-        id: impl Into<String>,
-        description: impl Into<String>,
-        scenario: PrepaymentScenario,
-    ) -> Self {
-        self.scenarios.push(StructuredCreditScenario {
-            id: id.into(),
-            description: description.into(),
-            prepayment: Some(scenario),
-            default: None,
-            market: None,
-        });
-        self
-    }
-
-    /// Add a default scenario
-    pub fn add_default_scenario(
-        mut self,
-        id: impl Into<String>,
-        description: impl Into<String>,
-        scenario: DefaultScenario,
-    ) -> Self {
-        self.scenarios.push(StructuredCreditScenario {
-            id: id.into(),
-            description: description.into(),
-            prepayment: None,
-            default: Some(scenario),
-            market: None,
-        });
-        self
-    }
-
-    /// Add a combined scenario
-    pub fn add_combined_scenario(
-        mut self,
-        id: impl Into<String>,
-        description: impl Into<String>,
-        prepayment: PrepaymentScenario,
-        default: DefaultScenario,
-    ) -> Self {
-        self.scenarios.push(StructuredCreditScenario {
-            id: id.into(),
-            description: description.into(),
-            prepayment: Some(prepayment),
-            default: Some(default),
-            market: None,
-        });
-        self
-    }
-
-    /// Add PSA speed ladder
-    pub fn add_psa_ladder(mut self, speeds: Vec<f64>) -> Self {
-        for speed in speeds {
-            self.scenarios.push(StructuredCreditScenario {
-                id: format!("PSA_{}", (speed * 100.0) as u32),
-                description: format!("{}% PSA prepayment speed", (speed * 100.0) as u32),
-                prepayment: Some(PrepaymentScenario::PsaSpeed { speed }),
-                default: None,
-                market: None,
-            });
-        }
-        self
-    }
-
-    /// Add CDR ladder
-    pub fn add_cdr_ladder(mut self, cdrs: Vec<f64>) -> Self {
-        for cdr in cdrs {
-            self.scenarios.push(StructuredCreditScenario {
-                id: format!("CDR_{}", (cdr * 100.0) as u32),
-                description: format!("{}% annual CDR", (cdr * 100.0) as u32),
-                prepayment: None,
-                default: Some(DefaultScenario::ConstantCdr { cdr_annual: cdr }),
-                market: None,
-            });
-        }
-        self
-    }
-
-    /// Build the scenario set
-    pub fn build(self) -> Vec<StructuredCreditScenario> {
-        self.scenarios
-    }
-}
-
-impl Default for ScenarioBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_scenario_library() {
-        let rmbs_scenarios = ScenarioLibrary::rmbs_prepayment_scenarios();
+    fn test_standard_scenarios() {
+        let rmbs_scenarios = StructuredCreditScenario::standard_rmbs_prepay();
         assert_eq!(rmbs_scenarios.len(), 5);
 
-        let clo_scenarios = ScenarioLibrary::clo_default_scenarios();
+        let clo_scenarios = StructuredCreditScenario::standard_clo_default();
         assert_eq!(clo_scenarios.len(), 3);
     }
 
     #[test]
-    fn test_scenario_builder() {
-        let scenarios = ScenarioBuilder::new()
-            .add_psa_ladder(vec![0.5, 1.0, 1.5, 2.0])
-            .add_cdr_ladder(vec![0.01, 0.02, 0.05])
-            .build();
+    fn test_scenario_ladders() {
+        let psa_scenarios = StructuredCreditScenario::psa_speed_ladder(vec![0.5, 1.0, 1.5, 2.0]);
+        assert_eq!(psa_scenarios.len(), 4);
 
-        assert_eq!(scenarios.len(), 7);
+        let cdr_scenarios = StructuredCreditScenario::cdr_ladder(vec![0.01, 0.02, 0.05]);
+        assert_eq!(cdr_scenarios.len(), 3);
     }
 
     #[test]
@@ -527,5 +818,14 @@ mod tests {
         assert!(scenario.prepayment.is_some());
         assert!(scenario.default.is_some());
         assert!(scenario.market.is_some());
+    }
+
+    #[test]
+    fn test_default_rates() {
+        let psa_speeds = StructuredCreditScenario::default_psa_speeds();
+        assert_eq!(psa_speeds.len(), 9);
+
+        let cdr_rates = StructuredCreditScenario::default_cdr_rates();
+        assert!(cdr_rates.len() > 5);
     }
 }

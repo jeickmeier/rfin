@@ -117,7 +117,9 @@ impl Rmbs {
     ) -> Self {
         let id_str = id.into();
         // Defaults for RMBS: 100% PSA, SDA default model, mortgage recovery
-        use crate::instruments::common::structured_credit::{psa_model, default_model_for, recovery_model_for};
+        use crate::instruments::common::structured_credit::{
+            default_model_for, psa_model, recovery_model_for,
+        };
         let prepay = psa_model(1.0);
         let dflt = default_model_for("rmbs");
         let recv = recovery_model_for("mortgage");

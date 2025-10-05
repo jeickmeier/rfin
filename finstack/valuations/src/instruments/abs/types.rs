@@ -117,7 +117,9 @@ impl Abs {
     ) -> Self {
         let id_str = id.into();
         // Generic ABS defaults (overridable by attributes or asset mix)
-        use crate::instruments::common::structured_credit::{prepayment_model_for, default_model_for, recovery_model_for};
+        use crate::instruments::common::structured_credit::{
+            default_model_for, prepayment_model_for, recovery_model_for,
+        };
         let prepay = prepayment_model_for("auto");
         let dflt = default_model_for("consumer");
         let recv = recovery_model_for("consumer");

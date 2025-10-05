@@ -9,7 +9,6 @@ pub mod pool;
 pub mod prepayment;
 pub mod rating_factors;
 pub mod reinvestment;
-pub mod scenario_runner;
 pub mod scenarios;
 pub mod tranches;
 pub mod waterfall; // Unified waterfall implementation
@@ -60,24 +59,14 @@ pub use prepayment::{
 
 // Default and recovery models - core types and commonly used models
 pub use default_models::{
-    cdr_to_mdr,
-    default_model_for,
-    mdr_to_cdr,
-    recovery_model_for,
-    CDRModel,
-    ConstantRecoveryModel,
-    CreditFactors,
-    DefaultBehavior,
-    MarketFactors,
-    RecoveryBehavior,
-    SDAModel,
+    cdr_to_mdr, default_model_for, mdr_to_cdr, recovery_model_for, CDRModel, ConstantRecoveryModel,
+    CreditFactors, DefaultBehavior, MarketFactors, RecoveryBehavior, SDAModel,
 };
 
 // Scenario framework
-pub use scenario_runner::ScenarioRunner;
 pub use scenarios::{
-    DefaultScenario, DefaultTimingShape, MarketScenario, PrepaymentScenario, ScenarioBuilder,
-    ScenarioComparison, ScenarioLibrary, ScenarioResult, StructuredCreditScenario,
+    DefaultScenario, DefaultTimingShape, MarketScenario, PrepaymentScenario, ScenarioComparison,
+    ScenarioResult, StructuredCreditScenario,
 };
 
 // Deal configuration and utilities

@@ -546,7 +546,6 @@ impl RecoveryBehavior for CollateralRecoveryModel {
     }
 }
 
-
 // Utility functions
 
 /// Convert MDR to CDR

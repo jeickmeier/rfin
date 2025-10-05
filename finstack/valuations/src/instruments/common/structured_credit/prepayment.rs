@@ -509,7 +509,6 @@ impl PrepaymentBehavior for StudentLoanPrepaymentModel {
     }
 }
 
-
 // Utility functions
 
 /// Calculate seasoning in months between two dates

@@ -117,7 +117,9 @@ impl Cmbs {
     ) -> Self {
         let id_str = id.into();
         // Defaults for CMBS: commercial prepayment model via factory("cmbs"), commercial defaults
-        use crate::instruments::common::structured_credit::{prepayment_model_for, default_model_for, recovery_model_for};
+        use crate::instruments::common::structured_credit::{
+            default_model_for, prepayment_model_for, recovery_model_for,
+        };
         let prepay = prepayment_model_for("cmbs");
         let dflt = default_model_for("commercial");
         let recv = recovery_model_for("commercial");
