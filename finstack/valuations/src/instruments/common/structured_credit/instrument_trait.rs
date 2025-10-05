@@ -1,20 +1,21 @@
-//! Shared waterfall implementation for structured credit instruments.
+//! Common trait for structured credit instruments.
 //!
-//! This module provides a trait-based approach to eliminate the 98% code duplication
-//! across CLO, ABS, CMBS, and RMBS waterfall implementations.
+//! This trait provides a shared interface for CLO, ABS, RMBS, and CMBS instruments
+//! to generate cashflows using a consistent waterfall engine.
 
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::common::structured_credit::{
-    AssetPool, CreditFactors, DefaultBehavior, EnhancedCoverageTests, MarketConditions,
-    PaymentRecipient, PrepaymentBehavior, RecoveryBehavior, TrancheStructure, WaterfallEngine,
+    AssetPool, CoverageTests, CreditFactors, MarketConditions, MarketFactors,
+    PrepaymentBehavior, DefaultBehavior, RecoveryBehavior,
+    TrancheStructure, WaterfallEngine, PaymentRecipient,
 };
-use finstack_core::dates::{utils::add_months, Date, Frequency};
+use finstack_core::dates::{Date, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-/// Trait for instruments that use structured credit waterfall logic
+/// Common trait for structured credit instruments
 pub trait StructuredCreditInstrument {
     /// Get reference to asset pool
     fn pool(&self) -> &AssetPool;
@@ -128,15 +129,8 @@ pub trait StructuredCreditInstrument {
         // Initialize waterfall engine with instrument-specific rules
         let mut waterfall_engine = self.create_waterfall_engine();
 
-        // Initialize enhanced coverage tests
-        let mut _coverage_tests = EnhancedCoverageTests {
-            oc_tests: HashMap::new(),
-            ic_tests: HashMap::new(),
-            par_value_test: None,
-            diversity_test: None,
-            warf_test: None,
-            was_test: None,
-        };
+        // Initialize coverage tests
+        let mut _coverage_tests = CoverageTests::new();
 
         let months_per_period = self.payment_frequency().months().unwrap_or(3) as f64;
         let mut pay_date = self.first_payment_date().max(as_of);
@@ -167,13 +161,15 @@ pub trait StructuredCreditInstrument {
                 6,
                 None,
                 default_amt,
-                &crate::instruments::common::structured_credit::MarketFactors::default(),
+                &MarketFactors::default(),
             );
             let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
 
             // Total principal available = prepayments + recoveries + scheduled (0 for now)
             let scheduled_prin = Money::new(0.0, base_ccy);
-            let total_principal = scheduled_prin.checked_add(prepay_amt)?.checked_add(recovery_amt)?;
+            let total_principal = scheduled_prin
+                .checked_add(prepay_amt)?
+                .checked_add(recovery_amt)?;
 
             // Total cash available for distribution
             let total_cash = interest_collections.checked_add(total_principal)?;
@@ -214,9 +210,7 @@ pub trait StructuredCreditInstrument {
                         .unwrap_or(Money::new(0.0, base_ccy));
 
                     if let Some(current) = tranche_balances.get_mut(&tranche_id) {
-                        *current = current
-                            .checked_sub(principal_payment)
-                            .unwrap_or(*current);
+                        *current = current.checked_sub(principal_payment).unwrap_or(*current);
                     }
                 }
             }
@@ -240,9 +234,7 @@ pub trait StructuredCreditInstrument {
 
         for (_tranche_id, flows) in tranche_cashflow_map {
             for (date, amount) in flows {
-                *flow_map
-                    .entry(date)
-                    .or_insert(Money::new(0.0, base_ccy)) =
+                *flow_map.entry(date).or_insert(Money::new(0.0, base_ccy)) =
                     flow_map[&date].checked_add(amount)?;
             }
         }
@@ -256,9 +248,24 @@ pub trait StructuredCreditInstrument {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    // Tests would be added here to verify the shared implementation
-    // works correctly with all instrument types
+/// Helper function to add months to a date
+fn add_months(date: Date, months: i32) -> Date {
+    let year = date.year();
+    let month = date.month() as i32;
+    
+    let total_months = month + months;
+    let new_year = year + ((total_months - 1) / 12);
+    let new_month = ((total_months - 1) % 12) + 1;
+    
+    Date::from_calendar_date(
+        new_year,
+        time::Month::try_from(new_month as u8).unwrap_or(time::Month::January),
+        date.day().min(28), // Avoid end-of-month issues
+    )
+    .unwrap_or(date)
 }
 
+#[cfg(test)]
+mod tests {
+    // Tests would go here
+}

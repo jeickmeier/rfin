@@ -3,7 +3,7 @@
 //! Provides standardized rating factor tables from major rating agencies
 //! for use in WARF, diversity score, and other credit metrics calculations.
 
-use super::types::CreditRating;
+use super::enums::CreditRating;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -92,7 +92,7 @@ mod tests {
     #[test]
     fn test_moodys_warf_factors() {
         let table = RatingFactorTable::moodys_standard();
-        
+
         // Verify key rating factors
         assert_eq!(table.get_factor(CreditRating::AAA), 1.0);
         assert_eq!(table.get_factor(CreditRating::A), 40.0);
@@ -103,12 +103,23 @@ mod tests {
     #[test]
     fn test_convenience_function_matches_table() {
         let table = RatingFactorTable::moodys_standard();
-        
+
         // Verify convenience function matches table
-        assert_eq!(moodys_warf_factor(CreditRating::AAA), table.get_factor(CreditRating::AAA));
-        assert_eq!(moodys_warf_factor(CreditRating::A), table.get_factor(CreditRating::A));
-        assert_eq!(moodys_warf_factor(CreditRating::BBB), table.get_factor(CreditRating::BBB));
-        assert_eq!(moodys_warf_factor(CreditRating::B), table.get_factor(CreditRating::B));
+        assert_eq!(
+            moodys_warf_factor(CreditRating::AAA),
+            table.get_factor(CreditRating::AAA)
+        );
+        assert_eq!(
+            moodys_warf_factor(CreditRating::A),
+            table.get_factor(CreditRating::A)
+        );
+        assert_eq!(
+            moodys_warf_factor(CreditRating::BBB),
+            table.get_factor(CreditRating::BBB)
+        );
+        assert_eq!(
+            moodys_warf_factor(CreditRating::B),
+            table.get_factor(CreditRating::B)
+        );
     }
 }
-

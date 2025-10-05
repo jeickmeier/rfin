@@ -17,4 +17,3 @@ impl crate::metrics::MetricCalculator for AbsSpeedCalculator {
         Ok(abs.abs_speed.unwrap_or(1.5)) // 1.5% ABS default
     }
 }
-

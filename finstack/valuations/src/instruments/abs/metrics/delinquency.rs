@@ -15,7 +15,9 @@ impl crate::metrics::MetricCalculator for AbsDelinquencyCalculator {
 
         // Calculate delinquency rate from pool
         // Using credit factors delinquency_days as proxy
-        let delinquent_balance = abs.pool.assets
+        let delinquent_balance = abs
+            .pool
+            .assets
             .iter()
             .filter(|a| !a.is_defaulted) // Not yet defaulted
             .map(|a| a.balance.amount())
@@ -52,4 +54,3 @@ impl crate::metrics::MetricCalculator for AbsChargeOffCalculator {
         }
     }
 }
-

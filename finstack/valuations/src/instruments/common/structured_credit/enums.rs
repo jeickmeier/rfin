@@ -1,16 +1,21 @@
-//! Shared structured credit enums and types used across instruments.
+//! Core enumeration types for structured credit instruments.
+//!
+//! This module provides all the enumeration types used to classify and categorize
+//! various aspects of structured credit instruments including deal types, asset types,
+//! credit ratings, and payment modes.
 
 use finstack_core::dates::Date;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Type of structured credit deal
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// ============================================================================
+// CORE DEAL TYPES
+// ============================================================================
+
+/// Primary structured credit deal classification
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// Using lowercase avoids inserting underscores into acronym variants (e.g. `ABS` ->
-// `abs` instead of the previous `a_b_s`).
-#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 pub enum DealType {
     /// Collateralized Loan Obligation
     CLO,
@@ -28,10 +33,13 @@ pub enum DealType {
     Card,
 }
 
-/// Credit rating for tranches and assets
+// ============================================================================
+// CREDIT & RATINGS
+// ============================================================================
+
+/// Credit rating scale (agency-agnostic)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "UPPERCASE"))]
 pub enum CreditRating {
     AAA,
     AA,
@@ -52,26 +60,27 @@ impl CreditRating {
         matches!(self, Self::AAA | Self::AA | Self::A | Self::BBB)
     }
 
-    /// Get rating factor for diversity score calculations
+    /// Get Moody's WARF factor for the rating
     pub fn rating_factor(&self) -> f64 {
         match self {
             Self::AAA => 1.0,
-            Self::AA => 2.0,
-            Self::A => 4.0,
-            Self::BBB => 7.0,
-            Self::BB => 13.0,
-            Self::B => 27.0,
-            Self::CCC | Self::CC | Self::C => 54.0,
-            Self::D => 100.0,
-            Self::NR => 50.0,
+            Self::AA => 10.0,
+            Self::A => 40.0,
+            Self::BBB => 260.0,
+            Self::BB => 1350.0,
+            Self::B => 2720.0,
+            Self::CCC => 6500.0,
+            Self::CC => 8070.0,
+            Self::C => 10000.0,
+            Self::D => 10000.0,
+            Self::NR => 3650.0,
         }
     }
 }
 
-/// Tranche seniority in the capital structure
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+/// Tranche seniority levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum TrancheSeniority {
     /// Most senior debt tranche
     Senior = 0,
@@ -83,12 +92,14 @@ pub enum TrancheSeniority {
     Equity = 3,
 }
 
-/// Asset type classification for pool assets
+// ============================================================================
+// ASSET CLASSIFICATION
+// ============================================================================
+
+/// Asset type classification for pool composition
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// These variants are tagged in JSON (e.g. {"Loan": {...}}), so preserve their
-// Rust casing instead of converting to snake_case.
-#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase"))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum AssetType {
     /// Corporate loan
     Loan {
@@ -111,11 +122,17 @@ pub enum AssetType {
         ltv: Option<f64>,
     },
     /// Credit card receivables
-    CreditCard { portfolio_type: CardPortfolioType },
+    CreditCard { 
+        portfolio_type: CardPortfolioType 
+    },
     /// Student loan assets
-    StudentLoan { loan_type: StudentLoanType },
+    StudentLoan { 
+        loan_type: StudentLoanType 
+    },
     /// Equipment financing
-    Equipment { equipment_type: String },
+    Equipment { 
+        equipment_type: String 
+    },
     /// Generic asset placeholder
     Generic {
         description: String,
@@ -123,10 +140,9 @@ pub enum AssetType {
     },
 }
 
-/// Loan type classification
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Corporate loan subtypes
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum LoanType {
     FirstLien,
     SecondLien,
@@ -135,10 +151,9 @@ pub enum LoanType {
     Mezzanine,
 }
 
-/// Bond type classification
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Bond classification
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum BondType {
     HighYield,
     InvestmentGrade,
@@ -146,10 +161,9 @@ pub enum BondType {
     EmergingMarkets,
 }
 
-/// Property type for mortgage assets
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Property types for mortgage-backed securities
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum PropertyType {
     SingleFamily,
     Multifamily,
@@ -161,10 +175,9 @@ pub enum PropertyType {
     Other(String),
 }
 
-/// Vehicle type for auto loans
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Vehicle types for auto ABS
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum VehicleType {
     New,
     Used,
@@ -172,10 +185,9 @@ pub enum VehicleType {
     Fleet,
 }
 
-/// Credit card portfolio type
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Credit card portfolio types
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum CardPortfolioType {
     Prime,
     SubPrime,
@@ -183,10 +195,9 @@ pub enum CardPortfolioType {
     Commercial,
 }
 
-/// Student loan type
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Student loan types
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum StudentLoanType {
     Federal,
     Private,
@@ -194,10 +205,14 @@ pub enum StudentLoanType {
     Consolidation,
 }
 
-/// Payment mode for waterfall distribution
+// ============================================================================
+// PAYMENT & WATERFALL
+// ============================================================================
+
+/// Payment distribution modes
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase"))]
+#[cfg_attr(feature = "serde", serde(tag = "mode"))]
 pub enum PaymentMode {
     /// Normal pro-rata payments to all tranches
     #[cfg_attr(feature = "serde", serde(alias = "pro_rata"))]
@@ -210,24 +225,14 @@ pub enum PaymentMode {
     },
     /// Hybrid mode with custom rules
     #[cfg_attr(feature = "serde", serde(alias = "hybrid"))]
-    Hybrid { description: String },
+    Hybrid { 
+        description: String 
+    },
 }
 
-/// Coverage test type
+/// Consequences when triggers are breached
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
-pub enum CoverageTestType {
-    OC,
-    IC,
-    ParValue,
-    Custom(String),
-}
-
-/// Trigger consequence when coverage tests fail
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum TriggerConsequence {
     DivertCashFlow,
     TrapExcessSpread,

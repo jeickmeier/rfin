@@ -11,7 +11,7 @@ use std::collections::HashMap;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::types::{AssetType, CreditRating, DealType};
+use super::enums::{AssetType, CreditRating, DealType};
 
 /// Individual asset in the structured credit pool
 #[derive(Debug, Clone)]
@@ -49,14 +49,12 @@ pub struct PoolAsset {
 }
 
 impl PoolAsset {
-    // Loan support removed from library
-
     /// Create new pool asset from existing bond
     pub fn from_bond(bond: &Bond, industry: Option<String>) -> Self {
         Self {
             id: bond.id.clone(),
             asset_type: AssetType::Bond {
-                bond_type: super::types::BondType::HighYield, // Default assumption
+                bond_type: super::enums::BondType::HighYield, // Default assumption
                 industry: industry.clone(),
             },
             balance: bond.notional,
@@ -110,7 +108,7 @@ impl PoolAsset {
         Self {
             id: id.into(),
             asset_type: AssetType::Loan {
-                loan_type: super::types::LoanType::FirstLien,
+                loan_type: super::enums::LoanType::FirstLien,
                 industry: None,
             },
             balance,
@@ -140,7 +138,7 @@ impl PoolAsset {
         Self {
             id: id.into(),
             asset_type: AssetType::Bond {
-                bond_type: super::types::BondType::HighYield,
+                bond_type: super::enums::BondType::HighYield,
                 industry: None,
             },
             balance,
@@ -407,8 +405,6 @@ impl AssetPool {
             stats: PoolStats::default(),
         }
     }
-
-    // Loan add removed
 
     /// Add asset from existing bond
     pub fn add_bond(&mut self, bond: &Bond, industry: Option<String>) -> &mut Self {
@@ -779,67 +775,4 @@ mod tests {
         assert_eq!(pool.deal_type, DealType::CLO);
         assert_eq!(pool.base_currency(), Currency::USD);
     }
-
-    // #[test]
-    // fn test_pool_stats_calculation() {
-    //     let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
-
-    //     // Add test assets
-    //     let asset1 = PoolAsset {
-    //         id: "ASSET1".to_string(),
-    //         asset_type: AssetType::Loan {
-    //             loan_type: LoanType::FirstLien,
-    //             industry: Some("Technology".to_string()),
-    //         },
-    //         balance: Money::new(100_000.0, Currency::USD),
-    //         rate: 0.08,
-    //         maturity: test_date(),
-    //         credit_quality: Some(CreditRating::B),
-    //         industry: Some("Technology".to_string()),
-    //         obligor_id: Some("OBLIGOR1".to_string()),
-    //         is_defaulted: false,
-    //         recovery_amount: None,
-    //         purchase_price: None,
-    //         acquisition_date: None,
-    //     };
-
-    //     pool.assets.push(asset1);
-    //     pool.update_stats(test_date());
-
-    //     assert_eq!(pool.stats.weighted_avg_coupon, 0.08);
-    //     assert_eq!(pool.stats.num_obligors, 1);
-    //     assert_eq!(pool.stats.num_industries, 1);
-    // }
-
-    // #[test]
-    // fn test_concentration_limits() {
-    //     let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
-
-    //     // Add asset that violates obligor concentration
-    //     let large_asset = PoolAsset {
-    //         id: "LARGE_ASSET".to_string(),
-    //         asset_type: AssetType::Loan {
-    //             loan_type: LoanType::FirstLien,
-    //             industry: Some("Technology".to_string()),
-    //         },
-    //         balance: Money::new(1_000_000.0, Currency::USD), // Large asset
-    //         rate: 0.08,
-    //         maturity: test_date(),
-    //         credit_quality: Some(CreditRating::B),
-    //         industry: Some("Technology".to_string()),
-    //         obligor_id: Some("BIG_OBLIGOR".to_string()),
-    //         is_defaulted: false,
-    //         recovery_amount: None,
-    //         purchase_price: None,
-    //         acquisition_date: None,
-    //     };
-
-    //     pool.assets.push(large_asset);
-
-    //     // Set strict limit for testing
-    //     pool.concentration_limits.max_obligor_concentration = 50.0; // 50%
-
-    //     let result = pool.check_concentration_limits();
-    //     assert!(result.has_violations());
-    // }
 }

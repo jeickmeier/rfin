@@ -59,10 +59,7 @@ mod tests {
         );
         assert_eq!(custom_config.fees.trustee_fee_annual.amount(), 75_000.0);
         assert_eq!(custom_config.fees.senior_mgmt_fee_bps, 35.0);
-        assert_eq!(
-            custom_config.default_assumptions.base_recovery_rate,
-            0.40
-        ); // CLO standard
+        assert_eq!(custom_config.default_assumptions.base_recovery_rate, 0.40); // CLO standard
 
         // This config can now be used in instrument construction
         // (future enhancement: Clo::with_config(pool, tranches, custom_config))
@@ -212,14 +209,8 @@ mod tests {
         // Verify individual rating factors
         assert_eq!(rating_factors::moodys_warf_factor(CreditRating::AAA), 1.0);
         assert_eq!(rating_factors::moodys_warf_factor(CreditRating::A), 40.0);
-        assert_eq!(
-            rating_factors::moodys_warf_factor(CreditRating::BB),
-            1350.0
-        );
-        assert_eq!(
-            rating_factors::moodys_warf_factor(CreditRating::B),
-            2720.0
-        );
+        assert_eq!(rating_factors::moodys_warf_factor(CreditRating::BB), 1350.0);
+        assert_eq!(rating_factors::moodys_warf_factor(CreditRating::B), 2720.0);
     }
 
     #[test]
@@ -391,9 +382,8 @@ mod tests {
         // Would be calculated from all-in rates after index fixing
 
         // WAM (not WAL)
-        let _wam = pool.weighted_avg_maturity(
-            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-        );
+        let _wam =
+            pool.weighted_avg_maturity(Date::from_calendar_date(2025, Month::January, 1).unwrap());
 
         // Verify configuration is ready for use
         assert!(config.coverage_tests.oc_triggers.contains_key("CLASS_A"));
@@ -488,10 +478,7 @@ mod tests {
 
         // Verify updated auto recovery rate
         assert_eq!(config.default_assumptions.base_recovery_rate, 0.45); // Updated!
-        assert_eq!(
-            config.default_assumptions.abs_speed_monthly,
-            Some(0.015)
-        ); // 1.5% ABS
+        assert_eq!(config.default_assumptions.abs_speed_monthly, Some(0.015)); // 1.5% ABS
 
         // ABS has higher servicing fees than RMBS
         assert_eq!(config.fees.servicing_fee_bps, 50.0); // 50bps
@@ -522,4 +509,3 @@ mod tests {
         assert_eq!(config.default_assumptions.base_cdr_annual, 0.005); // 0.5% CDR
     }
 }
-

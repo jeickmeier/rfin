@@ -18,4 +18,3 @@ impl crate::metrics::MetricCalculator for RmbsCprCalculator {
         Ok(rmbs.psa_speed * 6.0)
     }
 }
-

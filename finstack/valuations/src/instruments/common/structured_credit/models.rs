@@ -1,18 +1,22 @@
-//! Extended types for structured credit implementation.
+//! Data model structures for structured credit instruments.
+//!
+//! This module provides the complex data structures that represent assets, tranches,
+//! and other entities within structured credit deals, building on the core enumerations.
 
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
-// Type aliases for clarity
-pub type TrancheId = String;
-
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Coupon type for tranches
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use super::enums::{AssetType, CreditRating};
+
+/// Tranche identifier type alias for clarity
+pub type TrancheId = String;
+
+/// Coupon/interest payment types
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum CouponType {
     Fixed,
     Floating,
@@ -21,10 +25,9 @@ pub enum CouponType {
     Deferrable,
 }
 
-/// Asset seniority level
+/// Alternative seniority naming (for backward compatibility)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum Seniority {
     Senior,
     Subordinated,
@@ -32,7 +35,7 @@ pub enum Seniority {
     Junior,
 }
 
-/// Individual asset in a structured pool
+/// Individual asset in a structured credit pool
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Asset {
@@ -41,7 +44,7 @@ pub struct Asset {
     /// Obligor/borrower identifier
     pub obligor_id: Option<String>,
     /// Asset type
-    pub asset_type: super::AssetType,
+    pub asset_type: AssetType,
     /// Original balance at origination
     pub original_balance: Money,
     /// Current outstanding balance
@@ -53,7 +56,7 @@ pub struct Asset {
     /// Maturity date
     pub maturity_date: Date,
     /// Credit rating
-    pub rating: Option<super::CreditRating>,
+    pub rating: Option<CreditRating>,
     /// Industry classification
     pub industry: Option<String>,
     /// Country/region
@@ -64,7 +67,7 @@ pub struct Asset {
     pub recovery_rate: Option<f64>,
 }
 
-/// Simplified tranche structure for coverage tests
+/// Simplified tranche definition
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Tranche {
@@ -73,7 +76,7 @@ pub struct Tranche {
     /// Tranche name
     pub name: String,
     /// Credit rating
-    pub rating: Option<super::CreditRating>,
+    pub rating: Option<CreditRating>,
     /// Original balance
     pub original_balance: Money,
     /// Current outstanding balance
@@ -90,7 +93,7 @@ pub struct Tranche {
     pub coverage_tests: Option<TrancheCoverageTests>,
 }
 
-/// Coverage test requirements for a tranche
+/// Coverage test configuration for a tranche
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TrancheCoverageTests {

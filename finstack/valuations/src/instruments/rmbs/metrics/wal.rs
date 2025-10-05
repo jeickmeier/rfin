@@ -23,4 +23,3 @@ impl crate::metrics::MetricCalculator for RmbsWalCalculator {
         Ok(adjusted_wal)
     }
 }
-

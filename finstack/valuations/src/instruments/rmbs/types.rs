@@ -2,10 +2,9 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, DealType, StructuredCreditWaterfall, TrancheStructure,
-    PrepaymentBehavior, DefaultBehavior, RecoveryBehavior,
-    PrepaymentModelFactory, DefaultModelFactory,
-    MarketConditions, CreditFactors,
+    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, DefaultModelFactory,
+    MarketConditions, PrepaymentBehavior, PrepaymentModelFactory, RecoveryBehavior,
+    StructuredCreditWaterfall, TrancheStructure,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -64,15 +63,36 @@ pub struct Rmbs {
     pub attributes: Attributes,
 
     /// Prepayment model (SMM), typically PSA/Mortgage model
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Rmbs::default_prepayment_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Rmbs::default_prepayment_arc"
+        )
+    )]
     pub prepayment_model: Arc<dyn PrepaymentBehavior>,
 
     /// Default model (MDR), typically SDA/Mortgage default
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Rmbs::default_default_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Rmbs::default_default_arc"
+        )
+    )]
     pub default_model: Arc<dyn DefaultBehavior>,
 
     /// Recovery model for mortgages (collateral-based)
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Rmbs::default_recovery_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Rmbs::default_recovery_arc"
+        )
+    )]
     pub recovery_model: Arc<dyn RecoveryBehavior>,
 
     /// Market conditions (refi rate, HPA, seasonality)
@@ -101,7 +121,10 @@ impl Rmbs {
         let prepay = PrepaymentModelFactory::create_psa(1.0);
         let dflt = DefaultModelFactory::create_default_model("rmbs");
         let recv = DefaultModelFactory::create_recovery_model("mortgage");
-        let credit_factors = CreditFactors { ltv: Some(0.80), ..Default::default() };
+        let credit_factors = CreditFactors {
+            ltv: Some(0.80),
+            ..Default::default()
+        };
         Self {
             id: InstrumentId::new(id_str),
             deal_type: DealType::RMBS,
@@ -253,19 +276,27 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
         self.payment_frequency
     }
 
-    fn prepayment_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
+    fn prepayment_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
         &self.prepayment_model
     }
 
-    fn default_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
+    fn default_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
         &self.default_model
     }
 
-    fn recovery_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
+    fn recovery_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
         &self.recovery_model
     }
 
-    fn market_conditions(&self) -> &crate::instruments::common::structured_credit::MarketConditions {
+    fn market_conditions(
+        &self,
+    ) -> &crate::instruments::common::structured_credit::MarketConditions {
         &self.market_conditions
     }
 
@@ -273,14 +304,16 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
         &self.credit_factors
     }
 
-    fn create_waterfall_engine(&self) -> crate::instruments::common::structured_credit::WaterfallEngine {
+    fn create_waterfall_engine(
+        &self,
+    ) -> crate::instruments::common::structured_credit::WaterfallEngine {
         self.create_rmbs_waterfall_engine()
     }
 
     // RMBS-specific prepayment override (PSA speed)
     fn prepayment_rate_override(&self, _pay_date: Date, seasoning_months: u32) -> Option<f64> {
         if self.psa_speed != 1.0 {
-            use crate::instruments::common::structured_credit::{PSAModel, cpr_to_smm};
+            use crate::instruments::common::structured_credit::{cpr_to_smm, PSAModel};
             let psa = PSAModel::new(self.psa_speed);
             let cpr = psa.cpr_at_month(seasoning_months);
             Some(cpr_to_smm(cpr))
@@ -292,9 +325,17 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
     // RMBS-specific default override (SDA speed)
     fn default_rate_override(&self, pay_date: Date, seasoning_months: u32) -> Option<f64> {
         if self.sda_speed != 1.0 {
-            use crate::instruments::common::structured_credit::{SDAModel, DefaultBehavior};
-            let sda = SDAModel { speed: self.sda_speed, ..Default::default() };
-            Some(sda.default_rate(pay_date, self.closing_date, seasoning_months, &self.credit_factors))
+            use crate::instruments::common::structured_credit::{DefaultBehavior, SDAModel};
+            let sda = SDAModel {
+                speed: self.sda_speed,
+                ..Default::default()
+            };
+            Some(sda.default_rate(
+                pay_date,
+                self.closing_date,
+                seasoning_months,
+                &self.credit_factors,
+            ))
         } else {
             None
         }
@@ -318,7 +359,9 @@ impl Rmbs {
     }
 
     /// Create waterfall engine for RMBS (called by trait)
-    fn create_rmbs_waterfall_engine(&self) -> crate::instruments::common::structured_credit::WaterfallEngine {
+    fn create_rmbs_waterfall_engine(
+        &self,
+    ) -> crate::instruments::common::structured_credit::WaterfallEngine {
         use crate::instruments::common::structured_credit::{
             PaymentCalculation, PaymentRecipient, PaymentRule, WaterfallEngine,
         };
@@ -331,7 +374,7 @@ impl Rmbs {
             recipient: PaymentRecipient::ServiceProvider("Servicer".to_string()),
             calculation: PaymentCalculation::PercentageOfCollateral {
                 rate: 0.0025, // 25 bps servicing
-                annual: true,
+                annualized: true,
             },
             conditions: vec![],
             divertible: false,

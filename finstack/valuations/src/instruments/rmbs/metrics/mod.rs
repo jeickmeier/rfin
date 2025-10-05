@@ -16,7 +16,7 @@ mod ltv;
 mod wal;
 
 pub use cpr::RmbsCprCalculator;
-pub use ltv::{RmbsLtvCalculator, RmbsFicoCalculator};
+pub use ltv::{RmbsFicoCalculator, RmbsLtvCalculator};
 pub use wal::RmbsWalCalculator;
 
 use crate::metrics::{MetricContext, MetricId, MetricRegistry};
@@ -104,8 +104,8 @@ impl crate::metrics::MetricCalculator for RmbsSeverityCalculator {
 
         // Calculate 1 - recovery rate
         if rmbs.pool.cumulative_defaults.amount() > 0.0 {
-            let recovery_rate = rmbs.pool.cumulative_recoveries.amount() 
-                / rmbs.pool.cumulative_defaults.amount();
+            let recovery_rate =
+                rmbs.pool.cumulative_recoveries.amount() / rmbs.pool.cumulative_defaults.amount();
             Ok((1.0 - recovery_rate) * 100.0)
         } else {
             // Default assumption for mortgages
@@ -132,4 +132,3 @@ impl crate::metrics::MetricCalculator for RmbsExpectedLossCalculator {
         Ok(cdr * severity * 100.0)
     }
 }
-

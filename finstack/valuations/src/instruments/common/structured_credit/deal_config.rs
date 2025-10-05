@@ -7,7 +7,7 @@ use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use std::collections::HashMap;
 
-use super::types::CreditRating;
+use super::enums::CreditRating;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -89,7 +89,7 @@ impl DealFees {
     pub fn clo_standard(base_currency: finstack_core::currency::Currency) -> Self {
         Self {
             trustee_fee_annual: Money::new(50_000.0, base_currency),
-            senior_mgmt_fee_bps: 40.0,  // 40 bps
+            senior_mgmt_fee_bps: 40.0,       // 40 bps
             subordinated_mgmt_fee_bps: 20.0, // 20 bps
             servicing_fee_bps: 0.0,
             master_servicer_fee_bps: None,
@@ -116,7 +116,7 @@ impl DealFees {
             senior_mgmt_fee_bps: 0.0,
             subordinated_mgmt_fee_bps: 0.0,
             servicing_fee_bps: 0.0,
-            master_servicer_fee_bps: Some(25.0), // 25 bps
+            master_servicer_fee_bps: Some(25.0),  // 25 bps
             special_servicer_fee_bps: Some(25.0), // 25 bps
         }
     }
@@ -164,15 +164,15 @@ impl CoverageTestConfig {
         let mut haircuts = HashMap::new();
         haircuts.insert(CreditRating::AAA, 0.0);
         haircuts.insert(CreditRating::AA, 0.0);
-        haircuts.insert(CreditRating::A, 0.01);   // 1%
+        haircuts.insert(CreditRating::A, 0.01); // 1%
         haircuts.insert(CreditRating::BBB, 0.02); // 2%
-        haircuts.insert(CreditRating::BB, 0.05);  // 5%
-        haircuts.insert(CreditRating::B, 0.10);   // 10%
+        haircuts.insert(CreditRating::BB, 0.05); // 5%
+        haircuts.insert(CreditRating::B, 0.10); // 10%
         haircuts.insert(CreditRating::CCC, 0.20); // 20%
-        haircuts.insert(CreditRating::CC, 0.30);  // 30%
-        haircuts.insert(CreditRating::C, 0.40);   // 40%
-        haircuts.insert(CreditRating::D, 0.50);   // 50%
-        haircuts.insert(CreditRating::NR, 0.15);  // 15%
+        haircuts.insert(CreditRating::CC, 0.30); // 30%
+        haircuts.insert(CreditRating::C, 0.40); // 40%
+        haircuts.insert(CreditRating::D, 0.50); // 50%
+        haircuts.insert(CreditRating::NR, 0.15); // 15%
         haircuts
     }
 
@@ -223,9 +223,9 @@ impl DefaultAssumptions {
     /// CLO default assumptions
     pub fn clo_standard() -> Self {
         Self {
-            base_cdr_annual: 0.02,      // 2% CDR
-            base_recovery_rate: 0.40,    // 40% recovery (60% severity)
-            base_cpr_annual: 0.15,       // 15% CPR
+            base_cdr_annual: 0.02,    // 2% CDR
+            base_recovery_rate: 0.40, // 40% recovery (60% severity)
+            base_cpr_annual: 0.15,    // 15% CPR
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: None,
@@ -235,11 +235,11 @@ impl DefaultAssumptions {
     /// RMBS default assumptions
     pub fn rmbs_standard() -> Self {
         Self {
-            base_cdr_annual: 0.006,      // 0.6% CDR (100% SDA peak)
-            base_recovery_rate: 0.60,    // 60% recovery (40% severity)
-            base_cpr_annual: 0.06,       // 6% CPR (100% PSA)
-            psa_speed: Some(1.0),        // 100% PSA
-            sda_speed: Some(1.0),        // 100% SDA
+            base_cdr_annual: 0.006,   // 0.6% CDR (100% SDA peak)
+            base_recovery_rate: 0.60, // 60% recovery (40% severity)
+            base_cpr_annual: 0.06,    // 6% CPR (100% PSA)
+            psa_speed: Some(1.0),     // 100% PSA
+            sda_speed: Some(1.0),     // 100% SDA
             abs_speed_monthly: None,
         }
     }
@@ -247,9 +247,9 @@ impl DefaultAssumptions {
     /// Auto ABS default assumptions
     pub fn abs_auto_standard() -> Self {
         Self {
-            base_cdr_annual: 0.02,       // 2% CDR
-            base_recovery_rate: 0.45,    // 45% recovery (updated from 35%)
-            base_cpr_annual: 0.0,        // Not used for auto
+            base_cdr_annual: 0.02,    // 2% CDR
+            base_recovery_rate: 0.45, // 45% recovery (updated from 35%)
+            base_cpr_annual: 0.0,     // Not used for auto
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: Some(0.015), // 1.5% ABS
@@ -259,9 +259,9 @@ impl DefaultAssumptions {
     /// CMBS default assumptions
     pub fn cmbs_standard() -> Self {
         Self {
-            base_cdr_annual: 0.005,      // 0.5% CDR
-            base_recovery_rate: 0.65,    // 65% recovery (collateral-backed)
-            base_cpr_annual: 0.10,       // 10% CPR (open period)
+            base_cdr_annual: 0.005,   // 0.5% CDR
+            base_recovery_rate: 0.65, // 65% recovery (collateral-backed)
+            base_cpr_annual: 0.10,    // 10% CPR (open period)
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: None,
@@ -270,17 +270,49 @@ impl DefaultAssumptions {
 }
 
 impl DealConfig {
+    /// Create standard deal configuration for a given deal type
+    pub fn standard(
+        deal_type: super::DealType,
+        dates: DealDates,
+        base_currency: finstack_core::currency::Currency,
+    ) -> Self {
+        let (fees, default_assumptions) = match deal_type {
+            super::DealType::CLO => (
+                DealFees::clo_standard(base_currency),
+                DefaultAssumptions::clo_standard(),
+            ),
+            super::DealType::RMBS => (
+                DealFees::rmbs_standard(base_currency),
+                DefaultAssumptions::rmbs_standard(),
+            ),
+            super::DealType::ABS | super::DealType::Auto => (
+                DealFees::abs_standard(base_currency),
+                DefaultAssumptions::abs_auto_standard(),
+            ),
+            super::DealType::CMBS => (
+                DealFees::cmbs_standard(base_currency),
+                DefaultAssumptions::cmbs_standard(),
+            ),
+            _ => (
+                DealFees::abs_standard(base_currency),
+                DefaultAssumptions::abs_auto_standard(),
+            ),
+        };
+
+        Self {
+            dates,
+            fees,
+            coverage_tests: CoverageTestConfig::new(),
+            default_assumptions,
+        }
+    }
+
     /// Create CLO deal configuration
     pub fn clo_standard(
         dates: DealDates,
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
-        Self {
-            dates,
-            fees: DealFees::clo_standard(base_currency),
-            coverage_tests: CoverageTestConfig::new(),
-            default_assumptions: DefaultAssumptions::clo_standard(),
-        }
+        Self::standard(super::DealType::CLO, dates, base_currency)
     }
 
     /// Create RMBS deal configuration
@@ -288,12 +320,7 @@ impl DealConfig {
         dates: DealDates,
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
-        Self {
-            dates,
-            fees: DealFees::rmbs_standard(base_currency),
-            coverage_tests: CoverageTestConfig::new(),
-            default_assumptions: DefaultAssumptions::rmbs_standard(),
-        }
+        Self::standard(super::DealType::RMBS, dates, base_currency)
     }
 
     /// Create ABS deal configuration
@@ -301,12 +328,7 @@ impl DealConfig {
         dates: DealDates,
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
-        Self {
-            dates,
-            fees: DealFees::abs_standard(base_currency),
-            coverage_tests: CoverageTestConfig::new(),
-            default_assumptions: DefaultAssumptions::abs_auto_standard(),
-        }
+        Self::standard(super::DealType::ABS, dates, base_currency)
     }
 
     /// Create CMBS deal configuration
@@ -314,12 +336,7 @@ impl DealConfig {
         dates: DealDates,
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
-        Self {
-            dates,
-            fees: DealFees::cmbs_standard(base_currency),
-            coverage_tests: CoverageTestConfig::new(),
-            default_assumptions: DefaultAssumptions::cmbs_standard(),
-        }
+        Self::standard(super::DealType::CMBS, dates, base_currency)
     }
 }
 
@@ -349,7 +366,7 @@ mod tests {
     #[test]
     fn test_clo_fee_structure() {
         let fees = DealFees::clo_standard(Currency::USD);
-        
+
         assert_eq!(fees.trustee_fee_annual.amount(), 50_000.0);
         assert_eq!(fees.senior_mgmt_fee_bps, 40.0);
         assert_eq!(fees.subordinated_mgmt_fee_bps, 20.0);
@@ -368,9 +385,8 @@ mod tests {
     #[test]
     fn test_auto_recovery_rate_updated() {
         let assumptions = DefaultAssumptions::abs_auto_standard();
-        
+
         // Verify updated recovery rate
         assert_eq!(assumptions.base_recovery_rate, 0.45); // Was 0.35, now 0.45
     }
 }
-

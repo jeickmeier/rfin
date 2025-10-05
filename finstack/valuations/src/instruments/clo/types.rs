@@ -2,11 +2,19 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, DealType, StructuredCreditWaterfall, TrancheStructure,
+    AssetPool,
+    CoverageTests,
+    CreditFactors,
+    DealType,
+    DefaultBehavior,
+    DefaultModelFactory,
+    MarketConditions,
     // Prepayment/default frameworks
-    PrepaymentBehavior, DefaultBehavior, RecoveryBehavior,
-    PrepaymentModelFactory, DefaultModelFactory,
-    MarketConditions, CreditFactors,
+    PrepaymentBehavior,
+    PrepaymentModelFactory,
+    RecoveryBehavior,
+    StructuredCreditWaterfall,
+    TrancheStructure,
     // Waterfall engine
     WaterfallEngine,
 };
@@ -66,15 +74,36 @@ pub struct Clo {
     pub attributes: Attributes,
 
     /// Prepayment model (SMM) applied to pool cashflows
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Clo::default_prepayment_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Clo::default_prepayment_arc"
+        )
+    )]
     pub prepayment_model: Arc<dyn PrepaymentBehavior>,
 
     /// Default model (MDR) applied to pool cashflows
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Clo::default_default_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Clo::default_default_arc"
+        )
+    )]
     pub default_model: Arc<dyn DefaultBehavior>,
 
     /// Recovery model used to convert defaults to recoveries
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Clo::default_recovery_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Clo::default_recovery_arc"
+        )
+    )]
     pub recovery_model: Arc<dyn RecoveryBehavior>,
 
     /// Market conditions for prepayment behavior
@@ -281,19 +310,27 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
         self.payment_frequency
     }
 
-    fn prepayment_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
+    fn prepayment_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
         &self.prepayment_model
     }
 
-    fn default_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
+    fn default_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
         &self.default_model
     }
 
-    fn recovery_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
+    fn recovery_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
         &self.recovery_model
     }
 
-    fn market_conditions(&self) -> &crate::instruments::common::structured_credit::MarketConditions {
+    fn market_conditions(
+        &self,
+    ) -> &crate::instruments::common::structured_credit::MarketConditions {
         &self.market_conditions
     }
 
@@ -301,20 +338,24 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
         &self.credit_factors
     }
 
-    fn create_waterfall_engine(&self) -> crate::instruments::common::structured_credit::WaterfallEngine {
+    fn create_waterfall_engine(
+        &self,
+    ) -> crate::instruments::common::structured_credit::WaterfallEngine {
         self.create_clo_waterfall_engine()
     }
 }
 
 impl Clo {
     /// Create waterfall engine with standard CLO payment rules
-    fn create_clo_waterfall_engine(&self) -> crate::instruments::common::structured_credit::WaterfallEngine {
+    fn create_clo_waterfall_engine(
+        &self,
+    ) -> crate::instruments::common::structured_credit::WaterfallEngine {
         use crate::instruments::common::structured_credit::{
-            PaymentRule, PaymentRecipient, PaymentCalculation, ManagementFeeType,
+            ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRule,
         };
-        
+
         let mut engine = WaterfallEngine::new(self.pool.base_currency());
-        
+
         // Priority 1: Trustee fees
         engine.payment_rules.push(PaymentRule {
             id: "trustee_fees".to_string(),
@@ -326,24 +367,27 @@ impl Clo {
             conditions: vec![],
             divertible: false,
         });
-        
+
         // Priority 2: Senior management fee
         engine.payment_rules.push(PaymentRule {
             id: "senior_mgmt_fee".to_string(),
             priority: 2,
-            recipient: PaymentRecipient::Manager(ManagementFeeType::Senior),
+            recipient: PaymentRecipient::ManagerFee { 
+                fee_type: ManagementFeeType::Senior,
+                subordinated: false,
+            },
             calculation: PaymentCalculation::PercentageOfCollateral {
                 rate: 0.01,
-                annual: true,
+                annualized: true,
             },
             conditions: vec![],
             divertible: false,
         });
-        
+
         // Add interest payments for each tranche in priority order
         let mut sorted_tranches = self.tranches.tranches.clone();
         sorted_tranches.sort_by_key(|t| t.payment_priority);
-        
+
         let mut priority = 3;
         for tranche in &sorted_tranches {
             // Interest payment
@@ -359,7 +403,7 @@ impl Clo {
             });
             priority += 1;
         }
-        
+
         // Add principal payments for each tranche
         for tranche in &sorted_tranches {
             engine.payment_rules.push(PaymentRule {
@@ -375,7 +419,7 @@ impl Clo {
             });
             priority += 1;
         }
-        
+
         // Add equity distribution
         engine.payment_rules.push(PaymentRule {
             id: "equity_distribution".to_string(),
@@ -385,7 +429,7 @@ impl Clo {
             conditions: vec![],
             divertible: false,
         });
-        
+
         engine
     }
 }

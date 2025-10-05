@@ -55,7 +55,9 @@ impl crate::metrics::MetricCalculator for AbsCreditEnhancementCalculator {
         // Credit Enhancement = Subordination + OC + Excess Spread
         // Simplified: subordination for most senior tranche
         if let Some(senior_tranche) = abs.tranches.tranches.first() {
-            let subordination = abs.tranches.subordination_amount(senior_tranche.id.as_str());
+            let subordination = abs
+                .tranches
+                .subordination_amount(senior_tranche.id.as_str());
             let pool_balance = abs.pool.total_balance();
 
             if pool_balance.amount() > 0.0 {
@@ -68,4 +70,3 @@ impl crate::metrics::MetricCalculator for AbsCreditEnhancementCalculator {
         }
     }
 }
-

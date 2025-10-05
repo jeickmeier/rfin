@@ -41,4 +41,3 @@ impl crate::metrics::MetricCalculator for RmbsFicoCalculator {
         }
     }
 }
-

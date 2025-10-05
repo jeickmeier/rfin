@@ -9,7 +9,7 @@ use finstack_core::types::InstrumentId;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::types::{CreditRating, TrancheSeniority, TriggerConsequence};
+use super::enums::{CreditRating, TrancheSeniority, TriggerConsequence};
 
 /// Coverage test trigger specification
 #[derive(Debug, Clone)]

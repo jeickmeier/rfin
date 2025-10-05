@@ -98,7 +98,9 @@ impl crate::metrics::MetricCalculator for CmbsCreditEnhancementCalculator {
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         if let Some(senior_tranche) = cmbs.tranches.tranches.first() {
-            let subordination = cmbs.tranches.subordination_amount(senior_tranche.id.as_str());
+            let subordination = cmbs
+                .tranches
+                .subordination_amount(senior_tranche.id.as_str());
             let pool_balance = cmbs.pool.total_balance();
 
             if pool_balance.amount() > 0.0 {
@@ -111,4 +113,3 @@ impl crate::metrics::MetricCalculator for CmbsCreditEnhancementCalculator {
         }
     }
 }
-

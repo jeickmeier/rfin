@@ -2,10 +2,9 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, DealType, StructuredCreditWaterfall, TrancheStructure,
-    PrepaymentBehavior, DefaultBehavior, RecoveryBehavior,
-    PrepaymentModelFactory, DefaultModelFactory,
-    MarketConditions, CreditFactors,
+    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, DefaultModelFactory,
+    MarketConditions, PrepaymentBehavior, PrepaymentModelFactory, RecoveryBehavior,
+    StructuredCreditWaterfall, TrancheStructure,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -64,15 +63,36 @@ pub struct Cmbs {
     pub attributes: Attributes,
 
     /// Prepayment model (commercial prepayment behavior)
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Cmbs::default_prepayment_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Cmbs::default_prepayment_arc"
+        )
+    )]
     pub prepayment_model: Arc<dyn PrepaymentBehavior>,
 
     /// Default model for commercial loans
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Cmbs::default_default_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Cmbs::default_default_arc"
+        )
+    )]
     pub default_model: Arc<dyn DefaultBehavior>,
 
     /// Recovery model for commercial collateral
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Cmbs::default_recovery_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Cmbs::default_recovery_arc"
+        )
+    )]
     pub recovery_model: Arc<dyn RecoveryBehavior>,
 
     /// Market conditions (e.g., refi markets less relevant; seasonality)
@@ -243,7 +263,9 @@ impl Cmbs {
     }
 
     /// Create waterfall engine for CMBS (called by trait)
-    fn create_cmbs_waterfall_engine(&self) -> crate::instruments::common::structured_credit::WaterfallEngine {
+    fn create_cmbs_waterfall_engine(
+        &self,
+    ) -> crate::instruments::common::structured_credit::WaterfallEngine {
         use crate::instruments::common::structured_credit::{
             PaymentCalculation, PaymentRecipient, PaymentRule, WaterfallEngine,
         };
@@ -256,7 +278,7 @@ impl Cmbs {
             recipient: PaymentRecipient::ServiceProvider("MasterServicer".to_string()),
             calculation: PaymentCalculation::PercentageOfCollateral {
                 rate: 0.0025, // 25 bps
-                annual: true,
+                annualized: true,
             },
             conditions: vec![],
             divertible: false,
@@ -325,19 +347,27 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
         self.payment_frequency
     }
 
-    fn prepayment_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
+    fn prepayment_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
         &self.prepayment_model
     }
 
-    fn default_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
+    fn default_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
         &self.default_model
     }
 
-    fn recovery_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
+    fn recovery_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
         &self.recovery_model
     }
 
-    fn market_conditions(&self) -> &crate::instruments::common::structured_credit::MarketConditions {
+    fn market_conditions(
+        &self,
+    ) -> &crate::instruments::common::structured_credit::MarketConditions {
         &self.market_conditions
     }
 
@@ -345,7 +375,9 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
         &self.credit_factors
     }
 
-    fn create_waterfall_engine(&self) -> crate::instruments::common::structured_credit::WaterfallEngine {
+    fn create_waterfall_engine(
+        &self,
+    ) -> crate::instruments::common::structured_credit::WaterfallEngine {
         self.create_cmbs_waterfall_engine()
     }
 

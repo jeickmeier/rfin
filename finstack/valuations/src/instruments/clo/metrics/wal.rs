@@ -17,4 +17,3 @@ impl crate::metrics::MetricCalculator for CloWalCalculator {
         Ok(clo.pool.weighted_avg_life(context.as_of))
     }
 }
-

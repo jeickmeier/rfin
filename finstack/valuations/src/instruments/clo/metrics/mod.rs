@@ -163,7 +163,7 @@ impl crate::metrics::MetricCalculator for CloIcRatioCalculator {
         let pool_interest = clo.pool.weighted_avg_coupon() * clo.pool.performing_balance().amount();
 
         if let Some(senior_tranche) = clo.tranches.tranches.first() {
-            let tranche_interest = senior_tranche.current_balance.amount() 
+            let tranche_interest = senior_tranche.current_balance.amount()
                 * senior_tranche.coupon.current_rate(context.as_of);
 
             if tranche_interest > 0.0 {
@@ -211,10 +211,12 @@ impl crate::metrics::MetricCalculator for CloRecoveryRateCalculator {
 
         // Calculate recovery rate on defaults
         if clo.pool.cumulative_defaults.amount() > 0.0 {
-            Ok(clo.pool.cumulative_recoveries.amount() / clo.pool.cumulative_defaults.amount() * 100.0)
+            Ok(
+                clo.pool.cumulative_recoveries.amount() / clo.pool.cumulative_defaults.amount()
+                    * 100.0,
+            )
         } else {
             Ok(0.0)
         }
     }
 }
-

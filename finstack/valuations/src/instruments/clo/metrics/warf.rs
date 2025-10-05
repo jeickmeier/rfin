@@ -1,7 +1,7 @@
 //! Weighted Average Rating Factor calculator for CLO
 
-use crate::metrics::MetricContext;
 use crate::instruments::common::structured_credit::rating_factors;
+use crate::metrics::MetricContext;
 
 /// CLO WARF calculator - Moody's methodology
 pub struct CloWarfCalculator;
@@ -35,4 +35,3 @@ impl crate::metrics::MetricCalculator for CloWarfCalculator {
         }
     }
 }
-

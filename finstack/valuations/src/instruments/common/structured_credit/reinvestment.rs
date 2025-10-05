@@ -4,9 +4,9 @@
 //! reinvestment period, including eligibility criteria, concentration limits,
 //! and portfolio quality tests.
 
-use crate::instruments::common::structured_credit::types_extended::Asset;
+use crate::instruments::common::structured_credit::models::Asset;
 use crate::instruments::common::structured_credit::{
-    AssetPool, AssetType, CoverageTestResults, CreditRating,
+    AssetPool, AssetType, CreditRating, PoolAsset, TestResults,
 };
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -392,7 +392,7 @@ impl ReinvestmentManager {
     }
 
     /// Check if reinvestment is allowed at a given date
-    pub fn can_reinvest(&self, as_of: Date, coverage_results: &CoverageTestResults) -> bool {
+    pub fn can_reinvest(&self, as_of: Date, coverage_results: &TestResults) -> bool {
         // Check if past reinvestment end date
         if as_of >= self.end_date {
             return false;
@@ -403,17 +403,9 @@ impl ReinvestmentManager {
             return false;
         }
 
-        // Check coverage tests
-        for passing in coverage_results.oc_passing.values() {
-            if !passing {
-                return false;
-            }
-        }
-
-        for passing in coverage_results.ic_passing.values() {
-            if !passing {
-                return false;
-            }
+        // Check coverage tests - if any tests are breached, reinvestment stops
+        if !coverage_results.breached_tests.is_empty() {
+            return false;
         }
 
         true
@@ -521,37 +513,96 @@ impl ReinvestmentManager {
     }
 }
 
-// Helper functions for AssetPool operations
-fn get_obligor_exposure(_pool: &AssetPool, _obligor: &str) -> Money {
-    Money::new(0.0, finstack_core::currency::Currency::USD) // Simplified
+// Helper functions for AssetPool operations - using actual implementations
+fn get_obligor_exposure(pool: &AssetPool, obligor: &str) -> Money {
+    pool.assets_by_obligor(obligor)
+        .iter()
+        .fold(Money::new(0.0, pool.base_currency()), |acc, asset| {
+            acc.checked_add(asset.balance).unwrap_or(acc)
+        })
 }
 
-fn get_industry_exposure(_pool: &AssetPool, _industry: &str) -> Money {
-    Money::new(0.0, finstack_core::currency::Currency::USD) // Simplified
+fn get_industry_exposure(pool: &AssetPool, industry: &str) -> Money {
+    pool.assets_by_industry(industry)
+        .iter()
+        .fold(Money::new(0.0, pool.base_currency()), |acc, asset| {
+            acc.checked_add(asset.balance).unwrap_or(acc)
+        })
 }
 
-fn get_rating_exposure(_pool: &AssetPool, _rating: CreditRating) -> Money {
-    Money::new(0.0, finstack_core::currency::Currency::USD) // Simplified
+fn get_rating_exposure(pool: &AssetPool, rating: CreditRating) -> Money {
+    pool.assets
+        .iter()
+        .filter(|a| a.credit_quality == Some(rating))
+        .fold(Money::new(0.0, pool.base_currency()), |acc, asset| {
+            acc.checked_add(asset.balance).unwrap_or(acc)
+        })
 }
 
-fn with_additional_asset(pool: &AssetPool, _asset: &Asset) -> AssetPool {
-    pool.clone() // Simplified
+fn with_additional_asset(pool: &AssetPool, asset: &Asset) -> AssetPool {
+    let mut new_pool = pool.clone();
+    // Convert Asset to PoolAsset
+    let pool_asset = PoolAsset {
+        id: asset.asset_id.clone().into(),
+        asset_type: asset.asset_type.clone(),
+        balance: asset.current_balance,
+        rate: asset.interest_rate,
+        spread_bps: asset.spread_bps,
+        index_id: None,
+        maturity: asset.maturity_date,
+        credit_quality: asset.rating,
+        industry: asset.industry.clone(),
+        obligor_id: asset.obligor_id.clone(),
+        is_defaulted: asset.is_defaulted,
+        recovery_amount: asset.recovery_rate.map(|r| {
+            Money::new(
+                asset.current_balance.amount() * r,
+                asset.current_balance.currency(),
+            )
+        }),
+        purchase_price: None,
+        acquisition_date: None,
+    };
+    new_pool.assets.push(pool_asset);
+    new_pool
 }
 
-fn calculate_warf(_pool: &AssetPool) -> f64 {
-    1000.0 // Simplified WARF calculation
+fn calculate_warf(pool: &AssetPool) -> f64 {
+    use crate::instruments::common::structured_credit::rating_factors;
+
+    let mut weighted_sum = 0.0;
+    let mut total_balance = 0.0;
+
+    for asset in &pool.assets {
+        let balance = asset.balance.amount();
+        let rating_factor = asset
+            .credit_quality
+            .map(rating_factors::moodys_warf_factor)
+            .unwrap_or(3650.0);
+
+        weighted_sum += balance * rating_factor;
+        total_balance += balance;
+    }
+
+    if total_balance > 0.0 {
+        weighted_sum / total_balance
+    } else {
+        0.0
+    }
 }
 
-fn calculate_was(_pool: &AssetPool) -> f64 {
-    250.0 // Simplified WAS calculation
+fn calculate_was(pool: &AssetPool) -> f64 {
+    pool.weighted_avg_spread()
 }
 
-fn calculate_diversity_score(_pool: &AssetPool) -> f64 {
-    50.0 // Simplified diversity calculation
+fn calculate_diversity_score(pool: &AssetPool) -> f64 {
+    pool.diversity_score()
 }
 
-fn has_obligor(_pool: &AssetPool, _obligor: &str) -> bool {
-    false // Simplified
+fn has_obligor(pool: &AssetPool, obligor: &str) -> bool {
+    pool.assets
+        .iter()
+        .any(|a| a.obligor_id.as_deref() == Some(obligor))
 }
 
 fn get_industry_concentration(pool: &AssetPool, industry: &str) -> f64 {

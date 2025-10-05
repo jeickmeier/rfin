@@ -366,16 +366,16 @@ impl ScenarioComparison {
 
     /// Find worst case scenario by PV
     pub fn worst_case_pv(&self) -> Option<&ScenarioResult> {
-        self.scenarios.iter().min_by(|a, b| {
-            a.pv.partial_cmp(&b.pv).unwrap_or(std::cmp::Ordering::Equal)
-        })
+        self.scenarios
+            .iter()
+            .min_by(|a, b| a.pv.partial_cmp(&b.pv).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     /// Find best case scenario by PV
     pub fn best_case_pv(&self) -> Option<&ScenarioResult> {
-        self.scenarios.iter().max_by(|a, b| {
-            a.pv.partial_cmp(&b.pv).unwrap_or(std::cmp::Ordering::Equal)
-        })
+        self.scenarios
+            .iter()
+            .max_by(|a, b| a.pv.partial_cmp(&b.pv).unwrap_or(std::cmp::Ordering::Equal))
     }
 }
 
@@ -529,4 +529,3 @@ mod tests {
         assert!(scenario.market.is_some());
     }
 }
-

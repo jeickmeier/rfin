@@ -25,7 +25,7 @@ impl ScenarioRunner {
         // Run base case (current assumptions)
         let base_pv = Self::calculate_clo_pv(clo, market, as_of)?;
         let base_wal = clo.pool.weighted_avg_life(as_of);
-        
+
         let base_case = ScenarioResult {
             scenario_id: "BASE".to_string(),
             pv: base_pv.amount(),
@@ -34,7 +34,8 @@ impl ScenarioRunner {
             total_defaults: clo.pool.cumulative_defaults.amount(),
             total_prepayments: clo.pool.cumulative_prepayments.amount(),
             total_recoveries: clo.pool.cumulative_recoveries.amount(),
-            net_loss: (clo.pool.cumulative_defaults.amount() - clo.pool.cumulative_recoveries.amount()),
+            net_loss: (clo.pool.cumulative_defaults.amount()
+                - clo.pool.cumulative_recoveries.amount()),
             oc_ratios: HashMap::new(),
             ic_ratios: HashMap::new(),
             custom_metrics: HashMap::new(),
@@ -44,14 +45,14 @@ impl ScenarioRunner {
         let mut scenario_results = Vec::new();
         for scenario in scenarios {
             let mut clo_copy = clo.clone();
-            
+
             // Apply scenario to CLO
             Self::apply_scenario_to_clo(&mut clo_copy, scenario);
-            
+
             // Recalculate
             let pv = Self::calculate_clo_pv(&clo_copy, market, as_of)?;
             let wal = clo_copy.pool.weighted_avg_life(as_of);
-            
+
             scenario_results.push(ScenarioResult {
                 scenario_id: scenario.id.clone(),
                 pv: pv.amount(),
@@ -83,7 +84,7 @@ impl ScenarioRunner {
     ) -> Result<ScenarioComparison> {
         let base_pv = Self::calculate_rmbs_pv(rmbs, market, as_of)?;
         let base_wal = rmbs.pool.weighted_avg_life(as_of);
-        
+
         let base_case = ScenarioResult {
             scenario_id: "BASE".to_string(),
             pv: base_pv.amount(),
@@ -92,7 +93,8 @@ impl ScenarioRunner {
             total_defaults: rmbs.pool.cumulative_defaults.amount(),
             total_prepayments: rmbs.pool.cumulative_prepayments.amount(),
             total_recoveries: rmbs.pool.cumulative_recoveries.amount(),
-            net_loss: (rmbs.pool.cumulative_defaults.amount() - rmbs.pool.cumulative_recoveries.amount()),
+            net_loss: (rmbs.pool.cumulative_defaults.amount()
+                - rmbs.pool.cumulative_recoveries.amount()),
             oc_ratios: HashMap::new(),
             ic_ratios: HashMap::new(),
             custom_metrics: HashMap::new(),
@@ -101,12 +103,12 @@ impl ScenarioRunner {
         let mut scenario_results = Vec::new();
         for scenario in scenarios {
             let mut rmbs_copy = rmbs.clone();
-            
+
             Self::apply_scenario_to_rmbs(&mut rmbs_copy, scenario);
-            
+
             let pv = Self::calculate_rmbs_pv(&rmbs_copy, market, as_of)?;
             let wal = rmbs_copy.pool.weighted_avg_life(as_of);
-            
+
             scenario_results.push(ScenarioResult {
                 scenario_id: scenario.id.clone(),
                 pv: pv.amount(),
@@ -138,7 +140,7 @@ impl ScenarioRunner {
     ) -> Result<ScenarioComparison> {
         let base_pv = Self::calculate_abs_pv(abs, market, as_of)?;
         let base_wal = abs.pool.weighted_avg_life(as_of);
-        
+
         let base_case = ScenarioResult {
             scenario_id: "BASE".to_string(),
             pv: base_pv.amount(),
@@ -147,7 +149,8 @@ impl ScenarioRunner {
             total_defaults: abs.pool.cumulative_defaults.amount(),
             total_prepayments: abs.pool.cumulative_prepayments.amount(),
             total_recoveries: abs.pool.cumulative_recoveries.amount(),
-            net_loss: (abs.pool.cumulative_defaults.amount() - abs.pool.cumulative_recoveries.amount()),
+            net_loss: (abs.pool.cumulative_defaults.amount()
+                - abs.pool.cumulative_recoveries.amount()),
             oc_ratios: HashMap::new(),
             ic_ratios: HashMap::new(),
             custom_metrics: HashMap::new(),
@@ -156,12 +159,12 @@ impl ScenarioRunner {
         let mut scenario_results = Vec::new();
         for scenario in scenarios {
             let mut abs_copy = abs.clone();
-            
+
             Self::apply_scenario_to_abs(&mut abs_copy, scenario);
-            
+
             let pv = Self::calculate_abs_pv(&abs_copy, market, as_of)?;
             let wal = abs_copy.pool.weighted_avg_life(as_of);
-            
+
             scenario_results.push(ScenarioResult {
                 scenario_id: scenario.id.clone(),
                 pv: pv.amount(),
@@ -186,32 +189,52 @@ impl ScenarioRunner {
 
     // Helper methods to apply scenarios
 
-    fn apply_scenario_to_clo(clo: &mut crate::instruments::clo::Clo, scenario: &StructuredCreditScenario) {
+    fn apply_scenario_to_clo(
+        clo: &mut crate::instruments::clo::Clo,
+        scenario: &StructuredCreditScenario,
+    ) {
         // Apply prepayment scenario
         if let Some(PrepaymentScenario::ConstantCpr { cpr_annual }) = scenario.prepayment {
             use crate::instruments::common::structured_credit::PrepaymentModelFactory;
-            clo.prepayment_model = std::sync::Arc::from(PrepaymentModelFactory::create_cpr(cpr_annual));
+            clo.prepayment_model =
+                std::sync::Arc::from(PrepaymentModelFactory::create_cpr(cpr_annual));
         }
 
         // Apply default scenario
         if let Some(ref default_scenario) = scenario.default {
             match default_scenario {
                 DefaultScenario::ConstantCdr { cdr_annual } => {
-                    use crate::instruments::common::structured_credit::{CDRModel, DefaultBehavior};
-                    clo.default_model = std::sync::Arc::from(Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>);
+                    use crate::instruments::common::structured_credit::{
+                        CDRModel, DefaultBehavior,
+                    };
+                    clo.default_model = std::sync::Arc::from(
+                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
+                    );
                 }
-                DefaultScenario::CdrWithSeverity { cdr_annual, severity } => {
-                    use crate::instruments::common::structured_credit::{CDRModel, ConstantRecoveryModel, DefaultBehavior, RecoveryBehavior};
-                    clo.default_model = std::sync::Arc::from(Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>);
+                DefaultScenario::CdrWithSeverity {
+                    cdr_annual,
+                    severity,
+                } => {
+                    use crate::instruments::common::structured_credit::{
+                        CDRModel, ConstantRecoveryModel, DefaultBehavior, RecoveryBehavior,
+                    };
+                    clo.default_model = std::sync::Arc::from(
+                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
+                    );
                     let recovery = 1.0 - severity;
-                    clo.recovery_model = std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery)) as Box<dyn RecoveryBehavior>);
+                    clo.recovery_model =
+                        std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery))
+                            as Box<dyn RecoveryBehavior>);
                 }
                 _ => {}
             }
         }
     }
 
-    fn apply_scenario_to_rmbs(rmbs: &mut crate::instruments::rmbs::Rmbs, scenario: &StructuredCreditScenario) {
+    fn apply_scenario_to_rmbs(
+        rmbs: &mut crate::instruments::rmbs::Rmbs,
+        scenario: &StructuredCreditScenario,
+    ) {
         // Apply prepayment scenario
         if let Some(ref prepay_scenario) = scenario.prepayment {
             match prepay_scenario {
@@ -220,7 +243,8 @@ impl ScenarioRunner {
                 }
                 PrepaymentScenario::ConstantCpr { cpr_annual } => {
                     use crate::instruments::common::structured_credit::PrepaymentModelFactory;
-                    rmbs.prepayment_model = std::sync::Arc::from(PrepaymentModelFactory::create_cpr(*cpr_annual));
+                    rmbs.prepayment_model =
+                        std::sync::Arc::from(PrepaymentModelFactory::create_cpr(*cpr_annual));
                 }
                 _ => {}
             }
@@ -233,14 +257,27 @@ impl ScenarioRunner {
                     rmbs.sda_speed = *speed;
                 }
                 DefaultScenario::ConstantCdr { cdr_annual } => {
-                    use crate::instruments::common::structured_credit::{CDRModel, DefaultBehavior};
-                    rmbs.default_model = std::sync::Arc::from(Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>);
+                    use crate::instruments::common::structured_credit::{
+                        CDRModel, DefaultBehavior,
+                    };
+                    rmbs.default_model = std::sync::Arc::from(
+                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
+                    );
                 }
-                DefaultScenario::CdrWithSeverity { cdr_annual, severity } => {
-                    use crate::instruments::common::structured_credit::{CDRModel, ConstantRecoveryModel, DefaultBehavior, RecoveryBehavior};
-                    rmbs.default_model = std::sync::Arc::from(Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>);
+                DefaultScenario::CdrWithSeverity {
+                    cdr_annual,
+                    severity,
+                } => {
+                    use crate::instruments::common::structured_credit::{
+                        CDRModel, ConstantRecoveryModel, DefaultBehavior, RecoveryBehavior,
+                    };
+                    rmbs.default_model = std::sync::Arc::from(
+                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
+                    );
                     let recovery = 1.0 - severity;
-                    rmbs.recovery_model = std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery)) as Box<dyn RecoveryBehavior>);
+                    rmbs.recovery_model =
+                        std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery))
+                            as Box<dyn RecoveryBehavior>);
                 }
                 _ => {}
             }
@@ -260,7 +297,10 @@ impl ScenarioRunner {
         }
     }
 
-    fn apply_scenario_to_abs(abs: &mut crate::instruments::abs::Abs, scenario: &StructuredCreditScenario) {
+    fn apply_scenario_to_abs(
+        abs: &mut crate::instruments::abs::Abs,
+        scenario: &StructuredCreditScenario,
+    ) {
         // Apply prepayment scenario
         if let Some(ref prepay_scenario) = scenario.prepayment {
             match prepay_scenario {
@@ -281,11 +321,18 @@ impl ScenarioRunner {
                 DefaultScenario::ConstantCdr { cdr_annual } => {
                     abs.cdr_annual = Some(*cdr_annual);
                 }
-                DefaultScenario::CdrWithSeverity { cdr_annual, severity } => {
-                    use crate::instruments::common::structured_credit::{ConstantRecoveryModel, RecoveryBehavior};
+                DefaultScenario::CdrWithSeverity {
+                    cdr_annual,
+                    severity,
+                } => {
+                    use crate::instruments::common::structured_credit::{
+                        ConstantRecoveryModel, RecoveryBehavior,
+                    };
                     abs.cdr_annual = Some(*cdr_annual);
                     let recovery = 1.0 - severity;
-                    abs.recovery_model = std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery)) as Box<dyn RecoveryBehavior>);
+                    abs.recovery_model =
+                        std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery))
+                            as Box<dyn RecoveryBehavior>);
                 }
                 _ => {}
             }
@@ -294,17 +341,29 @@ impl ScenarioRunner {
 
     // Helper PV calculation methods
 
-    fn calculate_clo_pv(clo: &crate::instruments::clo::Clo, market: &MarketContext, as_of: finstack_core::dates::Date) -> Result<Money> {
+    fn calculate_clo_pv(
+        clo: &crate::instruments::clo::Clo,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<Money> {
         use crate::instruments::common::traits::Instrument;
         clo.value(market, as_of)
     }
 
-    fn calculate_rmbs_pv(rmbs: &crate::instruments::rmbs::Rmbs, market: &MarketContext, as_of: finstack_core::dates::Date) -> Result<Money> {
+    fn calculate_rmbs_pv(
+        rmbs: &crate::instruments::rmbs::Rmbs,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<Money> {
         use crate::instruments::common::traits::Instrument;
         rmbs.value(market, as_of)
     }
 
-    fn calculate_abs_pv(abs: &crate::instruments::abs::Abs, market: &MarketContext, as_of: finstack_core::dates::Date) -> Result<Money> {
+    fn calculate_abs_pv(
+        abs: &crate::instruments::abs::Abs,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<Money> {
         use crate::instruments::common::traits::Instrument;
         abs.value(market, as_of)
     }
@@ -344,4 +403,3 @@ mod tests {
         assert!(ladder.iter().all(|&cdr| (0.0..=1.0).contains(&cdr)));
     }
 }
-

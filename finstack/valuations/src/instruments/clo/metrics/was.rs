@@ -22,7 +22,7 @@ impl crate::metrics::MetricCalculator for CloWasCalculator {
 
         for asset in &clo.pool.assets {
             let balance = asset.balance.amount();
-            
+
             // Use explicit spread_bps if available (correct for floating rate assets)
             // Otherwise fall back to rate * 10000 (proxy for fixed rate)
             let spread_bps = asset.spread_bps.unwrap_or(asset.rate * 10000.0);
@@ -38,4 +38,3 @@ impl crate::metrics::MetricCalculator for CloWasCalculator {
         }
     }
 }
-

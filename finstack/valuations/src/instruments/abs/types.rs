@@ -2,10 +2,9 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, DealType, StructuredCreditWaterfall, TrancheStructure,
-    PrepaymentBehavior, DefaultBehavior, RecoveryBehavior,
-    PrepaymentModelFactory, DefaultModelFactory,
-    MarketConditions, CreditFactors,
+    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, DefaultModelFactory,
+    MarketConditions, PrepaymentBehavior, PrepaymentModelFactory, RecoveryBehavior,
+    StructuredCreditWaterfall, TrancheStructure,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -64,15 +63,36 @@ pub struct Abs {
     pub attributes: Attributes,
 
     /// Prepayment model (SMM) for receivables/loans
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Abs::default_prepayment_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Abs::default_prepayment_arc"
+        )
+    )]
     pub prepayment_model: Arc<dyn PrepaymentBehavior>,
 
     /// Default model (MDR) for receivables/loans
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Abs::default_default_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Abs::default_default_arc"
+        )
+    )]
     pub default_model: Arc<dyn DefaultBehavior>,
 
     /// Recovery model for ABS collateral
-    #[cfg_attr(feature = "serde", serde(skip_serializing, skip_deserializing, default = "Abs::default_recovery_arc"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            skip_serializing,
+            skip_deserializing,
+            default = "Abs::default_recovery_arc"
+        )
+    )]
     pub recovery_model: Arc<dyn RecoveryBehavior>,
 
     /// Market conditions impacting prepayments
@@ -257,19 +277,27 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
         self.payment_frequency
     }
 
-    fn prepayment_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
+    fn prepayment_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
         &self.prepayment_model
     }
 
-    fn default_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
+    fn default_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
         &self.default_model
     }
 
-    fn recovery_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
+    fn recovery_model(
+        &self,
+    ) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
         &self.recovery_model
     }
 
-    fn market_conditions(&self) -> &crate::instruments::common::structured_credit::MarketConditions {
+    fn market_conditions(
+        &self,
+    ) -> &crate::instruments::common::structured_credit::MarketConditions {
         &self.market_conditions
     }
 
@@ -277,7 +305,9 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
         &self.credit_factors
     }
 
-    fn create_waterfall_engine(&self) -> crate::instruments::common::structured_credit::WaterfallEngine {
+    fn create_waterfall_engine(
+        &self,
+    ) -> crate::instruments::common::structured_credit::WaterfallEngine {
         self.create_abs_waterfall_engine()
     }
 
@@ -286,7 +316,7 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
         self.abs_speed // If set, use the ABS speed directly
     }
 
-    // ABS-specific default override  
+    // ABS-specific default override
     fn default_rate_override(&self, _pay_date: Date, _seasoning: u32) -> Option<f64> {
         self.cdr_annual.map(|cdr| {
             use crate::instruments::common::structured_credit::cdr_to_mdr;
@@ -312,7 +342,9 @@ impl Abs {
     }
 
     /// Create waterfall engine for ABS (called by trait)
-    fn create_abs_waterfall_engine(&self) -> crate::instruments::common::structured_credit::WaterfallEngine {
+    fn create_abs_waterfall_engine(
+        &self,
+    ) -> crate::instruments::common::structured_credit::WaterfallEngine {
         use crate::instruments::common::structured_credit::{
             PaymentCalculation, PaymentRecipient, PaymentRule, WaterfallEngine,
         };
@@ -325,7 +357,7 @@ impl Abs {
             recipient: PaymentRecipient::ServiceProvider("Servicer".to_string()),
             calculation: PaymentCalculation::PercentageOfCollateral {
                 rate: 0.005, // 50 bps servicing
-                annual: true,
+                annualized: true,
             },
             conditions: vec![],
             divertible: false,

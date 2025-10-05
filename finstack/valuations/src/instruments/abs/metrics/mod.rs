@@ -15,8 +15,8 @@ mod delinquency;
 mod excess_spread;
 
 pub use abs_speed::AbsSpeedCalculator;
-pub use delinquency::{AbsDelinquencyCalculator, AbsChargeOffCalculator};
-pub use excess_spread::{AbsExcessSpreadCalculator, AbsCreditEnhancementCalculator};
+pub use delinquency::{AbsChargeOffCalculator, AbsDelinquencyCalculator};
+pub use excess_spread::{AbsCreditEnhancementCalculator, AbsExcessSpreadCalculator};
 
 use crate::metrics::{MetricContext, MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -80,4 +80,3 @@ impl crate::metrics::MetricCalculator for AbsWalCalculator {
         Ok(abs.pool.weighted_avg_life(context.as_of))
     }
 }
-

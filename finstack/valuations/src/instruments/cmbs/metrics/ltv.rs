@@ -21,4 +21,3 @@ impl crate::metrics::MetricCalculator for CmbsLtvCalculator {
         }
     }
 }
-
