@@ -347,6 +347,7 @@ impl StructuredCreditScenario {
 
         use crate::instruments::common::traits::Instrument;
         let pv = clo_copy.value(market, as_of)?;
+        #[allow(deprecated)]
         let wal = clo_copy.pool.weighted_avg_life(as_of);
 
         Ok(ScenarioResult {
@@ -377,6 +378,7 @@ impl StructuredCreditScenario {
 
         use crate::instruments::common::traits::Instrument;
         let pv = rmbs_copy.value(market, as_of)?;
+        #[allow(deprecated)]
         let wal = rmbs_copy.pool.weighted_avg_life(as_of);
 
         Ok(ScenarioResult {
@@ -407,6 +409,7 @@ impl StructuredCreditScenario {
 
         use crate::instruments::common::traits::Instrument;
         let pv = abs_copy.value(market, as_of)?;
+        #[allow(deprecated)]
         let wal = abs_copy.pool.weighted_avg_life(as_of);
 
         Ok(ScenarioResult {
@@ -436,6 +439,7 @@ impl StructuredCreditScenario {
 
         // Base case
         let base_pv = clo.value(market, as_of)?;
+        #[allow(deprecated)]
         let base_wal = clo.pool.weighted_avg_life(as_of);
         let base_case = ScenarioResult {
             scenario_id: "BASE".to_string(),
@@ -474,6 +478,7 @@ impl StructuredCreditScenario {
         use crate::instruments::common::traits::Instrument;
 
         let base_pv = rmbs.value(market, as_of)?;
+        #[allow(deprecated)]
         let base_wal = rmbs.pool.weighted_avg_life(as_of);
         let base_case = ScenarioResult {
             scenario_id: "BASE".to_string(),
@@ -512,6 +517,7 @@ impl StructuredCreditScenario {
         use crate::instruments::common::traits::Instrument;
 
         let base_pv = abs.value(market, as_of)?;
+        #[allow(deprecated)]
         let base_wal = abs.pool.weighted_avg_life(as_of);
         let base_case = ScenarioResult {
             scenario_id: "BASE".to_string(),

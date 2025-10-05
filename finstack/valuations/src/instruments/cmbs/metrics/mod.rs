@@ -66,7 +66,10 @@ impl crate::metrics::MetricCalculator for CmbsWalCalculator {
             .downcast_ref::<crate::instruments::cmbs::Cmbs>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
-        Ok(cmbs.pool.weighted_avg_life(context.as_of))
+        #[allow(deprecated)]
+        {
+            Ok(cmbs.pool.weighted_avg_life(context.as_of))
+        }
     }
 }
 

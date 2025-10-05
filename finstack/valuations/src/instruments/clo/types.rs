@@ -200,7 +200,10 @@ impl Clo {
     /// Calculate expected life of the structure.
     pub fn expected_life(&self, as_of: Date) -> finstack_core::Result<f64> {
         // Simplified calculation based on pool WAL
-        Ok(self.pool.weighted_avg_life(as_of))
+        #[allow(deprecated)]
+        {
+            Ok(self.pool.weighted_avg_life(as_of))
+        }
     }
 }
 
@@ -376,10 +379,7 @@ impl Clo {
         engine.payment_rules.push(PaymentRule {
             id: "senior_mgmt_fee".to_string(),
             priority: 2,
-            recipient: PaymentRecipient::ManagerFee {
-                fee_type: ManagementFeeType::Senior,
-                subordinated: false,
-            },
+            recipient: PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
             calculation: PaymentCalculation::PercentageOfCollateral {
                 rate: 0.01,
                 annualized: true,

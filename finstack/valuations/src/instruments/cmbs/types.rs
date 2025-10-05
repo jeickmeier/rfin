@@ -174,7 +174,10 @@ impl Cmbs {
 
     /// Calculate expected life of the structure.
     pub fn expected_life(&self, as_of: Date) -> finstack_core::Result<f64> {
-        Ok(self.pool.weighted_avg_life(as_of))
+        #[allow(deprecated)]
+        {
+            Ok(self.pool.weighted_avg_life(as_of))
+        }
     }
 }
 

@@ -14,6 +14,9 @@ impl crate::metrics::MetricCalculator for CloWalCalculator {
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Use the pool's WAL calculation
-        Ok(clo.pool.weighted_avg_life(context.as_of))
+        #[allow(deprecated)]
+        {
+            Ok(clo.pool.weighted_avg_life(context.as_of))
+        }
     }
 }
