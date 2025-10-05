@@ -16,8 +16,7 @@ pub mod waterfall; // Unified waterfall implementation
 
 // Core enum exports
 pub use enums::{
-    AssetType, BondType, CardPortfolioType, CreditRating, DealType, LoanType, PaymentMode,
-    PropertyType, StudentLoanType, TrancheSeniority, TriggerConsequence, VehicleType,
+    AssetType, CreditRating, DealType, PaymentMode, TrancheSeniority, TriggerConsequence,
 };
 
 // Other module exports

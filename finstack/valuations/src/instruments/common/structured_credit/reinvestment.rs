@@ -602,14 +602,8 @@ impl Default for EligibilityCriteria {
             min_remaining_term: Some(12),
             max_remaining_term: Some(84),
             allowed_asset_types: vec![
-                AssetType::Loan {
-                    loan_type: crate::instruments::common::structured_credit::LoanType::FirstLien,
-                    industry: None,
-                },
-                AssetType::Bond {
-                    bond_type: crate::instruments::common::structured_credit::BondType::HighYield,
-                    industry: None,
-                },
+                AssetType::FirstLienLoan { industry: None },
+                AssetType::HighYieldBond { industry: None },
             ],
             allowed_currencies: vec![Currency::USD, Currency::EUR],
             max_price_pct: Some(102.0),
@@ -681,9 +675,8 @@ mod tests {
     fn create_test_asset() -> PoolAsset {
         PoolAsset {
             id: "TEST001".to_string().into(),
-            asset_type: AssetType::Loan {
-                loan_type: crate::instruments::common::structured_credit::LoanType::FirstLien,
-                industry: None,
+            asset_type: AssetType::FirstLienLoan {
+                industry: Some("Technology".to_string()),
             },
             balance: Money::new(950_000.0, Currency::USD),
             rate: 0.06,

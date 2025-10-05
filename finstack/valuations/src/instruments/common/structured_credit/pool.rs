@@ -54,8 +54,7 @@ impl PoolAsset {
     pub fn from_bond(bond: &Bond, industry: Option<String>) -> Self {
         Self {
             id: bond.id.clone(),
-            asset_type: AssetType::Bond {
-                bond_type: super::enums::BondType::HighYield, // Default assumption
+            asset_type: AssetType::HighYieldBond {
                 industry: industry.clone(),
             },
             balance: bond.notional,
@@ -108,10 +107,7 @@ impl PoolAsset {
     ) -> Self {
         Self {
             id: id.into(),
-            asset_type: AssetType::Loan {
-                loan_type: super::enums::LoanType::FirstLien,
-                industry: None,
-            },
+            asset_type: AssetType::FirstLienLoan { industry: None },
             balance,
             rate: spread_bps / 10_000.0, // Initialize with spread only
             spread_bps: Some(spread_bps),
@@ -138,10 +134,7 @@ impl PoolAsset {
     ) -> Self {
         Self {
             id: id.into(),
-            asset_type: AssetType::Bond {
-                bond_type: super::enums::BondType::HighYield,
-                industry: None,
-            },
+            asset_type: AssetType::HighYieldBond { industry: None },
             balance,
             rate,
             spread_bps: None, // Fixed rate - no separate spread

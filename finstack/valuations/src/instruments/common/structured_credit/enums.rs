@@ -79,35 +79,85 @@ pub enum TrancheSeniority {
 // ASSET CLASSIFICATION
 // ============================================================================
 
-/// Asset type classification for pool composition
+/// Asset type classification for pool composition (flattened hierarchy)
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum AssetType {
-    /// Corporate loan
-    Loan {
-        loan_type: LoanType,
-        industry: Option<String>,
-    },
-    /// Corporate bond
-    Bond {
-        bond_type: BondType,
-        industry: Option<String>,
-    },
-    /// Mortgage exposure
-    Mortgage {
-        property_type: PropertyType,
+    // ========== LOAN TYPES ==========
+    /// First lien corporate loan
+    FirstLienLoan { industry: Option<String> },
+    /// Second lien corporate loan
+    SecondLienLoan { industry: Option<String> },
+    /// Revolving credit facility
+    RevolverLoan { industry: Option<String> },
+    /// Bridge loan
+    BridgeLoan { industry: Option<String> },
+    /// Mezzanine loan
+    MezzanineLoan { industry: Option<String> },
+
+    // ========== BOND TYPES ==========
+    /// High yield bond
+    HighYieldBond { industry: Option<String> },
+    /// Investment grade bond
+    InvestmentGradeBond { industry: Option<String> },
+    /// Distressed bond
+    DistressedBond { industry: Option<String> },
+    /// Emerging markets bond
+    EmergingMarketsBond { industry: Option<String> },
+
+    // ========== MORTGAGE TYPES ==========
+    /// Single family residential mortgage
+    SingleFamilyMortgage { ltv: Option<f64> },
+    /// Multifamily residential mortgage
+    MultifamilyMortgage { ltv: Option<f64> },
+    /// Commercial real estate mortgage
+    CommercialMortgage { ltv: Option<f64> },
+    /// Industrial property mortgage
+    IndustrialMortgage { ltv: Option<f64> },
+    /// Retail property mortgage
+    RetailMortgage { ltv: Option<f64> },
+    /// Office property mortgage
+    OfficeMortgage { ltv: Option<f64> },
+    /// Hotel property mortgage
+    HotelMortgage { ltv: Option<f64> },
+    /// Other property type mortgage
+    OtherMortgage {
+        property_type: String,
         ltv: Option<f64>,
     },
-    /// Auto loan
-    AutoLoan {
-        vehicle_type: VehicleType,
-        ltv: Option<f64>,
-    },
-    /// Credit card receivables
-    CreditCard { portfolio_type: CardPortfolioType },
-    /// Student loan assets
-    StudentLoan { loan_type: StudentLoanType },
+
+    // ========== AUTO LOAN TYPES ==========
+    /// New vehicle auto loan
+    NewAutoLoan { ltv: Option<f64> },
+    /// Used vehicle auto loan
+    UsedAutoLoan { ltv: Option<f64> },
+    /// Vehicle lease
+    LeaseAutoLoan { ltv: Option<f64> },
+    /// Fleet vehicle loan
+    FleetAutoLoan { ltv: Option<f64> },
+
+    // ========== CREDIT CARD TYPES ==========
+    /// Prime credit card receivables
+    PrimeCreditCard,
+    /// Subprime credit card receivables
+    SubPrimeCreditCard,
+    /// Super prime credit card receivables
+    SuperPrimeCreditCard,
+    /// Commercial credit card receivables
+    CommercialCreditCard,
+
+    // ========== STUDENT LOAN TYPES ==========
+    /// Federal student loan
+    FederalStudentLoan,
+    /// Private student loan
+    PrivateStudentLoan,
+    /// FFELP student loan
+    FFELPStudentLoan,
+    /// Consolidation student loan
+    ConsolidationStudentLoan,
+
+    // ========== OTHER TYPES ==========
     /// Equipment financing
     Equipment { equipment_type: String },
     /// Generic asset placeholder
@@ -115,71 +165,6 @@ pub enum AssetType {
         description: String,
         asset_class: String,
     },
-}
-
-/// Corporate loan subtypes
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum LoanType {
-    FirstLien,
-    SecondLien,
-    Revolver,
-    Bridge,
-    Mezzanine,
-}
-
-/// Bond classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum BondType {
-    HighYield,
-    InvestmentGrade,
-    Distressed,
-    EmergingMarkets,
-}
-
-/// Property types for mortgage-backed securities
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum PropertyType {
-    SingleFamily,
-    Multifamily,
-    Commercial,
-    Industrial,
-    Retail,
-    Office,
-    Hotel,
-    Other(String),
-}
-
-/// Vehicle types for auto ABS
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum VehicleType {
-    New,
-    Used,
-    Lease,
-    Fleet,
-}
-
-/// Credit card portfolio types
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum CardPortfolioType {
-    Prime,
-    SubPrime,
-    SuperPrime,
-    Commercial,
-}
-
-/// Student loan types
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum StudentLoanType {
-    Federal,
-    Private,
-    FFELP,
-    Consolidation,
 }
 
 // ============================================================================
