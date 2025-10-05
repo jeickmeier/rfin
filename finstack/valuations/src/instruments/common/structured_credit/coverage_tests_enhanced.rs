@@ -394,20 +394,13 @@ impl WASTest {
 }
 
 /// Get Moody's rating factor for WARF calculation
+/// 
+/// Uses standardized Moody's IDEALIZED DEFAULT RATES table.
+/// This function is duplicated from the metrics module for now,
+/// but should be consolidated into a shared rating utilities module.
 fn get_moody_rating_factor(rating: CreditRating) -> f64 {
-    match rating {
-        CreditRating::AAA => 1.0,
-        CreditRating::AA => 10.0,
-        CreditRating::A => 20.0,
-        CreditRating::BBB => 260.0,
-        CreditRating::BB => 1350.0,
-        CreditRating::B => 2720.0,
-        CreditRating::CCC => 6500.0,
-        CreditRating::CC => 8070.0,
-        CreditRating::C => 10000.0,
-        CreditRating::D => 10000.0,
-        CreditRating::NR => 3650.0, // Treat as B-/CCC+
-    }
+    // TODO: Consolidate with clo::metrics::warf::get_moody_rating_factor
+    crate::instruments::common::structured_credit::rating_factors::moodys_warf_factor(rating)
 }
 
 /// Calculate all coverage tests for a structure

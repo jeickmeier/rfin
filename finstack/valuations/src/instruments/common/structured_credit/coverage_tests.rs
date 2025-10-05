@@ -589,6 +589,8 @@ mod tests {
             },
             balance: Money::new(1_000_000.0, Currency::USD),
             rate: 0.08,
+            spread_bps: Some(450.0), // SOFR + 450bps
+            index_id: Some("SOFR-3M".to_string()),
             maturity: test_date(),
             credit_quality: Some(CreditRating::B),
             industry: None,

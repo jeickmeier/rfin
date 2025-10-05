@@ -617,13 +617,13 @@ impl DefaultModelFactory {
                 advance_rate: 0.90,
                 time_decay: 0.005,
             }),
-            "auto" | "abs_auto" => Box::new(CollateralRecoveryModel {
-                base_recovery: 0.35,
+            "auto" | "abs_auto" | "consumer" => Box::new(CollateralRecoveryModel {
+                base_recovery: 0.45, // Updated from 0.35 to match market standards
                 advance_rate: 0.75,
                 time_decay: 0.02,
             }),
             "card" | "credit_card" => Box::new(ConstantRecoveryModel::new(0.05)),
-            "corporate" | "clo" => Box::new(ConstantRecoveryModel::new(0.40)),
+            "corporate" | "clo" | "commercial" => Box::new(ConstantRecoveryModel::new(0.40)),
             _ => Box::new(ConstantRecoveryModel::new(0.30)),
         }
     }

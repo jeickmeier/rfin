@@ -6,8 +6,9 @@
 //! ```rust
 //! use finstack_valuations::instruments::clo::Clo;
 //! use finstack_valuations::instruments::common::structured_credit::{
-//!     AssetPool, DealType, TrancheStructure, WaterfallBuilder,
+//!     AssetPool, DealType, TrancheStructure,
 //! };
+//! use finstack_valuations::instruments::common::structured_credit::waterfall::WaterfallBuilder;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use time::Month;

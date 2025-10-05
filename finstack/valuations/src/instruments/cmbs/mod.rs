@@ -3,7 +3,6 @@
 //! Wraps the shared structured credit engine to model CMBS transactions with
 //! commercial mortgage pools and tranche waterfalls.
 
-mod impl_waterfall;
 pub mod metrics;
 mod types;
 

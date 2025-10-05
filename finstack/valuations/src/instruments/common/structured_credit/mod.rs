@@ -2,12 +2,16 @@
 
 pub mod coverage_tests;
 pub mod coverage_tests_enhanced;
+pub mod deal_config;
 pub mod default_models;
+mod examples;
 pub mod pool;
 pub mod prepayment;
+pub mod rating_factors;
 pub mod reinvestment;
 pub mod scenario_runner;
 pub mod scenarios;
+pub mod shared_waterfall;
 pub mod tranches;
 pub mod types;
 pub mod types_extended;
@@ -58,3 +62,8 @@ pub use scenarios::{
     ScenarioBuilder, ScenarioComparison, ScenarioLibrary, ScenarioResult,
     StructuredCreditScenario,
 };
+
+// Deal configuration and utilities
+pub use deal_config::{CoverageTestConfig, DealConfig, DealDates, DealFees, DefaultAssumptions};
+pub use rating_factors::{moodys_warf_factor, RatingFactorTable};
+pub use shared_waterfall::StructuredCreditInstrument;

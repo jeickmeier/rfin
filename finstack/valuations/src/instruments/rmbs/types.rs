@@ -163,8 +163,9 @@ impl CashflowProvider for Rmbs {
         context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
-        // Generate full tranche-specific cashflows with waterfall distribution
-        self.generate_tranche_cashflows_rmbs(context, as_of)
+        // Use shared waterfall implementation via trait
+        use crate::instruments::common::structured_credit::StructuredCreditInstrument;
+        <Self as StructuredCreditInstrument>::generate_tranche_cashflows(self, context, as_of)
     }
 }
 
@@ -226,6 +227,80 @@ impl crate::instruments::common::HasDiscountCurve for Rmbs {
     }
 }
 
+// Implement StructuredCreditInstrument trait to use shared waterfall logic
+impl crate::instruments::common::structured_credit::StructuredCreditInstrument for Rmbs {
+    fn pool(&self) -> &crate::instruments::common::structured_credit::AssetPool {
+        &self.pool
+    }
+
+    fn tranches(&self) -> &crate::instruments::common::structured_credit::TrancheStructure {
+        &self.tranches
+    }
+
+    fn closing_date(&self) -> Date {
+        self.closing_date
+    }
+
+    fn first_payment_date(&self) -> Date {
+        self.first_payment_date
+    }
+
+    fn legal_maturity(&self) -> Date {
+        self.legal_maturity
+    }
+
+    fn payment_frequency(&self) -> Frequency {
+        self.payment_frequency
+    }
+
+    fn prepayment_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
+        &self.prepayment_model
+    }
+
+    fn default_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
+        &self.default_model
+    }
+
+    fn recovery_model(&self) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
+        &self.recovery_model
+    }
+
+    fn market_conditions(&self) -> &crate::instruments::common::structured_credit::MarketConditions {
+        &self.market_conditions
+    }
+
+    fn credit_factors(&self) -> &crate::instruments::common::structured_credit::CreditFactors {
+        &self.credit_factors
+    }
+
+    fn create_waterfall_engine(&self) -> crate::instruments::common::structured_credit::WaterfallEngine {
+        self.create_rmbs_waterfall_engine()
+    }
+
+    // RMBS-specific prepayment override (PSA speed)
+    fn prepayment_rate_override(&self, _pay_date: Date, seasoning_months: u32) -> Option<f64> {
+        if self.psa_speed != 1.0 {
+            use crate::instruments::common::structured_credit::{PSAModel, cpr_to_smm};
+            let psa = PSAModel::new(self.psa_speed);
+            let cpr = psa.cpr_at_month(seasoning_months);
+            Some(cpr_to_smm(cpr))
+        } else {
+            None
+        }
+    }
+
+    // RMBS-specific default override (SDA speed)
+    fn default_rate_override(&self, pay_date: Date, seasoning_months: u32) -> Option<f64> {
+        if self.sda_speed != 1.0 {
+            use crate::instruments::common::structured_credit::{SDAModel, DefaultBehavior};
+            let sda = SDAModel { speed: self.sda_speed, ..Default::default() };
+            Some(sda.default_rate(pay_date, self.closing_date, seasoning_months, &self.credit_factors))
+        } else {
+            None
+        }
+    }
+}
+
 impl Rmbs {
     #[cfg(feature = "serde")]
     fn default_prepayment_arc() -> Arc<dyn PrepaymentBehavior> {
@@ -242,18 +317,60 @@ impl Rmbs {
         Arc::from(DefaultModelFactory::create_recovery_model("mortgage"))
     }
 
-    #[inline]
-    pub(super) fn premium_smm(&self, as_of: Date, seasoning_months: u32) -> f64 {
-        self.prepayment_model
-            .prepayment_rate(as_of, self.closing_date, seasoning_months, &self.market_conditions)
-            .max(0.0)
-    }
+    /// Create waterfall engine for RMBS (called by trait)
+    fn create_rmbs_waterfall_engine(&self) -> crate::instruments::common::structured_credit::WaterfallEngine {
+        use crate::instruments::common::structured_credit::{
+            PaymentCalculation, PaymentRecipient, PaymentRule, WaterfallEngine,
+        };
 
-    #[inline]
-    pub(super) fn premium_mdr(&self, as_of: Date, seasoning_months: u32) -> f64 {
-        self.default_model
-            .default_rate(as_of, self.closing_date, seasoning_months, &self.credit_factors)
-            .max(0.0)
+        let mut engine = WaterfallEngine::new(self.pool.base_currency());
+
+        engine.payment_rules.push(PaymentRule {
+            id: "servicing_fees".to_string(),
+            priority: 1,
+            recipient: PaymentRecipient::ServiceProvider("Servicer".to_string()),
+            calculation: PaymentCalculation::PercentageOfCollateral {
+                rate: 0.0025, // 25 bps servicing
+                annual: true,
+            },
+            conditions: vec![],
+            divertible: false,
+        });
+
+        let mut sorted_tranches = self.tranches.tranches.clone();
+        sorted_tranches.sort_by_key(|t| t.payment_priority);
+
+        let mut priority = 2;
+        for tranche in &sorted_tranches {
+            engine.payment_rules.push(PaymentRule {
+                id: format!("{}_interest", tranche.id.as_str()),
+                priority,
+                recipient: PaymentRecipient::Tranche(tranche.id.to_string()),
+                calculation: PaymentCalculation::TrancheInterest {
+                    tranche_id: tranche.id.to_string(),
+                },
+                conditions: vec![],
+                divertible: false,
+            });
+            priority += 1;
+        }
+
+        for tranche in &sorted_tranches {
+            engine.payment_rules.push(PaymentRule {
+                id: format!("{}_principal", tranche.id.as_str()),
+                priority,
+                recipient: PaymentRecipient::Tranche(tranche.id.to_string()),
+                calculation: PaymentCalculation::TranchePrincipal {
+                    tranche_id: tranche.id.to_string(),
+                    target_balance: Some(Money::new(0.0, self.pool.base_currency())),
+                },
+                conditions: vec![],
+                divertible: true,
+            });
+            priority += 1;
+        }
+
+        engine
     }
 }
 

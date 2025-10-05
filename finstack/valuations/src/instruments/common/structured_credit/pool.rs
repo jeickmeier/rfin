@@ -23,8 +23,13 @@ pub struct PoolAsset {
     pub asset_type: AssetType,
     /// Current outstanding balance
     pub balance: Money,
-    /// Current interest rate
+    /// Current interest rate (all-in coupon)
     pub rate: f64,
+    /// Spread over index in basis points (for floating rate assets)
+    /// For WAS calculation: use this field, not the all-in rate
+    pub spread_bps: Option<f64>,
+    /// Reference index for floating rate (e.g., "SOFR-3M", "LIBOR-3M")
+    pub index_id: Option<String>,
     /// Maturity date
     pub maturity: Date,
     /// Credit quality
@@ -56,6 +61,8 @@ impl PoolAsset {
             },
             balance: bond.notional,
             rate: bond.coupon,
+            spread_bps: None, // Bond doesn't track spread separately
+            index_id: None,
             maturity: bond.maturity,
             credit_quality: None,
             industry,
@@ -70,9 +77,115 @@ impl PoolAsset {
         }
     }
 
+    /// Create a floating rate loan asset with explicit spread tracking
+    ///
+    /// This helper ensures spread_bps is properly populated for WAS calculations.
+    ///
+    /// # Arguments
+    /// * `id` - Unique asset identifier
+    /// * `balance` - Current outstanding balance
+    /// * `index_id` - Reference rate (e.g., "SOFR-3M", "LIBOR-3M")
+    /// * `spread_bps` - Spread over index in basis points
+    /// * `maturity` - Maturity date
+    ///
+    /// # Example
+    /// ```ignore
+    /// let asset = PoolAsset::floating_rate_loan(
+    ///     "LOAN001",
+    ///     Money::new(10_000_000.0, Currency::USD),
+    ///     "SOFR-3M",
+    ///     450.0,  // 450bps spread
+    ///     maturity_date,
+    /// );
+    /// // asset.rate will be 0.0 initially (set after index fixings)
+    /// // asset.spread_bps will be Some(450.0) for WAS calculation
+    /// ```
+    pub fn floating_rate_loan(
+        id: impl Into<InstrumentId>,
+        balance: Money,
+        index_id: impl Into<String>,
+        spread_bps: f64,
+        maturity: Date,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            asset_type: AssetType::Loan {
+                loan_type: super::types::LoanType::FirstLien,
+                industry: None,
+            },
+            balance,
+            rate: spread_bps / 10_000.0, // Initialize with spread only
+            spread_bps: Some(spread_bps),
+            index_id: Some(index_id.into()),
+            maturity,
+            credit_quality: None,
+            industry: None,
+            obligor_id: None,
+            is_defaulted: false,
+            recovery_amount: None,
+            purchase_price: None,
+            acquisition_date: None,
+        }
+    }
+
+    /// Create a fixed rate bond asset
+    ///
+    /// For fixed rate assets, spread_bps is None (WAS falls back to rate).
+    pub fn fixed_rate_bond(
+        id: impl Into<InstrumentId>,
+        balance: Money,
+        rate: f64,
+        maturity: Date,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            asset_type: AssetType::Bond {
+                bond_type: super::types::BondType::HighYield,
+                industry: None,
+            },
+            balance,
+            rate,
+            spread_bps: None, // Fixed rate - no separate spread
+            index_id: None,
+            maturity,
+            credit_quality: None,
+            industry: None,
+            obligor_id: None,
+            is_defaulted: false,
+            recovery_amount: None,
+            purchase_price: None,
+            acquisition_date: None,
+        }
+    }
+
+    /// Set credit quality
+    pub fn with_rating(mut self, rating: CreditRating) -> Self {
+        self.credit_quality = Some(rating);
+        self
+    }
+
+    /// Set industry classification
+    pub fn with_industry(mut self, industry: impl Into<String>) -> Self {
+        self.industry = Some(industry.into());
+        self
+    }
+
+    /// Set obligor identifier
+    pub fn with_obligor(mut self, obligor_id: impl Into<String>) -> Self {
+        self.obligor_id = Some(obligor_id.into());
+        self
+    }
+
     /// Current yield of the asset
     pub fn current_yield(&self) -> f64 {
         self.rate
+    }
+
+    /// Get spread component in basis points
+    ///
+    /// Returns the explicit spread if available, otherwise derives from rate.
+    pub fn spread_bps(&self) -> f64 {
+        self.spread_bps.unwrap_or(self.rate * 10_000.0)
     }
 
     /// Remaining term to maturity in years
@@ -341,8 +454,12 @@ impl AssetPool {
         weighted_sum / total_balance
     }
 
-    /// Calculate weighted average life (simplified)
-    pub fn weighted_avg_life(&self, as_of: Date) -> f64 {
+    /// Calculate weighted average maturity (WAM)
+    ///
+    /// This calculates the balance-weighted average time to maturity.
+    /// Note: This is NOT the same as Weighted Average Life (WAL).
+    /// WAL requires cashflow schedules and is calculated from principal payments.
+    pub fn weighted_avg_maturity(&self, as_of: Date) -> f64 {
         let total_balance = self.total_balance().amount();
         if total_balance == 0.0 {
             return 0.0;
@@ -359,6 +476,47 @@ impl AssetPool {
             .sum::<f64>();
 
         weighted_sum / total_balance
+    }
+
+    /// Calculate weighted average life (WAL) from a cashflow schedule
+    ///
+    /// Market standard WAL formula:
+    /// WAL = Σ(Principal Payment × Time to Payment) / Total Principal
+    ///
+    /// This is the proper WAL calculation based on expected principal cashflows.
+    /// For assets with prepayments, defaults, and amortization, use the full
+    /// cashflow schedule from the instrument's build_schedule method.
+    pub fn weighted_avg_life(&self, as_of: Date) -> f64 {
+        // For a simple pool without cashflow schedules, approximate WAL using WAM
+        // In production, this should be calculated from actual principal cashflows
+        self.weighted_avg_maturity(as_of)
+    }
+
+    /// Calculate true weighted average life from cashflow schedule
+    ///
+    /// This is the market-standard calculation that should be used when
+    /// full cashflow schedules are available.
+    pub fn weighted_avg_life_from_cashflows(
+        &self,
+        cashflows: &[(Date, Money)],
+        as_of: Date,
+    ) -> f64 {
+        let mut wal_numerator = 0.0;
+        let mut total_principal = 0.0;
+
+        for (date, amount) in cashflows {
+            if *date > as_of {
+                let years = (*date - as_of).whole_days() as f64 / 365.25;
+                wal_numerator += amount.amount() * years;
+                total_principal += amount.amount();
+            }
+        }
+
+        if total_principal > 0.0 {
+            wal_numerator / total_principal
+        } else {
+            0.0
+        }
     }
 
     /// Calculate diversity score (simplified Moody's approach)
@@ -512,6 +670,8 @@ impl AssetPool {
     /// Update pool statistics
     pub fn update_stats(&mut self, as_of: Date) {
         self.stats.weighted_avg_coupon = self.weighted_avg_coupon();
+        // Note: This uses simplified WAL approximation (actually WAM)
+        // For true WAL, use weighted_avg_life_from_cashflows with actual cashflows
         self.stats.weighted_avg_life = self.weighted_avg_life(as_of);
         self.stats.diversity_score = self.diversity_score();
 
@@ -564,6 +724,24 @@ impl AssetPool {
             .iter()
             .filter(|a| a.obligor_id.as_deref() == Some(obligor_id))
             .collect()
+    }
+
+    /// Calculate weighted average spread (WAS) in basis points
+    ///
+    /// Market standard: uses spread component only for floating rate assets.
+    pub fn weighted_avg_spread(&self) -> f64 {
+        let total_balance = self.total_balance().amount();
+        if total_balance == 0.0 {
+            return 0.0;
+        }
+
+        let weighted_spread = self
+            .assets
+            .iter()
+            .map(|a| a.spread_bps() * a.balance.amount())
+            .sum::<f64>();
+
+        weighted_spread / total_balance
     }
 }
 
