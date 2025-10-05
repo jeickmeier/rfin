@@ -5,7 +5,6 @@ use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::private_markets_fund::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
 };
-use crate::metrics::MetricRegistry;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -125,11 +124,6 @@ impl CashflowProvider for PrivateMarketsFund {
     ) -> finstack_core::Result<DatedFlows> {
         self.lp_cashflows()
     }
-}
-
-/// Re-export registration so callers can `use ...::register_private_markets_fund_metrics` unchanged
-pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
-    super::metrics::register_private_markets_fund_metrics(registry);
 }
 
 impl crate::instruments::common::traits::InstrumentKind for PrivateMarketsFund {

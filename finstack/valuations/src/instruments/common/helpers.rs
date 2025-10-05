@@ -73,21 +73,6 @@ pub fn build_with_metrics_dyn(
     let mut result = crate::results::ValuationResult::stamped(instrument.id(), as_of, base_value);
     result.measures = measures;
 
-    // Instrument-specific metadata stamping (non-invasive, opt-in by type)
-    // CDSIndex: stamp step-in, effective dates, coupon-day info
-    if let Some(idx) = instrument
-        .as_any()
-        .downcast_ref::<crate::instruments::cds_index::CDSIndex>()
-    {
-        // Step-in date: T+1 (calendar day). For full business-day support, integrate calendars.
-        let step_in = as_of + time::Duration::days(1);
-        let effective = idx.premium.start;
-        // Use documented ISDA standard coupon day
-        let coupon_day = crate::instruments::cds::pricer::isda_constants::STANDARD_COUPON_DAY;
-        let _ = step_in;
-        let _ = effective;
-        let _ = coupon_day;
-    }
     Ok(result)
 }
 

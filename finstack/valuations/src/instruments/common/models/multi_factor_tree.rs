@@ -6,7 +6,7 @@
 //! handling will be implemented incrementally.
 //!
 //! NOTE: This is intentionally minimal. Barrier support and performance
-//!       optimizations are deferred (see TODOs in `tree_framework`).
+//!       optimizations will be added as needed for specific use cases.
 
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{Error, Result};
