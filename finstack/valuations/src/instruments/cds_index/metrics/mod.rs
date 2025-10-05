@@ -10,9 +10,13 @@
 //! - CS01 (approximate)
 //! - Protection leg PV
 //! - Premium leg PV
+//! - Expected loss
+//! - Jump to default
 
 mod cs01;
+mod expected_loss;
 mod hazard_cs01;
+mod jump_to_default;
 mod par_spread;
 mod pv_premium;
 mod pv_protection;
@@ -41,6 +45,8 @@ pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
             (ProtectionLegPv, pv_protection::ProtectionLegPvCalculator),
             (PremiumLegPv, pv_premium::PremiumLegPvCalculator),
             (HazardCs01, hazard_cs01::HazardCs01Calculator),
+            (ExpectedLoss, expected_loss::ExpectedLossCalculator),
+            (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::CDSIndex,
             >::default()),
