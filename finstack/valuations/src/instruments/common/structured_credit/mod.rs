@@ -25,6 +25,7 @@
 // Module Declarations
 // ============================================================================
 
+pub mod constants;
 pub mod coverage_tests;
 pub mod deal_config;
 pub mod default_models;
@@ -120,9 +121,7 @@ pub use default_models::{
 // Coverage Tests - OC/IC and structural triggers
 // ============================================================================
 
-#[allow(deprecated)]
 pub use coverage_tests::{
-    // Modern unified types
     BreachedTest,
     CoverageTest,
     CoverageTests,
@@ -130,9 +129,6 @@ pub use coverage_tests::{
     TestContext,
     TestResult,
     TestResults,
-    // Legacy types (deprecated, maintained for backward compatibility)
-    ICTest,
-    OCTest,
 };
 
 // ============================================================================

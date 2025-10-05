@@ -247,138 +247,7 @@ pub struct TestResult {
 }
 
 // ========== Backward Compatibility Types ==========
-
-/// Legacy OC test structure (deprecated)
-#[deprecated(since = "0.1.0", note = "Use CoverageTest::OC instead")]
-#[allow(deprecated)]
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct OCTest {
-    /// Required OC ratio (e.g., 1.25 = 125%)
-    pub required_ratio: f64,
-    /// Cure level if higher than trigger
-    pub cure_level: Option<f64>,
-    /// Current calculated ratio
-    pub current_ratio: Option<f64>,
-    /// Whether test is currently passing
-    pub is_passing: bool,
-    /// Cure amount if failing
-    pub cure_amount: Option<Money>,
-    /// Include cash in numerator
-    pub include_cash: bool,
-    /// Include only performing assets
-    pub performing_only: bool,
-}
-
-#[allow(deprecated)]
-impl OCTest {
-    pub fn new(required_ratio: f64, cure_level: Option<f64>) -> Self {
-        Self {
-            required_ratio,
-            cure_level,
-            current_ratio: None,
-            is_passing: false,
-            cure_amount: None,
-            include_cash: true,
-            performing_only: true,
-        }
-    }
-
-    /// Calculate OC ratio for a tranche
-    pub fn calculate(
-        &mut self,
-        pool: &AssetPool,
-        tranche_balance: Money,
-        senior_balance: Money,
-        cash_balance: Money,
-    ) -> f64 {
-        let context = TestContext {
-            pool,
-            tranche_balance,
-            senior_balance,
-            cash_balance,
-            interest_collections: Money::new(0.0, tranche_balance.currency()),
-            interest_due: Money::new(0.0, tranche_balance.currency()),
-            senior_interest_due: Money::new(0.0, tranche_balance.currency()),
-        };
-
-        let test = CoverageTest::OC {
-            required_ratio: self.required_ratio,
-            cure_level: self.cure_level,
-            include_cash: self.include_cash,
-            performing_only: self.performing_only,
-        };
-
-        let result = test.calculate(&context);
-        self.current_ratio = Some(result.current_ratio);
-        self.is_passing = result.is_passing;
-        self.cure_amount = result.cure_amount;
-
-        result.current_ratio
-    }
-}
-
-/// Legacy IC test structure (deprecated)
-#[deprecated(since = "0.1.0", note = "Use CoverageTest::IC instead")]
-#[allow(deprecated)]
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct ICTest {
-    /// Required IC ratio (e.g., 1.20 = 120%)
-    pub required_ratio: f64,
-    /// Cure level if higher than trigger
-    pub cure_level: Option<f64>,
-    /// Current calculated ratio
-    pub current_ratio: Option<f64>,
-    /// Whether test is currently passing
-    pub is_passing: bool,
-}
-
-#[allow(deprecated)]
-impl ICTest {
-    pub fn new(required_ratio: f64, cure_level: Option<f64>) -> Self {
-        Self {
-            required_ratio,
-            cure_level,
-            current_ratio: None,
-            is_passing: false,
-        }
-    }
-
-    /// Calculate IC ratio
-    pub fn calculate(
-        &mut self,
-        interest_collections: Money,
-        interest_due: Money,
-        senior_interest_due: Money,
-    ) -> f64 {
-        let pool = AssetPool::new(
-            "DUMMY",
-            super::enums::DealType::CLO,
-            interest_collections.currency(),
-        );
-        let context = TestContext {
-            pool: &pool,
-            tranche_balance: Money::new(0.0, interest_collections.currency()),
-            senior_balance: Money::new(0.0, interest_collections.currency()),
-            cash_balance: Money::new(0.0, interest_collections.currency()),
-            interest_collections,
-            interest_due,
-            senior_interest_due,
-        };
-
-        let test = CoverageTest::IC {
-            required_ratio: self.required_ratio,
-            cure_level: self.cure_level,
-        };
-
-        let result = test.calculate(&context);
-        self.current_ratio = Some(result.current_ratio);
-        self.is_passing = result.is_passing;
-
-        result.current_ratio
-    }
-}
+// Legacy types removed - use CoverageTest enum instead
 
 /// Results of coverage test calculations
 #[derive(Debug, Clone)]
@@ -459,7 +328,7 @@ impl CoverageTests {
                 breached_tests: Vec::new(),
                 payment_diversion: PaymentDiversion::default(),
             },
-            historical_results: Vec::with_capacity(120), // Typical 10-year quarterly history
+            historical_results: Vec::with_capacity(super::constants::HISTORICAL_COVERAGE_CAPACITY),
         }
     }
 

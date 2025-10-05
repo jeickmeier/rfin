@@ -13,9 +13,8 @@ impl crate::metrics::MetricCalculator for RmbsWalCalculator {
             .downcast_ref::<crate::instruments::rmbs::Rmbs>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
-        // Use the pool's WAL calculation, adjusted for PSA speed
-        #[allow(deprecated)]
-        let base_wal = rmbs.pool.weighted_avg_life(context.as_of);
+        // Use the pool's WAM calculation (approximation), adjusted for PSA speed
+        let base_wal = rmbs.pool.weighted_avg_maturity(context.as_of);
 
         // Higher PSA speeds shorten WAL
         // Simplified adjustment: WAL / (1 + PSA/2)

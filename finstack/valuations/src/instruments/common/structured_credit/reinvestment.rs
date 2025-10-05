@@ -526,28 +526,29 @@ impl ReinvestmentManager {
     }
 }
 
-// Helper functions for AssetPool operations - using actual implementations
+// Helper functions for AssetPool operations - consolidated using generic approach
 fn get_obligor_exposure(pool: &AssetPool, obligor: &str) -> Money {
-    pool.assets_by_obligor(obligor)
-        .iter()
-        .fold(Money::new(0.0, pool.base_currency()), |acc, asset| {
-            acc.checked_add(asset.balance).unwrap_or(acc)
-        })
+    sum_asset_balances(pool.assets_by_obligor(obligor), pool.base_currency())
 }
 
 fn get_industry_exposure(pool: &AssetPool, industry: &str) -> Money {
-    pool.assets_by_industry(industry)
-        .iter()
-        .fold(Money::new(0.0, pool.base_currency()), |acc, asset| {
-            acc.checked_add(asset.balance).unwrap_or(acc)
-        })
+    sum_asset_balances(pool.assets_by_industry(industry), pool.base_currency())
 }
 
 fn get_rating_exposure(pool: &AssetPool, rating: CreditRating) -> Money {
-    pool.assets
+    let filtered: Vec<&PoolAsset> = pool
+        .assets
         .iter()
         .filter(|a| a.credit_quality == Some(rating))
-        .fold(Money::new(0.0, pool.base_currency()), |acc, asset| {
+        .collect();
+    sum_asset_balances(filtered, pool.base_currency())
+}
+
+/// Generic helper to sum asset balances
+fn sum_asset_balances(assets: Vec<&PoolAsset>, base_currency: Currency) -> Money {
+    assets
+        .iter()
+        .fold(Money::new(0.0, base_currency), |acc, asset| {
             acc.checked_add(asset.balance).unwrap_or(acc)
         })
 }
@@ -617,17 +618,18 @@ impl Default for EligibilityCriteria {
 
 impl Default for ConcentrationLimits {
     fn default() -> Self {
+        use super::constants::*;
         Self {
-            max_obligor_concentration: Some(0.02), // 2%
-            max_top5_concentration: Some(0.075),   // 7.5%
-            max_top10_concentration: Some(0.125),  // 12.5%
+            max_obligor_concentration: Some(DEFAULT_MAX_OBLIGOR_CONCENTRATION),
+            max_top5_concentration: Some(DEFAULT_MAX_TOP5_CONCENTRATION),
+            max_top10_concentration: Some(DEFAULT_MAX_TOP10_CONCENTRATION),
             industry_limits: HashMap::new(),
             rating_bucket_limits: HashMap::new(),
             geographic_limits: HashMap::new(),
             asset_type_limits: HashMap::new(),
-            max_second_lien: Some(0.10),
-            max_cov_lite: Some(0.65),
-            max_dip: Some(0.05),
+            max_second_lien: Some(DEFAULT_MAX_SECOND_LIEN),
+            max_cov_lite: Some(DEFAULT_MAX_COV_LITE),
+            max_dip: Some(DEFAULT_MAX_DIP),
         }
     }
 }

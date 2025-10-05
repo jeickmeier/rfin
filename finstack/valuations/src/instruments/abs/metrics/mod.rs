@@ -77,9 +77,6 @@ impl crate::metrics::MetricCalculator for AbsWalCalculator {
             .downcast_ref::<crate::instruments::abs::Abs>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
-        #[allow(deprecated)]
-        {
-            Ok(abs.pool.weighted_avg_life(context.as_of))
-        }
+        Ok(abs.pool.weighted_avg_maturity(context.as_of))
     }
 }

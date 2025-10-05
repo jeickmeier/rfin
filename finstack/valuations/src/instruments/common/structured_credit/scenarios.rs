@@ -322,17 +322,17 @@ impl StructuredCreditScenario {
 
     /// Default PSA speeds for scenario analysis
     pub fn default_psa_speeds() -> Vec<f64> {
-        vec![0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0]
+        super::constants::STANDARD_PSA_SPEEDS.to_vec()
     }
 
     /// Default CDR rates for scenario analysis
     pub fn default_cdr_rates() -> Vec<f64> {
-        vec![0.005, 0.01, 0.02, 0.03, 0.05, 0.075, 0.10, 0.15, 0.20]
+        super::constants::STANDARD_CDR_RATES.to_vec()
     }
 
     /// Default severity rates for scenario analysis
     pub fn default_severity_rates() -> Vec<f64> {
-        vec![0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80]
+        super::constants::STANDARD_SEVERITY_RATES.to_vec()
     }
 
     /// Run scenario on a CLO instrument
@@ -347,23 +347,10 @@ impl StructuredCreditScenario {
 
         use crate::instruments::common::traits::Instrument;
         let pv = clo_copy.value(market, as_of)?;
-        #[allow(deprecated)]
-        let wal = clo_copy.pool.weighted_avg_life(as_of);
+        // Use WAM as approximation for WAL since we don't have cashflows yet
+        let wal = clo_copy.pool.weighted_avg_maturity(as_of);
 
-        Ok(ScenarioResult {
-            scenario_id: self.id.clone(),
-            pv: pv.amount(),
-            wal,
-            duration: None,
-            total_defaults: clo_copy.pool.cumulative_defaults.amount(),
-            total_prepayments: clo_copy.pool.cumulative_prepayments.amount(),
-            total_recoveries: clo_copy.pool.cumulative_recoveries.amount(),
-            net_loss: (clo_copy.pool.cumulative_defaults.amount()
-                - clo_copy.pool.cumulative_recoveries.amount()),
-            oc_ratios: HashMap::new(),
-            ic_ratios: HashMap::new(),
-            custom_metrics: HashMap::new(),
-        })
+        Self::build_scenario_result(&self.id, pv.amount(), wal, &clo_copy.pool)
     }
 
     /// Run scenario on an RMBS instrument
@@ -378,23 +365,9 @@ impl StructuredCreditScenario {
 
         use crate::instruments::common::traits::Instrument;
         let pv = rmbs_copy.value(market, as_of)?;
-        #[allow(deprecated)]
-        let wal = rmbs_copy.pool.weighted_avg_life(as_of);
+        let wal = rmbs_copy.pool.weighted_avg_maturity(as_of);
 
-        Ok(ScenarioResult {
-            scenario_id: self.id.clone(),
-            pv: pv.amount(),
-            wal,
-            duration: None,
-            total_defaults: rmbs_copy.pool.cumulative_defaults.amount(),
-            total_prepayments: rmbs_copy.pool.cumulative_prepayments.amount(),
-            total_recoveries: rmbs_copy.pool.cumulative_recoveries.amount(),
-            net_loss: (rmbs_copy.pool.cumulative_defaults.amount()
-                - rmbs_copy.pool.cumulative_recoveries.amount()),
-            oc_ratios: HashMap::new(),
-            ic_ratios: HashMap::new(),
-            custom_metrics: HashMap::new(),
-        })
+        Self::build_scenario_result(&self.id, pv.amount(), wal, &rmbs_copy.pool)
     }
 
     /// Run scenario on an ABS instrument
@@ -409,19 +382,27 @@ impl StructuredCreditScenario {
 
         use crate::instruments::common::traits::Instrument;
         let pv = abs_copy.value(market, as_of)?;
-        #[allow(deprecated)]
-        let wal = abs_copy.pool.weighted_avg_life(as_of);
+        let wal = abs_copy.pool.weighted_avg_maturity(as_of);
 
+        Self::build_scenario_result(&self.id, pv.amount(), wal, &abs_copy.pool)
+    }
+
+    /// Helper to build scenario result (reduces duplication)
+    fn build_scenario_result(
+        scenario_id: &str,
+        pv: f64,
+        wal: f64,
+        pool: &crate::instruments::common::structured_credit::AssetPool,
+    ) -> Result<ScenarioResult> {
         Ok(ScenarioResult {
-            scenario_id: self.id.clone(),
-            pv: pv.amount(),
+            scenario_id: scenario_id.to_string(),
+            pv,
             wal,
             duration: None,
-            total_defaults: abs_copy.pool.cumulative_defaults.amount(),
-            total_prepayments: abs_copy.pool.cumulative_prepayments.amount(),
-            total_recoveries: abs_copy.pool.cumulative_recoveries.amount(),
-            net_loss: (abs_copy.pool.cumulative_defaults.amount()
-                - abs_copy.pool.cumulative_recoveries.amount()),
+            total_defaults: pool.cumulative_defaults.amount(),
+            total_prepayments: pool.cumulative_prepayments.amount(),
+            total_recoveries: pool.cumulative_recoveries.amount(),
+            net_loss: (pool.cumulative_defaults.amount() - pool.cumulative_recoveries.amount()),
             oc_ratios: HashMap::new(),
             ic_ratios: HashMap::new(),
             custom_metrics: HashMap::new(),
@@ -437,24 +418,9 @@ impl StructuredCreditScenario {
     ) -> Result<ScenarioComparison> {
         use crate::instruments::common::traits::Instrument;
 
-        // Base case
         let base_pv = clo.value(market, as_of)?;
-        #[allow(deprecated)]
-        let base_wal = clo.pool.weighted_avg_life(as_of);
-        let base_case = ScenarioResult {
-            scenario_id: "BASE".to_string(),
-            pv: base_pv.amount(),
-            wal: base_wal,
-            duration: None,
-            total_defaults: clo.pool.cumulative_defaults.amount(),
-            total_prepayments: clo.pool.cumulative_prepayments.amount(),
-            total_recoveries: clo.pool.cumulative_recoveries.amount(),
-            net_loss: (clo.pool.cumulative_defaults.amount()
-                - clo.pool.cumulative_recoveries.amount()),
-            oc_ratios: HashMap::new(),
-            ic_ratios: HashMap::new(),
-            custom_metrics: HashMap::new(),
-        };
+        let base_wal = clo.pool.weighted_avg_maturity(as_of);
+        let base_case = Self::build_scenario_result("BASE", base_pv.amount(), base_wal, &clo.pool)?;
 
         let scenario_results: Result<Vec<_>> = scenarios
             .iter()
@@ -478,22 +444,8 @@ impl StructuredCreditScenario {
         use crate::instruments::common::traits::Instrument;
 
         let base_pv = rmbs.value(market, as_of)?;
-        #[allow(deprecated)]
-        let base_wal = rmbs.pool.weighted_avg_life(as_of);
-        let base_case = ScenarioResult {
-            scenario_id: "BASE".to_string(),
-            pv: base_pv.amount(),
-            wal: base_wal,
-            duration: None,
-            total_defaults: rmbs.pool.cumulative_defaults.amount(),
-            total_prepayments: rmbs.pool.cumulative_prepayments.amount(),
-            total_recoveries: rmbs.pool.cumulative_recoveries.amount(),
-            net_loss: (rmbs.pool.cumulative_defaults.amount()
-                - rmbs.pool.cumulative_recoveries.amount()),
-            oc_ratios: HashMap::new(),
-            ic_ratios: HashMap::new(),
-            custom_metrics: HashMap::new(),
-        };
+        let base_wal = rmbs.pool.weighted_avg_maturity(as_of);
+        let base_case = Self::build_scenario_result("BASE", base_pv.amount(), base_wal, &rmbs.pool)?;
 
         let scenario_results: Result<Vec<_>> = scenarios
             .iter()
@@ -517,22 +469,8 @@ impl StructuredCreditScenario {
         use crate::instruments::common::traits::Instrument;
 
         let base_pv = abs.value(market, as_of)?;
-        #[allow(deprecated)]
-        let base_wal = abs.pool.weighted_avg_life(as_of);
-        let base_case = ScenarioResult {
-            scenario_id: "BASE".to_string(),
-            pv: base_pv.amount(),
-            wal: base_wal,
-            duration: None,
-            total_defaults: abs.pool.cumulative_defaults.amount(),
-            total_prepayments: abs.pool.cumulative_prepayments.amount(),
-            total_recoveries: abs.pool.cumulative_recoveries.amount(),
-            net_loss: (abs.pool.cumulative_defaults.amount()
-                - abs.pool.cumulative_recoveries.amount()),
-            oc_ratios: HashMap::new(),
-            ic_ratios: HashMap::new(),
-            custom_metrics: HashMap::new(),
-        };
+        let base_wal = abs.pool.weighted_avg_maturity(as_of);
+        let base_case = Self::build_scenario_result("BASE", base_pv.amount(), base_wal, &abs.pool)?;
 
         let scenario_results: Result<Vec<_>> = scenarios
             .iter()

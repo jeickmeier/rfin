@@ -144,8 +144,8 @@ impl Default for PSAModel {
     fn default() -> Self {
         Self {
             speed: 1.0, // 100% PSA
-            ramp_months: 30,
-            terminal_cpr: 0.06,
+            ramp_months: super::constants::PSA_RAMP_MONTHS,
+            terminal_cpr: super::constants::PSA_TERMINAL_CPR,
         }
     }
 }
@@ -244,10 +244,7 @@ impl Default for MortgagePrepaymentModel {
             base_speed: 1.0,
             refi_sensitivity: 4.0, // 4x multiplier per 100bps incentive
             burnout_factor: 0.3,
-            seasonality: [
-                0.94, 0.76, 0.74, 0.95, 0.98, 0.92, // Jan-Jun
-                1.10, 1.18, 1.22, 1.23, 0.98, 1.00, // Jul-Dec
-            ],
+            seasonality: super::constants::MORTGAGE_SEASONALITY,
             hpa_sensitivity: 0.1,
         }
     }
@@ -310,8 +307,8 @@ pub struct AutoPrepaymentModel {
 impl Default for AutoPrepaymentModel {
     fn default() -> Self {
         Self {
-            abs_speed: 0.015, // 1.5% ABS
-            ramp_months: 12,
+            abs_speed: super::constants::DEFAULT_AUTO_ABS_SPEED,
+            ramp_months: super::constants::DEFAULT_AUTO_RAMP_MONTHS,
             loss_severity: 0.35,
         }
     }
@@ -370,12 +367,8 @@ impl PrepaymentBehavior for CreditCardPaymentModel {
 
         // Apply seasonality (higher payments in Jan/Feb, Dec)
         if self.use_seasonality {
-            let seasonal_factors = [
-                1.15, 1.10, 1.0, 0.95, 0.95, 0.95, // Jan-Jun
-                0.95, 0.95, 1.0, 1.05, 1.05, 1.10, // Jul-Dec
-            ];
             let month = as_of.month() as usize - 1;
-            rate *= seasonal_factors[month];
+            rate *= super::constants::CREDIT_CARD_SEASONALITY[month];
         }
 
         // Apply custom seasonal factor if provided

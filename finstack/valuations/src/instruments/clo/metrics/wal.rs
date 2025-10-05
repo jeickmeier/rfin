@@ -13,10 +13,7 @@ impl crate::metrics::MetricCalculator for CloWalCalculator {
             .downcast_ref::<crate::instruments::clo::Clo>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
-        // Use the pool's WAL calculation
-        #[allow(deprecated)]
-        {
-            Ok(clo.pool.weighted_avg_life(context.as_of))
-        }
+        // Use the pool's WAM calculation (approximation for WAL)
+        Ok(clo.pool.weighted_avg_maturity(context.as_of))
     }
 }

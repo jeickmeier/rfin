@@ -199,11 +199,8 @@ impl Clo {
 
     /// Calculate expected life of the structure.
     pub fn expected_life(&self, as_of: Date) -> finstack_core::Result<f64> {
-        // Simplified calculation based on pool WAL
-        #[allow(deprecated)]
-        {
-            Ok(self.pool.weighted_avg_life(as_of))
-        }
+        // Simplified calculation based on pool WAM (approximation for WAL)
+        Ok(self.pool.weighted_avg_maturity(as_of))
     }
 }
 

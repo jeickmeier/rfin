@@ -464,8 +464,10 @@ impl TrancheStructure {
 
         // Check for gaps or overlaps
         let mut expected_attachment = 0.0;
+        const TOLERANCE: f64 = super::constants::VALIDATION_TOLERANCE;
+        
         for tranche in &sorted_tranches {
-            if (tranche.attachment_point - expected_attachment).abs() > 1e-6 {
+            if (tranche.attachment_point - expected_attachment).abs() > TOLERANCE {
                 return Err(finstack_core::error::InputError::Invalid.into());
             }
             if tranche.detachment_point <= tranche.attachment_point {
@@ -475,7 +477,7 @@ impl TrancheStructure {
         }
 
         // Should reach 100%
-        if (expected_attachment - 100.0).abs() > 1e-6 {
+        if (expected_attachment - 100.0).abs() > TOLERANCE {
             return Err(finstack_core::error::InputError::Invalid.into());
         }
 

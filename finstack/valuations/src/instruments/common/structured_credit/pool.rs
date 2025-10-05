@@ -387,27 +387,7 @@ impl AssetPool {
         weighted_sum / total_balance
     }
 
-    /// Calculate weighted average life (WAL) - simplified approximation
-    ///
-    /// **Note**: This method approximates WAL using weighted average maturity (WAM).
-    /// For accurate WAL calculations based on actual cashflows, use
-    /// [`weighted_avg_life_from_cashflows`](#method.weighted_avg_life_from_cashflows).
-    ///
-    /// Market standard WAL formula:
-    /// WAL = Σ(Principal Payment × Time to Payment) / Total Principal
-    ///
-    /// This simplified version returns WAM as a proxy when full cashflow schedules
-    /// are not available. For structured credit instruments with prepayments,
-    /// defaults, and amortization, use the cashflow-based calculation.
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use weighted_avg_life_from_cashflows() for accurate WAL calculations"
-    )]
-    pub fn weighted_avg_life(&self, as_of: Date) -> f64 {
-        // Approximation: Use WAM as proxy for WAL
-        // In production, this should be calculated from actual principal cashflows
-        self.weighted_avg_maturity(as_of)
-    }
+    // Deprecated weighted_avg_life removed - use weighted_avg_life_from_cashflows() for accurate WAL
 
     /// Calculate true weighted average life from cashflow schedule
     ///
@@ -423,7 +403,7 @@ impl AssetPool {
 
         for (date, amount) in cashflows {
             if *date > as_of {
-                let years = (*date - as_of).whole_days() as f64 / 365.25;
+                let years = (*date - as_of).whole_days() as f64 / super::constants::DAYS_PER_YEAR;
                 wal_numerator += amount.amount() * years;
                 total_principal += amount.amount();
             }
@@ -551,12 +531,9 @@ impl AssetPool {
     /// Update pool statistics
     pub fn update_stats(&mut self, as_of: Date) {
         self.stats.weighted_avg_coupon = self.weighted_avg_coupon();
-        // Note: This uses simplified WAL approximation (actually WAM)
+        // Note: Using WAM as approximation for WAL in stats
         // For true WAL, use weighted_avg_life_from_cashflows with actual cashflows
-        #[allow(deprecated)]
-        {
-            self.stats.weighted_avg_life = self.weighted_avg_life(as_of);
-        }
+        self.stats.weighted_avg_life = self.weighted_avg_maturity(as_of);
         self.stats.diversity_score = self.diversity_score();
 
         // Count unique obligors and industries
