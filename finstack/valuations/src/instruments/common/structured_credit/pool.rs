@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::enums::{AssetType, CreditRating, DealType};
+use super::reinvestment::{ConcentrationLimits, EligibilityCriteria};
 
 /// Individual asset in the structured credit pool
 #[derive(Debug, Clone)]
@@ -203,70 +204,7 @@ impl PoolAsset {
     }
 }
 
-/// Eligibility criteria for pool assets
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct EligibilityCriteria {
-    /// Minimum credit rating
-    pub min_credit_rating: Option<CreditRating>,
-    /// Maximum maturity date
-    pub max_maturity: Option<Date>,
-    /// Eligible currencies
-    pub eligible_currencies: Vec<Currency>,
-    /// Excluded industries
-    pub excluded_industries: Vec<String>,
-    /// Minimum spread over benchmark
-    pub min_spread_bp: Option<f64>,
-    /// Maximum asset size
-    pub max_asset_size: Option<Money>,
-    /// Minimum asset size
-    pub min_asset_size: Option<Money>,
-}
 
-impl Default for EligibilityCriteria {
-    fn default() -> Self {
-        Self {
-            min_credit_rating: Some(CreditRating::CCC),
-            max_maturity: None,
-            eligible_currencies: vec![Currency::USD],
-            excluded_industries: Vec::new(),
-            min_spread_bp: Some(100.0), // 1% minimum spread
-            max_asset_size: None,
-            min_asset_size: None,
-        }
-    }
-}
-
-/// Concentration limits for risk management
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct ConcentrationLimits {
-    /// Maximum percentage of pool from single obligor
-    pub max_obligor_concentration: f64,
-    /// Maximum percentage from single industry
-    pub max_industry_concentration: f64,
-    /// Maximum percentage of CCC-rated assets
-    pub max_ccc_assets: f64,
-    /// Minimum diversity score
-    pub min_diversity_score: Option<f64>,
-    /// Maximum weighted average life
-    pub max_weighted_avg_life: Option<f64>,
-    /// Maximum single asset size
-    pub max_single_asset_pct: f64,
-}
-
-impl Default for ConcentrationLimits {
-    fn default() -> Self {
-        Self {
-            max_obligor_concentration: 2.0,   // 2%
-            max_industry_concentration: 15.0, // 15%
-            max_ccc_assets: 7.5,              // 7.5%
-            min_diversity_score: Some(30.0),  // Moody's diversity score
-            max_weighted_avg_life: Some(7.0), // 7 years
-            max_single_asset_pct: 1.0,        // 1%
-        }
-    }
-}
 
 /// Reinvestment period and rules
 #[derive(Debug, Clone)]
@@ -393,7 +331,7 @@ impl AssetPool {
             id: id.into(),
             deal_type,
             assets: Vec::new(),
-            eligibility_criteria: EligibilityCriteria::default(),
+            eligibility_criteria: super::reinvestment::EligibilityCriteria::default(),
             concentration_limits: ConcentrationLimits::default(),
             cumulative_defaults: zero_money,
             cumulative_recoveries: zero_money,
@@ -543,48 +481,9 @@ impl AssetPool {
     }
 
     /// Check eligibility of an asset for the pool
-    pub fn is_eligible(&self, asset: &PoolAsset, _as_of: Date) -> bool {
-        let criteria = &self.eligibility_criteria;
-
-        // Check credit rating
-        if let (Some(min_rating), Some(asset_rating)) =
-            (criteria.min_credit_rating, asset.credit_quality)
-        {
-            if asset_rating < min_rating {
-                return false;
-            }
-        }
-
-        // Check maturity
-        if let Some(max_maturity) = criteria.max_maturity {
-            if asset.maturity > max_maturity {
-                return false;
-            }
-        }
-
-        // Check currency
-        if !criteria
-            .eligible_currencies
-            .contains(&asset.balance.currency())
-        {
-            return false;
-        }
-
-        // Check excluded industries
-        if let Some(ref industry) = asset.industry {
-            if criteria.excluded_industries.contains(industry) {
-                return false;
-            }
-        }
-
-        // Check minimum spread (simplified)
-        if let Some(min_spread) = criteria.min_spread_bp {
-            if asset.rate * 10_000.0 < min_spread {
-                return false;
-            }
-        }
-
-        true
+    pub fn is_eligible(&self, asset: &PoolAsset, as_of: Date) -> bool {
+        let (eligible, _reasons) = self.eligibility_criteria.is_eligible(asset, as_of);
+        eligible
     }
 
     /// Check concentration limits compliance
@@ -597,67 +496,70 @@ impl AssetPool {
         }
 
         // Check obligor concentration
-        let mut obligor_concentrations: HashMap<String, f64> = HashMap::new();
-        for asset in &self.assets {
-            if let Some(ref obligor) = asset.obligor_id {
-                *obligor_concentrations.entry(obligor.clone()).or_insert(0.0) +=
-                    asset.balance.amount() / total_balance * 100.0;
+        if let Some(max_obligor) = self.concentration_limits.max_obligor_concentration {
+            let mut obligor_concentrations: HashMap<String, f64> = HashMap::new();
+            for asset in &self.assets {
+                if let Some(ref obligor) = asset.obligor_id {
+                    *obligor_concentrations.entry(obligor.clone()).or_insert(0.0) +=
+                        asset.balance.amount() / total_balance;
+                }
+            }
+
+            for (obligor, concentration) in &obligor_concentrations {
+                if *concentration > max_obligor {
+                    violations.push(ConcentrationViolation {
+                        violation_type: "obligor_concentration".to_string(),
+                        identifier: obligor.clone(),
+                        current_level: *concentration * 100.0,
+                        limit: max_obligor * 100.0,
+                    });
+                }
             }
         }
 
-        for (obligor, concentration) in &obligor_concentrations {
-            if *concentration > self.concentration_limits.max_obligor_concentration {
-                violations.push(ConcentrationViolation {
-                    violation_type: "obligor_concentration".to_string(),
-                    identifier: obligor.clone(),
-                    current_level: *concentration,
-                    limit: self.concentration_limits.max_obligor_concentration,
-                });
-            }
-        }
-
-        // Check industry concentration
+        // Check industry concentration using industry_limits
         let mut industry_concentrations: HashMap<String, f64> = HashMap::new();
         for asset in &self.assets {
             if let Some(ref industry) = asset.industry {
                 *industry_concentrations
                     .entry(industry.clone())
-                    .or_insert(0.0) += asset.balance.amount() / total_balance * 100.0;
+                    .or_insert(0.0) += asset.balance.amount() / total_balance;
             }
         }
 
         for (industry, concentration) in &industry_concentrations {
-            if *concentration > self.concentration_limits.max_industry_concentration {
-                violations.push(ConcentrationViolation {
-                    violation_type: "industry_concentration".to_string(),
-                    identifier: industry.clone(),
-                    current_level: *concentration,
-                    limit: self.concentration_limits.max_industry_concentration,
-                });
+            if let Some(&limit) = self.concentration_limits.industry_limits.get(industry) {
+                if *concentration > limit {
+                    violations.push(ConcentrationViolation {
+                        violation_type: "industry_concentration".to_string(),
+                        identifier: industry.clone(),
+                        current_level: *concentration * 100.0,
+                        limit: limit * 100.0,
+                    });
+                }
             }
         }
 
-        // Check CCC asset concentration
-        let ccc_balance: f64 = self
-            .assets
-            .iter()
-            .filter(|a| {
-                matches!(
-                    a.credit_quality,
-                    Some(CreditRating::CCC | CreditRating::CC | CreditRating::C)
-                )
-            })
-            .map(|a| a.balance.amount())
-            .sum();
-        let ccc_concentration = ccc_balance / total_balance * 100.0;
+        // Check rating bucket concentration
+        for rating in [CreditRating::CCC, CreditRating::CC, CreditRating::C] {
+            if let Some(&limit) = self.concentration_limits.rating_bucket_limits.get(&rating) {
+                let rating_balance: f64 = self
+                    .assets
+                    .iter()
+                    .filter(|a| a.credit_quality == Some(rating))
+                    .map(|a| a.balance.amount())
+                    .sum();
+                let rating_concentration = rating_balance / total_balance;
 
-        if ccc_concentration > self.concentration_limits.max_ccc_assets {
-            violations.push(ConcentrationViolation {
-                violation_type: "ccc_concentration".to_string(),
-                identifier: "CCC_BUCKET".to_string(),
-                current_level: ccc_concentration,
-                limit: self.concentration_limits.max_ccc_assets,
-            });
+                if rating_concentration > limit {
+                    violations.push(ConcentrationViolation {
+                        violation_type: "rating_concentration".to_string(),
+                        identifier: format!("{:?}", rating),
+                        current_level: rating_concentration * 100.0,
+                        limit: limit * 100.0,
+                    });
+                }
+            }
         }
 
         ConcentrationCheckResult { violations }

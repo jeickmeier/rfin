@@ -4,6 +4,7 @@
 //! for use in WARF, diversity score, and other credit metrics calculations.
 
 use super::enums::CreditRating;
+use std::sync::OnceLock;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -65,24 +66,17 @@ impl RatingFactorTable {
     }
 }
 
+/// Lazily initialized Moody's WARF rating factor table
+static MOODYS_WARF_TABLE: OnceLock<RatingFactorTable> = OnceLock::new();
+
 /// Get Moody's WARF factor for a rating (convenience function)
 ///
 /// This is the standard function that should be used throughout the codebase
 /// for consistent WARF calculations.
 pub fn moodys_warf_factor(rating: CreditRating) -> f64 {
-    match rating {
-        CreditRating::AAA => 1.0,
-        CreditRating::AA => 10.0,
-        CreditRating::A => 40.0,
-        CreditRating::BBB => 260.0,
-        CreditRating::BB => 1350.0,
-        CreditRating::B => 2720.0,
-        CreditRating::CCC => 6500.0,
-        CreditRating::CC => 8070.0,
-        CreditRating::C => 10000.0,
-        CreditRating::D => 10000.0,
-        CreditRating::NR => 3650.0,
-    }
+    MOODYS_WARF_TABLE
+        .get_or_init(RatingFactorTable::moodys_standard)
+        .get_factor(rating)
 }
 
 #[cfg(test)]

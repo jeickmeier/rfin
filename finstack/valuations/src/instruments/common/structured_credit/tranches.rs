@@ -131,16 +131,6 @@ impl TrancheCoupon {
     }
 }
 
-/// Custom trigger for special events
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct CustomTrigger {
-    pub name: String,
-    pub threshold: f64,
-    pub test_type: String, // Description of what's being tested
-    pub consequence: TriggerConsequence,
-}
-
 /// Structured credit tranche with attachment/detachment points
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -167,7 +157,6 @@ pub struct AbsTranche {
     /// Coverage test triggers
     pub oc_trigger: Option<CoverageTrigger>,
     pub ic_trigger: Option<CoverageTrigger>,
-    pub other_triggers: Vec<CustomTrigger>,
 
     /// Credit enhancement details
     pub credit_enhancement: CreditEnhancement,
@@ -221,7 +210,6 @@ impl AbsTranche {
             coupon,
             oc_trigger: None,
             ic_trigger: None,
-            other_triggers: Vec::new(),
             credit_enhancement: CreditEnhancement::default(),
             payment_frequency: Frequency::quarterly(),
             day_count: DayCount::Act360,

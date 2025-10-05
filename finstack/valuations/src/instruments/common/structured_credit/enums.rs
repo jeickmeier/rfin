@@ -59,23 +59,6 @@ impl CreditRating {
     pub fn is_investment_grade(&self) -> bool {
         matches!(self, Self::AAA | Self::AA | Self::A | Self::BBB)
     }
-
-    /// Get Moody's WARF factor for the rating
-    pub fn rating_factor(&self) -> f64 {
-        match self {
-            Self::AAA => 1.0,
-            Self::AA => 10.0,
-            Self::A => 40.0,
-            Self::BBB => 260.0,
-            Self::BB => 1350.0,
-            Self::B => 2720.0,
-            Self::CCC => 6500.0,
-            Self::CC => 8070.0,
-            Self::C => 10000.0,
-            Self::D => 10000.0,
-            Self::NR => 3650.0,
-        }
-    }
 }
 
 /// Tranche seniority levels

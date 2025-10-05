@@ -15,6 +15,23 @@ use finstack_core::money::Money;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// Configuration for structured credit instrument dates
+pub struct InstrumentDates {
+    pub closing_date: Date,
+    pub first_payment_date: Date,
+    pub legal_maturity: Date,
+    pub payment_frequency: Frequency,
+}
+
+/// Configuration for structured credit instrument models
+pub struct InstrumentModels<'a> {
+    pub prepayment: &'a Arc<dyn PrepaymentBehavior>,
+    pub default: &'a Arc<dyn DefaultBehavior>,
+    pub recovery: &'a Arc<dyn RecoveryBehavior>,
+    pub market_conditions: &'a MarketConditions,
+    pub credit_factors: &'a CreditFactors,
+}
+
 /// Common trait for structured credit instruments
 pub trait StructuredCreditInstrument {
     /// Get reference to asset pool
@@ -22,6 +39,27 @@ pub trait StructuredCreditInstrument {
 
     /// Get reference to tranche structure
     fn tranches(&self) -> &TrancheStructure;
+    
+    /// Get all date configurations at once
+    fn dates(&self) -> InstrumentDates {
+        InstrumentDates {
+            closing_date: self.closing_date(),
+            first_payment_date: self.first_payment_date(),
+            legal_maturity: self.legal_maturity(),
+            payment_frequency: self.payment_frequency(),
+        }
+    }
+    
+    /// Get all model configurations at once
+    fn models(&self) -> InstrumentModels {
+        InstrumentModels {
+            prepayment: self.prepayment_model(),
+            default: self.default_model(),
+            recovery: self.recovery_model(),
+            market_conditions: self.market_conditions(),
+            credit_factors: self.credit_factors(),
+        }
+    }
 
     /// Get closing date
     fn closing_date(&self) -> Date;
@@ -112,6 +150,10 @@ pub trait StructuredCreditInstrument {
         if pool_outstanding.amount() <= 0.0 {
             return Ok(Vec::new());
         }
+        
+        // Get all date and model configurations at once
+        let dates = self.dates();
+        let models = self.models();
 
         // Track tranche balances over time
         let mut tranche_balances: HashMap<String, Money> = tranches
@@ -132,14 +174,14 @@ pub trait StructuredCreditInstrument {
         // Initialize coverage tests
         let mut _coverage_tests = CoverageTests::new();
 
-        let months_per_period = self.payment_frequency().months().unwrap_or(3) as f64;
-        let mut pay_date = self.first_payment_date().max(as_of);
+        let months_per_period = dates.payment_frequency.months().unwrap_or(3) as f64;
+        let mut pay_date = dates.first_payment_date.max(as_of);
 
         // Simulate period-by-period
-        while pay_date <= self.legal_maturity() && pool_outstanding.amount() > 100.0 {
+        while pay_date <= dates.legal_maturity && pool_outstanding.amount() > 100.0 {
             let seasoning_months = {
-                let m = (pay_date.year() - self.closing_date().year()) * 12
-                    + (pay_date.month() as i32 - self.closing_date().month() as i32);
+                let m = (pay_date.year() - dates.closing_date.year()) * 12
+                    + (pay_date.month() as i32 - dates.closing_date.month() as i32);
                 m.max(0) as u32
             };
 
@@ -156,7 +198,7 @@ pub trait StructuredCreditInstrument {
             let prepay_amt = Money::new(pool_outstanding.amount() * smm, base_ccy);
             let default_amt = Money::new(pool_outstanding.amount() * mdr, base_ccy);
 
-            let recovery_rate = self.recovery_model().recovery_rate(
+            let recovery_rate = models.recovery.recovery_rate(
                 pay_date,
                 6,
                 None,
@@ -223,7 +265,7 @@ pub trait StructuredCreditInstrument {
             // Advance to next period
             pay_date = add_months(
                 pay_date,
-                self.payment_frequency().months().unwrap_or(3) as i32,
+                dates.payment_frequency.months().unwrap_or(3) as i32,
             );
         }
 

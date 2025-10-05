@@ -4,7 +4,6 @@
 //! reinvestment period, including eligibility criteria, concentration limits,
 //! and portfolio quality tests.
 
-use crate::instruments::common::structured_credit::models::Asset;
 use crate::instruments::common::structured_credit::{
     AssetPool, AssetType, CreditRating, PoolAsset, TestResults,
 };
@@ -69,13 +68,13 @@ pub struct EligibilityCriteria {
 
 impl EligibilityCriteria {
     /// Check if an asset meets all eligibility criteria
-    pub fn is_eligible(&self, asset: &Asset, current_date: Date) -> (bool, Vec<String>) {
+    pub fn is_eligible(&self, asset: &PoolAsset, current_date: Date) -> (bool, Vec<String>) {
         let mut reasons = Vec::new();
         let mut eligible = true;
 
         // Check rating
         if let Some(min_rating) = self.min_rating {
-            if let Some(asset_rating) = asset.rating {
+            if let Some(asset_rating) = asset.credit_quality {
                 if asset_rating > min_rating {
                     eligible = false;
                     reasons.push(format!(
@@ -90,7 +89,7 @@ impl EligibilityCriteria {
         }
 
         if let Some(max_rating) = self.max_rating {
-            if let Some(asset_rating) = asset.rating {
+            if let Some(asset_rating) = asset.credit_quality {
                 if asset_rating < max_rating {
                     eligible = false;
                     reasons.push(format!(
@@ -116,17 +115,17 @@ impl EligibilityCriteria {
 
         // Check maturity
         if let Some(max_maturity) = self.max_maturity {
-            if asset.maturity_date > max_maturity {
+            if asset.maturity > max_maturity {
                 eligible = false;
                 reasons.push(format!(
                     "Maturity {:?} beyond maximum {:?}",
-                    asset.maturity_date, max_maturity
+                    asset.maturity, max_maturity
                 ));
             }
         }
 
         // Check remaining term
-        let months_remaining = months_between(current_date, asset.maturity_date);
+        let months_remaining = months_between(current_date, asset.maturity);
 
         if let Some(min_term) = self.min_remaining_term {
             if months_remaining < min_term {
@@ -160,12 +159,12 @@ impl EligibilityCriteria {
         if !self.allowed_currencies.is_empty()
             && !self
                 .allowed_currencies
-                .contains(&asset.current_balance.currency())
+                .contains(&asset.balance.currency())
         {
             eligible = false;
             reasons.push(format!(
-                "Currency {:?} not allowed",
-                asset.current_balance.currency()
+                    "Currency {:?} not allowed",
+                    asset.balance.currency()
             ));
         }
 
@@ -217,20 +216,20 @@ pub struct ConcentrationLimits {
 
 impl ConcentrationLimits {
     /// Check if adding an asset would breach concentration limits
-    pub fn check_limits(&self, pool: &AssetPool, new_asset: &Asset) -> (bool, Vec<String>) {
+    pub fn check_limits(&self, pool: &AssetPool, new_asset: &PoolAsset) -> (bool, Vec<String>) {
         let mut breaches = Vec::new();
         let mut passes = true;
 
         let total_balance = pool
             .total_balance()
-            .checked_add(new_asset.current_balance)
+            .checked_add(new_asset.balance)
             .unwrap_or_else(|_| pool.total_balance());
 
         // Check single obligor concentration
         if let Some(max_obligor) = self.max_obligor_concentration {
             if let Some(obligor) = &new_asset.obligor_id {
                 let obligor_exposure = get_obligor_exposure(pool, obligor)
-                    .checked_add(new_asset.current_balance)
+                    .checked_add(new_asset.balance)
                     .unwrap_or_else(|_| get_obligor_exposure(pool, obligor));
                 let concentration = obligor_exposure.amount() / total_balance.amount();
 
@@ -249,7 +248,7 @@ impl ConcentrationLimits {
         if let Some(industry) = &new_asset.industry {
             if let Some(limit) = self.industry_limits.get(industry) {
                 let industry_exposure = get_industry_exposure(pool, industry)
-                    .checked_add(new_asset.current_balance)
+                    .checked_add(new_asset.balance)
                     .unwrap_or_else(|_| get_industry_exposure(pool, industry));
                 let concentration = industry_exposure.amount() / total_balance.amount();
 
@@ -266,10 +265,10 @@ impl ConcentrationLimits {
         }
 
         // Check rating bucket limits
-        if let Some(rating) = new_asset.rating {
+        if let Some(rating) = new_asset.credit_quality {
             if let Some(limit) = self.rating_bucket_limits.get(&rating) {
                 let rating_exposure = get_rating_exposure(pool, rating)
-                    .checked_add(new_asset.current_balance)
+                    .checked_add(new_asset.balance)
                     .unwrap_or_else(|_| get_rating_exposure(pool, rating));
                 let concentration = rating_exposure.amount() / total_balance.amount();
 
@@ -309,7 +308,7 @@ pub struct PortfolioQualityTests {
 
 impl PortfolioQualityTests {
     /// Check if adding an asset maintains portfolio quality
-    pub fn check_quality(&self, pool: &AssetPool, new_asset: &Asset) -> (bool, Vec<String>) {
+    pub fn check_quality(&self, pool: &AssetPool, new_asset: &PoolAsset) -> (bool, Vec<String>) {
         let mut failures = Vec::new();
         let mut passes = true;
 
@@ -415,15 +414,15 @@ impl ReinvestmentManager {
     pub fn select_assets(
         &self,
         available_cash: Money,
-        market_opportunities: Vec<Asset>,
+        market_opportunities: Vec<PoolAsset>,
         current_pool: &AssetPool,
         _market: &MarketContext,
-    ) -> Vec<Asset> {
+    ) -> Vec<PoolAsset> {
         let mut selected = Vec::new();
         let mut remaining_cash = available_cash;
 
         // Score and rank opportunities
-        let mut scored_assets: Vec<(Asset, f64)> = market_opportunities
+        let mut scored_assets: Vec<(PoolAsset, f64)> = market_opportunities
             .into_iter()
             .filter_map(|asset| {
                 // Check eligibility
@@ -456,9 +455,9 @@ impl ReinvestmentManager {
 
         // Select assets up to available cash
         for (asset, _score) in scored_assets {
-            if asset.current_balance.amount() <= remaining_cash.amount() {
+            if asset.balance.amount() <= remaining_cash.amount() {
                 remaining_cash = remaining_cash
-                    .checked_sub(asset.current_balance)
+                    .checked_sub(asset.balance)
                     .unwrap_or(remaining_cash);
                 selected.push(asset);
             }
@@ -468,7 +467,7 @@ impl ReinvestmentManager {
     }
 
     /// Score an asset for reinvestment (higher = better)
-    fn score_asset(&self, asset: &Asset, pool: &AssetPool) -> f64 {
+    fn score_asset(&self, asset: &PoolAsset, pool: &AssetPool) -> f64 {
         let mut score = 0.0;
 
         // Spread component (higher spread = higher score)
@@ -477,7 +476,7 @@ impl ReinvestmentManager {
         }
 
         // Rating component (better rating = higher score for quality)
-        if let Some(rating) = asset.rating {
+        if let Some(rating) = asset.credit_quality {
             score += match rating {
                 CreditRating::AAA => 10.0,
                 CreditRating::AA => 9.0,
@@ -539,31 +538,10 @@ fn get_rating_exposure(pool: &AssetPool, rating: CreditRating) -> Money {
         })
 }
 
-fn with_additional_asset(pool: &AssetPool, asset: &Asset) -> AssetPool {
+fn with_additional_asset(pool: &AssetPool, asset: &PoolAsset) -> AssetPool {
     let mut new_pool = pool.clone();
-    // Convert Asset to PoolAsset
-    let pool_asset = PoolAsset {
-        id: asset.asset_id.clone().into(),
-        asset_type: asset.asset_type.clone(),
-        balance: asset.current_balance,
-        rate: asset.interest_rate,
-        spread_bps: asset.spread_bps,
-        index_id: None,
-        maturity: asset.maturity_date,
-        credit_quality: asset.rating,
-        industry: asset.industry.clone(),
-        obligor_id: asset.obligor_id.clone(),
-        is_defaulted: asset.is_defaulted,
-        recovery_amount: asset.recovery_rate.map(|r| {
-            Money::new(
-                asset.current_balance.amount() * r,
-                asset.current_balance.currency(),
-            )
-        }),
-        purchase_price: None,
-        acquisition_date: None,
-    };
-    new_pool.assets.push(pool_asset);
+    // Just clone the PoolAsset directly
+    new_pool.assets.push(asset.clone());
     new_pool
 }
 
@@ -707,24 +685,25 @@ mod tests {
         assert!(passes || !breaches.is_empty());
     }
 
-    fn create_test_asset() -> Asset {
-        Asset {
-            asset_id: "TEST001".to_string(),
-            obligor_id: Some("OBLIGOR001".to_string()),
+    fn create_test_asset() -> PoolAsset {
+        PoolAsset {
+            id: "TEST001".to_string().into(),
             asset_type: AssetType::Loan {
                 loan_type: crate::instruments::common::structured_credit::LoanType::FirstLien,
                 industry: None,
             },
-            original_balance: Money::new(1_000_000.0, Currency::USD),
-            current_balance: Money::new(950_000.0, Currency::USD),
-            interest_rate: 0.06,
+            balance: Money::new(950_000.0, Currency::USD),
+            rate: 0.06,
             spread_bps: Some(450.0),
-            maturity_date: Date::from_calendar_date(2028, time::Month::December, 31).unwrap(),
-            rating: Some(CreditRating::BB),
+            index_id: None,
+            maturity: Date::from_calendar_date(2028, time::Month::December, 31).unwrap(),
+            credit_quality: Some(CreditRating::BB),
             industry: Some("Technology".to_string()),
-            country: Some("US".to_string()),
+            obligor_id: Some("OBLIGOR001".to_string()),
             is_defaulted: false,
-            recovery_rate: None,
+            recovery_amount: None,
+            purchase_price: None,
+            acquisition_date: None,
         }
     }
 

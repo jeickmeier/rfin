@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::pool::AssetPool;
-use super::tranches::{AbsTranche, TrancheStructure};
+use super::tranches::TrancheStructure;
 use super::enums::{CreditRating, TriggerConsequence};
 
 /// Overcollateralization test
@@ -351,88 +351,6 @@ impl Default for CoverageTests {
     }
 }
 
-/// Coverage test calculation engine (static methods for backward compatibility)
-pub struct CoverageTestEngine;
-
-impl CoverageTestEngine {
-    /// Calculate OC ratio for a tranche
-    pub fn calculate_oc_ratio(
-        pool: &AssetPool,
-        tranche: &AbsTranche,
-        tranches: &TrancheStructure,
-        haircuts: &HashMap<CreditRating, f64>,
-    ) -> f64 {
-        // Numerator: Adjusted pool value
-        let mut pool_value = 0.0;
-        for asset in &pool.assets {
-            if asset.is_defaulted {
-                if let Some(recovery) = asset.recovery_amount {
-                    pool_value += recovery.amount();
-                }
-            } else {
-                let mut asset_value = asset.balance.amount();
-                if let Some(rating) = asset.credit_quality {
-                    if let Some(&haircut) = haircuts.get(&rating) {
-                        asset_value *= 1.0 - haircut;
-                    }
-                }
-                pool_value += asset_value;
-            }
-        }
-
-        // Denominator: Tranche balance + senior tranches
-        let senior_balance = tranches.senior_balance(tranche.id.as_str()).amount();
-        let denominator = senior_balance + tranche.current_balance.amount();
-
-        if denominator == 0.0 {
-            f64::INFINITY
-        } else {
-            pool_value / denominator
-        }
-    }
-
-    /// Calculate IC ratio for a tranche
-    pub fn calculate_ic_ratio(
-        pool: &AssetPool,
-        tranche: &AbsTranche,
-        tranches: &TrancheStructure,
-        annualization_factor: f64,
-    ) -> f64 {
-        let pool_interest =
-            pool.weighted_avg_coupon() * pool.performing_balance().amount() * annualization_factor;
-
-        let mut interest_due = 0.0;
-        for senior_tranche in tranches.senior_to(tranche.id.as_str()) {
-            let rate = senior_tranche
-                .coupon
-                .current_rate(Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
-            interest_due += senior_tranche.current_balance.amount() * rate * annualization_factor;
-        }
-
-        let rate = tranche
-            .coupon
-            .current_rate(Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
-        interest_due += tranche.current_balance.amount() * rate * annualization_factor;
-
-        if interest_due == 0.0 {
-            f64::INFINITY
-        } else {
-            pool_interest / interest_due
-        }
-    }
-
-    /// Calculate par value test ratio
-    pub fn calculate_par_value_ratio(pool: &AssetPool, tranches: &TrancheStructure) -> f64 {
-        let par_value = pool.performing_balance().amount();
-        let aggregate_tranche_balance = tranches.total_size.amount();
-
-        if aggregate_tranche_balance == 0.0 {
-            f64::INFINITY
-        } else {
-            par_value / aggregate_tranche_balance
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
