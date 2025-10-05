@@ -8,8 +8,8 @@ use crate::instruments::common::structured_credit::{
     AssetPool, CoverageTests, CreditFactors, DefaultBehavior, MarketConditions, MarketFactors,
     PaymentRecipient, PrepaymentBehavior, RecoveryBehavior, TrancheStructure, WaterfallEngine,
 };
-use finstack_core::dates::{Date, Frequency};
 use finstack_core::dates::utils::add_months;
+use finstack_core::dates::{Date, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use std::collections::HashMap;

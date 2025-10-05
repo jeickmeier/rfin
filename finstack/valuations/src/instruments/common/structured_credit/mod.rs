@@ -21,8 +21,18 @@ pub use enums::{
 };
 
 // Other module exports
+#[allow(deprecated)]
 pub use coverage_tests::{
-    BreachedTest, CoverageTests, ICTest, OCTest, PaymentDiversion, TestResults,
+    BreachedTest,
+    CoverageTest,
+    CoverageTests,
+    // Legacy types (deprecated)
+    ICTest,
+    OCTest,
+    PaymentDiversion,
+    TestContext,
+    TestResult,
+    TestResults,
 };
 pub use pool::{AssetPool, PoolAsset};
 pub use reinvestment::{ReinvestmentManager, ReinvestmentTerminationEvent};

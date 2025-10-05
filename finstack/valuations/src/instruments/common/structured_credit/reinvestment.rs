@@ -510,7 +510,7 @@ impl ReinvestmentManager {
             } else {
                 0.0
             };
-            
+
             if industry_concentration < 0.05 {
                 score += 3.0; // Bonus for underweight industry
             }
