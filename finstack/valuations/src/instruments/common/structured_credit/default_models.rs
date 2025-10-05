@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use super::prepayment::calculate_seasoning_months;
 
 /// Trait for default behavior modeling
-pub trait DefaultBehavior: Send + Sync {
+pub trait DefaultBehavior: dyn_clone::DynClone + Send + Sync {
     /// Calculate the default rate for a given period
     fn default_rate(
         &self,
@@ -43,13 +43,12 @@ pub trait DefaultBehavior: Send + Sync {
 
         cumulative
     }
-
-    /// Clone the behavior
-    fn clone_box(&self) -> Box<dyn DefaultBehavior>;
 }
 
+dyn_clone::clone_trait_object!(DefaultBehavior);
+
 /// Trait for recovery modeling
-pub trait RecoveryBehavior: Send + Sync {
+pub trait RecoveryBehavior: dyn_clone::DynClone + Send + Sync {
     /// Calculate expected recovery rate
     fn recovery_rate(
         &self,
@@ -77,10 +76,9 @@ pub trait RecoveryBehavior: Send + Sync {
             market_factors,
         )
     }
-
-    /// Clone the behavior
-    fn clone_box(&self) -> Box<dyn RecoveryBehavior>;
 }
+
+dyn_clone::clone_trait_object!(RecoveryBehavior);
 
 /// Credit factors affecting default probability
 #[derive(Debug, Clone, Default)]
@@ -143,10 +141,6 @@ impl DefaultBehavior for CDRModel {
     ) -> f64 {
         self.to_mdr()
     }
-
-    fn clone_box(&self) -> Box<dyn DefaultBehavior> {
-        Box::new(self.clone())
-    }
 }
 
 /// Standard Default Assumption (SDA) model for mortgages
@@ -199,10 +193,6 @@ impl DefaultBehavior for SDAModel {
         // Convert to MDR
         1.0 - (1.0 - cdr).powf(1.0 / 12.0)
     }
-
-    fn clone_box(&self) -> Box<dyn DefaultBehavior> {
-        Box::new(self.clone())
-    }
 }
 
 /// Vector default model with custom default rates by period
@@ -240,10 +230,6 @@ impl DefaultBehavior for VectorDefaultModel {
 
         // Convert to MDR
         1.0 - (1.0 - cdr).powf(1.0 / 12.0)
-    }
-
-    fn clone_box(&self) -> Box<dyn DefaultBehavior> {
-        Box::new(self.clone())
     }
 }
 
@@ -318,10 +304,6 @@ impl DefaultBehavior for MortgageDefaultModel {
         // Convert to MDR
         1.0 - (1.0 - cdr).powf(1.0 / 12.0)
     }
-
-    fn clone_box(&self) -> Box<dyn DefaultBehavior> {
-        Box::new(self.clone())
-    }
 }
 
 /// Auto loan default model
@@ -392,10 +374,6 @@ impl DefaultBehavior for AutoDefaultModel {
         // Convert to MDR
         1.0 - (1.0 - cdr).powf(1.0 / 12.0)
     }
-
-    fn clone_box(&self) -> Box<dyn DefaultBehavior> {
-        Box::new(self.clone())
-    }
 }
 
 /// Credit card charge-off model
@@ -453,10 +431,6 @@ impl DefaultBehavior for CreditCardChargeOffModel {
 
         rate
     }
-
-    fn clone_box(&self) -> Box<dyn DefaultBehavior> {
-        Box::new(self.clone())
-    }
 }
 
 /// Constant recovery rate model
@@ -483,10 +457,6 @@ impl RecoveryBehavior for ConstantRecoveryModel {
         _market_factors: &MarketFactors,
     ) -> f64 {
         self.recovery_rate
-    }
-
-    fn clone_box(&self) -> Box<dyn RecoveryBehavior> {
-        Box::new(self.clone())
     }
 }
 
@@ -544,10 +514,6 @@ impl RecoveryBehavior for CollateralRecoveryModel {
         } else {
             self.base_recovery
         }
-    }
-
-    fn clone_box(&self) -> Box<dyn RecoveryBehavior> {
-        Box::new(self.clone())
     }
 }
 

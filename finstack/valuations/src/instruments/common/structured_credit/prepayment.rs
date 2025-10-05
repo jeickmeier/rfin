@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 /// Generic trait for prepayment behavior that can be implemented for any asset class
-pub trait PrepaymentBehavior: Send + Sync {
+pub trait PrepaymentBehavior: dyn_clone::DynClone + Send + Sync {
     /// Calculate the prepayment rate for a given period
     fn prepayment_rate(
         &self,
@@ -35,10 +35,9 @@ pub trait PrepaymentBehavior: Send + Sync {
         let rate = self.prepayment_rate(as_of, origination_date, seasoning, market_conditions);
         Ok(Money::new(balance.amount() * rate, balance.currency()))
     }
-
-    /// Clone the behavior into a box
-    fn clone_box(&self) -> Box<dyn PrepaymentBehavior>;
 }
+
+dyn_clone::clone_trait_object!(PrepaymentBehavior);
 
 /// Market conditions that affect prepayment behavior
 #[derive(Debug, Clone)]
@@ -100,10 +99,6 @@ impl PrepaymentBehavior for CPRModel {
     ) -> f64 {
         self.to_smm()
     }
-
-    fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
-        Box::new(self.clone())
-    }
 }
 
 /// PSA (Public Securities Association) standard prepayment model
@@ -160,10 +155,6 @@ impl PrepaymentBehavior for PSAModel {
         // Convert CPR to SMM
         1.0 - (1.0 - cpr).powf(1.0 / 12.0)
     }
-
-    fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
-        Box::new(self.clone())
-    }
 }
 
 /// Vector prepayment model with custom speeds by seasoning
@@ -201,10 +192,6 @@ impl PrepaymentBehavior for VectorModel {
 
         // Convert CPR to SMM
         1.0 - (1.0 - cpr).powf(1.0 / 12.0)
-    }
-
-    fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
-        Box::new(self.clone())
     }
 }
 
@@ -279,10 +266,6 @@ impl PrepaymentBehavior for MortgagePrepaymentModel {
 
         base_smm * multiplier
     }
-
-    fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
-        Box::new(self.clone())
-    }
 }
 
 /// Auto loan prepayment model with absolute prepayment speeds
@@ -323,10 +306,6 @@ impl PrepaymentBehavior for AutoPrepaymentModel {
         };
 
         self.abs_speed * ramp_factor
-    }
-
-    fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
-        Box::new(self.clone())
     }
 }
 
@@ -378,10 +357,6 @@ impl PrepaymentBehavior for CreditCardPaymentModel {
         }
 
         rate
-    }
-
-    fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
-        Box::new(self.clone())
     }
 }
 
@@ -452,10 +427,6 @@ impl PrepaymentBehavior for CommercialPrepaymentModel {
         // Open period - use standard CPR
         1.0 - (1.0 - self.open_cpr).powf(1.0 / 12.0)
     }
-
-    fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
-        Box::new(self.clone())
-    }
 }
 
 /// Student loan prepayment model with grace period and consolidation
@@ -508,10 +479,6 @@ impl PrepaymentBehavior for StudentLoanPrepaymentModel {
 
         // Combined prepayment rate
         base_smm + consol_smm - (base_smm * consol_smm)
-    }
-
-    fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
-        Box::new(self.clone())
     }
 }
 
