@@ -331,35 +331,7 @@ impl Registry {
         formula: &str,
         all_metric_ids: &IndexSet<String>,
     ) -> IndexSet<String> {
-        let mut deps = IndexSet::new();
-
-        // Check if any metric ID appears as a standalone identifier in the formula
-        for metric_id in all_metric_ids {
-            if formula.contains(metric_id.as_str()) {
-                // Verify it's a standalone identifier
-                let is_standalone = formula.match_indices(metric_id.as_str()).any(|(idx, _)| {
-                    let before = if idx > 0 {
-                        formula.chars().nth(idx - 1)
-                    } else {
-                        None
-                    };
-                    let after = formula.chars().nth(idx + metric_id.len());
-
-                    let before_ok =
-                        before.map_or(true, |c| !c.is_alphanumeric() && c != '_' && c != '.');
-                    let after_ok =
-                        after.map_or(true, |c| !c.is_alphanumeric() && c != '_' && c != '.');
-
-                    before_ok && after_ok
-                });
-
-                if is_standalone {
-                    deps.insert(metric_id.clone());
-                }
-            }
-        }
-
-        deps
+        crate::utils::formula::extract_identifiers(formula, all_metric_ids)
     }
 
     /// Get dependencies for a specific metric (including transitive dependencies).

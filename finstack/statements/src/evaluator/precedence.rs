@@ -25,9 +25,7 @@ pub fn resolve_node_value(
     }
 
     // 2. Check for forecast (only in forecast periods, not actuals)
-    if !is_actual_period && !node_spec.forecasts.is_empty() {
-        // For Phase 3, we return a marker that forecast is available
-        // Actual forecast evaluation will be implemented in Phase 4
+    if !is_actual_period && node_spec.forecast.is_some() {
         return Ok(NodeValueSource::Forecast);
     }
 
@@ -146,11 +144,12 @@ mod tests {
     fn test_forecast_in_forecast_period() {
         use crate::types::{ForecastMethod, ForecastSpec};
 
-        let mut node = NodeSpec::new("revenue", NodeType::Mixed).with_formula("lag(revenue, 1)");
-        node.forecasts.push(ForecastSpec {
-            method: ForecastMethod::GrowthPct,
-            params: IndexMap::new(),
-        });
+        let node = NodeSpec::new("revenue", NodeType::Mixed)
+            .with_formula("lag(revenue, 1)")
+            .with_forecast(ForecastSpec {
+                method: ForecastMethod::GrowthPct,
+                params: IndexMap::new(),
+            });
 
         // In forecast period, should prefer forecast over formula
         let source = resolve_node_value(&node, &PeriodId::quarter(2025, 3), false).unwrap();
@@ -161,11 +160,12 @@ mod tests {
     fn test_formula_in_actual_period() {
         use crate::types::{ForecastMethod, ForecastSpec};
 
-        let mut node = NodeSpec::new("revenue", NodeType::Mixed).with_formula("lag(revenue, 1)");
-        node.forecasts.push(ForecastSpec {
-            method: ForecastMethod::GrowthPct,
-            params: IndexMap::new(),
-        });
+        let node = NodeSpec::new("revenue", NodeType::Mixed)
+            .with_formula("lag(revenue, 1)")
+            .with_forecast(ForecastSpec {
+                method: ForecastMethod::GrowthPct,
+                params: IndexMap::new(),
+            });
 
         // In actual period, should use formula (not forecast)
         let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();

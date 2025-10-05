@@ -3,7 +3,7 @@
 use crate::error::{Error, Result};
 use crate::types::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use finstack_core::dates::{build_periods, Period, PeriodId};
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use std::marker::PhantomData;
 
 /// Type-state marker: Periods not yet defined
@@ -233,10 +233,10 @@ impl ModelBuilder<Ready> {
 
         // Get or create the node (converting to Mixed type if needed)
         if let Some(node) = self.nodes.get_mut(&node_id) {
-            // Add forecast to existing node
-            node.forecasts.push(forecast_spec);
+            // Set forecast on existing node
+            node.forecast = Some(forecast_spec);
 
-            // Ensure node type is Mixed if it has forecasts
+            // Ensure node type is Mixed if it has a forecast
             if matches!(node.node_type, NodeType::Value) {
                 node.node_type = NodeType::Mixed;
             }
@@ -438,10 +438,8 @@ impl ModelBuilder<Ready> {
         namespace: &str,
         registry: &crate::registry::Registry,
     ) -> Result<String> {
-        let mut result = formula.to_string();
-
         // Get all metrics in this namespace
-        let metrics_in_namespace: Vec<String> = registry
+        let metrics_in_namespace: IndexSet<String> = registry
             .namespace(namespace)
             .map(|(id, _)| {
                 // Extract unqualified ID
@@ -451,47 +449,12 @@ impl ModelBuilder<Ready> {
             })
             .collect();
 
-        // Sort by length descending to replace longer IDs first
-        // This prevents "ebitda_margin" from being partially replaced as "ebitda"
-        let mut sorted_metrics = metrics_in_namespace;
-        sorted_metrics.sort_by_key(|b| std::cmp::Reverse(b.len()));
-
-        // Replace each unqualified metric reference with qualified one
-        for metric_id in sorted_metrics {
-            let qualified = format!("{}.{}", namespace, metric_id);
-
-            // Only replace if it's a standalone identifier
-            let mut idx = 0;
-            while let Some(pos) = result[idx..].find(&metric_id) {
-                let abs_pos = idx + pos;
-
-                // Check if it's a standalone identifier
-                let before_ok = if abs_pos > 0 {
-                    let before_char = result.chars().nth(abs_pos - 1);
-                    before_char.map_or(true, |c| !c.is_alphanumeric() && c != '_' && c != '.')
-                } else {
-                    true
-                };
-
-                let after_pos = abs_pos + metric_id.len();
-                let after_ok = if after_pos < result.len() {
-                    let after_char = result.chars().nth(after_pos);
-                    after_char.map_or(true, |c| !c.is_alphanumeric() && c != '_' && c != '.')
-                } else {
-                    true
-                };
-
-                if before_ok && after_ok {
-                    // Replace this occurrence
-                    result.replace_range(abs_pos..after_pos, &qualified);
-                    idx = abs_pos + qualified.len();
-                } else {
-                    idx = after_pos;
-                }
-            }
-        }
-
-        Ok(result)
+        // Use shared utility to qualify identifiers
+        Ok(crate::utils::formula::qualify_identifiers(
+            formula,
+            &metrics_in_namespace,
+            namespace,
+        ))
     }
 
     /// Build the final model specification.

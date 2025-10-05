@@ -66,261 +66,62 @@
 use super::plugin::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 
 /// Rating level for credit rating scales.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RatingLevel {
     /// Rating name (e.g., "AAA", "Aaa")
-    pub name: &'static str,
+    pub name: String,
     /// Numeric score (0-100 scale)
     pub score: f64,
     /// Minimum score threshold for this rating
     pub min_score: f64,
 }
 
-/// S&P rating scale (industry standard).
-///
-/// Maps credit ratings to numeric scores on a 0-100 scale.
-/// Higher scores indicate better credit quality.
-pub const SP_RATING_SCALE: &[RatingLevel] = &[
-    RatingLevel {
-        name: "AAA",
-        score: 100.0,
-        min_score: 95.0,
-    },
-    RatingLevel {
-        name: "AA+",
-        score: 95.0,
-        min_score: 90.0,
-    },
-    RatingLevel {
-        name: "AA",
-        score: 90.0,
-        min_score: 85.0,
-    },
-    RatingLevel {
-        name: "AA-",
-        score: 85.0,
-        min_score: 80.0,
-    },
-    RatingLevel {
-        name: "A+",
-        score: 80.0,
-        min_score: 75.0,
-    },
-    RatingLevel {
-        name: "A",
-        score: 75.0,
-        min_score: 70.0,
-    },
-    RatingLevel {
-        name: "A-",
-        score: 70.0,
-        min_score: 65.0,
-    },
-    RatingLevel {
-        name: "BBB+",
-        score: 65.0,
-        min_score: 60.0,
-    },
-    RatingLevel {
-        name: "BBB",
-        score: 60.0,
-        min_score: 55.0,
-    },
-    RatingLevel {
-        name: "BBB-",
-        score: 55.0,
-        min_score: 50.0,
-    },
-    RatingLevel {
-        name: "BB+",
-        score: 50.0,
-        min_score: 45.0,
-    },
-    RatingLevel {
-        name: "BB",
-        score: 45.0,
-        min_score: 40.0,
-    },
-    RatingLevel {
-        name: "BB-",
-        score: 40.0,
-        min_score: 35.0,
-    },
-    RatingLevel {
-        name: "B+",
-        score: 35.0,
-        min_score: 30.0,
-    },
-    RatingLevel {
-        name: "B",
-        score: 30.0,
-        min_score: 25.0,
-    },
-    RatingLevel {
-        name: "B-",
-        score: 25.0,
-        min_score: 20.0,
-    },
-    RatingLevel {
-        name: "CCC+",
-        score: 20.0,
-        min_score: 15.0,
-    },
-    RatingLevel {
-        name: "CCC",
-        score: 15.0,
-        min_score: 10.0,
-    },
-    RatingLevel {
-        name: "CCC-",
-        score: 10.0,
-        min_score: 5.0,
-    },
-    RatingLevel {
-        name: "CC",
-        score: 5.0,
-        min_score: 2.0,
-    },
-    RatingLevel {
-        name: "C",
-        score: 2.0,
-        min_score: 0.01,
-    },
-    RatingLevel {
-        name: "D",
-        score: 0.0,
-        min_score: 0.0,
-    },
-];
+/// Rating scale definition (for JSON deserialization).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RatingScale {
+    /// Scale name (e.g., "S&P", "Moody's")
+    pub scale_name: String,
+    /// Human-readable description
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Ordered list of rating levels (best to worst)
+    pub ratings: Vec<RatingLevel>,
+}
 
-/// Moody's rating scale.
-///
-/// Maps Moody's credit ratings to numeric scores on a 0-100 scale.
-pub const MOODYS_RATING_SCALE: &[RatingLevel] = &[
-    RatingLevel {
-        name: "Aaa",
-        score: 100.0,
-        min_score: 95.0,
-    },
-    RatingLevel {
-        name: "Aa1",
-        score: 95.0,
-        min_score: 90.0,
-    },
-    RatingLevel {
-        name: "Aa2",
-        score: 90.0,
-        min_score: 85.0,
-    },
-    RatingLevel {
-        name: "Aa3",
-        score: 85.0,
-        min_score: 80.0,
-    },
-    RatingLevel {
-        name: "A1",
-        score: 80.0,
-        min_score: 75.0,
-    },
-    RatingLevel {
-        name: "A2",
-        score: 75.0,
-        min_score: 70.0,
-    },
-    RatingLevel {
-        name: "A3",
-        score: 70.0,
-        min_score: 65.0,
-    },
-    RatingLevel {
-        name: "Baa1",
-        score: 65.0,
-        min_score: 60.0,
-    },
-    RatingLevel {
-        name: "Baa2",
-        score: 60.0,
-        min_score: 55.0,
-    },
-    RatingLevel {
-        name: "Baa3",
-        score: 55.0,
-        min_score: 50.0,
-    },
-    RatingLevel {
-        name: "Ba1",
-        score: 50.0,
-        min_score: 45.0,
-    },
-    RatingLevel {
-        name: "Ba2",
-        score: 45.0,
-        min_score: 40.0,
-    },
-    RatingLevel {
-        name: "Ba3",
-        score: 40.0,
-        min_score: 35.0,
-    },
-    RatingLevel {
-        name: "B1",
-        score: 35.0,
-        min_score: 30.0,
-    },
-    RatingLevel {
-        name: "B2",
-        score: 30.0,
-        min_score: 25.0,
-    },
-    RatingLevel {
-        name: "B3",
-        score: 25.0,
-        min_score: 20.0,
-    },
-    RatingLevel {
-        name: "Caa1",
-        score: 20.0,
-        min_score: 15.0,
-    },
-    RatingLevel {
-        name: "Caa2",
-        score: 15.0,
-        min_score: 10.0,
-    },
-    RatingLevel {
-        name: "Caa3",
-        score: 10.0,
-        min_score: 5.0,
-    },
-    RatingLevel {
-        name: "Ca",
-        score: 5.0,
-        min_score: 2.0,
-    },
-    RatingLevel {
-        name: "C",
-        score: 2.0,
-        min_score: 0.01,
-    },
-];
+/// Lazy-loaded S&P rating scale.
+static SP_SCALE: OnceLock<RatingScale> = OnceLock::new();
 
-/// Fitch rating scale.
-///
-/// Maps Fitch credit ratings to numeric scores on a 0-100 scale.
-/// Note: Fitch uses same notation as S&P.
-pub const FITCH_RATING_SCALE: &[RatingLevel] = SP_RATING_SCALE;
+/// Lazy-loaded Moody's rating scale.
+static MOODYS_SCALE: OnceLock<RatingScale> = OnceLock::new();
+
+/// Get the S&P rating scale (loads from embedded JSON on first access).
+fn get_sp_scale() -> &'static RatingScale {
+    SP_SCALE.get_or_init(|| {
+        let json = include_str!("../../data/rating_scales/sp.json");
+        serde_json::from_str(json).expect("Failed to parse embedded S&P rating scale")
+    })
+}
+
+/// Get the Moody's rating scale (loads from embedded JSON on first access).
+fn get_moodys_scale() -> &'static RatingScale {
+    MOODYS_SCALE.get_or_init(|| {
+        let json = include_str!("../../data/rating_scales/moodys.json");
+        serde_json::from_str(json).expect("Failed to parse embedded Moody's rating scale")
+    })
+}
 
 /// Default score when no threshold matches.
 const DEFAULT_SCORECARD_SCORE: f64 = 50.0;
 
 /// Get the appropriate rating scale based on name.
-fn get_rating_scale(scale_name: &str) -> &'static [RatingLevel] {
+fn get_rating_scale(scale_name: &str) -> &'static RatingScale {
     match scale_name {
-        "Moody's" | "MOODYS" | "Moodys" => MOODYS_RATING_SCALE,
-        "Fitch" | "FITCH" => FITCH_RATING_SCALE,
-        _ => SP_RATING_SCALE, // Default to S&P
+        "Moody's" | "MOODYS" | "Moodys" => get_moodys_scale(),
+        "Fitch" | "FITCH" => get_sp_scale(), // Fitch uses same notation as S&P
+        _ => get_sp_scale(),                 // Default to S&P
     }
 }
 
@@ -471,11 +272,11 @@ impl CreditScorecardExtension {
             .config
             .as_ref()
             .map(|c| get_rating_scale(&c.rating_scale))
-            .unwrap_or(SP_RATING_SCALE);
+            .unwrap_or_else(get_sp_scale);
 
         // Find which threshold range the value falls into
-        for level in scale {
-            if let Some((min, max)) = thresholds.get(level.name) {
+        for level in &scale.ratings {
+            if let Some((min, max)) = thresholds.get(&level.name) {
                 if value >= *min && value <= *max {
                     return level.score;
                 }
@@ -508,14 +309,18 @@ impl CreditScorecardExtension {
         let scale = get_rating_scale(rating_scale);
 
         // Find the rating by checking score thresholds
-        for level in scale {
+        for level in &scale.ratings {
             if score >= level.min_score {
-                return level.name.to_string();
+                return level.name.clone();
             }
         }
 
         // Fallback to lowest rating
-        scale.last().map(|l| l.name).unwrap_or("D").to_string()
+        scale
+            .ratings
+            .last()
+            .map(|l| l.name.clone())
+            .unwrap_or_else(|| "D".to_string())
     }
 
     /// Check if rating meets minimum requirement.
@@ -527,11 +332,14 @@ impl CreditScorecardExtension {
             .config
             .as_ref()
             .map(|c| get_rating_scale(&c.rating_scale))
-            .unwrap_or(SP_RATING_SCALE);
+            .unwrap_or_else(get_sp_scale);
 
         // Find positions in the rating scale (lower index = better rating)
-        let rating_pos = scale.iter().position(|l| rating.contains(l.name));
-        let min_pos = scale.iter().position(|l| min_rating.contains(l.name));
+        let rating_pos = scale.ratings.iter().position(|l| rating.contains(&l.name));
+        let min_pos = scale
+            .ratings
+            .iter()
+            .position(|l| min_rating.contains(&l.name));
 
         match (rating_pos, min_pos) {
             (Some(r), Some(m)) => r <= m, // Lower index = better rating

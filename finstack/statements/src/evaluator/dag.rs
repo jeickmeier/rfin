@@ -164,48 +164,9 @@ pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
 
 /// Extract node dependencies from a formula string.
 ///
-/// This is a simple implementation that looks for known node IDs in the formula.
-/// It's not perfect but sufficient for Phase 3.
+/// Uses shared formula utilities to find standalone identifier references.
 fn extract_dependencies(formula: &str, all_node_ids: &IndexSet<String>) -> IndexSet<String> {
-    let mut deps = IndexSet::new();
-
-    // Simple approach: check if any node ID appears as a whole word in the formula
-    // Skip cs.* references as they are external data, not node dependencies
-    for node_id in all_node_ids {
-        // Check for node_id as a standalone identifier
-        // This is a simple heuristic - in a more robust implementation, we'd parse the AST
-        if formula.contains(node_id.as_str()) {
-            // Verify it's not part of a larger identifier and not a cs.* reference
-            let is_standalone = formula.match_indices(node_id.as_str()).any(|(idx, _)| {
-                let before = if idx > 0 {
-                    formula.chars().nth(idx - 1)
-                } else {
-                    None
-                };
-                let after = formula.chars().nth(idx + node_id.len());
-
-                let before_ok = before.map_or(true, |c| !c.is_alphanumeric() && c != '_');
-                let after_ok = after.map_or(true, |c| !c.is_alphanumeric() && c != '_' && c != '.');
-
-                // Skip if this is part of a cs.* reference
-                // Check if "cs." appears before this match
-                let is_cs_ref = if idx >= 3 {
-                    let prefix_start = idx.saturating_sub(3);
-                    formula[prefix_start..idx].ends_with("cs.")
-                } else {
-                    false
-                };
-
-                before_ok && after_ok && !is_cs_ref
-            });
-
-            if is_standalone {
-                deps.insert(node_id.clone());
-            }
-        }
-    }
-
-    deps
+    crate::utils::formula::extract_identifiers(formula, all_node_ids)
 }
 
 #[cfg(test)]

@@ -305,13 +305,14 @@ fn test_all_features_integrated() {
             (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
             (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(90_000.0)),
         ])
-        // Seasonal forecast using pattern instead of decomposition
+        // Seasonal forecast with decomposition
         .forecast("revenue", ForecastSpec {
             method: ForecastMethod::Seasonal,
             params: indexmap! {
-                "pattern".into() => serde_json::json!([1.0, 0.9, 1.1, 0.85]),
+                "historical".into() => serde_json::json!([100_000, 90_000, 110_000, 85_000, 105_000, 95_000, 115_000, 90_000]),
+                "season_length".into() => serde_json::json!(4),
                 "mode".into() => serde_json::json!("multiplicative"),
-                "growth".into() => serde_json::json!(0.05),
+                "growth".into() => serde_json::json!(0.02),
             },
         })
         // Cost with time-series forecast

@@ -28,9 +28,9 @@ pub struct NodeSpec {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub values: Option<IndexMap<PeriodId, AmountOrScalar>>,
 
-    /// Forecast specifications (for Mixed nodes)
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub forecasts: Vec<ForecastSpec>,
+    /// Forecast specification (for Mixed nodes)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forecast: Option<ForecastSpec>,
 
     /// Formula text (for Calculated and Mixed nodes)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -57,7 +57,7 @@ impl NodeSpec {
             name: None,
             node_type,
             values: None,
-            forecasts: Vec::new(),
+            forecast: None,
             formula_text: None,
             where_text: None,
             tags: Vec::new(),
@@ -83,9 +83,9 @@ impl NodeSpec {
         self
     }
 
-    /// Add a forecast specification.
-    pub fn with_forecast(mut self, forecast: ForecastSpec) -> Self {
-        self.forecasts.push(forecast);
+    /// Set the forecast specification.
+    pub fn with_forecast(mut self, forecast_spec: ForecastSpec) -> Self {
+        self.forecast = Some(forecast_spec);
         self
     }
 

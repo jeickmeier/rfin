@@ -11,23 +11,6 @@ use indexmap::IndexMap;
 ///
 /// This function determines the base value and applies the forecast method
 /// to generate values for all forecast periods. Results are cached.
-///
-/// # Forecast Selection Strategy
-///
-/// **Current Implementation:** Only the first forecast specification is used.
-/// This ensures deterministic, predictable behavior for all models.
-///
-/// **Design Rationale:** While the API accepts `Vec<ForecastSpec>` to maintain
-/// forward compatibility, using only the first forecast avoids ambiguity and
-/// ensures consistent results across evaluations.
-///
-/// **Future Enhancements (Low Priority):**
-/// - Period-range-specific forecasts (near-term vs far-term methods)
-/// - Conditional forecast selection based on model state or metrics
-/// - Weighted blending of multiple forecast methods with explicit strategies
-///
-/// If multiple forecasts are provided, additional forecasts are silently ignored
-/// to maintain backward compatibility and avoid breaking existing code.
 pub(crate) fn evaluate_forecast(
     node_spec: &NodeSpec,
     model: &FinancialModelSpec,
@@ -42,24 +25,14 @@ pub(crate) fn evaluate_forecast(
         }
     }
 
-    // Select forecast spec - only the first one is used for determinism.
-    // Note: This is by design, not a limitation. Future versions may add
-    // an explicit selection strategy if multi-forecast use cases emerge.
+    // Get forecast spec
     let forecast_spec = node_spec
-        .forecasts
-        .first()
+        .forecast
+        .as_ref()
         .ok_or_else(|| Error::eval(format!(
             "No forecast spec for node '{}'. Ensure the node has a forecast defined with .forecast()",
             node_spec.node_id
         )))?;
-
-    // Note: If multiple forecasts provided, only first is used (by design)
-    // This maintains deterministic behavior while allowing future API extension
-    #[allow(clippy::comparison_chain)]
-    if node_spec.forecasts.len() > 1 {
-        // In a production system, this would be logged at INFO or DEBUG level
-        // Currently ignored to avoid breaking existing code that might provide multiple forecasts
-    }
 
     // Find all forecast periods
     let forecast_periods: Vec<PeriodId> = model

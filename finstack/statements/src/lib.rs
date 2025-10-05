@@ -109,6 +109,7 @@ pub mod forecast;
 pub mod registry;
 pub mod results;
 pub mod types;
+pub(crate) mod utils;
 
 // Re-export core types at crate root for ergonomic imports
 pub use error::{Error, Result};

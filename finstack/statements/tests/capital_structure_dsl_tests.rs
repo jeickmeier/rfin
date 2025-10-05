@@ -224,8 +224,6 @@ fn test_evaluate_model_with_cs_mock() {
                 ),
             ],
         )
-        // Note: This formula won't work until we have actual CS data in the evaluator
-        // .compute("net_income", "revenue - cogs - cs.interest_expense.total")
         .build();
 
     assert!(model_result.is_ok());
