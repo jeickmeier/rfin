@@ -391,8 +391,12 @@ impl Clo {
         let mut priority = 3;
         for tranche in &sorted_tranches {
             // Interest payment
+            let mut interest_id = String::with_capacity(tranche.id.len() + 9);
+            interest_id.push_str(tranche.id.as_str());
+            interest_id.push_str("_interest");
+            
             engine.payment_rules.push(PaymentRule {
-                id: format!("{}_interest", tranche.id.as_str()),
+                id: interest_id,
                 priority,
                 recipient: PaymentRecipient::Tranche(tranche.id.to_string()),
                 calculation: PaymentCalculation::TrancheInterest {
@@ -406,8 +410,12 @@ impl Clo {
 
         // Add principal payments for each tranche
         for tranche in &sorted_tranches {
+            let mut principal_id = String::with_capacity(tranche.id.len() + 10);
+            principal_id.push_str(tranche.id.as_str());
+            principal_id.push_str("_principal");
+            
             engine.payment_rules.push(PaymentRule {
-                id: format!("{}_principal", tranche.id.as_str()),
+                id: principal_id,
                 priority,
                 recipient: PaymentRecipient::Tranche(tranche.id.to_string()),
                 calculation: PaymentCalculation::TranchePrincipal {

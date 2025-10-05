@@ -178,6 +178,7 @@ pub trait StructuredCreditInstrument {
 
         // Simulate period-by-period
         while pay_date <= dates.legal_maturity && pool_outstanding.amount() > 100.0 {
+            // Cache seasoning calculation for this period
             let seasoning_months = {
                 let m = (pay_date.year() - dates.closing_date.year()) * 12
                     + (pay_date.month() as i32 - dates.closing_date.month() as i32);
@@ -190,7 +191,7 @@ pub trait StructuredCreditInstrument {
             let interest_collections =
                 Money::new(pool_outstanding.amount() * period_rate, base_ccy);
 
-            // Step 2: Apply prepayments and defaults
+            // Step 2: Apply prepayments and defaults (using cached seasoning_months)
             let smm = self.calculate_prepayment_rate(pay_date, seasoning_months);
             let mdr = self.calculate_default_rate(pay_date, seasoning_months);
 

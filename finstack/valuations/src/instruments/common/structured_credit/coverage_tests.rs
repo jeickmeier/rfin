@@ -55,15 +55,17 @@ impl OCTest {
         senior_balance: Money,
         cash_balance: Money,
     ) -> f64 {
-        let mut numerator = if self.performing_only {
+        let numerator = if self.performing_only {
             pool.performing_balance()
         } else {
             pool.total_balance()
         };
 
-        if self.include_cash {
-            numerator = numerator.checked_add(cash_balance).unwrap_or(numerator);
-        }
+        let numerator = if self.include_cash {
+            numerator.checked_add(cash_balance).unwrap_or(numerator)
+        } else {
+            numerator
+        };
 
         let denominator = tranche_balance
             .checked_add(senior_balance)
@@ -220,7 +222,7 @@ impl CoverageTests {
                 breached_tests: Vec::new(),
                 payment_diversion: PaymentDiversion::default(),
             },
-            historical_results: Vec::new(),
+            historical_results: Vec::with_capacity(120), // Typical 10-year quarterly history
         }
     }
 
@@ -256,11 +258,11 @@ impl CoverageTests {
         test_date: Date,
     ) -> finstack_core::Result<&TestResults> {
         let mut new_results = TestResults {
-            oc_ratios: HashMap::new(),
-            ic_ratios: HashMap::new(),
+            oc_ratios: HashMap::with_capacity(tranches.tranches.len()),
+            ic_ratios: HashMap::with_capacity(tranches.tranches.len()),
             par_value_ratio: None,
             custom_results: HashMap::new(),
-            breached_tests: Vec::new(),
+            breached_tests: Vec::with_capacity(tranches.tranches.len() * 2), // OC + IC per tranche
             payment_diversion: PaymentDiversion::default(),
         };
 

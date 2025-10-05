@@ -283,17 +283,24 @@ impl WaterfallEngine {
         pool_balance: Money,
     ) -> Result<WaterfallResult> {
         let mut remaining = available_cash;
-        let mut distributions: HashMap<PaymentRecipient, Money> = HashMap::new();
-        let mut payment_records = Vec::new();
+        let mut distributions: HashMap<PaymentRecipient, Money> =
+            HashMap::with_capacity(self.payment_rules.len());
+        let mut payment_records = Vec::with_capacity(self.payment_rules.len());
         let mut had_diversions = false;
 
         // Check which diversion triggers are active
-        let active_triggers: Vec<String> = self
-            .diversion_triggers
-            .iter()
-            .filter(|t| t.active)
-            .map(|t| t.id.clone())
-            .collect();
+        let mut active_triggers: Vec<String> = Vec::with_capacity(self.diversion_triggers.len());
+        for t in &self.diversion_triggers {
+            if t.active {
+                active_triggers.push(t.id.clone());
+            }
+        }
+
+        // Build tranche index for O(1) lookup by id
+        let mut tranche_index: HashMap<&str, usize> = HashMap::with_capacity(tranches.tranches.len());
+        for (i, t) in tranches.tranches.iter().enumerate() {
+            tranche_index.insert(t.id.as_str(), i);
+        }
 
         // Process payments in priority order
         for rule in &self.payment_rules {
@@ -311,6 +318,7 @@ impl WaterfallEngine {
                 &rule.calculation,
                 remaining,
                 tranches,
+                &tranche_index,
                 pool_balance,
             )?;
 
@@ -337,12 +345,16 @@ impl WaterfallEngine {
                 .checked_sub(paid)
                 .unwrap_or(Money::new(0.0, self.base_currency));
 
-            *distributions
-                .entry(recipient.clone())
-                .or_insert(Money::new(0.0, self.base_currency)) = distributions
-                .get(&recipient)
-                .unwrap_or(&Money::new(0.0, self.base_currency))
-                .checked_add(paid)?;
+            use std::collections::hash_map::Entry;
+            match distributions.entry(recipient.clone()) {
+                Entry::Occupied(mut e) => {
+                    let next = e.get().checked_add(paid)?;
+                    e.insert(next);
+                }
+                Entry::Vacant(e) => {
+                    e.insert(paid);
+                }
+            }
 
             payment_records.push(PaymentRecord {
                 rule_id: rule.id.clone(),
@@ -396,6 +408,7 @@ impl WaterfallEngine {
         calculation: &PaymentCalculation,
         available: Money,
         tranches: &TrancheStructure,
+        tranche_index: &HashMap<&str, usize>,
         pool_balance: Money,
     ) -> Result<Money> {
         match calculation {
@@ -410,11 +423,8 @@ impl WaterfallEngine {
             }
 
             PaymentCalculation::TrancheInterest { tranche_id } => {
-                if let Some(tranche) = tranches
-                    .tranches
-                    .iter()
-                    .find(|t| t.id.as_str() == tranche_id)
-                {
+                if let Some(&idx) = tranche_index.get(tranche_id.as_str()) {
+                    let tranche = &tranches.tranches[idx];
                     let rate = tranche.coupon.current_rate(
                         Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
                     );
@@ -432,11 +442,8 @@ impl WaterfallEngine {
                 tranche_id,
                 target_balance,
             } => {
-                if let Some(tranche) = tranches
-                    .tranches
-                    .iter()
-                    .find(|t| t.id.as_str() == tranche_id)
-                {
+                if let Some(&idx) = tranche_index.get(tranche_id.as_str()) {
+                    let tranche = &tranches.tranches[idx];
                     if let Some(target) = target_balance {
                         let payment = tranche
                             .current_balance

@@ -419,45 +419,47 @@ impl ReinvestmentManager {
         let mut selected = Vec::new();
         let mut remaining_cash = available_cash;
 
-        // Score and rank opportunities
-        let mut scored_assets: Vec<(PoolAsset, f64)> = market_opportunities
-            .into_iter()
-            .filter_map(|asset| {
+        // Score by index without moving assets
+        let mut scored_indices: Vec<(usize, f64)> = market_opportunities
+            .iter()
+            .enumerate()
+            .filter_map(|(i, asset)| {
                 // Check eligibility
                 let (eligible, _) = self.eligibility_criteria.is_eligible(
-                    &asset,
+                    asset,
                     finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1)
                         .unwrap(),
                 );
-
                 if !eligible {
                     return None;
                 }
 
                 // Check concentration limits
-                let (passes, _) = self.concentration_limits.check_limits(current_pool, &asset);
-
+                let (passes, _) = self.concentration_limits.check_limits(current_pool, asset);
                 if !passes {
                     return None;
                 }
 
                 // Score based on spread, rating, and diversification benefit
-                let score = self.score_asset(&asset, current_pool);
-
-                Some((asset, score))
+                let score = self.score_asset(asset, current_pool);
+                Some((i, score))
             })
             .collect();
 
         // Sort by score (descending)
-        scored_assets.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        scored_indices.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        // Conservative reserve to minimize reallocations
+        selected.reserve(scored_indices.len());
 
         // Select assets up to available cash
-        for (asset, _score) in scored_assets {
+        for (idx, _score) in scored_indices {
+            let asset = &market_opportunities[idx];
             if asset.balance.amount() <= remaining_cash.amount() {
                 remaining_cash = remaining_cash
                     .checked_sub(asset.balance)
                     .unwrap_or(remaining_cash);
-                selected.push(asset);
+                selected.push(asset.clone());
             }
         }
 

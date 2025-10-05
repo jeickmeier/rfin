@@ -11,6 +11,8 @@ use std::collections::HashMap;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+const ONE_TWELFTH: f64 = 1.0 / 12.0;
+
 /// Trait for default behavior modeling
 pub trait DefaultBehavior: Send + Sync {
     /// Calculate the default rate for a given period
@@ -144,7 +146,7 @@ impl CDRModel {
 
     /// Convert CDR to MDR (Monthly Default Rate)
     pub fn to_mdr(&self) -> f64 {
-        1.0 - (1.0 - self.annual_rate).powf(1.0 / 12.0)
+        1.0 - (1.0 - self.annual_rate).powf(ONE_TWELFTH)
     }
 }
 
@@ -216,7 +218,7 @@ impl DefaultBehavior for SDAModel {
         } * self.speed;
 
         // Convert to MDR
-        1.0 - (1.0 - cdr).powf(1.0 / 12.0)
+        1.0 - (1.0 - cdr).powf(ONE_TWELFTH)
     }
 
     fn model_name(&self) -> &str {
@@ -262,7 +264,7 @@ impl DefaultBehavior for VectorDefaultModel {
         };
 
         // Convert to MDR
-        1.0 - (1.0 - cdr).powf(1.0 / 12.0)
+        1.0 - (1.0 - cdr).powf(ONE_TWELFTH)
     }
 
     fn model_name(&self) -> &str {
@@ -343,7 +345,7 @@ impl DefaultBehavior for MortgageDefaultModel {
         }
 
         // Convert to MDR
-        1.0 - (1.0 - cdr).powf(1.0 / 12.0)
+        1.0 - (1.0 - cdr).powf(ONE_TWELFTH)
     }
 
     fn model_name(&self) -> &str {
