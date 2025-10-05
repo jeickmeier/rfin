@@ -5,7 +5,7 @@
 //! and portfolio quality tests.
 
 use crate::instruments::common::structured_credit::{
-    AssetPool, AssetType, CreditRating, PoolAsset, TestResults,
+    calculate_seasoning_months, AssetPool, AssetType, CreditRating, PoolAsset, TestResults,
 };
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -125,7 +125,7 @@ impl EligibilityCriteria {
         }
 
         // Check remaining term
-        let months_remaining = months_between(current_date, asset.maturity);
+        let months_remaining = calculate_seasoning_months(current_date, asset.maturity);
 
         if let Some(min_term) = self.min_remaining_term {
             if months_remaining < min_term {
@@ -491,13 +491,26 @@ impl ReinvestmentManager {
 
         // Diversification benefit (new obligor/industry = higher score)
         if let Some(obligor) = &asset.obligor_id {
-            if !has_obligor(pool, obligor) {
+            // Check if this is a new obligor (not already in pool)
+            let is_new_obligor = !pool
+                .assets
+                .iter()
+                .any(|a| a.obligor_id.as_deref() == Some(obligor.as_str()));
+            if is_new_obligor {
                 score += 5.0; // Bonus for new obligor
             }
         }
 
         if let Some(industry) = &asset.industry {
-            let industry_concentration = get_industry_concentration(pool, industry);
+            // Calculate industry concentration
+            let industry_exposure = get_industry_exposure(pool, industry);
+            let total = pool.total_balance();
+            let industry_concentration = if total.amount() > 0.0 {
+                industry_exposure.amount() / total.amount()
+            } else {
+                0.0
+            };
+            
             if industry_concentration < 0.05 {
                 score += 3.0; // Bonus for underweight industry
             }
@@ -576,27 +589,6 @@ fn calculate_was(pool: &AssetPool) -> f64 {
 
 fn calculate_diversity_score(pool: &AssetPool) -> f64 {
     pool.diversity_score()
-}
-
-fn has_obligor(pool: &AssetPool, obligor: &str) -> bool {
-    pool.assets
-        .iter()
-        .any(|a| a.obligor_id.as_deref() == Some(obligor))
-}
-
-fn get_industry_concentration(pool: &AssetPool, industry: &str) -> f64 {
-    let industry_exposure = get_industry_exposure(pool, industry);
-    let total = pool.total_balance();
-    if total.amount() > 0.0 {
-        industry_exposure.amount() / total.amount()
-    } else {
-        0.0
-    }
-}
-
-fn months_between(start: Date, end: Date) -> u32 {
-    let days = (end - start).whole_days();
-    (days / 30) as u32
 }
 
 // Default implementations
