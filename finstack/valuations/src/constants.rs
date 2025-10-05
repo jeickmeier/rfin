@@ -13,7 +13,10 @@
 /// use finstack_valuations::constants::ONE_BASIS_POINT;
 ///
 /// let rate_change = 100.0 * ONE_BASIS_POINT; // 1% or 100bp
+/// let notional = 1_000_000.0;
+/// let duration = 5.0;
 /// let dv01 = notional * duration * ONE_BASIS_POINT;
+/// assert_eq!(dv01, 500.0);
 /// ```
 pub const ONE_BASIS_POINT: f64 = 0.0001;
 
