@@ -31,6 +31,7 @@ pub mod deal_config;
 pub mod default_models;
 pub mod enums;
 pub mod instrument_trait;
+pub mod metrics;
 pub mod pool;
 pub mod prepayment;
 pub mod rating_factors;

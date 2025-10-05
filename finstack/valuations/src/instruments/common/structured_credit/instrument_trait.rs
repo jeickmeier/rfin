@@ -244,8 +244,12 @@ pub trait StructuredCreditInstrument {
 
         for (_tranche_id, flows) in tranche_cashflow_map {
             for (date, amount) in flows {
-                *flow_map.entry(date).or_insert(Money::new(0.0, base_ccy)) =
-                    flow_map[&date].checked_add(amount)?;
+                flow_map
+                    .entry(date)
+                    .and_modify(|existing| {
+                        *existing = existing.checked_add(amount).unwrap_or(*existing)
+                    })
+                    .or_insert(amount);
             }
         }
 

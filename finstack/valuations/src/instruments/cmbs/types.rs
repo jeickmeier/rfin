@@ -228,14 +228,33 @@ impl Instrument for Cmbs {
         &self,
         context: &MarketContext,
         as_of: Date,
-        _metrics: &[MetricId],
+        metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         let base_value = self.value(context, as_of)?;
-        Ok(ValuationResult::stamped(
-            self.id.as_str(),
+        
+        if metrics.is_empty() {
+            return Ok(ValuationResult::stamped(self.id.as_str(), as_of, base_value));
+        }
+        
+        let flows = self.build_schedule(context, as_of)?;
+        let mut metric_context = crate::metrics::MetricContext::new(
+            std::sync::Arc::new(self.clone()) as std::sync::Arc<dyn crate::instruments::common::traits::Instrument>,
+            std::sync::Arc::new(context.clone()),
             as_of,
             base_value,
-        ))
+        );
+        metric_context.cashflows = Some(flows);
+        metric_context.discount_curve_id = Some(self.disc_id.clone());
+        
+        let registry = crate::metrics::declarative_standard_registry();
+        let computed_metrics = registry.compute(metrics, &mut metric_context)?;
+        
+        let mut result = ValuationResult::stamped(self.id.as_str(), as_of, base_value);
+        for (metric_id, value) in computed_metrics {
+            result.measures.insert(metric_id.to_string(), value);
+        }
+        
+        Ok(result)
     }
 }
 

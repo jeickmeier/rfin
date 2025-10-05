@@ -267,14 +267,45 @@ impl Instrument for Clo {
         &self,
         context: &MarketContext,
         as_of: Date,
-        _metrics: &[MetricId],
+        metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
+        // Compute base NPV
         let base_value = self.value(context, as_of)?;
-        Ok(ValuationResult::stamped(
-            self.id.as_str(),
+        
+        // If no metrics requested, return simple result
+        if metrics.is_empty() {
+            return Ok(ValuationResult::stamped(self.id.as_str(), as_of, base_value));
+        }
+        
+        // Build cashflows for metrics that need them
+        let flows = self.build_schedule(context, as_of)?;
+        
+        // Create metric context
+        let mut metric_context = crate::metrics::MetricContext::new(
+            std::sync::Arc::new(self.clone()) as std::sync::Arc<dyn crate::instruments::common::traits::Instrument>,
+            std::sync::Arc::new(context.clone()),
             as_of,
             base_value,
-        ))
+        );
+        
+        // Cache cashflows and discount curve ID for metrics to use
+        metric_context.cashflows = Some(flows);
+        metric_context.discount_curve_id = Some(self.disc_id.clone());
+        
+        // Get standard registry
+        let registry = crate::metrics::declarative_standard_registry();
+        
+        // Compute requested metrics
+        let computed_metrics = registry.compute(metrics, &mut metric_context)?;
+        
+        // Build result with computed metrics
+        let mut result = ValuationResult::stamped(self.id.as_str(), as_of, base_value);
+        
+        for (metric_id, value) in computed_metrics {
+            result.measures.insert(metric_id.to_string(), value);
+        }
+        
+        Ok(result)
     }
 }
 

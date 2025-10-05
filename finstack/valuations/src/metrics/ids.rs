@@ -315,4 +315,36 @@ define_metrics! {
     /// Premium/discount to NAV
     PremiumDiscount => "premium_discount",
 
+    // === Structured Credit Metrics ===
+    
+    /// Weighted Average Life (years) - Expected principal repayment life
+    WAL => "wal",
+    
+    /// Weighted Average Maturity (years) - Pool maturity
+    WAM => "wam",
+    
+    /// Expected final payment date under base assumptions
+    ExpectedMaturity => "expected_maturity",
+    
+    /// Percentage of original pool balance remaining
+    PoolFactor => "pool_factor",
+    
+    /// Constant Prepayment Rate (annualized)
+    CPR => "cpr",
+    
+    /// Single Monthly Mortality (monthly prepayment rate)
+    SMM => "smm",
+    
+    /// Constant Default Rate (annualized)
+    CDR => "cdr",
+    
+    /// Loss Severity (1 - Recovery Rate)
+    LossSeverity => "loss_severity",
+    
+    /// Spread duration (time-weighted sensitivity to spread changes)
+    SpreadDuration => "spread_duration",
+    
+    /// DM01 - Discount margin sensitivity (for floating-rate CLO)
+    Dm01 => "dm01",
+
 }
