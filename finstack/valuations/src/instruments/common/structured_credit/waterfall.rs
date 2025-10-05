@@ -23,11 +23,8 @@ use super::enums::PaymentMode;
 pub enum PaymentRecipient {
     /// Service provider (trustee, admin, rating agency, etc.)
     ServiceProvider(String),
-    /// Manager fee
-    ManagerFee {
-        fee_type: ManagementFeeType,
-        subordinated: bool,
-    },
+    /// Manager fee (type indicates senior/subordinated/incentive)
+    ManagerFee(ManagementFeeType),
     /// Tranche payment
     Tranche(String),
     /// Reserve account funding
@@ -540,10 +537,7 @@ impl WaterfallEngine {
         engine = engine.add_rule(PaymentRule::new(
             "senior_mgmt_fee",
             priority,
-            PaymentRecipient::ManagerFee {
-                fee_type: ManagementFeeType::Senior,
-                subordinated: false,
-            },
+            PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
             PaymentCalculation::PercentageOfCollateral {
                 rate: 0.0015,
                 annualized: true,
@@ -570,10 +564,7 @@ impl WaterfallEngine {
         engine = engine.add_rule(PaymentRule::new(
             "sub_mgmt_fee",
             priority,
-            PaymentRecipient::ManagerFee {
-                fee_type: ManagementFeeType::Subordinated,
-                subordinated: true,
-            },
+            PaymentRecipient::ManagerFee(ManagementFeeType::Subordinated),
             PaymentCalculation::PercentageOfCollateral {
                 rate: 0.0005,
                 annualized: true,
@@ -621,20 +612,17 @@ impl WaterfallBuilder {
     }
 
     /// Add management fee
-    pub fn add_management_fee(mut self, rate: f64, subordinated: bool) -> Self {
-        let fee_type = if subordinated {
-            ManagementFeeType::Subordinated
-        } else {
-            ManagementFeeType::Senior
+    pub fn add_management_fee(mut self, rate: f64, fee_type: ManagementFeeType) -> Self {
+        let fee_name = match fee_type {
+            ManagementFeeType::Senior => "senior",
+            ManagementFeeType::Subordinated => "sub",
+            ManagementFeeType::Incentive => "incentive",
         };
 
         self.engine = self.engine.add_rule(PaymentRule::new(
-            format!("{}_mgmt_fee", if subordinated { "sub" } else { "senior" }),
+            format!("{}_mgmt_fee", fee_name),
             self.next_priority,
-            PaymentRecipient::ManagerFee {
-                fee_type,
-                subordinated,
-            },
+            PaymentRecipient::ManagerFee(fee_type),
             PaymentCalculation::PercentageOfCollateral {
                 rate,
                 annualized: true,
@@ -897,7 +885,7 @@ impl StructuredCreditWaterfall {
         for (recipient, amount) in result.distributions {
             let description = match recipient {
                 PaymentRecipient::ServiceProvider(s) => format!("Payment to {}", s),
-                PaymentRecipient::ManagerFee { fee_type, .. } => {
+                PaymentRecipient::ManagerFee(fee_type) => {
                     format!("{:?} Management Fee", fee_type)
                 }
                 PaymentRecipient::Tranche(id) => format!("Tranche {} Payment", id),
@@ -920,7 +908,7 @@ mod tests {
     fn test_waterfall_builder() {
         let waterfall = WaterfallBuilder::new(Currency::USD)
             .add_senior_expenses(Money::new(25000.0, Currency::USD), "Trustee")
-            .add_management_fee(0.004, false)
+            .add_management_fee(0.004, ManagementFeeType::Senior)
             .add_tranche_interest("CLASS_A", true)
             .add_tranche_principal("CLASS_A")
             .add_equity_distribution()

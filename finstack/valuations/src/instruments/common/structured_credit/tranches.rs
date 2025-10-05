@@ -134,7 +134,7 @@ impl TrancheCoupon {
 /// Structured credit tranche with attachment/detachment points
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct AbsTranche {
+pub struct Tranche {
     /// Unique tranche identifier
     pub id: InstrumentId,
 
@@ -179,7 +179,7 @@ pub struct AbsTranche {
     pub attributes: Attributes,
 }
 
-impl AbsTranche {
+impl Tranche {
     /// Create a new tranche with required fields
     pub fn new(
         id: impl Into<String>,
@@ -377,7 +377,7 @@ impl TrancheBuilder {
         self
     }
 
-    pub fn build(self) -> finstack_core::Result<AbsTranche> {
+    pub fn build(self) -> finstack_core::Result<Tranche> {
         let id = self.id.ok_or(finstack_core::error::InputError::Invalid)?;
         let attachment_point = self
             .attachment_point
@@ -398,7 +398,7 @@ impl TrancheBuilder {
             .legal_maturity
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
-        let mut tranche = AbsTranche::new(
+        let mut tranche = Tranche::new(
             id,
             attachment_point,
             detachment_point,
@@ -429,13 +429,13 @@ impl Default for TrancheBuilder {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TrancheStructure {
-    pub tranches: Vec<AbsTranche>,
+    pub tranches: Vec<Tranche>,
     pub total_size: Money,
 }
 
 impl TrancheStructure {
     /// Create new tranche structure
-    pub fn new(tranches: Vec<AbsTranche>) -> finstack_core::Result<Self> {
+    pub fn new(tranches: Vec<Tranche>) -> finstack_core::Result<Self> {
         if tranches.is_empty() {
             return Err(finstack_core::error::InputError::TooFewPoints.into());
         }
@@ -456,7 +456,7 @@ impl TrancheStructure {
     }
 
     /// Validate tranche structure for consistency
-    fn validate_structure(tranches: &[AbsTranche]) -> finstack_core::Result<()> {
+    fn validate_structure(tranches: &[Tranche]) -> finstack_core::Result<()> {
         // Sort by attachment point for validation
         let mut sorted_tranches = tranches.to_vec();
         sorted_tranches
@@ -494,7 +494,7 @@ impl TrancheStructure {
     }
 
     /// Get tranches by seniority
-    pub fn by_seniority(&self, seniority: TrancheSeniority) -> Vec<&AbsTranche> {
+    pub fn by_seniority(&self, seniority: TrancheSeniority) -> Vec<&Tranche> {
         self.tranches
             .iter()
             .filter(|t| t.seniority == seniority)
@@ -502,7 +502,7 @@ impl TrancheStructure {
     }
 
     /// Get tranches senior to a given tranche
-    pub fn senior_to(&self, tranche_id: &str) -> Vec<&AbsTranche> {
+    pub fn senior_to(&self, tranche_id: &str) -> Vec<&Tranche> {
         let target_tranche = self.tranches.iter().find(|t| t.id.as_str() == tranche_id);
 
         if let Some(target) = target_tranche {
@@ -555,7 +555,7 @@ mod tests {
 
     #[test]
     fn test_tranche_creation() {
-        let tranche = AbsTranche::new(
+        let tranche = Tranche::new(
             "EQUITY",
             0.0,
             10.0,
@@ -574,7 +574,7 @@ mod tests {
 
     #[test]
     fn test_loss_allocation() {
-        let tranche = AbsTranche::new(
+        let tranche = Tranche::new(
             "MEZZ",
             10.0,
             15.0,
