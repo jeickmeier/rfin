@@ -11,6 +11,8 @@ use std::collections::HashMap;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use super::prepayment::calculate_seasoning_months;
+
 /// Trait for default behavior modeling
 pub trait DefaultBehavior: Send + Sync {
     /// Calculate the default rate for a given period
@@ -584,13 +586,6 @@ impl DefaultModelFactory {
 }
 
 // Utility functions
-
-/// Calculate seasoning months between dates
-pub fn calculate_seasoning_months(origination: Date, as_of: Date) -> u32 {
-    let months = (as_of.year() - origination.year()) * 12
-        + (as_of.month() as i32 - origination.month() as i32);
-    months.max(0) as u32
-}
 
 /// Convert MDR to CDR
 pub fn mdr_to_cdr(mdr: f64) -> f64 {

@@ -9,6 +9,7 @@ use crate::instruments::common::structured_credit::{
     PaymentRecipient, PrepaymentBehavior, RecoveryBehavior, TrancheStructure, WaterfallEngine,
 };
 use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::utils::add_months;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use std::collections::HashMap;
@@ -288,23 +289,6 @@ pub trait StructuredCreditInstrument {
 
         Ok(all_flows)
     }
-}
-
-/// Helper function to add months to a date
-fn add_months(date: Date, months: i32) -> Date {
-    let year = date.year();
-    let month = date.month() as i32;
-
-    let total_months = month + months;
-    let new_year = year + ((total_months - 1) / 12);
-    let new_month = ((total_months - 1) % 12) + 1;
-
-    Date::from_calendar_date(
-        new_year,
-        time::Month::try_from(new_month as u8).unwrap_or(time::Month::January),
-        date.day().min(28), // Avoid end-of-month issues
-    )
-    .unwrap_or(date)
 }
 
 #[cfg(test)]
