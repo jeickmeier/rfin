@@ -12,8 +12,6 @@ use std::collections::HashMap;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-const ONE_TWELFTH: f64 = 1.0 / 12.0;
-
 /// Generic trait for prepayment behavior that can be implemented for any asset class
 pub trait PrepaymentBehavior: Send + Sync {
     /// Calculate the prepayment rate for a given period
@@ -37,9 +35,6 @@ pub trait PrepaymentBehavior: Send + Sync {
         let rate = self.prepayment_rate(as_of, origination_date, seasoning, market_conditions);
         Ok(Money::new(balance.amount() * rate, balance.currency()))
     }
-
-    /// Get a description of the model
-    fn model_name(&self) -> &str;
 
     /// Clone the behavior into a box
     fn clone_box(&self) -> Box<dyn PrepaymentBehavior>;
@@ -91,7 +86,7 @@ impl CPRModel {
 
     /// Convert CPR to SMM (Single Monthly Mortality)
     pub fn to_smm(&self) -> f64 {
-        1.0 - (1.0 - self.annual_rate).powf(ONE_TWELFTH)
+        1.0 - (1.0 - self.annual_rate).powf(1.0 / 12.0)
     }
 }
 
@@ -104,10 +99,6 @@ impl PrepaymentBehavior for CPRModel {
         _market_conditions: &MarketConditions,
     ) -> f64 {
         self.to_smm()
-    }
-
-    fn model_name(&self) -> &str {
-        "CPR"
     }
 
     fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
@@ -167,11 +158,7 @@ impl PrepaymentBehavior for PSAModel {
     ) -> f64 {
         let cpr = self.cpr_at_month(seasoning_months);
         // Convert CPR to SMM
-        1.0 - (1.0 - cpr).powf(ONE_TWELFTH)
-    }
-
-    fn model_name(&self) -> &str {
-        "PSA"
+        1.0 - (1.0 - cpr).powf(1.0 / 12.0)
     }
 
     fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
@@ -213,11 +200,7 @@ impl PrepaymentBehavior for VectorModel {
         };
 
         // Convert CPR to SMM
-        1.0 - (1.0 - cpr).powf(ONE_TWELFTH)
-    }
-
-    fn model_name(&self) -> &str {
-        "Vector"
+        1.0 - (1.0 - cpr).powf(1.0 / 12.0)
     }
 
     fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
@@ -297,10 +280,6 @@ impl PrepaymentBehavior for MortgagePrepaymentModel {
         base_smm * multiplier
     }
 
-    fn model_name(&self) -> &str {
-        "MortgagePrepayment"
-    }
-
     fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
         Box::new(self.clone())
     }
@@ -344,10 +323,6 @@ impl PrepaymentBehavior for AutoPrepaymentModel {
         };
 
         self.abs_speed * ramp_factor
-    }
-
-    fn model_name(&self) -> &str {
-        "AutoPrepayment"
     }
 
     fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
@@ -403,10 +378,6 @@ impl PrepaymentBehavior for CreditCardPaymentModel {
         }
 
         rate
-    }
-
-    fn model_name(&self) -> &str {
-        "CreditCardPayment"
     }
 
     fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
@@ -479,11 +450,7 @@ impl PrepaymentBehavior for CommercialPrepaymentModel {
         }
 
         // Open period - use standard CPR
-        1.0 - (1.0 - self.open_cpr).powf(ONE_TWELFTH)
-    }
-
-    fn model_name(&self) -> &str {
-        "CommercialPrepayment"
+        1.0 - (1.0 - self.open_cpr).powf(1.0 / 12.0)
     }
 
     fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
@@ -536,15 +503,11 @@ impl PrepaymentBehavior for StudentLoanPrepaymentModel {
         }
 
         // Full repayment period
-        let base_smm = 1.0 - (1.0 - self.repayment_cpr).powf(ONE_TWELFTH);
+        let base_smm = 1.0 - (1.0 - self.repayment_cpr).powf(1.0 / 12.0);
         let consol_smm = self.consolidation_rate / 12.0;
 
         // Combined prepayment rate
         base_smm + consol_smm - (base_smm * consol_smm)
-    }
-
-    fn model_name(&self) -> &str {
-        "StudentLoanPrepayment"
     }
 
     fn clone_box(&self) -> Box<dyn PrepaymentBehavior> {
@@ -600,7 +563,7 @@ pub fn smm_to_cpr(smm: f64) -> f64 {
 
 /// Convert CPR to SMM
 pub fn cpr_to_smm(cpr: f64) -> f64 {
-    1.0 - (1.0 - cpr).powf(ONE_TWELFTH)
+    1.0 - (1.0 - cpr).powf(1.0 / 12.0)
 }
 
 /// Convert PSA speed to CPR at a given month
@@ -686,13 +649,9 @@ mod tests {
 
     #[test]
     fn test_factory_creation() {
-        let mortgage = PrepaymentModelFactory::create_default("mortgage");
-        assert_eq!(mortgage.model_name(), "MortgagePrepayment");
-
-        let auto = PrepaymentModelFactory::create_default("auto");
-        assert_eq!(auto.model_name(), "AutoPrepayment");
-
-        let psa = PrepaymentModelFactory::create_psa(2.0);
-        assert_eq!(psa.model_name(), "PSA");
+        let _mortgage = PrepaymentModelFactory::create_default("mortgage");
+        let _auto = PrepaymentModelFactory::create_default("auto");
+        let _psa = PrepaymentModelFactory::create_psa(2.0);
+        // Factory successfully creates models
     }
 }

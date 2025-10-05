@@ -248,7 +248,7 @@ impl DefaultAssumptions {
     pub fn abs_auto_standard() -> Self {
         Self {
             base_cdr_annual: 0.02,    // 2% CDR
-            base_recovery_rate: 0.45, // 45% recovery (updated from 35%)
+            base_recovery_rate: 0.45, // 45% recovery
             base_cpr_annual: 0.0,     // Not used for auto
             psa_speed: None,
             sda_speed: None,
@@ -383,10 +383,9 @@ mod tests {
     }
 
     #[test]
-    fn test_auto_recovery_rate_updated() {
+    fn test_auto_recovery_rate() {
         let assumptions = DefaultAssumptions::abs_auto_standard();
 
-        // Verify updated recovery rate
-        assert_eq!(assumptions.base_recovery_rate, 0.45); // Was 0.35, now 0.45
+        assert_eq!(assumptions.base_recovery_rate, 0.45);
     }
 }
