@@ -24,10 +24,11 @@ use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Discount curve bootstrapper.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DiscountCurveCalibrator {
     /// Curve identifier
     pub curve_id: CurveId,

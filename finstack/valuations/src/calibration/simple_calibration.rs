@@ -25,6 +25,7 @@ use std::collections::{BTreeMap, HashMap};
 /// 2. Hazard curves and inflation curves (depend on discount)
 /// 3. Volatility surfaces (depend on underlying curves)
 /// 4. Base correlation curves (depend on hazard curves)
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SimpleCalibration {
     base_date: Date,
     base_currency: Currency,

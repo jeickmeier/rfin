@@ -89,7 +89,7 @@ pub fn ho_lee_convexity(
 }
 
 /// Convexity adjustment parameters for different currencies.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ConvexityParameters {
     /// Base rate volatility
     pub base_volatility: f64,

@@ -13,10 +13,11 @@ use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::prelude::Currency;
 use finstack_core::Result;
 use ordered_float::OrderedFloat;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Interpolation choice for volatility surfaces (currently bilinear-only).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SurfaceInterp {
     /// Bilinear interpolation across expiry × strike grid
     Bilinear,
@@ -42,7 +43,7 @@ impl std::str::FromStr for SurfaceInterp {
 }
 
 /// Volatility surface calibrator using SABR models.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VolSurfaceCalibrator {
     /// Surface identifier
     pub surface_id: String,

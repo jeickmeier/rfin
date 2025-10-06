@@ -15,10 +15,11 @@ use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Hazard curve bootstrapper using CDS par spreads.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HazardCurveCalibrator {
     /// Reference entity name
     pub entity: String,

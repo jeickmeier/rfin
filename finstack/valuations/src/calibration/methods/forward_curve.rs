@@ -22,13 +22,14 @@ use finstack_core::{
     types::CurveId,
     Result,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Forward curve calibrator for multi-curve bootstrapping.
 ///
 /// Calibrates a tenor-specific forward curve (e.g., 3M SOFR) using market instruments
 /// while discounting with a separate OIS curve.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ForwardCurveCalibrator {
     /// Forward curve identifier
     pub fwd_curve_id: CurveId,

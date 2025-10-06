@@ -9,10 +9,11 @@ use finstack_core::market_data::term_structures::{
     inflation::InflationCurve, BaseCorrelationCurve,
 };
 use finstack_core::{Error, Result};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Validation error details
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidationError {
     pub constraint: String,
     pub location: String,
@@ -629,7 +630,7 @@ impl SurfaceValidator for VolSurface {
 }
 
 /// Validation configuration for different curve types
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidationConfig {
     /// Enable forward rate positivity check
     pub check_forward_positivity: bool,

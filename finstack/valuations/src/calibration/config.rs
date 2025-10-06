@@ -11,7 +11,7 @@ use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
 /// Solver type selection for calibration.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum SolverKind {
     /// Newton-Raphson solver with automatic derivative estimation (1D)
     Newton,
@@ -53,7 +53,7 @@ impl MultiCurveConfig {
 }
 
 /// Configuration for calibration processes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CalibrationConfig {
     /// Solver tolerance
     pub tolerance: f64,

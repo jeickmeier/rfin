@@ -15,10 +15,11 @@ use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Inflation curve bootstrapper using ZC inflation swaps.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InflationCurveCalibrator {
     /// Curve identifier
     pub curve_id: CurveId,

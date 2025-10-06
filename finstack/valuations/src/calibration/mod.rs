@@ -62,6 +62,8 @@ mod validation;
 
 // Re-exports
 pub use config::{CalibrationConfig, MultiCurveConfig, SolverKind};
+pub use derivatives::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketData};
+pub use derivatives::sabr_model_params::SABRModelParams;
 pub use quote::{CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote};
 pub use report::CalibrationReport;
 pub use simple_calibration::SimpleCalibration;

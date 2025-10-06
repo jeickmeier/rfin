@@ -1,9 +1,10 @@
 //! Calibration reporting and diagnostics.
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Calibration diagnostic report.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CalibrationReport {
     /// Calibration success flag
     pub success: bool,

@@ -7,9 +7,10 @@ use super::sabr_model_params::SABRModelParams;
 #[cfg(test)]
 use crate::instruments::common::models::SABRParameters;
 use finstack_core::math::solver_multi::AnalyticalDerivatives;
+use serde::{Deserialize, Serialize};
 
 /// Market data for SABR calibration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SABRMarketData {
     /// Forward price
     pub forward: f64,

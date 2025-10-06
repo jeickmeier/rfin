@@ -5,9 +5,10 @@
 
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_core::prelude::Currency;
+use serde::{Deserialize, Serialize};
 
 /// Market convention configuration for swaption calibration
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SwaptionMarketConvention {
     /// Default day count for the currency
     pub day_count: DayCount,
@@ -30,7 +31,7 @@ pub struct SwaptionMarketConvention {
 }
 
 /// Method for estimating swap payments
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub enum PaymentEstimation {
     /// Use proper schedule generation
     ProperSchedule,

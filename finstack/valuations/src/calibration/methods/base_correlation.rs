@@ -17,11 +17,12 @@ use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// Interpolation method for base correlation curves (currently linear only).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CorrelationInterp {
     /// Linear interpolation between detachment points
     Linear,
@@ -43,7 +44,7 @@ const CORRELATION_STEP: f64 = 0.05;
 const MAX_MONOTONIC_CORRELATION: f64 = 0.9;
 
 /// Base correlation curve calibrator.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BaseCorrelationCalibrator {
     /// Index identifier (e.g., "CDX.NA.IG.42")
     pub index_id: String,
@@ -338,7 +339,7 @@ impl Calibrator<CreditQuote, BaseCorrelationCurve> for BaseCorrelationCalibrator
 ///
 /// Calibrates base correlation curves for multiple maturities and
 /// builds a correlation surface.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BaseCorrelationSurfaceCalibrator {
     /// Index identifier
     pub index_id: String,

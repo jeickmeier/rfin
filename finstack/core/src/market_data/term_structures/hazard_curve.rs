@@ -514,7 +514,7 @@ impl core::str::FromStr for Seniority {
 }
 
 /// Interpolation method for reporting par spreads stored on the curve.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ParInterp {
     /// Linear interpolation in spread space
     Linear,

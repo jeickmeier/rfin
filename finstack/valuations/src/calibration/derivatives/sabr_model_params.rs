@@ -1,6 +1,8 @@
 //! SABR model parameters used for calibration derivatives.
 
-#[derive(Clone, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SABRModelParams {
     pub alpha: f64,
     pub nu: f64,

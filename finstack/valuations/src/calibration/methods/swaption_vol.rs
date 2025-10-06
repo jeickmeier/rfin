@@ -31,7 +31,7 @@ fn to_basis_points(value: f64) -> u64 {
 }
 
 /// Volatility quoting convention for swaptions.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum SwaptionVolConvention {
     /// Normal (absolute) volatility in basis points
     Normal,
@@ -42,7 +42,7 @@ pub enum SwaptionVolConvention {
 }
 
 /// ATM strike convention for swaptions.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum AtmStrikeConvention {
     /// ATM = forward swap rate (standard market convention)
     SwapRate,
@@ -51,7 +51,7 @@ pub enum AtmStrikeConvention {
 }
 
 /// Swaption volatility surface calibrator.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SwaptionVolCalibrator {
     /// Surface identifier
     pub surface_id: String,
@@ -66,7 +66,7 @@ pub struct SwaptionVolCalibrator {
     /// Discount curve ID for swap pricing
     pub disc_id: CurveId,
     /// Forward curve ID (if different from discount)
-    pub forward_id: Option<&'static str>,
+    pub forward_id: Option<String>,
     /// Currency for market conventions
     pub currency: Currency,
     /// Market conventions configuration
@@ -108,8 +108,8 @@ impl SwaptionVolCalibrator {
     }
 
     /// Set the forward curve ID (if different from discount).
-    pub fn with_forward_id(mut self, forward_id: &'static str) -> Self {
-        self.forward_id = Some(forward_id);
+    pub fn with_forward_id(mut self, forward_id: impl Into<String>) -> Self {
+        self.forward_id = Some(forward_id.into());
         self
     }
 
