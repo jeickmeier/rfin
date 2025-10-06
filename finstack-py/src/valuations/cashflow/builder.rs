@@ -97,6 +97,54 @@ impl PyScheduleParams {
             inner: val_builder::ScheduleParams::annual_actact(),
         }
     }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    /// USD market standard: quarterly, Act/360, Modified Following, USD calendar.
+    ///
+    /// Returns:
+    ///     ScheduleParams: USD standard configuration
+    fn usd_standard(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: val_builder::ScheduleParams::usd_standard(),
+        }
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    /// EUR market standard: semi-annual, 30/360, Modified Following, EUR calendar.
+    ///
+    /// Returns:
+    ///     ScheduleParams: EUR standard configuration
+    fn eur_standard(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: val_builder::ScheduleParams::eur_standard(),
+        }
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    /// GBP market standard: semi-annual, Act/365, Modified Following, GBP calendar.
+    ///
+    /// Returns:
+    ///     ScheduleParams: GBP standard configuration
+    fn gbp_standard(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: val_builder::ScheduleParams::gbp_standard(),
+        }
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    /// JPY market standard: semi-annual, Act/365, Modified Following, JPY calendar.
+    ///
+    /// Returns:
+    ///     ScheduleParams: JPY standard configuration
+    fn jpy_standard(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: val_builder::ScheduleParams::jpy_standard(),
+        }
+    }
 }
 
 /// Fixed coupon specification.
@@ -379,6 +427,305 @@ impl PyCashFlowSchedule {
     }
 }
 
+/// Fee base for periodic basis point fees.
+///
+/// Determines what balance is used to calculate periodic fees.
+///
+/// Examples:
+///     >>> # Fee on drawn balance
+///     >>> fee_base = FeeBase.drawn()
+///     
+///     >>> # Fee on undrawn (unused) facility
+///     >>> from finstack.core import Money
+///     >>> fee_base = FeeBase.undrawn(Money("USD", 10_000_000))
+#[pyclass(
+    module = "finstack.valuations.cashflow.builder",
+    name = "FeeBase",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyFeeBase {
+    pub(crate) inner: finstack_valuations::cashflow::builder::FeeBase,
+}
+
+impl PyFeeBase {
+    pub(crate) fn new(inner: finstack_valuations::cashflow::builder::FeeBase) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyFeeBase {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls)")]
+    /// Fee calculated on drawn (outstanding) balance.
+    ///
+    /// Returns:
+    ///     FeeBase: Drawn balance base
+    fn drawn(_cls: &Bound<'_, PyType>) -> Self {
+        Self::new(finstack_valuations::cashflow::builder::FeeBase::Drawn)
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, facility_limit)")]
+    /// Fee calculated on undrawn (unused) facility.
+    ///
+    /// Args:
+    ///     facility_limit: Total facility size as Money
+    ///
+    /// Returns:
+    ///     FeeBase: Undrawn balance base (facility_limit - outstanding)
+    fn undrawn(_cls: &Bound<'_, PyType>, facility_limit: Bound<'_, PyAny>) -> PyResult<Self> {
+        use crate::core::money::extract_money;
+        let limit = extract_money(&facility_limit)?;
+        Ok(Self::new(
+            finstack_valuations::cashflow::builder::FeeBase::Undrawn {
+                facility_limit: limit,
+            },
+        ))
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            finstack_valuations::cashflow::builder::FeeBase::Drawn => "FeeBase.drawn()".to_string(),
+            finstack_valuations::cashflow::builder::FeeBase::Undrawn { facility_limit } => {
+                format!("FeeBase.undrawn({})", facility_limit)
+            }
+        }
+    }
+}
+
+/// Fee specification for cashflow schedules.
+///
+/// Supports both fixed one-time fees and periodic fees calculated as
+/// basis points on drawn or undrawn balances.
+///
+/// Examples:
+///     >>> from finstack.core import Money
+///     >>> import datetime
+///     >>> 
+///     >>> # One-time fixed fee
+///     >>> fee = FeeSpec.fixed(
+///     ...     datetime.date(2025, 6, 15),
+///     ...     Money("USD", 50_000)
+///     ... )
+///     
+///     >>> # Periodic commitment fee on undrawn balance
+///     >>> from finstack.valuations.cashflow.builder import FeeBase, ScheduleParams
+///     >>> fee = FeeSpec.periodic_bps(
+///     ...     FeeBase.undrawn(Money("USD", 10_000_000)),
+///     ...     25.0,  # 25 bps
+///     ...     ScheduleParams.quarterly_act360()
+///     ... )
+#[pyclass(
+    module = "finstack.valuations.cashflow.builder",
+    name = "FeeSpec",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyFeeSpec {
+    pub(crate) inner: finstack_valuations::cashflow::builder::FeeSpec,
+}
+
+impl PyFeeSpec {
+    pub(crate) fn new(inner: finstack_valuations::cashflow::builder::FeeSpec) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyFeeSpec {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, date, amount)")]
+    /// Create a fixed one-time fee.
+    ///
+    /// Args:
+    ///     date: Payment date
+    ///     amount: Fee amount as Money
+    ///
+    /// Returns:
+    ///     FeeSpec: Fixed fee specification
+    fn fixed(_cls: &Bound<'_, PyType>, date: Bound<'_, PyAny>, amount: Bound<'_, PyAny>) -> PyResult<Self> {
+        use crate::core::money::extract_money;
+        use crate::core::utils::py_to_date;
+        
+        let payment_date = py_to_date(&date)?;
+        let fee_amount = extract_money(&amount)?;
+        
+        Ok(Self::new(
+            finstack_valuations::cashflow::builder::FeeSpec::Fixed {
+                date: payment_date,
+                amount: fee_amount,
+            },
+        ))
+    }
+
+    #[classmethod]
+    #[pyo3(
+        signature = (base, bps, schedule, *, calendar=None, stub=None),
+        text_signature = "(cls, base, bps, schedule, /, *, calendar=None, stub='none')"
+    )]
+    /// Create a periodic fee calculated as basis points on a balance.
+    ///
+    /// Args:
+    ///     base: Fee base (drawn or undrawn balance)
+    ///     bps: Fee rate in basis points (e.g., 25.0 for 0.25%)
+    ///     schedule: Schedule parameters (frequency, day count, BDC)
+    ///     calendar: Optional calendar identifier
+    ///     stub: Optional stub kind (default: "none")
+    ///
+    /// Returns:
+    ///     FeeSpec: Periodic fee specification
+    fn periodic_bps(
+        _cls: &Bound<'_, PyType>,
+        base: &PyFeeBase,
+        bps: f64,
+        schedule: &PyScheduleParams,
+        calendar: Option<&str>,
+        stub: Option<&str>,
+    ) -> PyResult<Self> {
+        use finstack_core::dates::StubKind;
+        
+        let stub_kind = if let Some(s) = stub {
+            s.parse::<StubKind>()
+                .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))?
+        } else {
+            StubKind::None
+        };
+        
+        Ok(Self::new(
+            finstack_valuations::cashflow::builder::FeeSpec::PeriodicBps {
+                base: base.inner.clone(),
+                bps,
+                freq: schedule.inner.freq,
+                dc: schedule.inner.dc,
+                bdc: schedule.inner.bdc,
+                calendar_id: calendar.map(|s| s.to_string()),
+                stub: stub_kind,
+            },
+        ))
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            finstack_valuations::cashflow::builder::FeeSpec::Fixed { date, amount } => {
+                format!("FeeSpec.fixed({}, {})", date, amount)
+            }
+            finstack_valuations::cashflow::builder::FeeSpec::PeriodicBps { bps, freq, .. } => {
+                format!("FeeSpec.periodic_bps(bps={:.2}, freq={:?})", bps, freq)
+            }
+        }
+    }
+}
+
+/// Fixed coupon window for rate step-up programs.
+///
+/// Defines a period with a specific fixed rate and schedule.
+///
+/// Examples:
+///     >>> window = FixedWindow(
+///     ...     rate=0.05,
+///     ...     schedule=ScheduleParams.quarterly_act360()
+///     ... )
+#[pyclass(
+    module = "finstack.valuations.cashflow.builder",
+    name = "FixedWindow",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyFixedWindow {
+    pub(crate) inner: finstack_valuations::cashflow::builder::FixedWindow,
+}
+
+impl PyFixedWindow {
+    pub(crate) fn new(inner: finstack_valuations::cashflow::builder::FixedWindow) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyFixedWindow {
+    #[new]
+    #[pyo3(text_signature = "(rate, schedule)")]
+    /// Create a fixed coupon window.
+    ///
+    /// Args:
+    ///     rate: Fixed coupon rate (annual decimal)
+    ///     schedule: Schedule parameters defining frequency and conventions
+    ///
+    /// Returns:
+    ///     FixedWindow: Window specification
+    fn ctor(rate: f64, schedule: &PyScheduleParams) -> Self {
+        Self::new(finstack_valuations::cashflow::builder::FixedWindow {
+            rate,
+            schedule: schedule.inner.clone(),
+        })
+    }
+
+    #[getter]
+    fn rate(&self) -> f64 {
+        self.inner.rate
+    }
+
+    fn __repr__(&self) -> String {
+        format!("FixedWindow(rate={:.4})", self.inner.rate)
+    }
+}
+
+/// Floating coupon window for floating rate periods.
+///
+/// Defines a period with floating rate parameters and schedule.
+///
+/// Examples:
+///     >>> params = FloatCouponParams.new("USD-SOFR", 50.0)
+///     >>> window = FloatWindow(
+///     ...     params=params,
+///     ...     schedule=ScheduleParams.quarterly_act360()
+///     ... )
+#[pyclass(
+    module = "finstack.valuations.cashflow.builder",
+    name = "FloatWindow",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyFloatWindow {
+    pub(crate) inner: finstack_valuations::cashflow::builder::FloatWindow,
+}
+
+impl PyFloatWindow {
+    pub(crate) fn new(inner: finstack_valuations::cashflow::builder::FloatWindow) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyFloatWindow {
+    #[new]
+    #[pyo3(text_signature = "(params, schedule)")]
+    /// Create a floating coupon window.
+    ///
+    /// Args:
+    ///     params: Floating rate parameters (index, margin, gearing)
+    ///     schedule: Schedule parameters defining frequency and conventions
+    ///
+    /// Returns:
+    ///     FloatWindow: Window specification
+    fn ctor(params: &PyFloatCouponParams, schedule: &PyScheduleParams) -> Self {
+        Self::new(finstack_valuations::cashflow::builder::FloatWindow {
+            params: params.inner.clone(),
+            schedule: schedule.inner.clone(),
+        })
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "FloatWindow(index_id={}, margin_bp={:.2})",
+            self.inner.params.index_id.as_str(),
+            self.inner.params.margin_bp
+        )
+    }
+}
+
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
@@ -390,6 +737,10 @@ pub(crate) fn register<'py>(
     module.add_class::<PyFloatingCouponSpec>()?;
     module.add_class::<PyCashflowBuilder>()?;
     module.add_class::<PyCashFlowSchedule>()?;
+    module.add_class::<PyFeeBase>()?;
+    module.add_class::<PyFeeSpec>()?;
+    module.add_class::<PyFixedWindow>()?;
+    module.add_class::<PyFloatWindow>()?;
     Ok(vec![
         "CouponType",
         "ScheduleParams",
@@ -398,5 +749,9 @@ pub(crate) fn register<'py>(
         "FloatingCouponSpec",
         "CashflowBuilder",
         "CashFlowSchedule",
+        "FeeBase",
+        "FeeSpec",
+        "FixedWindow",
+        "FloatWindow",
     ])
 }

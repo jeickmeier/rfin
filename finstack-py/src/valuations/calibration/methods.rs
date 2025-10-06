@@ -6,15 +6,15 @@ use crate::core::error::core_to_py;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::surfaces::PyVolSurface;
 use crate::core::market_data::term_structures::{
-    PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve,
+    PyBaseCorrelationCurve, PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve,
 };
 use crate::core::utils::py_to_date;
 use finstack_core::market_data::context::MarketContext as CoreMarketContext;
 use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};
 use finstack_core::market_data::term_structures::hazard_curve::Seniority;
 use finstack_valuations::calibration::methods::{
-    DiscountCurveCalibrator, ForwardCurveCalibrator, HazardCurveCalibrator,
-    InflationCurveCalibrator, SurfaceInterp, VolSurfaceCalibrator,
+    BaseCorrelationCalibrator, DiscountCurveCalibrator, ForwardCurveCalibrator,
+    HazardCurveCalibrator, InflationCurveCalibrator, SurfaceInterp, VolSurfaceCalibrator,
 };
 use finstack_valuations::calibration::{
     Calibrator, CreditQuote, InflationQuote, RatesQuote, VolQuote,
@@ -550,6 +550,196 @@ impl PyVolSurfaceCalibrator {
     }
 }
 
+/// Base correlation curve calibrator for CDS tranches.
+///
+/// Calibrates base correlation curves from CDS tranche quotes using the
+/// market-standard bootstrapping methodology with one-factor Gaussian Copula.
+///
+/// The bootstrapping works by:
+/// 1. Sorting tranches by detachment point (equity to senior)
+/// 2. For each tranche [A, D], solving for ρ(D) such that:
+///    Price([A, D]) = Price([0, D], ρ(D)) - Price([0, A], ρ(A))
+/// 3. Using previously solved correlations for [0, A] pricing
+///
+/// Examples:
+///     >>> from finstack.valuations.calibration import (
+///     ...     BaseCorrelationCalibrator, CalibrationConfig, CreditQuote
+///     ... )
+///     >>> import datetime
+///     ///
+///     >>> calibrator = BaseCorrelationCalibrator(
+///     ...     index_id="CDX.NA.IG.42",
+///     ...     series=42,
+///     ...     maturity_years=5.0,
+///     ...     base_date=datetime.date(2025, 1, 1)
+///     ... )
+///     >>> calibrator = calibrator.with_discount_curve_id("USD-OIS")
+///     >>> calibrator = calibrator.with_detachment_points([3.0, 7.0, 10.0, 15.0, 30.0])
+///     ///
+///     >>> # Prepare tranche quotes
+///     >>> quotes = [
+///     ...     CreditQuote.cds_tranche(
+///     ...         index="CDX.NA.IG.42",
+///     ...         attachment=0.0,
+///     ...         detachment=3.0,
+///     ...         maturity=datetime.date(2030, 1, 1),
+///     ...         upfront_pct=15.0,
+///     ...         running_spread_bp=500.0
+///     ...     ),
+///     ...     # ... more tranches
+///     ... ]
+///     ///
+///     >>> # Calibrate
+///     >>> curve, report = calibrator.calibrate(quotes, market)
+///     >>> print(f"Success: {report.success}, Iterations: {report.iterations}")
+#[pyclass(
+    module = "finstack.valuations.calibration",
+    name = "BaseCorrelationCalibrator",
+    frozen
+)]
+#[derive(Clone)]
+pub struct PyBaseCorrelationCalibrator {
+    inner: BaseCorrelationCalibrator,
+}
+
+impl PyBaseCorrelationCalibrator {
+    pub(crate) fn new(inner: BaseCorrelationCalibrator) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyBaseCorrelationCalibrator {
+    #[new]
+    #[pyo3(text_signature = "(index_id, series, maturity_years, base_date)")]
+    /// Create a base correlation calibrator for a single maturity.
+    ///
+    /// Args:
+    ///     index_id: Index identifier (e.g., "CDX.NA.IG.42", "iTraxx.Europe.40")
+    ///     series: Index series number
+    ///     maturity_years: Maturity for correlation curve in years (e.g., 5.0)
+    ///     base_date: Base date for calibration
+    ///
+    /// Returns:
+    ///     BaseCorrelationCalibrator: Configured calibrator with default settings
+    ///
+    /// Notes:
+    ///     - Default discount curve: "USD-OIS"
+    ///     - Default detachment points: [3.0, 7.0, 10.0, 15.0, 30.0] percent
+    ///     - Default interpolation: Linear
+    fn ctor(
+        index_id: &str,
+        series: u16,
+        maturity_years: f64,
+        base_date: Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let date = py_to_date(&base_date)?;
+        Ok(Self::new(BaseCorrelationCalibrator::new(
+            index_id,
+            series,
+            maturity_years,
+            date,
+        )))
+    }
+
+    #[pyo3(text_signature = "(self, config)")]
+    /// Set calibration configuration.
+    ///
+    /// Args:
+    ///     config: Calibration configuration for solver tolerances and settings
+    ///
+    /// Returns:
+    ///     BaseCorrelationCalibrator: Updated calibrator
+    fn with_config(&self, config: PyRef<PyCalibrationConfig>) -> Self {
+        Self::new(self.inner.clone().with_config(config.inner.clone()))
+    }
+
+    #[pyo3(text_signature = "(self, points)")]
+    /// Set custom detachment points for calibration.
+    ///
+    /// Args:
+    ///     points: List of detachment points in percent (e.g., [3.0, 7.0, 10.0, 15.0, 30.0])
+    ///
+    /// Returns:
+    ///     BaseCorrelationCalibrator: Updated calibrator
+    ///
+    /// Raises:
+    ///     ValueError: If points list is empty or contains invalid values
+    fn with_detachment_points(&self, points: Vec<f64>) -> PyResult<Self> {
+        if points.is_empty() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "detachment_points cannot be empty",
+            ));
+        }
+        for &p in &points {
+            if p <= 0.0 || p > 100.0 {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "detachment point {} must be in (0, 100]",
+                    p
+                )));
+            }
+        }
+        Ok(Self::new(self.inner.clone().with_detachment_points(points)))
+    }
+
+    #[pyo3(text_signature = "(self, disc_id)")]
+    /// Set the discount curve identifier for tranche pricing.
+    ///
+    /// Args:
+    ///     disc_id: Discount curve identifier (e.g., "USD-OIS", "EUR-ESTR")
+    ///
+    /// Returns:
+    ///     BaseCorrelationCalibrator: Updated calibrator
+    fn with_discount_curve_id(&self, disc_id: Bound<'_, PyAny>) -> PyResult<Self> {
+        use crate::valuations::common::extract_curve_id;
+        let curve_id = extract_curve_id(&disc_id)?;
+        Ok(Self::new(
+            self.inner.clone().with_discount_curve_id(curve_id),
+        ))
+    }
+
+    #[pyo3(signature = (quotes, market))]
+    /// Calibrate base correlation curve from CDS tranche quotes.
+    ///
+    /// Args:
+    ///     quotes: List of CreditQuote objects (must contain CDSTranche quotes)
+    ///     market: Market context with discount and credit curves
+    ///
+    /// Returns:
+    ///     tuple[BaseCorrelationCurve, CalibrationReport]: Calibrated curve and report
+    ///
+    /// Raises:
+    ///     RuntimeError: If calibration fails or insufficient quotes provided
+    ///     ValueError: If quotes are invalid
+    ///
+    /// Notes:
+    ///     Only CDSTranche quotes matching the calibrator's index_id will be used.
+    ///     Quotes are automatically sorted by detachment point for bootstrapping.
+    fn calibrate(
+        &self,
+        quotes: Vec<Py<PyCreditQuote>>,
+        market: PyRef<PyMarketContext>,
+    ) -> PyResult<(PyBaseCorrelationCurve, PyCalibrationReport)> {
+        let rust_quotes = collect_credit_quotes(quotes)?;
+        let context = market.inner.clone();
+        let (curve, report) = self
+            .inner
+            .calibrate(&rust_quotes, &context)
+            .map_err(core_to_py)?;
+        Ok((
+            PyBaseCorrelationCurve::new_arc(Arc::new(curve)),
+            PyCalibrationReport::new(report),
+        ))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "BaseCorrelationCalibrator(index='{}', series={}, maturity={}y)",
+            self.inner.index_id, self.inner.series, self.inner.maturity_years
+        )
+    }
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     module: &Bound<'py, PyModule>,
@@ -559,6 +749,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyHazardCurveCalibrator>()?;
     module.add_class::<PyInflationCurveCalibrator>()?;
     module.add_class::<PyVolSurfaceCalibrator>()?;
+    module.add_class::<PyBaseCorrelationCalibrator>()?;
 
     let exports = [
         "DiscountCurveCalibrator",
@@ -566,6 +757,7 @@ pub(crate) fn register<'py>(
         "HazardCurveCalibrator",
         "InflationCurveCalibrator",
         "VolSurfaceCalibrator",
+        "BaseCorrelationCalibrator",
     ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     Ok(exports.to_vec())

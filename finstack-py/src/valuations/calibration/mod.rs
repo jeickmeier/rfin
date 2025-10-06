@@ -2,6 +2,7 @@ pub mod config;
 pub mod methods;
 pub mod quote;
 pub mod report;
+pub mod sabr;
 pub mod simple;
 pub mod validation;
 
@@ -39,6 +40,9 @@ pub(crate) fn register<'py>(
 
     let validation_exports = validation::register(py, &module)?;
     exports.extend(validation_exports.iter().copied());
+
+    let sabr_exports = sabr::register(py, &module)?;
+    exports.extend(sabr_exports.iter().copied());
 
     let mut uniq = HashSet::new();
     exports.retain(|item| uniq.insert(*item));
