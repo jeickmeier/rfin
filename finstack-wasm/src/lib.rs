@@ -55,13 +55,29 @@ pub use valuations::calibration::{
     JsHazardCurveCalibrator as HazardCurveCalibrator,
     JsInflationCurveCalibrator as InflationCurveCalibrator, JsInflationQuote as InflationQuote,
     JsMarketQuote as MarketQuote, JsMultiCurveConfig as MultiCurveConfig,
-    JsRatesQuote as RatesQuote, JsSimpleCalibration as SimpleCalibration,
-    JsSolverKind as SolverKind, JsVolQuote as VolQuote,
-    JsVolSurfaceCalibrator as VolSurfaceCalibrator,
+    JsRatesQuote as RatesQuote, JsSABRCalibrationDerivatives as SABRCalibrationDerivatives,
+    JsSABRMarketData as SABRMarketData, JsSABRModelParams as SABRModelParams,
+    JsSimpleCalibration as SimpleCalibration, JsSolverKind as SolverKind,
+    JsValidationConfig as ValidationConfig, JsValidationError as ValidationError,
+    JsVolQuote as VolQuote, JsVolSurfaceCalibrator as VolSurfaceCalibrator,
+};
+// Validation functions
+pub use valuations::calibration::validation::{
+    validate_discount_curve as validateDiscountCurve,
+    validate_forward_curve as validateForwardCurve,
+    validate_hazard_curve as validateHazardCurve,
+    validate_inflation_curve as validateInflationCurve,
+    validate_market_context as validateMarketContext,
+    validate_vol_surface as validateVolSurface,
 };
 pub use valuations::cashflow::{
     CashFlowSchedule, CashflowBuilder, CouponType, FixedCouponSpec, FloatCouponParams,
     FloatingCouponSpec, ScheduleParams,
+};
+pub use valuations::metrics::{JsMetricId as MetricId, JsMetricRegistry as MetricRegistry};
+// Performance functions
+pub use valuations::performance::{
+    calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,
 };
 pub use valuations::instruments::{
     Abs, BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, Clo, Cmbs, ConvertibleBond,

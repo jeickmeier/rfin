@@ -2,5 +2,7 @@ pub mod calibration;
 pub mod cashflow;
 pub mod common;
 pub mod instruments;
+pub mod metrics;
+pub mod performance;
 pub mod pricer;
 pub mod results;
