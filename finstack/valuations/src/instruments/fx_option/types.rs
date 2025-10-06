@@ -16,6 +16,7 @@ use super::parameters::FxOptionParams;
 
 /// FX option instrument (Garman-Kohlhagen model)
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FxOption {
     pub id: InstrumentId,
     pub base_currency: Currency,

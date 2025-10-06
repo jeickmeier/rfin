@@ -16,6 +16,7 @@ use super::parameters::CdsOptionParams;
 
 /// Credit option instrument (option on CDS spread)
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CdsOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

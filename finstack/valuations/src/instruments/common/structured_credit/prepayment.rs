@@ -35,6 +35,9 @@ pub trait PrepaymentBehavior: dyn_clone::DynClone + Send + Sync {
         let rate = self.prepayment_rate(as_of, origination_date, seasoning, market_conditions);
         Ok(Money::new(balance.amount() * rate, balance.currency()))
     }
+
+    /// Downcast to Any for serialization support
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 dyn_clone::clone_trait_object!(PrepaymentBehavior);
@@ -127,6 +130,10 @@ impl PrepaymentBehavior for CPRModel {
     ) -> f64 {
         self.to_smm()
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// PSA (Public Securities Association) standard prepayment model
@@ -159,6 +166,11 @@ impl PSAModel {
         }
     }
 
+    /// Get the PSA multiplier
+    pub fn multiplier(&self) -> f64 {
+        self.speed
+    }
+
     /// Calculate CPR for a given month under PSA model
     pub fn cpr_at_month(&self, month: u32) -> f64 {
         let base_cpr = if month <= self.ramp_months {
@@ -182,6 +194,10 @@ impl PrepaymentBehavior for PSAModel {
         let cpr = self.cpr_at_month(seasoning_months);
         // Convert CPR to SMM
         1.0 - (1.0 - cpr).powf(1.0 / 12.0)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -220,6 +236,10 @@ impl PrepaymentBehavior for VectorModel {
 
         // Convert CPR to SMM
         1.0 - (1.0 - cpr).powf(1.0 / 12.0)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

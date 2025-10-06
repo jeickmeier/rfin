@@ -13,6 +13,7 @@ use crate::instruments::cds::pricer::CDSPricer;
 
 /// CDS payment types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PayReceive {
     /// Protection buyer pays premium leg
     PayProtection,
@@ -44,6 +45,7 @@ impl std::str::FromStr for PayReceive {
 
 /// ISDA CDS conventions
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CDSConvention {
     /// Standard North American convention (quarterly, Act/360)
     IsdaNa,
@@ -100,6 +102,7 @@ pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, Protectio
 
 /// Credit Default Swap instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CreditDefaultSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -311,7 +314,7 @@ impl CreditDefaultSwap {
             self.premium.freq,
             self.premium.stub,
             self.premium.bdc,
-            self.premium.calendar_id,
+            self.premium.calendar_id.as_deref(),
         );
         let dates = sched.dates;
         if dates.len() < 2 {

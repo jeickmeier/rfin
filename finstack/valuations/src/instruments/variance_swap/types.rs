@@ -16,6 +16,7 @@ use crate::{
 
 /// Side of the variance swap (pay or receive variance).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PayReceive {
     /// Pay variance (short variance)
     Pay,
@@ -59,6 +60,7 @@ impl PayReceive {
 /// A variance swap is a forward contract on realized variance with payoff:
 /// Notional * (Realized Variance - Strike Variance)
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct VarianceSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,

@@ -37,6 +37,7 @@ pub mod prepayment;
 pub mod rating_factors;
 pub mod reinvestment;
 pub mod scenarios;
+pub mod serializable_models;
 pub mod tranches;
 pub mod waterfall;
 
@@ -151,3 +152,9 @@ pub use reinvestment::{ReinvestmentManager, ReinvestmentTerminationEvent};
 
 pub use instrument_trait::StructuredCreditInstrument;
 pub use rating_factors::{moodys_warf_factor, RatingFactorTable};
+
+// ============================================================================
+// Serializable Model Specifications - JSON-friendly wrappers
+// ============================================================================
+
+pub use serializable_models::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};

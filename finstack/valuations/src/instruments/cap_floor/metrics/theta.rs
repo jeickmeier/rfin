@@ -20,8 +20,8 @@ impl MetricCalculator for ThetaCalculator {
         let base_pv = context.base_value.amount();
 
         // Advance one business day using calendar if available, else weekday roll
-        let as_of_plus_1bd = if let Some(cal_id) = option.calendar_id {
-            if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
+        let as_of_plus_1bd = if let Some(ref cal_id) = option.calendar_id {
+            if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id.as_str()) {
                 // Manual next business day search with bounded loop
                 let mut d = context.as_of.add_weekdays(1);
                 let mut searched = 0;

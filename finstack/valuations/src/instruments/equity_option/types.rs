@@ -15,6 +15,7 @@ use super::parameters::EquityOptionParams;
 
 /// Equity option instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EquityOption {
     pub id: InstrumentId,
     pub underlying_ticker: String,

@@ -56,6 +56,7 @@ pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
 /// );
 /// ```
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BasisSwap {
     /// Unique identifier for this instrument.
     pub id: InstrumentId,

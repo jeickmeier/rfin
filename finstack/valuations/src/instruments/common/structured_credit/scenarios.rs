@@ -10,6 +10,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::Result;
 use std::collections::HashMap;
 
+use super::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
@@ -376,35 +378,22 @@ impl StructuredCreditScenario {
     ) {
         // Apply prepayment scenario
         if let Some(PrepaymentScenario::ConstantCpr { cpr_annual }) = scenario.prepayment {
-            use crate::instruments::common::structured_credit::cpr_model;
-            clo.prepayment_model = std::sync::Arc::from(cpr_model(cpr_annual));
+            clo.prepayment_spec = PrepaymentModelSpec::ConstantCpr { cpr: cpr_annual };
         }
 
         // Apply default scenario
         if let Some(ref default_scenario) = scenario.default {
             match default_scenario {
                 DefaultScenario::ConstantCdr { cdr_annual } => {
-                    use crate::instruments::common::structured_credit::{
-                        CDRModel, DefaultBehavior,
-                    };
-                    clo.default_model = std::sync::Arc::from(
-                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
-                    );
+                    clo.default_spec = DefaultModelSpec::ConstantCdr { cdr: *cdr_annual };
                 }
                 DefaultScenario::CdrWithSeverity {
                     cdr_annual,
                     severity,
                 } => {
-                    use crate::instruments::common::structured_credit::{
-                        CDRModel, ConstantRecoveryModel, DefaultBehavior, RecoveryBehavior,
-                    };
-                    clo.default_model = std::sync::Arc::from(
-                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
-                    );
+                    clo.default_spec = DefaultModelSpec::ConstantCdr { cdr: *cdr_annual };
                     let recovery = 1.0 - severity;
-                    clo.recovery_model =
-                        std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery))
-                            as Box<dyn RecoveryBehavior>);
+                    clo.recovery_spec = RecoveryModelSpec::Constant { rate: recovery };
                 }
                 _ => {}
             }
@@ -420,10 +409,10 @@ impl StructuredCreditScenario {
             match prepay_scenario {
                 PrepaymentScenario::PsaSpeed { speed } => {
                     rmbs.psa_speed = *speed;
+                    rmbs.prepayment_spec = PrepaymentModelSpec::Psa { multiplier: *speed };
                 }
                 PrepaymentScenario::ConstantCpr { cpr_annual } => {
-                    use crate::instruments::common::structured_credit::cpr_model;
-                    rmbs.prepayment_model = std::sync::Arc::from(cpr_model(*cpr_annual));
+                    rmbs.prepayment_spec = PrepaymentModelSpec::ConstantCpr { cpr: *cpr_annual };
                 }
                 _ => {}
             }
@@ -434,29 +423,18 @@ impl StructuredCreditScenario {
             match default_scenario {
                 DefaultScenario::SdaSpeed { speed } => {
                     rmbs.sda_speed = *speed;
+                    rmbs.default_spec = DefaultModelSpec::Sda { multiplier: *speed };
                 }
                 DefaultScenario::ConstantCdr { cdr_annual } => {
-                    use crate::instruments::common::structured_credit::{
-                        CDRModel, DefaultBehavior,
-                    };
-                    rmbs.default_model = std::sync::Arc::from(
-                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
-                    );
+                    rmbs.default_spec = DefaultModelSpec::ConstantCdr { cdr: *cdr_annual };
                 }
                 DefaultScenario::CdrWithSeverity {
                     cdr_annual,
                     severity,
                 } => {
-                    use crate::instruments::common::structured_credit::{
-                        CDRModel, ConstantRecoveryModel, DefaultBehavior, RecoveryBehavior,
-                    };
-                    rmbs.default_model = std::sync::Arc::from(
-                        Box::new(CDRModel::new(*cdr_annual)) as Box<dyn DefaultBehavior>
-                    );
+                    rmbs.default_spec = DefaultModelSpec::ConstantCdr { cdr: *cdr_annual };
                     let recovery = 1.0 - severity;
-                    rmbs.recovery_model =
-                        std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery))
-                            as Box<dyn RecoveryBehavior>);
+                    rmbs.recovery_spec = RecoveryModelSpec::Constant { rate: recovery };
                 }
                 _ => {}
             }
@@ -504,14 +482,10 @@ impl StructuredCreditScenario {
                     cdr_annual,
                     severity,
                 } => {
-                    use crate::instruments::common::structured_credit::{
-                        ConstantRecoveryModel, RecoveryBehavior,
-                    };
                     abs.cdr_annual = Some(*cdr_annual);
+                    abs.default_spec = DefaultModelSpec::ConstantCdr { cdr: *cdr_annual };
                     let recovery = 1.0 - severity;
-                    abs.recovery_model =
-                        std::sync::Arc::from(Box::new(ConstantRecoveryModel::new(recovery))
-                            as Box<dyn RecoveryBehavior>);
+                    abs.recovery_spec = RecoveryModelSpec::Constant { rate: recovery };
                 }
                 _ => {}
             }

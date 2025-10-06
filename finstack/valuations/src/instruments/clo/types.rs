@@ -7,10 +7,13 @@ use crate::instruments::common::structured_credit::{
     CreditFactors,
     DealType,
     DefaultBehavior,
+    DefaultModelSpec,
     MarketConditions,
     // Prepayment/default frameworks
     PrepaymentBehavior,
+    PrepaymentModelSpec,
     RecoveryBehavior,
+    RecoveryModelSpec,
     StructuredCreditWaterfall,
     TrancheStructure,
     // Waterfall engine
@@ -71,38 +74,29 @@ pub struct Clo {
     /// Attributes for scenario selection
     pub attributes: Attributes,
 
-    /// Prepayment model (SMM) applied to pool cashflows
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            skip_serializing,
-            skip_deserializing,
-            default = "Clo::default_prepayment_arc"
-        )
-    )]
-    pub prepayment_model: Arc<dyn PrepaymentBehavior>,
+    /// Prepayment model specification
+    #[cfg_attr(feature = "serde", serde(default = "Clo::default_prepayment_spec"))]
+    pub prepayment_spec: PrepaymentModelSpec,
 
-    /// Default model (MDR) applied to pool cashflows
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            skip_serializing,
-            skip_deserializing,
-            default = "Clo::default_default_arc"
-        )
-    )]
-    pub default_model: Arc<dyn DefaultBehavior>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[builder(skip)]
+    prepayment_model_cache: once_cell::sync::OnceCell<Arc<dyn PrepaymentBehavior>>,
 
-    /// Recovery model used to convert defaults to recoveries
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            skip_serializing,
-            skip_deserializing,
-            default = "Clo::default_recovery_arc"
-        )
-    )]
-    pub recovery_model: Arc<dyn RecoveryBehavior>,
+    /// Default model specification
+    #[cfg_attr(feature = "serde", serde(default = "Clo::default_default_spec"))]
+    pub default_spec: DefaultModelSpec,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[builder(skip)]
+    default_model_cache: once_cell::sync::OnceCell<Arc<dyn DefaultBehavior>>,
+
+    /// Recovery model specification
+    #[cfg_attr(feature = "serde", serde(default = "Clo::default_recovery_spec"))]
+    pub recovery_spec: RecoveryModelSpec,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[builder(skip)]
+    recovery_model_cache: once_cell::sync::OnceCell<Arc<dyn RecoveryBehavior>>,
 
     /// Market conditions for prepayment behavior
     pub market_conditions: MarketConditions,
@@ -113,21 +107,22 @@ pub struct Clo {
 
 impl Clo {
     #[cfg(feature = "serde")]
-    fn default_prepayment_arc() -> Arc<dyn PrepaymentBehavior> {
-        use crate::instruments::common::structured_credit::cpr_model;
-        Arc::from(cpr_model(0.15))
+    fn default_prepayment_spec() -> PrepaymentModelSpec {
+        PrepaymentModelSpec::ConstantCpr { cpr: 0.15 }
     }
 
     #[cfg(feature = "serde")]
-    fn default_default_arc() -> Arc<dyn DefaultBehavior> {
-        use crate::instruments::common::structured_credit::default_model_for;
-        Arc::from(default_model_for("corporate"))
+    fn default_default_spec() -> DefaultModelSpec {
+        DefaultModelSpec::AssetDefault {
+            asset_type: "corporate".to_string(),
+        }
     }
 
     #[cfg(feature = "serde")]
-    fn default_recovery_arc() -> Arc<dyn RecoveryBehavior> {
-        use crate::instruments::common::structured_credit::recovery_model_for;
-        Arc::from(recovery_model_for("corporate"))
+    fn default_recovery_spec() -> RecoveryModelSpec {
+        RecoveryModelSpec::AssetDefault {
+            asset_type: "corporate".to_string(),
+        }
     }
     /// Create a new CLO instrument from its building blocks.
     pub fn new(
@@ -139,13 +134,6 @@ impl Clo {
         disc_id: impl Into<String>,
     ) -> Self {
         let id_str = id.into();
-        // Default CLO assumptions: corporate loan pool
-        use crate::instruments::common::structured_credit::{
-            cpr_model, default_model_for, recovery_model_for,
-        };
-        let prepay = cpr_model(0.15); // 15% CPR default
-        let dflt = default_model_for("corporate");
-        let recv = recovery_model_for("corporate");
         Self {
             id: InstrumentId::new(id_str),
             deal_type: DealType::CLO,
@@ -162,9 +150,16 @@ impl Clo {
             servicer_id: None,
             disc_id: CurveId::new(disc_id.into()),
             attributes: Attributes::new(),
-            prepayment_model: Arc::from(prepay),
-            default_model: Arc::from(dflt),
-            recovery_model: Arc::from(recv),
+            prepayment_spec: PrepaymentModelSpec::ConstantCpr { cpr: 0.15 },
+            prepayment_model_cache: once_cell::sync::OnceCell::new(),
+            default_spec: DefaultModelSpec::AssetDefault {
+                asset_type: "corporate".to_string(),
+            },
+            default_model_cache: once_cell::sync::OnceCell::new(),
+            recovery_spec: RecoveryModelSpec::AssetDefault {
+                asset_type: "corporate".to_string(),
+            },
+            recovery_model_cache: once_cell::sync::OnceCell::new(),
             market_conditions: MarketConditions::default(),
             credit_factors: CreditFactors::default(),
         }
@@ -348,19 +343,22 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
     fn prepayment_model(
         &self,
     ) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
-        &self.prepayment_model
+        self.prepayment_model_cache
+            .get_or_init(|| self.prepayment_spec.to_arc())
     }
 
     fn default_model(
         &self,
     ) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
-        &self.default_model
+        self.default_model_cache
+            .get_or_init(|| self.default_spec.to_arc())
     }
 
     fn recovery_model(
         &self,
     ) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
-        &self.recovery_model
+        self.recovery_model_cache
+            .get_or_init(|| self.recovery_spec.to_arc())
     }
 
     fn market_conditions(

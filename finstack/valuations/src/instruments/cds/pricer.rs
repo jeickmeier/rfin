@@ -515,7 +515,7 @@ impl CDSPricer {
                 cds.premium.freq,
                 cds.premium.stub,
                 cds.premium.bdc,
-                cds.premium.calendar_id,
+                cds.premium.calendar_id.as_deref(),
             );
             Ok(sched.dates)
         }

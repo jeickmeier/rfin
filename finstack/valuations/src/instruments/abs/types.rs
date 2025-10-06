@@ -2,8 +2,9 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, MarketConditions,
-    PrepaymentBehavior, RecoveryBehavior, StructuredCreditWaterfall, TrancheStructure,
+    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, DefaultModelSpec,
+    MarketConditions, PrepaymentBehavior, PrepaymentModelSpec, RecoveryBehavior,
+    RecoveryModelSpec, StructuredCreditWaterfall, TrancheStructure,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -62,37 +63,28 @@ pub struct Abs {
     pub attributes: Attributes,
 
     /// Prepayment model (SMM) for receivables/loans
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            skip_serializing,
-            skip_deserializing,
-            default = "Abs::default_prepayment_arc"
-        )
-    )]
-    pub prepayment_model: Arc<dyn PrepaymentBehavior>,
+    #[cfg_attr(feature = "serde", serde(default = "Abs::default_prepayment_spec"))]
+    pub prepayment_spec: PrepaymentModelSpec,
 
-    /// Default model (MDR) for receivables/loans
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            skip_serializing,
-            skip_deserializing,
-            default = "Abs::default_default_arc"
-        )
-    )]
-    pub default_model: Arc<dyn DefaultBehavior>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[builder(skip)]
+    prepayment_model_cache: once_cell::sync::OnceCell<Arc<dyn PrepaymentBehavior>>,
 
-    /// Recovery model for ABS collateral
-    #[cfg_attr(
-        feature = "serde",
-        serde(
-            skip_serializing,
-            skip_deserializing,
-            default = "Abs::default_recovery_arc"
-        )
-    )]
-    pub recovery_model: Arc<dyn RecoveryBehavior>,
+    /// Default model specification
+    #[cfg_attr(feature = "serde", serde(default = "Abs::default_default_spec"))]
+    pub default_spec: DefaultModelSpec,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[builder(skip)]
+    default_model_cache: once_cell::sync::OnceCell<Arc<dyn DefaultBehavior>>,
+
+    /// Recovery model specification
+    #[cfg_attr(feature = "serde", serde(default = "Abs::default_recovery_spec"))]
+    pub recovery_spec: RecoveryModelSpec,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    #[builder(skip)]
+    recovery_model_cache: once_cell::sync::OnceCell<Arc<dyn RecoveryBehavior>>,
 
     /// Market conditions impacting prepayments
     pub market_conditions: MarketConditions,
@@ -116,13 +108,6 @@ impl Abs {
         disc_id: impl Into<String>,
     ) -> Self {
         let id_str = id.into();
-        // Generic ABS defaults (overridable by attributes or asset mix)
-        use crate::instruments::common::structured_credit::{
-            default_model_for, prepayment_model_for, recovery_model_for,
-        };
-        let prepay = prepayment_model_for("auto");
-        let dflt = default_model_for("consumer");
-        let recv = recovery_model_for("consumer");
         Self {
             id: InstrumentId::new(id_str),
             deal_type: DealType::ABS,
@@ -139,9 +124,18 @@ impl Abs {
             trustee_id: None,
             disc_id: CurveId::new(disc_id.into()),
             attributes: Attributes::new(),
-            prepayment_model: Arc::from(prepay),
-            default_model: Arc::from(dflt),
-            recovery_model: Arc::from(recv),
+            prepayment_spec: PrepaymentModelSpec::AssetDefault {
+                asset_type: "auto".to_string(),
+            },
+            prepayment_model_cache: once_cell::sync::OnceCell::new(),
+            default_spec: DefaultModelSpec::AssetDefault {
+                asset_type: "consumer".to_string(),
+            },
+            default_model_cache: once_cell::sync::OnceCell::new(),
+            recovery_spec: RecoveryModelSpec::AssetDefault {
+                asset_type: "collateral".to_string(),
+            },
+            recovery_model_cache: once_cell::sync::OnceCell::new(),
             market_conditions: MarketConditions::default(),
             credit_factors: CreditFactors::default(),
             abs_speed: None,
@@ -301,19 +295,22 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
     fn prepayment_model(
         &self,
     ) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
-        &self.prepayment_model
+        self.prepayment_model_cache
+            .get_or_init(|| self.prepayment_spec.to_arc())
     }
 
     fn default_model(
         &self,
     ) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
-        &self.default_model
+        self.default_model_cache
+            .get_or_init(|| self.default_spec.to_arc())
     }
 
     fn recovery_model(
         &self,
     ) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
-        &self.recovery_model
+        self.recovery_model_cache
+            .get_or_init(|| self.recovery_spec.to_arc())
     }
 
     fn market_conditions(
@@ -348,21 +345,24 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
 
 impl Abs {
     #[cfg(feature = "serde")]
-    fn default_prepayment_arc() -> Arc<dyn PrepaymentBehavior> {
-        use crate::instruments::common::structured_credit::prepayment_model_for;
-        Arc::from(prepayment_model_for("auto"))
+    fn default_prepayment_spec() -> PrepaymentModelSpec {
+        PrepaymentModelSpec::AssetDefault {
+            asset_type: "auto".to_string(),
+        }
     }
 
     #[cfg(feature = "serde")]
-    fn default_default_arc() -> Arc<dyn DefaultBehavior> {
-        use crate::instruments::common::structured_credit::default_model_for;
-        Arc::from(default_model_for("consumer"))
+    fn default_default_spec() -> DefaultModelSpec {
+        DefaultModelSpec::AssetDefault {
+            asset_type: "consumer".to_string(),
+        }
     }
 
     #[cfg(feature = "serde")]
-    fn default_recovery_arc() -> Arc<dyn RecoveryBehavior> {
-        use crate::instruments::common::structured_credit::recovery_model_for;
-        Arc::from(recovery_model_for("consumer"))
+    fn default_recovery_spec() -> RecoveryModelSpec {
+        RecoveryModelSpec::AssetDefault {
+            asset_type: "collateral".to_string(),
+        }
     }
 
     /// Create waterfall engine for ABS (called by trait)

@@ -98,6 +98,7 @@ pub fn correlation(x: &[f64], y: &[f64]) -> f64 {
 
 /// Methods for calculating realized variance from price series.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RealizedVarMethod {
     /// Standard close-to-close returns
     CloseToClose,

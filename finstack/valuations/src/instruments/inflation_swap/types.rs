@@ -8,6 +8,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 
 /// Direction from the perspective of paying fixed real vs receiving inflation
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PayReceiveInflation {
     /// Pay fixed (real) leg, receive inflation leg
     PayFixed,
@@ -42,6 +43,7 @@ impl std::str::FromStr for PayReceiveInflation {
 /// Minimal fields to represent a zero-coupon inflation swap. We keep this
 /// intentionally compact until full pricing is implemented.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InflationSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,

@@ -16,6 +16,7 @@ use super::parameters::FxSwapParams;
 
 /// FX Swap instrument definition
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FxSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,

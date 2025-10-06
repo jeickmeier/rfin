@@ -24,6 +24,7 @@ use super::parameters::{CDSIndexConstructionParams, CDSIndexParams};
 
 /// Pricing mode for CDS indices.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum IndexPricing {
     /// Price the index against a single index hazard curve (synthetic CDS)
     SingleCurve,
@@ -33,6 +34,7 @@ pub enum IndexPricing {
 
 /// Constituent in a CDS index with weight and credit parameters.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CDSIndexConstituent {
     /// Credit configuration for the issuer (includes hazard curve id and recovery)
     pub credit: CreditParams,
@@ -42,6 +44,7 @@ pub struct CDSIndexConstituent {
 
 /// CDS Index instrument definition
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CDSIndex {
     /// Unique instrument identifier
     pub id: InstrumentId,

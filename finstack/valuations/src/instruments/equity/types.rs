@@ -22,6 +22,7 @@ pub type Ticker = String;
 ///
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Equity {
     /// Unique identifier for the equity
     pub id: InstrumentId,

@@ -22,6 +22,7 @@ use super::parameters::SwaptionParams;
 
 /// Swaption settlement type
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SwaptionSettlement {
     Physical,
     Cash,
@@ -50,6 +51,7 @@ impl std::str::FromStr for SwaptionSettlement {
 
 /// Swaption exercise style
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SwaptionExercise {
     European,
     Bermudan,
@@ -81,6 +83,7 @@ impl std::str::FromStr for SwaptionExercise {
 
 /// Swaption instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Swaption {
     pub id: InstrumentId,
     pub option_type: OptionType,

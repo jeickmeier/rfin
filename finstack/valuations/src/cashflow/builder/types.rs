@@ -15,6 +15,7 @@ use finstack_core::types::CurveId;
 /// - `PIK`: 100% capitalized into principal.
 /// - `Split { cash_pct, pik_pct }`: percentages applied to the coupon amount.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CouponType {
     Cash,
     PIK,
@@ -51,6 +52,7 @@ impl CouponType {
 
 /// Fixed coupon specification.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FixedCouponSpec {
     pub coupon_type: CouponType,
     pub rate: f64,
@@ -63,6 +65,7 @@ pub struct FixedCouponSpec {
 
 /// Floating coupon specification.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FloatingCouponSpec {
     pub index_id: CurveId,
     pub margin_bp: f64,
@@ -78,6 +81,7 @@ pub struct FloatingCouponSpec {
 
 /// Fee specification.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FeeSpec {
     Fixed {
         date: Date,
@@ -89,13 +93,14 @@ pub enum FeeSpec {
         freq: Frequency,
         dc: DayCount,
         bdc: BusinessDayConvention,
-        calendar_id: Option<&'static str>,
+        calendar_id: Option<String>,
         stub: StubKind,
     },
 }
 
 /// Fee base for periodic bps fees.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FeeBase {
     /// Base on drawn outstanding (post-amortization, post-PIK).
     Drawn,

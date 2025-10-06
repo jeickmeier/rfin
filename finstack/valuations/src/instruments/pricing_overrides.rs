@@ -4,6 +4,7 @@ use finstack_core::money::Money;
 
 /// Optional parameters that override model pricing with market quotes.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PricingOverrides {
     /// Quoted clean price (for bonds)
     pub quoted_clean_price: Option<f64>,

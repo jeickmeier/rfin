@@ -11,6 +11,7 @@ use super::parameters::InterestRateOptionParams;
 
 /// Type of interest rate option
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RateOptionType {
     /// Cap (series of caplets)
     Cap,
@@ -24,6 +25,7 @@ pub enum RateOptionType {
 
 /// Interest rate option instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InterestRateOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -46,7 +48,7 @@ pub struct InterestRateOption {
     /// Schedule business day convention
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar identifier for schedule and roll conventions
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     /// Exercise style
     pub exercise_style: ExerciseStyle,
     /// Settlement type
@@ -85,7 +87,7 @@ impl InterestRateOption {
             day_count: option_params.day_count,
             stub_kind: option_params.stub_kind,
             bdc: option_params.bdc,
-            calendar_id: option_params.calendar_id,
+            calendar_id: option_params.calendar_id.map(|s| s.to_string()),
             exercise_style: ExerciseStyle::European,
             settlement: SettlementType::Cash,
             disc_id: disc_id.into(),
@@ -240,7 +242,7 @@ impl InterestRateOption {
             self.frequency,
             self.stub_kind,
             self.bdc,
-            self.calendar_id,
+            self.calendar_id.as_deref(),
         );
 
         if schedule.dates.len() < 2 {

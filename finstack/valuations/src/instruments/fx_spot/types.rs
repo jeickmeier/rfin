@@ -20,6 +20,7 @@ use finstack_core::types::InstrumentId;
 ///
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FxSpot {
     /// Unique identifier for the FX pair
     pub id: InstrumentId,

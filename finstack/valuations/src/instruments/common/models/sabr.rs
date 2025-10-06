@@ -8,6 +8,7 @@ use finstack_core::{Error, Result};
 
 /// SABR model parameters
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SABRParameters {
     /// Initial volatility (alpha)
     pub alpha: f64,

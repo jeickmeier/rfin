@@ -19,6 +19,7 @@ use super::pricer;
 /// with equity optionality (conversion rights). Uses the CashflowBuilder for
 /// robust schedule generation and tree-based pricing for the hybrid valuation.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ConvertibleBond {
     /// Unique identifier for the instrument.
     pub id: InstrumentId,
@@ -50,6 +51,7 @@ pub struct ConvertibleBond {
 
 /// Defines how and when conversion can occur.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ConversionPolicy {
     /// Holder may convert at any time (subject to window, if any).
     Voluntary,
@@ -63,6 +65,7 @@ pub enum ConversionPolicy {
 
 /// Events that may trigger conversion.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ConversionEvent {
     QualifiedIpo,
     ChangeOfControl,
@@ -75,6 +78,7 @@ pub enum ConversionEvent {
 
 /// Anti-dilution protection applied to conversion terms.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AntiDilutionPolicy {
     None,
     FullRatchet,
@@ -83,6 +87,7 @@ pub enum AntiDilutionPolicy {
 
 /// How dividends affect conversion terms.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DividendAdjustment {
     None,
     AdjustPrice,
@@ -91,6 +96,7 @@ pub enum DividendAdjustment {
 
 /// Conversion specification for the instrument.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ConversionSpec {
     /// Conversion ratio (shares per bond). If not provided, derive from price.
     pub ratio: Option<f64>,

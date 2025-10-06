@@ -43,6 +43,9 @@ pub trait DefaultBehavior: dyn_clone::DynClone + Send + Sync {
 
         cumulative
     }
+
+    /// Downcast to Any for serialization support
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 dyn_clone::clone_trait_object!(DefaultBehavior);
@@ -86,6 +89,9 @@ pub trait RecoveryBehavior: dyn_clone::DynClone + Send + Sync {
             market_factors,
         )
     }
+
+    /// Downcast to Any for serialization support
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 dyn_clone::clone_trait_object!(RecoveryBehavior);
@@ -154,6 +160,11 @@ impl CDRModel {
         Self { annual_rate }
     }
 
+    /// Get the CDR rate
+    pub fn cdr(&self) -> f64 {
+        self.annual_rate
+    }
+
     /// Convert CDR to MDR (Monthly Default Rate)
     pub fn to_mdr(&self) -> f64 {
         1.0 - (1.0 - self.annual_rate).powf(1.0 / 12.0)
@@ -169,6 +180,10 @@ impl DefaultBehavior for CDRModel {
         _credit_factors: &CreditFactors,
     ) -> f64 {
         self.to_mdr()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -197,6 +212,21 @@ impl Default for SDAModel {
     }
 }
 
+impl SDAModel {
+    /// Create a new SDA model with specified speed
+    pub fn new(speed: f64) -> Self {
+        Self {
+            speed,
+            ..Default::default()
+        }
+    }
+
+    /// Get the SDA multiplier
+    pub fn multiplier(&self) -> f64 {
+        self.speed
+    }
+}
+
 impl DefaultBehavior for SDAModel {
     fn default_rate(
         &self,
@@ -221,6 +251,10 @@ impl DefaultBehavior for SDAModel {
 
         // Convert to MDR
         1.0 - (1.0 - cdr).powf(1.0 / 12.0)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -259,6 +293,10 @@ impl DefaultBehavior for VectorDefaultModel {
 
         // Convert to MDR
         1.0 - (1.0 - cdr).powf(1.0 / 12.0)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -333,6 +371,10 @@ impl DefaultBehavior for MortgageDefaultModel {
         // Convert to MDR
         1.0 - (1.0 - cdr).powf(1.0 / 12.0)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Auto loan default model
@@ -403,6 +445,10 @@ impl DefaultBehavior for AutoDefaultModel {
         // Convert to MDR
         1.0 - (1.0 - cdr).powf(1.0 / 12.0)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Credit card charge-off model
@@ -460,6 +506,10 @@ impl DefaultBehavior for CreditCardChargeOffModel {
 
         rate
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Constant recovery rate model
@@ -474,6 +524,11 @@ impl ConstantRecoveryModel {
     pub fn new(recovery_rate: f64) -> Self {
         Self { recovery_rate }
     }
+
+    /// Get the recovery rate
+    pub fn rate(&self) -> f64 {
+        self.recovery_rate
+    }
 }
 
 impl RecoveryBehavior for ConstantRecoveryModel {
@@ -486,6 +541,10 @@ impl RecoveryBehavior for ConstantRecoveryModel {
         _market_factors: &MarketFactors,
     ) -> f64 {
         self.recovery_rate
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -543,6 +602,10 @@ impl RecoveryBehavior for CollateralRecoveryModel {
         } else {
             self.base_recovery
         }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

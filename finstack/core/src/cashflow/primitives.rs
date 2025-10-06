@@ -165,6 +165,7 @@ impl CashFlow {
 /// Describes how principal amortizes or is exchanged during the life of the contract.
 /// Used by instruments (e.g., bonds) and cashflow legs for consistent behavior.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AmortizationSpec {
     /// No amortization – principal remains constant until final redemption.
     None,

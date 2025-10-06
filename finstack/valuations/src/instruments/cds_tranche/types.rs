@@ -15,6 +15,7 @@ use super::pricer;
 
 /// Buyer/seller perspective for CDS tranche premium/protection
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TrancheSide {
     /// Buy protection on the tranche (pay running, receive protection)
     BuyProtection,
@@ -46,6 +47,7 @@ impl std::str::FromStr for TrancheSide {
 
 /// CDS Tranche instrument definition (boilerplate)
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CdsTranche {
     /// Unique instrument identifier
     pub id: InstrumentId,

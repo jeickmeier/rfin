@@ -31,7 +31,6 @@ pub struct Bond {
     /// Business day convention for schedule/payment adjustments.
     pub bdc: BusinessDayConvention,
     /// Optional calendar identifier for schedule adjustments.
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub calendar_id: Option<String>,
     /// Stub handling rule for the schedule.
     pub stub: StubKind,
@@ -45,12 +44,10 @@ pub struct Bond {
     /// hazard-rate pricing is enabled.
     pub hazard_id: Option<CurveId>,
     /// Pricing overrides (including quoted clean price)
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub pricing_overrides: PricingOverrides,
     /// Optional call/put schedule (dates and redemption prices as % of par amount).
     pub call_put: Option<CallPutSchedule>,
     /// Optional amortization specification (principal paid during life).
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub amortization: Option<AmortizationSpec>,
     /// Optional pre-built cashflow schedule. If provided, this will be used instead of
     /// generating cashflows from coupon/amortization specifications.
@@ -60,7 +57,6 @@ pub struct Bond {
     /// projected off a forward index with margin and gearing.
     pub float: Option<BondFloatSpec>,
     /// Attributes for scenario selection and tagging.
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub attributes: Attributes,
     /// Settlement convention: number of settlement days after trade date.
     pub settlement_days: Option<u32>,

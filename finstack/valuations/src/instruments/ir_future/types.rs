@@ -9,6 +9,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 
 /// Interest Rate Future instrument.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InterestRateFuture {
     /// Unique identifier
     pub id: InstrumentId,
@@ -42,6 +43,7 @@ pub struct InterestRateFuture {
 
 /// Contract specifications for interest rate futures.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FutureContractSpecs {
     /// Face value of contract
     pub face_value: f64,
@@ -72,6 +74,7 @@ impl Default for FutureContractSpecs {
 
 /// Position side for futures.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Position {
     Long,
     Short,

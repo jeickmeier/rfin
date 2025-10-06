@@ -45,7 +45,6 @@ pub struct InterestRateSwap {
     /// Floating leg specification.
     pub float: FloatLegSpec,
     /// Attributes for scenario selection and tagging.
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub attributes: Attributes,
 }
 

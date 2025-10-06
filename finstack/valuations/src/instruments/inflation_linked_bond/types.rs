@@ -22,6 +22,7 @@ use super::parameters::InflationLinkedBondParams;
 
 /// Indexation method for inflation adjustment
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum IndexationMethod {
     /// Canadian model (real yield, indexed principal and coupons)
     Canadian,
@@ -81,6 +82,7 @@ impl IndexationMethod {
 
 /// Deflation protection type
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DeflationProtection {
     /// No deflation protection
     None,
@@ -140,6 +142,7 @@ impl InflationSource {
 
 /// Inflation-Linked Bond instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InflationLinkedBond {
     /// Unique instrument identifier
     pub id: InstrumentId,
