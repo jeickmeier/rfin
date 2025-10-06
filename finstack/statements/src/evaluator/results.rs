@@ -2,12 +2,13 @@
 
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "polars_export")]
 use crate::error::Result;
 
 /// Results from evaluating a financial model.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Results {
     /// Map of node_id → (period_id → value)
     pub nodes: IndexMap<String, IndexMap<PeriodId, f64>>,
@@ -17,9 +18,10 @@ pub struct Results {
 }
 
 /// Metadata about evaluation results.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ResultsMeta {
     /// Evaluation time in milliseconds
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub eval_time_ms: Option<u64>,
 
     /// Number of nodes evaluated

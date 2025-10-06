@@ -5,9 +5,10 @@
 
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
 
 /// Aggregated cashflows from capital structure instruments by period.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CapitalStructureCashflows {
     /// Map of instrument_id → (period_id → cashflow_type → amount)
     pub by_instrument: IndexMap<String, IndexMap<PeriodId, CashflowBreakdown>>,
@@ -17,7 +18,7 @@ pub struct CapitalStructureCashflows {
 }
 
 /// Breakdown of cashflows by type for a single period.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CashflowBreakdown {
     /// Interest payments (coupons, floating resets)
     pub interest_expense: f64,

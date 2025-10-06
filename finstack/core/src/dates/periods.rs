@@ -52,7 +52,11 @@ impl PeriodKind {
 
 /// Identifier for a period like 2025Q1 or 2025M03.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(into = "String", try_from = "String")
+)]
 pub struct PeriodId {
     /// Gregorian calendar year.
     pub year: i32,
@@ -852,6 +856,21 @@ impl FromStr for PeriodId {
     type Err = crate::error::Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         parse_id(s)
+    }
+}
+
+// Implement From<PeriodId> for String to enable serde(into = "String")
+impl From<PeriodId> for String {
+    fn from(period: PeriodId) -> Self {
+        period.to_string()
+    }
+}
+
+// Implement TryFrom<String> for PeriodId to enable serde(try_from = "String")
+impl TryFrom<String> for PeriodId {
+    type Error = crate::error::Error;
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        s.parse()
     }
 }
 
