@@ -3,7 +3,7 @@
 use super::config::JsCalibrationConfig;
 use super::quote::{JsCreditQuote, JsInflationQuote, JsRatesQuote, JsVolQuote};
 use super::report::JsCalibrationReport;
-use crate::core::dates::Date;
+use crate::core::dates::FsDate;
 use crate::core::market_data::context::JsMarketContext;
 use crate::core::market_data::term_structures::{
     JsDiscountCurve, JsForwardCurve, JsHazardCurve, JsInflationCurve,
@@ -46,7 +46,7 @@ impl JsDiscountCurveCalibrator {
     #[wasm_bindgen(constructor)]
     pub fn new(
         curve_id: &str,
-        base_date: &Date,
+        base_date: &FsDate,
         currency: &str,
     ) -> Result<JsDiscountCurveCalibrator, JsValue> {
         let ccy: finstack_core::currency::Currency = currency
@@ -138,7 +138,7 @@ impl JsForwardCurveCalibrator {
     pub fn new(
         curve_id: &str,
         tenor_years: f64,
-        base_date: &Date,
+        base_date: &FsDate,
         currency: &str,
         discount_curve_id: &str,
     ) -> Result<JsForwardCurveCalibrator, JsValue> {
@@ -201,7 +201,7 @@ impl JsHazardCurveCalibrator {
         entity: &str,
         seniority: &str,
         recovery_rate: f64,
-        base_date: &Date,
+        base_date: &FsDate,
         currency: &str,
         discount_curve_id: Option<String>,
     ) -> Result<JsHazardCurveCalibrator, JsValue> {
@@ -277,7 +277,7 @@ impl JsInflationCurveCalibrator {
     #[wasm_bindgen(constructor)]
     pub fn new(
         curve_id: &str,
-        base_date: &Date,
+        base_date: &FsDate,
         currency: &str,
         base_cpi: f64,
         discount_curve_id: &str,
@@ -360,7 +360,7 @@ impl JsVolSurfaceCalibrator {
 
     /// Set base date for the surface.
     #[wasm_bindgen(js_name = withBaseDate)]
-    pub fn with_base_date(&self, base_date: &Date) -> JsVolSurfaceCalibrator {
+    pub fn with_base_date(&self, base_date: &FsDate) -> JsVolSurfaceCalibrator {
         Self {
             inner: self.inner.clone().with_base_date(base_date.inner()),
         }

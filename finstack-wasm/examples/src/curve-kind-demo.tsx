@@ -3,7 +3,7 @@ import {
   MarketContext,
   CurveKind,
   DiscountCurve,
-  Date,
+  FsDate,
 } from 'finstack-wasm';
 
 /**
@@ -20,7 +20,7 @@ export const CurveKindDemo: React.FC = () => {
 
     // Create market context
     const ctx = new MarketContext();
-    const asOf = new Date(2025, 1, 1);
+    const asOf = new FsDate(2025, 1, 1);
 
     // Build a discount curve
     const curve = DiscountCurve.flat("USD-SOFR", asOf, 0.045, "USD");

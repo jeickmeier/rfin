@@ -3,7 +3,7 @@ use finstack_core::dates::{Date as CoreDate, DateExt, FiscalConfig};
 use time::Month;
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen(js_name = Date)]
+#[wasm_bindgen(js_name = FsDate)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct JsDate {
     inner: CoreDate,
@@ -19,19 +19,19 @@ impl JsDate {
     }
 }
 
-#[wasm_bindgen(js_class = Date)]
+#[wasm_bindgen(js_class = FsDate)]
 impl JsDate {
     /// Create a calendar date from year, month, and day components.
     ///
     /// @param {number} year - Four-digit calendar year
     /// @param {number} month - Month number (1-based: 1=January, 12=December)
     /// @param {number} day - Day of month (1-31 depending on month)
-    /// @returns {Date} Date instance representing the calendar day
+    /// @returns {FsDate} FsDate instance representing the calendar day
     /// @throws {Error} If components are invalid (e.g., February 30)
     ///
     /// @example
     /// ```javascript
-    /// const date = new Date(2024, 9, 30);  // September 30, 2024
+    /// const date = new FsDate(2024, 9, 30);  // September 30, 2024
     /// console.log(date.year);    // 2024
     /// console.log(date.month);   // 9
     /// console.log(date.day);     // 30
@@ -79,7 +79,7 @@ impl JsDate {
     ///
     /// @example
     /// ```javascript
-    /// const date = new Date(2024, 1, 15);
+    /// const date = new FsDate(2024, 1, 15);
     /// console.log(date.toString());  // "2024-01-15"
     /// ```
     #[wasm_bindgen(js_name = toString)]
@@ -89,14 +89,14 @@ impl JsDate {
 
     /// Check equality with another date.
     ///
-    /// @param {Date} other - Date to compare against
+    /// @param {FsDate} other - FsDate to compare against
     /// @returns {boolean} True if dates represent the same calendar day
     ///
     /// @example
     /// ```javascript
-    /// const d1 = new Date(2024, 1, 1);
-    /// const d2 = new Date(2024, 1, 1);
-    /// const d3 = new Date(2024, 1, 2);
+    /// const d1 = new FsDate(2024, 1, 1);
+    /// const d2 = new FsDate(2024, 1, 1);
+    /// const d3 = new FsDate(2024, 1, 2);
     /// console.log(d1.equals(d2));  // true
     /// console.log(d1.equals(d3));  // false
     /// ```
@@ -111,8 +111,8 @@ impl JsDate {
     ///
     /// @example
     /// ```javascript
-    /// const saturday = new Date(2024, 1, 6);   // Saturday
-    /// const monday = new Date(2024, 1, 8);     // Monday
+    /// const saturday = new FsDate(2024, 1, 6);   // Saturday
+    /// const monday = new FsDate(2024, 1, 8);     // Monday
     /// console.log(saturday.isWeekend());  // true
     /// console.log(monday.isWeekend());    // false
     /// ```
@@ -127,8 +127,8 @@ impl JsDate {
     ///
     /// @example
     /// ```javascript
-    /// const jan = new Date(2024, 1, 15);
-    /// const jul = new Date(2024, 7, 15);
+    /// const jan = new FsDate(2024, 1, 15);
+    /// const jul = new FsDate(2024, 7, 15);
     /// console.log(jan.quarter());  // 1
     /// console.log(jul.quarter());  // 3
     /// ```
@@ -143,7 +143,7 @@ impl JsDate {
     ///
     /// @example
     /// ```javascript
-    /// const date = new Date(2024, 11, 1);  // November
+    /// const date = new FsDate(2024, 11, 1);  // November
     /// console.log(date.fiscalYear());  // 2024 (for calendar-year fiscal)
     /// ```
     #[wasm_bindgen(js_name = fiscalYear)]
@@ -154,11 +154,11 @@ impl JsDate {
     /// Add business days (weekdays) to this date, skipping weekends.
     ///
     /// @param {number} offset - Number of weekdays to add (negative to subtract)
-    /// @returns {Date} New date after adding the specified weekdays
+    /// @returns {FsDate} New date after adding the specified weekdays
     ///
     /// @example
     /// ```javascript
-    /// const friday = new Date(2024, 1, 5);  // Friday, January 5
+    /// const friday = new FsDate(2024, 1, 5);  // Friday, January 5
     /// const nextMon = friday.addWeekdays(1);  // Skips weekend
     /// console.log(nextMon.toString());  // "2024-01-08" (Monday)
     ///

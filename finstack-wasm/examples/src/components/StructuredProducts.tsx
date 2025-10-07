@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Basket,
-  Date as FsDate,
+  FsDate,
   DiscountCurve,
   MarketContext,
   MarketScalar,

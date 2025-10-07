@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   CalibrationConfig,
   CreditQuote,
-  Date as FsDate,
+  FsDate,
   DiscountCurveCalibrator,
   ForwardCurveCalibrator,
   Frequency,

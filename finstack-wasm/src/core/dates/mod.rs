@@ -15,7 +15,7 @@ pub use calendar::business_day_convention_name;
 pub use calendar::get_calendar;
 pub use calendar::JsBusinessDayConvention as BusinessDayConvention;
 pub use calendar::JsCalendar as Calendar;
-pub use date::JsDate as Date;
+pub use date::JsDate as FsDate;
 pub use daycount::JsDayCount as DayCount;
 pub use daycount::JsDayCountContext as DayCountContext;
 pub use daycount::JsFrequency as Frequency;

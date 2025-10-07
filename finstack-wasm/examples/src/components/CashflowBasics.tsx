@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CashFlow, Money, Date as FsDate } from "finstack-wasm";
+import { CashFlow, Money, FsDate } from "finstack-wasm";
 
 interface CashflowRow {
   label: string;

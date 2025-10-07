@@ -7,7 +7,7 @@ import {
   FloatingCouponSpec,
   ScheduleParams,
   Money,
-  Date as FsDate,
+  FsDate,
   AmortizationSpec,
   MarketContext,
   DiscountCurve,

@@ -3,7 +3,7 @@ import {
   AmortizationSpec,
   Bond,
   BusinessDayConvention,
-  Date as FsDate,
+  FsDate,
   DayCount,
   DiscountCurve,
   ForwardCurve,

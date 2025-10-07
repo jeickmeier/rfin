@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Currency,
-  Date as FsDate,
+  FsDate,
   DiscountCurve,
   FxMatrix,
   FxOption,

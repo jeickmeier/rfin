@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Date as FsDate,
+  FsDate,
   DayCount,
   Deposit,
   DiscountCurve,

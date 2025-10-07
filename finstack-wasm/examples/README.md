@@ -274,6 +274,16 @@ cd .. # back to finstack-wasm root
 npm run build
 ```
 
+### Date class naming
+
+The finstack date class is exported as `FsDate` to avoid conflicts with JavaScript's built-in `Date` class:
+
+```typescript
+import { FsDate } from 'finstack-wasm';
+
+const date = new FsDate(2024, 9, 30);  // September 30, 2024
+```
+
 ### Type errors
 
 The package should include TypeScript definitions. If you encounter type errors, ensure the WASM package was built successfully and the `pkg` directory exists.

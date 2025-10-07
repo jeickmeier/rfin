@@ -1,7 +1,7 @@
 //! Quote types for calibration in WASM.
 
 use crate::core::common::parse::ParseFromString;
-use crate::core::dates::{Date, Frequency};
+use crate::core::dates::{FsDate, Frequency};
 use finstack_valuations::calibration::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
 };
@@ -79,7 +79,7 @@ impl JsRatesQuote {
 impl JsRatesQuote {
     /// Create a deposit quote.
     #[wasm_bindgen(js_name = deposit)]
-    pub fn deposit(maturity: &Date, rate: f64, day_count: &str) -> Result<JsRatesQuote, JsValue> {
+    pub fn deposit(maturity: &FsDate, rate: f64, day_count: &str) -> Result<JsRatesQuote, JsValue> {
         use finstack_core::dates::DayCount;
         let dc = DayCount::parse_from_string(day_count)?;
         Ok(Self {
@@ -94,8 +94,8 @@ impl JsRatesQuote {
     /// Create an FRA quote.
     #[wasm_bindgen(js_name = fra)]
     pub fn fra(
-        start: &Date,
-        end: &Date,
+        start: &FsDate,
+        end: &FsDate,
         rate: f64,
         day_count: &str,
     ) -> Result<JsRatesQuote, JsValue> {
@@ -114,7 +114,7 @@ impl JsRatesQuote {
     /// Create a swap quote.
     #[wasm_bindgen(js_name = swap)]
     pub fn swap(
-        maturity: &Date,
+        maturity: &FsDate,
         rate: f64,
         fixed_freq: &Frequency,
         float_freq: &Frequency,
@@ -170,7 +170,7 @@ impl JsCreditQuote {
     #[wasm_bindgen(js_name = cds)]
     pub fn cds(
         entity: &str,
-        maturity: &Date,
+        maturity: &FsDate,
         spread_bp: f64,
         recovery_rate: f64,
         currency: &str,
@@ -220,7 +220,7 @@ impl JsVolQuote {
     #[wasm_bindgen(js_name = optionVol)]
     pub fn option_vol(
         underlying: &str,
-        expiry: &Date,
+        expiry: &FsDate,
         strike: f64,
         vol: f64,
         option_type: &str,
@@ -239,8 +239,8 @@ impl JsVolQuote {
     /// Create a swaption vol quote.
     #[wasm_bindgen(js_name = swaptionVol)]
     pub fn swaption_vol(
-        expiry: &Date,
-        tenor: &Date,
+        expiry: &FsDate,
+        tenor: &FsDate,
         strike: f64,
         vol: f64,
         quote_type: &str,
@@ -285,7 +285,7 @@ impl JsInflationQuote {
 impl JsInflationQuote {
     /// Create an inflation swap quote.
     #[wasm_bindgen(js_name = inflationSwap)]
-    pub fn inflation_swap(maturity: &Date, rate: f64, index: &str) -> JsInflationQuote {
+    pub fn inflation_swap(maturity: &FsDate, rate: f64, index: &str) -> JsInflationQuote {
         Self {
             inner: InflationQuote::InflationSwap {
                 maturity: maturity.inner(),

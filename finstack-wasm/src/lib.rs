@@ -28,7 +28,7 @@ pub use core::dates::next_equity_option_expiry as nextEquityOptionExpiry;
 pub use core::dates::next_imm as nextImm;
 pub use core::dates::next_imm_option_expiry as nextImmOptionExpiry;
 pub use core::dates::{
-    adjust, BusinessDayConvention, Calendar, Date, DayCount, DayCountContext, FiscalConfig,
+    adjust, BusinessDayConvention, Calendar, FsDate, DayCount, DayCountContext, FiscalConfig,
     Frequency, Period, PeriodId, PeriodPlan, Schedule, ScheduleBuilder, StubKind,
 };
 pub use core::dates::{

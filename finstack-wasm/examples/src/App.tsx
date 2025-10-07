@@ -26,6 +26,7 @@ const App: React.FC = () => {
         setWasmReady(true);
       })
       .catch((err) => {
+        console.error('Failed to initialize WASM module:', err);
         setError(`Failed to initialize WASM: ${err.message}`);
       });
   }, []);

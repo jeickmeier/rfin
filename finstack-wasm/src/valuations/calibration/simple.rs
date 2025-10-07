@@ -3,7 +3,7 @@
 use super::config::JsCalibrationConfig;
 use super::quote::JsMarketQuote;
 use super::report::JsCalibrationReport;
-use crate::core::dates::Date;
+use crate::core::dates::FsDate;
 use crate::core::market_data::context::JsMarketContext;
 use finstack_valuations::calibration::simple_calibration::SimpleCalibration;
 use finstack_valuations::calibration::MarketQuote;
@@ -20,7 +20,7 @@ impl JsSimpleCalibration {
     /// Create a simple calibration workflow.
     #[wasm_bindgen(constructor)]
     pub fn new(
-        base_date: &Date,
+        base_date: &FsDate,
         base_currency: &str,
         config: Option<JsCalibrationConfig>,
     ) -> Result<JsSimpleCalibration, JsValue> {

@@ -6,7 +6,7 @@ import {
   CdsTranche,
   CreditDefaultSwap,
   CreditIndexData,
-  Date as FsDate,
+  FsDate,
   DiscountCurve,
   HazardCurve,
   MarketContext,

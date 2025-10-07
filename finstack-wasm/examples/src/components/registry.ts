@@ -23,6 +23,7 @@ import { CreditInstrumentsExample } from './CreditInstruments';
 import { EquityInstrumentsExample } from './EquityInstruments';
 import { InflationInstrumentsExample } from './InflationInstruments';
 import { StructuredProductsExample } from './StructuredProducts';
+import { StructuredCreditExample } from './StructuredCreditExample';
 
 export type ExampleDefinition = {
   slug: string;
@@ -172,6 +173,13 @@ export const EXAMPLES: ExampleDefinition[] = [
     description: 'Baskets, ABS, CLO, and private markets funds with JSON definitions.',
     group: 'Valuations',
     Component: StructuredProductsExample,
+  },
+  {
+    slug: 'structured-credit',
+    title: 'Structured Credit Securities',
+    description: 'CLO, ABS, RMBS, and CMBS with tranching, waterfalls, and prepayment models.',
+    group: 'Valuations',
+    Component: StructuredCreditExample,
   },
   {
     slug: 'calibration',
