@@ -8,6 +8,7 @@ use finstack_core::money::Money;
 use std::collections::HashMap;
 
 use super::enums::CreditRating;
+use crate::instruments::irs::InterestRateSwap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -24,6 +25,9 @@ pub struct DealConfig {
     pub coverage_tests: CoverageTestConfig,
     /// Default prepayment and default assumptions
     pub default_assumptions: DefaultAssumptions,
+    /// Hedge swaps (leveraging existing IRS infrastructure)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub hedge_swaps: Vec<InterestRateSwap>,
 }
 
 /// Key dates for a structured credit deal
@@ -304,6 +308,7 @@ impl DealConfig {
             fees,
             coverage_tests: CoverageTestConfig::new(),
             default_assumptions,
+            hedge_swaps: Vec::new(),
         }
     }
 
@@ -337,6 +342,19 @@ impl DealConfig {
         base_currency: finstack_core::currency::Currency,
     ) -> Self {
         Self::standard(super::DealType::CMBS, dates, base_currency)
+    }
+
+    /// Add hedge swap for interest rate or basis risk management
+    /// Leverages existing IRS infrastructure from finstack
+    pub fn with_hedge_swap(mut self, swap: InterestRateSwap) -> Self {
+        self.hedge_swaps.push(swap);
+        self
+    }
+
+    /// Add multiple hedge swaps
+    pub fn with_hedge_swaps(mut self, swaps: Vec<InterestRateSwap>) -> Self {
+        self.hedge_swaps.extend(swaps);
+        self
     }
 }
 

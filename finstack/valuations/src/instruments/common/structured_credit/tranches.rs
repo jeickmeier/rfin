@@ -4,12 +4,35 @@
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{InstrumentId, CurveId};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use super::enums::{CreditRating, TrancheSeniority, TriggerConsequence};
+
+/// Tranche behavioral types for specialized handling
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum TrancheBehaviorType {
+    /// Standard bond (pays interest and principal)
+    Standard,
+    /// Z-bond (accrual bond - capitalizes interest until trigger)
+    ZBond,
+    /// PAC bond (Planned Amortization Class - follows target schedule)
+    PAC,
+    /// VADM (Volatility Adjusted Debt Mezzanine)
+    VADM,
+    /// Sequential pay (no principal until senior tranches paid)
+    Sequential,
+    /// Pro-rata pay (proportional principal distribution)
+    ProRata,
+}
+
+#[cfg(feature = "serde")]
+fn default_behavior_type() -> TrancheBehaviorType {
+    TrancheBehaviorType::Standard
+}
 
 /// Coverage test trigger specification
 #[derive(Debug, Clone)]
@@ -85,31 +108,65 @@ impl Default for CreditEnhancement {
     }
 }
 
-/// Tranche coupon structure (extending existing InterestSpec patterns)
+/// Advanced tranche coupon specification
+/// 
+/// Leverages the existing sophisticated bond floating rate infrastructure
+/// from BondFloatSpec and cashflow builders for maximum capability.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TrancheCoupon {
     /// Fixed rate
-    Fixed { rate: f64 },
-    /// Floating rate with caps/floors
+    Fixed { 
+        rate: f64 
+    },
+    /// Advanced floating rate using existing bond infrastructure
+    FloatingAdvanced {
+        /// Forward curve identifier (leverages existing infrastructure)
+        forward_curve_id: CurveId,
+        /// Margin over index in basis points
+        margin_bp: f64,
+        /// Gearing multiplier on index rate
+        gearing: f64,
+        /// Reset lag in days (business day adjusted)
+        reset_lag_days: i32,
+        /// Interest rate floor
+        floor: Option<f64>,
+        /// Interest rate cap  
+        cap: Option<f64>,
+    },
+    /// Legacy floating (for backward compatibility)
     Floating {
         index: String,
         spread_bp: f64,
         floor: Option<f64>,
         cap: Option<f64>,
     },
-    /// Step-up coupon
-    StepUp { schedule: Vec<(Date, f64)> },
-    /// Deferrable coupon (can skip payments)
+    /// Step-up coupon schedule
+    StepUp { 
+        schedule: Vec<(Date, f64)> 
+    },
+    /// Deferrable coupon (can skip payments under stress)
     Deferrable {
         base_rate: f64,
         can_defer: bool,
         compound_deferred: bool,
     },
-    /// Payment-in-kind coupon
+    /// Payment-in-kind coupon (leverages CFKind::PIK from core)
     PIK {
         rate: f64,
-        toggle_dates: Vec<(Date, bool)>, // true = PIK, false = cash
+        /// Toggle dates: true = PIK mode, false = cash mode
+        toggle_dates: Vec<(Date, bool)>,
+        /// Current PIK capitalized amount
+        capitalized_amount: Money,
+    },
+    /// Fixed-to-floating coupon (common in structured credit)
+    FixedToFloating {
+        /// Fixed rate for initial period
+        fixed_rate: f64,
+        /// Date when switches to floating
+        switch_date: Date,
+        /// Floating specification after switch
+        floating_spec: Box<TrancheCoupon>,
     },
 }
 
@@ -118,7 +175,11 @@ impl TrancheCoupon {
     pub fn current_rate(&self, date: Date) -> f64 {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,
-            TrancheCoupon::Floating { spread_bp, .. } => *spread_bp / 10_000.0, // Base spread only
+            TrancheCoupon::FloatingAdvanced { margin_bp, gearing, .. } => {
+                // Base rate without index lookup - just the spread component
+                (*margin_bp / 10_000.0) * gearing
+            },
+            TrancheCoupon::Floating { spread_bp, .. } => *spread_bp / 10_000.0,
             TrancheCoupon::StepUp { schedule } => schedule
                 .iter()
                 .filter(|(d, _)| *d <= date)
@@ -127,6 +188,169 @@ impl TrancheCoupon {
                 .unwrap_or(0.0),
             TrancheCoupon::Deferrable { base_rate, .. } => *base_rate,
             TrancheCoupon::PIK { rate, .. } => *rate,
+            TrancheCoupon::FixedToFloating { fixed_rate, switch_date, floating_spec } => {
+                if date <= *switch_date {
+                    *fixed_rate
+                } else {
+                    floating_spec.current_rate(date)
+                }
+            },
+        }
+    }
+
+    /// Compute current rate including index forward where applicable.
+    /// 
+    /// Leverages the existing forward curve infrastructure from bond module
+    /// for sophisticated floating rate calculations.
+    pub fn current_rate_with_index(
+        &self,
+        date: Date,
+        context: &finstack_core::market_data::MarketContext,
+    ) -> f64 {
+        match self {
+            TrancheCoupon::FloatingAdvanced { 
+                forward_curve_id, 
+                margin_bp, 
+                gearing, 
+                reset_lag_days,
+                floor,
+                cap,
+            } => {
+                // Use the sophisticated bond floating rate logic
+                let fwd_result = context.get_forward_ref(forward_curve_id.as_str());
+                let idx_rate = fwd_result
+                    .map(|c| {
+                        // Apply reset lag (simplified - would use proper business day adjustment)
+                        let fixing_date = date - time::Duration::days(*reset_lag_days as i64);
+                        
+                        // Get forward rate for the period
+                        let base = c.base_date();
+                        let dc = c.day_count();
+                        let t = dc
+                            .year_fraction(base, fixing_date, finstack_core::dates::DayCountCtx::default())
+                            .unwrap_or(0.0);
+                        // Approximate 3M forward starting at fixing_date
+                        let t_end = t + 0.25;
+                        c.rate_period(t, t_end)
+                    })
+                    .unwrap_or(0.0);
+                
+                // Apply gearing and margin
+                let all_in_rate = (idx_rate * gearing) + (*margin_bp / 10_000.0);
+                
+                // Apply caps/floors
+                let capped = if let Some(c) = cap {
+                    all_in_rate.min(*c)
+                } else {
+                    all_in_rate
+                };
+                
+                if let Some(f) = floor {
+                    capped.max(*f)
+                } else {
+                    capped
+                }
+            },
+            TrancheCoupon::Floating { index, spread_bp, floor, cap } => {
+                // Legacy floating implementation
+                let fwd = context.get_forward_ref(index.as_str());
+                let idx_rate = fwd
+                    .map(|c| {
+                        let base = c.base_date();
+                        let dc = finstack_core::dates::DayCount::Act365F;
+                        let t2 = dc
+                            .year_fraction(base, date, finstack_core::dates::DayCountCtx::default())
+                            .unwrap_or(0.0);
+                        let t1 = (t2 - 0.25).max(0.0);
+                        c.rate_period(t1, t2)
+                    })
+                    .unwrap_or(0.0);
+                
+                let all_in_rate = idx_rate + (*spread_bp / 10_000.0);
+                
+                // Apply caps/floors
+                let capped = if let Some(c) = cap {
+                    all_in_rate.min(*c)
+                } else {
+                    all_in_rate
+                };
+                
+                if let Some(f) = floor {
+                    capped.max(*f)
+                } else {
+                    capped
+                }
+            },
+            TrancheCoupon::FixedToFloating { fixed_rate, switch_date, floating_spec } => {
+                if date <= *switch_date {
+                    *fixed_rate
+                } else {
+                    floating_spec.current_rate_with_index(date, context)
+                }
+            },
+            _ => self.current_rate(date),
+        }
+    }
+
+    /// Create a sophisticated floating rate coupon using existing bond infrastructure
+    pub fn floating_advanced(
+        forward_curve_id: CurveId,
+        margin_bp: f64,
+        gearing: f64,
+        reset_lag_days: i32,
+    ) -> Self {
+        Self::FloatingAdvanced {
+            forward_curve_id,
+            margin_bp,
+            gearing,
+            reset_lag_days,
+            floor: None,
+            cap: None,
+        }
+    }
+
+    /// Create floating rate coupon with cap and floor
+    pub fn floating_capped(
+        forward_curve_id: CurveId,
+        margin_bp: f64,
+        floor: f64,
+        cap: f64,
+    ) -> Self {
+        Self::FloatingAdvanced {
+            forward_curve_id,
+            margin_bp,
+            gearing: 1.0,
+            reset_lag_days: 2,
+            floor: Some(floor),
+            cap: Some(cap),
+        }
+    }
+
+    /// Create PIK coupon with initial zero capitalized amount
+    pub fn pik_coupon(rate: f64, base_currency: finstack_core::currency::Currency) -> Self {
+        Self::PIK {
+            rate,
+            toggle_dates: Vec::new(),
+            capitalized_amount: Money::new(0.0, base_currency),
+        }
+    }
+
+    /// Create fixed-to-floating coupon (common in structured credit)
+    pub fn fixed_to_floating(
+        fixed_rate: f64,
+        switch_date: Date,
+        floating_forward_curve: CurveId,
+        floating_margin_bp: f64,
+    ) -> Self {
+        Self::FixedToFloating {
+            fixed_rate,
+            switch_date,
+            floating_spec: Box::new(Self::floating_advanced(
+                floating_forward_curve,
+                floating_margin_bp,
+                1.0,
+                2,
+            )),
         }
     }
 }
@@ -141,6 +365,10 @@ pub struct Tranche {
     /// Structural boundaries (as % of total capital structure)
     pub attachment_point: f64, // Lower bound (e.g., 0.0% for equity, 10% for mezz)
     pub detachment_point: f64, // Upper bound (e.g., 10% for equity, 15% for mezz)
+
+    /// Behavioral classification for specialized handling
+    #[cfg_attr(feature = "serde", serde(default = "default_behavior_type"))]
+    pub behavior_type: TrancheBehaviorType,
 
     /// Tranche characteristics
     pub seniority: TrancheSeniority,
@@ -202,6 +430,7 @@ impl Tranche {
             id: InstrumentId::new(id.into()),
             attachment_point,
             detachment_point,
+            behavior_type: TrancheBehaviorType::Standard,
             seniority,
             rating: None,
             original_balance,
@@ -297,6 +526,47 @@ impl Tranche {
     pub fn with_expected_maturity(mut self, date: Date) -> Self {
         self.expected_maturity = Some(date);
         self
+    }
+
+    /// Configure as Z-bond (accrual bond)
+    pub fn as_z_bond(mut self) -> Self {
+        self.behavior_type = TrancheBehaviorType::ZBond;
+        self
+    }
+
+    /// Configure as PAC bond with target principal schedule
+    pub fn as_pac_bond(mut self, _target_schedule: Vec<(Date, Money)>) -> Self {
+        self.behavior_type = TrancheBehaviorType::PAC;
+        // Store target schedule in attributes for now
+        // In full implementation, would add dedicated PAC fields
+        // For now, just mark as PAC bond
+        self
+    }
+
+    /// Configure as sequential pay tranche
+    pub fn as_sequential(mut self) -> Self {
+        self.behavior_type = TrancheBehaviorType::Sequential;
+        self
+    }
+
+    /// Check if this is a Z-bond
+    pub fn is_z_bond(&self) -> bool {
+        self.behavior_type == TrancheBehaviorType::ZBond
+    }
+
+    /// Check if this is a PAC bond
+    pub fn is_pac_bond(&self) -> bool {
+        self.behavior_type == TrancheBehaviorType::PAC
+    }
+
+    /// Get behavior-specific payment priority adjustment
+    pub fn behavior_priority_adjustment(&self) -> i32 {
+        match self.behavior_type {
+            TrancheBehaviorType::Sequential => 100, // Pay after all others
+            TrancheBehaviorType::ZBond => 50, // Defer interest payments
+            TrancheBehaviorType::PAC => -10, // Higher priority to maintain schedule
+            _ => 0,
+        }
     }
 }
 

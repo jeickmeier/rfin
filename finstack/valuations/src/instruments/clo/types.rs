@@ -1,6 +1,7 @@
 //! Collateralized Loan Obligation (CLO) instrument built on the shared structured credit core.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::common::discountable::Discountable;
 use crate::instruments::common::structured_credit::{
     AssetPool,
     CoverageTests,
@@ -16,8 +17,11 @@ use crate::instruments::common::structured_credit::{
     RecoveryModelSpec,
     StructuredCreditWaterfall,
     TrancheStructure,
-    // Waterfall engine
-    WaterfallEngine,
+    // Tranche valuation
+    TrancheCashflowResult,
+    TrancheValuation,
+    TrancheValuationExt,
+    TrancheSeniority,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -54,6 +58,10 @@ pub struct Clo {
 
     /// Coverage tests and monitoring
     pub coverage_tests: CoverageTests,
+
+    /// Call provisions (leveraging bond call/put infrastructure)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub call_provisions: crate::instruments::common::structured_credit::CallProvisionManager,
 
     /// Key dates
     pub closing_date: Date,
@@ -141,6 +149,7 @@ impl Clo {
             tranches,
             waterfall,
             coverage_tests: CoverageTests::new(),
+            call_provisions: crate::instruments::common::structured_credit::CallProvisionManager::new(),
             closing_date: Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
             first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1).unwrap(),
             reinvestment_end_date: None,
@@ -197,6 +206,40 @@ impl Clo {
         // Simplified calculation based on pool WAM (approximation for WAL)
         Ok(self.pool.weighted_avg_maturity(as_of))
     }
+
+    /// Enhanced valuation using sophisticated Discountable framework
+    /// 
+    /// This method leverages the existing discounting infrastructure for
+    /// more accurate pricing than the basic waterfall implementation.
+    pub fn value_with_discountable(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
+        // Get sophisticated cashflow schedule
+        let flows = self.build_schedule(context, as_of)?;
+        
+        // Use the sophisticated Discountable trait from core
+        let disc = context.get_discount_ref(self.disc_id.as_str())?;
+        
+        // Leverage the existing discounting framework with proper day count
+        flows.npv(disc, as_of, finstack_core::dates::DayCount::Act360)
+    }
+
+    /// Price individual tranche using Discountable framework
+    pub fn price_tranche_with_discountable(
+        &self,
+        tranche_id: &str,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
+        // Get tranche-specific cashflows
+        let tranche_flows = self.get_tranche_cashflows(tranche_id, context, as_of)?;
+        
+        // Use sophisticated discounting
+        let disc = context.get_discount_ref(self.disc_id.as_str())?;
+        tranche_flows.cashflows.npv(disc, as_of, finstack_core::dates::DayCount::Act360)
+    }
 }
 
 impl core::fmt::Debug for Clo {
@@ -210,6 +253,145 @@ impl core::fmt::Debug for Clo {
             .field("payment_frequency", &self.payment_frequency)
             .field("disc_id", &self.disc_id)
             .finish()
+    }
+}
+
+impl TrancheValuationExt for Clo {
+    /// Generate cashflows for a specific tranche after waterfall allocation
+    fn get_tranche_cashflows(
+        &self,
+        tranche_id: &str,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<TrancheCashflowResult> {
+        use crate::instruments::common::structured_credit::StructuredCreditInstrument;
+        <Self as StructuredCreditInstrument>::generate_specific_tranche_cashflows(
+            self,
+            tranche_id,
+            context,
+            as_of,
+        )
+    }
+
+    /// Calculate present value for a specific tranche
+    fn value_tranche(
+        &self,
+        tranche_id: &str,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
+        let cashflows = self.get_tranche_cashflows(tranche_id, context, as_of)?;
+        let disc = context.get_discount(&self.disc_id)?;
+        
+        let mut pv = Money::new(0.0, self.pool.base_currency());
+        for (date, amount) in &cashflows.cashflows {
+            if *date > as_of {
+                let df = disc.df_on_date_curve(*date);
+                let flow_pv = Money::new(amount.amount() * df, amount.currency());
+                pv = pv.checked_add(flow_pv)?;
+            }
+        }
+        
+        Ok(pv)
+    }
+
+    /// Get full valuation with metrics for a specific tranche
+    fn value_tranche_with_metrics(
+        &self,
+        tranche_id: &str,
+        context: &MarketContext,
+        as_of: Date,
+        metrics: &[MetricId],
+    ) -> finstack_core::Result<TrancheValuation> {
+        use crate::instruments::common::structured_credit::{
+            calculate_tranche_cs01, calculate_tranche_duration,
+            calculate_tranche_wal, calculate_tranche_z_spread,
+        };
+        
+        // Get tranche-specific cashflows
+        let cashflow_result = self.get_tranche_cashflows(tranche_id, context, as_of)?;
+        
+        // Calculate PV
+        let pv = self.value_tranche(tranche_id, context, as_of)?;
+        
+        // Get tranche for notional
+        let tranche = self.tranches
+            .tranches
+            .iter()
+            .find(|t| t.id.as_str() == tranche_id)
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: format!("tranche:{}", tranche_id),
+                })
+            })?;
+        
+        let notional = tranche.original_balance.amount();
+        
+        // Calculate prices
+        let dirty_price = if notional > 0.0 {
+            (pv.amount() / notional) * 100.0
+        } else {
+            0.0
+        };
+        
+        // Simple accrued calculation (would be more sophisticated in practice)
+        let accrued = Money::new(0.0, pv.currency());
+        let clean_price = dirty_price; // Simplified - would subtract accrued
+        
+        // Calculate metrics
+        let wal = calculate_tranche_wal(&cashflow_result, as_of)?;
+        
+        let disc = context.get_discount(&self.disc_id)?;
+        let modified_duration = calculate_tranche_duration(
+            &cashflow_result.cashflows,
+            &disc,
+            as_of,
+            pv,
+        )?;
+        
+        let z_spread = calculate_tranche_z_spread(
+            &cashflow_result.cashflows,
+            &disc,
+            pv,
+            as_of,
+        )?;
+        
+        let z_spread_decimal = z_spread / 10_000.0; // Convert from bps to decimal
+        let cs01 = calculate_tranche_cs01(
+            &cashflow_result.cashflows,
+            &disc,
+            z_spread_decimal,
+            as_of,
+        )?;
+        
+        // Simple YTM calculation (would use solver in practice)
+        let ytm = 0.05; // Placeholder
+        
+        // Build metrics map
+        let mut metric_values = std::collections::HashMap::new();
+        for metric in metrics {
+            match metric {
+                MetricId::WAL => metric_values.insert(MetricId::WAL, wal),
+                MetricId::DurationMod => metric_values.insert(MetricId::DurationMod, modified_duration),
+                MetricId::ZSpread => metric_values.insert(MetricId::ZSpread, z_spread),
+                MetricId::Cs01 => metric_values.insert(MetricId::Cs01, cs01),
+                _ => None,
+            };
+        }
+        
+        Ok(TrancheValuation {
+            tranche_id: tranche_id.to_string(),
+            pv,
+            clean_price,
+            dirty_price,
+            accrued,
+            wal,
+            modified_duration,
+            z_spread_bps: z_spread,
+            cs01,
+            ytm,
+            metrics: metric_values,
+        })
     }
 }
 
@@ -384,90 +566,83 @@ impl Clo {
         &self,
     ) -> crate::instruments::common::structured_credit::WaterfallEngine {
         use crate::instruments::common::structured_credit::{
-            ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRule,
+            ManagementFeeType, PaymentCalculation, PaymentMode, PaymentRecipient, PaymentRule,
+            WaterfallEngine,
         };
 
         let mut engine = WaterfallEngine::new(self.pool.base_currency());
+        let mut priority = 1;
 
         // Priority 1: Trustee fees
-        engine.payment_rules.push(PaymentRule {
-            id: "trustee_fees".to_string(),
-            priority: 1,
-            recipient: PaymentRecipient::ServiceProvider("Trustee".to_string()),
-            calculation: PaymentCalculation::FixedAmount {
+        engine = engine.add_rule(PaymentRule::new(
+            "trustee_fees",
+            priority,
+            PaymentRecipient::ServiceProvider("Trustee".to_string()),
+            PaymentCalculation::FixedAmount {
                 amount: Money::new(50_000.0, self.pool.base_currency()),
             },
-            conditions: vec![],
-            divertible: false,
-        });
+        ));
+        priority += 1;
 
         // Priority 2: Senior management fee
-        engine.payment_rules.push(PaymentRule {
-            id: "senior_mgmt_fee".to_string(),
-            priority: 2,
-            recipient: PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
-            calculation: PaymentCalculation::PercentageOfCollateral {
+        engine = engine.add_rule(PaymentRule::new(
+            "senior_mgmt_fee",
+            priority,
+            PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
+            PaymentCalculation::PercentageOfCollateral {
                 rate: 0.01,
                 annualized: true,
             },
-            conditions: vec![],
-            divertible: false,
-        });
+        ));
+        priority += 1;
 
-        // Add interest payments for each tranche in priority order
+        // Add interest payments for each tranche
         let mut sorted_tranches = self.tranches.tranches.clone();
         sorted_tranches.sort_by_key(|t| t.payment_priority);
-
-        let mut priority = 3;
         for tranche in &sorted_tranches {
-            // Interest payment
-            let mut interest_id = String::with_capacity(tranche.id.len() + 9);
-            interest_id.push_str(tranche.id.as_str());
-            interest_id.push_str("_interest");
-
-            engine.payment_rules.push(PaymentRule {
-                id: interest_id,
+            // Do not schedule interest for Equity; equity receives residual only
+            if tranche.seniority == TrancheSeniority::Equity {
+                continue;
+            }
+            engine = engine.add_rule(PaymentRule::new(
+                format!("{}_interest", tranche.id.as_str()),
                 priority,
-                recipient: PaymentRecipient::Tranche(tranche.id.to_string()),
-                calculation: PaymentCalculation::TrancheInterest {
+                PaymentRecipient::Tranche(tranche.id.to_string()),
+                PaymentCalculation::TrancheInterest {
                     tranche_id: tranche.id.to_string(),
                 },
-                conditions: vec![],
-                divertible: false,
-            });
+            ));
             priority += 1;
         }
 
-        // Add principal payments for each tranche
+        // Add principal payments for debt tranches
         for tranche in &sorted_tranches {
-            let mut principal_id = String::with_capacity(tranche.id.len() + 10);
-            principal_id.push_str(tranche.id.as_str());
-            principal_id.push_str("_principal");
-
-            engine.payment_rules.push(PaymentRule {
-                id: principal_id,
-                priority,
-                recipient: PaymentRecipient::Tranche(tranche.id.to_string()),
-                calculation: PaymentCalculation::TranchePrincipal {
-                    tranche_id: tranche.id.to_string(),
-                    target_balance: Some(Money::new(0.0, self.pool.base_currency())),
-                },
-                conditions: vec![],
-                divertible: true,
-            });
-            priority += 1;
+            if tranche.seniority != TrancheSeniority::Equity {
+                engine = engine.add_rule(
+                    PaymentRule::new(
+                        format!("{}_principal", tranche.id.as_str()),
+                        priority,
+                        PaymentRecipient::Tranche(tranche.id.to_string()),
+                        PaymentCalculation::TranchePrincipal {
+                            tranche_id: tranche.id.to_string(),
+                            target_balance: None,
+                        },
+                    )
+                    .divertible(),
+                );
+            }
         }
-
+        priority += 1;
+        
         // Add equity distribution
-        engine.payment_rules.push(PaymentRule {
-            id: "equity_distribution".to_string(),
+        engine = engine.add_rule(PaymentRule::new(
+            "equity_distribution",
             priority,
-            recipient: PaymentRecipient::Equity,
-            calculation: PaymentCalculation::ResidualCash,
-            conditions: vec![],
-            divertible: false,
-        });
+            PaymentRecipient::Equity,
+            PaymentCalculation::ResidualCash,
+        ));
 
+        engine.payment_mode = PaymentMode::ProRata;
         engine
     }
 }

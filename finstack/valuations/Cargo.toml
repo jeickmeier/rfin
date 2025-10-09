@@ -49,6 +49,10 @@ path = "../../examples/rust/calibration_report_builder_example.rs"
 name = "multi_curve_framework_example"
 path = "../../examples/rust/multi_curve_framework_example.rs"
 
+[[example]]
+name = "tranche_valuation_example"
+path = "../../examples/rust/tranche_valuation_example.rs"
+
 [features]
 default = ["serde"]
 parallel = ["dep:rayon"]

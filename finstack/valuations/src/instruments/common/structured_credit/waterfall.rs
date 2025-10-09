@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::enums::PaymentMode;
+use super::coverage_tests::CoverageTest;
 
 /// Recipient of waterfall payments
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -40,6 +41,29 @@ pub enum ManagementFeeType {
     Incentive,
 }
 
+/// Condition that determines PIK vs cash payment (Z-bond support)
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum PIKCondition {
+    /// Always pay in cash
+    AlwaysCash,
+    /// Always capitalize (PIK)
+    AlwaysPIK,
+    /// PIK until coverage test passes
+    PIKUntilCoverageTestPasses {
+        test: CoverageTest,
+        tranche_id: String,
+    },
+    /// PIK until specific date
+    PIKUntilDate { 
+        switch_date: Date 
+    },
+    /// Cash if sufficient funds available after senior obligations
+    CashIfAvailable { 
+        minimum_cash_reserve: Money 
+    },
+}
+
 /// How to calculate payment amount
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -50,6 +74,12 @@ pub enum PaymentCalculation {
     PercentageOfCollateral { rate: f64, annualized: bool },
     /// Interest due on tranche
     TrancheInterest { tranche_id: String },
+    /// PIK interest capitalization (Z-bond support)
+    TranchePIKCapitalization { 
+        tranche_id: String,
+        /// Condition that triggers cash vs PIK payment
+        pik_condition: PIKCondition,
+    },
     /// Principal payment to tranche
     TranchePrincipal {
         tranche_id: String,
@@ -299,6 +329,8 @@ impl WaterfallEngine {
         }
 
         // Process payments in priority order
+        let mut pro_rata_done = false;
+
         for rule in &self.payment_rules {
             if remaining.amount() <= 0.0 {
                 break;
@@ -332,7 +364,77 @@ impl WaterfallEngine {
                 (rule.recipient.clone(), false)
             };
 
-            // Make payment
+            // Handle pro-rata principal distributions in a single batch
+            if self.payment_mode == PaymentMode::ProRata {
+                if let PaymentCalculation::TranchePrincipal { .. } = &rule.calculation {
+                    if !pro_rata_done {
+                        pro_rata_done = true;
+
+                        // Total pot to distribute now
+                        let principal_pot = remaining;
+
+                        // Total debt outstanding (exclude equity)
+                        let total_debt_balance = tranches
+                            .tranches
+                            .iter()
+                            .filter(|t| t.seniority != super::enums::TrancheSeniority::Equity)
+                            .try_fold(
+                                Money::new(0.0, self.base_currency),
+                                |acc, t| acc.checked_add(t.current_balance),
+                            )?;
+
+                        if total_debt_balance.amount() > 0.0 && principal_pot.amount() > 0.0 {
+                            // Distribute to each debt tranche
+                            let mut total_paid = Money::new(0.0, self.base_currency);
+                            for t in &tranches.tranches {
+                                if t.seniority == super::enums::TrancheSeniority::Equity {
+                                    continue;
+                                }
+                                let weight = t.current_balance.amount() / total_debt_balance.amount();
+                                let pay_amt = Money::new(principal_pot.amount() * weight, self.base_currency);
+                                let capped = if pay_amt.amount() <= t.current_balance.amount() {
+                                    pay_amt
+                                } else {
+                                    t.current_balance
+                                };
+
+                                if capped.amount() > 0.0 {
+                                    let recip = PaymentRecipient::Tranche(t.id.to_string());
+                                    use std::collections::hash_map::Entry;
+                                    match distributions.entry(recip.clone()) {
+                                        Entry::Occupied(mut e) => {
+                                            let next = e.get().checked_add(capped)?;
+                                            e.insert(next);
+                                        }
+                                        Entry::Vacant(e) => {
+                                            e.insert(capped);
+                                        }
+                                    }
+
+                                    payment_records.push(PaymentRecord {
+                                        rule_id: rule.id.clone(),
+                                        priority: rule.priority,
+                                        recipient: recip,
+                                        requested_amount: capped,
+                                        paid_amount: capped,
+                                        shortfall: Money::new(0.0, self.base_currency),
+                                        diverted,
+                                    });
+
+                                    total_paid = total_paid.checked_add(capped)?;
+                                }
+                            }
+
+                            remaining = remaining.checked_sub(total_paid)?;
+                        }
+                    }
+
+                    // Skip sequential payment logic for any individual principal rules once batched
+                    continue;
+                }
+            }
+
+            // Make payment (sequential logic)
             let paid = if requested.amount() <= remaining.amount() {
                 requested
             } else {
@@ -433,6 +535,46 @@ impl WaterfallEngine {
                         tranche.current_balance.amount() * period_rate,
                         self.base_currency,
                     ))
+                } else {
+                    Ok(Money::new(0.0, self.base_currency))
+                }
+            }
+
+            PaymentCalculation::TranchePIKCapitalization { tranche_id, pik_condition } => {
+                if let Some(&idx) = tranche_index.get(tranche_id.as_str()) {
+                    let tranche = &tranches.tranches[idx];
+                    let rate = tranche.coupon.current_rate(payment_date);
+                    let period_rate = rate / super::constants::QUARTERLY_PERIODS_PER_YEAR;
+                    let interest_amount = Money::new(
+                        tranche.current_balance.amount() * period_rate,
+                        self.base_currency,
+                    );
+                    
+                    // Check PIK condition to determine cash vs capitalization
+                    let should_pik = match pik_condition {
+                        PIKCondition::AlwaysPIK => true,
+                        PIKCondition::AlwaysCash => false,
+                        PIKCondition::PIKUntilDate { switch_date } => {
+                            payment_date < *switch_date
+                        },
+                        PIKCondition::CashIfAvailable { minimum_cash_reserve } => {
+                            // PIK if insufficient cash after senior obligations
+                            available.amount() < (interest_amount.amount() + minimum_cash_reserve.amount())
+                        },
+                        PIKCondition::PIKUntilCoverageTestPasses { .. } => {
+                            // Simplified: would need actual coverage test results
+                            // For now, assume PIK mode
+                            true
+                        },
+                    };
+                    
+                    if should_pik {
+                        // Return 0 for cash payment - interest will be capitalized to balance
+                        Ok(Money::new(0.0, self.base_currency))
+                    } else {
+                        // Pay in cash
+                        Ok(interest_amount)
+                    }
                 } else {
                     Ok(Money::new(0.0, self.base_currency))
                 }
@@ -587,6 +729,58 @@ impl WaterfallEngine {
 
         engine
     }
+
+    /// Handle PIK capitalization after waterfall distribution
+    ///
+    /// This method processes any PIK interest that should be capitalized
+    /// to tranche balances rather than paid in cash. This is essential
+    /// for proper Z-bond support.
+    pub fn apply_pik_capitalization(
+        &self,
+        payment_date: Date,
+        tranches: &mut TrancheStructure,
+        pool_balance: Money,
+    ) -> Result<Vec<(String, Money)>> {
+        let mut pik_capitalizations = Vec::new();
+        
+        // Process PIK rules
+        for rule in &self.payment_rules {
+            if let PaymentCalculation::TranchePIKCapitalization { tranche_id, pik_condition } = &rule.calculation {
+                if let Some(tranche) = tranches.tranches.iter_mut().find(|t| t.id.as_str() == tranche_id) {
+                    let rate = tranche.coupon.current_rate(payment_date);
+                    let period_rate = rate / super::constants::QUARTERLY_PERIODS_PER_YEAR;
+                    let interest_amount = Money::new(
+                        tranche.current_balance.amount() * period_rate,
+                        self.base_currency,
+                    );
+                    
+                    // Determine if should PIK (same logic as payment calculation)
+                    let should_pik = match pik_condition {
+                        PIKCondition::AlwaysPIK => true,
+                        PIKCondition::PIKUntilDate { switch_date } => payment_date < *switch_date,
+                        PIKCondition::CashIfAvailable { minimum_cash_reserve } => {
+                            pool_balance.amount() < (interest_amount.amount() + minimum_cash_reserve.amount())
+                        },
+                        _ => false,
+                    };
+                    
+                    if should_pik {
+                        // Capitalize interest to tranche balance
+                        tranche.current_balance = tranche.current_balance.checked_add(interest_amount)?;
+                        
+                        // Update PIK amount in coupon if applicable
+                        if let super::tranches::TrancheCoupon::PIK { capitalized_amount, .. } = &mut tranche.coupon {
+                            *capitalized_amount = capitalized_amount.checked_add(interest_amount)?;
+                        }
+                        
+                        pik_capitalizations.push((tranche_id.clone(), interest_amount));
+                    }
+                }
+            }
+        }
+        
+        Ok(pik_capitalizations)
+    }
 }
 
 /// Builder for waterfall engine
@@ -651,6 +845,23 @@ impl WaterfallBuilder {
         if divertible {
             rule = rule.divertible();
         }
+
+        self.engine = self.engine.add_rule(rule);
+        self.next_priority += 1;
+        self
+    }
+
+    /// Add PIK interest capitalization (Z-bond support)
+    pub fn add_pik_interest(mut self, tranche_id: &str, pik_condition: PIKCondition) -> Self {
+        let rule = PaymentRule::new(
+            format!("{}_pik_interest", tranche_id.to_lowercase()),
+            self.next_priority,
+            PaymentRecipient::Tranche(tranche_id.into()),
+            PaymentCalculation::TranchePIKCapitalization {
+                tranche_id: tranche_id.into(),
+                pik_condition,
+            },
+        );
 
         self.engine = self.engine.add_rule(rule);
         self.next_priority += 1;
