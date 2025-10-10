@@ -11,6 +11,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_valuations::instruments::clo::Clo;
 use finstack_valuations::instruments::common::structured_credit::{
     AssetPool, DealType, PoolAsset, Tranche, TrancheCoupon, TrancheStructure,
@@ -165,7 +166,7 @@ fn create_sample_clo() -> Result<Clo, Box<dyn Error>> {
         TrancheSeniority::Senior,
         Money::new(400_000_000.0, base_currency),
         TrancheCoupon::Floating {
-            index: "SOFR-3M".to_string(),
+            forward_curve_id: CurveId::new("SOFR-3M".to_string()),
             spread_bp: 150.0,
             floor: Some(0.0),
             cap: None,
@@ -180,7 +181,7 @@ fn create_sample_clo() -> Result<Clo, Box<dyn Error>> {
         TrancheSeniority::Mezzanine,
         Money::new(50_000_000.0, base_currency),
         TrancheCoupon::Floating {
-            index: "SOFR-3M".to_string(),
+            forward_curve_id: CurveId::new("SOFR-3M".to_string()),
             spread_bp: 300.0,
             floor: Some(0.0),
             cap: None,
@@ -194,10 +195,8 @@ fn create_sample_clo() -> Result<Clo, Box<dyn Error>> {
         10.0, // detachment (10%)
         TrancheSeniority::Equity,
         Money::new(50_000_000.0, base_currency),
-        TrancheCoupon::Deferrable {
-            base_rate: 0.15, // 15% target return
-            can_defer: true,
-            compound_deferred: true,
+        TrancheCoupon::Fixed {
+            rate: 0.15, // 15% target return
         },
         date!(2034 - 01 - 01),
     )?;

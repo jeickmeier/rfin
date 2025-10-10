@@ -21,7 +21,6 @@ use crate::instruments::common::structured_credit::{
     TrancheCashflowResult,
     TrancheValuation,
     TrancheValuationExt,
-    TrancheSeniority,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -58,10 +57,6 @@ pub struct Clo {
 
     /// Coverage tests and monitoring
     pub coverage_tests: CoverageTests,
-
-    /// Call provisions (leveraging bond call/put infrastructure)
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub call_provisions: crate::instruments::common::structured_credit::CallProvisionManager,
 
     /// Key dates
     pub closing_date: Date,
@@ -149,7 +144,6 @@ impl Clo {
             tranches,
             waterfall,
             coverage_tests: CoverageTests::new(),
-            call_provisions: crate::instruments::common::structured_credit::CallProvisionManager::new(),
             closing_date: Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
             first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1).unwrap(),
             reinvestment_end_date: None,
@@ -566,83 +560,34 @@ impl Clo {
         &self,
     ) -> crate::instruments::common::structured_credit::WaterfallEngine {
         use crate::instruments::common::structured_credit::{
-            ManagementFeeType, PaymentCalculation, PaymentMode, PaymentRecipient, PaymentRule,
+            ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRule,
             WaterfallEngine,
         };
 
-        let mut engine = WaterfallEngine::new(self.pool.base_currency());
-        let mut priority = 1;
-
-        // Priority 1: Trustee fees
-        engine = engine.add_rule(PaymentRule::new(
-            "trustee_fees",
-            priority,
-            PaymentRecipient::ServiceProvider("Trustee".to_string()),
-            PaymentCalculation::FixedAmount {
-                amount: Money::new(50_000.0, self.pool.base_currency()),
-            },
-        ));
-        priority += 1;
-
-        // Priority 2: Senior management fee
-        engine = engine.add_rule(PaymentRule::new(
-            "senior_mgmt_fee",
-            priority,
-            PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
-            PaymentCalculation::PercentageOfCollateral {
-                rate: 0.01,
-                annualized: true,
-            },
-        ));
-        priority += 1;
-
-        // Add interest payments for each tranche
-        let mut sorted_tranches = self.tranches.tranches.clone();
-        sorted_tranches.sort_by_key(|t| t.payment_priority);
-        for tranche in &sorted_tranches {
-            // Do not schedule interest for Equity; equity receives residual only
-            if tranche.seniority == TrancheSeniority::Equity {
-                continue;
-            }
-            engine = engine.add_rule(PaymentRule::new(
-                format!("{}_interest", tranche.id.as_str()),
-                priority,
-                PaymentRecipient::Tranche(tranche.id.to_string()),
-                PaymentCalculation::TrancheInterest {
-                    tranche_id: tranche.id.to_string(),
-                },
-            ));
-            priority += 1;
-        }
-
-        // Add principal payments for debt tranches
-        for tranche in &sorted_tranches {
-            if tranche.seniority != TrancheSeniority::Equity {
-                engine = engine.add_rule(
-                    PaymentRule::new(
-                        format!("{}_principal", tranche.id.as_str()),
-                        priority,
-                        PaymentRecipient::Tranche(tranche.id.to_string()),
-                        PaymentCalculation::TranchePrincipal {
-                            tranche_id: tranche.id.to_string(),
-                            target_balance: None,
-                        },
-                    )
-                    .divertible(),
-                );
-            }
-        }
-        priority += 1;
+        let base_ccy = self.pool.base_currency();
         
-        // Add equity distribution
-        engine = engine.add_rule(PaymentRule::new(
-            "equity_distribution",
-            priority,
-            PaymentRecipient::Equity,
-            PaymentCalculation::ResidualCash,
-        ));
-
-        engine.payment_mode = PaymentMode::ProRata;
-        engine
+        // Define CLO-specific fees
+        let fees = vec![
+            PaymentRule::new(
+                "trustee_fees",
+                1,
+                PaymentRecipient::ServiceProvider("Trustee".to_string()),
+                PaymentCalculation::FixedAmount {
+                    amount: Money::new(50_000.0, base_ccy),
+                },
+            ),
+            PaymentRule::new(
+                "senior_mgmt_fee",
+                2,
+                PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
+                PaymentCalculation::PercentageOfCollateral {
+                    rate: 0.01,
+                    annualized: true,
+                },
+            ),
+        ];
+        
+        // Use shared waterfall construction
+        WaterfallEngine::standard_sequential(base_ccy, &self.tranches, fees)
     }
 }

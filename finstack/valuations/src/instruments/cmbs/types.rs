@@ -292,54 +292,23 @@ impl Cmbs {
             PaymentCalculation, PaymentRecipient, PaymentRule, WaterfallEngine,
         };
 
-        let mut engine = WaterfallEngine::new(self.pool.base_currency());
-
-        engine.payment_rules.push(PaymentRule {
-            id: "master_servicing".to_string(),
-            priority: 1,
-            recipient: PaymentRecipient::ServiceProvider("MasterServicer".to_string()),
-            calculation: PaymentCalculation::PercentageOfCollateral {
-                rate: 0.0025, // 25 bps
-                annualized: true,
-            },
-            conditions: vec![],
-            divertible: false,
-        });
-
-        let mut sorted_tranches = self.tranches.tranches.clone();
-        sorted_tranches.sort_by_key(|t| t.payment_priority);
-
-        let mut priority = 2;
-        for tranche in &sorted_tranches {
-            engine.payment_rules.push(PaymentRule {
-                id: format!("{}_interest", tranche.id.as_str()),
-                priority,
-                recipient: PaymentRecipient::Tranche(tranche.id.to_string()),
-                calculation: PaymentCalculation::TrancheInterest {
-                    tranche_id: tranche.id.to_string(),
+        let base_ccy = self.pool.base_currency();
+        
+        // Define CMBS-specific fees
+        let fees = vec![
+            PaymentRule::new(
+                "master_servicing",
+                1,
+                PaymentRecipient::ServiceProvider("MasterServicer".to_string()),
+                PaymentCalculation::PercentageOfCollateral {
+                    rate: 0.0025, // 25 bps
+                    annualized: true,
                 },
-                conditions: vec![],
-                divertible: false,
-            });
-            priority += 1;
-        }
-
-        for tranche in &sorted_tranches {
-            engine.payment_rules.push(PaymentRule {
-                id: format!("{}_principal", tranche.id.as_str()),
-                priority,
-                recipient: PaymentRecipient::Tranche(tranche.id.to_string()),
-                calculation: PaymentCalculation::TranchePrincipal {
-                    tranche_id: tranche.id.to_string(),
-                    target_balance: Some(Money::new(0.0, self.pool.base_currency())),
-                },
-                conditions: vec![],
-                divertible: true,
-            });
-            priority += 1;
-        }
-
-        engine
+            ),
+        ];
+        
+        // Use shared waterfall construction
+        WaterfallEngine::standard_sequential(base_ccy, &self.tranches, fees)
     }
 }
 

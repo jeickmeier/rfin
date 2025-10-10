@@ -6,9 +6,10 @@
 ///
 /// # Usage
 ///
-/// ```rust
-/// use crate::valuations::instruments::InstrumentWrapper;
+/// ```rust,ignore
+/// use finstack_wasm::valuations::instruments::InstrumentWrapper;
 /// use finstack_valuations::instruments::bond::Bond;
+/// use wasm_bindgen::prelude::wasm_bindgen;
 ///
 /// #[wasm_bindgen(js_name = Bond)]
 /// #[derive(Clone, Debug)]

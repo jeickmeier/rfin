@@ -190,7 +190,7 @@ fn test_registry_builtins() {
     
     // List metrics in fin namespace
     let fin_metrics = registry.list_metrics(Some("fin".to_string()));
-    assert!(fin_metrics.len() > 0);
+    assert!(!fin_metrics.is_empty());
 }
 
 #[wasm_bindgen_test]

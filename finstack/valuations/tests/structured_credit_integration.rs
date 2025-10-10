@@ -84,7 +84,7 @@ fn create_test_tranches() -> TrancheStructure {
         TrancheSeniority::Senior,
         Money::new(135_000_000.0, Currency::USD),
         TrancheCoupon::Floating {
-            index: "SOFR-3M".to_string(),
+            forward_curve_id: finstack_core::types::CurveId::new("SOFR-3M".to_string()),
             spread_bp: 200.0,
             floor: None,
             cap: None,

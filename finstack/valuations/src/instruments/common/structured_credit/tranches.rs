@@ -108,164 +108,73 @@ impl Default for CreditEnhancement {
     }
 }
 
-/// Advanced tranche coupon specification
+/// Tranche coupon specification
 /// 
-/// Leverages the existing sophisticated bond floating rate infrastructure
-/// from BondFloatSpec and cashflow builders for maximum capability.
+/// Supports fixed and floating rate coupons used in standard structured credit instruments.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TrancheCoupon {
-    /// Fixed rate
+    /// Fixed rate coupon
     Fixed { 
         rate: f64 
     },
-    /// Advanced floating rate using existing bond infrastructure
-    FloatingAdvanced {
-        /// Forward curve identifier (leverages existing infrastructure)
-        forward_curve_id: CurveId,
-        /// Margin over index in basis points
-        margin_bp: f64,
-        /// Gearing multiplier on index rate
-        gearing: f64,
-        /// Reset lag in days (business day adjusted)
-        reset_lag_days: i32,
-        /// Interest rate floor
-        floor: Option<f64>,
-        /// Interest rate cap  
-        cap: Option<f64>,
-    },
-    /// Legacy floating (for backward compatibility)
+    /// Floating rate coupon with index reference
     Floating {
-        index: String,
+        /// Forward curve identifier for index rate
+        forward_curve_id: CurveId,
+        /// Spread over index in basis points
         spread_bp: f64,
+        /// Interest rate floor (optional)
         floor: Option<f64>,
+        /// Interest rate cap (optional)
         cap: Option<f64>,
-    },
-    /// Step-up coupon schedule
-    StepUp { 
-        schedule: Vec<(Date, f64)> 
-    },
-    /// Deferrable coupon (can skip payments under stress)
-    Deferrable {
-        base_rate: f64,
-        can_defer: bool,
-        compound_deferred: bool,
-    },
-    /// Payment-in-kind coupon (leverages CFKind::PIK from core)
-    PIK {
-        rate: f64,
-        /// Toggle dates: true = PIK mode, false = cash mode
-        toggle_dates: Vec<(Date, bool)>,
-        /// Current PIK capitalized amount
-        capitalized_amount: Money,
-    },
-    /// Fixed-to-floating coupon (common in structured credit)
-    FixedToFloating {
-        /// Fixed rate for initial period
-        fixed_rate: f64,
-        /// Date when switches to floating
-        switch_date: Date,
-        /// Floating specification after switch
-        floating_spec: Box<TrancheCoupon>,
     },
 }
 
 impl TrancheCoupon {
-    /// Get current rate for a given date
-    pub fn current_rate(&self, date: Date) -> f64 {
+    /// Get current rate for a given date (without index lookup)
+    /// 
+    /// For Fixed: returns the fixed rate
+    /// For Floating: returns just the spread component (use current_rate_with_index for full rate)
+    pub fn current_rate(&self, _date: Date) -> f64 {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,
-            TrancheCoupon::FloatingAdvanced { margin_bp, gearing, .. } => {
-                // Base rate without index lookup - just the spread component
-                (*margin_bp / 10_000.0) * gearing
-            },
             TrancheCoupon::Floating { spread_bp, .. } => *spread_bp / 10_000.0,
-            TrancheCoupon::StepUp { schedule } => schedule
-                .iter()
-                .filter(|(d, _)| *d <= date)
-                .last()
-                .map(|(_, rate)| *rate)
-                .unwrap_or(0.0),
-            TrancheCoupon::Deferrable { base_rate, .. } => *base_rate,
-            TrancheCoupon::PIK { rate, .. } => *rate,
-            TrancheCoupon::FixedToFloating { fixed_rate, switch_date, floating_spec } => {
-                if date <= *switch_date {
-                    *fixed_rate
-                } else {
-                    floating_spec.current_rate(date)
-                }
-            },
         }
     }
 
     /// Compute current rate including index forward where applicable.
     /// 
-    /// Leverages the existing forward curve infrastructure from bond module
-    /// for sophisticated floating rate calculations.
+    /// For Fixed coupons, returns the fixed rate.
+    /// For Floating coupons, looks up the index rate from market context and adds spread.
     pub fn current_rate_with_index(
         &self,
         date: Date,
         context: &finstack_core::market_data::MarketContext,
     ) -> f64 {
         match self {
-            TrancheCoupon::FloatingAdvanced { 
+            TrancheCoupon::Fixed { rate } => *rate,
+            TrancheCoupon::Floating { 
                 forward_curve_id, 
-                margin_bp, 
-                gearing, 
-                reset_lag_days,
-                floor,
-                cap,
+                spread_bp, 
+                floor, 
+                cap 
             } => {
-                // Use the sophisticated bond floating rate logic
-                let fwd_result = context.get_forward_ref(forward_curve_id.as_str());
-                let idx_rate = fwd_result
-                    .map(|c| {
-                        // Apply reset lag (simplified - would use proper business day adjustment)
-                        let fixing_date = date - time::Duration::days(*reset_lag_days as i64);
-                        
-                        // Get forward rate for the period
-                        let base = c.base_date();
-                        let dc = c.day_count();
-                        let t = dc
-                            .year_fraction(base, fixing_date, finstack_core::dates::DayCountCtx::default())
-                            .unwrap_or(0.0);
-                        // Approximate 3M forward starting at fixing_date
-                        let t_end = t + 0.25;
-                        c.rate_period(t, t_end)
-                    })
-                    .unwrap_or(0.0);
-                
-                // Apply gearing and margin
-                let all_in_rate = (idx_rate * gearing) + (*margin_bp / 10_000.0);
-                
-                // Apply caps/floors
-                let capped = if let Some(c) = cap {
-                    all_in_rate.min(*c)
-                } else {
-                    all_in_rate
-                };
-                
-                if let Some(f) = floor {
-                    capped.max(*f)
-                } else {
-                    capped
-                }
-            },
-            TrancheCoupon::Floating { index, spread_bp, floor, cap } => {
-                // Legacy floating implementation
-                let fwd = context.get_forward_ref(index.as_str());
-                let idx_rate = fwd
-                    .map(|c| {
-                        let base = c.base_date();
-                        let dc = finstack_core::dates::DayCount::Act365F;
+                // Look up forward rate from market context
+                let idx_rate = context.get_forward_ref(forward_curve_id.as_str())
+                    .map(|fwd| {
+                        let base = fwd.base_date();
+                        let dc = fwd.day_count();
                         let t2 = dc
                             .year_fraction(base, date, finstack_core::dates::DayCountCtx::default())
                             .unwrap_or(0.0);
+                        // Approximate 3M forward rate
                         let t1 = (t2 - 0.25).max(0.0);
-                        c.rate_period(t1, t2)
+                        fwd.rate_period(t1, t2)
                     })
                     .unwrap_or(0.0);
                 
+                // Add spread
                 let all_in_rate = idx_rate + (*spread_bp / 10_000.0);
                 
                 // Apply caps/floors
@@ -281,76 +190,6 @@ impl TrancheCoupon {
                     capped
                 }
             },
-            TrancheCoupon::FixedToFloating { fixed_rate, switch_date, floating_spec } => {
-                if date <= *switch_date {
-                    *fixed_rate
-                } else {
-                    floating_spec.current_rate_with_index(date, context)
-                }
-            },
-            _ => self.current_rate(date),
-        }
-    }
-
-    /// Create a sophisticated floating rate coupon using existing bond infrastructure
-    pub fn floating_advanced(
-        forward_curve_id: CurveId,
-        margin_bp: f64,
-        gearing: f64,
-        reset_lag_days: i32,
-    ) -> Self {
-        Self::FloatingAdvanced {
-            forward_curve_id,
-            margin_bp,
-            gearing,
-            reset_lag_days,
-            floor: None,
-            cap: None,
-        }
-    }
-
-    /// Create floating rate coupon with cap and floor
-    pub fn floating_capped(
-        forward_curve_id: CurveId,
-        margin_bp: f64,
-        floor: f64,
-        cap: f64,
-    ) -> Self {
-        Self::FloatingAdvanced {
-            forward_curve_id,
-            margin_bp,
-            gearing: 1.0,
-            reset_lag_days: 2,
-            floor: Some(floor),
-            cap: Some(cap),
-        }
-    }
-
-    /// Create PIK coupon with initial zero capitalized amount
-    pub fn pik_coupon(rate: f64, base_currency: finstack_core::currency::Currency) -> Self {
-        Self::PIK {
-            rate,
-            toggle_dates: Vec::new(),
-            capitalized_amount: Money::new(0.0, base_currency),
-        }
-    }
-
-    /// Create fixed-to-floating coupon (common in structured credit)
-    pub fn fixed_to_floating(
-        fixed_rate: f64,
-        switch_date: Date,
-        floating_forward_curve: CurveId,
-        floating_margin_bp: f64,
-    ) -> Self {
-        Self::FixedToFloating {
-            fixed_rate,
-            switch_date,
-            floating_spec: Box::new(Self::floating_advanced(
-                floating_forward_curve,
-                floating_margin_bp,
-                1.0,
-                2,
-            )),
         }
     }
 }
@@ -891,7 +730,7 @@ mod tests {
             .seniority(TrancheSeniority::Senior)
             .balance(Money::new(900_000_000.0, Currency::USD))
             .coupon(TrancheCoupon::Floating {
-                index: "SOFR-3M".to_string(),
+                forward_curve_id: CurveId::new("SOFR-3M".to_string()),
                 spread_bp: 150.0,
                 floor: None,
                 cap: None,

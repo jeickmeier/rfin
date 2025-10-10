@@ -215,6 +215,12 @@ pub struct JsExtensionRegistry {
     inner: ExtensionRegistry,
 }
 
+impl Default for JsExtensionRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl JsExtensionRegistry {
     /// Create a new extension registry.
@@ -271,6 +277,12 @@ pub struct JsCorkscrewExtension {
     _inner: CorkscrewExtension,
 }
 
+impl Default for JsCorkscrewExtension {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl JsCorkscrewExtension {
     /// Create a new corkscrew extension with default settings.
@@ -291,6 +303,12 @@ impl JsCorkscrewExtension {
 #[wasm_bindgen]
 pub struct JsCreditScorecardExtension {
     _inner: CreditScorecardExtension,
+}
+
+impl Default for JsCreditScorecardExtension {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[wasm_bindgen]

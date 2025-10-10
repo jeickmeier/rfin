@@ -217,6 +217,12 @@ pub struct JsRegistry {
     inner: Registry,
 }
 
+impl Default for JsRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl JsRegistry {
     /// Create a new registry.

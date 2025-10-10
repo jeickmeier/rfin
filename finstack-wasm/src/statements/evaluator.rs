@@ -223,6 +223,12 @@ pub struct JsEvaluator {
     inner: Evaluator,
 }
 
+impl Default for JsEvaluator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl JsEvaluator {
     /// Create a new evaluator.
