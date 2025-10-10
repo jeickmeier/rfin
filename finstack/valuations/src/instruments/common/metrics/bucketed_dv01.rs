@@ -2,22 +2,23 @@
 //!
 //! This module provides a generic implementation that can be used by any instrument
 //! that has a discount curve and can be valued using standard revaluation patterns.
+//!
+//! **Note**: Instruments using these calculators must set `context.discount_curve_id`
+//! in their `price_with_metrics()` method before metrics computation.
 
 use std::marker::PhantomData;
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::types::CurveId;
 
-/// Trait for instruments that have a primary discount curve for valuation.
-pub trait HasDiscountCurve {
-    /// Get the instrument's primary discount curve ID.
-    fn discount_curve_id(&self) -> &CurveId;
-}
+// Re-export HasDiscountCurve from pricing for convenience
+pub use crate::instruments::common::pricing::HasDiscountCurve;
 
 /// Generic BucketedDv01 calculator that works for any instrument implementing
 /// the required traits.
+///
+/// Requires the instrument to set `context.discount_curve_id` before calculation.
 pub struct GenericBucketedDv01<I> {
     _phantom: PhantomData<I>,
 }
@@ -32,7 +33,7 @@ impl<I> Default for GenericBucketedDv01<I> {
 
 impl<I> MetricCalculator for GenericBucketedDv01<I>
 where
-    I: Instrument + HasDiscountCurve + CashflowProvider + Clone + 'static,
+    I: Instrument + CashflowProvider + HasDiscountCurve + Clone + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;

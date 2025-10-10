@@ -372,7 +372,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for Bond {
+impl crate::instruments::common::pricing::HasDiscountCurve for Bond {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }

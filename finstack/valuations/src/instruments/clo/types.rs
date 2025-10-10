@@ -481,7 +481,7 @@ impl Instrument for Clo {
 }
 
 
-impl crate::instruments::common::HasDiscountCurve for Clo {
+impl crate::instruments::common::pricing::HasDiscountCurve for Clo {
     fn discount_curve_id(&self) -> &CurveId {
         &self.disc_id
     }

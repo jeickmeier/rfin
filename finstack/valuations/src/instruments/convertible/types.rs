@@ -274,7 +274,7 @@ impl crate::instruments::common::traits::Instrument for ConvertibleBond {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for ConvertibleBond {
+impl crate::instruments::common::pricing::HasDiscountCurve for ConvertibleBond {
     fn discount_curve_id(&self) -> &CurveId {
         &self.disc_id
     }

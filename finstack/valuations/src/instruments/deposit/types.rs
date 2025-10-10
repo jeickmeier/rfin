@@ -123,7 +123,7 @@ impl crate::instruments::common::traits::Instrument for Deposit {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for Deposit {
+impl crate::instruments::common::pricing::HasDiscountCurve for Deposit {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }

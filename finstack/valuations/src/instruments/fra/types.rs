@@ -164,7 +164,7 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for ForwardRateAgreement {
+impl crate::instruments::common::pricing::HasDiscountCurve for ForwardRateAgreement {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }

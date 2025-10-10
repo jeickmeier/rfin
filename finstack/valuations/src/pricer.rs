@@ -221,13 +221,25 @@ impl PricerKey {
 
 // ========================= ERRORS =========================
 
-#[derive(Debug)]
+/// Pricing-specific errors returned by pricer implementations.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum PricingError {
+    /// No pricer registered for the requested (instrument, model) combination.
+    #[error("No pricer found for instrument={} model={}", .0.instrument, .0.model)]
     UnknownPricer(PricerKey),
+    
+    /// Instrument type mismatch during downcasting.
+    #[error("Type mismatch: expected {expected}, got {got}")]
     TypeMismatch {
+        /// Expected instrument type
         expected: InstrumentType,
+        /// Actual instrument type
         got: InstrumentType,
     },
+    
+    /// Pricing model computation failed.
+    #[error("Model failure: {0}")]
     ModelFailure(String),
 }
 
@@ -236,24 +248,6 @@ impl From<finstack_core::Error> for PricingError {
         PricingError::ModelFailure(err.to_string())
     }
 }
-
-impl std::fmt::Display for PricingError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PricingError::UnknownPricer(key) => {
-                write!(f, "No pricer found for {:?}", key)
-            }
-            PricingError::TypeMismatch { expected, got } => {
-                write!(f, "Type mismatch: expected {:?}, got {:?}", expected, got)
-            }
-            PricingError::ModelFailure(msg) => {
-                write!(f, "Model failure: {}", msg)
-            }
-        }
-    }
-}
-
-impl std::error::Error for PricingError {}
 
 // ========================= TRAITS =========================
 

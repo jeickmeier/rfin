@@ -325,7 +325,7 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for BasisSwap {
+impl crate::instruments::common::pricing::HasDiscountCurve for BasisSwap {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
     }

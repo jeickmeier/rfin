@@ -341,7 +341,7 @@ impl InterestRateOption {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for InterestRateOption {
+impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }

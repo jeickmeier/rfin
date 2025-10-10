@@ -534,7 +534,7 @@ impl crate::instruments::common::traits::Instrument for VarianceSwap {
 // Attributable implementation is provided by the impl_instrument! macro
 
 // Implement HasDiscountCurve trait
-impl crate::instruments::common::HasDiscountCurve for VarianceSwap {
+impl crate::instruments::common::pricing::HasDiscountCurve for VarianceSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.disc_id
     }

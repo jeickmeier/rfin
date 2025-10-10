@@ -535,7 +535,7 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for InflationLinkedBond {
+impl crate::instruments::common::pricing::HasDiscountCurve for InflationLinkedBond {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }

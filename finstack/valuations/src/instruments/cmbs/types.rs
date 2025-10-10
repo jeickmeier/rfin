@@ -253,7 +253,7 @@ impl Instrument for Cmbs {
 }
 
 
-impl crate::instruments::common::HasDiscountCurve for Cmbs {
+impl crate::instruments::common::pricing::HasDiscountCurve for Cmbs {
     fn discount_curve_id(&self) -> &CurveId {
         &self.disc_id
     }

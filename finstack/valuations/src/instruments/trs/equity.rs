@@ -191,7 +191,7 @@ impl CashflowProvider for EquityTotalReturnSwap {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for EquityTotalReturnSwap {
+impl crate::instruments::common::pricing::HasDiscountCurve for EquityTotalReturnSwap {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.financing.disc_id
     }

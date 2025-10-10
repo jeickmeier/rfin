@@ -393,7 +393,7 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for CreditDefaultSwap {
+impl crate::instruments::common::pricing::HasDiscountCurve for CreditDefaultSwap {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.premium.disc_id
     }

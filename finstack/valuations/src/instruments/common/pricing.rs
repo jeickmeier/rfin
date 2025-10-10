@@ -4,10 +4,10 @@
 //! to eliminate duplication across instrument pricing modules.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::common::HasDiscountCurve;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
+use finstack_core::types::CurveId;
 use std::marker::PhantomData;
 
 /// Generic pricer for any instrument that implements the Instrument trait.
@@ -76,11 +76,23 @@ where
 
 // Removed USD/EUR heuristic helper; as_of is derived from instrument's own curve
 
+/// Trait for instruments with a primary discount curve.
+///
+/// This trait is used by generic pricers and metric calculators to extract
+/// discount curve IDs. All instruments with a discount curve should implement this.
+///
+/// **Note**: This is primarily an internal helper trait. End-users typically
+/// don't need to interact with it directly.
+pub trait HasDiscountCurve {
+    /// Get the instrument's primary discount curve ID.
+    fn discount_curve_id(&self) -> &CurveId;
+}
+
 /// Generic discounting pricer for instruments that can be valued via simple discounting.
 ///
-/// This pricer derives the valuation date from the instrument's configured
-/// discount curve and delegates PV calculation to the instrument's `value()`
-/// method. It eliminates boilerplate across instrument pricers.
+/// This pricer derives the valuation date from the instrument's discount curve
+/// and delegates PV calculation to the instrument's `value()` method.
+/// It eliminates boilerplate across instrument pricers.
 pub struct GenericDiscountingPricer<I> {
     instrument_type: InstrumentType,
     _phantom: PhantomData<I>,
@@ -122,7 +134,7 @@ where
                     got: instrument.key(),
                 })?;
 
-        // Extract valuation date from the instrument's configured discount curve
+        // Extract valuation date from the instrument's discount curve
         let disc = market
             .get_discount_ref(typed_instrument.discount_curve_id().as_str())
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;

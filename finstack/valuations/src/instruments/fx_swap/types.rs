@@ -182,7 +182,7 @@ impl crate::instruments::common::traits::Instrument for FxSwap {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for FxSwap {
+impl crate::instruments::common::pricing::HasDiscountCurve for FxSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.domestic_disc_id
     }

@@ -265,7 +265,7 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
     }
 }
 
-impl crate::instruments::common::HasDiscountCurve for InflationSwap {
+impl crate::instruments::common::pricing::HasDiscountCurve for InflationSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.disc_id
     }
