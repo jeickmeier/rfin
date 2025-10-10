@@ -19,7 +19,7 @@
 //! // Create a bond
 //! let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 //! let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
-//! let bond = Bond::fixed_semiannual(
+//! let bond = Bond::fixed(
 //!     "BOND-001",
 //!     Money::new(1_000_000.0, Currency::USD),
 //!     0.05,

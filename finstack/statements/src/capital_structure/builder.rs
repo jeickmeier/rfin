@@ -56,7 +56,7 @@ impl<State> ModelBuilder<State> {
         let id_str: String = id.into();
 
         // Create bond using valuations crate
-        let bond = Bond::fixed_semiannual(
+        let bond = Bond::fixed(
             InstrumentId::new(&id_str),
             notional,
             coupon_rate,
@@ -117,13 +117,16 @@ impl<State> ModelBuilder<State> {
     ) -> Result<Self> {
         let id_str: String = id.into();
 
+        use finstack_valuations::instruments::common::parameters::PayReceive;
+        
         // Create swap using valuations crate
-        let swap = InterestRateSwap::usd_pay_fixed(
+        let swap = InterestRateSwap::new(
             InstrumentId::new(&id_str),
             notional,
             fixed_rate,
             start_date,
             maturity_date,
+            PayReceive::PayFixed,  // Default to pay-fixed
         );
 
         // Serialize to JSON

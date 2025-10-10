@@ -15,19 +15,18 @@ fn test_cds_creation_and_basic_pricing() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let spread_bp = 100.0; // 100bp
-    // DateRange inlined; start/end passed directly to constructor
-    let cds = CreditDefaultSwap::new_isda(
+    // Create CDS with buy_protection and customize recovery
+    let mut cds = CreditDefaultSwap::buy_protection(
         "CDS_TEST",
         notional,
-        finstack_valuations::instruments::cds::PayReceive::PayFixed,
-        finstack_valuations::instruments::cds::CDSConvention::IsdaNa,
         spread_bp,
         start,
         end,
-        0.4,
         finstack_core::types::CurveId::new("USD-OIS"),
         finstack_core::types::CurveId::new("ABC-SENIOR"),
     );
+    // Customize recovery rate
+    cds.protection.recovery_rate = 0.4;
 
     assert_eq!(cds.id, "CDS_TEST");
     assert_eq!(cds.premium.spread_bp, 100.0);

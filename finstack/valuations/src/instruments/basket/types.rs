@@ -234,7 +234,7 @@ impl Instrument for Basket {
         self.id.as_str()
     }
     fn key(&self) -> crate::pricer::InstrumentType {
-        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+        crate::pricer::InstrumentType::Basket
     }
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
@@ -277,9 +277,6 @@ impl crate::instruments::common::HasDiscountCurve for Basket {
     }
 }
 
-impl crate::instruments::common::traits::InstrumentKind for Basket {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::Basket;
-}
 
 #[cfg(test)]
 mod tests {

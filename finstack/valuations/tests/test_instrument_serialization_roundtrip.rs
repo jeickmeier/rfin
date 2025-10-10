@@ -16,7 +16,7 @@ fn test_bond_with_pricing_overrides_and_attributes() {
     let maturity = Date::from_calendar_date(2027, Month::January, 15).unwrap();
     
     // Create a bond with pricing overrides and attributes
-    let mut bond = Bond::fixed_semiannual(
+    let mut bond = Bond::fixed(
         InstrumentId::new("TEST_BOND"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -129,7 +129,7 @@ fn test_bond_with_calendar_id() {
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2027, Month::January, 15).unwrap();
     
-    let mut bond = Bond::fixed_semiannual(
+    let mut bond = Bond::fixed(
         InstrumentId::new("TEST_BOND_CALENDAR"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -161,7 +161,7 @@ fn test_bond_with_linear_amortization() {
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2027, Month::January, 15).unwrap();
     
-    let mut bond = Bond::fixed_semiannual(
+    let mut bond = Bond::fixed(
         InstrumentId::new("TEST_AMORTIZING_BOND"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -202,7 +202,7 @@ fn test_bond_with_step_amortization() {
     let maturity = Date::from_calendar_date(2027, Month::January, 15).unwrap();
     let step_date = Date::from_calendar_date(2026, Month::January, 15).unwrap();
     
-    let mut bond = Bond::fixed_semiannual(
+    let mut bond = Bond::fixed(
         InstrumentId::new("TEST_STEP_AMORTIZING_BOND"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -244,7 +244,7 @@ fn test_bond_with_percent_per_period_amortization() {
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2027, Month::January, 15).unwrap();
     
-    let mut bond = Bond::fixed_semiannual(
+    let mut bond = Bond::fixed(
         InstrumentId::new("TEST_PERCENT_AMORTIZING_BOND"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -280,7 +280,7 @@ fn test_bond_with_calendar_and_amortization() {
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2027, Month::January, 15).unwrap();
     
-    let mut bond = Bond::fixed_semiannual(
+    let mut bond = Bond::fixed(
         InstrumentId::new("TEST_FULL_BOND"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,

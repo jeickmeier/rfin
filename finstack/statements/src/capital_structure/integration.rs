@@ -260,7 +260,7 @@ mod tests {
         use finstack_core::types::{CurveId, InstrumentId};
 
         // Create a Bond using valuations
-        let bond = Bond::fixed_semiannual(
+        let bond = Bond::fixed(
             InstrumentId::new("BOND-001"),
             Money::new(1_000_000.0, Currency::USD),
             0.05,
@@ -290,13 +290,16 @@ mod tests {
         use finstack_core::money::Money;
         use finstack_core::types::InstrumentId;
 
+        use finstack_valuations::instruments::common::parameters::PayReceive;
+        
         // Create a Swap using valuations
-        let swap = InterestRateSwap::usd_pay_fixed(
+        let swap = InterestRateSwap::new(
             InstrumentId::new("SWAP-001"),
             Money::new(5_000_000.0, Currency::USD),
             0.04,
             Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            PayReceive::PayFixed,
         );
 
         // Serialize to JSON

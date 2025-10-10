@@ -123,7 +123,7 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
     }
 
     fn key(&self) -> crate::pricer::InstrumentType {
-        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+        crate::pricer::InstrumentType::FRA
     }
 
     fn as_any(&self) -> &dyn ::std::any::Any {
@@ -168,10 +168,6 @@ impl crate::instruments::common::HasDiscountCurve for ForwardRateAgreement {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }
-}
-
-impl crate::instruments::common::traits::InstrumentKind for ForwardRateAgreement {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::FRA;
 }
 
 impl CashflowProvider for ForwardRateAgreement {

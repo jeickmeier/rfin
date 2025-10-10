@@ -7,13 +7,13 @@ pub type SimpleIrFutureDiscountingPricer =
 
 impl Default for SimpleIrFutureDiscountingPricer {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::pricer::InstrumentType::InterestRateFuture)
     }
 }
 
 // Auto-register IRFuture discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleIrFutureDiscountingPricer::new()),
+        ctor: || Box::new(SimpleIrFutureDiscountingPricer::default()),
     }
 }

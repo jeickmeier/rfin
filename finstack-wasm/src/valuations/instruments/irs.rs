@@ -30,12 +30,14 @@ impl JsInterestRateSwap {
         start: &JsDate,
         end: &JsDate,
     ) -> JsInterestRateSwap {
-        let swap = InterestRateSwap::usd_pay_fixed(
+        use finstack_valuations::instruments::common::parameters::PayReceive;
+        let swap = InterestRateSwap::new(
             instrument_id_from_str(instrument_id),
             notional.inner(),
             fixed_rate,
             start.inner(),
             end.inner(),
+            PayReceive::PayFixed,
         );
         JsInterestRateSwap::from_inner(swap)
     }
@@ -48,12 +50,14 @@ impl JsInterestRateSwap {
         start: &JsDate,
         end: &JsDate,
     ) -> JsInterestRateSwap {
-        let swap = InterestRateSwap::usd_receive_fixed(
+        use finstack_valuations::instruments::common::parameters::PayReceive;
+        let swap = InterestRateSwap::new(
             instrument_id_from_str(instrument_id),
             notional.inner(),
             fixed_rate,
             start.inner(),
             end.inner(),
+            PayReceive::ReceiveFixed,
         );
         JsInterestRateSwap::from_inner(swap)
     }

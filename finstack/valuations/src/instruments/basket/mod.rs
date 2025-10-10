@@ -65,9 +65,15 @@ pub use types::{AssetType, Basket, BasketConstituent, ConstituentReference};
 pub use crate::instruments::common::GenericDiscountingPricer;
 pub type SimpleBasketDiscountingPricer = GenericDiscountingPricer<Basket>;
 
+impl Default for SimpleBasketDiscountingPricer {
+    fn default() -> Self {
+        Self::new(crate::pricer::InstrumentType::Basket)
+    }
+}
+
 // Auto-register Basket discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleBasketDiscountingPricer::new()),
+        ctor: || Box::new(SimpleBasketDiscountingPricer::default()),
     }
 }

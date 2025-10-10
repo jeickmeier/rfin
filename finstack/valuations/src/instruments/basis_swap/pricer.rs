@@ -7,13 +7,13 @@ pub type SimpleBasisSwapDiscountingPricer =
 
 impl Default for SimpleBasisSwapDiscountingPricer {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::pricer::InstrumentType::BasisSwap)
     }
 }
 
 // Auto-register BasisSwap discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleBasisSwapDiscountingPricer::new()),
+        ctor: || Box::new(SimpleBasisSwapDiscountingPricer::default()),
     }
 }

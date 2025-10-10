@@ -82,7 +82,7 @@ impl crate::instruments::common::traits::Instrument for Deposit {
     }
 
     fn key(&self) -> crate::pricer::InstrumentType {
-        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+        crate::pricer::InstrumentType::Deposit
     }
 
     fn as_any(&self) -> &dyn ::std::any::Any {
@@ -127,10 +127,6 @@ impl crate::instruments::common::HasDiscountCurve for Deposit {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }
-}
-
-impl crate::instruments::common::traits::InstrumentKind for Deposit {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::Deposit;
 }
 
 impl CashflowProvider for Deposit {

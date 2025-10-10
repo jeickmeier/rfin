@@ -3,7 +3,7 @@
 //! This module provides generic pricer implementations and shared pricing utilities
 //! to eliminate duplication across instrument pricing modules.
 
-use crate::instruments::common::traits::{Instrument, InstrumentKind};
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::common::HasDiscountCurve;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
@@ -88,12 +88,12 @@ pub struct GenericDiscountingPricer<I> {
 
 impl<I> GenericDiscountingPricer<I>
 where
-    I: Instrument + HasDiscountCurve + InstrumentKind + 'static,
+    I: Instrument + HasDiscountCurve + 'static,
 {
-    /// Create a new generic discounting pricer. Instrument type is derived from `I`.
-    pub fn new() -> Self {
+    /// Create a new generic discounting pricer for the specified instrument type.
+    pub fn new(instrument_type: InstrumentType) -> Self {
         Self {
-            instrument_type: I::TYPE,
+            instrument_type,
             _phantom: PhantomData,
         }
     }
@@ -101,7 +101,7 @@ where
 
 impl<I> Pricer for GenericDiscountingPricer<I>
 where
-    I: Instrument + HasDiscountCurve + InstrumentKind + 'static,
+    I: Instrument + HasDiscountCurve + 'static,
 {
     fn key(&self) -> PricerKey {
         PricerKey::new(self.instrument_type, ModelKey::Discounting)
@@ -154,13 +154,13 @@ mod tests {
 
     #[test]
     fn test_generic_pricer_keys() {
-        let bond_pricer = GenericDiscountingPricer::<crate::instruments::Bond>::new();
+        let bond_pricer = GenericDiscountingPricer::<crate::instruments::Bond>::new(InstrumentType::Bond);
         assert_eq!(
             bond_pricer.key(),
             PricerKey::new(InstrumentType::Bond, ModelKey::Discounting)
         );
 
-        let deposit_pricer = GenericDiscountingPricer::<crate::instruments::Deposit>::new();
+        let deposit_pricer = GenericDiscountingPricer::<crate::instruments::Deposit>::new(InstrumentType::Deposit);
         assert_eq!(
             deposit_pricer.key(),
             PricerKey::new(InstrumentType::Deposit, ModelKey::Discounting)

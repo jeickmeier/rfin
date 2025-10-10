@@ -196,7 +196,7 @@ impl Instrument for Rmbs {
     }
 
     fn key(&self) -> crate::pricer::InstrumentType {
-        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+        crate::pricer::InstrumentType::RMBS
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -257,9 +257,6 @@ impl Instrument for Rmbs {
     }
 }
 
-impl crate::instruments::common::traits::InstrumentKind for Rmbs {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::RMBS;
-}
 
 impl crate::instruments::common::HasDiscountCurve for Rmbs {
     fn discount_curve_id(&self) -> &CurveId {

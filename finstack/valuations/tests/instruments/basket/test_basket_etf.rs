@@ -138,7 +138,7 @@ fn test_bond_etf_creation_and_pricing() {
     let maturity = test_date(2030, 1, 1);
 
     // Create sample bonds using the proper builder pattern
-    let _aapl_bond = Bond::fixed_semiannual(
+    let _aapl_bond = Bond::fixed(
         "AAPL_4.65_2030",
         Money::new(1000.0, Currency::USD),
         0.0465,
@@ -147,7 +147,7 @@ fn test_bond_etf_creation_and_pricing() {
         "USD-OIS",
     );
 
-    let _msft_bond = Bond::fixed_semiannual(
+    let _msft_bond = Bond::fixed(
         "MSFT_3.50_2030",
         Money::new(1000.0, Currency::USD),
         0.035,
@@ -230,7 +230,7 @@ fn test_mixed_asset_basket() {
     let maturity = test_date(2030, 1, 1);
 
     // Create a bond for the mixed basket using fixed_semiannual with available curve
-    let _bond = Bond::fixed_semiannual(
+    let _bond = Bond::fixed(
         "TREASURY_2030",
         Money::new(1000.0, Currency::USD),
         0.025,

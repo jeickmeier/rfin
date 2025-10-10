@@ -7,13 +7,13 @@ pub type CmbsDiscountingPricer = GenericDiscountingPricer<Cmbs>;
 
 impl Default for CmbsDiscountingPricer {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::pricer::InstrumentType::CMBS)
     }
 }
 
 // Auto-register CMBS discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(CmbsDiscountingPricer::new()),
+        ctor: || Box::new(CmbsDiscountingPricer::default()),
     }
 }

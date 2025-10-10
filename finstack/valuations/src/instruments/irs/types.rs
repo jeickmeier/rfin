@@ -103,15 +103,29 @@ impl InterestRateSwap {
             .expect("Swap construction should not fail")
     }
 
-    /// Create a standard USD pay-fixed swap with common market conventions.
+    /// Create a standard interest rate swap (most common use case).
     ///
-    /// This convenience constructor eliminates the need for a builder in the most common case.
-    pub fn usd_pay_fixed(
+    /// Creates a USD swap with standard market conventions. For other
+    /// currencies or custom conventions, use `::with_convention()` or `::builder()`.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let swap = InterestRateSwap::new(
+    ///     "IRS-5Y".into(),
+    ///     Money::new(10_000_000.0, Currency::USD),
+    ///     0.03,
+    ///     start,
+    ///     end,
+    ///     PayReceive::PayFixed
+    /// );
+    /// ```
+    pub fn new(
         id: InstrumentId,
         notional: Money,
         fixed_rate: f64,
         start: Date,
         end: Date,
+        side: PayReceive,
     ) -> Self {
         Self::create_swap(
             id,
@@ -119,7 +133,7 @@ impl InterestRateSwap {
             fixed_rate,
             start,
             end,
-            PayReceive::PayFixed,
+            side,
             SwapConfig {
                 disc_curve: "USD-OIS",
                 fwd_curve: "USD-SOFR-3M",
@@ -129,206 +143,77 @@ impl InterestRateSwap {
         )
     }
 
-    /// Create a standard USD receive-fixed swap with common market conventions.
-    pub fn usd_receive_fixed(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: f64,
-        start: Date,
-        end: Date,
-    ) -> Self {
-        Self::create_swap(
-            id,
-            notional,
-            fixed_rate,
-            start,
-            end,
-            PayReceive::ReceiveFixed,
-            SwapConfig {
-                disc_curve: "USD-OIS",
-                fwd_curve: "USD-SOFR-3M",
-                reset_lag_days: 2,
-                sched: ScheduleParams::usd_standard(),
-            },
-        )
-    }
-
-    /// Create a standard EUR pay-fixed swap with common market conventions.
+    /// Create a swap with standard market conventions.
     ///
-    /// EUR swap market conventions:
-    /// - Fixed leg: Annual, 30/360
-    /// - Float leg: Semi-annual, Act/360 (€STR or EURIBOR-6M)
-    /// - BDC: Modified Following
-    /// - Calendar: TARGET2
-    pub fn eur_pay_fixed(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: f64,
-        start: Date,
-        end: Date,
-    ) -> Self {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-
-        Self::create_swap(
-            id,
-            notional,
-            fixed_rate,
-            start,
-            end,
-            PayReceive::PayFixed,
-            SwapConfig {
-                disc_curve: "EUR-ESTR",
-                fwd_curve: "EUR-EURIBOR-6M",
-                reset_lag_days: 2,
-                sched: ScheduleParams {
-                    freq: Frequency::semi_annual(),
-                    dc: DayCount::Act360,
-                    bdc: BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: Some("target2".to_string()),
-                    stub: StubKind::None,
-                },
-            },
-        )
-    }
-
-    /// Create a standard EUR receive-fixed swap with common market conventions.
-    pub fn eur_receive_fixed(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: f64,
-        start: Date,
-        end: Date,
-    ) -> Self {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-
-        Self::create_swap(
-            id,
-            notional,
-            fixed_rate,
-            start,
-            end,
-            PayReceive::ReceiveFixed,
-            SwapConfig {
-                disc_curve: "EUR-ESTR",
-                fwd_curve: "EUR-EURIBOR-6M",
-                reset_lag_days: 2,
-                sched: ScheduleParams {
-                    freq: Frequency::semi_annual(),
-                    dc: DayCount::Act360,
-                    bdc: BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: Some("target2".to_string()),
-                    stub: StubKind::None,
-                },
-            },
-        )
-    }
-
-    /// Create a standard GBP pay-fixed swap with common market conventions.
+    /// Applies region-specific conventions for day count, frequency, calendars,
+    /// and curve identifiers. For full customization, use `::builder()`.
     ///
-    /// GBP swap market conventions:
-    /// - Fixed leg: Semi-annual, Act/365
-    /// - Float leg: Semi-annual, Act/365 (SONIA)
-    /// - BDC: Modified Following
-    /// - Calendar: GBLO (London)
-    pub fn gbp_pay_fixed(
+    /// # Example
+    /// ```ignore
+    /// let swap = InterestRateSwap::with_convention(
+    ///     "EUR-IRS-10Y".into(),
+    ///     notional,
+    ///     0.02,
+    ///     start,
+    ///     end,
+    ///     PayReceive::PayFixed,
+    ///     IRSConvention::EURStandard
+    /// );
+    /// ```
+    pub fn with_convention(
         id: InstrumentId,
         notional: Money,
         fixed_rate: f64,
         start: Date,
         end: Date,
+        side: PayReceive,
+        convention: crate::instruments::common::parameters::IRSConvention,
     ) -> Self {
-        Self::create_swap(
-            id,
-            notional,
-            fixed_rate,
+        use finstack_core::dates::StubKind;
+        use finstack_core::types::CurveId;
+        
+        let fixed_freq = convention.fixed_frequency();
+        let float_freq = convention.float_frequency();
+        let fixed_dc = convention.fixed_day_count();
+        let float_dc = convention.float_day_count();
+        let bdc = convention.business_day_convention();
+        let calendar_id = convention.calendar_id();
+        
+        let fixed = FixedLegSpec {
+            disc_id: CurveId::from(convention.disc_curve_id()),
+            rate: fixed_rate,
+            freq: fixed_freq,
+            dc: fixed_dc,
+            bdc,
+            calendar_id: calendar_id.clone(),
+            stub: StubKind::None,
             start,
             end,
-            PayReceive::PayFixed,
-            SwapConfig {
-                disc_curve: "GBP-SONIA",
-                fwd_curve: "GBP-SONIA",
-                reset_lag_days: 0, // SONIA has same-day fixing
-                sched: ScheduleParams::gbp_standard(),
-            },
-        )
-    }
-
-    /// Create a standard GBP receive-fixed swap with common market conventions.
-    pub fn gbp_receive_fixed(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: f64,
-        start: Date,
-        end: Date,
-    ) -> Self {
-        Self::create_swap(
-            id,
-            notional,
-            fixed_rate,
+            par_method: None,
+            compounding_simple: true,
+        };
+        let float = FloatLegSpec {
+            disc_id: CurveId::from(convention.disc_curve_id()),
+            fwd_id: CurveId::from(convention.forward_curve_id()),
+            spread_bp: 0.0,
+            freq: float_freq,
+            dc: float_dc,
+            bdc,
+            calendar_id,
+            stub: StubKind::None,
+            reset_lag_days: convention.reset_lag_days(),
             start,
             end,
-            PayReceive::ReceiveFixed,
-            SwapConfig {
-                disc_curve: "GBP-SONIA",
-                fwd_curve: "GBP-SONIA",
-                reset_lag_days: 0, // SONIA has same-day fixing
-                sched: ScheduleParams::gbp_standard(),
-            },
-        )
-    }
-
-    /// Create a standard JPY pay-fixed swap with common market conventions.
-    ///
-    /// JPY swap market conventions:
-    /// - Fixed leg: Semi-annual, Act/365
-    /// - Float leg: Semi-annual, Act/365 (TONA)
-    /// - BDC: Modified Following
-    /// - Calendar: JPTO (Tokyo)
-    pub fn jpy_pay_fixed(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: f64,
-        start: Date,
-        end: Date,
-    ) -> Self {
-        Self::create_swap(
-            id,
-            notional,
-            fixed_rate,
-            start,
-            end,
-            PayReceive::PayFixed,
-            SwapConfig {
-                disc_curve: "JPY-TONA",
-                fwd_curve: "JPY-TONA",
-                reset_lag_days: 0, // TONA has same-day fixing
-                sched: ScheduleParams::jpy_standard(),
-            },
-        )
-    }
-
-    /// Create a standard JPY receive-fixed swap with common market conventions.
-    pub fn jpy_receive_fixed(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: f64,
-        start: Date,
-        end: Date,
-    ) -> Self {
-        Self::create_swap(
-            id,
-            notional,
-            fixed_rate,
-            start,
-            end,
-            PayReceive::ReceiveFixed,
-            SwapConfig {
-                disc_curve: "JPY-TONA",
-                fwd_curve: "JPY-TONA",
-                reset_lag_days: 0, // TONA has same-day fixing
-                sched: ScheduleParams::jpy_standard(),
-            },
-        )
+        };
+        
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(side)
+            .fixed(fixed)
+            .float(float)
+            .build()
+            .expect("IRS with convention construction should not fail")
     }
 
     /// Create a basis swap (float vs float with different indices/spreads).

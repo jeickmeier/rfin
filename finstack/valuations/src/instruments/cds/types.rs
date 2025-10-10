@@ -182,54 +182,13 @@ impl CreditDefaultSwap {
             .expect("CDS sell protection construction should not fail")
     }
 
-    /// Create a high-yield CDS with tighter recovery assumptions.
-    #[allow(clippy::too_many_arguments)]
-    pub fn high_yield(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        spread_bp: f64,
-        start: Date,
-        maturity: Date,
-        side: PayReceive,
-        disc_id: impl Into<finstack_core::types::CurveId>,
-        credit_id: impl Into<finstack_core::types::CurveId>,
-    ) -> Self {
-        let convention = CDSConvention::IsdaNa;
-        let dc = convention.day_count();
-        let freq = convention.frequency();
-        let bdc = convention.business_day_convention();
-        let stub = convention.stub_convention();
-
-        CreditDefaultSwapBuilder::new()
-            .id(id.into())
-            .notional(notional)
-            .side(side)
-            .convention(convention)
-            .premium(PremiumLegSpec {
-                start,
-                end: maturity,
-                freq,
-                stub,
-                bdc,
-                calendar_id: None,
-                dc,
-                spread_bp,
-                disc_id: disc_id.into(),
-            })
-            .protection(ProtectionLegSpec {
-                credit_id: credit_id.into(),
-                recovery_rate: crate::instruments::cds::parameters::RECOVERY_HIGH_YIELD_DEFAULT,
-                settlement_delay: convention.settlement_delay(),
-            })
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .build()
-            .expect("High yield CDS construction should not fail")
-    }
-
     /// Create a new CDS with standard ISDA conventions using explicit inputs.
+    ///
+    /// This is an internal helper method used by synthetic CDS creation in
+    /// cds_option and cds_index modules. For public API, use `buy_protection()`,
+    /// `sell_protection()`, or `builder()`.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_isda(
+    pub(crate) fn new_isda(
         id: impl Into<InstrumentId>,
         notional: Money,
         side: PayReceive,

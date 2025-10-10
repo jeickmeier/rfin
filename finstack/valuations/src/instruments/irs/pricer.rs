@@ -7,13 +7,13 @@ pub type SimpleIrsDiscountingPricer =
 
 impl Default for SimpleIrsDiscountingPricer {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::pricer::InstrumentType::IRS)
     }
 }
 
 // Auto-register IRS discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleIrsDiscountingPricer::new()),
+        ctor: || Box::new(SimpleIrsDiscountingPricer::default()),
     }
 }

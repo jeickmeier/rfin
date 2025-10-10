@@ -4,18 +4,13 @@
 //! in instrument implementations.
 
 /// Generate a full instrument implementation:
-/// - InstrumentKind (static key)
-/// - Instrument (including attribute accessors and pricing methods)
+/// - Instrument trait (including key, attributes, and pricing methods)
 #[macro_export]
 macro_rules! impl_instrument {
     (
         $type:ident, $itype:expr, $_type_name:literal,
         pv = |$s:ident, $curves:ident, $as_of:ident| $pv_expr:expr $(,)?
     ) => {
-        impl $crate::instruments::common::traits::InstrumentKind for $type {
-            const TYPE: $crate::pricer::InstrumentType = $itype;
-        }
-
         // Unified Instrument implementation with pricing
         impl $crate::instruments::common::traits::Instrument for $type {
             fn id(&self) -> &str {
@@ -23,7 +18,7 @@ macro_rules! impl_instrument {
             }
 
             fn key(&self) -> $crate::pricer::InstrumentType {
-                <$type as $crate::instruments::common::traits::InstrumentKind>::TYPE
+                $itype
             }
 
             fn as_any(&self) -> &dyn ::std::any::Any {

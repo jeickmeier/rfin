@@ -9,8 +9,8 @@ use finstack_core::money::Money;
 use time::Month;
 
 use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
+use finstack_valuations::instruments::common::parameters::PayReceive;
 use finstack_valuations::instruments::PricingOverrides;
-use finstack_valuations::instruments::{cds::PayReceive as CdsPayReceive, irs::PayReceive};
 use finstack_valuations::instruments::{
     Bond, CreditDefaultSwap, EquityOption, ExerciseStyle, InterestRateSwap,
 };
@@ -30,17 +30,18 @@ fn main() -> finstack_core::Result<()> {
     println!("----------------------------------------");
 
     // Interest Rate Swap - ONE LINE!
-    let swap = InterestRateSwap::usd_pay_fixed(
+    let swap = InterestRateSwap::new(
         "IRS-001".into(),
         Money::new(10_000_000.0, Currency::USD),
         0.045, // 4.5% fixed rate
         issue,
         maturity_5y,
+        PayReceive::PayFixed,
     );
     println!("✓ IRS created: {} notional", swap.notional.amount());
 
     // Standard Bond - ONE LINE!
-    let bond = Bond::fixed_semiannual(
+    let bond = Bond::fixed(
         "BOND-001",
         Money::new(1_000_000.0, Currency::USD),
         0.05, // 5% coupon
@@ -163,17 +164,21 @@ fn main() -> finstack_core::Result<()> {
         }
     );
 
-    // High-Yield Credit Default Swap
-    let hy_cds = CreditDefaultSwap::high_yield(
-        "CDS-HY-001",
-        Money::new(5_000_000.0, Currency::USD),
-        800.0, // 800bp spread
-        issue,
-        maturity_5y,
-        CdsPayReceive::PayFixed,
-        finstack_core::types::CurveId::new("USD-OIS"),
-        finstack_core::types::CurveId::new("HY-CREDIT"),
-    );
+    // High-Yield Credit Default Swap (custom recovery via builder)
+    let hy_cds = {
+        let mut cds = CreditDefaultSwap::buy_protection(
+            "CDS-HY-001",
+            Money::new(5_000_000.0, Currency::USD),
+            800.0, // 800bp spread
+            issue,
+            maturity_5y,
+            finstack_core::types::CurveId::new("USD-OIS"),
+            finstack_core::types::CurveId::new("HY-CREDIT"),
+        );
+        // Customize recovery for high-yield
+        cds.protection.recovery_rate = 0.25;
+        cds
+    };
     println!(
         "✓ High-yield CDS created: {}% recovery",
         hy_cds.protection.recovery_rate

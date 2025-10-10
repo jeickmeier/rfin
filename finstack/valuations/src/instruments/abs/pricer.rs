@@ -7,13 +7,13 @@ pub type AbsDiscountingPricer = GenericDiscountingPricer<Abs>;
 
 impl Default for AbsDiscountingPricer {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::pricer::InstrumentType::ABS)
     }
 }
 
 // Auto-register ABS discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(AbsDiscountingPricer::new()),
+        ctor: || Box::new(AbsDiscountingPricer::default()),
     }
 }

@@ -7,13 +7,13 @@ pub type SimpleRepoDiscountingPricer = GenericDiscountingPricer<Repo>;
 
 impl Default for SimpleRepoDiscountingPricer {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::pricer::InstrumentType::Repo)
     }
 }
 
 // Auto-register Repo discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleRepoDiscountingPricer::new()),
+        ctor: || Box::new(SimpleRepoDiscountingPricer::default()),
     }
 }

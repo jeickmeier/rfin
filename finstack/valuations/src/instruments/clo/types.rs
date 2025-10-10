@@ -407,7 +407,7 @@ impl Instrument for Clo {
     }
 
     fn key(&self) -> crate::pricer::InstrumentType {
-        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+        crate::pricer::InstrumentType::CLO
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -480,9 +480,6 @@ impl Instrument for Clo {
     }
 }
 
-impl crate::instruments::common::traits::InstrumentKind for Clo {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::CLO;
-}
 
 impl crate::instruments::common::HasDiscountCurve for Clo {
     fn discount_curve_id(&self) -> &CurveId {

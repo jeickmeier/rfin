@@ -7,13 +7,13 @@ pub type SimpleFraDiscountingPricer =
 
 impl Default for SimpleFraDiscountingPricer {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::pricer::InstrumentType::FRA)
     }
 }
 
 // Auto-register FRA discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleFraDiscountingPricer::new()),
+        ctor: || Box::new(SimpleFraDiscountingPricer::default()),
     }
 }

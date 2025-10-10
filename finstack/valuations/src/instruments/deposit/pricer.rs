@@ -6,13 +6,13 @@ pub type SimpleDepositDiscountingPricer = GenericDiscountingPricer<crate::instru
 
 impl Default for SimpleDepositDiscountingPricer {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::pricer::InstrumentType::Deposit)
     }
 }
 
 // Auto-register Deposit discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleDepositDiscountingPricer::new()),
+        ctor: || Box::new(SimpleDepositDiscountingPricer::default()),
     }
 }

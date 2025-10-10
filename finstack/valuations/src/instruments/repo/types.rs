@@ -361,7 +361,7 @@ impl Instrument for Repo {
         self.id.as_str()
     }
     fn key(&self) -> crate::pricer::InstrumentType {
-        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+        crate::pricer::InstrumentType::Repo
     }
     fn as_any(&self) -> &dyn Any {
         self
@@ -428,9 +428,6 @@ impl crate::instruments::common::HasDiscountCurve for Repo {
     }
 }
 
-impl crate::instruments::common::traits::InstrumentKind for Repo {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::Repo;
-}
 
 #[cfg(test)]
 mod tests {

@@ -7,13 +7,13 @@ pub type CloDiscountingPricer = GenericDiscountingPricer<Clo>;
 
 impl Default for CloDiscountingPricer {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::pricer::InstrumentType::CLO)
     }
 }
 
 // Auto-register CLO discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(CloDiscountingPricer::new()),
+        ctor: || Box::new(CloDiscountingPricer::default()),
     }
 }

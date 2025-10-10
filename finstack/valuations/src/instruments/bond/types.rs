@@ -99,8 +99,17 @@ pub struct BondFloatSpec {
 }
 
 impl Bond {
-    /// Create a standard fixed-rate bond with semi-annual coupons.
-    pub fn fixed_semiannual(
+    /// Create a standard fixed-rate bond (most common use case).
+    ///
+    /// Creates a bond with semi-annual frequency and 30/360 day count,
+    /// which covers ~80% of use cases. For other conventions, use
+    /// `::with_convention()` or `::builder()` for full customization.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let bond = Bond::fixed("BOND-001", notional, 0.05, issue, maturity, "USD-OIS");
+    /// ```
+    pub fn fixed(
         id: impl Into<InstrumentId>,
         notional: Money,
         coupon_rate: f64,
@@ -127,185 +136,68 @@ impl Bond {
             .expect("Standard bond construction should not fail")
     }
 
-    /// Create a standard Treasury bond with ActAct day count.
-    pub fn treasury(
+    /// Create a bond with standard market conventions.
+    ///
+    /// Applies region-specific conventions for day count, frequency, and
+    /// calendar adjustments. For full customization, use `::builder()`.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let treasury = Bond::with_convention(
+    ///     "UST-5Y",
+    ///     notional,
+    ///     0.03,
+    ///     issue,
+    ///     maturity,
+    ///     BondConvention::USTreasury,
+    ///     "USD-TREASURY"
+    /// );
+    /// ```
+    pub fn with_convention(
         id: impl Into<InstrumentId>,
         notional: Money,
         coupon_rate: f64,
         issue: Date,
         maturity: Date,
-    ) -> Self {
-        Self::builder()
-            .id(id.into())
-            .notional(notional)
-            .coupon(coupon_rate)
-            .issue(issue)
-            .maturity(maturity)
-            .freq(finstack_core::dates::Frequency::semi_annual())
-            .dc(DayCount::ActActIsma)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
-            .disc_id(CurveId::new("USD-TREASURY"))
-            .hazard_id_opt(None)
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .build()
-            .expect("Treasury bond construction should not fail")
-    }
-
-    /// Create a zero-coupon bond.
-    pub fn zero_coupon(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        issue: Date,
-        maturity: Date,
+        convention: crate::instruments::common::parameters::BondConvention,
         disc_id: impl Into<CurveId>,
     ) -> Self {
-        Self::fixed_semiannual(id, notional, 0.0, issue, maturity, disc_id)
-    }
-
-    /// Create a German government bond (Bundesanleihe/Bund).
-    ///
-    /// German government bond market conventions:
-    /// - Frequency: Annual
-    /// - Day count: Act/Act (ISMA)
-    /// - BDC: Following
-    /// - Calendar: Frankfurt (DEFR)
-    pub fn german_bund(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        coupon_rate: f64,
-        issue: Date,
-        maturity: Date,
-    ) -> Self {
         Self::builder()
             .id(id.into())
             .notional(notional)
             .coupon(coupon_rate)
             .issue(issue)
             .maturity(maturity)
-            .freq(finstack_core::dates::Frequency::annual())
-            .dc(DayCount::ActActIsma)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("defr".to_string()))
-            .stub(StubKind::None)
-            .disc_id(CurveId::new("EUR-BUND"))
-            .hazard_id_opt(None)
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .build()
-            .expect("German bund construction should not fail")
-    }
-
-    /// Create a UK government bond (Gilt).
-    ///
-    /// UK gilt market conventions:
-    /// - Frequency: Semi-annual
-    /// - Day count: Act/Act (ISMA)
-    /// - BDC: Following
-    /// - Calendar: London (GBLO)
-    pub fn uk_gilt(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        coupon_rate: f64,
-        issue: Date,
-        maturity: Date,
-    ) -> Self {
-        Self::builder()
-            .id(id.into())
-            .notional(notional)
-            .coupon(coupon_rate)
-            .issue(issue)
-            .maturity(maturity)
-            .freq(finstack_core::dates::Frequency::semi_annual())
-            .dc(DayCount::ActActIsma)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("gblo".to_string()))
-            .stub(StubKind::None)
-            .disc_id(CurveId::new("GBP-GILT"))
-            .hazard_id_opt(None)
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .build()
-            .expect("UK gilt construction should not fail")
-    }
-
-    /// Create a French government bond (OAT - Obligation Assimilable du Trésor).
-    ///
-    /// French OAT market conventions:
-    /// - Frequency: Annual
-    /// - Day count: Act/Act (ISMA)
-    /// - BDC: Following
-    /// - Calendar: TARGET2 (Eurozone)
-    pub fn french_oat(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        coupon_rate: f64,
-        issue: Date,
-        maturity: Date,
-    ) -> Self {
-        Self::builder()
-            .id(id.into())
-            .notional(notional)
-            .coupon(coupon_rate)
-            .issue(issue)
-            .maturity(maturity)
-            .freq(finstack_core::dates::Frequency::annual())
-            .dc(DayCount::ActActIsma)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(Some("target2".to_string()))
-            .stub(StubKind::None)
-            .disc_id(CurveId::new("EUR-OAT"))
-            .hazard_id_opt(None)
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .build()
-            .expect("French OAT construction should not fail")
-    }
-
-    /// Create a simple floating-rate note (FRN) with typical conventions.
-    ///
-    /// Defaults:
-    /// - Frequency: quarterly; DayCount: Act/360; Reset lag: 2 days; Gearing: 1.0
-    pub fn floating(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        issue: Date,
-        maturity: Date,
-        disc_id: impl Into<CurveId>,
-        fwd_id: impl Into<CurveId>,
-        margin_bp: f64,
-    ) -> Self {
-        Self::builder()
-            .id(id.into())
-            .notional(notional)
-            .coupon(0.0)
-            .issue(issue)
-            .maturity(maturity)
-            .freq(finstack_core::dates::Frequency::quarterly())
-            .dc(DayCount::Act360)
-            .bdc(BusinessDayConvention::Following)
+            .freq(convention.frequency())
+            .dc(convention.day_count())
+            .bdc(convention.business_day_convention())
             .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .stub(convention.stub_convention())
             .disc_id(disc_id.into())
             .hazard_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
-            .float_opt(Some(BondFloatSpec {
-                fwd_id: fwd_id.into(),
-                margin_bp,
-                gearing: 1.0,
-                reset_lag_days: 2,
-            }))
             .attributes(Attributes::new())
             .build()
-            .expect("Floating bond construction should not fail")
+            .expect("Bond with convention construction should not fail")
     }
 
     /// Create a bond from a pre-built cashflow schedule.
     ///
     /// This extracts key bond parameters from the cashflow schedule and creates
     /// a bond that will use these custom cashflows for all calculations.
+    /// Use this for complex structures like PIK bonds, fixed-to-floating, or
+    /// custom amortization schedules.
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Build custom PIK schedule
+    /// let schedule = CashFlowSchedule::builder()
+    ///     .principal(notional, issue, maturity)
+    ///     .fixed_cf(FixedCouponSpec { coupon_type: CouponType::Split { cash_pct: 0.5, pik_pct: 0.5 }, ... })
+    ///     .build()?;
+    /// 
+    /// let bond = Bond::from_cashflows("PIK-001", schedule, "USD-HY", Some(95.0))?;
+    /// ```
     pub fn from_cashflows(
         id: impl Into<InstrumentId>,
         schedule: CashFlowSchedule,
@@ -360,126 +252,6 @@ impl Bond {
     pub fn with_cashflows(mut self, schedule: CashFlowSchedule) -> Self {
         self.custom_cashflows = Some(schedule);
         self
-    }
-
-    /// Create a PIK-toggle bond with split cash/PIK coupons.
-    ///
-    /// # Arguments
-    /// * `id` - Instrument identifier
-    /// * `notional` - Principal amount
-    /// * `coupon_rate` - Annual coupon rate (e.g., 0.08 for 8%)
-    /// * `cash_pct` - Percentage paid in cash (e.g., 0.5 for 50%)
-    /// * `pik_pct` - Percentage capitalized as PIK (e.g., 0.5 for 50%)
-    /// * `issue` - Issue date
-    /// * `maturity` - Maturity date
-    /// * `disc_id` - Discount curve identifier
-    /// * `quoted_clean` - Optional quoted clean price
-    #[allow(clippy::too_many_arguments)]
-    pub fn pik_toggle(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        coupon_rate: f64,
-        cash_pct: f64,
-        pik_pct: f64,
-        issue: Date,
-        maturity: Date,
-        disc_id: impl Into<CurveId>,
-        quoted_clean: Option<f64>,
-        curves: &finstack_core::market_data::MarketContext,
-    ) -> Result<Self> {
-        use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec};
-
-        // Build cashflow schedule with PIK split
-        let custom_schedule = cf()
-            .principal(notional, issue, maturity)
-            .fixed_cf(FixedCouponSpec {
-                coupon_type: CouponType::Split { cash_pct, pik_pct },
-                rate: coupon_rate,
-                freq: finstack_core::dates::Frequency::semi_annual(),
-                dc: DayCount::Thirty360,
-                bdc: BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: StubKind::None,
-            })
-            .build_with_curves(Some(curves))?;
-
-        Self::from_cashflows(id, custom_schedule, disc_id, quoted_clean)
-    }
-
-    /// Create a fixed-to-floating bond that starts with fixed coupons then switches to floating.
-    ///
-    /// # Arguments
-    /// * `id` - Instrument identifier
-    /// * `notional` - Principal amount
-    /// * `fixed_rate` - Fixed coupon rate for initial period
-    /// * `switch_date` - Date when bond switches from fixed to floating
-    /// * `fwd_id` - Forward curve identifier for floating period
-    /// * `margin_bp` - Margin in basis points over the forward rate
-    /// * `issue` - Issue date
-    /// * `maturity` - Maturity date
-    /// * `freq` - Payment frequency
-    /// * `dc` - Day count convention
-    /// * `disc_id` - Discount curve identifier
-    /// * `quoted_clean` - Optional quoted clean price
-    #[allow(clippy::too_many_arguments)]
-    pub fn fixed_to_floating(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        fixed_rate: f64,
-        switch_date: Date,
-        fwd_id: impl Into<CurveId>,
-        margin_bp: f64,
-        issue: Date,
-        maturity: Date,
-        freq: finstack_core::dates::Frequency,
-        dc: DayCount,
-        disc_id: impl Into<CurveId>,
-        quoted_clean: Option<f64>,
-        curves: &finstack_core::market_data::MarketContext,
-    ) -> Result<Self> {
-        use crate::cashflow::builder::{cf, CouponType};
-
-        // Build cashflow schedule with fixed then floating windows
-        let mut b = cf();
-        b.principal(notional, issue, maturity);
-
-        // Fixed window: issue to switch date
-        b.add_fixed_coupon_window(
-            issue,
-            switch_date,
-            fixed_rate,
-            crate::cashflow::builder::ScheduleParams {
-                freq,
-                dc,
-                bdc: BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: StubKind::None,
-            },
-            CouponType::Cash,
-        );
-
-        // Floating window: switch date to maturity
-        b.add_float_coupon_window(
-            switch_date,
-            maturity,
-            crate::cashflow::builder::FloatCouponParams {
-                index_id: fwd_id.into(),
-                margin_bp,
-                gearing: 1.0,
-                reset_lag_days: 2,
-            },
-            crate::cashflow::builder::ScheduleParams {
-                freq,
-                dc,
-                bdc: BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: StubKind::None,
-            },
-            CouponType::Cash,
-        );
-
-        let custom_schedule = b.build_with_curves(Some(curves))?;
-        Self::from_cashflows(id, custom_schedule, disc_id, quoted_clean)
     }
 
     /// Get the full cashflow schedule with kinds for this bond.
@@ -553,7 +325,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
     }
 
     fn key(&self) -> crate::pricer::InstrumentType {
-        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+        crate::pricer::InstrumentType::Bond
     }
 
     fn as_any(&self) -> &dyn ::std::any::Any {
@@ -604,10 +376,6 @@ impl crate::instruments::common::HasDiscountCurve for Bond {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }
-}
-
-impl crate::instruments::common::traits::InstrumentKind for Bond {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::Bond;
 }
 
 #[cfg(test)]
@@ -889,15 +657,29 @@ mod tests {
             .insert_discount(disc)
             .insert_forward(fwd);
 
-        let bond = Bond::floating(
-            "FRN-TEST",
-            notional,
-            issue,
-            maturity,
-            CurveId::new("USD-OIS"),
-            CurveId::new("USD-SOFR-3M"),
-            150.0,
-        );
+        let bond = Bond::builder()
+            .id("FRN-TEST".into())
+            .notional(notional)
+            .coupon(0.0)
+            .issue(issue)
+            .maturity(maturity)
+            .freq(Frequency::quarterly())
+            .dc(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .disc_id(CurveId::new("USD-OIS"))
+            .hazard_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .float_opt(Some(BondFloatSpec {
+                fwd_id: CurveId::new("USD-SOFR-3M"),
+                margin_bp: 150.0,
+                gearing: 1.0,
+                reset_lag_days: 2,
+            }))
+            .attributes(Attributes::new())
+            .build()
+            .unwrap();
 
         // Price should be finite and positive under positive forwards
         let pv = bond.value(&ctx, issue).unwrap();

@@ -183,7 +183,7 @@ impl Instrument for CdsTranche {
     }
 
     fn key(&self) -> crate::pricer::InstrumentType {
-        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+        crate::pricer::InstrumentType::CDSTranche
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -223,6 +223,3 @@ impl crate::instruments::common::HasDiscountCurve for CdsTranche {
     }
 }
 
-impl crate::instruments::common::traits::InstrumentKind for CdsTranche {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::CDSTranche;
-}

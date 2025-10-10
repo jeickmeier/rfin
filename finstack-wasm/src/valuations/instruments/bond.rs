@@ -218,7 +218,7 @@ impl JsBond {
         discount_curve: &str,
         quoted_clean_price: Option<f64>,
     ) -> JsBond {
-        let mut bond = Bond::fixed_semiannual(
+        let mut bond = Bond::fixed(
             instrument_id_from_str(instrument_id),
             notional.inner(),
             coupon_rate,
@@ -241,12 +241,15 @@ impl JsBond {
         maturity: &JsDate,
         quoted_clean_price: Option<f64>,
     ) -> JsBond {
-        let mut bond = Bond::treasury(
+        use finstack_valuations::instruments::common::parameters::BondConvention;
+        let mut bond = Bond::with_convention(
             instrument_id_from_str(instrument_id),
             notional.inner(),
             coupon_rate,
             issue.inner(),
             maturity.inner(),
+            BondConvention::USTreasury,
+            "USD-TREASURY",
         );
         if let Some(price) = quoted_clean_price {
             bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
@@ -263,9 +266,10 @@ impl JsBond {
         discount_curve: &str,
         quoted_clean_price: Option<f64>,
     ) -> JsBond {
-        let mut bond = Bond::zero_coupon(
+        let mut bond = Bond::fixed(
             instrument_id_from_str(instrument_id),
             notional.inner(),
+            0.0, // Zero coupon
             issue.inner(),
             maturity.inner(),
             curve_id_from_str(discount_curve),
@@ -288,15 +292,30 @@ impl JsBond {
         margin_bp: f64,
         quoted_clean_price: Option<f64>,
     ) -> JsBond {
-        let mut bond = Bond::floating(
-            instrument_id_from_str(instrument_id),
-            notional.inner(),
-            issue.inner(),
-            maturity.inner(),
-            curve_id_from_str(discount_curve),
-            curve_id_from_str(forward_curve),
-            margin_bp,
-        );
+        use finstack_core::dates::{Frequency, DayCount, BusinessDayConvention, StubKind};
+        use finstack_valuations::instruments::bond::BondFloatSpec;
+        use finstack_valuations::instruments::common::traits::Attributes;
+        
+        let mut bond = Bond::builder()
+            .id(instrument_id_from_str(instrument_id))
+            .notional(notional.inner())
+            .coupon(0.0)
+            .issue(issue.inner())
+            .maturity(maturity.inner())
+            .freq(Frequency::quarterly())
+            .dc(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .stub(StubKind::None)
+            .disc_id(curve_id_from_str(discount_curve))
+            .float_opt(Some(BondFloatSpec {
+                fwd_id: curve_id_from_str(forward_curve),
+                margin_bp,
+                gearing: 1.0,
+                reset_lag_days: 2,
+            }))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Floating bond construction should not fail");
         if let Some(price) = quoted_clean_price {
             bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
         }
@@ -317,17 +336,29 @@ impl JsBond {
         quoted_clean_price: Option<f64>,
         market: &crate::core::market_data::context::JsMarketContext,
     ) -> Result<JsBond, JsValue> {
-        Bond::pik_toggle(
+        use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec};
+        use finstack_core::dates::{Frequency, DayCount, BusinessDayConvention, StubKind};
+
+        // Build cashflow schedule with PIK split
+        let custom_schedule = cf()
+            .principal(notional.inner(), issue.inner(), maturity.inner())
+            .fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Split { cash_pct, pik_pct },
+                rate: coupon_rate,
+                freq: Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            })
+            .build_with_curves(Some(market.inner()))
+            .map_err(|e| js_error(e.to_string()))?;
+
+        Bond::from_cashflows(
             instrument_id_from_str(instrument_id),
-            notional.inner(),
-            coupon_rate,
-            cash_pct,
-            pik_pct,
-            issue.inner(),
-            maturity.inner(),
+            custom_schedule,
             curve_id_from_str(discount_curve),
             quoted_clean_price,
-            market.inner(),
         )
         .map(JsBond::from_inner)
         .map_err(|e| js_error(e.to_string()))
@@ -350,20 +381,56 @@ impl JsBond {
         quoted_clean_price: Option<f64>,
         market: &crate::core::market_data::context::JsMarketContext,
     ) -> Result<JsBond, JsValue> {
-        Bond::fixed_to_floating(
-            instrument_id_from_str(instrument_id),
-            notional.inner(),
-            fixed_rate,
-            switch_date.inner(),
-            curve_id_from_str(forward_curve),
-            margin_bp,
+        use finstack_valuations::cashflow::builder::{cf, CouponType, FloatCouponParams, ScheduleParams};
+        use finstack_core::dates::{BusinessDayConvention, StubKind};
+
+        // Build cashflow schedule with fixed then floating windows
+        let mut b = cf();
+        b.principal(notional.inner(), issue.inner(), maturity.inner());
+
+        // Fixed window: issue to switch date
+        b.add_fixed_coupon_window(
             issue.inner(),
+            switch_date.inner(),
+            fixed_rate,
+            ScheduleParams {
+                freq: frequency.inner(),
+                dc: day_count.inner(),
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            },
+            CouponType::Cash,
+        );
+
+        // Floating window: switch date to maturity
+        b.add_float_coupon_window(
+            switch_date.inner(),
             maturity.inner(),
-            frequency.inner(),
-            day_count.inner(),
+            FloatCouponParams {
+                index_id: curve_id_from_str(forward_curve),
+                margin_bp,
+                gearing: 1.0,
+                reset_lag_days: 2,
+            },
+            ScheduleParams {
+                freq: frequency.inner(),
+                dc: day_count.inner(),
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            },
+            CouponType::Cash,
+        );
+
+        let custom_schedule = b.build_with_curves(Some(market.inner()))
+            .map_err(|e| js_error(e.to_string()))?;
+        
+        Bond::from_cashflows(
+            instrument_id_from_str(instrument_id),
+            custom_schedule,
             curve_id_from_str(discount_curve),
             quoted_clean_price,
-            market.inner(),
         )
         .map(JsBond::from_inner)
         .map_err(|e| js_error(e.to_string()))

@@ -488,7 +488,7 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
     }
 
     fn key(&self) -> crate::pricer::InstrumentType {
-        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+        crate::pricer::InstrumentType::InflationLinkedBond
     }
 
     fn as_any(&self) -> &dyn ::std::any::Any {
@@ -539,10 +539,6 @@ impl crate::instruments::common::HasDiscountCurve for InflationLinkedBond {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }
-}
-
-impl crate::instruments::common::traits::InstrumentKind for InflationLinkedBond {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::InflationLinkedBond;
 }
 
 impl CashflowProvider for InflationLinkedBond {

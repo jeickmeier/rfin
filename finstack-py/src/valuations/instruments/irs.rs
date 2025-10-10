@@ -120,8 +120,9 @@ impl PyInterestRateSwap {
         let amt = extract_money(&notional)?;
         let start_date = py_to_date(&start)?;
         let end_date = py_to_date(&end)?;
-        Ok(Self::new(InterestRateSwap::usd_pay_fixed(
-            id, amt, fixed_rate, start_date, end_date,
+        use finstack_valuations::instruments::common::parameters::PayReceive;
+        Ok(Self::new(InterestRateSwap::new(
+            id, amt, fixed_rate, start_date, end_date, PayReceive::PayFixed,
         )))
     }
 
@@ -140,8 +141,9 @@ impl PyInterestRateSwap {
         let amt = extract_money(&notional)?;
         let start_date = py_to_date(&start)?;
         let end_date = py_to_date(&end)?;
-        Ok(Self::new(InterestRateSwap::usd_receive_fixed(
-            id, amt, fixed_rate, start_date, end_date,
+        use finstack_valuations::instruments::common::parameters::PayReceive;
+        Ok(Self::new(InterestRateSwap::new(
+            id, amt, fixed_rate, start_date, end_date, PayReceive::ReceiveFixed,
         )))
     }
 

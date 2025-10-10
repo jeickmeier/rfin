@@ -70,7 +70,7 @@ impl PyBond {
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
         let disc = extract_curve_id(&discount_curve)?;
-        Ok(Self::new(Bond::fixed_semiannual(
+        Ok(Self::new(Bond::fixed(
             id,
             amt,
             coupon_rate,
@@ -112,12 +112,15 @@ impl PyBond {
         let amt = extract_money(&notional)?;
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
-        Ok(Self::new(Bond::treasury(
+        use finstack_valuations::instruments::common::parameters::BondConvention;
+        Ok(Self::new(Bond::with_convention(
             id,
             amt,
             coupon_rate,
             issue_date,
             maturity_date,
+            BondConvention::USTreasury,
+            "USD-TREASURY",
         )))
     }
 
@@ -150,9 +153,10 @@ impl PyBond {
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
         let disc = extract_curve_id(&discount_curve)?;
-        Ok(Self::new(Bond::zero_coupon(
+        Ok(Self::new(Bond::fixed(
             id,
             amt,
+            0.0, // Zero coupon
             issue_date,
             maturity_date,
             disc,
@@ -367,15 +371,31 @@ impl PyBond {
         let maturity_date = py_to_date(&maturity)?;
         let disc = extract_curve_id(&discount_curve)?;
         let fwd = extract_curve_id(&forward_curve)?;
-        Ok(Self::new(Bond::floating(
-            id,
-            amt,
-            issue_date,
-            maturity_date,
-            disc,
-            fwd,
-            margin_bp,
-        )))
+        
+        use finstack_core::dates::{Frequency, DayCount, BusinessDayConvention, StubKind};
+        use finstack_valuations::instruments::bond::BondFloatSpec;
+        use finstack_valuations::instruments::common::traits::Attributes;
+        
+        Ok(Self::new(Bond::builder()
+            .id(id)
+            .notional(amt)
+            .coupon(0.0)
+            .issue(issue_date)
+            .maturity(maturity_date)
+            .freq(Frequency::quarterly())
+            .dc(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .stub(StubKind::None)
+            .disc_id(disc)
+            .float_opt(Some(BondFloatSpec {
+                fwd_id: fwd,
+                margin_bp,
+                gearing: 1.0,
+                reset_lag_days: 2,
+            }))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Floating bond construction should not fail")))
     }
 
     /// Instrument identifier.

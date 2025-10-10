@@ -71,7 +71,7 @@ impl Instrument for PrivateMarketsFund {
         self.id.as_str()
     }
     fn key(&self) -> crate::pricer::InstrumentType {
-        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+        crate::pricer::InstrumentType::PrivateMarketsFund
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -126,6 +126,3 @@ impl CashflowProvider for PrivateMarketsFund {
     }
 }
 
-impl crate::instruments::common::traits::InstrumentKind for PrivateMarketsFund {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::PrivateMarketsFund;
-}

@@ -151,15 +151,29 @@ fn bond_floating_constructor_and_pricing() {
         .insert_discount(disc)
         .insert_forward(fwd);
 
-    let bond = bond::Bond::floating(
-        "FRN-UNIT",
-        notional,
-        issue,
-        maturity,
-        finstack_core::types::CurveId::new("USD-OIS"),
-        finstack_core::types::CurveId::new("USD-SOFR-3M"),
-        100.0,
-    );
+    let bond = bond::Bond::builder()
+        .id("FRN-UNIT".into())
+        .notional(notional)
+        .coupon(0.0)
+        .issue(issue)
+        .maturity(maturity)
+        .freq(Frequency::quarterly())
+        .dc(DayCount::Act360)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
+        .hazard_id_opt(None)
+        .pricing_overrides(PricingOverrides::default())
+        .float_opt(Some(BondFloatSpec {
+            fwd_id: finstack_core::types::CurveId::new("USD-SOFR-3M"),
+            margin_bp: 100.0,
+            gearing: 1.0,
+            reset_lag_days: 2,
+        }))
+        .attributes(Attributes::new())
+        .build()
+        .unwrap();
 
     let pv = bond.value(&curves, issue).unwrap();
     assert!(pv.amount().is_finite());

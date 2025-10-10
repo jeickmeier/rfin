@@ -17,14 +17,14 @@ pub type SimpleBondDiscountingPricer = GenericDiscountingPricer<Bond>;
 
 impl Default for SimpleBondDiscountingPricer {
     fn default() -> Self {
-        Self::new()
+        Self::new(crate::pricer::InstrumentType::Bond)
     }
 }
 
 // Auto-register Bond discounting pricer
 inventory::submit! {
     crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleBondDiscountingPricer::new()),
+        ctor: || Box::new(SimpleBondDiscountingPricer::default()),
     }
 }
 
