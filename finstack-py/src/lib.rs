@@ -5,6 +5,7 @@ use pyo3::types::{PyList, PyModule, PyModuleMethods};
 use pyo3::Bound;
 
 mod core;
+mod statements;
 mod valuations;
 
 use core::currency::PyCurrency;
@@ -88,6 +89,9 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     // Valuations bindings (module registers itself under `valuations`)
     valuations::register(py, &m)?;
 
+    // Statements bindings (module registers itself under `statements`)
+    statements::register(py, &m)?;
+
     // Re-export selected helpers at package root for convenience
     let dates_binding = core_mod.getattr("dates")?;
     let dates_mod = dates_binding.downcast::<PyModule>()?;
@@ -133,6 +137,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "math",
             "expr",
             "valuations",
+            "statements",
             "Currency",
             "Money",
             "DiscountCurve",

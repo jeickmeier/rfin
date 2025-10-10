@@ -1,0 +1,433 @@
+//! Financial model specification bindings.
+
+use super::node::PyNodeSpec;
+use crate::core::dates::periods::PyPeriod;
+use crate::statements::utils::json_to_py;
+use finstack_statements::types::{
+    CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec,
+};
+use indexmap::IndexMap;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::{PyAnyMethods, PyDict, PyModule, PyType};
+use pyo3::Bound;
+
+/// Capital structure specification.
+///
+/// Defines debt and equity instruments in a model.
+#[pyclass(module = "finstack.statements.types", name = "CapitalStructureSpec")]
+#[derive(Clone, Debug)]
+pub struct PyCapitalStructureSpec {
+    pub(crate) inner: CapitalStructureSpec,
+}
+
+impl PyCapitalStructureSpec {
+    pub(crate) fn new(inner: CapitalStructureSpec) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyCapitalStructureSpec {
+    #[new]
+    #[pyo3(text_signature = "(debt_instruments=None, equity_instruments=None)")]
+    /// Create a capital structure specification.
+    ///
+    /// Parameters
+    /// ----------
+    /// debt_instruments : list[DebtInstrumentSpec], optional
+    ///     Debt instruments
+    /// equity_instruments : list, optional
+    ///     Equity instruments (future expansion)
+    ///
+    /// Returns
+    /// -------
+    /// CapitalStructureSpec
+    ///     Capital structure spec
+    fn new_py(
+        debt_instruments: Option<Vec<PyDebtInstrumentSpec>>,
+        equity_instruments: Option<Vec<PyObject>>,
+    ) -> Self {
+        let debt_instruments = debt_instruments
+            .map(|v| v.into_iter().map(|d| d.inner).collect())
+            .unwrap_or_default();
+
+        let equity_instruments: Vec<serde_json::Value> = equity_instruments
+            .unwrap_or_default()
+            .into_iter()
+            .filter_map(|_| None) // Placeholder for future
+            .collect();
+
+        Self::new(CapitalStructureSpec {
+            debt_instruments,
+            equity_instruments,
+            meta: IndexMap::new(),
+        })
+    }
+
+    #[getter]
+    /// Get debt instruments.
+    ///
+    /// Returns
+    /// -------
+    /// list[DebtInstrumentSpec]
+    ///     Debt instruments
+    fn debt_instruments(&self) -> Vec<PyDebtInstrumentSpec> {
+        self.inner
+            .debt_instruments
+            .iter()
+            .map(|d| PyDebtInstrumentSpec::new(d.clone()))
+            .collect()
+    }
+
+    /// Convert to JSON string.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     JSON representation
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("Serialization error: {}", e)))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, json_str)")]
+    /// Create from JSON string.
+    ///
+    /// Parameters
+    /// ----------
+    /// json_str : str
+    ///     JSON string
+    ///
+    /// Returns
+    /// -------
+    /// CapitalStructureSpec
+    ///     Deserialized spec
+    fn from_json(_cls: &Bound<'_, PyType>, json_str: &str) -> PyResult<Self> {
+        serde_json::from_str(json_str)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(format!("Deserialization error: {}", e)))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CapitalStructureSpec(debt_instruments={})",
+            self.inner.debt_instruments.len()
+        )
+    }
+}
+
+/// Debt instrument specification.
+///
+/// Represents a debt instrument in a capital structure.
+#[pyclass(module = "finstack.statements.types", name = "DebtInstrumentSpec")]
+#[derive(Clone, Debug)]
+pub struct PyDebtInstrumentSpec {
+    pub(crate) inner: DebtInstrumentSpec,
+}
+
+impl PyDebtInstrumentSpec {
+    pub(crate) fn new(inner: DebtInstrumentSpec) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyDebtInstrumentSpec {
+    #[staticmethod]
+    #[pyo3(text_signature = "(id, spec)")]
+    /// Create a bond instrument.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Instrument identifier
+    /// spec : dict
+    ///     Instrument specification
+    ///
+    /// Returns
+    /// -------
+    /// DebtInstrumentSpec
+    ///     Bond instrument spec
+    fn bond(id: String, spec: &Bound<'_, PyDict>) -> PyResult<Self> {
+        let spec_value = dict_to_json(spec)?;
+        Ok(Self::new(DebtInstrumentSpec::Bond { id, spec: spec_value }))
+    }
+
+    #[staticmethod]
+    #[pyo3(text_signature = "(id, spec)")]
+    /// Create a swap instrument.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Instrument identifier
+    /// spec : dict
+    ///     Instrument specification
+    ///
+    /// Returns
+    /// -------
+    /// DebtInstrumentSpec
+    ///     Swap instrument spec
+    fn swap(id: String, spec: &Bound<'_, PyDict>) -> PyResult<Self> {
+        let spec_value = dict_to_json(spec)?;
+        Ok(Self::new(DebtInstrumentSpec::Swap { id, spec: spec_value }))
+    }
+
+    #[staticmethod]
+    #[pyo3(text_signature = "(id, spec)")]
+    /// Create a generic debt instrument.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Instrument identifier
+    /// spec : dict
+    ///     Instrument specification
+    ///
+    /// Returns
+    /// -------
+    /// DebtInstrumentSpec
+    ///     Generic instrument spec
+    fn generic(id: String, spec: &Bound<'_, PyDict>) -> PyResult<Self> {
+        let spec_value = dict_to_json(spec)?;
+        Ok(Self::new(DebtInstrumentSpec::Generic { id, spec: spec_value }))
+    }
+
+    /// Convert to JSON string.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     JSON representation
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("Serialization error: {}", e)))
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            DebtInstrumentSpec::Bond { id, .. } => format!("DebtInstrumentSpec.bond('{}')", id),
+            DebtInstrumentSpec::Swap { id, .. } => format!("DebtInstrumentSpec.swap('{}')", id),
+            DebtInstrumentSpec::Generic { id, .. } => format!("DebtInstrumentSpec.generic('{}')", id),
+        }
+    }
+}
+
+/// Financial model specification.
+///
+/// Top-level specification for a complete financial statement model.
+#[pyclass(module = "finstack.statements.types", name = "FinancialModelSpec")]
+#[derive(Clone, Debug)]
+pub struct PyFinancialModelSpec {
+    pub(crate) inner: FinancialModelSpec,
+}
+
+impl PyFinancialModelSpec {
+    pub(crate) fn new(inner: FinancialModelSpec) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyFinancialModelSpec {
+    #[new]
+    #[pyo3(text_signature = "(id, periods)")]
+    /// Create a new financial model specification.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Unique model identifier
+    /// periods : list[Period]
+    ///     Ordered list of periods
+    ///
+    /// Returns
+    /// -------
+    /// FinancialModelSpec
+    ///     Model specification
+    fn new_py(id: String, periods: Vec<PyPeriod>) -> Self {
+        let periods = periods.into_iter().map(|p| p.inner).collect();
+        Self::new(FinancialModelSpec::new(id, periods))
+    }
+
+    #[pyo3(text_signature = "(self, node)")]
+    /// Add a node to the model.
+    ///
+    /// Parameters
+    /// ----------
+    /// node : NodeSpec
+    ///     Node specification to add
+    fn add_node(&mut self, node: &PyNodeSpec) {
+        self.inner.add_node(node.inner.clone());
+    }
+
+    #[pyo3(text_signature = "(self, node_id)")]
+    /// Get a node by ID.
+    ///
+    /// Parameters
+    /// ----------
+    /// node_id : str
+    ///     Node identifier
+    ///
+    /// Returns
+    /// -------
+    /// NodeSpec | None
+    ///     Node spec if found
+    fn get_node(&self, node_id: &str) -> Option<PyNodeSpec> {
+        self.inner.get_node(node_id).map(|n| PyNodeSpec::new(n.clone()))
+    }
+
+    #[pyo3(text_signature = "(self, node_id)")]
+    /// Check if a node exists.
+    ///
+    /// Parameters
+    /// ----------
+    /// node_id : str
+    ///     Node identifier
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     True if node exists
+    fn has_node(&self, node_id: &str) -> bool {
+        self.inner.has_node(node_id)
+    }
+
+    #[getter]
+    /// Get model ID.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     Model ID
+    fn id(&self) -> String {
+        self.inner.id.clone()
+    }
+
+    #[getter]
+    /// Get periods.
+    ///
+    /// Returns
+    /// -------
+    /// list[Period]
+    ///     Ordered periods
+    fn periods(&self) -> Vec<PyPeriod> {
+        self.inner.periods.iter().map(|p| PyPeriod::new(p.clone())).collect()
+    }
+
+    #[getter]
+    /// Get all nodes.
+    ///
+    /// Returns
+    /// -------
+    /// dict[str, NodeSpec]
+    ///     Map of node_id to NodeSpec
+    fn nodes(&self, py: Python<'_>) -> PyObject {
+        let dict = PyDict::new(py);
+        for (node_id, node_spec) in &self.inner.nodes {
+            dict.set_item(node_id, PyNodeSpec::new(node_spec.clone()))
+                .ok();
+        }
+        dict.into()
+    }
+
+    #[getter]
+    /// Get capital structure.
+    ///
+    /// Returns
+    /// -------
+    /// CapitalStructureSpec | None
+    ///     Capital structure if set
+    fn capital_structure(&self) -> Option<PyCapitalStructureSpec> {
+        self.inner
+            .capital_structure
+            .as_ref()
+            .map(|cs| PyCapitalStructureSpec::new(cs.clone()))
+    }
+
+    #[getter]
+    /// Get metadata.
+    ///
+    /// Returns
+    /// -------
+    /// dict
+    ///     Metadata dictionary
+    fn meta(&self, py: Python<'_>) -> PyObject {
+        let dict = PyDict::new(py);
+        for (key, value) in &self.inner.meta {
+            dict.set_item(key, json_to_py(py, value)).ok();
+        }
+        dict.into()
+    }
+
+    #[getter]
+    /// Get schema version.
+    ///
+    /// Returns
+    /// -------
+    /// int
+    ///     Schema version
+    fn schema_version(&self) -> u32 {
+        self.inner.schema_version
+    }
+
+    /// Convert to JSON string.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     JSON representation
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("Serialization error: {}", e)))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, json_str)")]
+    /// Create from JSON string.
+    ///
+    /// Parameters
+    /// ----------
+    /// json_str : str
+    ///     JSON string
+    ///
+    /// Returns
+    /// -------
+    /// FinancialModelSpec
+    ///     Deserialized model spec
+    fn from_json(_cls: &Bound<'_, PyType>, json_str: &str) -> PyResult<Self> {
+        serde_json::from_str(json_str)
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(format!("Deserialization error: {}", e)))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "FinancialModelSpec(id='{}', periods={}, nodes={})",
+            self.inner.id,
+            self.inner.periods.len(),
+            self.inner.nodes.len()
+        )
+    }
+}
+
+/// Helper to convert PyDict to serde_json::Value
+fn dict_to_json(dict: &Bound<'_, PyDict>) -> PyResult<serde_json::Value> {
+    let mut map = serde_json::Map::new();
+    for (key, value) in dict.iter() {
+        let key_str: String = key.extract()?;
+        let json_value = crate::statements::utils::py_to_json(&value)?;
+        map.insert(key_str, json_value);
+    }
+    Ok(serde_json::Value::Object(map))
+}
+
+pub(crate) fn register<'py>(_py: Python<'py>, module: &Bound<'py, PyModule>) -> PyResult<()> {
+    module.add_class::<PyCapitalStructureSpec>()?;
+    module.add_class::<PyDebtInstrumentSpec>()?;
+    module.add_class::<PyFinancialModelSpec>()?;
+    Ok(())
+}
+

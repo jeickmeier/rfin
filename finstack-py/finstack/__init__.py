@@ -67,4 +67,9 @@ globals()["valuations"] = _valuations
 _sys.modules[f"{__name__}.valuations"] = _valuations
 _walk_and_register(_valuations, "valuations")
 
-del _finstack, _sys, _name, _core, _valuations, _types, _walk_and_register, _Any, _MutableMapping
+_statements = _finstack.statements
+globals()["statements"] = _statements
+_sys.modules[f"{__name__}.statements"] = _statements
+_walk_and_register(_statements, "statements")
+
+del _finstack, _sys, _name, _core, _valuations, _statements, _types, _walk_and_register, _Any, _MutableMapping

@@ -130,6 +130,64 @@ print(ctx.stats())
 print(fx.rate(Currency("EUR"), Currency("USD"), date(2024, 1, 2), FxConversionPolicy.CASHFLOW_DATE))
 ```
 
+## Financial Statements Modeling
+
+The `finstack.statements` module provides a complete financial statement modeling engine:
+
+```python
+from finstack.statements.builder import ModelBuilder
+from finstack.statements.types import AmountOrScalar, ForecastSpec
+from finstack.statements.evaluator import Evaluator
+from finstack.statements.registry import Registry
+from finstack.core.dates import PeriodId
+
+# Build a P&L model
+builder = ModelBuilder.new("Acme Corp P&L")
+builder.periods("2025Q1..Q4", "2025Q2")  # Q1-Q2 actuals, Q3-Q4 forecasts
+
+# Add revenue with actuals and growth forecast
+builder.value(
+    "revenue",
+    [
+        (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(1_000_000.0)),
+        (PeriodId.quarter(2025, 2), AmountOrScalar.scalar(1_100_000.0)),
+    ],
+)
+builder.forecast("revenue", ForecastSpec.growth(0.05))  # 5% quarterly growth
+
+# Add calculated metrics
+builder.compute("cogs", "revenue * 0.6")
+builder.compute("gross_profit", "revenue - cogs")
+builder.compute("gross_margin", "gross_profit / revenue")
+
+model = builder.build()
+
+# Evaluate the model
+evaluator = Evaluator.new()
+results = evaluator.evaluate(model)
+
+# Access results
+q1 = PeriodId.quarter(2025, 1)
+print(f"Q1 Revenue: ${results.get('revenue', q1):,.0f}")
+print(f"Q1 Gross Profit: ${results.get('gross_profit', q1):,.0f}")
+print(f"Q1 Gross Margin: {results.get('gross_margin', q1):.1%}")
+
+# Use the metric registry
+registry = Registry.new()
+registry.load_builtins()  # Load fin.* metrics
+print(f"Available metrics: {registry.list_metrics('fin')}")
+```
+
+### Key Features
+
+- **Declarative modeling** with rich DSL for formulas
+- **Time-series forecasting** (forward fill, growth, curve, normal, log-normal, seasonal)
+- **Currency-safe arithmetic** with explicit FX handling
+- **Deterministic evaluation** with precedence rules (Value > Forecast > Formula)
+- **Dynamic metric registry** for reusable financial metrics
+- **Extension system** for custom analysis (corkscrew, scorecards)
+- **JSON serialization** for model persistence
+
 ## Optional Python dependencies
 
 The core extension has no required Python dependencies. Install the `analytics` extra if you plan to
