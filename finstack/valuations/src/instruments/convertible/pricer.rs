@@ -24,7 +24,7 @@ use finstack_core::prelude::*;
 use finstack_core::{Error, Result};
 use std::collections::HashMap;
 
-use crate::cashflow::builder::{cf, CashFlowSchedule};
+use crate::cashflow::builder::CashFlowSchedule;
 use crate::instruments::common::models::tree_framework::map_date_to_step;
 use crate::instruments::common::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeGreeks, TreeModel, TreeValuator,
@@ -560,7 +560,7 @@ pub fn calculate_convertible_greeks(
 
 /// Build the convertible bond cashflow schedule using common builder flow.
 fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule> {
-    let mut builder = cf();
+    let mut builder = CashFlowSchedule::builder();
     builder.principal(bond.notional, bond.issue, bond.maturity);
     if let Some(fixed_spec) = &bond.fixed_coupon {
         builder.fixed_cf(fixed_spec.clone());

@@ -267,7 +267,7 @@ impl Bond {
         &self,
         curves: &finstack_core::market_data::MarketContext,
     ) -> Result<CashFlowSchedule> {
-        use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, FloatingCouponSpec};
+        use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, FloatingCouponSpec};
 
         // If custom cashflows are set, return them directly
         if let Some(ref custom) = self.custom_cashflows {
@@ -275,7 +275,7 @@ impl Bond {
         }
 
         // Build the schedule using the cashflow builder
-        let mut b = cf();
+        let mut b = CashFlowSchedule::builder();
         b.principal(self.notional, self.issue, self.maturity);
 
         // Add amortization if present
@@ -381,7 +381,7 @@ impl crate::instruments::common::HasDiscountCurve for Bond {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
+    use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
     use crate::cashflow::traits::CashflowProvider;
     use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
@@ -409,7 +409,7 @@ mod tests {
 
         let step1_date = Date::from_calendar_date(2026, Month::January, 15).unwrap();
 
-        let custom_schedule = cf()
+        let custom_schedule = CashFlowSchedule::builder()
             .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
             .fixed_stepup(
                 &[(step1_date, 0.03), (maturity, 0.05)],
@@ -471,7 +471,7 @@ mod tests {
         let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
         // Build custom cashflow with PIK toggle
-        let custom_schedule = cf()
+        let custom_schedule = CashFlowSchedule::builder()
             .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Split {
@@ -545,7 +545,7 @@ mod tests {
             .unwrap();
 
         // Build a custom schedule separately
-        let custom_schedule = cf()
+        let custom_schedule = CashFlowSchedule::builder()
             .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
@@ -598,7 +598,7 @@ mod tests {
             .unwrap();
 
         // Same bond with custom cashflows
-        let custom_schedule = cf()
+        let custom_schedule = CashFlowSchedule::builder()
             .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,

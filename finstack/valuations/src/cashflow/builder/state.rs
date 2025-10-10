@@ -10,12 +10,12 @@
 //! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention};
 //! use finstack_core::dates::StubKind;
 //! use finstack_core::money::Money;
-//! use finstack_valuations::cashflow::builder::{cf, FixedCouponSpec, CouponType};
+//! use finstack_valuations::cashflow::builder::{CashFlowSchedule, FixedCouponSpec, CouponType};
 //! use time::Month;
 //!
 //! let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 //! let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
-//! let mut b = cf();
+//! let mut b = CashFlowSchedule::builder();
 //! b.principal(Money::new(1_000.0, Currency::USD), issue, maturity)
 //!  .fixed_cf(FixedCouponSpec{
 //!      coupon_type: CouponType::Cash,

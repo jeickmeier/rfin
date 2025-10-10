@@ -81,6 +81,22 @@ pub struct CashFlowSchedule {
 }
 
 impl CashFlowSchedule {
+    /// Create a new cashflow builder (standard Rust pattern).
+    ///
+    /// This is the recommended entry point for building cashflow schedules.
+    /// Returns a `CashflowBuilder` that can be configured and built.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let schedule = CashFlowSchedule::builder()
+    ///     .principal(notional, issue, maturity)
+    ///     .fixed_cf(spec)
+    ///     .build()?;
+    /// ```
+    pub fn builder() -> super::CashflowBuilder {
+        super::CashflowBuilder::default()
+    }
+
     /// Returns the list of dates for all flows in schedule order.
     pub fn dates(&self) -> Vec<Date> {
         self.flows.iter().map(|cf| cf.date).collect()

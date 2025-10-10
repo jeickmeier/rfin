@@ -23,7 +23,6 @@
 //! - **Risk metrics**: Specialized calculators for DV01, bucketed risk, and time decay
 
 pub mod bucketed;
-pub mod declarative_registry;
 pub mod ids;
 pub mod registration_macro;
 pub mod registry;
@@ -33,9 +32,6 @@ pub use bucketed::{
     compute_key_rate_dv01_series, compute_key_rate_dv01_series_with_context,
     compute_key_rate_series_for_id, compute_key_rate_series_with_context_for_id,
     standard_ir_dv01_buckets,
-};
-pub use declarative_registry::{
-    create_standard_registry as declarative_standard_registry, MetricRegistryBuilder,
 };
 pub use ids::MetricId;
 pub use registry::MetricRegistry;

@@ -1,6 +1,6 @@
 //! Tests for the cashflow builder state module.
 
-use super::cf;
+use super::CashFlowSchedule;
 use super::schedule::kind_rank;
 use super::types::{CouponType, FixedCouponSpec};
 use crate::cashflow::primitives::{AmortizationSpec, CFKind, CashFlow};
@@ -31,7 +31,7 @@ fn linear_vs_step_parity() {
     let init = Money::new(1_000.0, Currency::USD);
 
     // Linear
-    let mut b1 = cf();
+    let mut b1 = CashFlowSchedule::builder();
     b1.principal(init, issue, maturity)
         .amortization(AmortizationSpec::LinearTo {
             final_notional: Money::new(0.0, Currency::USD),
@@ -54,7 +54,7 @@ fn linear_vs_step_parity() {
         pairs.push((d, Money::new(remaining, Currency::USD)));
     }
 
-    let mut b2 = cf();
+    let mut b2 = CashFlowSchedule::builder();
     b2.principal(init, issue, maturity)
         .amortization(AmortizationSpec::StepRemaining { schedule: pairs })
         .fixed_cf(fixed.clone());
@@ -84,7 +84,7 @@ fn pik_capitalization_increases_outstanding() {
         stub: StubKind::None,
     };
 
-    let mut b = cf();
+    let mut b = CashFlowSchedule::builder();
     b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let s = b.build().unwrap();
     let path = s.outstanding_path();
@@ -118,7 +118,7 @@ fn ordering_invariants_within_date() {
     };
 
     // Percent-per-period amortization to force amort on coupon dates
-    let mut b = cf();
+    let mut b = CashFlowSchedule::builder();
     b.principal(init, issue, maturity)
         .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
         .fixed_cf(fixed.clone());
@@ -154,7 +154,7 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
 
     let init = Money::new(1_000_000.0, Currency::USD);
 
-    let mut b = cf();
+    let mut b = CashFlowSchedule::builder();
     b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let schedule = b.build().unwrap();
 
@@ -194,7 +194,7 @@ fn detects_stub_periods() {
 
     let init = Money::new(1_000_000.0, Currency::USD);
 
-    let mut b = cf();
+    let mut b = CashFlowSchedule::builder();
     b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let schedule = b.build().unwrap();
 
@@ -233,7 +233,7 @@ fn outstanding_by_date_dedup_and_values() {
         stub: StubKind::None,
     };
 
-    let mut b = cf();
+    let mut b = CashFlowSchedule::builder();
     b.principal(init, issue, maturity)
         .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
         .fixed_cf(fixed.clone());

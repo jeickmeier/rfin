@@ -6,7 +6,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::F;
-use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
+use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
 use finstack_core::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::instruments::bond::pricing::tree_pricer::TreePricer;
 use finstack_valuations::instruments::bond::Bond;
@@ -116,7 +116,7 @@ fn test_oas_stability_pik_bond() {
     let start_pik = Date::from_calendar_date(2025, Month::July, 15).unwrap();
     let end_pik = Date::from_calendar_date(2026, Month::July, 15).unwrap();
 
-    let mut builder = cf();
+    let mut builder = CashFlowSchedule::builder();
     builder
         .principal(Money::new(1_000.0, Currency::USD), issue, maturity)
         .fixed_stepup(&[(maturity, 0.08)], sched, CouponType::Cash)

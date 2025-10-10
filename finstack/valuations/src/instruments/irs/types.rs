@@ -14,7 +14,7 @@ use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 use finstack_core::{dates::Date, Result};
 
-use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
+use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 // discountable helpers not used after switching to curve-based df_on_date_curve
 use crate::instruments::common::traits::Attributes;
@@ -268,7 +268,7 @@ impl InterestRateSwap {
         &self,
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
     ) -> finstack_core::Result<Money> {
-        let mut b = cf();
+        let mut b = CashFlowSchedule::builder();
         b.principal(self.notional, self.fixed.start, self.fixed.end)
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
@@ -446,15 +446,51 @@ impl InterestRateSwap {
 // Explicit trait implementations for modern instrument style
 // Attributable implementation is provided by the impl_instrument! macro
 
-// Use the macro to implement Instrument with pricing
-crate::impl_instrument!(
-    InterestRateSwap,
-    crate::pricer::InstrumentType::IRS,
-    "InterestRateSwap",
-    pv = |s, curves, _as_of| s.npv(curves)
-);
+impl crate::instruments::common::traits::Instrument for InterestRateSwap {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
 
-// RiskMeasurable impl removed; risk reporting standardized via metrics registry only.
+    fn key(&self) -> crate::pricer::InstrumentType {
+        crate::pricer::InstrumentType::IRS
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
+
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        _as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        self.npv(curves)
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn(
+            self, curves, as_of, base_value, metrics,
+        )
+    }
+}
 
 impl CashflowProvider for InterestRateSwap {
     fn build_schedule(
@@ -463,7 +499,7 @@ impl CashflowProvider for InterestRateSwap {
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
         // Use builder to generate both legs; then map signs by side
-        let mut fixed_b = cf();
+        let mut fixed_b = CashFlowSchedule::builder();
         fixed_b
             .principal(self.notional, self.fixed.start, self.fixed.end)
             .fixed_cf(FixedCouponSpec {
@@ -477,7 +513,7 @@ impl CashflowProvider for InterestRateSwap {
             });
         let fixed_sched = fixed_b.build()?;
 
-        let mut float_b = cf();
+        let mut float_b = CashFlowSchedule::builder();
         float_b
             .principal(self.notional, self.float.start, self.float.end)
             .floating_cf(crate::cashflow::builder::FloatingCouponSpec {
@@ -527,11 +563,11 @@ impl CashflowProvider for InterestRateSwap {
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        use crate::cashflow::builder::{cf, FloatingCouponSpec};
+        use crate::cashflow::builder::{CashFlowSchedule, FloatingCouponSpec};
         use crate::cashflow::primitives::{CFKind, CashFlow, Notional};
 
         // Build both legs using the builder to get proper CFKind classification
-        let mut fixed_b = cf();
+        let mut fixed_b = CashFlowSchedule::builder();
         fixed_b
             .principal(self.notional, self.fixed.start, self.fixed.end)
             .fixed_cf(FixedCouponSpec {
@@ -545,7 +581,7 @@ impl CashflowProvider for InterestRateSwap {
             });
         let fixed_sched = fixed_b.build()?;
 
-        let mut float_b = cf();
+        let mut float_b = CashFlowSchedule::builder();
         float_b
             .principal(self.notional, self.float.start, self.float.end)
             .floating_cf(FloatingCouponSpec {

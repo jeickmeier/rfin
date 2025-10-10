@@ -464,7 +464,7 @@ impl Instrument for Clo {
         metric_context.discount_curve_id = Some(self.disc_id.clone());
         
         // Get standard registry
-        let registry = crate::metrics::declarative_standard_registry();
+        let registry = crate::metrics::standard_registry();
         
         // Compute requested metrics
         let computed_metrics = registry.compute(metrics, &mut metric_context)?;

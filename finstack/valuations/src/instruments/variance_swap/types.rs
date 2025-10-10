@@ -483,15 +483,51 @@ impl VarianceSwap {
 }
 
 // Use the macro to implement Instrument with pricing
-crate::impl_instrument!(
-    VarianceSwap,
-    crate::pricer::InstrumentType::VarianceSwap,
-    "VarianceSwap",
-    pv = |s, curves, as_of| {
-        // Call the instrument's own method
-        s.npv(curves, as_of)
+impl crate::instruments::common::traits::Instrument for VarianceSwap {
+    fn id(&self) -> &str {
+        self.id.as_str()
     }
-);
+
+    fn key(&self) -> crate::pricer::InstrumentType {
+        crate::pricer::InstrumentType::VarianceSwap
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
+
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        self.npv(curves, as_of)
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn(
+            self, curves, as_of, base_value, metrics,
+        )
+    }
+}
 
 // Do not add explicit Instrument impl; provided by blanket impl.
 

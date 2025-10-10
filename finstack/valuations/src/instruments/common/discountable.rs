@@ -24,7 +24,7 @@ impl Discountable for CashFlowSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
+    use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
     use finstack_core::market_data::traits::{Discounting, TermStructure};
@@ -71,7 +71,7 @@ mod tests {
             calendar_id: params.calendar_id,
             stub: params.stub,
         };
-        cf().principal(Money::new(1_000.0, Currency::USD), issue, maturity)
+        CashFlowSchedule::builder().principal(Money::new(1_000.0, Currency::USD), issue, maturity)
             .fixed_cf(fixed)
             .build()
             .unwrap()

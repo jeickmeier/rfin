@@ -8,7 +8,7 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 use time::Duration;
 
-use crate::cashflow::builder::{cf, FixedCouponSpec};
+use crate::cashflow::builder::{CashFlowSchedule, FixedCouponSpec};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 
@@ -40,7 +40,7 @@ impl CashflowProvider for Bond {
             let fwd = _curves.get_forward_ref(fl.fwd_id.clone())?;
 
             // 1) Build amortization-only schedule using builder (dedup amort logic)
-            let mut b_am = cf();
+            let mut b_am = CashFlowSchedule::builder();
             b_am.principal(self.notional, self.issue, self.maturity);
             if let Some(am) = &self.amortization {
                 b_am.amortization(am.clone());
@@ -122,7 +122,7 @@ impl CashflowProvider for Bond {
             return Ok(flows);
         }
 
-        let mut b = cf();
+        let mut b = CashFlowSchedule::builder();
         b.principal(self.notional, self.issue, self.maturity);
         if let Some(am) = &self.amortization {
             b.amortization(am.clone());

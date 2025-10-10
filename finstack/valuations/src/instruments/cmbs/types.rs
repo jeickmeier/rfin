@@ -240,7 +240,7 @@ impl Instrument for Cmbs {
         metric_context.cashflows = Some(flows);
         metric_context.discount_curve_id = Some(self.disc_id.clone());
         
-        let registry = crate::metrics::declarative_standard_registry();
+        let registry = crate::metrics::standard_registry();
         let computed_metrics = registry.compute(metrics, &mut metric_context)?;
         
         let mut result = ValuationResult::stamped(self.id.as_str(), as_of, base_value);

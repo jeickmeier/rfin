@@ -336,11 +336,11 @@ impl JsBond {
         quoted_clean_price: Option<f64>,
         market: &crate::core::market_data::context::JsMarketContext,
     ) -> Result<JsBond, JsValue> {
-        use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec};
+        use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
         use finstack_core::dates::{Frequency, DayCount, BusinessDayConvention, StubKind};
 
         // Build cashflow schedule with PIK split
-        let custom_schedule = cf()
+        let custom_schedule = CashFlowSchedule::builder()
             .principal(notional.inner(), issue.inner(), maturity.inner())
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Split { cash_pct, pik_pct },
@@ -381,11 +381,11 @@ impl JsBond {
         quoted_clean_price: Option<f64>,
         market: &crate::core::market_data::context::JsMarketContext,
     ) -> Result<JsBond, JsValue> {
-        use finstack_valuations::cashflow::builder::{cf, CouponType, FloatCouponParams, ScheduleParams};
+        use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FloatCouponParams, ScheduleParams};
         use finstack_core::dates::{BusinessDayConvention, StubKind};
 
         // Build cashflow schedule with fixed then floating windows
-        let mut b = cf();
+        let mut b = CashFlowSchedule::builder();
         b.principal(notional.inner(), issue.inner(), maturity.inner());
 
         // Fixed window: issue to switch date

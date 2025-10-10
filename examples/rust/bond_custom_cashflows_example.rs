@@ -11,7 +11,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 
 use finstack_core::cashflow::primitives::AmortizationSpec;
-use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
+use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::Instrument;
@@ -36,7 +36,7 @@ fn example_stepup_bond() -> finstack_core::Result<()> {
         stub: StubKind::None,
     };
 
-    let custom_schedule = cf()
+    let custom_schedule = CashFlowSchedule::builder()
         .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
         .fixed_stepup(
             &[(step1, 0.03), (step2, 0.04), (maturity, 0.05)],
@@ -106,7 +106,7 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
         stub: StubKind::None,
     };
 
-    let custom_schedule = cf()
+    let custom_schedule = CashFlowSchedule::builder()
         .principal(Money::new(10_000_000.0, Currency::USD), issue, maturity)
         .add_fixed_coupon_window(
             issue,
@@ -167,7 +167,7 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
     let maturity = Date::from_calendar_date(2030, Month::June, 1).unwrap();
 
     // Build complex cashflow schedule
-    let custom_schedule = cf()
+    let custom_schedule = CashFlowSchedule::builder()
         .principal(Money::new(50_000_000.0, Currency::EUR), issue, maturity)
         .amortization(AmortizationSpec::LinearTo {
             final_notional: Money::new(10_000_000.0, Currency::EUR),
@@ -256,7 +256,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
     };
 
     // Create custom bond with higher frequency
-    let custom_schedule = cf()
+    let custom_schedule = CashFlowSchedule::builder()
         .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
         .fixed_cf(FixedCouponSpec {
             coupon_type: CouponType::Cash,

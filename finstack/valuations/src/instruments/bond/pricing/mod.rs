@@ -1,6 +1,6 @@
 //! Bond pricing entrypoints and pricers.
 //!
-//! Bond pricing methods are now included in the Instrument trait via impl_instrument_schedule_pv! macro.
+//! Bond pricing methods are now included in the explicit Instrument trait implementation.
 
 pub mod engine;
 pub mod helpers;
