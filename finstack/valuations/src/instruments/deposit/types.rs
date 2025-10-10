@@ -77,32 +77,26 @@ impl Deposit {
 
 // Explicit Instrument trait implementation (replaces macro for better IDE visibility)
 impl crate::instruments::common::traits::Instrument for Deposit {
-    #[inline]
     fn id(&self) -> &str {
         self.id.as_str()
     }
 
-    #[inline]
     fn key(&self) -> crate::pricer::InstrumentType {
         <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
     }
 
-    #[inline]
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }
 
-    #[inline]
     fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
         &self.attributes
     }
 
-    #[inline]
     fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
         &mut self.attributes
     }
 
-    #[inline]
     fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
         Box::new(self.clone())
     }

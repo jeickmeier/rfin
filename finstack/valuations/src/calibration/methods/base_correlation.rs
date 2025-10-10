@@ -224,7 +224,7 @@ impl BaseCorrelationCalibrator {
                     .build()
                 {
                     Ok(curve) => Arc::new(curve),
-                    Err(_) => return crate::calibration::penalize(),
+                    Err(_) => return crate::calibration::PENALTY,
                 };
 
                 let mut temp_market_ctx = market_context.clone();
@@ -239,7 +239,7 @@ impl BaseCorrelationCalibrator {
                     self.base_date,
                 ) {
                     Ok(pv) => pv.amount() - target_upfront,
-                    Err(_) => crate::calibration::penalize(),
+                    Err(_) => crate::calibration::PENALTY,
                 }
             };
 

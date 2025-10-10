@@ -665,8 +665,8 @@ impl CDSPricer {
         let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
         let premium_pv = self.pv_premium_leg(cds, disc, surv, as_of)?;
         match cds.side {
-            PayReceive::PayProtection => protection_pv.checked_sub(premium_pv),
-            PayReceive::ReceiveProtection => premium_pv.checked_sub(protection_pv),
+            PayReceive::PayFixed => protection_pv.checked_sub(premium_pv),
+            PayReceive::ReceiveFixed => premium_pv.checked_sub(protection_pv),
         }
     }
 
@@ -790,7 +790,7 @@ impl CDSBootstrapper {
         Ok(CreditDefaultSwap::new_isda(
             finstack_core::types::InstrumentId::new(format!("SYNTHETIC_{:.1}Y", tenor_years)),
             Money::new(1_000_000.0, Currency::USD),
-            PayReceive::PayProtection,
+            PayReceive::PayFixed,
             crate::instruments::cds::CDSConvention::IsdaNa,
             spread_bps,
             base_date,
@@ -858,7 +858,7 @@ mod tests {
         CreditDefaultSwap::new_isda(
             finstack_core::types::InstrumentId::new(id),
             Money::new(10_000_000.0, Currency::USD),
-            PayReceive::PayProtection,
+            PayReceive::PayFixed,
             crate::instruments::cds::CDSConvention::IsdaNa,
             spread_bp,
             start_date,

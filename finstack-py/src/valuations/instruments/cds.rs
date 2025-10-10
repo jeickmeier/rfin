@@ -31,8 +31,8 @@ impl PyCdsPayReceive {
 
     fn label(&self) -> &'static str {
         match self.inner {
-            PayReceive::PayProtection => "pay_protection",
-            PayReceive::ReceiveProtection => "receive_protection",
+            PayReceive::PayFixed => "pay_protection",
+            PayReceive::ReceiveFixed => "receive_protection",
         }
     }
 }
@@ -40,9 +40,9 @@ impl PyCdsPayReceive {
 #[pymethods]
 impl PyCdsPayReceive {
     #[classattr]
-    const PAY_PROTECTION: Self = Self::new(PayReceive::PayProtection);
+    const PAY_PROTECTION: Self = Self::new(PayReceive::PayFixed);
     #[classattr]
-    const RECEIVE_PROTECTION: Self = Self::new(PayReceive::ReceiveProtection);
+    const RECEIVE_PROTECTION: Self = Self::new(PayReceive::ReceiveFixed);
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
@@ -194,7 +194,7 @@ impl PyCreditDefaultSwap {
             maturity,
             discount_curve,
             credit_curve,
-            PayReceive::PayProtection,
+            PayReceive::PayFixed,
             recovery_rate,
             settlement_delay,
         )
@@ -255,7 +255,7 @@ impl PyCreditDefaultSwap {
             maturity,
             discount_curve,
             credit_curve,
-            PayReceive::ReceiveProtection,
+            PayReceive::ReceiveFixed,
             recovery_rate,
             settlement_delay,
         )
@@ -402,10 +402,10 @@ fn construct_cds(
     let credit = extract_curve_id(&credit_curve)?;
 
     let builder_result = match side {
-        PayReceive::PayProtection => {
+        PayReceive::PayFixed => {
             CreditDefaultSwap::buy_protection(id.clone(), amt, spread_bp, start, end, disc, credit)
         }
-        PayReceive::ReceiveProtection => {
+        PayReceive::ReceiveFixed => {
             CreditDefaultSwap::sell_protection(id.clone(), amt, spread_bp, start, end, disc, credit)
         }
     };

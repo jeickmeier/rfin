@@ -6,15 +6,31 @@ use finstack_core::types::CurveId;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Direction for swap legs from the perspective of the fixed rate payer
+/// Direction for instrument legs (universal for IRS, CDS, etc.)
+///
+/// For interest rate swaps: Pay = pay fixed/receive floating, Receive = receive fixed/pay floating
+/// For credit default swaps: Pay = buy protection (pay premium), Receive = sell protection (receive premium)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum PayReceive {
-    /// Pay fixed rate, receive floating rate
+    /// Pay the primary leg (fixed rate in IRS, protection premium in CDS)
+    #[cfg_attr(feature = "serde", serde(rename = "pay_fixed", alias = "pay_protection", alias = "pay"))]
     PayFixed,
-    /// Receive fixed rate, pay floating rate  
+    /// Receive the primary leg (fixed rate in IRS, protection premium in CDS)
+    #[cfg_attr(feature = "serde", serde(rename = "receive_fixed", alias = "receive_protection", alias = "receive"))]
     ReceiveFixed,
+}
+
+impl PayReceive {
+    /// Check if this is the payer side
+    pub fn is_payer(&self) -> bool {
+        matches!(self, Self::PayFixed)
+    }
+
+    /// Check if this is the receiver side
+    pub fn is_receiver(&self) -> bool {
+        matches!(self, Self::ReceiveFixed)
+    }
 }
 
 impl std::fmt::Display for PayReceive {
@@ -32,8 +48,8 @@ impl std::str::FromStr for PayReceive {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let normalized = s.to_ascii_lowercase().replace('-', "_");
         match normalized.as_str() {
-            "pay_fixed" | "pay" => Ok(PayReceive::PayFixed),
-            "receive_fixed" | "receive" | "recv" => Ok(PayReceive::ReceiveFixed),
+            "pay_fixed" | "pay_protection" | "pay" | "buyer" | "buy" => Ok(PayReceive::PayFixed),
+            "receive_fixed" | "receive_protection" | "receive" | "recv" | "seller" | "sell" => Ok(PayReceive::ReceiveFixed),
             other => Err(format!("Unknown pay/receive: {}", other)),
         }
     }

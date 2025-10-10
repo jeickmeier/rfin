@@ -235,7 +235,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 let base_date = self.base_date;
                 let objective = move |cpi_guess: f64| -> f64 {
                     if !cpi_guess.is_finite() || cpi_guess <= 0.0 {
-                        return crate::calibration::penalize();
+                        return crate::calibration::PENALTY;
                     }
 
                     // Build temporary inflation curve with current knots + guessed point
@@ -250,7 +250,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                         .build()
                     {
                         Ok(c) => c,
-                        Err(_) => return crate::calibration::penalize(),
+                        Err(_) => return crate::calibration::PENALTY,
                     };
 
                     // Build synthetic ZC inflation swap matching the quote
@@ -267,7 +267,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                         .build()
                     {
                         Ok(s) => s,
-                        Err(_) => return crate::calibration::penalize(),
+                        Err(_) => return crate::calibration::PENALTY,
                     };
 
                     // Update market context with temp inflation curve
@@ -275,7 +275,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
                     match swap.value(&temp_ctx, base_date) {
                         Ok(pv) => pv.amount() / notional.amount(),
-                        Err(_) => crate::calibration::penalize(),
+                        Err(_) => crate::calibration::PENALTY,
                     }
                 };
 

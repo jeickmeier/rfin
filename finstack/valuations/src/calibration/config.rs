@@ -11,18 +11,25 @@ use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
 /// Solver type selection for calibration.
+///
+/// For 1D problems (most curve calibrations), Newton, Brent, or Hybrid are used directly.
+/// For multi-dimensional problems, use `create_lm_solver()` or `create_de_solver()` methods
+/// on `CalibrationConfig`. Note that LevenbergMarquardt and DifferentialEvolution variants
+/// automatically fall back to Hybrid for 1D solve_1d() calls.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum SolverKind {
-    /// Newton-Raphson solver with automatic derivative estimation (1D)
+    /// Newton-Raphson solver with automatic derivative estimation (1D only)
     Newton,
-    /// Brent's method solver (robust, bracketing required) (1D)
+    /// Brent's method solver - robust bracketing method (1D only)
     Brent,
-    /// Hybrid solver that tries Newton first, falls back to Brent (1D)
+    /// Hybrid solver: Newton first, Brent fallback (1D only, recommended)
     #[default]
     Hybrid,
-    /// Levenberg-Marquardt for non-linear least squares (multi-dimensional)
+    /// Levenberg-Marquardt for non-linear least squares (multi-dimensional).
+    /// Falls back to Hybrid for 1D problems. Use `create_lm_solver()` for multi-D.
     LevenbergMarquardt,
-    /// Differential Evolution for global optimization (multi-dimensional)
+    /// Differential Evolution for global optimization (multi-dimensional).
+    /// Falls back to Hybrid for 1D problems. Use `create_de_solver()` for multi-D.
     DifferentialEvolution,
 }
 

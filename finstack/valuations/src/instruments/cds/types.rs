@@ -11,37 +11,8 @@ use finstack_core::types::InstrumentId;
 
 use crate::instruments::cds::pricer::CDSPricer;
 
-/// CDS payment types
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum PayReceive {
-    /// Protection buyer pays premium leg
-    PayProtection,
-    /// Protection seller receives premium leg
-    ReceiveProtection,
-}
-
-impl std::fmt::Display for PayReceive {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PayReceive::PayProtection => write!(f, "pay_protection"),
-            PayReceive::ReceiveProtection => write!(f, "receive_protection"),
-        }
-    }
-}
-
-impl std::str::FromStr for PayReceive {
-    type Err = String;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let normalized = s.to_ascii_lowercase().replace('-', "_");
-        match normalized.as_str() {
-            "pay_protection" | "buyer" | "buy" => Ok(PayReceive::PayProtection),
-            "receive_protection" | "seller" | "sell" => Ok(PayReceive::ReceiveProtection),
-            other => Err(format!("Unknown CDS pay/receive: {}", other)),
-        }
-    }
-}
+// Re-export PayReceive from common parameters (works for both IRS and CDS)
+pub use crate::instruments::common::parameters::legs::PayReceive;
 
 /// ISDA CDS conventions
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -143,7 +114,7 @@ impl CreditDefaultSwap {
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
-            .side(PayReceive::PayProtection)
+            .side(PayReceive::PayFixed)
             .convention(convention)
             .premium(PremiumLegSpec {
                 start,
@@ -187,7 +158,7 @@ impl CreditDefaultSwap {
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
-            .side(PayReceive::ReceiveProtection)
+            .side(PayReceive::ReceiveFixed)
             .convention(convention)
             .premium(PremiumLegSpec {
                 start,

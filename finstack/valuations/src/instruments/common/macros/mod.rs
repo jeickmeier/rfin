@@ -18,32 +18,26 @@ macro_rules! impl_instrument {
 
         // Unified Instrument implementation with pricing
         impl $crate::instruments::common::traits::Instrument for $type {
-            #[inline]
             fn id(&self) -> &str {
                 self.id.as_str()
             }
 
-            #[inline]
             fn key(&self) -> $crate::pricer::InstrumentType {
                 <$type as $crate::instruments::common::traits::InstrumentKind>::TYPE
             }
 
-            #[inline]
             fn as_any(&self) -> &dyn ::std::any::Any {
                 self
             }
 
-            #[inline]
             fn attributes(&self) -> &$crate::instruments::common::traits::Attributes {
                 &self.attributes
             }
 
-            #[inline]
             fn attributes_mut(&mut self) -> &mut $crate::instruments::common::traits::Attributes {
                 &mut self.attributes
             }
 
-            #[inline]
             fn clone_box(&self) -> Box<dyn $crate::instruments::common::traits::Instrument> {
                 Box::new(self.clone())
             }

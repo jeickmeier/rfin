@@ -19,7 +19,7 @@ fn test_cds_creation_and_basic_pricing() {
     let cds = CreditDefaultSwap::new_isda(
         "CDS_TEST",
         notional,
-        finstack_valuations::instruments::cds::PayReceive::PayProtection,
+        finstack_valuations::instruments::cds::PayReceive::PayFixed,
         finstack_valuations::instruments::cds::CDSConvention::IsdaNa,
         spread_bp,
         start,

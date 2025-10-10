@@ -164,7 +164,7 @@ impl HazardCurveCalibrator {
             let cds = CreditDefaultSwap::new_isda(
                 format!("CALIB_CDS_{}", maturity),
                 Money::new(10_000_000.0, self.currency),
-                PayReceive::PayProtection,
+                PayReceive::PayFixed,
                 CDSConvention::IsdaNa,
                 *market_spread_bp,
                 self.base_date,
@@ -191,18 +191,18 @@ impl HazardCurveCalibrator {
 
                 let temp_curve = match temp_curve {
                     Ok(c) => c,
-                    Err(_) => return crate::calibration::penalize(),
+                    Err(_) => return crate::calibration::PENALTY,
                 };
                 let disc = match discount_curve_opt {
                     Some(d) => d,
-                    None => return crate::calibration::penalize(),
+                    None => return crate::calibration::PENALTY,
                 };
 
                 // Calculate CDS NPV
                 let npv_result = pricer.npv(&cds, disc, &temp_curve, self.base_date);
                 let npv = match npv_result {
                     Ok(pv) => pv.amount(),
-                    Err(_) => return crate::calibration::penalize(),
+                    Err(_) => return crate::calibration::PENALTY,
                 };
 
                 // Objective depends on quote type
@@ -372,7 +372,7 @@ mod tests {
                 let cds = CreditDefaultSwap::new_isda(
                     format!("CDS-{}", maturity),
                     Money::new(1_000_000.0, Currency::USD),
-                    PayReceive::PayProtection,
+                    PayReceive::PayFixed,
                     CDSConvention::IsdaNa,
                     spread_bp,
                     base_date,

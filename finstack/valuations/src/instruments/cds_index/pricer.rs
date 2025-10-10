@@ -83,8 +83,8 @@ impl CDSIndexPricer {
     pub fn npv(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let (pv_protection, pv_premium) = self.pv_legs(index, curves, as_of)?;
         let mut pv = match index.side {
-            PayReceive::PayProtection => pv_protection.checked_sub(pv_premium)?,
-            PayReceive::ReceiveProtection => pv_premium.checked_sub(pv_protection)?,
+            PayReceive::PayFixed => pv_protection.checked_sub(pv_premium)?,
+            PayReceive::ReceiveFixed => pv_premium.checked_sub(pv_protection)?,
         };
         if let Some(upfront) = index.pricing_overrides.upfront_payment {
             pv = (pv + upfront)?;

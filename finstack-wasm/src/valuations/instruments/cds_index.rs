@@ -70,7 +70,7 @@ impl JsCDSIndex {
         recovery_rate: Option<f64>,
         index_factor: Option<f64>,
     ) -> Result<JsCDSIndex, JsValue> {
-        let side_value = parse_optional_with_default(side, CdsPayReceive::PayProtection)?;
+        let side_value = parse_optional_with_default(side, CdsPayReceive::PayFixed)?;
         let recovery = recovery_rate.unwrap_or(0.40);
 
         if !(0.0..=1.0).contains(&recovery) {

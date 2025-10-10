@@ -173,7 +173,7 @@ impl ForwardCurveCalibrator {
                 .build()
                 {
                     Ok(curve) => curve,
-                    Err(_) => return crate::calibration::penalize(),
+                    Err(_) => return crate::calibration::PENALTY,
                 };
 
                 // Update context with temporary forward curve
@@ -182,7 +182,7 @@ impl ForwardCurveCalibrator {
                 // Price the instrument and return error (target is zero)
                 self_clone
                     .price_instrument(&quote_clone, &temp_context)
-                    .unwrap_or(crate::calibration::penalize())
+                    .unwrap_or(crate::calibration::PENALTY)
             };
 
             // Initial guess based on quote type
@@ -240,7 +240,7 @@ impl ForwardCurveCalibrator {
             let final_context = base_context.clone().insert_forward(final_curve);
             let final_residual = self
                 .price_instrument(quote, &final_context)
-                .unwrap_or(crate::calibration::penalize())
+                .unwrap_or(crate::calibration::PENALTY)
                 .abs();
 
             if !(final_residual.is_finite()
@@ -372,7 +372,7 @@ impl ForwardCurveCalibrator {
                     .build()
                 {
                     Ok(fra) => fra,
-                    Err(_) => return Ok(crate::calibration::penalize()),
+                    Err(_) => return Ok(crate::calibration::PENALTY),
                 };
 
                 let pv = fra.value(context, self.base_date)?;
@@ -404,7 +404,7 @@ impl ForwardCurveCalibrator {
                     .build()
                 {
                     Ok(future) => future,
-                    Err(_) => return Ok(crate::calibration::penalize()),
+                    Err(_) => return Ok(crate::calibration::PENALTY),
                 };
 
                 let pv = future.value(context, self.base_date)?;

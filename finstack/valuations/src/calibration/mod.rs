@@ -75,10 +75,6 @@ pub use validation::{CurveValidator, SurfaceValidator, ValidationConfig, Validat
 /// documents intent while keeping diagnostics reasonable.
 pub const PENALTY: f64 = 1e12;
 
-pub fn penalize() -> f64 {
-    PENALTY
-}
-
 // ------------------------- Solver Helper -------------------------
 use finstack_core::Result;
 

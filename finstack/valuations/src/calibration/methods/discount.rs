@@ -198,7 +198,7 @@ impl DiscountCurveCalibrator {
                     .build()
                 {
                     Ok(curve) => curve,
-                    Err(_) => return crate::calibration::penalize(),
+                    Err(_) => return crate::calibration::PENALTY,
                 };
 
                 // Multi-curve only: for OIS instruments derive a temporary forward from discount; otherwise require existing forward
@@ -211,7 +211,7 @@ impl DiscountCurveCalibrator {
                             self_clone.solve_interp,
                         ) {
                             Ok(curve) => curve,
-                            Err(_) => return crate::calibration::penalize(),
+                            Err(_) => return crate::calibration::PENALTY,
                         };
                         (*base_context_ref)
                             .clone()
@@ -220,7 +220,7 @@ impl DiscountCurveCalibrator {
                     } else {
                         // Require pre-existing forward curve in context for non-OIS instruments
                         if (*base_context_ref).get_forward_ref("CALIB_FWD").is_err() {
-                            return crate::calibration::penalize();
+                            return crate::calibration::PENALTY;
                         }
                         (*base_context_ref).clone().insert_discount(temp_curve)
                     }
@@ -231,7 +231,7 @@ impl DiscountCurveCalibrator {
                 // Price the instrument and return error (target is zero)
                 self_clone
                     .price_instrument(&quote_clone, &temp_context)
-                    .unwrap_or(crate::calibration::penalize())
+                    .unwrap_or(crate::calibration::PENALTY)
             };
 
             // Initial guess
@@ -328,10 +328,10 @@ impl DiscountCurveCalibrator {
                 }
 
                 if missing_forward {
-                    crate::calibration::penalize()
+                    crate::calibration::PENALTY
                 } else {
                     self.price_instrument(quote, &final_context)
-                        .unwrap_or(crate::calibration::penalize())
+                        .unwrap_or(crate::calibration::PENALTY)
                         .abs()
                 }
             };

@@ -45,6 +45,47 @@ pub enum InstrumentType {
     PrivateMarketsFund = 30,
 }
 
+impl InstrumentType {
+    /// Returns the canonical string representation for metrics registry lookups.
+    ///
+    /// This format matches the instrument type tags used in the metrics registry
+    /// and is TitleCase (e.g., "Bond", "InterestRateSwap").
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            InstrumentType::Bond => "Bond",
+            InstrumentType::Loan => "Loan",
+            InstrumentType::CDS => "CDS",
+            InstrumentType::CDSIndex => "CDSIndex",
+            InstrumentType::CDSTranche => "CDSTranche",
+            InstrumentType::CDSOption => "CdsOption",
+            InstrumentType::IRS => "InterestRateSwap",
+            InstrumentType::CapFloor => "InterestRateOption",
+            InstrumentType::Swaption => "Swaption",
+            InstrumentType::TRS => "TRS",
+            InstrumentType::BasisSwap => "BasisSwap",
+            InstrumentType::Basket => "Basket",
+            InstrumentType::Convertible => "ConvertibleBond",
+            InstrumentType::Deposit => "Deposit",
+            InstrumentType::EquityOption => "EquityOption",
+            InstrumentType::FxOption => "FxOption",
+            InstrumentType::FxSpot => "FxSpot",
+            InstrumentType::FxSwap => "FxSwap",
+            InstrumentType::InflationLinkedBond => "InflationLinkedBond",
+            InstrumentType::InflationSwap => "InflationSwap",
+            InstrumentType::InterestRateFuture => "InterestRateFuture",
+            InstrumentType::VarianceSwap => "VarianceSwap",
+            InstrumentType::Equity => "Equity",
+            InstrumentType::Repo => "Repo",
+            InstrumentType::FRA => "FRA",
+            InstrumentType::CLO => "CLO",
+            InstrumentType::ABS => "ABS",
+            InstrumentType::RMBS => "RMBS",
+            InstrumentType::CMBS => "CMBS",
+            InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
+        }
+    }
+}
+
 impl std::fmt::Display for InstrumentType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let label = match self {

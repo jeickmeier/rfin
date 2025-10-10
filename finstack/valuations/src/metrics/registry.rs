@@ -10,41 +10,6 @@ use super::traits::{MetricCalculator, MetricContext};
 use hashbrown::HashMap;
 use std::sync::Arc;
 
-fn instrument_type_tag(kind: crate::pricer::InstrumentType) -> &'static str {
-    match kind {
-        crate::pricer::InstrumentType::Bond => "Bond",
-        crate::pricer::InstrumentType::Loan => "Loan",
-        crate::pricer::InstrumentType::CDS => "CDS",
-        crate::pricer::InstrumentType::CDSIndex => "CDSIndex",
-        crate::pricer::InstrumentType::CDSTranche => "CDSTranche",
-        crate::pricer::InstrumentType::CDSOption => "CdsOption",
-        crate::pricer::InstrumentType::IRS => "InterestRateSwap",
-        crate::pricer::InstrumentType::CapFloor => "InterestRateOption",
-        crate::pricer::InstrumentType::Swaption => "Swaption",
-        crate::pricer::InstrumentType::TRS => "TRS",
-        crate::pricer::InstrumentType::BasisSwap => "BasisSwap",
-        crate::pricer::InstrumentType::Basket => "Basket",
-        crate::pricer::InstrumentType::Convertible => "ConvertibleBond",
-        crate::pricer::InstrumentType::Deposit => "Deposit",
-        crate::pricer::InstrumentType::EquityOption => "EquityOption",
-        crate::pricer::InstrumentType::FxOption => "FxOption",
-        crate::pricer::InstrumentType::FxSpot => "FxSpot",
-        crate::pricer::InstrumentType::FxSwap => "FxSwap",
-        crate::pricer::InstrumentType::InflationLinkedBond => "InflationLinkedBond",
-        crate::pricer::InstrumentType::InflationSwap => "InflationSwap",
-        crate::pricer::InstrumentType::InterestRateFuture => "InterestRateFuture",
-        crate::pricer::InstrumentType::VarianceSwap => "VarianceSwap",
-        crate::pricer::InstrumentType::Equity => "Equity",
-        crate::pricer::InstrumentType::Repo => "Repo",
-        crate::pricer::InstrumentType::FRA => "FRA",
-        crate::pricer::InstrumentType::CLO => "CLO",
-        crate::pricer::InstrumentType::ABS => "ABS",
-        crate::pricer::InstrumentType::RMBS => "RMBS",
-        crate::pricer::InstrumentType::CMBS => "CMBS",
-        crate::pricer::InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
-    }
-}
-
 /// Registry for metric calculators.
 ///
 /// Manages metric calculators with dependency resolution, caching, and batch
@@ -245,7 +210,7 @@ impl MetricRegistry {
         context: &mut MetricContext,
     ) -> finstack_core::Result<HashMap<MetricId, f64>> {
         // Build dependency graph and compute order for this instrument type
-        let instrument_type = instrument_type_tag(context.instrument.key());
+        let instrument_type = context.instrument.key().as_str();
         let order = self.resolve_dependencies(metric_ids, instrument_type)?;
 
         // Compute metrics in dependency order
@@ -303,7 +268,7 @@ impl MetricRegistry {
         &self,
         context: &mut MetricContext,
     ) -> finstack_core::Result<HashMap<MetricId, f64>> {
-        let instrument_type = instrument_type_tag(context.instrument.key());
+        let instrument_type = context.instrument.key().as_str();
         let applicable = self.metrics_for_instrument(instrument_type);
         self.compute(&applicable, context)
     }

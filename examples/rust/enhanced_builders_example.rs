@@ -170,7 +170,7 @@ fn main() -> finstack_core::Result<()> {
         800.0, // 800bp spread
         issue,
         maturity_5y,
-        CdsPayReceive::PayProtection,
+        CdsPayReceive::PayFixed,
         finstack_core::types::CurveId::new("USD-OIS"),
         finstack_core::types::CurveId::new("HY-CREDIT"),
     );

@@ -48,8 +48,8 @@ impl MetricCalculator for JumpToDefaultCalculator {
             
             // Apply sign based on position
             let signed_jtd = match index.side {
-                PayReceive::PayProtection => total_jtd,
-                PayReceive::ReceiveProtection => -total_jtd,
+                PayReceive::PayFixed => total_jtd,
+                PayReceive::ReceiveFixed => -total_jtd,
             };
             
             Ok(signed_jtd)
@@ -65,8 +65,8 @@ impl MetricCalculator for JumpToDefaultCalculator {
             
             // Apply sign based on position
             let signed_jtd = match index.side {
-                PayReceive::PayProtection => single_name_jtd,
-                PayReceive::ReceiveProtection => -single_name_jtd,
+                PayReceive::PayFixed => single_name_jtd,
+                PayReceive::ReceiveFixed => -single_name_jtd,
             };
             
             Ok(signed_jtd)

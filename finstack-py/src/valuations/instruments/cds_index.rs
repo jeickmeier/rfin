@@ -190,8 +190,8 @@ impl PyCdsIndex {
     #[getter]
     fn side(&self) -> &'static str {
         match self.inner.side {
-            PayReceive::PayProtection => "pay_protection",
-            PayReceive::ReceiveProtection => "receive_protection",
+            PayReceive::PayFixed => "pay_protection",
+            PayReceive::ReceiveFixed => "receive_protection",
         }
     }
 

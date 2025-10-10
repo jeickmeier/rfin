@@ -36,8 +36,8 @@ impl MetricCalculator for JumpToDefaultCalculator {
         // - Protection buyer: positive JTD (gains on default)
         // - Protection seller: negative JTD (loses on default)
         let signed_jtd = match cds.side {
-            PayReceive::PayProtection => jtd_amount,  // Buyer gains
-            PayReceive::ReceiveProtection => -jtd_amount,  // Seller loses
+            PayReceive::PayFixed => jtd_amount,  // Buyer gains
+            PayReceive::ReceiveFixed => -jtd_amount,  // Seller loses
         };
         
         Ok(signed_jtd)

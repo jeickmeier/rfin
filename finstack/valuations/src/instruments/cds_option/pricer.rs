@@ -119,7 +119,7 @@ fn synthetic_underlying_cds(option: &CdsOption) -> CreditDefaultSwap {
     CreditDefaultSwap::new_isda(
         option.id.clone(),
         Money::new(option.notional.amount(), option.notional.currency()),
-        PayReceive::PayProtection,
+        PayReceive::PayFixed,
         CDSConvention::IsdaNa,
         option.strike_spread_bp,
         option.expiry,

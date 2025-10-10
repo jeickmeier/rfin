@@ -645,7 +645,7 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
                         let residual = match model.implied_volatility(forward, strike, expiry_years)
                         {
                             Ok(model_vol) => model_vol - vols[i],
-                            Err(_) => crate::calibration::penalize(),
+                            Err(_) => crate::calibration::PENALTY,
                         };
                         residual_counter += 1;
                         all_residuals.insert(key, residual);
