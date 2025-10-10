@@ -24,6 +24,7 @@ import { EquityInstrumentsExample } from './EquityInstruments';
 import { InflationInstrumentsExample } from './InflationInstruments';
 import { StructuredProductsExample } from './StructuredProducts';
 import { StructuredCreditExample } from './StructuredCreditExample';
+import StatementsModeling from './StatementsModeling';
 
 export type ExampleDefinition = {
   slug: string;
@@ -187,6 +188,13 @@ export const EXAMPLES: ExampleDefinition[] = [
     description: 'Calibrate discount and forward curves from market quotes using numerical optimization.',
     group: 'Calibration',
     Component: CalibrationExample,
+  },
+  {
+    slug: 'statements-modeling',
+    title: 'Financial Statements Modeling',
+    description: 'Build and evaluate financial statement models with formulas, forecasts, and dynamic metrics.',
+    group: 'Statements',
+    Component: StatementsModeling,
   },
 ];
 

@@ -12,6 +12,7 @@ use crate::types::FinancialModelSpec;
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::Expr;
 use indexmap::IndexMap;
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
 
 /// Evaluator for financial models.
@@ -57,6 +58,7 @@ impl Evaluator {
         market_ctx: Option<&finstack_core::market_data::MarketContext>,
         as_of: Option<finstack_core::dates::Date>,
     ) -> Result<Results> {
+        #[cfg(not(target_arch = "wasm32"))]
         let start = Instant::now();
 
         // Clear forecast cache for new evaluation
@@ -117,7 +119,10 @@ impl Evaluator {
 
         // Set metadata
         results.meta = ResultsMeta {
+            #[cfg(not(target_arch = "wasm32"))]
             eval_time_ms: Some(start.elapsed().as_millis() as u64),
+            #[cfg(target_arch = "wasm32")]
+            eval_time_ms: None,
             num_nodes: model.nodes.len(),
             num_periods: model.periods.len(),
         };

@@ -3,6 +3,7 @@
 use wasm_bindgen::prelude::*;
 
 mod core;
+mod statements;
 mod valuations;
 
 pub use core::cashflow::{
@@ -90,6 +91,21 @@ pub use valuations::pricer::{
     create_standard_registry_js as createStandardRegistry, JsPricerRegistry as PricerRegistry,
 };
 pub use valuations::results::JsValuationResult as ValuationResult;
+
+// Statements exports
+pub use statements::{
+    JsAmountOrScalar as AmountOrScalar, JsCapitalStructureSpec as CapitalStructureSpec,
+    JsCorkscrewExtension as CorkscrewExtension, JsCreditScorecardExtension as CreditScorecardExtension,
+    JsDebtInstrumentSpec as DebtInstrumentSpec, JsEvaluator as Evaluator,
+    JsExtensionMetadata as ExtensionMetadata, JsExtensionRegistry as ExtensionRegistry,
+    JsExtensionResult as ExtensionResult, JsExtensionStatus as ExtensionStatus,
+    JsFinancialModelSpec as FinancialModelSpec, JsForecastMethod as ForecastMethod,
+    JsForecastSpec as ForecastSpec, JsMetricDefinition as MetricDefinition,
+    JsMetricRegistry as StatementsMetricRegistry, JsModelBuilder as ModelBuilder,
+    JsNodeSpec as NodeSpec, JsNodeType as NodeType, JsRegistry as Registry,
+    JsResults as Results, JsResultsMeta as ResultsMeta, JsSeasonalMode as SeasonalMode,
+    JsUnitType as UnitType,
+};
 
 #[cfg(feature = "console_error_panic_hook")]
 fn init_panic_hook() {
