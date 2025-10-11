@@ -70,10 +70,3 @@ impl Default for SimpleBasketDiscountingPricer {
         Self::new(crate::pricer::InstrumentType::Basket)
     }
 }
-
-// Auto-register Basket discounting pricer
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleBasketDiscountingPricer::default()),
-    }
-}

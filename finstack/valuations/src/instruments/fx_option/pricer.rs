@@ -29,7 +29,6 @@ impl Default for SimpleFxOptionBlackPricer {
     }
 }
 
-#[finstack_valuations_macros::register_pricer]
 impl Pricer for SimpleFxOptionBlackPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::FxOption, self.model)
@@ -62,12 +61,5 @@ impl Pricer for SimpleFxOptionBlackPricer {
 
         // Return stamped result
         Ok(ValuationResult::stamped(fx_option.id(), as_of, pv))
-    }
-}
-
-// Auto-register additional FxOption pricer for Discounting model
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleFxOptionBlackPricer::with_model(crate::pricer::ModelKey::Discounting)),
     }
 }

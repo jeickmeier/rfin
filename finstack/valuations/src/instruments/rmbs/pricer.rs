@@ -10,10 +10,3 @@ impl Default for RmbsDiscountingPricer {
         Self::new(crate::pricer::InstrumentType::RMBS)
     }
 }
-
-// Auto-register RMBS discounting pricer
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(RmbsDiscountingPricer::default()),
-    }
-}

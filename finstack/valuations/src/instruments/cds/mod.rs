@@ -15,19 +15,3 @@ pub use types::CreditDefaultSwap;
 pub use types::PayReceive;
 pub use types::PremiumLegSpec;
 pub use types::ProtectionLegSpec;
-
-// Auto-register CDS pricers (HazardRate and Discounting models)
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(crate::instruments::common::GenericInstrumentPricer::cds()),
-    }
-}
-
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(crate::instruments::common::GenericInstrumentPricer::<CreditDefaultSwap>::new(
-            crate::pricer::InstrumentType::CDS,
-            crate::pricer::ModelKey::Discounting,
-        )),
-    }
-}

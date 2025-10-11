@@ -10,10 +10,3 @@ impl Default for SimpleFraDiscountingPricer {
         Self::new(crate::pricer::InstrumentType::FRA)
     }
 }
-
-// Auto-register FRA discounting pricer
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleFraDiscountingPricer::default()),
-    }
-}

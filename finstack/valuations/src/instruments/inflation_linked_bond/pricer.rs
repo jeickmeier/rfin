@@ -9,10 +9,3 @@ impl Default for SimpleInflationLinkedBondDiscountingPricer {
         Self::new(crate::pricer::InstrumentType::InflationLinkedBond)
     }
 }
-
-// Auto-register InflationLinkedBond discounting pricer
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleInflationLinkedBondDiscountingPricer::default()),
-    }
-}

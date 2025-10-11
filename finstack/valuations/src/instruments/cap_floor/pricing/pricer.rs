@@ -29,7 +29,6 @@ impl Default for SimpleCapFloorBlackPricer {
     }
 }
 
-#[finstack_valuations_macros::register_pricer]
 impl Pricer for SimpleCapFloorBlackPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::CapFloor, self.model)
@@ -62,12 +61,5 @@ impl Pricer for SimpleCapFloorBlackPricer {
 
         // Return stamped result
         Ok(ValuationResult::stamped(cap_floor.id(), as_of, pv))
-    }
-}
-
-// Auto-register additional CapFloor pricer for Discounting model
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleCapFloorBlackPricer::with_model(crate::pricer::ModelKey::Discounting)),
     }
 }

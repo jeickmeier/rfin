@@ -447,7 +447,6 @@ impl Default for SimpleCdsOptionBlackPricer {
     }
 }
 
-#[finstack_valuations_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSOption, self.model_key)
@@ -486,12 +485,5 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
             as_of,
             pv,
         ))
-    }
-}
-
-// Auto-register additional CDSOption pricer for Discounting model
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleCdsOptionBlackPricer::with_model(crate::pricer::ModelKey::Discounting)),
     }
 }

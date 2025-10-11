@@ -332,7 +332,6 @@ impl Default for SimpleEquityOptionBlackPricer {
     }
 }
 
-#[finstack_valuations_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::EquityOption, self.model)
@@ -370,12 +369,5 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
             as_of,
             pv,
         ))
-    }
-}
-
-// Auto-register additional EquityOption pricer for Discounting model
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleEquityOptionBlackPricer::with_model(crate::pricer::ModelKey::Discounting)),
     }
 }

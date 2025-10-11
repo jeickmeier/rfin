@@ -330,35 +330,232 @@ impl PricerRegistry {
     }
 }
 
-// ========================= AUTO-REGISTRATION =========================
+// ========================= REGISTRATION =========================
 
-/// Pricer registration for auto-discovery via inventory crate.
+/// Register all standard pricers explicitly.
 ///
-/// Each pricer implementation annotated with `#[register_pricer]` will
-/// automatically submit a registration that can be collected at runtime.
-pub struct PricerRegistration {
-    pub ctor: fn() -> Box<dyn Pricer>,
+/// This function registers all instrument pricers in a single, visible location.
+/// This explicit approach provides better IDE support, easier debugging, and
+/// clearer dependency tracking compared to auto-registration.
+fn register_all_pricers(registry: &mut PricerRegistry) {
+    // Bond pricers
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Bond, ModelKey::Discounting),
+        Box::new(crate::instruments::bond::pricing::pricer::SimpleBondDiscountingPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Bond, ModelKey::Tree),
+        Box::new(crate::instruments::bond::pricing::pricer::SimpleBondOasPricer),
+    );
+
+    // Interest Rate Swaps
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::IRS, ModelKey::Discounting),
+        Box::new(crate::instruments::irs::pricer::SimpleIrsDiscountingPricer::default()),
+    );
+
+    // FRA
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::FRA, ModelKey::Discounting),
+        Box::new(crate::instruments::fra::pricer::SimpleFraDiscountingPricer::default()),
+    );
+
+    // Basis Swap
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::BasisSwap, ModelKey::Discounting),
+        Box::new(crate::instruments::basis_swap::pricer::SimpleBasisSwapDiscountingPricer::default()),
+    );
+
+    // Deposit
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Deposit, ModelKey::Discounting),
+        Box::new(crate::instruments::deposit::pricer::SimpleDepositDiscountingPricer::default()),
+    );
+
+    // Interest Rate Future
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::InterestRateFuture, ModelKey::Discounting),
+        Box::new(crate::instruments::ir_future::pricer::SimpleIrFutureDiscountingPricer::default()),
+    );
+
+    // Cap/Floor
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CapFloor, ModelKey::Black76),
+        Box::new(crate::instruments::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CapFloor, ModelKey::Discounting),
+        Box::new(crate::instruments::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::with_model(ModelKey::Discounting)),
+    );
+
+    // Swaption
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Swaption, ModelKey::Black76),
+        Box::new(crate::instruments::swaption::pricer::SimpleSwaptionBlackPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Swaption, ModelKey::Discounting),
+        Box::new(crate::instruments::swaption::pricer::SimpleSwaptionBlackPricer::with_model(ModelKey::Discounting)),
+    );
+
+    // CDS
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CDS, ModelKey::HazardRate),
+        Box::new(crate::instruments::common::GenericInstrumentPricer::cds()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CDS, ModelKey::Discounting),
+        Box::new(crate::instruments::common::GenericInstrumentPricer::<crate::instruments::CreditDefaultSwap>::new(
+            InstrumentType::CDS,
+            ModelKey::Discounting,
+        )),
+    );
+
+    // CDS Index
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CDSIndex, ModelKey::HazardRate),
+        Box::new(crate::instruments::cds_index::pricer::SimpleCdsIndexHazardPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CDSIndex, ModelKey::Discounting),
+        Box::new(crate::instruments::cds_index::pricer::SimpleCdsIndexHazardPricer::with_model(ModelKey::Discounting)),
+    );
+
+    // CDS Tranche
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CDSTranche, ModelKey::HazardRate),
+        Box::new(crate::instruments::cds_tranche::pricer::SimpleCdsTrancheHazardPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CDSTranche, ModelKey::Discounting),
+        Box::new(crate::instruments::cds_tranche::pricer::SimpleCdsTrancheHazardPricer::with_model(ModelKey::Discounting)),
+    );
+
+    // CDS Option
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CDSOption, ModelKey::Black76),
+        Box::new(crate::instruments::cds_option::pricer::SimpleCdsOptionBlackPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CDSOption, ModelKey::Discounting),
+        Box::new(crate::instruments::cds_option::pricer::SimpleCdsOptionBlackPricer::with_model(ModelKey::Discounting)),
+    );
+
+    // FX Spot
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::FxSpot, ModelKey::Discounting),
+        Box::new(crate::instruments::fx_spot::pricer::SimpleFxSpotDiscountingPricer),
+    );
+
+    // FX Swap
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::FxSwap, ModelKey::Discounting),
+        Box::new(crate::instruments::fx_swap::pricer::SimpleFxSwapDiscountingPricer::default()),
+    );
+
+    // FX Option
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::FxOption, ModelKey::Black76),
+        Box::new(crate::instruments::fx_option::pricer::SimpleFxOptionBlackPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::FxOption, ModelKey::Discounting),
+        Box::new(crate::instruments::fx_option::pricer::SimpleFxOptionBlackPricer::with_model(ModelKey::Discounting)),
+    );
+
+    // Equity
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Equity, ModelKey::Discounting),
+        Box::new(crate::instruments::equity::pricer::SimpleEquityDiscountingPricer),
+    );
+
+    // Equity Option
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::EquityOption, ModelKey::Black76),
+        Box::new(crate::instruments::equity_option::pricer::SimpleEquityOptionBlackPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::EquityOption, ModelKey::Discounting),
+        Box::new(crate::instruments::equity_option::pricer::SimpleEquityOptionBlackPricer::with_model(ModelKey::Discounting)),
+    );
+
+    // TRS (Total Return Swap)
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::TRS, ModelKey::Discounting),
+        Box::new(crate::instruments::trs::pricing::pricer::SimpleTrsDiscountingPricer),
+    );
+
+    // Convertible Bond
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Convertible, ModelKey::Discounting),
+        Box::new(crate::instruments::convertible::pricer::SimpleConvertibleDiscountingPricer),
+    );
+
+    // Private Markets Fund
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::PrivateMarketsFund, ModelKey::Discounting),
+        Box::new(crate::instruments::private_markets_fund::pricer::PrivateMarketsFundDiscountingPricer),
+    );
+
+    // Inflation Swap
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::InflationSwap, ModelKey::Discounting),
+        Box::new(crate::instruments::inflation_swap::pricer::SimpleInflationSwapDiscountingPricer::default()),
+    );
+
+    // Inflation Linked Bond
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::InflationLinkedBond, ModelKey::Discounting),
+        Box::new(crate::instruments::inflation_linked_bond::pricer::SimpleInflationLinkedBondDiscountingPricer::default()),
+    );
+
+    // Variance Swap
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::VarianceSwap, ModelKey::Discounting),
+        Box::new(crate::instruments::variance_swap::pricer::SimpleVarianceSwapDiscountingPricer::default()),
+    );
+
+    // Repo
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Repo, ModelKey::Discounting),
+        Box::new(crate::instruments::repo::pricer::SimpleRepoDiscountingPricer::default()),
+    );
+
+    // Basket
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Basket, ModelKey::Discounting),
+        Box::new(crate::instruments::basket::SimpleBasketDiscountingPricer::default()),
+    );
+
+    // Structured Credit - ABS, CLO, CMBS, RMBS
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::ABS, ModelKey::Discounting),
+        Box::new(crate::instruments::abs::pricer::AbsDiscountingPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CLO, ModelKey::Discounting),
+        Box::new(crate::instruments::clo::pricer::CloDiscountingPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CMBS, ModelKey::Discounting),
+        Box::new(crate::instruments::cmbs::pricer::CmbsDiscountingPricer::default()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::RMBS, ModelKey::Discounting),
+        Box::new(crate::instruments::rmbs::pricer::RmbsDiscountingPricer::default()),
+    );
 }
 
-inventory::collect!(PricerRegistration);
-
-/// Create a standard pricer registry with all auto-registered pricers.
+/// Create a standard pricer registry with all registered pricers.
 ///
-/// This function collects all pricers that were marked with `#[register_pricer]`
-/// or manually registered via `inventory::submit!` and automatically registers
-/// them based on their `key()` implementation.
+/// This function creates a registry and explicitly registers all instrument pricers.
+/// The explicit registration approach provides better visibility, IDE support, and
+/// debugging capabilities compared to the previous auto-registration system.
 ///
-/// All 40+ instrument pricers are now self-registering at compile time.
+/// All 40+ instrument pricers are registered in the `register_all_pricers` function.
 pub fn create_standard_registry() -> PricerRegistry {
     let mut registry = PricerRegistry::new();
-
-    // Collect all auto-registered pricers
-    for registration in inventory::iter::<PricerRegistration> {
-        let pricer = (registration.ctor)();
-        let key = pricer.key();
-        registry.register_pricer(key, pricer);
-    }
-
+    register_all_pricers(&mut registry);
     registry
 }
 

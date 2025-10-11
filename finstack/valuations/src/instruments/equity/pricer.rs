@@ -113,7 +113,6 @@ impl Default for SimpleEquityDiscountingPricer {
     }
 }
 
-#[finstack_valuations_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(

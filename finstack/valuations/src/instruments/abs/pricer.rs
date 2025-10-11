@@ -10,10 +10,3 @@ impl Default for AbsDiscountingPricer {
         Self::new(crate::pricer::InstrumentType::ABS)
     }
 }
-
-// Auto-register ABS discounting pricer
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(AbsDiscountingPricer::default()),
-    }
-}

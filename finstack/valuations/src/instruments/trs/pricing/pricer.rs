@@ -25,7 +25,6 @@ impl Default for SimpleTrsDiscountingPricer {
     }
 }
 
-#[finstack_valuations_macros::register_pricer]
 impl Pricer for SimpleTrsDiscountingPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::TRS, ModelKey::Discounting)

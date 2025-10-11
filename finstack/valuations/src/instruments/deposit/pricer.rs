@@ -9,10 +9,3 @@ impl Default for SimpleDepositDiscountingPricer {
         Self::new(crate::pricer::InstrumentType::Deposit)
     }
 }
-
-// Auto-register Deposit discounting pricer
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleDepositDiscountingPricer::default()),
-    }
-}

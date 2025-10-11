@@ -10,10 +10,3 @@ impl Default for SimpleIrsDiscountingPricer {
         Self::new(crate::pricer::InstrumentType::IRS)
     }
 }
-
-// Auto-register IRS discounting pricer
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(SimpleIrsDiscountingPricer::default()),
-    }
-}

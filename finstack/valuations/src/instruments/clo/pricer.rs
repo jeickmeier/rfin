@@ -10,10 +10,3 @@ impl Default for CloDiscountingPricer {
         Self::new(crate::pricer::InstrumentType::CLO)
     }
 }
-
-// Auto-register CLO discounting pricer
-inventory::submit! {
-    crate::pricer::PricerRegistration {
-        ctor: || Box::new(CloDiscountingPricer::default()),
-    }
-}
