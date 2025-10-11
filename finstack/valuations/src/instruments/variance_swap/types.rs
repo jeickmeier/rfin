@@ -376,7 +376,7 @@ impl VarianceSwap {
         ] {
             if let Ok(surface) = context.surface_ref(sid) {
                 // Attempt variance replication (VIX-like)
-                if let Ok(disc) = context.get_discount_ref(self.disc_id.clone()) {
+                if let Ok(disc) = context.get_discount_ref(&self.disc_id) {
                     if let Ok(spot_scalar) = context.price(&self.underlying_id) {
                         let spot = match spot_scalar {
                             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,

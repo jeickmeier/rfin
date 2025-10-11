@@ -108,7 +108,7 @@ impl Evaluator {
             for (node_id, value) in &period_results {
                 results
                     .nodes
-                    .entry(node_id.clone())
+                    .entry(node_id.to_owned())
                     .or_default()
                     .insert(period.id, *value);
             }

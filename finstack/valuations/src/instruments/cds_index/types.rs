@@ -96,7 +96,7 @@ impl CDSIndex {
 
         let mut s = Self {
             id: id.into(),
-            index_name: index_params.index_name.clone(),
+            index_name: index_params.index_name.to_owned(),
             series: index_params.series,
             version: index_params.version,
             notional: construction_params.notional,
@@ -144,7 +144,7 @@ impl CDSIndex {
     /// Map this index to a synthetic single-name CDS for valuation reuse
     pub fn to_synthetic_cds(&self) -> CreditDefaultSwap {
         CreditDefaultSwap {
-            id: self.id.clone(),
+            id: self.id.to_owned(),
             notional: self.notional,
             side: self.side,
             convention: self.convention,

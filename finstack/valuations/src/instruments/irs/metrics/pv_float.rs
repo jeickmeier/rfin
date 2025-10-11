@@ -14,8 +14,8 @@ impl MetricCalculator for FloatLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.get_discount(irs.float.disc_id.clone())?;
-        let fwd = context.curves.get_forward(irs.float.fwd_id.clone())?;
+        let disc = context.curves.get_discount(&irs.float.disc_id)?;
+        let fwd = context.curves.get_forward(&irs.float.fwd_id)?;
         let base = disc.base_date();
 
         let sched = crate::cashflow::builder::build_dates(

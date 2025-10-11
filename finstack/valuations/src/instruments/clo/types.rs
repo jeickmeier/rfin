@@ -461,7 +461,7 @@ impl Instrument for Clo {
         
         // Cache cashflows and discount curve ID for metrics to use
         metric_context.cashflows = Some(flows);
-        metric_context.discount_curve_id = Some(self.disc_id.clone());
+        metric_context.discount_curve_id = Some(self.disc_id.to_owned());
         
         // Get standard registry
         let registry = crate::metrics::standard_registry();

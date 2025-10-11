@@ -32,7 +32,7 @@ impl MetricCalculator for YtmCalculator {
                 })?,
                 bond.notional,
                 bond.dc,
-                bond.disc_id.clone(),
+                bond.disc_id.to_owned(),
                 bond.coupon,
                 bond.freq,
             )

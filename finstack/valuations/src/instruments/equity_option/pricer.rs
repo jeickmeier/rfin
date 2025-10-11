@@ -355,7 +355,7 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
 
         // Get as_of date from discount curve
         let disc = market
-            .get_discount_ref(equity_option.disc_id.clone())
+            .get_discount_ref(&equity_option.disc_id)
             .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 

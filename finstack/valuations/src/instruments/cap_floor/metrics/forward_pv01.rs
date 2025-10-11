@@ -17,7 +17,7 @@ impl MetricCalculator for ForwardPv01Calculator {
 
         // Bump the forward curve by +1bp
         let mut bumps = hashbrown::HashMap::new();
-        bumps.insert(option.forward_id.clone(), BumpSpec::parallel_bp(1.0));
+        bumps.insert(option.forward_id.to_owned(), BumpSpec::parallel_bp(1.0));
         let bumped_ctx = context.curves.bump(bumps)?;
 
         // Reprice with bumped forward curve

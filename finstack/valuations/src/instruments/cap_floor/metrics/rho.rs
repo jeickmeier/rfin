@@ -21,7 +21,7 @@ impl MetricCalculator for RhoCalculator {
         // Build bumps map: parallel 1bp on the discount curve only, then scale to 1%
         let mut bumps = hashbrown::HashMap::new();
         bumps.insert(
-            option.disc_id.clone(),
+            option.disc_id.to_owned(),
             BumpSpec::parallel_bp(1.0), // +1bp
         );
 

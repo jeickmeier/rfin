@@ -286,7 +286,7 @@ pub fn generate() -> io::Result<()> {
                     format!("Failed to parse {}: {}", path.display(), e),
                 )
             })?;
-            calendars.insert(cal.id.clone(), cal);
+            calendars.insert(cal.id.to_owned(), cal);
         }
     }
 

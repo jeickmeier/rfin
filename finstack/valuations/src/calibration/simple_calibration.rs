@@ -353,7 +353,7 @@ impl SimpleCalibration {
                 match credit_quote {
                     CreditQuote::CDS { entity, .. } | CreditQuote::CDSUpfront { entity, .. } => {
                         quotes_by_entity
-                            .entry(entity.clone())
+                            .entry(entity.to_owned())
                             .or_default()
                             .push(credit_quote.clone());
                     }
@@ -428,7 +428,7 @@ impl SimpleCalibration {
                     InflationQuote::InflationSwap { index, .. }
                     | InflationQuote::YoYInflationSwap { index, .. } => {
                         quotes_by_index
-                            .entry(index.clone())
+                            .entry(index.to_owned())
                             .or_default()
                             .push(inflation_quote.clone());
                     }
@@ -484,7 +484,7 @@ impl SimpleCalibration {
                 match vol_quote {
                     VolQuote::OptionVol { underlying, .. } => {
                         quotes_by_underlying
-                            .entry(underlying.clone())
+                            .entry(underlying.to_owned())
                             .or_default()
                             .push(vol_quote.clone());
                     }
@@ -706,7 +706,7 @@ impl SimpleCalibration {
         report: &CalibrationReport,
     ) {
         for (key, value) in &report.residuals {
-            all_residuals.insert(key.clone(), *value);
+            all_residuals.insert(key.to_owned(), *value);
         }
         *total_iterations += report.iterations;
     }

@@ -305,7 +305,7 @@ impl BaseCorrelationCalibrator {
         ));
         CdsTranche::builder()
             .id(id)
-            .index_name(self.index_id.clone())
+            .index_name(self.index_id.to_owned())
             .series(self.series)
             .attach_pct(attach_pct)
             .detach_pct(detach_pct)
@@ -316,8 +316,8 @@ impl BaseCorrelationCalibrator {
             .day_count(DayCount::Act360)
             .business_day_convention(BusinessDayConvention::Following)
             .calendar_id_opt(None)
-            .disc_id(self.discount_curve_id.clone())
-            .credit_index_id(finstack_core::types::CurveId::new(self.index_id.clone()))
+            .disc_id(self.discount_curve_id.to_owned())
+            .credit_index_id(finstack_core::types::CurveId::new(self.index_id.to_owned()))
             .side(TrancheSide::SellProtection)
             .effective_date_opt(None)
             .build()
@@ -601,7 +601,7 @@ mod tests {
         let test_index = CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)
             .recovery_rate(original_index.recovery_rate)
-            .index_credit_curve(original_index.index_credit_curve.clone())
+            .index_credit_curve(std::sync::Arc::clone(&original_index.index_credit_curve))
             .base_correlation_curve(std::sync::Arc::new(known_curve))
             .build()
             .unwrap();
@@ -666,7 +666,7 @@ mod tests {
         let clean_index = CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)
             .recovery_rate(original_index.recovery_rate)
-            .index_credit_curve(original_index.index_credit_curve.clone())
+            .index_credit_curve(std::sync::Arc::clone(&original_index.index_credit_curve))
             .base_correlation_curve(std::sync::Arc::new(dummy_base_corr_curve))
             .build()
             .unwrap();

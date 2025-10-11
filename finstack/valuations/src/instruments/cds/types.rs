@@ -327,7 +327,7 @@ impl CreditDefaultSwap {
             self,
             curves,
             curves
-                .get_discount_ref(self.premium.disc_id.clone())?
+                .get_discount_ref(&self.premium.disc_id)?
                 .base_date(),
         )
     }
@@ -338,8 +338,8 @@ impl CreditDefaultSwap {
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.get_discount_ref(self.premium.disc_id.clone())?;
-        let surv = curves.get_hazard_ref(self.protection.credit_id.clone())?;
+        let disc = curves.get_discount_ref(&self.premium.disc_id)?;
+        let surv = curves.get_hazard_ref(&self.protection.credit_id)?;
         let pricer = CDSPricer::new();
         pricer.npv_with_upfront(self, disc, surv, as_of)
     }

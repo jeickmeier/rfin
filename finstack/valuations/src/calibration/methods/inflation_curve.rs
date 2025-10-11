@@ -150,7 +150,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
         if quotes.is_empty() {
             // Build a trivial flat CPI curve when no quotes are provided
-            let curve = InflationCurve::builder(self.curve_id.clone())
+            let curve = InflationCurve::builder(self.curve_id.to_owned())
                 .base_cpi(self.base_cpi)
                 .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
                 .set_interp(InterpStyle::LogLinear)
@@ -180,7 +180,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             const CALIB_INDEX_ID: &str = "CALIB_INFLATION";
 
             // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
-            let _ = base_context.get_discount_ref(self.discount_id.clone())?;
+            let _ = base_context.get_discount_ref(&self.discount_id)?;
 
             // Provide a 'static discount id for instrument builder requirements
             let disc_id_static: &'static str =
@@ -325,7 +325,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     "Building final inflation curve"
                 );
             }
-            let curve = match InflationCurve::builder(self.curve_id.clone())
+            let curve = match InflationCurve::builder(self.curve_id.to_owned())
                 .base_cpi(self.base_cpi)
                 .knots(final_knots.clone())
                 .set_interp(self.solve_interp)
@@ -334,7 +334,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 Ok(c) => c,
                 Err(_) => {
                     // Fallback: minimal two-point curve to avoid calibration hard failure in tests
-                    InflationCurve::builder(self.curve_id.clone())
+                    InflationCurve::builder(self.curve_id.to_owned())
                         .base_cpi(self.base_cpi)
                         .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
                         .set_interp(self.solve_interp)

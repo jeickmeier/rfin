@@ -52,8 +52,8 @@ impl ForwardRateAgreement {
         context: &finstack_core::market_data::MarketContext,
         _as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        let disc = context.get_discount_ref(self.disc_id.clone())?;
-        let fwd = context.get_forward_ref(self.forward_id.clone())?;
+        let disc = context.get_discount_ref(&self.disc_id)?;
+        let fwd = context.get_forward_ref(&self.forward_id)?;
 
         // Time fractions for mapping into the forward curve domain must use the
         // forward curve's own day-count/time basis, not the instrument accrual basis.

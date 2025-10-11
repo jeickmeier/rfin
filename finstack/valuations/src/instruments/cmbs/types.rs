@@ -239,7 +239,7 @@ impl Instrument for Cmbs {
             base_value,
         );
         metric_context.cashflows = Some(flows);
-        metric_context.discount_curve_id = Some(self.disc_id.clone());
+        metric_context.discount_curve_id = Some(self.disc_id.to_owned());
         
         let registry = crate::metrics::standard_registry();
         let computed_metrics = registry.compute(metrics, &mut metric_context)?;

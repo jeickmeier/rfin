@@ -280,7 +280,7 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
         instruments: &[CreditQuote],
         base_context: &MarketContext,
     ) -> Result<(HazardCurve, CalibrationReport)> {
-        let disc = base_context.get_discount_ref(self.discount_curve_id.clone())?;
+        let disc = base_context.get_discount_ref(&self.discount_curve_id)?;
         let solver = crate::calibration::create_simple_solver(&self.config);
         self.bootstrap_internal(instruments, &solver, Some(disc))
     }

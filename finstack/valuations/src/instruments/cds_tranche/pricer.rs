@@ -973,7 +973,7 @@ impl CDSTranchePricer {
             .num_constituents(original_index.num_constituents)
             .recovery_rate(original_index.recovery_rate)
             .index_credit_curve(std::sync::Arc::new(bumped_hazard_curve))
-            .base_correlation_curve(original_index.base_correlation_curve.clone())
+            .base_correlation_curve(std::sync::Arc::clone(&original_index.base_correlation_curve))
             .build()
     }
 
@@ -1050,7 +1050,7 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        let discount_curve = market_ctx.get_discount_ref(tranche.disc_id.clone())?;
+        let discount_curve = market_ctx.get_discount_ref(&tranche.disc_id)?;
         let index_data = match market_ctx.credit_index_ref(&tranche.credit_index_id) {
             Ok(data) => data,
             Err(_) => return Ok(0.0),
@@ -1143,7 +1143,7 @@ impl CDSTranchePricer {
         let bumped_index = CreditIndexData::builder()
             .num_constituents(original_index_arc.num_constituents)
             .recovery_rate(original_index_arc.recovery_rate)
-            .index_credit_curve(original_index_arc.index_credit_curve.clone())
+            .index_credit_curve(std::sync::Arc::clone(&original_index_arc.index_credit_curve))
             .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve))
             .build()?;
 
@@ -1253,7 +1253,7 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
 
         // Get as_of date from discount curve
         let disc = market
-            .get_discount_ref(cds_tranche.disc_id.clone())
+            .get_discount_ref(&cds_tranche.disc_id)
             .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 

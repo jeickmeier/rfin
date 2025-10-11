@@ -56,7 +56,7 @@ impl Pricer for SimpleBondOasPricer {
 
         // Get as_of date
         let disc = market
-            .get_discount_ref(bond.disc_id.clone())
+            .get_discount_ref(&bond.disc_id)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 

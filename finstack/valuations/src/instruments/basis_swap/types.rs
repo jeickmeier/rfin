@@ -177,8 +177,8 @@ impl BasisSwap {
         valuation_date: Date,
     ) -> Result<Money> {
         // Get curves
-        let disc = context.get_discount_ref(self.discount_curve_id.clone())?;
-        let fwd = context.get_forward_ref(leg.forward_curve_id.clone())?;
+        let disc = context.get_discount_ref(&self.discount_curve_id)?;
+        let fwd = context.get_forward_ref(&leg.forward_curve_id)?;
 
         let mut pv = 0.0;
         let currency = self.notional.currency();
@@ -238,7 +238,7 @@ impl BasisSwap {
         schedule: &PeriodSchedule,
         curves: &MarketContext,
     ) -> Result<f64> {
-        let disc = curves.get_discount_ref(self.discount_curve_id.clone())?;
+        let disc = curves.get_discount_ref(&self.discount_curve_id)?;
         let mut annuity = 0.0;
         let mut prev = schedule.dates[0];
         for &d in &schedule.dates[1..] {

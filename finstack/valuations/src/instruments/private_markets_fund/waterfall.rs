@@ -606,7 +606,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         for event in events {
             match (&event.deal_id, event.kind) {
                 (Some(deal_id), FundEventKind::Proceeds) => {
-                    deals.entry(deal_id.clone()).or_default().push(event);
+                    deals.entry(deal_id.to_owned()).or_default().push(event);
                 }
                 (_, FundEventKind::Contribution) => {
                     fund_contributions.push(event);

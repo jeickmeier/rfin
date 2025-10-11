@@ -11,7 +11,7 @@ impl MetricCalculator for DfStartCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let deposit: &Deposit = context.instrument_as()?;
 
-        let disc = context.curves.get_discount_ref(deposit.disc_id.clone())?;
+        let disc = context.curves.get_discount_ref(&deposit.disc_id)?;
         // Use the curve's own time basis for discounting
         Ok(disc.df_on_date_curve(deposit.start))
     }

@@ -53,7 +53,7 @@ impl PoolAsset {
     /// Create new pool asset from existing bond
     pub fn from_bond(bond: &Bond, industry: Option<String>) -> Self {
         Self {
-            id: bond.id.clone(),
+            id: bond.id.to_owned(),
             asset_type: AssetType::HighYieldBond {
                 industry: industry.clone(),
             },
@@ -427,7 +427,7 @@ impl AssetPool {
         // Group by obligor
         for asset in &self.assets {
             if let Some(ref obligor) = asset.obligor_id {
-                *obligor_balances.entry(obligor.clone()).or_insert(0.0) += asset.balance.amount();
+                *obligor_balances.entry(obligor.to_owned()).or_insert(0.0) += asset.balance.amount();
             }
         }
 
@@ -462,7 +462,7 @@ impl AssetPool {
             let mut obligor_concentrations: HashMap<String, f64> = HashMap::new();
             for asset in &self.assets {
                 if let Some(ref obligor) = asset.obligor_id {
-                    *obligor_concentrations.entry(obligor.clone()).or_insert(0.0) +=
+                    *obligor_concentrations.entry(obligor.to_owned()).or_insert(0.0) +=
                         asset.balance.amount() / total_balance;
                 }
             }
@@ -484,7 +484,7 @@ impl AssetPool {
         for asset in &self.assets {
             if let Some(ref industry) = asset.industry {
                 *industry_concentrations
-                    .entry(industry.clone())
+                    .entry(industry.to_owned())
                     .or_insert(0.0) += asset.balance.amount() / total_balance;
             }
         }

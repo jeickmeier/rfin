@@ -85,7 +85,7 @@ impl CdsOption {
             settlement: SettlementType::Cash,
             recovery_rate: credit_params.recovery_rate,
             disc_id: disc_id.into(),
-            credit_id: credit_params.credit_curve_id.clone(),
+            credit_id: credit_params.credit_curve_id.to_owned(),
             vol_id,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
@@ -122,7 +122,7 @@ impl CdsOption {
         }
 
         // Forward spread in bp
-        let hazard_curve = curves.get_hazard_ref(self.credit_id.clone())?;
+        let hazard_curve = curves.get_hazard_ref(&self.credit_id)?;
         let current_tenor = self.day_count.year_fraction(
             as_of,
             self.cds_maturity,
@@ -165,7 +165,7 @@ impl CdsOption {
         }
 
         // Forward spread in bp
-        let hazard_curve = curves.get_hazard_ref(self.credit_id.clone())?;
+        let hazard_curve = curves.get_hazard_ref(&self.credit_id)?;
         let current_tenor = self.day_count.year_fraction(
             as_of,
             self.cds_maturity,
@@ -208,7 +208,7 @@ impl CdsOption {
         }
 
         // Forward spread in bp
-        let hazard_curve = curves.get_hazard_ref(self.credit_id.clone())?;
+        let hazard_curve = curves.get_hazard_ref(&self.credit_id)?;
         let current_tenor = self.day_count.year_fraction(
             as_of,
             self.cds_maturity,
@@ -251,11 +251,11 @@ impl CdsOption {
         }
 
         // Risk-free rate proxy from discount curve at expiry
-        let disc = curves.get_discount_ref(self.disc_id.clone())?;
+        let disc = curves.get_discount_ref(&self.disc_id)?;
         let r = disc.zero(t);
 
         // Forward spread in bp
-        let hazard_curve = curves.get_hazard(self.credit_id.clone())?;
+        let hazard_curve = curves.get_hazard(&self.credit_id)?;
         let current_tenor = self.day_count.year_fraction(
             as_of,
             self.cds_maturity,

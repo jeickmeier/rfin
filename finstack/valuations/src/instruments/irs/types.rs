@@ -517,7 +517,7 @@ impl CashflowProvider for InterestRateSwap {
         float_b
             .principal(self.notional, self.float.start, self.float.end)
             .floating_cf(crate::cashflow::builder::FloatingCouponSpec {
-                index_id: self.float.fwd_id.clone(),
+                index_id: self.float.fwd_id.to_owned(),
                 margin_bp: self.float.spread_bp,
                 gearing: 1.0,
                 coupon_type: CouponType::Cash,
@@ -585,7 +585,7 @@ impl CashflowProvider for InterestRateSwap {
         float_b
             .principal(self.notional, self.float.start, self.float.end)
             .floating_cf(FloatingCouponSpec {
-                index_id: self.float.fwd_id.clone(),
+                index_id: self.float.fwd_id.to_owned(),
                 margin_bp: self.float.spread_bp,
                 gearing: 1.0,
                 coupon_type: CouponType::Cash,

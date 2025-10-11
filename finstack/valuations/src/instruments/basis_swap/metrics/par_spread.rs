@@ -47,7 +47,7 @@ impl MetricCalculator for ParSpreadCalculator {
 
         // PV of primary at zero spread - need to create a modified leg
         let primary_leg_no_spread = crate::instruments::basis_swap::BasisSwapLeg {
-            forward_curve_id: swap.primary_leg.forward_curve_id.clone(),
+            forward_curve_id: swap.primary_leg.forward_curve_id.to_owned(),
             frequency: swap.primary_leg.frequency,
             day_count: swap.primary_leg.day_count,
             bdc: swap.primary_leg.bdc,

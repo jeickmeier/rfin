@@ -163,7 +163,7 @@ impl ForwardCurveCalibrator {
                 Self::ensure_anchor(&mut temp_knots, fwd_rate);
 
                 let temp_fwd_curve = match ForwardCurve::builder(
-                    self_clone.fwd_curve_id.clone(),
+                    self_clone.fwd_curve_id.to_owned(),
                     self_clone.tenor_years,
                 )
                 .base_date(self_clone.base_date)
@@ -230,7 +230,7 @@ impl ForwardCurveCalibrator {
                 .unwrap_or(solved_fwd);
             Self::ensure_anchor(&mut final_knots, anchor_rate);
 
-            let final_curve = ForwardCurve::builder(self.fwd_curve_id.clone(), self.tenor_years)
+            let final_curve = ForwardCurve::builder(self.fwd_curve_id.to_owned(), self.tenor_years)
                 .base_date(self.base_date)
                 .knots(final_knots.clone())
                 .set_interp(self.solve_interp)
@@ -262,7 +262,7 @@ impl ForwardCurveCalibrator {
         let anchor_rate = final_knots.first().map(|(_, rate)| *rate).unwrap_or(0.0);
         Self::ensure_anchor(&mut final_knots, anchor_rate);
 
-        let curve = ForwardCurve::builder(self.fwd_curve_id.clone(), self.tenor_years)
+        let curve = ForwardCurve::builder(self.fwd_curve_id.to_owned(), self.tenor_years)
             .base_date(self.base_date)
             .knots(final_knots)
             .set_interp(self.solve_interp)
@@ -367,7 +367,7 @@ impl ForwardCurveCalibrator {
                     .fixed_rate(*rate)
                     .day_count(*day_count)
                     .reset_lag(2)
-                    .disc_id(self.discount_curve_id.clone())
+                    .disc_id(self.discount_curve_id.to_owned())
                     .forward_id(self.fwd_curve_id.clone())
                     .build()
                 {
@@ -399,7 +399,7 @@ impl ForwardCurveCalibrator {
                     .day_count(specs.day_count)
                     .position(crate::instruments::ir_future::Position::Long)
                     .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
-                    .disc_id(self.discount_curve_id.clone())
+                    .disc_id(self.discount_curve_id.to_owned())
                     .forward_id(self.fwd_curve_id.clone())
                     .build()
                 {
@@ -428,7 +428,7 @@ impl ForwardCurveCalibrator {
                     rate: *rate,
                     freq: *fixed_freq,
                     dc: *fixed_dc,
-                    disc_id: self.discount_curve_id.clone(),
+                    disc_id: self.discount_curve_id.to_owned(),
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
                     stub: StubKind::None,
@@ -439,7 +439,7 @@ impl ForwardCurveCalibrator {
                 };
 
                 let float_spec = FloatLegSpec {
-                    disc_id: self.discount_curve_id.clone(),
+                    disc_id: self.discount_curve_id.to_owned(),
                     fwd_id: self.fwd_curve_id.clone(),
                     spread_bp: 0.0,
                     freq: *float_freq,
@@ -527,7 +527,7 @@ impl ForwardCurveCalibrator {
                     *maturity,
                     primary_leg,
                     reference_leg,
-                    self.discount_curve_id.clone(),
+                    self.discount_curve_id.to_owned(),
                 );
 
                 let pv = basis_swap.value(context, self.base_date)?;

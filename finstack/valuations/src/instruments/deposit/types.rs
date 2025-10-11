@@ -46,7 +46,7 @@ impl Deposit {
         context: &finstack_core::market_data::MarketContext,
         _as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        let disc = context.get_discount_ref(self.disc_id.clone())?;
+        let disc = context.get_discount_ref(&self.disc_id)?;
 
         // Accrual factor (instrument basis)
         let yf = self

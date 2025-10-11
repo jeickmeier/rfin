@@ -244,7 +244,7 @@ impl Registry {
         let metric_map: IndexMap<String, MetricDefinition> = registry
             .metrics
             .iter()
-            .map(|m| (m.id.clone(), m.clone()))
+            .map(|m| (m.id.to_owned(), m.clone()))
             .collect();
 
         // Build dependency graph: metric_id -> set of metrics it depends on
@@ -263,7 +263,7 @@ impl Registry {
 
         for (metric_id, metric) in &metric_map {
             let deps = self.extract_metric_dependencies(&metric.formula, &all_metric_ids);
-            dependencies.insert(metric_id.clone(), deps);
+            dependencies.insert(metric_id.to_owned(), deps);
         }
 
         // Topological sort using Kahn's algorithm
@@ -277,7 +277,7 @@ impl Registry {
         for deps in dependencies.values() {
             for dep in deps {
                 if metric_map.contains_key(dep) {
-                    *in_degree.entry(dep.clone()).or_insert(0) += 1;
+                    *in_degree.entry(dep.to_owned()).or_insert(0) += 1;
                 }
             }
         }

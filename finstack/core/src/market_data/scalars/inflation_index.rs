@@ -288,7 +288,7 @@ impl InflationIndex {
         let observations = self.observations();
 
         Ok(InflationIndexState {
-            id: self.id.clone(),
+            id: self.id.to_owned(),
             currency: self.currency,
             observations,
             interpolation: self.interpolation,

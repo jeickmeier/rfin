@@ -70,8 +70,8 @@ impl CdsOptionPricer {
         }
 
         // Market curves
-        let disc = curves.get_discount_ref(option.disc_id.clone())?;
-        let hazard = curves.get_hazard_ref(option.credit_id.clone())?;
+        let disc = curves.get_discount_ref(&option.disc_id)?;
+        let hazard = curves.get_hazard_ref(&option.credit_id)?;
 
         // Forward spread at CDS maturity (bp)
         let forward_spread_bp = self.forward_spread_from_pricer(option, disc, hazard, as_of)?;
@@ -109,15 +109,15 @@ impl CdsOptionPricer {
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
-        let hazard = curves.get_hazard_ref(option.credit_id.clone())?;
-        let disc = curves.get_discount_ref(option.disc_id.clone())?;
+        let hazard = curves.get_hazard_ref(&option.credit_id)?;
+        let disc = curves.get_discount_ref(&option.disc_id)?;
         self.forward_spread_from_pricer(option, disc, hazard, as_of)
     }
 }
 
 fn synthetic_underlying_cds(option: &CdsOption) -> CreditDefaultSwap {
     CreditDefaultSwap::new_isda(
-        option.id.clone(),
+        option.id.to_owned(),
         Money::new(option.notional.amount(), option.notional.currency()),
         PayReceive::PayFixed,
         CDSConvention::IsdaNa,
@@ -125,8 +125,8 @@ fn synthetic_underlying_cds(option: &CdsOption) -> CreditDefaultSwap {
         option.expiry,
         option.cds_maturity,
         option.recovery_rate,
-        option.disc_id.clone(),
-        option.credit_id.clone(),
+        option.disc_id.to_owned(),
+        option.credit_id.to_owned(),
     )
 }
 
@@ -380,8 +380,8 @@ impl CdsOptionPricer {
             return Ok(0.0);
         }
 
-        let disc = curves.get_discount_ref(option.disc_id.clone())?;
-        let hazard = curves.get_hazard_ref(option.credit_id.clone())?;
+        let disc = curves.get_discount_ref(&option.disc_id)?;
+        let hazard = curves.get_hazard_ref(&option.credit_id)?;
 
         // Forward spread at CDS maturity (bp)
         let fwd_bp = self.forward_spread_from_pricer(option, disc, hazard, as_of)?;
@@ -470,7 +470,7 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
 
         // Get as_of date from discount curve
         let disc = market
-            .get_discount_ref(cds_option.disc_id.clone())
+            .get_discount_ref(&cds_option.disc_id)
             .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 

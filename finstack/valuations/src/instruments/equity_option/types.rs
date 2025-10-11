@@ -156,9 +156,9 @@ impl EquityOption {
             day_count: finstack_core::dates::DayCount::Act365F,
             settlement: option_params.settlement,
             disc_id,
-            spot_id: underlying_params.spot_id.clone(),
+            spot_id: underlying_params.spot_id.to_owned(),
             vol_id,
-            div_yield_id: underlying_params.dividend_yield_id.clone(),
+            div_yield_id: underlying_params.dividend_yield_id.to_owned(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }

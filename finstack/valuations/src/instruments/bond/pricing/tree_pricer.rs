@@ -72,7 +72,7 @@ impl BondValuator {
 
         let curves = market_context;
         let base_date = market_context
-            .get_discount(bond.disc_id.clone())?
+            .get_discount(&bond.disc_id)?
             .base_date();
         let flows = bond.build_schedule(curves, base_date)?;
 
@@ -257,7 +257,7 @@ impl TreePricer {
         // two-factor tree; otherwise, fall back to short-rate.
         let mut use_rates_credit = false;
         let mut rc_tree: Option<RatesCreditTree> = None;
-        let discount_curve = market_context.get_discount(bond.disc_id.clone())?;
+        let discount_curve = market_context.get_discount(&bond.disc_id)?;
         let hazard_curve = if let Some(hid) = bond.hazard_id.as_ref() {
             market_context.get_hazard(hid.as_str()).ok()
         } else {

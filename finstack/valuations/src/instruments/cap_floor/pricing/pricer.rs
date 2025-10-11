@@ -50,7 +50,7 @@ impl Pricer for SimpleCapFloorBlackPricer {
 
         // Get as_of date from discount curve
         let disc = market
-            .get_discount_ref(cap_floor.disc_id.clone())
+            .get_discount_ref(&cap_floor.disc_id)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 

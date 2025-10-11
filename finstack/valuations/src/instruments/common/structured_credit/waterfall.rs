@@ -259,7 +259,7 @@ impl WaterfallEngine {
 
     /// Add reserve account
     pub fn add_reserve(mut self, reserve: ReserveAccount) -> Self {
-        self.reserve_accounts.insert(reserve.id.clone(), reserve);
+        self.reserve_accounts.insert(reserve.id.to_owned(), reserve);
         self
     }
 
@@ -287,7 +287,7 @@ impl WaterfallEngine {
         let mut active_triggers: Vec<String> = Vec::with_capacity(self.diversion_triggers.len());
         for t in &self.diversion_triggers {
             if t.active {
-                active_triggers.push(t.id.clone());
+                active_triggers.push(t.id.to_owned());
             }
         }
 
@@ -328,7 +328,7 @@ impl WaterfallEngine {
                     had_diversions = true;
                     (trigger.divert_to.clone(), true)
                 } else {
-                    (rule.recipient.clone(), false)
+                    (rule.recipient.to_owned(), false)
                 }
             } else {
                 (rule.recipient.clone(), false)
@@ -371,7 +371,7 @@ impl WaterfallEngine {
                                 if capped.amount() > 0.0 {
                                     let recip = PaymentRecipient::Tranche(t.id.to_string());
                                     use std::collections::hash_map::Entry;
-                                    match distributions.entry(recip.clone()) {
+                                    match distributions.entry(recip.to_owned()) {
                                         Entry::Occupied(mut e) => {
                                             let next = e.get().checked_add(capped)?;
                                             e.insert(next);
@@ -382,7 +382,7 @@ impl WaterfallEngine {
                                     }
 
                                     payment_records.push(PaymentRecord {
-                                        rule_id: rule.id.clone(),
+                                        rule_id: rule.id.to_owned(),
                                         priority: rule.priority,
                                         recipient: recip,
                                         requested_amount: capped,
@@ -415,7 +415,7 @@ impl WaterfallEngine {
                 .unwrap_or(Money::new(0.0, self.base_currency));
 
             use std::collections::hash_map::Entry;
-            match distributions.entry(recipient.clone()) {
+            match distributions.entry(recipient.to_owned()) {
                 Entry::Occupied(mut e) => {
                     let next = e.get().checked_add(paid)?;
                     e.insert(next);
@@ -426,7 +426,7 @@ impl WaterfallEngine {
             }
 
             payment_records.push(PaymentRecord {
-                rule_id: rule.id.clone(),
+                rule_id: rule.id.to_owned(),
                 priority: rule.priority,
                 recipient,
                 requested_amount: requested,

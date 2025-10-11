@@ -287,7 +287,7 @@ impl Bond {
         if let Some(ref fl) = self.float {
             // Floating rate bond
             b.floating_cf(FloatingCouponSpec {
-                index_id: fl.fwd_id.clone(),
+                index_id: fl.fwd_id.to_owned(),
                 margin_bp: fl.margin_bp,
                 gearing: fl.gearing,
                 reset_lag_days: fl.reset_lag_days,

@@ -64,8 +64,8 @@ impl FxOption {
             .day_count(finstack_core::dates::DayCount::Act365F)
             .notional(notional)
             .settlement(SettlementType::Cash)
-            .domestic_disc_id(fx_underlying.domestic_disc_id.clone())
-            .foreign_disc_id(fx_underlying.foreign_disc_id.clone())
+            .domestic_disc_id(fx_underlying.domestic_disc_id.to_owned())
+            .foreign_disc_id(fx_underlying.foreign_disc_id.to_owned())
             .vol_id("FX-VOL")
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -101,8 +101,8 @@ impl FxOption {
             .day_count(finstack_core::dates::DayCount::Act365F)
             .notional(notional)
             .settlement(SettlementType::Cash)
-            .domestic_disc_id(fx_underlying.domestic_disc_id.clone())
-            .foreign_disc_id(fx_underlying.foreign_disc_id.clone())
+            .domestic_disc_id(fx_underlying.domestic_disc_id.to_owned())
+            .foreign_disc_id(fx_underlying.foreign_disc_id.to_owned())
             .vol_id("FX-VOL")
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -128,8 +128,8 @@ impl FxOption {
             day_count: finstack_core::dates::DayCount::Act365F,
             notional: option_params.notional,
             settlement: option_params.settlement,
-            domestic_disc_id: underlying_params.domestic_disc_id.clone(),
-            foreign_disc_id: underlying_params.foreign_disc_id.clone(),
+            domestic_disc_id: underlying_params.domestic_disc_id.to_owned(),
+            foreign_disc_id: underlying_params.foreign_disc_id.to_owned(),
             vol_id,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),

@@ -407,7 +407,7 @@ impl DiscountCurveCalibrator {
         // Build final discount curve with configured interpolation
         let curve = self
             .apply_solve_interpolation(
-                DiscountCurve::builder(self.curve_id.clone())
+                DiscountCurve::builder(self.curve_id.to_owned())
                     .base_date(self.base_date)
                     .knots(knots),
             )

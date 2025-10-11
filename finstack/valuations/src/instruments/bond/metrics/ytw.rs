@@ -16,7 +16,7 @@ impl MetricCalculator for YtwCalculator {
             let (disc_id, dc, built) = {
                 let bond: &Bond = context.instrument_as()?;
                 (
-                    bond.disc_id.clone(),
+                    bond.disc_id.to_owned(),
                     bond.dc,
                     bond.build_schedule(&context.curves, context.as_of)?,
                 )

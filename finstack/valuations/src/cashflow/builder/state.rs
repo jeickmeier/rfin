@@ -138,7 +138,7 @@ fn emit_float_coupons_on(
             // Compute total rate: forward_rate * gearing + margin
             let total_rate = if let Some(ctx) = curves {
                 // If curves are available, look up the forward rate
-                if let Ok(fwd) = ctx.get_forward_ref(spec.index_id.clone()) {
+                if let Ok(fwd) = ctx.get_forward_ref(&spec.index_id) {
                     let mut reset_date = d - Duration::days(spec.reset_lag_days as i64);
                     if let Some(id) = &spec.calendar_id {
                         if let Some(cal) = calendar_by_id(id) {

@@ -97,7 +97,7 @@ impl CdsTranche {
     ) -> Self {
         Self {
             id: id.into(),
-            index_name: tranche_params.index_name.clone(),
+            index_name: tranche_params.index_name.to_owned(),
             series: tranche_params.series,
             attach_pct: tranche_params.attach_pct,
             detach_pct: tranche_params.detach_pct,

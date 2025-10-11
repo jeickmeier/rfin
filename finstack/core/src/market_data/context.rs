@@ -344,7 +344,7 @@ impl MarketContext {
     /// assert!(ctx.stats().total_curves > 0);
     /// ```
     pub fn insert_discount(mut self, curve: DiscountCurve) -> Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves
             .insert(id, CurveStorage::Discount(Arc::new(curve)));
         self
@@ -353,14 +353,14 @@ impl MarketContext {
     /// Insert a discount curve provided as an [`Arc`].
     #[allow(clippy::needless_pass_by_value)]
     pub fn insert_discount_arc(mut self, curve: Arc<DiscountCurve>) -> Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves.insert(id, CurveStorage::Discount(curve));
         self
     }
 
     /// In-place insert of a discount curve provided as an `Arc`.
     pub fn insert_discount_mut(&mut self, curve: Arc<DiscountCurve>) -> &mut Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves.insert(id, CurveStorage::Discount(curve));
         self
     }
@@ -386,7 +386,7 @@ impl MarketContext {
     /// assert!(ctx.stats().total_curves > 0);
     /// ```
     pub fn insert_forward(mut self, curve: ForwardCurve) -> Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves
             .insert(id, CurveStorage::Forward(Arc::new(curve)));
         self
@@ -395,14 +395,14 @@ impl MarketContext {
     /// Insert a forward curve provided as an [`Arc`].
     #[allow(clippy::needless_pass_by_value)]
     pub fn insert_forward_arc(mut self, curve: Arc<ForwardCurve>) -> Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves.insert(id, CurveStorage::Forward(curve));
         self
     }
 
     /// In-place insert of a forward curve.
     pub fn insert_forward_mut(&mut self, curve: Arc<ForwardCurve>) -> &mut Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves.insert(id, CurveStorage::Forward(curve));
         self
     }
@@ -428,7 +428,7 @@ impl MarketContext {
     /// assert!(ctx.stats().total_curves > 0);
     /// ```
     pub fn insert_hazard(mut self, curve: HazardCurve) -> Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves
             .insert(id, CurveStorage::Hazard(Arc::new(curve)));
         self
@@ -437,14 +437,14 @@ impl MarketContext {
     /// Insert a hazard curve provided as an [`Arc`].
     #[allow(clippy::needless_pass_by_value)]
     pub fn insert_hazard_arc(mut self, curve: Arc<HazardCurve>) -> Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves.insert(id, CurveStorage::Hazard(curve));
         self
     }
 
     /// In-place insert of a hazard curve.
     pub fn insert_hazard_mut(&mut self, curve: Arc<HazardCurve>) -> &mut Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves.insert(id, CurveStorage::Hazard(curve));
         self
     }
@@ -470,7 +470,7 @@ impl MarketContext {
     /// assert!(ctx.stats().total_curves > 0);
     /// ```
     pub fn insert_inflation(mut self, curve: InflationCurve) -> Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves
             .insert(id, CurveStorage::Inflation(Arc::new(curve)));
         self
@@ -479,14 +479,14 @@ impl MarketContext {
     /// Insert an inflation curve provided as an [`Arc`].
     #[allow(clippy::needless_pass_by_value)]
     pub fn insert_inflation_arc(mut self, curve: Arc<InflationCurve>) -> Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves.insert(id, CurveStorage::Inflation(curve));
         self
     }
 
     /// In-place insert of an inflation curve.
     pub fn insert_inflation_mut(&mut self, curve: Arc<InflationCurve>) -> &mut Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves.insert(id, CurveStorage::Inflation(curve));
         self
     }
@@ -508,7 +508,7 @@ impl MarketContext {
     /// assert!(ctx.stats().total_curves > 0);
     /// ```
     pub fn insert_base_correlation(mut self, curve: BaseCorrelationCurve) -> Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves
             .insert(id, CurveStorage::BaseCorrelation(Arc::new(curve)));
         self
@@ -517,14 +517,14 @@ impl MarketContext {
     /// Insert a base correlation curve provided as an [`Arc`].
     #[allow(clippy::needless_pass_by_value)]
     pub fn insert_base_correlation_arc(mut self, curve: Arc<BaseCorrelationCurve>) -> Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves.insert(id, CurveStorage::BaseCorrelation(curve));
         self
     }
 
     /// In-place insert of a base correlation curve.
     pub fn insert_base_correlation_mut(&mut self, curve: Arc<BaseCorrelationCurve>) -> &mut Self {
-        let id = curve.id().clone();
+        let id = curve.id().to_owned();
         self.curves.insert(id, CurveStorage::BaseCorrelation(curve));
         self
     }
@@ -549,7 +549,7 @@ impl MarketContext {
     /// assert_eq!(ctx.stats().surface_count, 1);
     /// ```
     pub fn insert_surface(mut self, surface: VolSurface) -> Self {
-        let id = surface.id().clone();
+        let id = surface.id().to_owned();
         self.surfaces.insert(id, Arc::new(surface));
         self
     }
@@ -557,14 +557,14 @@ impl MarketContext {
     /// Insert a surface provided as an [`Arc`].
     #[allow(clippy::needless_pass_by_value)]
     pub fn insert_surface_arc(mut self, surface: Arc<VolSurface>) -> Self {
-        let id = surface.id().clone();
+        let id = surface.id().to_owned();
         self.surfaces.insert(id, surface);
         self
     }
 
     /// In-place insert of a volatility surface.
     pub fn insert_surface_mut(&mut self, surface: Arc<VolSurface>) -> &mut Self {
-        let id = surface.id().clone();
+        let id = surface.id().to_owned();
         self.surfaces.insert(id, surface);
         self
     }
@@ -574,7 +574,7 @@ impl MarketContext {
     /// # Parameters
     /// - `schedule`: a [`DividendSchedule`] built via its builder
     pub fn insert_dividends(mut self, schedule: DividendSchedule) -> Self {
-        let id = schedule.id.clone();
+        let id = schedule.id.to_owned();
         self.dividends.insert(id, Arc::new(schedule));
         self
     }
@@ -582,14 +582,14 @@ impl MarketContext {
     /// Insert a dividend schedule provided as an [`Arc`].
     #[allow(clippy::needless_pass_by_value)]
     pub fn insert_dividends_arc(mut self, schedule: Arc<DividendSchedule>) -> Self {
-        let id = schedule.id.clone();
+        let id = schedule.id.to_owned();
         self.dividends.insert(id, schedule);
         self
     }
 
     /// In-place insert of a dividend schedule.
     pub fn insert_dividends_arc_mut(&mut self, schedule: Arc<DividendSchedule>) -> &mut Self {
-        let id = schedule.id.clone();
+        let id = schedule.id.to_owned();
         self.dividends.insert(id, schedule);
         self
     }
@@ -649,14 +649,14 @@ impl MarketContext {
     /// assert_eq!(ctx.series("VOL-TS").unwrap().id(), &finstack_core::types::CurveId::from("VOL-TS"));
     /// ```
     pub fn insert_series(mut self, series: ScalarTimeSeries) -> Self {
-        let id = series.id().clone();
+        let id = series.id().to_owned();
         self.series.insert(id, series);
         self
     }
 
     /// In-place insert of a scalar time series.
     pub fn insert_series_mut(&mut self, series: ScalarTimeSeries) -> &mut Self {
-        let id = series.id().clone();
+        let id = series.id().to_owned();
         self.series.insert(id, series);
         self
     }
@@ -1492,7 +1492,7 @@ impl MarketContext {
 
             if let Ok(original) = self.get_discount_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().clone();
+                    let bumped_id = bumped.id().to_owned();
                     new_context
                         .curves
                         .insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
@@ -1500,7 +1500,7 @@ impl MarketContext {
                 }
             } else if let Ok(original) = self.get_forward_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().clone();
+                    let bumped_id = bumped.id().to_owned();
                     new_context
                         .curves
                         .insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
@@ -1508,7 +1508,7 @@ impl MarketContext {
                 }
             } else if let Ok(original) = self.get_hazard_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().clone();
+                    let bumped_id = bumped.id().to_owned();
                     new_context
                         .curves
                         .insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
@@ -1516,7 +1516,7 @@ impl MarketContext {
                 }
             } else if let Ok(original) = self.get_inflation_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().clone();
+                    let bumped_id = bumped.id().to_owned();
                     new_context
                         .curves
                         .insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
@@ -1524,7 +1524,7 @@ impl MarketContext {
                 }
             } else if let Ok(original) = self.get_base_correlation_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().clone();
+                    let bumped_id = bumped.id().to_owned();
                     new_context
                         .curves
                         .insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
