@@ -1,5 +1,6 @@
 //! LTV calculator for CMBS
 
+use crate::constants::DECIMAL_TO_PERCENT;
 use crate::metrics::MetricContext;
 
 /// CMBS Weighted Average LTV calculator
@@ -15,7 +16,7 @@ impl crate::metrics::MetricCalculator for CmbsLtvCalculator {
 
         // Use credit factors LTV or default
         if let Some(ltv) = cmbs.credit_factors.ltv {
-            Ok(ltv * 100.0)
+            Ok(ltv * DECIMAL_TO_PERCENT)
         } else {
             Ok(65.0) // Default commercial real estate LTV
         }

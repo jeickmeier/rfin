@@ -41,7 +41,7 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(MetricId::Accrued, accrued_calc, &["Repo"]);
     
     // Standard metrics using macro
-    crate::register_metrics_chained! {
+    crate::register_metrics! {
         registry: registry,
         instrument: "Repo",
         metrics: [

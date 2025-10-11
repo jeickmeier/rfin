@@ -1,5 +1,6 @@
 //! Interest Rate Future types and implementation.
 use crate::cashflow::traits::CashflowProvider;
+use crate::constants::PERCENT_TO_DECIMAL;
 // Params-based constructor removed; build via builder instead.
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
@@ -111,8 +112,9 @@ impl InterestRateFuture {
     }
 
     /// Get implied rate from quoted price.
+    /// Interest rate futures quote as 100 minus the rate.
     pub fn implied_rate(&self) -> f64 {
-        (100.0 - self.quoted_price) / 100.0
+        (100.0 - self.quoted_price) * PERCENT_TO_DECIMAL
     }
 
     /// Calculates the present value of the interest rate future.

@@ -260,15 +260,12 @@ pub(super) fn compute_coupon_schedules(
 ) -> finstack_core::Result<CompiledSchedules> {
     //! Compile coupon and payment programs into concrete date schedules.
     //!
-    //! This function merges legacy fixed/floating specs with the newer
-    //! programmatic windowing model. If `coupon_program` is empty but legacy
-    //! specs are present, it synthesizes full‑span windows to preserve behavior.
-    //! Payment windows can sparsely override the split policy; missing windows
-    //! default to `Cash` (unless synthesized from legacy specs, in which case
-    //! the legacy `coupon_type` is mirrored with default windows).
+    //! This function processes the programmatic windowing model to generate
+    //! concrete schedules. Payment windows can sparsely override the split policy;
+    //! missing windows default to `Cash`.
     //!
     //! Arguments:
-    //! - `builder` (`&CashflowBuilder`): Source of coupon/payment programs and legacy specs.
+    //! - `builder` (`&CashflowBuilder`): Source of coupon/payment programs.
     //! - `issue` (`Date`): Start date (inclusive).
     //! - `maturity` (`Date`): End date (inclusive horizon endpoint).
     //!
@@ -304,7 +301,6 @@ pub(super) fn compute_coupon_schedules(
     //! ```
     use std::collections::BTreeSet;
 
-    // Coupon pieces are now the single source of truth (legacy path removed)
     let coupon_pieces: Vec<CouponProgramPiece> = builder.coupon_program.clone();
 
     // If there are no coupon pieces at all and no payment windows, return empty schedules

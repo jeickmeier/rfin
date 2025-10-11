@@ -20,7 +20,7 @@ use crate::metrics::MetricRegistry;
 
 /// Register all FX Spot metrics with the registry
 pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
-    crate::register_metrics_chained! {
+    crate::register_metrics! {
         registry: registry,
         instrument: "FxSpot",
         metrics: [

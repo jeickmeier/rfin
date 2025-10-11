@@ -19,7 +19,7 @@ use crate::metrics::MetricRegistry;
 
 /// Register all ILB metrics with the registry
 pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
-    crate::register_metrics_chained! {
+    crate::register_metrics! {
         registry: registry,
         instrument: "InflationLinkedBond",
         metrics: [

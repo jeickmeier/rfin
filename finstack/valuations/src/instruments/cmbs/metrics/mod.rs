@@ -14,6 +14,7 @@ mod ltv;
 pub use dscr::CmbsDscrCalculator;
 pub use ltv::CmbsLtvCalculator;
 
+use crate::constants::DECIMAL_TO_PERCENT;
 use crate::metrics::{MetricContext, MetricRegistry};
 
 /// Register all CMBS metrics
@@ -82,7 +83,7 @@ impl crate::metrics::MetricCalculator for CmbsCreditEnhancementCalculator {
             let pool_balance = cmbs.pool.total_balance();
 
             if pool_balance.amount() > 0.0 {
-                Ok(subordination.amount() / pool_balance.amount() * 100.0)
+                Ok(subordination.amount() / pool_balance.amount() * DECIMAL_TO_PERCENT)
             } else {
                 Ok(0.0)
             }

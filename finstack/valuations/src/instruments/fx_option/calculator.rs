@@ -3,6 +3,7 @@
 //! Contains the complex pricing logic separated from the instrument type,
 //! following the separation of concerns pattern.
 
+use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common::models::{d1, d2};
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::fx_option::FxOption;
@@ -275,7 +276,7 @@ impl FxOptionCalculator {
         } else {
             exp_rf_t * pdf_d1 / (spot * sigma * sqrt_t)
         };
-        let vega_unit = spot * exp_rf_t * pdf_d1 * sqrt_t / 100.0; // per 1% vol
+        let vega_unit = spot * exp_rf_t * pdf_d1 * sqrt_t / DECIMAL_TO_PERCENT; // per 1% vol
         let theta_unit = match inst.option_type {
             OptionType::Call => {
                 let term1 = -spot * pdf_d1 * sigma * exp_rf_t / (2.0 * sqrt_t);
@@ -291,12 +292,12 @@ impl FxOptionCalculator {
             }
         };
         let rho_domestic_unit = match inst.option_type {
-            OptionType::Call => inst.strike * t * exp_rd_t * cdf_d2 / 100.0,
-            OptionType::Put => -inst.strike * t * exp_rd_t * cdf_m_d2 / 100.0,
+            OptionType::Call => inst.strike * t * exp_rd_t * cdf_d2 / DECIMAL_TO_PERCENT,
+            OptionType::Put => -inst.strike * t * exp_rd_t * cdf_m_d2 / DECIMAL_TO_PERCENT,
         };
         let rho_foreign_unit = match inst.option_type {
-            OptionType::Call => -spot * t * exp_rf_t * cdf_d1 / 100.0,
-            OptionType::Put => spot * t * exp_rf_t * cdf_m_d1 / 100.0,
+            OptionType::Call => -spot * t * exp_rf_t * cdf_d1 / DECIMAL_TO_PERCENT,
+            OptionType::Put => spot * t * exp_rf_t * cdf_m_d1 / DECIMAL_TO_PERCENT,
         };
 
         let scale = inst.notional.amount();

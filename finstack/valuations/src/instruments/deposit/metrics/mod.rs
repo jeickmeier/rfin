@@ -31,7 +31,7 @@ use crate::metrics::MetricRegistry;
 /// Each metric is registered with the "Deposit" instrument type to ensure
 /// proper applicability filtering.
 pub fn register_deposit_metrics(registry: &mut MetricRegistry) {
-    crate::register_metrics_chained! {
+    crate::register_metrics! {
         registry: registry,
         instrument: "Deposit",
         metrics: [

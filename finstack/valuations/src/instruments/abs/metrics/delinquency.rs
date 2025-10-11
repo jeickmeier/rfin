@@ -1,5 +1,6 @@
 //! Delinquency and charge-off calculators for ABS
 
+use crate::constants::DECIMAL_TO_PERCENT;
 use crate::metrics::MetricContext;
 
 /// ABS Delinquency Rate calculator
@@ -27,7 +28,7 @@ impl crate::metrics::MetricCalculator for AbsDelinquencyCalculator {
 
         if total_balance > 0.0 {
             // Simplified: use a small percentage for demonstration
-            Ok(delinquent_balance / total_balance * 100.0 * 0.05) // 5% delinquency assumption
+            Ok(delinquent_balance / total_balance * DECIMAL_TO_PERCENT * 0.05) // 5% delinquency assumption
         } else {
             Ok(0.0)
         }
@@ -48,7 +49,7 @@ impl crate::metrics::MetricCalculator for AbsChargeOffCalculator {
         // Calculate charge-off rate
         let total_balance = abs.pool.total_balance();
         if total_balance.amount() > 0.0 {
-            Ok(abs.pool.cumulative_defaults.amount() / total_balance.amount() * 100.0)
+            Ok(abs.pool.cumulative_defaults.amount() / total_balance.amount() * DECIMAL_TO_PERCENT)
         } else {
             Ok(0.0)
         }

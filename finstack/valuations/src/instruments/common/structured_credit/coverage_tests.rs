@@ -246,9 +246,6 @@ pub struct TestResult {
     pub cure_level: Option<f64>,
 }
 
-// ========== Backward Compatibility Types ==========
-// Legacy types removed - use CoverageTest enum instead
-
 /// Results of coverage test calculations
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

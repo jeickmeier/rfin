@@ -1,6 +1,7 @@
 //! Asset-Backed Security (ABS) instrument built on the shared structured credit core.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common::structured_credit::{
     AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, DefaultModelSpec,
     MarketConditions, PrepaymentBehavior, PrepaymentModelSpec, RecoveryBehavior,
@@ -152,7 +153,7 @@ impl Abs {
 
         (self.pool.cumulative_defaults.amount() - self.pool.cumulative_recoveries.amount())
             / total_balance
-            * 100.0
+            * DECIMAL_TO_PERCENT
     }
 
     /// Get cashflows for a specific tranche.

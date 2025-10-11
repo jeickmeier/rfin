@@ -1,5 +1,6 @@
 //! Excess Spread and Credit Enhancement calculators for ABS
 
+use crate::constants::DECIMAL_TO_PERCENT;
 use crate::metrics::MetricContext;
 
 /// ABS Excess Spread calculator
@@ -37,7 +38,7 @@ impl crate::metrics::MetricCalculator for AbsExcessSpreadCalculator {
 
         let excess_spread = pool_wac - tranche_wac - servicing_fees;
 
-        Ok(excess_spread * 100.0) // Return as percentage
+        Ok(excess_spread * DECIMAL_TO_PERCENT) // Return as percentage
     }
 }
 
@@ -61,7 +62,7 @@ impl crate::metrics::MetricCalculator for AbsCreditEnhancementCalculator {
             let pool_balance = abs.pool.total_balance();
 
             if pool_balance.amount() > 0.0 {
-                Ok(subordination.amount() / pool_balance.amount() * 100.0)
+                Ok(subordination.amount() / pool_balance.amount() * DECIMAL_TO_PERCENT)
             } else {
                 Ok(0.0)
             }

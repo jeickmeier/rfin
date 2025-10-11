@@ -25,7 +25,7 @@ use crate::metrics::MetricRegistry;
 
 /// Register variance swap metrics with the registry.
 pub fn register_variance_swap_metrics(registry: &mut MetricRegistry) {
-    crate::register_metrics_chained! {
+    crate::register_metrics! {
         registry: registry,
         instrument: "VarianceSwap",
         metrics: [

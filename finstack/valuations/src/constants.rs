@@ -31,3 +31,27 @@ pub const ONE_BASIS_POINT: f64 = 0.0001;
 /// let spread_bp = spread_decimal * BASIS_POINTS_PER_UNIT; // 25bp
 /// ```
 pub const BASIS_POINTS_PER_UNIT: f64 = 10_000.0;
+
+/// Convert percentage to decimal (1% = 0.01).
+///
+/// Use this constant when converting percentage values to decimal form.
+/// # Examples
+/// ```rust
+/// use finstack_valuations::constants::PERCENT_TO_DECIMAL;
+///
+/// let rate_pct = 5.0; // 5%
+/// let rate_decimal = rate_pct * PERCENT_TO_DECIMAL; // 0.05
+/// ```
+pub const PERCENT_TO_DECIMAL: f64 = 0.01;
+
+/// Convert decimal to percentage (0.01 = 1%).
+///
+/// Use this constant when converting decimal values to percentage form.
+/// # Examples
+/// ```rust
+/// use finstack_valuations::constants::DECIMAL_TO_PERCENT;
+///
+/// let rate_decimal = 0.05;
+/// let rate_pct = rate_decimal * DECIMAL_TO_PERCENT; // 5.0%
+/// ```
+pub const DECIMAL_TO_PERCENT: f64 = 100.0;

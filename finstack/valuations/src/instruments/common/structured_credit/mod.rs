@@ -183,5 +183,5 @@ pub use serializable_models::{DefaultModelSpec, PrepaymentModelSpec, RecoveryMod
 pub use tranche_valuation::{
     TrancheCashflowResult, TrancheValuation, TrancheValuationExt,
     calculate_tranche_wal, calculate_tranche_duration, calculate_tranche_z_spread,
-    calculate_tranche_cs01, register_tranche_metrics,
+    calculate_tranche_cs01,
 };

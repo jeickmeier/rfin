@@ -33,7 +33,7 @@ pub use z_spread::ZSpreadCalculator;
 
 /// Registers all bond metrics to a registry.
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
-    crate::register_metrics_chained! {
+    crate::register_metrics! {
         registry: registry,
         instrument: "Bond",
         metrics: [

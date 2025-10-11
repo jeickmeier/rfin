@@ -4,7 +4,7 @@
 //! tranches within structured credit instruments (CLO, ABS, RMBS, CMBS).
 
 use crate::cashflow::traits::DatedFlows;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
+use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::cashflow::CashFlow;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::MarketContext;
@@ -252,24 +252,6 @@ impl MetricCalculator for TrancheMetricCalculator {
     fn dependencies(&self) -> &[MetricId] {
         self.base_calculator.dependencies()
     }
-}
-
-/// Register tranche-specific metrics for a structured credit instrument
-///
-/// This function would register metrics when the MetricRegistry API is available.
-/// Currently commented out to avoid compilation issues.
-pub fn register_tranche_metrics(
-    _registry: &mut MetricRegistry,
-    _instrument_type: &str,
-    _tranche_ids: &[String],
-) {
-    // TODO: Implement when MetricRegistry has proper registration methods
-    // Would register metrics like:
-    // - {tranche_id}_{instrument_type}_NPV
-    // - {tranche_id}_{instrument_type}_WAL
-    // - {tranche_id}_{instrument_type}_Duration
-    // - {tranche_id}_{instrument_type}_ZSpread
-    // - {tranche_id}_{instrument_type}_CS01
 }
 
 #[cfg(test)]

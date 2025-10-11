@@ -388,8 +388,6 @@ impl AssetPool {
         weighted_sum / total_balance
     }
 
-    // Deprecated weighted_avg_life removed - use weighted_avg_life_from_cashflows() for accurate WAL
-
     /// Calculate true weighted average life from cashflow schedule
     ///
     /// This is the market-standard calculation that should be used when

@@ -23,7 +23,7 @@ pub use expense_ratio::ExpenseRatioCalculator;
 
 /// Register all Basket metrics with the registry
 pub fn register_basket_metrics(registry: &mut MetricRegistry) {
-    crate::register_metrics_chained! {
+    crate::register_metrics! {
         registry: registry,
         instrument: "Basket",
         metrics: [

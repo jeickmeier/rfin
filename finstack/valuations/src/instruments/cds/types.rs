@@ -69,8 +69,6 @@ impl CDSConvention {
 // Re-export from common parameters
 pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, ProtectionLegSpec};
 
-// Removed legacy spec structs with string ids; use types from parameters::legs with CurveId.
-
 /// Credit Default Swap instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

@@ -12,7 +12,7 @@ pub mod pv_float;
 
 /// Registers all IRS metrics into a provided registry.
 pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
-    crate::register_metrics_chained! {
+    crate::register_metrics! {
         registry: registry,
         instrument: "InterestRateSwap",
         metrics: [
@@ -25,5 +25,5 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (PvFixed, pv_fixed::FixedLegPvCalculator),
             (PvFloat, pv_float::FloatLegPvCalculator),
         ]
-    };
+    }
 }
