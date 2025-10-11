@@ -274,7 +274,7 @@ impl StructuredCreditScenario {
     /// Run scenario on a CLO instrument
     pub fn run_clo(
         &self,
-        clo: &crate::instruments::clo::Clo,
+        clo: &crate::instruments::structured_credit::StructuredCredit,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ScenarioResult> {
@@ -292,7 +292,7 @@ impl StructuredCreditScenario {
     /// Run scenario on an RMBS instrument
     pub fn run_rmbs(
         &self,
-        rmbs: &crate::instruments::rmbs::Rmbs,
+        rmbs: &crate::instruments::structured_credit::StructuredCredit,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ScenarioResult> {
@@ -309,7 +309,7 @@ impl StructuredCreditScenario {
     /// Run scenario on an ABS instrument
     pub fn run_abs(
         &self,
-        abs: &crate::instruments::abs::Abs,
+        abs: &crate::instruments::structured_credit::StructuredCredit,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<ScenarioResult> {
@@ -373,7 +373,7 @@ impl StructuredCreditScenario {
     // Helper methods to apply scenarios
 
     fn apply_scenario_to_clo(
-        clo: &mut crate::instruments::clo::Clo,
+        clo: &mut crate::instruments::structured_credit::StructuredCredit,
         scenario: &StructuredCreditScenario,
     ) {
         // Apply prepayment scenario
@@ -401,14 +401,30 @@ impl StructuredCreditScenario {
     }
 
     fn apply_scenario_to_rmbs(
-        rmbs: &mut crate::instruments::rmbs::Rmbs,
+        rmbs: &mut crate::instruments::structured_credit::StructuredCredit,
         scenario: &StructuredCreditScenario,
     ) {
+        use crate::instruments::structured_credit::InstrumentSpecificFields;
+        
         // Apply prepayment scenario
         if let Some(ref prepay_scenario) = scenario.prepayment {
             match prepay_scenario {
                 PrepaymentScenario::PsaSpeed { speed } => {
-                    rmbs.psa_speed = *speed;
+                    // Update psa_speed in specific fields
+                    if let InstrumentSpecificFields::Rmbs {
+                        servicer_id,
+                        master_servicer_id,
+                        sda_speed,
+                        ..
+                    } = &rmbs.specific
+                    {
+                        rmbs.specific = InstrumentSpecificFields::Rmbs {
+                            servicer_id: servicer_id.clone(),
+                            master_servicer_id: master_servicer_id.clone(),
+                            psa_speed: *speed,
+                            sda_speed: *sda_speed,
+                        };
+                    }
                     rmbs.prepayment_spec = PrepaymentModelSpec::Psa { multiplier: *speed };
                 }
                 PrepaymentScenario::ConstantCpr { cpr_annual } => {
@@ -422,7 +438,21 @@ impl StructuredCreditScenario {
         if let Some(ref default_scenario) = scenario.default {
             match default_scenario {
                 DefaultScenario::SdaSpeed { speed } => {
-                    rmbs.sda_speed = *speed;
+                    // Update sda_speed in specific fields
+                    if let InstrumentSpecificFields::Rmbs {
+                        servicer_id,
+                        master_servicer_id,
+                        psa_speed,
+                        ..
+                    } = &rmbs.specific
+                    {
+                        rmbs.specific = InstrumentSpecificFields::Rmbs {
+                            servicer_id: servicer_id.clone(),
+                            master_servicer_id: master_servicer_id.clone(),
+                            psa_speed: *psa_speed,
+                            sda_speed: *speed,
+                        };
+                    }
                     rmbs.default_spec = DefaultModelSpec::Sda { multiplier: *speed };
                 }
                 DefaultScenario::ConstantCdr { cdr_annual } => {
@@ -455,18 +485,48 @@ impl StructuredCreditScenario {
     }
 
     fn apply_scenario_to_abs(
-        abs: &mut crate::instruments::abs::Abs,
+        abs: &mut crate::instruments::structured_credit::StructuredCredit,
         scenario: &StructuredCreditScenario,
     ) {
+        use crate::instruments::structured_credit::InstrumentSpecificFields;
+        
         // Apply prepayment scenario
         if let Some(ref prepay_scenario) = scenario.prepayment {
             match prepay_scenario {
                 PrepaymentScenario::AbsSpeed { abs_monthly } => {
-                    abs.abs_speed = Some(*abs_monthly);
+                    // Update abs_speed in specific fields
+                    if let InstrumentSpecificFields::Abs {
+                        servicer_id,
+                        trustee_id,
+                        cdr_annual,
+                        ..
+                    } = &abs.specific
+                    {
+                        abs.specific = InstrumentSpecificFields::Abs {
+                            servicer_id: servicer_id.clone(),
+                            trustee_id: trustee_id.clone(),
+                            abs_speed: Some(*abs_monthly),
+                            cdr_annual: *cdr_annual,
+                        };
+                    }
                 }
                 PrepaymentScenario::ConstantCpr { cpr_annual } => {
                     use crate::instruments::common::structured_credit::cpr_to_smm;
-                    abs.abs_speed = Some(cpr_to_smm(*cpr_annual));
+                    // Update abs_speed in specific fields
+                    if let InstrumentSpecificFields::Abs {
+                        servicer_id,
+                        trustee_id,
+                        cdr_annual,
+                        ..
+                    } = &abs.specific
+                    {
+                        abs.specific = InstrumentSpecificFields::Abs {
+                            servicer_id: servicer_id.clone(),
+                            trustee_id: trustee_id.clone(),
+                            abs_speed: Some(cpr_to_smm(*cpr_annual)),
+                            cdr_annual: *cdr_annual,
+                        };
+                    }
                 }
                 _ => {}
             }
@@ -476,13 +536,41 @@ impl StructuredCreditScenario {
         if let Some(ref default_scenario) = scenario.default {
             match default_scenario {
                 DefaultScenario::ConstantCdr { cdr_annual } => {
-                    abs.cdr_annual = Some(*cdr_annual);
+                    // Update cdr_annual in specific fields
+                    if let InstrumentSpecificFields::Abs {
+                        servicer_id,
+                        trustee_id,
+                        abs_speed,
+                        ..
+                    } = &abs.specific
+                    {
+                        abs.specific = InstrumentSpecificFields::Abs {
+                            servicer_id: servicer_id.clone(),
+                            trustee_id: trustee_id.clone(),
+                            abs_speed: *abs_speed,
+                            cdr_annual: Some(*cdr_annual),
+                        };
+                    }
                 }
                 DefaultScenario::CdrWithSeverity {
                     cdr_annual,
                     severity,
                 } => {
-                    abs.cdr_annual = Some(*cdr_annual);
+                    // Update cdr_annual in specific fields
+                    if let InstrumentSpecificFields::Abs {
+                        servicer_id,
+                        trustee_id,
+                        abs_speed,
+                        ..
+                    } = &abs.specific
+                    {
+                        abs.specific = InstrumentSpecificFields::Abs {
+                            servicer_id: servicer_id.clone(),
+                            trustee_id: trustee_id.clone(),
+                            abs_speed: *abs_speed,
+                            cdr_annual: Some(*cdr_annual),
+                        };
+                    }
                     abs.default_spec = DefaultModelSpec::ConstantCdr { cdr: *cdr_annual };
                     let recovery = 1.0 - severity;
                     abs.recovery_spec = RecoveryModelSpec::Constant { rate: recovery };

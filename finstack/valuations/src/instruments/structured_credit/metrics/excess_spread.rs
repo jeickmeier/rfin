@@ -11,7 +11,7 @@ impl crate::metrics::MetricCalculator for AbsExcessSpreadCalculator {
         let abs = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::abs::Abs>()
+            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Excess Spread = WAC - WAC of tranches - servicing fees
@@ -50,7 +50,7 @@ impl crate::metrics::MetricCalculator for AbsCreditEnhancementCalculator {
         let abs = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::abs::Abs>()
+            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Credit Enhancement = Subordination + OC + Excess Spread

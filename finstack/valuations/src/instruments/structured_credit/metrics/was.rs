@@ -14,7 +14,7 @@ impl crate::metrics::MetricCalculator for CloWasCalculator {
         let clo = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::clo::Clo>()
+            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         let mut weighted_spread = 0.0;

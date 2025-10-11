@@ -1,9 +1,6 @@
 //! Pool characteristic metrics for structured credit.
 
-use crate::instruments::abs::Abs;
-use crate::instruments::clo::Clo;
-use crate::instruments::cmbs::Cmbs;
-use crate::instruments::rmbs::Rmbs;
+use crate::instruments::structured_credit::StructuredCredit;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 
@@ -32,21 +29,9 @@ impl MetricCalculator for WamCalculator {
         
         let as_of = context.as_of;
         
-        // Try each instrument type
-        if let Some(clo) = context.instrument.as_any().downcast_ref::<Clo>() {
-            return Ok(clo.pool.weighted_avg_maturity(as_of));
-        }
-        
-        if let Some(abs) = context.instrument.as_any().downcast_ref::<Abs>() {
-            return Ok(abs.pool.weighted_avg_maturity(as_of));
-        }
-        
-        if let Some(rmbs) = context.instrument.as_any().downcast_ref::<Rmbs>() {
-            return Ok(rmbs.pool.weighted_avg_maturity(as_of));
-        }
-        
-        if let Some(cmbs) = context.instrument.as_any().downcast_ref::<Cmbs>() {
-            return Ok(cmbs.pool.weighted_avg_maturity(as_of));
+        // Single check for unified structured credit type
+        if let Some(sc) = context.instrument.as_any().downcast_ref::<StructuredCredit>() {
+            return Ok(sc.pool.weighted_avg_maturity(as_of));
         }
         
         // Fallback: return 0
@@ -80,25 +65,27 @@ impl MetricCalculator for CprCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Extract CPR from instrument-specific fields
         
-        if let Some(rmbs) = context.instrument.as_any().downcast_ref::<Rmbs>() {
-            // PSA model: 100% PSA = 6% CPR at 30 months
-            // Simplified: PSA speed × 0.06
-            return Ok(rmbs.psa_speed * 0.06);
-        }
+        use crate::instruments::structured_credit::InstrumentSpecificFields;
         
-        if let Some(abs) = context.instrument.as_any().downcast_ref::<Abs>() {
-            // Use ABS speed if available
-            return Ok(abs.abs_speed.unwrap_or(0.15));
-        }
-        
-        if let Some(cmbs) = context.instrument.as_any().downcast_ref::<Cmbs>() {
-            // Use open CPR if available
-            return Ok(cmbs.open_cpr.unwrap_or(0.10));
-        }
-        
-        if let Some(_clo) = context.instrument.as_any().downcast_ref::<Clo>() {
-            // CLO default prepayment
-            return Ok(0.15); // 15% CPR typical
+        if let Some(sc) = context.instrument.as_any().downcast_ref::<StructuredCredit>() {
+            return Ok(match &sc.specific {
+                InstrumentSpecificFields::Rmbs { psa_speed, .. } => {
+                    // PSA model: 100% PSA = 6% CPR at 30 months
+                    psa_speed * 0.06
+                }
+                InstrumentSpecificFields::Abs { abs_speed, .. } => {
+                    // Use ABS speed if available
+                    abs_speed.unwrap_or(0.15)
+                }
+                InstrumentSpecificFields::Cmbs { open_cpr, .. } => {
+                    // Use open CPR if available
+                    open_cpr.unwrap_or(0.10)
+                }
+                InstrumentSpecificFields::Clo { .. } => {
+                    // CLO default prepayment
+                    0.15 // 15% CPR typical
+                }
+            });
         }
         
         Ok(0.0)
@@ -131,27 +118,26 @@ impl MetricCalculator for CdrCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Extract CDR from instrument-specific fields
         
-        if let Some(abs) = context.instrument.as_any().downcast_ref::<Abs>() {
-            if let Some(cdr) = abs.cdr_annual {
-                return Ok(cdr);
-            }
-        }
+        use crate::instruments::structured_credit::InstrumentSpecificFields;
         
-        if let Some(rmbs) = context.instrument.as_any().downcast_ref::<Rmbs>() {
-            // Derive from SDA speed
-            // SDA 100% ≈ 0.6% CDR at peak
-            return Ok(rmbs.sda_speed * 0.006);
-        }
-        
-        if let Some(cmbs) = context.instrument.as_any().downcast_ref::<Cmbs>() {
-            if let Some(cdr) = cmbs.cdr_annual {
-                return Ok(cdr);
-            }
-        }
-        
-        if let Some(_clo) = context.instrument.as_any().downcast_ref::<Clo>() {
-            // CLO default assumption
-            return Ok(0.02); // 2% CDR base case
+        if let Some(sc) = context.instrument.as_any().downcast_ref::<StructuredCredit>() {
+            return Ok(match &sc.specific {
+                InstrumentSpecificFields::Abs { cdr_annual, .. } => {
+                    cdr_annual.unwrap_or(0.01) // 1% default for ABS
+                }
+                InstrumentSpecificFields::Rmbs { sda_speed, .. } => {
+                    // Derive from SDA speed
+                    // SDA 100% ≈ 0.6% CDR at peak
+                    sda_speed * 0.006
+                }
+                InstrumentSpecificFields::Cmbs { cdr_annual, .. } => {
+                    cdr_annual.unwrap_or(0.01) // 1% default for CMBS
+                }
+                InstrumentSpecificFields::Clo { cdr_annual, .. } => {
+                    // CLO default assumption
+                    cdr_annual.unwrap_or(0.02) // 2% CDR base case
+                }
+            });
         }
         
         Ok(0.0)

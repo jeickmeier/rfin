@@ -12,7 +12,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::clo::Clo;
+use finstack_valuations::instruments::structured_credit::StructuredCredit;
 use finstack_valuations::instruments::common::structured_credit::{
     AssetPool, DealType, PoolAsset, Tranche, TrancheCoupon, TrancheStructure,
     TrancheSeniority, TrancheValuationExt, WaterfallBuilder, CreditRating,
@@ -139,7 +139,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 /// Create a sample CLO structure with multiple tranches
-fn create_sample_clo() -> Result<Clo, Box<dyn Error>> {
+fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
     let base_currency = Currency::USD;
     let _as_of = date!(2024 - 01 - 01);
     
@@ -219,7 +219,7 @@ fn create_sample_clo() -> Result<Clo, Box<dyn Error>> {
         PrepaymentModelSpec, DefaultModelSpec, RecoveryModelSpec,
     };
     
-    let mut clo = Clo::new(
+    let mut clo = StructuredCredit::new_clo(
         "CLO_2024_01",
         pool,
         tranches,

@@ -11,7 +11,7 @@ impl crate::metrics::MetricCalculator for CmbsLtvCalculator {
         let cmbs = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::cmbs::Cmbs>()
+            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Use credit factors LTV or default

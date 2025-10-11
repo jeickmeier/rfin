@@ -38,10 +38,7 @@ pub enum InstrumentType {
     Equity = 23,
     Repo = 24,
     FRA = 25,
-    CLO = 26,
-    ABS = 27,
-    RMBS = 28,
-    CMBS = 29,
+    StructuredCredit = 26,
     PrivateMarketsFund = 30,
 }
 
@@ -77,10 +74,7 @@ impl InstrumentType {
             InstrumentType::Equity => "Equity",
             InstrumentType::Repo => "Repo",
             InstrumentType::FRA => "FRA",
-            InstrumentType::CLO => "CLO",
-            InstrumentType::ABS => "ABS",
-            InstrumentType::RMBS => "RMBS",
-            InstrumentType::CMBS => "CMBS",
+            InstrumentType::StructuredCredit => "StructuredCredit",
             InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
         }
     }
@@ -114,10 +108,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::Equity => "equity",
             InstrumentType::Repo => "repo",
             InstrumentType::FRA => "fra",
-            InstrumentType::CLO => "clo",
-            InstrumentType::ABS => "abs",
-            InstrumentType::RMBS => "rmbs",
-            InstrumentType::CMBS => "cmbs",
+            InstrumentType::StructuredCredit => "structured_credit",
             InstrumentType::PrivateMarketsFund => "private_markets_fund",
         };
         write!(f, "{}", label)
@@ -157,10 +148,10 @@ impl std::str::FromStr for InstrumentType {
             "equity" => Ok(InstrumentType::Equity),
             "repo" => Ok(InstrumentType::Repo),
             "fra" => Ok(InstrumentType::FRA),
-            "clo" => Ok(InstrumentType::CLO),
-            "abs" => Ok(InstrumentType::ABS),
-            "rmbs" => Ok(InstrumentType::RMBS),
-            "cmbs" => Ok(InstrumentType::CMBS),
+            // Unified structured credit type (accepts legacy names for backward compatibility)
+            "structured_credit" | "clo" | "abs" | "rmbs" | "cmbs" => {
+                Ok(InstrumentType::StructuredCredit)
+            }
             "private_markets_fund" | "pmf" => Ok(InstrumentType::PrivateMarketsFund),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
@@ -527,22 +518,10 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         Box::new(crate::instruments::basket::SimpleBasketDiscountingPricer::default()),
     );
 
-    // Structured Credit - ABS, CLO, CMBS, RMBS
+    // Structured Credit - unified pricer for ABS, CLO, CMBS, RMBS
     registry.register_pricer(
-        PricerKey::new(InstrumentType::ABS, ModelKey::Discounting),
-        Box::new(crate::instruments::abs::pricer::AbsDiscountingPricer::default()),
-    );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CLO, ModelKey::Discounting),
-        Box::new(crate::instruments::clo::pricer::CloDiscountingPricer::default()),
-    );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::CMBS, ModelKey::Discounting),
-        Box::new(crate::instruments::cmbs::pricer::CmbsDiscountingPricer::default()),
-    );
-    registry.register_pricer(
-        PricerKey::new(InstrumentType::RMBS, ModelKey::Discounting),
-        Box::new(crate::instruments::rmbs::pricer::RmbsDiscountingPricer::default()),
+        PricerKey::new(InstrumentType::StructuredCredit, ModelKey::Discounting),
+        Box::new(crate::instruments::structured_credit::StructuredCreditDiscountingPricer::default()),
     );
 }
 
@@ -859,30 +838,12 @@ mod tests {
             "Convertible Discounting pricer should be auto-registered"
         );
 
-        // Structured credit pricers
+        // Structured credit pricer (unified for ABS, CLO, CMBS, RMBS)
         assert!(
             registry
-                .get_pricer(PricerKey::new(InstrumentType::ABS, ModelKey::Discounting))
+                .get_pricer(PricerKey::new(InstrumentType::StructuredCredit, ModelKey::Discounting))
                 .is_some(),
-            "ABS Discounting pricer should be auto-registered"
-        );
-        assert!(
-            registry
-                .get_pricer(PricerKey::new(InstrumentType::CLO, ModelKey::Discounting))
-                .is_some(),
-            "CLO Discounting pricer should be auto-registered"
-        );
-        assert!(
-            registry
-                .get_pricer(PricerKey::new(InstrumentType::CMBS, ModelKey::Discounting))
-                .is_some(),
-            "CMBS Discounting pricer should be auto-registered"
-        );
-        assert!(
-            registry
-                .get_pricer(PricerKey::new(InstrumentType::RMBS, ModelKey::Discounting))
-                .is_some(),
-            "RMBS Discounting pricer should be auto-registered"
+            "StructuredCredit Discounting pricer should be auto-registered"
         );
 
         // TRS and Private Markets

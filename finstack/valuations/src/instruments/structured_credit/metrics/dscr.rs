@@ -10,7 +10,7 @@ impl crate::metrics::MetricCalculator for CmbsDscrCalculator {
         let cmbs = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::cmbs::Cmbs>()
+            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // DSCR = Net Operating Income / Debt Service

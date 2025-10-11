@@ -82,13 +82,7 @@ impl PyInstrumentType {
     #[classattr]
     const FRA: Self = Self::new(InstrumentType::FRA);
     #[classattr]
-    const CLO: Self = Self::new(InstrumentType::CLO);
-    #[classattr]
-    const ABS: Self = Self::new(InstrumentType::ABS);
-    #[classattr]
-    const RMBS: Self = Self::new(InstrumentType::RMBS);
-    #[classattr]
-    const CMBS: Self = Self::new(InstrumentType::CMBS);
+    const STRUCTURED_CREDIT: Self = Self::new(InstrumentType::StructuredCredit);
     #[classattr]
     const PRIVATE_MARKETS_FUND: Self = Self::new(InstrumentType::PrivateMarketsFund);
 

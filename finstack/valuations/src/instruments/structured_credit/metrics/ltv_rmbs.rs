@@ -10,7 +10,7 @@ impl crate::metrics::MetricCalculator for RmbsLtvCalculator {
         let rmbs = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::rmbs::Rmbs>()
+            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Use credit factors LTV or calculate from pool
@@ -30,7 +30,7 @@ impl crate::metrics::MetricCalculator for RmbsFicoCalculator {
         let rmbs = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::rmbs::Rmbs>()
+            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Use credit factors credit score or default

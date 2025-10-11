@@ -11,7 +11,7 @@ impl crate::metrics::MetricCalculator for AbsDelinquencyCalculator {
         let abs = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::abs::Abs>()
+            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Calculate delinquency rate from pool
@@ -43,7 +43,7 @@ impl crate::metrics::MetricCalculator for AbsChargeOffCalculator {
         let abs = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::abs::Abs>()
+            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Calculate charge-off rate

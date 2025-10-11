@@ -10,7 +10,7 @@ impl crate::metrics::MetricCalculator for CloWalCalculator {
         let clo = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::clo::Clo>()
+            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Use the pool's WAM calculation (approximation for WAL)

@@ -10,15 +10,12 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::instruments::abs::Abs;
-use finstack_valuations::instruments::clo::Clo;
-use finstack_valuations::instruments::cmbs::Cmbs;
+use finstack_valuations::instruments::structured_credit::StructuredCredit;
 use finstack_valuations::instruments::common::structured_credit::{
     AssetPool, AssetType, CreditRating, DealType, Tranche, TrancheCoupon,
     TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
 use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::rmbs::Rmbs;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 
@@ -124,7 +121,7 @@ fn create_test_market() -> MarketContext {
 
 #[test]
 fn test_clo_creation_with_realistic_data() {
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -141,7 +138,7 @@ fn test_clo_creation_with_realistic_data() {
 
 #[test]
 fn test_abs_creation_with_realistic_data() {
-    let abs = Abs::new(
+    let abs = StructuredCredit::new_abs(
         "TEST_ABS",
         create_clo_pool(),
         create_test_tranches(),
@@ -162,7 +159,7 @@ fn test_abs_creation_with_realistic_data() {
 fn test_clo_generates_cashflows() {
     use finstack_valuations::cashflow::traits::CashflowProvider;
     
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -191,7 +188,7 @@ fn test_clo_generates_cashflows() {
 
 #[test]
 fn test_clo_dirty_price() {
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -222,7 +219,7 @@ fn test_clo_dirty_price() {
 
 #[test]
 fn test_clo_wal() {
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -251,7 +248,7 @@ fn test_clo_wal() {
 
 #[test]
 fn test_clo_durations() {
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -289,7 +286,7 @@ fn test_clo_durations() {
 
 #[test]
 fn test_clo_spread_metrics() {
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -322,7 +319,7 @@ fn test_clo_spread_metrics() {
 
 #[test]
 fn test_clo_ytm() {
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -350,7 +347,7 @@ fn test_clo_ytm() {
 
 #[test]
 fn test_clo_pool_metrics() {
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -385,7 +382,7 @@ fn test_clo_pool_metrics() {
 
 #[test]
 fn test_clo_full_metric_suite() {
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -463,7 +460,7 @@ fn test_all_instruments_compute_basic_metrics() {
     ];
 
     // CLO
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -475,7 +472,7 @@ fn test_all_instruments_compute_basic_metrics() {
     assert!(clo_result.is_ok(), "CLO metrics failed: {:?}", clo_result.err());
 
     // ABS
-    let abs = Abs::new(
+    let abs = StructuredCredit::new_abs(
         "ABS",
         create_clo_pool(),
         create_test_tranches(),
@@ -487,7 +484,7 @@ fn test_all_instruments_compute_basic_metrics() {
     assert!(abs_result.is_ok(), "ABS metrics failed: {:?}", abs_result.err());
 
     // RMBS
-    let rmbs = Rmbs::new(
+    let rmbs = StructuredCredit::new_rmbs(
         "RMBS",
         create_clo_pool(),
         create_test_tranches(),
@@ -499,7 +496,7 @@ fn test_all_instruments_compute_basic_metrics() {
     assert!(rmbs_result.is_ok(), "RMBS metrics failed: {:?}", rmbs_result.err());
 
     // CMBS
-    let cmbs = Cmbs::new(
+    let cmbs = StructuredCredit::new_cmbs(
         "CMBS",
         create_clo_pool(),
         create_test_tranches(),
@@ -523,7 +520,7 @@ fn test_all_instruments_compute_basic_metrics() {
 
 #[test]
 fn test_empty_metrics_request() {
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -550,7 +547,7 @@ fn test_empty_metrics_request() {
 #[test]
 fn test_cs01_is_positive() {
     // CS01 should be positive (price falls when spread rises)
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -577,7 +574,7 @@ fn test_cs01_is_positive() {
 fn test_metric_dependency_resolution() {
     // Test that dependencies are resolved automatically
     // CleanPrice depends on DirtyPrice and Accrued
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),
@@ -607,7 +604,7 @@ fn test_metric_dependency_resolution() {
 #[test]
 fn test_spread_duration_from_cs01() {
     // SpreadDuration depends on CS01 which depends on ZSpread which depends on DirtyPrice
-    let clo = Clo::new(
+    let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
         create_test_tranches(),

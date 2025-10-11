@@ -1,4 +1,3 @@
-mod abs;
 mod basis_swap;
 mod basket;
 mod bond;
@@ -7,8 +6,6 @@ mod cds;
 mod cds_index;
 mod cds_option;
 mod cds_tranche;
-mod clo;
-mod cmbs;
 mod convertible;
 mod deposit;
 mod equity;
@@ -21,13 +18,12 @@ mod ir_future;
 mod irs;
 mod private_markets_fund;
 mod repo;
-mod rmbs;
+mod structured_credit;
 mod swaption;
 mod trs;
 mod variance_swap;
 
 // Re-export only used wrappers to avoid unused import lints during clippy
-use abs::PyAbs;
 use basis_swap::PyBasisSwap;
 use basket::PyBasket;
 use bond::PyBond;
@@ -36,8 +32,6 @@ use cds::PyCreditDefaultSwap;
 use cds_index::PyCdsIndex;
 use cds_option::PyCdsOption;
 use cds_tranche::PyCdsTranche;
-use clo::PyClo;
-use cmbs::PyCmbs;
 use convertible::PyConvertibleBond;
 use deposit::PyDeposit;
 use equity::PyEquity;
@@ -50,7 +44,7 @@ use ir_future::PyInterestRateFuture;
 use irs::PyInterestRateSwap;
 use private_markets_fund::PyPrivateMarketsFund;
 use repo::PyRepo;
-use rmbs::PyRmbs;
+use structured_credit::PyStructuredCredit;
 use swaption::PySwaption;
 use trs::{PyEquityTotalReturnSwap, PyFiIndexTotalReturnSwap};
 use variance_swap::PyVarianceSwap;
@@ -216,28 +210,10 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
             instrument_type: InstrumentType::InflationSwap,
         });
     }
-    if let Ok(obj) = value.extract::<PyRef<PyAbs>>() {
+    if let Ok(obj) = value.extract::<PyRef<PyStructuredCredit>>() {
         return Ok(InstrumentHandle {
             instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::ABS,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyClo>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::CLO,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyCmbs>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::CMBS,
-        });
-    }
-    if let Ok(obj) = value.extract::<PyRef<PyRmbs>>() {
-        return Ok(InstrumentHandle {
-            instrument: Box::new(obj.inner.clone()),
-            instrument_type: InstrumentType::RMBS,
+            instrument_type: InstrumentType::StructuredCredit,
         });
     }
     if let Ok(obj) = value.extract::<PyRef<PyPrivateMarketsFund>>() {
@@ -335,17 +311,8 @@ pub(crate) fn register<'py>(
     let basket_exports = basket::register(py, &module)?;
     exports.extend(basket_exports.iter().copied());
 
-    let abs_exports = abs::register(py, &module)?;
-    exports.extend(abs_exports.iter().copied());
-
-    let clo_exports = clo::register(py, &module)?;
-    exports.extend(clo_exports.iter().copied());
-
-    let cmbs_exports = cmbs::register(py, &module)?;
-    exports.extend(cmbs_exports.iter().copied());
-
-    let rmbs_exports = rmbs::register(py, &module)?;
-    exports.extend(rmbs_exports.iter().copied());
+    let structured_credit_exports = structured_credit::register(py, &module)?;
+    exports.extend(structured_credit_exports.iter().copied());
 
     let pmf_exports = private_markets_fund::register(py, &module)?;
     exports.extend(pmf_exports.iter().copied());
