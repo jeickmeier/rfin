@@ -4,7 +4,16 @@ use crate::constants::DECIMAL_TO_PERCENT;
 use crate::metrics::MetricContext;
 
 /// ABS Delinquency Rate calculator
-pub struct AbsDelinquencyCalculator;
+pub struct AbsDelinquencyCalculator {
+    delinquency_rate: f64,
+}
+
+impl AbsDelinquencyCalculator {
+    /// Create a new delinquency calculator with specified rate
+    pub fn new(delinquency_rate: f64) -> Self {
+        Self { delinquency_rate }
+    }
+}
 
 impl crate::metrics::MetricCalculator for AbsDelinquencyCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -27,8 +36,7 @@ impl crate::metrics::MetricCalculator for AbsDelinquencyCalculator {
         let total_balance = abs.pool.performing_balance().amount();
 
         if total_balance > 0.0 {
-            // Simplified: use a small percentage for demonstration
-            Ok(delinquent_balance / total_balance * DECIMAL_TO_PERCENT * 0.05) // 5% delinquency assumption
+            Ok(delinquent_balance / total_balance * DECIMAL_TO_PERCENT * self.delinquency_rate)
         } else {
             Ok(0.0)
         }

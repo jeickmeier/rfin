@@ -63,6 +63,12 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
         ]
     }
     
-    // Note: WARF and WAS would need custom MetricId variants to be registered
-    // Other metrics (ABS speed, delinquency, etc.) also need custom MetricId variants
+    // Note: Deal-specific metrics (WARF, WAS, ABS speed, delinquency, DSCR, excess spread,
+    // LTV, FICO) would need custom MetricId variants in the core metrics module to be registered.
+    // These are currently used directly via their calculator structs when needed.
+    // To register them, add variants like:
+    //   - MetricId::WARF, MetricId::WAS (CLO-specific)
+    //   - MetricId::AbsSpeed, MetricId::Delinquency, MetricId::ExcessSpread (ABS-specific)
+    //   - MetricId::DSCR, MetricId::CmbsLtv (CMBS-specific)
+    //   - MetricId::RmbsLtv, MetricId::FICO (RMBS-specific)
 }

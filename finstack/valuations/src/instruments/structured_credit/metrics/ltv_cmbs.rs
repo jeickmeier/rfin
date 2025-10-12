@@ -4,7 +4,16 @@ use crate::constants::DECIMAL_TO_PERCENT;
 use crate::metrics::MetricContext;
 
 /// CMBS Weighted Average LTV calculator
-pub struct CmbsLtvCalculator;
+pub struct CmbsLtvCalculator {
+    default_ltv: f64,
+}
+
+impl CmbsLtvCalculator {
+    /// Create a new CMBS LTV calculator with specified default LTV (as percentage)
+    pub fn new(default_ltv: f64) -> Self {
+        Self { default_ltv }
+    }
+}
 
 impl crate::metrics::MetricCalculator for CmbsLtvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -18,7 +27,7 @@ impl crate::metrics::MetricCalculator for CmbsLtvCalculator {
         if let Some(ltv) = cmbs.credit_factors.ltv {
             Ok(ltv * DECIMAL_TO_PERCENT)
         } else {
-            Ok(65.0) // Default commercial real estate LTV
+            Ok(self.default_ltv)
         }
     }
 }

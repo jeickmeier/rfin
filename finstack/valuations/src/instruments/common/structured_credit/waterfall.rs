@@ -244,6 +244,74 @@ impl WaterfallEngine {
         }
     }
 
+    /// Distribute principal pro-rata across all debt tranches
+    fn distribute_prorata_principal(
+        &self,
+        principal_pot: Money,
+        tranches: &TrancheStructure,
+        distributions: &mut HashMap<PaymentRecipient, Money>,
+        payment_records: &mut Vec<PaymentRecord>,
+        payment_info: (&str, u32, bool), // (rule_id, priority, diverted)
+    ) -> Result<Money> {
+        let (rule_id, priority, diverted) = payment_info;
+        // Total debt outstanding (exclude equity)
+        let total_debt_balance = tranches
+            .tranches
+            .iter()
+            .filter(|t| t.seniority != super::enums::TrancheSeniority::Equity)
+            .try_fold(Money::new(0.0, self.base_currency), |acc, t| {
+                acc.checked_add(t.current_balance)
+            })?;
+
+        if total_debt_balance.amount() == 0.0 || principal_pot.amount() == 0.0 {
+            return Ok(Money::new(0.0, self.base_currency));
+        }
+
+        // Distribute to each debt tranche
+        let mut total_paid = Money::new(0.0, self.base_currency);
+        for t in &tranches.tranches {
+            if t.seniority == super::enums::TrancheSeniority::Equity {
+                continue;
+            }
+            
+            let weight = t.current_balance.amount() / total_debt_balance.amount();
+            let pay_amt = Money::new(principal_pot.amount() * weight, self.base_currency);
+            let capped = if pay_amt.amount() <= t.current_balance.amount() {
+                pay_amt
+            } else {
+                t.current_balance
+            };
+
+            if capped.amount() > 0.0 {
+                let recip = PaymentRecipient::Tranche(t.id.to_string());
+                use std::collections::hash_map::Entry;
+                match distributions.entry(recip.to_owned()) {
+                    Entry::Occupied(mut e) => {
+                        let next = e.get().checked_add(capped)?;
+                        e.insert(next);
+                    }
+                    Entry::Vacant(e) => {
+                        e.insert(capped);
+                    }
+                }
+
+                payment_records.push(PaymentRecord {
+                    rule_id: rule_id.to_owned(),
+                    priority,
+                    recipient: recip,
+                    requested_amount: capped,
+                    paid_amount: capped,
+                    shortfall: Money::new(0.0, self.base_currency),
+                    diverted,
+                });
+
+                total_paid = total_paid.checked_add(capped)?;
+            }
+        }
+
+        Ok(total_paid)
+    }
+
     /// Add payment rule
     pub fn add_rule(mut self, rule: PaymentRule) -> Self {
         self.payment_rules.push(rule);
@@ -339,66 +407,15 @@ impl WaterfallEngine {
                 if let PaymentCalculation::TranchePrincipal { .. } = &rule.calculation {
                     if !pro_rata_done {
                         pro_rata_done = true;
-
-                        // Total pot to distribute now
-                        let principal_pot = remaining;
-
-                        // Total debt outstanding (exclude equity)
-                        let total_debt_balance = tranches
-                            .tranches
-                            .iter()
-                            .filter(|t| t.seniority != super::enums::TrancheSeniority::Equity)
-                            .try_fold(
-                                Money::new(0.0, self.base_currency),
-                                |acc, t| acc.checked_add(t.current_balance),
-                            )?;
-
-                        if total_debt_balance.amount() > 0.0 && principal_pot.amount() > 0.0 {
-                            // Distribute to each debt tranche
-                            let mut total_paid = Money::new(0.0, self.base_currency);
-                            for t in &tranches.tranches {
-                                if t.seniority == super::enums::TrancheSeniority::Equity {
-                                    continue;
-                                }
-                                let weight = t.current_balance.amount() / total_debt_balance.amount();
-                                let pay_amt = Money::new(principal_pot.amount() * weight, self.base_currency);
-                                let capped = if pay_amt.amount() <= t.current_balance.amount() {
-                                    pay_amt
-                                } else {
-                                    t.current_balance
-                                };
-
-                                if capped.amount() > 0.0 {
-                                    let recip = PaymentRecipient::Tranche(t.id.to_string());
-                                    use std::collections::hash_map::Entry;
-                                    match distributions.entry(recip.to_owned()) {
-                                        Entry::Occupied(mut e) => {
-                                            let next = e.get().checked_add(capped)?;
-                                            e.insert(next);
-                                        }
-                                        Entry::Vacant(e) => {
-                                            e.insert(capped);
-                                        }
-                                    }
-
-                                    payment_records.push(PaymentRecord {
-                                        rule_id: rule.id.to_owned(),
-                                        priority: rule.priority,
-                                        recipient: recip,
-                                        requested_amount: capped,
-                                        paid_amount: capped,
-                                        shortfall: Money::new(0.0, self.base_currency),
-                                        diverted,
-                                    });
-
-                                    total_paid = total_paid.checked_add(capped)?;
-                                }
-                            }
-
-                            remaining = remaining.checked_sub(total_paid)?;
-                        }
+                        let total_paid = self.distribute_prorata_principal(
+                            remaining,
+                            tranches,
+                            &mut distributions,
+                            &mut payment_records,
+                            (&rule.id, rule.priority, diverted),
+                        )?;
+                        remaining = remaining.checked_sub(total_paid)?;
                     }
-
                     // Skip sequential payment logic for any individual principal rules once batched
                     continue;
                 }

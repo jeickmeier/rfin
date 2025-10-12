@@ -3,7 +3,16 @@
 use crate::metrics::MetricContext;
 
 /// CMBS DSCR calculator
-pub struct CmbsDscrCalculator;
+pub struct CmbsDscrCalculator {
+    noi_multiplier: f64,
+}
+
+impl CmbsDscrCalculator {
+    /// Create a new DSCR calculator with specified NOI multiplier
+    pub fn new(noi_multiplier: f64) -> Self {
+        Self { noi_multiplier }
+    }
+}
 
 impl crate::metrics::MetricCalculator for CmbsDscrCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -14,9 +23,9 @@ impl crate::metrics::MetricCalculator for CmbsDscrCalculator {
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // DSCR = Net Operating Income / Debt Service
-        // Simplified: assume NOI is 1.5x the pool interest
+        // Assume NOI is a multiple of the pool interest
         let pool_interest = cmbs.pool.weighted_avg_coupon() * cmbs.pool.total_balance().amount();
-        let noi = pool_interest * 1.5;
+        let noi = pool_interest * self.noi_multiplier;
 
         // Debt service (interest + principal payments)
         let debt_service = pool_interest;

@@ -524,21 +524,26 @@ impl ReinvestmentManager {
 }
 
 // Helper functions for AssetPool operations - consolidated using generic approach
+
+/// Generic exposure calculator that accepts any predicate function
+fn calculate_exposure<F>(pool: &AssetPool, predicate: F) -> Money
+where
+    F: Fn(&PoolAsset) -> bool,
+{
+    let filtered: Vec<&PoolAsset> = pool.assets.iter().filter(|a| predicate(a)).collect();
+    sum_asset_balances(filtered, pool.base_currency())
+}
+
 fn get_obligor_exposure(pool: &AssetPool, obligor: &str) -> Money {
-    sum_asset_balances(pool.assets_by_obligor(obligor), pool.base_currency())
+    calculate_exposure(pool, |a| a.obligor_id.as_deref() == Some(obligor))
 }
 
 fn get_industry_exposure(pool: &AssetPool, industry: &str) -> Money {
-    sum_asset_balances(pool.assets_by_industry(industry), pool.base_currency())
+    calculate_exposure(pool, |a| a.industry.as_deref() == Some(industry))
 }
 
 fn get_rating_exposure(pool: &AssetPool, rating: CreditRating) -> Money {
-    let filtered: Vec<&PoolAsset> = pool
-        .assets
-        .iter()
-        .filter(|a| a.credit_quality == Some(rating))
-        .collect();
-    sum_asset_balances(filtered, pool.base_currency())
+    calculate_exposure(pool, |a| a.credit_quality == Some(rating))
 }
 
 /// Generic helper to sum asset balances

@@ -5,7 +5,16 @@ use crate::instruments::structured_credit::{InstrumentSpecificFields, Structured
 use crate::metrics::MetricContext;
 
 /// ABS Speed calculator - monthly absolute prepayment speed
-pub struct AbsSpeedCalculator;
+pub struct AbsSpeedCalculator {
+    default_abs_speed: f64,
+}
+
+impl AbsSpeedCalculator {
+    /// Create a new ABS speed calculator with specified default speed (as percentage)
+    pub fn new(default_abs_speed: f64) -> Self {
+        Self { default_abs_speed }
+    }
+}
 
 impl crate::metrics::MetricCalculator for AbsSpeedCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -25,9 +34,9 @@ impl crate::metrics::MetricCalculator for AbsSpeedCalculator {
         // Return ABS speed if set, otherwise default
         match &sc.specific {
             InstrumentSpecificFields::Abs { abs_speed, .. } => {
-                Ok(abs_speed.unwrap_or(1.5)) // 1.5% ABS default
+                Ok(abs_speed.unwrap_or(self.default_abs_speed))
             }
-            _ => Ok(1.5), // Default fallback
+            _ => Ok(self.default_abs_speed),
         }
     }
 }

@@ -15,6 +15,24 @@ use finstack_core::money::Money;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// Update tranche balance after payment (helper function)
+fn update_tranche_balance(
+    tranche_balances: &mut HashMap<String, Money>,
+    tranche_id: &str,
+    payment: Money,
+    interest_portion: Money,
+) -> finstack_core::Result<()> {
+    let principal_payment = payment
+        .checked_sub(interest_portion)
+        .unwrap_or(Money::new(0.0, payment.currency()));
+
+    if let Some(current) = tranche_balances.get_mut(tranche_id) {
+        *current = current.checked_sub(principal_payment).unwrap_or(*current);
+    }
+    
+    Ok(())
+}
+
 /// Common trait for structured credit instruments
 pub trait StructuredCreditInstrument {
     /// Get reference to asset pool
@@ -95,6 +113,77 @@ pub trait StructuredCreditInstrument {
             .max(0.0)
     }
 
+    /// Calculate period interest collections from pool assets
+    fn calculate_period_interest_collections(
+        &self,
+        pay_date: Date,
+        months_per_period: f64,
+        context: &MarketContext,
+    ) -> finstack_core::Result<Money> {
+        let pool = self.pool();
+        let base_ccy = pool.base_currency();
+        let mut interest_collections = Money::new(0.0, base_ccy);
+        
+        for asset in &pool.assets {
+            let asset_rate = if let Some(idx) = &asset.index_id {
+                match context.get_forward_ref(idx.as_str()) {
+                    Ok(fwd) => {
+                        let base = fwd.base_date();
+                        let dc = finstack_core::dates::DayCount::Act365F;
+                        let t2 = dc
+                            .year_fraction(base, pay_date, finstack_core::dates::DayCountCtx::default())
+                            .unwrap_or(0.0);
+                        let t1 = (t2 - 0.25).max(0.0);
+                        let idx_rate = fwd.rate_period(t1, t2);
+                        idx_rate + (asset.spread_bps().max(0.0) / 10_000.0)
+                    }
+                    Err(_) => asset.rate,
+                }
+            } else {
+                asset.rate
+            };
+            
+            let ir = Money::new(
+                asset.balance.amount() * asset_rate * (months_per_period / 12.0),
+                base_ccy,
+            );
+            interest_collections = interest_collections.checked_add(ir)?;
+        }
+        
+        Ok(interest_collections)
+    }
+
+    /// Calculate prepayments and defaults for a period
+    fn calculate_period_prepayments_and_defaults(
+        &self,
+        pay_date: Date,
+        seasoning_months: u32,
+        pool_outstanding: Money,
+        months_per_period: f64,
+    ) -> finstack_core::Result<(Money, Money, Money)> {
+        let base_ccy = pool_outstanding.currency();
+        let smm = self.calculate_prepayment_rate(pay_date, seasoning_months);
+        let mdr = self.calculate_default_rate(pay_date, seasoning_months);
+
+        // Adjust for payment period frequency
+        let period_smm = 1.0 - (1.0 - smm).powi(months_per_period as i32);
+        let period_mdr = 1.0 - (1.0 - mdr).powi(months_per_period as i32);
+
+        let prepay_amt = Money::new(pool_outstanding.amount() * period_smm, base_ccy);
+        let default_amt = Money::new(pool_outstanding.amount() * period_mdr, base_ccy);
+
+        let recovery_rate = self.recovery_model().recovery_rate(
+            pay_date,
+            super::constants::DEFAULT_RESOLUTION_LAG_MONTHS,
+            None,
+            default_amt,
+            &MarketFactors::default(),
+        );
+        let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
+
+        Ok((prepay_amt, default_amt, recovery_amt))
+    }
+
     /// Generate complete tranche-specific cashflows using waterfall engine
     ///
     /// This is the shared implementation that eliminates duplication across
@@ -118,7 +207,6 @@ pub trait StructuredCreditInstrument {
         let dates_first_payment_date = self.first_payment_date();
         let dates_legal_maturity = self.legal_maturity();
         let dates_payment_frequency = self.payment_frequency();
-        let models_recovery = self.recovery_model();
 
         // Track tranche balances over time
         let mut tranche_balances: HashMap<String, Money> = tranches
@@ -153,54 +241,21 @@ pub trait StructuredCreditInstrument {
                 m.max(0) as u32
             };
 
-            // Step 1: Calculate pool collections using index + spread per asset
-            let mut interest_collections = Money::new(0.0, base_ccy);
-            for asset in &pool.assets {
-                let asset_rate = if let Some(idx) = &asset.index_id {
-                    // get forward index if present
-                    match context.get_forward_ref(idx.as_str()) {
-                        Ok(fwd) => {
-                            // approximate a 3M rate ending at pay_date
-                            let base = fwd.base_date();
-                            let dc = finstack_core::dates::DayCount::Act365F;
-                            let t2 = dc
-                                .year_fraction(base, pay_date, finstack_core::dates::DayCountCtx::default())
-                                .unwrap_or(0.0);
-                            let t1 = (t2 - 0.25).max(0.0);
-                            let idx_rate = fwd.rate_period(t1, t2);
-                            idx_rate + (asset.spread_bps().max(0.0) / 10_000.0)
-                        }
-                        Err(_) => asset.rate,
-                    }
-                } else {
-                    asset.rate
-                };
-                let ir = Money::new(
-                    asset.balance.amount() * asset_rate * (months_per_period / 12.0),
-                    base_ccy,
-                );
-                interest_collections = interest_collections.checked_add(ir)?;
-            }
-
-            // Step 2: Apply prepayments and defaults (using cached seasoning_months)
-            let smm = self.calculate_prepayment_rate(pay_date, seasoning_months);
-            let mdr = self.calculate_default_rate(pay_date, seasoning_months);
-
-            // Adjust for payment period frequency
-            let period_smm = 1.0 - (1.0 - smm).powi(months_per_period as i32);
-            let period_mdr = 1.0 - (1.0 - mdr).powi(months_per_period as i32);
-
-            let prepay_amt = Money::new(pool_outstanding.amount() * period_smm, base_ccy);
-            let default_amt = Money::new(pool_outstanding.amount() * period_mdr, base_ccy);
-
-            let recovery_rate = models_recovery.recovery_rate(
+            // Step 1: Calculate pool collections
+            let interest_collections = self.calculate_period_interest_collections(
                 pay_date,
-                super::constants::DEFAULT_RESOLUTION_LAG_MONTHS,
-                None,
-                default_amt,
-                &MarketFactors::default(),
-            );
-            let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
+                months_per_period,
+                context,
+            )?;
+
+            // Step 2: Apply prepayments and defaults
+            let (prepay_amt, default_amt, recovery_amt) = 
+                self.calculate_period_prepayments_and_defaults(
+                    pay_date,
+                    seasoning_months,
+                    pool_outstanding,
+                    months_per_period,
+                )?;
 
             // Total principal available = prepayments + recoveries + scheduled (0 for now)
             let scheduled_prin = Money::new(0.0, base_ccy);
@@ -236,7 +291,6 @@ pub trait StructuredCreditInstrument {
                     }
 
                     // Update tranche balance (assuming payments reduce balance)
-                    // Compute interest with index when floating
                     let coupon_rate = tranche
                         .coupon
                         .current_rate_with_index(pay_date, context);
@@ -246,13 +300,13 @@ pub trait StructuredCreditInstrument {
                             * (months_per_period / 12.0),
                         base_ccy,
                     );
-                    let principal_payment = payment
-                        .checked_sub(interest_portion)
-                        .unwrap_or(Money::new(0.0, base_ccy));
 
-                    if let Some(current) = tranche_balances.get_mut(&tranche_id) {
-                        *current = current.checked_sub(principal_payment).unwrap_or(*current);
-                    }
+                    update_tranche_balance(
+                        &mut tranche_balances,
+                        &tranche_id,
+                        *payment,
+                        interest_portion,
+                    )?;
                 }
             }
 
@@ -339,7 +393,6 @@ pub trait StructuredCreditInstrument {
         let dates_first_payment_date = self.first_payment_date();
         let dates_legal_maturity = self.legal_maturity();
         let dates_payment_frequency = self.payment_frequency();
-        let models_recovery = self.recovery_model();
 
         // Track tranche balances over time
         let mut tranche_balances: HashMap<String, Money> = tranches
@@ -374,52 +427,21 @@ pub trait StructuredCreditInstrument {
                 m.max(0) as u32
             };
 
-            // Step 1: Calculate pool collections using index + spread per asset
-            let mut interest_collections = Money::new(0.0, base_ccy);
-            for asset in &pool.assets {
-                let asset_rate = if let Some(idx) = &asset.index_id {
-                    match _context.get_forward_ref(idx.as_str()) {
-                        Ok(fwd) => {
-                            let base = fwd.base_date();
-                            let dc = finstack_core::dates::DayCount::Act365F;
-                            let t2 = dc
-                                .year_fraction(base, pay_date, finstack_core::dates::DayCountCtx::default())
-                                .unwrap_or(0.0);
-                            let t1 = (t2 - 0.25).max(0.0);
-                            let idx_rate = fwd.rate_period(t1, t2);
-                            idx_rate + (asset.spread_bps().max(0.0) / 10_000.0)
-                        }
-                        Err(_) => asset.rate,
-                    }
-                } else {
-                    asset.rate
-                };
-                let ir = Money::new(
-                    asset.balance.amount() * asset_rate * (months_per_period / 12.0),
-                    base_ccy,
-                );
-                interest_collections = interest_collections.checked_add(ir)?;
-            }
+            // Step 1: Calculate pool collections
+            let interest_collections = self.calculate_period_interest_collections(
+                pay_date,
+                months_per_period,
+                _context,
+            )?;
 
             // Step 2: Apply prepayments and defaults
-            let smm = self.calculate_prepayment_rate(pay_date, seasoning_months);
-            let mdr = self.calculate_default_rate(pay_date, seasoning_months);
-
-            // Adjust for payment period frequency
-            let period_smm = 1.0 - (1.0 - smm).powi(months_per_period as i32);
-            let period_mdr = 1.0 - (1.0 - mdr).powi(months_per_period as i32);
-
-            let prepay_amt = Money::new(pool_outstanding.amount() * period_smm, base_ccy);
-            let default_amt = Money::new(pool_outstanding.amount() * period_mdr, base_ccy);
-
-            let recovery_rate = models_recovery.recovery_rate(
-                pay_date,
-                super::constants::DEFAULT_RESOLUTION_LAG_MONTHS,
-                None,
-                default_amt,
-                &MarketFactors::default(),
-            );
-            let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
+            let (prepay_amt, default_amt, recovery_amt) = 
+                self.calculate_period_prepayments_and_defaults(
+                    pay_date,
+                    seasoning_months,
+                    pool_outstanding,
+                    months_per_period,
+                )?;
 
             // Total principal available
             let scheduled_prin = Money::new(0.0, base_ccy);
@@ -476,9 +498,12 @@ pub trait StructuredCreditInstrument {
                     }
 
                     // Update tranche balance
-                    if let Some(current) = tranche_balances.get_mut(tranche_id) {
-                        *current = current.checked_sub(principal_payment).unwrap_or(*current);
-                    }
+                    update_tranche_balance(
+                        &mut tranche_balances,
+                        tranche_id,
+                        *payment,
+                        interest_portion,
+                    )?;
                 }
             }
 
@@ -500,13 +525,12 @@ pub trait StructuredCreditInstrument {
                         tranche_balances[&tid].amount() * coupon_rate * (months_per_period / 12.0),
                         base_ccy,
                     );
-                    let principal_payment = payment
-                        .checked_sub(interest_portion)
-                        .unwrap_or(Money::new(0.0, base_ccy));
-
-                    if let Some(current) = tranche_balances.get_mut(&tid) {
-                        *current = current.checked_sub(principal_payment).unwrap_or(*current);
-                    }
+                    update_tranche_balance(
+                        &mut tranche_balances,
+                        &tid,
+                        *payment,
+                        interest_portion,
+                    )?;
                 }
             }
 

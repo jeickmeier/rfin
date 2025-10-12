@@ -4,7 +4,16 @@ use crate::constants::DECIMAL_TO_PERCENT;
 use crate::metrics::MetricContext;
 
 /// ABS Excess Spread calculator
-pub struct AbsExcessSpreadCalculator;
+pub struct AbsExcessSpreadCalculator {
+    servicing_fee_rate: f64,
+}
+
+impl AbsExcessSpreadCalculator {
+    /// Create a new excess spread calculator with specified servicing fee rate
+    pub fn new(servicing_fee_rate: f64) -> Self {
+        Self { servicing_fee_rate }
+    }
+}
 
 impl crate::metrics::MetricCalculator for AbsExcessSpreadCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -33,10 +42,7 @@ impl crate::metrics::MetricCalculator for AbsExcessSpreadCalculator {
             0.0
         };
 
-        // Assume 0.5% for servicing fees
-        let servicing_fees = 0.005;
-
-        let excess_spread = pool_wac - tranche_wac - servicing_fees;
+        let excess_spread = pool_wac - tranche_wac - self.servicing_fee_rate;
 
         Ok(excess_spread * DECIMAL_TO_PERCENT) // Return as percentage
     }

@@ -353,16 +353,7 @@ impl StructuredCredit {
             * DECIMAL_TO_PERCENT
     }
 
-    /// Get cashflows for a specific tranche.
-    pub fn tranche_cashflows(
-        &self,
-        _tranche_id: &str,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<DatedFlows> {
-        let _all_flows = self.build_schedule(context, as_of)?;
-        Ok(Vec::new())
-    }
+    // Note: tranche_cashflows() removed - use TrancheValuationExt::get_tranche_cashflows() instead
 
     /// Calculate expected life of the structure.
     pub fn expected_life(&self, as_of: Date) -> finstack_core::Result<f64> {
