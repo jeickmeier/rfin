@@ -1,13 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Abs,
-  Clo,
-  Cmbs,
+  StructuredCredit,
   FsDate,
   DiscountCurve,
   HazardCurve,
   MarketContext,
-  Rmbs,
   createStandardRegistry,
 } from 'finstack-wasm';
 
@@ -487,9 +484,9 @@ export const StructuredCreditExample: React.FC = () => {
           },
         });
 
-        const clo = Clo.fromJson(cloJson);
+        const clo = StructuredCredit.fromJson(cloJson);
         try {
-          const cloResult = registry.priceClo(clo, 'discounting', market);
+          const cloResult = registry.priceStructuredCredit(clo, 'discounting', market);
           results.push({
             name: 'CLO 2024-1',
             type: 'Collateralized Loan Obligation',
@@ -803,9 +800,9 @@ export const StructuredCreditExample: React.FC = () => {
           },
         });
 
-        const abs = Abs.fromJson(absJson);
+        const abs = StructuredCredit.fromJson(absJson);
         try {
-          const absResult = registry.priceAbs(abs, 'discounting', market);
+          const absResult = registry.priceStructuredCredit(abs, 'discounting', market);
           results.push({
             name: 'ABS Auto 2024-1',
             type: 'Asset-Backed Securities',
@@ -1155,9 +1152,9 @@ export const StructuredCreditExample: React.FC = () => {
           sda_speed: 1.0,
         });
 
-        const rmbs = Rmbs.fromJson(rmbsJson);
+        const rmbs = StructuredCredit.fromJson(rmbsJson);
         try {
-          const rmbsResult = registry.priceRmbs(rmbs, 'discounting', market);
+          const rmbsResult = registry.priceStructuredCredit(rmbs, 'discounting', market);
           results.push({
             name: 'RMBS Prime 2024-1',
             type: 'Residential Mortgage-Backed Securities',
@@ -1505,9 +1502,9 @@ export const StructuredCreditExample: React.FC = () => {
           },
         });
 
-        const cmbs = Cmbs.fromJson(cmbsJson);
+        const cmbs = StructuredCredit.fromJson(cmbsJson);
         try {
-          const cmbsResult = registry.priceCmbs(cmbs, 'discounting', market);
+          const cmbsResult = registry.priceStructuredCredit(cmbs, 'discounting', market);
           results.push({
             name: 'CMBS Multifamily 2024-1',
             type: 'Commercial Mortgage-Backed Securities',

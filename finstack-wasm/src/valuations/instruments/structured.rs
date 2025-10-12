@@ -130,14 +130,3 @@ impl JsStructuredCredit {
         self.0.tranches.tranches.len()
     }
 }
-
-// ===========================
-// Legacy Type Aliases for Backward Compatibility
-// ===========================
-// These allow existing JavaScript/TypeScript code to continue using
-// Abs, Clo, Cmbs, Rmbs while internally using the unified type
-
-pub type JsAbs = JsStructuredCredit;
-pub type JsClo = JsStructuredCredit;
-pub type JsCmbs = JsStructuredCredit;
-pub type JsRmbs = JsStructuredCredit;

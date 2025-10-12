@@ -81,11 +81,11 @@ pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,
 };
 pub use valuations::instruments::{
-    Abs, BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, Clo, Cmbs, ConvertibleBond,
-    CreditDefaultSwap, Deposit, Equity, EquityOption, EquityTotalReturnSwap,
-    FiIndexTotalReturnSwap, ForwardRateAgreement, FxOption, FxSpot, FxSwap, InflationLinkedBond,
-    InflationSwap, InterestRateFuture, InterestRateOption, InterestRateSwap, PrivateMarketsFund,
-    Repo, Rmbs, Swaption, VarianceSwap,
+    BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, ConvertibleBond, CreditDefaultSwap,
+    Deposit, Equity, EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap,
+    ForwardRateAgreement, FxOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap,
+    InterestRateFuture, InterestRateOption, InterestRateSwap, PrivateMarketsFund, Repo,
+    StructuredCredit, Swaption, VarianceSwap,
 };
 pub use valuations::pricer::{
     create_standard_registry_js as createStandardRegistry, JsPricerRegistry as PricerRegistry,

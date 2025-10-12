@@ -47,7 +47,7 @@ pub use irs::JsInterestRateSwap as InterestRateSwap;
 pub use private_markets_fund::JsPrivateMarketsFund as PrivateMarketsFund;
 pub use repo::JsRepo as Repo;
 pub use structured::{
-    JsAbs as Abs, JsBasket as Basket, JsClo as Clo, JsCmbs as Cmbs, JsRmbs as Rmbs,
+    JsBasket as Basket, JsStructuredCredit as StructuredCredit,
 };
 pub use swaption::JsSwaption as Swaption;
 pub use trs::{

@@ -2,9 +2,9 @@ use crate::core::error::core_to_js;
 use crate::core::error::js_error;
 use crate::core::market_data::context::JsMarketContext;
 use crate::valuations::instruments::{
-    Abs as JsAbs, BasisSwap as JsBasisSwap, Basket as JsBasket, Bond as JsBond,
-    CDSIndex as JsCDSIndex, CdsOption as JsCdsOption, CdsTranche as JsCdsTranche, Clo as JsClo,
-    Cmbs as JsCmbs, ConvertibleBond as JsConvertibleBond, CreditDefaultSwap as JsCreditDefaultSwap,
+    BasisSwap as JsBasisSwap, Basket as JsBasket, Bond as JsBond,
+    CDSIndex as JsCDSIndex, CdsOption as JsCdsOption, CdsTranche as JsCdsTranche,
+    ConvertibleBond as JsConvertibleBond, CreditDefaultSwap as JsCreditDefaultSwap,
     Deposit as JsDeposit, Equity as JsEquity, EquityOption as JsEquityOption,
     EquityTotalReturnSwap as JsEquityTotalReturnSwap,
     FiIndexTotalReturnSwap as JsFiIndexTotalReturnSwap,
@@ -13,7 +13,7 @@ use crate::valuations::instruments::{
     InflationSwap as JsInflationSwap, InstrumentWrapper,
     InterestRateFuture as JsInterestRateFuture, InterestRateOption as JsInterestRateOption,
     InterestRateSwap as JsInterestRateSwap, PrivateMarketsFund as JsPrivateMarketsFund,
-    Repo as JsRepo, Rmbs as JsRmbs, Swaption as JsSwaption, VarianceSwap as JsVarianceSwap,
+    Repo as JsRepo, StructuredCredit as JsStructuredCredit, Swaption as JsSwaption, VarianceSwap as JsVarianceSwap,
 };
 use crate::valuations::results::JsValuationResult;
 use finstack_valuations::instruments::build_with_metrics_dyn;
@@ -526,58 +526,16 @@ impl JsPricerRegistry {
     }
 
     // Structured Products - JSON-based
-    #[wasm_bindgen(js_name = priceAbs)]
-    pub fn price_abs(
+    #[wasm_bindgen(js_name = priceStructuredCredit)]
+    pub fn price_structured_credit(
         &self,
-        abs: &JsAbs,
+        sc: &JsStructuredCredit,
         model: &str,
         market: &JsMarketContext,
         opts: Option<JsPricingRequest>,
     ) -> Result<JsValuationResult, JsValue> {
         let model_key = parse_model_key(model)?;
-        let instrument = abs.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics)
-    }
-
-    #[wasm_bindgen(js_name = priceClo)]
-    pub fn price_clo(
-        &self,
-        clo: &JsClo,
-        model: &str,
-        market: &JsMarketContext,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = clo.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics)
-    }
-
-    #[wasm_bindgen(js_name = priceCmbs)]
-    pub fn price_cmbs(
-        &self,
-        cmbs: &JsCmbs,
-        model: &str,
-        market: &JsMarketContext,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = cmbs.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics)
-    }
-
-    #[wasm_bindgen(js_name = priceRmbs)]
-    pub fn price_rmbs(
-        &self,
-        rmbs: &JsRmbs,
-        model: &str,
-        market: &JsMarketContext,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = rmbs.inner();
+        let instrument = sc.inner();
         let metrics = opts.and_then(|o| o.metrics);
         price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics)
     }
