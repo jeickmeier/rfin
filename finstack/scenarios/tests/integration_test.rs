@@ -1,11 +1,11 @@
 //! Integration tests for scenarios crate.
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::currency::Currency;
 use finstack_scenarios::{
     CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec,
 };
@@ -45,6 +45,7 @@ fn test_curve_parallel_shock() {
     let mut ctx = ExecutionContext {
         market: &mut market,
         model: &mut model,
+        instruments: None,
         rate_bindings: None,
         as_of: base_date,
     };
@@ -83,6 +84,7 @@ fn test_equity_price_shock() {
     let mut ctx = ExecutionContext {
         market: &mut market,
         model: &mut model,
+        instruments: None,
         rate_bindings: None,
         as_of: base_date,
     };
@@ -135,4 +137,3 @@ fn test_scenario_composition() {
     assert_eq!(composed.operations.len(), 2);
     assert_eq!(composed.id, "composed");
 }
-

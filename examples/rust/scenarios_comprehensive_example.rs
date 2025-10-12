@@ -117,6 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut ctx = ExecutionContext {
         market: &mut market,
         model: &mut model,
+        instruments: None,
         rate_bindings,
         as_of: base_date,
     };
@@ -215,14 +216,20 @@ fn build_model() -> Result<FinancialModelSpec, Box<dyn std::error::Error>> {
     // Add revenue node
     let mut revenue_values = IndexMap::new();
     for (i, period) in periods.iter().enumerate() {
-        revenue_values.insert(period.id, AmountOrScalar::Scalar(1_000_000.0 * (i as f64 + 1.0)));
+        revenue_values.insert(
+            period.id,
+            AmountOrScalar::Scalar(1_000_000.0 * (i as f64 + 1.0)),
+        );
     }
     model.add_node(NodeSpec::new("Revenue", NodeType::Value).with_values(revenue_values));
 
     // Add EBITDA node
     let mut ebitda_values = IndexMap::new();
     for (i, period) in periods.iter().enumerate() {
-        ebitda_values.insert(period.id, AmountOrScalar::Scalar(200_000.0 * (i as f64 + 1.0)));
+        ebitda_values.insert(
+            period.id,
+            AmountOrScalar::Scalar(200_000.0 * (i as f64 + 1.0)),
+        );
     }
     model.add_node(NodeSpec::new("EBITDA", NodeType::Value).with_values(ebitda_values));
 
@@ -266,10 +273,16 @@ fn print_market_state(market: &MarketContext) {
 
     println!("  Base Corr:");
     if let Ok(c) = market.get_base_correlation("CDX_IG_CORR") {
-        println!("    CDX_IG_CORR (7% detach): {:.2}%", c.correlation(7.0) * 100.0);
+        println!(
+            "    CDX_IG_CORR (7% detach): {:.2}%",
+            c.correlation(7.0) * 100.0
+        );
     }
     if let Ok(c) = market.get_base_correlation("CDX_IG_CORR_bump_10pct") {
-        println!("    CDX_IG_CORR_bump_10pct (7% detach): {:.2}%", c.correlation(7.0) * 100.0);
+        println!(
+            "    CDX_IG_CORR_bump_10pct (7% detach): {:.2}%",
+            c.correlation(7.0) * 100.0
+        );
     }
 
     println!("  FX:");
@@ -302,4 +315,3 @@ fn print_model_state(model: &FinancialModelSpec) {
         }
     }
 }
-

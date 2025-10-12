@@ -56,19 +56,24 @@ println!("Applied {} operations", report.operations_applied);
 - `MarketFxPct`: FX rate percent shift
 - `EquityPricePct`: Equity price percent shock
 - `CurveParallelBp`: Parallel basis point shift (discount/forecast/hazard/inflation curves)
-- `CurveNodeBp`: Node-specific basis point shifts for curve shaping
+- `CurveNodeBp`: Node-specific basis point shifts with tenor matching (exact or interpolate)
 - `BaseCorrParallelPts`: Parallel correlation point shift
-- `BaseCorrBucketPts`: Bucket-specific correlation shifts
+- `BaseCorrBucketPts`: Bucket-specific correlation shifts (filters by detachment points)
 - `VolSurfaceParallelPct`: Parallel volatility percent shift
-- `VolSurfaceBucketPct`: Bucket-specific volatility shifts
+- `VolSurfaceBucketPct`: Bucket-specific volatility shifts (filters by tenor and strike)
 
-### Statements (Phase A: Stubs)
+### Statements
 - `StmtForecastPercent`: Forecast percent change
 - `StmtForecastAssign`: Forecast value assignment
 
-### Attribute-Based (Phase A: Stubs)
-- `InstrumentPricePctByAttr`: Price shock by exact attribute match
-- `InstrumentSpreadBpByAttr`: Spread shock by exact attribute match
+### Instrument-Based
+- `InstrumentPricePctByAttr`: Price shock by exact attribute match (Phase A stub)
+- `InstrumentSpreadBpByAttr`: Spread shock by exact attribute match (Phase A stub)
+- `InstrumentPricePctByType`: Price shock by instrument type (Bond, CDS, Swap, etc.)
+- `InstrumentSpreadBpByType`: Spread shock by instrument type
+
+### Time Operations
+- `TimeRollForward`: Roll forward horizon by period with carry/theta calculation
 
 ## Architecture
 
@@ -82,12 +87,17 @@ ScenarioEngine
        └─ Phase 4: Re-evaluation
 ```
 
-## Phase A Limitations
+## Implementation Status
 
-- **FX Shocks**: Stub (FxMatrix is immutable Arc; needs rebuild API)
-- **Statement Shocks**: Stub (FinancialModelSpec is wire type; needs evaluator integration)
-- **Node-Specific Curve Shocks**: Simplified (applies parallel bumps; tenor matching TODO)
-- **Bucket-Specific Shocks**: Simplified (applies parallel shocks; filtering TODO)
+### Fully Implemented
+- ✅ **Tenor-Based Curve Shocks**: Exact pillar matching and interpolated key-rate bumps
+- ✅ **Bucket Filtering**: Vol surfaces filter by tenor/strike; base-corr by detachment
+- ✅ **Instrument Type Shocks**: Type-safe shocks using InstrumentType enum
+- ✅ **Time Roll-Forward**: Date advancement with carry/theta from valuations crate
+- ✅ **FX Shocks**: Full implementation via SimpleFxProvider replacement
+- ✅ **Statement Shocks**: Percent and assign operations on node values
+
+### Phase A Limitations
 - **Attribute Selectors**: Not implemented (no instrument registry query)
 
 ## Examples
@@ -116,15 +126,12 @@ cargo clippy -p finstack-scenarios --all-features -- -D warnings
 4. **Reusability**: Leverage existing `core`, `valuations`, and `statements` features
 5. **Stability**: Serde-stable wire types for long-lived pipelines
 
-## Future Enhancements (Post-Phase A)
+## Future Enhancements
 
 - Full DSL with text parser and glob/selector expansion
-- Complete statement forecast mutation API
-- FX shock implementation with mutable FxMatrix
-- Proper tenor-based node shock for curve shaping
-- Bucket filtering for vol and base correlation shocks
 - Instrument registry integration for attribute-based selectors
 - Time-windowed operations (`@on`, `@during`)
+- Curve rolling with proper knot expiry/adjustment
 - Python and WASM bindings
 
 ## License

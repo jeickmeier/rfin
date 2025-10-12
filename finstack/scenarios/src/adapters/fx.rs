@@ -10,7 +10,7 @@ use std::sync::Arc;
 /// Apply percent shock to an FX rate.
 ///
 /// Positive pct means base currency strengthens (rate increases).
-/// 
+///
 /// This creates a new FxMatrix with the shocked rate if the existing FxMatrix
 /// uses a SimpleFxProvider. For other providers, returns an error.
 pub fn apply_fx_shock(
@@ -20,18 +20,22 @@ pub fn apply_fx_shock(
     pct: f64,
 ) -> Result<()> {
     // Get the current FX matrix
-    let fx = market.fx.as_ref().ok_or_else(|| Error::MarketDataNotFound {
-        id: "FX matrix".to_string(),
-    })?;
+    let fx = market
+        .fx
+        .as_ref()
+        .ok_or_else(|| Error::MarketDataNotFound {
+            id: "FX matrix".to_string(),
+        })?;
 
     // Try to get the current rate
-    let current_rate = fx.rate(
-        finstack_core::money::fx::FxQuery::new(
+    let current_rate = fx
+        .rate(finstack_core::money::fx::FxQuery::new(
             base,
             quote,
             finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
-        ),
-    ).map_err(Error::Core)?.rate;
+        ))
+        .map_err(Error::Core)?
+        .rate;
 
     // Calculate shocked rate
     let factor = 1.0 + (pct / 100.0);
@@ -47,4 +51,3 @@ pub fn apply_fx_shock(
 
     Ok(())
 }
-

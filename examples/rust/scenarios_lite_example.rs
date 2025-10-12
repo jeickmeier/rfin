@@ -26,22 +26,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let usd_curve = DiscountCurve::builder("USD_SOFR")
         .base_date(base_date)
-        .knots(vec![
-            (0.0, 1.0),
-            (1.0, 0.98),
-            (5.0, 0.90),
-            (10.0, 0.80),
-        ])
+        .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90), (10.0, 0.80)])
         .build()?;
 
     let eur_curve = DiscountCurve::builder("EUR_EURIBOR")
         .base_date(base_date)
-        .knots(vec![
-            (0.0, 1.0),
-            (1.0, 0.975),
-            (5.0, 0.88),
-            (10.0, 0.77),
-        ])
+        .knots(vec![(0.0, 1.0), (1.0, 0.975), (5.0, 0.88), (10.0, 0.77)])
         .build()?;
 
     let vol_surface = VolSurface::builder("SPX_VOL")
@@ -61,13 +51,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .insert_price("QQQ", MarketScalar::Price(Money::new(380.0, Currency::USD)));
 
     println!("Initial market state:");
-    println!("  USD_SOFR 1Y DF: {:.4}", market.get_discount("USD_SOFR")?.df(1.0));
-    println!("  EUR_EURIBOR 1Y DF: {:.4}", market.get_discount("EUR_EURIBOR")?.df(1.0));
-    println!("  SPY Price: ${:.2}", match market.price("SPY")? {
-        MarketScalar::Price(m) => m.amount(),
-        _ => 0.0,
-    });
-    println!("  SPX Vol (1Y, 100 strike): {:.2}%", market.surface("SPX_VOL")?.value(1.0, 100.0) * 100.0);
+    println!(
+        "  USD_SOFR 1Y DF: {:.4}",
+        market.get_discount("USD_SOFR")?.df(1.0)
+    );
+    println!(
+        "  EUR_EURIBOR 1Y DF: {:.4}",
+        market.get_discount("EUR_EURIBOR")?.df(1.0)
+    );
+    println!(
+        "  SPY Price: ${:.2}",
+        match market.price("SPY")? {
+            MarketScalar::Price(m) => m.amount(),
+            _ => 0.0,
+        }
+    );
+    println!(
+        "  SPX Vol (1Y, 100 strike): {:.2}%",
+        market.surface("SPX_VOL")?.value(1.0, 100.0) * 100.0
+    );
     println!();
 
     // Setup empty statements model (Phase A stub)
@@ -116,13 +118,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Composing scenarios...");
     let engine = ScenarioEngine::new();
     let composed = engine.compose(vec![base_scenario.clone(), equity_scenario.clone()]);
-    println!("  Composed {} operations from {} scenarios\n", composed.operations.len(), 2);
+    println!(
+        "  Composed {} operations from {} scenarios\n",
+        composed.operations.len(),
+        2
+    );
 
     // Apply composed scenario
     println!("Applying composite scenario...");
     let mut ctx = ExecutionContext {
         market: &mut market,
         model: &mut model,
+        instruments: None,
         rate_bindings: None,
         as_of: base_date,
     };
@@ -137,23 +144,37 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Show shocked market state
     println!("Shocked market state:");
-    println!("  USD_SOFR_bump_50bp 1Y DF: {:.4}", market.get_discount("USD_SOFR_bump_50bp")?.df(1.0));
-    println!("  EUR_EURIBOR_bump_50bp 1Y DF: {:.4}", market.get_discount("EUR_EURIBOR_bump_50bp")?.df(1.0));
-    println!("  SPY Price: ${:.2}", match market.price("SPY")? {
-        MarketScalar::Price(m) => m.amount(),
-        _ => 0.0,
-    });
-    println!("  QQQ Price: ${:.2}", match market.price("QQQ")? {
-        MarketScalar::Price(m) => m.amount(),
-        _ => 0.0,
-    });
-    println!("  SPX Vol (1Y, 100 strike): {:.2}%", market.surface("SPX_VOL")?.value(1.0, 100.0) * 100.0);
+    println!(
+        "  USD_SOFR_bump_50bp 1Y DF: {:.4}",
+        market.get_discount("USD_SOFR_bump_50bp")?.df(1.0)
+    );
+    println!(
+        "  EUR_EURIBOR_bump_50bp 1Y DF: {:.4}",
+        market.get_discount("EUR_EURIBOR_bump_50bp")?.df(1.0)
+    );
+    println!(
+        "  SPY Price: ${:.2}",
+        match market.price("SPY")? {
+            MarketScalar::Price(m) => m.amount(),
+            _ => 0.0,
+        }
+    );
+    println!(
+        "  QQQ Price: ${:.2}",
+        match market.price("QQQ")? {
+            MarketScalar::Price(m) => m.amount(),
+            _ => 0.0,
+        }
+    );
+    println!(
+        "  SPX Vol (1Y, 100 strike): {:.2}%",
+        market.surface("SPX_VOL")?.value(1.0, 100.0) * 100.0
+    );
     println!();
 
     println!("✓ Scenarios applied successfully!");
     println!("  All operations executed deterministically");
     println!("  Original market data preserved alongside shocked versions");
-    
+
     Ok(())
 }
-

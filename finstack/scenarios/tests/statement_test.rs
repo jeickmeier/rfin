@@ -2,8 +2,8 @@
 
 use finstack_core::dates::{build_periods, Date};
 use finstack_core::market_data::MarketContext;
-use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use finstack_scenarios::{ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec};
+use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use indexmap::IndexMap;
 use time::Month;
 
@@ -25,8 +25,7 @@ fn test_statement_forecast_percent() {
         revenue_values.insert(period.id, AmountOrScalar::Scalar(100.0 * (i as f64 + 1.0)));
     }
 
-    let revenue_node = NodeSpec::new("Revenue", NodeType::Value)
-        .with_values(revenue_values);
+    let revenue_node = NodeSpec::new("Revenue", NodeType::Value).with_values(revenue_values);
 
     model.add_node(revenue_node);
 
@@ -62,6 +61,7 @@ fn test_statement_forecast_percent() {
     let mut ctx = ExecutionContext {
         market: &mut market,
         model: &mut model,
+        instruments: None,
         rate_bindings: None,
         as_of: base_date,
     };
@@ -124,6 +124,7 @@ fn test_statement_forecast_assign() {
     let mut ctx = ExecutionContext {
         market: &mut market,
         model: &mut model,
+        instruments: None,
         rate_bindings: None,
         as_of: base_date,
     };
@@ -147,4 +148,3 @@ fn test_statement_forecast_assign() {
 
     assert!(shocked_values.iter().all(|&v| (v - 500.0).abs() < 1e-6));
 }
-

@@ -1,7 +1,7 @@
 //! Tests for JSON serialization stability.
 
 use finstack_core::currency::Currency;
-use finstack_scenarios::{CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind};
+use finstack_scenarios::{CurveKind, OperationSpec, ScenarioSpec, TenorMatchMode, VolSurfaceKind};
 use indexmap::IndexMap;
 
 #[test]
@@ -64,6 +64,7 @@ fn test_all_operation_types_serialize() {
             curve_kind: CurveKind::Forecast,
             curve_id: "USD_LIBOR".into(),
             nodes: vec![("1Y".into(), 25.0), ("5Y".into(), -10.0)],
+            match_mode: TenorMatchMode::Interpolate,
         },
         OperationSpec::BaseCorrParallelPts {
             surface_id: "CDX".into(),
@@ -118,10 +119,7 @@ fn test_attribute_selector_serde() {
     attrs.insert("sector".into(), "Energy".into());
     attrs.insert("rating".into(), "BBB".into());
 
-    let op = OperationSpec::InstrumentPricePctByAttr {
-        attrs,
-        pct: -5.0,
-    };
+    let op = OperationSpec::InstrumentPricePctByAttr { attrs, pct: -5.0 };
 
     let scenario = ScenarioSpec {
         id: "attr_test".into(),
@@ -143,4 +141,3 @@ fn test_attribute_selector_serde() {
         _ => panic!("Wrong operation type"),
     }
 }
-

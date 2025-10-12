@@ -35,6 +35,7 @@
 //! let mut ctx = ExecutionContext {
 //!     market: &mut market,
 //!     model: &mut model,
+//!     instruments: None,
 //!     rate_bindings: None,
 //!     as_of,
 //! };
@@ -51,8 +52,10 @@ pub mod adapters;
 pub mod engine;
 pub mod error;
 pub mod spec;
+pub mod utils;
 
 pub use engine::{ExecutionContext, ScenarioEngine};
 pub use error::{Error, Result};
-pub use spec::{CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind};
-
+pub use spec::{
+    CurveKind, InstrumentType, OperationSpec, ScenarioSpec, TenorMatchMode, VolSurfaceKind,
+};

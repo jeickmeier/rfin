@@ -116,7 +116,7 @@ These enable safe mutation of node values for scenario shocks without exposing i
 
 ### Test Coverage
 
-**Total Tests**: 7 integration + 16 doctests = **23 tests**
+**Total Tests**: 26 integration + 21 doctests = **47 tests**
 
 1. **integration_test.rs**: 3 tests
    - Curve parallel shock
@@ -131,7 +131,33 @@ These enable safe mutation of node values for scenario shocks without exposing i
    - FX rate shock
    - Rate binding from curve to statement node
 
-4. **Doctests**: 16 passing doctests across all public APIs
+4. **serde_roundtrip_test.rs**: 4 tests
+   - JSON serialization stability
+   - All operation types
+   - Unknown field rejection
+   - Attribute selector serialization
+
+5. **tenor_shocks_test.rs**: 3 tests (NEW)
+   - Exact tenor matching
+   - Tenor not found error handling
+   - Interpolate mode with key-rate bumps
+
+6. **bucket_filtering_test.rs**: 3 tests (NEW)
+   - Vol surface bucket filtering by tenor
+   - Vol surface bucket filtering by strike
+   - Base correlation bucket filtering by detachment
+
+7. **time_roll_test.rs**: 3 tests (NEW)
+   - Roll forward 1 day
+   - Roll forward 1 month
+   - Roll forward 1 year
+
+8. **utils tests**: 6 unit tests (NEW)
+   - Tenor parsing (years, months, days, weeks)
+   - Period parsing
+   - Error handling
+
+9. **Doctests**: 21 passing doctests across all public APIs
 
 ### Examples
 
@@ -155,13 +181,22 @@ These enable safe mutation of node values for scenario shocks without exposing i
 5. **Serde Stability**: All types use `#[serde(deny_unknown_fields)]`
 6. **Documentation**: Comprehensive docstrings with examples
 
-### Phase A Limitations (Documented)
+### Enhanced Features (Phase B)
 
-1. **Node-Specific Curve Shocks**: Tenor matching not implemented; applies parallel bumps
-2. **Bucket Filtering**: Vol and base-corr bucket shocks simplified to parallel
-3. **Attribute Selectors**: No instrument registry integration yet
-4. **Statement Re-evaluation**: Placeholder (caller should use `Evaluator`)
-5. **Advanced Composition**: Only last-wins strategy implemented
+1. **Tenor-Based Node Shocks**: Full implementation with exact and interpolate modes
+   - Exact mode: Matches explicit pillar points (errors if not found)
+   - Interpolate mode: Uses key-rate bumps for localized shocks
+2. **Bucket Filtering**: Vol surfaces filter by tenor/strike; base-corr by detachment
+3. **Instrument Type Shocks**: Type-safe shocks using `InstrumentType` enum from valuations
+4. **Time Roll-Forward**: Date advancement with carry/theta calculations via metrics registry
+5. **Statement Shocks**: Full implementation with percent and assign operations
+
+### Remaining Limitations
+
+1. **Attribute Selectors**: No instrument registry integration yet
+2. **Statement Re-evaluation**: Placeholder (caller should use `Evaluator`)
+3. **Advanced Composition**: Only last-wins strategy implemented
+4. **Curve Rolling**: Time roll doesn't adjust curve knot points (simplified)
 
 ### Integration
 
@@ -178,16 +213,15 @@ These enable safe mutation of node values for scenario shocks without exposing i
 - No parallelism (determinism priority)
 - Minimal allocations (reuses Arc-wrapped market data)
 
-### Future Extensions (Post-Phase A)
+### Future Extensions (Post-Phase B)
 
-1. Proper tenor-based node shock for curves
-2. Bucket filtering for vol and base-corr surfaces
-3. Full DSL parser with glob/selector expansion
-4. Instrument registry integration for attribute shocks
-5. Time-windowed operations (`@on`, `@during`)
-6. Advanced conflict strategies (merge, error)
-7. Python and WASM bindings
-8. Preview mode with impact analysis
+1. Full DSL parser with glob/selector expansion
+2. Instrument registry integration for attribute shocks
+3. Time-windowed operations (`@on`, `@during`)
+4. Advanced conflict strategies (merge, error)
+5. Curve rolling with proper knot expiry/adjustment
+6. Python and WASM bindings
+7. Preview mode with impact analysis
 
 ## Acceptance Criteria Status
 
@@ -196,28 +230,31 @@ These enable safe mutation of node values for scenario shocks without exposing i
 | Deterministic ordering | ✅ | Stable sort by priority+index |
 | Equity shocks work | ✅ | Tested with -10%, -20% shocks |
 | All curve types supported | ✅ | Discount/Forward/Hazard/Inflation |
-| Vol surface shocks | ✅ | Parallel and bucket (simplified) |
-| Base corr shocks | ✅ | Parallel and bucket (simplified) |
+| Vol surface shocks | ✅ | Parallel and bucket with filtering |
+| Base corr shocks | ✅ | Parallel and bucket with filtering |
+| Tenor-based curve shocks | ✅ | Exact + interpolate modes |
+| Instrument type shocks | ✅ | Price and spread by InstrumentType |
+| Time roll-forward | ✅ | With carry/theta calculations |
 | FX shocks | ✅ | Via SimpleFxProvider replacement |
 | Statement shocks | ✅ | Percent and assign on values |
 | Rate bindings | ✅ | Auto-update from curves |
 | JSON serde stable | ✅ | All types with deny_unknown_fields |
-| All tests pass | ✅ | 23 tests, 0 failures |
+| All tests pass | ✅ | 47 tests, 0 failures |
 | Linting clean | ✅ | No clippy warnings |
 
 ## Metrics
 
-- **Lines of Code**: ~1,000 (scenarios crate)
-- **Test Lines**: ~400
-- **Documentation**: ~200 lines of docstrings
+- **Lines of Code**: ~1,500 (scenarios crate)
+- **Test Lines**: ~700
+- **Documentation**: ~300 lines of docstrings
 - **Examples**: 2 comprehensive examples
 - **Test Coverage**: All public APIs covered
 - **Build Time**: <1s incremental
-- **Dependencies Added**: 0 (reused existing)
+- **Dependencies Added**: 1 (finstack-valuations for InstrumentType)
 
 ## Conclusion
 
-The scenarios-lite implementation successfully delivers deterministic, composable stress testing with minimal complexity. All planned features are working, tested, and documented. The implementation follows Finstack's design philosophy of correctness-first, leveraging existing primitives, and maintaining stable wire formats.
+The scenarios implementation successfully delivers deterministic, composable stress testing with comprehensive shock capabilities. Phase B enhancements add tenor-based curve shocks, bucket filtering for surfaces, instrument type-based shocks, and time roll-forward with carry calculations. All features are working, tested, and documented. The implementation follows Finstack's design philosophy of correctness-first, leveraging existing primitives, and maintaining stable wire formats.
 
-**Status**: ✅ Complete and Production-Ready (Phase A)
+**Status**: ✅ Complete and Production-Ready (Phase B)
 

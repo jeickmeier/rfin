@@ -39,5 +39,20 @@ pub enum Error {
     /// Internal error.
     #[error("Internal error: {0}")]
     Internal(String),
-}
 
+    /// Invalid tenor string.
+    #[error("Invalid tenor string: {0}")]
+    InvalidTenor(String),
+
+    /// Tenor not found in curve.
+    #[error("Tenor not found in curve: {tenor} in {curve_id}")]
+    TenorNotFound { tenor: String, curve_id: String },
+
+    /// Invalid time period.
+    #[error("Invalid time period: {0}")]
+    InvalidPeriod(String),
+
+    /// Instrument not found.
+    #[error("Instrument not found: {0}")]
+    InstrumentNotFound(String),
+}

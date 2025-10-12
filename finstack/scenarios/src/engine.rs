@@ -15,6 +15,10 @@ pub struct ExecutionContext<'a> {
     /// Financial statements model.
     pub model: &'a mut finstack_statements::FinancialModelSpec,
 
+    /// Optional vector of instruments for price/spread shocks and carry calculations.
+    pub instruments:
+        Option<&'a mut Vec<Box<dyn finstack_valuations::instruments::common::traits::Instrument>>>,
+
     /// Optional mapping from statement node IDs to curve IDs for automatic rate updates.
     pub rate_bindings: Option<IndexMap<String, String>>,
 
@@ -148,6 +152,7 @@ impl ScenarioEngine {
     /// let mut ctx = ExecutionContext {
     ///     market: &mut market,
     ///     model: &mut model,
+    ///     instruments: None,
     ///     rate_bindings: None,
     ///     as_of,
     /// };
@@ -156,9 +161,35 @@ impl ScenarioEngine {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn apply(&self, spec: &ScenarioSpec, ctx: &mut ExecutionContext) -> Result<ApplicationReport> {
+    pub fn apply(
+        &self,
+        spec: &ScenarioSpec,
+        ctx: &mut ExecutionContext,
+    ) -> Result<ApplicationReport> {
         let mut applied = 0;
         let mut warnings = Vec::new();
+
+        // Phase 0: Time roll-forward (if present)
+        for op in &spec.operations {
+            if let OperationSpec::TimeRollForward {
+                period,
+                apply_shocks,
+            } = op
+            {
+                let _roll_report =
+                    crate::adapters::time_roll::apply_time_roll_forward(ctx, period)?;
+                applied += 1;
+
+                // If apply_shocks is false, skip remaining operations
+                if !apply_shocks {
+                    return Ok(ApplicationReport {
+                        operations_applied: applied,
+                        warnings,
+                        rounding_context: Some("default".into()),
+                    });
+                }
+            }
+        }
 
         // Phase 1: Market data operations (order: FX → Equities → Vol → Curves)
         for op in &spec.operations {
@@ -182,13 +213,34 @@ impl ScenarioEngine {
                         attrs.len()
                     ));
                 }
+                OperationSpec::InstrumentPricePctByType {
+                    instrument_types,
+                    pct,
+                } => {
+                    if let Some(instruments) = ctx.instruments.as_mut() {
+                        match crate::adapters::instruments::apply_instrument_type_price_shock(
+                            instruments,
+                            instrument_types,
+                            *pct,
+                        ) {
+                            Ok(count) => applied += count,
+                            Err(e) => warnings.push(format!("Instrument type price shock: {}", e)),
+                        }
+                    } else {
+                        warnings.push(
+                            "Instrument type shock requested but no instruments provided"
+                                .to_string(),
+                        );
+                    }
+                }
                 OperationSpec::VolSurfaceParallelPct {
                     surface_kind: _,
                     surface_id,
                     pct,
                 } => {
-                    match crate::adapters::vol::apply_vol_parallel_shock(ctx.market, surface_id, *pct)
-                    {
+                    match crate::adapters::vol::apply_vol_parallel_shock(
+                        ctx.market, surface_id, *pct,
+                    ) {
                         Ok(_) => applied += 1,
                         Err(e) => warnings.push(format!("Vol surface {}: {}", surface_id, e)),
                     }
@@ -228,20 +280,20 @@ impl ScenarioEngine {
                     curve_kind,
                     curve_id,
                     nodes,
+                    match_mode,
                 } => {
                     crate::adapters::curves::apply_curve_node_shock(
                         ctx.market,
                         *curve_kind,
                         curve_id,
                         nodes,
+                        *match_mode,
                     )?;
                     applied += 1;
                 }
                 OperationSpec::BaseCorrParallelPts { surface_id, points } => {
                     crate::adapters::basecorr::apply_basecorr_parallel_shock(
-                        ctx.market,
-                        surface_id,
-                        *points,
+                        ctx.market, surface_id, *points,
                     )?;
                     applied += 1;
                 }
@@ -267,7 +319,27 @@ impl ScenarioEngine {
                         attrs.len()
                     ));
                 }
-                _ => {} // statements handled below
+                OperationSpec::InstrumentSpreadBpByType {
+                    instrument_types,
+                    bp,
+                } => {
+                    if let Some(instruments) = ctx.instruments.as_mut() {
+                        match crate::adapters::instruments::apply_instrument_type_spread_shock(
+                            instruments,
+                            instrument_types,
+                            *bp,
+                        ) {
+                            Ok(count) => applied += count,
+                            Err(e) => warnings.push(format!("Instrument type spread shock: {}", e)),
+                        }
+                    } else {
+                        warnings.push(
+                            "Instrument type shock requested but no instruments provided"
+                                .to_string(),
+                        );
+                    }
+                }
+                _ => {} // statements and time roll handled elsewhere
             }
         }
 
@@ -275,13 +347,12 @@ impl ScenarioEngine {
         if let Some(bindings) = &ctx.rate_bindings {
             for (node_id, curve_id) in bindings {
                 match crate::adapters::statements::update_rate_from_curve(
-                    ctx.model,
-                    node_id,
-                    ctx.market,
-                    curve_id,
+                    ctx.model, node_id, ctx.market, curve_id,
                 ) {
                     Ok(_) => {}
-                    Err(e) => warnings.push(format!("Rate binding {}->{}: {}", node_id, curve_id, e)),
+                    Err(e) => {
+                        warnings.push(format!("Rate binding {}->{}: {}", node_id, curve_id, e))
+                    }
                 }
             }
         }
@@ -314,4 +385,3 @@ impl ScenarioEngine {
         })
     }
 }
-

@@ -6,7 +6,9 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
-use finstack_scenarios::{CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec};
+use finstack_scenarios::{
+    CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec,
+};
 use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use indexmap::{indexmap, IndexMap};
 use std::sync::Arc;
@@ -43,6 +45,7 @@ fn test_fx_shock() {
     let mut ctx = ExecutionContext {
         market: &mut market,
         model: &mut model,
+        instruments: None,
         rate_bindings: None,
         as_of: base_date,
     };
@@ -56,7 +59,12 @@ fn test_fx_shock() {
     let rate = fx.rate(query).unwrap().rate;
 
     let expected = 1.1 * 1.1; // 10% increase
-    assert!((rate - expected).abs() < 1e-6, "Expected {}, got {}", expected, rate);
+    assert!(
+        (rate - expected).abs() < 1e-6,
+        "Expected {}, got {}",
+        expected,
+        rate
+    );
 }
 
 #[test]
@@ -67,7 +75,7 @@ fn test_rate_binding() {
         .base_date(base_date)
         .knots(vec![
             (0.0, 1.0),
-            (1.0, 0.98),   // ~2% rate
+            (1.0, 0.98), // ~2% rate
             (5.0, 0.90),
         ])
         .build()
@@ -86,8 +94,7 @@ fn test_rate_binding() {
         rate_values.insert(period.id, AmountOrScalar::Scalar(0.015)); // 1.5% initial
     }
 
-    let rate_node = NodeSpec::new("InterestRate", NodeType::Value)
-        .with_values(rate_values);
+    let rate_node = NodeSpec::new("InterestRate", NodeType::Value).with_values(rate_values);
     model.add_node(rate_node);
 
     // Configure rate binding
@@ -113,6 +120,7 @@ fn test_rate_binding() {
     let mut ctx = ExecutionContext {
         market: &mut market,
         model: &mut model,
+        instruments: None,
         rate_bindings,
         as_of: base_date,
     };
@@ -139,4 +147,3 @@ fn test_rate_binding() {
         _ => panic!("Expected scalar value"),
     }
 }
-

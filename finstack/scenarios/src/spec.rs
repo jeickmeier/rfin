@@ -3,6 +3,9 @@
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+// Re-export InstrumentType from valuations for type-safe instrument shocks
+pub use finstack_valuations::pricer::InstrumentType;
+
 /// A complete scenario specification with metadata and operations.
 ///
 /// # Examples
@@ -128,7 +131,7 @@ pub enum OperationSpec {
     ///
     /// # Example
     /// ```rust
-    /// use finstack_scenarios::{OperationSpec, CurveKind};
+    /// use finstack_scenarios::{OperationSpec, CurveKind, TenorMatchMode};
     ///
     /// let op = OperationSpec::CurveNodeBp {
     ///     curve_kind: CurveKind::Discount,
@@ -137,12 +140,15 @@ pub enum OperationSpec {
     ///         ("2Y".into(), 25.0),
     ///         ("10Y".into(), -10.0),
     ///     ],
+    ///     match_mode: TenorMatchMode::Interpolate,
     /// };
     /// ```
     CurveNodeBp {
         curve_kind: CurveKind,
         curve_id: String,
         nodes: Vec<(String, f64)>,
+        #[serde(default)]
+        match_mode: TenorMatchMode,
     },
 
     /// Parallel shift to base correlation surface (absolute points).
@@ -263,6 +269,61 @@ pub enum OperationSpec {
         attrs: IndexMap<String, String>,
         bp: f64,
     },
+
+    /// Instrument price shock by type.
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_scenarios::{OperationSpec, InstrumentType};
+    ///
+    /// let op = OperationSpec::InstrumentPricePctByType {
+    ///     instrument_types: vec![InstrumentType::Bond, InstrumentType::Loan],
+    ///     pct: -5.0,
+    /// };
+    /// ```
+    InstrumentPricePctByType {
+        instrument_types: Vec<InstrumentType>,
+        pct: f64,
+    },
+
+    /// Instrument spread shock by type.
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_scenarios::{OperationSpec, InstrumentType};
+    ///
+    /// let op = OperationSpec::InstrumentSpreadBpByType {
+    ///     instrument_types: vec![InstrumentType::CDS],
+    ///     bp: 100.0,
+    /// };
+    /// ```
+    InstrumentSpreadBpByType {
+        instrument_types: Vec<InstrumentType>,
+        bp: f64,
+    },
+
+    /// Roll forward horizon by a period with carry/theta.
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_scenarios::OperationSpec;
+    ///
+    /// let op = OperationSpec::TimeRollForward {
+    ///     period: "1M".into(),
+    ///     apply_shocks: true,
+    /// };
+    /// ```
+    TimeRollForward {
+        /// Period to roll forward (e.g., "1D", "1W", "1M", "1Y")
+        period: String,
+        /// Whether to apply market shocks after rolling
+        #[serde(default = "default_true")]
+        apply_shocks: bool,
+    },
+}
+
+fn default_true() -> bool {
+    true
 }
 
 /// Curve type discriminator.
@@ -291,3 +352,13 @@ pub enum VolSurfaceKind {
     Swaption,
 }
 
+/// Tenor matching mode for curve node shocks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TenorMatchMode {
+    /// Match exact pillar only (errors if not found).
+    Exact,
+    /// Use key-rate bump at interpolated time.
+    #[default]
+    Interpolate,
+}

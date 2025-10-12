@@ -11,6 +11,7 @@ use finstack_core::market_data::MarketContext as Market;
 // ========================= KEYS =========================
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u16)]
 pub enum InstrumentType {
     Bond = 1,

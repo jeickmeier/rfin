@@ -18,7 +18,10 @@ pub fn apply_equity_shock(market: &mut MarketContext, id: &str, pct: f64) -> Res
         MarketScalar::Price(money) => {
             let factor = 1.0 + (pct / 100.0);
             let new_amount = money.amount() * factor;
-            MarketScalar::Price(finstack_core::money::Money::new(new_amount, money.currency()))
+            MarketScalar::Price(finstack_core::money::Money::new(
+                new_amount,
+                money.currency(),
+            ))
         }
         MarketScalar::Unitless(val) => {
             // If stored as unitless, apply shock
@@ -30,4 +33,3 @@ pub fn apply_equity_shock(market: &mut MarketContext, id: &str, pct: f64) -> Res
     market.insert_price_mut(id, new_scalar);
     Ok(())
 }
-

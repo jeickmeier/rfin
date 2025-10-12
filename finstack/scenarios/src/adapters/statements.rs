@@ -7,7 +7,11 @@ use finstack_statements::{AmountOrScalar, FinancialModelSpec};
 /// Apply percent change to a statement node's forecast values.
 ///
 /// Modifies all explicit values in the node by the given percentage.
-pub fn apply_forecast_percent(model: &mut FinancialModelSpec, node_id: &str, pct: f64) -> Result<()> {
+pub fn apply_forecast_percent(
+    model: &mut FinancialModelSpec,
+    node_id: &str,
+    pct: f64,
+) -> Result<()> {
     let node = model
         .get_node_mut(node_id)
         .ok_or_else(|| Error::NodeNotFound {
@@ -22,7 +26,8 @@ pub fn apply_forecast_percent(model: &mut FinancialModelSpec, node_id: &str, pct
             match val {
                 AmountOrScalar::Scalar(s) => *s *= factor,
                 AmountOrScalar::Amount(money) => {
-                    *money = finstack_core::money::Money::new(money.amount() * factor, money.currency());
+                    *money =
+                        finstack_core::money::Money::new(money.amount() * factor, money.currency());
                 }
             }
         }
@@ -34,7 +39,11 @@ pub fn apply_forecast_percent(model: &mut FinancialModelSpec, node_id: &str, pct
 /// Assign explicit value to a statement node's forecasts.
 ///
 /// Sets all explicit values in the node to the given scalar value.
-pub fn apply_forecast_assign(model: &mut FinancialModelSpec, node_id: &str, value: f64) -> Result<()> {
+pub fn apply_forecast_assign(
+    model: &mut FinancialModelSpec,
+    node_id: &str,
+    value: f64,
+) -> Result<()> {
     let node = model
         .get_node_mut(node_id)
         .ok_or_else(|| Error::NodeNotFound {
@@ -106,4 +115,3 @@ pub fn reevaluate_model(_model: &mut FinancialModelSpec) -> Result<()> {
     // For scenarios, the caller should re-evaluate after applying shocks
     Ok(())
 }
-
