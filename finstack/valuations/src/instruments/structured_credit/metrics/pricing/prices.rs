@@ -94,27 +94,18 @@ impl MetricCalculator for CleanPriceCalculator {
     }
 }
 
-/// Helper to get the original notional from the instrument.
+/// Helper to get the original notional from the context.
 ///
-/// For structured credit, the notional is typically the tranche size or pool balance.
+/// For structured credit, the notional is typically set when creating the context
+/// (pool original balance or tranche original balance).
 fn get_original_notional(context: &MetricContext) -> Result<f64> {
-    // Try to get notional from the instrument
-    // This is a simplified implementation - in practice, you'd check the instrument type
-    // and extract the appropriate notional field
-    
-    use crate::instruments::common::structured_credit::StructuredCreditInstrument;
-    
-    // Try to downcast to StructuredCreditInstrument
-    if let Some(sc_instr) = context.instrument.as_any()
-        .downcast_ref::<&dyn StructuredCreditInstrument>()
-    {
-        // Get total pool balance as notional
-        let pool = sc_instr.pool();
-        return Ok(pool.total_balance().amount());
+    // Use notional from context if available
+    if let Some(notional) = context.notional {
+        return Ok(notional);
     }
     
-    // Fallback: try to extract from base_value (should be in currency units)
-    // This is a conservative fallback
+    // Fallback: use base_value as notional approximation
+    // This works when price ≈ 100% and NPV ≈ notional
     Ok(context.base_value.amount().abs())
 }
 

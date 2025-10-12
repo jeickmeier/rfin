@@ -12,7 +12,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::enums::{AssetType, CreditRating, DealType};
-use super::reinvestment::{ConcentrationLimits, EligibilityCriteria};
+use crate::instruments::structured_credit::config::{BASIS_POINTS_DIVISOR, DAYS_PER_YEAR};
+use crate::instruments::structured_credit::utils::{ConcentrationLimits, EligibilityCriteria};
 
 /// Individual asset in the structured credit pool
 #[derive(Debug, Clone)]
@@ -109,7 +110,7 @@ impl PoolAsset {
             id: id.into(),
             asset_type: AssetType::FirstLienLoan { industry: None },
             balance,
-            rate: spread_bps / super::constants::BASIS_POINTS_DIVISOR, // Initialize with spread only
+            rate: spread_bps / BASIS_POINTS_DIVISOR, // Initialize with spread only
             spread_bps: Some(spread_bps),
             index_id: Some(index_id.into()),
             maturity,
@@ -178,7 +179,7 @@ impl PoolAsset {
     /// Returns the explicit spread if available, otherwise derives from rate.
     pub fn spread_bps(&self) -> f64 {
         self.spread_bps
-            .unwrap_or(self.rate * super::constants::BASIS_POINTS_DIVISOR)
+            .unwrap_or(self.rate * BASIS_POINTS_DIVISOR)
     }
 
     /// Remaining term to maturity in years
@@ -307,8 +308,8 @@ impl AssetPool {
             id: id.into(),
             deal_type,
             assets: Vec::new(),
-            eligibility_criteria: super::reinvestment::EligibilityCriteria::default(),
-            concentration_limits: ConcentrationLimits::default(),
+            eligibility_criteria: EligibilityCriteria,
+            concentration_limits: ConcentrationLimits,
             cumulative_defaults: zero_money,
             cumulative_recoveries: zero_money,
             cumulative_prepayments: zero_money,
@@ -402,7 +403,7 @@ impl AssetPool {
 
         for (date, amount) in cashflows {
             if *date > as_of {
-                let years = (*date - as_of).whole_days() as f64 / super::constants::DAYS_PER_YEAR;
+                let years = (*date - as_of).whole_days() as f64 / DAYS_PER_YEAR;
                 wal_numerator += amount.amount() * years;
                 total_principal += amount.amount();
             }
@@ -440,91 +441,6 @@ impl AssetPool {
         } else {
             0.0
         }
-    }
-
-    /// Check eligibility of an asset for the pool
-    pub fn is_eligible(&self, asset: &PoolAsset, as_of: Date) -> bool {
-        let (eligible, _reasons) = self.eligibility_criteria.is_eligible(asset, as_of);
-        eligible
-    }
-
-    /// Check concentration limits compliance
-    pub fn check_concentration_limits(&self) -> ConcentrationCheckResult {
-        let mut violations = Vec::new();
-        let total_balance = self.total_balance().amount();
-
-        if total_balance == 0.0 {
-            return ConcentrationCheckResult { violations };
-        }
-
-        // Check obligor concentration
-        if let Some(max_obligor) = self.concentration_limits.max_obligor_concentration {
-            let mut obligor_concentrations: HashMap<String, f64> = HashMap::new();
-            for asset in &self.assets {
-                if let Some(ref obligor) = asset.obligor_id {
-                    *obligor_concentrations.entry(obligor.to_owned()).or_insert(0.0) +=
-                        asset.balance.amount() / total_balance;
-                }
-            }
-
-            for (obligor, concentration) in &obligor_concentrations {
-                if *concentration > max_obligor {
-                    violations.push(ConcentrationViolation {
-                        violation_type: "obligor_concentration".to_string(),
-                        identifier: obligor.clone(),
-                        current_level: *concentration * 100.0,
-                        limit: max_obligor * 100.0,
-                    });
-                }
-            }
-        }
-
-        // Check industry concentration using industry_limits
-        let mut industry_concentrations: HashMap<String, f64> = HashMap::new();
-        for asset in &self.assets {
-            if let Some(ref industry) = asset.industry {
-                *industry_concentrations
-                    .entry(industry.to_owned())
-                    .or_insert(0.0) += asset.balance.amount() / total_balance;
-            }
-        }
-
-        for (industry, concentration) in &industry_concentrations {
-            if let Some(&limit) = self.concentration_limits.industry_limits.get(industry) {
-                if *concentration > limit {
-                    violations.push(ConcentrationViolation {
-                        violation_type: "industry_concentration".to_string(),
-                        identifier: industry.clone(),
-                        current_level: *concentration * 100.0,
-                        limit: limit * 100.0,
-                    });
-                }
-            }
-        }
-
-        // Check rating bucket concentration
-        for rating in [CreditRating::CCC, CreditRating::CC, CreditRating::C] {
-            if let Some(&limit) = self.concentration_limits.rating_bucket_limits.get(&rating) {
-                let rating_balance: f64 = self
-                    .assets
-                    .iter()
-                    .filter(|a| a.credit_quality == Some(rating))
-                    .map(|a| a.balance.amount())
-                    .sum();
-                let rating_concentration = rating_balance / total_balance;
-
-                if rating_concentration > limit {
-                    violations.push(ConcentrationViolation {
-                        violation_type: "rating_concentration".to_string(),
-                        identifier: format!("{:?}", rating),
-                        current_level: rating_concentration * 100.0,
-                        limit: limit * 100.0,
-                    });
-                }
-            }
-        }
-
-        ConcentrationCheckResult { violations }
     }
 
     /// Update pool statistics

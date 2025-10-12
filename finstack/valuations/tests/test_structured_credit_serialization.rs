@@ -3,7 +3,7 @@
 //! Verifies that ABS, RMBS, CMBS, and CLO instruments can be fully serialized
 //! and deserialized from JSON, including custom behavioral models.
 
-use finstack_valuations::instruments::common::structured_credit::{
+use finstack_valuations::instruments::structured_credit::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
 };
 

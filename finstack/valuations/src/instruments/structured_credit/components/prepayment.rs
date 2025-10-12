@@ -70,6 +70,71 @@ pub fn vector_model(cpr_vector: Vec<f64>, terminal_cpr: f64) -> Box<dyn Prepayme
     Box::new(VectorModel::new(cpr_vector, terminal_cpr))
 }
 
+/// Annual step CPR curve (piecewise-constant annual CPR by year)
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct AnnualStepCprModel {
+    /// Annual CPRs per year starting from year 1 (length N => years 1..=N)
+    pub annual_cpr_by_year: Vec<f64>,
+    /// Terminal CPR applied after the last provided year
+    pub terminal_cpr: f64,
+}
+
+impl AnnualStepCprModel {
+    pub fn new(annual_cpr_by_year: Vec<f64>, terminal_cpr: f64) -> Self {
+        Self {
+            annual_cpr_by_year,
+            terminal_cpr,
+        }
+    }
+
+    /// Create from yearly CPR sequence with terminal equal to last year
+    ///
+    /// # Example
+    /// ```ignore
+    /// // 15% Year 1, 12% Year 2, 10% Year 3, then 10% terminal
+    /// let model = AnnualStepCprModel::from_years(vec![0.15, 0.12, 0.10]);
+    /// ```
+    pub fn from_years(annual_cprs: Vec<f64>) -> Self {
+        let terminal = *annual_cprs.last().unwrap_or(&0.06);
+        Self::new(annual_cprs, terminal)
+    }
+
+    fn annual_cpr_for(&self, seasoning_months: u32) -> f64 {
+        let year_index = ((seasoning_months / 12) as usize).min(self.annual_cpr_by_year.len());
+        if year_index == 0 {
+            return self
+                .annual_cpr_by_year
+                .first()
+                .copied()
+                .unwrap_or(self.terminal_cpr);
+        }
+        if year_index - 1 < self.annual_cpr_by_year.len() {
+            self.annual_cpr_by_year[year_index - 1]
+        } else {
+            self.terminal_cpr
+        }
+    }
+}
+
+impl PrepaymentBehavior for AnnualStepCprModel {
+    fn prepayment_rate(
+        &self,
+        _as_of: Date,
+        _origination_date: Date,
+        seasoning_months: u32,
+        _market_conditions: &MarketConditions,
+    ) -> f64 {
+        let cpr = self.annual_cpr_for(seasoning_months);
+        // Convert CPR to SMM
+        1.0 - (1.0 - cpr).powf(1.0 / 12.0)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
 /// Market conditions that affect prepayment behavior
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -150,10 +215,11 @@ pub struct PSAModel {
 
 impl Default for PSAModel {
     fn default() -> Self {
+        use crate::instruments::structured_credit::config::{PSA_RAMP_MONTHS, PSA_TERMINAL_CPR};
         Self {
             speed: 1.0, // 100% PSA
-            ramp_months: super::constants::PSA_RAMP_MONTHS,
-            terminal_cpr: super::constants::PSA_TERMINAL_CPR,
+            ramp_months: PSA_RAMP_MONTHS,
+            terminal_cpr: PSA_TERMINAL_CPR,
         }
     }
 }

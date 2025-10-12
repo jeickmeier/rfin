@@ -5,10 +5,8 @@
 
 use std::sync::Arc;
 
-use super::{
-    default_models::{CDRModel, ConstantRecoveryModel, DefaultBehavior, RecoveryBehavior, SDAModel},
-    prepayment::{PSAModel, PrepaymentBehavior},
-};
+use super::default_models::{CDRModel, ConstantRecoveryModel, DefaultBehavior, RecoveryBehavior, SDAModel};
+use super::prepayment::{PSAModel, PrepaymentBehavior};
 
 // ============================================================================
 // Prepayment Model Enum

@@ -174,6 +174,13 @@ pub struct MetricContext {
     /// Cached day count convention.
     pub day_count: Option<DayCount>,
 
+    /// Original notional amount for price calculations.
+    ///
+    /// For structured credit: typically pool original balance or tranche original balance.
+    /// For bonds: face amount. For other instruments: principal amount.
+    /// Used by price calculators to avoid instrument downcasts.
+    pub notional: Option<f64>,
+
     /// Optional resolver to customize per-bucket metric keys.
     ///
     /// When set, bucketed metrics (e.g., DV01 by tenor) will use this resolver
@@ -211,6 +218,7 @@ impl MetricContext {
             cashflows: None,
             discount_curve_id: None,
             day_count: None,
+            notional: None,
             bucket_key_resolver: None,
             pricing_overrides: None,
         }

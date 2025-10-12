@@ -10,23 +10,14 @@ use finstack_core::types::{InstrumentId, CurveId};
 use serde::{Deserialize, Serialize};
 
 use super::enums::{CreditRating, TrancheSeniority, TriggerConsequence};
+use crate::instruments::structured_credit::config::VALIDATION_TOLERANCE;
 
-/// Tranche behavioral types for specialized handling
+/// Tranche behavioral types (simplified to standard only)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TrancheBehaviorType {
     /// Standard bond (pays interest and principal)
     Standard,
-    /// Z-bond (accrual bond - capitalizes interest until trigger)
-    ZBond,
-    /// PAC bond (Planned Amortization Class - follows target schedule)
-    PAC,
-    /// VADM (Volatility Adjusted Debt Mezzanine)
-    VADM,
-    /// Sequential pay (no principal until senior tranches paid)
-    Sequential,
-    /// Pro-rata pay (proportional principal distribution)
-    ProRata,
 }
 
 #[cfg(feature = "serde")]
@@ -367,46 +358,6 @@ impl Tranche {
         self
     }
 
-    /// Configure as Z-bond (accrual bond)
-    pub fn as_z_bond(mut self) -> Self {
-        self.behavior_type = TrancheBehaviorType::ZBond;
-        self
-    }
-
-    /// Configure as PAC bond with target principal schedule
-    pub fn as_pac_bond(mut self, _target_schedule: Vec<(Date, Money)>) -> Self {
-        self.behavior_type = TrancheBehaviorType::PAC;
-        // Store target schedule in attributes for now
-        // In full implementation, would add dedicated PAC fields
-        // For now, just mark as PAC bond
-        self
-    }
-
-    /// Configure as sequential pay tranche
-    pub fn as_sequential(mut self) -> Self {
-        self.behavior_type = TrancheBehaviorType::Sequential;
-        self
-    }
-
-    /// Check if this is a Z-bond
-    pub fn is_z_bond(&self) -> bool {
-        self.behavior_type == TrancheBehaviorType::ZBond
-    }
-
-    /// Check if this is a PAC bond
-    pub fn is_pac_bond(&self) -> bool {
-        self.behavior_type == TrancheBehaviorType::PAC
-    }
-
-    /// Get behavior-specific payment priority adjustment
-    pub fn behavior_priority_adjustment(&self) -> i32 {
-        match self.behavior_type {
-            TrancheBehaviorType::Sequential => 100, // Pay after all others
-            TrancheBehaviorType::ZBond => 50, // Defer interest payments
-            TrancheBehaviorType::PAC => -10, // Higher priority to maintain schedule
-            _ => 0,
-        }
-    }
 }
 
 /// Builder for creating tranches with validation
@@ -573,7 +524,7 @@ impl TrancheStructure {
 
         // Check for gaps or overlaps
         let mut expected_attachment = 0.0;
-        const TOLERANCE: f64 = super::constants::VALIDATION_TOLERANCE;
+        const TOLERANCE: f64 = VALIDATION_TOLERANCE;
 
         for tranche in &sorted_tranches {
             if (tranche.attachment_point - expected_attachment).abs() > TOLERANCE {

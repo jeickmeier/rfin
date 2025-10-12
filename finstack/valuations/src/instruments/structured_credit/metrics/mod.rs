@@ -1,74 +1,47 @@
-//! Consolidated metrics for all structured credit instruments.
+//! Metrics for structured credit instruments.
 //!
-//! This module contains metrics from ABS, CLO, CMBS, and RMBS.
-//! Some metrics are deal-type specific and will only compute for appropriate instruments.
+//! This module organizes metrics by category:
+//! - pricing: Valuation-focused metrics (prices, accrued, WAL)
+//! - risk: Risk and sensitivity metrics (duration, spreads, YTM)
+//! - pool: Collateral pool characteristics (WAM, CPR, CDR, WARF, WAS)
+//! - deal_specific: Deal-type specific metrics (ABS, CLO, CMBS, RMBS)
 
-// ABS-specific metrics
-pub mod abs_speed;
-pub mod delinquency;
-pub mod excess_spread;
+pub mod pricing;
+pub mod risk;
+pub mod pool;
+pub mod deal_specific;
 
-// CLO-specific metrics
-pub mod warf;
-pub mod was;
-
-// CMBS-specific metrics
-pub mod dscr;
-
-// Shared metrics (renamed temporarily to avoid conflicts)
-pub mod ltv_cmbs;
-pub mod ltv_rmbs;
-pub mod wal_clo;
-pub mod wal_rmbs;
-
-// Re-exports for convenience
-pub use abs_speed::*;
-pub use delinquency::*;
-pub use dscr::*;
-pub use excess_spread::*;
-pub use ltv_cmbs::*;
-pub use ltv_rmbs::*;
-pub use wal_clo::*;
-pub use wal_rmbs::*;
-pub use warf::*;
-pub use was::*;
+// Re-export all calculators for convenience
+pub use pricing::*;
+pub use risk::*;
+pub use pool::*;
+pub use deal_specific::*;
 
 /// Register all structured credit metrics
 pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricRegistry) {
-    use crate::instruments::common::structured_credit::metrics::{
-        AccruedCalculator, CdrCalculator, CleanPriceCalculator, CprCalculator, Cs01Calculator,
-        DirtyPriceCalculator, MacaulayDurationCalculator, ModifiedDurationCalculator,
-        SpreadDurationCalculator, WalCalculator, WamCalculator, YtmCalculator, ZSpreadCalculator,
-    };
-    
     crate::register_metrics! {
         registry: registry,
         instrument: "StructuredCredit",
         metrics: [
             // Standard cashflow-based metrics
-            (Accrued, AccruedCalculator),
-            (DirtyPrice, DirtyPriceCalculator),
-            (CleanPrice, CleanPriceCalculator),
-            (WAL, WalCalculator),
-            (DurationMac, MacaulayDurationCalculator),
-            (DurationMod, ModifiedDurationCalculator),
-            (Ytm, YtmCalculator),
-            (ZSpread, ZSpreadCalculator),
-            (Cs01, Cs01Calculator),
-            (SpreadDuration, SpreadDurationCalculator),
+            (Accrued, pricing::AccruedCalculator),
+            (DirtyPrice, pricing::DirtyPriceCalculator),
+            (CleanPrice, pricing::CleanPriceCalculator),
+            (WAL, pricing::WalCalculator),
+            (DurationMac, risk::MacaulayDurationCalculator),
+            (DurationMod, risk::ModifiedDurationCalculator),
+            (Ytm, risk::YtmCalculator),
+            (ZSpread, risk::ZSpreadCalculator),
+            (Cs01, risk::Cs01Calculator),
+            (SpreadDuration, risk::SpreadDurationCalculator),
             // Pool metrics
-            (WAM, WamCalculator),
-            (CPR, CprCalculator),
-            (CDR, CdrCalculator)
+            (WAM, pool::WamCalculator),
+            (CPR, pool::CprCalculator),
+            (CDR, pool::CdrCalculator)
         ]
     }
     
     // Note: Deal-specific metrics (WARF, WAS, ABS speed, delinquency, DSCR, excess spread,
     // LTV, FICO) would need custom MetricId variants in the core metrics module to be registered.
     // These are currently used directly via their calculator structs when needed.
-    // To register them, add variants like:
-    //   - MetricId::WARF, MetricId::WAS (CLO-specific)
-    //   - MetricId::AbsSpeed, MetricId::Delinquency, MetricId::ExcessSpread (ABS-specific)
-    //   - MetricId::DSCR, MetricId::CmbsLtv (CMBS-specific)
-    //   - MetricId::RmbsLtv, MetricId::FICO (RMBS-specific)
 }

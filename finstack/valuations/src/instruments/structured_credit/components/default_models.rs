@@ -60,6 +60,72 @@ pub fn default_model_for(asset_type: &str) -> Box<dyn DefaultBehavior> {
     }
 }
 
+/// Annual step default curve (piecewise-constant annual CDR by year)
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct AnnualStepCdrModel {
+    /// Annual CDRs per year starting from year 1 (length N => years 1..=N)
+    pub annual_cdr_by_year: Vec<f64>,
+    /// Terminal CDR applied after the last provided year
+    pub terminal_cdr: f64,
+}
+
+impl AnnualStepCdrModel {
+    pub fn new(annual_cdr_by_year: Vec<f64>, terminal_cdr: f64) -> Self {
+        Self {
+            annual_cdr_by_year,
+            terminal_cdr,
+        }
+    }
+
+    /// Create from yearly CDR sequence with terminal equal to last year
+    ///
+    /// # Example
+    /// ```ignore
+    /// // 2% Year 1, 2.5% Year 2, 3% Year 3, then 3% terminal
+    /// let model = AnnualStepCdrModel::from_years(vec![0.02, 0.025, 0.03]);
+    /// ```
+    pub fn from_years(annual_cdrs: Vec<f64>) -> Self {
+        let terminal = *annual_cdrs.last().unwrap_or(&0.02);
+        Self::new(annual_cdrs, terminal)
+    }
+
+    /// Get annual CDR for a given seasoning month
+    fn annual_cdr_for(&self, seasoning_months: u32) -> f64 {
+        let year_index = ((seasoning_months / 12) as usize).min(self.annual_cdr_by_year.len());
+        if year_index == 0 {
+            return self
+                .annual_cdr_by_year
+                .first()
+                .copied()
+                .unwrap_or(self.terminal_cdr);
+        }
+        if year_index - 1 < self.annual_cdr_by_year.len() {
+            self.annual_cdr_by_year[year_index - 1]
+        } else {
+            self.terminal_cdr
+        }
+    }
+}
+
+impl DefaultBehavior for AnnualStepCdrModel {
+    fn default_rate(
+        &self,
+        _as_of: Date,
+        _origination_date: Date,
+        seasoning_months: u32,
+        _credit_factors: &CreditFactors,
+    ) -> f64 {
+        let cdr = self.annual_cdr_for(seasoning_months);
+        // Convert CDR to MDR
+        1.0 - (1.0 - cdr).powf(1.0 / 12.0)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
 /// Trait for recovery modeling
 pub trait RecoveryBehavior: dyn_clone::DynClone + Send + Sync {
     /// Calculate expected recovery rate

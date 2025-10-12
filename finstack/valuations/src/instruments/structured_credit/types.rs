@@ -5,11 +5,11 @@
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::constants::DECIMAL_TO_PERCENT;
-use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, CreditFactors, DealType, DefaultBehavior, DefaultModelSpec,
-    MarketConditions, PrepaymentBehavior, PrepaymentModelSpec, RecoveryBehavior,
-    RecoveryModelSpec, StructuredCreditWaterfall, TrancheStructure, TrancheCashflowResult,
-    TrancheValuation, TrancheValuationExt,
+use super::components::{
+    AssetPool, DealType, TrancheStructure, WaterfallEngine,
+    CreditFactors, DefaultBehavior, DefaultModelSpec, MarketConditions,
+    PrepaymentBehavior, PrepaymentModelSpec, RecoveryBehavior, RecoveryModelSpec,
+    TrancheCashflowResult, TrancheValuation, TrancheValuationExt,
 };
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
@@ -94,10 +94,7 @@ pub struct StructuredCredit {
     pub tranches: TrancheStructure,
 
     /// Waterfall distribution rules
-    pub waterfall: StructuredCreditWaterfall,
-
-    /// Coverage tests and monitoring
-    pub coverage_tests: CoverageTests,
+    pub waterfall: WaterfallEngine,
 
     /// Key dates
     pub closing_date: Date,
@@ -149,52 +146,102 @@ pub struct StructuredCredit {
     pub specific: InstrumentSpecificFields,
 }
 
+/// Deal-specific configuration for constructor
+struct DealConfig {
+    first_payment_date: Date,
+    payment_frequency: Frequency,
+    prepayment_spec: PrepaymentModelSpec,
+    default_spec: DefaultModelSpec,
+    recovery_spec: RecoveryModelSpec,
+    credit_factors: CreditFactors,
+    specific: InstrumentSpecificFields,
+}
+
+/// Core instrument parameters shared across constructors
+struct InstrumentParams<'a> {
+    pool: AssetPool,
+    tranches: TrancheStructure,
+    waterfall: WaterfallEngine,
+    legal_maturity: Date,
+    disc_id: &'a str,
+}
+
 impl StructuredCredit {
+    /// Internal helper to create structured credit with common fields
+    fn new_with_deal_config(
+        id: impl Into<String>,
+        deal_type: DealType,
+        params: InstrumentParams,
+        config: DealConfig,
+    ) -> Self {
+        let id_str = id.into();
+        Self {
+            id: InstrumentId::new(id_str),
+            deal_type,
+            pool: params.pool,
+            tranches: params.tranches,
+            waterfall: params.waterfall,
+            closing_date: Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+            first_payment_date: config.first_payment_date,
+            reinvestment_end_date: None,
+            legal_maturity: params.legal_maturity,
+            payment_frequency: config.payment_frequency,
+            disc_id: CurveId::new(params.disc_id.to_string()),
+            attributes: Attributes::new(),
+            prepayment_spec: config.prepayment_spec,
+            prepayment_model_cache: once_cell::sync::OnceCell::new(),
+            default_spec: config.default_spec,
+            default_model_cache: once_cell::sync::OnceCell::new(),
+            recovery_spec: config.recovery_spec,
+            recovery_model_cache: once_cell::sync::OnceCell::new(),
+            market_conditions: MarketConditions::default(),
+            credit_factors: config.credit_factors,
+            specific: config.specific,
+        }
+    }
+
     /// Create a new ABS instrument from its building blocks.
     pub fn new_abs(
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: StructuredCreditWaterfall,
+        waterfall: WaterfallEngine,
         legal_maturity: Date,
         disc_id: impl Into<String>,
     ) -> Self {
-        let id_str = id.into();
-        Self {
-            id: InstrumentId::new(id_str),
-            deal_type: DealType::ABS,
-            pool,
-            tranches,
-            waterfall,
-            coverage_tests: CoverageTests::new(),
-            closing_date: Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
-            first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1).unwrap(),
-            reinvestment_end_date: None,
-            legal_maturity,
-            payment_frequency: Frequency::monthly(),
-            disc_id: CurveId::new(disc_id.into()),
-            attributes: Attributes::new(),
-            prepayment_spec: PrepaymentModelSpec::AssetDefault {
-                asset_type: "auto".to_string(),
+        let disc_id_str = disc_id.into();
+        Self::new_with_deal_config(
+            id,
+            DealType::ABS,
+            InstrumentParams {
+                pool,
+                tranches,
+                waterfall,
+                legal_maturity,
+                disc_id: &disc_id_str,
             },
-            prepayment_model_cache: once_cell::sync::OnceCell::new(),
-            default_spec: DefaultModelSpec::AssetDefault {
-                asset_type: "consumer".to_string(),
+            DealConfig {
+                first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
+                    .unwrap(),
+                payment_frequency: Frequency::monthly(),
+                prepayment_spec: PrepaymentModelSpec::AssetDefault {
+                    asset_type: "auto".to_string(),
+                },
+                default_spec: DefaultModelSpec::AssetDefault {
+                    asset_type: "consumer".to_string(),
+                },
+                recovery_spec: RecoveryModelSpec::AssetDefault {
+                    asset_type: "collateral".to_string(),
+                },
+                credit_factors: CreditFactors::default(),
+                specific: InstrumentSpecificFields::Abs {
+                    servicer_id: None,
+                    trustee_id: None,
+                    abs_speed: None,
+                    cdr_annual: None,
+                },
             },
-            default_model_cache: once_cell::sync::OnceCell::new(),
-            recovery_spec: RecoveryModelSpec::AssetDefault {
-                asset_type: "collateral".to_string(),
-            },
-            recovery_model_cache: once_cell::sync::OnceCell::new(),
-            market_conditions: MarketConditions::default(),
-            credit_factors: CreditFactors::default(),
-            specific: InstrumentSpecificFields::Abs {
-                servicer_id: None,
-                trustee_id: None,
-                abs_speed: None,
-                cdr_annual: None,
-            },
-        }
+        )
     }
 
     /// Create a new CLO instrument from its building blocks.
@@ -202,47 +249,43 @@ impl StructuredCredit {
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: StructuredCreditWaterfall,
+        waterfall: WaterfallEngine,
         legal_maturity: Date,
         disc_id: impl Into<String>,
     ) -> Self {
-        let id_str = id.into();
-        Self {
-            id: InstrumentId::new(id_str),
-            deal_type: DealType::CLO,
-            pool,
-            tranches,
-            waterfall,
-            coverage_tests: CoverageTests::new(),
-            closing_date: Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
-            first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1).unwrap(),
-            reinvestment_end_date: None,
-            legal_maturity,
-            payment_frequency: Frequency::quarterly(),
-            disc_id: CurveId::new(disc_id.into()),
-            attributes: Attributes::new(),
-            prepayment_spec: PrepaymentModelSpec::ConstantCpr { cpr: 0.15 },
-            prepayment_model_cache: once_cell::sync::OnceCell::new(),
-            default_spec: DefaultModelSpec::AssetDefault {
-                asset_type: "corporate".to_string(),
+        let disc_id_str = disc_id.into();
+        Self::new_with_deal_config(
+            id,
+            DealType::CLO,
+            InstrumentParams {
+                pool,
+                tranches,
+                waterfall,
+                legal_maturity,
+                disc_id: &disc_id_str,
             },
-            default_model_cache: once_cell::sync::OnceCell::new(),
-            recovery_spec: RecoveryModelSpec::AssetDefault {
-                asset_type: "corporate".to_string(),
+            DealConfig {
+                first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1).unwrap(),
+                payment_frequency: Frequency::quarterly(),
+                prepayment_spec: PrepaymentModelSpec::ConstantCpr { cpr: 0.15 },
+                default_spec: DefaultModelSpec::AssetDefault {
+                    asset_type: "corporate".to_string(),
+                },
+                recovery_spec: RecoveryModelSpec::AssetDefault {
+                    asset_type: "corporate".to_string(),
+                },
+                credit_factors: CreditFactors::default(),
+                specific: InstrumentSpecificFields::Clo {
+                    manager_id: None,
+                    servicer_id: None,
+                    cpr_annual: None,
+                    cdr_annual: None,
+                    recovery_rate: None,
+                    recovery_lag_months: None,
+                    reinvestment_price: None,
+                },
             },
-            recovery_model_cache: once_cell::sync::OnceCell::new(),
-            market_conditions: MarketConditions::default(),
-            credit_factors: CreditFactors::default(),
-            specific: InstrumentSpecificFields::Clo {
-                manager_id: None,
-                servicer_id: None,
-                cpr_annual: None,
-                cdr_annual: None,
-                recovery_rate: None,
-                recovery_lag_months: None,
-                reinvestment_price: None,
-            },
-        }
+        )
     }
 
     /// Create a new CMBS instrument from its building blocks.
@@ -250,46 +293,43 @@ impl StructuredCredit {
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: StructuredCreditWaterfall,
+        waterfall: WaterfallEngine,
         legal_maturity: Date,
         disc_id: impl Into<String>,
     ) -> Self {
-        let id_str = id.into();
-        Self {
-            id: InstrumentId::new(id_str),
-            deal_type: DealType::CMBS,
-            pool,
-            tranches,
-            waterfall,
-            coverage_tests: CoverageTests::new(),
-            closing_date: Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
-            first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1).unwrap(),
-            reinvestment_end_date: None,
-            legal_maturity,
-            payment_frequency: Frequency::monthly(),
-            disc_id: CurveId::new(disc_id.into()),
-            attributes: Attributes::new(),
-            prepayment_spec: PrepaymentModelSpec::AssetDefault {
-                asset_type: "cmbs".to_string(),
+        let disc_id_str = disc_id.into();
+        Self::new_with_deal_config(
+            id,
+            DealType::CMBS,
+            InstrumentParams {
+                pool,
+                tranches,
+                waterfall,
+                legal_maturity,
+                disc_id: &disc_id_str,
             },
-            prepayment_model_cache: once_cell::sync::OnceCell::new(),
-            default_spec: DefaultModelSpec::AssetDefault {
-                asset_type: "commercial".to_string(),
+            DealConfig {
+                first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
+                    .unwrap(),
+                payment_frequency: Frequency::monthly(),
+                prepayment_spec: PrepaymentModelSpec::AssetDefault {
+                    asset_type: "cmbs".to_string(),
+                },
+                default_spec: DefaultModelSpec::AssetDefault {
+                    asset_type: "commercial".to_string(),
+                },
+                recovery_spec: RecoveryModelSpec::AssetDefault {
+                    asset_type: "commercial".to_string(),
+                },
+                credit_factors: CreditFactors::default(),
+                specific: InstrumentSpecificFields::Cmbs {
+                    master_servicer_id: None,
+                    special_servicer_id: None,
+                    open_cpr: None,
+                    cdr_annual: None,
+                },
             },
-            default_model_cache: once_cell::sync::OnceCell::new(),
-            recovery_spec: RecoveryModelSpec::AssetDefault {
-                asset_type: "commercial".to_string(),
-            },
-            recovery_model_cache: once_cell::sync::OnceCell::new(),
-            market_conditions: MarketConditions::default(),
-            credit_factors: CreditFactors::default(),
-            specific: InstrumentSpecificFields::Cmbs {
-                master_servicer_id: None,
-                special_servicer_id: None,
-                open_cpr: None,
-                cdr_annual: None,
-            },
-        }
+        )
     }
 
     /// Create a new RMBS instrument from its building blocks.
@@ -297,48 +337,44 @@ impl StructuredCredit {
         id: impl Into<String>,
         pool: AssetPool,
         tranches: TrancheStructure,
-        waterfall: StructuredCreditWaterfall,
+        waterfall: WaterfallEngine,
         legal_maturity: Date,
         disc_id: impl Into<String>,
     ) -> Self {
-        let id_str = id.into();
-        let credit_factors = CreditFactors {
-            ltv: Some(0.80),
-            ..Default::default()
-        };
-        Self {
-            id: InstrumentId::new(id_str),
-            deal_type: DealType::RMBS,
-            pool,
-            tranches,
-            waterfall,
-            coverage_tests: CoverageTests::new(),
-            closing_date: Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
-            first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1).unwrap(),
-            reinvestment_end_date: None,
-            legal_maturity,
-            payment_frequency: Frequency::monthly(),
-            disc_id: CurveId::new(disc_id.into()),
-            attributes: Attributes::new(),
-            prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-            prepayment_model_cache: once_cell::sync::OnceCell::new(),
-            default_spec: DefaultModelSpec::AssetDefault {
-                asset_type: "rmbs".to_string(),
+        let disc_id_str = disc_id.into();
+        Self::new_with_deal_config(
+            id,
+            DealType::RMBS,
+            InstrumentParams {
+                pool,
+                tranches,
+                waterfall,
+                legal_maturity,
+                disc_id: &disc_id_str,
             },
-            default_model_cache: once_cell::sync::OnceCell::new(),
-            recovery_spec: RecoveryModelSpec::AssetDefault {
-                asset_type: "mortgage".to_string(),
+            DealConfig {
+                first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
+                    .unwrap(),
+                payment_frequency: Frequency::monthly(),
+                prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
+                default_spec: DefaultModelSpec::AssetDefault {
+                    asset_type: "rmbs".to_string(),
+                },
+                recovery_spec: RecoveryModelSpec::AssetDefault {
+                    asset_type: "mortgage".to_string(),
+                },
+                credit_factors: CreditFactors {
+                    ltv: Some(0.80),
+                    ..Default::default()
+                },
+                specific: InstrumentSpecificFields::Rmbs {
+                    servicer_id: None,
+                    master_servicer_id: None,
+                    psa_speed: 1.0,
+                    sda_speed: 1.0,
+                },
             },
-            recovery_model_cache: once_cell::sync::OnceCell::new(),
-            market_conditions: MarketConditions::default(),
-            credit_factors,
-            specific: InstrumentSpecificFields::Rmbs {
-                servicer_id: None,
-                master_servicer_id: None,
-                psa_speed: 1.0,
-                sda_speed: 1.0,
-            },
-        }
+        )
     }
 
     /// Calculate current loss percentage of the pool.
@@ -352,8 +388,6 @@ impl StructuredCredit {
             / total_balance
             * DECIMAL_TO_PERCENT
     }
-
-    // Note: tranche_cashflows() removed - use TrancheValuationExt::get_tranche_cashflows() instead
 
     /// Calculate expected life of the structure.
     pub fn expected_life(&self, as_of: Date) -> finstack_core::Result<f64> {
@@ -384,9 +418,13 @@ impl StructuredCredit {
     /// Create waterfall engine based on deal type
     fn create_waterfall_engine_internal(
         &self,
-    ) -> crate::instruments::common::structured_credit::WaterfallEngine {
-        use crate::instruments::common::structured_credit::{
+    ) -> WaterfallEngine {
+        use super::components::{
             ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRule, WaterfallEngine,
+        };
+        use super::config::{
+            ABS_SERVICING_FEE_BPS, BASIS_POINTS_DIVISOR, CLO_SENIOR_MGMT_FEE_BPS,
+            CLO_TRUSTEE_FEE_ANNUAL, CMBS_MASTER_SERVICER_FEE_BPS, RMBS_SERVICING_FEE_BPS,
         };
 
         let base_ccy = self.pool.base_currency();
@@ -398,7 +436,7 @@ impl StructuredCredit {
                     1,
                     PaymentRecipient::ServiceProvider("Servicer".to_string()),
                     PaymentCalculation::PercentageOfCollateral {
-                        rate: 0.005, // 50 bps servicing
+                        rate: ABS_SERVICING_FEE_BPS / BASIS_POINTS_DIVISOR,
                         annualized: true,
                     },
                 )]
@@ -410,7 +448,7 @@ impl StructuredCredit {
                         1,
                         PaymentRecipient::ServiceProvider("Trustee".to_string()),
                         PaymentCalculation::FixedAmount {
-                            amount: Money::new(50_000.0, base_ccy),
+                            amount: Money::new(CLO_TRUSTEE_FEE_ANNUAL, base_ccy),
                         },
                     ),
                     PaymentRule::new(
@@ -418,7 +456,7 @@ impl StructuredCredit {
                         2,
                         PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
                         PaymentCalculation::PercentageOfCollateral {
-                            rate: 0.01,
+                            rate: CLO_SENIOR_MGMT_FEE_BPS / BASIS_POINTS_DIVISOR,
                             annualized: true,
                         },
                     ),
@@ -430,7 +468,7 @@ impl StructuredCredit {
                     1,
                     PaymentRecipient::ServiceProvider("MasterServicer".to_string()),
                     PaymentCalculation::PercentageOfCollateral {
-                        rate: 0.0025, // 25 bps
+                        rate: CMBS_MASTER_SERVICER_FEE_BPS / BASIS_POINTS_DIVISOR,
                         annualized: true,
                     },
                 )]
@@ -441,7 +479,7 @@ impl StructuredCredit {
                     1,
                     PaymentRecipient::ServiceProvider("Servicer".to_string()),
                     PaymentCalculation::PercentageOfCollateral {
-                        rate: 0.0025, // 25 bps servicing
+                        rate: RMBS_SERVICING_FEE_BPS / BASIS_POINTS_DIVISOR,
                         annualized: true,
                     },
                 )]
@@ -459,7 +497,7 @@ impl CashflowProvider for StructuredCredit {
         context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
-        use crate::instruments::common::structured_credit::StructuredCreditInstrument;
+        use super::instrument_trait::StructuredCreditInstrument;
         <Self as StructuredCreditInstrument>::generate_tranche_cashflows(self, context, as_of)
     }
 }
@@ -538,12 +576,12 @@ impl crate::instruments::common::pricing::HasDiscountCurve for StructuredCredit 
     }
 }
 
-impl crate::instruments::common::structured_credit::StructuredCreditInstrument for StructuredCredit {
-    fn pool(&self) -> &crate::instruments::common::structured_credit::AssetPool {
+impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
+    fn pool(&self) -> &AssetPool {
         &self.pool
     }
 
-    fn tranches(&self) -> &crate::instruments::common::structured_credit::TrancheStructure {
+    fn tranches(&self) -> &TrancheStructure {
         &self.tranches
     }
 
@@ -565,38 +603,38 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
 
     fn prepayment_model(
         &self,
-    ) -> &Arc<dyn crate::instruments::common::structured_credit::PrepaymentBehavior> {
+    ) -> &Arc<dyn PrepaymentBehavior> {
         self.prepayment_model_cache
             .get_or_init(|| self.prepayment_spec.to_arc())
     }
 
     fn default_model(
         &self,
-    ) -> &Arc<dyn crate::instruments::common::structured_credit::DefaultBehavior> {
+    ) -> &Arc<dyn DefaultBehavior> {
         self.default_model_cache
             .get_or_init(|| self.default_spec.to_arc())
     }
 
     fn recovery_model(
         &self,
-    ) -> &Arc<dyn crate::instruments::common::structured_credit::RecoveryBehavior> {
+    ) -> &Arc<dyn RecoveryBehavior> {
         self.recovery_model_cache
             .get_or_init(|| self.recovery_spec.to_arc())
     }
 
     fn market_conditions(
         &self,
-    ) -> &crate::instruments::common::structured_credit::MarketConditions {
+    ) -> &MarketConditions {
         &self.market_conditions
     }
 
-    fn credit_factors(&self) -> &crate::instruments::common::structured_credit::CreditFactors {
+    fn credit_factors(&self) -> &CreditFactors {
         &self.credit_factors
     }
 
     fn create_waterfall_engine(
         &self,
-    ) -> crate::instruments::common::structured_credit::WaterfallEngine {
+    ) -> WaterfallEngine {
         self.create_waterfall_engine_internal()
     }
 
@@ -605,19 +643,19 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
             InstrumentSpecificFields::Abs { abs_speed, .. } => *abs_speed,
             InstrumentSpecificFields::Clo { cpr_annual, .. } => {
                 cpr_annual.map(|cpr| {
-                    use crate::instruments::common::structured_credit::cpr_to_smm;
+                    use super::components::cpr_to_smm;
                     cpr_to_smm(cpr)
                 })
             }
             InstrumentSpecificFields::Cmbs { open_cpr, .. } => {
                 open_cpr.map(|cpr| {
-                    use crate::instruments::common::structured_credit::cpr_to_smm;
+                    use super::components::cpr_to_smm;
                     cpr_to_smm(cpr)
                 })
             }
             InstrumentSpecificFields::Rmbs { psa_speed, .. } => {
                 if *psa_speed != 1.0 {
-                    use crate::instruments::common::structured_credit::{cpr_to_smm, PSAModel};
+                    use super::components::{cpr_to_smm, PSAModel};
                     let psa = PSAModel::new(*psa_speed);
                     let cpr = psa.cpr_at_month(seasoning);
                     Some(cpr_to_smm(cpr))
@@ -632,27 +670,25 @@ impl crate::instruments::common::structured_credit::StructuredCreditInstrument f
         match &self.specific {
             InstrumentSpecificFields::Abs { cdr_annual, .. } => {
                 cdr_annual.map(|cdr| {
-                    use crate::instruments::common::structured_credit::cdr_to_mdr;
+                    use super::components::cdr_to_mdr;
                     cdr_to_mdr(cdr)
                 })
             }
             InstrumentSpecificFields::Clo { cdr_annual, .. } => {
                 cdr_annual.map(|cdr| {
-                    use crate::instruments::common::structured_credit::cdr_to_mdr;
+                    use super::components::cdr_to_mdr;
                     cdr_to_mdr(cdr)
                 })
             }
             InstrumentSpecificFields::Cmbs { cdr_annual, .. } => {
                 cdr_annual.map(|cdr| {
-                    use crate::instruments::common::structured_credit::cdr_to_mdr;
+                    use super::components::cdr_to_mdr;
                     cdr_to_mdr(cdr)
                 })
             }
             InstrumentSpecificFields::Rmbs { sda_speed, .. } => {
                 if *sda_speed != 1.0 {
-                    use crate::instruments::common::structured_credit::{
-                        DefaultBehavior, SDAModel,
-                    };
+                    use super::components::{DefaultBehavior, SDAModel};
                     let sda = SDAModel {
                         speed: *sda_speed,
                         ..Default::default()
@@ -678,7 +714,7 @@ impl TrancheValuationExt for StructuredCredit {
         context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<TrancheCashflowResult> {
-        use crate::instruments::common::structured_credit::StructuredCreditInstrument;
+        use super::instrument_trait::StructuredCreditInstrument;
         <Self as StructuredCreditInstrument>::generate_specific_tranche_cashflows(
             self, tranche_id, context, as_of,
         )
@@ -712,7 +748,7 @@ impl TrancheValuationExt for StructuredCredit {
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<TrancheValuation> {
-        use crate::instruments::common::structured_credit::{
+        use super::components::{
             calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_wal,
             calculate_tranche_z_spread,
         };

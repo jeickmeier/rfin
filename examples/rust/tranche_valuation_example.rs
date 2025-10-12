@@ -12,9 +12,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::structured_credit::StructuredCredit;
-use finstack_valuations::instruments::common::structured_credit::{
-    AssetPool, DealType, PoolAsset, Tranche, TrancheCoupon, TrancheStructure,
+use finstack_valuations::instruments::structured_credit::{
+    StructuredCredit, AssetPool, DealType, PoolAsset, Tranche, TrancheCoupon, TrancheStructure,
     TrancheSeniority, TrancheValuationExt, WaterfallBuilder, CreditRating,
 };
 use finstack_valuations::metrics::MetricId;
@@ -215,7 +214,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         .build();
     
     // Create CLO with realistic assumptions for investment-grade tranches
-    use finstack_valuations::instruments::common::structured_credit::{
+    use finstack_valuations::instruments::structured_credit::{
         PrepaymentModelSpec, DefaultModelSpec, RecoveryModelSpec,
     };
     

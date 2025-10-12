@@ -38,8 +38,8 @@ impl MetricCalculator for AccruedCalculator {
         // Find surrounding payment dates
         let (last_payment, next_payment) = find_surrounding_dates(flows, context.as_of)?;
         
-        // Calculate day count fraction
-        let day_count = DayCount::Act360; // Common for structured credit
+        // Calculate day count fraction using context day count if available
+        let day_count = context.day_count.unwrap_or(DayCount::Act360);
         let accrual_fraction = day_count.year_fraction(last_payment, context.as_of, DayCountCtx::default())?;
         let period_fraction = day_count.year_fraction(last_payment, next_payment, DayCountCtx::default())?;
         

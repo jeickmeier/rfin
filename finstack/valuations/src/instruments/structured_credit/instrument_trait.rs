@@ -4,10 +4,12 @@
 //! to generate cashflows using a consistent waterfall engine.
 
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::common::structured_credit::{
-    AssetPool, CoverageTests, CreditFactors, DefaultBehavior, MarketConditions, MarketFactors,
-    PaymentRecipient, PrepaymentBehavior, RecoveryBehavior, TrancheStructure, WaterfallEngine,
+use super::components::{
+    AssetPool, PaymentRecipient, TrancheStructure, WaterfallEngine,
+    calculate_seasoning_months, CreditFactors, DefaultBehavior, MarketConditions,
+    MarketFactors, PrepaymentBehavior, RecoveryBehavior,
 };
+use super::config::{DEFAULT_RESOLUTION_LAG_MONTHS, POOL_BALANCE_CLEANUP_THRESHOLD};
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::market_data::MarketContext;
@@ -174,7 +176,7 @@ pub trait StructuredCreditInstrument {
 
         let recovery_rate = self.recovery_model().recovery_rate(
             pay_date,
-            super::constants::DEFAULT_RESOLUTION_LAG_MONTHS,
+            DEFAULT_RESOLUTION_LAG_MONTHS,
             None,
             default_amt,
             &MarketFactors::default(),
@@ -224,22 +226,15 @@ pub trait StructuredCreditInstrument {
         // Initialize waterfall engine with instrument-specific rules
         let mut waterfall_engine = self.create_waterfall_engine();
 
-        // Initialize coverage tests
-        let mut _coverage_tests = CoverageTests::new();
-
         let months_per_period = dates_payment_frequency.months().unwrap_or(3) as f64;
         let mut pay_date = dates_first_payment_date.max(as_of);
 
         // Simulate period-by-period
         while pay_date <= dates_legal_maturity
-            && pool_outstanding.amount() > super::constants::POOL_BALANCE_CLEANUP_THRESHOLD
+            && pool_outstanding.amount() > POOL_BALANCE_CLEANUP_THRESHOLD
         {
             // Cache seasoning calculation for this period
-            let seasoning_months = {
-                let m = (pay_date.year() - dates_closing_date.year()) * 12
-                    + (pay_date.month() as i32 - dates_closing_date.month() as i32);
-                m.max(0) as u32
-            };
+            let seasoning_months = calculate_seasoning_months(dates_closing_date, pay_date);
 
             // Step 1: Calculate pool collections
             let interest_collections = self.calculate_period_interest_collections(
@@ -257,11 +252,8 @@ pub trait StructuredCreditInstrument {
                     months_per_period,
                 )?;
 
-            // Total principal available = prepayments + recoveries + scheduled (0 for now)
-            let scheduled_prin = Money::new(0.0, base_ccy);
-            let total_principal = scheduled_prin
-                .checked_add(prepay_amt)?
-                .checked_add(recovery_amt)?;
+            // Total principal available = prepayments + recoveries
+            let total_principal = prepay_amt.checked_add(recovery_amt)?;
 
             // Total cash available for distribution
             let total_cash = interest_collections.checked_add(total_principal)?;
@@ -356,7 +348,7 @@ pub trait StructuredCreditInstrument {
         tranche_id: &str,
         _context: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<super::tranche_valuation::TrancheCashflowResult> {
+    ) -> finstack_core::Result<super::components::TrancheCashflowResult> {
         let pool = self.pool();
         let tranches = self.tranches();
         let base_ccy = pool.base_currency();
@@ -374,7 +366,7 @@ pub trait StructuredCreditInstrument {
             })?;
 
         if pool_outstanding.amount() <= 0.0 {
-            return Ok(super::tranche_valuation::TrancheCashflowResult {
+            return Ok(super::components::TrancheCashflowResult {
                 tranche_id: tranche_id.to_string(),
                 cashflows: Vec::new(),
                 detailed_flows: Vec::new(),
@@ -411,15 +403,12 @@ pub trait StructuredCreditInstrument {
         // Initialize waterfall engine with instrument-specific rules
         let mut waterfall_engine = self.create_waterfall_engine();
 
-        // Initialize coverage tests
-        let mut _coverage_tests = CoverageTests::new();
-
         let months_per_period = dates_payment_frequency.months().unwrap_or(3) as f64;
         let mut pay_date = dates_first_payment_date.max(as_of);
 
         // Simulate period-by-period
         while pay_date <= dates_legal_maturity
-            && pool_outstanding.amount() > super::constants::POOL_BALANCE_CLEANUP_THRESHOLD
+            && pool_outstanding.amount() > POOL_BALANCE_CLEANUP_THRESHOLD
         {
             let seasoning_months = {
                 let m = (pay_date.year() - dates_closing_date.year()) * 12
@@ -444,10 +433,7 @@ pub trait StructuredCreditInstrument {
                 )?;
 
             // Total principal available
-            let scheduled_prin = Money::new(0.0, base_ccy);
-            let total_principal_available = scheduled_prin
-                .checked_add(prepay_amt)?
-                .checked_add(recovery_amt)?;
+            let total_principal_available = prepay_amt.checked_add(recovery_amt)?;
 
             // Total cash available for distribution
             let total_cash = interest_collections.checked_add(total_principal_available)?;
@@ -569,7 +555,7 @@ pub trait StructuredCreditInstrument {
             }
         }
 
-        Ok(super::tranche_valuation::TrancheCashflowResult {
+        Ok(super::components::TrancheCashflowResult {
             tranche_id: tranche_id.to_string(),
             cashflows: target_cashflows,
             detailed_flows,

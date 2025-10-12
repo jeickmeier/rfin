@@ -10,9 +10,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::instruments::structured_credit::StructuredCredit;
-use finstack_valuations::instruments::common::structured_credit::{
-    AssetPool, AssetType, CreditRating, DealType, Tranche, TrancheCoupon,
+use finstack_valuations::instruments::structured_credit::{
+    StructuredCredit, AssetPool, AssetType, CreditRating, DealType, Tranche, TrancheCoupon,
     TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
 use finstack_valuations::instruments::common::traits::Instrument;
@@ -37,7 +36,7 @@ fn create_clo_pool() -> AssetPool {
     
     // Add 5 corporate loans
     for i in 0..5 {
-        let asset = finstack_valuations::instruments::common::structured_credit::pool::PoolAsset {
+        let asset = finstack_valuations::instruments::structured_credit::PoolAsset {
             id: InstrumentId::new(format!("LOAN_{}", i)),
             asset_type: AssetType::FirstLienLoan {
                 industry: Some(format!("Industry_{}", i % 3)),

@@ -2,7 +2,7 @@
 //!
 //! This test verifies the core serialization infrastructure is complete.
 
-use finstack_valuations::instruments::common::structured_credit::{
+use finstack_valuations::instruments::structured_credit::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
 };
 

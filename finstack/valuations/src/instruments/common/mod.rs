@@ -3,15 +3,10 @@
 //! This module contains utilities, models, and types that are used
 //! by multiple instrument implementations, including:
 //! - Core instrument traits (Instrument)
-//! - Implementation macros for reducing boilerplate
 //! - NPV calculation interfaces (Discountable)
 //! - Option pricing models (Black-Scholes, binomial/trinomial trees, SABR)
 //! - Common helper functions
 //! - Shared data structures and enums
-
-// Macro infrastructure for reducing boilerplate
-#[macro_use]
-pub mod macros;
 
 // Core instrument traits and metadata
 pub mod traits;
@@ -33,9 +28,6 @@ pub mod metrics;
 
 // Common pricing patterns and infrastructure
 pub mod pricing;
-
-// Shared structured credit building blocks
-pub mod structured_credit;
 
 // Re-export commonly used types for convenience
 pub use discountable::Discountable;

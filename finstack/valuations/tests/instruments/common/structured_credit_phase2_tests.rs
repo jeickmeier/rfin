@@ -5,7 +5,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::structured_credit::*;
+use finstack_valuations::instruments::structured_credit::*;
 use time::macros::date;
 
 #[test]
