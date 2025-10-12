@@ -1,4 +1,4 @@
-.PHONY: help setup-python build test clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov
+.PHONY: help setup-python build test clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev
 
 help:
 	@echo "Available targets:"
@@ -11,6 +11,7 @@ help:
 	@echo "  python-dev    - Build Python bindings in development mode"
 	@echo "  stubs         - Regenerate *.pyi stub files for VS Code IntelliSense"
 	@echo "  wasm-build    - Build WASM package"
+	@echo "  wasm-examples-dev - Build WASM, then start examples dev server"
 	@echo "  coverage      - Run code coverage and print summary"
 	@echo "  coverage-html - Generate HTML coverage report"
 	@echo "  coverage-open - Generate HTML coverage report and open in browser"
@@ -64,6 +65,11 @@ python-dev:
 
 wasm-build:
 	cd finstack-wasm && wasm-pack build --target web
+
+wasm-examples-dev: wasm-build
+	cd finstack-wasm && \
+	npm run examples:install && \
+	npm run examples:dev
 
 stubs:
 	@echo "(re)generating Python stub files …"

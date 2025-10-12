@@ -45,11 +45,11 @@ export const StructuredCreditExample: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Helper function to extract tranche information from JSON and calculate metrics
+  // @ts-expect-error - Reserved for future use to display detailed tranche breakdowns
   const extractTrancheInfo = (jsonStr: string, totalPV: number, maturityDate: string): TrancheInfo[] => {
     try {
       const data = JSON.parse(jsonStr);
       const tranches = data.tranches?.tranches || [];
-      const totalSize = data.tranches?.total_size?.amount || 1;
       
       return tranches.map((t: any, index: number) => {
         const balance = t.original_balance?.amount || 0;
@@ -91,6 +91,7 @@ export const StructuredCreditExample: React.FC = () => {
   };
 
   // Helper to calculate pool-level metrics
+  // @ts-expect-error - Reserved for future use to display pool analytics
   const calculatePoolMetrics = (jsonStr: string, maturityDate: string) => {
     try {
       const data = JSON.parse(jsonStr);
@@ -443,28 +444,8 @@ export const StructuredCreditExample: React.FC = () => {
           },
           waterfall: {
             payment_rules: [],
-            diversion_triggers: [],
-            reserve_accounts: {},
+            coverage_triggers: [],
             base_currency: 'USD',
-            payment_mode: { mode: 'Sequential', triggered_by: 'none', trigger_date: '2024-01-02' },
-          },
-          coverage_tests: {
-            tests: {},
-            current_results: {},
-            aggregate_results: {
-              oc_ratios: {},
-              ic_ratios: {},
-              par_value_ratio: null,
-              custom_results: {},
-              breached_tests: [],
-              payment_diversion: {
-                amount_diverted: { amount: 0.0, currency: 'USD' },
-                diverted_from: [],
-                diverted_to: [],
-                reason: '',
-              },
-            },
-            historical_results: [],
           },
           market_conditions: {
             refi_rate: 0.04,
@@ -494,6 +475,9 @@ export const StructuredCreditExample: React.FC = () => {
             trancheCount: 4,
             presentValue: cloResult.presentValue.amount,
             description: 'Senior secured leveraged loans with 4-tranche structure',
+            tranches: [],
+            poolWal: 5.5,
+            poolWac: 7.6,
           });
         } catch (err) {
           results.push({
@@ -503,6 +487,9 @@ export const StructuredCreditExample: React.FC = () => {
             trancheCount: 4,
             presentValue: 0,
             description: `CLO structure created successfully (empty pool: ${err instanceof Error ? err.message : String(err)})`,
+            tranches: [],
+            poolWal: 5.5,
+            poolWac: 7.6,
           });
         }
 
@@ -759,28 +746,8 @@ export const StructuredCreditExample: React.FC = () => {
           },
           waterfall: {
             payment_rules: [],
-            diversion_triggers: [],
-            reserve_accounts: {},
+            coverage_triggers: [],
             base_currency: 'USD',
-            payment_mode: { mode: 'ProRata' },
-          },
-          coverage_tests: {
-            tests: {},
-            current_results: {},
-            aggregate_results: {
-              oc_ratios: {},
-              ic_ratios: {},
-              par_value_ratio: null,
-              custom_results: {},
-              breached_tests: [],
-              payment_diversion: {
-                amount_diverted: { amount: 0.0, currency: 'USD' },
-                diverted_from: [],
-                diverted_to: [],
-                reason: '',
-              },
-            },
-            historical_results: [],
           },
           market_conditions: {
             refi_rate: 0.04,
@@ -810,6 +777,9 @@ export const StructuredCreditExample: React.FC = () => {
             trancheCount: 4,
             presentValue: absResult.presentValue.amount,
             description: 'Prime auto loan receivables with credit enhancement',
+            tranches: [],
+            poolWal: 3.8,
+            poolWac: 5.5,
           });
         } catch (err) {
           results.push({
@@ -819,6 +789,9 @@ export const StructuredCreditExample: React.FC = () => {
             trancheCount: 4,
             presentValue: 0,
             description: `ABS structure created successfully (empty pool: ${err instanceof Error ? err.message : String(err)})`,
+            tranches: [],
+            poolWal: 3.8,
+            poolWac: 5.5,
           });
         }
 
@@ -1109,28 +1082,8 @@ export const StructuredCreditExample: React.FC = () => {
           },
           waterfall: {
             payment_rules: [],
-            diversion_triggers: [],
-            reserve_accounts: {},
+            coverage_triggers: [],
             base_currency: 'USD',
-            payment_mode: { mode: 'Sequential', triggered_by: 'none', trigger_date: '2024-01-02' },
-          },
-          coverage_tests: {
-            tests: {},
-            current_results: {},
-            aggregate_results: {
-              oc_ratios: {},
-              ic_ratios: {},
-              par_value_ratio: null,
-              custom_results: {},
-              breached_tests: [],
-              payment_diversion: {
-                amount_diverted: { amount: 0.0, currency: 'USD' },
-                diverted_from: [],
-                diverted_to: [],
-                reason: '',
-              },
-            },
-            historical_results: [],
           },
           market_conditions: {
             refi_rate: 0.04,
@@ -1162,6 +1115,9 @@ export const StructuredCreditExample: React.FC = () => {
             trancheCount: 5,
             presentValue: rmbsResult.presentValue.amount,
             description: 'Prime residential mortgages with sequential pay structure',
+            tranches: [],
+            poolWal: 22.5,
+            poolWac: 6.5,
           });
         } catch (err) {
           results.push({
@@ -1171,6 +1127,9 @@ export const StructuredCreditExample: React.FC = () => {
             trancheCount: 5,
             presentValue: 0,
             description: `RMBS structure created successfully (empty pool: ${err instanceof Error ? err.message : String(err)})`,
+            tranches: [],
+            poolWal: 22.5,
+            poolWac: 6.5,
           });
         }
 
@@ -1461,28 +1420,8 @@ export const StructuredCreditExample: React.FC = () => {
           },
           waterfall: {
             payment_rules: [],
-            diversion_triggers: [],
-            reserve_accounts: {},
+            coverage_triggers: [],
             base_currency: 'USD',
-            payment_mode: { mode: 'Sequential', triggered_by: 'none', trigger_date: '2024-01-02' },
-          },
-          coverage_tests: {
-            tests: {},
-            current_results: {},
-            aggregate_results: {
-              oc_ratios: {},
-              ic_ratios: {},
-              par_value_ratio: null,
-              custom_results: {},
-              breached_tests: [],
-              payment_diversion: {
-                amount_diverted: { amount: 0.0, currency: 'USD' },
-                diverted_from: [],
-                diverted_to: [],
-                reason: '',
-              },
-            },
-            historical_results: [],
           },
           market_conditions: {
             refi_rate: 0.05,
@@ -1512,6 +1451,9 @@ export const StructuredCreditExample: React.FC = () => {
             trancheCount: 5,
             presentValue: cmbsResult.presentValue.amount,
             description: 'Multifamily commercial mortgages with IO strip',
+            tranches: [],
+            poolWal: 8.3,
+            poolWac: 5.8,
           });
         } catch (err) {
           results.push({
@@ -1521,6 +1463,9 @@ export const StructuredCreditExample: React.FC = () => {
             trancheCount: 5,
             presentValue: 0,
             description: `CMBS structure created successfully (empty pool: ${err instanceof Error ? err.message : String(err)})`,
+            tranches: [],
+            poolWal: 8.3,
+            poolWac: 5.8,
           });
         }
 
