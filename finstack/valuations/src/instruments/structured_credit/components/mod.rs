@@ -33,6 +33,7 @@ pub mod tranche_valuation;
 
 // Utilities
 pub mod rates;
+pub mod rate_helpers;
 
 // ============================================================================
 // Re-export structural components

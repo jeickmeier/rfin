@@ -5,6 +5,9 @@
 //! source of truth for behavioral assumptions and serialize cleanly to JSON.
 
 use super::market_context::{CreditFactors, MarketConditions, MarketFactors};
+use crate::instruments::structured_credit::config::{
+    PSA_RAMP_MONTHS, PSA_TERMINAL_CPR, SDA_PEAK_MONTH, SDA_PEAK_CDR, SDA_TERMINAL_CDR,
+};
 
 // ============================================================================
 // Prepayment Model Specification
@@ -58,13 +61,11 @@ impl PrepaymentModelSpec {
     ) -> f64 {
         match self {
             PrepaymentModelSpec::Psa { multiplier } => {
-                // PSA calculation: ramps from 0% to 6% CPR over 30 months
-                let psa_ramp_months = 30;
-                let psa_terminal_cpr = 0.06;
-                let base_cpr = if seasoning_months <= psa_ramp_months {
-                    (seasoning_months as f64 / psa_ramp_months as f64) * psa_terminal_cpr
+                // PSA calculation per config constants
+                let base_cpr = if seasoning_months <= PSA_RAMP_MONTHS {
+                    (seasoning_months as f64 / PSA_RAMP_MONTHS as f64) * PSA_TERMINAL_CPR
                 } else {
-                    psa_terminal_cpr
+                    PSA_TERMINAL_CPR
                 };
                 let cpr = base_cpr * multiplier;
                 // Convert CPR to SMM
@@ -79,12 +80,10 @@ impl PrepaymentModelSpec {
                 match asset_type.to_lowercase().as_str() {
                     "mortgage" | "rmbs" => {
                         // 100% PSA default
-                        let psa_ramp_months = 30;
-                        let psa_terminal_cpr = 0.06;
-                        let base_cpr = if seasoning_months <= psa_ramp_months {
-                            (seasoning_months as f64 / psa_ramp_months as f64) * psa_terminal_cpr
+                        let base_cpr = if seasoning_months <= PSA_RAMP_MONTHS {
+                            (seasoning_months as f64 / PSA_RAMP_MONTHS as f64) * PSA_TERMINAL_CPR
                         } else {
-                            psa_terminal_cpr
+                            PSA_TERMINAL_CPR
                         };
                         let cpr = base_cpr * 1.0; // 100% PSA
                         1.0 - (1.0 - cpr).powf(1.0 / 12.0)
@@ -173,22 +172,18 @@ impl DefaultModelSpec {
     ) -> f64 {
         match self {
             DefaultModelSpec::Sda { multiplier } => {
-                // SDA calculation: ramps to peak at month 30, then declines
-                let peak_month = 30;
-                let peak_cdr = 0.006;
-                let terminal_cdr = 0.0003;
-                
-                let cdr = if seasoning_months <= peak_month {
+                // SDA calculation per config constants
+                let cdr = if seasoning_months <= SDA_PEAK_MONTH {
                     // Ramp up to peak
-                    (seasoning_months as f64 / peak_month as f64) * peak_cdr
-                } else if seasoning_months <= 60 {
-                    // Decline from peak to terminal
-                    let months_past_peak = (seasoning_months - peak_month) as f64;
+                    (seasoning_months as f64 / SDA_PEAK_MONTH as f64) * SDA_PEAK_CDR
+                } else if seasoning_months <= (SDA_PEAK_MONTH + 30) {
+                    // Decline from peak to terminal over 30 months
+                    let months_past_peak = (seasoning_months - SDA_PEAK_MONTH) as f64;
                     let decline_period = 30.0;
-                    peak_cdr - (months_past_peak / decline_period) * (peak_cdr - terminal_cdr)
+                    SDA_PEAK_CDR - (months_past_peak / decline_period) * (SDA_PEAK_CDR - SDA_TERMINAL_CDR)
                 } else {
                     // Terminal rate
-                    terminal_cdr
+                    SDA_TERMINAL_CDR
                 } * multiplier;
                 
                 // Convert CDR to MDR

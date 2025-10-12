@@ -5,11 +5,14 @@
 //! Supports simple OC/IC diversion triggers for coverage test breaches.
 
 use super::TrancheStructure;
+use super::AssetPool;
+use super::coverage_tests::{CoverageTest, TestContext};
 use crate::instruments::structured_credit::config::QUARTERLY_PERIODS_PER_YEAR;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use finstack_core::market_data::MarketContext;
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
@@ -198,6 +201,8 @@ impl WaterfallEngine {
         payment_date: Date,
         tranches: &TrancheStructure,
         pool_balance: Money,
+        _pool: &AssetPool,
+        market: &MarketContext,
     ) -> Result<WaterfallResult> {
         let mut remaining = available_cash;
         let mut distributions: HashMap<PaymentRecipient, Money> =
@@ -215,7 +220,12 @@ impl WaterfallEngine {
 
         // Check OC/IC triggers (simplified: assumes we can compute on the fly)
         // For now, set triggers as inactive; in production, caller would check tests and set active
-        let diversion_active = self.check_diversion_triggers_active(tranches, pool_balance)?;
+        let diversion_active = self.check_diversion_triggers_active(
+            tranches,
+            _pool,
+            payment_date,
+            available_cash,
+        )?;
         if diversion_active {
             had_diversions = true;
             diversion_reason = Some("OC or IC breached".to_string());
@@ -235,6 +245,7 @@ impl WaterfallEngine {
                 &tranche_index,
                 pool_balance,
                 payment_date,
+                market,
             )?;
 
             // Check for diversion: if divertible and triggers active, skip payment
@@ -303,7 +314,9 @@ impl WaterfallEngine {
     fn check_diversion_triggers_active(
         &self,
         tranches: &TrancheStructure,
-        pool_balance: Money,
+        pool: &AssetPool,
+        as_of: Date,
+        available_cash: Money,
     ) -> Result<bool> {
         if self.coverage_triggers.is_empty() {
             return Ok(false);
@@ -311,7 +324,7 @@ impl WaterfallEngine {
 
         for trigger in &self.coverage_triggers {
             // Find the tranche
-            let tranche = tranches
+            let _ = tranches
                 .tranches
                 .iter()
                 .find(|t| t.id.as_str() == trigger.tranche_id)
@@ -322,23 +335,23 @@ impl WaterfallEngine {
                 })?;
 
             // Calculate cumulative senior balance (all tranches with higher priority)
-            let senior_balance = tranches.senior_balance(&trigger.tranche_id);
+            let _ = tranches.senior_balance(&trigger.tranche_id);
 
-            // OC test: (pool performing balance) / (tranche balance + senior balance)
             if let Some(oc_trigger_level) = trigger.oc_trigger {
-                let denominator = tranche
-                    .current_balance
-                    .checked_add(senior_balance)
-                    .unwrap_or(tranche.current_balance);
-                
-                let oc_ratio = if denominator.amount() > 0.0 {
-                    pool_balance.amount() / denominator.amount()
-                } else {
-                    f64::INFINITY
+                // Reuse unified coverage test logic with performing balance and cash
+                let ctx = TestContext {
+                    pool,
+                    tranches,
+                    tranche_id: &trigger.tranche_id,
+                    as_of,
+                    cash_balance: available_cash,
+                    interest_collections: Money::new(0.0, available_cash.currency()),
                 };
 
-                if oc_ratio < oc_trigger_level {
-                    return Ok(true); // Breach detected
+                let oc_test = CoverageTest::new_oc(oc_trigger_level);
+                let result = oc_test.calculate(&ctx);
+                if !result.is_passing {
+                    return Ok(true);
                 }
             }
 
@@ -354,6 +367,7 @@ impl WaterfallEngine {
         Ok(false)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn calculate_payment_amount(
         &self,
         calculation: &PaymentCalculation,
@@ -362,6 +376,7 @@ impl WaterfallEngine {
         tranche_index: &HashMap<&str, usize>,
         pool_balance: Money,
         payment_date: Date,
+        market: &MarketContext,
     ) -> Result<Money> {
         match calculation {
             PaymentCalculation::FixedAmount { amount } => Ok(*amount),
@@ -381,7 +396,9 @@ impl WaterfallEngine {
             PaymentCalculation::TrancheInterest { tranche_id } => {
                 if let Some(&idx) = tranche_index.get(tranche_id.as_str()) {
                     let tranche = &tranches.tranches[idx];
-                    let rate = tranche.coupon.current_rate(payment_date);
+                    let rate = tranche
+                        .coupon
+                        .current_rate_with_index(payment_date, market);
                     let period_rate = rate / QUARTERLY_PERIODS_PER_YEAR;
                     Ok(Money::new(
                         tranche.current_balance.amount() * period_rate,

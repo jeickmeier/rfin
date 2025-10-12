@@ -11,8 +11,7 @@ use super::components::{
 };
 use super::utils::months_between;
 use super::config::{DEFAULT_RESOLUTION_LAG_MONTHS, POOL_BALANCE_CLEANUP_THRESHOLD};
-use finstack_core::dates::utils::add_months;
-use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::{Date, Frequency, ScheduleBuilder};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use std::collections::HashMap;
@@ -243,12 +242,21 @@ pub(crate) trait StructuredCreditInstrument {
         let mut waterfall_engine = self.create_waterfall_engine();
 
         let months_per_period = dates_payment_frequency.months().unwrap_or(3) as f64;
-        let mut pay_date = dates_first_payment_date.max(as_of);
+        
+        // Generate payment schedule using core ScheduleBuilder
+        let schedule = ScheduleBuilder::try_new(
+            dates_first_payment_date.max(as_of),
+            dates_legal_maturity,
+        )?
+        .frequency(dates_payment_frequency)
+        .build()?;
 
         // Simulate period-by-period
-        while pay_date <= dates_legal_maturity
-            && pool_outstanding.amount() > POOL_BALANCE_CLEANUP_THRESHOLD
-        {
+        for pay_date in schedule.dates {
+            if pool_outstanding.amount() <= POOL_BALANCE_CLEANUP_THRESHOLD {
+                break;
+            }
+            
             // Cache seasoning calculation for this period
             let seasoning_months = months_between(dates_closing_date, pay_date);
 
@@ -283,6 +291,8 @@ pub(crate) trait StructuredCreditInstrument {
                 pay_date,
                 tranches,
                 pool_outstanding,
+                pool,
+                context,
             )?;
 
             // Step 4: Record tranche-specific cashflows
@@ -325,12 +335,6 @@ pub(crate) trait StructuredCreditInstrument {
             pool_outstanding = pool_outstanding
                 .checked_sub(period_flows.prepayments)?
                 .checked_sub(period_flows.defaults)?;
-
-            // Advance to next period
-            pay_date = add_months(
-                pay_date,
-                dates_payment_frequency.months().unwrap_or(3) as i32,
-            );
         }
 
         // Aggregate all tranche cashflows into single schedule
@@ -423,17 +427,22 @@ pub(crate) trait StructuredCreditInstrument {
         let mut waterfall_engine = self.create_waterfall_engine();
 
         let months_per_period = dates_payment_frequency.months().unwrap_or(3) as f64;
-        let mut pay_date = dates_first_payment_date.max(as_of);
+        
+        // Generate payment schedule using core ScheduleBuilder
+        let schedule = ScheduleBuilder::try_new(
+            dates_first_payment_date.max(as_of),
+            dates_legal_maturity,
+        )?
+        .frequency(dates_payment_frequency)
+        .build()?;
 
         // Simulate period-by-period
-        while pay_date <= dates_legal_maturity
-            && pool_outstanding.amount() > POOL_BALANCE_CLEANUP_THRESHOLD
-        {
-            let seasoning_months = {
-                let m = (pay_date.year() - dates_closing_date.year()) * 12
-                    + (pay_date.month() as i32 - dates_closing_date.month() as i32);
-                m.max(0) as u32
-            };
+        for pay_date in schedule.dates {
+            if pool_outstanding.amount() <= POOL_BALANCE_CLEANUP_THRESHOLD {
+                break;
+            }
+            
+            let seasoning_months = months_between(dates_closing_date, pay_date);
 
             // Step 1: Calculate pool collections
             let interest_collections = self.calculate_period_interest_collections(
@@ -467,6 +476,8 @@ pub(crate) trait StructuredCreditInstrument {
                 pay_date,
                 tranches,
                 pool_outstanding,
+                pool,
+                _context,
             )?;
 
             // Step 4: Record cashflows for the target tranche only
@@ -547,12 +558,6 @@ pub(crate) trait StructuredCreditInstrument {
             pool_outstanding = pool_outstanding
                 .checked_sub(period_flows.prepayments)?
                 .checked_sub(period_flows.defaults)?;
-
-            // Advance to next period
-            pay_date = add_months(
-                pay_date,
-                dates_payment_frequency.months().unwrap_or(3) as i32,
-            );
         }
 
         let final_balance = tranche_balances

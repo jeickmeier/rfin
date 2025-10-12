@@ -249,6 +249,9 @@ pub struct PoolStats {
     /// Weighted average life (approximation using WAM)
     /// For accurate WAL, use weighted_avg_life_from_cashflows()
     pub weighted_avg_life: f64,
+    /// Weighted average maturity (WAM) in years
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub weighted_avg_maturity: f64,
     /// Weighted average rating factor
     pub weighted_avg_rating_factor: f64,
     /// Diversity score (Moody's methodology)
@@ -512,7 +515,9 @@ pub fn calculate_pool_stats(pool: &AssetPool, as_of: Date) -> PoolStats {
     PoolStats {
         weighted_avg_coupon: pool.weighted_avg_coupon(),
         weighted_avg_spread: pool.weighted_avg_spread(),
+        // Maintain historical behavior: WAL field carries WAM proxy unless cashflows provided externally
         weighted_avg_life: pool.weighted_avg_maturity(as_of),
+        weighted_avg_maturity: pool.weighted_avg_maturity(as_of),
         weighted_avg_rating_factor: 0.0, // Computed separately if needed
         diversity_score: pool.diversity_score(),
         num_obligors: obligors.len(),

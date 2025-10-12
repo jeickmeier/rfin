@@ -17,24 +17,6 @@ impl crate::metrics::MetricCalculator for CloWasCalculator {
             .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
-        let mut weighted_spread = 0.0;
-        let mut total_balance = 0.0;
-
-        for asset in &clo.pool.assets {
-            let balance = asset.balance.amount();
-
-            // Use explicit spread_bps if available (correct for floating rate assets)
-            // Otherwise fall back to rate * 10000 (proxy for fixed rate)
-            let spread_bps = asset.spread_bps.unwrap_or(asset.rate * 10000.0);
-
-            weighted_spread += balance * spread_bps;
-            total_balance += balance;
-        }
-
-        if total_balance > 0.0 {
-            Ok(weighted_spread / total_balance)
-        } else {
-            Ok(0.0)
-        }
+        Ok(clo.pool.weighted_avg_spread())
     }
 }
