@@ -23,14 +23,25 @@ pub fn apply_curve_parallel_shock(
                     .map_err(|_| Error::MarketDataNotFound {
                         id: curve_id.to_string(),
                     })?;
-            let bumped =
-                curve
-                    .apply_bump(bump_spec)
-                    .ok_or_else(|| Error::UnsupportedOperation {
-                        operation: format!("parallel bp={}", bp),
-                        target: format!("discount curve {}", curve_id),
-                    })?;
-            market.insert_discount_mut(std::sync::Arc::new(bumped));
+            // Use with_parallel_bump which creates curve with modified ID
+            let bumped_curve = curve.with_parallel_bump(bp);
+            
+            // Manually rebuild with original ID to preserve instrument references
+            let original_id = curve.id();
+            let bumped_points: Vec<(f64, f64)> = bumped_curve.knots()
+                .iter()
+                .zip(bumped_curve.dfs().iter())
+                .map(|(&t, &df)| (t, df))
+                .collect();
+            
+            let final_curve = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(original_id.as_str())
+                .base_date(curve.base_date())
+                .day_count(curve.day_count())
+                .knots(bumped_points)
+                .build()
+                .map_err(|e| Error::Internal(format!("Failed to rebuild curve: {}", e)))?;
+            
+            market.insert_discount_mut(std::sync::Arc::new(final_curve));
         }
         CurveKind::Forecast => {
             let curve =
@@ -39,14 +50,32 @@ pub fn apply_curve_parallel_shock(
                     .map_err(|_| Error::MarketDataNotFound {
                         id: curve_id.to_string(),
                     })?;
-            let bumped =
+            let bumped_temp =
                 curve
                     .apply_bump(bump_spec)
                     .ok_or_else(|| Error::UnsupportedOperation {
                         operation: format!("parallel bp={}", bp),
                         target: format!("forward curve {}", curve_id),
                     })?;
-            market.insert_forward_mut(std::sync::Arc::new(bumped));
+            
+            // Manually rebuild with original ID
+            let original_id = curve.id();
+            let bumped_points: Vec<(f64, f64)> = bumped_temp.knots()
+                .iter()
+                .zip(bumped_temp.forwards().iter())
+                .map(|(&t, &f)| (t, f))
+                .collect();
+            
+            let final_curve = finstack_core::market_data::term_structures::forward_curve::ForwardCurve::builder(
+                original_id.as_str(),
+                curve.tenor(),
+            )
+                .base_date(curve.base_date())
+                .knots(bumped_points)
+                .build()
+                .map_err(|e| Error::Internal(format!("Failed to rebuild forward curve: {}", e)))?;
+            
+            market.insert_forward_mut(std::sync::Arc::new(final_curve));
         }
         CurveKind::Hazard => {
             let curve = market
@@ -54,14 +83,22 @@ pub fn apply_curve_parallel_shock(
                 .map_err(|_| Error::MarketDataNotFound {
                     id: curve_id.to_string(),
                 })?;
-            let bumped =
+            let bumped_temp =
                 curve
                     .apply_bump(bump_spec)
                     .ok_or_else(|| Error::UnsupportedOperation {
                         operation: format!("parallel bp={}", bp),
                         target: format!("hazard curve {}", curve_id),
                     })?;
-            market.insert_hazard_mut(std::sync::Arc::new(bumped));
+            
+            // Use to_builder_with_id helper to rebuild with original ID
+            let original_id = curve.id();
+            let final_curve = bumped_temp
+                .to_builder_with_id(original_id.clone())
+                .build()
+                .map_err(|e| Error::Internal(format!("Failed to rebuild hazard curve: {}", e)))?;
+            
+            market.insert_hazard_mut(std::sync::Arc::new(final_curve));
         }
         CurveKind::Inflation => {
             let curve =
@@ -72,13 +109,30 @@ pub fn apply_curve_parallel_shock(
                     })?;
             // Inflation curves use percent bumps, convert bp to pct
             let pct_bump = BumpSpec::inflation_shift_pct(bp / 100.0);
-            let bumped = curve
+            let bumped_temp = curve
                 .apply_bump(pct_bump)
                 .ok_or_else(|| Error::UnsupportedOperation {
                     operation: format!("inflation bump pct={}", bp / 100.0),
                     target: format!("inflation curve {}", curve_id),
                 })?;
-            market.insert_inflation_mut(std::sync::Arc::new(bumped));
+            
+            // Manually rebuild with original ID
+            let original_id = curve.id();
+            let bumped_points: Vec<(f64, f64)> = bumped_temp.knots()
+                .iter()
+                .zip(bumped_temp.cpi_levels().iter())
+                .map(|(&t, &cpi)| (t, cpi))
+                .collect();
+            
+            let final_curve = finstack_core::market_data::term_structures::inflation::InflationCurve::builder(
+                original_id.as_str(),
+            )
+                .base_cpi(bumped_temp.base_cpi())
+                .knots(bumped_points)
+                .build()
+                .map_err(|e| Error::Internal(format!("Failed to rebuild inflation curve: {}", e)))?;
+            
+            market.insert_inflation_mut(std::sync::Arc::new(final_curve));
         }
     }
 

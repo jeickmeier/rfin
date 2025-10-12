@@ -53,8 +53,13 @@ fn test_curve_parallel_shock() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 1);
 
-    // Verify the bumped curve exists
-    assert!(market.get_discount("USD-OIS_bump_50bp").is_ok());
+    // Verify the bumped curve exists with original ID (ID is preserved for instrument references)
+    let bumped_curve = market.get_discount_ref("USD-OIS").unwrap();
+    
+    // The curve should be bumped (different discount factors than original)
+    // At 1Y: original DF was 0.98, bumped should be lower (higher rates)
+    let df_1y = bumped_curve.df(1.0);
+    assert!(df_1y < 0.98, "Curve should be bumped (lower DF due to +50bp)");
 }
 
 #[test]
