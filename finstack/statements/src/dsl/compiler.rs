@@ -92,6 +92,14 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
     let compiled_args: Result<Vec<_>> = args.iter().map(compile).collect();
     let compiled_args = compiled_args?;
 
+    // Handle min/max specially by transforming to nested conditionals
+    if func_name == "min" {
+        return compile_min_function(&compiled_args);
+    }
+    if func_name == "max" {
+        return compile_max_function(&compiled_args);
+    }
+
     // Map DSL function names to core Function enum
     let func = match func_name {
         "lag" => Some(Function::Lag),
@@ -166,10 +174,62 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
         Err(crate::error::Error::eval(format!(
             "Function '{}' is not supported. \
              Supported functions include: lag, diff, pct_change, rolling_*, ewm_*, std, var, median, \
-             sum, mean, ttm, annualize, coalesce",
+             sum, mean, min, max, ttm, annualize, coalesce",
             func_name
         )))
     }
+}
+
+/// Compile min function by transforming to nested if-then-else.
+///
+/// min(a, b) → if(a < b, a, b)
+/// min(a, b, c) → if(a < b, if(a < c, a, c), if(b < c, b, c))
+fn compile_min_function(args: &[Expr]) -> Result<Expr> {
+    if args.is_empty() {
+        return Err(crate::error::Error::eval(
+            "min() requires at least 1 argument",
+        ));
+    }
+
+    if args.len() == 1 {
+        return Ok(args[0].clone());
+    }
+
+    // Recursively build nested conditionals
+    let mut result = args[0].clone();
+    for arg in &args[1..] {
+        // result = if(result < arg, result, arg)
+        let condition = Expr::bin_op(finstack_core::expr::BinOp::Lt, result.clone(), arg.clone());
+        result = Expr::if_then_else(condition, result, arg.clone());
+    }
+
+    Ok(result)
+}
+
+/// Compile max function by transforming to nested if-then-else.
+///
+/// max(a, b) → if(a > b, a, b)
+/// max(a, b, c) → if(a > b, if(a > c, a, c), if(b > c, b, c))
+fn compile_max_function(args: &[Expr]) -> Result<Expr> {
+    if args.is_empty() {
+        return Err(crate::error::Error::eval(
+            "max() requires at least 1 argument",
+        ));
+    }
+
+    if args.len() == 1 {
+        return Ok(args[0].clone());
+    }
+
+    // Recursively build nested conditionals
+    let mut result = args[0].clone();
+    for arg in &args[1..] {
+        // result = if(result > arg, result, arg)
+        let condition = Expr::bin_op(finstack_core::expr::BinOp::Gt, result.clone(), arg.clone());
+        result = Expr::if_then_else(condition, result, arg.clone());
+    }
+
+    Ok(result)
 }
 
 /// Compile if-then-else expressions.

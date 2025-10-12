@@ -17,6 +17,6 @@ mod results;
 
 pub use context::EvaluationContext;
 pub use dag::{evaluate_order, DependencyGraph};
-pub use engine::Evaluator;
+pub use engine::{Evaluator, EvaluatorWithContext};
 pub use precedence::{resolve_node_value, NodeValueSource};
 pub use results::{Results, ResultsMeta};

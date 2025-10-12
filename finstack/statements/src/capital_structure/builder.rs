@@ -118,7 +118,7 @@ impl<State> ModelBuilder<State> {
         let id_str: String = id.into();
 
         use finstack_valuations::instruments::common::parameters::PayReceive;
-        
+
         // Create swap using valuations crate
         let swap = InterestRateSwap::new(
             InstrumentId::new(&id_str),
@@ -126,7 +126,7 @@ impl<State> ModelBuilder<State> {
             fixed_rate,
             start_date,
             maturity_date,
-            PayReceive::PayFixed,  // Default to pay-fixed
+            PayReceive::PayFixed, // Default to pay-fixed
         );
 
         // Serialize to JSON

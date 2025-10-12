@@ -126,9 +126,9 @@ pub use types::{
 /// use finstack_statements::prelude::*;
 /// ```
 pub mod prelude {
-    pub use crate::builder::{ModelBuilder, NeedPeriods, Ready};
+    pub use crate::builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};
     pub use crate::error::{Error, Result};
-    pub use crate::evaluator::{Evaluator, Results};
+    pub use crate::evaluator::{Evaluator, EvaluatorWithContext, Results};
     pub use crate::extensions::{
         CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext,
         ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,

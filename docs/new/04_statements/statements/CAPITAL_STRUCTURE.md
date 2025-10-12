@@ -264,25 +264,30 @@ If all instruments are in the same currency, no FX conversion needed:
 .compute("total_interest", "cs.interest_expense.total")?  // USD
 ```
 
-### 6.2 Multi-Currency (FX Required)
+### 6.2 Multi-Currency (Future Feature)
 
-If instruments span multiple currencies, you must provide FX configuration:
+⚠️ **Status:** Multi-currency capital structure is not yet implemented (planned for v0.4+).
 
+**Current limitation:** All instruments in a capital structure must use the same currency. Attempting to mix currencies will result in aggregation errors.
+
+**Planned API (future):**
 ```rust
 .add_bond("US-Bond", Money::new(10_000_000.0, Currency::USD), ...)?
 .add_bond("EU-Bond", Money::new(8_000_000.0, Currency::EUR), ...)?
 
-// Specify model currency
+// Specify model currency (planned)
 .capital_structure_config(CapitalStructureConfig {
     model_currency: Currency::USD,
     fx_policy: FxConversionPolicy::PeriodEnd,  // Convert at period-end rates
 })?
 ```
 
-**FX Policies:**
+**Planned FX Policies (future):**
 - `PeriodEnd` — Convert using period-end spot rate
 - `CashflowDate` — Convert using cashflow date spot rate
 - `Average` — Convert using period-average rate
+
+**Workaround:** For now, convert all instrument notionals to a single currency before adding them to the model.
 
 ---
 

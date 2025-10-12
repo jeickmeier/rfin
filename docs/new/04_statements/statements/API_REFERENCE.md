@@ -287,7 +287,7 @@ ForecastSpec {
 
 // Where clause (period masking)
 .compute("quarterly_bonus", "revenue * 0.05")
-.where_clause("quarterly_bonus", "period_type == 'quarter'")
+.where_clause("revenue > 1000000")  // Applies to the last added node
 ```
 
 ---
@@ -361,16 +361,17 @@ let model = ModelBuilder::new("model_id")
 
 ```rust
 // Explicit values
-.value("node_id", &[(period_id, AmountOrScalar::Scalar(100.0))])
+.value("node_id", &[(period_id, AmountOrScalar::scalar(100.0))])
 
 // Calculated nodes
 .compute("node_id", "formula")?
 
-// Mixed nodes (value + forecast + formula)
+// Mixed nodes (value + forecast + formula) - Fluent builder
 .mixed("node_id")
     .values(&[(period_id, value)])
-    .forecasts(vec![forecast_spec])
+    .forecast(forecast_spec)
     .formula("fallback_formula")?
+    .finish()
 ```
 
 #### Forecast Configuration
@@ -436,26 +437,44 @@ let model = ModelBuilder::new("model_id")
 use finstack_statements::Evaluator;
 
 let mut evaluator = Evaluator::new();
-let results = evaluator.evaluate(&model, parallel: false)?;
+let results = evaluator.evaluate(&model)?;
 ```
+
+**Note:** Parallel evaluation is planned but not yet implemented. All evaluation is currently sequential.
 
 ### 4.2 With Market Context (for capital structure)
 
 ```rust
+use finstack_core::market_data::MarketContext;
+
 let market_ctx = MarketContext::new()
     .insert_discount(discount_curve)
     .insert_forward(forward_curve);
 
-let mut evaluator = Evaluator::with_market_context(Arc::new(market_ctx));
-let results = evaluator.evaluate(&model, false)?;
+let mut evaluator = Evaluator::new();
+let results = evaluator.evaluate_with_market_context(
+    &model,
+    Some(&market_ctx),
+    Some(as_of_date),
+)?;
 ```
 
-### 4.3 Selective Evaluation
+**Convenience constructor (v0.3+):**
+```rust
+// Alternative: Use with_market_context constructor
+let mut evaluator = Evaluator::with_market_context(&market_ctx, as_of_date);
+let results = evaluator.evaluate(&model)?;
+```
+
+### 4.3 Selective Evaluation (Future Feature)
 
 ```rust
-// Only evaluate specific nodes (future)
+// ⚠️ Not yet implemented - planned for v0.4+
+// Only evaluate specific nodes
 let results = evaluator.evaluate_selective(&model, &["revenue", "gross_profit"])?;
 ```
+
+**Status:** Planned feature for performance optimization in large models.
 
 ---
 

@@ -2,4 +2,4 @@
 
 mod model_builder;
 
-pub use model_builder::{ModelBuilder, NeedPeriods, Ready};
+pub use model_builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};

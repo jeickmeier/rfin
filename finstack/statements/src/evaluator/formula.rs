@@ -518,10 +518,31 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
             let shift_periods = evaluate_expr(&args[1], context)? as i32;
 
             if shift_periods == 0 {
-                evaluate_expr(&args[0], context)
+                return evaluate_expr(&args[0], context);
+            }
+
+            // Shift works like lag/lead: positive shift goes backward (like lag)
+            // negative shift goes forward (like lead, but we'll return NaN for forward-looking)
+            if shift_periods < 0 {
+                // Forward-looking shifts return NaN (no peeking into the future)
+                return Ok(f64::NAN);
+            }
+
+            // Calculate the target period (shift backward)
+            let target_period = offset_period(context.period_id, -shift_periods)?;
+
+            // If it's a simple column reference, look it up in historical results
+            if let ExprNode::Column(node_name) = &args[0].node {
+                if let Some(value) = context.get_historical_value(node_name, &target_period) {
+                    Ok(value)
+                } else {
+                    // No historical value found, return NaN
+                    Ok(f64::NAN)
+                }
             } else {
-                // For now, return 0 for shifted values
-                Ok(0.0)
+                // For complex expressions, we can't easily evaluate them in a different period context
+                // Return NaN to indicate the value is not available
+                Ok(f64::NAN)
             }
         }
 

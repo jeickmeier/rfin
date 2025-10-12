@@ -13,7 +13,7 @@ fn test_results_serialization() {
     // Create a Results object
     let mut results = Results::new();
     let period = PeriodId::quarter(2025, 1);
-    
+
     results.nodes.insert(
         "revenue".to_string(),
         [(period, 100_000.0)].into_iter().collect(),
@@ -22,7 +22,7 @@ fn test_results_serialization() {
         "cogs".to_string(),
         [(period, 60_000.0)].into_iter().collect(),
     );
-    
+
     results.meta = ResultsMeta {
         eval_time_ms: Some(42),
         num_nodes: 2,
@@ -48,7 +48,7 @@ fn test_results_serialization() {
 fn test_capital_structure_cashflows_serialization() {
     let mut cashflows = CapitalStructureCashflows::new();
     let period = PeriodId::quarter(2025, 1);
-    
+
     // Add breakdown for an instrument
     let breakdown = CashflowBreakdown {
         interest_expense: 5_000.0,
@@ -56,11 +56,13 @@ fn test_capital_structure_cashflows_serialization() {
         debt_balance: 100_000.0,
         fees: 500.0,
     };
-    
+
     let mut period_map = IndexMap::new();
     period_map.insert(period, breakdown.clone());
-    
-    cashflows.by_instrument.insert("BOND-001".to_string(), period_map);
+
+    cashflows
+        .by_instrument
+        .insert("BOND-001".to_string(), period_map);
     cashflows.totals.insert(period, breakdown);
 
     // Serialize to JSON
@@ -97,8 +99,14 @@ fn test_model_spec_full_serialization() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -109,7 +117,8 @@ fn test_model_spec_full_serialization() {
         .unwrap();
 
     // Serialize to JSON
-    let json = serde_json::to_string_pretty(&model).expect("Failed to serialize FinancialModelSpec");
+    let json =
+        serde_json::to_string_pretty(&model).expect("Failed to serialize FinancialModelSpec");
     println!("Serialized FinancialModelSpec:\n{}", json);
 
     // Deserialize back
@@ -134,8 +143,14 @@ fn test_model_with_results_serialization() {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -149,10 +164,8 @@ fn test_model_with_results_serialization() {
     let results = evaluator.evaluate(&model).unwrap();
 
     // Serialize both model and results
-    let model_json = serde_json::to_string_pretty(&model)
-        .expect("Failed to serialize model");
-    let results_json = serde_json::to_string_pretty(&results)
-        .expect("Failed to serialize results");
+    let model_json = serde_json::to_string_pretty(&model).expect("Failed to serialize model");
+    let results_json = serde_json::to_string_pretty(&results).expect("Failed to serialize results");
 
     println!("Serialized Model:\n{}", model_json);
     println!("\nSerialized Results:\n{}", results_json);
@@ -170,13 +183,19 @@ fn test_model_with_results_serialization() {
     // Verify results
     let q1 = PeriodId::quarter(2025, 1);
     let q2 = PeriodId::quarter(2025, 2);
-    
+
     assert_eq!(deserialized_results.get("revenue", &q1), Some(100_000.0));
     assert_eq!(deserialized_results.get("revenue", &q2), Some(110_000.0));
     assert_eq!(deserialized_results.get("cogs", &q1), Some(60_000.0));
     assert_eq!(deserialized_results.get("cogs", &q2), Some(66_000.0));
-    assert_eq!(deserialized_results.get("gross_profit", &q1), Some(40_000.0));
-    assert_eq!(deserialized_results.get("gross_profit", &q2), Some(44_000.0));
+    assert_eq!(
+        deserialized_results.get("gross_profit", &q1),
+        Some(40_000.0)
+    );
+    assert_eq!(
+        deserialized_results.get("gross_profit", &q2),
+        Some(44_000.0)
+    );
 }
 
 #[test]
@@ -199,12 +218,13 @@ fn test_node_spec_with_currency_serialization() {
     println!("Serialized NodeSpec with currency:\n{}", json);
 
     // Deserialize back
-    let deserialized: NodeSpec = serde_json::from_str(&json).expect("Failed to deserialize NodeSpec");
+    let deserialized: NodeSpec =
+        serde_json::from_str(&json).expect("Failed to deserialize NodeSpec");
 
     // Verify round-trip
     assert_eq!(deserialized.node_id, "cash");
     assert!(matches!(deserialized.node_type, NodeType::Value));
-    
+
     let values = deserialized.values.as_ref().unwrap();
     let q1_value = values.get(&PeriodId::quarter(2025, 1)).unwrap();
     assert_eq!(q1_value.value(), 50_000.0);
@@ -231,7 +251,7 @@ fn test_results_to_json_file() {
     // Test that Results can be saved to and loaded from a JSON file
     let mut results = Results::new();
     let period = PeriodId::quarter(2025, 1);
-    
+
     results.nodes.insert(
         "revenue".to_string(),
         [(period, 100_000.0)].into_iter().collect(),
@@ -239,7 +259,7 @@ fn test_results_to_json_file() {
 
     // Serialize to JSON string
     let json = serde_json::to_string_pretty(&results).expect("Failed to serialize");
-    
+
     // Verify it's valid JSON and reasonably sized
     assert!(!json.is_empty());
     assert!(json.contains("revenue"));

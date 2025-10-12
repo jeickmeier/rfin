@@ -1,0 +1,45 @@
+{
+  "id": "basic_pl_golden",
+  "periods": [
+    {
+      "id": "2025Q1",
+      "start": "2025-01-01",
+      "end": "2025-04-01",
+      "is_actual": true
+    },
+    {
+      "id": "2025Q2",
+      "start": "2025-04-01",
+      "end": "2025-07-01",
+      "is_actual": true
+    }
+  ],
+  "nodes": {
+    "revenue": {
+      "node_id": "revenue",
+      "name": "Revenue",
+      "node_type": "value",
+      "values": {
+        "2025Q1": 100000.0,
+        "2025Q2": 110000.0
+      }
+    },
+    "cogs": {
+      "node_id": "cogs",
+      "node_type": "calculated",
+      "formula_text": "revenue * 0.6"
+    },
+    "gross_profit": {
+      "node_id": "gross_profit",
+      "node_type": "calculated",
+      "formula_text": "revenue - cogs"
+    },
+    "gross_margin": {
+      "node_id": "gross_margin",
+      "node_type": "calculated",
+      "formula_text": "gross_profit / revenue"
+    }
+  },
+  "schema_version": 1
+}
+

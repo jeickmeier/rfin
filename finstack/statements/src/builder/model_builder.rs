@@ -197,6 +197,48 @@ impl ModelBuilder<Ready> {
         Ok(self)
     }
 
+    /// Create a mixed node with explicit configuration.
+    ///
+    /// Mixed nodes support Value, Forecast, and Formula with precedence: Value > Forecast > Formula.
+    /// This method returns a fluent builder for configuring all aspects of a mixed node.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_statements::types::{AmountOrScalar, ForecastSpec, ForecastMethod};
+    /// # use finstack_core::dates::PeriodId;
+    /// # use indexmap::indexmap;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("test")
+    ///     .periods("2025Q1..Q4", Some("2025Q2"))?
+    ///     .mixed("revenue")
+    ///         .values(&[
+    ///             (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
+    ///             (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+    ///         ])
+    ///         .forecast(ForecastSpec {
+    ///             method: ForecastMethod::GrowthPct,
+    ///             params: indexmap! { "rate".into() => serde_json::json!(0.05) },
+    ///         })
+    ///         .formula("lag(revenue, 1) * 1.05")?
+    ///         .finish()
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use = "builder methods must be chained"]
+    pub fn mixed(self, node_id: impl Into<String>) -> MixedNodeBuilder {
+        MixedNodeBuilder {
+            parent: self,
+            node_id: node_id.into(),
+            values: None,
+            forecast: None,
+            formula: None,
+            name: None,
+        }
+    }
+
     /// Add a forecast specification to an existing node.
     ///
     /// This allows forecasting values into future periods using various methods.
@@ -272,13 +314,13 @@ impl ModelBuilder<Ready> {
     ///     .periods("2025Q1..Q4", Some("2025Q2"))?
     ///     .value("revenue", &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1500000.0))])
     ///     .compute("bonus", "revenue * 0.01")?
-    ///     .with_where("revenue > 1000000")  // Only compute bonus if revenue > 1M
+    ///     .where_clause("revenue > 1000000")  // Only compute bonus if revenue > 1M
     ///     .build()?;
     /// # Ok(())
     /// # }
     /// ```
     #[must_use = "builder methods must be chained"]
-    pub fn with_where(mut self, where_clause: impl Into<String>) -> Self {
+    pub fn where_clause(mut self, where_clause: impl Into<String>) -> Self {
         if let Some((_, last_node)) = self.nodes.last_mut() {
             last_node.where_text = Some(where_clause.into());
         }
@@ -349,6 +391,32 @@ impl ModelBuilder<Ready> {
         }
 
         Ok(self)
+    }
+
+    /// Add a specific metric from the built-in registry.
+    ///
+    /// This is a convenience method that loads the built-in metrics registry
+    /// and adds a specific metric to the model.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("test")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .value("revenue", &[])
+    ///     .value("cogs", &[])
+    ///     .add_metric("fin.gross_profit")?
+    ///     .add_metric("fin.gross_margin")?
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn add_metric(self, qualified_id: &str) -> Result<Self> {
+        let mut registry = crate::registry::Registry::new();
+        registry.load_builtins()?;
+        self.add_metric_from_registry(qualified_id, &registry)
     }
 
     /// Add a specific metric from a registry.
@@ -473,6 +541,80 @@ impl ModelBuilder<Ready> {
         spec.capital_structure = self.capital_structure;
 
         Ok(spec)
+    }
+}
+
+/// Fluent builder for mixed nodes.
+///
+/// This builder allows configuring all aspects of a mixed node (values, forecast, formula)
+/// in a fluent manner before adding it to the model.
+#[derive(Debug)]
+pub struct MixedNodeBuilder {
+    parent: ModelBuilder<Ready>,
+    node_id: String,
+    values: Option<IndexMap<PeriodId, AmountOrScalar>>,
+    forecast: Option<crate::types::ForecastSpec>,
+    formula: Option<String>,
+    name: Option<String>,
+}
+
+impl MixedNodeBuilder {
+    /// Set explicit values for the mixed node.
+    #[must_use = "builder methods must be chained"]
+    pub fn values(mut self, values: &[(PeriodId, AmountOrScalar)]) -> Self {
+        self.values = Some(values.iter().cloned().collect());
+        self
+    }
+
+    /// Set the forecast specification.
+    #[must_use = "builder methods must be chained"]
+    pub fn forecast(mut self, forecast_spec: crate::types::ForecastSpec) -> Self {
+        self.forecast = Some(forecast_spec);
+        self
+    }
+
+    /// Set the fallback formula.
+    #[must_use = "builder methods must be chained"]
+    pub fn formula(mut self, formula: impl Into<String>) -> Result<Self> {
+        let formula = formula.into();
+
+        // Validate formula syntax
+        if formula.trim().is_empty() {
+            return Err(Error::formula_parse("Formula cannot be empty"));
+        }
+        crate::dsl::parse_and_compile(&formula)?;
+
+        self.formula = Some(formula);
+        Ok(self)
+    }
+
+    /// Set the human-readable name.
+    #[must_use = "builder methods must be chained"]
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    /// Finish building the mixed node and return to the parent builder.
+    #[must_use = "builder methods must be chained"]
+    pub fn finish(mut self) -> ModelBuilder<Ready> {
+        let mut node = NodeSpec::new(self.node_id.clone(), NodeType::Mixed);
+
+        if let Some(name) = self.name {
+            node.name = Some(name);
+        }
+        if let Some(values) = self.values {
+            node.values = Some(values);
+        }
+        if let Some(forecast) = self.forecast {
+            node.forecast = Some(forecast);
+        }
+        if let Some(formula) = self.formula {
+            node.formula_text = Some(formula);
+        }
+
+        self.parent.nodes.insert(self.node_id, node);
+        self.parent
     }
 }
 

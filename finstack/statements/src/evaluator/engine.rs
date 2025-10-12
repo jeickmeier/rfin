@@ -37,6 +37,40 @@ impl Evaluator {
         }
     }
 
+    /// Create a new evaluator with pre-configured market context.
+    ///
+    /// This is a convenience constructor that stores market context and as-of date
+    /// for capital structure evaluation. When you call `.evaluate()` on this evaluator,
+    /// it will automatically use the stored market context.
+    ///
+    /// # Arguments
+    ///
+    /// * `market_ctx` - Market context with discount/forward curves
+    /// * `as_of` - Valuation date for pricing
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use finstack_statements::Evaluator;
+    /// use finstack_core::market_data::MarketContext;
+    ///
+    /// let market_ctx = MarketContext::new()
+    ///     .insert_discount(discount_curve);
+    ///
+    /// let mut evaluator = Evaluator::with_market_context(&market_ctx, as_of_date);
+    /// let results = evaluator.evaluate(&model)?;  // Uses stored market context
+    /// ```
+    pub fn with_market_context(
+        market_ctx: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> EvaluatorWithContext {
+        EvaluatorWithContext {
+            evaluator: Self::new(),
+            market_ctx: market_ctx.clone(),
+            as_of,
+        }
+    }
+
     /// Evaluate a financial model over all periods with optional market context.
     ///
     /// This method allows you to provide market context for pricing capital structure instruments.
@@ -304,6 +338,33 @@ impl Evaluator {
 impl Default for Evaluator {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Evaluator with pre-configured market context.
+///
+/// This is a convenience wrapper that stores market context and as-of date,
+/// making it easier to evaluate models with capital structure.
+#[derive(Clone)]
+pub struct EvaluatorWithContext {
+    evaluator: Evaluator,
+    market_ctx: finstack_core::market_data::MarketContext,
+    as_of: finstack_core::dates::Date,
+}
+
+impl EvaluatorWithContext {
+    /// Evaluate a financial model using the stored market context.
+    ///
+    /// # Arguments
+    ///
+    /// * `model` - The financial model specification
+    ///
+    /// # Returns
+    ///
+    /// Returns `Results` containing the evaluated values for all nodes and periods.
+    pub fn evaluate(&mut self, model: &FinancialModelSpec) -> Result<Results> {
+        self.evaluator
+            .evaluate_with_market_context(model, Some(&self.market_ctx), Some(self.as_of))
     }
 }
 
