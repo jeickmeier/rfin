@@ -40,7 +40,7 @@ impl JsAmountOrScalar {
     #[wasm_bindgen(js_name = amount)]
     pub fn amount(value: f64, currency: &JsCurrency) -> JsAmountOrScalar {
         let currency_inner = currency.inner();
-        
+
         JsAmountOrScalar {
             inner: AmountOrScalar::amount(value, currency_inner),
         }
@@ -86,7 +86,7 @@ impl JsAmountOrScalar {
             AmountOrScalar::Amount(m) => {
                 let currency_str = m.currency().to_string();
                 JsCurrency::new(&currency_str).ok()
-            },
+            }
             AmountOrScalar::Scalar(_) => None,
         }
     }
@@ -131,4 +131,3 @@ impl JsAmountOrScalar {
         Self { inner }
     }
 }
-

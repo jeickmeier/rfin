@@ -292,10 +292,10 @@ impl JsBond {
         margin_bp: f64,
         quoted_clean_price: Option<f64>,
     ) -> JsBond {
-        use finstack_core::dates::{Frequency, DayCount, BusinessDayConvention, StubKind};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
         use finstack_valuations::instruments::bond::BondFloatSpec;
         use finstack_valuations::instruments::common::traits::Attributes;
-        
+
         let mut bond = Bond::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
@@ -336,8 +336,10 @@ impl JsBond {
         quoted_clean_price: Option<f64>,
         market: &crate::core::market_data::context::JsMarketContext,
     ) -> Result<JsBond, JsValue> {
-        use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
-        use finstack_core::dates::{Frequency, DayCount, BusinessDayConvention, StubKind};
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        use finstack_valuations::cashflow::builder::{
+            CashFlowSchedule, CouponType, FixedCouponSpec,
+        };
 
         // Build cashflow schedule with PIK split
         let custom_schedule = CashFlowSchedule::builder()
@@ -381,8 +383,10 @@ impl JsBond {
         quoted_clean_price: Option<f64>,
         market: &crate::core::market_data::context::JsMarketContext,
     ) -> Result<JsBond, JsValue> {
-        use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FloatCouponParams, ScheduleParams};
         use finstack_core::dates::{BusinessDayConvention, StubKind};
+        use finstack_valuations::cashflow::builder::{
+            CashFlowSchedule, CouponType, FloatCouponParams, ScheduleParams,
+        };
 
         // Build cashflow schedule with fixed then floating windows
         let mut b = CashFlowSchedule::builder();
@@ -423,9 +427,10 @@ impl JsBond {
             CouponType::Cash,
         );
 
-        let custom_schedule = b.build_with_curves(Some(market.inner()))
+        let custom_schedule = b
+            .build_with_curves(Some(market.inner()))
             .map_err(|e| js_error(e.to_string()))?;
-        
+
         Bond::from_cashflows(
             instrument_id_from_str(instrument_id),
             custom_schedule,

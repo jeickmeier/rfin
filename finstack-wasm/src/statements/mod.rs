@@ -22,4 +22,3 @@ pub use types::{
     JsAmountOrScalar, JsCapitalStructureSpec, JsDebtInstrumentSpec, JsFinancialModelSpec,
     JsForecastMethod, JsForecastSpec, JsNodeSpec, JsNodeType, JsSeasonalMode,
 };
-

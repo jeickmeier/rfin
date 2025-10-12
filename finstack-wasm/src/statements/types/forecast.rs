@@ -265,4 +265,3 @@ impl JsForecastSpec {
         Self { inner }
     }
 }
-

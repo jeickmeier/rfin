@@ -16,10 +16,10 @@ use wasm_bindgen::prelude::*;
 /// ```typescript
 /// // From string
 /// const pv = MetricId.fromName("pv");
-/// 
+///
 /// // Using typed constructor
 /// const dv01 = MetricId.DV01();
-/// 
+///
 /// // Get all standard names
 /// const metrics = MetricId.standardNames();
 /// ```

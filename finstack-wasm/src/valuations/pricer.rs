@@ -2,18 +2,18 @@ use crate::core::error::core_to_js;
 use crate::core::error::js_error;
 use crate::core::market_data::context::JsMarketContext;
 use crate::valuations::instruments::{
-    BasisSwap as JsBasisSwap, Basket as JsBasket, Bond as JsBond,
-    CDSIndex as JsCDSIndex, CdsOption as JsCdsOption, CdsTranche as JsCdsTranche,
-    ConvertibleBond as JsConvertibleBond, CreditDefaultSwap as JsCreditDefaultSwap,
-    Deposit as JsDeposit, Equity as JsEquity, EquityOption as JsEquityOption,
-    EquityTotalReturnSwap as JsEquityTotalReturnSwap,
+    BasisSwap as JsBasisSwap, Basket as JsBasket, Bond as JsBond, CDSIndex as JsCDSIndex,
+    CdsOption as JsCdsOption, CdsTranche as JsCdsTranche, ConvertibleBond as JsConvertibleBond,
+    CreditDefaultSwap as JsCreditDefaultSwap, Deposit as JsDeposit, Equity as JsEquity,
+    EquityOption as JsEquityOption, EquityTotalReturnSwap as JsEquityTotalReturnSwap,
     FiIndexTotalReturnSwap as JsFiIndexTotalReturnSwap,
     ForwardRateAgreement as JsForwardRateAgreement, FxOption as JsFxOption, FxSpot as JsFxSpot,
     FxSwap as JsFxSwap, InflationLinkedBond as JsInflationLinkedBond,
     InflationSwap as JsInflationSwap, InstrumentWrapper,
     InterestRateFuture as JsInterestRateFuture, InterestRateOption as JsInterestRateOption,
     InterestRateSwap as JsInterestRateSwap, PrivateMarketsFund as JsPrivateMarketsFund,
-    Repo as JsRepo, StructuredCredit as JsStructuredCredit, Swaption as JsSwaption, VarianceSwap as JsVarianceSwap,
+    Repo as JsRepo, StructuredCredit as JsStructuredCredit, Swaption as JsSwaption,
+    VarianceSwap as JsVarianceSwap,
 };
 use crate::valuations::results::JsValuationResult;
 use finstack_valuations::instruments::build_with_metrics_dyn;

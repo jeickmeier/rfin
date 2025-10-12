@@ -25,7 +25,11 @@ use pyo3::Bound;
 /// >>> builder = builder.value("revenue", [(PeriodId.quarter(2025, 1), AmountOrScalar.scalar(100))])
 /// >>> builder = builder.compute("gross_profit", "revenue * 0.4")
 /// >>> model = builder.build()
-#[pyclass(module = "finstack.statements.builder", name = "ModelBuilder", unsendable)]
+#[pyclass(
+    module = "finstack.statements.builder",
+    name = "ModelBuilder",
+    unsendable
+)]
 pub struct PyModelBuilder {
     state: BuilderState,
 }
@@ -72,22 +76,21 @@ impl PyModelBuilder {
     /// -------
     /// ModelBuilder
     ///     Builder instance ready for node definitions
-    fn periods(
-        &mut self,
-        range: &str,
-        actuals_until: Option<&str>,
-    ) -> PyResult<()> {
-        match std::mem::replace(&mut self.state, BuilderState::Ready(ModelBuilder::new("dummy").periods("2025Q1..Q2", None).unwrap())) {
+    fn periods(&mut self, range: &str, actuals_until: Option<&str>) -> PyResult<()> {
+        match std::mem::replace(
+            &mut self.state,
+            BuilderState::Ready(
+                ModelBuilder::new("dummy")
+                    .periods("2025Q1..Q2", None)
+                    .unwrap(),
+            ),
+        ) {
             BuilderState::NeedPeriods(builder) => {
-                let ready = builder
-                    .periods(range, actuals_until)
-                    .map_err(stmt_to_py)?;
+                let ready = builder.periods(range, actuals_until).map_err(stmt_to_py)?;
                 self.state = BuilderState::Ready(ready);
                 Ok(())
             }
-            BuilderState::Ready(_) => {
-                Err(PyValueError::new_err("periods() already called"))
-            }
+            BuilderState::Ready(_) => Err(PyValueError::new_err("periods() already called")),
         }
     }
 
@@ -103,22 +106,22 @@ impl PyModelBuilder {
     /// -------
     /// ModelBuilder
     ///     Builder instance ready for node definitions
-    fn periods_explicit(
-        &mut self,
-        periods: Vec<PyPeriod>,
-    ) -> PyResult<()> {
-        match std::mem::replace(&mut self.state, BuilderState::Ready(ModelBuilder::new("dummy").periods("2025Q1..Q2", None).unwrap())) {
+    fn periods_explicit(&mut self, periods: Vec<PyPeriod>) -> PyResult<()> {
+        match std::mem::replace(
+            &mut self.state,
+            BuilderState::Ready(
+                ModelBuilder::new("dummy")
+                    .periods("2025Q1..Q2", None)
+                    .unwrap(),
+            ),
+        ) {
             BuilderState::NeedPeriods(builder) => {
                 let periods = periods.into_iter().map(|p| p.inner).collect();
-                let ready = builder
-                    .periods_explicit(periods)
-                    .map_err(stmt_to_py)?;
+                let ready = builder.periods_explicit(periods).map_err(stmt_to_py)?;
                 self.state = BuilderState::Ready(ready);
                 Ok(())
             }
-            BuilderState::Ready(_) => {
-                Err(PyValueError::new_err("periods() already called"))
-            }
+            BuilderState::Ready(_) => Err(PyValueError::new_err("periods() already called")),
         }
     }
 
@@ -138,15 +141,16 @@ impl PyModelBuilder {
     /// -------
     /// ModelBuilder
     ///     Builder instance for chaining
-    fn value(
-        &mut self,
-        node_id: String,
-        values: &Bound<'_, PyAny>,
-    ) -> PyResult<()> {
+    fn value(&mut self, node_id: String, values: &Bound<'_, PyAny>) -> PyResult<()> {
         let values_vec = parse_period_values(values)?;
-        
+
         if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(builder, ModelBuilder::new("dummy").periods("2025Q1..Q2", None).unwrap());
+            let new_builder = std::mem::replace(
+                builder,
+                ModelBuilder::new("dummy")
+                    .periods("2025Q1..Q2", None)
+                    .unwrap(),
+            );
             *builder = new_builder.value(node_id, &values_vec);
             Ok(())
         } else {
@@ -170,13 +174,14 @@ impl PyModelBuilder {
     /// -------
     /// ModelBuilder
     ///     Builder instance for chaining
-    fn compute(
-        &mut self,
-        node_id: String,
-        formula: String,
-    ) -> PyResult<()> {
+    fn compute(&mut self, node_id: String, formula: String) -> PyResult<()> {
         if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(builder, ModelBuilder::new("dummy").periods("2025Q1..Q2", None).unwrap());
+            let new_builder = std::mem::replace(
+                builder,
+                ModelBuilder::new("dummy")
+                    .periods("2025Q1..Q2", None)
+                    .unwrap(),
+            );
             *builder = new_builder.compute(node_id, formula).map_err(stmt_to_py)?;
             Ok(())
         } else {
@@ -200,13 +205,14 @@ impl PyModelBuilder {
     /// -------
     /// ModelBuilder
     ///     Builder instance for chaining
-    fn forecast(
-        &mut self,
-        node_id: String,
-        forecast_spec: &PyForecastSpec,
-    ) -> PyResult<()> {
+    fn forecast(&mut self, node_id: String, forecast_spec: &PyForecastSpec) -> PyResult<()> {
         if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(builder, ModelBuilder::new("dummy").periods("2025Q1..Q2", None).unwrap());
+            let new_builder = std::mem::replace(
+                builder,
+                ModelBuilder::new("dummy")
+                    .periods("2025Q1..Q2", None)
+                    .unwrap(),
+            );
             *builder = new_builder.forecast(node_id, forecast_spec.inner.clone());
             Ok(())
         } else {
@@ -231,15 +237,16 @@ impl PyModelBuilder {
     /// -------
     /// ModelBuilder
     ///     Builder instance for chaining
-    fn with_meta(
-        &mut self,
-        key: String,
-        value: &Bound<'_, PyAny>,
-    ) -> PyResult<()> {
+    fn with_meta(&mut self, key: String, value: &Bound<'_, PyAny>) -> PyResult<()> {
         let json_value = crate::statements::utils::py_to_json(value)?;
-        
+
         if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(builder, ModelBuilder::new("dummy").periods("2025Q1..Q2", None).unwrap());
+            let new_builder = std::mem::replace(
+                builder,
+                ModelBuilder::new("dummy")
+                    .periods("2025Q1..Q2", None)
+                    .unwrap(),
+            );
             *builder = new_builder.with_meta(key, json_value);
             Ok(())
         } else {
@@ -259,7 +266,12 @@ impl PyModelBuilder {
     ///     Complete model specification
     fn build(&mut self) -> PyResult<PyFinancialModelSpec> {
         if let BuilderState::Ready(builder) = &mut self.state {
-            let new_builder = std::mem::replace(builder, ModelBuilder::new("dummy").periods("2025Q1..Q2", None).unwrap());
+            let new_builder = std::mem::replace(
+                builder,
+                ModelBuilder::new("dummy")
+                    .periods("2025Q1..Q2", None)
+                    .unwrap(),
+            );
             let spec = new_builder.build().map_err(stmt_to_py)?;
             Ok(PyFinancialModelSpec::new(spec))
         } else {
@@ -269,9 +281,7 @@ impl PyModelBuilder {
 }
 
 /// Helper to parse period values from dict or list of tuples.
-fn parse_period_values(
-    values: &Bound<'_, PyAny>,
-) -> PyResult<Vec<(PeriodId, AmountOrScalar)>> {
+fn parse_period_values(values: &Bound<'_, PyAny>) -> PyResult<Vec<(PeriodId, AmountOrScalar)>> {
     let mut vec = Vec::new();
 
     if let Ok(dict) = values.downcast::<PyDict>() {
@@ -284,7 +294,9 @@ fn parse_period_values(
     } else if let Ok(list) = values.downcast::<PyList>() {
         // List of tuples format
         for item in list.iter() {
-            if let Ok((period, amount)) = item.extract::<(crate::core::dates::periods::PyPeriodId, PyAmountOrScalar)>() {
+            if let Ok((period, amount)) =
+                item.extract::<(crate::core::dates::periods::PyPeriodId, PyAmountOrScalar)>()
+            {
                 vec.push((period.inner, amount.inner.clone()));
             }
         }
@@ -311,4 +323,3 @@ pub(crate) fn register<'py>(
 
     Ok(vec!["ModelBuilder"])
 }
-

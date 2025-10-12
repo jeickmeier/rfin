@@ -52,4 +52,3 @@ pub(crate) fn py_to_json(value: &Bound<'_, PyAny>) -> pyo3::PyResult<serde_json:
         Ok(serde_json::Value::Null)
     }
 }
-

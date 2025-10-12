@@ -1,7 +1,7 @@
 //! Quote types for calibration in WASM.
 
 use crate::core::common::parse::ParseFromString;
-use crate::core::dates::{FsDate, Frequency};
+use crate::core::dates::{Frequency, FsDate};
 use finstack_valuations::calibration::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote,
 };

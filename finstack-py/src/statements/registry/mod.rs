@@ -57,9 +57,7 @@ impl PyRegistry {
     /// -------
     /// None
     fn load_from_json(&mut self, path: &str) -> PyResult<()> {
-        self.inner
-            .load_from_json(path)
-            .map_err(stmt_to_py)
+        self.inner.load_from_json(path).map_err(stmt_to_py)
     }
 
     #[pyo3(text_signature = "(self, json_str)")]
@@ -75,7 +73,8 @@ impl PyRegistry {
     /// MetricRegistry
     ///     Loaded registry
     fn load_from_json_str(&mut self, json_str: &str) -> PyResult<PyMetricRegistry> {
-        let registry = self.inner
+        let registry = self
+            .inner
             .load_from_json_str(json_str)
             .map_err(stmt_to_py)?;
         Ok(PyMetricRegistry::new(registry))
@@ -160,6 +159,10 @@ pub(crate) fn register<'py>(
     parent.add_submodule(&module)?;
     parent.setattr("registry", &module)?;
 
-    Ok(vec!["Registry", "MetricDefinition", "MetricRegistry", "UnitType"])
+    Ok(vec![
+        "Registry",
+        "MetricDefinition",
+        "MetricRegistry",
+        "UnitType",
+    ])
 }
-

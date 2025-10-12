@@ -129,7 +129,12 @@ impl JsSABRModelParams {
     /// const params = SABRModelParams.withBeta(0.1, 0.3, -0.2, 0.7);
     /// ```
     #[wasm_bindgen(js_name = withBeta)]
-    pub fn with_beta(alpha: f64, nu: f64, rho: f64, beta: f64) -> Result<JsSABRModelParams, JsValue> {
+    pub fn with_beta(
+        alpha: f64,
+        nu: f64,
+        rho: f64,
+        beta: f64,
+    ) -> Result<JsSABRModelParams, JsValue> {
         if !(0.0..=1.0).contains(&beta) {
             return Err(JsValue::from_str("beta must be in [0, 1]"));
         }
@@ -257,7 +262,9 @@ impl JsSABRMarketData {
             ));
         }
         if strikes.is_empty() {
-            return Err(JsValue::from_str("Must provide at least one strike/vol pair"));
+            return Err(JsValue::from_str(
+                "Must provide at least one strike/vol pair",
+            ));
         }
         if forward <= 0.0 {
             return Err(JsValue::from_str("Forward must be positive"));

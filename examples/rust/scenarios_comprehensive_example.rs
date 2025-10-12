@@ -9,6 +9,7 @@
 //! - Statement forecast modifications
 //! - Rate bindings for capital structure responsiveness
 //! - Scenario composition
+//! - Horizon scenarios (time roll-forward with theta/carry analysis)
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{build_periods, Date};
@@ -142,6 +143,132 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   - FX rate shocks");
     println!("   - Statement forecast modifications");
     println!("   - Rate bindings for capital structure sensitivity");
+
+    // ========================================================================
+    // HORIZON SCENARIOS - Time roll-forward with theta/carry analysis
+    // ========================================================================
+    println!("\n\n=== Horizon Scenarios: Time Roll-Forward Analysis ===\n");
+
+    // Reset to fresh market for horizon analysis
+    let mut market_horizon = build_market(base_date)?;
+    let mut model_horizon = build_model()?;
+
+    println!("📅 Horizon Analysis:");
+    println!("  Base date: {}", base_date);
+
+    // Scenario 1: 1-week horizon
+    println!("\n  ⏱ 1-Week Horizon:");
+    let horizon_1w = ScenarioSpec {
+        id: "horizon_1w".into(),
+        name: Some("1-Week Horizon".into()),
+        description: Some("Roll forward 1 week to observe short-term carry".into()),
+        operations: vec![OperationSpec::TimeRollForward {
+            period: "1W".into(),
+            apply_shocks: false, // No market shocks, pure time roll
+        }],
+        priority: 0,
+    };
+
+    let mut ctx_1w = ExecutionContext {
+        market: &mut market_horizon,
+        model: &mut model_horizon,
+        instruments: None,
+        rate_bindings: None,
+        as_of: base_date,
+    };
+
+    let report_1w = engine.apply(&horizon_1w, &mut ctx_1w)?;
+    println!("    New date: {}", ctx_1w.as_of);
+    println!(
+        "    Days elapsed: {}",
+        (ctx_1w.as_of - base_date).whole_days()
+    );
+    println!("    Operations applied: {}", report_1w.operations_applied);
+
+    // Scenario 2: 1-month horizon
+    println!("\n  ⏱ 1-Month Horizon:");
+    ctx_1w.as_of = base_date; // Reset
+    let horizon_1m = ScenarioSpec {
+        id: "horizon_1m".into(),
+        name: Some("1-Month Horizon".into()),
+        description: Some("Roll forward 1 month for medium-term carry".into()),
+        operations: vec![OperationSpec::TimeRollForward {
+            period: "1M".into(),
+            apply_shocks: false,
+        }],
+        priority: 0,
+    };
+
+    let report_1m = engine.apply(&horizon_1m, &mut ctx_1w)?;
+    println!("    New date: {}", ctx_1w.as_of);
+    println!(
+        "    Days elapsed: {}",
+        (ctx_1w.as_of - base_date).whole_days()
+    );
+    println!("    Operations applied: {}", report_1m.operations_applied);
+
+    // Scenario 3: 3-month horizon
+    println!("\n  ⏱ 3-Month Horizon:");
+    ctx_1w.as_of = base_date; // Reset
+    let horizon_3m = ScenarioSpec {
+        id: "horizon_3m".into(),
+        name: Some("3-Month Horizon".into()),
+        description: Some("Roll forward 3 months (quarterly analysis)".into()),
+        operations: vec![OperationSpec::TimeRollForward {
+            period: "3M".into(),
+            apply_shocks: false,
+        }],
+        priority: 0,
+    };
+
+    let report_3m = engine.apply(&horizon_3m, &mut ctx_1w)?;
+    println!("    New date: {}", ctx_1w.as_of);
+    println!(
+        "    Days elapsed: {}",
+        (ctx_1w.as_of - base_date).whole_days()
+    );
+    println!("    Operations applied: {}", report_3m.operations_applied);
+
+    // Scenario 4: Combined horizon + shocks
+    println!("\n  ⏱ Combined: 1-Month Horizon + Rate Shock:");
+    ctx_1w.as_of = base_date; // Reset
+    let horizon_with_shocks = ScenarioSpec {
+        id: "horizon_with_shocks".into(),
+        name: Some("Horizon + Shocks".into()),
+        description: Some("Roll forward 1 month then apply +50bp shock".into()),
+        operations: vec![
+            OperationSpec::TimeRollForward {
+                period: "1M".into(),
+                apply_shocks: true, // Continue to apply shocks after roll
+            },
+            OperationSpec::CurveParallelBp {
+                curve_kind: CurveKind::Discount,
+                curve_id: "USD_SOFR".into(),
+                bp: 50.0,
+            },
+        ],
+        priority: 0,
+    };
+
+    let report_combined = engine.apply(&horizon_with_shocks, &mut ctx_1w)?;
+    println!("    New date: {}", ctx_1w.as_of);
+    println!(
+        "    Operations applied: {}",
+        report_combined.operations_applied
+    );
+    println!("    Demonstrates: Carry/theta from time roll + market shock impact");
+
+    println!("\n✓ Horizon scenarios complete!");
+    println!("  Theta/Carry Calculation:");
+    println!("    - Carry = PV(new_date) - PV(old_date) with unchanged market data");
+    println!("    - Consistent with theta metric definition in valuations");
+    println!("    - If instrument expires before period end, rolls to expiry only");
+    println!("    - Market value change is zero (no market data changes in pure roll)");
+    println!("\n  Supported Periods:");
+    println!("    - 1D, 2D, 7D (days)");
+    println!("    - 1W, 2W, 4W (weeks)");
+    println!("    - 1M, 2M, 3M, 6M (months)");
+    println!("    - 1Y, 2Y, 5Y (years)");
 
     Ok(())
 }

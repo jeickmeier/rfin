@@ -371,11 +371,11 @@ impl PyBond {
         let maturity_date = py_to_date(&maturity)?;
         let disc = extract_curve_id(&discount_curve)?;
         let fwd = extract_curve_id(&forward_curve)?;
-        
-        use finstack_core::dates::{Frequency, DayCount, BusinessDayConvention, StubKind};
+
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
         use finstack_valuations::instruments::bond::BondFloatSpec;
         use finstack_valuations::instruments::common::traits::Attributes;
-        
+
         Bond::builder()
             .id(id)
             .notional(amt)

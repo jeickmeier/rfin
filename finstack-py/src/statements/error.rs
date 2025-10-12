@@ -7,4 +7,3 @@ use pyo3::PyErr;
 pub(crate) fn stmt_to_py(err: finstack_statements::Error) -> PyErr {
     PyRuntimeError::new_err(err.to_string())
 }
-

@@ -78,8 +78,15 @@ pub fn apply_time_roll_forward(
 
 /// Calculate P&L breakdown for instruments.
 ///
-/// Theta (carry) is calculated as the PV change from rolling the date forward
-/// with no market data changes. This is consistent with the theta metric definition.
+/// Theta (carry) is calculated as:
+///   Carry = PV(end_date) - PV(start_date) + Sum(Cashflows from start to end)
+///
+/// This accounts for:
+/// - Pull-to-par effects (PV change)
+/// - Coupon/interest receipts during the period
+/// - Principal payments during the period
+///
+/// This is consistent with the theta metric definition in valuations.
 #[allow(clippy::type_complexity)]
 fn calculate_instrument_pnl(
     instruments: &[Box<dyn Instrument>],
@@ -96,10 +103,8 @@ fn calculate_instrument_pnl(
     for instrument in instruments {
         let inst_id = instrument.id().to_string();
 
-        // Calculate carry as PV change with no market changes (theta definition)
-        // This is exactly what the theta metric measures, but we calculate it directly
-        // to avoid needing to pass pricing_overrides through price_with_metrics
-        let carry = {
+        // Calculate PV change
+        let pv_change = {
             let pv_old = instrument.value(market, old_date).ok();
             let pv_new = instrument.value(market, new_date).ok();
 
@@ -109,6 +114,13 @@ fn calculate_instrument_pnl(
                 0.0
             }
         };
+
+        // Collect cashflows during the period using downcasting
+        let cashflows_during_period =
+            collect_instrument_cashflows(instrument.as_ref(), market, old_date, new_date);
+
+        // Carry = PV change + cashflows received
+        let carry = pv_change + cashflows_during_period;
 
         // Market value change is zero in time roll (market data unchanged)
         // All P&L comes from carry/theta
@@ -126,4 +138,67 @@ fn calculate_instrument_pnl(
         total_carry,
         total_mv_change,
     ))
+}
+
+/// Collect cashflows for an instrument during a period.
+///
+/// Uses downcasting to handle instruments that implement CashflowProvider.
+fn collect_instrument_cashflows(
+    instrument: &dyn Instrument,
+    market: &finstack_core::market_data::MarketContext,
+    start_date: finstack_core::dates::Date,
+    end_date: finstack_core::dates::Date,
+) -> f64 {
+    use finstack_valuations::cashflow::traits::CashflowProvider;
+    use finstack_valuations::instruments::*;
+
+    let instrument_any = instrument.as_any();
+
+    // Try downcasting to instruments that implement CashflowProvider
+    let cashflows = if let Some(bond) = instrument_any.downcast_ref::<Bond>() {
+        bond.build_schedule(market, start_date).ok()
+    } else if let Some(irs) = instrument_any.downcast_ref::<irs::InterestRateSwap>() {
+        irs.build_schedule(market, start_date).ok()
+    } else if let Some(deposit) = instrument_any.downcast_ref::<deposit::Deposit>() {
+        deposit.build_schedule(market, start_date).ok()
+    } else if let Some(fra) = instrument_any.downcast_ref::<fra::ForwardRateAgreement>() {
+        fra.build_schedule(market, start_date).ok()
+    } else if let Some(ir_fut) = instrument_any.downcast_ref::<ir_future::InterestRateFuture>() {
+        ir_fut.build_schedule(market, start_date).ok()
+    } else if let Some(equity) = instrument_any.downcast_ref::<equity::Equity>() {
+        equity.build_schedule(market, start_date).ok()
+    } else if let Some(fx_spot) = instrument_any.downcast_ref::<fx_spot::FxSpot>() {
+        fx_spot.build_schedule(market, start_date).ok()
+    } else if let Some(inf_bond) =
+        instrument_any.downcast_ref::<inflation_linked_bond::InflationLinkedBond>()
+    {
+        inf_bond.build_schedule(market, start_date).ok()
+    } else if let Some(repo) = instrument_any.downcast_ref::<repo::Repo>() {
+        repo.build_schedule(market, start_date).ok()
+    } else if let Some(sc) = instrument_any.downcast_ref::<structured_credit::StructuredCredit>() {
+        sc.build_schedule(market, start_date).ok()
+    } else if let Some(eq_trs) = instrument_any.downcast_ref::<trs::EquityTotalReturnSwap>() {
+        eq_trs.build_schedule(market, start_date).ok()
+    } else if let Some(fi_trs) = instrument_any.downcast_ref::<trs::FIIndexTotalReturnSwap>() {
+        fi_trs.build_schedule(market, start_date).ok()
+    } else if let Some(pmf) =
+        instrument_any.downcast_ref::<private_markets_fund::PrivateMarketsFund>()
+    {
+        pmf.build_schedule(market, start_date).ok()
+    } else if let Some(var_swap) = instrument_any.downcast_ref::<variance_swap::VarianceSwap>() {
+        var_swap.build_schedule(market, start_date).ok()
+    } else {
+        None
+    };
+
+    // Sum cashflows in (start_date, end_date]
+    if let Some(flows) = cashflows {
+        flows
+            .iter()
+            .filter(|(date, _)| *date > start_date && *date <= end_date)
+            .map(|(_, money)| money.amount())
+            .sum()
+    } else {
+        0.0
+    }
 }

@@ -54,9 +54,10 @@ All instrument metric modules now register theta:
 ### 6. Scenarios Integration
 **File**: `finstack/scenarios/src/adapters/time_roll.rs`
 
-Updated for consistency:
+Updated for full consistency with theta metrics:
 - Removed incorrect 1D theta scaling by days
-- Now calculates carry as `PV(new_date) - PV(old_date)` directly
+- Calculates carry as: `PV(end) - PV(start) + Sum(Cashflows)`
+- Includes cashflow collection for 14 instrument types implementing `CashflowProvider`
 - Market value change is zero (no market data changes)
 - Fully consistent with theta metric definition
 
@@ -95,11 +96,24 @@ cargo test --package finstack-scenarios
 
 ### Theta Calculation Methodology
 
-Theta measures the value impact of rolling the valuation date forward by a specified period with no market data changes:
+Theta measures the total carry from rolling the valuation date forward with no market data changes:
 
-1. **Base PV**: `instrument.value(market, as_of)`
-2. **Rolled PV**: `instrument.value(market, as_of + period)`
-3. **Theta**: `Rolled PV - Base PV`
+```
+Theta = PV(end_date) - PV(start_date) + Sum(Cashflows from start to end)
+```
+
+This accounts for:
+1. **PV Change**: Pull-to-par effects, time decay
+2. **Cashflows Received**: Coupons, interest payments, principal payments during the period
+3. **No Market Changes**: All curves, surfaces, and FX rates remain fixed
+
+For instruments with cashflows (bonds, swaps, deposits, etc.):
+- Coupon payments during the horizon add to carry
+- Principal payments during the horizon add to carry  
+- The net effect is the total return from holding the position over time
+
+For instruments without interim cashflows (options, FX spot, equity):
+- Theta = PV change only
 
 ### Period Support
 
@@ -119,11 +133,32 @@ Example: For a bond expiring in 2 days with "1W" theta period, theta calculates 
 
 ### Consistency Guarantees
 
-1. **Valuations theta metric** = PV change from date roll with no market changes
-2. **Scenarios time roll carry** = PV change from date roll with no market changes
-3. Both use identical calculation: `value(market, new_date) - value(market, old_date)`
+1. **Valuations theta metric** = Total carry including PV change + cashflows
+2. **Scenarios time roll carry** = Total carry including PV change + cashflows
+3. Both use identical calculation: `PV(end) - PV(start) + Sum(Cashflows)`
 4. Both respect instrument expiry dates
 5. Both use calendar days for period calculations
+6. Both collect cashflows for the same 14 instrument types
+
+### Instruments with Cashflow Support
+
+The following 14 instruments have cashflows collected during theta calculation:
+- Bond
+- InterestRateSwap
+- Deposit
+- ForwardRateAgreement
+- InterestRateFuture
+- Equity (dividends)
+- FxSpot
+- InflationLinkedBond
+- Repo
+- StructuredCredit
+- EquityTotalReturnSwap
+- FIIndexTotalReturnSwap
+- PrivateMarketsFund
+- VarianceSwap
+
+Instruments without interim cashflows (options, basis swaps, CDS, etc.) use PV change only.
 
 ## Files Modified
 

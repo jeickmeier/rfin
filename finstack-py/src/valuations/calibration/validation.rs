@@ -97,7 +97,7 @@ impl PyValidationError {
         values: Option<Bound<'_, PyDict>>,
     ) -> PyResult<Self> {
         let mut error = ValidationError::new(constraint, location, details);
-        
+
         if let Some(dict) = values {
             for (key, value) in dict.iter() {
                 let key_str = key.extract::<String>()?;
@@ -105,7 +105,7 @@ impl PyValidationError {
                 error = error.with_value(key_str, val_f64);
             }
         }
-        
+
         Ok(Self::new(error))
     }
 
@@ -231,14 +231,14 @@ impl PyValidationConfig {
         tolerance: Option<f64>,
     ) -> PyResult<Self> {
         let mut config = ValidationConfig::default();
-        
+
         if let Some(val) = check_forward_positivity {
             config.check_forward_positivity = val;
         }
         if let Some(val) = min_forward_rate {
             if val > 0.0 {
                 return Err(PyValueError::new_err(
-                    "min_forward_rate should be non-positive or slightly negative"
+                    "min_forward_rate should be non-positive or slightly negative",
                 ));
             }
             config.min_forward_rate = val;
@@ -261,7 +261,7 @@ impl PyValidationConfig {
             }
             config.tolerance = val;
         }
-        
+
         Ok(Self::new(config))
     }
 
@@ -346,7 +346,7 @@ pub(crate) fn register<'py>(
     module.add_function(pyo3::wrap_pyfunction!(validate_hazard_curve, module)?)?;
     module.add_function(pyo3::wrap_pyfunction!(validate_inflation_curve, module)?)?;
     module.add_function(pyo3::wrap_pyfunction!(validate_vol_surface, module)?)?;
-    
+
     module.add_class::<PyValidationError>()?;
     module.add_class::<PyValidationConfig>()?;
 

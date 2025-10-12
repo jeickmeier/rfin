@@ -75,12 +75,10 @@ fn test_golden_model_serialization_stability() {
 
     // Verify node structure is preserved
     for (node_id, node_spec) in &spec.nodes {
-        let node_spec2 = spec2.nodes.get(node_id).unwrap_or_else(|| {
-            panic!(
-                "Node '{}' missing after serialization roundtrip",
-                node_id
-            )
-        });
+        let node_spec2 = spec2
+            .nodes
+            .get(node_id)
+            .unwrap_or_else(|| panic!("Node '{}' missing after serialization roundtrip", node_id));
         assert_eq!(node_spec.node_type, node_spec2.node_type);
         assert_eq!(node_spec.formula_text, node_spec2.formula_text);
     }

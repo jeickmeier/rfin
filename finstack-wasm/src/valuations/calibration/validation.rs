@@ -8,7 +8,9 @@ use crate::core::market_data::term_structures::{
     JsDiscountCurve, JsForwardCurve, JsHazardCurve, JsInflationCurve,
 };
 use crate::core::market_data::VolSurface as JsVolSurface;
-use finstack_valuations::calibration::{CurveValidator, SurfaceValidator, ValidationConfig, ValidationError};
+use finstack_valuations::calibration::{
+    CurveValidator, SurfaceValidator, ValidationConfig, ValidationError,
+};
 use js_sys::{Array, Map};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;

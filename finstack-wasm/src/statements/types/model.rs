@@ -35,10 +35,9 @@ impl JsDebtInstrumentSpec {
     /// JavaScript object
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner)
-            .map_err(|e| {
-                JsValue::from_str(&format!("Failed to serialize DebtInstrumentSpec: {}", e))
-            })
+        serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
+            JsValue::from_str(&format!("Failed to serialize DebtInstrumentSpec: {}", e))
+        })
     }
 }
 
@@ -71,7 +70,10 @@ impl JsCapitalStructureSpec {
         serde_wasm_bindgen::from_value(value)
             .map(|inner| JsCapitalStructureSpec { inner })
             .map_err(|e| {
-                JsValue::from_str(&format!("Failed to deserialize CapitalStructureSpec: {}", e))
+                JsValue::from_str(&format!(
+                    "Failed to deserialize CapitalStructureSpec: {}",
+                    e
+                ))
             })
     }
 
@@ -81,10 +83,9 @@ impl JsCapitalStructureSpec {
     /// JavaScript object
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner)
-            .map_err(|e| {
-                JsValue::from_str(&format!("Failed to serialize CapitalStructureSpec: {}", e))
-            })
+        serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
+            JsValue::from_str(&format!("Failed to serialize CapitalStructureSpec: {}", e))
+        })
     }
 }
 
@@ -128,10 +129,9 @@ impl JsFinancialModelSpec {
     /// JavaScript object
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner)
-            .map_err(|e| {
-                JsValue::from_str(&format!("Failed to serialize FinancialModelSpec: {}", e))
-            })
+        serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
+            JsValue::from_str(&format!("Failed to serialize FinancialModelSpec: {}", e))
+        })
     }
 
     /// Get model identifier.
@@ -164,4 +164,3 @@ impl JsFinancialModelSpec {
         Self { inner }
     }
 }
-

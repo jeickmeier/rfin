@@ -122,7 +122,12 @@ impl PyInterestRateSwap {
         let end_date = py_to_date(&end)?;
         use finstack_valuations::instruments::common::parameters::PayReceive;
         Ok(Self::new(InterestRateSwap::new(
-            id, amt, fixed_rate, start_date, end_date, PayReceive::PayFixed,
+            id,
+            amt,
+            fixed_rate,
+            start_date,
+            end_date,
+            PayReceive::PayFixed,
         )))
     }
 
@@ -143,7 +148,12 @@ impl PyInterestRateSwap {
         let end_date = py_to_date(&end)?;
         use finstack_valuations::instruments::common::parameters::PayReceive;
         Ok(Self::new(InterestRateSwap::new(
-            id, amt, fixed_rate, start_date, end_date, PayReceive::ReceiveFixed,
+            id,
+            amt,
+            fixed_rate,
+            start_date,
+            end_date,
+            PayReceive::ReceiveFixed,
         )))
     }
 

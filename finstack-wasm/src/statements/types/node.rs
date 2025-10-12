@@ -131,4 +131,3 @@ impl JsNodeSpec {
         Self { inner }
     }
 }
-

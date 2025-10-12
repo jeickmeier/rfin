@@ -164,13 +164,15 @@ These enable safe mutation of node values for scenario shocks without exposing i
 1. **scenarios_lite_example.rs**
    - Demonstrates basic usage
    - Composite scenario (curves + equity + vol)
-   - ~150 lines with comprehensive output
+   - **Horizon scenarios**: 1M and 3M time roll-forward with theta/carry
+   - ~250 lines with comprehensive output
 
 2. **scenarios_comprehensive_example.rs**
    - Demonstrates all shock types
    - All curve types, vol, base corr, FX, statements
    - Rate bindings for capital structure
-   - ~300 lines with detailed state printing
+   - **Horizon scenarios**: 1W, 1M, 3M roll-forward + combined horizon+shocks
+   - ~420 lines with detailed state printing and horizon analysis
 
 ### Design Principles Applied
 
@@ -188,7 +190,11 @@ These enable safe mutation of node values for scenario shocks without exposing i
    - Interpolate mode: Uses key-rate bumps for localized shocks
 2. **Bucket Filtering**: Vol surfaces filter by tenor/strike; base-corr by detachment
 3. **Instrument Type Shocks**: Type-safe shocks using `InstrumentType` enum from valuations
-4. **Time Roll-Forward**: Date advancement with carry/theta calculations via metrics registry
+4. **Time Roll-Forward**: Date advancement with carry/theta calculations
+   - Consistent with theta metric implementation in valuations
+   - Calculates carry as `PV(new_date) - PV(old_date)` with no market changes
+   - Supports all periods: 1D, 1W, 1M, 3M, 6M, 1Y, etc.
+   - Market value change is zero (pure time roll, no market shocks)
 5. **Statement Shocks**: Full implementation with percent and assign operations
 
 ### Remaining Limitations
@@ -247,10 +253,11 @@ These enable safe mutation of node values for scenario shocks without exposing i
 - **Lines of Code**: ~1,500 (scenarios crate)
 - **Test Lines**: ~700
 - **Documentation**: ~300 lines of docstrings
-- **Examples**: 2 comprehensive examples
+- **Examples**: 2 comprehensive examples with horizon scenarios
+- **Example Lines**: ~250 (lite) + ~420 (comprehensive) = ~670 lines
 - **Test Coverage**: All public APIs covered
 - **Build Time**: <1s incremental
-- **Dependencies Added**: 1 (finstack-valuations for InstrumentType)
+- **Dependencies Added**: 1 (finstack-valuations for InstrumentType and theta metrics)
 
 ## Conclusion
 

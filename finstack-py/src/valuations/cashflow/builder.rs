@@ -550,7 +550,7 @@ impl PyFeeBase {
 /// Examples:
 ///     >>> from finstack.core import Money
 ///     >>> import datetime
-///     >>> 
+///     >>>
 ///     >>> # One-time fixed fee
 ///     >>> fee = FeeSpec.fixed(
 ///     ...     datetime.date(2025, 6, 15),
@@ -592,13 +592,17 @@ impl PyFeeSpec {
     ///
     /// Returns:
     ///     FeeSpec: Fixed fee specification
-    fn fixed(_cls: &Bound<'_, PyType>, date: Bound<'_, PyAny>, amount: Bound<'_, PyAny>) -> PyResult<Self> {
+    fn fixed(
+        _cls: &Bound<'_, PyType>,
+        date: Bound<'_, PyAny>,
+        amount: Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
         use crate::core::money::extract_money;
         use crate::core::utils::py_to_date;
-        
+
         let payment_date = py_to_date(&date)?;
         let fee_amount = extract_money(&amount)?;
-        
+
         Ok(Self::new(
             finstack_valuations::cashflow::builder::FeeSpec::Fixed {
                 date: payment_date,
@@ -632,14 +636,14 @@ impl PyFeeSpec {
         stub: Option<&str>,
     ) -> PyResult<Self> {
         use finstack_core::dates::StubKind;
-        
+
         let stub_kind = if let Some(s) = stub {
             s.parse::<StubKind>()
                 .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))?
         } else {
             StubKind::None
         };
-        
+
         Ok(Self::new(
             finstack_valuations::cashflow::builder::FeeSpec::PeriodicBps {
                 base: base.inner.clone(),

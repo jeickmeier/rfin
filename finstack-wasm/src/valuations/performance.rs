@@ -49,17 +49,17 @@ pub fn xirr_wasm(cash_flows: Array, guess: Option<f64>) -> Result<f64, JsValue> 
 
         // Extract date
         let date_value = pair.get(0);
-        
+
         // Parse as native JS Date
         let js_date = date_value
             .dyn_ref::<JsDate>()
             .ok_or_else(|| JsValue::from_str("First element must be a JavaScript Date object"))?;
-        
+
         // Extract year, month, day from JavaScript Date
         let year = js_date.get_full_year() as i32;
         let month = (js_date.get_month() + 1) as u8; // JS months are 0-based
         let day = js_date.get_date() as u8;
-        
+
         // Convert to our core Date type
         let month_enum = time::Month::try_from(month)
             .map_err(|_| JsValue::from_str("Invalid month from JavaScript Date"))?;
@@ -118,17 +118,17 @@ pub fn calculate_npv_wasm(cash_flows: Array, discount_rate: f64) -> Result<f64, 
         }
 
         let date_value = pair.get(0);
-        
+
         // Parse as native JS Date
         let js_date = date_value
             .dyn_ref::<JsDate>()
             .ok_or_else(|| JsValue::from_str("First element must be a JavaScript Date object"))?;
-        
+
         // Extract year, month, day from JavaScript Date
         let year = js_date.get_full_year() as i32;
         let month = (js_date.get_month() + 1) as u8; // JS months are 0-based
         let day = js_date.get_date() as u8;
-        
+
         // Convert to our core Date type
         let month_enum = time::Month::try_from(month)
             .map_err(|_| JsValue::from_str("Invalid month from JavaScript Date"))?;

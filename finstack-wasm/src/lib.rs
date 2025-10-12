@@ -29,8 +29,8 @@ pub use core::dates::next_equity_option_expiry as nextEquityOptionExpiry;
 pub use core::dates::next_imm as nextImm;
 pub use core::dates::next_imm_option_expiry as nextImmOptionExpiry;
 pub use core::dates::{
-    adjust, BusinessDayConvention, Calendar, FsDate, DayCount, DayCountContext, FiscalConfig,
-    Frequency, Period, PeriodId, PeriodPlan, Schedule, ScheduleBuilder, StubKind,
+    adjust, BusinessDayConvention, Calendar, DayCount, DayCountContext, FiscalConfig, Frequency,
+    FsDate, Period, PeriodId, PeriodPlan, Schedule, ScheduleBuilder, StubKind,
 };
 pub use core::dates::{
     imm_option_expiry as immOptionExpiry, third_friday as thirdFriday,
@@ -65,11 +65,9 @@ pub use valuations::calibration::{
 // Validation functions
 pub use valuations::calibration::validation::{
     validate_discount_curve as validateDiscountCurve,
-    validate_forward_curve as validateForwardCurve,
-    validate_hazard_curve as validateHazardCurve,
+    validate_forward_curve as validateForwardCurve, validate_hazard_curve as validateHazardCurve,
     validate_inflation_curve as validateInflationCurve,
-    validate_market_context as validateMarketContext,
-    validate_vol_surface as validateVolSurface,
+    validate_market_context as validateMarketContext, validate_vol_surface as validateVolSurface,
 };
 pub use valuations::cashflow::{
     CashFlowSchedule, CashflowBuilder, CouponType, FixedCouponSpec, FloatCouponParams,
@@ -77,15 +75,15 @@ pub use valuations::cashflow::{
 };
 pub use valuations::metrics::{JsMetricId as MetricId, JsMetricRegistry as MetricRegistry};
 // Performance functions
-pub use valuations::performance::{
-    calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,
-};
 pub use valuations::instruments::{
     BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, ConvertibleBond, CreditDefaultSwap,
     Deposit, Equity, EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap,
     ForwardRateAgreement, FxOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap,
     InterestRateFuture, InterestRateOption, InterestRateSwap, PrivateMarketsFund, Repo,
     StructuredCredit, Swaption, VarianceSwap,
+};
+pub use valuations::performance::{
+    calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,
 };
 pub use valuations::pricer::{
     create_standard_registry_js as createStandardRegistry, JsPricerRegistry as PricerRegistry,
@@ -95,16 +93,16 @@ pub use valuations::results::JsValuationResult as ValuationResult;
 // Statements exports
 pub use statements::{
     JsAmountOrScalar as AmountOrScalar, JsCapitalStructureSpec as CapitalStructureSpec,
-    JsCorkscrewExtension as CorkscrewExtension, JsCreditScorecardExtension as CreditScorecardExtension,
+    JsCorkscrewExtension as CorkscrewExtension,
+    JsCreditScorecardExtension as CreditScorecardExtension,
     JsDebtInstrumentSpec as DebtInstrumentSpec, JsEvaluator as Evaluator,
     JsExtensionMetadata as ExtensionMetadata, JsExtensionRegistry as ExtensionRegistry,
     JsExtensionResult as ExtensionResult, JsExtensionStatus as ExtensionStatus,
     JsFinancialModelSpec as FinancialModelSpec, JsForecastMethod as ForecastMethod,
     JsForecastSpec as ForecastSpec, JsMetricDefinition as MetricDefinition,
     JsMetricRegistry as StatementsMetricRegistry, JsModelBuilder as ModelBuilder,
-    JsNodeSpec as NodeSpec, JsNodeType as NodeType, JsRegistry as Registry,
-    JsResults as Results, JsResultsMeta as ResultsMeta, JsSeasonalMode as SeasonalMode,
-    JsUnitType as UnitType,
+    JsNodeSpec as NodeSpec, JsNodeType as NodeType, JsRegistry as Registry, JsResults as Results,
+    JsResultsMeta as ResultsMeta, JsSeasonalMode as SeasonalMode, JsUnitType as UnitType,
 };
 
 #[cfg(feature = "console_error_panic_hook")]

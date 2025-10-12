@@ -19,12 +19,12 @@ use wasm_bindgen::prelude::*;
 /// ```typescript
 /// // Create standard registry with all built-in metrics
 /// const registry = MetricRegistry.standard();
-/// 
+///
 /// // Check if metric is available
 /// if (registry.hasMetric("dv01")) {
 ///   console.log("DV01 is available");
 /// }
-/// 
+///
 /// // List all available metrics
 /// const metrics = registry.availableMetrics();
 /// console.log(`${metrics.length} metrics available`);

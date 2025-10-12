@@ -15,7 +15,11 @@ use pyo3::Bound;
 pub use builtins::{PyCorkscrewExtension, PyCreditScorecardExtension};
 
 /// Extension metadata.
-#[pyclass(module = "finstack.statements.extensions", name = "ExtensionMetadata", frozen)]
+#[pyclass(
+    module = "finstack.statements.extensions",
+    name = "ExtensionMetadata",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyExtensionMetadata {
     pub(crate) inner: ExtensionMetadata,
@@ -83,12 +87,19 @@ impl PyExtensionMetadata {
     }
 
     fn __repr__(&self) -> String {
-        format!("ExtensionMetadata(name='{}', version='{}')", self.inner.name, self.inner.version)
+        format!(
+            "ExtensionMetadata(name='{}', version='{}')",
+            self.inner.name, self.inner.version
+        )
     }
 }
 
 /// Extension execution status.
-#[pyclass(module = "finstack.statements.extensions", name = "ExtensionStatus", frozen)]
+#[pyclass(
+    module = "finstack.statements.extensions",
+    name = "ExtensionStatus",
+    frozen
+)]
 #[derive(Clone, Copy, Debug)]
 pub struct PyExtensionStatus {
     pub(crate) inner: ExtensionStatus,
@@ -204,20 +215,28 @@ impl PyExtensionResult {
     fn data(&self, py: Python<'_>) -> PyObject {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.data {
-            dict.set_item(key, crate::statements::utils::json_to_py(py, value)).ok();
+            dict.set_item(key, crate::statements::utils::json_to_py(py, value))
+                .ok();
         }
         dict.into()
     }
 
     fn __repr__(&self) -> String {
-        format!("ExtensionResult(status={:?}, message='{}')", self.inner.status, self.inner.message)
+        format!(
+            "ExtensionResult(status={:?}, message='{}')",
+            self.inner.status, self.inner.message
+        )
     }
 }
 
 /// Extension context.
 ///
 /// Context passed to extensions during execution.
-#[pyclass(module = "finstack.statements.extensions", name = "ExtensionContext", frozen)]
+#[pyclass(
+    module = "finstack.statements.extensions",
+    name = "ExtensionContext",
+    frozen
+)]
 pub struct PyExtensionContext {
     model: PyFinancialModelSpec,
     results: PyResults,
@@ -245,7 +264,11 @@ impl PyExtensionContext {
 /// Extension registry.
 ///
 /// Manages and executes extensions for financial models.
-#[pyclass(module = "finstack.statements.extensions", name = "ExtensionRegistry", unsendable)]
+#[pyclass(
+    module = "finstack.statements.extensions",
+    name = "ExtensionRegistry",
+    unsendable
+)]
 pub struct PyExtensionRegistry {
     inner: ExtensionRegistry,
 }
@@ -330,4 +353,3 @@ pub(crate) fn register<'py>(
         "CreditScorecardExtension",
     ])
 }
-

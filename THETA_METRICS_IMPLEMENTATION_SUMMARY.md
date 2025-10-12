@@ -11,6 +11,7 @@ Successfully implemented theta (time decay) metrics across all 26 instruments in
 3. **Expiry Handling**: Automatically caps roll-forward date at instrument expiry
 4. **Generic Implementation**: Single `generic_theta_calculator` reduces code duplication
 5. **Unchanged Market Data**: Only rolls the `as_of` date; all curves and surfaces remain fixed
+6. **Cashflow Inclusion**: Collects and includes coupons, interest, and principal payments during the period
 
 ## Implementation Details
 
@@ -31,7 +32,8 @@ pub fn with_theta_period(mut self, period: impl Into<String>) -> Self
 Provides:
 - `parse_period_days(period: &str) -> Result<i64>` - Parses period strings to calendar days
 - `calculate_theta_date(base_date, period_str, expiry_date) -> Result<Date>` - Calculates rolled date with expiry capping
-- `generic_theta_calculator<I: Instrument>(context) -> Result<f64>` - Generic theta implementation
+- `generic_theta_calculator<I: Instrument>(context) -> Result<f64>` - Generic theta implementation with cashflow collection
+- `collect_cashflows_in_period<I>(instrument, curves, start, end) -> Result<f64>` - Collects cashflows during period
 - `get_instrument_expiry(instrument) -> Option<Date>` - Extracts expiry dates from instruments
 
 Period Parsing:
@@ -39,6 +41,18 @@ Period Parsing:
 - "1W", "2W" → weeks (7 days each)
 - "1M", "2M", "3M" → months (30 days each)
 - "1Y", "2Y" → years (365 days each)
+
+Theta Formula:
+```
+Theta = PV(end_date) - PV(start_date) + Sum(Cashflows from start to end)
+```
+
+This correctly accounts for:
+- **Bonds**: Coupon payments + pull-to-par
+- **Swaps**: Net fixed/float cashflows
+- **Deposits**: Interest accrual + principal return
+- **Options**: Pure time decay (no interim cashflows)
+- **Repos**: Financing cashflows
 
 ### Step 3: Updated Existing Theta Implementations
 

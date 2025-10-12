@@ -236,7 +236,11 @@ impl PyResults {
 ///
 /// The evaluator compiles formulas, resolves dependencies, and evaluates
 /// nodes period-by-period according to precedence rules.
-#[pyclass(module = "finstack.statements.evaluator", name = "Evaluator", unsendable)]
+#[pyclass(
+    module = "finstack.statements.evaluator",
+    name = "Evaluator",
+    unsendable
+)]
 pub struct PyEvaluator {
     inner: Evaluator,
 }
@@ -330,4 +334,3 @@ pub(crate) fn register<'py>(
 
     Ok(vec!["ResultsMeta", "Results", "Evaluator"])
 }
-

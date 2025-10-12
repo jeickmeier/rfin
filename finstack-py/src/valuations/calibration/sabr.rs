@@ -341,9 +341,7 @@ impl PySABRCalibrationDerivatives {
     /// Returns:
     ///     SABRCalibrationDerivatives: Provider for analytical derivatives
     fn ctor(market_data: &PySABRMarketData) -> Self {
-        Self::new(SABRCalibrationDerivatives::new(
-            market_data.inner.clone(),
-        ))
+        Self::new(SABRCalibrationDerivatives::new(market_data.inner.clone()))
     }
 
     fn __repr__(&self) -> String {

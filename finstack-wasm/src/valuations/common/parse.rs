@@ -83,8 +83,12 @@ impl FromJsLabel for CdsPayReceive {
     fn from_label(label: &str) -> Result<Self, JsValue> {
         let normalized = normalize_label(label);
         match normalized.as_str() {
-            "pay_protection" | "payprotection" | "pay_fixed" | "payfixed" => Ok(CdsPayReceive::PayFixed),
-            "receive_protection" | "receiveprotection" | "receive_fixed" | "receivefixed" => Ok(CdsPayReceive::ReceiveFixed),
+            "pay_protection" | "payprotection" | "pay_fixed" | "payfixed" => {
+                Ok(CdsPayReceive::PayFixed)
+            }
+            "receive_protection" | "receiveprotection" | "receive_fixed" | "receivefixed" => {
+                Ok(CdsPayReceive::ReceiveFixed)
+            }
             _ => normalized
                 .parse()
                 .map_err(|e: String| js_error(format!("Invalid CDS pay/receive side: {}", e))),

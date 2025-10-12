@@ -68,9 +68,7 @@ impl JsModelBuilder {
                 self.state = BuilderState::Ready(ready);
                 Ok(self)
             }
-            BuilderState::Ready(_) => {
-                Err(JsValue::from_str("periods() already called"))
-            }
+            BuilderState::Ready(_) => Err(JsValue::from_str("periods() already called")),
         }
     }
 
@@ -104,9 +102,7 @@ impl JsModelBuilder {
                 self.state = BuilderState::Ready(builder.value(node_id, &values_vec));
                 Ok(self)
             }
-            BuilderState::NeedPeriods(_) => {
-                Err(JsValue::from_str("Must call periods() first"))
-            }
+            BuilderState::NeedPeriods(_) => Err(JsValue::from_str("Must call periods() first")),
         }
     }
 
@@ -129,15 +125,13 @@ impl JsModelBuilder {
     pub fn compute(mut self, node_id: String, formula: String) -> Result<JsModelBuilder, JsValue> {
         match self.state {
             BuilderState::Ready(builder) => {
-                let new_builder = builder
-                    .compute(node_id, formula)
-                    .map_err(|e| JsValue::from_str(&format!("Failed to add compute node: {}", e)))?;
+                let new_builder = builder.compute(node_id, formula).map_err(|e| {
+                    JsValue::from_str(&format!("Failed to add compute node: {}", e))
+                })?;
                 self.state = BuilderState::Ready(new_builder);
                 Ok(self)
             }
-            BuilderState::NeedPeriods(_) => {
-                Err(JsValue::from_str("Must call periods() first"))
-            }
+            BuilderState::NeedPeriods(_) => Err(JsValue::from_str("Must call periods() first")),
         }
     }
 
@@ -164,12 +158,11 @@ impl JsModelBuilder {
     ) -> Result<JsModelBuilder, JsValue> {
         match self.state {
             BuilderState::Ready(builder) => {
-                self.state = BuilderState::Ready(builder.forecast(node_id, forecast_spec.inner.clone()));
+                self.state =
+                    BuilderState::Ready(builder.forecast(node_id, forecast_spec.inner.clone()));
                 Ok(self)
             }
-            BuilderState::NeedPeriods(_) => {
-                Err(JsValue::from_str("Must call periods() first"))
-            }
+            BuilderState::NeedPeriods(_) => Err(JsValue::from_str("Must call periods() first")),
         }
     }
 
@@ -191,9 +184,7 @@ impl JsModelBuilder {
                 self.state = BuilderState::Ready(builder.with_meta(key, json_value));
                 Ok(self)
             }
-            BuilderState::NeedPeriods(_) => {
-                Err(JsValue::from_str("Must call periods() first"))
-            }
+            BuilderState::NeedPeriods(_) => Err(JsValue::from_str("Must call periods() first")),
         }
     }
 
@@ -210,9 +201,7 @@ impl JsModelBuilder {
                     .map_err(|e| JsValue::from_str(&format!("Failed to build model: {}", e)))?;
                 Ok(JsFinancialModelSpec::new(spec))
             }
-            BuilderState::NeedPeriods(_) => {
-                Err(JsValue::from_str("Must call periods() first"))
-            }
+            BuilderState::NeedPeriods(_) => Err(JsValue::from_str("Must call periods() first")),
         }
     }
 }
@@ -238,15 +227,20 @@ fn parse_period_values(values: JsValue) -> Result<Vec<(PeriodId, AmountOrScalar)
         let period_str = key
             .as_string()
             .ok_or_else(|| JsValue::from_str("Period ID must be a string"))?;
-        
-        let period_id = PeriodId::from_str(&period_str)
-            .map_err(|e| JsValue::from_str(&format!("Invalid period ID '{}': {}", period_str, e)))?;
+
+        let period_id = PeriodId::from_str(&period_str).map_err(|e| {
+            JsValue::from_str(&format!("Invalid period ID '{}': {}", period_str, e))
+        })?;
 
         // Convert JsValue to AmountOrScalar
         let amount_or_scalar = if value_js.is_object() && !js_sys::Array::is_array(&value_js) {
             // Try to deserialize as AmountOrScalar object
-            let aos: AmountOrScalar = serde_wasm_bindgen::from_value(value_js)
-                .map_err(|e| JsValue::from_str(&format!("Failed to parse value for period {}: {}", period_str, e)))?;
+            let aos: AmountOrScalar = serde_wasm_bindgen::from_value(value_js).map_err(|e| {
+                JsValue::from_str(&format!(
+                    "Failed to parse value for period {}: {}",
+                    period_str, e
+                ))
+            })?;
             aos
         } else if let Some(num) = value_js.as_f64() {
             // Plain number - treat as scalar
@@ -263,4 +257,3 @@ fn parse_period_values(values: JsValue) -> Result<Vec<(PeriodId, AmountOrScalar)
 
     Ok(result)
 }
-

@@ -114,12 +114,7 @@ impl JsResults {
     /// # Returns
     /// Value or default
     #[wasm_bindgen(js_name = getOr)]
-    pub fn get_or(
-        &self,
-        node_id: &str,
-        period_id: &str,
-        default: f64,
-    ) -> Result<f64, JsValue> {
+    pub fn get_or(&self, node_id: &str, period_id: &str, default: f64) -> Result<f64, JsValue> {
         let pid = PeriodId::from_str(period_id)
             .map_err(|e| JsValue::from_str(&format!("Invalid period ID '{}': {}", period_id, e)))?;
         Ok(self.inner.get_or(node_id, &pid, default))
@@ -160,11 +155,7 @@ impl JsResults {
                     &JsValue::from_f64(*value),
                 )?;
             }
-            js_sys::Reflect::set(
-                &obj,
-                &JsValue::from_str(node_id),
-                &JsValue::from(inner_obj),
-            )?;
+            js_sys::Reflect::set(&obj, &JsValue::from_str(node_id), &JsValue::from(inner_obj))?;
         }
         Ok(JsValue::from(obj))
     }
@@ -281,11 +272,14 @@ impl JsEvaluator {
     ) -> Result<JsResults, JsValue> {
         let results = self
             .inner
-            .evaluate_with_market_context(&model.inner, Some(market_ctx.inner()), Some(as_of.inner()))
+            .evaluate_with_market_context(
+                &model.inner,
+                Some(market_ctx.inner()),
+                Some(as_of.inner()),
+            )
             .map_err(|e| {
                 JsValue::from_str(&format!("Evaluation with market context failed: {}", e))
             })?;
         Ok(JsResults::new(results))
     }
 }
-

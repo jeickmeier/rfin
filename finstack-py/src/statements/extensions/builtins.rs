@@ -73,4 +73,3 @@ impl PyCreditScorecardExtension {
         "CreditScorecardExtension()".to_string()
     }
 }
-

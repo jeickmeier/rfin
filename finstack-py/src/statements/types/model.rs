@@ -3,9 +3,7 @@
 use super::node::PyNodeSpec;
 use crate::core::dates::periods::PyPeriod;
 use crate::statements::utils::json_to_py;
-use finstack_statements::types::{
-    CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec,
-};
+use finstack_statements::types::{CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec};
 use indexmap::IndexMap;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -152,7 +150,10 @@ impl PyDebtInstrumentSpec {
     ///     Bond instrument spec
     fn bond(id: String, spec: &Bound<'_, PyDict>) -> PyResult<Self> {
         let spec_value = dict_to_json(spec)?;
-        Ok(Self::new(DebtInstrumentSpec::Bond { id, spec: spec_value }))
+        Ok(Self::new(DebtInstrumentSpec::Bond {
+            id,
+            spec: spec_value,
+        }))
     }
 
     #[staticmethod]
@@ -172,7 +173,10 @@ impl PyDebtInstrumentSpec {
     ///     Swap instrument spec
     fn swap(id: String, spec: &Bound<'_, PyDict>) -> PyResult<Self> {
         let spec_value = dict_to_json(spec)?;
-        Ok(Self::new(DebtInstrumentSpec::Swap { id, spec: spec_value }))
+        Ok(Self::new(DebtInstrumentSpec::Swap {
+            id,
+            spec: spec_value,
+        }))
     }
 
     #[staticmethod]
@@ -192,7 +196,10 @@ impl PyDebtInstrumentSpec {
     ///     Generic instrument spec
     fn generic(id: String, spec: &Bound<'_, PyDict>) -> PyResult<Self> {
         let spec_value = dict_to_json(spec)?;
-        Ok(Self::new(DebtInstrumentSpec::Generic { id, spec: spec_value }))
+        Ok(Self::new(DebtInstrumentSpec::Generic {
+            id,
+            spec: spec_value,
+        }))
     }
 
     /// Convert to JSON string.
@@ -210,7 +217,9 @@ impl PyDebtInstrumentSpec {
         match &self.inner {
             DebtInstrumentSpec::Bond { id, .. } => format!("DebtInstrumentSpec.bond('{}')", id),
             DebtInstrumentSpec::Swap { id, .. } => format!("DebtInstrumentSpec.swap('{}')", id),
-            DebtInstrumentSpec::Generic { id, .. } => format!("DebtInstrumentSpec.generic('{}')", id),
+            DebtInstrumentSpec::Generic { id, .. } => {
+                format!("DebtInstrumentSpec.generic('{}')", id)
+            }
         }
     }
 }
@@ -276,7 +285,9 @@ impl PyFinancialModelSpec {
     /// NodeSpec | None
     ///     Node spec if found
     fn get_node(&self, node_id: &str) -> Option<PyNodeSpec> {
-        self.inner.get_node(node_id).map(|n| PyNodeSpec::new(n.clone()))
+        self.inner
+            .get_node(node_id)
+            .map(|n| PyNodeSpec::new(n.clone()))
     }
 
     #[pyo3(text_signature = "(self, node_id)")]
@@ -314,7 +325,11 @@ impl PyFinancialModelSpec {
     /// list[Period]
     ///     Ordered periods
     fn periods(&self) -> Vec<PyPeriod> {
-        self.inner.periods.iter().map(|p| PyPeriod::new(p.clone())).collect()
+        self.inner
+            .periods
+            .iter()
+            .map(|p| PyPeriod::new(p.clone()))
+            .collect()
     }
 
     #[getter]
@@ -430,4 +445,3 @@ pub(crate) fn register<'py>(_py: Python<'py>, module: &Bound<'py, PyModule>) -> 
     module.add_class::<PyFinancialModelSpec>()?;
     Ok(())
 }
-

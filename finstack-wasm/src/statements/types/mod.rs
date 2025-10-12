@@ -9,4 +9,3 @@ pub use forecast::{JsForecastMethod, JsForecastSpec, JsSeasonalMode};
 pub use model::{JsCapitalStructureSpec, JsDebtInstrumentSpec, JsFinancialModelSpec};
 pub use node::{JsNodeSpec, JsNodeType};
 pub use value::JsAmountOrScalar;
-

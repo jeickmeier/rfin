@@ -322,4 +322,3 @@ pub(crate) fn register<'py>(_py: Python<'py>, module: &Bound<'py, PyModule>) -> 
     module.add_class::<PyForecastSpec>()?;
     Ok(())
 }
-

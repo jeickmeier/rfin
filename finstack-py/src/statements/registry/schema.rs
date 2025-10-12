@@ -65,7 +65,9 @@ impl PyMetricDefinition {
 #[pymethods]
 impl PyMetricDefinition {
     #[new]
-    #[pyo3(text_signature = "(id, name, formula, description=None, category=None, unit_type=None, requires=None, tags=None)")]
+    #[pyo3(
+        text_signature = "(id, name, formula, description=None, category=None, unit_type=None, requires=None, tags=None)"
+    )]
     /// Create a metric definition.
     ///
     /// Parameters
@@ -194,7 +196,10 @@ impl PyMetricDefinition {
     }
 
     fn __repr__(&self) -> String {
-        format!("MetricDefinition(id='{}', name='{}')", self.inner.id, self.inner.name)
+        format!(
+            "MetricDefinition(id='{}', name='{}')",
+            self.inner.id, self.inner.name
+        )
     }
 }
 
@@ -316,4 +321,3 @@ pub(crate) fn register<'py>(_py: Python<'py>, module: &Bound<'py, PyModule>) -> 
     module.add_class::<PyMetricRegistry>()?;
     Ok(())
 }
-

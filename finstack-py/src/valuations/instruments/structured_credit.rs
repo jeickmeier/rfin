@@ -27,7 +27,11 @@ fn parse_structured_credit_json(value: &Bound<'_, PyAny>) -> PyResult<Structured
 ///     'clo_2024_1'
 ///     >>> deal.deal_type
 ///     'CLO'
-#[pyclass(module = "finstack.valuations.instruments", name = "StructuredCredit", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "StructuredCredit",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyStructuredCredit {
     pub(crate) inner: StructuredCredit,
@@ -126,6 +130,5 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyStructuredCredit>()?;
-    Ok(vec!["StructuredCredit"]) 
+    Ok(vec!["StructuredCredit"])
 }
-

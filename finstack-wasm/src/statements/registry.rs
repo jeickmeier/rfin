@@ -1,6 +1,8 @@
 //! Dynamic metric registry for statements.
 
-use finstack_statements::registry::{MetricDefinition, MetricRegistry as RustMetricRegistry, Registry, UnitType};
+use finstack_statements::registry::{
+    MetricDefinition, MetricRegistry as RustMetricRegistry, Registry, UnitType,
+};
 use wasm_bindgen::prelude::*;
 
 /// Metric unit type.
@@ -95,9 +97,7 @@ impl JsMetricDefinition {
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
         serde_wasm_bindgen::to_value(&self.inner)
-            .map_err(|e| {
-                JsValue::from_str(&format!("Failed to serialize MetricDefinition: {}", e))
-            })
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize MetricDefinition: {}", e)))
     }
 
     /// Get metric identifier.
@@ -127,7 +127,10 @@ impl JsMetricDefinition {
     /// Convert to string representation.
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("MetricDefinition(id='{}', name='{}')", self.inner.id, self.inner.name)
+        format!(
+            "MetricDefinition(id='{}', name='{}')",
+            self.inner.id, self.inner.name
+        )
     }
 }
 
@@ -158,9 +161,7 @@ impl JsMetricRegistry {
     pub fn from_json(value: JsValue) -> Result<JsMetricRegistry, JsValue> {
         serde_wasm_bindgen::from_value(value)
             .map(|inner| JsMetricRegistry { inner })
-            .map_err(|e| {
-                JsValue::from_str(&format!("Failed to deserialize MetricRegistry: {}", e))
-            })
+            .map_err(|e| JsValue::from_str(&format!("Failed to deserialize MetricRegistry: {}", e)))
     }
 
     /// Convert to JSON representation.
@@ -170,9 +171,7 @@ impl JsMetricRegistry {
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
         serde_wasm_bindgen::to_value(&self.inner)
-            .map_err(|e| {
-                JsValue::from_str(&format!("Failed to serialize MetricRegistry: {}", e))
-            })
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize MetricRegistry: {}", e)))
     }
 
     /// Get registry namespace.
@@ -324,4 +323,3 @@ impl JsRegistry {
         format!("Registry(metrics={})", self.inner.len())
     }
 }
-

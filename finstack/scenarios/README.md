@@ -102,11 +102,21 @@ ScenarioEngine
 
 ## Examples
 
-Run the complete example:
+Run the examples:
 
 ```bash
+# Lite example - Basic usage with horizon scenarios
 cargo run -p finstack-scenarios --example scenarios_lite_example
+
+# Comprehensive example - All shock types including horizon analysis
+cargo run -p finstack-scenarios --example scenarios_comprehensive_example
 ```
+
+Both examples now demonstrate:
+- Market data shocks (curves, equity, vol, FX)
+- Statement adjustments
+- **Horizon scenarios**: 1W, 1M, 3M time roll-forward with theta/carry calculations
+- Combined scenarios: Horizon + market shocks
 
 ## Testing
 

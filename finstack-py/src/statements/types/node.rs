@@ -149,7 +149,11 @@ impl PyNodeSpec {
     /// NodeSpec
     ///     Updated node spec
     fn with_forecast(&self, forecast_spec: &PyForecastSpec) -> Self {
-        Self::new(self.inner.clone().with_forecast(forecast_spec.inner.clone()))
+        Self::new(
+            self.inner
+                .clone()
+                .with_forecast(forecast_spec.inner.clone()),
+        )
     }
 
     #[pyo3(text_signature = "(self, tags)")]
@@ -313,7 +317,10 @@ impl PyNodeSpec {
     }
 
     fn __repr__(&self) -> String {
-        format!("NodeSpec(node_id='{}', node_type={:?})", self.inner.node_id, self.inner.node_type)
+        format!(
+            "NodeSpec(node_id='{}', node_type={:?})",
+            self.inner.node_id, self.inner.node_type
+        )
     }
 }
 
@@ -351,4 +358,3 @@ pub(crate) fn register<'py>(_py: Python<'py>, module: &Bound<'py, PyModule>) -> 
     module.add_class::<PyNodeSpec>()?;
     Ok(())
 }
-
