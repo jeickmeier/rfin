@@ -10,6 +10,7 @@
 
 mod dv01;
 mod pv;
+mod theta;
 // risk_bucketed_dv01 - now using generic implementation
 
 pub use dv01::IrFutureDv01Calculator;
@@ -22,20 +23,21 @@ use crate::metrics::MetricRegistry;
 pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
-    
+
     // Custom metric
     registry.register_metric(
         MetricId::custom("ir_future_pv"),
         Arc::new(IrFuturePvCalculator),
         &["InterestRateFuture"],
     );
-    
+
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
         instrument: "InterestRateFuture",
         metrics: [
             (Dv01, IrFutureDv01Calculator),
+            (Theta, theta::ThetaCalculator),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::InterestRateFuture,
             >::default()),

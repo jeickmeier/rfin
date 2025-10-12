@@ -166,13 +166,15 @@ mod tests {
 
     #[test]
     fn test_generic_pricer_keys() {
-        let bond_pricer = GenericDiscountingPricer::<crate::instruments::Bond>::new(InstrumentType::Bond);
+        let bond_pricer =
+            GenericDiscountingPricer::<crate::instruments::Bond>::new(InstrumentType::Bond);
         assert_eq!(
             bond_pricer.key(),
             PricerKey::new(InstrumentType::Bond, ModelKey::Discounting)
         );
 
-        let deposit_pricer = GenericDiscountingPricer::<crate::instruments::Deposit>::new(InstrumentType::Deposit);
+        let deposit_pricer =
+            GenericDiscountingPricer::<crate::instruments::Deposit>::new(InstrumentType::Deposit);
         assert_eq!(
             deposit_pricer.key(),
             PricerKey::new(InstrumentType::Deposit, ModelKey::Discounting)

@@ -3,14 +3,13 @@
 //! This module consolidates four nearly-identical instrument types into a single
 //! clean implementation using composition for deal-specific differences.
 
+use super::components::{
+    AssetPool, CreditFactors, DealType, DefaultModelSpec, MarketConditions, PrepaymentModelSpec,
+    RecoveryModelSpec, TrancheCashflowResult, TrancheStructure, TrancheValuation,
+    TrancheValuationExt, WaterfallEngine,
+};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::constants::DECIMAL_TO_PERCENT;
-use super::components::{
-    AssetPool, DealType, TrancheStructure, WaterfallEngine,
-    CreditFactors, DefaultModelSpec, MarketConditions,
-    PrepaymentModelSpec, RecoveryModelSpec,
-    TrancheCashflowResult, TrancheValuation, TrancheValuationExt,
-};
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
@@ -58,19 +57,19 @@ pub struct BehaviorOverrides {
     pub abs_speed: Option<f64>,
     /// Override prepayment with PSA multiplier
     pub psa_speed_multiplier: Option<f64>,
-    
+
     // Default overrides
     /// Override default with constant annual CDR
     pub cdr_annual: Option<f64>,
     /// Override default with SDA multiplier
     pub sda_speed_multiplier: Option<f64>,
-    
+
     // Recovery overrides
     /// Override recovery with constant rate
     pub recovery_rate: Option<f64>,
     /// Override recovery lag (months)
     pub recovery_lag_months: Option<u32>,
-    
+
     // Trading overrides
     /// Reinvestment price constraint (% of par)
     pub reinvestment_price: Option<f64>,
@@ -114,15 +113,24 @@ pub struct StructuredCredit {
     pub attributes: Attributes,
 
     /// Prepayment model specification
-    #[cfg_attr(feature = "serde", serde(default = "StructuredCredit::default_prepayment_spec"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "StructuredCredit::default_prepayment_spec")
+    )]
     pub prepayment_spec: PrepaymentModelSpec,
 
     /// Default model specification
-    #[cfg_attr(feature = "serde", serde(default = "StructuredCredit::default_default_spec"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "StructuredCredit::default_default_spec")
+    )]
     pub default_spec: DefaultModelSpec,
 
     /// Recovery model specification
-    #[cfg_attr(feature = "serde", serde(default = "StructuredCredit::default_recovery_spec"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "StructuredCredit::default_recovery_spec")
+    )]
     pub recovery_spec: RecoveryModelSpec,
 
     /// Market conditions impacting behavior
@@ -194,11 +202,51 @@ impl StructuredCredit {
         disc_id: impl Into<String>,
     ) -> Self {
         match deal_type {
-            DealType::ABS => Self::new_abs(id, pool, tranches, waterfall, closing_date, legal_maturity, disc_id),
-            DealType::CLO => Self::new_clo(id, pool, tranches, waterfall, closing_date, legal_maturity, disc_id),
-            DealType::CMBS => Self::new_cmbs(id, pool, tranches, waterfall, closing_date, legal_maturity, disc_id),
-            DealType::RMBS => Self::new_rmbs(id, pool, tranches, waterfall, closing_date, legal_maturity, disc_id),
-            _ => Self::new_abs(id, pool, tranches, waterfall, closing_date, legal_maturity, disc_id), // Default to ABS
+            DealType::ABS => Self::new_abs(
+                id,
+                pool,
+                tranches,
+                waterfall,
+                closing_date,
+                legal_maturity,
+                disc_id,
+            ),
+            DealType::CLO => Self::new_clo(
+                id,
+                pool,
+                tranches,
+                waterfall,
+                closing_date,
+                legal_maturity,
+                disc_id,
+            ),
+            DealType::CMBS => Self::new_cmbs(
+                id,
+                pool,
+                tranches,
+                waterfall,
+                closing_date,
+                legal_maturity,
+                disc_id,
+            ),
+            DealType::RMBS => Self::new_rmbs(
+                id,
+                pool,
+                tranches,
+                waterfall,
+                closing_date,
+                legal_maturity,
+                disc_id,
+            ),
+            _ => Self::new_abs(
+                id,
+                pool,
+                tranches,
+                waterfall,
+                closing_date,
+                legal_maturity,
+                disc_id,
+            ), // Default to ABS
         }
     }
 
@@ -448,9 +496,7 @@ impl StructuredCredit {
     }
 
     /// Create waterfall engine based on deal type
-    fn create_waterfall_engine_internal(
-        &self,
-    ) -> WaterfallEngine {
+    fn create_waterfall_engine_internal(&self) -> WaterfallEngine {
         use super::components::{
             ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRule, WaterfallEngine,
         };
@@ -576,7 +622,11 @@ impl Instrument for StructuredCredit {
         let base_value = self.value(context, as_of)?;
 
         if metrics.is_empty() {
-            return Ok(ValuationResult::stamped(self.id.as_str(), as_of, base_value));
+            return Ok(ValuationResult::stamped(
+                self.id.as_str(),
+                as_of,
+                base_value,
+            ));
         }
 
         let flows = self.build_schedule(context, as_of)?;
@@ -649,9 +699,7 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
         &self.default_assumptions
     }
 
-    fn market_conditions(
-        &self,
-    ) -> &MarketConditions {
+    fn market_conditions(&self) -> &MarketConditions {
         &self.market_conditions
     }
 
@@ -659,24 +707,22 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
         &self.credit_factors
     }
 
-    fn create_waterfall_engine(
-        &self,
-    ) -> WaterfallEngine {
+    fn create_waterfall_engine(&self) -> WaterfallEngine {
         self.create_waterfall_engine_internal()
     }
 
     fn prepayment_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
         use super::components::cpr_to_smm;
-        
+
         // Check overrides in priority order
         if let Some(abs_speed) = self.behavior_overrides.abs_speed {
             return Some(abs_speed);
         }
-        
+
         if let Some(cpr) = self.behavior_overrides.cpr_annual {
             return Some(cpr_to_smm(cpr));
         }
-        
+
         if let Some(psa_mult) = self.behavior_overrides.psa_speed_multiplier {
             // Inline PSA calculation
             let psa_ramp_months = 30;
@@ -689,24 +735,24 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
             let cpr = base_cpr * psa_mult;
             return Some(cpr_to_smm(cpr));
         }
-        
+
         None
     }
 
     fn default_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
         use super::components::cdr_to_mdr;
-        
+
         // Check overrides in priority order
         if let Some(cdr) = self.behavior_overrides.cdr_annual {
             return Some(cdr_to_mdr(cdr));
         }
-        
+
         if let Some(sda_mult) = self.behavior_overrides.sda_speed_multiplier {
             // Inline SDA calculation
             let peak_month = 30;
             let peak_cdr = 0.006;
             let terminal_cdr = 0.0003;
-            
+
             let cdr = if seasoning <= peak_month {
                 // Ramp up to peak
                 (seasoning as f64 / peak_month as f64) * peak_cdr
@@ -719,11 +765,11 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
                 // Terminal rate
                 terminal_cdr
             } * sda_mult;
-            
+
             // Convert CDR to MDR
             return Some(1.0 - (1.0 - cdr).powf(1.0 / 12.0));
         }
-        
+
         None
     }
 }
@@ -812,9 +858,12 @@ impl TrancheValuationExt for StructuredCredit {
             0.0
         };
 
-        let accrued_value = computed_metrics.get(&MetricId::Accrued).copied().unwrap_or(0.0);
+        let accrued_value = computed_metrics
+            .get(&MetricId::Accrued)
+            .copied()
+            .unwrap_or(0.0);
         let accrued = Money::new(accrued_value, pv.currency());
-        
+
         let clean_price = if notional > 0.0 {
             dirty_price - (accrued.amount() / notional) * 100.0
         } else {
@@ -829,23 +878,39 @@ impl TrancheValuationExt for StructuredCredit {
 
         // Fallback calculations for metrics not handled by the registry or if not requested
         let disc = context.get_discount(&self.disc_id)?;
-        let modified_duration = computed_metrics.get(&MetricId::DurationMod).copied().unwrap_or_else(||
-            calculate_tranche_duration(&cashflow_result.cashflows, &disc, as_of, pv).unwrap_or(0.0)
-        );
+        let modified_duration = computed_metrics
+            .get(&MetricId::DurationMod)
+            .copied()
+            .unwrap_or_else(|| {
+                calculate_tranche_duration(&cashflow_result.cashflows, &disc, as_of, pv)
+                    .unwrap_or(0.0)
+            });
 
-        let z_spread = computed_metrics.get(&MetricId::ZSpread).copied().unwrap_or_else(||
-            calculate_tranche_z_spread(&cashflow_result.cashflows, &disc, pv, as_of).unwrap_or(0.0)
-        );
+        let z_spread = computed_metrics
+            .get(&MetricId::ZSpread)
+            .copied()
+            .unwrap_or_else(|| {
+                calculate_tranche_z_spread(&cashflow_result.cashflows, &disc, pv, as_of)
+                    .unwrap_or(0.0)
+            });
 
         let z_spread_decimal = z_spread / 10_000.0;
-        let cs01 = computed_metrics.get(&MetricId::Cs01).copied().unwrap_or_else(||
-            calculate_tranche_cs01(&cashflow_result.cashflows, &disc, z_spread_decimal, as_of).unwrap_or(0.0)
-        );
+        let cs01 = computed_metrics
+            .get(&MetricId::Cs01)
+            .copied()
+            .unwrap_or_else(|| {
+                calculate_tranche_cs01(&cashflow_result.cashflows, &disc, z_spread_decimal, as_of)
+                    .unwrap_or(0.0)
+            });
 
-        let ytm = computed_metrics.get(&MetricId::Ytm).copied().unwrap_or(0.05); // Default guess
+        let ytm = computed_metrics
+            .get(&MetricId::Ytm)
+            .copied()
+            .unwrap_or(0.05); // Default guess
 
         // Convert computed metrics to std::collections::HashMap for the TrancheValuation struct
-        let final_metrics: std::collections::HashMap<MetricId, f64> = computed_metrics.into_iter().collect();
+        let final_metrics: std::collections::HashMap<MetricId, f64> =
+            computed_metrics.into_iter().collect();
 
         Ok(TrancheValuation {
             tranche_id: tranche_id.to_string(),
@@ -879,17 +944,17 @@ impl core::fmt::Debug for StructuredCredit {
 
 #[cfg(all(test, feature = "serde"))]
 mod serde_tests {
+    use super::super::components::{Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure};
     use super::*;
-    use super::super::components::{Tranche, TrancheSeniority, TrancheCoupon, TrancheStructure};
     use finstack_core::currency::Currency;
-    use finstack_core::money::Money;
     use finstack_core::dates::Date;
+    use finstack_core::money::Money;
     use time::Month;
-    
+
     #[test]
     fn test_structured_credit_json_roundtrip() {
         let pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
-        
+
         let tranche = Tranche::new(
             "EQUITY",
             0.0,
@@ -898,11 +963,12 @@ mod serde_tests {
             Money::new(1_000_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.12 },
             Date::from_calendar_date(2030, Month::January, 1).unwrap(),
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let tranches = TrancheStructure::new(vec![tranche]).unwrap();
         let waterfall = WaterfallEngine::new(Currency::USD);
-        
+
         let original = StructuredCredit::new_clo(
             "TEST_CLO",
             pool,
@@ -912,14 +978,14 @@ mod serde_tests {
             Date::from_calendar_date(2030, Month::January, 1).unwrap(),
             "USD-OIS",
         );
-        
+
         // Serialize to JSON
         let json = serde_json::to_string(&original).expect("Failed to serialize");
-        
+
         // Deserialize from JSON
-        let deserialized: StructuredCredit = serde_json::from_str(&json)
-            .expect("Failed to deserialize");
-        
+        let deserialized: StructuredCredit =
+            serde_json::from_str(&json).expect("Failed to deserialize");
+
         // Verify key fields match
         assert_eq!(original.id.as_str(), deserialized.id.as_str());
         assert_eq!(original.deal_type, deserialized.deal_type);
@@ -927,11 +993,11 @@ mod serde_tests {
         assert_eq!(original.default_spec, deserialized.default_spec);
         assert_eq!(original.recovery_spec, deserialized.recovery_spec);
     }
-    
+
     #[test]
     fn test_behavior_overrides_serialization() {
         let pool = AssetPool::new("TEST_POOL", DealType::RMBS, Currency::USD);
-        
+
         let tranche = Tranche::new(
             "AAA",
             0.0,
@@ -940,11 +1006,12 @@ mod serde_tests {
             Money::new(10_000_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.05 },
             Date::from_calendar_date(2035, Month::January, 1).unwrap(),
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let tranches = TrancheStructure::new(vec![tranche]).unwrap();
         let waterfall = WaterfallEngine::new(Currency::USD);
-        
+
         let mut rmbs = StructuredCredit::new_rmbs(
             "TEST_RMBS",
             pool,
@@ -954,33 +1021,30 @@ mod serde_tests {
             Date::from_calendar_date(2035, Month::January, 1).unwrap(),
             "USD-OIS",
         );
-        
+
         // Set behavior overrides
         rmbs.behavior_overrides.psa_speed_multiplier = Some(1.5);
         rmbs.behavior_overrides.cdr_annual = Some(0.01);
-        
+
         // Serialize
         let json = serde_json::to_string(&rmbs).expect("Failed to serialize");
-        
+
         // Deserialize
-        let deserialized: StructuredCredit = serde_json::from_str(&json)
-            .expect("Failed to deserialize");
-        
+        let deserialized: StructuredCredit =
+            serde_json::from_str(&json).expect("Failed to deserialize");
+
         // Verify overrides are preserved
         assert_eq!(
             deserialized.behavior_overrides.psa_speed_multiplier,
             Some(1.5)
         );
-        assert_eq!(
-            deserialized.behavior_overrides.cdr_annual,
-            Some(0.01)
-        );
+        assert_eq!(deserialized.behavior_overrides.cdr_annual, Some(0.01));
     }
-    
+
     #[test]
     fn test_deal_metadata_serialization() {
         let pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
-        
+
         let tranche = Tranche::new(
             "AAA",
             0.0,
@@ -989,11 +1053,12 @@ mod serde_tests {
             Money::new(10_000_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.05 },
             Date::from_calendar_date(2030, Month::January, 1).unwrap(),
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let tranches = TrancheStructure::new(vec![tranche]).unwrap();
         let waterfall = WaterfallEngine::new(Currency::USD);
-        
+
         let mut clo = StructuredCredit::new_clo(
             "TEST_CLO",
             pool,
@@ -1003,18 +1068,18 @@ mod serde_tests {
             Date::from_calendar_date(2030, Month::January, 1).unwrap(),
             "USD-OIS",
         );
-        
+
         // Set deal metadata
         clo.deal_metadata.manager_id = Some("Apollo".to_string());
         clo.deal_metadata.servicer_id = Some("BNY Mellon".to_string());
-        
+
         // Serialize
         let json = serde_json::to_string(&clo).expect("Failed to serialize");
-        
+
         // Deserialize
-        let deserialized: StructuredCredit = serde_json::from_str(&json)
-            .expect("Failed to deserialize");
-        
+        let deserialized: StructuredCredit =
+            serde_json::from_str(&json).expect("Failed to deserialize");
+
         // Verify metadata is preserved
         assert_eq!(
             deserialized.deal_metadata.manager_id,
@@ -1026,4 +1091,3 @@ mod serde_tests {
         );
     }
 }
-

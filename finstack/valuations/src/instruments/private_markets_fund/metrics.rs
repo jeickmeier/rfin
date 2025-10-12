@@ -1,4 +1,4 @@
-//! Private markets fund metrics: IRR, MOIC, DPI, TVPI, and carry calculations.
+//! Private markets fund metrics: IRR, MOIC, DPI, TVPI, carry calculations, and theta.
 
 use crate::instruments::private_markets_fund::PrivateMarketsFund;
 use crate::metrics::{MetricCalculator, MetricContext, MetricRegistry};
@@ -230,7 +230,23 @@ pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
             (DpiLp, DpiLpCalculator),
             (TvpiLp, TvpiLpCalculator),
             (CarryAccrued, CarryAccruedCalculator),
+            (Theta, ThetaCalculator),
         ]
+    }
+}
+
+// Theta calculator using generic implementation
+pub struct ThetaCalculator;
+
+impl MetricCalculator for ThetaCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        crate::instruments::common::metrics::theta_utils::generic_theta_calculator::<
+            PrivateMarketsFund,
+        >(context)
+    }
+
+    fn dependencies(&self) -> &[crate::metrics::MetricId] {
+        &[]
     }
 }
 

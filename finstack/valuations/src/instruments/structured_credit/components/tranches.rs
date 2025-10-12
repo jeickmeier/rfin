@@ -4,7 +4,7 @@
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
-use finstack_core::types::{InstrumentId, CurveId};
+use finstack_core::types::{CurveId, InstrumentId};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -99,15 +99,13 @@ impl Default for CreditEnhancement {
 }
 
 /// Tranche coupon specification
-/// 
+///
 /// Supports fixed and floating rate coupons used in standard structured credit instruments.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TrancheCoupon {
     /// Fixed rate coupon
-    Fixed { 
-        rate: f64 
-    },
+    Fixed { rate: f64 },
     /// Floating rate coupon with index reference
     Floating {
         /// Forward curve identifier for index rate
@@ -123,7 +121,7 @@ pub enum TrancheCoupon {
 
 impl TrancheCoupon {
     /// Get current rate for a given date (without index lookup)
-    /// 
+    ///
     /// For Fixed: returns the fixed rate
     /// For Floating: returns just the spread component (use current_rate_with_index for full rate)
     pub fn current_rate(&self, _date: Date) -> f64 {
@@ -134,7 +132,7 @@ impl TrancheCoupon {
     }
 
     /// Compute current rate including index forward where applicable.
-    /// 
+    ///
     /// For Fixed coupons, returns the fixed rate.
     /// For Floating coupons, looks up the index rate from market context and adds spread.
     pub fn current_rate_with_index(
@@ -144,14 +142,15 @@ impl TrancheCoupon {
     ) -> f64 {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,
-            TrancheCoupon::Floating { 
-                forward_curve_id, 
-                spread_bp, 
-                floor, 
-                cap 
+            TrancheCoupon::Floating {
+                forward_curve_id,
+                spread_bp,
+                floor,
+                cap,
             } => {
                 // Look up forward rate from market context
-                let idx_rate = context.get_forward_ref(forward_curve_id.as_str())
+                let idx_rate = context
+                    .get_forward_ref(forward_curve_id.as_str())
                     .map(|fwd| {
                         let base = fwd.base_date();
                         let dc = fwd.day_count();
@@ -163,23 +162,23 @@ impl TrancheCoupon {
                         fwd.rate_period(t1, t2)
                     })
                     .unwrap_or(0.0);
-                
+
                 // Add spread
                 let all_in_rate = idx_rate + (*spread_bp / 10_000.0);
-                
+
                 // Apply caps/floors
                 let capped = if let Some(c) = cap {
                     all_in_rate.min(*c)
                 } else {
                     all_in_rate
                 };
-                
+
                 if let Some(f) = floor {
                     capped.max(*f)
                 } else {
                     capped
                 }
-            },
+            }
         }
     }
 }
@@ -356,7 +355,6 @@ impl Tranche {
         self.expected_maturity = Some(date);
         self
     }
-
 }
 
 /// Builder for creating tranches with validation

@@ -25,6 +25,7 @@ pub mod implied_collateral_return;
 pub mod repo_interest;
 pub mod required_collateral;
 // risk_bucketed_dv01 - now using generic implementation
+pub mod theta;
 pub mod time_to_maturity;
 
 use crate::metrics::MetricRegistry;
@@ -37,9 +38,13 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
     // Shared calculator for AccruedInterest and Accrued aliases
     let accrued_calc: Arc<dyn MetricCalculator> =
         Arc::new(accrued_interest::AccruedInterestCalculator);
-    registry.register_metric(MetricId::AccruedInterest, Arc::clone(&accrued_calc), &["Repo"]);
+    registry.register_metric(
+        MetricId::AccruedInterest,
+        Arc::clone(&accrued_calc),
+        &["Repo"],
+    );
     registry.register_metric(MetricId::Accrued, accrued_calc, &["Repo"]);
-    
+
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
@@ -54,6 +59,7 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
             (EffectiveRate, effective_rate::EffectiveRateCalculator),
             (TimeToMaturity, time_to_maturity::TimeToMaturityCalculator),
             (ImpliedCollateralReturn, implied_collateral_return::ImpliedCollateralReturnCalculator),
+            (Theta, theta::ThetaCalculator),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
                 crate::instruments::Repo,
             >::default()),

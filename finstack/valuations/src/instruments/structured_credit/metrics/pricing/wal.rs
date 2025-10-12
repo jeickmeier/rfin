@@ -42,21 +42,21 @@ impl MetricCalculator for WalCalculator {
                 id: "context.cashflows".to_string(),
             })
         })?;
-        
+
         // Use Act/365F for year fraction calculation (common for WAL)
         let day_count = finstack_core::dates::DayCount::Act365F;
-        
+
         let mut weighted_sum = 0.0;
         let mut total_principal = 0.0;
-        
+
         // Identify principal payments and calculate weighted average
         for (date, amount) in flows {
             if *date <= context.as_of {
                 continue; // Skip past cashflows
             }
-            
+
             let amt = amount.amount();
-            
+
             // For structured credit, we consider all positive cashflows as including principal
             // A more sophisticated implementation would tag cashflows by type
             // For now, we treat all flows as potentially containing principal
@@ -64,12 +64,12 @@ impl MetricCalculator for WalCalculator {
                 let years = day_count
                     .year_fraction(context.as_of, *date, DayCountCtx::default())
                     .unwrap_or(0.0);
-                
+
                 weighted_sum += amt * years;
                 total_principal += amt;
             }
         }
-        
+
         // Calculate WAL
         if total_principal > 0.0 {
             Ok(weighted_sum / total_principal)
@@ -77,7 +77,7 @@ impl MetricCalculator for WalCalculator {
             Ok(0.0)
         }
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[] // No metric dependencies - uses cashflows from context
     }

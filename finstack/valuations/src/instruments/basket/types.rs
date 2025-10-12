@@ -277,7 +277,6 @@ impl crate::instruments::common::pricing::HasDiscountCurve for Basket {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

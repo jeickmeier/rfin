@@ -222,4 +222,3 @@ impl crate::instruments::common::pricing::HasDiscountCurve for CdsTranche {
         &self.disc_id
     }
 }
-

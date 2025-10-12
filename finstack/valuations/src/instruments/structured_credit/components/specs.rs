@@ -4,11 +4,11 @@
 //! for prepayment, default, and recovery modeling. These specs are the single
 //! source of truth for behavioral assumptions and serialize cleanly to JSON.
 
+use super::super::config::DefaultAssumptions;
 use super::market_context::{CreditFactors, MarketConditions, MarketFactors};
 use crate::instruments::structured_credit::config::{
-    PSA_RAMP_MONTHS, PSA_TERMINAL_CPR, SDA_PEAK_MONTH, SDA_PEAK_CDR, SDA_TERMINAL_CDR,
+    PSA_RAMP_MONTHS, PSA_TERMINAL_CPR, SDA_PEAK_CDR, SDA_PEAK_MONTH, SDA_TERMINAL_CDR,
 };
-use super::super::config::DefaultAssumptions;
 
 // ============================================================================
 // Prepayment Model Specification
@@ -73,9 +73,7 @@ impl PrepaymentModelSpec {
                 // Convert CPR to SMM
                 1.0 - (1.0 - cpr).powf(1.0 / 12.0)
             }
-            PrepaymentModelSpec::ConstantCpr { cpr } => {
-                super::rates::cpr_to_smm(*cpr)
-            }
+            PrepaymentModelSpec::ConstantCpr { cpr } => super::rates::cpr_to_smm(*cpr),
             PrepaymentModelSpec::ConstantSmm { smm } => *smm,
             PrepaymentModelSpec::AssetDefault { asset_type } => {
                 let cpr = assumptions
@@ -188,18 +186,17 @@ impl DefaultModelSpec {
                     // Decline from peak to terminal over 30 months
                     let months_past_peak = (seasoning_months - SDA_PEAK_MONTH) as f64;
                     let decline_period = 30.0;
-                    SDA_PEAK_CDR - (months_past_peak / decline_period) * (SDA_PEAK_CDR - SDA_TERMINAL_CDR)
+                    SDA_PEAK_CDR
+                        - (months_past_peak / decline_period) * (SDA_PEAK_CDR - SDA_TERMINAL_CDR)
                 } else {
                     // Terminal rate
                     SDA_TERMINAL_CDR
                 } * multiplier;
-                
+
                 // Convert CDR to MDR
                 1.0 - (1.0 - cdr).powf(1.0 / 12.0)
             }
-            DefaultModelSpec::ConstantCdr { cdr } => {
-                super::rates::cdr_to_mdr(*cdr)
-            }
+            DefaultModelSpec::ConstantCdr { cdr } => super::rates::cdr_to_mdr(*cdr),
             DefaultModelSpec::ConstantMdr { mdr } => *mdr,
             DefaultModelSpec::AssetDefault { asset_type } => {
                 let cdr = assumptions
@@ -299,23 +296,32 @@ impl RecoveryModelSpec {
                             let adjusted_collateral = collateral.amount()
                                 * market_factors.price_index
                                 * (1.0 - market_factors.liquidation_discount);
-                            
+
                             let foreclosure_cost = market_factors
                                 .foreclosure_costs
                                 .map(|m| m.amount())
                                 .unwrap_or(0.0);
                             let net_collateral = (adjusted_collateral - foreclosure_cost).max(0.0);
-                            
+
                             let decay_factor = 1.0 - (resolution_lag_months as f64 * 0.005);
                             let final_collateral = net_collateral * decay_factor.max(0.5);
-                            
-                            let recovery = (final_collateral / outstanding_balance.amount()).min(1.0);
+
+                            let recovery =
+                                (final_collateral / outstanding_balance.amount()).min(1.0);
                             recovery * 0.85 + 0.10 * (1.0 - 0.85)
                         } else {
-                            assumptions.recovery_by_asset_type.get(asset_type).copied().unwrap_or(assumptions.base_recovery_rate)
+                            assumptions
+                                .recovery_by_asset_type
+                                .get(asset_type)
+                                .copied()
+                                .unwrap_or(assumptions.base_recovery_rate)
                         }
                     }
-                    _ => assumptions.recovery_by_asset_type.get(asset_type).copied().unwrap_or(assumptions.base_recovery_rate),
+                    _ => assumptions
+                        .recovery_by_asset_type
+                        .get(asset_type)
+                        .copied()
+                        .unwrap_or(assumptions.base_recovery_rate),
                 }
             }
         }
@@ -360,14 +366,14 @@ impl Default for RecoveryModelSpec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::money::Money;
-    use finstack_core::currency::Currency;
 
     #[test]
     fn test_prepayment_spec_calculation() {
         let spec = PrepaymentModelSpec::Psa { multiplier: 1.5 };
-        
+
         // Calculate prepayment rate at month 30
         let rate = spec.prepayment_rate(
             Date::from_calendar_date(2025, time::Month::July, 1).unwrap(),
@@ -375,7 +381,7 @@ mod tests {
             30,
             &MarketConditions::default(),
         );
-        
+
         // 150% PSA at month 30 = 9% CPR ≈ 0.77% SMM
         assert!(rate > 0.0);
         assert!(rate < 0.01); // Less than 1% monthly
@@ -384,7 +390,7 @@ mod tests {
     #[test]
     fn test_default_spec_calculation() {
         let spec = DefaultModelSpec::Sda { multiplier: 2.0 };
-        
+
         // Calculate default rate at peak month
         let rate = spec.default_rate(
             Date::from_calendar_date(2025, time::Month::July, 1).unwrap(),
@@ -392,7 +398,7 @@ mod tests {
             30,
             &CreditFactors::default(),
         );
-        
+
         // Should be positive
         assert!(rate > 0.0);
     }
@@ -400,7 +406,7 @@ mod tests {
     #[test]
     fn test_recovery_spec_calculation() {
         let spec = RecoveryModelSpec::Constant { rate: 0.6 };
-        
+
         // Calculate recovery rate
         let rate = spec.recovery_rate(
             Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
@@ -409,7 +415,7 @@ mod tests {
             Money::new(100_000.0, Currency::USD),
             &MarketFactors::default(),
         );
-        
+
         assert!((rate - 0.6).abs() < 1e-10);
     }
 
@@ -419,7 +425,7 @@ mod tests {
         let spec = PrepaymentModelSpec::Psa { multiplier: 1.5 };
         let json = serde_json::to_string(&spec).unwrap();
         let recovered: PrepaymentModelSpec = serde_json::from_str(&json).unwrap();
-        
+
         match recovered {
             PrepaymentModelSpec::Psa { multiplier } => {
                 assert!((multiplier - 1.5).abs() < 1e-10);
@@ -434,9 +440,11 @@ mod tests {
             PrepaymentModelSpec::Psa { multiplier: 1.0 },
             PrepaymentModelSpec::ConstantCpr { cpr: 0.15 },
             PrepaymentModelSpec::ConstantSmm { smm: 0.012 },
-            PrepaymentModelSpec::AssetDefault { asset_type: "auto".to_string() },
+            PrepaymentModelSpec::AssetDefault {
+                asset_type: "auto".to_string(),
+            },
         ];
-        
+
         let market = MarketConditions::default();
         for spec in specs {
             let rate = spec.prepayment_rate(
@@ -445,7 +453,11 @@ mod tests {
                 12,
                 &market,
             );
-            assert!((0.0..=1.0).contains(&rate), "Rate should be valid: {}", rate);
+            assert!(
+                (0.0..=1.0).contains(&rate),
+                "Rate should be valid: {}",
+                rate
+            );
         }
     }
 
@@ -455,9 +467,11 @@ mod tests {
             DefaultModelSpec::Sda { multiplier: 1.0 },
             DefaultModelSpec::ConstantCdr { cdr: 0.02 },
             DefaultModelSpec::ConstantMdr { mdr: 0.002 },
-            DefaultModelSpec::AssetDefault { asset_type: "corporate".to_string() },
+            DefaultModelSpec::AssetDefault {
+                asset_type: "corporate".to_string(),
+            },
         ];
-        
+
         let factors = CreditFactors::default();
         for spec in specs {
             let rate = spec.default_rate(
@@ -466,7 +480,11 @@ mod tests {
                 12,
                 &factors,
             );
-            assert!((0.0..=1.0).contains(&rate), "Rate should be valid: {}", rate);
+            assert!(
+                (0.0..=1.0).contains(&rate),
+                "Rate should be valid: {}",
+                rate
+            );
         }
     }
 
@@ -474,12 +492,14 @@ mod tests {
     fn test_all_recovery_variants() {
         let specs = vec![
             RecoveryModelSpec::Constant { rate: 0.4 },
-            RecoveryModelSpec::AssetDefault { asset_type: "corporate".to_string() },
+            RecoveryModelSpec::AssetDefault {
+                asset_type: "corporate".to_string(),
+            },
         ];
-        
+
         let market = MarketFactors::default();
         let balance = Money::new(100_000.0, Currency::USD);
-        
+
         for spec in specs {
             let rate = spec.recovery_rate(
                 Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
@@ -488,8 +508,11 @@ mod tests {
                 balance,
                 &market,
             );
-            assert!((0.0..=1.0).contains(&rate), "Rate should be valid: {}", rate);
+            assert!(
+                (0.0..=1.0).contains(&rate),
+                "Rate should be valid: {}",
+                rate
+            );
         }
     }
 }
-

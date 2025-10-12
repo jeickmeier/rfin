@@ -1,44 +1,42 @@
 //! Theta calculator for interest rate options.
 //!
-//! Computes daily theta via a bump-and-reprice approach: reprice the instrument
-//! at `as_of + 1 business day` holding market curves and vol surface fixed.
+//! Computes theta via a bump-and-reprice approach: reprice the instrument
+//! at `as_of + period` (default 1D) holding market curves and vol surface fixed.
 
 use crate::instruments::cap_floor::InterestRateOption;
+use crate::instruments::common::metrics::theta_utils;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::calendar::registry::CalendarRegistry;
-use finstack_core::dates::DateExt;
 use finstack_core::Result;
 
-/// Theta calculator (daily bump-and-reprice)
+/// Theta calculator (bump-and-reprice with customizable period)
 pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &InterestRateOption = context.instrument_as()?;
 
+        // Get theta period from pricing overrides, default to "1D"
+        let period_str = context
+            .pricing_overrides
+            .as_ref()
+            .and_then(|po| po.theta_period.as_deref())
+            .unwrap_or("1D");
+
+        // Calculate rolled date (capping at instrument expiry)
+        let expiry_date = Some(option.end_date);
+        let rolled_date =
+            theta_utils::calculate_theta_date(context.as_of, period_str, expiry_date)?;
+
+        // If already expired or rolling to same date, theta is zero
+        if rolled_date <= context.as_of {
+            return Ok(0.0);
+        }
+
         // Base PV from context
         let base_pv = context.base_value.amount();
 
-        // Advance one business day using calendar if available, else weekday roll
-        let as_of_plus_1bd = if let Some(ref cal_id) = option.calendar_id {
-            if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id.as_str()) {
-                // Manual next business day search with bounded loop
-                let mut d = context.as_of.add_weekdays(1);
-                let mut searched = 0;
-                while !cal.is_business_day(d) && searched < 100 {
-                    d = d.add_weekdays(1);
-                    searched += 1;
-                }
-                d
-            } else {
-                context.as_of.add_weekdays(1)
-            }
-        } else {
-            context.as_of.add_weekdays(1)
-        };
-
-        // Reprice at t+1bd with same market context
-        let bumped = option.npv(&context.curves, as_of_plus_1bd)?;
+        // Reprice at rolled date with same market context
+        let bumped = option.npv(&context.curves, rolled_date)?;
 
         Ok(bumped.amount() - base_pv)
     }

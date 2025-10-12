@@ -41,7 +41,7 @@ macro_rules! register_metrics {
     ) => {{
         use $crate::metrics::MetricId;
         use std::sync::Arc;
-        
+
         $(
             $registry.register_metric(
                 MetricId::$metric_id,
@@ -67,7 +67,7 @@ mod tests {
     #[test]
     fn test_register_metrics_macro() {
         let mut registry = MetricRegistry::new();
-        
+
         register_metrics! {
             registry: registry,
             instrument: "TestInstrument",

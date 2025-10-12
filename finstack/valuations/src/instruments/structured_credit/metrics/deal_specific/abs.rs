@@ -29,12 +29,15 @@ impl crate::metrics::MetricCalculator for AbsSpeedCalculator {
         // Only applicable to ABS deals
         if sc.deal_type != DealType::ABS {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
+                finstack_core::error::InputError::Invalid,
             ));
         }
 
         // Return ABS speed from overrides if set, otherwise default
-        Ok(sc.behavior_overrides.abs_speed.unwrap_or(self.default_abs_speed))
+        Ok(sc
+            .behavior_overrides
+            .abs_speed
+            .unwrap_or(self.default_abs_speed))
     }
 }
 
@@ -173,4 +176,3 @@ impl crate::metrics::MetricCalculator for AbsCreditEnhancementCalculator {
         }
     }
 }
-

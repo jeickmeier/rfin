@@ -10,11 +10,11 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
+use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    StructuredCredit, AssetPool, AssetType, CreditRating, DealType, Tranche, TrancheCoupon,
+    AssetPool, AssetType, CreditRating, DealType, StructuredCredit, Tranche, TrancheCoupon,
     TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
-use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 
@@ -37,7 +37,7 @@ fn maturity_date() -> Date {
 /// Create a realistic CLO asset pool with corporate loans
 fn create_clo_pool() -> AssetPool {
     let mut pool = AssetPool::new("CLO_POOL", DealType::CLO, Currency::USD);
-    
+
     // Add 5 corporate loans
     for i in 0..5 {
         let asset = finstack_valuations::instruments::structured_credit::PoolAsset {
@@ -60,7 +60,7 @@ fn create_clo_pool() -> AssetPool {
         };
         pool.assets.push(asset);
     }
-    
+
     pool
 }
 
@@ -100,9 +100,9 @@ fn create_test_tranches() -> TrancheStructure {
 fn create_test_waterfall() -> WaterfallEngine {
     // Use the generic sequential waterfall with standard fees
     use finstack_valuations::instruments::structured_credit::{
-        PaymentRule, PaymentRecipient, PaymentCalculation, ManagementFeeType,
+        ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRule,
     };
-    
+
     let fees = vec![
         PaymentRule::new(
             "trustee_fees",
@@ -122,7 +122,7 @@ fn create_test_waterfall() -> WaterfallEngine {
             },
         ),
     ];
-    
+
     let tranches = create_test_tranches();
     WaterfallEngine::standard_sequential(Currency::USD, &tranches, fees)
 }
@@ -131,12 +131,7 @@ fn create_test_waterfall() -> WaterfallEngine {
 fn create_test_market() -> MarketContext {
     let discount_curve = DiscountCurve::builder("USD_OIS")
         .base_date(test_date())
-        .knots(vec![
-            (0.0, 1.0),
-            (0.25, 0.9875),
-            (1.0, 0.95),
-            (5.0, 0.78),
-        ])
+        .knots(vec![(0.0, 1.0), (0.25, 0.9875), (1.0, 0.95), (5.0, 0.78)])
         .set_interp(InterpStyle::Linear)
         .build()
         .expect("Failed to create discount curve");
@@ -189,7 +184,7 @@ fn test_abs_creation_with_realistic_data() {
 #[test]
 fn test_clo_generates_cashflows() {
     use finstack_valuations::cashflow::traits::CashflowProvider;
-    
+
     let clo = StructuredCredit::new_clo(
         "TEST_CLO",
         create_clo_pool(),
@@ -203,7 +198,11 @@ fn test_clo_generates_cashflows() {
     let market = create_test_market();
     let result = clo.build_schedule(&market, test_date());
 
-    assert!(result.is_ok(), "Cashflow generation should work: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Cashflow generation should work: {:?}",
+        result.err()
+    );
 
     let flows = result.unwrap();
     assert!(!flows.is_empty(), "Should generate at least some cashflows");
@@ -233,7 +232,11 @@ fn test_clo_dirty_price() {
     let market = create_test_market();
     let result = clo.price_with_metrics(&market, test_date(), &[MetricId::DirtyPrice]);
 
-    assert!(result.is_ok(), "DirtyPrice should compute: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "DirtyPrice should compute: {:?}",
+        result.err()
+    );
 
     let result = result.unwrap();
     assert!(
@@ -299,7 +302,11 @@ fn test_clo_durations() {
         &[MetricId::DurationMac, MetricId::DurationMod],
     );
 
-    assert!(result.is_ok(), "Durations should compute: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Durations should compute: {:?}",
+        result.err()
+    );
 
     let result = result.unwrap();
     assert!(
@@ -338,10 +345,17 @@ fn test_clo_spread_metrics() {
         &[MetricId::ZSpread, MetricId::Cs01, MetricId::SpreadDuration],
     );
 
-    assert!(result.is_ok(), "Spread metrics should compute: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Spread metrics should compute: {:?}",
+        result.err()
+    );
 
     let result = result.unwrap();
-    assert!(result.measures.contains_key("z_spread"), "Should have Z-spread");
+    assert!(
+        result.measures.contains_key("z_spread"),
+        "Should have Z-spread"
+    );
     assert!(result.measures.contains_key("cs01"), "Should have CS01");
     assert!(
         result.measures.contains_key("spread_duration"),
@@ -401,7 +415,11 @@ fn test_clo_pool_metrics() {
         &[MetricId::WAM, MetricId::CPR, MetricId::CDR],
     );
 
-    assert!(result.is_ok(), "Pool metrics should compute: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Pool metrics should compute: {:?}",
+        result.err()
+    );
 
     let result = result.unwrap();
     assert!(result.measures.contains_key("wam"), "Should have WAM");
@@ -453,7 +471,11 @@ fn test_clo_full_metric_suite() {
         ],
     );
 
-    assert!(result.is_ok(), "All metrics should compute: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "All metrics should compute: {:?}",
+        result.err()
+    );
 
     let result = result.unwrap();
 
@@ -509,7 +531,11 @@ fn test_all_instruments_compute_basic_metrics() {
         "USD_OIS",
     );
     let clo_result = clo.price_with_metrics(&market, as_of, metrics);
-    assert!(clo_result.is_ok(), "CLO metrics failed: {:?}", clo_result.err());
+    assert!(
+        clo_result.is_ok(),
+        "CLO metrics failed: {:?}",
+        clo_result.err()
+    );
 
     // ABS
     let abs = StructuredCredit::new_abs(
@@ -522,7 +548,11 @@ fn test_all_instruments_compute_basic_metrics() {
         "USD_OIS",
     );
     let abs_result = abs.price_with_metrics(&market, as_of, metrics);
-    assert!(abs_result.is_ok(), "ABS metrics failed: {:?}", abs_result.err());
+    assert!(
+        abs_result.is_ok(),
+        "ABS metrics failed: {:?}",
+        abs_result.err()
+    );
 
     // RMBS
     let rmbs = StructuredCredit::new_rmbs(
@@ -535,7 +565,11 @@ fn test_all_instruments_compute_basic_metrics() {
         "USD_OIS",
     );
     let rmbs_result = rmbs.price_with_metrics(&market, as_of, metrics);
-    assert!(rmbs_result.is_ok(), "RMBS metrics failed: {:?}", rmbs_result.err());
+    assert!(
+        rmbs_result.is_ok(),
+        "RMBS metrics failed: {:?}",
+        rmbs_result.err()
+    );
 
     // CMBS
     let cmbs = StructuredCredit::new_cmbs(
@@ -548,7 +582,11 @@ fn test_all_instruments_compute_basic_metrics() {
         "USD_OIS",
     );
     let cmbs_result = cmbs.price_with_metrics(&market, as_of, metrics);
-    assert!(cmbs_result.is_ok(), "CMBS metrics failed: {:?}", cmbs_result.err());
+    assert!(
+        cmbs_result.is_ok(),
+        "CMBS metrics failed: {:?}",
+        cmbs_result.err()
+    );
 
     // All should compute successfully
     println!("CLO metrics: {:?}", clo_result.unwrap().measures.len());

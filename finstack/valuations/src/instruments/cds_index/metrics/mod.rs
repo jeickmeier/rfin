@@ -22,6 +22,7 @@ mod pv_premium;
 mod pv_protection;
 // risk_bucketed_dv01 - now using generic implementation
 mod risky_pv01;
+mod theta;
 
 use crate::metrics::MetricRegistry;
 
@@ -32,7 +33,11 @@ pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
 
     // Shared calculator for RiskyPv01 and custom "pv01" alias
     let risky_pv01_calc: Arc<dyn MetricCalculator> = Arc::new(risky_pv01::RiskyPv01Calculator);
-    registry.register_metric(MetricId::RiskyPv01, Arc::clone(&risky_pv01_calc), &["CDSIndex"]);
+    registry.register_metric(
+        MetricId::RiskyPv01,
+        Arc::clone(&risky_pv01_calc),
+        &["CDSIndex"],
+    );
     registry.register_metric(MetricId::custom("pv01"), risky_pv01_calc, &["CDSIndex"]);
 
     // Standard metrics using macro
@@ -47,6 +52,7 @@ pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
             (HazardCs01, hazard_cs01::HazardCs01Calculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
+            (Theta, theta::ThetaCalculator),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::CDSIndex,
             >::default()),

@@ -25,21 +25,21 @@ pub struct JumpToDefaultCalculator;
 impl MetricCalculator for JumpToDefaultCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
-        
+
         // Loss given default
         let lgd = 1.0 - cds.protection.recovery_rate;
-        
+
         // Jump-to-default amount (unsigned)
         let jtd_amount = cds.notional.amount() * lgd;
-        
+
         // Apply sign based on position:
         // - Protection buyer: positive JTD (gains on default)
         // - Protection seller: negative JTD (loses on default)
         let signed_jtd = match cds.side {
-            PayReceive::PayFixed => jtd_amount,  // Buyer gains
-            PayReceive::ReceiveFixed => -jtd_amount,  // Seller loses
+            PayReceive::PayFixed => jtd_amount,      // Buyer gains
+            PayReceive::ReceiveFixed => -jtd_amount, // Seller loses
         };
-        
+
         Ok(signed_jtd)
     }
 }

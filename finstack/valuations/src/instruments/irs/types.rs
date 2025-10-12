@@ -171,14 +171,14 @@ impl InterestRateSwap {
     ) -> Self {
         use finstack_core::dates::StubKind;
         use finstack_core::types::CurveId;
-        
+
         let fixed_freq = convention.fixed_frequency();
         let float_freq = convention.float_frequency();
         let fixed_dc = convention.fixed_day_count();
         let float_dc = convention.float_day_count();
         let bdc = convention.business_day_convention();
         let calendar_id = convention.calendar_id();
-        
+
         let fixed = FixedLegSpec {
             disc_id: CurveId::from(convention.disc_curve_id()),
             rate: fixed_rate,
@@ -205,7 +205,7 @@ impl InterestRateSwap {
             start,
             end,
         };
-        
+
         Self::builder()
             .id(id)
             .notional(notional)

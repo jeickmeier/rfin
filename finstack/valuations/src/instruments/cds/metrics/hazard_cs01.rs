@@ -17,12 +17,8 @@ impl MetricCalculator for HazardCs01Calculator {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
 
         // Curves
-        let disc = context
-            .curves
-            .get_discount_ref(&cds.premium.disc_id)?;
-        let surv = context
-            .curves
-            .get_hazard_ref(&cds.protection.credit_id)?;
+        let disc = context.curves.get_discount_ref(&cds.premium.disc_id)?;
+        let surv = context.curves.get_hazard_ref(&cds.protection.credit_id)?;
 
         // Base PV
         let base = (cds.pv_protection_leg(disc, surv)? - cds.pv_premium_leg(disc, surv)?)?;

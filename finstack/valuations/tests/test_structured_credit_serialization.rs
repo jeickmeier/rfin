@@ -72,7 +72,7 @@ fn test_all_recovery_model_specs_serialize() {
 #[test]
 fn test_json_spec_examples() {
     // Test that we can parse realistic JSON specs
-    
+
     // PSA prepayment model
     let json = r#"{"type":"psa","multiplier":150.0}"#;
     let spec: PrepaymentModelSpec = serde_json::from_str(json).unwrap();
@@ -80,7 +80,7 @@ fn test_json_spec_examples() {
         PrepaymentModelSpec::Psa { multiplier } => assert_eq!(multiplier, 150.0),
         _ => panic!("Expected PSA model"),
     }
-    
+
     // Constant CDR default model
     let json = r#"{"type":"constant_cdr","cdr":0.02}"#;
     let spec: DefaultModelSpec = serde_json::from_str(json).unwrap();
@@ -88,7 +88,7 @@ fn test_json_spec_examples() {
         DefaultModelSpec::ConstantCdr { cdr } => assert_eq!(cdr, 0.02),
         _ => panic!("Expected ConstantCdr model"),
     }
-    
+
     // Constant recovery model
     let json = r#"{"type":"constant","rate":0.70}"#;
     let spec: RecoveryModelSpec = serde_json::from_str(json).unwrap();
@@ -96,6 +96,6 @@ fn test_json_spec_examples() {
         RecoveryModelSpec::Constant { rate } => assert_eq!(rate, 0.70),
         _ => panic!("Expected Constant recovery model"),
     }
-    
+
     println!("✅ All JSON spec examples parsed successfully!");
 }

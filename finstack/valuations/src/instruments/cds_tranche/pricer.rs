@@ -973,7 +973,9 @@ impl CDSTranchePricer {
             .num_constituents(original_index.num_constituents)
             .recovery_rate(original_index.recovery_rate)
             .index_credit_curve(std::sync::Arc::new(bumped_hazard_curve))
-            .base_correlation_curve(std::sync::Arc::clone(&original_index.base_correlation_curve))
+            .base_correlation_curve(std::sync::Arc::clone(
+                &original_index.base_correlation_curve,
+            ))
             .build()
     }
 
@@ -1143,7 +1145,9 @@ impl CDSTranchePricer {
         let bumped_index = CreditIndexData::builder()
             .num_constituents(original_index_arc.num_constituents)
             .recovery_rate(original_index_arc.recovery_rate)
-            .index_credit_curve(std::sync::Arc::clone(&original_index_arc.index_credit_curve))
+            .index_credit_curve(std::sync::Arc::clone(
+                &original_index_arc.index_credit_curve,
+            ))
             .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve))
             .build()?;
 

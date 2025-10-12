@@ -46,7 +46,7 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
             Arc::new(ir01_foreign::ForeignIR01),
             &["FxSwap"],
         );
-    
+
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,

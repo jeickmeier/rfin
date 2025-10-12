@@ -4,7 +4,6 @@ use crate::engine::ExecutionContext;
 use crate::error::Result;
 use crate::utils::parse_period_to_days;
 use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::metrics::MetricId;
 
 /// Report from time roll-forward operation.
 #[derive(Debug, Clone)]
@@ -33,11 +32,12 @@ pub struct RollForwardReport {
 
 /// Apply time roll-forward operation.
 ///
-/// This advances the valuation date by the specified period and:
-/// 1. Rolls all curves forward (shifts base dates, adjusts knots)
-/// 2. Computes carry/theta for each instrument
-/// 3. Revalues instruments at the new date
-/// 4. Reports detailed P&L breakdown
+/// This advances the valuation date by the specified period and computes carry/theta
+/// for each instrument. Theta is calculated as the PV change from rolling the date
+/// forward while keeping all market data unchanged (curves, surfaces, FX rates).
+///
+/// The calculation is consistent with the theta metric definition: it measures
+/// the value impact of time passage with no market changes, only rolling down curves.
 pub fn apply_time_roll_forward(
     ctx: &mut ExecutionContext,
     period_str: &str,
@@ -77,13 +77,16 @@ pub fn apply_time_roll_forward(
 }
 
 /// Calculate P&L breakdown for instruments.
+///
+/// Theta (carry) is calculated as the PV change from rolling the date forward
+/// with no market data changes. This is consistent with the theta metric definition.
 #[allow(clippy::type_complexity)]
 fn calculate_instrument_pnl(
     instruments: &[Box<dyn Instrument>],
     market: &finstack_core::market_data::MarketContext,
     old_date: finstack_core::dates::Date,
     new_date: finstack_core::dates::Date,
-    days: i64,
+    _days: i64,
 ) -> Result<(Vec<(String, f64)>, Vec<(String, f64)>, f64, f64)> {
     let mut instrument_carry = Vec::new();
     let mut instrument_mv_change = Vec::new();
@@ -93,19 +96,10 @@ fn calculate_instrument_pnl(
     for instrument in instruments {
         let inst_id = instrument.id().to_string();
 
-        // Try to compute theta (carry per day)
-        let theta_result = instrument.price_with_metrics(market, old_date, &[MetricId::Theta]);
-
-        let carry = if let Ok(result) = theta_result {
-            // Theta is daily P&L, scale by number of days
-            let theta_str = MetricId::Theta.as_str();
-            if let Some(theta_value) = result.measures.get(theta_str) {
-                theta_value * days as f64
-            } else {
-                0.0
-            }
-        } else {
-            // If theta not available, estimate from PV roll
+        // Calculate carry as PV change with no market changes (theta definition)
+        // This is exactly what the theta metric measures, but we calculate it directly
+        // to avoid needing to pass pricing_overrides through price_with_metrics
+        let carry = {
             let pv_old = instrument.value(market, old_date).ok();
             let pv_new = instrument.value(market, new_date).ok();
 
@@ -116,17 +110,9 @@ fn calculate_instrument_pnl(
             }
         };
 
-        // Calculate market value change (total change minus carry = market move)
-        let mv_change = {
-            let pv_old = instrument.value(market, old_date).ok();
-            let pv_new = instrument.value(market, new_date).ok();
-
-            if let (Some(old), Some(new)) = (pv_old, pv_new) {
-                (new.amount() - old.amount()) - carry
-            } else {
-                0.0
-            }
-        };
+        // Market value change is zero in time roll (market data unchanged)
+        // All P&L comes from carry/theta
+        let mv_change = 0.0;
 
         instrument_carry.push((inst_id.clone(), carry));
         instrument_mv_change.push((inst_id, mv_change));

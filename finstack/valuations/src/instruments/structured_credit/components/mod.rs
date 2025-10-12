@@ -18,22 +18,22 @@
 //! - `tranche_valuation`: Tranche-specific cashflow generation and metrics
 
 // Structural components
+pub mod coverage_tests;
 pub mod enums;
 pub mod pool;
 pub mod tranches;
 pub mod waterfall;
-pub mod coverage_tests;
 
 // Behavioral models
-pub mod specs;
 pub mod market_context;
+pub mod specs;
 
 // Valuation
 pub mod tranche_valuation;
 
 // Utilities
-pub mod rates;
 pub mod rate_helpers;
+pub mod rates;
 
 // ============================================================================
 // Re-export structural components
@@ -44,49 +44,41 @@ pub use enums::{
 };
 
 pub use pool::{
-    AssetPool, PoolAsset, PoolStats, ReinvestmentPeriod, ReinvestmentCriteria,
-    ConcentrationCheckResult, ConcentrationViolation, calculate_pool_stats,
+    calculate_pool_stats, AssetPool, ConcentrationCheckResult, ConcentrationViolation, PoolAsset,
+    PoolStats, ReinvestmentCriteria, ReinvestmentPeriod,
 };
 
 pub use tranches::{
-    Tranche, TrancheBuilder, TrancheStructure, TrancheCoupon,
-    TrancheBehaviorType, CoverageTrigger, CreditEnhancement,
+    CoverageTrigger, CreditEnhancement, Tranche, TrancheBehaviorType, TrancheBuilder,
+    TrancheCoupon, TrancheStructure,
 };
 
 pub use waterfall::{
-    WaterfallEngine, WaterfallBuilder, WaterfallResult, PaymentRule,
-    PaymentRecipient, PaymentCalculation, ManagementFeeType,
-    CoverageTrigger as WaterfallCoverageTrigger, CoverageTestType,
-    PaymentRecord,
+    CoverageTestType, CoverageTrigger as WaterfallCoverageTrigger, ManagementFeeType,
+    PaymentCalculation, PaymentRecipient, PaymentRecord, PaymentRule, WaterfallBuilder,
+    WaterfallEngine, WaterfallResult,
 };
 
-pub use coverage_tests::{
-    CoverageTest, TestContext, TestResult,
-};
+pub use coverage_tests::{CoverageTest, TestContext, TestResult};
 
 // ============================================================================
 // Re-export behavioral models
 // ============================================================================
 
 // Market context structures
-pub use market_context::{
-    MarketConditions, CreditFactors, MarketFactors,
-};
+pub use market_context::{CreditFactors, MarketConditions, MarketFactors};
 
 // Behavioral model specifications (single source of truth)
-pub use specs::{
-    PrepaymentModelSpec, DefaultModelSpec, RecoveryModelSpec,
-};
+pub use specs::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
 
 // Rate conversion utilities
-pub use rates::{cpr_to_smm, smm_to_cpr, cdr_to_mdr, mdr_to_cdr, psa_to_cpr};
+pub use rates::{cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, smm_to_cpr};
 
 // ============================================================================
 // Re-export tranche valuation
 // ============================================================================
 
 pub use tranche_valuation::{
-    TrancheCashflowResult, TrancheValuation, TrancheValuationExt,
-    calculate_tranche_wal, calculate_tranche_duration,
-    calculate_tranche_z_spread, calculate_tranche_cs01,
+    calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_wal,
+    calculate_tranche_z_spread, TrancheCashflowResult, TrancheValuation, TrancheValuationExt,
 };

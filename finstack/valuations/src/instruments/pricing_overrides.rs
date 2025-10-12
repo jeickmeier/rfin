@@ -16,6 +16,8 @@ pub struct PricingOverrides {
     pub upfront_payment: Option<Money>,
     /// Optional YTM bump size for numerical metrics (e.g., convexity/duration), in decimal (1 bp = 1e-4)
     pub ytm_bump_bp: Option<f64>,
+    /// Theta period for time decay calculations (e.g., "1D", "1W", "1M", "3M")
+    pub theta_period: Option<String>,
 }
 
 impl PricingOverrides {
@@ -51,6 +53,12 @@ impl PricingOverrides {
     /// Set custom YTM bump size (decimal). For 1 bp, pass 1e-4.
     pub fn with_ytm_bump(mut self, bump: f64) -> Self {
         self.ytm_bump_bp = Some(bump);
+        self
+    }
+
+    /// Set theta period for time decay calculations.
+    pub fn with_theta_period(mut self, period: impl Into<String>) -> Self {
+        self.theta_period = Some(period.into());
         self
     }
 }

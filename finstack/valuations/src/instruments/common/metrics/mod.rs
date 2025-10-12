@@ -5,5 +5,6 @@
 //! near-identical calculator implementations across instruments.
 
 pub mod bucketed_dv01;
+pub mod theta_utils;
 
 pub use bucketed_dv01::{GenericBucketedDv01, GenericBucketedDv01WithContext, HasDiscountCurve};

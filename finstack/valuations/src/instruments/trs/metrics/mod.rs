@@ -5,6 +5,7 @@ mod bucketed;
 mod delta;
 mod ir01;
 mod par_spread;
+mod theta;
 // risk_bucketed_dv01 - now using generic implementation
 
 pub use annuity::FinancingAnnuityCalculator;
@@ -33,6 +34,7 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
             (FinancingAnnuity, FinancingAnnuityCalculator),
             (Ir01, TrsIR01Calculator),
             (IndexDelta, IndexDeltaCalculator),
+            (Theta, theta::EquityTrsThetaCalculator),
             (BucketedDv01, TrsBucketedDv01Calculator),
         ]
     }

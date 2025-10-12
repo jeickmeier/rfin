@@ -19,6 +19,7 @@ mod jump_to_default;
 mod par_spread;
 // risk_bucketed_dv01 - now using generic implementation
 mod spread_dv01;
+mod theta;
 mod upfront;
 
 use crate::metrics::MetricRegistry;
@@ -50,7 +51,7 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
             Arc::new(correlation_delta::CorrelationDeltaCalculator),
             &["CDSTranche"],
         );
-    
+
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
@@ -59,6 +60,7 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
             (ParSpread, par_spread::ParSpreadCalculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
+            (Theta, theta::ThetaCalculator),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::CdsTranche,
             >::default()),

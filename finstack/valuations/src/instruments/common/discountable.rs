@@ -71,7 +71,8 @@ mod tests {
             calendar_id: params.calendar_id,
             stub: params.stub,
         };
-        CashFlowSchedule::builder().principal(Money::new(1_000.0, Currency::USD), issue, maturity)
+        CashFlowSchedule::builder()
+            .principal(Money::new(1_000.0, Currency::USD), issue, maturity)
             .fixed_cf(fixed)
             .build()
             .unwrap()

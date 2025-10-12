@@ -428,7 +428,6 @@ impl crate::instruments::common::pricing::HasDiscountCurve for Repo {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

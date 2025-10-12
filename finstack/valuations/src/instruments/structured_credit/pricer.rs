@@ -4,7 +4,7 @@
 //! use the shared waterfall implementation via the `StructuredCreditInstrument` trait.
 
 use super::StructuredCredit;
-use crate::cashflow::traits::{CashflowProvider};
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::discountable::Discountable;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
@@ -17,11 +17,7 @@ impl StructuredCredit {
     ///
     /// This method generates cashflows through the waterfall engine and discounts
     /// them back to present value using the instrument's discount curve.
-    pub fn price(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    pub fn price(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let disc = context.get_discount_ref(self.disc_id.as_str())?;
         let flows = self.build_schedule(context, as_of)?;
 
@@ -40,7 +36,11 @@ impl StructuredCredit {
         let base_value = self.price(context, as_of)?;
 
         if metrics.is_empty() {
-            return Ok(ValuationResult::stamped(self.id.as_str(), as_of, base_value));
+            return Ok(ValuationResult::stamped(
+                self.id.as_str(),
+                as_of,
+                base_value,
+            ));
         }
 
         let flows = self.build_schedule(context, as_of)?;
@@ -80,4 +80,3 @@ impl Default for StructuredCreditDiscountingPricer {
         Self::new(crate::pricer::InstrumentType::StructuredCredit)
     }
 }
-

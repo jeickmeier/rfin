@@ -20,21 +20,21 @@ impl MetricCalculator for DirtyPriceCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Use the base NPV that was already computed
         let npv = context.base_value.amount();
-        
+
         // Get the original notional
         // For structured credit, this is typically stored in the pool or tranche
         let notional = get_original_notional(context)?;
-        
+
         if notional == 0.0 {
             return Ok(0.0);
         }
-        
+
         // Dirty price = (NPV / Notional) × 100
         let dirty_price = (npv / notional) * 100.0;
-        
+
         Ok(dirty_price)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[] // Uses base NPV from context
     }
@@ -63,7 +63,7 @@ impl MetricCalculator for CleanPriceCalculator {
                     id: "metric:DirtyPrice".to_string(),
                 })
             })?;
-        
+
         // Get accrued interest in currency units
         let accrued = context
             .computed
@@ -74,7 +74,7 @@ impl MetricCalculator for CleanPriceCalculator {
                     id: "metric:Accrued".to_string(),
                 })
             })?;
-        
+
         // Convert accrued to price points
         let notional = get_original_notional(context)?;
         let accrued_points = if notional > 0.0 {
@@ -82,13 +82,13 @@ impl MetricCalculator for CleanPriceCalculator {
         } else {
             0.0
         };
-        
+
         // Clean price = Dirty price - Accrued (in points)
         let clean_price = dirty - accrued_points;
-        
+
         Ok(clean_price)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::DirtyPrice, MetricId::Accrued]
     }
@@ -103,9 +103,8 @@ fn get_original_notional(context: &MetricContext) -> Result<f64> {
     if let Some(notional) = context.notional {
         return Ok(notional);
     }
-    
+
     // Fallback: use base_value as notional approximation
     // This works when price ≈ 100% and NPV ≈ notional
     Ok(context.base_value.amount().abs())
 }
-

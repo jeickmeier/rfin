@@ -177,8 +177,7 @@ impl PoolAsset {
     ///
     /// Returns the explicit spread if available, otherwise derives from rate.
     pub fn spread_bps(&self) -> f64 {
-        self.spread_bps
-            .unwrap_or(self.rate * BASIS_POINTS_DIVISOR)
+        self.spread_bps.unwrap_or(self.rate * BASIS_POINTS_DIVISOR)
     }
 
     /// Remaining term to maturity in years
@@ -420,7 +419,8 @@ impl AssetPool {
         // Group by obligor
         for asset in &self.assets {
             if let Some(ref obligor) = asset.obligor_id {
-                *obligor_balances.entry(obligor.to_owned()).or_insert(0.0) += asset.balance.amount();
+                *obligor_balances.entry(obligor.to_owned()).or_insert(0.0) +=
+                    asset.balance.amount();
             }
         }
 
@@ -434,7 +434,6 @@ impl AssetPool {
             0.0
         }
     }
-
 
     /// Base currency of the pool (from first asset)
     pub fn base_currency(&self) -> Currency {
@@ -505,7 +504,7 @@ pub fn calculate_pool_stats(pool: &AssetPool, as_of: Date) -> PoolStats {
         .filter(|a| a.is_defaulted)
         .map(|a| a.balance.amount())
         .sum();
-    
+
     let cumulative_default_rate = if total_balance > 0.0 {
         defaulted_balance / total_balance * 100.0
     } else {
@@ -523,8 +522,8 @@ pub fn calculate_pool_stats(pool: &AssetPool, as_of: Date) -> PoolStats {
         num_obligors: obligors.len(),
         num_industries: industries.len(),
         cumulative_default_rate,
-        recovery_rate: 0.0,    // Computed separately if needed
-        prepayment_rate: 0.0,  // Computed separately if needed
+        recovery_rate: 0.0,   // Computed separately if needed
+        prepayment_rate: 0.0, // Computed separately if needed
     }
 }
 

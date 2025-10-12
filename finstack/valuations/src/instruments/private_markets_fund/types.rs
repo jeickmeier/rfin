@@ -125,4 +125,3 @@ impl CashflowProvider for PrivateMarketsFund {
         self.lp_cashflows()
     }
 }
-

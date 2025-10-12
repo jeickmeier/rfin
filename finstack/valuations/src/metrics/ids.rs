@@ -266,7 +266,7 @@ define_metrics! {
     // Basis swap metrics (using consistent leg naming with IRS)
     /// PV of primary floating leg (includes spread)
     PvPrimary => "pv_primary",
-    /// PV of reference floating leg  
+    /// PV of reference floating leg
     PvReference => "pv_reference",
     /// Annuity of primary leg
     AnnuityPrimary => "annuity_primary",
@@ -314,130 +314,130 @@ define_metrics! {
     PremiumDiscount => "premium_discount",
 
     // === Structured Credit Metrics ===
-    
+
     /// Weighted Average Life (years) - Expected principal repayment life
     WAL => "wal",
-    
+
     /// Weighted Average Maturity (years) - Pool maturity
     WAM => "wam",
-    
+
     /// Expected final payment date under base assumptions
     ExpectedMaturity => "expected_maturity",
-    
+
     /// Percentage of original pool balance remaining
     PoolFactor => "pool_factor",
-    
+
     /// Constant Prepayment Rate (annualized)
     CPR => "cpr",
-    
+
     /// Single Monthly Mortality (monthly prepayment rate)
     SMM => "smm",
-    
+
     /// Constant Default Rate (annualized)
     CDR => "cdr",
-    
+
     /// Loss Severity (1 - Recovery Rate)
     LossSeverity => "loss_severity",
-    
+
     /// Spread duration (time-weighted sensitivity to spread changes)
     SpreadDuration => "spread_duration",
-    
+
     /// DM01 - Discount margin sensitivity (for floating-rate CLO)
     Dm01 => "dm01",
 
     // === ABS-specific Metrics ===
-    
+
     /// Delinquency rate - Percentage of pool in delinquency
     AbsDelinquency => "abs_delinquency",
-    
+
     /// Charge-off rate - Percentage of pool charged off
     AbsChargeOff => "abs_charge_off",
-    
+
     /// Excess spread - Spread available to absorb losses
     AbsExcessSpread => "abs_excess_spread",
-    
+
     /// Credit enhancement level - Subordination as % of pool
     AbsCreditEnhancement => "abs_ce_level",
-    
+
     // === CLO-specific Metrics ===
-    
+
     /// Weighted Average Rating Factor
     CloWarf => "clo_warf",
-    
+
     /// Weighted Average Spread
     CloWas => "clo_was",
-    
+
     /// Weighted Average Coupon
     CloWac => "clo_wac",
-    
+
     /// Portfolio diversity score
     CloDiversity => "clo_diversity",
-    
+
     /// Overcollateralization ratio
     CloOcRatio => "clo_oc_ratio",
-    
+
     /// Interest coverage ratio
     CloIcRatio => "clo_ic_ratio",
-    
+
     /// Average recovery rate on defaults
     CloRecoveryRate => "clo_recovery_rate",
-    
+
     // === CMBS-specific Metrics ===
-    
+
     /// Debt Service Coverage Ratio
     CmbsDscr => "cmbs_dscr",
-    
+
     /// Weighted Average Loan-to-Value
     CmbsWaltv => "cmbs_waltv",
-    
+
     /// Credit Enhancement Level
     CmbsCreditEnhancement => "cmbs_ce_level",
-    
+
     // === RMBS-specific Metrics ===
-    
+
     /// PSA prepayment speed (e.g., 100% PSA)
     RmbsPsaSpeed => "rmbs_psa_speed",
-    
+
     /// SDA default speed
     RmbsSdaSpeed => "rmbs_sda_speed",
-    
+
     /// Weighted Average LTV for RMBS
     RmbsWaltv => "rmbs_waltv",
-    
+
     /// Weighted Average FICO score
     RmbsWafico => "rmbs_wafico",
-    
+
     // === Inflation-Linked Bond Metrics ===
-    
+
     /// Real yield (inflation-adjusted)
     RealYield => "real_yield",
-    
+
     /// Inflation index ratio
     IndexRatio => "index_ratio",
-    
+
     /// Real duration (inflation-adjusted duration)
     RealDuration => "real_duration",
-    
+
     /// Breakeven inflation rate
     BreakevenInflation => "breakeven_inflation",
 
     // === Private Equity / Private Markets Fund Metrics ===
-    
+
     /// LP (Limited Partner) Internal Rate of Return
     LpIrr => "lp_irr",
-    
+
     /// GP (General Partner) Internal Rate of Return
     GpIrr => "gp_irr",
-    
+
     /// LP Multiple on Invested Capital
     MoicLp => "moic_lp",
-    
+
     /// LP Distributions to Paid In (DPI ratio)
     DpiLp => "dpi_lp",
-    
+
     /// LP Total Value to Paid In (TVPI ratio)
     TvpiLp => "tvpi_lp",
-    
+
     /// Accrued carry amount for GP
     CarryAccrued => "carry_accrued",
 

@@ -195,7 +195,7 @@ impl Bond {
     ///     .principal(notional, issue, maturity)
     ///     .fixed_cf(FixedCouponSpec { coupon_type: CouponType::Split { cash_pct: 0.5, pik_pct: 0.5 }, ... })
     ///     .build()?;
-    /// 
+    ///
     /// let bond = Bond::from_cashflows("PIK-001", schedule, "USD-HY", Some(95.0))?;
     /// ```
     pub fn from_cashflows(
@@ -267,7 +267,9 @@ impl Bond {
         &self,
         curves: &finstack_core::market_data::MarketContext,
     ) -> Result<CashFlowSchedule> {
-        use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, FloatingCouponSpec};
+        use crate::cashflow::builder::{
+            CashFlowSchedule, CouponType, FixedCouponSpec, FloatingCouponSpec,
+        };
 
         // If custom cashflows are set, return them directly
         if let Some(ref custom) = self.custom_cashflows {

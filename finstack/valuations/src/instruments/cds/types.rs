@@ -326,9 +326,7 @@ impl CreditDefaultSwap {
         pricer.cs01(
             self,
             curves,
-            curves
-                .get_discount_ref(&self.premium.disc_id)?
-                .base_date(),
+            curves.get_discount_ref(&self.premium.disc_id)?.base_date(),
         )
     }
 

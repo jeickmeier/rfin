@@ -10,6 +10,7 @@ pub mod duration_modified;
 pub mod i_spread;
 pub mod oas;
 pub mod prices;
+pub mod theta;
 pub mod ytm;
 pub mod ytw;
 pub mod z_spread;
@@ -54,6 +55,7 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (ASWParFwd, AssetSwapParFwdCalculator),
             (ASWMarketFwd, AssetSwapMarketFwdCalculator),
             (Cs01, Cs01Calculator),
+            (Theta, theta::ThetaCalculator),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
                 crate::instruments::Bond,
             >::default()),

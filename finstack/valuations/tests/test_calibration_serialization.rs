@@ -344,7 +344,10 @@ fn test_validation_config_serialization() {
     };
 
     let restored = roundtrip_json(&config);
-    assert_eq!(config.check_forward_positivity, restored.check_forward_positivity);
+    assert_eq!(
+        config.check_forward_positivity,
+        restored.check_forward_positivity
+    );
     assert_eq!(config.min_forward_rate, restored.min_forward_rate);
     assert_eq!(config.max_forward_rate, restored.max_forward_rate);
 }
@@ -367,15 +370,10 @@ fn test_discount_curve_calibrator_serialization() {
 fn test_forward_curve_calibrator_serialization() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-    let calibrator = ForwardCurveCalibrator::new(
-        "USD-SOFR-3M",
-        0.25,
-        base_date,
-        Currency::USD,
-        "USD-OIS",
-    )
-    .with_solve_interp(InterpStyle::Linear)
-    .with_time_dc(DayCount::Act360);
+    let calibrator =
+        ForwardCurveCalibrator::new("USD-SOFR-3M", 0.25, base_date, Currency::USD, "USD-OIS")
+            .with_solve_interp(InterpStyle::Linear)
+            .with_time_dc(DayCount::Act360);
 
     let restored = roundtrip_json(&calibrator);
     assert_eq!(calibrator.fwd_curve_id, restored.fwd_curve_id);
@@ -408,13 +406,8 @@ fn test_hazard_curve_calibrator_serialization() {
 fn test_inflation_curve_calibrator_serialization() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-    let calibrator = InflationCurveCalibrator::new(
-        "USCPI",
-        base_date,
-        Currency::USD,
-        280.0,
-        "USD-OIS",
-    );
+    let calibrator =
+        InflationCurveCalibrator::new("USCPI", base_date, Currency::USD, 280.0, "USD-OIS");
 
     let restored = roundtrip_json(&calibrator);
     assert_eq!(calibrator.curve_id, restored.curve_id);
@@ -625,15 +618,10 @@ fn test_complex_calibration_workflow_serialization() {
         .with_solve_interp(InterpStyle::MonotoneConvex)
         .with_config(config.clone());
 
-    let forward_calibrator = ForwardCurveCalibrator::new(
-        "USD-SOFR-3M",
-        0.25,
-        base_date,
-        Currency::USD,
-        "USD-OIS",
-    )
-    .with_solve_interp(InterpStyle::Linear)
-    .with_config(config.clone());
+    let forward_calibrator =
+        ForwardCurveCalibrator::new("USD-SOFR-3M", 0.25, base_date, Currency::USD, "USD-OIS")
+            .with_solve_interp(InterpStyle::Linear)
+            .with_config(config.clone());
 
     let hazard_calibrator = HazardCurveCalibrator::new(
         "AAPL",

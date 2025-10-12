@@ -23,8 +23,8 @@
 //! ## Example
 //! - CDX IG (125 names): $10M index with 40% recovery → JTD ≈ $48K per name default
 
-use crate::instruments::cds_index::CDSIndex;
 use crate::instruments::cds::PayReceive;
+use crate::instruments::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -34,24 +34,24 @@ pub struct JumpToDefaultCalculator;
 impl MetricCalculator for JumpToDefaultCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let index: &CDSIndex = context.instrument_as()?;
-        
+
         // Check if we have constituent data for more accurate calculation
         if !index.constituents.is_empty() {
             // Use constituent-specific weights and recoveries
             let mut total_jtd = 0.0;
-            
+
             for constituent in &index.constituents {
                 let lgd = 1.0 - constituent.credit.recovery_rate;
                 let constituent_jtd = constituent.weight * index.notional.amount() * lgd;
                 total_jtd += constituent_jtd;
             }
-            
+
             // Apply sign based on position
             let signed_jtd = match index.side {
                 PayReceive::PayFixed => total_jtd,
                 PayReceive::ReceiveFixed => -total_jtd,
             };
-            
+
             Ok(signed_jtd)
         } else {
             // Simplified calculation using index-level parameters
@@ -59,16 +59,16 @@ impl MetricCalculator for JumpToDefaultCalculator {
             let num_constituents = 125.0; // Default for standard indices (CDX IG, iTraxx)
             let avg_weight = 1.0 / num_constituents;
             let lgd = 1.0 - index.protection.recovery_rate;
-            
+
             // Single name default impact
             let single_name_jtd = avg_weight * index.notional.amount() * lgd;
-            
+
             // Apply sign based on position
             let signed_jtd = match index.side {
                 PayReceive::PayFixed => single_name_jtd,
                 PayReceive::ReceiveFixed => -single_name_jtd,
             };
-            
+
             Ok(signed_jtd)
         }
     }

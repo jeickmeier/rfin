@@ -6,16 +6,17 @@
 //! - pool: Collateral pool characteristics (WAM, CPR, CDR, WARF, WAS)
 //! - deal_specific: Deal-type specific metrics (ABS, CLO, CMBS, RMBS)
 
+pub mod deal_specific;
+pub mod pool;
 pub mod pricing;
 pub mod risk;
-pub mod pool;
-pub mod deal_specific;
+pub mod theta;
 
 // Re-export all calculators for convenience
+pub use deal_specific::*;
+pub use pool::*;
 pub use pricing::*;
 pub use risk::*;
-pub use pool::*;
-pub use deal_specific::*;
 
 /// Register all structured credit metrics
 pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricRegistry) {
@@ -37,10 +38,11 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
             // Pool metrics
             (WAM, pool::WamCalculator),
             (CPR, pool::CprCalculator),
-            (CDR, pool::CdrCalculator)
+            (CDR, pool::CdrCalculator),
+            (Theta, theta::ThetaCalculator)
         ]
     }
-    
+
     // Note: Deal-specific metrics (WARF, WAS, ABS speed, delinquency, DSCR, excess spread,
     // LTV, FICO) would need custom MetricId variants in the core metrics module to be registered.
     // These are currently used directly via their calculator structs when needed.

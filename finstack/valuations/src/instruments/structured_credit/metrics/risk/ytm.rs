@@ -44,25 +44,25 @@ impl MetricCalculator for YtmCalculator {
                     id: "metric:DirtyPrice".to_string(),
                 })
             })?;
-        
+
         // Get cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;
-        
+
         // Get notional to convert price to currency
         let base_npv = context.base_value.amount();
         let target_value = base_npv * (dirty_price / 100.0);
-        
+
         if flows.is_empty() {
             return Ok(0.0);
         }
-        
+
         // Day count for year fractions
         let day_count = finstack_core::dates::DayCount::Act365F;
-        
+
         // Objective function: PV(y) - target = 0
         let objective = |y: f64| -> f64 {
             let mut pv = 0.0;
@@ -70,11 +70,11 @@ impl MetricCalculator for YtmCalculator {
                 if *date <= context.as_of {
                     continue;
                 }
-                
+
                 let t = day_count
                     .year_fraction(context.as_of, *date, DayCountCtx::default())
                     .unwrap_or(0.0);
-                
+
                 if t > 0.0 {
                     let df = (1.0 + y).powf(-t);
                     pv += amount.amount() * df;
@@ -82,20 +82,19 @@ impl MetricCalculator for YtmCalculator {
             }
             pv - target_value
         };
-        
+
         // Solve for YTM using hybrid solver (Newton-Raphson + Brent fallback)
         let solver = HybridSolver::new()
             .with_tolerance(1e-8)
             .with_max_iterations(100);
-        
+
         // Initial guess: 5% is reasonable for structured credit
         let ytm = solver.solve(objective, 0.05)?;
-        
+
         Ok(ytm)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::DirtyPrice]
     }
 }
-

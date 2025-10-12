@@ -7,8 +7,8 @@ use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use std::collections::HashMap;
 
-use crate::instruments::irs::InterestRateSwap;
 use super::components::enums::CreditRating;
+use crate::instruments::irs::InterestRateSwap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -649,4 +649,3 @@ mod tests {
         assert_eq!(assumptions.base_recovery_rate, 0.45);
     }
 }
-

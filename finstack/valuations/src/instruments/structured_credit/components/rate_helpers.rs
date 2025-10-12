@@ -1,6 +1,6 @@
 //! Helpers to compute all-in rates using core market_data curves.
 
-use finstack_core::dates::{DayCount, DayCountCtx, Date};
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::MarketContext;
 
 use super::tranches::TrancheCoupon;
@@ -67,5 +67,3 @@ pub fn asset_all_in_rate(
     // Fallback to stored all-in
     fallback_rate
 }
-
-

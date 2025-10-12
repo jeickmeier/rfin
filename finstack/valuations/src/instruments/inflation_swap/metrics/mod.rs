@@ -53,7 +53,7 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             Arc::new(ir01::Ir01Calculator),
             &["InflationSwap"],
         );
-    
+
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,

@@ -11,7 +11,9 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 
 use finstack_core::cashflow::primitives::AmortizationSpec;
-use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
+use finstack_valuations::cashflow::builder::{
+    CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams,
+};
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::Instrument;

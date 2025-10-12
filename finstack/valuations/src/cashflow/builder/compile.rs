@@ -98,12 +98,12 @@ pub(super) fn build_fee_schedules(
     //! let fees = vec![
     //!     FeeSpec::PeriodicBps {
     //!         base: FeeBase::Drawn,
-   //!         bps: 50.0,
-   //!         freq: Frequency::quarterly(),
-   //!         dc: DayCount::Act360,
-   //!         bdc: BusinessDayConvention::Following,
-   //!         calendar_id: Some("usd".to_string()),
-   //!         stub: StubKind::None,
+    //!         bps: 50.0,
+    //!         freq: Frequency::quarterly(),
+    //!         dc: DayCount::Act360,
+    //!         bdc: BusinessDayConvention::Following,
+    //!         calendar_id: Some("usd".to_string()),
+    //!         stub: StubKind::None,
     //!     }
     //! ];
     //! // Note: build_fee_schedules would be called here

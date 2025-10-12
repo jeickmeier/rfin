@@ -120,13 +120,13 @@ pub fn mdr_to_cdr(mdr: f64) -> f64 {
 pub fn psa_to_cpr(psa_speed: f64, month: u32) -> f64 {
     const PSA_RAMP_MONTHS: u32 = 30;
     const PSA_TERMINAL_CPR: f64 = 0.06;
-    
+
     let base_cpr = if month <= PSA_RAMP_MONTHS {
         (month as f64 / PSA_RAMP_MONTHS as f64) * PSA_TERMINAL_CPR
     } else {
         PSA_TERMINAL_CPR
     };
-    
+
     base_cpr * psa_speed
 }
 
@@ -138,10 +138,10 @@ mod tests {
     fn test_cpr_smm_roundtrip() {
         let cpr = 0.06;
         let smm = cpr_to_smm(cpr);
-        
+
         // 6% CPR should be approximately 0.5143% SMM
         assert!((smm - 0.005143).abs() < 0.0001);
-        
+
         // Test roundtrip
         let cpr_back = smm_to_cpr(smm);
         assert!((cpr - cpr_back).abs() < 1e-10);
@@ -151,11 +151,11 @@ mod tests {
     fn test_cdr_mdr_roundtrip() {
         let cdr = 0.02;
         let mdr = cdr_to_mdr(cdr);
-        
+
         // MDR should be positive and less than CDR
         assert!(mdr > 0.0);
         assert!(mdr < cdr);
-        
+
         // Test roundtrip
         let cdr_back = mdr_to_cdr(mdr);
         assert!((cdr - cdr_back).abs() < 1e-10);
@@ -166,15 +166,15 @@ mod tests {
         // 100% PSA at month 30 should be 6% CPR
         let cpr = psa_to_cpr(1.0, 30);
         assert!((cpr - 0.06).abs() < 0.0001);
-        
+
         // 150% PSA at month 30 should be 9% CPR
         let cpr = psa_to_cpr(1.5, 30);
         assert!((cpr - 0.09).abs() < 0.0001);
-        
+
         // 100% PSA at month 15 should be 3% CPR (halfway)
         let cpr = psa_to_cpr(1.0, 15);
         assert!((cpr - 0.03).abs() < 0.0001);
-        
+
         // 100% PSA after month 30 should stay at 6% CPR
         let cpr = psa_to_cpr(1.0, 60);
         assert!((cpr - 0.06).abs() < 0.0001);
@@ -186,9 +186,8 @@ mod tests {
         let rate = 0.05;
         let monthly_prepay = cpr_to_smm(rate);
         let monthly_default = cdr_to_mdr(rate);
-        
+
         // Should be identical formulas
         assert!((monthly_prepay - monthly_default).abs() < 1e-15);
     }
 }
-

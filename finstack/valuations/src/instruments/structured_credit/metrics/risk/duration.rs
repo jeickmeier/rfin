@@ -37,43 +37,43 @@ impl MetricCalculator for MacaulayDurationCalculator {
                 id: "context.cashflows".to_string(),
             })
         })?;
-        
+
         // Get discount curve
         let disc_curve_id = context.discount_curve_id.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "discount_curve_id".to_string(),
             })
         })?;
-        
+
         let disc = context.curves.get_discount_ref(disc_curve_id.as_str())?;
-        
+
         // Use Act/365F for time calculation
         let day_count = finstack_core::dates::DayCount::Act365F;
-        
+
         let mut weighted_pv = 0.0;
         let mut total_pv = 0.0;
-        
+
         for (date, amount) in flows {
             if *date <= context.as_of {
                 continue;
             }
-            
+
             // Calculate time in years
             let years = day_count
                 .year_fraction(context.as_of, *date, DayCountCtx::default())
                 .unwrap_or(0.0);
-            
+
             // Get discount factor
             let df = disc.df_on_date_curve(*date);
-            
+
             // Calculate present value
             let pv = amount.amount() * df;
-            
+
             // Accumulate weighted PV
             weighted_pv += pv * years;
             total_pv += pv;
         }
-        
+
         // Calculate Macaulay duration
         if total_pv > 0.0 {
             Ok(weighted_pv / total_pv)
@@ -81,7 +81,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
             Ok(0.0)
         }
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[] // Uses cashflows and discount curve from context
     }
@@ -110,67 +110,67 @@ impl MetricCalculator for ModifiedDurationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // For structured credit, we use a numerical approach:
         // Calculate price sensitivity to a small yield shift
-        
+
         // Get base NPV
         let base_npv = context.base_value.amount();
-        
+
         if base_npv == 0.0 {
             return Ok(0.0);
         }
-        
+
         // Get cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;
-        
+
         // Get discount curve
         let disc_curve_id = context.discount_curve_id.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "discount_curve_id".to_string(),
             })
         })?;
-        
+
         let disc = context.curves.get_discount_ref(disc_curve_id.as_str())?;
-        
+
         // Use Act/365F for time calculation
         let day_count = finstack_core::dates::DayCount::Act365F;
         let base_date = disc.base_date();
-        
+
         // Shift yield by 1bp
         let yield_shift = ONE_BASIS_POINT;
-        
+
         // Calculate PV with shifted discount factors
         let mut shifted_npv = 0.0;
-        
+
         for (date, amount) in flows {
             if *date <= context.as_of {
                 continue;
             }
-            
+
             // Calculate time from curve base date
             let t = day_count
                 .year_fraction(base_date, *date, DayCountCtx::default())
                 .unwrap_or(0.0);
-            
+
             // Get base discount factor
             let df = disc.df_on_date_curve(*date);
-            
+
             // Apply yield shift: df_shifted = df * exp(-shift * t)
             let df_shifted = df * (-yield_shift * t).exp();
-            
+
             shifted_npv += amount.amount() * df_shifted;
         }
-        
+
         // Modified duration = -(dP/dy) / P
         // Where dP = shifted_npv - base_npv, dy = yield_shift
         let price_change = shifted_npv - base_npv;
         let modified_duration = -(price_change / base_npv) / yield_shift;
-        
+
         Ok(modified_duration)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[] // Uses cashflows and discount curve from context
     }

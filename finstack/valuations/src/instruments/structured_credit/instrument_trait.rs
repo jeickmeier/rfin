@@ -3,14 +3,14 @@
 //! This trait provides a shared interface for CLO, ABS, RMBS, and CMBS instruments
 //! to generate cashflows using a consistent waterfall engine.
 
-use crate::cashflow::traits::DatedFlows;
 use super::components::{
-    AssetPool, PaymentRecipient, TrancheStructure, WaterfallEngine,
-    CreditFactors, MarketConditions,
-    MarketFactors, PrepaymentModelSpec, DefaultModelSpec, RecoveryModelSpec, TrancheCashflowResult,
+    AssetPool, CreditFactors, DefaultModelSpec, MarketConditions, MarketFactors, PaymentRecipient,
+    PrepaymentModelSpec, RecoveryModelSpec, TrancheCashflowResult, TrancheStructure,
+    WaterfallEngine,
 };
-use super::utils::months_between;
 use super::config::{DEFAULT_RESOLUTION_LAG_MONTHS, POOL_BALANCE_CLEANUP_THRESHOLD};
+use super::utils::months_between;
+use crate::cashflow::traits::DatedFlows;
 use finstack_core::dates::{Date, Frequency, ScheduleBuilder};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -46,7 +46,7 @@ fn update_tranche_balance(
     if let Some(current) = tranche_balances.get_mut(tranche_id) {
         *current = current.checked_sub(principal_payment).unwrap_or(*current);
     }
-    
+
     Ok(())
 }
 
@@ -145,7 +145,7 @@ pub(crate) trait StructuredCreditInstrument {
         let pool = self.pool();
         let base_ccy = pool.base_currency();
         let mut interest_collections = Money::new(0.0, base_ccy);
-        
+
         for asset in &pool.assets {
             let asset_rate = if let Some(idx) = &asset.index_id {
                 match context.get_forward_ref(idx.as_str()) {
@@ -153,7 +153,11 @@ pub(crate) trait StructuredCreditInstrument {
                         let base = fwd.base_date();
                         let dc = finstack_core::dates::DayCount::Act365F;
                         let t2 = dc
-                            .year_fraction(base, pay_date, finstack_core::dates::DayCountCtx::default())
+                            .year_fraction(
+                                base,
+                                pay_date,
+                                finstack_core::dates::DayCountCtx::default(),
+                            )
                             .unwrap_or(0.0);
                         let t1 = (t2 - 0.25).max(0.0);
                         let idx_rate = fwd.rate_period(t1, t2);
@@ -164,14 +168,14 @@ pub(crate) trait StructuredCreditInstrument {
             } else {
                 asset.rate
             };
-            
+
             let ir = Money::new(
                 asset.balance.amount() * asset_rate * (months_per_period / 12.0),
                 base_ccy,
             );
             interest_collections = interest_collections.checked_add(ir)?;
         }
-        
+
         Ok(interest_collections)
     }
 
@@ -262,38 +266,33 @@ pub(crate) trait StructuredCreditInstrument {
         // Initialize waterfall engine
         let mut waterfall_engine = self.create_waterfall_engine();
         let months_per_period = dates_payment_frequency.months().unwrap_or(3) as f64;
-        
+
         // Generate payment schedule
-        let schedule = ScheduleBuilder::try_new(
-            dates_first_payment_date.max(as_of),
-            dates_legal_maturity,
-        )?
-        .frequency(dates_payment_frequency)
-        .build()?;
+        let schedule =
+            ScheduleBuilder::try_new(dates_first_payment_date.max(as_of), dates_legal_maturity)?
+                .frequency(dates_payment_frequency)
+                .build()?;
 
         // Simulate period-by-period
         for pay_date in schedule.dates {
             if pool_outstanding.amount() <= POOL_BALANCE_CLEANUP_THRESHOLD {
                 break;
             }
-            
+
             let seasoning_months = months_between(dates_closing_date, pay_date);
 
             // Step 1: Calculate pool cashflows for the period
-            let interest_collections = self.calculate_period_interest_collections(
-                pay_date,
-                months_per_period,
-                context,
-            )?;
+            let interest_collections =
+                self.calculate_period_interest_collections(pay_date, months_per_period, context)?;
 
-            let (prepay_amt, default_amt, recovery_amt) = 
-                self.calculate_period_prepayments_and_defaults(
+            let (prepay_amt, default_amt, recovery_amt) = self
+                .calculate_period_prepayments_and_defaults(
                     pay_date,
                     seasoning_months,
                     pool_outstanding,
                     months_per_period,
                 )?;
-            
+
             let period_flows = PeriodFlows {
                 interest_collections,
                 prepayments: prepay_amt,
@@ -322,26 +321,33 @@ pub(crate) trait StructuredCreditInstrument {
                     .get(&PaymentRecipient::Tranche(tranche_id.clone()))
                 {
                     if payment.amount() > 0.0 {
-                        let current_balance = tranche_balances.get(&tranche_id).copied().unwrap_or(Money::new(0.0, base_ccy));
+                        let current_balance = tranche_balances
+                            .get(&tranche_id)
+                            .copied()
+                            .unwrap_or(Money::new(0.0, base_ccy));
                         let coupon_rate = tranche.coupon.current_rate_with_index(pay_date, context);
-                        
+
                         let interest_portion = Money::new(
                             current_balance.amount() * coupon_rate * (months_per_period / 12.0),
                             base_ccy,
                         );
-                        
-                        let principal_payment = payment.checked_sub(interest_portion).unwrap_or(Money::new(0.0, base_ccy));
+
+                        let principal_payment = payment
+                            .checked_sub(interest_portion)
+                            .unwrap_or(Money::new(0.0, base_ccy));
 
                         // Update the results for this tranche
                         if let Some(res) = results.get_mut(&tranche_id) {
                             res.cashflows.push((pay_date, *payment));
                             if interest_portion.amount() > 0.0 {
                                 res.interest_flows.push((pay_date, interest_portion));
-                                res.total_interest = res.total_interest.checked_add(interest_portion)?;
+                                res.total_interest =
+                                    res.total_interest.checked_add(interest_portion)?;
                             }
                             if principal_payment.amount() > 0.0 {
                                 res.principal_flows.push((pay_date, principal_payment));
-                                res.total_principal = res.total_principal.checked_add(principal_payment)?;
+                                res.total_principal =
+                                    res.total_principal.checked_add(principal_payment)?;
                             }
                         }
 
@@ -364,8 +370,11 @@ pub(crate) trait StructuredCreditInstrument {
 
         // Final step: update final balances and detailed flows in results
         for (tranche_id, res) in results.iter_mut() {
-            res.final_balance = tranche_balances.get(tranche_id).copied().unwrap_or(Money::new(0.0, base_ccy));
-            
+            res.final_balance = tranche_balances
+                .get(tranche_id)
+                .copied()
+                .unwrap_or(Money::new(0.0, base_ccy));
+
             for (date, amount) in &res.interest_flows {
                 if let Ok(cf) = finstack_core::cashflow::CashFlow::fixed_cf(*date, *amount) {
                     res.detailed_flows.push(cf);
@@ -427,7 +436,7 @@ pub(crate) trait StructuredCreditInstrument {
         as_of: Date,
     ) -> finstack_core::Result<super::components::TrancheCashflowResult> {
         let mut full_results = self.run_full_simulation(context, as_of)?;
-        
+
         full_results.remove(tranche_id).ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: format!("tranche:{}", tranche_id),

@@ -71,4 +71,3 @@ pub struct MarketFactors {
     /// Time to resolution affects holding costs
     pub resolution_months: u32,
 }
-

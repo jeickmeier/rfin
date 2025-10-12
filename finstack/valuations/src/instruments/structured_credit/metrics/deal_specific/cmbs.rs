@@ -68,4 +68,3 @@ impl crate::metrics::MetricCalculator for CmbsDscrCalculator {
         }
     }
 }
-

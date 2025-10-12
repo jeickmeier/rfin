@@ -14,6 +14,7 @@ mod dividend_yield;
 mod forward_price;
 mod price_per_share;
 mod shares;
+mod theta;
 
 use crate::metrics::MetricRegistry;
 
@@ -27,6 +28,7 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
             (EquityShares, shares::SharesCalculator),
             (EquityDividendYield, dividend_yield::DividendYieldCalculator),
             (EquityForwardPrice, forward_price::ForwardPricePerShareCalculator),
+            (Theta, theta::ThetaCalculator),
         ]
     }
 }

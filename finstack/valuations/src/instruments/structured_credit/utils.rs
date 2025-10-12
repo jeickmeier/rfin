@@ -9,8 +9,8 @@ use finstack_core::money::Money;
 use std::cmp::Ordering;
 use std::sync::OnceLock;
 
-use super::components::{AssetPool, PoolAsset};
 use super::components::enums::CreditRating;
+use super::components::{AssetPool, PoolAsset};
 
 // ============================================================================
 // DATE UTILITIES
@@ -21,8 +21,7 @@ use super::components::enums::CreditRating;
 /// This is commonly used to calculate loan seasoning (age) in months.
 /// Returns 0 if `to` is before `from`.
 pub fn months_between(from: Date, to: Date) -> u32 {
-    let months = (to.year() - from.year()) * 12
-        + (to.month() as i32 - from.month() as i32);
+    let months = (to.year() - from.year()) * 12 + (to.month() as i32 - from.month() as i32);
     months.max(0) as u32
 }
 
@@ -117,7 +116,6 @@ pub struct ReinvestmentManager {
     pub reinvestment_allowed: bool,
 }
 
-
 impl ReinvestmentManager {
     /// Create new reinvestment manager
     pub fn new(end_date: Date) -> Self {
@@ -170,7 +168,7 @@ impl ReinvestmentManager {
         let mut selected = Vec::new();
         for idx in indices {
             let asset = &market_opportunities[idx];
-            
+
             // Calculate price per par (inline)
             let price_pct = if let Some(price) = asset.purchase_price {
                 if asset.balance.amount() > 0.0 {
@@ -181,14 +179,12 @@ impl ReinvestmentManager {
             } else {
                 1.0
             };
-            
+
             let cost_amount = asset.balance.amount() * price_pct;
             if cost_amount <= remaining_cash.amount() {
                 // Reduce cash and take the whole asset
                 let cost = Money::new(cost_amount, remaining_cash.currency());
-                remaining_cash = remaining_cash
-                    .checked_sub(cost)
-                    .unwrap_or(remaining_cash);
+                remaining_cash = remaining_cash.checked_sub(cost).unwrap_or(remaining_cash);
                 selected.push(asset.clone());
             }
         }
@@ -240,9 +236,11 @@ mod tests {
     // Reinvestment tests
     #[test]
     fn test_selects_cheapest_assets_first() {
-        use super::super::components::{DealType, AssetType};
-        
-        let mgr = ReinvestmentManager::new(Date::from_calendar_date(2026, time::Month::January, 1).unwrap());
+        use super::super::components::{AssetType, DealType};
+
+        let mgr = ReinvestmentManager::new(
+            Date::from_calendar_date(2026, time::Month::January, 1).unwrap(),
+        );
         let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
 
         let a = PoolAsset {
@@ -262,16 +260,31 @@ mod tests {
             acquisition_date: None,
         };
 
-        let b = PoolAsset { purchase_price: Some(Money::new(98.0, Currency::USD)), ..a.clone() };
-        let c = PoolAsset { purchase_price: Some(Money::new(102.0, Currency::USD)), ..a.clone() };
+        let b = PoolAsset {
+            purchase_price: Some(Money::new(98.0, Currency::USD)),
+            ..a.clone()
+        };
+        let c = PoolAsset {
+            purchase_price: Some(Money::new(102.0, Currency::USD)),
+            ..a.clone()
+        };
 
         let cash = Money::new(195.0, Currency::USD);
-        let selected = mgr.select_assets(cash, vec![b.clone(), a.clone(), c.clone()], &pool, &MarketContext::default(), Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
+        let selected = mgr.select_assets(
+            cash,
+            vec![b.clone(), a.clone(), c.clone()],
+            &pool,
+            &MarketContext::default(),
+            Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+        );
 
         // Expect picks at 95 and 98 first (total 193) and skips 102 due to budget
         assert_eq!(selected.len(), 2);
-        assert!(selected.iter().any(|x| x.purchase_price.unwrap().amount() == 95.0));
-        assert!(selected.iter().any(|x| x.purchase_price.unwrap().amount() == 98.0));
+        assert!(selected
+            .iter()
+            .any(|x| x.purchase_price.unwrap().amount() == 95.0));
+        assert!(selected
+            .iter()
+            .any(|x| x.purchase_price.unwrap().amount() == 98.0));
     }
 }
-

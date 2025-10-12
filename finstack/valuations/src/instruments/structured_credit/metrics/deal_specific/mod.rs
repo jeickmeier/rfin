@@ -7,8 +7,8 @@ pub mod rmbs;
 
 // Re-export ABS metrics
 pub use abs::{
-    AbsChargeOffCalculator, AbsCreditEnhancementCalculator,
-    AbsDelinquencyCalculator, AbsExcessSpreadCalculator, AbsSpeedCalculator,
+    AbsChargeOffCalculator, AbsCreditEnhancementCalculator, AbsDelinquencyCalculator,
+    AbsExcessSpreadCalculator, AbsSpeedCalculator,
 };
 
 // Re-export CLO metrics
@@ -19,4 +19,3 @@ pub use cmbs::{CmbsDscrCalculator, CmbsLtvCalculator};
 
 // Re-export RMBS metrics
 pub use rmbs::{RmbsFicoCalculator, RmbsLtvCalculator, RmbsWalCalculator};
-

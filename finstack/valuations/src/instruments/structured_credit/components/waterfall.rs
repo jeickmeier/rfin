@@ -4,15 +4,15 @@
 //! fees → tranche interest → tranche principal → equity residual.
 //! Supports simple OC/IC diversion triggers for coverage test breaches.
 
-use super::TrancheStructure;
-use super::AssetPool;
 use super::coverage_tests::{CoverageTest, TestContext};
+use super::AssetPool;
+use super::TrancheStructure;
 use crate::instruments::structured_credit::config::QUARTERLY_PERIODS_PER_YEAR;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use finstack_core::market_data::MarketContext;
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
@@ -409,9 +409,7 @@ impl WaterfallEngine {
             PaymentCalculation::TrancheInterest { tranche_id } => {
                 if let Some(&idx) = tranche_index.get(tranche_id.as_str()) {
                     let tranche = &tranches.tranches[idx];
-                    let rate = tranche
-                        .coupon
-                        .current_rate_with_index(payment_date, market);
+                    let rate = tranche.coupon.current_rate_with_index(payment_date, market);
                     let period_rate = rate / QUARTERLY_PERIODS_PER_YEAR;
                     Ok(Money::new(
                         tranche.current_balance.amount() * period_rate,
@@ -455,7 +453,7 @@ impl WaterfallEngine {
     }
 
     /// Create standard sequential waterfall with fees + tranche interest + tranche principal
-    /// 
+    ///
     /// This is the common pattern across CLO, ABS, CMBS, and RMBS instruments.
     /// Each instrument provides instrument-specific fees, then this method adds
     /// standard interest and principal payments in priority order.
@@ -466,24 +464,24 @@ impl WaterfallEngine {
     ) -> Self {
         let mut engine = Self::new(base_currency);
         let mut priority = 1;
-        
+
         // Add fee rules
         for mut fee in fees {
             fee.priority = priority;
             engine.payment_rules.push(fee);
             priority += 1;
         }
-        
+
         // Add interest payments for each tranche (in priority order)
         let mut sorted_tranches = tranches.tranches.clone();
         sorted_tranches.sort_by_key(|t| t.payment_priority);
-        
+
         for tranche in &sorted_tranches {
             // Skip equity tranches for interest (they get residual cash)
             if tranche.seniority == super::enums::TrancheSeniority::Equity {
                 continue;
             }
-            
+
             engine.payment_rules.push(PaymentRule::new(
                 format!("{}_interest", tranche.id.as_str()),
                 priority,
@@ -494,7 +492,7 @@ impl WaterfallEngine {
             ));
             priority += 1;
         }
-        
+
         // Add principal payments for each debt tranche
         for tranche in &sorted_tranches {
             if tranche.seniority != super::enums::TrancheSeniority::Equity {
@@ -513,7 +511,7 @@ impl WaterfallEngine {
             }
             priority += 1;
         }
-        
+
         // Add equity distribution (residual cash)
         engine.payment_rules.push(PaymentRule::new(
             "equity_distribution",
@@ -521,10 +519,9 @@ impl WaterfallEngine {
             PaymentRecipient::Equity,
             PaymentCalculation::ResidualCash,
         ));
-        
+
         engine
     }
-
 }
 
 /// Builder for waterfall engine

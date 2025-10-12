@@ -14,10 +14,20 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum PayReceive {
     /// Pay the primary leg (fixed rate in IRS, protection premium in CDS)
-    #[cfg_attr(feature = "serde", serde(rename = "pay_fixed", alias = "pay_protection", alias = "pay"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(rename = "pay_fixed", alias = "pay_protection", alias = "pay")
+    )]
     PayFixed,
     /// Receive the primary leg (fixed rate in IRS, protection premium in CDS)
-    #[cfg_attr(feature = "serde", serde(rename = "receive_fixed", alias = "receive_protection", alias = "receive"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            rename = "receive_fixed",
+            alias = "receive_protection",
+            alias = "receive"
+        )
+    )]
     ReceiveFixed,
 }
 
@@ -49,7 +59,9 @@ impl std::str::FromStr for PayReceive {
         let normalized = s.to_ascii_lowercase().replace('-', "_");
         match normalized.as_str() {
             "pay_fixed" | "pay_protection" | "pay" | "buyer" | "buy" => Ok(PayReceive::PayFixed),
-            "receive_fixed" | "receive_protection" | "receive" | "recv" | "seller" | "sell" => Ok(PayReceive::ReceiveFixed),
+            "receive_fixed" | "receive_protection" | "receive" | "recv" | "seller" | "sell" => {
+                Ok(PayReceive::ReceiveFixed)
+            }
             other => Err(format!("Unknown pay/receive: {}", other)),
         }
     }

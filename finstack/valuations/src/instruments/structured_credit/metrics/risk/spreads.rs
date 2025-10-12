@@ -43,29 +43,29 @@ impl MetricCalculator for ZSpreadCalculator {
                     id: "metric:DirtyPrice".to_string(),
                 })
             })?;
-        
+
         // Get notional to convert price to currency
         let base_npv = context.base_value.amount();
         let target_value = base_npv * (dirty_price / 100.0);
-        
+
         // Get cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;
-        
+
         // Get discount curve
         let disc_curve_id = context.discount_curve_id.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "discount_curve_id".to_string(),
             })
         })?;
-        
+
         let disc = context.curves.get_discount_ref(disc_curve_id.as_str())?;
         let base_date = disc.base_date();
         let day_count = finstack_core::dates::DayCount::Act365F;
-        
+
         // Objective function: PV(z) - target = 0
         let objective = |z: f64| -> f64 {
             let mut pv = 0.0;
@@ -73,29 +73,29 @@ impl MetricCalculator for ZSpreadCalculator {
                 if *date <= context.as_of {
                     continue;
                 }
-                
+
                 let t = day_count
                     .year_fraction(base_date, *date, DayCountCtx::default())
                     .unwrap_or(0.0);
-                
+
                 let df = disc.df_on_date_curve(*date);
                 let df_z = df * (-z * t).exp();
-                
+
                 pv += amount.amount() * df_z;
             }
             pv - target_value
         };
-        
+
         // Solve for z-spread using Brent's method
         let solver = BrentSolver::new()
             .with_tolerance(1e-8)
             .with_initial_bracket_size(Some(0.5)); // ±50% spread range
-        
+
         let z_spread = solver.solve(objective, 0.0)?;
-        
+
         Ok(z_spread)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::DirtyPrice]
     }
@@ -127,7 +127,7 @@ impl MetricCalculator for Cs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Get base NPV
         let base_npv = context.base_value.amount();
-        
+
         // Get Z-spread (base spread)
         let base_spread = context
             .computed
@@ -138,52 +138,52 @@ impl MetricCalculator for Cs01Calculator {
                     id: "metric:ZSpread".to_string(),
                 })
             })?;
-        
+
         // Bump spread by 1bp
         let bumped_spread = base_spread + ONE_BASIS_POINT;
-        
+
         // Get cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "context.cashflows".to_string(),
             })
         })?;
-        
+
         // Get discount curve
         let disc_curve_id = context.discount_curve_id.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "discount_curve_id".to_string(),
             })
         })?;
-        
+
         let disc = context.curves.get_discount_ref(disc_curve_id.as_str())?;
         let base_date = disc.base_date();
         let day_count = finstack_core::dates::DayCount::Act365F;
-        
+
         // Calculate PV with bumped spread
         let mut bumped_npv = 0.0;
         for (date, amount) in flows {
             if *date <= context.as_of {
                 continue;
             }
-            
+
             let t = day_count
                 .year_fraction(base_date, *date, DayCountCtx::default())
                 .unwrap_or(0.0);
-            
+
             let df = disc.df_on_date_curve(*date);
             let df_bumped = df * (-bumped_spread * t).exp();
-            
+
             bumped_npv += amount.amount() * df_bumped;
         }
-        
+
         // CS01 = -(PV_bumped - PV_base)
         // Negative sign because price decreases when spread increases
         let cs01 = -(bumped_npv - base_npv);
-        
+
         Ok(cs01)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::ZSpread]
     }
@@ -226,24 +226,24 @@ impl MetricCalculator for SpreadDurationCalculator {
                     id: "metric:Cs01".to_string(),
                 })
             })?;
-        
+
         // Note: We use base_npv directly instead of dirty_price for spread duration
         // since we're measuring dollar value change, not percentage change
-        
+
         // Get base NPV
         let base_npv = context.base_value.amount();
-        
+
         if base_npv == 0.0 {
             return Ok(0.0);
         }
-        
+
         // Spread duration = CS01 / (Price × 1bp)
         // This gives duration in years
         let spread_duration = cs01 / (base_npv * ONE_BASIS_POINT);
-        
+
         Ok(spread_duration)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::Cs01, MetricId::DirtyPrice]
     }

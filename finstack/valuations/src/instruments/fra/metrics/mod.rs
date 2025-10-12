@@ -23,18 +23,18 @@ use std::sync::Arc;
 /// proper applicability filtering.
 pub fn register_fra_metrics(registry: &mut MetricRegistry) {
     let dv01_calc: Arc<dyn MetricCalculator> = Arc::new(FraDv01Calculator);
-    
+
     // Custom metrics
     registry.register_metric(
         MetricId::custom("fra_pv"),
         Arc::new(FraPvCalculator),
         &["FRA"],
     );
-    
+
     // Shared DV01 calculator for standard and custom aliases
     registry.register_metric(MetricId::Dv01, Arc::clone(&dv01_calc), &["FRA"]);
     registry.register_metric(MetricId::custom("pv01"), dv01_calc, &["FRA"]);
-    
+
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,

@@ -26,18 +26,22 @@ impl MetricCalculator for WamCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Try to extract WAM from pool
         // This uses the pool's weighted_avg_maturity method if available
-        
+
         let as_of = context.as_of;
-        
+
         // Single check for unified structured credit type
-        if let Some(sc) = context.instrument.as_any().downcast_ref::<StructuredCredit>() {
+        if let Some(sc) = context
+            .instrument
+            .as_any()
+            .downcast_ref::<StructuredCredit>()
+        {
             return Ok(sc.pool.weighted_avg_maturity(as_of));
         }
-        
+
         // Fallback: return 0
         Ok(0.0)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[] // No dependencies
     }
@@ -64,32 +68,36 @@ pub struct CprCalculator;
 impl MetricCalculator for CprCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Extract CPR from behavior overrides or use deal-type defaults
-        
-        if let Some(sc) = context.instrument.as_any().downcast_ref::<StructuredCredit>() {
+
+        if let Some(sc) = context
+            .instrument
+            .as_any()
+            .downcast_ref::<StructuredCredit>()
+        {
             // Check overrides first
             if let Some(cpr) = sc.behavior_overrides.cpr_annual {
                 return Ok(cpr);
             }
-            
+
             if let Some(psa_mult) = sc.behavior_overrides.psa_speed_multiplier {
                 // PSA model: 100% PSA = 6% CPR at 30 months
                 return Ok(psa_mult * 0.06);
             }
-            
+
             // Fall back to deal type defaults
             use super::super::super::components::DealType;
             return Ok(match sc.deal_type {
-                DealType::RMBS => 0.06,        // 6% CPR (100% PSA)
+                DealType::RMBS => 0.06,                 // 6% CPR (100% PSA)
                 DealType::ABS | DealType::Auto => 0.15, // 15% CPR
-                DealType::CMBS => 0.10,        // 10% CPR (open period)
-                DealType::CLO => 0.15,         // 15% CPR typical
+                DealType::CMBS => 0.10,                 // 10% CPR (open period)
+                DealType::CLO => 0.15,                  // 15% CPR typical
                 _ => 0.10,
             });
         }
-        
+
         Ok(0.0)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[] // No dependencies
     }
@@ -116,19 +124,23 @@ pub struct CdrCalculator;
 impl MetricCalculator for CdrCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Extract CDR from behavior overrides or use deal-type defaults
-        
-        if let Some(sc) = context.instrument.as_any().downcast_ref::<StructuredCredit>() {
+
+        if let Some(sc) = context
+            .instrument
+            .as_any()
+            .downcast_ref::<StructuredCredit>()
+        {
             // Check overrides first
             if let Some(cdr) = sc.behavior_overrides.cdr_annual {
                 return Ok(cdr);
             }
-            
+
             if let Some(sda_mult) = sc.behavior_overrides.sda_speed_multiplier {
                 // Derive from SDA speed
                 // SDA 100% ≈ 0.6% CDR at peak
                 return Ok(sda_mult * 0.006);
             }
-            
+
             // Fall back to deal type defaults
             use super::super::super::components::DealType;
             return Ok(match sc.deal_type {
@@ -139,10 +151,10 @@ impl MetricCalculator for CdrCalculator {
                 _ => 0.01,
             });
         }
-        
+
         Ok(0.0)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[] // No dependencies
     }

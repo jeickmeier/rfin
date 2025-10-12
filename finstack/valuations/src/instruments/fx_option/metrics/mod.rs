@@ -18,7 +18,7 @@ use crate::metrics::MetricRegistry;
 pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
-    
+
     // Custom metrics for rho split by domestic/foreign
     registry.register_metric(
         MetricId::custom("rho_domestic"),
@@ -30,7 +30,7 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
         Arc::new(rho::RhoForeignCalculator),
         &["FxOption"],
     );
-    
+
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,

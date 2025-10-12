@@ -7,8 +7,8 @@ use crate::cashflow::traits::DatedFlows;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::cashflow::CashFlow;
 use finstack_core::dates::{Date, DayCountCtx};
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use std::collections::HashMap;
@@ -94,10 +94,7 @@ pub trait TrancheValuationExt {
 }
 
 /// Calculate tranche-specific WAL
-pub fn calculate_tranche_wal(
-    cashflows: &TrancheCashflowResult,
-    as_of: Date,
-) -> Result<f64> {
+pub fn calculate_tranche_wal(cashflows: &TrancheCashflowResult, as_of: Date) -> Result<f64> {
     let mut weighted_sum = 0.0;
     let mut total_principal = 0.0;
 
@@ -105,7 +102,7 @@ pub fn calculate_tranche_wal(
         if *date <= as_of {
             continue;
         }
-        
+
         let years = finstack_core::dates::DayCount::Act365F
             .year_fraction(as_of, *date, finstack_core::dates::DayCountCtx::default())
             .unwrap_or(0.0);
@@ -128,25 +125,25 @@ pub fn calculate_tranche_duration(
     pv: Money,
 ) -> Result<f64> {
     use finstack_core::dates::DayCount;
-    
+
     let day_count = DayCount::Act365F;
     let mut weighted_pv = 0.0;
-    
+
     for (date, amount) in cashflows {
         if *date <= as_of {
             continue;
         }
-        
+
         let years = day_count
             .year_fraction(as_of, *date, DayCountCtx::default())
             .unwrap_or(0.0);
-        
+
         let df = discount_curve.df_on_date_curve(*date);
         let flow_pv = amount.amount() * df;
-        
+
         weighted_pv += flow_pv * years;
     }
-    
+
     if pv.amount() > 0.0 {
         Ok(weighted_pv / pv.amount())
     } else {
@@ -163,35 +160,35 @@ pub fn calculate_tranche_z_spread(
 ) -> Result<f64> {
     use finstack_core::dates::DayCount;
     use finstack_core::math::solver::{BrentSolver, Solver};
-    
+
     let day_count = DayCount::Act365F;
     let base_date = discount_curve.base_date();
-    
+
     let objective = |z: f64| -> f64 {
         let mut pv = 0.0;
         for (date, amount) in cashflows {
             if *date <= as_of {
                 continue;
             }
-            
+
             let t = day_count
                 .year_fraction(base_date, *date, DayCountCtx::default())
                 .unwrap_or(0.0);
-            
+
             let df = discount_curve.df_on_date_curve(*date);
             let df_z = df * (-z * t).exp();
-            
+
             pv += amount.amount() * df_z;
         }
         pv - target_pv.amount()
     };
-    
+
     let solver = BrentSolver::new()
         .with_tolerance(1e-8)
         .with_initial_bracket_size(Some(0.5));
-    
+
     let z_spread = solver.solve(objective, 0.0)?;
-    
+
     // Convert to basis points
     Ok(z_spread * 10_000.0)
 }
@@ -205,35 +202,35 @@ pub fn calculate_tranche_cs01(
 ) -> Result<f64> {
     use finstack_core::dates::DayCount;
     const ONE_BASIS_POINT: f64 = 0.0001;
-    
+
     let day_count = DayCount::Act365F;
     let base_date = discount_curve.base_date();
-    
+
     // Calculate base PV
     let mut base_pv = 0.0;
     let mut bumped_pv = 0.0;
     let bumped_spread = z_spread + ONE_BASIS_POINT;
-    
+
     for (date, amount) in cashflows {
         if *date <= as_of {
             continue;
         }
-        
+
         let t = day_count
             .year_fraction(base_date, *date, DayCountCtx::default())
             .unwrap_or(0.0);
-        
+
         let df = discount_curve.df_on_date_curve(*date);
-        
+
         // Base PV
         let df_base = df * (-z_spread * t).exp();
         base_pv += amount.amount() * df_base;
-        
+
         // Bumped PV
         let df_bumped = df * (-bumped_spread * t).exp();
         bumped_pv += amount.amount() * df_bumped;
     }
-    
+
     // CS01 = -(PV_bumped - PV_base)
     Ok(-(bumped_pv - base_pv))
 }
@@ -250,7 +247,7 @@ impl MetricCalculator for TrancheMetricCalculator {
         // This would require modifying MetricContext to support tranche filtering
         self.base_calculator.calculate(context)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         self.base_calculator.dependencies()
     }
@@ -260,7 +257,7 @@ impl MetricCalculator for TrancheMetricCalculator {
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
-    
+
     #[test]
     fn test_tranche_wal_calculation() {
         let cashflows = TrancheCashflowResult {
@@ -269,10 +266,14 @@ mod tests {
             detailed_flows: vec![],
             interest_flows: vec![],
             principal_flows: vec![
-                (Date::from_calendar_date(2024, time::Month::June, 30).unwrap(),
-                 Money::new(100_000.0, Currency::USD)),
-                (Date::from_calendar_date(2025, time::Month::June, 30).unwrap(),
-                 Money::new(100_000.0, Currency::USD)),
+                (
+                    Date::from_calendar_date(2024, time::Month::June, 30).unwrap(),
+                    Money::new(100_000.0, Currency::USD),
+                ),
+                (
+                    Date::from_calendar_date(2025, time::Month::June, 30).unwrap(),
+                    Money::new(100_000.0, Currency::USD),
+                ),
             ],
             pik_flows: vec![],
             final_balance: Money::new(0.0, Currency::USD),
@@ -280,10 +281,10 @@ mod tests {
             total_principal: Money::new(200_000.0, Currency::USD),
             total_pik: Money::new(0.0, Currency::USD),
         };
-        
+
         let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
         let wal = calculate_tranche_wal(&cashflows, as_of).unwrap();
-        
+
         // Should be approximately 1.0 year (average of 0.5 and 1.5 years)
         assert!((wal - 1.0).abs() < 0.1);
     }

@@ -1,8 +1,8 @@
 //! Tests for the cashflow builder state module.
 
-use super::CashFlowSchedule;
 use super::schedule::kind_rank;
 use super::types::{CouponType, FixedCouponSpec};
+use super::CashFlowSchedule;
 use crate::cashflow::primitives::{AmortizationSpec, CFKind, CashFlow};
 use crate::instruments::common::discountable::Discountable;
 use finstack_core::currency::Currency;
