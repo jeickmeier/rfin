@@ -4,7 +4,7 @@ use crate::core::utils::py_to_date;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder as val_builder;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList, PyModule, PyType};
+use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
 use pyo3::Bound;
 
 /// Coupon split type (cash, PIK, split) mirroring valuations builder.
@@ -424,6 +424,53 @@ impl PyCashFlowSchedule {
             .map(crate::core::cashflow::primitives::PyCashFlow::new)
             .collect();
         Ok(PyList::new(py, items)?.into())
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Convert the schedule into a dict-of-arrays suitable for constructing a Polars DataFrame.
+    ///
+    /// Returns a Python dict with keys: "date", "kind", "amount", "accrual_factor",
+    /// "reset_date", and "outstanding". Amounts and outstanding are numeric floats.
+    fn to_dataframe(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let flows = &self.inner.flows;
+        let mut dates: Vec<PyObject> = Vec::with_capacity(flows.len());
+        let mut kinds: Vec<String> = Vec::with_capacity(flows.len());
+        let mut amounts: Vec<f64> = Vec::with_capacity(flows.len());
+        let mut accruals: Vec<f64> = Vec::with_capacity(flows.len());
+        let mut reset_dates: Vec<Option<PyObject>> = Vec::with_capacity(flows.len());
+        let mut outstanding_series: Vec<f64> = Vec::with_capacity(flows.len());
+
+        let mut outstanding = self.inner.notional.initial.amount();
+
+        for cf in flows.iter() {
+            dates.push(crate::core::utils::date_to_py(py, cf.date)?);
+            let kind_label = crate::core::cashflow::primitives::PyCFKind::new(cf.kind).name();
+            kinds.push(kind_label.to_string());
+            amounts.push(cf.amount.amount());
+            accruals.push(cf.accrual_factor);
+            let reset = match cf.reset_date {
+                Some(d) => Some(crate::core::utils::date_to_py(py, d)?),
+                None => None,
+            };
+            reset_dates.push(reset);
+
+            // Outstanding convention: amortization reduces; PIK increases; notional exchange does not change
+            if kind_label == "amortization" {
+                outstanding -= cf.amount.amount();
+            } else if kind_label == "pik" {
+                outstanding += cf.amount.amount();
+            }
+            outstanding_series.push(outstanding);
+        }
+
+        let out = PyDict::new(py);
+        out.set_item("date", PyList::new(py, dates)?)?;
+        out.set_item("kind", PyList::new(py, kinds)?)?;
+        out.set_item("amount", PyList::new(py, amounts)?)?;
+        out.set_item("accrual_factor", PyList::new(py, accruals)?)?;
+        out.set_item("reset_date", PyList::new(py, reset_dates)?)?;
+        out.set_item("outstanding", PyList::new(py, outstanding_series)?)?;
+        Ok(out.into())
     }
 }
 

@@ -376,7 +376,7 @@ impl PyBond {
         use finstack_valuations::instruments::bond::BondFloatSpec;
         use finstack_valuations::instruments::common::traits::Attributes;
         
-        Ok(Self::new(Bond::builder()
+        Bond::builder()
             .id(id)
             .notional(amt)
             .coupon(0.0)
@@ -386,7 +386,10 @@ impl PyBond {
             .dc(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
             .stub(StubKind::None)
+            .calendar_id_opt(None)
             .disc_id(disc)
+            .hazard_id_opt(None)
+            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
             .float_opt(Some(BondFloatSpec {
                 fwd_id: fwd,
                 margin_bp,
@@ -395,7 +398,8 @@ impl PyBond {
             }))
             .attributes(Attributes::new())
             .build()
-            .expect("Floating bond construction should not fail")))
+            .map(Self::new)
+            .map_err(crate::core::error::core_to_py)
     }
 
     /// Instrument identifier.
