@@ -4,6 +4,8 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::Result;
 
+use crate::instruments::structured_credit::calculate_tranche_wal;
+
 /// Calculates WAL (Weighted Average Life) in years.
 ///
 /// WAL measures the average time until principal is repaid, weighted by the
@@ -29,7 +31,12 @@ pub struct WalCalculator;
 
 impl MetricCalculator for WalCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        // Get cashflows
+        // Prefer the detailed tranche cashflow result if available for an exact WAL.
+        if let Some(details) = &context.detailed_tranche_cashflows {
+            return calculate_tranche_wal(details, context.as_of);
+        }
+
+        // Fallback to legacy logic if detailed flows are not available.
         let flows = context.cashflows.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "context.cashflows".to_string(),

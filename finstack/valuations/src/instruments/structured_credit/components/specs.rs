@@ -8,6 +8,7 @@ use super::market_context::{CreditFactors, MarketConditions, MarketFactors};
 use crate::instruments::structured_credit::config::{
     PSA_RAMP_MONTHS, PSA_TERMINAL_CPR, SDA_PEAK_MONTH, SDA_PEAK_CDR, SDA_TERMINAL_CDR,
 };
+use super::super::config::DefaultAssumptions;
 
 // ============================================================================
 // Prepayment Model Specification
@@ -52,8 +53,9 @@ impl PrepaymentModelSpec {
     /// # Returns
     ///
     /// Single Monthly Mortality (SMM) rate - the monthly prepayment rate.
-    pub fn prepayment_rate(
+    pub fn prepayment_rate_with_assumptions(
         &self,
+        assumptions: &DefaultAssumptions,
         _as_of: finstack_core::dates::Date,
         _origination_date: finstack_core::dates::Date,
         seasoning_months: u32,
@@ -76,26 +78,31 @@ impl PrepaymentModelSpec {
             }
             PrepaymentModelSpec::ConstantSmm { smm } => *smm,
             PrepaymentModelSpec::AssetDefault { asset_type } => {
-                // Asset-specific defaults
-                match asset_type.to_lowercase().as_str() {
-                    "mortgage" | "rmbs" => {
-                        // 100% PSA default
-                        let base_cpr = if seasoning_months <= PSA_RAMP_MONTHS {
-                            (seasoning_months as f64 / PSA_RAMP_MONTHS as f64) * PSA_TERMINAL_CPR
-                        } else {
-                            PSA_TERMINAL_CPR
-                        };
-                        let cpr = base_cpr * 1.0; // 100% PSA
-                        1.0 - (1.0 - cpr).powf(1.0 / 12.0)
-                    }
-                    "auto" | "abs_auto" => super::rates::cpr_to_smm(0.18),
-                    "card" | "credit_card" | "cc" => super::rates::cpr_to_smm(0.15),
-                    "commercial" | "cmbs" | "cre" => super::rates::cpr_to_smm(0.10),
-                    "student" | "student_loan" => super::rates::cpr_to_smm(0.03),
-                    _ => super::rates::cpr_to_smm(0.05),
-                }
+                let cpr = assumptions
+                    .cpr_by_asset_type
+                    .get(asset_type)
+                    .copied()
+                    .unwrap_or(assumptions.base_cpr_annual);
+                super::rates::cpr_to_smm(cpr)
             }
         }
+    }
+
+    /// Backward-compatible wrapper using default assumptions
+    pub fn prepayment_rate(
+        &self,
+        as_of: finstack_core::dates::Date,
+        origination_date: finstack_core::dates::Date,
+        seasoning_months: u32,
+        market_conditions: &MarketConditions,
+    ) -> f64 {
+        self.prepayment_rate_with_assumptions(
+            &DefaultAssumptions::default(),
+            as_of,
+            origination_date,
+            seasoning_months,
+            market_conditions,
+        )
     }
 
     /// PSA model with 100% speed
@@ -163,8 +170,9 @@ impl DefaultModelSpec {
     /// # Returns
     ///
     /// Monthly Default Rate (MDR) - the monthly default rate.
-    pub fn default_rate(
+    pub fn default_rate_with_assumptions(
         &self,
+        assumptions: &DefaultAssumptions,
         _as_of: finstack_core::dates::Date,
         _origination_date: finstack_core::dates::Date,
         seasoning_months: u32,
@@ -194,35 +202,31 @@ impl DefaultModelSpec {
             }
             DefaultModelSpec::ConstantMdr { mdr } => *mdr,
             DefaultModelSpec::AssetDefault { asset_type } => {
-                // Asset-specific defaults
-                match asset_type.to_lowercase().as_str() {
-                    "mortgage" | "rmbs" => {
-                        // Simplified mortgage default (0.2% CDR)
-                        let cdr = 0.002_f64;
-                        1.0 - (1.0 - cdr).powf(1.0 / 12.0)
-                    }
-                    "auto" | "abs_auto" | "consumer" => {
-                        // Auto base 2% CDR
-                        let cdr = 0.02_f64;
-                        1.0 - (1.0 - cdr).powf(1.0 / 12.0)
-                    }
-                    "card" | "credit_card" => {
-                        // Credit card base 0.4% monthly
-                        0.004_f64
-                    }
-                    "corporate" | "clo" | "commercial" => {
-                        // Corporate base 2% CDR
-                        let cdr = 0.02_f64;
-                        1.0 - (1.0 - cdr).powf(1.0 / 12.0)
-                    }
-                    _ => {
-                        // Generic 2% CDR
-                        let cdr = 0.02_f64;
-                        1.0 - (1.0 - cdr).powf(1.0 / 12.0)
-                    }
-                }
+                let cdr = assumptions
+                    .cdr_by_asset_type
+                    .get(asset_type)
+                    .copied()
+                    .unwrap_or(assumptions.base_cdr_annual);
+                super::rates::cdr_to_mdr(cdr)
             }
         }
+    }
+
+    /// Backward-compatible wrapper using default assumptions
+    pub fn default_rate(
+        &self,
+        as_of: finstack_core::dates::Date,
+        origination_date: finstack_core::dates::Date,
+        seasoning_months: u32,
+        credit_factors: &CreditFactors,
+    ) -> f64 {
+        self.default_rate_with_assumptions(
+            &DefaultAssumptions::default(),
+            as_of,
+            origination_date,
+            seasoning_months,
+            credit_factors,
+        )
     }
 
     /// SDA model with 100% speed
@@ -275,8 +279,9 @@ impl RecoveryModelSpec {
     /// # Returns
     ///
     /// Recovery rate as a fraction (0.0 to 1.0).
-    pub fn recovery_rate(
+    pub fn recovery_rate_with_assumptions(
         &self,
+        assumptions: &DefaultAssumptions,
         _default_date: finstack_core::dates::Date,
         resolution_lag_months: u32,
         collateral_value: Option<finstack_core::money::Money>,
@@ -307,16 +312,32 @@ impl RecoveryModelSpec {
                             let recovery = (final_collateral / outstanding_balance.amount()).min(1.0);
                             recovery * 0.85 + 0.10 * (1.0 - 0.85)
                         } else {
-                            0.60 // Base mortgage recovery
+                            assumptions.recovery_by_asset_type.get(asset_type).copied().unwrap_or(assumptions.base_recovery_rate)
                         }
                     }
-                    "auto" | "abs_auto" | "consumer" => 0.45,
-                    "card" | "credit_card" | "unsecured" => 0.05,
-                    "corporate" | "clo" | "commercial" => 0.40,
-                    _ => 0.30,
+                    _ => assumptions.recovery_by_asset_type.get(asset_type).copied().unwrap_or(assumptions.base_recovery_rate),
                 }
             }
         }
+    }
+
+    /// Backward-compatible wrapper using default assumptions
+    pub fn recovery_rate(
+        &self,
+        default_date: finstack_core::dates::Date,
+        resolution_lag_months: u32,
+        collateral_value: Option<finstack_core::money::Money>,
+        outstanding_balance: finstack_core::money::Money,
+        market_factors: &MarketFactors,
+    ) -> f64 {
+        self.recovery_rate_with_assumptions(
+            &DefaultAssumptions::default(),
+            default_date,
+            resolution_lag_months,
+            collateral_value,
+            outstanding_balance,
+            market_factors,
+        )
     }
 
     /// 40% recovery (typical for senior unsecured)

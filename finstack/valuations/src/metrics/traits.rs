@@ -8,6 +8,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
+use crate::instruments::structured_credit::TrancheCashflowResult;
 
 use std::sync::Arc;
 
@@ -168,6 +169,9 @@ pub struct MetricContext {
     /// Cached cashflows for the instrument.
     pub cashflows: Option<Vec<(Date, Money)>>,
 
+    /// Tranche-level detailed cashflow results (for structured credit)
+    pub detailed_tranche_cashflows: Option<TrancheCashflowResult>,
+
     /// Cached discount curve ID.
     pub discount_curve_id: Option<CurveId>,
 
@@ -216,6 +220,7 @@ impl MetricContext {
             computed_matrix: hashbrown::HashMap::new(),
             computed_tensor3: hashbrown::HashMap::new(),
             cashflows: None,
+            detailed_tranche_cashflows: None,
             discount_curve_id: None,
             day_count: None,
             notional: None,

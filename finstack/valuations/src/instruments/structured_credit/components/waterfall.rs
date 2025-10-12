@@ -195,9 +195,11 @@ impl WaterfallEngine {
     /// Sequential waterfall: processes payment rules in priority order.
     /// If OC/IC triggers are configured and breached, diverts equity/junior principal
     /// to senior tranches until tests pass.
+    #[allow(clippy::too_many_arguments)]
     pub fn apply_waterfall(
         &mut self,
         available_cash: Money,
+        interest_collections: Money,
         payment_date: Date,
         tranches: &TrancheStructure,
         pool_balance: Money,
@@ -225,6 +227,7 @@ impl WaterfallEngine {
             _pool,
             payment_date,
             available_cash,
+            interest_collections,
         )?;
         if diversion_active {
             had_diversions = true;
@@ -317,6 +320,7 @@ impl WaterfallEngine {
         pool: &AssetPool,
         as_of: Date,
         available_cash: Money,
+        interest_collections: Money,
     ) -> Result<bool> {
         if self.coverage_triggers.is_empty() {
             return Ok(false);
@@ -345,7 +349,7 @@ impl WaterfallEngine {
                     tranche_id: &trigger.tranche_id,
                     as_of,
                     cash_balance: available_cash,
-                    interest_collections: Money::new(0.0, available_cash.currency()),
+                    interest_collections,
                 };
 
                 let oc_test = CoverageTest::new_oc(oc_trigger_level);
@@ -355,12 +359,21 @@ impl WaterfallEngine {
                 }
             }
 
-            // IC test would require interest collections/interest due
-            // For simplicity, skip IC for now (can be added when needed)
-            if trigger.ic_trigger.is_some() {
-                // IC test requires additional context (interest collections, interest due)
-                // For pricing flows, OC is usually sufficient
-                // Leave as placeholder for now
+            if let Some(ic_trigger_level) = trigger.ic_trigger {
+                let ctx = TestContext {
+                    pool,
+                    tranches,
+                    tranche_id: &trigger.tranche_id,
+                    as_of,
+                    cash_balance: available_cash, // Not used by IC, but required by context
+                    interest_collections,
+                };
+
+                let ic_test = CoverageTest::new_ic(ic_trigger_level);
+                let result = ic_test.calculate(&ctx);
+                if !result.is_passing {
+                    return Ok(true);
+                }
             }
         }
 

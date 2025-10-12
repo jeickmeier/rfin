@@ -19,6 +19,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
+use super::config::DefaultAssumptions;
 use std::any::Any;
 
 #[cfg(feature = "serde")]
@@ -137,6 +138,10 @@ pub struct StructuredCredit {
     /// Behavioral assumption overrides
     #[cfg_attr(feature = "serde", serde(default))]
     pub behavior_overrides: BehaviorOverrides,
+
+    /// Default behavioral assumptions for the deal.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub default_assumptions: DefaultAssumptions,
 }
 
 /// Deal-specific configuration for constructor
@@ -226,6 +231,7 @@ impl StructuredCredit {
             credit_factors: config.credit_factors,
             deal_metadata: config.deal_metadata,
             behavior_overrides: config.behavior_overrides,
+            default_assumptions: DefaultAssumptions::default(),
         }
     }
 
@@ -240,7 +246,7 @@ impl StructuredCredit {
         disc_id: impl Into<String>,
     ) -> Self {
         let disc_id_str = disc_id.into();
-        Self::new_with_deal_config(
+        let mut inst = Self::new_with_deal_config(
             id,
             DealType::ABS,
             InstrumentParams {
@@ -268,7 +274,9 @@ impl StructuredCredit {
                 behavior_overrides: BehaviorOverrides::default(),
             },
             closing_date,
-        )
+        );
+        inst.default_assumptions = DefaultAssumptions::abs_auto_standard();
+        inst
     }
 
     /// Create a new CLO instrument from its building blocks.
@@ -282,7 +290,7 @@ impl StructuredCredit {
         disc_id: impl Into<String>,
     ) -> Self {
         let disc_id_str = disc_id.into();
-        Self::new_with_deal_config(
+        let mut inst = Self::new_with_deal_config(
             id,
             DealType::CLO,
             InstrumentParams {
@@ -307,7 +315,9 @@ impl StructuredCredit {
                 behavior_overrides: BehaviorOverrides::default(),
             },
             closing_date,
-        )
+        );
+        inst.default_assumptions = DefaultAssumptions::clo_standard();
+        inst
     }
 
     /// Create a new CMBS instrument from its building blocks.
@@ -321,7 +331,7 @@ impl StructuredCredit {
         disc_id: impl Into<String>,
     ) -> Self {
         let disc_id_str = disc_id.into();
-        Self::new_with_deal_config(
+        let mut inst = Self::new_with_deal_config(
             id,
             DealType::CMBS,
             InstrumentParams {
@@ -349,7 +359,9 @@ impl StructuredCredit {
                 behavior_overrides: BehaviorOverrides::default(),
             },
             closing_date,
-        )
+        );
+        inst.default_assumptions = DefaultAssumptions::cmbs_standard();
+        inst
     }
 
     /// Create a new RMBS instrument from its building blocks.
@@ -363,7 +375,7 @@ impl StructuredCredit {
         disc_id: impl Into<String>,
     ) -> Self {
         let disc_id_str = disc_id.into();
-        Self::new_with_deal_config(
+        let mut inst = Self::new_with_deal_config(
             id,
             DealType::RMBS,
             InstrumentParams {
@@ -392,7 +404,9 @@ impl StructuredCredit {
                 behavior_overrides: BehaviorOverrides::default(),
             },
             closing_date,
-        )
+        );
+        inst.default_assumptions = DefaultAssumptions::rmbs_standard();
+        inst
     }
 
     /// Calculate current loss percentage of the pool.
@@ -631,6 +645,10 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
         &self.recovery_spec
     }
 
+    fn default_assumptions(&self) -> &DefaultAssumptions {
+        &self.default_assumptions
+    }
+
     fn market_conditions(
         &self,
     ) -> &MarketConditions {
@@ -759,6 +777,22 @@ impl TrancheValuationExt for StructuredCredit {
         let cashflow_result = self.get_tranche_cashflows(tranche_id, context, as_of)?;
         let pv = self.value_tranche(tranche_id, context, as_of)?;
 
+        // Most metrics are calculated via the generic metrics registry.
+        // We create a context and pass the detailed cashflow result to it.
+        let mut metric_context = crate::metrics::MetricContext::new(
+            std::sync::Arc::new(self.clone())
+                as std::sync::Arc<dyn crate::instruments::common::traits::Instrument>,
+            std::sync::Arc::new(context.clone()),
+            as_of,
+            pv,
+        );
+        metric_context.cashflows = Some(cashflow_result.cashflows.clone());
+        metric_context.detailed_tranche_cashflows = Some(cashflow_result.clone());
+        metric_context.discount_curve_id = Some(self.disc_id.to_owned());
+
+        let registry = crate::metrics::standard_registry();
+        let computed_metrics = registry.compute(metrics, &mut metric_context)?;
+
         let tranche = self
             .tranches
             .tranches
@@ -778,34 +812,40 @@ impl TrancheValuationExt for StructuredCredit {
             0.0
         };
 
-        let accrued = Money::new(0.0, pv.currency());
-        let clean_price = dirty_price;
+        let accrued_value = computed_metrics.get(&MetricId::Accrued).copied().unwrap_or(0.0);
+        let accrued = Money::new(accrued_value, pv.currency());
+        
+        let clean_price = if notional > 0.0 {
+            dirty_price - (accrued.amount() / notional) * 100.0
+        } else {
+            dirty_price
+        };
 
-        let wal = calculate_tranche_wal(&cashflow_result, as_of)?;
+        // Ensure WAL is calculated if requested, as it's a primary output field
+        let wal = match computed_metrics.get(&MetricId::WAL) {
+            Some(v) => *v,
+            None => calculate_tranche_wal(&cashflow_result, as_of)?,
+        };
 
+        // Fallback calculations for metrics not handled by the registry or if not requested
         let disc = context.get_discount(&self.disc_id)?;
-        let modified_duration =
-            calculate_tranche_duration(&cashflow_result.cashflows, &disc, as_of, pv)?;
+        let modified_duration = computed_metrics.get(&MetricId::DurationMod).copied().unwrap_or_else(||
+            calculate_tranche_duration(&cashflow_result.cashflows, &disc, as_of, pv).unwrap_or(0.0)
+        );
 
-        let z_spread = calculate_tranche_z_spread(&cashflow_result.cashflows, &disc, pv, as_of)?;
+        let z_spread = computed_metrics.get(&MetricId::ZSpread).copied().unwrap_or_else(||
+            calculate_tranche_z_spread(&cashflow_result.cashflows, &disc, pv, as_of).unwrap_or(0.0)
+        );
 
         let z_spread_decimal = z_spread / 10_000.0;
-        let cs01 = calculate_tranche_cs01(&cashflow_result.cashflows, &disc, z_spread_decimal, as_of)?;
+        let cs01 = computed_metrics.get(&MetricId::Cs01).copied().unwrap_or_else(||
+            calculate_tranche_cs01(&cashflow_result.cashflows, &disc, z_spread_decimal, as_of).unwrap_or(0.0)
+        );
 
-        let ytm = 0.05;
+        let ytm = computed_metrics.get(&MetricId::Ytm).copied().unwrap_or(0.05); // Default guess
 
-        let mut metric_values = std::collections::HashMap::new();
-        for metric in metrics {
-            match metric {
-                MetricId::WAL => metric_values.insert(MetricId::WAL, wal),
-                MetricId::DurationMod => {
-                    metric_values.insert(MetricId::DurationMod, modified_duration)
-                }
-                MetricId::ZSpread => metric_values.insert(MetricId::ZSpread, z_spread),
-                MetricId::Cs01 => metric_values.insert(MetricId::Cs01, cs01),
-                _ => None,
-            };
-        }
+        // Convert computed metrics to std::collections::HashMap for the TrancheValuation struct
+        let final_metrics: std::collections::HashMap<MetricId, f64> = computed_metrics.into_iter().collect();
 
         Ok(TrancheValuation {
             tranche_id: tranche_id.to_string(),
@@ -818,7 +858,7 @@ impl TrancheValuationExt for StructuredCredit {
             z_spread_bps: z_spread,
             cs01,
             ytm,
-            metrics: metric_values,
+            metrics: final_metrics,
         })
     }
 }

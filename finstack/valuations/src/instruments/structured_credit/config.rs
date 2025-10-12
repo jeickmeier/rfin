@@ -381,6 +381,15 @@ pub struct DefaultAssumptions {
     pub sda_speed: Option<f64>,
     /// ABS monthly prepayment speed (for auto ABS)
     pub abs_speed_monthly: Option<f64>,
+    /// Asset-type specific annual CPRs
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub cpr_by_asset_type: HashMap<String, f64>,
+    /// Asset-type specific annual CDRs
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub cdr_by_asset_type: HashMap<String, f64>,
+    /// Asset-type specific recovery rates
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub recovery_by_asset_type: HashMap<String, f64>,
 }
 
 impl DefaultAssumptions {
@@ -393,6 +402,9 @@ impl DefaultAssumptions {
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: None,
+            cpr_by_asset_type: HashMap::new(),
+            cdr_by_asset_type: HashMap::new(),
+            recovery_by_asset_type: HashMap::new(),
         }
     }
 
@@ -405,6 +417,9 @@ impl DefaultAssumptions {
             psa_speed: Some(1.0),     // 100% PSA
             sda_speed: Some(1.0),     // 100% SDA
             abs_speed_monthly: None,
+            cpr_by_asset_type: HashMap::new(),
+            cdr_by_asset_type: HashMap::new(),
+            recovery_by_asset_type: HashMap::new(),
         }
     }
 
@@ -417,6 +432,9 @@ impl DefaultAssumptions {
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: Some(0.015), // 1.5% ABS
+            cpr_by_asset_type: HashMap::new(),
+            cdr_by_asset_type: HashMap::new(),
+            recovery_by_asset_type: HashMap::new(),
         }
     }
 
@@ -429,6 +447,65 @@ impl DefaultAssumptions {
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: None,
+            cpr_by_asset_type: HashMap::new(),
+            cdr_by_asset_type: HashMap::new(),
+            recovery_by_asset_type: HashMap::new(),
+        }
+    }
+}
+
+impl Default for DefaultAssumptions {
+    fn default() -> Self {
+        let mut cpr_by_asset_type = HashMap::new();
+        cpr_by_asset_type.insert("mortgage".to_string(), 0.06); // 100% PSA
+        cpr_by_asset_type.insert("rmbs".to_string(), 0.06);
+        cpr_by_asset_type.insert("auto".to_string(), 0.18);
+        cpr_by_asset_type.insert("abs_auto".to_string(), 0.18);
+        cpr_by_asset_type.insert("card".to_string(), 0.15);
+        cpr_by_asset_type.insert("credit_card".to_string(), 0.15);
+        cpr_by_asset_type.insert("cc".to_string(), 0.15);
+        cpr_by_asset_type.insert("commercial".to_string(), 0.10);
+        cpr_by_asset_type.insert("cmbs".to_string(), 0.10);
+        cpr_by_asset_type.insert("cre".to_string(), 0.10);
+        cpr_by_asset_type.insert("student".to_string(), 0.03);
+        cpr_by_asset_type.insert("student_loan".to_string(), 0.03);
+
+        let mut cdr_by_asset_type = HashMap::new();
+        cdr_by_asset_type.insert("mortgage".to_string(), 0.002);
+        cdr_by_asset_type.insert("rmbs".to_string(), 0.002);
+        cdr_by_asset_type.insert("auto".to_string(), 0.02);
+        cdr_by_asset_type.insert("abs_auto".to_string(), 0.02);
+        cdr_by_asset_type.insert("consumer".to_string(), 0.02);
+        cdr_by_asset_type.insert("card".to_string(), 0.048); // 0.4% monthly MDR to annual CDR
+        cdr_by_asset_type.insert("credit_card".to_string(), 0.048);
+        cdr_by_asset_type.insert("corporate".to_string(), 0.02);
+        cdr_by_asset_type.insert("clo".to_string(), 0.02);
+        cdr_by_asset_type.insert("commercial".to_string(), 0.02);
+
+        let mut recovery_by_asset_type = HashMap::new();
+        recovery_by_asset_type.insert("mortgage".to_string(), 0.60);
+        recovery_by_asset_type.insert("rmbs".to_string(), 0.60);
+        recovery_by_asset_type.insert("collateral".to_string(), 0.60);
+        recovery_by_asset_type.insert("auto".to_string(), 0.45);
+        recovery_by_asset_type.insert("abs_auto".to_string(), 0.45);
+        recovery_by_asset_type.insert("consumer".to_string(), 0.45);
+        recovery_by_asset_type.insert("card".to_string(), 0.05);
+        recovery_by_asset_type.insert("credit_card".to_string(), 0.05);
+        recovery_by_asset_type.insert("unsecured".to_string(), 0.05);
+        recovery_by_asset_type.insert("corporate".to_string(), 0.40);
+        recovery_by_asset_type.insert("clo".to_string(), 0.40);
+        recovery_by_asset_type.insert("commercial".to_string(), 0.40);
+
+        Self {
+            base_cdr_annual: 0.02,
+            base_recovery_rate: 0.40,
+            base_cpr_annual: 0.05,
+            psa_speed: None,
+            sda_speed: None,
+            abs_speed_monthly: None,
+            cpr_by_asset_type,
+            cdr_by_asset_type,
+            recovery_by_asset_type,
         }
     }
 }
