@@ -7,31 +7,85 @@
 //! # Module Organization
 //!
 //! - `components/`: All structural and behavioral building blocks
-//!   - Structural: pool, tranches, waterfall, enums
-//!   - Behavioral: prepayment, default, recovery models
-//!   - Valuation: tranche-specific cashflows and pricing
+//!   - Structural: enums, pool, tranches, waterfall, coverage_tests
+//!   - Behavioral: specs (prepayment/default/recovery), market_context
+//!   - Valuation: tranche_valuation, rates
 //! - `metrics/`: Risk and valuation metrics organized by category
 //! - `types.rs`: Main StructuredCredit instrument type
 //! - `pricer.rs`: Pricing and valuation logic
 //! - `config.rs`: Constants and deal configuration
-//! - `coverage_tests.rs`: Coverage tests (OC/IC)
-//! - `utils.rs`: Rating factors and reinvestment utilities
+//! - `utils.rs`: Date utilities, rating factors, reinvestment
+//! - `instrument_trait.rs`: Internal trait for cashflow generation
 
 pub mod components;
 pub mod metrics;
 pub mod pricer;
 pub mod types;
 pub mod config;
-pub mod coverage_tests;
 pub mod utils;
 pub mod instrument_trait;
+
+/// Prelude module for end-users.
+///
+/// Import this module to get the most commonly used types for working with
+/// structured credit instruments:
+///
+/// ```rust,ignore
+/// use finstack_valuations::instruments::structured_credit::prelude::*;
+///
+/// let clo = StructuredCredit::builder()
+///     .deal_type(DealType::CLO)
+///     .pool(pool)
+///     .tranches(tranches)
+///     .legal_maturity(maturity)
+///     .disc_id("USD-OIS".into())
+///     .build()?;
+/// ```
+pub mod prelude {
+    // Main types
+    pub use super::StructuredCredit;
+    pub use super::DealType;
+    
+    // Building blocks
+    pub use super::AssetPool;
+    pub use super::PoolAsset;
+    pub use super::Tranche;
+    pub use super::TrancheBuilder;
+    pub use super::TrancheSeniority;
+    pub use super::TrancheStructure;
+    pub use super::TrancheCoupon;
+    pub use super::calculate_pool_stats;
+    
+    // Behavioral models (as specs for serialization)
+    pub use super::PrepaymentModelSpec;
+    pub use super::DefaultModelSpec;
+    pub use super::RecoveryModelSpec;
+    
+    // Metadata and overrides
+    pub use super::DealMetadata;
+    pub use super::BehaviorOverrides;
+    
+    // Enums
+    pub use super::CreditRating;
+    pub use super::AssetType;
+    
+    // Results
+    pub use super::TrancheCashflowResult;
+    pub use super::TrancheValuation;
+    pub use super::TrancheValuationExt;
+    
+    // Configuration
+    pub use super::DealConfig;
+    pub use super::DealDates;
+    pub use super::DealFees;
+}
 
 // ============================================================================
 // Main instrument type and pricer
 // ============================================================================
 
 pub use pricer::StructuredCreditDiscountingPricer;
-pub use types::{InstrumentSpecificFields, StructuredCredit};
+pub use types::{BehaviorOverrides, DealMetadata, StructuredCredit};
 
 // ============================================================================
 // Components (structural + behavioral)
@@ -42,7 +96,7 @@ pub use components::{
     AssetType, CreditRating, DealType, PaymentMode, TrancheSeniority, TriggerConsequence,
     // Pool
     AssetPool, PoolAsset, PoolStats, ReinvestmentPeriod, ReinvestmentCriteria,
-    ConcentrationCheckResult, ConcentrationViolation,
+    ConcentrationCheckResult, ConcentrationViolation, calculate_pool_stats,
     // Tranches
     Tranche, TrancheBuilder, TrancheStructure, TrancheCoupon,
     TrancheBehaviorType, CoverageTrigger, CreditEnhancement,
@@ -50,23 +104,21 @@ pub use components::{
     WaterfallEngine, WaterfallBuilder, WaterfallResult, PaymentRule,
     PaymentRecipient, PaymentCalculation, ManagementFeeType,
     CoverageTestType, PaymentRecord,
-    // Prepayment models
-    PrepaymentBehavior, PSAModel, CPRModel, VectorModel, AnnualStepCprModel,
-    MarketConditions, calculate_seasoning_months, cpr_to_smm, smm_to_cpr,
-    psa_to_cpr, prepayment_model_for, psa_model, cpr_model, vector_model,
-    // Default and recovery models
-    DefaultBehavior, RecoveryBehavior, CDRModel, SDAModel, VectorDefaultModel,
-    MortgageDefaultModel, AutoDefaultModel, CreditCardChargeOffModel,
-    ConstantRecoveryModel, CollateralRecoveryModel, AnnualStepCdrModel,
-    CreditFactors, MarketFactors, cdr_to_mdr, mdr_to_cdr,
-    default_model_for, recovery_model_for,
-    // Serializable model specs
+    // Coverage tests
+    CoverageTest, TestContext, TestResult,
+    // Market context
+    MarketConditions, CreditFactors, MarketFactors,
+    // Behavioral model specs (single source of truth)
     PrepaymentModelSpec, DefaultModelSpec, RecoveryModelSpec,
+    // Rate conversion utilities
+    cpr_to_smm, smm_to_cpr, cdr_to_mdr, mdr_to_cdr, psa_to_cpr,
     // Tranche valuation
     TrancheCashflowResult, TrancheValuation, TrancheValuationExt,
     calculate_tranche_wal, calculate_tranche_duration,
     calculate_tranche_z_spread, calculate_tranche_cs01,
 };
+
+pub use utils::months_between;
 
 // ============================================================================
 // Metrics (re-exported for convenience)
@@ -95,7 +147,7 @@ pub use metrics::{
 
 pub use config::{
     // Constants
-    DAYS_PER_YEAR, VALIDATION_TOLERANCE, QUARTERLY_PERIODS_PER_YEAR,
+    DAYS_PER_YEAR, QUARTERLY_PERIODS_PER_YEAR,
     BASIS_POINTS_DIVISOR, PERCENTAGE_MULTIPLIER, MONTHS_PER_YEAR,
     MORTGAGE_SEASONALITY, CREDIT_CARD_SEASONALITY,
     BASELINE_UNEMPLOYMENT_RATE, MIN_PREPAYMENT_RATE,
@@ -115,20 +167,15 @@ pub use config::{
     DealConfig, DealDates, DealFees, CoverageTestConfig, DefaultAssumptions,
 };
 
-pub use coverage_tests::{CoverageTest, TestContext, TestResult};
-
 pub use utils::{
     // Rating factors
     RatingFactorTable, moodys_warf_factor,
     // Reinvestment
-    ReinvestmentManager, EligibilityCriteria, ConcentrationLimits,
+    ReinvestmentManager,
 };
 
 // ============================================================================
-// Instrument trait
+// Type aliases for backward compatibility
 // ============================================================================
 
-pub use instrument_trait::StructuredCreditInstrument;
-
-// Type alias for backward compatibility
 pub type StructuredCreditWaterfall = WaterfallEngine;

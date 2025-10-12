@@ -8,7 +8,7 @@ use finstack_core::money::Money;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use super::components::AssetPool;
+use super::AssetPool;
 
 /// Simplified coverage test type (OC/IC only)
 #[derive(Debug, Clone)]
@@ -81,6 +81,21 @@ impl CoverageTest {
         include_cash: bool,
         performing_only: bool,
     ) -> TestResult {
+        // Find the target tranche
+        let tranche = context
+            .tranches
+            .tranches
+            .iter()
+            .find(|t| t.id.as_str() == context.tranche_id)
+            .expect("Tranche not found in context");
+        
+        // Compute tranche balance
+        let tranche_balance = tranche.current_balance;
+        
+        // Compute senior balance (all tranches with higher priority)
+        let senior_balance = context.tranches.senior_balance(context.tranche_id);
+        
+        // Calculate numerator
         let numerator = if performing_only {
             context.pool.performing_balance()
         } else {
@@ -95,10 +110,10 @@ impl CoverageTest {
             numerator
         };
 
-        let denominator = context
-            .tranche_balance
-            .checked_add(context.senior_balance)
-            .unwrap_or(context.tranche_balance);
+        // Calculate denominator
+        let denominator = tranche_balance
+            .checked_add(senior_balance)
+            .unwrap_or(tranche_balance);
 
         let ratio = if denominator.amount() > 0.0 {
             numerator.amount() / denominator.amount()
@@ -128,10 +143,37 @@ impl CoverageTest {
         context: &TestContext,
         required_ratio: f64,
     ) -> TestResult {
-        let total_interest_due = context
-            .interest_due
-            .checked_add(context.senior_interest_due)
-            .unwrap_or(context.interest_due);
+        // Find the target tranche
+        let tranche = context
+            .tranches
+            .tranches
+            .iter()
+            .find(|t| t.id.as_str() == context.tranche_id)
+            .expect("Tranche not found in context");
+        
+        // Compute interest due for this tranche
+        // Simplified: assume quarterly payment at current coupon rate
+        let interest_due = Money::new(
+            tranche.current_balance.amount() * tranche.coupon.current_rate(context.as_of) / 4.0,
+            tranche.current_balance.currency(),
+        );
+        
+        // Compute senior interest due
+        let senior_tranches = context.tranches.senior_to(context.tranche_id);
+        let senior_interest_due = senior_tranches
+            .iter()
+            .try_fold(Money::new(0.0, interest_due.currency()), |acc, t| {
+                let interest = Money::new(
+                    t.current_balance.amount() * t.coupon.current_rate(context.as_of) / 4.0,
+                    t.current_balance.currency(),
+                );
+                acc.checked_add(interest)
+            })
+            .unwrap_or_else(|_| Money::new(0.0, interest_due.currency()));
+        
+        let total_interest_due = interest_due
+            .checked_add(senior_interest_due)
+            .unwrap_or(interest_due);
 
         let ratio = if total_interest_due.amount() > 0.0 {
             context.interest_collections.amount() / total_interest_due.amount()
@@ -149,16 +191,18 @@ impl CoverageTest {
     }
 }
 
-/// Context needed to calculate coverage tests
+/// Context needed to calculate coverage tests.
+///
+/// Simplified context that provides pool and tranche structure references,
+/// allowing the test to compute derived values (like senior balance, interest due) internally.
 #[derive(Debug)]
 pub struct TestContext<'a> {
     pub pool: &'a AssetPool,
-    pub tranche_balance: Money,
-    pub senior_balance: Money,
+    pub tranches: &'a super::TrancheStructure,
+    pub tranche_id: &'a str,
+    pub as_of: finstack_core::dates::Date,
     pub cash_balance: Money,
     pub interest_collections: Money,
-    pub interest_due: Money,
-    pub senior_interest_due: Money,
 }
 
 /// Shared result structure for coverage tests
@@ -177,7 +221,7 @@ pub struct TestResult {
 
 #[cfg(test)]
 mod coverage_test_tests {
-    use super::super::components::DealType;
+    use super::super::DealType;
     use super::*;
     use finstack_core::currency::Currency;
 
@@ -189,17 +233,33 @@ mod coverage_test_tests {
 
     #[test]
     fn test_oc_test_calculation() {
+        use super::super::{Tranche, TrancheSeniority, TrancheCoupon, TrancheStructure};
+        use finstack_core::dates::Date;
+        use time::Month;
+        
         let pool = AssetPool::new("TEST", DealType::CLO, Currency::USD);
         let test = CoverageTest::new_oc(1.25);
+        
+        // Create a simple tranche structure
+        let tranche = Tranche::new(
+            "TEST_TRANCHE",
+            0.0,
+            100.0,
+            TrancheSeniority::Senior,
+            Money::new(100_000.0, Currency::USD),
+            TrancheCoupon::Fixed { rate: 0.05 },
+            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+        ).unwrap();
+        
+        let tranches = TrancheStructure::new(vec![tranche]).unwrap();
 
         let context = TestContext {
             pool: &pool,
-            tranche_balance: Money::new(100_000.0, Currency::USD),
-            senior_balance: Money::new(0.0, Currency::USD),
+            tranches: &tranches,
+            tranche_id: "TEST_TRANCHE",
+            as_of: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             cash_balance: Money::new(0.0, Currency::USD),
             interest_collections: Money::new(0.0, Currency::USD),
-            interest_due: Money::new(0.0, Currency::USD),
-            senior_interest_due: Money::new(0.0, Currency::USD),
         };
 
         let result = test.calculate(&context);
@@ -211,23 +271,41 @@ mod coverage_test_tests {
 
     #[test]
     fn test_ic_test_calculation() {
+        use super::super::{Tranche, TrancheSeniority, TrancheCoupon, TrancheStructure};
+        use finstack_core::dates::Date;
+        use time::Month;
+        
         let pool = AssetPool::new("TEST", DealType::CLO, Currency::USD);
         let test = CoverageTest::new_ic(1.20);
+        
+        // Create a tranche structure  
+        // Interest due = 100k * 5% / 4 = 1,250
+        // To get ratio of 1.2, we need collections = 1.2 * 1,250 = 1,500
+        let tranche = Tranche::new(
+            "TEST_TRANCHE",
+            0.0,
+            100.0,
+            TrancheSeniority::Senior,
+            Money::new(100_000.0, Currency::USD),
+            TrancheCoupon::Fixed { rate: 0.05 },
+            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+        ).unwrap();
+        
+        let tranches = TrancheStructure::new(vec![tranche]).unwrap();
 
         let context = TestContext {
             pool: &pool,
-            tranche_balance: Money::new(100_000.0, Currency::USD),
-            senior_balance: Money::new(0.0, Currency::USD),
+            tranches: &tranches,
+            tranche_id: "TEST_TRANCHE",
+            as_of: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             cash_balance: Money::new(0.0, Currency::USD),
-            interest_collections: Money::new(12_000.0, Currency::USD),
-            interest_due: Money::new(10_000.0, Currency::USD),
-            senior_interest_due: Money::new(0.0, Currency::USD),
+            interest_collections: Money::new(1_500.0, Currency::USD),
         };
 
         let result = test.calculate(&context);
 
-        // 12000 / 10000 = 1.2, exactly at the threshold
-        assert_eq!(result.current_ratio, 1.2);
+        // Should pass at 1.2 ratio
+        assert!((result.current_ratio - 1.2).abs() < 0.01);
         assert!(result.is_passing);
     }
 

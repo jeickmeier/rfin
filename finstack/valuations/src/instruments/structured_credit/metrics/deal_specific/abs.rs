@@ -1,7 +1,7 @@
 //! ABS-specific metrics (speed, delinquency, excess spread, credit enhancement).
 
 use crate::constants::DECIMAL_TO_PERCENT;
-use crate::instruments::structured_credit::{InstrumentSpecificFields, StructuredCredit};
+use crate::instruments::structured_credit::StructuredCredit;
 use crate::metrics::MetricContext;
 
 use super::super::super::components::DealType;
@@ -33,13 +33,8 @@ impl crate::metrics::MetricCalculator for AbsSpeedCalculator {
             ));
         }
 
-        // Return ABS speed if set, otherwise default
-        match &sc.specific {
-            InstrumentSpecificFields::Abs { abs_speed, .. } => {
-                Ok(abs_speed.unwrap_or(self.default_abs_speed))
-            }
-            _ => Ok(self.default_abs_speed),
-        }
+        // Return ABS speed from overrides if set, otherwise default
+        Ok(sc.behavior_overrides.abs_speed.unwrap_or(self.default_abs_speed))
     }
 }
 

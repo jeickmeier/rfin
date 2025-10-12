@@ -26,6 +26,10 @@ fn test_date() -> Date {
     Date::from_calendar_date(2025, Month::October, 5).unwrap()
 }
 
+fn closing_date() -> Date {
+    Date::from_calendar_date(2024, Month::January, 1).unwrap()
+}
+
 fn maturity_date() -> Date {
     Date::from_calendar_date(2030, Month::December, 31).unwrap()
 }
@@ -94,7 +98,33 @@ fn create_test_tranches() -> TrancheStructure {
 
 /// Create a simple waterfall engine for testing
 fn create_test_waterfall() -> WaterfallEngine {
-    WaterfallEngine::standard_clo(Currency::USD)
+    // Use the generic sequential waterfall with standard fees
+    use finstack_valuations::instruments::structured_credit::{
+        PaymentRule, PaymentRecipient, PaymentCalculation, ManagementFeeType,
+    };
+    
+    let fees = vec![
+        PaymentRule::new(
+            "trustee_fees",
+            1,
+            PaymentRecipient::ServiceProvider("Trustee".to_string()),
+            PaymentCalculation::FixedAmount {
+                amount: Money::new(12_500.0, Currency::USD), // Quarterly portion
+            },
+        ),
+        PaymentRule::new(
+            "senior_mgmt_fee",
+            2,
+            PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
+            PaymentCalculation::PercentageOfCollateral {
+                rate: 0.0040, // 40 bps
+                annualized: true,
+            },
+        ),
+    ];
+    
+    let tranches = create_test_tranches();
+    WaterfallEngine::standard_sequential(Currency::USD, &tranches, fees)
 }
 
 /// Create market context with discount curve
@@ -125,6 +155,7 @@ fn test_clo_creation_with_realistic_data() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -142,6 +173,7 @@ fn test_abs_creation_with_realistic_data() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -163,6 +195,7 @@ fn test_clo_generates_cashflows() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -192,6 +225,7 @@ fn test_clo_dirty_price() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -223,6 +257,7 @@ fn test_clo_wal() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -252,6 +287,7 @@ fn test_clo_durations() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -290,6 +326,7 @@ fn test_clo_spread_metrics() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -323,6 +360,7 @@ fn test_clo_ytm() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -351,6 +389,7 @@ fn test_clo_pool_metrics() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -386,6 +425,7 @@ fn test_clo_full_metric_suite() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -464,6 +504,7 @@ fn test_all_instruments_compute_basic_metrics() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -476,6 +517,7 @@ fn test_all_instruments_compute_basic_metrics() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -488,6 +530,7 @@ fn test_all_instruments_compute_basic_metrics() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -500,6 +543,7 @@ fn test_all_instruments_compute_basic_metrics() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -524,6 +568,7 @@ fn test_empty_metrics_request() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -551,6 +596,7 @@ fn test_cs01_is_positive() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -578,6 +624,7 @@ fn test_metric_dependency_resolution() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );
@@ -608,6 +655,7 @@ fn test_spread_duration_from_cs01() {
         create_clo_pool(),
         create_test_tranches(),
         create_test_waterfall(),
+        closing_date(),
         maturity_date(),
         "USD_OIS",
     );

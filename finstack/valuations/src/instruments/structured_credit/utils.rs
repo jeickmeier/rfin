@@ -1,7 +1,7 @@
 //! Utility modules for structured credit instruments.
 //!
-//! This module combines rating factors and reinvestment management
-//! into a unified utility interface.
+//! This module combines rating factors, reinvestment management, and
+//! common date utilities.
 
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
@@ -11,6 +11,20 @@ use std::sync::OnceLock;
 
 use super::components::{AssetPool, PoolAsset};
 use super::components::enums::CreditRating;
+
+// ============================================================================
+// DATE UTILITIES
+// ============================================================================
+
+/// Calculate months between two dates.
+///
+/// This is commonly used to calculate loan seasoning (age) in months.
+/// Returns 0 if `to` is before `from`.
+pub fn months_between(from: Date, to: Date) -> u32 {
+    let months = (to.year() - from.year()) * 12
+        + (to.month() as i32 - from.month() as i32);
+    months.max(0) as u32
+}
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -103,15 +117,6 @@ pub struct ReinvestmentManager {
     pub reinvestment_allowed: bool,
 }
 
-/// Stub eligibility criteria (kept for backward compatibility in pool.rs)
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct EligibilityCriteria;
-
-/// Stub concentration limits (kept for backward compatibility in pool.rs)
-#[derive(Debug, Clone, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct ConcentrationLimits;
 
 impl ReinvestmentManager {
     /// Create new reinvestment manager
@@ -141,15 +146,42 @@ impl ReinvestmentManager {
         // Compute price-per-par for each asset; default to 100% if unknown
         let mut indices: Vec<usize> = (0..market_opportunities.len()).collect();
         indices.sort_unstable_by(|&i, &j| {
-            let pi = price_per_par(&market_opportunities[i]);
-            let pj = price_per_par(&market_opportunities[j]);
+            let pi = if let Some(price) = market_opportunities[i].purchase_price {
+                if market_opportunities[i].balance.amount() > 0.0 {
+                    (price.amount() / market_opportunities[i].balance.amount()).max(0.0)
+                } else {
+                    1.0
+                }
+            } else {
+                1.0
+            };
+            let pj = if let Some(price) = market_opportunities[j].purchase_price {
+                if market_opportunities[j].balance.amount() > 0.0 {
+                    (price.amount() / market_opportunities[j].balance.amount()).max(0.0)
+                } else {
+                    1.0
+                }
+            } else {
+                1.0
+            };
             pi.partial_cmp(&pj).unwrap_or(Ordering::Equal)
         });
 
         let mut selected = Vec::new();
         for idx in indices {
             let asset = &market_opportunities[idx];
-            let price_pct = price_per_par(asset);
+            
+            // Calculate price per par (inline)
+            let price_pct = if let Some(price) = asset.purchase_price {
+                if asset.balance.amount() > 0.0 {
+                    (price.amount() / asset.balance.amount()).max(0.0)
+                } else {
+                    1.0
+                }
+            } else {
+                1.0
+            };
+            
             let cost_amount = asset.balance.amount() * price_pct;
             if cost_amount <= remaining_cash.amount() {
                 // Reduce cash and take the whole asset
@@ -163,17 +195,6 @@ impl ReinvestmentManager {
 
         selected
     }
-}
-
-#[inline]
-fn price_per_par(asset: &PoolAsset) -> f64 {
-    // If purchase price provided, use price as a percentage of par
-    if let Some(price) = asset.purchase_price {
-        if asset.balance.amount() > 0.0 {
-            return (price.amount() / asset.balance.amount()).max(0.0);
-        }
-    }
-    1.0
 }
 
 #[cfg(test)]

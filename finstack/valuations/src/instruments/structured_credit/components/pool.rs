@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 
 use super::enums::{AssetType, CreditRating, DealType};
 use crate::instruments::structured_credit::config::{BASIS_POINTS_DIVISOR, DAYS_PER_YEAR};
-use crate::instruments::structured_credit::utils::{ConcentrationLimits, EligibilityCriteria};
 
 /// Individual asset in the structured credit pool
 #[derive(Debug, Clone)]
@@ -279,10 +278,6 @@ pub struct AssetPool {
     /// Underlying assets
     pub assets: Vec<PoolAsset>,
 
-    /// Pool governance
-    pub eligibility_criteria: EligibilityCriteria,
-    pub concentration_limits: ConcentrationLimits,
-
     /// Performance tracking
     pub cumulative_defaults: Money,
     pub cumulative_recoveries: Money,
@@ -295,9 +290,6 @@ pub struct AssetPool {
     pub collection_account: Money,
     pub reserve_account: Money,
     pub excess_spread_account: Money,
-
-    /// Cached statistics (updated periodically)
-    pub stats: PoolStats,
 }
 
 impl AssetPool {
@@ -308,8 +300,6 @@ impl AssetPool {
             id: id.into(),
             deal_type,
             assets: Vec::new(),
-            eligibility_criteria: EligibilityCriteria,
-            concentration_limits: ConcentrationLimits,
             cumulative_defaults: zero_money,
             cumulative_recoveries: zero_money,
             cumulative_prepayments: zero_money,
@@ -317,7 +307,6 @@ impl AssetPool {
             collection_account: zero_money,
             reserve_account: zero_money,
             excess_spread_account: zero_money,
-            stats: PoolStats::default(),
         }
     }
 
@@ -443,40 +432,6 @@ impl AssetPool {
         }
     }
 
-    /// Update pool statistics
-    pub fn update_stats(&mut self, as_of: Date) {
-        self.stats.weighted_avg_coupon = self.weighted_avg_coupon();
-        // Note: Using WAM as approximation for WAL in stats
-        // For true WAL, use weighted_avg_life_from_cashflows with actual cashflows
-        self.stats.weighted_avg_life = self.weighted_avg_maturity(as_of);
-        self.stats.diversity_score = self.diversity_score();
-
-        // Count unique obligors and industries
-        let mut obligors = std::collections::HashSet::new();
-        let mut industries = std::collections::HashSet::new();
-
-        for asset in &self.assets {
-            if let Some(ref obligor) = asset.obligor_id {
-                obligors.insert(obligor.clone());
-            }
-            if let Some(ref industry) = asset.industry {
-                industries.insert(industry.clone());
-            }
-        }
-
-        self.stats.num_obligors = obligors.len();
-        self.stats.num_industries = industries.len();
-
-        // Calculate default rate
-        let defaulted_balance: f64 = self
-            .assets
-            .iter()
-            .filter(|a| a.is_defaulted)
-            .map(|a| a.balance.amount())
-            .sum();
-        self.stats.cumulative_default_rate =
-            defaulted_balance / self.total_balance().amount() * 100.0;
-    }
 
     /// Base currency of the pool (from first asset)
     pub fn base_currency(&self) -> Currency {
@@ -518,6 +473,53 @@ impl AssetPool {
             .sum::<f64>();
 
         weighted_spread / total_balance
+    }
+}
+
+/// Calculate current pool statistics.
+///
+/// This function computes all pool statistics on-demand without caching.
+/// This ensures statistics are always up-to-date and eliminates cache invalidation bugs.
+pub fn calculate_pool_stats(pool: &AssetPool, as_of: Date) -> PoolStats {
+    // Count unique obligors and industries
+    let mut obligors = std::collections::HashSet::new();
+    let mut industries = std::collections::HashSet::new();
+
+    for asset in &pool.assets {
+        if let Some(ref obligor) = asset.obligor_id {
+            obligors.insert(obligor.clone());
+        }
+        if let Some(ref industry) = asset.industry {
+            industries.insert(industry.clone());
+        }
+    }
+
+    // Calculate default rate
+    let total_balance = pool.total_balance().amount();
+    let defaulted_balance: f64 = pool
+        .assets
+        .iter()
+        .filter(|a| a.is_defaulted)
+        .map(|a| a.balance.amount())
+        .sum();
+    
+    let cumulative_default_rate = if total_balance > 0.0 {
+        defaulted_balance / total_balance * 100.0
+    } else {
+        0.0
+    };
+
+    PoolStats {
+        weighted_avg_coupon: pool.weighted_avg_coupon(),
+        weighted_avg_spread: pool.weighted_avg_spread(),
+        weighted_avg_life: pool.weighted_avg_maturity(as_of),
+        weighted_avg_rating_factor: 0.0, // Computed separately if needed
+        diversity_score: pool.diversity_score(),
+        num_obligors: obligors.len(),
+        num_industries: industries.len(),
+        cumulative_default_rate,
+        recovery_rate: 0.0,    // Computed separately if needed
+        prepayment_rate: 0.0,  // Computed separately if needed
     }
 }
 

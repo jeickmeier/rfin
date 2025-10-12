@@ -223,6 +223,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         pool,
         tranches,
         waterfall,
+        date!(2024 - 01 - 01),
         date!(2034 - 01 - 01),
         "USD_DISC",
     );

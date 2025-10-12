@@ -1,6 +1,6 @@
 //! RMBS-specific metrics (LTV, FICO, WAL with PSA adjustments).
 
-use crate::instruments::structured_credit::{InstrumentSpecificFields, StructuredCredit};
+use crate::instruments::structured_credit::StructuredCredit;
 use crate::metrics::MetricContext;
 
 /// RMBS Weighted Average LTV calculator
@@ -75,11 +75,8 @@ impl crate::metrics::MetricCalculator for RmbsWalCalculator {
         // Use the pool's WAM calculation (approximation), adjusted for PSA speed
         let base_wal = rmbs.pool.weighted_avg_maturity(context.as_of);
 
-        // Extract psa_speed from specific fields
-        let psa_speed = match &rmbs.specific {
-            InstrumentSpecificFields::Rmbs { psa_speed, .. } => *psa_speed,
-            _ => 1.0, // Default to 100% PSA if not RMBS
-        };
+        // Extract psa_speed from behavior overrides, default to 1.0 (100% PSA)
+        let psa_speed = rmbs.behavior_overrides.psa_speed_multiplier.unwrap_or(1.0);
 
         // Higher PSA speeds shorten WAL
         // Simplified adjustment: WAL / (1 + PSA/2)

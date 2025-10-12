@@ -25,9 +25,6 @@ fn test_all_prepayment_model_specs_serialize() {
         let deserialized: PrepaymentModelSpec =
             serde_json::from_str(&json).expect("Failed to deserialize spec");
         assert_eq!(spec, deserialized);
-
-        // Verify it can convert to Arc<dyn Trait>
-        let _arc = spec.to_arc();
     }
 }
 
@@ -47,8 +44,6 @@ fn test_all_default_model_specs_serialize() {
         let deserialized: DefaultModelSpec =
             serde_json::from_str(&json).expect("Failed to deserialize spec");
         assert_eq!(spec, deserialized);
-
-        let _arc = spec.to_arc();
     }
 }
 
@@ -67,38 +62,12 @@ fn test_all_recovery_model_specs_serialize() {
         let deserialized: RecoveryModelSpec =
             serde_json::from_str(&json).expect("Failed to deserialize spec");
         assert_eq!(spec, deserialized);
-
-        let _arc = spec.to_arc();
     }
 }
 
-#[test]
-fn test_prepayment_spec_to_arc_roundtrip() {
-    let spec = PrepaymentModelSpec::Psa { multiplier: 200.0 };
-    let arc = spec.to_arc();
-    
-    // Verify we can get the spec back
-    let recovered_spec = PrepaymentModelSpec::from_arc(&arc);
-    assert_eq!(spec, recovered_spec);
-}
-
-#[test]
-fn test_default_spec_to_arc_roundtrip() {
-    let spec = DefaultModelSpec::ConstantCdr { cdr: 0.015 };
-    let arc = spec.to_arc();
-    
-    let recovered_spec = DefaultModelSpec::from_arc(&arc);
-    assert_eq!(spec, recovered_spec);
-}
-
-#[test]
-fn test_recovery_spec_to_arc_roundtrip() {
-    let spec = RecoveryModelSpec::Constant { rate: 0.65 };
-    let arc = spec.to_arc();
-    
-    let recovered_spec = RecoveryModelSpec::from_arc(&arc);
-    assert_eq!(spec, recovered_spec);
-}
+// NOTE: Roundtrip tests removed
+// The from_arc() method has been removed as part of the simplification effort.
+// Specs are now the source of truth and evaluated directly without trait object conversion.
 
 #[test]
 fn test_json_spec_examples() {

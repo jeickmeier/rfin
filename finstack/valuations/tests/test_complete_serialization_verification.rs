@@ -2,6 +2,8 @@
 //!
 //! This test verifies the core serialization infrastructure is complete.
 
+#![allow(deprecated)]
+
 use finstack_valuations::instruments::structured_credit::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
 };
@@ -42,7 +44,6 @@ fn test_all_model_specs_serialize_deserialize() {
         let json = serde_json::to_string(&spec).unwrap();
         let restored: PrepaymentModelSpec = serde_json::from_str(&json).unwrap();
         assert_eq!(spec, restored);
-        let _arc = spec.to_arc(); // Verify conversion works
     }
     
     // Default models
@@ -58,7 +59,6 @@ fn test_all_model_specs_serialize_deserialize() {
         let json = serde_json::to_string(&spec).unwrap();
         let restored: DefaultModelSpec = serde_json::from_str(&json).unwrap();
         assert_eq!(spec, restored);
-        let _arc = spec.to_arc();
     }
     
     // Recovery models
@@ -73,33 +73,15 @@ fn test_all_model_specs_serialize_deserialize() {
         let json = serde_json::to_string(&spec).unwrap();
         let restored: RecoveryModelSpec = serde_json::from_str(&json).unwrap();
         assert_eq!(spec, restored);
-        let _arc = spec.to_arc();
     }
     
     println!("✅ All model spec variants serialize/deserialize correctly");
 }
 
-#[test]
-fn test_spec_to_arc_roundtrip() {
-    // Verify bidirectional conversion works
-    
-    let prepay_spec = PrepaymentModelSpec::Psa { multiplier: 200.0 };
-    let prepay_arc = prepay_spec.to_arc();
-    let prepay_restored = PrepaymentModelSpec::from_arc(&prepay_arc);
-    assert_eq!(prepay_spec, prepay_restored);
-    
-    let default_spec = DefaultModelSpec::ConstantCdr { cdr: 0.015 };
-    let default_arc = default_spec.to_arc();
-    let default_restored = DefaultModelSpec::from_arc(&default_arc);
-    assert_eq!(default_spec, default_restored);
-    
-    let recovery_spec = RecoveryModelSpec::Constant { rate: 0.65 };
-    let recovery_arc = recovery_spec.to_arc();
-    let recovery_restored = RecoveryModelSpec::from_arc(&recovery_arc);
-    assert_eq!(recovery_spec, recovery_restored);
-    
-    println!("✅ Spec ↔ Arc roundtrip works for all model types");
-}
+// NOTE: Trait object conversion methods removed
+// Both from_arc() and to_arc() have been removed as part of the simplification effort.
+// Specs are now the source of truth and have direct calculation methods.
+// Use spec.prepayment_rate(), spec.default_rate(), and spec.recovery_rate() directly.
 
 #[test]
 fn test_json_format_is_readable() {
@@ -132,24 +114,35 @@ fn test_json_format_is_readable() {
 #[test]
 fn test_asset_default_models_for_all_types() {
     // Verify asset-specific defaults work
+    use finstack_valuations::instruments::structured_credit::{MarketConditions, CreditFactors, MarketFactors};
+    use finstack_core::dates::Date;
+    use finstack_core::money::Money;
+    use finstack_core::currency::Currency;
     
     let asset_types = vec!["residential", "auto", "cmbs", "commercial", "corporate", "clo"];
+    let test_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
     
     for asset_type in asset_types {
         let prepay = PrepaymentModelSpec::AssetDefault {
             asset_type: asset_type.to_string(),
         };
-        let _arc = prepay.to_arc(); // Should not panic
+        let _rate = prepay.prepayment_rate(test_date, test_date, 12, &MarketConditions::default());
         
         let default = DefaultModelSpec::AssetDefault {
             asset_type: asset_type.to_string(),
         };
-        let _arc = default.to_arc();
+        let _rate = default.default_rate(test_date, test_date, 12, &CreditFactors::default());
         
         let recovery = RecoveryModelSpec::AssetDefault {
             asset_type: "collateral".to_string(),
         };
-        let _arc = recovery.to_arc();
+        let _rate = recovery.recovery_rate(
+            test_date, 
+            6, 
+            None, 
+            Money::new(100_000.0, Currency::USD),
+            &MarketFactors::default()
+        );
     }
     
     println!("✅ Asset-default models work for all asset types");

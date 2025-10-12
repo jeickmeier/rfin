@@ -63,28 +63,27 @@ pub struct CprCalculator;
 
 impl MetricCalculator for CprCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        // Extract CPR from instrument-specific fields
-        
-        use crate::instruments::structured_credit::InstrumentSpecificFields;
+        // Extract CPR from behavior overrides or use deal-type defaults
         
         if let Some(sc) = context.instrument.as_any().downcast_ref::<StructuredCredit>() {
-            return Ok(match &sc.specific {
-                InstrumentSpecificFields::Rmbs { psa_speed, .. } => {
-                    // PSA model: 100% PSA = 6% CPR at 30 months
-                    psa_speed * 0.06
-                }
-                InstrumentSpecificFields::Abs { abs_speed, .. } => {
-                    // Use ABS speed if available
-                    abs_speed.unwrap_or(0.15)
-                }
-                InstrumentSpecificFields::Cmbs { open_cpr, .. } => {
-                    // Use open CPR if available
-                    open_cpr.unwrap_or(0.10)
-                }
-                InstrumentSpecificFields::Clo { .. } => {
-                    // CLO default prepayment
-                    0.15 // 15% CPR typical
-                }
+            // Check overrides first
+            if let Some(cpr) = sc.behavior_overrides.cpr_annual {
+                return Ok(cpr);
+            }
+            
+            if let Some(psa_mult) = sc.behavior_overrides.psa_speed_multiplier {
+                // PSA model: 100% PSA = 6% CPR at 30 months
+                return Ok(psa_mult * 0.06);
+            }
+            
+            // Fall back to deal type defaults
+            use super::super::super::components::DealType;
+            return Ok(match sc.deal_type {
+                DealType::RMBS => 0.06,        // 6% CPR (100% PSA)
+                DealType::ABS | DealType::Auto => 0.15, // 15% CPR
+                DealType::CMBS => 0.10,        // 10% CPR (open period)
+                DealType::CLO => 0.15,         // 15% CPR typical
+                _ => 0.10,
             });
         }
         
@@ -116,27 +115,28 @@ pub struct CdrCalculator;
 
 impl MetricCalculator for CdrCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        // Extract CDR from instrument-specific fields
-        
-        use crate::instruments::structured_credit::InstrumentSpecificFields;
+        // Extract CDR from behavior overrides or use deal-type defaults
         
         if let Some(sc) = context.instrument.as_any().downcast_ref::<StructuredCredit>() {
-            return Ok(match &sc.specific {
-                InstrumentSpecificFields::Abs { cdr_annual, .. } => {
-                    cdr_annual.unwrap_or(0.01) // 1% default for ABS
-                }
-                InstrumentSpecificFields::Rmbs { sda_speed, .. } => {
-                    // Derive from SDA speed
-                    // SDA 100% ≈ 0.6% CDR at peak
-                    sda_speed * 0.006
-                }
-                InstrumentSpecificFields::Cmbs { cdr_annual, .. } => {
-                    cdr_annual.unwrap_or(0.01) // 1% default for CMBS
-                }
-                InstrumentSpecificFields::Clo { cdr_annual, .. } => {
-                    // CLO default assumption
-                    cdr_annual.unwrap_or(0.02) // 2% CDR base case
-                }
+            // Check overrides first
+            if let Some(cdr) = sc.behavior_overrides.cdr_annual {
+                return Ok(cdr);
+            }
+            
+            if let Some(sda_mult) = sc.behavior_overrides.sda_speed_multiplier {
+                // Derive from SDA speed
+                // SDA 100% ≈ 0.6% CDR at peak
+                return Ok(sda_mult * 0.006);
+            }
+            
+            // Fall back to deal type defaults
+            use super::super::super::components::DealType;
+            return Ok(match sc.deal_type {
+                DealType::ABS | DealType::Auto => 0.01, // 1% default for ABS
+                DealType::RMBS => 0.006,                // 0.6% (100% SDA)
+                DealType::CMBS => 0.01,                 // 1% default for CMBS
+                DealType::CLO => 0.02,                  // 2% CDR base case
+                _ => 0.01,
             });
         }
         

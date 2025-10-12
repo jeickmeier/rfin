@@ -106,7 +106,10 @@ pub const CLO_TRUSTEE_FEE_ANNUAL: f64 = 50_000.0;
 // Simulation Constants
 // ============================================================================
 
-/// Pool balance threshold to stop cashflow generation
+/// Pool balance threshold (in base currency units) below which cashflow generation stops.
+///
+/// For example, for a USD-denominated pool, this means stop when balance < $100.
+/// This prevents unnecessary computation for immaterial remaining balances.
 pub const POOL_BALANCE_CLEANUP_THRESHOLD: f64 = 100.0;
 
 /// Default resolution lag in months for cashflow generation

@@ -1,23 +1,38 @@
 //! Components for structured credit instruments.
 //!
 //! This module contains all the building blocks for structured credit:
-//! - Structural components: enums, pool, tranches, waterfall
-//! - Behavioral models: prepayment, default, recovery
-//! - Valuation: tranche-specific cashflow and pricing functions
+//!
+//! ## Structural Components
+//! - `enums`: Deal types, credit ratings, asset classifications
+//! - `pool`: Asset pool structure and statistics
+//! - `tranches`: Tranche structure with attachment/detachment points
+//! - `waterfall`: Payment distribution engine
+//! - `coverage_tests`: OC/IC test calculations for waterfall diversion
+//!
+//! ## Behavioral Models
+//! - `specs`: Behavioral model specifications (prepayment, default, recovery)
+//! - `market_context`: Market conditions and credit factors
+//! - `rates`: Rate conversion utilities (CPR/SMM, CDR/MDR, PSA)
+//!
+//! ## Valuation
+//! - `tranche_valuation`: Tranche-specific cashflow generation and metrics
 
 // Structural components
 pub mod enums;
 pub mod pool;
 pub mod tranches;
 pub mod waterfall;
+pub mod coverage_tests;
 
 // Behavioral models
-pub mod prepayment;
-pub mod default_models;
-pub mod serializable;
+pub mod specs;
+pub mod market_context;
 
 // Valuation
 pub mod tranche_valuation;
+
+// Utilities
+pub mod rates;
 
 // ============================================================================
 // Re-export structural components
@@ -29,7 +44,7 @@ pub use enums::{
 
 pub use pool::{
     AssetPool, PoolAsset, PoolStats, ReinvestmentPeriod, ReinvestmentCriteria,
-    ConcentrationCheckResult, ConcentrationViolation,
+    ConcentrationCheckResult, ConcentrationViolation, calculate_pool_stats,
 };
 
 pub use tranches::{
@@ -44,27 +59,26 @@ pub use waterfall::{
     PaymentRecord,
 };
 
+pub use coverage_tests::{
+    CoverageTest, TestContext, TestResult,
+};
+
 // ============================================================================
 // Re-export behavioral models
 // ============================================================================
 
-pub use prepayment::{
-    PrepaymentBehavior, PSAModel, CPRModel, VectorModel, AnnualStepCprModel,
-    MarketConditions, calculate_seasoning_months, cpr_to_smm, smm_to_cpr,
-    psa_to_cpr, prepayment_model_for, psa_model, cpr_model, vector_model,
+// Market context structures
+pub use market_context::{
+    MarketConditions, CreditFactors, MarketFactors,
 };
 
-pub use default_models::{
-    DefaultBehavior, RecoveryBehavior, CDRModel, SDAModel, VectorDefaultModel,
-    MortgageDefaultModel, AutoDefaultModel, CreditCardChargeOffModel,
-    ConstantRecoveryModel, CollateralRecoveryModel, AnnualStepCdrModel,
-    CreditFactors, MarketFactors, cdr_to_mdr, mdr_to_cdr,
-    default_model_for, recovery_model_for,
-};
-
-pub use serializable::{
+// Behavioral model specifications (single source of truth)
+pub use specs::{
     PrepaymentModelSpec, DefaultModelSpec, RecoveryModelSpec,
 };
+
+// Rate conversion utilities
+pub use rates::{cpr_to_smm, smm_to_cpr, cdr_to_mdr, mdr_to_cdr, psa_to_cpr};
 
 // ============================================================================
 // Re-export tranche valuation

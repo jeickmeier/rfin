@@ -10,7 +10,6 @@ use finstack_core::types::{InstrumentId, CurveId};
 use serde::{Deserialize, Serialize};
 
 use super::enums::{CreditRating, TrancheSeniority, TriggerConsequence};
-use crate::instruments::structured_credit::config::VALIDATION_TOLERANCE;
 
 /// Tranche behavioral types (simplified to standard only)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -524,7 +523,7 @@ impl TrancheStructure {
 
         // Check for gaps or overlaps
         let mut expected_attachment = 0.0;
-        const TOLERANCE: f64 = VALIDATION_TOLERANCE;
+        const TOLERANCE: f64 = 1e-6;
 
         for tranche in &sorted_tranches {
             if (tranche.attachment_point - expected_attachment).abs() > TOLERANCE {

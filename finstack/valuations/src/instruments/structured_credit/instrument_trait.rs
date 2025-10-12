@@ -6,16 +6,32 @@
 use crate::cashflow::traits::DatedFlows;
 use super::components::{
     AssetPool, PaymentRecipient, TrancheStructure, WaterfallEngine,
-    calculate_seasoning_months, CreditFactors, DefaultBehavior, MarketConditions,
-    MarketFactors, PrepaymentBehavior, RecoveryBehavior,
+    CreditFactors, MarketConditions,
+    MarketFactors, PrepaymentModelSpec, DefaultModelSpec, RecoveryModelSpec,
 };
+use super::utils::months_between;
 use super::config::{DEFAULT_RESOLUTION_LAG_MONTHS, POOL_BALANCE_CLEANUP_THRESHOLD};
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use std::collections::HashMap;
-use std::sync::Arc;
+
+/// Cashflows generated in a single payment period
+struct PeriodFlows {
+    interest_collections: Money,
+    prepayments: Money,
+    defaults: Money,
+    recoveries: Money,
+}
+
+impl PeriodFlows {
+    /// Total cash available for distribution
+    fn total_cash(&self) -> finstack_core::Result<Money> {
+        let principal = self.prepayments.checked_add(self.recoveries)?;
+        self.interest_collections.checked_add(principal)
+    }
+}
 
 /// Update tranche balance after payment (helper function)
 fn update_tranche_balance(
@@ -35,8 +51,8 @@ fn update_tranche_balance(
     Ok(())
 }
 
-/// Common trait for structured credit instruments
-pub trait StructuredCreditInstrument {
+/// Common trait for structured credit instruments (internal implementation detail)
+pub(crate) trait StructuredCreditInstrument {
     /// Get reference to asset pool
     fn pool(&self) -> &AssetPool;
 
@@ -55,14 +71,14 @@ pub trait StructuredCreditInstrument {
     /// Get payment frequency
     fn payment_frequency(&self) -> Frequency;
 
-    /// Get prepayment model
-    fn prepayment_model(&self) -> &Arc<dyn PrepaymentBehavior>;
+    /// Get prepayment model specification
+    fn prepayment_spec(&self) -> &PrepaymentModelSpec;
 
-    /// Get default model
-    fn default_model(&self) -> &Arc<dyn DefaultBehavior>;
+    /// Get default model specification
+    fn default_spec_ref(&self) -> &DefaultModelSpec;
 
-    /// Get recovery model
-    fn recovery_model(&self) -> &Arc<dyn RecoveryBehavior>;
+    /// Get recovery model specification
+    fn recovery_spec_ref(&self) -> &RecoveryModelSpec;
 
     /// Get market conditions
     fn market_conditions(&self) -> &MarketConditions;
@@ -89,7 +105,7 @@ pub trait StructuredCreditInstrument {
             return override_rate;
         }
 
-        self.prepayment_model()
+        self.prepayment_spec()
             .prepayment_rate(
                 pay_date,
                 self.closing_date(),
@@ -105,7 +121,7 @@ pub trait StructuredCreditInstrument {
             return override_rate;
         }
 
-        self.default_model()
+        self.default_spec_ref()
             .default_rate(
                 pay_date,
                 self.closing_date(),
@@ -174,7 +190,7 @@ pub trait StructuredCreditInstrument {
         let prepay_amt = Money::new(pool_outstanding.amount() * period_smm, base_ccy);
         let default_amt = Money::new(pool_outstanding.amount() * period_mdr, base_ccy);
 
-        let recovery_rate = self.recovery_model().recovery_rate(
+        let recovery_rate = self.recovery_spec_ref().recovery_rate(
             pay_date,
             DEFAULT_RESOLUTION_LAG_MONTHS,
             None,
@@ -234,16 +250,15 @@ pub trait StructuredCreditInstrument {
             && pool_outstanding.amount() > POOL_BALANCE_CLEANUP_THRESHOLD
         {
             // Cache seasoning calculation for this period
-            let seasoning_months = calculate_seasoning_months(dates_closing_date, pay_date);
+            let seasoning_months = months_between(dates_closing_date, pay_date);
 
-            // Step 1: Calculate pool collections
+            // Step 1: Calculate period cashflows
             let interest_collections = self.calculate_period_interest_collections(
                 pay_date,
                 months_per_period,
                 context,
             )?;
 
-            // Step 2: Apply prepayments and defaults
             let (prepay_amt, default_amt, recovery_amt) = 
                 self.calculate_period_prepayments_and_defaults(
                     pay_date,
@@ -251,12 +266,16 @@ pub trait StructuredCreditInstrument {
                     pool_outstanding,
                     months_per_period,
                 )?;
+            
+            let period_flows = PeriodFlows {
+                interest_collections,
+                prepayments: prepay_amt,
+                defaults: default_amt,
+                recoveries: recovery_amt,
+            };
 
-            // Total principal available = prepayments + recoveries
-            let total_principal = prepay_amt.checked_add(recovery_amt)?;
-
-            // Total cash available for distribution
-            let total_cash = interest_collections.checked_add(total_principal)?;
+            // Step 2: Total cash available for distribution
+            let total_cash = period_flows.total_cash()?;
 
             // Step 3: Run waterfall to distribute cash to tranches
             let waterfall_result = waterfall_engine.apply_waterfall(
@@ -304,8 +323,8 @@ pub trait StructuredCreditInstrument {
 
             // Step 5: Update pool balance
             pool_outstanding = pool_outstanding
-                .checked_sub(prepay_amt)?
-                .checked_sub(default_amt)?;
+                .checked_sub(period_flows.prepayments)?
+                .checked_sub(period_flows.defaults)?;
 
             // Advance to next period
             pay_date = add_months(
@@ -431,12 +450,16 @@ pub trait StructuredCreditInstrument {
                     pool_outstanding,
                     months_per_period,
                 )?;
-
-            // Total principal available
-            let total_principal_available = prepay_amt.checked_add(recovery_amt)?;
+            
+            let period_flows = PeriodFlows {
+                interest_collections,
+                prepayments: prepay_amt,
+                defaults: default_amt,
+                recoveries: recovery_amt,
+            };
 
             // Total cash available for distribution
-            let total_cash = interest_collections.checked_add(total_principal_available)?;
+            let total_cash = period_flows.total_cash()?;
 
             // Step 3: Run waterfall to distribute cash to tranches
             let waterfall_result = waterfall_engine.apply_waterfall(
@@ -522,8 +545,8 @@ pub trait StructuredCreditInstrument {
 
             // Step 5: Update pool balance
             pool_outstanding = pool_outstanding
-                .checked_sub(prepay_amt)?
-                .checked_sub(default_amt)?;
+                .checked_sub(period_flows.prepayments)?
+                .checked_sub(period_flows.defaults)?;
 
             // Advance to next period
             pay_date = add_months(
