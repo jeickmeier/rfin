@@ -1,0 +1,317 @@
+//! Scenario execution engine with deterministic composition and application.
+
+use crate::error::Result;
+use crate::spec::{OperationSpec, ScenarioSpec};
+use indexmap::IndexMap;
+
+/// Execution context for scenario application.
+///
+/// Holds mutable references to market data and statements, plus optional
+/// bindings for linking statement rate nodes to market curves.
+pub struct ExecutionContext<'a> {
+    /// Market data context (curves, surfaces, FX, etc.).
+    pub market: &'a mut finstack_core::market_data::MarketContext,
+
+    /// Financial statements model.
+    pub model: &'a mut finstack_statements::FinancialModelSpec,
+
+    /// Optional mapping from statement node IDs to curve IDs for automatic rate updates.
+    pub rate_bindings: Option<IndexMap<String, String>>,
+
+    /// Valuation date for context.
+    pub as_of: time::Date,
+}
+
+/// Report of scenario application.
+#[derive(Debug, Clone)]
+pub struct ApplicationReport {
+    /// Number of operations successfully applied.
+    pub operations_applied: usize,
+
+    /// Warnings generated during application (non-fatal).
+    pub warnings: Vec<String>,
+
+    /// Rounding context stamp (for determinism tracking).
+    pub rounding_context: Option<String>,
+}
+
+/// Scenario execution engine.
+///
+/// Orchestrates composition and application of scenarios with deterministic ordering.
+#[derive(Debug, Default)]
+pub struct ScenarioEngine {
+    _private: (),
+}
+
+impl ScenarioEngine {
+    /// Create a new scenario engine with default settings.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Compose multiple scenarios into a single deterministic spec.
+    ///
+    /// Operations are sorted by (priority, declaration_index); conflicts use last-wins.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_scenarios::{ScenarioEngine, ScenarioSpec, OperationSpec, CurveKind};
+    ///
+    /// let s1 = ScenarioSpec {
+    ///     id: "base".into(),
+    ///     name: None,
+    ///     description: None,
+    ///     operations: vec![
+    ///         OperationSpec::CurveParallelBp {
+    ///             curve_kind: CurveKind::Discount,
+    ///             curve_id: "USD_SOFR".into(),
+    ///             bp: 25.0,
+    ///         },
+    ///     ],
+    ///     priority: 0,
+    /// };
+    ///
+    /// let s2 = ScenarioSpec {
+    ///     id: "overlay".into(),
+    ///     name: None,
+    ///     description: None,
+    ///     operations: vec![
+    ///         OperationSpec::StmtForecastPercent {
+    ///             node_id: "Revenue".into(),
+    ///             pct: -5.0,
+    ///         },
+    ///     ],
+    ///     priority: 1,
+    /// };
+    ///
+    /// let engine = ScenarioEngine::new();
+    /// let composed = engine.compose(vec![s1, s2]);
+    /// assert_eq!(composed.operations.len(), 2);
+    /// ```
+    pub fn compose(&self, mut scenarios: Vec<ScenarioSpec>) -> ScenarioSpec {
+        // Stable sort by priority (lower = higher priority)
+        scenarios.sort_by_key(|s| s.priority);
+
+        let mut all_operations = Vec::new();
+        for scenario in scenarios {
+            all_operations.extend(scenario.operations);
+        }
+
+        // In Phase A, we use simple last-wins for same target
+        // (No deduplication; engine applies in order and last application wins)
+
+        ScenarioSpec {
+            id: "composed".into(),
+            name: Some("Composed Scenario".into()),
+            description: None,
+            operations: all_operations,
+            priority: 0,
+        }
+    }
+
+    /// Apply a scenario specification to the execution context.
+    ///
+    /// Operations are applied in this order:
+    /// 1. Market data (FX, equities, vol surfaces, curves, base correlation)
+    /// 2. Rate bindings update (if configured)
+    /// 3. Statement forecast adjustments
+    /// 4. Statement re-evaluation
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_scenarios::{ScenarioEngine, ScenarioSpec, OperationSpec, CurveKind, ExecutionContext};
+    /// use finstack_core::market_data::MarketContext;
+    /// use finstack_statements::FinancialModelSpec;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut market = MarketContext::new();
+    /// let mut model = FinancialModelSpec::new("test", vec![]);
+    /// let as_of = date!(2025-01-01);
+    ///
+    /// let scenario = ScenarioSpec {
+    ///     id: "test".into(),
+    ///     name: None,
+    ///     description: None,
+    ///     operations: vec![
+    ///         OperationSpec::StmtForecastPercent {
+    ///             node_id: "Revenue".into(),
+    ///             pct: -5.0,
+    ///         },
+    ///     ],
+    ///     priority: 0,
+    /// };
+    ///
+    /// let engine = ScenarioEngine::new();
+    /// let mut ctx = ExecutionContext {
+    ///     market: &mut market,
+    ///     model: &mut model,
+    ///     rate_bindings: None,
+    ///     as_of,
+    /// };
+    ///
+    /// let report = engine.apply(&scenario, &mut ctx)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn apply(&self, spec: &ScenarioSpec, ctx: &mut ExecutionContext) -> Result<ApplicationReport> {
+        let mut applied = 0;
+        let mut warnings = Vec::new();
+
+        // Phase 1: Market data operations (order: FX → Equities → Vol → Curves)
+        for op in &spec.operations {
+            match op {
+                OperationSpec::MarketFxPct { base, quote, pct } => {
+                    crate::adapters::fx::apply_fx_shock(ctx.market, *base, *quote, *pct)?;
+                    applied += 1;
+                }
+                OperationSpec::EquityPricePct { ids, pct } => {
+                    for id in ids {
+                        match crate::adapters::equity::apply_equity_shock(ctx.market, id, *pct) {
+                            Ok(_) => applied += 1,
+                            Err(e) => warnings.push(format!("Equity {}: {}", id, e)),
+                        }
+                    }
+                }
+                OperationSpec::InstrumentPricePctByAttr { attrs, pct: _ } => {
+                    // Phase A: stub (no instrument registry query yet)
+                    warnings.push(format!(
+                        "InstrumentPricePctByAttr with {} attrs: not implemented in Phase A",
+                        attrs.len()
+                    ));
+                }
+                OperationSpec::VolSurfaceParallelPct {
+                    surface_kind: _,
+                    surface_id,
+                    pct,
+                } => {
+                    match crate::adapters::vol::apply_vol_parallel_shock(ctx.market, surface_id, *pct)
+                    {
+                        Ok(_) => applied += 1,
+                        Err(e) => warnings.push(format!("Vol surface {}: {}", surface_id, e)),
+                    }
+                }
+                OperationSpec::VolSurfaceBucketPct {
+                    surface_kind: _,
+                    surface_id,
+                    tenors,
+                    strikes,
+                    pct,
+                } => {
+                    match crate::adapters::vol::apply_vol_bucket_shock(
+                        ctx.market,
+                        surface_id,
+                        tenors.as_deref(),
+                        strikes.as_deref(),
+                        *pct,
+                    ) {
+                        Ok(_) => applied += 1,
+                        Err(e) => warnings.push(format!("Vol bucket {}: {}", surface_id, e)),
+                    }
+                }
+                OperationSpec::CurveParallelBp {
+                    curve_kind,
+                    curve_id,
+                    bp,
+                } => {
+                    crate::adapters::curves::apply_curve_parallel_shock(
+                        ctx.market,
+                        *curve_kind,
+                        curve_id,
+                        *bp,
+                    )?;
+                    applied += 1;
+                }
+                OperationSpec::CurveNodeBp {
+                    curve_kind,
+                    curve_id,
+                    nodes,
+                } => {
+                    crate::adapters::curves::apply_curve_node_shock(
+                        ctx.market,
+                        *curve_kind,
+                        curve_id,
+                        nodes,
+                    )?;
+                    applied += 1;
+                }
+                OperationSpec::BaseCorrParallelPts { surface_id, points } => {
+                    crate::adapters::basecorr::apply_basecorr_parallel_shock(
+                        ctx.market,
+                        surface_id,
+                        *points,
+                    )?;
+                    applied += 1;
+                }
+                OperationSpec::BaseCorrBucketPts {
+                    surface_id,
+                    detachment_bps,
+                    maturities,
+                    points,
+                } => {
+                    crate::adapters::basecorr::apply_basecorr_bucket_shock(
+                        ctx.market,
+                        surface_id,
+                        detachment_bps.as_deref(),
+                        maturities.as_deref(),
+                        *points,
+                    )?;
+                    applied += 1;
+                }
+                OperationSpec::InstrumentSpreadBpByAttr { attrs, bp: _ } => {
+                    // Phase A: stub
+                    warnings.push(format!(
+                        "InstrumentSpreadBpByAttr with {} attrs: not implemented in Phase A",
+                        attrs.len()
+                    ));
+                }
+                _ => {} // statements handled below
+            }
+        }
+
+        // Phase 2: Rate bindings update (if configured)
+        if let Some(bindings) = &ctx.rate_bindings {
+            for (node_id, curve_id) in bindings {
+                match crate::adapters::statements::update_rate_from_curve(
+                    ctx.model,
+                    node_id,
+                    ctx.market,
+                    curve_id,
+                ) {
+                    Ok(_) => {}
+                    Err(e) => warnings.push(format!("Rate binding {}->{}: {}", node_id, curve_id, e)),
+                }
+            }
+        }
+
+        // Phase 3: Statement operations
+        for op in &spec.operations {
+            match op {
+                OperationSpec::StmtForecastPercent { node_id, pct } => {
+                    crate::adapters::statements::apply_forecast_percent(ctx.model, node_id, *pct)?;
+                    applied += 1;
+                }
+                OperationSpec::StmtForecastAssign { node_id, value } => {
+                    crate::adapters::statements::apply_forecast_assign(ctx.model, node_id, *value)?;
+                    applied += 1;
+                }
+                _ => {} // already handled above
+            }
+        }
+
+        // Phase 4: Re-evaluate statements to propagate changes
+        let eval_result = crate::adapters::statements::reevaluate_model(ctx.model);
+        if let Err(e) = eval_result {
+            warnings.push(format!("Model re-evaluation: {}", e));
+        }
+
+        Ok(ApplicationReport {
+            operations_applied: applied,
+            warnings,
+            rounding_context: Some("default".into()), // Phase A: simple stamp
+        })
+    }
+}
+

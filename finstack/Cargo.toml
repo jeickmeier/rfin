@@ -13,7 +13,8 @@ statements = ["core", "dep:finstack_statements"]
 valuations = ["core", "dep:finstack_valuations"]
 portfolio = ["core", "statements", "valuations", "dep:finstack_portfolio"]
 io = ["dep:finstack_io"]
-all = ["core", "statements", "valuations", "portfolio", "io"]
+scenarios = ["core", "statements", "dep:finstack_scenarios"]
+all = ["core", "statements", "valuations", "portfolio", "io", "scenarios"]
 
 [dependencies]
 finstack_core = { package = "finstack-core", path = "core", optional = true }
@@ -21,5 +22,6 @@ finstack_statements = { package = "finstack-statements", path = "statements", op
 finstack_valuations = { package = "finstack-valuations", path = "valuations", optional = true }
 finstack_portfolio = { package = "finstack-portfolio", path = "portfolio", optional = true }
 finstack_io = { package = "finstack-io", path = "io", optional = true }
+finstack_scenarios = { package = "finstack-scenarios", path = "scenarios", optional = true }
 
 

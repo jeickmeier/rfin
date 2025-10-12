@@ -1,0 +1,32 @@
+[package]
+name = "finstack-scenarios"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+finstack-core = { path = "../core", features = ["serde"] }
+finstack-statements = { path = "../statements" }
+indexmap = { version = "2.0", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+time = { version = "0.3" }
+
+[dev-dependencies]
+time = { version = "0.3", features = ["macros"] }
+
+[features]
+default = ["serde"]
+serde = []
+
+[[example]]
+name = "scenarios_lite_example"
+path = "../../examples/rust/scenarios_lite_example.rs"
+
+[[example]]
+name = "scenarios_comprehensive_example"
+path = "../../examples/rust/scenarios_comprehensive_example.rs"
+

@@ -6,6 +6,7 @@ members = [
     "finstack/valuations/macros",
     "finstack/portfolio",
     "finstack/io",
+    "finstack/scenarios",
     "finstack-py",
     "finstack-wasm",
     "finstack"
@@ -20,6 +21,7 @@ default-members = [
     "finstack/valuations/macros",
     "finstack/portfolio",
     "finstack/io",
+    "finstack/scenarios",
     "finstack"
 ]
 

@@ -52,14 +52,18 @@ impl FinancialModelSpec {
         self.nodes.insert(node.node_id.clone(), node);
     }
 
-    /// Get a node by ID.
-    pub fn get_node(&self, node_id: &str) -> Option<&NodeSpec> {
-        self.nodes.get(node_id)
-    }
-
     /// Get a mutable reference to a node by ID.
+    ///
+    /// Returns `None` if the node doesn't exist.
     pub fn get_node_mut(&mut self, node_id: &str) -> Option<&mut NodeSpec> {
         self.nodes.get_mut(node_id)
+    }
+
+    /// Get an immutable reference to a node by ID.
+    ///
+    /// Returns `None` if the node doesn't exist.
+    pub fn get_node(&self, node_id: &str) -> Option<&NodeSpec> {
+        self.nodes.get(node_id)
     }
 
     /// Check if a node exists.
