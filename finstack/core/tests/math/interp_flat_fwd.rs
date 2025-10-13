@@ -1,8 +1,6 @@
 //! Tests for flat forward interpolation.
 
-mod common;
-
-use common::approx_eq;
+use super::common::approx_eq;
 use finstack_core::math::interp::{
     flat_fwd::FlatFwd, log_linear::LogLinearDf, ExtrapolationPolicy, InterpFn,
 };

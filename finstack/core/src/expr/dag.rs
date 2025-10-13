@@ -24,6 +24,74 @@ pub struct DagNode {
     pub cost: usize,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode};
+
+    fn meta() -> ResultsMeta {
+        ResultsMeta {
+            numeric_mode: NumericMode::F64,
+            rounding: RoundingContext {
+                mode: RoundingMode::Bankers,
+                ingest_scale_by_ccy: Default::default(),
+                output_scale_by_ccy: Default::default(),
+                version: 1,
+            },
+            fx_policy_applied: None,
+        }
+    }
+
+    #[test]
+    fn dag_builder_deduplicates_structurally_identical_nodes() {
+        let mut builder = DagBuilder::new();
+        let a = Expr::call(
+            Function::RollingMean,
+            vec![Expr::column("x"), Expr::literal(3.0)],
+        )
+        .with_id(7);
+        let b = Expr::call(
+            Function::RollingMean,
+            vec![Expr::column("x"), Expr::literal(3.0)],
+        )
+        .with_id(42);
+
+        let plan = builder.build_plan(vec![a, b], meta());
+        assert_eq!(plan.nodes.len(), 3, "column, literal, rolling mean");
+        assert_eq!(plan.roots.len(), 2);
+        assert_eq!(plan.roots[0], plan.roots[1]);
+    }
+
+    #[test]
+    fn dag_builder_orders_dependencies_topologically() {
+        let mut builder = DagBuilder::new();
+        let col = Expr::column("x");
+        let lit = Expr::literal(2.0);
+        let sum = Expr::call(Function::RollingSum, vec![col.clone(), lit.clone()]);
+        let mean = Expr::call(Function::RollingMean, vec![col, lit]);
+
+        let plan = builder.build_plan(vec![sum, mean], meta());
+        assert_eq!(plan.nodes.len(), 4);
+
+        // Ensure dependencies come before dependents in node order.
+        for node in &plan.nodes {
+            for &dep in &node.dependencies {
+                let dep_index = plan
+                    .nodes
+                    .iter()
+                    .position(|n| n.id == dep)
+                    .expect("dependency must exist");
+                let node_index = plan
+                    .nodes
+                    .iter()
+                    .position(|n| n.id == node.id)
+                    .unwrap();
+                assert!(dep_index < node_index);
+            }
+        }
+    }
+}
+
 /// Execution plan for a DAG of expressions.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

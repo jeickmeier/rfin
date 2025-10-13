@@ -1,8 +1,6 @@
 //! Tests for calendar adjustment functionality.
 
-mod common;
-
-use common::{make_date, TestCal};
+use super::common::{make_date, TestCal};
 use finstack_core::dates::{adjust, available_calendars, BusinessDayConvention, HolidayCalendar};
 use finstack_core::error::InputError;
 use time::Date;

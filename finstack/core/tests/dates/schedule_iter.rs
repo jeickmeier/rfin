@@ -1,8 +1,6 @@
 //! Tests for schedule iterator functionality.
 
-mod common;
-
-use common::{make_date, TestCal};
+use super::common::{make_date, TestCal};
 use finstack_core::dates::{BusinessDayConvention, Frequency, ScheduleBuilder, StubKind};
 
 #[test]

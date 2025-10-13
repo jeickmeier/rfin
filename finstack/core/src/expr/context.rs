@@ -40,3 +40,17 @@ impl ExpressionContext for SimpleContext {
         self.index_of(name)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn simple_context_maps_columns_in_insertion_order() {
+        let ctx = SimpleContext::new(["price", "volume", "flag"]);
+        assert_eq!(ctx.index_of("price"), Some(0));
+        assert_eq!(ctx.index_of("volume"), Some(1));
+        assert_eq!(ctx.index_of("flag"), Some(2));
+        assert_eq!(ctx.resolve_index("missing"), None);
+    }
+}

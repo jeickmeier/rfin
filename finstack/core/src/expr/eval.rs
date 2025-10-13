@@ -78,6 +78,90 @@ impl Clone for CompiledExpr {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::FinstackConfig;
+    use crate::expr::{BinOp, Expr, Function, SimpleContext, UnaryOp};
+
+    fn sample_context() -> (SimpleContext, Vec<Vec<f64>>) {
+        let ctx = SimpleContext::new(["x", "y"]);
+        let data = vec![
+            vec![0.2, 0.5, 3.0, 4.0],
+            vec![0.5, 1.5, 2.5, 3.5],
+        ];
+        (ctx, data)
+    }
+
+    #[test]
+    fn eval_simple_handles_if_binop_and_unary_nodes() {
+        let (ctx, data) = sample_context();
+        let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
+
+        let condition = Expr::bin_op(BinOp::Gt, Expr::column("x"), Expr::column("y"));
+        let then_branch = Expr::column("x");
+        let else_branch = Expr::unary_op(UnaryOp::Neg, Expr::column("y"));
+        let expr = Expr::if_then_else(condition, then_branch, else_branch);
+
+        let compiled = CompiledExpr::new(expr);
+        let result = compiled.eval(&ctx, &cols, EvalOpts::default()).values;
+
+        assert_eq!(result.len(), 4);
+        assert!((result[0] + 0.5).abs() < 1e-12);
+        assert!((result[1] + 1.5).abs() < 1e-12);
+        assert!((result[2] - 3.0).abs() < 1e-12);
+        assert!((result[3] - 4.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn eval_with_plan_and_cache_executes_rolling_functions() {
+        let (ctx, data) = sample_context();
+        let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
+
+        let expr = Expr::call(
+            Function::RollingSum,
+            vec![Expr::column("x"), Expr::literal(2.0)],
+        );
+        let meta = crate::config::results_meta(&FinstackConfig::default());
+        let compiled = CompiledExpr::with_planning(expr, meta).with_cache(1);
+
+        let result = compiled
+            .eval(&ctx, &cols, EvalOpts { plan: None, cache_budget_mb: Some(1) })
+            .values;
+
+        assert!(result[0].is_nan());
+        assert!((result[1] - 0.7).abs() < 1e-12);
+        assert!((result[2] - 3.5).abs() < 1e-12);
+        assert!((result[3] - 7.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn eval_allows_external_plan_override() {
+        let (ctx, data) = sample_context();
+        let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
+        let expr = Expr::call(Function::Diff, vec![Expr::column("x"), Expr::literal(1.0)]);
+        let meta = crate::config::results_meta(&FinstackConfig::default());
+        let compiled = CompiledExpr::with_planning(expr, meta);
+        let external_plan = compiled.plan.clone();
+
+        let result = compiled
+            .eval(
+                &ctx,
+                &cols,
+                EvalOpts {
+                    plan: external_plan,
+                    cache_budget_mb: None,
+                },
+            )
+            .values;
+
+        assert!(result[0].is_nan());
+        assert!((result[1] - 0.3).abs() < 1e-12);
+        assert!((result[2] - 2.5).abs() < 1e-12);
+        assert!((result[3] - 1.0).abs() < 1e-12);
+    }
+}
+
 impl CompiledExpr {
     /// Construct a new compiled expression from an AST.
     pub fn new(ast: Expr) -> Self {

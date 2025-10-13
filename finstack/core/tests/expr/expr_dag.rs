@@ -1,7 +1,5 @@
 //! Tests for expression DAG planning and optimization.
 
-mod common;
-
 use finstack_core::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode};
 use finstack_core::expr::dag::{DagBuilder, PushdownAnalyzer};
 use finstack_core::expr::{Expr, ExprNode, Function};

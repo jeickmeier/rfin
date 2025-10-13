@@ -2,8 +2,6 @@
 
 #![cfg(feature = "serde")]
 
-mod common;
-
 use finstack_core::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode};
 use finstack_core::expr::dag::{BoundaryType, CacheStrategy, DagNode, ExecutionPlan};
 use finstack_core::expr::{

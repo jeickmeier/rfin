@@ -1,8 +1,6 @@
 //! Tests for expression evaluator functionality.
 
-mod common;
-
-use common::TestExprCtx;
+use super::common::TestExprCtx;
 use finstack_core::expr::{CompiledExpr, EvalOpts, Expr, Function};
 
 fn create_test_data() -> (TestExprCtx, Vec<Vec<f64>>) {
@@ -251,4 +249,87 @@ fn test_compiled_expr_edge_cases() {
     let lit_expr = CompiledExpr::new(Expr::literal(5.0));
     let result = lit_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!(result.is_empty());
+}
+
+#[test]
+fn test_compiled_expr_shift_rank_quantile() {
+    let (ctx, data) = create_test_data();
+    let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
+
+    let shift_expr = CompiledExpr::new(Expr::call(
+        Function::Shift,
+        vec![Expr::column("x"), Expr::literal(1.0)],
+    ));
+    let shifted = shift_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+    assert!(shifted[0].is_nan());
+    assert_eq!(shifted[1], 1.0);
+
+    let rank_expr = CompiledExpr::new(Expr::call(Function::Rank, vec![Expr::column("x")]));
+    let ranks = rank_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+    assert_eq!(ranks, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+
+    let quantile_expr = CompiledExpr::new(Expr::call(
+        Function::Quantile,
+        vec![Expr::column("y"), Expr::literal(0.5)],
+    ));
+    let quantiles = quantile_expr
+        .eval(&ctx, &cols, EvalOpts::default())
+        .values;
+    assert!(quantiles.iter().all(|&v| (v - 30.0).abs() < 1e-12));
+}
+
+#[test]
+fn test_compiled_expr_rolling_extrema_and_count() {
+    let (ctx, data) = create_test_data();
+    let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
+
+    let rolling_min = CompiledExpr::new(Expr::call(
+        Function::RollingMin,
+        vec![Expr::column("x"), Expr::literal(2.0)],
+    ));
+    let mins = rolling_min.eval(&ctx, &cols, EvalOpts::default()).values;
+    assert!(mins[0].is_nan());
+    assert_eq!(mins[2], 2.0);
+
+    let rolling_max = CompiledExpr::new(Expr::call(
+        Function::RollingMax,
+        vec![Expr::column("x"), Expr::literal(3.0)],
+    ));
+    let maxs = rolling_max.eval(&ctx, &cols, EvalOpts::default()).values;
+    assert!(maxs[1].is_nan());
+    assert_eq!(maxs[4], 5.0);
+
+    let rolling_count = CompiledExpr::new(Expr::call(
+        Function::RollingCount,
+        vec![Expr::column("x"), Expr::literal(2.0)],
+    ));
+    let counts = rolling_count
+        .eval(&ctx, &cols, EvalOpts::default())
+        .values;
+    assert!(counts[0].is_nan());
+    assert_eq!(counts[2], 2.0);
+}
+
+#[test]
+fn test_compiled_expr_ewm_std_and_var() {
+    let (ctx, data) = create_test_data();
+    let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
+
+    let ewm_std = CompiledExpr::new(Expr::call(
+        Function::EwmStd,
+        vec![Expr::column("x"), Expr::literal(0.5), Expr::literal(1.0)],
+    ));
+    let std_vals = ewm_std.eval(&ctx, &cols, EvalOpts::default()).values;
+    assert_eq!(std_vals.len(), 5);
+    assert_eq!(std_vals[0], 0.0);
+    assert!(std_vals[1].is_finite());
+
+    let ewm_var = CompiledExpr::new(Expr::call(
+        Function::EwmVar,
+        vec![Expr::column("x"), Expr::literal(0.5), Expr::literal(0.0)],
+    ));
+    let var_vals = ewm_var.eval(&ctx, &cols, EvalOpts::default()).values;
+    assert_eq!(var_vals.len(), 5);
+    assert_eq!(var_vals[0], 0.0);
+    assert!(var_vals[1] >= 0.0);
 }

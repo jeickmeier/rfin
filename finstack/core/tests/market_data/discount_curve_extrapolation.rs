@@ -1,7 +1,7 @@
 //! Tests for DiscountCurve extrapolation policies and monotonic validation.
 
 use finstack_core::{
-    dates::Date, market_data::term_structures::DiscountCurve, math::interp::ExtrapolationPolicy, F,
+    dates::Date, market_data::term_structures::DiscountCurve, math::interp::ExtrapolationPolicy,
 };
 use time::Month;
 
@@ -78,8 +78,6 @@ fn test_monotonic_validation_failure() {
     let result = DiscountCurve::builder("INVALID-CURVE")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.96), (5.0, 0.78)]) // 0.96 > 0.95
-        .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
-        .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
         .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
         .require_monotonic()
         .build();
@@ -193,21 +191,21 @@ fn test_credit_curve_construction() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // CDS spreads to survival probabilities (approximately)
-    let times = [0.0, 0.5, 1.0, 3.0, 5.0, 10.0];
-    let cds_spreads = [0.0, 50e-4, 75e-4, 120e-4, 150e-4, 200e-4]; // bps
+    let times: [f64; 6] = [0.0, 0.5, 1.0, 3.0, 5.0, 10.0];
+    let cds_spreads: [f64; 6] = [0.0, 50e-4, 75e-4, 120e-4, 150e-4, 200e-4]; // bps
 
     // Convert spreads to approximate survival probabilities
     // SP(t) ≈ exp(-spread * t) for small spreads
-    let survival_probs: Vec<F> = times
+    let survival_probs: Vec<f64> = times
         .iter()
         .zip(cds_spreads.iter())
         .map(|(t, s)| {
-            let product = (*s as F) * (*t as F);
+            let product: f64 = (*s) * (*t);
             (-product).exp()
         })
         .collect();
 
-    let knots: Vec<(F, F)> = times
+    let knots: Vec<(f64, f64)> = times
         .iter()
         .zip(survival_probs.iter())
         .map(|(t, sp)| (*t, *sp))
@@ -244,7 +242,6 @@ fn test_edge_cases() {
     let minimal_curve = DiscountCurve::builder("MINIMAL")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
         .set_interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()
         .unwrap();

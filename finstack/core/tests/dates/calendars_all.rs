@@ -1,8 +1,6 @@
 //! Tests for all built-in holiday calendars.
 
-mod common;
-
-use common::make_date;
+use super::common::make_date;
 use finstack_core::dates::calendar::{
     calendar_by_id, ALL_IDS, ASX as Asx, AUCE as Auce, BRBD as Brbd, CATO as Cato, CHZH as Chzh,
     CME as Cme, CNBE as Cnbe, DEFR as Defr, GBLO as Gblo, HKEX as Hkex, HKHK as Hkhk, JPTO as Jpto,

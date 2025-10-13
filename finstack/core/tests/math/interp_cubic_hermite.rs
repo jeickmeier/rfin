@@ -1,8 +1,6 @@
 //! Tests for cubic Hermite interpolation.
 
-mod common;
-
-use common::approx_eq;
+use super::common::approx_eq;
 use finstack_core::math::interp::{cubic_hermite::CubicHermite, ExtrapolationPolicy, InterpFn};
 
 #[test]

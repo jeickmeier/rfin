@@ -347,3 +347,48 @@ pub struct EvaluationResult {
 }
 
 // ResultMetadata removed in favor of unified config::ResultsMeta
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    #[test]
+    fn expr_builder_variants_match_expected_nodes() {
+        let col = Expr::column("price");
+        assert!(matches!(col.node, ExprNode::Column(ref name) if name == "price"));
+
+        let lit = Expr::literal(42.0);
+        assert!(matches!(lit.node, ExprNode::Literal(v) if (v - 42.0).abs() < 1e-12));
+
+        let call = Expr::call(Function::Lag, vec![Expr::column("price"), Expr::literal(1.0)]);
+        assert!(matches!(call.node, ExprNode::Call(Function::Lag, _)));
+
+        let bin = Expr::bin_op(BinOp::Add, Expr::column("a"), Expr::column("b"));
+        assert!(matches!(bin.node, ExprNode::BinOp { op: BinOp::Add, .. }));
+
+        let unary = Expr::unary_op(UnaryOp::Neg, Expr::literal(1.0));
+        assert!(matches!(unary.node, ExprNode::UnaryOp { op: UnaryOp::Neg, .. }));
+
+        let conditional = Expr::if_then_else(
+            Expr::column("flag"),
+            Expr::literal(1.0),
+            Expr::literal(0.0),
+        );
+        assert!(matches!(conditional.node, ExprNode::IfThenElse { .. }));
+    }
+
+    #[test]
+    fn expr_id_is_ignored_for_hash_and_equality() {
+        let expr_a = Expr::column("x").with_id(1);
+        let expr_b = Expr::column("x").with_id(999);
+        assert_eq!(expr_a, expr_b);
+
+        let mut hasher_a = DefaultHasher::new();
+        expr_a.hash(&mut hasher_a);
+        let mut hasher_b = DefaultHasher::new();
+        expr_b.hash(&mut hasher_b);
+        assert_eq!(hasher_a.finish(), hasher_b.finish());
+    }
+}
