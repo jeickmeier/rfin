@@ -1,7 +1,5 @@
 //! Tests for expression engine serialization/deserialization.
 
-#![cfg(feature = "serde")]
-
 use finstack_core::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode};
 use finstack_core::expr::dag::{BoundaryType, CacheStrategy, DagNode, ExecutionPlan};
 use finstack_core::expr::{
