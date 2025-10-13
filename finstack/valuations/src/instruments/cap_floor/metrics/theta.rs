@@ -23,7 +23,29 @@ impl MetricCalculator for ThetaCalculator {
             .unwrap_or("1D");
 
         // Calculate rolled date (capping at instrument expiry)
-        let expiry_date = Some(option.end_date);
+        // For caps/floors, find the next fixing date after as_of as the effective expiry
+        let expiry_date = if option.start_date > context.as_of {
+            Some(option.start_date)
+        } else {
+            // Cap has already started, find next fixing date
+            use crate::cashflow::builder::schedule_utils::build_dates;
+            let schedule = build_dates(
+                option.start_date,
+                option.end_date,
+                option.frequency,
+                option.stub_kind,
+                option.bdc,
+                option.calendar_id.as_deref(),
+            );
+            
+            // Find the first fixing date that's after as_of
+            let next_fixing = schedule.dates.iter()
+                .find(|&&date| date > context.as_of)
+                .copied();
+            
+            next_fixing.or(Some(option.end_date)) // Fallback to end_date if no future fixings
+        };
+        
         let rolled_date =
             theta_utils::calculate_theta_date(context.as_of, period_str, expiry_date)?;
 

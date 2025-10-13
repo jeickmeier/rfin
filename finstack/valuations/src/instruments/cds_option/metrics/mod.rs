@@ -9,6 +9,7 @@
 //! - Implied Volatility (placeholder)
 
 mod delta;
+mod dv01;
 mod gamma;
 mod implied_vol;
 mod rho;
@@ -27,6 +28,7 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
+            (Dv01, dv01::CdsOptionDv01Calculator),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),

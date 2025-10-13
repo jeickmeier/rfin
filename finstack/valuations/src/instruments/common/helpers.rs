@@ -29,8 +29,8 @@ where
 
     let flows = S::build_schedule(instrument, curves, as_of)?;
     let disc = curves.get_discount_ref(disc_id.as_str())?;
-    let base = disc.base_date();
-    npv_static(disc, base, day_count, &flows)
+    // Use as_of for correct theta calculation, not curve base_date
+    npv_static(disc, as_of, day_count, &flows)
 }
 
 /// Shared helper to build a ValuationResult with a set of metrics.

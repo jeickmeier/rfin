@@ -7,6 +7,7 @@
 //! - deal_specific: Deal-type specific metrics (ABS, CLO, CMBS, RMBS)
 
 pub mod deal_specific;
+pub mod dv01;
 pub mod pool;
 pub mod pricing;
 pub mod risk;
@@ -14,6 +15,7 @@ pub mod theta;
 
 // Re-export all calculators for convenience
 pub use deal_specific::*;
+pub use dv01::StructuredCreditDv01Calculator;
 pub use pool::*;
 pub use pricing::*;
 pub use risk::*;
@@ -39,6 +41,7 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
             (WAM, pool::WamCalculator),
             (CPR, pool::CprCalculator),
             (CDR, pool::CdrCalculator),
+            (Dv01, StructuredCreditDv01Calculator),
             (Theta, theta::ThetaCalculator)
         ]
     }

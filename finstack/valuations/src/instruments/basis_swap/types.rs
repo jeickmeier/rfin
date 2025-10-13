@@ -183,6 +183,11 @@ impl BasisSwap {
         let mut pv = 0.0;
         let currency = self.notional.currency();
         let dc_ctx = DayCountCtx::default();
+        
+        // Pre-compute valuation_date discount factor for correct theta
+        let disc_dc = disc.day_count();
+        let t_val = disc_dc.year_fraction(disc.base_date(), valuation_date, dc_ctx).unwrap_or(0.0);
+        let df_val = disc.df(t_val);
 
         // Iterate periods
         for i in 1..schedule.dates.len() {
@@ -212,8 +217,10 @@ impl BasisSwap {
             // Payment
             let payment = self.notional.amount() * total_rate * year_frac;
 
-            // Discount factor to payment date using the discount curve's own day-count basis
-            let df = disc.df_on_date_curve(period_end);
+            // Discount from valuation_date for correct theta
+            let t_pmt = disc_dc.year_fraction(disc.base_date(), period_end, dc_ctx).unwrap_or(0.0);
+            let df_pmt_abs = disc.df(t_pmt);
+            let df = if df_val != 0.0 { df_pmt_abs / df_val } else { 1.0 };
             pv += payment * df;
         }
 
@@ -229,6 +236,7 @@ impl BasisSwap {
     /// * `leg` — The leg specification
     /// * `schedule` — Period schedule for the leg
     /// * `curves` — Market context containing the discount curve
+    /// * `as_of` — Valuation date for discounting
     ///
     /// # Returns
     /// The discounted accrual sum as a floating point value.
@@ -237,16 +245,25 @@ impl BasisSwap {
         leg: &BasisSwapLeg,
         schedule: &PeriodSchedule,
         curves: &MarketContext,
+        as_of: Date,
     ) -> Result<f64> {
         let disc = curves.get_discount_ref(&self.discount_curve_id)?;
         let mut annuity = 0.0;
         let mut prev = schedule.dates[0];
+        
+        // Pre-compute as_of discount factor for correct theta
+        let disc_dc = disc.day_count();
+        let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, DayCountCtx::default()).unwrap_or(0.0);
+        let df_as_of = disc.df(t_as_of);
+        
         for &d in &schedule.dates[1..] {
             let yf = leg
                 .day_count
                 .year_fraction(prev, d, DayCountCtx::default())?;
-            // Discount using the curve's own day-count basis
-            let df = disc.df_on_date_curve(d);
+            // Discount from as_of for correct theta
+            let t_d = disc_dc.year_fraction(disc.base_date(), d, DayCountCtx::default()).unwrap_or(0.0);
+            let df_d_abs = disc.df(t_d);
+            let df = if df_as_of != 0.0 { df_d_abs / df_as_of } else { 1.0 };
             annuity += yf * df;
             prev = d;
         }

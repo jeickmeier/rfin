@@ -12,6 +12,7 @@
 //! - `inverse_rate`
 
 pub mod base_amount;
+pub mod dv01;
 pub mod inverse_rate;
 pub mod quote_amount;
 pub mod spot_rate;
@@ -29,6 +30,7 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
             (BaseAmount, base_amount::BaseAmountCalculator),
             (QuoteAmount, quote_amount::QuoteAmountCalculator),
             (InverseRate, inverse_rate::InverseRateCalculator),
+            (Dv01, dv01::FxSpotDv01Calculator),
             (Theta, theta::ThetaCalculator),
         ]
     };

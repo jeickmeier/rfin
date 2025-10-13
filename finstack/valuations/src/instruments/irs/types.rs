@@ -267,6 +267,7 @@ impl InterestRateSwap {
     pub(crate) fn pv_fixed_leg(
         &self,
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+        as_of: Date,
     ) -> finstack_core::Result<Money> {
         let mut b = CashFlowSchedule::builder();
         b.principal(self.notional, self.fixed.start, self.fixed.end)
@@ -281,14 +282,22 @@ impl InterestRateSwap {
             });
         let sched = b.build()?;
 
-        // Sum discounted coupon flows using the curve's own day-count via df_on_date_curve
+        // Sum discounted coupon flows from as_of date
         let mut total = Money::new(0.0, self.notional.currency());
+        let disc_dc = disc.day_count();
+        let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, finstack_core::dates::DayCountCtx::default())
+            .unwrap_or(0.0);
+        let df_as_of = disc.df(t_as_of);
+        
         for cf in &sched.flows {
             if cf.kind == crate::cashflow::primitives::CFKind::Fixed
                 || cf.kind == crate::cashflow::primitives::CFKind::Stub
             {
-                // Use curve policy for discounting
-                let df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, cf.date);
+                // Discount from as_of for correct theta
+                let t_cf = disc_dc.year_fraction(disc.base_date(), cf.date, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0);
+                let df_cf_abs = disc.df(t_cf);
+                let df = if df_as_of != 0.0 { df_cf_abs / df_as_of } else { 1.0 };
                 let disc_amt = cf.amount * df;
                 total = (total + disc_amt)?;
             }
@@ -301,6 +310,7 @@ impl InterestRateSwap {
         &self,
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         fwd: &dyn Forward,
+        as_of: Date,
     ) -> finstack_core::Result<Money> {
         let builder = finstack_core::dates::ScheduleBuilder::new(self.float.start, self.float.end)
             .frequency(self.float.freq)
@@ -325,6 +335,13 @@ impl InterestRateSwap {
 
         let mut prev = sched_dates[0];
         let mut total = Money::new(0.0, self.notional.currency());
+        
+        // Pre-compute as_of discount factor
+        let disc_dc = disc.day_count();
+        let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, finstack_core::dates::DayCountCtx::default())
+            .unwrap_or(0.0);
+        let df_as_of = disc.df(t_as_of);
+        
         for &d in &sched_dates[1..] {
             let base = disc.base_date();
             let t1 = self
@@ -345,8 +362,12 @@ impl InterestRateSwap {
             let f = fwd.rate_period(t1, t2);
             let rate = f + (self.float.spread_bp * 1e-4);
             let coupon = self.notional * (rate * yf);
-            // Discount using curve's own day-count
-            let df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, d);
+            
+            // Discount from as_of for correct theta
+            let t_cf = disc_dc.year_fraction(disc.base_date(), d, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or(0.0);
+            let df_cf_abs = disc.df(t_cf);
+            let df = if df_as_of != 0.0 { df_cf_abs / df_as_of } else { 1.0 };
             let disc_amt = coupon * df;
             total = (total + disc_amt)?;
             prev = d;
@@ -362,23 +383,35 @@ impl InterestRateSwap {
     /// discounting to ensure policy visibility and currency safety.
     ///
     /// PV = sign × (PV_fixed − PV_float) with sign determined by `PayReceive`.
-    pub fn npv(&self, context: &MarketContext) -> Result<Money> {
+    pub fn npv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         let disc = context.get_discount_ref(self.fixed.disc_id.as_ref())?;
         // Attempt to resolve a forward curve for the float leg. If absent and the float leg
         // references the same discounting curve (OIS case), fall back to an efficient
         // discount-only computation for the floating leg.
-        let pv_fixed = self.pv_fixed_leg(disc)?;
+        let pv_fixed = self.pv_fixed_leg(disc, as_of)?;
         let pv_float = match context.get_forward_ref(self.float.fwd_id.as_ref()) {
-            Ok(fwd) => self.pv_float_leg(disc, fwd)?,
+            Ok(fwd) => self.pv_float_leg(disc, fwd, as_of)?,
             Err(_) => {
                 // OIS fallback: forward curve not found. If the float leg uses the same
                 // discount curve as the fixed leg, we can value the floating leg using
                 // discount factors only: PV_float = N × (P(0, T_start) - P(0, T_end))
                 // plus the spread annuity when spread is non-zero.
                 if self.float.disc_id == self.fixed.disc_id {
-                    // Base PV without spread
-                    let df_start = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, self.float.start);
-                    let df_end = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, self.float.end);
+                    // Discount from as_of for correct theta
+                    let disc_dc = disc.day_count();
+                    let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, finstack_core::dates::DayCountCtx::default())
+                        .unwrap_or(0.0);
+                    let df_as_of = disc.df(t_as_of);
+                    
+                    let t_start = disc_dc.year_fraction(disc.base_date(), self.float.start, finstack_core::dates::DayCountCtx::default())
+                        .unwrap_or(0.0);
+                    let t_end = disc_dc.year_fraction(disc.base_date(), self.float.end, finstack_core::dates::DayCountCtx::default())
+                        .unwrap_or(0.0);
+                    
+                    let df_start_abs = disc.df(t_start);
+                    let df_end_abs = disc.df(t_end);
+                    let df_start = if df_as_of != 0.0 { df_start_abs / df_as_of } else { 1.0 };
+                    let df_end = if df_as_of != 0.0 { df_end_abs / df_as_of } else { 1.0 };
                     let mut pv = self.notional.amount() * (df_start - df_end);
 
                     // Add spread contribution if any: N × sum_i( spread × alpha_i × DF(T_i) )
@@ -416,7 +449,10 @@ impl InterestRateSwap {
                                         finstack_core::dates::DayCountCtx::default(),
                                     )
                                     .unwrap_or(0.0);
-                                let df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, d);
+                                let t_d = disc_dc.year_fraction(disc.base_date(), d, finstack_core::dates::DayCountCtx::default())
+                                    .unwrap_or(0.0);
+                                let df_d_abs = disc.df(t_d);
+                                let df = if df_as_of != 0.0 { df_d_abs / df_as_of } else { 1.0 };
                                 annuity += alpha * df;
                                 prev = d;
                             }
@@ -474,9 +510,9 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
     fn value(
         &self,
         curves: &finstack_core::market_data::MarketContext,
-        _as_of: finstack_core::dates::Date,
+        as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves)
+        self.npv(curves, as_of)
     }
 
     fn price_with_metrics(

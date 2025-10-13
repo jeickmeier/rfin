@@ -14,6 +14,7 @@
 //! - Jump to default
 
 mod cs01;
+mod dv01;
 mod expected_loss;
 mod hazard_cs01;
 mod jump_to_default;
@@ -48,6 +49,7 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
             (HazardCs01, hazard_cs01::HazardCs01Calculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
+            (Dv01, dv01::CdsDv01Calculator),
             (Theta, theta::ThetaCalculator),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::CreditDefaultSwap,

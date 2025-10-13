@@ -50,7 +50,7 @@ impl ForwardRateAgreement {
     pub fn npv(
         &self,
         context: &finstack_core::market_data::MarketContext,
-        _as_of: finstack_core::dates::Date,
+        as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         let disc = context.get_discount_ref(&self.disc_id)?;
         let fwd = context.get_forward_ref(&self.forward_id)?;
@@ -98,7 +98,19 @@ impl ForwardRateAgreement {
 
         // Forward rate over the period and DF to settlement (start)
         let forward_rate = fwd.rate_period(t_start, t_end);
-        let df_settlement = disc.df_on_date_curve(self.start_date);
+        
+        // Discount from as_of date for correct theta calculation
+        let disc_dc = disc.day_count();
+        let t_settle_from_as_of = disc_dc
+            .year_fraction(as_of, self.start_date, finstack_core::dates::DayCountCtx::default())
+            .unwrap_or(0.0);
+        let t_as_of_from_base = disc_dc
+            .year_fraction(disc.base_date(), as_of, finstack_core::dates::DayCountCtx::default())
+            .unwrap_or(0.0);
+        
+        let df_as_of = disc.df(t_as_of_from_base);
+        let df_settle_abs = disc.df(t_as_of_from_base + t_settle_from_as_of);
+        let df_settlement = if df_as_of != 0.0 { df_settle_abs / df_as_of } else { 1.0 };
 
         // Market-standard FRA settlement at period start includes the
         // settlement discounting adjustment 1 / (1 + F * tau).

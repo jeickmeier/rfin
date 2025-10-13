@@ -138,10 +138,9 @@ impl InflationSwap {
     pub fn pv_fixed_leg(
         &self,
         curves: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> finstack_core::Result<Money> {
         let disc = curves.get_discount_ref(self.disc_id.as_str())?;
-        let base = disc.base_date();
 
         let tau_accrual = self.dc.year_fraction(
             self.start,
@@ -153,7 +152,7 @@ impl InflationSwap {
 
         let t_discount = DayCount::Act365F
             .year_fraction(
-                base,
+                as_of,
                 self.maturity,
                 finstack_core::dates::DayCountCtx::default(),
             )
@@ -167,16 +166,15 @@ impl InflationSwap {
     pub fn pv_inflation_leg(
         &self,
         curves: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> finstack_core::Result<Money> {
         let disc = curves.get_discount_ref(self.disc_id.as_str())?;
-        let base = disc.base_date();
-        let index_ratio = self.projected_index_ratio(curves, base)?;
+        let index_ratio = self.projected_index_ratio(curves, as_of)?;
         let inflation_payment = self.notional * (index_ratio - 1.0);
 
         let t_discount = DayCount::Act365F
             .year_fraction(
-                base,
+                as_of,
                 self.maturity,
                 finstack_core::dates::DayCountCtx::default(),
             )

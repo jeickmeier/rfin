@@ -19,9 +19,10 @@ impl MetricCalculator for HazardCs01Calculator {
         // Curves
         let disc = context.curves.get_discount_ref(&cds.premium.disc_id)?;
         let surv = context.curves.get_hazard_ref(&cds.protection.credit_id)?;
+        let as_of = context.as_of;
 
         // Base PV
-        let base = (cds.pv_protection_leg(disc, surv)? - cds.pv_premium_leg(disc, surv)?)?;
+        let base = (cds.pv_protection_leg(disc, surv, as_of)? - cds.pv_premium_leg(disc, surv, as_of)?)?;
 
         // Build a +1bp hazard bump (additive in rate units)
         let spec = BumpSpec {
@@ -32,8 +33,8 @@ impl MetricCalculator for HazardCs01Calculator {
         let bumped_surv = Bumpable::apply_bump(surv, spec).ok_or(finstack_core::Error::Internal)?;
 
         // PV with bumped hazard
-        let bumped = (cds.pv_protection_leg(disc, &bumped_surv)?
-            - cds.pv_premium_leg(disc, &bumped_surv)?)?;
+        let bumped = (cds.pv_protection_leg(disc, &bumped_surv, as_of)?
+            - cds.pv_premium_leg(disc, &bumped_surv, as_of)?)?;
 
         Ok((bumped.amount() - base.amount()).abs())
     }

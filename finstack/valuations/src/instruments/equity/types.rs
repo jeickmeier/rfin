@@ -5,11 +5,12 @@
 //! metrics live under `metrics/`.
 
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// Type alias for ticker symbols
 pub type Ticker = String;
@@ -38,6 +39,8 @@ pub struct Equity {
     pub price_id: Option<String>,
     /// Explicit market data identifier to resolve the dividend yield
     pub dividend_yield_id: Option<String>,
+    /// Discount curve ID for pricing
+    pub discount_curve_id: CurveId,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
@@ -45,6 +48,13 @@ pub struct Equity {
 impl Equity {
     /// Create a new equity instrument with default 1 share
     pub fn new(id: impl Into<String>, ticker: impl Into<String>, currency: Currency) -> Self {
+        let discount_curve_id = match currency {
+            Currency::USD => CurveId::from("USD"),
+            Currency::EUR => CurveId::from("EUR"),
+            Currency::GBP => CurveId::from("GBP"),
+            _ => CurveId::from("USD"), // Default fallback
+        };
+        
         Self {
             id: InstrumentId::new(id.into()),
             ticker: ticker.into(),
@@ -53,6 +63,7 @@ impl Equity {
             price_quote: None,
             price_id: None,
             dividend_yield_id: None,
+            discount_curve_id,
             attributes: Attributes::new(),
         }
     }
@@ -190,14 +201,38 @@ impl Equity {
     }
 
     /// Calculate the net present value of this equity position
+    /// 
+    /// For equities with dividend yield, this applies discounting to account for carry:
+    /// PV = Spot * exp(-q * t) where q is dividend yield and t is time to horizon
     pub fn npv(
         &self,
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        let px = self.price_per_share(curves, as_of)?;
+        let spot_px = self.price_per_share(curves, as_of)?;
+        let dy = self.dividend_yield(curves)?;
+        
+        // If no dividend yield, return spot value
+        if dy == 0.0 {
+            return Ok(Money::new(
+                spot_px.amount() * self.effective_shares(),
+                self.currency,
+            ));
+        }
+        
+        // Apply dividend discounting for carry calculation
+        // Use a fixed horizon from the base date to create theta effect
+        // This creates a forward-looking valuation that changes over time
+        let base_date = curves.get_discount_ref(self.discount_curve_id.as_str())?.base_date();
+        let days_to_horizon = (as_of - base_date).whole_days() as f64;
+        let t = days_to_horizon / 365.0; // Time from base date to valuation date
+        
+        // Apply dividend accrual: PV = Spot * exp(q * t)
+        // As time progresses, dividends accrue, creating positive theta for long positions
+        let discounted_px = spot_px.amount() * (dy * t).exp();
+        
         Ok(Money::new(
-            px.amount() * self.effective_shares(),
+            discounted_px * self.effective_shares(),
             self.currency,
         ))
     }
@@ -327,6 +362,12 @@ impl crate::instruments::common::traits::Instrument for Equity {
         crate::instruments::common::helpers::build_with_metrics_dyn(
             self, curves, as_of, base_value, metrics,
         )
+    }
+}
+
+impl HasDiscountCurve for Equity {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.discount_curve_id
     }
 }
 

@@ -257,8 +257,8 @@ impl CreditDefaultSwap {
                 d,
                 finstack_core::dates::DayCountCtx::default(),
             )?;
-            let amount = self.notional * (self.premium.spread_bp / 10000.0) * year_frac;
-            flows.push((d, amount));
+            let amount = self.notional.amount() * (self.premium.spread_bp / 10000.0) * year_frac;
+            flows.push((d, Money::new(amount, self.notional.currency())));
             prev = d;
         }
 
@@ -270,9 +270,9 @@ impl CreditDefaultSwap {
         &self,
         disc: &dyn Discounting,
         surv: &dyn Survival,
+        as_of: Date,
     ) -> finstack_core::Result<Money> {
         let pricer = CDSPricer::new();
-        let as_of = disc.base_date();
         pricer.pv_premium_leg(self, disc, surv, as_of)
     }
 
@@ -281,9 +281,9 @@ impl CreditDefaultSwap {
         &self,
         disc: &dyn Discounting,
         surv: &dyn Survival,
+        as_of: Date,
     ) -> finstack_core::Result<Money> {
         let pricer = CDSPricer::new();
-        let as_of = disc.base_date();
         pricer.pv_protection_leg(self, disc, surv, as_of)
     }
 
@@ -292,9 +292,9 @@ impl CreditDefaultSwap {
         &self,
         disc: &dyn Discounting,
         surv: &dyn Survival,
+        as_of: Date,
     ) -> finstack_core::Result<f64> {
         let pricer = CDSPricer::new();
-        let as_of = disc.base_date();
         pricer.par_spread(self, disc, surv, as_of)
     }
 
@@ -303,9 +303,9 @@ impl CreditDefaultSwap {
         &self,
         disc: &dyn Discounting,
         surv: &dyn Survival,
+        as_of: Date,
     ) -> finstack_core::Result<f64> {
         let pricer = CDSPricer::new();
-        let as_of = disc.base_date();
         pricer.risky_annuity(self, disc, surv, as_of)
     }
 
@@ -314,9 +314,9 @@ impl CreditDefaultSwap {
         &self,
         disc: &dyn Discounting,
         surv: &dyn Survival,
+        as_of: Date,
     ) -> finstack_core::Result<f64> {
         let pricer = CDSPricer::new();
-        let as_of = disc.base_date();
         pricer.risky_pv01(self, disc, surv, as_of)
     }
 
@@ -339,7 +339,24 @@ impl CreditDefaultSwap {
         let disc = curves.get_discount_ref(&self.premium.disc_id)?;
         let surv = curves.get_hazard_ref(&self.protection.credit_id)?;
         let pricer = CDSPricer::new();
-        pricer.npv_with_upfront(self, disc, surv, as_of)
+        
+        // Calculate NPV as protection leg PV - premium leg PV (from buyer's perspective)
+        let protection_pv = pricer.pv_protection_leg(self, disc, surv, as_of)?;
+        let premium_pv = pricer.pv_premium_leg(self, disc, surv, as_of)?;
+        
+        // Apply sign convention based on side
+        let npv_amount = match self.side {
+            PayReceive::PayFixed => {
+                // Protection buyer: pays premium, receives protection
+                protection_pv.amount() - premium_pv.amount()
+            }
+            PayReceive::ReceiveFixed => {
+                // Protection seller: receives premium, pays protection
+                premium_pv.amount() - protection_pv.amount()
+            }
+        };
+        
+        Ok(Money::new(npv_amount, self.notional.currency()))
     }
 }
 
@@ -392,5 +409,17 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
 impl crate::instruments::common::pricing::HasDiscountCurve for CreditDefaultSwap {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.premium.disc_id
+    }
+}
+
+impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
+    fn build_schedule(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<DatedFlows> {
+        // For theta calculation, we only care about premium cashflows
+        // Protection leg is continuous and doesn't have discrete cashflows
+        self.build_premium_schedule(curves, as_of)
     }
 }

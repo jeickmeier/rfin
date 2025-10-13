@@ -239,8 +239,22 @@ where
         else if let Some(var_swap) = instrument_any.downcast_ref::<variance_swap::VarianceSwap>() {
             var_swap.build_schedule(curves, start_date).ok()
         }
+        // CDS - use premium schedule for cashflows
+        else if let Some(cds) = instrument_any.downcast_ref::<cds::CreditDefaultSwap>() {
+            cds.build_premium_schedule(curves, start_date).ok()
+        }
+        // FX Swap - has explicit cashflows at near and far dates
+        else if let Some(_fx_swap) = instrument_any.downcast_ref::<fx_swap::FxSwap>() {
+            // FX swaps don't have interim cashflows, only near/far settlement
+            // Theta comes purely from PV change, not cashflows
+            None
+        }
+        // Inflation-Linked Bonds
+        else if let Some(ilb) = instrument_any.downcast_ref::<inflation_linked_bond::InflationLinkedBond>() {
+            ilb.build_schedule(curves, start_date).ok()
+        }
         // Instruments without CashflowProvider implementation:
-        // - BasisSwap, CDS, CDSIndex, CdsTranche, ConvertibleBond, FxSwap, InflationSwap
+        // - BasisSwap, CDSIndex, CdsTranche, ConvertibleBond, InflationSwap
         // - Cap/Floor, Options, Basket
         // These don't have interim cashflows or don't implement the trait
         else {
@@ -330,7 +344,13 @@ fn get_instrument_expiry(instrument: &dyn Any) -> Option<Date> {
     if let Some(ir_fut) = instrument.downcast_ref::<ir_future::InterestRateFuture>() {
         return Some(ir_fut.expiry_date);
     }
+    if let Some(cds) = instrument.downcast_ref::<cds::CreditDefaultSwap>() {
+        return Some(cds.premium.end);
+    }
+    if let Some(fx_swap) = instrument.downcast_ref::<fx_swap::FxSwap>() {
+        return Some(fx_swap.far_date);
+    }
 
-    // No expiry for: fx_spot, fx_swap, equity, basket, convertible, structured_credit, private_markets_fund
+    // No expiry for: equity, basket, convertible, structured_credit, private_markets_fund
     None
 }

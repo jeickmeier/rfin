@@ -208,17 +208,27 @@ pub fn price_from_z_spread(
     let flows = bond.build_schedule(curves, as_of)?;
     let disc = curves.get_discount_ref(&bond.disc_id)?;
     let base_date = disc.base_date();
+    
+    // Pre-compute as_of discount factor for correct theta
+    let disc_dc = disc.day_count();
+    let t_as_of = disc_dc.year_fraction(base_date, as_of, DayCountCtx::default()).unwrap_or(0.0);
+    let df_as_of = disc.df(t_as_of);
+    
     let mut pv = 0.0;
     for (d, a) in &flows {
         if *d <= as_of {
             continue;
         }
-        let t = bond
+        let t_from_as_of = bond
             .dc
-            .year_fraction(base_date, *d, DayCountCtx::default())
+            .year_fraction(as_of, *d, DayCountCtx::default())
             .unwrap_or(0.0);
-        let df = disc.df_on_date_curve(*d);
-        let df_z = df * (-z * t).exp();
+        
+        // Discount from as_of
+        let t_cf = disc_dc.year_fraction(base_date, *d, DayCountCtx::default()).unwrap_or(0.0);
+        let df_cf_abs = disc.df(t_cf);
+        let df = if df_as_of != 0.0 { df_cf_abs / df_as_of } else { 1.0 };
+        let df_z = df * (-z * t_from_as_of).exp();
         pv += a.amount() * df_z;
     }
     Ok(pv)
@@ -262,12 +272,21 @@ fn price_from_annuity_spread(
 ) -> finstack_core::Result<f64> {
     let flows = bond.build_schedule(curves, as_of)?;
     let disc = curves.get_discount_ref(&bond.disc_id)?;
+    
+    // Pre-compute as_of discount factor for correct theta
+    let disc_dc = disc.day_count();
+    let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, DayCountCtx::default()).unwrap_or(0.0);
+    let df_as_of = disc.df(t_as_of);
+    
     let mut pv = 0.0;
     for (d, a) in &flows {
         if *d <= as_of {
             continue;
         }
-        let df = disc.df_on_date_curve(*d);
+        // Discount from as_of
+        let t_cf = disc_dc.year_fraction(disc.base_date(), *d, DayCountCtx::default()).unwrap_or(0.0);
+        let df_cf_abs = disc.df(t_cf);
+        let df = if df_as_of != 0.0 { df_cf_abs / df_as_of } else { 1.0 };
         pv += a.amount() * df;
     }
     // As an approximation path, add the spread annuity contribution
@@ -280,7 +299,10 @@ fn price_from_annuity_spread(
             .dc
             .year_fraction(a, b, DayCountCtx::default())
             .unwrap_or(0.0);
-        let p = disc.df_on_date_curve(b);
+        // Discount from as_of
+        let t_b = disc_dc.year_fraction(disc.base_date(), b, DayCountCtx::default()).unwrap_or(0.0);
+        let df_b_abs = disc.df(t_b);
+        let p = if df_as_of != 0.0 { df_b_abs / df_as_of } else { 1.0 };
         ann += alpha * p;
     }
     let notional = bond.notional.amount();

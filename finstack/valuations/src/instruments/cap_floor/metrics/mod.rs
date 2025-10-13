@@ -14,6 +14,7 @@
 
 mod common;
 mod delta;
+mod dv01;
 mod forward_pv01;
 mod gamma;
 mod implied_vol;
@@ -33,6 +34,7 @@ pub fn register_interest_rate_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
+            (Dv01, dv01::CapFloorDv01Calculator),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),

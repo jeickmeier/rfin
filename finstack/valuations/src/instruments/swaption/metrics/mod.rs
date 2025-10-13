@@ -5,6 +5,7 @@
 //! into the shared `MetricRegistry`.
 
 mod delta;
+mod dv01;
 mod gamma;
 mod implied_vol;
 mod rho;
@@ -30,6 +31,7 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
             (Delta, DeltaCalculator),
             (Gamma, GammaCalculator),
             (Vega, VegaCalculator),
+            (Dv01, dv01::SwaptionDv01Calculator),
             (Theta, ThetaCalculator),
             (Rho, RhoCalculator),
             (ImpliedVol, ImpliedVolCalculator),

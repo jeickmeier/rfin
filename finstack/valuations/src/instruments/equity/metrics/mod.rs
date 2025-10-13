@@ -11,6 +11,7 @@
 //! - forward price
 
 mod dividend_yield;
+mod dv01;
 mod forward_price;
 mod price_per_share;
 mod shares;
@@ -28,6 +29,7 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
             (EquityShares, shares::SharesCalculator),
             (EquityDividendYield, dividend_yield::DividendYieldCalculator),
             (EquityForwardPrice, forward_price::ForwardPricePerShareCalculator),
+            (Dv01, dv01::EquityDv01Calculator),
             (Theta, theta::ThetaCalculator),
         ]
     }

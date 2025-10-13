@@ -174,11 +174,13 @@ impl CDSPricer {
         cds: &CreditDefaultSwap,
         disc: &dyn Discounting,
         surv: &dyn Survival,
-        _as_of: Date,
+        as_of: Date,
     ) -> Result<Money> {
-        let base_date = disc.base_date();
-        let t_start = self.year_fraction(base_date, cds.premium.start, cds.premium.dc)?;
-        let t_end = self.year_fraction(base_date, cds.premium.end, cds.premium.dc)?;
+        // Protection leg covers the period from premium start to premium end
+        // But we only value protection from as_of onwards (can't protect against past defaults)
+        let protection_start = as_of.max(cds.premium.start);
+        let t_start = self.year_fraction(as_of, protection_start, cds.premium.dc)?;
+        let t_end = self.year_fraction(as_of, cds.premium.end, cds.premium.dc)?;
         let recovery = cds.protection.recovery_rate;
         let delay_years =
             (cds.protection.settlement_delay as f64) / self.config.business_days_per_year;
@@ -241,6 +243,11 @@ impl CDSPricer {
         for i in 0..schedule.len() - 1 {
             let start_date = schedule[i];
             let end_date = schedule[i + 1];
+
+            // Skip periods that have already ended before as_of
+            if end_date <= as_of {
+                continue;
+            }
 
             let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
             let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;

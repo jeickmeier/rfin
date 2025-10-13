@@ -128,6 +128,11 @@ pub fn calculate_tranche_duration(
 
     let day_count = DayCount::Act365F;
     let mut weighted_pv = 0.0;
+    
+    // Pre-compute as_of discount factor for correct theta
+    let disc_dc = discount_curve.day_count();
+    let t_as_of = disc_dc.year_fraction(discount_curve.base_date(), as_of, DayCountCtx::default()).unwrap_or(0.0);
+    let df_as_of = discount_curve.df(t_as_of);
 
     for (date, amount) in cashflows {
         if *date <= as_of {
@@ -138,7 +143,10 @@ pub fn calculate_tranche_duration(
             .year_fraction(as_of, *date, DayCountCtx::default())
             .unwrap_or(0.0);
 
-        let df = discount_curve.df_on_date_curve(*date);
+        // Discount from as_of
+        let t_cf = disc_dc.year_fraction(discount_curve.base_date(), *date, DayCountCtx::default()).unwrap_or(0.0);
+        let df_cf_abs = discount_curve.df(t_cf);
+        let df = if df_as_of != 0.0 { df_cf_abs / df_as_of } else { 1.0 };
         let flow_pv = amount.amount() * df;
 
         weighted_pv += flow_pv * years;
@@ -163,6 +171,11 @@ pub fn calculate_tranche_z_spread(
 
     let day_count = DayCount::Act365F;
     let base_date = discount_curve.base_date();
+    
+    // Pre-compute as_of discount factor for correct theta
+    let disc_dc = discount_curve.day_count();
+    let t_as_of_val = disc_dc.year_fraction(base_date, as_of, DayCountCtx::default()).unwrap_or(0.0);
+    let df_as_of_val = discount_curve.df(t_as_of_val);
 
     let objective = |z: f64| -> f64 {
         let mut pv = 0.0;
@@ -171,12 +184,15 @@ pub fn calculate_tranche_z_spread(
                 continue;
             }
 
-            let t = day_count
-                .year_fraction(base_date, *date, DayCountCtx::default())
+            let t_from_as_of = day_count
+                .year_fraction(as_of, *date, DayCountCtx::default())
                 .unwrap_or(0.0);
 
-            let df = discount_curve.df_on_date_curve(*date);
-            let df_z = df * (-z * t).exp();
+            // Discount from as_of
+            let t_cf = disc_dc.year_fraction(base_date, *date, DayCountCtx::default()).unwrap_or(0.0);
+            let df_cf_abs = discount_curve.df(t_cf);
+            let df = if df_as_of_val != 0.0 { df_cf_abs / df_as_of_val } else { 1.0 };
+            let df_z = df * (-z * t_from_as_of).exp();
 
             pv += amount.amount() * df_z;
         }
@@ -205,6 +221,11 @@ pub fn calculate_tranche_cs01(
 
     let day_count = DayCount::Act365F;
     let base_date = discount_curve.base_date();
+    
+    // Pre-compute as_of discount factor for correct theta
+    let disc_dc = discount_curve.day_count();
+    let t_as_of_val = disc_dc.year_fraction(base_date, as_of, DayCountCtx::default()).unwrap_or(0.0);
+    let df_as_of_val = discount_curve.df(t_as_of_val);
 
     // Calculate base PV
     let mut base_pv = 0.0;
@@ -216,18 +237,21 @@ pub fn calculate_tranche_cs01(
             continue;
         }
 
-        let t = day_count
-            .year_fraction(base_date, *date, DayCountCtx::default())
+        let t_from_as_of = day_count
+            .year_fraction(as_of, *date, DayCountCtx::default())
             .unwrap_or(0.0);
 
-        let df = discount_curve.df_on_date_curve(*date);
+        // Discount from as_of
+        let t_cf = disc_dc.year_fraction(base_date, *date, DayCountCtx::default()).unwrap_or(0.0);
+        let df_cf_abs = discount_curve.df(t_cf);
+        let df = if df_as_of_val != 0.0 { df_cf_abs / df_as_of_val } else { 1.0 };
 
         // Base PV
-        let df_base = df * (-z_spread * t).exp();
+        let df_base = df * (-z_spread * t_from_as_of).exp();
         base_pv += amount.amount() * df_base;
 
         // Bumped PV
-        let df_bumped = df * (-bumped_spread * t).exp();
+        let df_bumped = df * (-bumped_spread * t_from_as_of).exp();
         bumped_pv += amount.amount() * df_bumped;
     }
 

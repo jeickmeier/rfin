@@ -1,7 +1,7 @@
 //! Theta calculator for FX swaps.
 
-use crate::instruments::fx_swap::FxSwap;
 use crate::instruments::common::metrics::theta_utils;
+use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 
@@ -16,4 +16,3 @@ impl MetricCalculator for ThetaCalculator {
         &[]
     }
 }
-

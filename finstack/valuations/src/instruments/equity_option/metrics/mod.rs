@@ -5,6 +5,7 @@
 //! engine helpers to ensure consistency between PV and greeks.
 
 mod delta;
+mod dv01;
 mod gamma;
 mod implied_vol;
 mod rho;
@@ -22,6 +23,7 @@ pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
+            (Dv01, dv01::EquityOptionDv01Calculator),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),

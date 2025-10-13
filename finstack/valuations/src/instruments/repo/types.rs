@@ -305,29 +305,25 @@ impl Repo {
     /// NPV = PV(total_repayment) - initial_cash_outflow
     /// where total_repayment = principal + interest, and discounting is
     /// performed off the configured discount curve.
-    pub fn pv(&self, context: &MarketContext, _as_of: Date) -> Result<Money> {
+    pub fn pv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         let disc_curve = context.get_discount_ref(self.disc_id.as_str())?;
 
         // Total repayment at maturity (principal + interest)
         let total_repayment = self.total_repayment()?;
 
-        // Discount factors computed on the curve's own base-date time basis
-        let base = disc_curve.base_date();
-        let disc_dyn: &dyn finstack_core::market_data::traits::Discounting = disc_curve;
-        let df_maturity =
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
-                disc_dyn,
-                base,
-                self.maturity,
-                self.day_count,
-            );
-        let df_start =
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
-                disc_dyn,
-                base,
-                self.start_date,
-                self.day_count,
-            );
+        // Discount from as_of for correct theta
+        let disc_dc = disc_curve.day_count();
+        let t_as_of = disc_dc.year_fraction(disc_curve.base_date(), as_of, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let df_as_of = disc_curve.df(t_as_of);
+        
+        let t_maturity = disc_dc.year_fraction(disc_curve.base_date(), self.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_start = disc_dc.year_fraction(disc_curve.base_date(), self.start_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        
+        let df_maturity_abs = disc_curve.df(t_maturity);
+        let df_start_abs = disc_curve.df(t_start);
+        
+        let df_maturity = if df_as_of != 0.0 { df_maturity_abs / df_as_of } else { 1.0 };
+        let df_start = if df_as_of != 0.0 { df_start_abs / df_as_of } else { 1.0 };
 
         // Present value of inflow at maturity minus PV of initial cash outflow at start
         let pv_in = total_repayment * df_maturity;

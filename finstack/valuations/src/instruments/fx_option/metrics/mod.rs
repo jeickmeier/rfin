@@ -5,6 +5,7 @@
 //! helpers to ensure consistency between PV and greeks.
 
 mod delta;
+mod dv01;
 mod gamma;
 mod implied_vol;
 mod rho;
@@ -39,6 +40,7 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
+            (Dv01, dv01::FxOptionDv01Calculator),
             (Theta, theta::ThetaCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (BucketedDv01, risk_bucketed_dv01::BucketedDv01Calculator),

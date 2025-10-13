@@ -15,7 +15,7 @@ impl MetricCalculator for PremiumLegPvCalculator {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context.curves.get_discount_ref(&cds.premium.disc_id)?;
         let surv = context.curves.get_hazard_ref(&cds.protection.credit_id)?;
-        let pv = cds.pv_premium_leg(disc, surv)?;
+        let pv = cds.pv_premium_leg(disc, surv, context.as_of)?;
         Ok(pv.amount())
     }
 }
