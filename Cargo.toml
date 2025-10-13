@@ -25,6 +25,12 @@ default-members = [
     "finstack"
 ]
 
+[workspace.metadata.coverage]
+# Coverage configuration: only run on core Rust library, not bindings
+exclude = ["finstack-py", "finstack-wasm"]
+# Additional patterns to exclude from coverage reports
+ignore-filename-regex = ["tests?/", "target/", "\\.cargo/", ".*finstack-py/.*", ".*finstack-wasm/.*"]
+
 [workspace.package]
 version = "0.3.0"
 edition = "2021"
@@ -38,20 +44,15 @@ repository = "https://github.com/rustfin/rfin"
 strum = "0.25"
 strum_macros = "0.25"
 
-# Coverage-specific build profile to avoid metadata mismatches
+# Build profiles
 [profile.dev]
-# Disable incremental compilation for better coverage consistency
-incremental = false
-# Ensure consistent optimization level
+# Standard development profile (cargo-llvm-cov will override these for coverage runs)
+incremental = true
 opt-level = 0
-# Generate debug info but keep it simple
-debug = 1
-# Disable LTO that can cause coverage issues
-lto = false
+debug = 2
 
 [profile.test]
-# Similar settings for test builds
-incremental = false
+# Standard test profile
+incremental = true
 opt-level = 0
-debug = 1
-lto = false
+debug = 2
