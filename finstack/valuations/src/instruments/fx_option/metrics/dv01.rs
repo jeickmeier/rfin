@@ -30,9 +30,9 @@ impl MetricCalculator for FxOptionDv01Calculator {
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        
+
         let dv01 = fx_option.notional.amount() * time_to_expiry * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

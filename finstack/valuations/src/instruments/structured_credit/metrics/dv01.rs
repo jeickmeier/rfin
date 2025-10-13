@@ -24,14 +24,14 @@ impl MetricCalculator for StructuredCreditDv01Calculator {
         // For structured credit, we need to check if we're past legal maturity
         // This is a simplified check - in practice, we'd need more sophisticated logic
         // for different tranche maturities and payment schedules
-        
+
         // Get modified duration and dirty price from computed metrics
         let modified_duration = context
             .computed
             .get(&MetricId::DurationMod)
             .copied()
             .unwrap_or(0.0);
-        
+
         let dirty_price = context
             .computed
             .get(&MetricId::DirtyPrice)
@@ -40,7 +40,7 @@ impl MetricCalculator for StructuredCreditDv01Calculator {
 
         // DV01 = Price × Modified Duration × 1bp
         let dv01 = dirty_price * modified_duration * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

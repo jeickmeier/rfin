@@ -1,0 +1,345 @@
+//! Tests for FinancialModelSpec operations and methods.
+
+use finstack_statements::prelude::*;
+
+#[test]
+fn test_model_spec_add_node() {
+    use finstack_core::dates::build_periods;
+    use finstack_statements::types::{FinancialModelSpec, NodeSpec};
+
+    let periods = build_periods("2025Q1..2025Q2", None).unwrap().periods;
+    let mut model = FinancialModelSpec::new("test", periods);
+
+    let node = NodeSpec::new("revenue", NodeType::Value);
+    model.add_node(node);
+
+    assert_eq!(model.nodes.len(), 1);
+    assert!(model.has_node("revenue"));
+}
+
+#[test]
+fn test_model_spec_get_node_mut() {
+    use finstack_core::dates::build_periods;
+    use finstack_statements::types::{FinancialModelSpec, NodeSpec};
+
+    let periods = build_periods("2025Q1..2025Q2", None).unwrap().periods;
+    let mut model = FinancialModelSpec::new("test", periods);
+
+    let node = NodeSpec::new("revenue", NodeType::Value);
+    model.add_node(node);
+
+    // Get mutable reference and modify
+    if let Some(node_mut) = model.get_node_mut("revenue") {
+        node_mut.name = Some("Total Revenue".into());
+    }
+
+    assert_eq!(
+        model.get_node("revenue").unwrap().name.as_ref().unwrap(),
+        "Total Revenue"
+    );
+}
+
+#[test]
+fn test_model_spec_get_node_immutable() {
+    use finstack_core::dates::build_periods;
+    use finstack_statements::types::{FinancialModelSpec, NodeSpec};
+
+    let periods = build_periods("2025Q1..2025Q2", None).unwrap().periods;
+    let mut model = FinancialModelSpec::new("test", periods);
+
+    let node = NodeSpec::new("revenue", NodeType::Value).with_name("Revenue");
+    model.add_node(node);
+
+    let node_ref = model.get_node("revenue");
+    assert!(node_ref.is_some());
+    assert_eq!(node_ref.unwrap().name.as_ref().unwrap(), "Revenue");
+}
+
+#[test]
+fn test_model_spec_has_node() {
+    use finstack_core::dates::build_periods;
+    use finstack_statements::types::{FinancialModelSpec, NodeSpec};
+
+    let periods = build_periods("2025Q1..2025Q2", None).unwrap().periods;
+    let mut model = FinancialModelSpec::new("test", periods);
+
+    assert!(!model.has_node("revenue"));
+
+    let node = NodeSpec::new("revenue", NodeType::Value);
+    model.add_node(node);
+
+    assert!(model.has_node("revenue"));
+    assert!(!model.has_node("cogs"));
+}
+
+#[test]
+fn test_model_spec_get_node_none() {
+    use finstack_core::dates::build_periods;
+    use finstack_statements::types::FinancialModelSpec;
+
+    let periods = build_periods("2025Q1..2025Q2", None).unwrap().periods;
+    let mut model = FinancialModelSpec::new("test", periods);
+
+    assert!(model.get_node("nonexistent").is_none());
+    assert!(model.get_node_mut("nonexistent").is_none());
+}
+
+// ============================================================================
+// Results Method Tests
+// ============================================================================
+
+#[test]
+fn test_results_get_node() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
+            ],
+        )
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let revenue_map = results.get_node("revenue");
+    assert!(revenue_map.is_some());
+    assert_eq!(revenue_map.unwrap().len(), 2);
+}
+
+#[test]
+fn test_results_all_periods() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q3", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120.0)),
+            ],
+        )
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let all_periods: Vec<_> = results.all_periods("revenue").collect();
+    assert_eq!(all_periods.len(), 3);
+}
+
+#[test]
+fn test_results_get_or() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q1", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+        )
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let q1 = PeriodId::quarter(2025, 1);
+    let q2 = PeriodId::quarter(2025, 2);
+
+    // Existing value
+    assert_eq!(results.get_or("revenue", &q1, 0.0), 100.0);
+
+    // Missing value - use default
+    assert_eq!(results.get_or("revenue", &q2, 0.0), 0.0);
+
+    // Missing node - use default
+    assert_eq!(results.get_or("nonexistent", &q1, -1.0), -1.0);
+}
+
+// ============================================================================
+// FinancialModelSpec Metadata Tests
+// ============================================================================
+
+#[test]
+fn test_model_spec_with_metadata() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q1", None)
+        .unwrap()
+        .with_meta("author", serde_json::json!("Test Author"))
+        .with_meta("version", serde_json::json!("1.0.0"))
+        .with_meta("created_at", serde_json::json!("2025-01-01"))
+        .build()
+        .unwrap();
+
+    assert_eq!(model.meta.len(), 3);
+    assert_eq!(model.meta.get("author").unwrap(), "Test Author");
+    assert_eq!(model.meta.get("version").unwrap(), "1.0.0");
+    assert_eq!(model.meta.get("created_at").unwrap(), "2025-01-01");
+}
+
+// ============================================================================
+// Where Clause Tests
+// ============================================================================
+
+#[test]
+fn test_where_clause_masking() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(800_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(1_200_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(900_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(1_500_000.0),
+                ),
+            ],
+        )
+        .compute("bonus", "revenue * 0.01")
+        .unwrap()
+        .where_clause("revenue > 1000000")
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // Q1: revenue < 1M, bonus should be 0 (masked by where clause)
+    assert_eq!(
+        results.get("bonus", &PeriodId::quarter(2025, 1)).unwrap(),
+        0.0
+    );
+
+    // Q2: revenue > 1M, bonus should be calculated
+    assert_eq!(
+        results.get("bonus", &PeriodId::quarter(2025, 2)).unwrap(),
+        12_000.0
+    );
+
+    // Q3: revenue < 1M, bonus should be 0
+    assert_eq!(
+        results.get("bonus", &PeriodId::quarter(2025, 3)).unwrap(),
+        0.0
+    );
+
+    // Q4: revenue > 1M, bonus should be calculated
+    assert_eq!(
+        results.get("bonus", &PeriodId::quarter(2025, 4)).unwrap(),
+        15_000.0
+    );
+}
+
+#[test]
+fn test_where_clause_with_complex_condition() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+            ],
+        )
+        .value(
+            "margin",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.1)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.2)),
+            ],
+        )
+        .compute("incentive", "revenue * 0.05")
+        .unwrap()
+        .where_clause("revenue > 100000 and margin > 0.15")
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // Q1: revenue > 100k but margin < 0.15 - should be 0
+    assert_eq!(
+        results
+            .get("incentive", &PeriodId::quarter(2025, 1))
+            .unwrap(),
+        0.0
+    );
+
+    // Q2: revenue > 100k AND margin > 0.15 - should be calculated
+    assert_eq!(
+        results
+            .get("incentive", &PeriodId::quarter(2025, 2))
+            .unwrap(),
+        6_000.0
+    );
+}
+
+// ============================================================================
+// Error Constructor Tests
+// ============================================================================
+
+#[test]
+fn test_error_constructors() {
+    use finstack_statements::error::Error;
+
+    let build_err = Error::build("test build error");
+    assert!(build_err.to_string().contains("build error"));
+
+    let eval_err = Error::eval("test eval error");
+    assert!(eval_err.to_string().contains("eval error"));
+
+    let formula_err = Error::formula_parse("test parse error");
+    assert!(formula_err.to_string().contains("parse error"));
+
+    let period_err = Error::period("test period error");
+    assert!(period_err.to_string().contains("period error"));
+
+    let missing_err = Error::missing_data("test data");
+    assert!(missing_err.to_string().contains("test data"));
+
+    let invalid_err = Error::invalid_input("test input");
+    assert!(invalid_err.to_string().contains("test input"));
+
+    let registry_err = Error::registry("test registry error");
+    assert!(registry_err.to_string().contains("registry error"));
+
+    let forecast_err = Error::forecast("test forecast error");
+    assert!(forecast_err.to_string().contains("forecast error"));
+
+    let node_err = Error::node_not_found("test_node");
+    assert!(node_err.to_string().contains("test_node"));
+
+    let circ_err = Error::circular_dependency(vec!["a".into(), "b".into(), "a".into()]);
+    assert!(circ_err.to_string().contains("→"));
+
+    let curr_err = Error::currency_mismatch(Currency::USD, Currency::EUR);
+    assert!(curr_err.to_string().contains("USD"));
+    assert!(curr_err.to_string().contains("EUR"));
+
+    let cs_err = Error::capital_structure("test cs error");
+    assert!(cs_err.to_string().contains("cs error"));
+}

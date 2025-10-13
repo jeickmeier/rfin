@@ -37,15 +37,17 @@ impl MetricCalculator for ThetaCalculator {
                 option.bdc,
                 option.calendar_id.as_deref(),
             );
-            
+
             // Find the first fixing date that's after as_of
-            let next_fixing = schedule.dates.iter()
+            let next_fixing = schedule
+                .dates
+                .iter()
                 .find(|&&date| date > context.as_of)
                 .copied();
-            
+
             next_fixing.or(Some(option.end_date)) // Fallback to end_date if no future fixings
         };
-        
+
         let rolled_date =
             theta_utils::calculate_theta_date(context.as_of, period_str, expiry_date)?;
 

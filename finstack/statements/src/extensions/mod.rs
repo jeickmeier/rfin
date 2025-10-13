@@ -38,9 +38,9 @@ mod plugin;
 mod registry;
 mod scorecards;
 
-pub use corkscrew::CorkscrewExtension;
+pub use corkscrew::{AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension};
 pub use plugin::{
     Extension, ExtensionContext, ExtensionMetadata, ExtensionResult, ExtensionStatus,
 };
 pub use registry::ExtensionRegistry;
-pub use scorecards::CreditScorecardExtension;
+pub use scorecards::{CreditScorecardExtension, ScorecardConfig, ScorecardMetric};

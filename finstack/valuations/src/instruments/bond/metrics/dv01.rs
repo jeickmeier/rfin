@@ -49,7 +49,7 @@ impl MetricCalculator for BondDv01Calculator {
         // Use base_value (dirty price) from context
         let price = context.base_value.amount();
         let dv01 = price * modified_duration * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

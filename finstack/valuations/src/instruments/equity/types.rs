@@ -54,7 +54,7 @@ impl Equity {
             Currency::GBP => CurveId::from("GBP"),
             _ => CurveId::from("USD"), // Default fallback
         };
-        
+
         Self {
             id: InstrumentId::new(id.into()),
             ticker: ticker.into(),
@@ -201,7 +201,7 @@ impl Equity {
     }
 
     /// Calculate the net present value of this equity position
-    /// 
+    ///
     /// For equities with dividend yield, this applies discounting to account for carry:
     /// PV = Spot * exp(-q * t) where q is dividend yield and t is time to horizon
     pub fn npv(
@@ -211,7 +211,7 @@ impl Equity {
     ) -> finstack_core::Result<Money> {
         let spot_px = self.price_per_share(curves, as_of)?;
         let dy = self.dividend_yield(curves)?;
-        
+
         // If no dividend yield, return spot value
         if dy == 0.0 {
             return Ok(Money::new(
@@ -219,18 +219,20 @@ impl Equity {
                 self.currency,
             ));
         }
-        
+
         // Apply dividend discounting for carry calculation
         // Use a fixed horizon from the base date to create theta effect
         // This creates a forward-looking valuation that changes over time
-        let base_date = curves.get_discount_ref(self.discount_curve_id.as_str())?.base_date();
+        let base_date = curves
+            .get_discount_ref(self.discount_curve_id.as_str())?
+            .base_date();
         let days_to_horizon = (as_of - base_date).whole_days() as f64;
         let t = days_to_horizon / 365.0; // Time from base date to valuation date
-        
+
         // Apply dividend accrual: PV = Spot * exp(q * t)
         // As time progresses, dividends accrue, creating positive theta for long positions
         let discounted_px = spot_px.amount() * (dy * t).exp();
-        
+
         Ok(Money::new(
             discounted_px * self.effective_shares(),
             self.currency,

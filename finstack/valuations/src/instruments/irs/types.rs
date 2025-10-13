@@ -285,19 +285,33 @@ impl InterestRateSwap {
         // Sum discounted coupon flows from as_of date
         let mut total = Money::new(0.0, self.notional.currency());
         let disc_dc = disc.day_count();
-        let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, finstack_core::dates::DayCountCtx::default())
+        let t_as_of = disc_dc
+            .year_fraction(
+                disc.base_date(),
+                as_of,
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .unwrap_or(0.0);
         let df_as_of = disc.df(t_as_of);
-        
+
         for cf in &sched.flows {
             if cf.kind == crate::cashflow::primitives::CFKind::Fixed
                 || cf.kind == crate::cashflow::primitives::CFKind::Stub
             {
                 // Discount from as_of for correct theta
-                let t_cf = disc_dc.year_fraction(disc.base_date(), cf.date, finstack_core::dates::DayCountCtx::default())
+                let t_cf = disc_dc
+                    .year_fraction(
+                        disc.base_date(),
+                        cf.date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
                     .unwrap_or(0.0);
                 let df_cf_abs = disc.df(t_cf);
-                let df = if df_as_of != 0.0 { df_cf_abs / df_as_of } else { 1.0 };
+                let df = if df_as_of != 0.0 {
+                    df_cf_abs / df_as_of
+                } else {
+                    1.0
+                };
                 let disc_amt = cf.amount * df;
                 total = (total + disc_amt)?;
             }
@@ -335,13 +349,18 @@ impl InterestRateSwap {
 
         let mut prev = sched_dates[0];
         let mut total = Money::new(0.0, self.notional.currency());
-        
+
         // Pre-compute as_of discount factor
         let disc_dc = disc.day_count();
-        let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, finstack_core::dates::DayCountCtx::default())
+        let t_as_of = disc_dc
+            .year_fraction(
+                disc.base_date(),
+                as_of,
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .unwrap_or(0.0);
         let df_as_of = disc.df(t_as_of);
-        
+
         for &d in &sched_dates[1..] {
             let base = disc.base_date();
             let t1 = self
@@ -362,12 +381,21 @@ impl InterestRateSwap {
             let f = fwd.rate_period(t1, t2);
             let rate = f + (self.float.spread_bp * 1e-4);
             let coupon = self.notional * (rate * yf);
-            
+
             // Discount from as_of for correct theta
-            let t_cf = disc_dc.year_fraction(disc.base_date(), d, finstack_core::dates::DayCountCtx::default())
+            let t_cf = disc_dc
+                .year_fraction(
+                    disc.base_date(),
+                    d,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
                 .unwrap_or(0.0);
             let df_cf_abs = disc.df(t_cf);
-            let df = if df_as_of != 0.0 { df_cf_abs / df_as_of } else { 1.0 };
+            let df = if df_as_of != 0.0 {
+                df_cf_abs / df_as_of
+            } else {
+                1.0
+            };
             let disc_amt = coupon * df;
             total = (total + disc_amt)?;
             prev = d;
@@ -399,19 +427,42 @@ impl InterestRateSwap {
                 if self.float.disc_id == self.fixed.disc_id {
                     // Discount from as_of for correct theta
                     let disc_dc = disc.day_count();
-                    let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, finstack_core::dates::DayCountCtx::default())
+                    let t_as_of = disc_dc
+                        .year_fraction(
+                            disc.base_date(),
+                            as_of,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
                         .unwrap_or(0.0);
                     let df_as_of = disc.df(t_as_of);
-                    
-                    let t_start = disc_dc.year_fraction(disc.base_date(), self.float.start, finstack_core::dates::DayCountCtx::default())
+
+                    let t_start = disc_dc
+                        .year_fraction(
+                            disc.base_date(),
+                            self.float.start,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
                         .unwrap_or(0.0);
-                    let t_end = disc_dc.year_fraction(disc.base_date(), self.float.end, finstack_core::dates::DayCountCtx::default())
+                    let t_end = disc_dc
+                        .year_fraction(
+                            disc.base_date(),
+                            self.float.end,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
                         .unwrap_or(0.0);
-                    
+
                     let df_start_abs = disc.df(t_start);
                     let df_end_abs = disc.df(t_end);
-                    let df_start = if df_as_of != 0.0 { df_start_abs / df_as_of } else { 1.0 };
-                    let df_end = if df_as_of != 0.0 { df_end_abs / df_as_of } else { 1.0 };
+                    let df_start = if df_as_of != 0.0 {
+                        df_start_abs / df_as_of
+                    } else {
+                        1.0
+                    };
+                    let df_end = if df_as_of != 0.0 {
+                        df_end_abs / df_as_of
+                    } else {
+                        1.0
+                    };
                     let mut pv = self.notional.amount() * (df_start - df_end);
 
                     // Add spread contribution if any: N × sum_i( spread × alpha_i × DF(T_i) )
@@ -449,10 +500,19 @@ impl InterestRateSwap {
                                         finstack_core::dates::DayCountCtx::default(),
                                     )
                                     .unwrap_or(0.0);
-                                let t_d = disc_dc.year_fraction(disc.base_date(), d, finstack_core::dates::DayCountCtx::default())
+                                let t_d = disc_dc
+                                    .year_fraction(
+                                        disc.base_date(),
+                                        d,
+                                        finstack_core::dates::DayCountCtx::default(),
+                                    )
                                     .unwrap_or(0.0);
                                 let df_d_abs = disc.df(t_d);
-                                let df = if df_as_of != 0.0 { df_d_abs / df_as_of } else { 1.0 };
+                                let df = if df_as_of != 0.0 {
+                                    df_d_abs / df_as_of
+                                } else {
+                                    1.0
+                                };
                                 annuity += alpha * df;
                                 prev = d;
                             }

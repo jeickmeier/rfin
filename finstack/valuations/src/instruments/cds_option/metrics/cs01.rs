@@ -54,20 +54,30 @@ impl MetricCalculator for Cs01Calculator {
 
         // Try to use delta if available (more precise)
         let delta_opt = context.computed.get(&MetricId::Delta).copied();
-        
+
         let cs01 = if let Some(delta) = delta_opt {
             if delta != 0.0 {
                 // If we have a valid delta, use it: CS01 = Delta × Notional × Duration × 1bp
                 delta.abs() * cds_option.notional.amount() * cds_duration * ONE_BASIS_POINT
             } else {
                 // Delta is zero, fall back to approximation
-                use_approximation(cds_option, time_to_expiry, cds_duration, context.base_value.amount())
+                use_approximation(
+                    cds_option,
+                    time_to_expiry,
+                    cds_duration,
+                    context.base_value.amount(),
+                )
             }
         } else {
             // Delta not available, use approximation based on option value
-            use_approximation(cds_option, time_to_expiry, cds_duration, context.base_value.amount())
+            use_approximation(
+                cds_option,
+                time_to_expiry,
+                cds_duration,
+                context.base_value.amount(),
+            )
         };
-        
+
         Ok(cs01)
     }
 
@@ -89,7 +99,7 @@ fn use_approximation(
     if time_to_expiry <= 0.0 {
         return 0.0;
     }
-    
+
     // Rough approximation: CS01 is proportional to option value scaled by duration
     // For ATM options, CS01 ≈ 0.5 * Notional * Duration * 1bp
     // We scale by (Value/Strike) as a proxy for moneyness
@@ -99,7 +109,7 @@ fn use_approximation(
     } else {
         0.5 // Default to ATM assumption
     };
-    
+
     // CS01 approximation
     moneyness_factor * cds_option.notional.amount() * cds_duration * ONE_BASIS_POINT
 }
@@ -154,10 +164,9 @@ mod tests {
 
         assert!(result.is_ok());
         let cs01 = result.unwrap();
-        
+
         // Should be positive and reasonable
         assert!(cs01 > 0.0, "CS01 should be positive for a long call");
         assert!(cs01 < 100_000.0, "CS01 should be reasonable in magnitude");
     }
 }
-

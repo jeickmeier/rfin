@@ -32,12 +32,12 @@ pub struct EquityDv01Calculator;
 impl MetricCalculator for EquityDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let _equity: &Equity = context.instrument_as()?;
-        
+
         // For equity, DV01 is a rough approximation: position value × 1bp
         // This represents the approximate sensitivity to a 1bp change in discount rates
         // Note: This is NOT a standard equity risk metric; use for portfolio aggregation only
         let dv01 = context.base_value.amount() * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

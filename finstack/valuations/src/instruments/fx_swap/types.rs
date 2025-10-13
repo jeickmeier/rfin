@@ -92,20 +92,62 @@ impl FxSwap {
         // Discount factors from as_of for correct theta
         let dom_dc = domestic_disc.day_count();
         let for_dc = foreign_disc.day_count();
-        
-        let t_as_of_dom = dom_dc.year_fraction(domestic_disc.base_date(), as_of, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_as_of_for = for_dc.year_fraction(foreign_disc.base_date(), as_of, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        
+
+        let t_as_of_dom = dom_dc
+            .year_fraction(
+                domestic_disc.base_date(),
+                as_of,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_as_of_for = for_dc
+            .year_fraction(
+                foreign_disc.base_date(),
+                as_of,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+
         let df_as_of_dom = domestic_disc.df(t_as_of_dom);
         let df_as_of_for = foreign_disc.df(t_as_of_for);
-        
-        let t_near_dom = dom_dc.year_fraction(domestic_disc.base_date(), self.near_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_far_dom = dom_dc.year_fraction(domestic_disc.base_date(), self.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_far_for = for_dc.year_fraction(foreign_disc.base_date(), self.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        
-        let df_dom_near = if df_as_of_dom != 0.0 { domestic_disc.df(t_near_dom) / df_as_of_dom } else { 1.0 };
-        let df_dom_far = if df_as_of_dom != 0.0 { domestic_disc.df(t_far_dom) / df_as_of_dom } else { 1.0 };
-        let df_for_far = if df_as_of_for != 0.0 { foreign_disc.df(t_far_for) / df_as_of_for } else { 1.0 };
+
+        let t_near_dom = dom_dc
+            .year_fraction(
+                domestic_disc.base_date(),
+                self.near_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_far_dom = dom_dc
+            .year_fraction(
+                domestic_disc.base_date(),
+                self.far_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_far_for = for_dc
+            .year_fraction(
+                foreign_disc.base_date(),
+                self.far_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+
+        let df_dom_near = if df_as_of_dom != 0.0 {
+            domestic_disc.df(t_near_dom) / df_as_of_dom
+        } else {
+            1.0
+        };
+        let df_dom_far = if df_as_of_dom != 0.0 {
+            domestic_disc.df(t_far_dom) / df_as_of_dom
+        } else {
+            1.0
+        };
+        let df_for_far = if df_as_of_for != 0.0 {
+            foreign_disc.df(t_far_for) / df_as_of_for
+        } else {
+            1.0
+        };
 
         // Resolve model spot from FX matrix if available; otherwise fall back to contract near rate
         let model_spot = if let Some(fx) = curves.fx.as_ref() {
@@ -140,15 +182,25 @@ impl FxSwap {
         // - Domestic leg: pay quote currency at near, receive quote currency at far
         // - Foreign leg discounted with foreign curve, then converted to quote currency
         // - Domestic leg discounted with domestic curve using contract rates
-        
+
         // Calculate foreign leg discount factors
-        let t_near_for = for_dc.year_fraction(foreign_disc.base_date(), self.near_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let df_for_near = if df_as_of_for != 0.0 { foreign_disc.df(t_near_for) / df_as_of_for } else { 1.0 };
-        
+        let t_near_for = for_dc
+            .year_fraction(
+                foreign_disc.base_date(),
+                self.near_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let df_for_near = if df_as_of_for != 0.0 {
+            foreign_disc.df(t_near_for) / df_as_of_for
+        } else {
+            1.0
+        };
+
         // Foreign leg PV in base currency, then convert to quote currency
         let pv_foreign_leg_base = n_base * df_for_near - n_base * df_for_far;
         let pv_foreign_dom = pv_foreign_leg_base * model_spot;
-        
+
         // Domestic leg PV in quote currency using contract rates
         let pv_dom_leg = -n_base * contract_spot * df_dom_near + n_base * contract_fwd * df_dom_far;
 

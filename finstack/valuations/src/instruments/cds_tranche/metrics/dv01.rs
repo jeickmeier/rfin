@@ -31,9 +31,9 @@ impl MetricCalculator for CdsTrancheDv01Calculator {
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        
+
         let dv01 = tranche.notional.amount() * time_to_maturity * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

@@ -15,6 +15,7 @@ pub type DatedFlow = (Date, Money);
 /// Returns a map: `PeriodId -> (Currency -> amount)`.
 ///
 /// See unit tests and `examples/` for usage.
+#[inline(never)]
 pub fn aggregate_by_period(
     flows: &[DatedFlow],
     periods: &[Period],
@@ -61,4 +62,77 @@ pub fn aggregate_by_period(
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Date, Period, PeriodId};
+    use time::Month;
+
+    fn d(year: i32, month: u8, day: u8) -> Date {
+        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+    }
+
+    fn quarters_2025() -> Vec<Period> {
+        vec![
+            Period {
+                id: PeriodId::quarter(2025, 1),
+                start: d(2025, 1, 1),
+                end: d(2025, 4, 1),
+                is_actual: true,
+            },
+            Period {
+                id: PeriodId::quarter(2025, 2),
+                start: d(2025, 4, 1),
+                end: d(2025, 7, 1),
+                is_actual: false,
+            },
+            Period {
+                id: PeriodId::quarter(2025, 3),
+                start: d(2025, 7, 1),
+                end: d(2025, 10, 1),
+                is_actual: false,
+            },
+        ]
+    }
+
+    #[test]
+    fn empty_inputs_yield_empty_aggregation() {
+        let periods = quarters_2025();
+        assert!(aggregate_by_period(&[], &periods).is_empty());
+        let flows = vec![(d(2025, 1, 15), Money::new(1.0, Currency::USD))];
+        assert!(aggregate_by_period(&flows, &[]).is_empty());
+    }
+
+    #[test]
+    fn cashflows_are_grouped_by_period_and_currency() {
+        let periods = quarters_2025();
+        let flows = vec![
+            // Unsorted on purpose (algorithm should sort internally)
+            (d(2025, 4, 15), Money::new(50.0, Currency::USD)),
+            (d(2025, 1, 10), Money::new(100.0, Currency::USD)),
+            (d(2025, 2, 20), Money::new(200.0, Currency::EUR)),
+            // Boundary case: falls exactly on period end, should roll into next quarter
+            (d(2025, 4, 1), Money::new(10.0, Currency::USD)),
+        ];
+
+        let aggregated = aggregate_by_period(&flows, &periods);
+        let expected_keys = vec![PeriodId::quarter(2025, 1), PeriodId::quarter(2025, 2)];
+        let keys: Vec<_> = aggregated.keys().cloned().collect();
+        assert_eq!(keys, expected_keys);
+
+        let q1 = aggregated.get(&PeriodId::quarter(2025, 1)).unwrap();
+        assert_eq!(q1.len(), 2);
+        assert!((q1[&Currency::USD] - 100.0).abs() < 1e-12);
+        assert!((q1[&Currency::EUR] - 200.0).abs() < 1e-12);
+
+        let q2 = aggregated.get(&PeriodId::quarter(2025, 2)).unwrap();
+        assert_eq!(q2.len(), 1);
+        assert!((q2[&Currency::USD] - 60.0).abs() < 1e-12);
+
+        // Third quarter has no flows -> should not be present
+        assert!(aggregated.get(&PeriodId::quarter(2025, 3)).is_none());
+    }
 }

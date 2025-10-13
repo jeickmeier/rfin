@@ -22,7 +22,9 @@ impl MetricCalculator for FxSwapDv01Calculator {
             return Ok(0.0);
         }
 
-        let disc = context.curves.get_discount_ref(fx_swap.domestic_disc_id.as_str())?;
+        let disc = context
+            .curves
+            .get_discount_ref(fx_swap.domestic_disc_id.as_str())?;
         let base = disc.base_date();
 
         // Use domestic curve day count convention
@@ -42,10 +44,10 @@ impl MetricCalculator for FxSwapDv01Calculator {
 
         // Discount factor to far date
         let df_far = DiscountCurve::df_on(disc, base, fx_swap.far_date, day_count);
-        
+
         // DV01 = Notional × tau × DF(far) × 1bp
         let dv01 = fx_swap.base_notional.amount() * tau * df_far * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

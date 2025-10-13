@@ -27,10 +27,10 @@ pub struct ThetaCalculator;
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &EquityOption = context.instrument_as()?;
-        
+
         // Use analytical Black-Scholes theta from pricer (market standard)
         let greeks = pricer::compute_greeks(option, &context.curves, context.as_of)?;
-        
+
         Ok(greeks.theta)
     }
 

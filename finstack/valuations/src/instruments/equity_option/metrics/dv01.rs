@@ -39,8 +39,8 @@ impl MetricCalculator for EquityOptionDv01Calculator {
 
         // Use analytical rho from Black-Scholes, convert to per-bp from per-percent
         let greeks = pricer::compute_greeks(option, &context.curves, as_of)?;
-        let dv01 = greeks.rho / 100.0;  // Rho is per 1%, DV01 is per 1bp
-        
+        let dv01 = greeks.rho / 100.0; // Rho is per 1%, DV01 is per 1bp
+
         Ok(dv01)
     }
 }

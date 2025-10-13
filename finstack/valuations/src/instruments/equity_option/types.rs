@@ -383,3 +383,206 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::equity_option::pricer;
+    use crate::instruments::{
+        common::traits::Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
+    };
+    use finstack_core::{
+        currency::Currency,
+        dates::{Date, DayCount},
+        market_data::{
+            context::MarketContext, scalars::MarketScalar, surfaces::vol_surface::VolSurface,
+            term_structures::discount_curve::DiscountCurve,
+        },
+        money::Money,
+        types::{CurveId, InstrumentId},
+    };
+    use time::Month;
+
+    const DISC_ID: &str = "USD-OIS";
+    const SPOT_ID: &str = "SPX-SPOT";
+    const VOL_ID: &str = "SPX-VOL";
+    const DIV_ID: &str = "SPX-DIV";
+
+    fn date(year: i32, month: u8, day: u8) -> Date {
+        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+    }
+
+    fn build_discount_curve(as_of: Date, flat_rate: f64) -> DiscountCurve {
+        let df_5y = (-flat_rate * 5.0).exp();
+        DiscountCurve::builder(DISC_ID)
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (5.0, df_5y)])
+            .build()
+            .unwrap()
+    }
+
+    fn build_surface(base_vol: f64) -> VolSurface {
+        let expiries = [0.25, 0.5, 1.0, 2.0];
+        let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
+        let row = [base_vol; 5];
+        let mut builder = VolSurface::builder(VOL_ID)
+            .expiries(&expiries)
+            .strikes(&strikes);
+        for _ in expiries {
+            builder = builder.row(&row);
+        }
+        builder.build().unwrap()
+    }
+
+    fn build_market_context(
+        as_of: Date,
+        spot: f64,
+        vol: f64,
+        rate: f64,
+        div_yield: f64,
+    ) -> MarketContext {
+        MarketContext::new()
+            .insert_discount(build_discount_curve(as_of, rate))
+            .insert_surface(build_surface(vol))
+            .insert_price(SPOT_ID, MarketScalar::Unitless(spot))
+            .insert_price(DIV_ID, MarketScalar::Unitless(div_yield))
+    }
+
+    fn base_option(expiry: Date) -> EquityOption {
+        EquityOption::builder()
+            .id(InstrumentId::new("EQ-OPT"))
+            .underlying_ticker("SPX".to_string())
+            .strike(Money::new(100.0, Currency::USD))
+            .option_type(OptionType::Call)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(expiry)
+            .contract_size(100.0)
+            .day_count(DayCount::Act365F)
+            .settlement(SettlementType::Cash)
+            .disc_id(CurveId::new(DISC_ID))
+            .spot_id(SPOT_ID.to_string())
+            .vol_id(CurveId::new(VOL_ID))
+            .div_yield_id_opt(Some(DIV_ID.to_string()))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .unwrap()
+    }
+
+    fn approx_eq(actual: f64, expected: f64, tol: f64) {
+        let diff = (actual - expected).abs();
+        assert!(
+            diff <= tol,
+            "expected {expected}, got {actual} (diff {diff} > {tol})"
+        );
+    }
+
+    #[test]
+    fn convenience_constructors_apply_standard_conventions() {
+        let expiry = date(2025, 12, 31);
+        let notional = Money::new(1_000_000.0, Currency::USD);
+        let call = EquityOption::european_call("SPX-CALL", "SPX", 100.0, expiry, notional, 100.0);
+        assert_eq!(call.exercise_style, ExerciseStyle::European);
+        assert_eq!(call.option_type, OptionType::Call);
+        assert_eq!(call.disc_id, CurveId::new(DISC_ID));
+        assert_eq!(call.spot_id, "EQUITY-SPOT");
+        assert_eq!(call.vol_id, CurveId::new("EQUITY-VOL"));
+
+        let put = EquityOption::european_put("SPX-PUT", "SPX", 90.0, expiry, notional, 50.0);
+        assert_eq!(put.option_type, OptionType::Put);
+        assert_eq!(put.contract_size, 50.0);
+
+        let american =
+            EquityOption::american_call("SPX-AMER", "SPX", 105.0, expiry, notional, 75.0);
+        assert_eq!(american.exercise_style, ExerciseStyle::American);
+        assert_eq!(american.contract_size, 75.0);
+    }
+
+    #[test]
+    fn npv_and_greeks_match_pricer_outputs() {
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+        let option = base_option(expiry);
+        let curves = build_market_context(as_of, 105.0, 0.22, 0.03, 0.01);
+
+        let price = option.npv(&curves, as_of).unwrap();
+        let (spot, r, q, sigma, t) = pricer::collect_inputs(&option, &curves, as_of).unwrap();
+        let expected_unit = pricer::price_bs_unit(
+            spot,
+            option.strike.amount(),
+            r,
+            q,
+            sigma,
+            t,
+            option.option_type,
+        );
+        approx_eq(price.amount(), expected_unit * option.contract_size, 1e-3);
+
+        let greeks = option.greeks(&curves, as_of).unwrap();
+        let expected = pricer::compute_greeks(&option, &curves, as_of).unwrap();
+        approx_eq(greeks.delta, expected.delta, 1e-6);
+        approx_eq(greeks.gamma, expected.gamma, 1e-10);
+        approx_eq(greeks.vega, expected.vega, 1e-6);
+        approx_eq(greeks.theta, expected.theta, 1e-8);
+        approx_eq(greeks.rho, expected.rho, 1e-6);
+
+        approx_eq(option.delta(&curves, as_of).unwrap(), greeks.delta, 1e-12);
+        approx_eq(option.gamma(&curves, as_of).unwrap(), greeks.gamma, 1e-12);
+        approx_eq(option.vega(&curves, as_of).unwrap(), greeks.vega, 1e-12);
+        approx_eq(option.theta(&curves, as_of).unwrap(), greeks.theta, 1e-12);
+        approx_eq(option.rho(&curves, as_of).unwrap(), greeks.rho, 1e-12);
+    }
+
+    #[test]
+    fn implied_volatility_recovers_surface_value_and_respects_override() {
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+        let option = base_option(expiry);
+        let curves = build_market_context(as_of, 100.0, 0.30, 0.02, 0.01);
+
+        let npv = option.npv(&curves, as_of).unwrap();
+        let implied = option.implied_vol(&curves, as_of, npv.amount()).unwrap();
+        approx_eq(implied, 0.30, 1e-5);
+
+        let mut override_option = base_option(expiry);
+        let overrides = PricingOverrides {
+            implied_volatility: Some(0.45),
+            ..Default::default()
+        };
+        override_option.pricing_overrides = overrides;
+        let override_price = override_option.npv(&curves, as_of).unwrap();
+        let (spot, r, q, _, t) = pricer::collect_inputs(&override_option, &curves, as_of).unwrap();
+        let expected = pricer::price_bs_unit(
+            spot,
+            override_option.strike.amount(),
+            r,
+            q,
+            0.45,
+            t,
+            override_option.option_type,
+        ) * override_option.contract_size;
+        approx_eq(override_price.amount(), expected, 2e-3);
+    }
+
+    #[test]
+    fn expired_options_return_intrinsic_value_and_static_greeks() {
+        let expiry = date(2025, 1, 3);
+        let as_of = expiry;
+        let mut option = base_option(expiry);
+        option.contract_size = 50.0;
+        let curves = build_market_context(as_of, 120.0, 0.25, 0.01, 0.0);
+
+        let pv = option.npv(&curves, as_of).unwrap();
+        assert_eq!(pv.amount(), (120.0 - 100.0) * 50.0);
+
+        let greeks = option.greeks(&curves, as_of).unwrap();
+        assert_eq!(greeks.delta, 50.0);
+        assert_eq!(greeks.gamma, 0.0);
+        assert_eq!(greeks.vega, 0.0);
+        assert_eq!(greeks.theta, 0.0);
+        assert_eq!(greeks.rho, 0.0);
+
+        let implied = option.implied_vol(&curves, as_of, pv.amount()).unwrap();
+        assert_eq!(implied, 0.0);
+    }
+}

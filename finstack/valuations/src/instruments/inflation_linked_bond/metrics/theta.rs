@@ -1,7 +1,7 @@
 //! Theta calculator for inflation-linked bonds.
 
-use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::instruments::common::metrics::theta_utils;
+use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 
@@ -16,4 +16,3 @@ impl MetricCalculator for ThetaCalculator {
         &[]
     }
 }
-

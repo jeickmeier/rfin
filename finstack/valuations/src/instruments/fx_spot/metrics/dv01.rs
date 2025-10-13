@@ -36,10 +36,10 @@ impl MetricCalculator for FxSpotDv01Calculator {
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        
+
         let notional = fx_spot.notional.unwrap_or(Money::new(1.0, fx_spot.base));
         let dv01 = notional.amount() * time_to_settlement * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

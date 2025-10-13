@@ -38,7 +38,7 @@ impl MetricCalculator for CdsDv01Calculator {
         let pricer = CDSPricer::new();
         let disc = context.curves.get_discount_ref(&cds.premium.disc_id)?;
         let surv = context.curves.get_hazard_ref(&cds.protection.credit_id)?;
-        
+
         pricer.risky_pv01(cds, disc, surv, as_of)
     }
 }

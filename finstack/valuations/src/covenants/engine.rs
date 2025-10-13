@@ -599,3 +599,382 @@ pub trait InstrumentMutator {
     /// Change maturity date.
     fn set_maturity(&mut self, new_maturity: Date) -> finstack_core::Result<()>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::common::{
+        helpers,
+        traits::{Attributes, Instrument},
+    };
+    use crate::pricer::InstrumentType;
+    use finstack_core::{
+        currency::Currency,
+        dates::{Date, Frequency},
+        market_data::context::MarketContext,
+        money::Money,
+    };
+    use std::sync::Arc;
+    use time::{Duration, Month};
+
+    #[derive(Clone)]
+    struct TestInstrument {
+        id: String,
+        attrs: Attributes,
+        currency: Currency,
+        base_value: f64,
+        rate: f64,
+        defaulted: bool,
+        cash_sweep: f64,
+        distributions_blocked: bool,
+        maturity: Date,
+    }
+
+    impl TestInstrument {
+        fn new(id: &str, maturity: Date) -> Self {
+            Self {
+                id: id.to_string(),
+                attrs: Attributes::new(),
+                currency: Currency::USD,
+                base_value: 1_000_000.0,
+                rate: 0.05,
+                defaulted: false,
+                cash_sweep: 0.0,
+                distributions_blocked: false,
+                maturity,
+            }
+        }
+    }
+
+    impl Instrument for TestInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> InstrumentType {
+            InstrumentType::Loan
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &Attributes {
+            &self.attrs
+        }
+
+        fn attributes_mut(&mut self) -> &mut Attributes {
+            &mut self.attrs
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+            Ok(Money::new(self.base_value, self.currency))
+        }
+
+        fn price_with_metrics(
+            &self,
+            curves: &MarketContext,
+            as_of: Date,
+            metrics: &[crate::metrics::MetricId],
+        ) -> finstack_core::Result<crate::results::ValuationResult> {
+            let base_value = self.value(curves, as_of)?;
+            helpers::build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
+        }
+    }
+
+    impl InstrumentMutator for TestInstrument {
+        fn set_default_status(
+            &mut self,
+            is_default: bool,
+            _as_of: Date,
+        ) -> finstack_core::Result<()> {
+            self.defaulted = is_default;
+            Ok(())
+        }
+
+        fn increase_rate(&mut self, increase: f64) -> finstack_core::Result<()> {
+            self.rate += increase;
+            Ok(())
+        }
+
+        fn set_cash_sweep(&mut self, percentage: f64) -> finstack_core::Result<()> {
+            self.cash_sweep = percentage;
+            Ok(())
+        }
+
+        fn set_distribution_block(&mut self, blocked: bool) -> finstack_core::Result<()> {
+            self.distributions_blocked = blocked;
+            Ok(())
+        }
+
+        fn set_maturity(&mut self, new_maturity: Date) -> finstack_core::Result<()> {
+            self.maturity = new_maturity;
+            Ok(())
+        }
+    }
+
+    fn date(year: i32, month: u8, day: u8) -> Date {
+        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+    }
+
+    fn metric_context(instrument: &TestInstrument, as_of: Date) -> MetricContext {
+        MetricContext::new(
+            Arc::new(instrument.clone()),
+            Arc::new(MarketContext::new()),
+            as_of,
+            Money::new(instrument.base_value, instrument.currency),
+        )
+    }
+
+    #[test]
+    fn evaluate_financial_covenants_with_cure_periods() {
+        let mut engine = CovenantEngine::new();
+
+        let leverage_cov = Covenant::new(
+            CovenantType::MaxTotalLeverage { threshold: 5.0 },
+            Frequency::quarterly(),
+        );
+        let coverage_cov = Covenant::new(
+            CovenantType::MinInterestCoverage { threshold: 1.50 },
+            Frequency::quarterly(),
+        );
+
+        engine.add_spec(CovenantSpec::with_metric(
+            leverage_cov,
+            MetricId::custom("total_leverage"),
+        ));
+        engine.add_spec(CovenantSpec::with_metric(
+            coverage_cov,
+            MetricId::custom("interest_coverage"),
+        ));
+
+        let test_date = date(2025, 3, 31);
+        engine.breach_history.push(CovenantBreach {
+            covenant_type: "Interest Coverage >= 1.50x".to_string(),
+            breach_date: test_date - Duration::days(30),
+            actual_value: Some(1.1),
+            threshold: Some(1.5),
+            cure_deadline: Some(test_date + Duration::days(10)),
+            is_cured: false,
+            applied_consequences: Vec::new(),
+        });
+
+        let ctx_instrument = TestInstrument::new("TEST-LOAN", test_date + Duration::days(180));
+        let mut ctx = metric_context(&ctx_instrument, test_date);
+        ctx.computed.insert(MetricId::custom("total_leverage"), 4.2);
+        ctx.computed
+            .insert(MetricId::custom("interest_coverage"), 1.0);
+
+        let reports = engine.evaluate(&mut ctx, test_date).unwrap();
+
+        let leverage = reports
+            .get("Total Leverage <= 5.00x")
+            .expect("leverage covenant present");
+        assert!(leverage.passed);
+        assert_eq!(leverage.actual_value, Some(4.2));
+        assert_eq!(leverage.threshold, Some(5.0));
+
+        let coverage = reports
+            .get("Interest Coverage >= 1.50x")
+            .expect("coverage covenant present");
+        assert!(!coverage.passed);
+        assert_eq!(coverage.actual_value, Some(1.0));
+        assert_eq!(coverage.threshold, Some(1.5));
+        assert_eq!(coverage.details.as_deref(), Some("In cure period"));
+
+        // Non-financial match ensures description helper handles different variants.
+        let negative_cov = Covenant::new(
+            CovenantType::Negative {
+                restriction: "No additional debt".to_string(),
+            },
+            Frequency::annual(),
+        );
+        let neg_description = engine.get_covenant_description(&negative_cov.covenant_type);
+        assert_eq!(neg_description, "Negative: No additional debt");
+    }
+
+    #[test]
+    fn evaluate_respects_windows_and_custom_sources() {
+        let mut engine = CovenantEngine::new();
+
+        // Base spec that should be ignored when window is active.
+        engine.add_spec(CovenantSpec::with_metric(
+            Covenant::new(
+                CovenantType::MaxDebtToEBITDA { threshold: 4.0 },
+                Frequency::quarterly(),
+            ),
+            MetricId::custom("debt_to_ebitda"),
+        ));
+
+        engine.register_metric("liquidity_ratio", |_ctx| Ok(1.25));
+
+        let custom_metric_spec = CovenantSpec::with_metric(
+            Covenant::new(
+                CovenantType::Custom {
+                    metric: "liquidity_ratio".to_string(),
+                    test: ThresholdTest::Minimum(1.1),
+                },
+                Frequency::quarterly(),
+            ),
+            MetricId::custom("liquidity_ratio"),
+        );
+
+        let evaluator_spec = CovenantSpec::with_evaluator(
+            Covenant::new(
+                CovenantType::Affirmative {
+                    requirement: "Provide quarterly reporting".to_string(),
+                },
+                Frequency::quarterly(),
+            ),
+            |_ctx| Ok(false),
+        );
+
+        let liquidity_desc =
+            engine.get_covenant_description(&custom_metric_spec.covenant.covenant_type);
+        let affirmative_desc =
+            engine.get_covenant_description(&evaluator_spec.covenant.covenant_type);
+
+        engine.add_window(CovenantWindow {
+            start: date(2025, 1, 1),
+            end: date(2025, 6, 30),
+            covenants: vec![custom_metric_spec, evaluator_spec],
+            is_grace_period: false,
+        });
+
+        let instrument = TestInstrument::new("WINDOW-TEST", date(2026, 1, 1));
+        let mut ctx = metric_context(&instrument, date(2025, 3, 31));
+
+        let reports = engine
+            .evaluate(&mut ctx, date(2025, 3, 31))
+            .expect("evaluation succeeds");
+        assert_eq!(reports.len(), 2);
+        let liquidity_report = reports
+            .get(liquidity_desc.as_str())
+            .expect("custom metric report");
+        assert!(liquidity_report.passed);
+        assert_eq!(liquidity_report.actual_value, Some(1.25));
+        assert_eq!(liquidity_report.threshold, Some(1.1));
+
+        let reporting_report = reports
+            .get(affirmative_desc.as_str())
+            .expect("affirmative covenant");
+        assert!(!reporting_report.passed);
+        assert_eq!(reporting_report.actual_value, None);
+        assert_eq!(reporting_report.threshold, None);
+
+        let applicable = engine.get_applicable_specs(date(2025, 3, 31));
+        assert_eq!(applicable.len(), 2);
+        let applicable_descriptions: Vec<_> = applicable
+            .iter()
+            .map(|spec| engine.get_covenant_description(&spec.covenant.covenant_type))
+            .collect();
+        assert!(applicable_descriptions.contains(&liquidity_desc));
+        assert!(applicable_descriptions.contains(&affirmative_desc));
+    }
+
+    #[test]
+    fn apply_consequences_executes_all_variants() {
+        let mut engine = CovenantEngine::new();
+        let as_of = date(2025, 4, 30);
+        let accelerated_maturity = as_of + Duration::days(90);
+
+        let covenant = Covenant::new(
+            CovenantType::MaxSeniorLeverage { threshold: 3.0 },
+            Frequency::quarterly(),
+        )
+        .with_consequence(CovenantConsequence::Default)
+        .with_consequence(CovenantConsequence::RateIncrease { bp_increase: 150.0 })
+        .with_consequence(CovenantConsequence::CashSweep {
+            sweep_percentage: 0.5,
+        })
+        .with_consequence(CovenantConsequence::BlockDistributions)
+        .with_consequence(CovenantConsequence::RequireCollateral {
+            description: "Pledge additional securities".to_string(),
+        })
+        .with_consequence(CovenantConsequence::AccelerateMaturity {
+            new_maturity: accelerated_maturity,
+        });
+
+        engine.add_spec(CovenantSpec::with_metric(
+            covenant,
+            MetricId::custom("senior_leverage"),
+        ));
+
+        engine.breach_history.push(CovenantBreach {
+            covenant_type: "Senior Leverage <= 3.00x".to_string(),
+            breach_date: as_of - Duration::days(10),
+            actual_value: Some(3.8),
+            threshold: Some(3.0),
+            cure_deadline: Some(as_of - Duration::days(1)),
+            is_cured: false,
+            applied_consequences: Vec::new(),
+        });
+
+        let actionable_breach = CovenantBreach {
+            covenant_type: "Senior Leverage <= 3.00x".to_string(),
+            breach_date: as_of - Duration::days(10),
+            actual_value: Some(3.8),
+            threshold: Some(3.0),
+            cure_deadline: Some(as_of - Duration::days(1)),
+            is_cured: false,
+            applied_consequences: Vec::new(),
+        };
+
+        let cured_breach = CovenantBreach {
+            covenant_type: "Senior Leverage <= 3.00x".to_string(),
+            breach_date: as_of - Duration::days(40),
+            actual_value: Some(3.4),
+            threshold: Some(3.0),
+            cure_deadline: None,
+            is_cured: true,
+            applied_consequences: Vec::new(),
+        };
+
+        let in_cure_breach = CovenantBreach {
+            covenant_type: "Senior Leverage <= 3.00x".to_string(),
+            breach_date: as_of - Duration::days(5),
+            actual_value: Some(3.2),
+            threshold: Some(3.0),
+            cure_deadline: Some(as_of + Duration::days(5)),
+            is_cured: false,
+            applied_consequences: Vec::new(),
+        };
+
+        let mut instrument = TestInstrument::new("COV-LOAN", date(2026, 6, 30));
+        let applications = engine
+            .apply_consequences(
+                &mut instrument,
+                &[actionable_breach, cured_breach, in_cure_breach],
+                as_of,
+            )
+            .unwrap();
+
+        assert_eq!(applications.len(), 6);
+        assert!(instrument.defaulted);
+        assert!((instrument.rate - 0.065).abs() < 1e-12);
+        assert_eq!(instrument.cash_sweep, 0.5);
+        assert!(instrument.distributions_blocked);
+        assert_eq!(instrument.maturity, accelerated_maturity);
+
+        let history = &engine.breach_history[0];
+        assert_eq!(history.applied_consequences.len(), 6);
+        assert_eq!(
+            applications
+                .iter()
+                .map(|a| a.consequence_type.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "Default",
+                "Rate Increase",
+                "Cash Sweep",
+                "Block Distributions",
+                "Require Collateral",
+                "Accelerate Maturity"
+            ]
+        );
+    }
+}

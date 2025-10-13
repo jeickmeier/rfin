@@ -798,16 +798,32 @@ impl TrancheValuationExt for StructuredCredit {
 
         // Pre-compute as_of discount factor for correct theta
         let disc_dc = disc.day_count();
-        let t_as_of = disc_dc.year_fraction(disc.base_date(), as_of, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_as_of = disc_dc
+            .year_fraction(
+                disc.base_date(),
+                as_of,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let df_as_of = disc.df(t_as_of);
 
         let mut pv = Money::new(0.0, self.pool.base_currency());
         for (date, amount) in &cashflows.cashflows {
             if *date > as_of {
                 // Discount from as_of for correct theta
-                let t_cf = disc_dc.year_fraction(disc.base_date(), *date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+                let t_cf = disc_dc
+                    .year_fraction(
+                        disc.base_date(),
+                        *date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
                 let df_cf_abs = disc.df(t_cf);
-                let df = if df_as_of != 0.0 { df_cf_abs / df_as_of } else { 1.0 };
+                let df = if df_as_of != 0.0 {
+                    df_cf_abs / df_as_of
+                } else {
+                    1.0
+                };
                 let flow_pv = Money::new(amount.amount() * df, amount.currency());
                 pv = pv.checked_add(flow_pv)?;
             }

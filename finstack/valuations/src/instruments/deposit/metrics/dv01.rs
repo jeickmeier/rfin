@@ -40,10 +40,10 @@ impl MetricCalculator for DepositDv01Calculator {
 
         // Discount factor to end date
         let df_end = DiscountCurve::df_on(disc, base, deposit.end, deposit.day_count);
-        
+
         // DV01 = Notional × tau × DF(end) × 1bp
         let dv01 = deposit.notional.amount() * tau * df_end * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

@@ -22,7 +22,8 @@ impl MetricCalculator for HazardCs01Calculator {
         let as_of = context.as_of;
 
         // Base PV
-        let base = (cds.pv_protection_leg(disc, surv, as_of)? - cds.pv_premium_leg(disc, surv, as_of)?)?;
+        let base =
+            (cds.pv_protection_leg(disc, surv, as_of)? - cds.pv_premium_leg(disc, surv, as_of)?)?;
 
         // Build a +1bp hazard bump (additive in rate units)
         let spec = BumpSpec {

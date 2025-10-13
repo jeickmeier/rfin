@@ -1,6 +1,7 @@
 //! Evaluator tests for Phase 3
 
 use finstack_statements::prelude::*;
+use indexmap::indexmap;
 
 // ============================================================================
 // PR #3.1 — Evaluation Context Tests
@@ -571,4 +572,648 @@ fn test_results_metadata() {
     assert_eq!(results.meta.num_periods, 2);
     assert!(results.meta.eval_time_ms.is_some());
     assert!(results.meta.eval_time_ms.unwrap() < 1000); // Should be fast
+}
+
+// ============================================================================
+// EvaluatorWithContext Tests
+// ============================================================================
+
+#[test]
+fn test_evaluator_with_market_context() {
+    use finstack_core::dates::Date;
+    use finstack_core::market_data::MarketContext;
+    use time::Month;
+
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+            ],
+        )
+        .build()
+        .unwrap();
+
+    let market_ctx = MarketContext::new();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    let mut evaluator =
+        finstack_statements::evaluator::Evaluator::with_market_context(&market_ctx, as_of);
+    let results = evaluator.evaluate(&model).unwrap();
+
+    assert_eq!(
+        results.get("revenue", &PeriodId::quarter(2025, 1)),
+        Some(100_000.0)
+    );
+}
+
+#[test]
+fn test_evaluate_with_market_context_no_capital_structure() {
+    use finstack_core::dates::Date;
+    use finstack_core::market_data::MarketContext;
+    use time::Month;
+
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q1", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+        )
+        .build()
+        .unwrap();
+
+    let market_ctx = MarketContext::new();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    let mut evaluator = finstack_statements::evaluator::Evaluator::new();
+    let results = evaluator
+        .evaluate_with_market_context(&model, Some(&market_ctx), Some(as_of))
+        .unwrap();
+
+    assert_eq!(
+        results.get("revenue", &PeriodId::quarter(2025, 1)),
+        Some(100.0)
+    );
+}
+
+// ============================================================================
+// Formula Edge Cases
+// ============================================================================
+
+#[test]
+fn test_shift_function() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130.0)),
+            ],
+        )
+        .compute("shifted", "shift(revenue, 2)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // shift(revenue, 2) should return revenue from 2 periods ago
+    assert!(results
+        .get("shifted", &PeriodId::quarter(2025, 1))
+        .unwrap()
+        .is_nan());
+    assert!(results
+        .get("shifted", &PeriodId::quarter(2025, 2))
+        .unwrap()
+        .is_nan());
+    assert_eq!(
+        results.get("shifted", &PeriodId::quarter(2025, 3)).unwrap(),
+        100.0
+    );
+    assert_eq!(
+        results.get("shifted", &PeriodId::quarter(2025, 4)).unwrap(),
+        110.0
+    );
+}
+
+#[test]
+fn test_shift_zero_periods() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
+            ],
+        )
+        .compute("shifted", "shift(revenue, 0)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // shift by 0 should return the value itself
+    assert_eq!(
+        results.get("shifted", &PeriodId::quarter(2025, 1)).unwrap(),
+        100.0
+    );
+    assert_eq!(
+        results.get("shifted", &PeriodId::quarter(2025, 2)).unwrap(),
+        110.0
+    );
+}
+
+#[test]
+fn test_shift_negative_returns_nan() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
+            ],
+        )
+        .compute("future_shifted", "shift(revenue, -1)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // Negative shift (forward-looking) should return NaN
+    assert!(results
+        .get("future_shifted", &PeriodId::quarter(2025, 1))
+        .unwrap()
+        .is_nan());
+}
+
+#[test]
+fn test_rank_function() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(150.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(180.0)),
+            ],
+        )
+        .compute("revenue_rank", "rank(revenue)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // Rank is cumulative - Q1 only has itself (rank 1)
+    assert_eq!(
+        results
+            .get("revenue_rank", &PeriodId::quarter(2025, 1))
+            .unwrap(),
+        1.0
+    );
+
+    // Q2 has seen [100, 150] - 150 is rank 2
+    assert_eq!(
+        results
+            .get("revenue_rank", &PeriodId::quarter(2025, 2))
+            .unwrap(),
+        2.0
+    );
+
+    // Q3 has seen [100, 150, 120] sorted to [100, 120, 150] - 120 is rank 2
+    assert_eq!(
+        results
+            .get("revenue_rank", &PeriodId::quarter(2025, 3))
+            .unwrap(),
+        2.0
+    );
+
+    // Q4 has seen [100, 150, 120, 180] sorted to [100, 120, 150, 180] - 180 is rank 4
+    assert_eq!(
+        results
+            .get("revenue_rank", &PeriodId::quarter(2025, 4))
+            .unwrap(),
+        4.0
+    );
+}
+
+#[test]
+fn test_quantile_function_edge_values() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "data",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(20.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(30.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(40.0)),
+            ],
+        )
+        .compute("q0", "quantile(data, 0.0)")
+        .unwrap()
+        .compute("q25", "quantile(data, 0.25)")
+        .unwrap()
+        .compute("q50", "quantile(data, 0.5)")
+        .unwrap()
+        .compute("q100", "quantile(data, 1.0)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let q4 = PeriodId::quarter(2025, 4);
+
+    // Q0 should be minimum
+    assert_eq!(results.get("q0", &q4).unwrap(), 10.0);
+
+    // Q100 should be maximum
+    assert_eq!(results.get("q100", &q4).unwrap(), 40.0);
+
+    // Q50 should be median (between 20 and 30)
+    let q50 = results.get("q50", &q4).unwrap();
+    assert!((20.0..=30.0).contains(&q50));
+}
+
+#[test]
+fn test_ewm_mean_function() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "returns",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.05)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.08)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(0.06)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(0.07)),
+            ],
+        )
+        .compute("ewm", "ewm_mean(returns, 0.3)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let ewm = results.get("ewm", &PeriodId::quarter(2025, 4)).unwrap();
+    assert!(ewm > 0.0);
+    assert!(!ewm.is_nan());
+}
+
+#[test]
+fn test_cumulative_functions() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "base_values",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(15.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(12.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(18.0)),
+            ],
+        )
+        .compute("cumsum_result", "cumsum(base_values)")
+        .unwrap()
+        .compute("cumprod_result", "cumprod(base_values)")
+        .unwrap()
+        .compute("cummin_result", "cummin(base_values)")
+        .unwrap()
+        .compute("cummax_result", "cummax(base_values)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let q4 = PeriodId::quarter(2025, 4);
+
+    // cumsum: 10 + 15 + 12 + 18 = 55
+    assert_eq!(results.get("cumsum_result", &q4).unwrap(), 55.0);
+
+    // cumprod: 10 * 15 * 12 * 18 = 32400
+    assert_eq!(results.get("cumprod_result", &q4).unwrap(), 32400.0);
+
+    // cummin: min of all = 10
+    assert_eq!(results.get("cummin_result", &q4).unwrap(), 10.0);
+
+    // cummax: max of all = 18
+    assert_eq!(results.get("cummax_result", &q4).unwrap(), 18.0);
+}
+
+// ============================================================================
+// Forecast Evaluation Error Paths
+// ============================================================================
+
+#[test]
+fn test_forecast_error_no_actual_periods() {
+    // All periods are forecast - should error
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", None) // No actuals_until
+        .unwrap()
+        .value(
+            "revenue",
+            &[], // No values provided
+        )
+        .forecast(
+            "revenue",
+            ForecastSpec {
+                method: ForecastMethod::GrowthPct,
+                params: indexmap! { "rate".into() => serde_json::json!(0.05) },
+            },
+        )
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let result = evaluator.evaluate(&model);
+
+    // Should error due to missing base value
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_forecast_error_all_actual_periods() {
+    // No forecast periods - should error when forecast is defined
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", Some("2025Q2"))
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
+            ],
+        )
+        .forecast(
+            "revenue",
+            ForecastSpec {
+                method: ForecastMethod::GrowthPct,
+                params: indexmap! { "rate".into() => serde_json::json!(0.05) },
+            },
+        )
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+
+    // Should succeed but not use forecast (all periods are actuals)
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // Values should be from explicit values, not forecast
+    assert_eq!(
+        results.get("revenue", &PeriodId::quarter(2025, 1)),
+        Some(100.0)
+    );
+    assert_eq!(
+        results.get("revenue", &PeriodId::quarter(2025, 2)),
+        Some(110.0)
+    );
+}
+
+// ============================================================================
+// Division by Zero and NaN Handling
+// ============================================================================
+
+#[test]
+fn test_division_by_zero_produces_nan() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q1", None)
+        .unwrap()
+        .value(
+            "numerator",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+        )
+        .value(
+            "denominator",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0))],
+        )
+        .compute("result", "numerator / denominator")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let result = results.get("result", &PeriodId::quarter(2025, 1)).unwrap();
+    assert!(result.is_nan());
+}
+
+#[test]
+fn test_pct_change_division_by_zero() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .value(
+            "value",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(100.0)),
+            ],
+        )
+        .compute("change", "pct_change(value)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // pct_change from 0 should be NaN (division by zero)
+    assert!(results
+        .get("change", &PeriodId::quarter(2025, 2))
+        .unwrap()
+        .is_nan());
+}
+
+#[test]
+fn test_rolling_functions_edge_cases() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q4", None)
+        .unwrap()
+        .value(
+            "base_data",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(5.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(10.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(15.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(20.0)),
+            ],
+        )
+        .compute("rolling_median_result", "rolling_median(base_data, 3)")
+        .unwrap()
+        .compute("rolling_min_result", "rolling_min(base_data, 3)")
+        .unwrap()
+        .compute("rolling_max_result", "rolling_max(base_data, 3)")
+        .unwrap()
+        .compute("rolling_count_result", "rolling_count(base_data, 3)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let q4 = PeriodId::quarter(2025, 4);
+
+    // Rolling median of [10, 15, 20] = 15
+    assert_eq!(results.get("rolling_median_result", &q4).unwrap(), 15.0);
+
+    // Rolling min of [10, 15, 20] = 10
+    assert_eq!(results.get("rolling_min_result", &q4).unwrap(), 10.0);
+
+    // Rolling max of [10, 15, 20] = 20
+    assert_eq!(results.get("rolling_max_result", &q4).unwrap(), 20.0);
+
+    // Rolling count = 3
+    assert_eq!(results.get("rolling_count_result", &q4).unwrap(), 3.0);
+}
+
+// ============================================================================
+// Error Handling Tests
+// ============================================================================
+
+#[test]
+fn test_lag_negative_periods_error() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q1", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+        )
+        .compute("bad_lag", "lag(revenue, -1)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let eval_result = evaluator.evaluate(&model);
+
+    assert!(eval_result.is_err());
+}
+
+#[test]
+fn test_diff_zero_periods_error() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
+            ],
+        )
+        .compute("bad_diff", "diff(revenue, 0)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let result = evaluator.evaluate(&model);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_rolling_window_zero_size_error() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q1", None)
+        .unwrap()
+        .value(
+            "data",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+        )
+        .compute("bad_rolling", "rolling_mean(data, 0)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let result = evaluator.evaluate(&model);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_quantile_out_of_range_error() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q1", None)
+        .unwrap()
+        .value(
+            "data",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+        )
+        .compute("bad_quantile", "quantile(data, 1.5)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let result = evaluator.evaluate(&model);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_ewm_mean_alpha_out_of_range() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .value(
+            "data",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
+            ],
+        )
+        .compute("bad_ewm", "ewm_mean(data, 1.5)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let result = evaluator.evaluate(&model);
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_ewm_var_insufficient_data() {
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q1", None)
+        .unwrap()
+        .value(
+            "data",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+        )
+        .compute("ewm_variance", "ewm_var(data, 0.3)")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    // With only 1 value, should return NaN
+    assert!(results
+        .get("ewm_variance", &PeriodId::quarter(2025, 1))
+        .unwrap()
+        .is_nan());
 }

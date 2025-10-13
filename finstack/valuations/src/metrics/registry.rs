@@ -351,7 +351,13 @@ impl MetricRegistry {
                 let deps = calc.dependencies();
                 for dep_id in deps {
                     // Ignore errors from missing dependencies
-                    let _ = self.visit_metric(dep_id.clone(), instrument_type, visited, temp_mark, order);
+                    let _ = self.visit_metric(
+                        dep_id.clone(),
+                        instrument_type,
+                        visited,
+                        temp_mark,
+                        order,
+                    );
                 }
             }
         }

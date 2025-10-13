@@ -29,9 +29,9 @@ impl MetricCalculator for CapFloorDv01Calculator {
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        
+
         let dv01 = option.notional.amount() * time_to_end * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

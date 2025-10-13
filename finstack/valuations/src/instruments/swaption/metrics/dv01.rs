@@ -44,8 +44,7 @@ impl MetricCalculator for SwaptionDv01Calculator {
         let base_price = context.base_value.amount();
 
         // Get volatility (held constant during rate bump)
-        let time_to_expiry =
-            swaption.year_fraction(as_of, swaption.expiry, swaption.day_count)?;
+        let time_to_expiry = swaption.year_fraction(as_of, swaption.expiry, swaption.day_count)?;
         let vol = if let Some(impl_vol) = swaption.pricing_overrides.implied_volatility {
             impl_vol
         } else {
@@ -65,7 +64,7 @@ impl MetricCalculator for SwaptionDv01Calculator {
 
         // DV01 = change in price for 1bp rate increase
         let dv01 = bumped_price - base_price;
-        
+
         Ok(dv01)
     }
 }

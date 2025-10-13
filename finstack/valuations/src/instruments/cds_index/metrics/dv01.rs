@@ -33,9 +33,9 @@ impl MetricCalculator for CdsIndexDv01Calculator {
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        
+
         let dv01 = cds_index.notional.amount() * time_to_maturity * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

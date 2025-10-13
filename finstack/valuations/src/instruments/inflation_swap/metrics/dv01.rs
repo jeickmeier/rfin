@@ -29,9 +29,9 @@ impl MetricCalculator for InflationSwapDv01Calculator {
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        
+
         let dv01 = swap.notional.amount() * time_to_maturity * ONE_BASIS_POINT;
-        
+
         Ok(dv01)
     }
 }

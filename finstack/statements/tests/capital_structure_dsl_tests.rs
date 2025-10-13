@@ -344,3 +344,257 @@ fn test_compile_multiple_instruments() {
         _ => panic!("Expected BinOp node"),
     }
 }
+
+// ============================================================================
+// Capital Structure Integration Tests
+// ============================================================================
+
+#[test]
+fn test_aggregate_instrument_cashflows() {
+    use finstack_core::dates::{build_periods, Date};
+    use finstack_core::market_data::MarketContext;
+    use finstack_core::types::{CurveId, InstrumentId};
+    use finstack_statements::capital_structure::aggregate_instrument_cashflows;
+    use finstack_valuations::cashflow::traits::CashflowProvider;
+    use finstack_valuations::instruments::Bond;
+    use std::sync::Arc;
+    use time::Month;
+
+    let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    let bond = Bond::fixed(
+        InstrumentId::new("BOND-001"),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        issue,
+        maturity,
+        CurveId::new("USD-OIS"),
+    );
+
+    let mut instruments: indexmap::IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>> =
+        indexmap::IndexMap::new();
+    instruments.insert("BOND-001".to_string(), Arc::new(bond));
+
+    let periods = build_periods("2025Q1..2025Q4", None).unwrap().periods;
+    let market_ctx = MarketContext::new();
+
+    let cashflows = aggregate_instrument_cashflows(&instruments, &periods, &market_ctx, as_of);
+
+    assert!(cashflows.is_ok());
+    let cf = cashflows.unwrap();
+    assert!(!cf.totals.is_empty());
+}
+
+#[test]
+fn test_build_bond_from_spec() {
+    use finstack_core::dates::Date;
+    use finstack_core::types::{CurveId, InstrumentId};
+    use finstack_statements::capital_structure::integration::build_bond_from_spec;
+    use finstack_statements::types::DebtInstrumentSpec;
+    use finstack_valuations::instruments::Bond;
+    use time::Month;
+
+    let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+
+    let bond = Bond::fixed(
+        InstrumentId::new("BOND-001"),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        issue,
+        maturity,
+        CurveId::new("USD-OIS"),
+    );
+
+    let spec_json = serde_json::to_value(&bond).unwrap();
+    let spec = DebtInstrumentSpec::Bond {
+        id: "BOND-001".to_string(),
+        spec: spec_json,
+    };
+
+    let result = build_bond_from_spec(&spec);
+    assert!(result.is_ok());
+    let deserialized = result.unwrap();
+    assert_eq!(deserialized.id.as_str(), "BOND-001");
+}
+
+#[test]
+fn test_build_swap_from_spec() {
+    use finstack_core::dates::Date;
+    use finstack_core::types::InstrumentId;
+    use finstack_statements::capital_structure::integration::build_swap_from_spec;
+    use finstack_statements::types::DebtInstrumentSpec;
+    use finstack_valuations::instruments::common::parameters::PayReceive;
+    use finstack_valuations::instruments::InterestRateSwap;
+    use time::Month;
+
+    let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+
+    let swap = InterestRateSwap::new(
+        InstrumentId::new("SWAP-001"),
+        Money::new(5_000_000.0, Currency::USD),
+        0.04,
+        start,
+        maturity,
+        PayReceive::PayFixed,
+    );
+
+    let spec_json = serde_json::to_value(&swap).unwrap();
+    let spec = DebtInstrumentSpec::Swap {
+        id: "SWAP-001".to_string(),
+        spec: spec_json,
+    };
+
+    let result = build_swap_from_spec(&spec);
+    assert!(result.is_ok());
+    let deserialized = result.unwrap();
+    assert_eq!(deserialized.id.as_str(), "SWAP-001");
+}
+
+#[test]
+fn test_build_any_instrument_from_generic_spec() {
+    use finstack_core::dates::Date;
+    use finstack_core::types::{CurveId, InstrumentId};
+    use finstack_statements::capital_structure::integration::build_any_instrument_from_spec;
+    use finstack_statements::types::DebtInstrumentSpec;
+    use finstack_valuations::instruments::Bond;
+    use time::Month;
+
+    let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+
+    let bond = Bond::fixed(
+        InstrumentId::new("BOND-001"),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        issue,
+        maturity,
+        CurveId::new("USD-OIS"),
+    );
+
+    let spec_json = serde_json::to_value(&bond).unwrap();
+    let spec = DebtInstrumentSpec::Generic {
+        id: "BOND-001".to_string(),
+        spec: spec_json,
+    };
+
+    let result = build_any_instrument_from_spec(&spec);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_build_any_instrument_from_spec_bond_variant() {
+    use finstack_core::dates::Date;
+    use finstack_core::types::{CurveId, InstrumentId};
+    use finstack_statements::capital_structure::integration::build_any_instrument_from_spec;
+    use finstack_statements::types::DebtInstrumentSpec;
+    use finstack_valuations::instruments::Bond;
+    use time::Month;
+
+    let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+
+    let bond = Bond::fixed(
+        InstrumentId::new("BOND-002"),
+        Money::new(2_000_000.0, Currency::USD),
+        0.06,
+        issue,
+        maturity,
+        CurveId::new("USD-OIS"),
+    );
+
+    let spec_json = serde_json::to_value(&bond).unwrap();
+    let spec = DebtInstrumentSpec::Bond {
+        id: "BOND-002".to_string(),
+        spec: spec_json,
+    };
+
+    let result = build_any_instrument_from_spec(&spec);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_build_any_instrument_from_spec_swap_variant() {
+    use finstack_core::dates::Date;
+    use finstack_core::types::InstrumentId;
+    use finstack_statements::capital_structure::integration::build_any_instrument_from_spec;
+    use finstack_statements::types::DebtInstrumentSpec;
+    use finstack_valuations::instruments::common::parameters::PayReceive;
+    use finstack_valuations::instruments::InterestRateSwap;
+    use time::Month;
+
+    let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+
+    let swap = InterestRateSwap::new(
+        InstrumentId::new("SWAP-002"),
+        Money::new(3_000_000.0, Currency::USD),
+        0.045,
+        start,
+        maturity,
+        PayReceive::PayFixed,
+    );
+
+    let spec_json = serde_json::to_value(&swap).unwrap();
+    let spec = DebtInstrumentSpec::Swap {
+        id: "SWAP-002".to_string(),
+        spec: spec_json,
+    };
+
+    let result = build_any_instrument_from_spec(&spec);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_build_any_instrument_invalid_json_error() {
+    use finstack_statements::capital_structure::integration::build_any_instrument_from_spec;
+    use finstack_statements::types::DebtInstrumentSpec;
+
+    let spec = DebtInstrumentSpec::Generic {
+        id: "INVALID".to_string(),
+        spec: serde_json::json!({
+            "invalid_field": "not a valid instrument"
+        }),
+    };
+
+    let result = build_any_instrument_from_spec(&spec);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_capital_structure_cashflows_accessors() {
+    use finstack_statements::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};
+
+    let mut cs = CapitalStructureCashflows::new();
+    let period = PeriodId::quarter(2025, 1);
+
+    let breakdown = CashflowBreakdown {
+        interest_expense: 10_000.0,
+        principal_payment: 25_000.0,
+        debt_balance: 500_000.0,
+        fees: 1_000.0,
+    };
+
+    let mut instrument_map = indexmap::IndexMap::new();
+    instrument_map.insert(period, breakdown.clone());
+
+    cs.by_instrument
+        .insert("INST-001".to_string(), instrument_map);
+    cs.totals.insert(period, breakdown);
+
+    // Test accessors
+    assert_eq!(cs.get_interest("INST-001", &period), Some(10_000.0));
+    assert_eq!(cs.get_principal("INST-001", &period), Some(25_000.0));
+    assert_eq!(cs.get_debt_balance("INST-001", &period), Some(500_000.0));
+    assert_eq!(cs.get_total_interest(&period), Some(10_000.0));
+    assert_eq!(cs.get_total_principal(&period), Some(25_000.0));
+    assert_eq!(cs.get_total_debt_balance(&period), Some(500_000.0));
+
+    // Test missing instrument
+    assert_eq!(cs.get_interest("NONEXISTENT", &period), None);
+    assert_eq!(cs.get_principal("NONEXISTENT", &period), None);
+    assert_eq!(cs.get_debt_balance("NONEXISTENT", &period), None);
+}

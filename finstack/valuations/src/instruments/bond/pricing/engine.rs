@@ -51,17 +51,33 @@ impl BondEngine {
         };
         // Pre-compute settle_date discount factor for correct theta
         let disc_dc = disc.day_count();
-        let t_settle = disc_dc.year_fraction(disc.base_date(), settle_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_settle = disc_dc
+            .year_fraction(
+                disc.base_date(),
+                settle_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let df_settle = disc.df(t_settle);
-        
+
         for (d, amt) in &flows {
             if *d <= settle_date {
                 continue;
             }
             // Discount from settle_date (which is derived from as_of)
-            let t_d = disc_dc.year_fraction(disc.base_date(), *d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            let t_d = disc_dc
+                .year_fraction(
+                    disc.base_date(),
+                    *d,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
             let df_d_abs = disc.df(t_d);
-            let df = if df_settle != 0.0 { df_d_abs / df_settle } else { 1.0 };
+            let df = if df_settle != 0.0 {
+                df_d_abs / df_settle
+            } else {
+                1.0
+            };
             total = (total + (*amt * df))?;
         }
         Ok(total)

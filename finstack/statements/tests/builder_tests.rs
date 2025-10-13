@@ -381,3 +381,134 @@ fn test_model_with_multiple_currencies() {
         Some(Currency::EUR)
     );
 }
+
+// ============================================================================
+// NodeSpec Builder Method Tests
+// ============================================================================
+
+#[test]
+fn test_node_spec_with_tags() {
+    use finstack_statements::types::NodeSpec;
+
+    let node = NodeSpec::new("revenue", NodeType::Value)
+        .with_tags(vec!["income_statement".into(), "top_line".into()]);
+
+    assert_eq!(node.tags.len(), 2);
+    assert!(node.tags.contains(&"income_statement".to_string()));
+    assert!(node.tags.contains(&"top_line".to_string()));
+}
+
+#[test]
+fn test_node_spec_with_forecast() {
+    use finstack_statements::types::{ForecastMethod, ForecastSpec, NodeSpec};
+    use indexmap::indexmap;
+
+    let forecast = ForecastSpec {
+        method: ForecastMethod::GrowthPct,
+        params: indexmap! { "rate".into() => serde_json::json!(0.05) },
+    };
+
+    let node = NodeSpec::new("revenue", NodeType::Mixed).with_forecast(forecast);
+
+    assert!(node.forecast.is_some());
+    assert_eq!(
+        node.forecast.as_ref().unwrap().method,
+        ForecastMethod::GrowthPct
+    );
+}
+
+#[test]
+fn test_node_spec_with_name() {
+    use finstack_statements::types::NodeSpec;
+
+    let node = NodeSpec::new("revenue", NodeType::Value).with_name("Total Revenue");
+
+    assert!(node.name.is_some());
+    assert_eq!(node.name.as_ref().unwrap(), "Total Revenue");
+}
+
+#[test]
+fn test_node_spec_with_formula() {
+    use finstack_statements::types::NodeSpec;
+
+    let node = NodeSpec::new("gross_profit", NodeType::Calculated).with_formula("revenue - cogs");
+
+    assert!(node.formula_text.is_some());
+    assert_eq!(node.formula_text.as_ref().unwrap(), "revenue - cogs");
+}
+
+#[test]
+fn test_node_spec_with_values() {
+    use finstack_statements::types::NodeSpec;
+    use indexmap::IndexMap;
+
+    let mut values = IndexMap::new();
+    values.insert(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0));
+    values.insert(PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0));
+
+    let node = NodeSpec::new("revenue", NodeType::Value).with_values(values.clone());
+
+    assert!(node.values.is_some());
+    assert_eq!(node.values.as_ref().unwrap().len(), 2);
+}
+
+#[test]
+fn test_forecast_spec_helpers() {
+    use finstack_statements::types::ForecastSpec;
+
+    // Test forward_fill helper
+    let ff = ForecastSpec::forward_fill();
+    assert_eq!(ff.method, ForecastMethod::ForwardFill);
+    assert!(ff.params.is_empty());
+
+    // Test growth helper
+    let growth = ForecastSpec::growth(0.05);
+    assert_eq!(growth.method, ForecastMethod::GrowthPct);
+    assert_eq!(growth.params.get("rate").unwrap(), &serde_json::json!(0.05));
+
+    // Test curve helper
+    let curve = ForecastSpec::curve(vec![0.05, 0.06, 0.07]);
+    assert_eq!(curve.method, ForecastMethod::CurvePct);
+    assert_eq!(
+        curve.params.get("curve").unwrap(),
+        &serde_json::json!([0.05, 0.06, 0.07])
+    );
+
+    // Test normal helper
+    let normal = ForecastSpec::normal(100.0, 15.0, 42);
+    assert_eq!(normal.method, ForecastMethod::Normal);
+    assert_eq!(
+        normal.params.get("mean").unwrap(),
+        &serde_json::json!(100.0)
+    );
+    assert_eq!(
+        normal.params.get("std_dev").unwrap(),
+        &serde_json::json!(15.0)
+    );
+    assert_eq!(normal.params.get("seed").unwrap(), &serde_json::json!(42));
+
+    // Test lognormal helper
+    let lognormal = ForecastSpec::lognormal(11.5, 0.15, 42);
+    assert_eq!(lognormal.method, ForecastMethod::LogNormal);
+}
+
+// ============================================================================
+// AmountOrScalar Tests
+// ============================================================================
+
+#[test]
+fn test_amount_or_scalar_from_conversions() {
+    use finstack_core::money::Money;
+
+    // Test From<f64>
+    let scalar: AmountOrScalar = 42.0.into();
+    assert!(scalar.is_scalar());
+    assert_eq!(scalar.value(), 42.0);
+
+    // Test From<Money>
+    let money = Money::new(1000.0, Currency::USD);
+    let amount: AmountOrScalar = money.into();
+    assert!(amount.is_amount());
+    assert_eq!(amount.value(), 1000.0);
+    assert_eq!(amount.currency(), Some(Currency::USD));
+}

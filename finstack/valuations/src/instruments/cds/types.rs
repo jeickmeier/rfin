@@ -339,11 +339,11 @@ impl CreditDefaultSwap {
         let disc = curves.get_discount_ref(&self.premium.disc_id)?;
         let surv = curves.get_hazard_ref(&self.protection.credit_id)?;
         let pricer = CDSPricer::new();
-        
+
         // Calculate NPV as protection leg PV - premium leg PV (from buyer's perspective)
         let protection_pv = pricer.pv_protection_leg(self, disc, surv, as_of)?;
         let premium_pv = pricer.pv_premium_leg(self, disc, surv, as_of)?;
-        
+
         // Apply sign convention based on side
         let npv_amount = match self.side {
             PayReceive::PayFixed => {
@@ -355,7 +355,7 @@ impl CreditDefaultSwap {
                 premium_pv.amount() - protection_pv.amount()
             }
         };
-        
+
         Ok(Money::new(npv_amount, self.notional.currency()))
     }
 }
