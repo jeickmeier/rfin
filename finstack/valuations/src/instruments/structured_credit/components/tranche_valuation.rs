@@ -216,8 +216,8 @@ pub fn calculate_tranche_cs01(
     z_spread: f64,
     as_of: Date,
 ) -> Result<f64> {
+    use crate::constants::ONE_BASIS_POINT;
     use finstack_core::dates::DayCount;
-    const ONE_BASIS_POINT: f64 = 0.0001;
 
     let day_count = DayCount::Act365F;
     let base_date = discount_curve.base_date();

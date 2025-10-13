@@ -1,7 +1,6 @@
+use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-
-const ONE_BP: f64 = 0.0001;
 
 /// Calculates CS01 (credit spread sensitivity) for bonds.
 ///
@@ -29,8 +28,6 @@ impl MetricCalculator for Cs01Calculator {
         let disc_curve = context.curves.get_discount_ref(bond.disc_id.as_ref())?;
 
         // CS01 calculation using spread approximation
-        let bp = ONE_BP; // 1 basis point
-
         // Approximate CS01 by shifting the discount rates
         // This simulates a parallel credit spread shift
         let mut npv_up = 0.0;
@@ -50,8 +47,8 @@ impl MetricCalculator for Cs01Calculator {
 
                 // Apply spread bumps to the discount factor
                 // df_spread = df * exp(-spread * t)
-                let df_up = df * (-bp * yf).exp();
-                let df_down = df * (bp * yf).exp();
+                let df_up = df * (-ONE_BASIS_POINT * yf).exp();
+                let df_down = df * (ONE_BASIS_POINT * yf).exp();
 
                 npv_up += amount.amount() * df_up;
                 npv_down += amount.amount() * df_down;

@@ -56,12 +56,13 @@ impl PortfolioValuation {
 
 /// Standard metrics to compute for portfolio positions.
 ///
-/// Note: Using Theta and DV01 which are widely supported as scalar metrics.
+/// Note: Using Theta, DV01, and CS01 which are widely supported as scalar metrics.
 /// Many instruments use bucketed metrics (series) which require special handling.
 fn standard_portfolio_metrics() -> Vec<MetricId> {
     vec![
         MetricId::Theta,
         MetricId::Dv01,
+        MetricId::Cs01,
     ]
 }
 

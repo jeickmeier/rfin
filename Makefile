@@ -83,11 +83,3 @@ coverage:
 coverage-html:
 	@echo "Generating HTML coverage report..."
 	CARGO_INCREMENTAL=0 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --html --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
-
-coverage-open:
-	@echo "Generating HTML coverage report and opening in browser..."
-	CARGO_INCREMENTAL=0 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --open --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
-
-coverage-lcov:
-	@echo "Generating LCOV coverage report for CI..."
-	CARGO_INCREMENTAL=0 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --lcov --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'

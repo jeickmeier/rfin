@@ -1,15 +1,26 @@
 //! CDS DV01 metric calculator.
 //!
-//! Provides DV01 calculation for CDS instruments:
-//! DV01 ≈ Notional × Time to Maturity × 1bp
-//! Sign convention: positive for protection buyer (long protection).
+//! Provides DV01 calculation for CDS instruments using risky PV01.
+//!
+//! # Market Standard Formula
+//!
+//! For CDS, DV01 = Risky PV01 = Risky Annuity × Notional / 10,000
+//!
+//! Where:
+//! - Risky Annuity = Sum of survival-weighted discount factors
+//! - This represents the present value of a 1bp premium stream
+//!
+//! # Sign Convention
+//!
+//! Positive for protection buyer (long protection): when spreads widen,
+//! the mark-to-market value increases for the protection buyer.
 
-use crate::constants::ONE_BASIS_POINT;
+use crate::instruments::cds::pricer::CDSPricer;
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
-/// DV01 calculator for CDS instruments.
+/// DV01 calculator for CDS instruments using market-standard risky PV01.
 pub struct CdsDv01Calculator;
 
 impl MetricCalculator for CdsDv01Calculator {
@@ -23,19 +34,11 @@ impl MetricCalculator for CdsDv01Calculator {
             return Ok(0.0);
         }
 
-        // Simple DV01 approximation: Notional × Time to Maturity × 1bp
-        let time_to_maturity = cds
-            .premium
-            .dc
-            .year_fraction(
-                as_of,
-                maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
+        // Market standard: Use risky PV01 from the CDS pricer
+        let pricer = CDSPricer::new();
+        let disc = context.curves.get_discount_ref(&cds.premium.disc_id)?;
+        let surv = context.curves.get_hazard_ref(&cds.protection.credit_id)?;
         
-        let dv01 = cds.notional.amount() * time_to_maturity * ONE_BASIS_POINT;
-        
-        Ok(dv01)
+        pricer.risky_pv01(cds, disc, surv, as_of)
     }
 }

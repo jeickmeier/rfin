@@ -6,8 +6,10 @@
 //!
 //! Exposed metrics:
 //! - Delta, Gamma, Vega, Theta, Rho
+//! - CS01 (credit spread sensitivity)
 //! - Implied Volatility (placeholder)
 
+mod cs01;
 mod delta;
 mod dv01;
 mod gamma;
@@ -28,6 +30,7 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
+            (Cs01, cs01::Cs01Calculator),
             (Dv01, dv01::CdsOptionDv01Calculator),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),

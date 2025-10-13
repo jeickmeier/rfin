@@ -30,7 +30,7 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
 
-    // Custom metrics
+    // Custom metrics (legacy names for backward compatibility)
     registry
         .register_metric(
             MetricId::custom("upfront"),
@@ -40,11 +40,6 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::custom("spread_dv01"),
             Arc::new(spread_dv01::SpreadDv01Calculator),
-            &["CDSTranche"],
-        )
-        .register_metric(
-            MetricId::custom("cs01"),
-            Arc::new(cs01::Cs01Calculator),
             &["CDSTranche"],
         )
         .register_metric(
@@ -58,6 +53,7 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: "CDSTranche",
         metrics: [
+            (Cs01, cs01::Cs01Calculator),
             (ParSpread, par_spread::ParSpreadCalculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),

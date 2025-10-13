@@ -1,14 +1,31 @@
 //! Equity Option DV01 metric calculator.
 //!
-//! Provides DV01 calculation for Equity Option instruments:
-//! DV01 ≈ Notional × Time to Expiry × 1bp
+//! Provides DV01 calculation for Equity Option instruments.
+//!
+//! # Market Standard Formula
+//!
+//! For options, DV01 represents sensitivity to interest rate changes.
+//! In Black-Scholes, this is captured by Rho (sensitivity per 1% rate change).
+//!
+//! DV01 = Rho / 100
+//!
+//! Where Rho for a call option is:
+//! ρ = K × T × e^(-rT) × N(d₂) / 100  (per 1% rate)
+//!
+//! And for a put option is:
+//! ρ = -K × T × e^(-rT) × N(-d₂) / 100  (per 1% rate)
+//!
+//! # Note
+//!
+//! DV01 for equity options is typically small compared to delta and vega risks.
+//! Rho is the more commonly reported metric in practice.
 
-use crate::constants::ONE_BASIS_POINT;
+use crate::instruments::equity_option::pricer;
 use crate::instruments::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
-/// DV01 calculator for Equity Option instruments.
+/// DV01 calculator for Equity Option instruments using analytical formula.
 pub struct EquityOptionDv01Calculator;
 
 impl MetricCalculator for EquityOptionDv01Calculator {
@@ -20,19 +37,9 @@ impl MetricCalculator for EquityOptionDv01Calculator {
             return Ok(0.0);
         }
 
-        // Simple DV01 approximation: Notional × Time to Expiry × 1bp
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(
-                as_of,
-                option.expiry,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
-        
-        // Equity options use contract_size and strike price to determine notional exposure
-        let notional_exposure = option.strike.amount() * option.contract_size;
-        let dv01 = notional_exposure * time_to_expiry * ONE_BASIS_POINT;
+        // Use analytical rho from Black-Scholes, convert to per-bp from per-percent
+        let greeks = pricer::compute_greeks(option, &context.curves, as_of)?;
+        let dv01 = greeks.rho / 100.0;  // Rho is per 1%, DV01 is per 1bp
         
         Ok(dv01)
     }

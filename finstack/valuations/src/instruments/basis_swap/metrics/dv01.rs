@@ -1,3 +1,4 @@
+use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{Error, Result};
@@ -60,6 +61,6 @@ impl MetricCalculator for Dv01Calculator {
             .as_any()
             .downcast_ref::<BasisSwap>()
             .ok_or(Error::Input(finstack_core::error::InputError::Invalid))?;
-        Ok(annuity * swap.notional.amount() * 1e-4)
+        Ok(annuity * swap.notional.amount() * ONE_BASIS_POINT)
     }
 }

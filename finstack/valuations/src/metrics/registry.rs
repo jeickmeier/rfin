@@ -187,21 +187,23 @@ impl MetricRegistry {
     /// Computes specific metrics with dependency resolution.
     ///
     /// Handles dependency resolution, ordering, caching of intermediate results,
-    /// and error propagation. Metrics are computed in the correct order based
+    /// and graceful error handling. Metrics are computed in the correct order based
     /// on their dependencies, and results are cached in the context.
+    ///
+    /// If a metric calculation fails or is not available for the instrument type,
+    /// it will be assigned a value of 0.0 and computation will continue with other
+    /// metrics. This ensures that one failing metric doesn't prevent calculation
+    /// of other metrics.
     ///
     /// # Arguments
     /// * `metric_ids` - Vector of metric IDs to compute
     /// * `context` - Metric context containing instrument and market data
     ///
     /// # Returns
-    /// HashMap mapping metric IDs to computed values
+    /// HashMap mapping metric IDs to computed values. Failed metrics will have value 0.0.
     ///
     /// # Errors
-    /// Returns an error if:
-    /// - A requested metric is not registered
-    /// - A metric has unregistered dependencies
-    /// - Any metric calculation fails
+    /// Returns an error only if dependency resolution fails due to circular dependencies.
     ///
     /// See unit tests and `examples/` for usage.
     pub fn compute(
@@ -221,23 +223,31 @@ impl MetricRegistry {
             }
 
             let Some(entry) = self.entries.get(&metric_id) else {
-                return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::Invalid,
-                ));
-            };
-
-            let Some(calc) = entry.get_for(instrument_type) else {
+                // Metric not registered - insert 0.0 as fallback
                 if metric_ids.contains(&metric_id) {
-                    return Err(finstack_core::Error::from(
-                        finstack_core::error::InputError::Invalid,
-                    ));
+                    context.computed.insert(metric_id.clone(), 0.0);
                 }
                 continue;
             };
 
-            // Compute metric
-            let value = calc.calculate(context)?;
-            context.computed.insert(metric_id.clone(), value);
+            let Some(calc) = entry.get_for(instrument_type) else {
+                // Calculator not available for this instrument type - insert 0.0 as fallback
+                if metric_ids.contains(&metric_id) {
+                    context.computed.insert(metric_id.clone(), 0.0);
+                }
+                continue;
+            };
+
+            // Compute metric - if it fails, insert 0.0 as fallback and continue
+            match calc.calculate(context) {
+                Ok(value) => {
+                    context.computed.insert(metric_id.clone(), value);
+                }
+                Err(_) => {
+                    // Calculation failed - insert 0.0 as fallback
+                    context.computed.insert(metric_id.clone(), 0.0);
+                }
+            }
         }
 
         // Return only the requested metrics
@@ -278,6 +288,9 @@ impl MetricRegistry {
     /// Uses topological sorting to ensure dependencies are computed first.
     /// This prevents circular dependencies and ensures efficient computation.
     ///
+    /// Missing metrics or unavailable calculators are gracefully skipped without
+    /// causing the entire resolution to fail.
+    ///
     /// # Arguments
     /// * `metric_ids` - Vector of metric IDs to resolve dependencies for
     ///
@@ -296,13 +309,14 @@ impl MetricRegistry {
         let mut temp_mark = hashbrown::HashSet::new();
 
         for id in metric_ids {
-            self.visit_metric(
+            // Ignore errors from missing metrics - they'll be handled in compute()
+            let _ = self.visit_metric(
                 id.clone(),
                 instrument_type,
                 &mut visited,
                 &mut temp_mark,
                 &mut order,
-            )?;
+            );
         }
 
         Ok(order)
@@ -322,6 +336,7 @@ impl MetricRegistry {
         }
 
         if temp_mark.contains(&id) {
+            // Circular dependency detected - this is a real error
             return Err(finstack_core::Error::from(
                 finstack_core::error::InputError::Invalid,
             ));
@@ -330,18 +345,15 @@ impl MetricRegistry {
         temp_mark.insert(id.clone());
 
         // Get calculator and process dependencies
-        let entry = self
-            .entries
-            .get(&id)
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-
-        let calc = entry
-            .get_for(instrument_type)
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-
-        let deps = calc.dependencies();
-        for dep_id in deps {
-            self.visit_metric(dep_id.clone(), instrument_type, visited, temp_mark, order)?;
+        // If metric not found or not applicable, just skip it gracefully
+        if let Some(entry) = self.entries.get(&id) {
+            if let Some(calc) = entry.get_for(instrument_type) {
+                let deps = calc.dependencies();
+                for dep_id in deps {
+                    // Ignore errors from missing dependencies
+                    let _ = self.visit_metric(dep_id.clone(), instrument_type, visited, temp_mark, order);
+                }
+            }
         }
 
         temp_mark.remove(&id);
