@@ -1,4 +1,10 @@
-//! Curve shock adapters (discount, forecast, hazard, inflation).
+//! Curve shock adapters (discount, forecast, hazard, and inflation).
+//!
+//! This module contains helpers that translate curve-oriented
+//! [`OperationSpec`](crate::spec::OperationSpec) variants into concrete market
+//! data updates. Functions rebuild the underlying curve types rather than
+//! mutating them in place to preserve determinism and metadata (such as curve
+//! identifiers and base dates).
 
 use crate::error::{Error, Result};
 use crate::spec::{CurveKind, TenorMatchMode};
@@ -6,7 +12,38 @@ use crate::utils::parse_tenor_to_years;
 use finstack_core::market_data::bumps::{BumpSpec, Bumpable};
 use finstack_core::market_data::MarketContext;
 
-/// Apply parallel bp shock to a curve.
+/// Apply a parallel basis-point shock to a curve.
+///
+/// # Arguments
+/// - `market`: Market context whose curve collection will be updated.
+/// - `curve_kind`: Identifies which curve collection to access.
+/// - `curve_id`: Curve identifier within the chosen collection.
+/// - `bp`: Basis-point amount to add to the curve (positive raises rates).
+///
+/// # Returns
+/// [`Result`](crate::error::Result) reflecting whether the operation succeeded.
+///
+/// # Errors
+/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound) if
+///   the target curve is absent.
+/// - [`Error::UnsupportedOperation`](crate::error::Error::UnsupportedOperation)
+///   if the underlying curve type does not support bumps of the requested kind.
+/// - [`Error::Internal`](crate::error::Error::Internal) if a rebuilt curve fails
+///   validation.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::adapters::curves::apply_curve_parallel_shock;
+/// use finstack_scenarios::CurveKind;
+/// use finstack_core::market_data::MarketContext;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut market = MarketContext::new();
+/// // ... load a discount curve into `market` ...
+/// apply_curve_parallel_shock(&mut market, CurveKind::Discount, "USD_SOFR", 25.0)?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn apply_curve_parallel_shock(
     market: &mut MarketContext,
     curve_kind: CurveKind,
@@ -139,11 +176,53 @@ pub fn apply_curve_parallel_shock(
     Ok(())
 }
 
-/// Apply node-specific bp shocks to a curve.
+/// Apply node-specific basis-point shocks to a curve.
 ///
-/// Supports two modes:
-/// - `Exact`: Match exact pillar points only (error if not found)
-/// - `Interpolate`: Use key-rate bump at target time (localized shock)
+/// Supports two match modes:
+/// - [`TenorMatchMode::Exact`]: Require a pillar to exist at the requested
+///   tenor; returns an error if not found.
+/// - [`TenorMatchMode::Interpolate`]: Apply a key-rate bump around the tenor,
+///   allowing the tenor to fall between knots.
+///
+/// # Arguments
+/// - `market`: Market context to mutate.
+/// - `curve_kind`: Curve family (discount, forecast, hazard, inflation).
+/// - `curve_id`: Identifier of the curve to update.
+/// - `nodes`: `(tenor, bp)` pairs describing each shock to apply sequentially.
+/// - `match_mode`: Strategy for aligning tenors with curve data.
+///
+/// # Returns
+/// [`Result`](crate::error::Result) signalling success or failure.
+///
+/// # Errors
+/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound) if
+///   the curve cannot be located.
+/// - [`Error::TenorNotFound`](crate::error::Error::TenorNotFound) when operating
+///   in exact mode and a tenor is missing.
+/// - [`Error::UnsupportedOperation`](crate::error::Error::UnsupportedOperation)
+///   if the underlying curve cannot be bumped in the requested fashion.
+/// - [`Error::InvalidTenor`](crate::error::Error::InvalidTenor) if a tenor fails
+///   string parsing.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::adapters::curves::apply_curve_node_shock;
+/// use finstack_scenarios::{CurveKind, TenorMatchMode};
+/// use finstack_core::market_data::MarketContext;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut market = MarketContext::new();
+/// // ... load a curve ...
+/// apply_curve_node_shock(
+///     &mut market,
+///     CurveKind::Discount,
+///     "USD_SOFR",
+///     &[("2Y".into(), 15.0), ("10Y".into(), -10.0)],
+///     TenorMatchMode::Interpolate,
+/// )?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn apply_curve_node_shock(
     market: &mut MarketContext,
     curve_kind: CurveKind,

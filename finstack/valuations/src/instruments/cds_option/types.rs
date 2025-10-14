@@ -43,7 +43,7 @@ pub struct CdsOption {
     /// Hazard curve identifier
     pub credit_id: finstack_core::types::CurveId,
     /// Volatility surface identifier
-    pub vol_id: &'static str,
+    pub vol_id: finstack_core::types::CurveId,
     /// Pricing overrides (including implied volatility)
     pub pricing_overrides: PricingOverrides,
     /// Additional attributes
@@ -71,7 +71,7 @@ impl CdsOption {
         option_params: &CdsOptionParams,
         credit_params: &CreditParams,
         disc_id: impl Into<finstack_core::types::CurveId>,
-        vol_id: &'static str,
+        vol_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -86,7 +86,7 @@ impl CdsOption {
             recovery_rate: credit_params.recovery_rate,
             disc_id: disc_id.into(),
             credit_id: credit_params.credit_curve_id.to_owned(),
-            vol_id,
+            vol_id: vol_id.into(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
             underlying_is_index: option_params.underlying_is_index,
@@ -139,7 +139,7 @@ impl CdsOption {
             v
         } else {
             curves
-                .surface_ref(self.vol_id)?
+                .surface_ref(self.vol_id.as_str())?
                 .value_clamped(t, self.strike_spread_bp)
         };
 
@@ -182,7 +182,7 @@ impl CdsOption {
             v
         } else {
             curves
-                .surface_ref(self.vol_id)?
+                .surface_ref(self.vol_id.as_str())?
                 .value_clamped(t, self.strike_spread_bp)
         };
 
@@ -225,7 +225,7 @@ impl CdsOption {
             v
         } else {
             curves
-                .surface_ref(self.vol_id)?
+                .surface_ref(self.vol_id.as_str())?
                 .value_clamped(t, self.strike_spread_bp)
         };
 
@@ -272,7 +272,7 @@ impl CdsOption {
             v
         } else {
             curves
-                .surface(self.vol_id)?
+                .surface(self.vol_id.as_str())?
                 .value_clamped(t, self.strike_spread_bp)
         };
 

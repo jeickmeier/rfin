@@ -1,12 +1,39 @@
 //! Statement shock and rate binding adapters.
+//!
+//! Functions in this file back statement-related `OperationSpec` variants by
+//! manipulating `FinancialModelSpec` values directly or synchronising them with
+//! market curve data.
 
 use crate::error::{Error, Result};
 use finstack_core::market_data::MarketContext;
 use finstack_statements::{AmountOrScalar, FinancialModelSpec};
 
-/// Apply percent change to a statement node's forecast values.
+/// Apply a percentage change to a statement node's forecast values.
 ///
-/// Modifies all explicit values in the node by the given percentage.
+/// # Arguments
+/// - `model`: Financial model containing the node to update.
+/// - `node_id`: Identifier of the statement node.
+/// - `pct`: Percentage change to apply (positive increases the forecast).
+///
+/// # Returns
+/// [`Result`](crate::error::Result) with `Ok(())` when the update succeeds.
+///
+/// # Errors
+/// - [`Error::NodeNotFound`](crate::error::Error::NodeNotFound) if the node
+///   identifier cannot be resolved.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::adapters::statements::apply_forecast_percent;
+/// use finstack_statements::FinancialModelSpec;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut model = FinancialModelSpec::new("demo", vec![]);
+/// // ... populate node ...
+/// apply_forecast_percent(&mut model, "Revenue", -5.0)?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn apply_forecast_percent(
     model: &mut FinancialModelSpec,
     node_id: &str,
@@ -36,9 +63,32 @@ pub fn apply_forecast_percent(
     Ok(())
 }
 
-/// Assign explicit value to a statement node's forecasts.
+/// Assign a uniform scalar value to all explicit forecasts in a node.
 ///
-/// Sets all explicit values in the node to the given scalar value.
+/// # Arguments
+/// - `model`: Financial model containing the node to update.
+/// - `node_id`: Identifier of the statement node.
+/// - `value`: Scalar value to assign to each explicit forecast entry.
+///
+/// # Returns
+/// [`Result`](crate::error::Result) communicating success or failure.
+///
+/// # Errors
+/// - [`Error::NodeNotFound`](crate::error::Error::NodeNotFound) if the node
+///   identifier cannot be resolved.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::adapters::statements::apply_forecast_assign;
+/// use finstack_statements::FinancialModelSpec;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut model = FinancialModelSpec::new("demo", vec![]);
+/// // ... populate node ...
+/// apply_forecast_assign(&mut model, "Capex", 1_000.0)?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn apply_forecast_assign(
     model: &mut FinancialModelSpec,
     node_id: &str,
@@ -60,9 +110,36 @@ pub fn apply_forecast_assign(
     Ok(())
 }
 
-/// Update a statement rate node from a market curve.
+/// Update a statement rate node with a representative rate from a market curve.
 ///
-/// Retrieves the curve's current rate and sets it on all explicit node values.
+/// # Arguments
+/// - `model`: Financial model whose node will be updated.
+/// - `node_id`: Identifier of the statement node.
+/// - `market`: Source of market data curves.
+/// - `curve_id`: Identifier of the curve providing the rate.
+///
+/// # Returns
+/// [`Result`](crate::error::Result) with the unit type on success.
+///
+/// # Errors
+/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound) if
+///   the specified curve cannot be retrieved.
+/// - [`Error::NodeNotFound`](crate::error::Error::NodeNotFound) if the node is
+///   absent.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::adapters::statements::update_rate_from_curve;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_statements::FinancialModelSpec;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut model = FinancialModelSpec::new("demo", vec![]);
+/// let market = MarketContext::new();
+/// update_rate_from_curve(&mut model, "FloatingRate", &market, "USD_SOFR")?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn update_rate_from_curve(
     model: &mut FinancialModelSpec,
     node_id: &str,
@@ -105,13 +182,25 @@ pub fn update_rate_from_curve(
     Ok(())
 }
 
-/// Re-evaluate the financial model to propagate changes.
+/// Re-evaluate the financial model to propagate changes (no-op placeholder).
 ///
-/// Note: This is a no-op in the current implementation as FinancialModelSpec
-/// is a wire type. Full evaluation would require using the Evaluator with the
-/// modified spec.
+/// # Arguments
+/// - `_model`: Financial model that would be re-evaluated. Currently unused.
+///
+/// # Returns
+/// Always returns `Ok(())`.
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::adapters::statements::reevaluate_model;
+/// use finstack_statements::FinancialModelSpec;
+///
+/// let mut model = FinancialModelSpec::new("demo", vec![]);
+/// assert!(reevaluate_model(&mut model).is_ok());
+/// ```
 pub fn reevaluate_model(_model: &mut FinancialModelSpec) -> Result<()> {
     // FinancialModelSpec needs to be evaluated via Evaluator
     // For scenarios, the caller should re-evaluate after applying shocks
+    // TODO: Implement this
     Ok(())
 }

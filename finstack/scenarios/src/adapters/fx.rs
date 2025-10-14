@@ -1,4 +1,9 @@
-//! FX shock adapter.
+//! Foreign exchange shock adapter.
+//!
+//! Provides helper functions used by `OperationSpec::MarketFxPct` to apply
+//! multiplicative shocks to FX matrices held inside the market context. The
+//! logic intentionally focuses on the `SimpleFxProvider` implementation so the
+//! operation remains deterministic and easy to audit.
 
 use crate::error::{Error, Result};
 use finstack_core::currency::Currency;
@@ -7,12 +12,42 @@ use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
 use std::sync::Arc;
 
-/// Apply percent shock to an FX rate.
+/// Apply a percentage shock to an FX rate.
 ///
-/// Positive pct means base currency strengthens (rate increases).
+/// Positive percentages strengthen the base currency (increase the quoted rate).
+/// The function expects the FX matrix inside the [`MarketContext`] to be powered
+/// by a [`SimpleFxProvider`]; in that case it clones the matrix with the updated
+/// rate and replaces the original.
 ///
-/// This creates a new FxMatrix with the shocked rate if the existing FxMatrix
-/// uses a SimpleFxProvider. For other providers, returns an error.
+/// # Arguments
+/// - `market`: Market context whose FX matrix will be shocked.
+/// - `base`: Base currency of the rate to shock.
+/// - `quote`: Quote currency of the rate to shock.
+/// - `pct`: Percentage change to apply (e.g., `5.0` means +5%).
+///
+/// # Returns
+/// [`Result`](crate::error::Result) indicating success. The Ok variant is unit
+/// typed because the changes are applied directly to `market`.
+///
+/// # Errors
+/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound) if
+///   no FX matrix is present.
+/// - [`Error::Core`](crate::error::Error::Core) if retrieving the existing rate
+///   fails.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::adapters::fx::apply_fx_shock;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::market_data::MarketContext;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut market = MarketContext::new();
+/// // ... populate `market` with an FX matrix ...
+/// apply_fx_shock(&mut market, Currency::USD, Currency::EUR, 2.5)?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn apply_fx_shock(
     market: &mut MarketContext,
     base: Currency,

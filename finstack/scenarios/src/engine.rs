@@ -1,4 +1,12 @@
-//! Scenario execution engine with deterministic composition and application.
+//! Deterministic scenario execution engine.
+//!
+//! The engine glues together adapters from this crate to compose multiple
+//! [`ScenarioSpec`](crate::spec::ScenarioSpec) definitions and apply them to
+//! a mutable [`ExecutionContext`]. Its responsibilities are:
+//! - enforce a repeatable ordering of operations
+//! - delegate each `OperationSpec` variant to the appropriate adapter module
+//! - collect reporting metadata about how many operations ran and whether any
+//!   warnings were produced during execution
 
 use crate::error::Result;
 use crate::spec::{OperationSpec, ScenarioSpec};
@@ -6,8 +14,40 @@ use indexmap::IndexMap;
 
 /// Execution context for scenario application.
 ///
-/// Holds mutable references to market data and statements, plus optional
-/// bindings for linking statement rate nodes to market curves.
+/// The context pins all mutable state that a scenario can touch — market data,
+/// statement models, instrument inventories, and rate bindings — together with
+/// the current valuation date.
+///
+/// # Fields
+/// - `market`: Shared market data collection that stores curves, surfaces,
+///   FX matrices, and spot prices.
+/// - `model`: Financial statement model being shocked.
+/// - `instruments`: Optional set of instruments to receive price/spread shocks
+///   and to calculate carry/theta for time rolls.
+/// - `rate_bindings`: Optional mapping from statement node identifiers to
+///   market curve identifiers; used to sync statement rates after curve shocks.
+/// - `as_of`: Valuation date that operations reference.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::ExecutionContext;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_statements::FinancialModelSpec;
+/// use time::macros::date;
+///
+/// let mut market = MarketContext::new();
+/// let mut model = FinancialModelSpec::new("demo", vec![]);
+/// let as_of = date!(2025 - 01 - 01);
+/// let ctx = ExecutionContext {
+///     market: &mut market,
+///     model: &mut model,
+///     instruments: None,
+///     rate_bindings: None,
+///     as_of,
+/// };
+///
+/// assert_eq!(ctx.as_of, as_of);
+/// ```
 pub struct ExecutionContext<'a> {
     /// Market data context (curves, surfaces, FX, etc.).
     pub market: &'a mut finstack_core::market_data::MarketContext,
@@ -26,7 +66,21 @@ pub struct ExecutionContext<'a> {
     pub as_of: time::Date,
 }
 
-/// Report of scenario application.
+/// Report describing what happened during [`ScenarioEngine::apply`].
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::engine::ApplicationReport;
+///
+/// let report = ApplicationReport {
+///     operations_applied: 3,
+///     warnings: vec!["fallback curve used".into()],
+///     rounding_context: Some("default".into()),
+/// };
+///
+/// assert_eq!(report.operations_applied, 3);
+/// assert_eq!(report.warnings.len(), 1);
+/// ```
 #[derive(Debug, Clone)]
 pub struct ApplicationReport {
     /// Number of operations successfully applied.
@@ -39,9 +93,11 @@ pub struct ApplicationReport {
     pub rounding_context: Option<String>,
 }
 
-/// Scenario execution engine.
+/// Orchestrates the deterministic application of a [`ScenarioSpec`](crate::spec::ScenarioSpec).
 ///
-/// Orchestrates composition and application of scenarios with deterministic ordering.
+/// The engine is intentionally lightweight: it does not own any state and can
+/// be cloned or reused freely. All mutable inputs are supplied via
+/// [`ExecutionContext`].
 #[derive(Debug, Default)]
 pub struct ScenarioEngine {
     _private: (),
@@ -49,6 +105,15 @@ pub struct ScenarioEngine {
 
 impl ScenarioEngine {
     /// Create a new scenario engine with default settings.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_scenarios::ScenarioEngine;
+    ///
+    /// let engine = ScenarioEngine::new();
+    /// let other = ScenarioEngine::default();
+    /// assert_eq!(format!("{:?}", engine), format!("{:?}", other));
+    /// ```
     pub fn new() -> Self {
         Self::default()
     }
@@ -56,6 +121,15 @@ impl ScenarioEngine {
     /// Compose multiple scenarios into a single deterministic spec.
     ///
     /// Operations are sorted by (priority, declaration_index); conflicts use last-wins.
+    ///
+    /// # Arguments
+    /// - `scenarios`: Collection of scenario specifications to combine. Lower
+    ///   `ScenarioSpec::priority` values are treated as higher priority and their
+    ///   operations appear first.
+    ///
+    /// # Returns
+    /// Combined [`ScenarioSpec`](crate::spec::ScenarioSpec) containing all
+    /// operations with deterministic ordering.
     ///
     /// # Examples
     ///
@@ -121,6 +195,20 @@ impl ScenarioEngine {
     /// 2. Rate bindings update (if configured)
     /// 3. Statement forecast adjustments
     /// 4. Statement re-evaluation
+    ///
+    /// # Arguments
+    /// - `spec`: Scenario specification to apply.
+    /// - `ctx`: Mutable execution context that supplies market data, statements,
+    ///   instruments, and rate bindings.
+    ///
+    /// # Returns
+    /// [`ApplicationReport`] summarising how many operations were applied and
+    /// any warnings that were recorded.
+    ///
+    /// # Errors
+    /// Propagates any error returned by adapter modules when an operation cannot
+    /// be completed (for example missing market data, unsupported operation, or
+    /// invalid tenor strings).
     ///
     /// # Examples
     ///

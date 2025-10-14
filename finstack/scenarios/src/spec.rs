@@ -1,12 +1,26 @@
-//! Scenario specification types (serde-stable).
+//! Serializable scenario specifications (serde-stable).
+//!
+//! This module defines the surface area that callers use to describe shocks.
+//! Types here are intentionally lightweight and focus on data rather than
+//! behaviour so they can be shared across binaries, configuration files, and
+//! JSON/YAML APIs.
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-// Re-export InstrumentType from valuations for type-safe instrument shocks
+/// Re-export [`InstrumentType`](finstack_valuations::pricer::InstrumentType) for
+/// type-safe instrument shock operations.
 pub use finstack_valuations::pricer::InstrumentType;
 
-/// A complete scenario specification with metadata and operations.
+/// A complete scenario specification with metadata and ordered operations.
+///
+/// # Fields
+/// - `id`: Stable identifier used for persistence and reporting.
+/// - `name`: Optional display name for UI or logs.
+/// - `description`: Optional text describing the intent of the scenario.
+/// - `operations`: Ordered list of [`OperationSpec`] values to execute.
+/// - `priority`: Used by [`ScenarioEngine::compose`](crate::engine::ScenarioEngine::compose)
+///   to determine merge ordering (lower numbers run first).
 ///
 /// # Examples
 ///
@@ -326,7 +340,18 @@ fn default_true() -> bool {
     true
 }
 
-/// Curve type discriminator.
+/// Identifies which family of curve an operation targets.
+///
+/// These variants map to the market data collections exposed by
+/// `finstack_core::market_data::MarketContext`.
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::CurveKind;
+///
+/// let kind = CurveKind::Discount;
+/// assert_eq!(format!("{:?}", kind), "Discount");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CurveKind {
@@ -340,7 +365,16 @@ pub enum CurveKind {
     Inflation,
 }
 
-/// Volatility surface type discriminator.
+/// Identifies which category of volatility surface an operation targets.
+///
+/// Drives lookups into the relevant vol collections in market data.
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::VolSurfaceKind;
+///
+/// assert!(matches!(VolSurfaceKind::Swaption, VolSurfaceKind::Swaption));
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum VolSurfaceKind {
@@ -352,7 +386,15 @@ pub enum VolSurfaceKind {
     Swaption,
 }
 
-/// Tenor matching mode for curve node shocks.
+/// Strategy for aligning requested tenor bumps with curve pillars.
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::TenorMatchMode;
+///
+/// let mode = TenorMatchMode::Interpolate;
+/// assert_eq!(format!("{:?}", mode), "Interpolate");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum TenorMatchMode {

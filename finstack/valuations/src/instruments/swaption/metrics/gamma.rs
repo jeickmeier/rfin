@@ -32,7 +32,7 @@ impl MetricCalculator for GammaCalculator {
         } else {
             context
                 .curves
-                .surface_ref(option.vol_id)?
+                .surface_ref(option.vol_id.as_str())?
                 .value_clamped(t, option.strike_rate)
         };
 

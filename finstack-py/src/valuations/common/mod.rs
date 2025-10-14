@@ -443,20 +443,6 @@ pub(crate) fn extract_instrument_id(value: &Bound<'_, PyAny>) -> PyResult<Instru
     ))
 }
 
-/// Leak a string to obtain a 'static lifetime reference.
-///
-/// This is useful when binding Rust types that require `&'static str` but
-/// we need to convert from Python strings or owned Strings. The memory
-/// will persist for the lifetime of the program.
-pub(crate) fn leak_str(value: &str) -> &'static str {
-    Box::leak(value.to_string().into_boxed_str())
-}
-
-/// Leak an optional string to obtain an Option<&'static str>.
-pub(crate) fn leak_optional_str(value: Option<&str>) -> Option<&'static str> {
-    value.map(leak_str)
-}
-
 /// Convert an optional string to owned String.
 pub(crate) fn to_optional_string(value: Option<&str>) -> Option<String> {
     value.map(|s| s.to_string())

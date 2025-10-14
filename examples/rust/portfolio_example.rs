@@ -943,7 +943,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .start(as_of)
         .maturity(date!(2029 - 01 - 01))  // 5Y maturity
         .fixed_rate(0.025)  // 2.5% fixed rate
-        .inflation_id("US-CPI")
+        .inflation_id("US-CPI".into())
         .disc_id("USD".into())
         .dc(finstack_core::dates::DayCount::Act365F)
         .side(PayReceiveInflation::ReceiveFixed)  // Receive fixed, pay inflation

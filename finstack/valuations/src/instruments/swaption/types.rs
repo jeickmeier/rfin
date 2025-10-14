@@ -99,7 +99,7 @@ pub struct Swaption {
     pub settlement: SwaptionSettlement,
     pub disc_id: CurveId,
     pub forward_id: CurveId,
-    pub vol_id: &'static str,
+    pub vol_id: CurveId,
     pub pricing_overrides: PricingOverrides,
     pub sabr_params: Option<SABRParameters>,
     pub attributes: Attributes,
@@ -112,7 +112,7 @@ impl Swaption {
         params: &SwaptionParams,
         disc_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
-        vol_id: &'static str,
+        vol_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -129,7 +129,7 @@ impl Swaption {
             settlement: SwaptionSettlement::Physical,
             disc_id: disc_id.into(),
             forward_id: forward_id.into(),
-            vol_id,
+            vol_id: vol_id.into(),
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
@@ -142,7 +142,7 @@ impl Swaption {
         params: &SwaptionParams,
         disc_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
-        vol_id: &'static str,
+        vol_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -159,7 +159,7 @@ impl Swaption {
             settlement: SwaptionSettlement::Physical,
             disc_id: disc_id.into(),
             forward_id: forward_id.into(),
-            vol_id,
+            vol_id: vol_id.into(),
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
@@ -183,10 +183,10 @@ impl Swaption {
             return self.price_sabr(disc, as_of);
         }
         let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
+        let vol_surface = curves.surface_ref(self.vol_id.as_str())?;
         let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = curves.surface_ref(self.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, self.strike_rate)
         };
         self.price_black(disc, vol, as_of)

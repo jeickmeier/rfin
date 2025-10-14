@@ -58,7 +58,7 @@ pub struct InterestRateOption {
     /// Forward curve identifier
     pub forward_id: CurveId,
     /// Volatility surface identifier
-    pub vol_id: &'static str,
+    pub vol_id: CurveId,
     /// Pricing overrides (including implied volatility)
     pub pricing_overrides: PricingOverrides,
     /// Additional attributes
@@ -74,7 +74,7 @@ impl InterestRateOption {
         end_date: Date,
         disc_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
-        vol_id: &'static str,
+        vol_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -92,7 +92,7 @@ impl InterestRateOption {
             settlement: SettlementType::Cash,
             disc_id: disc_id.into(),
             forward_id: forward_id.into(),
-            vol_id,
+            vol_id: vol_id.into(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
@@ -110,7 +110,7 @@ impl InterestRateOption {
         day_count: DayCount,
         disc_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
-        vol_id: &'static str,
+        vol_id: impl Into<CurveId>,
     ) -> Self {
         let option_params =
             InterestRateOptionParams::cap(notional, strike_rate, frequency, day_count);
@@ -137,7 +137,7 @@ impl InterestRateOption {
         day_count: DayCount,
         disc_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
-        vol_id: &'static str,
+        vol_id: impl Into<CurveId>,
     ) -> Self {
         let option_params =
             InterestRateOptionParams::floor(notional, strike_rate, frequency, day_count);
@@ -213,7 +213,7 @@ impl InterestRateOption {
         let disc_curve = curves.get_discount_ref(self.disc_id.as_ref())?;
         let fwd_curve = curves.get_forward_ref(self.forward_id.as_ref())?;
         let vol_surface = if self.pricing_overrides.implied_volatility.is_none() {
-            Some(curves.surface_ref(self.vol_id)?)
+            Some(curves.surface_ref(self.vol_id.as_str())?)
         } else {
             None
         };

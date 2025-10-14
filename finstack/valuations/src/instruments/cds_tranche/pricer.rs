@@ -51,6 +51,24 @@ use finstack_core::prelude::*;
 #[cfg(test)]
 use finstack_core::math::log_factorial;
 
+const DEFAULT_QUADRATURE_ORDER: u8 = 7;
+const DEFAULT_MIN_CORRELATION: f64 = 0.01;
+const DEFAULT_MAX_CORRELATION: f64 = 0.99;
+const DEFAULT_CS01_BUMP_SIZE: f64 = 1.0;
+const DEFAULT_CORR_BUMP_ABS: f64 = 0.01;
+const DEFAULT_CORR_BOUNDARY_WIDTH: f64 = 0.005;
+const DEFAULT_AOD_ALLOCATION_FRACTION: f64 = 0.5;
+const DEFAULT_NUMERICAL_TOLERANCE: f64 = 1e-10;
+const DEFAULT_CDF_CLIP: f64 = 10.0;
+const DEFAULT_ADAPTIVE_INTEGRATION_LOW: f64 = 0.05;
+const DEFAULT_ADAPTIVE_INTEGRATION_HIGH: f64 = 0.95;
+const DEFAULT_GRID_STEP: f64 = 0.001;
+const DEFAULT_SPA_VARIANCE_FLOOR: f64 = 1e-14;
+const DEFAULT_PROBABILITY_CLIP: f64 = 1e-12;
+const DEFAULT_LGD_FLOOR: f64 = 1e-6;
+const DEFAULT_GRID_STEP_MIN: f64 = 1e-6;
+const DEFAULT_MAX_GRID_POINTS: usize = 200_000;
+
 /// Parameters for the Gaussian Copula pricing model.
 #[derive(Clone, Debug)]
 pub struct CDSTranchePricerConfig {
@@ -107,30 +125,30 @@ pub struct CDSTranchePricerConfig {
 impl Default for CDSTranchePricerConfig {
     fn default() -> Self {
         Self {
-            quadrature_order: 7,     // Good balance of accuracy and performance
-            use_issuer_curves: true, // Use heterogeneous modeling when available
-            min_correlation: 0.01,   // Numerical stability floor
-            max_correlation: 0.99,   // Numerical stability ceiling
-            cs01_bump_size: 1.0,     // 1 bp by default
+            quadrature_order: DEFAULT_QUADRATURE_ORDER,
+            use_issuer_curves: true,
+            min_correlation: DEFAULT_MIN_CORRELATION,
+            max_correlation: DEFAULT_MAX_CORRELATION,
+            cs01_bump_size: DEFAULT_CS01_BUMP_SIZE,
             cs01_bump_units: Cs01BumpUnits::HazardRateBp,
-            corr_bump_abs: 0.01,          // 1% absolute correlation bump
-            mid_period_protection: false, // End-of-period discounting by default
+            corr_bump_abs: DEFAULT_CORR_BUMP_ABS,
+            mid_period_protection: false,
             accrual_on_default_enabled: true,
-            corr_boundary_width: 0.005,   // 0.5% transition zone
-            aod_allocation_fraction: 0.5, // Standard mid-period default assumption
-            numerical_tolerance: 1e-10,   // Integration tolerance
-            cdf_clip: 10.0,               // Clip for CDF arguments
-            adaptive_integration_low: 0.05,
-            adaptive_integration_high: 0.95,
+            corr_boundary_width: DEFAULT_CORR_BOUNDARY_WIDTH,
+            aod_allocation_fraction: DEFAULT_AOD_ALLOCATION_FRACTION,
+            numerical_tolerance: DEFAULT_NUMERICAL_TOLERANCE,
+            cdf_clip: DEFAULT_CDF_CLIP,
+            adaptive_integration_low: DEFAULT_ADAPTIVE_INTEGRATION_LOW,
+            adaptive_integration_high: DEFAULT_ADAPTIVE_INTEGRATION_HIGH,
             schedule_stub: StubKind::None,
             use_isda_coupon_dates: false,
             hetero_method: HeteroMethod::Spa,
-            grid_step: 0.001, // 10 bps of portfolio notional
-            spa_variance_floor: 1e-14,
-            probability_clip: 1e-12,
-            lgd_floor: 1e-6,
-            grid_step_min: 1e-6,
-            max_grid_points: 200_000,
+            grid_step: DEFAULT_GRID_STEP,
+            spa_variance_floor: DEFAULT_SPA_VARIANCE_FLOOR,
+            probability_clip: DEFAULT_PROBABILITY_CLIP,
+            lgd_floor: DEFAULT_LGD_FLOOR,
+            grid_step_min: DEFAULT_GRID_STEP_MIN,
+            max_grid_points: DEFAULT_MAX_GRID_POINTS,
         }
     }
 }
@@ -1429,7 +1447,7 @@ mod tests {
     #[test]
     fn test_model_creation() {
         let model = CDSTranchePricer::new();
-        assert_eq!(model.params.quadrature_order, 7);
+        assert_eq!(model.params.quadrature_order, DEFAULT_QUADRATURE_ORDER);
         assert!(model.params.use_issuer_curves);
     }
 

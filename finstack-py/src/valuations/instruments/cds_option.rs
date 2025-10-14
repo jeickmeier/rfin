@@ -2,7 +2,7 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{
-    extract_curve_id, extract_instrument_id, leak_str, PyInstrumentType,
+    extract_curve_id, extract_instrument_id, PyInstrumentType,
 };
 use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
 use finstack_valuations::instruments::cds_option::CdsOption;
@@ -142,8 +142,8 @@ impl PyCdsOption {
             id,
             &option_params,
             &credit_params,
-            leak_str(discount.as_str()),
-            leak_str(vol_surface),
+            discount.as_str(),
+            vol_surface,
         );
         Ok(Self::new(option))
     }

@@ -1,10 +1,41 @@
 //! Volatility surface shock adapter.
+//!
+//! Supports both parallel and bucketed volatility adjustments that power the
+//! `OperationSpec::VolSurfaceParallelPct` and `OperationSpec::VolSurfaceBucketPct`
+//! variants. The helpers rebuild the vol surface from the shocked grid so that
+//! the resulting object remains Serde-friendly and deterministic.
 
 use crate::error::{Error, Result};
 use crate::utils::parse_tenor_to_years;
 use finstack_core::market_data::MarketContext;
 
-/// Apply parallel percent shock to a volatility surface.
+/// Apply a parallel percentage shock to a volatility surface.
+///
+/// # Arguments
+/// - `market`: Market context where the target surface is stored.
+/// - `surface_id`: Identifier of the volatility surface.
+/// - `pct`: Percentage change to apply.
+///
+/// # Returns
+/// [`Result`](crate::error::Result) that becomes `Ok(())` when the shock
+/// succeeds.
+///
+/// # Errors
+/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound) if
+///   the surface cannot be found.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::adapters::vol::apply_vol_parallel_shock;
+/// use finstack_core::market_data::MarketContext;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut market = MarketContext::new();
+/// // ... insert a surface ...
+/// apply_vol_parallel_shock(&mut market, "SPX_VOL", 12.5)?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn apply_vol_parallel_shock(
     market: &mut MarketContext,
     surface_id: &str,
@@ -24,10 +55,48 @@ pub fn apply_vol_parallel_shock(
     Ok(())
 }
 
-/// Apply bucketed percent shock to a volatility surface.
+/// Apply a bucketed percentage shock to a volatility surface.
 ///
-/// Only shocks buckets that match the tenor and/or strike filters.
-/// Unmatched buckets remain unchanged.
+/// Only buckets matching the provided tenor and strike filters are shocked; all
+/// others remain unchanged. Filters are optional, allowing callers to target
+/// just the tenor dimension, just the strike dimension, or both together.
+///
+/// # Arguments
+/// - `market`: Market context being mutated.
+/// - `surface_id`: Identifier of the volatility surface.
+/// - `tenors`: Optional slice of tenor strings to match (e.g., `["1M", "3M"]`).
+/// - `strikes`: Optional slice of strikes to match (absolute, not relative).
+/// - `pct`: Percentage change to apply to matching buckets.
+///
+/// # Returns
+/// [`Result`](crate::error::Result) which is `Ok(())` on success.
+///
+/// # Errors
+/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound)
+///   when the surface cannot be located.
+/// - [`Error::InvalidTenor`](crate::error::Error::InvalidTenor) if tenor
+///   strings cannot be parsed.
+/// - [`Error::Internal`](crate::error::Error::Internal) if rebuilding the
+///   updated surface fails validation.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::adapters::vol::apply_vol_bucket_shock;
+/// use finstack_core::market_data::MarketContext;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut market = MarketContext::new();
+/// // ... insert a surface ...
+/// apply_vol_bucket_shock(
+///     &mut market,
+///     "SPX_VOL",
+///     Some(&["1M".into(), "3M".into()]),
+///     Some(&[90.0, 100.0]),
+///     15.0,
+/// )?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn apply_vol_bucket_shock(
     market: &mut MarketContext,
     surface_id: &str,

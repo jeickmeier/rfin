@@ -1,15 +1,37 @@
 //! Instrument-level shock adapters.
+//!
+//! Applies metadata-driven price and spread shocks to instrument collections,
+//! enabling `OperationSpec` variants to affect subsets of a portfolio by type.
 
 use crate::error::Result;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 
-/// Apply percent shock to instruments matching given types.
+/// Apply a percentage price shock to instruments matching the provided types.
 ///
-/// This operates on a vector of instruments and applies a price shock
-/// to all instruments whose type matches one of the target types.
+/// # Arguments
+/// - `instruments`: Slice of instrument trait objects to mutate.
+/// - `instrument_types`: Instrument types that should receive the shock.
+/// - `pct`: Percentage change to attach as metadata.
 ///
-/// Returns the count of affected instruments.
+/// # Returns
+/// [`Result`](crate::error::Result) containing the number of instruments that
+/// were updated.
+///
+/// # Errors
+/// Currently always returns `Ok`; the [`Result`](crate::error::Result) wrapper
+/// is reserved for future validation failures.
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::adapters::instruments::apply_instrument_type_price_shock;
+/// use finstack_valuations::instruments::common::traits::Instrument;
+/// use finstack_valuations::pricer::InstrumentType;
+///
+/// fn run(mut instruments: Vec<Box<dyn Instrument>>) -> finstack_scenarios::Result<usize> {
+///     apply_instrument_type_price_shock(&mut instruments, &[InstrumentType::Bond], -3.0)
+/// }
+/// ```
 pub fn apply_instrument_type_price_shock(
     instruments: &mut [Box<dyn Instrument>],
     instrument_types: &[InstrumentType],
@@ -35,11 +57,31 @@ pub fn apply_instrument_type_price_shock(
     Ok(count)
 }
 
-/// Apply spread shock (in bp) to instruments matching given types.
+/// Apply a spread shock (basis points) to instruments matching the provided types.
 ///
-/// This is primarily applicable to fixed income instruments (bonds, CDS, etc.).
+/// # Arguments
+/// - `instruments`: Slice of instrument trait objects to mutate.
+/// - `instrument_types`: Instrument types that should receive the spread shock.
+/// - `bp`: Basis-point change to attach as metadata.
 ///
-/// Returns the count of affected instruments.
+/// # Returns
+/// [`Result`](crate::error::Result) containing the number of instruments that
+/// were updated.
+///
+/// # Errors
+/// Currently always returns `Ok`; errors may be introduced in the future to
+/// surface validation failures.
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::adapters::instruments::apply_instrument_type_spread_shock;
+/// use finstack_valuations::instruments::common::traits::Instrument;
+/// use finstack_valuations::pricer::InstrumentType;
+///
+/// fn run(mut instruments: Vec<Box<dyn Instrument>>) -> finstack_scenarios::Result<usize> {
+///     apply_instrument_type_spread_shock(&mut instruments, &[InstrumentType::CDS], 25.0)
+/// }
+/// ```
 pub fn apply_instrument_type_spread_shock(
     instruments: &mut [Box<dyn Instrument>],
     instrument_types: &[InstrumentType],

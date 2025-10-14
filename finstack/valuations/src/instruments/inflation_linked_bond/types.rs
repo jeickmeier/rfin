@@ -173,7 +173,7 @@ pub struct InflationLinkedBond {
     /// Stub convention
     pub stub: StubKind,
     /// Holiday calendar identifier
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     /// Discount curve identifier (real or nominal depending on method)
     pub disc_id: CurveId,
     /// Inflation index identifier
@@ -357,7 +357,7 @@ impl InflationLinkedBond {
             self.freq,
             self.stub,
             self.bdc,
-            self.calendar_id,
+            self.calendar_id.as_deref(),
         );
         let dates = sched.dates;
         if dates.len() < 2 {

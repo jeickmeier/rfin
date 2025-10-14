@@ -2,7 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
@@ -41,9 +41,6 @@ impl JsInflationSwap {
         let side_value = parse_optional_with_default(side, PayReceiveInflation::PayFixed)?;
         let dc = parse_optional_with_default(day_count, DayCount::ActAct)?;
 
-        let inflation_id = optional_static_str(Some(inflation_curve.to_string()))
-            .ok_or_else(|| js_error("inflation_curve required".to_string()))?;
-
         let builder = InflationSwap::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
@@ -51,7 +48,7 @@ impl JsInflationSwap {
             .start(start_date.inner())
             .maturity(maturity.inner())
             .disc_id(curve_id_from_str(discount_curve))
-            .inflation_id(inflation_id)
+            .inflation_id(inflation_curve.into())
             .dc(dc)
             .side(side_value)
             .attributes(Default::default());

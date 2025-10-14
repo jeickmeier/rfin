@@ -3,7 +3,7 @@ use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{
-    extract_curve_id, extract_instrument_id, leak_optional_str, PyInstrumentType,
+    extract_curve_id, extract_instrument_id, PyInstrumentType,
 };
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
@@ -177,7 +177,7 @@ impl PyInflationLinkedBond {
         builder = builder.deflation_protection(deflation);
         builder = builder.bdc(BusinessDayConvention::Following);
         builder = builder.stub(StubKind::None);
-        builder = builder.calendar_id_opt(leak_optional_str(calendar));
+        builder = builder.calendar_id_opt(calendar.map(|s| s.to_string()));
         builder = builder.disc_id(disc_id);
         builder = builder.inflation_id(inflation_id);
         builder = builder.attributes(Default::default());

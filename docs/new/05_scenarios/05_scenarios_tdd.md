@@ -1106,7 +1106,6 @@ impl ComposedScenarioBuilder {
             operations: self.operations,
             metadata: CompositionMetadata {
                 total_scenarios: self.includes.len() + 1,
-                conflict_count: 0, // TODO: Track during composition
                 rules: self.rules,
                 conflict_strategy: self.rules.conflict_strategy, // duplicate for convenience
             },

@@ -52,7 +52,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         } else {
             context
                 .curves
-                .surface_ref(option.vol_id)
+                .surface_ref(option.vol_id.as_str())
                 .map(|s| s.value_clamped(t, option.strike_rate))
                 .unwrap_or(0.2)
         };

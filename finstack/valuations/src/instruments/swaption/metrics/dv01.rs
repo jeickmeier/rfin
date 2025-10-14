@@ -48,7 +48,7 @@ impl MetricCalculator for SwaptionDv01Calculator {
         let vol = if let Some(impl_vol) = swaption.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface_ref(swaption.vol_id)?;
+            let vol_surface = context.curves.surface_ref(swaption.vol_id.as_str())?;
             vol_surface.value_clamped(time_to_expiry, swaption.strike_rate)
         };
 

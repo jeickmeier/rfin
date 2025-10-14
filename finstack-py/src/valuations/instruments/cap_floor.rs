@@ -3,8 +3,7 @@ use crate::core::common::args::DayCountArg;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{
-    extract_curve_id, extract_instrument_id, frequency_from_payments_per_year, leak_str,
-    PyInstrumentType,
+    extract_curve_id, extract_instrument_id, frequency_from_payments_per_year, PyInstrumentType,
 };
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::cap_floor::InterestRateOption;
@@ -12,10 +11,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
-
-fn leak_vol_id(vol: Option<&str>) -> &'static str {
-    vol.map_or("IR-CAP-VOL", leak_str)
-}
 
 fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
     if let Some(bound) = dc {
@@ -116,7 +111,7 @@ impl PyInterestRateOption {
         let fwd = extract_curve_id(&forward_curve)?;
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
-        let vol_id = leak_vol_id(vol_surface);
+        let vol_id = vol_surface.unwrap_or("IR-CAP-VOL");
 
         let option =
             InterestRateOption::new_cap(id, amt, strike, start, end, freq, dc, disc, fwd, vol_id);
@@ -181,7 +176,7 @@ impl PyInterestRateOption {
         let fwd = extract_curve_id(&forward_curve)?;
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
-        let vol_id = leak_vol_id(vol_surface);
+        let vol_id = vol_surface.unwrap_or("IR-CAP-VOL");
 
         let option =
             InterestRateOption::new_floor(id, amt, strike, start, end, freq, dc, disc, fwd, vol_id);
@@ -256,8 +251,8 @@ impl PyInterestRateOption {
     /// Returns:
     ///     str: Volatility surface used for option pricing.
     #[getter]
-    fn vol_surface(&self) -> &'static str {
-        self.inner.vol_id
+    fn vol_surface(&self) -> &str {
+        self.inner.vol_id.as_str()
     }
 
     /// Instrument type enumeration.

@@ -1,4 +1,8 @@
 //! Time roll-forward adapter with carry/theta calculations.
+//!
+//! Implements the `OperationSpec::TimeRollForward` variant by advancing the
+//! valuation date, recomputing time-dependent instrument metrics, and returning
+//! a structured report of the resulting P&L decomposition.
 
 use crate::engine::ExecutionContext;
 use crate::error::Result;
@@ -6,6 +10,23 @@ use crate::utils::parse_period_to_days;
 use finstack_valuations::instruments::common::traits::Instrument;
 
 /// Report from time roll-forward operation.
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::adapters::RollForwardReport;
+/// use time::macros::date;
+///
+/// let report = RollForwardReport {
+///     old_date: date!(2025 - 01 - 01),
+///     new_date: date!(2025 - 02 - 01),
+///     days: 31,
+///     instrument_carry: vec![("BondA".into(), 1.23)],
+///     instrument_mv_change: vec![("BondA".into(), 0.0)],
+///     total_carry: 1.23,
+///     total_mv_change: 0.0,
+/// };
+/// assert_eq!(report.days, 31);
+/// ```
 #[derive(Debug, Clone)]
 pub struct RollForwardReport {
     /// Original as-of date.
@@ -30,14 +51,50 @@ pub struct RollForwardReport {
     pub total_mv_change: f64,
 }
 
-/// Apply time roll-forward operation.
+/// Apply a time roll-forward operation.
 ///
-/// This advances the valuation date by the specified period and computes carry/theta
-/// for each instrument. Theta is calculated as the PV change from rolling the date
-/// forward while keeping all market data unchanged (curves, surfaces, FX rates).
+/// The function advances the valuation date by the requested period and computes
+/// theta/carry for each instrument (if a portfolio is supplied). Theta is defined
+/// as the PV change resulting purely from the passage of time while holding
+/// market data constant.
 ///
-/// The calculation is consistent with the theta metric definition: it measures
-/// the value impact of time passage with no market changes, only rolling down curves.
+/// # Arguments
+/// - `ctx`: Execution context providing the mutable valuation date, market data,
+///   and optional instruments.
+/// - `period_str`: Period string such as `"1D"`, `"1W"`, `"1M"`, or `"1Y"`.
+///
+/// # Returns
+/// [`RollForwardReport`] summarising the new date and P&L breakdown.
+///
+/// # Errors
+/// - [`Error::InvalidPeriod`](crate::error::Error::InvalidPeriod) if the period
+///   string cannot be parsed.
+/// - Propagates any errors encountered while revaluing instruments.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::ExecutionContext;
+/// use finstack_scenarios::adapters::time_roll::apply_time_roll_forward;
+/// use finstack_core::market_data::MarketContext;
+/// use finstack_statements::FinancialModelSpec;
+/// use time::macros::date;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut market = MarketContext::new();
+/// let mut model = FinancialModelSpec::new("demo", vec![]);
+/// let as_of = date!(2025 - 01 - 01);
+/// let mut ctx = ExecutionContext {
+///     market: &mut market,
+///     model: &mut model,
+///     instruments: None,
+///     rate_bindings: None,
+///     as_of,
+/// };
+/// let report = apply_time_roll_forward(&mut ctx, "1M")?;
+/// assert_eq!(report.days, 30);
+/// # Ok(())
+/// # }
+/// ```
 pub fn apply_time_roll_forward(
     ctx: &mut ExecutionContext,
     period_str: &str,

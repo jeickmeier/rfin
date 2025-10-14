@@ -1,4 +1,8 @@
-//! Adapters for applying shocks to market data and statements.
+//! Adapter modules that implement the mechanics of each `OperationSpec`.
+//!
+//! Scenario operations are intentionally small data structures. The functions
+//! exported from these submodules contain the business logic for applying
+//! shocks to market data, financial statements, instruments, and time.
 
 pub mod basecorr;
 pub mod curves;

@@ -24,7 +24,7 @@ impl MetricCalculator for RhoCalculator {
         let vol = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface_ref(option.vol_id)?;
+            let vol_surface = context.curves.surface_ref(option.vol_id.as_str())?;
             vol_surface.value_clamped(time_to_expiry, option.strike_rate)
         };
 

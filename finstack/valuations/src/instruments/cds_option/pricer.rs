@@ -87,7 +87,7 @@ impl CdsOptionPricer {
             vol
         } else {
             curves
-                .surface_ref(option.vol_id)?
+                .surface_ref(option.vol_id.as_str())?
                 .value_clamped(t, option.strike_spread_bp)
         };
 
@@ -409,7 +409,7 @@ impl CdsOptionPricer {
             v
         } else {
             curves
-                .surface_ref(option.vol_id)
+                .surface_ref(option.vol_id.as_str())
                 .ok()
                 .map(|s| s.value_clamped(t, option.strike_spread_bp))
                 .unwrap_or(self.config.iv_initial_guess)

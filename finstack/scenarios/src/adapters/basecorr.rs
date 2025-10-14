@@ -1,10 +1,40 @@
 //! Base correlation shock adapter.
+//!
+//! Contains helpers for both parallel and bucketed base correlation shocks,
+//! used by the base-correlation `OperationSpec` variants.
 
 use crate::error::{Error, Result};
 use finstack_core::market_data::bumps::{BumpSpec, Bumpable};
 use finstack_core::market_data::MarketContext;
 
-/// Apply parallel point shock to a base correlation surface.
+/// Apply a parallel point shock to a base correlation surface.
+///
+/// # Arguments
+/// - `market`: Market context containing the surface to update.
+/// - `surface_id`: Identifier of the base correlation surface.
+/// - `points`: Additive change to apply, expressed in absolute correlation points.
+///
+/// # Returns
+/// [`Result`](crate::error::Result) with `Ok(())` on success.
+///
+/// # Errors
+/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound) if
+///   the surface cannot be located.
+/// - [`Error::UnsupportedOperation`](crate::error::Error::UnsupportedOperation)
+///   if the underlying surface cannot be bumped.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::adapters::basecorr::apply_basecorr_parallel_shock;
+/// use finstack_core::market_data::MarketContext;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut market = MarketContext::new();
+/// // ... load a base correlation surface ...
+/// apply_basecorr_parallel_shock(&mut market, "CDX_IG", 0.05)?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn apply_basecorr_parallel_shock(
     market: &mut MarketContext,
     surface_id: &str,
@@ -32,13 +62,46 @@ pub fn apply_basecorr_parallel_shock(
     Ok(())
 }
 
-/// Apply bucket-specific point shock to base correlation surface.
+/// Apply a bucket-specific point shock to a base correlation surface.
 ///
-/// Only shocks buckets that match the detachment point filters.
-/// Unmatched buckets remain unchanged.
+/// Only detachment points that match the optional filters are adjusted; other
+/// detachment points are left untouched. The `maturities` parameter is currently
+/// unused, but kept for future compatibility with more granular filtering.
 ///
-/// Note: The `maturities` filter is applied via curve ID matching.
-/// For simplicity, this implementation filters only by detachment points within a curve.
+/// # Arguments
+/// - `market`: Market context containing the surface to update.
+/// - `surface_id`: Identifier of the base correlation surface.
+/// - `detachment_bps`: Optional detachment points (in basis points) to target.
+/// - `_maturities`: Placeholder for maturity filters (currently ignored).
+/// - `points`: Additive change to apply to matching buckets.
+///
+/// # Returns
+/// [`Result`](crate::error::Result) with `Ok(())` on success.
+///
+/// # Errors
+/// - [`Error::MarketDataNotFound`](crate::error::Error::MarketDataNotFound) if
+///   the surface cannot be found.
+/// - [`Error::Internal`](crate::error::Error::Internal) if rebuilding the
+///   surface fails.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_scenarios::adapters::basecorr::apply_basecorr_bucket_shock;
+/// use finstack_core::market_data::MarketContext;
+///
+/// # fn main() -> finstack_scenarios::Result<()> {
+/// let mut market = MarketContext::new();
+/// // ... load a base correlation surface ...
+/// apply_basecorr_bucket_shock(
+///     &mut market,
+///     "CDX_IG",
+///     Some(&[300, 700]),
+///     None,
+///     0.02,
+/// )?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn apply_basecorr_bucket_shock(
     market: &mut MarketContext,
     surface_id: &str,

@@ -1,11 +1,53 @@
-//! Error types for the scenarios crate.
+//! Errors emitted by the scenarios crate.
+//!
+//! Most adapter functions and engine methods return the [`Result`] alias which
+//! wraps this [`Error`] type. Variants attempt to surface actionable messages so
+//! callers can decide whether to retry, skip, or abort a scenario application.
 
 use thiserror::Error;
 
-/// Result type alias using the scenarios error type.
+/// Convenient result alias used across the crate.
+///
+/// Returning this type ensures downstream callers can pattern match on
+/// [`Error`] without importing `std::result::Result`.
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::error::{Error, Result};
+///
+/// fn compute(flag: bool) -> Result<()> {
+///     if flag {
+///         Ok(())
+///     } else {
+///         Err(Error::Validation("flag must be true".into()))
+///     }
+/// }
+///
+/// assert!(compute(true).is_ok());
+/// assert!(compute(false).is_err());
+/// ```
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors that can occur during scenario execution.
+///
+/// The variants are intentionally granular so adapters can convey the precise
+/// failure reason (missing market data, invalid tenor, unsupported operation,
+/// and so on).
+///
+/// # Examples
+/// ```rust
+/// use finstack_scenarios::error::Error;
+///
+/// fn classify(err: Error) -> &'static str {
+///     match err {
+///         Error::MarketDataNotFound { .. } => "market",
+///         Error::NodeNotFound { .. } => "statements",
+///         _ => "other",
+///     }
+/// }
+///
+/// assert_eq!(classify(Error::NodeNotFound { node_id: "Revenue".into() }), "statements");
+/// ```
 #[derive(Error, Debug)]
 pub enum Error {
     /// Market data element not found.

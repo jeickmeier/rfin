@@ -2,7 +2,7 @@ use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{
-    extract_curve_id, extract_instrument_id, leak_str, PyInstrumentType,
+    extract_curve_id, extract_instrument_id, PyInstrumentType,
 };
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
@@ -129,9 +129,9 @@ impl PyInflationSwap {
             DayCount::ActAct
         };
         let inflation_identifier = if let Some(explicit) = inflation_id {
-            leak_str(explicit)
+            explicit
         } else if let Some(label) = inflation_index.or(inflation_curve) {
-            leak_str(label)
+            label
         } else {
             return Err(PyValueError::new_err(
                 "inflation_index or inflation_curve must be provided",
@@ -145,7 +145,7 @@ impl PyInflationSwap {
         builder = builder.start(start);
         builder = builder.maturity(end);
         builder = builder.disc_id(disc_id);
-        builder = builder.inflation_id(inflation_identifier);
+        builder = builder.inflation_id(inflation_identifier.into());
         builder = builder.dc(dc);
         builder = builder.side(side_value);
         if let Some(lag) = lag_override {

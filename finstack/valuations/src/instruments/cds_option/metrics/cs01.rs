@@ -137,7 +137,7 @@ mod tests {
             recovery_rate: 0.4,
             disc_id: "USD_OIS".into(),
             credit_id: "CORP_HAZARD".into(),
-            vol_id: "CDS_VOL",
+            vol_id: "CDS_VOL".into(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Default::default(),
             underlying_is_index: false,

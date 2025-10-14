@@ -56,7 +56,7 @@ pub struct InflationSwap {
     /// Fixed real rate (as decimal)
     pub fixed_rate: f64,
     /// Inflation index identifier (e.g., US-CPI-U)
-    pub inflation_id: &'static str,
+    pub inflation_id: CurveId,
     /// Discount curve identifier (quote currency)
     pub disc_id: CurveId,
     /// Day count for any accrual-style metrics if needed
@@ -78,8 +78,8 @@ impl InflationSwap {
         curves: &MarketContext,
         discount_base: Date,
     ) -> finstack_core::Result<f64> {
-        let inflation_index = curves.inflation_index_ref(self.inflation_id);
-        let inflation_curve = curves.get_inflation_ref(self.inflation_id)?;
+        let inflation_index = curves.inflation_index_ref(self.inflation_id.as_str());
+        let inflation_curve = curves.get_inflation_ref(self.inflation_id.as_str())?;
 
         let i_start = if let Some(index) = inflation_index {
             index.value_on(self.start)?

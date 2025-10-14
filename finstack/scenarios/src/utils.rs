@@ -1,14 +1,32 @@
-//! Utility functions for scenario operations.
+//! Utility helpers for converting tenor and period strings.
+//!
+//! Adapters rely on these parsing helpers to turn human-readable inputs such as
+//! `"5Y"` or `"3M"` into normalised numeric representations. The functions
+//! return [`Result`](crate::error::Result) so they can bubble up friendly error
+//! messages into the higher-level adapters.
 
 use crate::error::{Error, Result};
 
-/// Parse a tenor string to years.
+/// Parse a tenor string to a fractional number of years.
 ///
 /// Supports formats like:
 /// - "1D", "7D" → days
 /// - "1W", "4W" → weeks
 /// - "1M", "6M" → months (30-day approximation)
 /// - "1Y", "5Y", "10Y" → years
+///
+/// # Arguments
+/// - `tenor`: Tenor string in the formats listed above. Leading/trailing
+///   whitespace is ignored, and input is case-insensitive.
+///
+/// # Returns
+/// Number of years represented by the tenor. For example `"6M"` produces
+/// `0.5` and `"1W"` produces roughly `0.01918`.
+///
+/// # Errors
+/// Returns [`Error::InvalidTenor`](crate::error::Error::InvalidTenor) if the
+/// string is empty, lacks a unit component, contains a non-numeric value, or
+/// specifies an unsupported unit.
 ///
 /// # Examples
 /// ```
@@ -47,13 +65,23 @@ pub fn parse_tenor_to_years(tenor: &str) -> Result<f64> {
     Ok(years)
 }
 
-/// Parse a period string to days.
+/// Parse a period string to an integer number of days.
 ///
 /// Supports formats like:
 /// - "1D", "7D" → days
 /// - "1W" → 7 days
 /// - "1M" → 30 days
 /// - "1Y" → 365 days
+///
+/// # Arguments
+/// - `period`: Period string matching one of the supported formats.
+///
+/// # Returns
+/// Number of days represented by the period.
+///
+/// # Errors
+/// Returns [`Error::InvalidPeriod`](crate::error::Error::InvalidPeriod) if the
+/// string cannot be parsed.
 ///
 /// # Examples
 /// ```
