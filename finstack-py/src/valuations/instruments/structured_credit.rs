@@ -18,8 +18,7 @@ fn parse_structured_credit_json(value: &Bound<'_, PyAny>) -> PyResult<Structured
 
 /// Unified structured credit instrument wrapper (ABS, CLO, CMBS, RMBS).
 ///
-/// This single Python class replaces the previous separate `Abs`, `Clo`, `Cmbs`,
-/// and `Rmbs` classes, providing a cleaner API with deal type discrimination.
+/// This single Python class provides a cleaner API with deal type discrimination.
 ///
 /// Examples:
 ///     >>> deal = StructuredCredit.from_json(json.dumps({...}))

@@ -65,13 +65,6 @@ pub use swaption::Swaption;
 pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 pub use variance_swap::VarianceSwap;
 
-// === Type Aliases for Legacy Support ===
-// These allow existing code using Abs, Clo, Cmbs, Rmbs to continue working
-pub type Abs = StructuredCredit;
-pub type Clo = StructuredCredit;
-pub type Cmbs = StructuredCredit;
-pub type Rmbs = StructuredCredit;
-
 // === Common Functionality ===
 pub use common::build_with_metrics_dyn;
 pub use common::discountable::Discountable;

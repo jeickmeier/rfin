@@ -85,10 +85,7 @@ achieving feature parity with the Python bindings.
 
 #### Structured Products
 - `Basket` – multi-asset baskets (JSON-based).
-- `Abs` – asset-backed securities (JSON-based).
-- `Clo` – collateralized loan obligations (JSON-based).
-- `Cmbs` – commercial mortgage-backed securities (JSON-based).
-- `Rmbs` – residential mortgage-backed securities (JSON-based).
+- `StructuredCredit` – unified instrument for ABS, CLO, CMBS, and RMBS (JSON-based).
 - `PrivateMarketsFund` – private equity/credit funds with waterfall structures (JSON-based).
 
 #### Other Instruments
@@ -196,10 +193,7 @@ import init, {
     VarianceSwap,
     ConvertibleBond,
     Basket,
-    Abs,
-    Clo,
-    Cmbs,
-    Rmbs,
+    StructuredCredit,
     PrivateMarketsFund,
     
     // Pricing

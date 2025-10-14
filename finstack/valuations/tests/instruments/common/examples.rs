@@ -61,7 +61,7 @@ mod tests {
         assert_eq!(custom_config.default_assumptions.base_recovery_rate, 0.40); // CLO standard
 
         // This config can now be used in instrument construction
-        // (future enhancement: Clo::with_config(pool, tranches, custom_config))
+        // (future enhancement: StructuredCredit::with_config(pool, tranches, custom_config))
     }
 
     #[test]
