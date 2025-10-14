@@ -10,8 +10,9 @@ use finstack_valuations::calibration::methods::swaption_vol::{
 use finstack_valuations::calibration::{CalibrationConfig, Calibrator, VolQuote};
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::Swaption;
-use finstack_valuations::instruments::common::traits::Priceable;
+use finstack_valuations::instruments::Instrument;
 use time::Month;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Create test discount curve for forward rate calculations.
 fn create_test_discount_curve() -> DiscountCurve {
@@ -108,6 +109,44 @@ fn create_test_swaption_quotes() -> Vec<VolQuote> {
     ]
 }
 
+/// Create a richer quote set covering multiple expiries and tenors for convergence tests
+fn create_extended_swaption_quotes() -> Vec<VolQuote> {
+    let mut q = create_test_swaption_quotes();
+    // 2Y x 2Y grid around ATM
+    for (k, v) in [
+        (0.030, 0.0115),
+        (0.035, 0.0105),
+        (0.040, 0.0095),
+        (0.045, 0.0105),
+        (0.050, 0.0115),
+    ] {
+        q.push(VolQuote::SwaptionVol {
+            expiry: Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+            tenor: Date::from_calendar_date(2029, Month::January, 1).unwrap(),
+            strike: k,
+            vol: v,
+            quote_type: "STRIKE".to_string(),
+        });
+    }
+    // 0.5Y x 3Y
+    for (k, v) in [
+        (0.020, 0.013),
+        (0.025, 0.011),
+        (0.030, 0.010),
+        (0.035, 0.011),
+        (0.040, 0.013),
+    ] {
+        q.push(VolQuote::SwaptionVol {
+            expiry: Date::from_calendar_date(2025, Month::July, 1).unwrap(),
+            tenor: Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+            strike: k,
+            vol: v,
+            quote_type: "STRIKE".to_string(),
+        });
+    }
+    q
+}
+
 #[test]
 fn test_swaption_vol_calibration_direct() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -165,6 +204,38 @@ fn test_swaption_vol_calibration_direct() {
         vol_1_5y_3y < 1.0,
         "Interpolated volatility should be reasonable"
     );
+}
+
+#[test]
+fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let mut context = MarketContext::new();
+    context = context.insert_discount(create_test_discount_curve());
+
+    let calibrator = SwaptionVolCalibrator::new(
+        "TEST-SWAPTION-VOL-EXT",
+        SwaptionVolConvention::Normal,
+        AtmStrikeConvention::SwapRate,
+        base_date,
+        "USD-OIS",
+        Currency::USD,
+    )
+    .with_config(CalibrationConfig {
+        verbose: false,
+        max_iterations: 200,
+        tolerance: 1e-8,
+        ..CalibrationConfig::default()
+    });
+
+    let quotes = create_extended_swaption_quotes();
+    let (surface, report) = calibrator.calibrate(&quotes, &context).expect("calibration ok");
+    assert!(report.success);
+    assert!(report.iterations > 0);
+    // Interpolation checks at non-grid points
+    let v = surface.value(1.5, 2.5);
+    assert!(v.is_finite() && v > 0.0 && v < 1.0);
+    let v2 = surface.value(0.75, 3.5);
+    assert!(v2.is_finite() && v2 > 0.0 && v2 < 1.0);
 }
 
 #[test]
@@ -235,7 +306,6 @@ fn test_normal_vs_lognormal_conventions() {
 }
 
 #[test]
-#[ignore] // Skip for now - has stability issues with SABR in this specific configuration
 fn test_swaption_pricing_with_calibrated_surface() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 

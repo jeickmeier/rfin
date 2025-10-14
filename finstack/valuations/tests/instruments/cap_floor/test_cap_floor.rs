@@ -25,7 +25,7 @@ fn test_interest_rate_option_creation() {
         "USD-CAP-VOL",
     );
 
-    assert_eq!(cap.id, "USD_CAP_3%");
+    assert_eq!(cap.id, "USD_CAP_3%".into());
     assert_eq!(cap.strike_rate, 0.03);
     assert_eq!(cap.frequency, Frequency::quarterly());
 }

@@ -148,6 +148,32 @@ fn test_ir_future_all_metrics() {
 }
 
 #[test]
+fn test_ir_future_pv_metric_matches_value() {
+    let as_of = date!(2024 - 01 - 01);
+    let start = date!(2024 - 07 - 01);
+    let end = date!(2024 - 10 - 01);
+
+    let future = create_standard_future(start, end);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let pv_direct = future.value(&market, as_of).unwrap().amount();
+
+    let pv_metric_id = MetricId::custom("ir_future_pv");
+    let result = future
+        .price_with_metrics(&market, as_of, &[pv_metric_id])
+        .unwrap();
+
+    let pv_metric = *result.measures.get("ir_future_pv").unwrap();
+    assert!((pv_metric - pv_direct).abs() < 1e-9);
+}
+
+#[test]
 fn test_ir_future_near_expiry() {
     let as_of = date!(2024 - 01 - 01);
     let start = date!(2024 - 01 - 15);

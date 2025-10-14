@@ -68,18 +68,6 @@ impl Interp {
         }
     }
 
-    #[inline]
-    #[allow(dead_code)]
-    pub(crate) fn interp_prime(&self, x: f64) -> f64 {
-        match self {
-            Interp::Linear(i) => i.interp_prime(x),
-            Interp::LogLinear(i) => i.interp_prime(x),
-            Interp::MonotoneConvex(i) => i.interp_prime(x),
-            Interp::CubicHermite(i) => i.interp_prime(x),
-            Interp::FlatFwd(i) => i.interp_prime(x),
-        }
-    }
-
     /// Get the interpolation style of this Interp
     #[cfg(feature = "serde")]
     pub(crate) fn style(&self) -> InterpStyle {

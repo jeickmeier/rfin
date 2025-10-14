@@ -28,7 +28,7 @@ fn test_cds_creation_and_basic_pricing() {
     // Customize recovery rate
     cds.protection.recovery_rate = 0.4;
 
-    assert_eq!(cds.id, "CDS_TEST");
+    assert_eq!(cds.id.as_str(), "CDS_TEST");
     assert_eq!(cds.premium.spread_bp, 100.0);
     assert_eq!(cds.protection.recovery_rate, 0.4);
     assert_eq!(cds.convention, CDSConvention::IsdaNa);

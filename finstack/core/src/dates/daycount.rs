@@ -129,7 +129,7 @@ impl DayCount {
     ///
     /// # Note
     /// For `Bus/252`, this returns an error (requires calendar context via [`DayCountCtx`]).
-    #[allow(dead_code)]
+    #[cfg(test)]
     #[doc(hidden)]
     pub(crate) fn days(self, start: Date, end: Date) -> crate::Result<i32> {
         match start.cmp(&end) {

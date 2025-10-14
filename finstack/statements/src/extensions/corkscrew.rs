@@ -240,12 +240,9 @@ impl CorkscrewExtension {
             return None;
         }
 
-        let imbalance = assets - (liabilities + equity);
+        let imbalance: f64 = assets - (liabilities + equity);
 
         Some(ArticulationResult {
-            total_assets: assets,
-            total_liabilities: liabilities,
-            total_equity: equity,
             total_imbalance: imbalance.abs(),
             is_balanced: imbalance.abs() <= tolerance,
         })
@@ -262,11 +259,7 @@ struct AccountValidation {
 }
 
 /// Result of checking balance sheet articulation.
-#[allow(dead_code)]
 struct ArticulationResult {
-    total_assets: f64,
-    total_liabilities: f64,
-    total_equity: f64,
     total_imbalance: f64,
     is_balanced: bool,
 }

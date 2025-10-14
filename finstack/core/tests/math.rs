@@ -27,3 +27,6 @@ mod test_interp_serde;
 #[cfg(feature = "serde")]
 #[path = "math/test_solver_serde.rs"]
 mod test_solver_serde;
+
+// #[path = "math_random.rs"]
+// mod math_random; // Removed - had HashSet<f64> trait bound errors

@@ -42,17 +42,11 @@ impl CashflowProvider for TestCashflowProvider {
 #[derive(Debug, Clone)]
 struct TestPriceable {
     value: Money,
-    #[allow(dead_code)]
-    measures: HashMap<String, F>,
 }
 
 impl TestPriceable {
     fn new(value: Money) -> Self {
-        let mut measures = HashMap::new();
-        measures.insert("duration".to_string(), 2.5);
-        measures.insert("convexity".to_string(), 0.1);
-
-        Self { value, measures }
+        Self { value }
     }
 }
 

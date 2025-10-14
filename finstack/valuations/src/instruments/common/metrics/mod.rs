@@ -7,4 +7,7 @@
 pub mod bucketed_dv01;
 pub mod theta_utils;
 
+#[cfg(test)]
+mod tests;
+
 pub use bucketed_dv01::{GenericBucketedDv01, GenericBucketedDv01WithContext, HasDiscountCurve};

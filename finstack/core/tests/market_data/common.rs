@@ -3,7 +3,7 @@ use std::sync::Arc;
 use finstack_core::dates::Date;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-use finstack_core::market_data::term_structures::discount_curve::{DiscountCurve, DiscountCurveBuilder};
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
@@ -67,15 +67,3 @@ pub(crate) fn sample_vol_surface() -> Arc<VolSurface> {
     )
 }
 
-#[allow(dead_code)]
-pub(crate) fn discount_curve_with_custom_builder<F>(id: &str, mut build: F) -> DiscountCurve
-where
-    F: FnMut(DiscountCurveBuilder) -> DiscountCurveBuilder,
-{
-    let builder = DiscountCurve::builder(id).base_date(sample_base_date());
-    build(builder)
-        .knots([(0.0, 1.0), (1.0, 0.97), (5.0, 0.9)])
-        .set_interp(InterpStyle::MonotoneConvex)
-        .build()
-        .unwrap()
-}

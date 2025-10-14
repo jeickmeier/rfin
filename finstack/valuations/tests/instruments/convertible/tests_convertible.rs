@@ -6,7 +6,7 @@ use crate::instruments::convertible::pricing::{
 use super::{
     AntiDilutionPolicy, ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond,
     DividendAdjustment,
-
+};
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
@@ -19,7 +19,7 @@ use crate::cashflow::builder::types::{CouponType, FixedCouponSpec};
 use crate::instruments::bond::{CallPut, CallPutSchedule};
 use crate::instruments::common::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeModel, TreeValuator, TrinomialTree,
-
+};
 
 use time::Month;
 
