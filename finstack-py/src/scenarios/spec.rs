@@ -1,0 +1,705 @@
+//! Scenario specification bindings.
+
+use crate::core::currency::PyCurrency;
+use crate::scenarios::enums::{PyCurveKind, PyTenorMatchMode, PyVolSurfaceKind};
+use crate::valuations::common::PyInstrumentType;
+use finstack_scenarios::{OperationSpec, ScenarioSpec};
+use indexmap::IndexMap;
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::{PyAny, PyModule, PyType};
+use std::collections::HashMap;
+
+/// Individual operation within a scenario.
+///
+/// Use class methods to construct specific operation types.
+///
+/// Examples
+/// --------
+/// >>> from finstack.scenarios import OperationSpec, CurveKind
+/// >>> op = OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD_SOFR", 50.0)
+#[pyclass(module = "finstack.scenarios", name = "OperationSpec")]
+#[derive(Clone, Debug)]
+pub struct PyOperationSpec {
+    pub(crate) inner: OperationSpec,
+}
+
+impl PyOperationSpec {
+    pub fn new(inner: OperationSpec) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyOperationSpec {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, base, quote, pct)")]
+    /// FX rate percent shift.
+    ///
+    /// Parameters
+    /// ----------
+    /// base : Currency
+    ///     Base currency.
+    /// quote : Currency
+    ///     Quote currency.
+    /// pct : float
+    ///     Percentage change (positive strengthens base).
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn market_fx_pct(
+        _cls: &Bound<'_, PyType>,
+        base: &PyCurrency,
+        quote: &PyCurrency,
+        pct: f64,
+    ) -> Self {
+        Self::new(OperationSpec::MarketFxPct {
+            base: base.inner,
+            quote: quote.inner,
+            pct,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, ids, pct)")]
+    /// Equity price percent shock.
+    ///
+    /// Parameters
+    /// ----------
+    /// ids : list[str]
+    ///     List of equity identifiers.
+    /// pct : float
+    ///     Percentage change to apply.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn equity_price_pct(_cls: &Bound<'_, PyType>, ids: Vec<String>, pct: f64) -> Self {
+        Self::new(OperationSpec::EquityPricePct { ids, pct })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, attrs, pct)")]
+    /// Instrument price shock by exact attribute match.
+    ///
+    /// Parameters
+    /// ----------
+    /// attrs : dict[str, str]
+    ///     Attribute filters (e.g., {"sector": "Energy", "rating": "BBB"}).
+    /// pct : float
+    ///     Percentage change to apply.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn instrument_price_pct_by_attr(
+        _cls: &Bound<'_, PyType>,
+        attrs: HashMap<String, String>,
+        pct: f64,
+    ) -> Self {
+        let index_attrs: IndexMap<String, String> = attrs.into_iter().collect();
+        Self::new(OperationSpec::InstrumentPricePctByAttr {
+            attrs: index_attrs,
+            pct,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, curve_kind, curve_id, bp)")]
+    /// Parallel shift to a curve (additive in basis points).
+    ///
+    /// Parameters
+    /// ----------
+    /// curve_kind : CurveKind
+    ///     Type of curve to shock.
+    /// curve_id : str
+    ///     Curve identifier.
+    /// bp : float
+    ///     Basis points to add.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn curve_parallel_bp(
+        _cls: &Bound<'_, PyType>,
+        curve_kind: &PyCurveKind,
+        curve_id: String,
+        bp: f64,
+    ) -> Self {
+        Self::new(OperationSpec::CurveParallelBp {
+            curve_kind: curve_kind.inner,
+            curve_id,
+            bp,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, curve_kind, curve_id, nodes, match_mode=None)")]
+    /// Node-specific basis point shifts for curve shaping.
+    ///
+    /// Parameters
+    /// ----------
+    /// curve_kind : CurveKind
+    ///     Type of curve to shock.
+    /// curve_id : str
+    ///     Curve identifier.
+    /// nodes : list[tuple[str, float]]
+    ///     List of (tenor, bp) pairs (e.g., [("2Y", 25.0), ("10Y", -10.0)]).
+    /// match_mode : TenorMatchMode, optional
+    ///     Tenor matching strategy (default: Interpolate).
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn curve_node_bp(
+        _cls: &Bound<'_, PyType>,
+        curve_kind: &PyCurveKind,
+        curve_id: String,
+        nodes: Vec<(String, f64)>,
+        match_mode: Option<&PyTenorMatchMode>,
+    ) -> Self {
+        Self::new(OperationSpec::CurveNodeBp {
+            curve_kind: curve_kind.inner,
+            curve_id,
+            nodes,
+            match_mode: match_mode
+                .map(|m| m.inner)
+                .unwrap_or(finstack_scenarios::TenorMatchMode::Interpolate),
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, surface_id, points)")]
+    /// Parallel shift to base correlation surface (absolute points).
+    ///
+    /// Parameters
+    /// ----------
+    /// surface_id : str
+    ///     Surface identifier.
+    /// points : float
+    ///     Correlation points to add (e.g., 0.05 for +5 percentage points).
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn basecorr_parallel_pts(_cls: &Bound<'_, PyType>, surface_id: String, points: f64) -> Self {
+        Self::new(OperationSpec::BaseCorrParallelPts { surface_id, points })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, surface_id, points, detachment_bps=None, maturities=None)")]
+    /// Bucket-specific base correlation shifts.
+    ///
+    /// Parameters
+    /// ----------
+    /// surface_id : str
+    ///     Surface identifier.
+    /// points : float
+    ///     Correlation points to add.
+    /// detachment_bps : list[int], optional
+    ///     Detachment points in basis points (e.g., [300, 700] for 3% and 7%).
+    /// maturities : list[str], optional
+    ///     Maturity filters.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn basecorr_bucket_pts(
+        _cls: &Bound<'_, PyType>,
+        surface_id: String,
+        points: f64,
+        detachment_bps: Option<Vec<i32>>,
+        maturities: Option<Vec<String>>,
+    ) -> Self {
+        Self::new(OperationSpec::BaseCorrBucketPts {
+            surface_id,
+            detachment_bps,
+            maturities,
+            points,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, surface_kind, surface_id, pct)")]
+    /// Parallel percent shift to volatility surface.
+    ///
+    /// Parameters
+    /// ----------
+    /// surface_kind : VolSurfaceKind
+    ///     Type of volatility surface.
+    /// surface_id : str
+    ///     Surface identifier.
+    /// pct : float
+    ///     Percentage change to apply.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn vol_surface_parallel_pct(
+        _cls: &Bound<'_, PyType>,
+        surface_kind: &PyVolSurfaceKind,
+        surface_id: String,
+        pct: f64,
+    ) -> Self {
+        Self::new(OperationSpec::VolSurfaceParallelPct {
+            surface_kind: surface_kind.inner,
+            surface_id,
+            pct,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, surface_kind, surface_id, pct, tenors=None, strikes=None)")]
+    /// Bucketed volatility surface shock.
+    ///
+    /// Parameters
+    /// ----------
+    /// surface_kind : VolSurfaceKind
+    ///     Type of volatility surface.
+    /// surface_id : str
+    ///     Surface identifier.
+    /// pct : float
+    ///     Percentage change to apply.
+    /// tenors : list[str], optional
+    ///     Tenor filters (e.g., ["1M", "3M"]).
+    /// strikes : list[float], optional
+    ///     Strike filters.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn vol_surface_bucket_pct(
+        _cls: &Bound<'_, PyType>,
+        surface_kind: &PyVolSurfaceKind,
+        surface_id: String,
+        pct: f64,
+        tenors: Option<Vec<String>>,
+        strikes: Option<Vec<f64>>,
+    ) -> Self {
+        Self::new(OperationSpec::VolSurfaceBucketPct {
+            surface_kind: surface_kind.inner,
+            surface_id,
+            tenors,
+            strikes,
+            pct,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, node_id, pct)")]
+    /// Statement forecast percent change.
+    ///
+    /// Parameters
+    /// ----------
+    /// node_id : str
+    ///     Node identifier.
+    /// pct : float
+    ///     Percentage change to apply.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn stmt_forecast_percent(_cls: &Bound<'_, PyType>, node_id: String, pct: f64) -> Self {
+        Self::new(OperationSpec::StmtForecastPercent { node_id, pct })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, node_id, value)")]
+    /// Statement forecast value assignment.
+    ///
+    /// Parameters
+    /// ----------
+    /// node_id : str
+    ///     Node identifier.
+    /// value : float
+    ///     Value to assign.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn stmt_forecast_assign(_cls: &Bound<'_, PyType>, node_id: String, value: f64) -> Self {
+        Self::new(OperationSpec::StmtForecastAssign { node_id, value })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, attrs, bp)")]
+    /// Instrument spread shock by exact attribute match.
+    ///
+    /// Parameters
+    /// ----------
+    /// attrs : dict[str, str]
+    ///     Attribute filters.
+    /// bp : float
+    ///     Basis points to add.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn instrument_spread_bp_by_attr(
+        _cls: &Bound<'_, PyType>,
+        attrs: HashMap<String, String>,
+        bp: f64,
+    ) -> Self {
+        let index_attrs: IndexMap<String, String> = attrs.into_iter().collect();
+        Self::new(OperationSpec::InstrumentSpreadBpByAttr {
+            attrs: index_attrs,
+            bp,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_types, pct)")]
+    /// Instrument price shock by type.
+    ///
+    /// Parameters
+    /// ----------
+    /// instrument_types : list[InstrumentType]
+    ///     List of instrument types to shock.
+    /// pct : float
+    ///     Percentage change to apply.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn instrument_price_pct_by_type(
+        _cls: &Bound<'_, PyType>,
+        instrument_types: Vec<PyInstrumentType>,
+        pct: f64,
+    ) -> Self {
+        let types = instrument_types.iter().map(|t| t.inner).collect();
+        Self::new(OperationSpec::InstrumentPricePctByType {
+            instrument_types: types,
+            pct,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_types, bp)")]
+    /// Instrument spread shock by type.
+    ///
+    /// Parameters
+    /// ----------
+    /// instrument_types : list[InstrumentType]
+    ///     List of instrument types to shock.
+    /// bp : float
+    ///     Basis points to add.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn instrument_spread_bp_by_type(
+        _cls: &Bound<'_, PyType>,
+        instrument_types: Vec<PyInstrumentType>,
+        bp: f64,
+    ) -> Self {
+        let types = instrument_types.iter().map(|t| t.inner).collect();
+        Self::new(OperationSpec::InstrumentSpreadBpByType {
+            instrument_types: types,
+            bp,
+        })
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, period, apply_shocks=True)")]
+    /// Roll forward horizon by a period with carry/theta.
+    ///
+    /// Parameters
+    /// ----------
+    /// period : str
+    ///     Period to roll forward (e.g., "1D", "1W", "1M", "1Y").
+    /// apply_shocks : bool, optional
+    ///     Whether to apply market shocks after rolling (default: True).
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn time_roll_forward(
+        _cls: &Bound<'_, PyType>,
+        period: String,
+        apply_shocks: Option<bool>,
+    ) -> Self {
+        Self::new(OperationSpec::TimeRollForward {
+            period,
+            apply_shocks: apply_shocks.unwrap_or(true),
+        })
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Convert to JSON-compatible dictionary.
+    ///
+    /// Returns
+    /// -------
+    /// dict
+    ///     JSON-serializable dictionary.
+    fn to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let json_str = serde_json::to_string(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)
+            .map_err(|e| PyValueError::new_err(format!("Failed to parse JSON: {}", e)))?;
+        pythonize::pythonize(py, &json_value)
+            .map(|bound| bound.into())
+            .map_err(|e| PyValueError::new_err(format!("Failed to convert to Python: {}", e)))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, data)")]
+    /// Create from JSON-compatible dictionary.
+    ///
+    /// Parameters
+    /// ----------
+    /// data : dict
+    ///     JSON-serializable dictionary.
+    ///
+    /// Returns
+    /// -------
+    /// OperationSpec
+    ///     Operation specification.
+    fn from_dict(_cls: &Bound<'_, PyType>, data: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let json_value: serde_json::Value = pythonize::depythonize(data)
+            .map_err(|e| PyValueError::new_err(format!("Failed to convert from Python: {}", e)))?;
+        let inner: OperationSpec = serde_json::from_value(json_value)
+            .map_err(|e| PyValueError::new_err(format!("Failed to deserialize: {}", e)))?;
+        Ok(Self::new(inner))
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self.inner)
+    }
+}
+
+/// A complete scenario specification with metadata and ordered operations.
+///
+/// Parameters
+/// ----------
+/// id : str
+///     Stable identifier used for persistence and reporting.
+/// operations : list[OperationSpec]
+///     Ordered list of operations to execute.
+/// name : str, optional
+///     Optional display name for UI or logs.
+/// description : str, optional
+///     Optional text describing the intent of the scenario.
+/// priority : int, optional
+///     Used by compose() to determine merge ordering (default: 0, lower = higher priority).
+///
+/// Examples
+/// --------
+/// >>> from finstack.scenarios import ScenarioSpec, OperationSpec, CurveKind
+/// >>> ops = [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD_SOFR", 50.0)]
+/// >>> scenario = ScenarioSpec("stress_test", ops, name="Q1 Stress Test")
+#[pyclass(module = "finstack.scenarios", name = "ScenarioSpec")]
+#[derive(Clone, Debug)]
+pub struct PyScenarioSpec {
+    pub(crate) inner: ScenarioSpec,
+}
+
+impl PyScenarioSpec {
+    pub fn from_inner(inner: ScenarioSpec) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyScenarioSpec {
+    #[new]
+    #[pyo3(signature = (id, operations, name=None, description=None, priority=0))]
+    /// Create a new scenario specification.
+    ///
+    /// Parameters
+    /// ----------
+    /// id : str
+    ///     Scenario identifier.
+    /// operations : list[OperationSpec]
+    ///     List of operations to apply.
+    /// name : str, optional
+    ///     Display name.
+    /// description : str, optional
+    ///     Description text.
+    /// priority : int, optional
+    ///     Priority for composition (default: 0).
+    ///
+    /// Returns
+    /// -------
+    /// ScenarioSpec
+    ///     Scenario specification.
+    fn new(
+        id: String,
+        operations: Vec<PyOperationSpec>,
+        name: Option<String>,
+        description: Option<String>,
+        priority: Option<i32>,
+    ) -> Self {
+        let ops = operations.iter().map(|op| op.inner.clone()).collect();
+        Self {
+            inner: ScenarioSpec {
+                id,
+                name,
+                description,
+                operations: ops,
+                priority: priority.unwrap_or(0),
+            },
+        }
+    }
+
+    #[getter]
+    /// Scenario identifier.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     Scenario ID.
+    fn id(&self) -> String {
+        self.inner.id.clone()
+    }
+
+    #[getter]
+    /// Display name.
+    ///
+    /// Returns
+    /// -------
+    /// str | None
+    ///     Name if set.
+    fn name(&self) -> Option<String> {
+        self.inner.name.clone()
+    }
+
+    #[getter]
+    /// Description text.
+    ///
+    /// Returns
+    /// -------
+    /// str | None
+    ///     Description if set.
+    fn description(&self) -> Option<String> {
+        self.inner.description.clone()
+    }
+
+    #[getter]
+    /// List of operations.
+    ///
+    /// Returns
+    /// -------
+    /// list[OperationSpec]
+    ///     Operations to apply.
+    fn operations(&self) -> Vec<PyOperationSpec> {
+        self.inner
+            .operations
+            .iter()
+            .map(|op| PyOperationSpec::new(op.clone()))
+            .collect()
+    }
+
+    #[getter]
+    /// Priority for composition.
+    ///
+    /// Returns
+    /// -------
+    /// int
+    ///     Priority value (lower = higher priority).
+    fn priority(&self) -> i32 {
+        self.inner.priority
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Convert to JSON-compatible dictionary.
+    ///
+    /// Returns
+    /// -------
+    /// dict
+    ///     JSON-serializable dictionary.
+    fn to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let json_str = serde_json::to_string(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_str)
+            .map_err(|e| PyValueError::new_err(format!("Failed to parse JSON: {}", e)))?;
+        pythonize::pythonize(py, &json_value)
+            .map(|bound| bound.into())
+            .map_err(|e| PyValueError::new_err(format!("Failed to convert to Python: {}", e)))
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Convert to JSON string.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     JSON string.
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, data)")]
+    /// Create from JSON-compatible dictionary.
+    ///
+    /// Parameters
+    /// ----------
+    /// data : dict
+    ///     JSON-serializable dictionary.
+    ///
+    /// Returns
+    /// -------
+    /// ScenarioSpec
+    ///     Scenario specification.
+    fn from_dict(_cls: &Bound<'_, PyType>, data: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let json_value: serde_json::Value = pythonize::depythonize(data)
+            .map_err(|e| PyValueError::new_err(format!("Failed to convert from Python: {}", e)))?;
+        let inner: ScenarioSpec = serde_json::from_value(json_value)
+            .map_err(|e| PyValueError::new_err(format!("Failed to deserialize: {}", e)))?;
+        Ok(Self::from_inner(inner))
+    }
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, json_str)")]
+    /// Create from JSON string.
+    ///
+    /// Parameters
+    /// ----------
+    /// json_str : str
+    ///     JSON string.
+    ///
+    /// Returns
+    /// -------
+    /// ScenarioSpec
+    ///     Scenario specification.
+    fn from_json(_cls: &Bound<'_, PyType>, json_str: &str) -> PyResult<Self> {
+        let inner: ScenarioSpec = serde_json::from_str(json_str)
+            .map_err(|e| PyValueError::new_err(format!("Failed to deserialize: {}", e)))?;
+        Ok(Self::from_inner(inner))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ScenarioSpec(id='{}', operations={}, priority={})",
+            self.inner.id,
+            self.inner.operations.len(),
+            self.inner.priority
+        )
+    }
+}
+
+/// Register spec types with the scenarios module.
+pub(crate) fn register(_py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyOperationSpec>()?;
+    module.add_class::<PyScenarioSpec>()?;
+
+    Ok(vec!["OperationSpec", "ScenarioSpec"])
+}
+

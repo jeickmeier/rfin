@@ -29,6 +29,11 @@ def find_python_scripts(base_dir: Path) -> List[Path]:
     statements_dir = base_dir / "statements"
     if statements_dir.exists():
         scripts.extend(sorted(statements_dir.glob("*.py")))
+
+    # Statements scripts
+    scenarios_dir = base_dir / "scenarios"
+    if scenarios_dir.exists():
+        scripts.extend(sorted(scenarios_dir.glob("*.py")))
     
     # Exclude this script itself if it's in the same directory
     script_name = Path(__file__).name

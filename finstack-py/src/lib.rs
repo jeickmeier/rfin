@@ -5,6 +5,7 @@ use pyo3::types::{PyList, PyModule, PyModuleMethods};
 use pyo3::Bound;
 
 mod core;
+mod scenarios;
 mod statements;
 mod valuations;
 
@@ -92,6 +93,9 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     // Statements bindings (module registers itself under `statements`)
     statements::register(py, &m)?;
 
+    // Scenarios bindings (module registers itself under `scenarios`)
+    scenarios::register(py, &m)?;
+
     // Re-export selected helpers at package root for convenience
     let dates_binding = core_mod.getattr("dates")?;
     let dates_mod = dates_binding.downcast::<PyModule>()?;
@@ -138,6 +142,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "expr",
             "valuations",
             "statements",
+            "scenarios",
             "Currency",
             "Money",
             "DiscountCurve",

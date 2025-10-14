@@ -67,8 +67,7 @@ def test_calibration_config_builder_and_mutators() -> None:
     assert base_cfg.entity_seniority["ACME"] == "senior"
 
     tuned = (
-        base_cfg
-        .with_tolerance(1e-6)
+        base_cfg.with_tolerance(1e-6)
         .with_max_iterations(10)
         .with_parallel(False)
         .with_random_seed(1234)
@@ -146,9 +145,7 @@ def test_quote_constructors_cover_all_variants() -> None:
     assert swaption_vol.kind == "swaption"
 
     zc_inflation = cal.InflationQuote.inflation_swap(dt.date(2027, 1, 1), 0.015, "CPI-US")
-    yoy_inflation = cal.InflationQuote.yoy_inflation_swap(
-        dt.date(2027, 1, 1), 0.0175, "CPI-US", Frequency.ANNUAL
-    )
+    yoy_inflation = cal.InflationQuote.yoy_inflation_swap(dt.date(2027, 1, 1), 0.0175, "CPI-US", Frequency.ANNUAL)
     assert zc_inflation.kind == "inflation_swap"
     assert yoy_inflation.kind == "yoy_inflation_swap"
 
@@ -189,9 +186,7 @@ def test_simple_calibration_flow_and_report() -> None:
     assert returned_cfg.max_iterations == 20
     assert returned_cfg.entity_seniority["FOO"] == "junior"
 
-    quotes = [
-        cal.RatesQuote.deposit(base_date.replace(year=2024, month=2, day=2), 0.02, "ACT/360").to_market_quote()
-    ]
+    quotes = [cal.RatesQuote.deposit(base_date.replace(year=2024, month=2, day=2), 0.02, "ACT/360").to_market_quote()]
 
     market_ctx, report = calibration.calibrate(quotes)
 

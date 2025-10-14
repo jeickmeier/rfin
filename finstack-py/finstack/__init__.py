@@ -29,6 +29,7 @@ _core = _finstack.core
 globals()["core"] = _core
 _sys.modules[f"{__name__}.core"] = _core
 
+
 def _walk_and_register(
     _parent_mod: _Any,
     _qualname: str,
@@ -59,6 +60,7 @@ def _walk_and_register(
                 _recurse(_attr, f"{_qname}.{_attr_name}")
 
     _recurse(_parent_mod, _qualname)
+
 
 _walk_and_register(_core, "core")
 

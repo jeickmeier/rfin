@@ -34,14 +34,14 @@ use std::path::PathBuf;
 
 /// Discover and load all bundled metric registry JSON files.
 ///
-/// Files are located under `finstack/statements/data/metrics` and are picked up
+/// Files are located under `data/metrics` (relative to the crate root) and are picked up
 /// automatically based on the `.json` extension. The contents are returned in
 /// deterministic order (alphabetically by file name).
 ///
 /// This helper is consumed by [`Registry::load_builtins`](crate::registry::Registry::load_builtins).
 pub(crate) fn builtin_metric_sources() -> Result<Vec<String>> {
     let metrics_dir =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("finstack/statements/data/metrics");
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data/metrics");
 
     let mut discovered: Vec<(String, String)> = fs::read_dir(&metrics_dir)
         .map_err(|e| {
