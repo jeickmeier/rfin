@@ -11,7 +11,7 @@ use crate::instruments::common::parameters::CreditParams;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{InstrumentId, CurveId};
 
 // Reuse CDS components for conventions and legs
 use crate::instruments::cds::{
@@ -86,8 +86,8 @@ impl CDSIndex {
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
         credit_params: &CreditParams,
-        disc_id: &'static str,
-        credit_id: &'static str,
+        disc_id: impl Into<CurveId>,
+        credit_id: impl Into<CurveId>,
     ) -> Self {
         let dc = construction_params.convention.day_count();
         let freq = construction_params.convention.frequency();
