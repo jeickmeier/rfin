@@ -3,11 +3,13 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_scenarios::{
-    CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec,
+    CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec, VolSurfaceKind,
 };
 use finstack_statements::FinancialModelSpec;
 use time::Month;
@@ -141,4 +143,97 @@ fn test_scenario_composition() {
 
     assert_eq!(composed.operations.len(), 2);
     assert_eq!(composed.id, "composed");
+}
+
+#[test]
+fn test_vol_surface_parallel_shock() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    // Create volatility surface
+    let surface = VolSurface::builder("SPX")
+        .expiries(&[0.25, 0.5, 1.0])
+        .strikes(&[90.0, 100.0, 110.0])
+        .row(&[0.20, 0.18, 0.22])
+        .row(&[0.21, 0.19, 0.23])
+        .row(&[0.22, 0.20, 0.24])
+        .build()
+        .unwrap();
+
+    let mut market = MarketContext::new().insert_surface(surface);
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let scenario = ScenarioSpec {
+        id: "vol_parallel".into(),
+        name: Some("Vol Parallel Shock".into()),
+        description: None,
+        operations: vec![OperationSpec::VolSurfaceParallelPct {
+            surface_kind: VolSurfaceKind::Equity,
+            surface_id: "SPX".into(),
+            pct: 15.0, // +15% vol increase
+        }],
+        priority: 0,
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        as_of: base_date,
+    };
+
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    assert_eq!(report.operations_applied, 1);
+
+    // Verify shocked surface
+    let shocked_surface = market.surface_ref("SPX").unwrap();
+    let val = shocked_surface.value(1.0, 100.0);
+    let expected = 0.20 * 1.15;
+    assert!((val - expected).abs() < 1e-6, "Vol should be shocked");
+}
+
+#[test]
+fn test_base_correlation_parallel_shock() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    // Create base correlation curve
+    let basecorr = BaseCorrelationCurve::builder("CDX_IG")
+        .points(vec![
+            (3.0, 0.25),
+            (7.0, 0.45),
+            (10.0, 0.60),
+        ])
+        .build()
+        .unwrap();
+
+    let mut market = MarketContext::new().insert_base_correlation(basecorr);
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let scenario = ScenarioSpec {
+        id: "basecorr_parallel".into(),
+        name: Some("Base Corr Parallel Shock".into()),
+        description: None,
+        operations: vec![OperationSpec::BaseCorrParallelPts {
+            surface_id: "CDX_IG".into(),
+            points: 0.10, // +10 correlation points
+        }],
+        priority: 0,
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        as_of: base_date,
+    };
+
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    assert_eq!(report.operations_applied, 1);
+
+    // Verify shocked curve exists (actual shock value testing is covered in bucket_filtering_test.rs)
+    let shocked_curve = market.get_base_correlation_ref("CDX_IG").unwrap();
+    assert_eq!(shocked_curve.id().as_str(), "CDX_IG");
 }

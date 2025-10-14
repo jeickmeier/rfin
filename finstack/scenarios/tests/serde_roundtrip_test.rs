@@ -141,3 +141,142 @@ fn test_attribute_selector_serde() {
         _ => panic!("Wrong operation type"),
     }
 }
+
+#[test]
+fn test_time_roll_forward_default_apply_shocks() {
+    let op = OperationSpec::TimeRollForward {
+        period: "1M".into(),
+        apply_shocks: true,
+    };
+
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: OperationSpec = serde_json::from_str(&json).unwrap();
+
+    match deserialized {
+        OperationSpec::TimeRollForward { period, apply_shocks } => {
+            assert_eq!(period, "1M");
+            assert!(apply_shocks);
+        }
+        _ => panic!("Wrong operation type"),
+    }
+}
+
+#[test]
+fn test_time_roll_forward_apply_shocks_false() {
+    let op = OperationSpec::TimeRollForward {
+        period: "1W".into(),
+        apply_shocks: false,
+    };
+
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: OperationSpec = serde_json::from_str(&json).unwrap();
+
+    match deserialized {
+        OperationSpec::TimeRollForward { period, apply_shocks } => {
+            assert_eq!(period, "1W");
+            assert!(!apply_shocks);
+        }
+        _ => panic!("Wrong operation type"),
+    }
+}
+
+#[test]
+fn test_instrument_type_operations_serde() {
+    use finstack_valuations::pricer::InstrumentType;
+
+    let ops = vec![
+        OperationSpec::InstrumentPricePctByType {
+            instrument_types: vec![InstrumentType::Bond, InstrumentType::CDS],
+            pct: -5.0,
+        },
+        OperationSpec::InstrumentSpreadBpByType {
+            instrument_types: vec![InstrumentType::Loan],
+            bp: 100.0,
+        },
+    ];
+
+    let scenario = ScenarioSpec {
+        id: "inst_types".into(),
+        name: None,
+        description: None,
+        operations: ops,
+        priority: 0,
+    };
+
+    let json = serde_json::to_string_pretty(&scenario).unwrap();
+    let deserialized: ScenarioSpec = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(deserialized.operations.len(), 2);
+}
+
+#[test]
+fn test_tenor_match_mode_default() {
+    let op = OperationSpec::CurveNodeBp {
+        curve_kind: CurveKind::Discount,
+        curve_id: "USD_SOFR".into(),
+        nodes: vec![("5Y".into(), 50.0)],
+        match_mode: TenorMatchMode::Interpolate,
+    };
+
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: OperationSpec = serde_json::from_str(&json).unwrap();
+
+    match deserialized {
+        OperationSpec::CurveNodeBp { match_mode, .. } => {
+            assert_eq!(match_mode, TenorMatchMode::Interpolate);
+        }
+        _ => panic!("Wrong operation type"),
+    }
+}
+
+#[test]
+fn test_optional_fields_serialize() {
+    let scenario = ScenarioSpec {
+        id: "test".into(),
+        name: None,
+        description: None,
+        operations: vec![
+            OperationSpec::BaseCorrBucketPts {
+                surface_id: "CDX".into(),
+                detachment_bps: None,
+                maturities: None,
+                points: 0.05,
+            },
+            OperationSpec::VolSurfaceBucketPct {
+                surface_kind: VolSurfaceKind::Equity,
+                surface_id: "SPX".into(),
+                tenors: None,
+                strikes: Some(vec![100.0, 110.0]),
+                pct: 10.0,
+            },
+        ],
+        priority: 0,
+    };
+
+    let json = serde_json::to_string_pretty(&scenario).unwrap();
+    let deserialized: ScenarioSpec = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(deserialized.operations.len(), 2);
+}
+
+#[test]
+fn test_scenario_with_metadata() {
+    let scenario = ScenarioSpec {
+        id: "full_metadata".into(),
+        name: Some("Full Scenario Name".into()),
+        description: Some("This is a comprehensive test scenario".into()),
+        operations: vec![OperationSpec::EquityPricePct {
+            ids: vec!["SPY".into()],
+            pct: -10.0,
+        }],
+        priority: 5,
+    };
+
+    let json = serde_json::to_string_pretty(&scenario).unwrap();
+    let deserialized: ScenarioSpec = serde_json::from_str(&json).unwrap();
+
+    assert_eq!(deserialized.id, "full_metadata");
+    assert_eq!(deserialized.name, Some("Full Scenario Name".into()));
+    assert_eq!(deserialized.description, Some("This is a comprehensive test scenario".into()));
+    assert_eq!(deserialized.priority, 5);
+}

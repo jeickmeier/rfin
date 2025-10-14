@@ -12,8 +12,8 @@ pub use finstack_statements as statements;
 #[cfg(feature = "portfolio")]
 pub use finstack_portfolio as portfolio;
 
-#[cfg(feature = "io")]
-pub use finstack_io as io;
-
 #[cfg(feature = "scenarios")]
 pub use finstack_scenarios as scenarios;
+
+#[cfg(feature = "io")]
+pub use finstack_io as io;
