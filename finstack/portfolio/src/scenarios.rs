@@ -1,4 +1,8 @@
 //! Scenario application for portfolios.
+//!
+//! This module is only available when the `scenarios` feature is enabled.
+//! It provides helpers to apply scenario specifications to portfolios and
+//! optionally re-value them using the modified market data.
 
 #[cfg(feature = "scenarios")]
 use crate::error::{PortfolioError, Result};
@@ -20,12 +24,43 @@ use std::sync::Arc;
 /// Apply a scenario to a portfolio.
 ///
 /// This function:
-/// 1. Clones the portfolio (scenarios create modified copies)
-/// 2. Extracts instruments into a mutable vector for scenario engine
-/// 3. Applies the scenario using the scenarios engine
+/// 1. Clones the portfolio (scenarios create modified copies)  
+/// 2. Extracts instruments into a mutable vector for the scenario engine  
+/// 3. Applies the scenario using the engine  
 /// 4. Returns the modified portfolio and market data
 ///
-/// Note: The original portfolio and market are not modified.
+/// The original portfolio and market are left untouched.
+///
+/// # Arguments
+///
+/// * `portfolio` - Portfolio to clone and mutate within the scenario engine.
+/// * `scenario` - Scenario specification describing desired transformations.
+/// * `market` - Market data context subject to the scenario operations.
+///
+/// # Returns
+///
+/// [`Result`] containing the modified portfolio, market, and application report.
+///
+/// # Errors
+///
+/// Returns [`PortfolioError::ScenarioError`] when the scenario engine reports a failure.
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_portfolio::scenarios::apply_scenario;
+///
+/// # fn run(
+/// #     portfolio: &finstack_portfolio::Portfolio,
+/// #     scenario: &finstack_scenarios::spec::ScenarioSpec,
+/// #     market: &finstack_core::market_data::MarketContext,
+/// # ) -> finstack_portfolio::Result<()> {
+/// let (modified_portfolio, modified_market, report) =
+///     apply_scenario(portfolio, scenario, market)?;
+/// # let _ = (modified_portfolio, modified_market, report);
+/// # Ok(())
+/// # }
+/// ```
 #[cfg(feature = "scenarios")]
 pub fn apply_scenario(
     portfolio: &Portfolio,
@@ -77,6 +112,39 @@ pub fn apply_scenario(
 ///
 /// Convenience function that applies a scenario and immediately
 /// re-values the portfolio with the modified market data.
+///
+/// # Arguments
+///
+/// * `portfolio` - Original portfolio used as the base case.
+/// * `scenario` - Scenario specification to apply.
+/// * `market` - Market data context to mutate.
+/// * `config` - Configuration forwarded to [`value_portfolio`](crate::valuation::value_portfolio).
+///
+/// # Returns
+///
+/// [`Result`] containing the re-valued [`PortfolioValuation`](crate::valuation::PortfolioValuation)
+/// along with the scenario [`ApplicationReport`].
+///
+/// # Errors
+///
+/// Propagates errors from [`apply_scenario`] and [`value_portfolio`](crate::valuation::value_portfolio).
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_portfolio::scenarios::apply_and_revalue;
+///
+/// # fn analyse(
+/// #     portfolio: &finstack_portfolio::Portfolio,
+/// #     scenario: &finstack_scenarios::spec::ScenarioSpec,
+/// #     market: &finstack_core::market_data::MarketContext,
+/// #     config: &finstack_core::config::FinstackConfig,
+/// # ) -> finstack_portfolio::Result<()> {
+/// let (valuation, report) = apply_and_revalue(portfolio, scenario, market, config)?;
+/// # let _ = (valuation, report);
+/// # Ok(())
+/// # }
+/// ```
 #[cfg(feature = "scenarios")]
 pub fn apply_and_revalue(
     portfolio: &Portfolio,
@@ -223,4 +291,3 @@ mod tests {
         assert!(result.is_ok());
     }
 }
-

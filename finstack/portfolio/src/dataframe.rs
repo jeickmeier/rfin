@@ -1,12 +1,38 @@
 //! DataFrame exports for portfolio results.
+//!
+//! Functions in this module turn portfolio valuations and metrics into
+//! [`polars::prelude::DataFrame`] objects that can be consumed by downstream
+//! analytics pipelines or saved for offline processing.
 
 use crate::metrics::PortfolioMetrics;
 use crate::valuation::PortfolioValuation;
 use finstack_core::prelude::*;
 
-/// Export position values to a Polars DataFrame.
+/// Export position values to a Polars `DataFrame`.
 ///
-/// Columns: position_id, entity_id, instrument_id, value_native, value_base, currency_native, currency_base
+/// Columns produced:
+/// `position_id`, `entity_id`, `value_native`, `value_base`, `currency_native`, `currency_base`.
+/// The instrument identifier can be re-joined by consumers if required.
+///
+/// # Arguments
+///
+/// * `valuation` - Portfolio valuation containing per-position monetary values.
+///
+/// # Returns
+///
+/// A [`Result`] wrapping the generated [`polars::prelude::DataFrame`].
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_portfolio::dataframe::positions_to_dataframe;
+///
+/// # fn export(valuation: &finstack_portfolio::PortfolioValuation) -> finstack_portfolio::Result<()> {
+/// let df = positions_to_dataframe(valuation)?;
+/// # let _ = df;
+/// # Ok(())
+/// # }
+/// ```
 pub fn positions_to_dataframe(
     valuation: &PortfolioValuation,
 ) -> Result<polars::prelude::DataFrame> {
@@ -39,9 +65,29 @@ pub fn positions_to_dataframe(
     Ok(df)
 }
 
-/// Export entity-level aggregates to a Polars DataFrame.
+/// Export entity-level aggregates to a Polars `DataFrame`.
 ///
-/// Columns: entity_id, total_value, currency
+/// Columns produced: `entity_id`, `total_value`, `currency`.
+///
+/// # Arguments
+///
+/// * `valuation` - Portfolio valuation containing aggregated entity values.
+///
+/// # Returns
+///
+/// A [`Result`] containing the [`polars::prelude::DataFrame`].
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_portfolio::dataframe::entities_to_dataframe;
+///
+/// # fn export(valuation: &finstack_portfolio::PortfolioValuation) -> finstack_portfolio::Result<()> {
+/// let df = entities_to_dataframe(valuation)?;
+/// # let _ = df;
+/// # Ok(())
+/// # }
+/// ```
 pub fn entities_to_dataframe(
     valuation: &PortfolioValuation,
 ) -> Result<polars::prelude::DataFrame> {
@@ -65,9 +111,29 @@ pub fn entities_to_dataframe(
     Ok(df)
 }
 
-/// Export metrics to a Polars DataFrame (long format).
+/// Export metrics to a Polars `DataFrame` in long format.
 ///
-/// Columns: metric_id, position_id, value
+/// Columns produced: `metric_id`, `position_id`, `value`.
+///
+/// # Arguments
+///
+/// * `metrics` - Aggregated and per-position portfolio metrics.
+///
+/// # Returns
+///
+/// A [`Result`] containing the [`polars::prelude::DataFrame`].
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_portfolio::dataframe::metrics_to_dataframe;
+///
+/// # fn export(metrics: &finstack_portfolio::PortfolioMetrics) -> finstack_portfolio::Result<()> {
+/// let df = metrics_to_dataframe(metrics)?;
+/// # let _ = df;
+/// # Ok(())
+/// # }
+/// ```
 pub fn metrics_to_dataframe(
     metrics: &PortfolioMetrics,
 ) -> Result<polars::prelude::DataFrame> {
@@ -93,9 +159,29 @@ pub fn metrics_to_dataframe(
     Ok(df)
 }
 
-/// Export aggregated metrics to a Polars DataFrame.
+/// Export aggregated metrics to a Polars `DataFrame`.
 ///
-/// Columns: metric_id, total
+/// Columns produced: `metric_id`, `total`, where `total` is the summation across positions.
+///
+/// # Arguments
+///
+/// * `metrics` - Portfolio metrics containing aggregate totals.
+///
+/// # Returns
+///
+/// A [`Result`] containing the [`polars::prelude::DataFrame`].
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_portfolio::dataframe::aggregated_metrics_to_dataframe;
+///
+/// # fn export(metrics: &finstack_portfolio::PortfolioMetrics) -> finstack_portfolio::Result<()> {
+/// let df = aggregated_metrics_to_dataframe(metrics)?;
+/// # let _ = df;
+/// # Ok(())
+/// # }
+/// ```
 pub fn aggregated_metrics_to_dataframe(
     metrics: &PortfolioMetrics,
 ) -> Result<polars::prelude::DataFrame> {
@@ -227,4 +313,3 @@ mod tests {
         assert!(col_names.contains(&"total_value"));
     }
 }
-

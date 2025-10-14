@@ -1,4 +1,7 @@
 //! Attribute-based grouping and aggregation.
+//!
+//! Helper functions for slicing portfolios by arbitrary tags and rolling up
+//! valuations across one or more categorical dimensions.
 
 use crate::error::Result;
 use crate::position::Position;
@@ -6,10 +9,42 @@ use crate::valuation::PortfolioValuation;
 use finstack_core::prelude::*;
 use indexmap::IndexMap;
 
-/// Group positions by a specific tag/attribute.
+/// Group positions by a specific tag or attribute.
 ///
-/// Returns a map from attribute values to lists of positions
-/// that have that attribute value.
+/// Positions that do not contain the requested attribute are placed in the
+/// special `_untagged` bucket to ensure they are still represented.
+///
+/// # Arguments
+///
+/// * `positions` - Slice of positions to group.
+/// * `attr_key` - Tag key used to partition positions.
+///
+/// # Returns
+///
+/// An [`IndexMap`] mapping attribute values to the positions that match.
+/// Order is stable because [`IndexMap`] preserves insertion order.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_portfolio::grouping::group_by_attribute;
+/// use finstack_portfolio::{Position, PositionUnit};
+/// use std::sync::Arc;
+///
+/// # let instrument = Arc::new(finstack_valuations::instruments::deposit::Deposit::builder()
+/// #     .id("DEP".into())
+/// #     .notional(finstack_core::prelude::Money::new(1.0, finstack_core::prelude::Currency::USD))
+/// #     .start(time::macros::date!(2024 - 01 - 01))
+/// #     .end(time::macros::date!(2024 - 02 - 01))
+/// #     .day_count(finstack_core::dates::DayCount::Act360)
+/// #     .disc_id("USD".into())
+/// #     .build()
+/// #     .unwrap());
+/// let pos = Position::new("POS", "ENTITY", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units)
+///     .with_tag("strategy", "carry");
+/// let groups = group_by_attribute(&[pos], "strategy");
+/// assert!(groups.contains_key("carry"));
+/// ```
 pub fn group_by_attribute<'a>(
     positions: &'a [Position],
     attr_key: &str,
@@ -36,7 +71,41 @@ pub fn group_by_attribute<'a>(
 
 /// Aggregate portfolio values by a specific attribute.
 ///
-/// Returns a map from attribute values to total values in base currency.
+/// Each position's base-currency value is summed into buckets by the chosen tag.
+///
+/// # Arguments
+///
+/// * `valuation` - Pre-computed valuation results providing per-position values.
+/// * `positions` - Positions that correspond to the valuation results.
+/// * `attr_key` - Tag to aggregate by.
+/// * `base_ccy` - Currency used when adding monetary amounts.
+///
+/// # Returns
+///
+/// [`Result`] with an [`IndexMap`] of attribute values to aggregated [`Money`].
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_portfolio::grouping::aggregate_by_attribute;
+/// # use finstack_portfolio::{PortfolioBuilder, Entity, Position, PositionUnit};
+/// # use finstack_portfolio::valuation::value_portfolio;
+/// # use finstack_core::prelude::*;
+/// # use finstack_core::market_data::MarketContext;
+/// # use finstack_core::config::FinstackConfig;
+///
+/// # fn demo(valuation: &finstack_portfolio::PortfolioValuation,
+/// #         positions: Vec<Position>) -> finstack_portfolio::Result<()> {
+/// let grouped = aggregate_by_attribute(
+///     valuation,
+///     &positions,
+///     "strategy",
+///     Currency::USD,
+/// )?;
+/// # let _ = grouped;
+/// # Ok(())
+/// # }
+/// ```
 pub fn aggregate_by_attribute(
     valuation: &PortfolioValuation,
     positions: &[Position],
@@ -64,7 +133,41 @@ pub fn aggregate_by_attribute(
 
 /// Group and aggregate by multiple attributes.
 ///
-/// Returns a nested map: attr1_value -> attr2_value -> total_value
+/// Builds composite keys from the requested attributes to create multi-dimensional
+/// aggregates. Missing attributes are normalised to `_untagged`.
+///
+/// # Arguments
+///
+/// * `valuation` - Portfolio valuation providing per-position values.
+/// * `positions` - Positions being grouped.
+/// * `attr_keys` - Ordered set of attribute keys used to build the composite key.
+/// * `base_ccy` - Currency used for aggregation.
+///
+/// # Returns
+///
+/// [`Result`] containing an [`IndexMap`] whose keys are the ordered attribute values
+/// and whose values are the aggregated [`Money`] totals.
+///
+/// # Examples
+///
+/// ```no_run
+/// use finstack_portfolio::grouping::aggregate_by_multiple_attributes;
+/// use finstack_core::prelude::Currency;
+///
+/// # fn demo(
+/// #     valuation: &finstack_portfolio::PortfolioValuation,
+/// #     positions: &[finstack_portfolio::Position],
+/// # ) -> finstack_portfolio::Result<()> {
+/// let totals = aggregate_by_multiple_attributes(
+///     valuation,
+///     positions,
+///    &["strategy", "bucket"],
+///     Currency::USD,
+/// )?;
+/// # let _ = totals;
+/// # Ok(())
+/// # }
+/// ```
 pub fn aggregate_by_multiple_attributes(
     valuation: &PortfolioValuation,
     positions: &[Position],
@@ -247,4 +350,3 @@ mod tests {
         assert!(total.amount().abs() >= 0.0);
     }
 }
-

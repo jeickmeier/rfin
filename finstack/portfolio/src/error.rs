@@ -4,10 +4,39 @@ use crate::types::{EntityId, PositionId};
 use finstack_core::prelude::*;
 use thiserror::Error;
 
-/// Portfolio operation result type.
+/// Convenience result type used throughout the portfolio crate.
+///
+/// This alias helps reduce boilerplate when returning [`PortfolioError`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_portfolio::Result;
+///
+/// fn do_work() -> Result<()> {
+///     Ok(())
+/// }
+/// ```
 pub type Result<T> = std::result::Result<T, PortfolioError>;
 
 /// Errors that can occur during portfolio operations.
+///
+/// Each variant captures the context needed to diagnose failures when building,
+/// validating, or valuing a portfolio.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_portfolio::{PortfolioError, PositionId, EntityId};
+///
+/// let position_id: PositionId = "POS_1".into();
+/// let entity_id: EntityId = "UNKNOWN".into();
+/// let error = PortfolioError::UnknownEntity {
+///     position_id,
+///     entity_id,
+/// };
+/// assert!(matches!(error, PortfolioError::UnknownEntity { .. }));
+/// ```
 #[derive(Error, Debug)]
 pub enum PortfolioError {
     /// Position references an unknown entity
@@ -45,4 +74,3 @@ pub enum PortfolioError {
     #[error(transparent)]
     Core(#[from] finstack_core::Error),
 }
-

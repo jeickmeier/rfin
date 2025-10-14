@@ -1,4 +1,10 @@
-//! Builder pattern for constructing portfolios.
+//! Builder pattern for assembling [`Portfolio`] instances.
+//!
+//! This module provides a fluent interface for constructing validated portfolios.
+//! The builder keeps track of entities, positions, metadata and validates the resulting
+//! [`Portfolio`] to ensure it is internally consistent.
+//! Typical usage starts by creating a builder with [`PortfolioBuilder::new`], chaining
+//! configuration methods, and finalizing with [`PortfolioBuilder::build`].
 
 use crate::error::Result;
 use crate::portfolio::Portfolio;
@@ -7,10 +13,29 @@ use crate::types::{Entity, EntityId, DUMMY_ENTITY_ID};
 use finstack_core::prelude::*;
 use indexmap::IndexMap;
 
-/// Builder for constructing a portfolio with validation.
+/// Builder for constructing a [`Portfolio`] with validation.
 ///
-/// The builder ensures all positions reference valid entities and
-/// automatically creates a dummy entity if any positions reference it.
+/// The builder stores all intermediate values needed to construct a portfolio and checks
+/// invariants such as base currency, valuation date, and entity references before the
+/// final portfolio is produced.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_portfolio::{PortfolioBuilder, Entity};
+/// use finstack_core::prelude::*;
+/// use time::macros::date;
+///
+/// let portfolio = PortfolioBuilder::new("FUND_A")
+///     .name("Alpha Fund")
+///     .base_ccy(Currency::USD)
+///     .as_of(date!(2024 - 01 - 01))
+///     .entity(Entity::new("ACME"))
+///     .build()
+///     .unwrap();
+///
+/// assert_eq!(portfolio.id, "FUND_A");
+/// ```
 #[derive(Debug)]
 pub struct PortfolioBuilder {
     id: String,
@@ -24,7 +49,21 @@ pub struct PortfolioBuilder {
 }
 
 impl PortfolioBuilder {
-    /// Create a new portfolio builder with the given ID.
+    /// Create a new portfolio builder with the given identifier.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique identifier for the portfolio; converted into an owned `String`.
+    ///
+    /// # Examples
+    ///
+/// ```rust
+/// use finstack_portfolio::PortfolioBuilder;
+///
+/// let builder = PortfolioBuilder::new("FUND_A");
+/// // Additional configuration can be chained before calling `build`.
+/// # let _ = builder;
+/// ```
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -38,31 +77,100 @@ impl PortfolioBuilder {
         }
     }
     
-    /// Set the portfolio name.
+    /// Set the portfolio's human-readable name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - Display name stored alongside the portfolio identifier.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::PortfolioBuilder;
+    ///
+    /// let portfolio = PortfolioBuilder::new("FUND_A")
+    ///     .name("Alpha Fund");
+    /// ```
     pub fn name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
     }
     
-    /// Set the base currency.
+    /// Declare the portfolio's reporting currency.
+    ///
+    /// # Arguments
+    ///
+    /// * `ccy` - Currency to use when consolidating values and metrics.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::PortfolioBuilder;
+    /// use finstack_core::prelude::Currency;
+    ///
+    /// let builder = PortfolioBuilder::new("FUND_A").base_ccy(Currency::USD);
+    /// # let _ = builder;
+    /// ```
     pub fn base_ccy(mut self, ccy: Currency) -> Self {
         self.base_ccy = Some(ccy);
         self
     }
     
-    /// Set the valuation date.
+    /// Assign the valuation date used for pricing and analytics.
+    ///
+    /// # Arguments
+    ///
+    /// * `date` - The as-of date for valuation and risk calculation.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::PortfolioBuilder;
+    /// use time::macros::date;
+    ///
+    /// let builder = PortfolioBuilder::new("FUND_A").as_of(date!(2024 - 01 - 01));
+    /// # let _ = builder;
+    /// ```
     pub fn as_of(mut self, date: Date) -> Self {
         self.as_of = Some(date);
         self
     }
     
-    /// Add an entity.
+    /// Register a single [`Entity`] with the builder.
+    ///
+    /// # Arguments
+    ///
+    /// * `entity` - Entity definition including identifier, tags and metadata.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::{PortfolioBuilder, Entity};
+    ///
+    /// let builder = PortfolioBuilder::new("FUND_A")
+    ///     .entity(Entity::new("ACME_CORP"));
+    /// # let _ = builder;
+    /// ```
     pub fn entity(mut self, entity: Entity) -> Self {
         self.entities.insert(entity.id.clone(), entity);
         self
     }
     
-    /// Add multiple entities.
+    /// Register multiple entities in a single call.
+    ///
+    /// # Arguments
+    ///
+    /// * `entities` - Iterator yielding entities to insert into the portfolio.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::{PortfolioBuilder, Entity};
+    ///
+    /// let builder = PortfolioBuilder::new("FUND_A")
+    ///     .entities([Entity::new("ACME"), Entity::new("MEGA_CORP")]);
+    /// # let _ = builder;
+    /// ```
     pub fn entities(mut self, entities: impl IntoIterator<Item = Entity>) -> Self {
         for entity in entities {
             self.entities.insert(entity.id.clone(), entity);
@@ -70,36 +178,124 @@ impl PortfolioBuilder {
         self
     }
     
-    /// Add a position.
+    /// Add a single position to the portfolio.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - Fully constructed [`Position`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
+    /// use std::sync::Arc;
+    ///
+    /// # let instrument = Arc::new(finstack_valuations::instruments::deposit::Deposit::builder()
+    /// #     .id("DEP".into())
+    /// #     .notional(finstack_core::prelude::Money::new(1.0, finstack_core::prelude::Currency::USD))
+    /// #     .start(time::macros::date!(2024 - 01 - 01))
+    /// #     .end(time::macros::date!(2024 - 02 - 01))
+    /// #     .day_count(finstack_core::dates::DayCount::Act360)
+    /// #     .disc_id("USD".into())
+    /// #     .build()
+    /// #     .unwrap());
+    /// let position = Position::new("POS_1", "ACME", "INST_1", Arc::clone(&instrument), 1.0, PositionUnit::Units);
+    /// let builder = PortfolioBuilder::new("FUND_A").position(position);
+    /// ```
     pub fn position(mut self, position: Position) -> Self {
         self.positions.push(position);
         self
     }
     
-    /// Add multiple positions (accepts both Vec and array).
+    /// Add multiple positions from any iterator.
+    ///
+    /// # Arguments
+    ///
+    /// * `positions` - Iterator yielding positions to append to the builder.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::{PortfolioBuilder, Position};
+    ///
+    /// let positions: Vec<Position> = Vec::new();
+    /// let builder = PortfolioBuilder::new("FUND_A").positions(positions);
+    /// ```
     pub fn positions(mut self, positions: impl IntoIterator<Item = Position>) -> Self {
         self.positions.extend(positions);
         self
     }
     
-    /// Add a portfolio-level tag.
+    /// Apply a portfolio-level tag.
+    ///
+    /// Tags allow categorisation and filtering of portfolios.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Tag identifier.
+    /// * `value` - Tag value stored as a string.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::PortfolioBuilder;
+    ///
+    /// let builder = PortfolioBuilder::new("FUND_A")
+    ///     .tag("strategy", "fixed_income");
+    /// ```
     pub fn tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.insert(key.into(), value.into());
         self
     }
     
-    /// Add metadata.
+    /// Attach an arbitrary JSON metadata entry.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Metadata key.
+    /// * `value` - JSON payload stored alongside the portfolio.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::PortfolioBuilder;
+    /// use serde_json::json;
+    ///
+    /// let builder = PortfolioBuilder::new("FUND_A")
+    ///     .meta("notes", json!({"owner": "front-office"}));
+    /// ```
     pub fn meta(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.meta.insert(key.into(), value);
         self
     }
     
-    /// Build the portfolio with validation.
+    /// Build the portfolio with validation and entity reconciliation.
     ///
-    /// This method:
-    /// 1. Validates that base_ccy and as_of are set
-    /// 2. Auto-creates dummy entity if any positions reference it
-    /// 3. Validates all positions reference valid entities
+    /// This method performs several checks before returning a portfolio:
+    /// 1. Ensures the base currency and valuation date are configured.
+    /// 2. Injects a dummy entity when positions reference [`DUMMY_ENTITY_ID`].
+    /// 3. Delegates to [`Portfolio::validate`](crate::portfolio::Portfolio::validate) to confirm
+    ///    entity references and portfolio structure.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PortfolioError`](crate::error::PortfolioError) when the configuration is incomplete
+    /// or validation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::{PortfolioBuilder, Entity};
+    /// use finstack_core::prelude::*;
+    /// use time::macros::date;
+    ///
+    /// let portfolio = PortfolioBuilder::new("FUND_A")
+    ///     .base_ccy(Currency::USD)
+    ///     .as_of(date!(2024 - 01 - 01))
+    ///     .entity(Entity::new("ACME"))
+    ///     .build()
+    ///     .unwrap();
+    /// ```
     pub fn build(mut self) -> Result<Portfolio> {
         let base_ccy = self.base_ccy.ok_or_else(|| {
             crate::error::PortfolioError::ValidationFailed(
@@ -220,4 +416,3 @@ mod tests {
         assert!(result.is_err());
     }
 }
-

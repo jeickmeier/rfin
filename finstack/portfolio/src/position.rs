@@ -8,6 +8,21 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 /// Unit of position measurement.
+///
+/// The unit describes how the `quantity` on a [`Position`] should be interpreted.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_portfolio::PositionUnit;
+/// use finstack_core::prelude::Currency;
+///
+/// let unit = PositionUnit::Notional(Some(Currency::USD));
+/// match unit {
+///     PositionUnit::Notional(Some(ccy)) => assert_eq!(ccy, Currency::USD),
+///     _ => unreachable!(),
+/// }
+/// ```
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PositionUnit {
@@ -29,6 +44,26 @@ pub enum PositionUnit {
 /// Represents a holding of a specific quantity of an instrument,
 /// belonging to an entity. Positions track the instrument reference,
 /// quantity, and metadata for aggregation and analysis.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_portfolio::{Position, PositionUnit};
+/// use finstack_core::prelude::*;
+/// use std::sync::Arc;
+///
+/// # let instrument = Arc::new(finstack_valuations::instruments::deposit::Deposit::builder()
+/// #     .id("DEP".into())
+/// #     .notional(Money::new(1.0, Currency::USD))
+/// #     .start(time::macros::date!(2024 - 01 - 01))
+/// #     .end(time::macros::date!(2024 - 02 - 01))
+/// #     .day_count(finstack_core::dates::DayCount::Act360)
+/// #     .disc_id("USD".into())
+/// #     .build()
+/// #     .unwrap());
+/// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units);
+/// assert!(position.is_long());
+/// ```
 #[derive(Clone)]
 pub struct Position {
     /// Unique identifier for this position
@@ -58,6 +93,35 @@ pub struct Position {
 
 impl Position {
     /// Create a new position.
+    ///
+    /// # Arguments
+    ///
+    /// * `position_id` - Unique identifier for the position.
+    /// * `entity_id` - Owning entity identifier.
+    /// * `instrument_id` - Identifier of the underlying instrument.
+    /// * `instrument` - Shared pointer to the instrument implementation.
+    /// * `quantity` - Signed quantity of the instrument.
+    /// * `unit` - Interpretation of the quantity.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_core::prelude::*;
+    /// use std::sync::Arc;
+    ///
+    /// # let instrument = Arc::new(finstack_valuations::instruments::deposit::Deposit::builder()
+    /// #     .id("DEP".into())
+    /// #     .notional(Money::new(1.0, Currency::USD))
+    /// #     .start(time::macros::date!(2024 - 01 - 01))
+    /// #     .end(time::macros::date!(2024 - 02 - 01))
+    /// #     .day_count(finstack_core::dates::DayCount::Act360)
+    /// #     .disc_id("USD".into())
+    /// #     .build()
+    /// #     .unwrap());
+    /// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units);
+    /// assert_eq!(position.position_id, "POS_1");
+    /// ```
     pub fn new(
         position_id: impl Into<PositionId>,
         entity_id: impl Into<EntityId>,
@@ -79,23 +143,118 @@ impl Position {
     }
     
     /// Add a tag to the position.
+    ///
+    /// Tags are stored in an [`indexmap::IndexMap`] to preserve insertion order.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Tag key.
+    /// * `value` - Tag value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_core::prelude::*;
+    /// use std::sync::Arc;
+    ///
+    /// # let instrument = Arc::new(finstack_valuations::instruments::deposit::Deposit::builder()
+    /// #     .id("DEP".into())
+    /// #     .notional(Money::new(1.0, Currency::USD))
+    /// #     .start(time::macros::date!(2024 - 01 - 01))
+    /// #     .end(time::macros::date!(2024 - 02 - 01))
+    /// #     .day_count(finstack_core::dates::DayCount::Act360)
+    /// #     .disc_id("USD".into())
+    /// #     .build()
+    /// #     .unwrap());
+    /// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units)
+    ///     .with_tag("desk", "rates");
+    /// assert_eq!(position.tags.get("desk"), Some(&"rates".into()));
+    /// ```
     pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.insert(key.into(), value.into());
         self
     }
     
     /// Add metadata.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Metadata key.
+    /// * `value` - Arbitrary JSON value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_core::prelude::*;
+    /// use serde_json::json;
+    /// use std::sync::Arc;
+    ///
+    /// # let instrument = Arc::new(finstack_valuations::instruments::deposit::Deposit::builder()
+    /// #     .id("DEP".into())
+    /// #     .notional(Money::new(1.0, Currency::USD))
+    /// #     .start(time::macros::date!(2024 - 01 - 01))
+    /// #     .end(time::macros::date!(2024 - 02 - 01))
+    /// #     .day_count(finstack_core::dates::DayCount::Act360)
+    /// #     .disc_id("USD".into())
+    /// #     .build()
+    /// #     .unwrap());
+    /// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units)
+    ///     .with_meta("notes", json!({"owner": "desk"}));
+    /// assert!(position.meta.contains_key("notes"));
+    /// ```
     pub fn with_meta(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.meta.insert(key.into(), value);
         self
     }
     
     /// Check if this position is long (positive quantity).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_core::prelude::*;
+    /// use std::sync::Arc;
+    ///
+    /// # let instrument = Arc::new(finstack_valuations::instruments::deposit::Deposit::builder()
+    /// #     .id("DEP".into())
+    /// #     .notional(Money::new(1.0, Currency::USD))
+    /// #     .start(time::macros::date!(2024 - 01 - 01))
+    /// #     .end(time::macros::date!(2024 - 02 - 01))
+    /// #     .day_count(finstack_core::dates::DayCount::Act360)
+    /// #     .disc_id("USD".into())
+    /// #     .build()
+    /// #     .unwrap());
+    /// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units);
+    /// assert!(position.is_long());
+    /// ```
     pub fn is_long(&self) -> bool {
         self.quantity > 0.0
     }
     
     /// Check if this position is short (negative quantity).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_core::prelude::*;
+    /// use std::sync::Arc;
+    ///
+    /// # let instrument = Arc::new(finstack_valuations::instruments::deposit::Deposit::builder()
+    /// #     .id("DEP".into())
+    /// #     .notional(Money::new(1.0, Currency::USD))
+    /// #     .start(time::macros::date!(2024 - 01 - 01))
+    /// #     .end(time::macros::date!(2024 - 02 - 01))
+    /// #     .day_count(finstack_core::dates::DayCount::Act360)
+    /// #     .disc_id("USD".into())
+    /// #     .build()
+    /// #     .unwrap());
+    /// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), -1.0, PositionUnit::Units);
+    /// assert!(position.is_short());
+    /// ```
     pub fn is_short(&self) -> bool {
         self.quantity < 0.0
     }
@@ -159,4 +318,3 @@ mod tests {
         assert!(json.contains("notional"));
     }
 }
-
