@@ -27,6 +27,7 @@ use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::cds::*;
 use finstack_valuations::instruments::cap_floor::{InterestRateOption, parameters::*};
 use finstack_valuations::instruments::cds_index::{CDSIndex, parameters::*};
+use finstack_valuations::instruments::common::constants::isda_constants;
 use finstack_valuations::instruments::cds_option::{CdsOption, parameters::*};
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, parameters::*, TrancheSide};
 use finstack_valuations::instruments::equity::Equity;
@@ -684,7 +685,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let credit_params = finstack_valuations::instruments::common::parameters::CreditParams {
         reference_entity: "CORP_BB".into(),
         credit_curve_id: "CORP_BB".into(),
-        recovery_rate: 0.4,
+        recovery_rate: isda_constants::STANDARD_RECOVERY_SENIOR,
     };
     
     let cds_index = CDSIndex::new_standard(

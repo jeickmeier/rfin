@@ -102,6 +102,15 @@ pub const RMBS_SERVICING_FEE_BPS: f64 = 25.0;
 /// Standard CLO trustee annual fee (USD)
 pub const CLO_TRUSTEE_FEE_ANNUAL: f64 = 50_000.0;
 
+/// Standard ABS trustee annual fee (USD)
+pub const ABS_TRUSTEE_FEE_ANNUAL: f64 = 25_000.0;
+
+/// Standard CMBS trustee annual fee (USD)
+pub const CMBS_TRUSTEE_FEE_ANNUAL: f64 = 75_000.0;
+
+/// Standard RMBS trustee annual fee (USD)
+pub const RMBS_TRUSTEE_FEE_ANNUAL: f64 = 30_000.0;
+
 // ============================================================================
 // Simulation Constants
 // ============================================================================
@@ -168,6 +177,43 @@ pub const DEFAULT_MAX_COV_LITE: f64 = 0.65; // 65%
 
 /// Default maximum DIP concentration
 pub const DEFAULT_MAX_DIP: f64 = 0.05; // 5%
+
+// ============================================================================
+// Standard Deal Assumptions
+// ============================================================================
+
+/// Standard CLO CDR (annual)
+pub const CLO_STANDARD_CDR: f64 = 0.02;
+/// Standard CLO recovery rate
+pub const CLO_STANDARD_RECOVERY: f64 = 0.40;
+/// Standard CLO CPR (annual)
+pub const CLO_STANDARD_CPR: f64 = 0.15;
+
+/// Standard RMBS CDR (annual)
+pub const RMBS_STANDARD_CDR: f64 = 0.006;
+/// Standard RMBS recovery rate
+pub const RMBS_STANDARD_RECOVERY: f64 = 0.60;
+/// Standard RMBS CPR (annual)
+pub const RMBS_STANDARD_CPR: f64 = 0.06;
+/// Standard RMBS PSA speed
+pub const RMBS_STANDARD_PSA: f64 = 1.0;
+/// Standard RMBS SDA speed
+pub const RMBS_STANDARD_SDA: f64 = 1.0;
+
+/// Standard Auto ABS CDR (annual)
+pub const ABS_AUTO_STANDARD_CDR: f64 = 0.02;
+/// Standard Auto ABS recovery rate
+pub const ABS_AUTO_STANDARD_RECOVERY: f64 = 0.45;
+/// Standard Auto ABS speed (monthly)
+pub const ABS_AUTO_STANDARD_SPEED: f64 = 0.015;
+
+/// Standard CMBS CDR (annual)
+pub const CMBS_STANDARD_CDR: f64 = 0.005;
+/// Standard CMBS recovery rate
+pub const CMBS_STANDARD_RECOVERY: f64 = 0.65;
+/// Standard CMBS CPR (annual)
+pub const CMBS_STANDARD_CPR: f64 = 0.10;
+
 
 // ============================================================================
 // DEAL CONFIGURATION STRUCTURES
@@ -252,9 +298,9 @@ impl DealFees {
     /// Create CLO-style fee structure
     pub fn clo_standard(base_currency: finstack_core::currency::Currency) -> Self {
         Self {
-            trustee_fee_annual: Money::new(50_000.0, base_currency),
-            senior_mgmt_fee_bps: 40.0,       // 40 bps
-            subordinated_mgmt_fee_bps: 20.0, // 20 bps
+            trustee_fee_annual: Money::new(CLO_TRUSTEE_FEE_ANNUAL, base_currency),
+            senior_mgmt_fee_bps: CLO_SENIOR_MGMT_FEE_BPS,
+            subordinated_mgmt_fee_bps: CLO_SUBORDINATED_MGMT_FEE_BPS,
             servicing_fee_bps: 0.0,
             master_servicer_fee_bps: None,
             special_servicer_fee_bps: None,
@@ -264,10 +310,10 @@ impl DealFees {
     /// Create ABS-style fee structure
     pub fn abs_standard(base_currency: finstack_core::currency::Currency) -> Self {
         Self {
-            trustee_fee_annual: Money::new(25_000.0, base_currency),
+            trustee_fee_annual: Money::new(ABS_TRUSTEE_FEE_ANNUAL, base_currency),
             senior_mgmt_fee_bps: 0.0,
             subordinated_mgmt_fee_bps: 0.0,
-            servicing_fee_bps: 50.0, // 50 bps servicing
+            servicing_fee_bps: ABS_SERVICING_FEE_BPS,
             master_servicer_fee_bps: None,
             special_servicer_fee_bps: None,
         }
@@ -276,22 +322,22 @@ impl DealFees {
     /// Create CMBS-style fee structure
     pub fn cmbs_standard(base_currency: finstack_core::currency::Currency) -> Self {
         Self {
-            trustee_fee_annual: Money::new(75_000.0, base_currency),
+            trustee_fee_annual: Money::new(CMBS_TRUSTEE_FEE_ANNUAL, base_currency),
             senior_mgmt_fee_bps: 0.0,
             subordinated_mgmt_fee_bps: 0.0,
             servicing_fee_bps: 0.0,
-            master_servicer_fee_bps: Some(25.0),  // 25 bps
-            special_servicer_fee_bps: Some(25.0), // 25 bps
+            master_servicer_fee_bps: Some(CMBS_MASTER_SERVICER_FEE_BPS),
+            special_servicer_fee_bps: Some(CMBS_SPECIAL_SERVICER_FEE_BPS),
         }
     }
 
     /// Create RMBS-style fee structure
     pub fn rmbs_standard(base_currency: finstack_core::currency::Currency) -> Self {
         Self {
-            trustee_fee_annual: Money::new(30_000.0, base_currency),
+            trustee_fee_annual: Money::new(RMBS_TRUSTEE_FEE_ANNUAL, base_currency),
             senior_mgmt_fee_bps: 0.0,
             subordinated_mgmt_fee_bps: 0.0,
-            servicing_fee_bps: 25.0, // 25 bps
+            servicing_fee_bps: RMBS_SERVICING_FEE_BPS,
             master_servicer_fee_bps: None,
             special_servicer_fee_bps: None,
         }
@@ -396,9 +442,9 @@ impl DefaultAssumptions {
     /// CLO default assumptions
     pub fn clo_standard() -> Self {
         Self {
-            base_cdr_annual: 0.02,    // 2% CDR
-            base_recovery_rate: 0.40, // 40% recovery (60% severity)
-            base_cpr_annual: 0.15,    // 15% CPR
+            base_cdr_annual: CLO_STANDARD_CDR,
+            base_recovery_rate: CLO_STANDARD_RECOVERY,
+            base_cpr_annual: CLO_STANDARD_CPR,
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: None,
@@ -411,11 +457,11 @@ impl DefaultAssumptions {
     /// RMBS default assumptions
     pub fn rmbs_standard() -> Self {
         Self {
-            base_cdr_annual: 0.006,   // 0.6% CDR (100% SDA peak)
-            base_recovery_rate: 0.60, // 60% recovery (40% severity)
-            base_cpr_annual: 0.06,    // 6% CPR (100% PSA)
-            psa_speed: Some(1.0),     // 100% PSA
-            sda_speed: Some(1.0),     // 100% SDA
+            base_cdr_annual: RMBS_STANDARD_CDR,
+            base_recovery_rate: RMBS_STANDARD_RECOVERY,
+            base_cpr_annual: RMBS_STANDARD_CPR,
+            psa_speed: Some(RMBS_STANDARD_PSA),
+            sda_speed: Some(RMBS_STANDARD_SDA),
             abs_speed_monthly: None,
             cpr_by_asset_type: HashMap::new(),
             cdr_by_asset_type: HashMap::new(),
@@ -426,12 +472,12 @@ impl DefaultAssumptions {
     /// Auto ABS default assumptions
     pub fn abs_auto_standard() -> Self {
         Self {
-            base_cdr_annual: 0.02,    // 2% CDR
-            base_recovery_rate: 0.45, // 45% recovery
+            base_cdr_annual: ABS_AUTO_STANDARD_CDR,
+            base_recovery_rate: ABS_AUTO_STANDARD_RECOVERY,
             base_cpr_annual: 0.0,     // Not used for auto
             psa_speed: None,
             sda_speed: None,
-            abs_speed_monthly: Some(0.015), // 1.5% ABS
+            abs_speed_monthly: Some(ABS_AUTO_STANDARD_SPEED),
             cpr_by_asset_type: HashMap::new(),
             cdr_by_asset_type: HashMap::new(),
             recovery_by_asset_type: HashMap::new(),
@@ -441,9 +487,9 @@ impl DefaultAssumptions {
     /// CMBS default assumptions
     pub fn cmbs_standard() -> Self {
         Self {
-            base_cdr_annual: 0.005,   // 0.5% CDR
-            base_recovery_rate: 0.65, // 65% recovery (collateral-backed)
-            base_cpr_annual: 0.10,    // 10% CPR (open period)
+            base_cdr_annual: CMBS_STANDARD_CDR,
+            base_recovery_rate: CMBS_STANDARD_RECOVERY,
+            base_cpr_annual: CMBS_STANDARD_CPR,
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: None,
@@ -492,13 +538,13 @@ impl Default for DefaultAssumptions {
         recovery_by_asset_type.insert("card".to_string(), 0.05);
         recovery_by_asset_type.insert("credit_card".to_string(), 0.05);
         recovery_by_asset_type.insert("unsecured".to_string(), 0.05);
-        recovery_by_asset_type.insert("corporate".to_string(), 0.40);
-        recovery_by_asset_type.insert("clo".to_string(), 0.40);
-        recovery_by_asset_type.insert("commercial".to_string(), 0.40);
+        recovery_by_asset_type.insert("corporate".to_string(), CLO_STANDARD_RECOVERY);
+        recovery_by_asset_type.insert("clo".to_string(), CLO_STANDARD_RECOVERY);
+        recovery_by_asset_type.insert("commercial".to_string(), CLO_STANDARD_RECOVERY);
 
         Self {
-            base_cdr_annual: 0.02,
-            base_recovery_rate: 0.40,
+            base_cdr_annual: CLO_STANDARD_CDR,
+            base_recovery_rate: CLO_STANDARD_RECOVERY,
             base_cpr_annual: 0.05,
             psa_speed: None,
             sda_speed: None,

@@ -9,6 +9,7 @@ use finstack_valuations::instruments::cds_index::parameters::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
 use finstack_valuations::instruments::cds_index::CDSIndex;
+use finstack_valuations::instruments::common::constants::isda_constants;
 use finstack_valuations::instruments::common::parameters::CreditParams;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
@@ -47,7 +48,7 @@ impl JsCDSIndex {
         index_factor: Option<f64>,
     ) -> Result<JsCDSIndex, JsValue> {
         let side_value = parse_optional_with_default(side, CdsPayReceive::PayFixed)?;
-        let recovery = recovery_rate.unwrap_or(0.40);
+        let recovery = recovery_rate.unwrap_or(isda_constants::STANDARD_RECOVERY_SENIOR);
 
         if !(0.0..=1.0).contains(&recovery) {
             return Err(js_error(

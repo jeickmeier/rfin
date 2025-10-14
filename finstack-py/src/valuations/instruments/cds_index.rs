@@ -10,6 +10,7 @@ use finstack_valuations::instruments::cds_index::parameters::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
 use finstack_valuations::instruments::cds_index::CDSIndex;
+use finstack_valuations::instruments::common::constants::isda_constants;
 use finstack_valuations::instruments::common::parameters::CreditParams;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -63,10 +64,10 @@ impl PyCdsIndex {
             credit_curve,
             *,
             side="pay_protection",
-            recovery_rate=0.4,
+            recovery_rate=None,
             index_factor=None
         ),
-        text_signature = "(cls, instrument_id, index_name, series, version, notional, fixed_coupon_bp, start_date, maturity, discount_curve, credit_curve, /, *, side='pay_protection', recovery_rate=0.4, index_factor=None)"
+        text_signature = "(cls, instrument_id, index_name, series, version, notional, fixed_coupon_bp, start_date, maturity, discount_curve, credit_curve, /, *, side='pay_protection', recovery_rate=None, index_factor=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a CDS index instrument with standard ISDA conventions.
@@ -114,7 +115,7 @@ impl PyCdsIndex {
         let disc_curve = extract_curve_id(&discount_curve)?;
         let credit_curve_id = extract_curve_id(&credit_curve)?;
         let side_value = normalize_cds_side(side.unwrap_or("pay_protection"))?;
-        let recovery = recovery_rate.unwrap_or(0.40);
+        let recovery = recovery_rate.unwrap_or(isda_constants::STANDARD_RECOVERY_SENIOR);
         if !(0.0..=1.0).contains(&recovery) {
             return Err(PyValueError::new_err(
                 "recovery_rate must be between 0 and 1",

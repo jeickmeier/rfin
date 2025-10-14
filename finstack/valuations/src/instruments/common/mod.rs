@@ -29,6 +29,9 @@ pub mod metrics;
 // Common pricing patterns and infrastructure
 pub mod pricing;
 
+// Common constants
+pub mod constants;
+
 // Re-export commonly used types for convenience
 pub use discountable::Discountable;
 pub use helpers::{build_with_metrics_dyn, validate_currency_consistency};
