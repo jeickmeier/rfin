@@ -113,6 +113,15 @@ pub struct ExtensionContext<'a> {
 
 impl<'a> ExtensionContext<'a> {
     /// Create a new extension context.
+    ///
+    /// # Arguments
+    /// * `model` - Financial model being analyzed
+    /// * `results` - Evaluation output to inspect
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let context = ExtensionContext::new(model, results);
+    /// ```
     pub fn new(model: &'a FinancialModelSpec, results: &'a Results) -> Self {
         Self {
             model,
@@ -122,7 +131,10 @@ impl<'a> ExtensionContext<'a> {
         }
     }
 
-    /// Add a configuration.
+    /// Add a configuration object for the extension.
+    ///
+    /// # Arguments
+    /// * `config` - JSON value representing user-supplied configuration
     #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_config(mut self, config: &'a serde_json::Value) -> Self {
         self.config = Some(config);
@@ -130,6 +142,10 @@ impl<'a> ExtensionContext<'a> {
     }
 
     /// Add runtime context data.
+    ///
+    /// # Arguments
+    /// * `key` - Identifier for the runtime datum
+    /// * `value` - Value to store and expose to the extension
     #[must_use = "builder methods take self by value and return the modified value"]
     pub fn add_context(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.runtime_context.insert(key.into(), value);
@@ -161,6 +177,9 @@ pub struct ExtensionResult {
 
 impl ExtensionResult {
     /// Create a successful result.
+    ///
+    /// # Arguments
+    /// * `message` - Human-readable summary
     pub fn success(message: impl Into<String>) -> Self {
         Self {
             status: ExtensionStatus::Success,
@@ -172,6 +191,9 @@ impl ExtensionResult {
     }
 
     /// Create a failed result.
+    ///
+    /// # Arguments
+    /// * `message` - Human-readable summary
     pub fn failure(message: impl Into<String>) -> Self {
         Self {
             status: ExtensionStatus::Failed,
@@ -183,6 +205,9 @@ impl ExtensionResult {
     }
 
     /// Create a not implemented result.
+    ///
+    /// # Arguments
+    /// * `message` - Human-readable summary
     pub fn not_implemented(message: impl Into<String>) -> Self {
         Self {
             status: ExtensionStatus::NotImplemented,
@@ -194,6 +219,9 @@ impl ExtensionResult {
     }
 
     /// Create a skipped result.
+    ///
+    /// # Arguments
+    /// * `message` - Human-readable summary
     pub fn skipped(message: impl Into<String>) -> Self {
         Self {
             status: ExtensionStatus::Skipped,
@@ -205,6 +233,10 @@ impl ExtensionResult {
     }
 
     /// Add data to the result.
+    ///
+    /// # Arguments
+    /// * `key` - Identifier for the data item
+    /// * `value` - JSON value to attach
     #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_data(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.data.insert(key.into(), value);
@@ -212,6 +244,9 @@ impl ExtensionResult {
     }
 
     /// Add a warning.
+    ///
+    /// # Arguments
+    /// * `warning` - Warning message to append
     #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_warning(mut self, warning: impl Into<String>) -> Self {
         self.warnings.push(warning.into());
@@ -219,6 +254,9 @@ impl ExtensionResult {
     }
 
     /// Add an error.
+    ///
+    /// # Arguments
+    /// * `error` - Error description to append
     #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_error(mut self, error: impl Into<String>) -> Self {
         self.errors.push(error.into());

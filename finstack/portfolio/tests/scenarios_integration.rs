@@ -6,9 +6,9 @@ use crate::common::*;
 #[cfg(feature = "scenarios")]
 use finstack_core::prelude::*;
 #[cfg(feature = "scenarios")]
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
-#[cfg(feature = "scenarios")]
 use finstack_portfolio::types::Entity;
+#[cfg(feature = "scenarios")]
+use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 #[cfg(feature = "scenarios")]
 use finstack_scenarios::spec::{CurveKind, OperationSpec, ScenarioSpec};
 #[cfg(feature = "scenarios")]
@@ -47,12 +47,15 @@ fn apply_and_revalue_succeeds() {
         id: "s".to_string(),
         name: Some("s".to_string()),
         description: None,
-        operations: vec![OperationSpec::CurveParallelBp { curve_kind: CurveKind::Discount, curve_id: "USD".to_string(), bp: 10.0 }],
+        operations: vec![OperationSpec::CurveParallelBp {
+            curve_kind: CurveKind::Discount,
+            curve_id: "USD".to_string(),
+            bp: 10.0,
+        }],
         priority: 0,
     };
 
-    let (_valuation, report) = finstack_portfolio::apply_and_revalue(&portfolio, &scenario, &market, &config).unwrap();
+    let (_valuation, report) =
+        finstack_portfolio::apply_and_revalue(&portfolio, &scenario, &market, &config).unwrap();
     assert!(report.operations_applied > 0);
 }
-
-

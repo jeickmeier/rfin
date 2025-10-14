@@ -64,5 +64,3 @@ fn fx_matrix(rate: f64) -> FxMatrix {
 pub fn market_with_eur_and_fx(rate: f64) -> MarketContext {
     market_with_eur().insert_fx(fx_matrix(rate))
 }
-
-

@@ -70,13 +70,20 @@ pub use parser::parse_formula;
 ///
 /// This is a convenience function that combines parsing and compilation.
 ///
+/// # Arguments
+/// * `formula` - DSL expression to parse then compile
+///
+/// # Returns
+/// Core [`Expr`](finstack_core::expr::Expr) ready for evaluation by the engine.
+///
 /// # Example
 ///
 /// ```rust
 /// use finstack_statements::dsl::parse_and_compile;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let expr = parse_and_compile("revenue * 1.05")?;
+/// let expr = parse_and_compile("revenue - cogs")?;
+/// # let _ = expr;
 /// # Ok(())
 /// # }
 /// ```

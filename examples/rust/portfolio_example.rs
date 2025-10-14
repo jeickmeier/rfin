@@ -6,8 +6,10 @@
 //! - Scenario application and re-valuation
 //! - DataFrame exports
 
+use finstack_core::market_data::scalars::inflation_index::{
+    InflationIndex, InflationInterpolation, InflationLag,
+};
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
@@ -24,27 +26,27 @@ use finstack_portfolio::{self, *};
 use finstack_scenarios::spec::{CurveKind, OperationSpec, ScenarioSpec};
 use finstack_valuations::instruments;
 use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::cap_floor::{parameters::*, InterestRateOption};
 use finstack_valuations::instruments::cds::*;
-use finstack_valuations::instruments::cap_floor::{InterestRateOption, parameters::*};
-use finstack_valuations::instruments::cds_index::{CDSIndex, parameters::*};
+use finstack_valuations::instruments::cds_index::{parameters::*, CDSIndex};
+use finstack_valuations::instruments::cds_option::{parameters::*, CdsOption};
+use finstack_valuations::instruments::cds_tranche::{parameters::*, CdsTranche, TrancheSide};
 use finstack_valuations::instruments::common::constants::isda_constants;
-use finstack_valuations::instruments::cds_option::{CdsOption, parameters::*};
-use finstack_valuations::instruments::cds_tranche::{CdsTranche, parameters::*, TrancheSide};
+use finstack_valuations::instruments::common::parameters::legs::*;
+use finstack_valuations::instruments::deposit::Deposit;
 use finstack_valuations::instruments::equity::Equity;
-use finstack_valuations::instruments::equity_option::{EquityOption, parameters::*};
-use finstack_valuations::instruments::fx_option::{FxOption, parameters::*};
+use finstack_valuations::instruments::equity_option::{parameters::*, EquityOption};
+use finstack_valuations::instruments::fx_option::{parameters::*, FxOption};
 use finstack_valuations::instruments::fx_spot::FxSpot;
-use finstack_valuations::instruments::inflation_linked_bond::{InflationLinkedBond, parameters::*};
+use finstack_valuations::instruments::fx_swap::FxSwap;
+use finstack_valuations::instruments::inflation_linked_bond::{parameters::*, InflationLinkedBond};
 use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
+use finstack_valuations::instruments::irs::*;
 use finstack_valuations::instruments::structured_credit::components::{
     AssetPool, DealType, TrancheBuilder, TrancheCoupon, TrancheStructure, WaterfallBuilder,
 };
 use finstack_valuations::instruments::structured_credit::StructuredCredit;
-use finstack_valuations::instruments::swaption::{Swaption, parameters::*};
-use finstack_valuations::instruments::common::parameters::legs::*;
-use finstack_valuations::instruments::deposit::Deposit;
-use finstack_valuations::instruments::fx_swap::FxSwap;
-use finstack_valuations::instruments::irs::*;
+use finstack_valuations::instruments::swaption::{parameters::*, Swaption};
 use std::sync::Arc;
 use time::macros::date;
 
@@ -76,8 +78,11 @@ fn main() -> finstack_portfolio::Result<()> {
     println!("\n--- Metrics Aggregation ---");
     let metrics = aggregate_metrics(&valuation)?;
     println!("Aggregated {} metrics", metrics.aggregated.len());
-    println!("Position-level metrics: {} positions", metrics.by_position.len());
-    
+    println!(
+        "Position-level metrics: {} positions",
+        metrics.by_position.len()
+    );
+
     // Show aggregated metrics
     if !metrics.aggregated.is_empty() {
         println!("\nAggregated metrics:");
@@ -89,7 +94,7 @@ fn main() -> finstack_portfolio::Result<()> {
             }
         }
     }
-    
+
     // Show position-level metrics
     if !metrics.by_position.is_empty() {
         println!("\nPosition-level metrics:");
@@ -100,7 +105,10 @@ fn main() -> finstack_portfolio::Result<()> {
             }
         }
         if metrics.by_position.len() > 25 {
-            println!("  ... and {} more positions", metrics.by_position.len() - 25);
+            println!(
+                "  ... and {} more positions",
+                metrics.by_position.len() - 25
+            );
         }
     }
 
@@ -147,15 +155,24 @@ fn main() -> finstack_portfolio::Result<()> {
     println!("Operations:");
     for (i, op) in scenario.operations.iter().enumerate() {
         match op {
-            OperationSpec::CurveParallelBp { curve_kind, curve_id, bp } => {
-                println!("  {}. {:?} curve '{}': {:+.0}bp parallel shift", i + 1, curve_kind, curve_id, bp);
+            OperationSpec::CurveParallelBp {
+                curve_kind,
+                curve_id,
+                bp,
+            } => {
+                println!(
+                    "  {}. {:?} curve '{}': {:+.0}bp parallel shift",
+                    i + 1,
+                    curve_kind,
+                    curve_id,
+                    bp
+                );
             }
             _ => println!("  {}. {:?}", i + 1, op),
         }
     }
 
-    let (stressed_valuation, report) =
-        apply_and_revalue(&portfolio, &scenario, &market, &config)?;
+    let (stressed_valuation, report) = apply_and_revalue(&portfolio, &scenario, &market, &config)?;
 
     println!("\nScenario Results:");
     println!("  Operations applied: {}", report.operations_applied);
@@ -165,28 +182,35 @@ fn main() -> finstack_portfolio::Result<()> {
             println!("    - {}", warning);
         }
     }
-    
+
     println!("\nValue Impact:");
     println!("  Base case value:    {}", valuation.total_base_ccy);
-    println!("  Stressed value:     {}", stressed_valuation.total_base_ccy);
-    let delta = stressed_valuation.total_base_ccy.checked_sub(valuation.total_base_ccy)?;
+    println!(
+        "  Stressed value:     {}",
+        stressed_valuation.total_base_ccy
+    );
+    let delta = stressed_valuation
+        .total_base_ccy
+        .checked_sub(valuation.total_base_ccy)?;
     let pct_change = if valuation.total_base_ccy.amount() != 0.0 {
         (delta.amount() / valuation.total_base_ccy.amount().abs()) * 100.0
     } else {
         0.0
     };
     println!("  Change:             {} ({:+.2}%)", delta, pct_change);
-    
+
     // Show per-entity impact
     println!("\nPer-Entity Impact:");
     for (entity_id, base_value) in &valuation.by_entity {
         if let Some(stressed_value) = stressed_valuation.by_entity.get(entity_id) {
             let entity_delta = stressed_value.checked_sub(*base_value)?;
-            println!("  {}: {} → {} (change: {})", 
-                entity_id, base_value, stressed_value, entity_delta);
+            println!(
+                "  {}: {} → {} (change: {})",
+                entity_id, base_value, stressed_value, entity_delta
+            );
         }
     }
-    
+
     // Show metrics impact if available
     let stressed_metrics = aggregate_metrics(&stressed_valuation)?;
     if !metrics.aggregated.is_empty() && !stressed_metrics.aggregated.is_empty() {
@@ -194,8 +218,10 @@ fn main() -> finstack_portfolio::Result<()> {
         for (metric_id, base_agg) in &metrics.aggregated {
             if let Some(stressed_agg) = stressed_metrics.aggregated.get(metric_id) {
                 let metric_delta = stressed_agg.total - base_agg.total;
-                println!("  {}: {:.2} → {:.2} (change: {:+.2})", 
-                    metric_id, base_agg.total, stressed_agg.total, metric_delta);
+                println!(
+                    "  {}: {:.2} → {:.2} (change: {:+.2})",
+                    metric_id, base_agg.total, stressed_agg.total, metric_delta
+                );
             }
         }
     }
@@ -203,14 +229,18 @@ fn main() -> finstack_portfolio::Result<()> {
     // 7. Export to DataFrames
     println!("\n--- DataFrame Exports ---");
     let df_positions = finstack_portfolio::dataframe::positions_to_dataframe(&valuation)?;
-    println!("Positions DataFrame: {} rows x {} columns", 
-        df_positions.height(), 
-        df_positions.width());
+    println!(
+        "Positions DataFrame: {} rows x {} columns",
+        df_positions.height(),
+        df_positions.width()
+    );
 
     let df_entities = finstack_portfolio::dataframe::entities_to_dataframe(&valuation)?;
-    println!("Entities DataFrame:  {} rows x {} columns",
+    println!(
+        "Entities DataFrame:  {} rows x {} columns",
         df_entities.height(),
-        df_entities.width());
+        df_entities.width()
+    );
 
     println!("\n=== Portfolio Example Complete ===");
     Ok(())
@@ -222,14 +252,14 @@ fn build_market_data(as_of: Date) -> MarketContext {
         .base_date(as_of)
         .knots(vec![
             (0.0, 1.0),
-            (1.0/365.0, 0.999863),  // 1 day: ~5% rate
-            (7.0/365.0, 0.999042),  // 1 week
-            (30.0/365.0, 0.995890), // 1 month
-            (0.25, 0.9875),         // 3 months: ~5% rate
-            (0.5, 0.975),           // 6 months
-            (1.0, 0.95),            // 1 year: ~5.13% rate
-            (2.0, 0.90),            // 2 years
-            (5.0, 0.80),            // 5 years
+            (1.0 / 365.0, 0.999863),  // 1 day: ~5% rate
+            (7.0 / 365.0, 0.999042),  // 1 week
+            (30.0 / 365.0, 0.995890), // 1 month
+            (0.25, 0.9875),           // 3 months: ~5% rate
+            (0.5, 0.975),             // 6 months
+            (1.0, 0.95),              // 1 year: ~5.13% rate
+            (2.0, 0.90),              // 2 years
+            (5.0, 0.80),              // 5 years
         ])
         .set_interp(InterpStyle::Linear)
         .build()
@@ -240,14 +270,14 @@ fn build_market_data(as_of: Date) -> MarketContext {
         .base_date(as_of)
         .knots(vec![
             (0.0, 1.0),
-            (1.0/365.0, 0.999918),  // 1 day: ~3% rate
-            (7.0/365.0, 0.999426),  // 1 week
-            (30.0/365.0, 0.997534), // 1 month
-            (0.25, 0.9925),         // 3 months: ~3% rate
-            (0.5, 0.985),           // 6 months
-            (1.0, 0.97),            // 1 year: ~3.05% rate
-            (2.0, 0.94),            // 2 years
-            (5.0, 0.86),            // 5 years
+            (1.0 / 365.0, 0.999918),  // 1 day: ~3% rate
+            (7.0 / 365.0, 0.999426),  // 1 week
+            (30.0 / 365.0, 0.997534), // 1 month
+            (0.25, 0.9925),           // 3 months: ~3% rate
+            (0.5, 0.985),             // 6 months
+            (1.0, 0.97),              // 1 year: ~3.05% rate
+            (2.0, 0.94),              // 2 years
+            (5.0, 0.86),              // 5 years
         ])
         .set_interp(InterpStyle::Linear)
         .build()
@@ -256,12 +286,7 @@ fn build_market_data(as_of: Date) -> MarketContext {
     // Create forward curve for SOFR (needed for IRS)
     let usd_sofr_fwd = ForwardCurve::builder("USD_SOFR_3M", 0.25)
         .base_date(as_of)
-        .knots(vec![
-            (0.0, 0.05),
-            (1.0, 0.051),
-            (2.0, 0.053),
-            (5.0, 0.055),
-        ])
+        .knots(vec![(0.0, 0.05), (1.0, 0.051), (2.0, 0.053), (5.0, 0.055)])
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
@@ -269,12 +294,7 @@ fn build_market_data(as_of: Date) -> MarketContext {
     // Create hazard curve for credit instruments
     let hazard_curve = HazardCurve::builder("CORP_BB")
         .base_date(as_of)
-        .knots(vec![
-            (0.0, 0.02),
-            (1.0, 0.025),
-            (5.0, 0.03),
-            (10.0, 0.035),
-        ])
+        .knots(vec![(0.0, 0.02), (1.0, 0.025), (5.0, 0.03), (10.0, 0.035)])
         .recovery_rate(0.4)
         .day_count(DayCount::Act365F)
         .build()
@@ -284,7 +304,7 @@ fn build_market_data(as_of: Date) -> MarketContext {
     let index_hazard_curve = HazardCurve::builder("CDX_NA_IG_42")
         .base_date(as_of)
         .knots(vec![
-            (0.0, 0.015),  // Lower spread for IG index
+            (0.0, 0.015), // Lower spread for IG index
             (1.0, 0.018),
             (5.0, 0.022),
             (10.0, 0.025),
@@ -296,68 +316,68 @@ fn build_market_data(as_of: Date) -> MarketContext {
 
     // Create volatility surface for CDS options
     let vol_surface = VolSurface::builder("CDS_VOL")
-        .expiries(&[0.25, 0.5, 1.0, 2.0, 5.0])  // 3M, 6M, 1Y, 2Y, 5Y
-        .strikes(&[50.0, 100.0, 150.0, 200.0, 300.0])  // Strike spreads in bp
-        .row(&[0.35, 0.32, 0.30, 0.28, 0.25])  // 3M expiry vols
-        .row(&[0.33, 0.30, 0.28, 0.26, 0.23])  // 6M expiry vols
-        .row(&[0.30, 0.28, 0.26, 0.24, 0.21])  // 1Y expiry vols
-        .row(&[0.28, 0.26, 0.24, 0.22, 0.19])  // 2Y expiry vols
-        .row(&[0.25, 0.23, 0.21, 0.19, 0.16])  // 5Y expiry vols
+        .expiries(&[0.25, 0.5, 1.0, 2.0, 5.0]) // 3M, 6M, 1Y, 2Y, 5Y
+        .strikes(&[50.0, 100.0, 150.0, 200.0, 300.0]) // Strike spreads in bp
+        .row(&[0.35, 0.32, 0.30, 0.28, 0.25]) // 3M expiry vols
+        .row(&[0.33, 0.30, 0.28, 0.26, 0.23]) // 6M expiry vols
+        .row(&[0.30, 0.28, 0.26, 0.24, 0.21]) // 1Y expiry vols
+        .row(&[0.28, 0.26, 0.24, 0.22, 0.19]) // 2Y expiry vols
+        .row(&[0.25, 0.23, 0.21, 0.19, 0.16]) // 5Y expiry vols
         .build()
         .unwrap();
 
     // Create volatility surface for interest rate options (caps/floors/swaptions)
     let ir_vol_surface = VolSurface::builder("IR_VOL")
-        .expiries(&[0.25, 0.5, 1.0, 2.0, 5.0])  // 3M, 6M, 1Y, 2Y, 5Y
-        .strikes(&[0.02, 0.03, 0.04, 0.05, 0.06])  // Strike rates (2%, 3%, 4%, 5%, 6%)
-        .row(&[0.25, 0.23, 0.21, 0.19, 0.17])  // 3M expiry vols
-        .row(&[0.24, 0.22, 0.20, 0.18, 0.16])  // 6M expiry vols
-        .row(&[0.23, 0.21, 0.19, 0.17, 0.15])  // 1Y expiry vols
-        .row(&[0.22, 0.20, 0.18, 0.16, 0.14])  // 2Y expiry vols
-        .row(&[0.20, 0.18, 0.16, 0.14, 0.12])  // 5Y expiry vols
+        .expiries(&[0.25, 0.5, 1.0, 2.0, 5.0]) // 3M, 6M, 1Y, 2Y, 5Y
+        .strikes(&[0.02, 0.03, 0.04, 0.05, 0.06]) // Strike rates (2%, 3%, 4%, 5%, 6%)
+        .row(&[0.25, 0.23, 0.21, 0.19, 0.17]) // 3M expiry vols
+        .row(&[0.24, 0.22, 0.20, 0.18, 0.16]) // 6M expiry vols
+        .row(&[0.23, 0.21, 0.19, 0.17, 0.15]) // 1Y expiry vols
+        .row(&[0.22, 0.20, 0.18, 0.16, 0.14]) // 2Y expiry vols
+        .row(&[0.20, 0.18, 0.16, 0.14, 0.12]) // 5Y expiry vols
         .build()
         .unwrap();
 
     // Create volatility surface for equity options
     let equity_vol_surface = VolSurface::builder("EQ_VOL")
-        .expiries(&[0.25, 0.5, 1.0, 2.0, 5.0])  // 3M, 6M, 1Y, 2Y, 5Y
-        .strikes(&[80.0, 90.0, 100.0, 110.0, 120.0])  // Strike prices (80, 90, 100, 110, 120)
-        .row(&[0.35, 0.33, 0.31, 0.29, 0.27])  // 3M expiry vols
-        .row(&[0.33, 0.31, 0.29, 0.27, 0.25])  // 6M expiry vols
-        .row(&[0.30, 0.28, 0.26, 0.24, 0.22])  // 1Y expiry vols
-        .row(&[0.28, 0.26, 0.24, 0.22, 0.20])  // 2Y expiry vols
-        .row(&[0.25, 0.23, 0.21, 0.19, 0.17])  // 5Y expiry vols
+        .expiries(&[0.25, 0.5, 1.0, 2.0, 5.0]) // 3M, 6M, 1Y, 2Y, 5Y
+        .strikes(&[80.0, 90.0, 100.0, 110.0, 120.0]) // Strike prices (80, 90, 100, 110, 120)
+        .row(&[0.35, 0.33, 0.31, 0.29, 0.27]) // 3M expiry vols
+        .row(&[0.33, 0.31, 0.29, 0.27, 0.25]) // 6M expiry vols
+        .row(&[0.30, 0.28, 0.26, 0.24, 0.22]) // 1Y expiry vols
+        .row(&[0.28, 0.26, 0.24, 0.22, 0.20]) // 2Y expiry vols
+        .row(&[0.25, 0.23, 0.21, 0.19, 0.17]) // 5Y expiry vols
         .build()
         .unwrap();
 
     // Create FX volatility surface for FX options
     let fx_vol_surface = VolSurface::builder("FX_VOL")
-        .expiries(&[0.25, 0.5, 1.0, 2.0, 5.0])  // 3M, 6M, 1Y, 2Y, 5Y
-        .strikes(&[0.85, 0.90, 0.95, 1.00, 1.05])  // Strike prices (EUR/USD)
-        .row(&[0.12, 0.11, 0.10, 0.09, 0.08])  // 3M expiry vols
-        .row(&[0.11, 0.10, 0.09, 0.08, 0.07])  // 6M expiry vols
-        .row(&[0.10, 0.09, 0.08, 0.07, 0.06])  // 1Y expiry vols
-        .row(&[0.09, 0.08, 0.07, 0.06, 0.05])  // 2Y expiry vols
-        .row(&[0.08, 0.07, 0.06, 0.05, 0.04])  // 5Y expiry vols
+        .expiries(&[0.25, 0.5, 1.0, 2.0, 5.0]) // 3M, 6M, 1Y, 2Y, 5Y
+        .strikes(&[0.85, 0.90, 0.95, 1.00, 1.05]) // Strike prices (EUR/USD)
+        .row(&[0.12, 0.11, 0.10, 0.09, 0.08]) // 3M expiry vols
+        .row(&[0.11, 0.10, 0.09, 0.08, 0.07]) // 6M expiry vols
+        .row(&[0.10, 0.09, 0.08, 0.07, 0.06]) // 1Y expiry vols
+        .row(&[0.09, 0.08, 0.07, 0.06, 0.05]) // 2Y expiry vols
+        .row(&[0.08, 0.07, 0.06, 0.05, 0.04]) // 5Y expiry vols
         .build()
         .unwrap();
 
     // Create base correlation curve for CDS tranches
     let base_correlation_curve = BaseCorrelationCurve::builder("CDX_NA_IG_42")
         .points(vec![
-            (3.0, 0.25),   // 0-3% tranche: 25% base correlation
-            (7.0, 0.45),   // 0-7% tranche: 45% base correlation
-            (10.0, 0.60),  // 0-10% tranche: 60% base correlation
-            (15.0, 0.75),  // 0-15% tranche: 75% base correlation
-            (30.0, 0.85),  // 0-30% tranche: 85% base correlation
+            (3.0, 0.25),  // 0-3% tranche: 25% base correlation
+            (7.0, 0.45),  // 0-7% tranche: 45% base correlation
+            (10.0, 0.60), // 0-10% tranche: 60% base correlation
+            (15.0, 0.75), // 0-15% tranche: 75% base correlation
+            (30.0, 0.85), // 0-30% tranche: 85% base correlation
         ])
         .build()
         .unwrap();
 
     // Create credit index data for CDS tranches
     let credit_index_data = CreditIndexData::builder()
-        .num_constituents(125)  // CDX.NA.IG has 125 constituents
-        .recovery_rate(0.4)      // 40% recovery rate
+        .num_constituents(125) // CDX.NA.IG has 125 constituents
+        .recovery_rate(0.4) // 40% recovery rate
         .index_credit_curve(Arc::new(index_hazard_curve))
         .base_correlation_curve(Arc::new(base_correlation_curve))
         .build()
@@ -366,20 +386,20 @@ fn build_market_data(as_of: Date) -> MarketContext {
     // Create equity spot prices
     let aapl_price = MarketScalar::Unitless(150.0);
     let msft_price = MarketScalar::Unitless(300.0);
-    
+
     // Create dividend yields (annualized, decimal)
-    let aapl_dividend_yield = MarketScalar::Unitless(0.015);  // 1.5% annual dividend yield
-    let msft_dividend_yield = MarketScalar::Unitless(0.008);  // 0.8% annual dividend yield
+    let aapl_dividend_yield = MarketScalar::Unitless(0.015); // 1.5% annual dividend yield
+    let msft_dividend_yield = MarketScalar::Unitless(0.008); // 0.8% annual dividend yield
 
     // Create inflation curves for inflation-linked instruments
     let us_cpi_curve = InflationCurve::builder("US-CPI")
         .base_cpi(100.0)
         .knots(vec![
-            (0.0, 100.0),    // Base CPI level
-            (1.0, 102.5),    // 1Y: 2.5% inflation
-            (2.0, 105.0),    // 2Y: 2.5% inflation
-            (5.0, 112.0),    // 5Y: 2.4% inflation
-            (10.0, 125.0),   // 10Y: 2.2% inflation
+            (0.0, 100.0),  // Base CPI level
+            (1.0, 102.5),  // 1Y: 2.5% inflation
+            (2.0, 105.0),  // 2Y: 2.5% inflation
+            (5.0, 112.0),  // 5Y: 2.4% inflation
+            (10.0, 125.0), // 10Y: 2.2% inflation
         ])
         .set_interp(InterpStyle::LogLinear)
         .build()
@@ -466,7 +486,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     // 2. Deposit for FUND_A (entity-based)
     let mut deposit2 = Deposit::builder()
         .id("DEP_FUND_6M".into())
-        .notional(Money::new(10_000_000.0, Currency::USD))  // $10M
+        .notional(Money::new(10_000_000.0, Currency::USD)) // $10M
         .start(as_of)
         .end(date!(2024 - 07 - 01))
         .day_count(DayCount::Act360)
@@ -490,7 +510,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     // 3. EUR-denominated deposit (standalone - demonstrates cross-currency)
     let mut deposit_eur = Deposit::builder()
         .id("DEP_EUR_3M".into())
-        .notional(Money::new(10_000_000.0, Currency::EUR))  // €10M
+        .notional(Money::new(10_000_000.0, Currency::EUR)) // €10M
         .start(as_of)
         .end(date!(2024 - 04 - 01))
         .day_count(DayCount::Act360)
@@ -514,8 +534,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     // 4. Fixed Rate Bond (entity-based)
     let bond_fixed = Bond::fixed(
         "BOND_FIXED_5Y",
-        Money::new(10_000_000.0, Currency::USD),  // $10M
-        0.045, // 4.5% coupon
+        Money::new(10_000_000.0, Currency::USD), // $10M
+        0.045,                                   // 4.5% coupon
         as_of,
         date!(2029 - 01 - 01),
         "USD",
@@ -536,8 +556,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     // 5. Fixed Rate Corporate Bond with different convention (entity-based)
     let bond_corporate = Bond::with_convention(
         "BOND_CORP_3Y",
-        Money::new(10_000_000.0, Currency::USD),  // $10M
-        0.05, // 5% coupon
+        Money::new(10_000_000.0, Currency::USD), // $10M
+        0.05,                                    // 5% coupon
         as_of,
         date!(2027 - 01 - 01),
         crate::instruments::common::parameters::BondConvention::Corporate,
@@ -561,8 +581,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     // Full FRN support with builder requires additional market data setup
     let bond_frn = Bond::fixed(
         "FRN_SOFR_3Y",
-        Money::new(10_000_000.0, Currency::USD),  // $10M
-        0.0575, // Approximate SOFR + 75bp = ~5.75%
+        Money::new(10_000_000.0, Currency::USD), // $10M
+        0.0575,                                  // Approximate SOFR + 75bp = ~5.75%
         as_of,
         date!(2027 - 01 - 01),
         "USD",
@@ -626,14 +646,14 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     .with_tag("instrument_type", "irs")
     .with_tag("sector", "Derivatives");
 
-    // 8. FX Swap (standalone)  
+    // 8. FX Swap (standalone)
     let fx_swap = FxSwap::builder()
         .id("FX_SWAP_EURUSD".into())
-        .base_notional(Money::new(10_000_000.0, Currency::EUR))  // €10M
+        .base_notional(Money::new(10_000_000.0, Currency::EUR)) // €10M
         .base_currency(Currency::EUR)
         .quote_currency(Currency::USD)
-        .near_date(date!(2024 - 02 - 01))  // 1 month from as_of
-        .far_date(date!(2024 - 08 - 01))   // 7 months from as_of
+        .near_date(date!(2024 - 02 - 01)) // 1 month from as_of
+        .far_date(date!(2024 - 08 - 01)) // 7 months from as_of
         .domestic_disc_id("USD".into())
         .foreign_disc_id("EUR".into())
         .build()
@@ -651,14 +671,14 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     .with_tag("instrument_type", "fx_swap")
     .with_tag("sector", "FX");
 
-    // 8. CDS (Credit Default Swap) - standalone  
+    // 8. CDS (Credit Default Swap) - standalone
     let cds = CreditDefaultSwap::buy_protection(
         "CDS_5Y",
         Money::new(10_000_000.0, Currency::USD),
         100.0, // 100bp running spread
         as_of,
         date!(2029 - 01 - 01),
-        "USD", // Discount curve
+        "USD",     // Discount curve
         "CORP_BB", // Credit/hazard curve
     );
 
@@ -675,25 +695,25 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     .with_tag("sector", "Credit");
 
     // 9. CDS Index (CDX.NA.IG) - standalone
-    let index_params = CDSIndexParams::cdx_na_ig(42, 1, 100.0)  // Series 42, Version 1, 100bp coupon
-        .with_index_factor(0.95);  // 95% index factor (some defaults occurred)
-    
+    let index_params = CDSIndexParams::cdx_na_ig(42, 1, 100.0) // Series 42, Version 1, 100bp coupon
+        .with_index_factor(0.95); // 95% index factor (some defaults occurred)
+
     let construction_params = CDSIndexConstructionParams::buy_protection(
-        Money::new(10_000_000.0, Currency::USD)  // $10M
+        Money::new(10_000_000.0, Currency::USD), // $10M
     );
-    
+
     let credit_params = finstack_valuations::instruments::common::parameters::CreditParams {
         reference_entity: "CORP_BB".into(),
         credit_curve_id: "CORP_BB".into(),
         recovery_rate: isda_constants::STANDARD_RECOVERY_SENIOR,
     };
-    
+
     let cds_index = CDSIndex::new_standard(
         "CDX_NA_IG_42",
         &index_params,
         &construction_params,
         as_of,
-        date!(2029 - 01 - 01),  // 5Y maturity
+        date!(2029 - 01 - 01), // 5Y maturity
         &credit_params,
         "USD",
         "CORP_BB",
@@ -713,12 +733,12 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     // 10. CDS Option (option on CDS spread) - standalone
     let option_params = CdsOptionParams::call(
-        120.0,  // Strike at 120bp
-        date!(2024 - 07 - 01),  // 6M expiry
-        date!(2029 - 01 - 01),  // 5Y CDS maturity
-        Money::new(10_000_000.0, Currency::USD)  // $10M
+        120.0,                                   // Strike at 120bp
+        date!(2024 - 07 - 01),                   // 6M expiry
+        date!(2029 - 01 - 01),                   // 5Y CDS maturity
+        Money::new(10_000_000.0, Currency::USD), // $10M
     );
-    
+
     let cds_option = CdsOption::new(
         "CDS_OPTION_6M",
         &option_params,
@@ -742,12 +762,12 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     // 11. CDS Tranche (3-7% mezzanine tranche) - standalone
     let tranche_params = CDSTrancheParams::mezzanine_tranche(
         "CDX.NA.IG",
-        42,  // Series 42
-        Money::new(10_000_000.0, Currency::USD),  // $10M
-        date!(2029 - 01 - 01),  // 5Y maturity
-        500.0,  // 500bp running coupon
+        42,                                      // Series 42
+        Money::new(10_000_000.0, Currency::USD), // $10M
+        date!(2029 - 01 - 01),                   // 5Y maturity
+        500.0,                                   // 500bp running coupon
     );
-    
+
     let schedule_params = finstack_valuations::cashflow::builder::ScheduleParams {
         freq: finstack_core::dates::Frequency::quarterly(),
         dc: DayCount::Act360,
@@ -755,14 +775,14 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         calendar_id: None,
         stub: finstack_core::dates::StubKind::None,
     };
-    
+
     let cds_tranche = CdsTranche::new(
         "CDS_TRANCHE_3_7",
         &tranche_params,
         &schedule_params,
         "USD",
         "CDX_NA_IG_42",
-        TrancheSide::SellProtection,  // Sell protection (receive premium, pay protection)
+        TrancheSide::SellProtection, // Sell protection (receive premium, pay protection)
     );
 
     let cds_tranche_position = Position::new(
@@ -779,17 +799,17 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     // 12. Interest Rate Cap - standalone
     let cap_params = InterestRateOptionParams::cap(
-        Money::new(10_000_000.0, Currency::USD),  // $10M
-        0.05,  // 5% strike rate
+        Money::new(10_000_000.0, Currency::USD), // $10M
+        0.05,                                    // 5% strike rate
         finstack_core::dates::Frequency::quarterly(),
         DayCount::Act360,
     );
-    
+
     let interest_rate_cap = InterestRateOption::new(
         "IR_CAP_5Y",
         &cap_params,
-        date!(2024 - 04 - 01),  // Start 3 months from as_of
-        date!(2029 - 04 - 01),  // 5Y maturity from start
+        date!(2024 - 04 - 01), // Start 3 months from as_of
+        date!(2029 - 04 - 01), // 5Y maturity from start
         "USD",
         "USD_SOFR_3M",
         "IR_VOL",
@@ -809,13 +829,13 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     // 13. Swaption (option on interest rate swap) - standalone
     let swaption_params = SwaptionParams::payer(
-        Money::new(10_000_000.0, Currency::USD),  // $10M
-        0.045,  // 4.5% strike rate
-        date!(2025 - 01 - 01),  // 1Y expiry
-        date!(2025 - 01 - 01),  // Swap starts at expiry
-        date!(2030 - 01 - 01),  // 5Y swap maturity
+        Money::new(10_000_000.0, Currency::USD), // $10M
+        0.045,                                   // 4.5% strike rate
+        date!(2025 - 01 - 01),                   // 1Y expiry
+        date!(2025 - 01 - 01),                   // Swap starts at expiry
+        date!(2030 - 01 - 01),                   // 5Y swap maturity
     );
-    
+
     let swaption = Swaption::new_payer(
         "SWAPTION_1Y5Y",
         &swaption_params,
@@ -841,7 +861,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .id("AAPL".into())
         .ticker("AAPL".to_string())
         .currency(Currency::USD)
-        .shares(66_666.67)  // Shares to make ~$10M at $150/share
+        .shares(66_666.67) // Shares to make ~$10M at $150/share
         .price_id("AAPL-SPOT".to_string())
         .dividend_yield_id("AAPL-DIV-YIELD".to_string())
         .discount_curve_id("USD".into())
@@ -862,11 +882,11 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     // 15. Equity Option (Microsoft call option) - standalone
     let option_params = EquityOptionParams::european_call(
-        Money::new(300.0, Currency::USD),  // $300 strike
-        date!(2024 - 12 - 20),  // ~6M expiry
-        33_333.33,  // Shares to make ~$10M exposure
+        Money::new(300.0, Currency::USD), // $300 strike
+        date!(2024 - 12 - 20),            // ~6M expiry
+        33_333.33,                        // Shares to make ~$10M exposure
     );
-    
+
     let underlying_params = finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams::new(
         "MSFT",
         "MSFT-SPOT",
@@ -874,7 +894,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     )
     .with_contract_size(100.0)
     .with_dividend_yield("MSFT-DIV-YIELD");
-    
+
     let msft_call_option = EquityOption::new(
         "MSFT_CALL_320",
         &option_params,
@@ -897,11 +917,11 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     // 16. Inflation-Linked Bond (US TIPS) - entity-based
     let tips_params = InflationLinkedBondParams::tips(
-        Money::new(10_000_000.0, Currency::USD),  // $10M notional
-        0.025,  // 2.5% real coupon
-        date!(2020 - 01 - 15),  // Issue date
-        date!(2030 - 01 - 15),  // 10Y maturity
-        100.0,  // Base CPI level
+        Money::new(10_000_000.0, Currency::USD), // $10M notional
+        0.025,                                   // 2.5% real coupon
+        date!(2020 - 01 - 15),                   // Issue date
+        date!(2030 - 01 - 15),                   // 10Y maturity
+        100.0,                                   // Base CPI level
     );
 
     let tips_bond = InflationLinkedBond::builder()
@@ -939,14 +959,14 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     // 17. Inflation Swap (receive inflation, pay fixed) - standalone
     let inflation_swap = InflationSwap::builder()
         .id("INF_SWAP_5Y".into())
-        .notional(Money::new(10_000_000.0, Currency::USD))  // $10M
+        .notional(Money::new(10_000_000.0, Currency::USD)) // $10M
         .start(as_of)
-        .maturity(date!(2029 - 01 - 01))  // 5Y maturity
-        .fixed_rate(0.025)  // 2.5% fixed rate
+        .maturity(date!(2029 - 01 - 01)) // 5Y maturity
+        .fixed_rate(0.025) // 2.5% fixed rate
         .inflation_id("US-CPI".into())
         .disc_id("USD".into())
         .dc(finstack_core::dates::DayCount::Act365F)
-        .side(PayReceiveInflation::ReceiveFixed)  // Receive fixed, pay inflation
+        .side(PayReceiveInflation::ReceiveFixed) // Receive fixed, pay inflation
         .lag_override(finstack_core::market_data::scalars::inflation_index::InflationLag::Months(3))
         .build()
         .unwrap();
@@ -969,8 +989,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .base(Currency::EUR)
         .quote(Currency::USD)
         .settlement_lag_days(2)
-        .spot_rate(1.10)  // EUR/USD = 1.10
-        .notional(Money::new(10_000_000.0, Currency::EUR))  // €10M
+        .spot_rate(1.10) // EUR/USD = 1.10
+        .notional(Money::new(10_000_000.0, Currency::EUR)) // €10M
         .bdc(finstack_core::dates::BusinessDayConvention::Following)
         .build()
         .unwrap();
@@ -989,17 +1009,18 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     // 19. FX Option (EUR/USD Call) - standalone
     let fx_option_params = FxOptionParams::european_call(
-        1.05,  // Strike: EUR/USD = 1.05
-        date!(2024 - 12 - 31),  // 1Y expiry
-        Money::new(10_000_000.0, Currency::EUR),  // €10M
+        1.05,                                    // Strike: EUR/USD = 1.05
+        date!(2024 - 12 - 31),                   // 1Y expiry
+        Money::new(10_000_000.0, Currency::EUR), // €10M
     );
 
-    let fx_underlying_params = finstack_valuations::instruments::common::parameters::FxUnderlyingParams::new(
-        Currency::EUR,
-        Currency::USD,
-        "USD",
-        "EUR",
-    );
+    let fx_underlying_params =
+        finstack_valuations::instruments::common::parameters::FxUnderlyingParams::new(
+            Currency::EUR,
+            Currency::USD,
+            "USD",
+            "EUR",
+        );
 
     let eur_usd_call = FxOption::new(
         "EUR_USD_CALL_105",
@@ -1023,12 +1044,12 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     // 20. CLO Mezzanine Tranche - standalone
     // Create a simple CLO with a mezzanine tranche
     let mut clo_pool = AssetPool::new("CLO_POOL_001", DealType::CLO, Currency::USD);
-    
+
     // Add some sample corporate loans to the pool (scaled to make mezz tranche = $10M)
     let loan1 = finstack_valuations::instruments::bond::Bond::fixed(
         "LOAN_001",
-        Money::new(7_142_857.14, Currency::USD),  // Scaled down
-        0.065,  // 6.5% coupon
+        Money::new(7_142_857.14, Currency::USD), // Scaled down
+        0.065,                                   // 6.5% coupon
         date!(2020 - 01 - 15),
         date!(2027 - 01 - 15),
         "USD",
@@ -1036,8 +1057,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     let loan2 = finstack_valuations::instruments::bond::Bond::fixed(
         "LOAN_002",
-        Money::new(4_285_714.29, Currency::USD),  // Scaled down
-        0.055,  // 5.5% coupon
+        Money::new(4_285_714.29, Currency::USD), // Scaled down
+        0.055,                                   // 5.5% coupon
         date!(2020 - 03 - 15),
         date!(2026 - 03 - 15),
         "USD",
@@ -1077,8 +1098,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .build()
         .unwrap();
 
-    let tranches = TrancheStructure::new(vec![senior_tranche, mezz_tranche, equity_tranche])
-        .unwrap();
+    let tranches =
+        TrancheStructure::new(vec![senior_tranche, mezz_tranche, equity_tranche]).unwrap();
 
     // Create waterfall: fees -> interest -> principal -> equity
     let waterfall = WaterfallBuilder::new(Currency::USD)
@@ -1097,8 +1118,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         clo_pool,
         tranches,
         waterfall,
-        date!(2024 - 01 - 15),  // Closing date
-        date!(2031 - 01 - 15),  // Legal maturity
+        date!(2024 - 01 - 15), // Closing date
+        date!(2031 - 01 - 15), // Legal maturity
         "USD",
     );
 
@@ -1148,4 +1169,3 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
 
     Ok(portfolio)
 }
-

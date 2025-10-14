@@ -51,14 +51,14 @@ pub const DUMMY_ENTITY_ID: &str = "_standalone";
 pub struct Entity {
     /// Unique identifier for the entity
     pub id: EntityId,
-    
+
     /// Human-readable name
     pub name: Option<String>,
-    
+
     /// Entity-level tags for grouping and filtering
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub tags: IndexMap<String, String>,
-    
+
     /// Additional metadata
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub meta: IndexMap<String, serde_json::Value>,
@@ -87,7 +87,7 @@ impl Entity {
             meta: IndexMap::new(),
         }
     }
-    
+
     /// Set the entity name.
     ///
     /// # Arguments
@@ -106,7 +106,7 @@ impl Entity {
         self.name = Some(name.into());
         self
     }
-    
+
     /// Add a tag.
     ///
     /// # Arguments
@@ -126,7 +126,7 @@ impl Entity {
         self.tags.insert(key.into(), value.into());
         self
     }
-    
+
     /// Create the dummy entity for standalone instruments.
     ///
     /// # Examples
@@ -156,12 +156,12 @@ mod tests {
         let entity = Entity::new("ACME_CORP")
             .with_name("Acme Corporation")
             .with_tag("sector", "Technology");
-        
+
         assert_eq!(entity.id, "ACME_CORP");
         assert_eq!(entity.name, Some("Acme Corporation".to_string()));
         assert_eq!(entity.tags.get("sector"), Some(&"Technology".to_string()));
     }
-    
+
     #[test]
     fn test_dummy_entity() {
         let dummy = Entity::dummy();

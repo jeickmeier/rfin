@@ -3,7 +3,9 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
-use finstack_scenarios::{ExecutionContext, InstrumentType, OperationSpec, ScenarioEngine, ScenarioSpec};
+use finstack_scenarios::{
+    ExecutionContext, InstrumentType, OperationSpec, ScenarioEngine, ScenarioSpec,
+};
 use finstack_statements::FinancialModelSpec;
 use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
 use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
@@ -95,27 +97,25 @@ fn test_instrument_type_spread_shock_matching() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![
-        Box::new(
-            Bond::builder()
-                .id("BOND1".into())
-                .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .coupon(0.05)
-                .issue(base_date)
-                .maturity(base_date + time::Duration::days(365))
-                .freq(finstack_core::dates::Frequency::annual())
-                .dc(finstack_core::dates::DayCount::Thirty360)
-                .bdc(finstack_core::dates::BusinessDayConvention::Following)
-                .calendar_id_opt(None)
-                .stub(finstack_core::dates::StubKind::None)
-                .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
-                .hazard_id_opt(None)
-                .pricing_overrides(PricingOverrides::default())
-                .attributes(Attributes::new())
-                .build()
-                .unwrap(),
-        ),
-    ];
+    let mut instruments: Vec<Box<dyn Instrument>> = vec![Box::new(
+        Bond::builder()
+            .id("BOND1".into())
+            .notional(finstack_core::money::Money::new(100.0, Currency::USD))
+            .coupon(0.05)
+            .issue(base_date)
+            .maturity(base_date + time::Duration::days(365))
+            .freq(finstack_core::dates::Frequency::annual())
+            .dc(finstack_core::dates::DayCount::Thirty360)
+            .bdc(finstack_core::dates::BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(finstack_core::dates::StubKind::None)
+            .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
+            .hazard_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .unwrap(),
+    )];
 
     let scenario = ScenarioSpec {
         id: "bond_spread_shock".into(),
@@ -184,27 +184,25 @@ fn test_instrument_shock_no_matching_types() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![
-        Box::new(
-            Bond::builder()
-                .id("BOND1".into())
-                .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .coupon(0.05)
-                .issue(base_date)
-                .maturity(base_date + time::Duration::days(365))
-                .freq(finstack_core::dates::Frequency::annual())
-                .dc(finstack_core::dates::DayCount::Thirty360)
-                .bdc(finstack_core::dates::BusinessDayConvention::Following)
-                .calendar_id_opt(None)
-                .stub(finstack_core::dates::StubKind::None)
-                .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
-                .hazard_id_opt(None)
-                .pricing_overrides(PricingOverrides::default())
-                .attributes(Attributes::new())
-                .build()
-                .unwrap(),
-        ),
-    ];
+    let mut instruments: Vec<Box<dyn Instrument>> = vec![Box::new(
+        Bond::builder()
+            .id("BOND1".into())
+            .notional(finstack_core::money::Money::new(100.0, Currency::USD))
+            .coupon(0.05)
+            .issue(base_date)
+            .maturity(base_date + time::Duration::days(365))
+            .freq(finstack_core::dates::Frequency::annual())
+            .dc(finstack_core::dates::DayCount::Thirty360)
+            .bdc(finstack_core::dates::BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(finstack_core::dates::StubKind::None)
+            .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
+            .hazard_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .unwrap(),
+    )];
 
     let scenario = ScenarioSpec {
         id: "no_match_shock".into(),
@@ -332,4 +330,3 @@ fn test_instrument_shock_multiple_types() {
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 2, "Both bonds should be shocked");
 }
-

@@ -5,7 +5,8 @@ use serde::{Deserialize, Serialize};
 
 /// Top-level metric registry schema.
 ///
-/// This represents a JSON file containing metric definitions.
+/// Represents the JSON payload used to load metric definitions into the
+/// [`Registry`](crate::registry::Registry).
 ///
 /// # Example JSON
 ///
@@ -35,7 +36,7 @@ pub struct MetricRegistry {
     #[serde(default = "default_schema_version")]
     pub schema_version: u32,
 
-    /// List of metric definitions
+    /// List of metric definitions contained in the registry
     pub metrics: Vec<MetricDefinition>,
 
     /// Additional metadata
@@ -44,6 +45,9 @@ pub struct MetricRegistry {
 }
 
 /// Individual metric definition.
+///
+/// Each definition maps directly to a JSON object in a registry file and is
+/// converted into a [`NodeSpec`](crate::types::NodeSpec) when registered.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetricDefinition {
     /// Unique identifier within the namespace
@@ -101,7 +105,29 @@ fn default_schema_version() -> u32 {
 }
 
 impl MetricDefinition {
-    /// Get the fully-qualified ID (namespace.id).
+    /// Compute the fully-qualified metric ID (`namespace.metric_id`).
+    ///
+    /// # Arguments
+    /// * `namespace` - Namespace owning the metric (e.g., `"fin"`)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::registry::schema::MetricDefinition;
+    /// # use indexmap::IndexMap;
+    /// let def = MetricDefinition {
+    ///     id: "gross_margin".into(),
+    ///     name: "Gross Margin".into(),
+    ///     formula: "gross_profit / revenue".into(),
+    ///     description: None,
+    ///     category: None,
+    ///     unit_type: None,
+    ///     requires: vec![],
+    ///     tags: vec![],
+    ///     meta: indexmap::IndexMap::new(),
+    /// };
+    /// assert_eq!(def.qualified_id("fin"), "fin.gross_margin");
+    /// ```
     pub fn qualified_id(&self, namespace: &str) -> String {
         format!("{}.{}", namespace, self.id)
     }

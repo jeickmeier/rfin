@@ -119,39 +119,37 @@ fn test_time_roll_1_year() {
 #[test]
 fn test_time_roll_with_bond_carry() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     // Setup discount curve
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
         .build()
         .unwrap();
-    
+
     let mut market = MarketContext::new().insert_discount(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     // Create a bond instrument
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![
-        Box::new(
-            Bond::builder()
-                .id("BOND1".into())
-                .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .coupon(0.05)
-                .issue(base_date)
-                .maturity(base_date + time::Duration::days(730))
-                .freq(finstack_core::dates::Frequency::annual())
-                .dc(finstack_core::dates::DayCount::Thirty360)
-                .bdc(finstack_core::dates::BusinessDayConvention::Following)
-                .calendar_id_opt(None)
-                .stub(finstack_core::dates::StubKind::None)
-                .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
-                .hazard_id_opt(None)
-                .pricing_overrides(PricingOverrides::default())
-                .attributes(Attributes::new())
-                .build()
-                .unwrap(),
-        ),
-    ];
+    let mut instruments: Vec<Box<dyn Instrument>> = vec![Box::new(
+        Bond::builder()
+            .id("BOND1".into())
+            .notional(finstack_core::money::Money::new(100.0, Currency::USD))
+            .coupon(0.05)
+            .issue(base_date)
+            .maturity(base_date + time::Duration::days(730))
+            .freq(finstack_core::dates::Frequency::annual())
+            .dc(finstack_core::dates::DayCount::Thirty360)
+            .bdc(finstack_core::dates::BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(finstack_core::dates::StubKind::None)
+            .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
+            .hazard_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .unwrap(),
+    )];
 
     let scenario = ScenarioSpec {
         id: "roll_with_carry".into(),

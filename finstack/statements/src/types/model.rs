@@ -36,6 +36,21 @@ pub struct FinancialModelSpec {
 
 impl FinancialModelSpec {
     /// Create a new model specification.
+    ///
+    /// # Arguments
+    /// * `id` - Identifier used to reference the model
+    /// * `periods` - Ordered list of [`Period`](finstack_core::dates::Period) instances
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_core::dates::build_periods;
+    /// # use finstack_statements::types::FinancialModelSpec;
+    /// let periods = build_periods("2025Q1..Q2", None)?.periods;
+    /// let model = FinancialModelSpec::new("demo", periods);
+    /// assert_eq!(model.id, "demo");
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn new(id: impl Into<String>, periods: Vec<Period>) -> Self {
         Self {
             id: id.into(),
@@ -48,25 +63,33 @@ impl FinancialModelSpec {
     }
 
     /// Add a node to the model.
+    ///
+    /// # Arguments
+    /// * `node` - Fully configured [`NodeSpec`](crate::types::NodeSpec)
     pub fn add_node(&mut self, node: NodeSpec) {
         self.nodes.insert(node.node_id.clone(), node);
     }
 
     /// Get a mutable reference to a node by ID.
     ///
-    /// Returns `None` if the node doesn't exist.
+    /// # Arguments
+    /// * `node_id` - Identifier to search for
     pub fn get_node_mut(&mut self, node_id: &str) -> Option<&mut NodeSpec> {
         self.nodes.get_mut(node_id)
     }
 
     /// Get an immutable reference to a node by ID.
     ///
-    /// Returns `None` if the node doesn't exist.
+    /// # Arguments
+    /// * `node_id` - Identifier to search for
     pub fn get_node(&self, node_id: &str) -> Option<&NodeSpec> {
         self.nodes.get(node_id)
     }
 
-    /// Check if a node exists.
+    /// Check if the model contains a node.
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier to look up
     pub fn has_node(&self, node_id: &str) -> bool {
         self.nodes.contains_key(node_id)
     }

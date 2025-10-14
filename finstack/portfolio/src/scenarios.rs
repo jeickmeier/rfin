@@ -69,7 +69,7 @@ pub fn apply_scenario(
 ) -> Result<(Portfolio, MarketContext, ApplicationReport)> {
     let mut market_copy = market.clone();
     let mut portfolio_copy = portfolio.clone();
-    
+
     // Extract instruments into a mutable vector
     let mut instruments: Vec<Box<dyn Instrument>> = portfolio_copy
         .positions
@@ -79,10 +79,10 @@ pub fn apply_scenario(
             pos.instrument.clone_box()
         })
         .collect();
-    
+
     // Create a dummy financial model for the execution context
     let mut model = FinancialModelSpec::new("portfolio_dummy", vec![]);
-    
+
     // Build execution context
     let mut ctx = ExecutionContext {
         market: &mut market_copy,
@@ -91,20 +91,20 @@ pub fn apply_scenario(
         rate_bindings: None,
         as_of: portfolio.as_of,
     };
-    
+
     // Apply scenario
     let engine = ScenarioEngine::default();
     let report = engine
         .apply(scenario, &mut ctx)
         .map_err(|e| PortfolioError::ScenarioError(e.to_string()))?;
-    
+
     // Update portfolio positions with modified instruments
     for (i, position) in portfolio_copy.positions.iter_mut().enumerate() {
         if let Some(modified_inst) = instruments.get(i) {
             position.instrument = Arc::from(modified_inst.clone_box());
         }
     }
-    
+
     Ok((portfolio_copy, market_copy, report))
 }
 
@@ -154,13 +154,10 @@ pub fn apply_and_revalue(
 ) -> Result<(crate::valuation::PortfolioValuation, ApplicationReport)> {
     let (modified_portfolio, modified_market, report) =
         apply_scenario(portfolio, scenario, market)?;
-    
-    let valuation = crate::valuation::value_portfolio(
-        &modified_portfolio,
-        &modified_market,
-        config,
-    )?;
-    
+
+    let valuation =
+        crate::valuation::value_portfolio(&modified_portfolio, &modified_market, config)?;
+
     Ok((valuation, report))
 }
 
@@ -187,14 +184,14 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        
+
         MarketContext::new().insert_discount(curve)
     }
 
     #[test]
     fn test_apply_scenario_basic() {
         let as_of = date!(2024 - 01 - 01);
-        
+
         let deposit = Deposit::builder()
             .id("DEP_1M".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -204,7 +201,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let position = Position::new(
             "POS_001",
             "ENTITY_A",
@@ -213,7 +210,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         );
-        
+
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
             .as_of(as_of)
@@ -221,34 +218,32 @@ mod tests {
             .position(position)
             .build()
             .unwrap();
-        
+
         let market = build_test_market();
-        
+
         let scenario = ScenarioSpec {
             id: "test_scenario".to_string(),
             name: Some("Test Scenario".to_string()),
             description: None,
-            operations: vec![
-                OperationSpec::CurveParallelBp {
-                    curve_kind: CurveKind::Discount,
-                    curve_id: "USD".to_string(),
-                    bp: 50.0,
-                },
-            ],
+            operations: vec![OperationSpec::CurveParallelBp {
+                curve_kind: CurveKind::Discount,
+                curve_id: "USD".to_string(),
+                bp: 50.0,
+            }],
             priority: 0,
         };
-        
+
         let result = apply_scenario(&portfolio, &scenario, &market);
         assert!(result.is_ok());
-        
+
         let (_modified_portfolio, _modified_market, report) = result.unwrap();
         assert!(report.operations_applied > 0);
     }
-    
+
     #[test]
     fn test_apply_and_revalue() {
         let as_of = date!(2024 - 01 - 01);
-        
+
         let deposit = Deposit::builder()
             .id("DEP_1M".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -258,7 +253,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let position = Position::new(
             "POS_001",
             "ENTITY_A",
@@ -267,7 +262,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         );
-        
+
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
             .as_of(as_of)
@@ -275,10 +270,10 @@ mod tests {
             .position(position)
             .build()
             .unwrap();
-        
+
         let market = build_test_market();
         let config = FinstackConfig::default();
-        
+
         let scenario = ScenarioSpec {
             id: "test_scenario".to_string(),
             name: None,
@@ -286,7 +281,7 @@ mod tests {
             operations: vec![],
             priority: 0,
         };
-        
+
         let result = apply_and_revalue(&portfolio, &scenario, &market, &config);
         assert!(result.is_ok());
     }

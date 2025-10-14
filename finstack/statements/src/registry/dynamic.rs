@@ -10,8 +10,8 @@ use std::collections::HashSet;
 
 /// Dynamic registry for metric definitions.
 ///
-/// The registry stores metrics organized by namespace and provides
-/// lookup, validation, and compilation services.
+/// Stores metrics organized by namespace and provides lookup, validation,
+/// and compilation services so metric formulas can be reused across models.
 #[derive(Debug, Clone, Default)]
 pub struct Registry {
     /// Map of fully-qualified metric ID → metric definition
@@ -63,10 +63,9 @@ impl Registry {
     /// ```
     pub fn load_builtins(&mut self) -> Result<()> {
         // Load from embedded JSON files
-        self.load_from_json_str(include_str!("../../data/metrics/fin_basic.json"))?;
-        self.load_from_json_str(include_str!("../../data/metrics/fin_margins.json"))?;
-        self.load_from_json_str(include_str!("../../data/metrics/fin_returns.json"))?;
-        self.load_from_json_str(include_str!("../../data/metrics/fin_leverage.json"))?;
+        for json in crate::registry::builtins::builtin_metric_sources()? {
+            self.load_from_json_str(&json)?;
+        }
         Ok(())
     }
 
@@ -90,6 +89,9 @@ impl Registry {
     }
 
     /// Load metrics from a JSON string.
+    ///
+    /// Returns the deserialized [`MetricRegistry`](crate::registry::MetricRegistry)
+    /// for further inspection when needed.
     pub fn load_from_json_str(&mut self, json: &str) -> Result<MetricRegistry> {
         let registry: MetricRegistry = serde_json::from_str(json)?;
         self.load_registry(registry.clone())?;

@@ -1,4 +1,4 @@
-use finstack_core::cashflow::primitives::{AmortizationSpec, CashFlow, CFKind, Notional};
+use finstack_core::cashflow::primitives::{AmortizationSpec, CFKind, CashFlow, Notional};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;

@@ -81,11 +81,7 @@ mod tests {
                     .iter()
                     .position(|n| n.id == dep)
                     .expect("dependency must exist");
-                let node_index = plan
-                    .nodes
-                    .iter()
-                    .position(|n| n.id == node.id)
-                    .unwrap();
+                let node_index = plan.nodes.iter().position(|n| n.id == node.id).unwrap();
                 assert!(dep_index < node_index);
             }
         }

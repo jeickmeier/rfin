@@ -45,31 +45,31 @@ pub enum PortfolioError {
         position_id: PositionId,
         entity_id: EntityId,
     },
-    
+
     /// Portfolio validation failed
     #[error("Portfolio validation failed: {0}")]
     ValidationFailed(String),
-    
+
     /// FX conversion failed
     #[error("FX conversion failed: {from} to {to}")]
     FxConversionFailed { from: Currency, to: Currency },
-    
+
     /// Valuation error
     #[error("Valuation error for position '{position_id}': {message}")]
     ValuationError {
         position_id: PositionId,
         message: String,
     },
-    
+
     /// Scenario application error
     #[cfg(feature = "scenarios")]
     #[error("Scenario application failed: {0}")]
     ScenarioError(String),
-    
+
     /// Missing market data
     #[error("Missing market data: {0}")]
     MissingMarketData(String),
-    
+
     /// Core error
     #[error(transparent)]
     Core(#[from] finstack_core::Error),

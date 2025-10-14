@@ -13,6 +13,9 @@ use polars::prelude::*;
 ///
 /// Schema: `(node_id, period_id, value)`
 ///
+/// # Arguments
+/// * `results` - Evaluation output to serialize
+///
 /// # Example
 ///
 /// ```ignore
@@ -100,6 +103,9 @@ pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Resul
 /// Export results to wide-format Polars DataFrame.
 ///
 /// Schema: periods as rows, nodes as columns
+///
+/// # Arguments
+/// * `results` - Evaluation output to serialize
 ///
 /// # Example
 ///

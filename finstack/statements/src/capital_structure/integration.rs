@@ -14,19 +14,33 @@ use finstack_valuations::instruments::{Bond, InterestRateSwap};
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-/// Aggregate cashflows from instruments by period using full valuations infrastructure.
+/// Aggregate cashflows from instruments by period using valuations infrastructure.
 ///
-/// This function now uses `build_full_schedule()` for precise CFKind-based classification
-/// and `outstanding_by_date()` for accurate balance tracking, achieving 100% valuations integration.
+/// The integration leverages `build_full_schedule()` for CFKind-aware classification and
+/// `outstanding_by_date()` for accurate debt balances. Results are normalized into
+/// [`CapitalStructureCashflows`] so downstream code (including the DSL via `cs.*`) can
+/// consume totals or per-instrument breakdowns.
 ///
 /// # Arguments
-/// * `instruments` - Map of instrument_id → instrument trait object
-/// * `periods` - Model periods to aggregate into
-/// * `market_ctx` - Market context with discount/forward curves
-/// * `as_of` - Valuation date
+/// * `instruments` - Map of instrument IDs to `CashflowProvider` trait objects
+/// * `periods` - Ordered list of model periods used for bucketing cashflows
+/// * `market_ctx` - Market context containing curves and other pricing data
+/// * `as_of` - Valuation date used when generating cashflows
 ///
-/// # Returns
-/// Aggregated cashflows by instrument and period with precise CFKind classification
+/// # Example
+///
+/// ```rust,ignore
+/// use finstack_statements::capital_structure::integration::aggregate_instrument_cashflows;
+/// use finstack_statements::capital_structure::types::CapitalStructureCashflows;
+/// use finstack_core::dates::build_periods;
+/// use indexmap::IndexMap;
+///
+/// let periods = build_periods("2025Q1..Q4", None)?.periods;
+/// let instruments: IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>> = IndexMap::new();
+/// let cashflows: CapitalStructureCashflows =
+///     aggregate_instrument_cashflows(&instruments, &periods, &market_ctx, as_of)?;
+/// assert!(cashflows.totals.is_empty());
+/// ```
 pub fn aggregate_instrument_cashflows(
     instruments: &IndexMap<String, Arc<dyn CashflowProvider + Send + Sync>>,
     periods: &[Period],
@@ -137,7 +151,13 @@ pub fn aggregate_instrument_cashflows(
     Ok(result)
 }
 
-/// Build a Bond instrument from a DebtInstrumentSpec.
+/// Build a [`Bond`] instrument from a [`DebtInstrumentSpec`].
+///
+/// # Arguments
+/// * `spec` - Debt instrument specification sourced from the model
+///
+/// # Errors
+/// Returns an error when the payload cannot be deserialized as a `Bond`.
 pub fn build_bond_from_spec(spec: &DebtInstrumentSpec) -> Result<Bond> {
     match spec {
         DebtInstrumentSpec::Bond {
@@ -154,7 +174,13 @@ pub fn build_bond_from_spec(spec: &DebtInstrumentSpec) -> Result<Bond> {
     }
 }
 
-/// Build an InterestRateSwap instrument from a DebtInstrumentSpec.
+/// Build an [`InterestRateSwap`] instrument from a [`DebtInstrumentSpec`].
+///
+/// # Arguments
+/// * `spec` - Debt instrument specification sourced from the model
+///
+/// # Errors
+/// Returns an error when the payload cannot be deserialized as an `InterestRateSwap`.
 pub fn build_swap_from_spec(spec: &DebtInstrumentSpec) -> Result<InterestRateSwap> {
     match spec {
         DebtInstrumentSpec::Swap {
@@ -171,22 +197,19 @@ pub fn build_swap_from_spec(spec: &DebtInstrumentSpec) -> Result<InterestRateSwa
     }
 }
 
-/// Build any debt instrument from a DebtInstrumentSpec.
+/// Build a concrete instrument from a [`DebtInstrumentSpec`].
 ///
-/// This function attempts to deserialize a Generic spec as various known debt instrument types.
-/// It tries each type in order and returns the first successful deserialization.
+/// Generic specs are attempted against a known set of instrument implementations
+/// (bonds, swaps, deposits, FRAs, repos) and the first successful deserialization is used.
 ///
-/// Supported types:
-/// - Bond (fixed or floating rate bonds)
-/// - InterestRateSwap (pay-fixed or receive-fixed)
-/// - Deposit (term deposits for cash management)
-/// - FRA (forward rate agreements)
-/// - Repo (repurchase agreements)
-///
-/// All types require the serde feature to be enabled in valuations (enabled by default).
+/// # Arguments
+/// * `spec` - Debt instrument specification from the model
 ///
 /// # Returns
-/// A boxed trait object implementing CashflowProvider that can be used for cashflow generation.
+/// A boxed [`CashflowProvider`] trait object ready for cashflow generation.
+///
+/// # Errors
+/// Returns an error when the specification cannot be matched to any supported instrument type.
 pub fn build_any_instrument_from_spec(
     spec: &DebtInstrumentSpec,
 ) -> Result<Arc<dyn CashflowProvider + Send + Sync>> {

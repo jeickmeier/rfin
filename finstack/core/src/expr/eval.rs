@@ -1079,10 +1079,7 @@ mod tests {
 
     fn sample_context() -> (SimpleContext, Vec<Vec<f64>>) {
         let ctx = SimpleContext::new(["x", "y"]);
-        let data = vec![
-            vec![0.2, 0.5, 3.0, 4.0],
-            vec![0.5, 1.5, 2.5, 3.5],
-        ];
+        let data = vec![vec![0.2, 0.5, 3.0, 4.0], vec![0.5, 1.5, 2.5, 3.5]];
         (ctx, data)
     }
 
@@ -1119,7 +1116,14 @@ mod tests {
         let compiled = CompiledExpr::with_planning(expr, meta).with_cache(1);
 
         let result = compiled
-            .eval(&ctx, &cols, EvalOpts { plan: None, cache_budget_mb: Some(1) })
+            .eval(
+                &ctx,
+                &cols,
+                EvalOpts {
+                    plan: None,
+                    cache_budget_mb: Some(1),
+                },
+            )
             .values;
 
         assert!(result[0].is_nan());
@@ -1154,4 +1158,3 @@ mod tests {
         assert!((result[3] - 1.0).abs() < 1e-12);
     }
 }
-

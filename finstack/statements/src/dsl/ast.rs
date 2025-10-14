@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 /// Statements DSL expression AST.
 ///
-/// This AST represents the parsed structure of formula text before compilation
-/// to core's `Expr` type.
+/// Represents parsed formula syntax before compilation to the core expression
+/// engine. Each variant captures a syntactic construct in the DSL.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StmtExpr {
@@ -52,6 +52,9 @@ pub enum StmtExpr {
     },
 
     /// Capital structure reference (e.g., cs.interest_expense.total)
+    ///
+    /// Keeps the component/instrument tokens separate so the compiler can
+    /// rewrite them into encoded column names understood by the evaluator.
     CSRef {
         /// Component (interest_expense, principal_payment, debt_balance)
         component: String,

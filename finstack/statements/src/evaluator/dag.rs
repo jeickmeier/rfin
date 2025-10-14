@@ -5,6 +5,10 @@ use crate::types::FinancialModelSpec;
 use indexmap::{IndexMap, IndexSet};
 
 /// Dependency graph for nodes in a financial model.
+///
+/// The graph stores both incoming and outgoing edges so that consumers can
+/// traverse dependencies and dependents efficiently. It is primarily used by
+/// the evaluator to derive a topological execution order and detect cycles.
 #[derive(Debug)]
 pub struct DependencyGraph {
     /// Map of node_id → set of dependencies (nodes it depends on)
@@ -16,6 +20,25 @@ pub struct DependencyGraph {
 
 impl DependencyGraph {
     /// Build a dependency graph from a model specification.
+    ///
+    /// # Arguments
+    /// * `model` - Fully configured [`FinancialModelSpec`](crate::types::FinancialModelSpec)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_statements::evaluator::DependencyGraph;
+    /// let model = ModelBuilder::new("demo")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .compute("a", "10")?
+    ///     .compute("b", "a * 2")?
+    ///     .build()?;
+    ///
+    /// let graph = DependencyGraph::from_model(&model)?;
+    /// assert!(graph.dependencies["b"].contains("a"));
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn from_model(model: &FinancialModelSpec) -> Result<Self> {
         let mut dependencies = IndexMap::new();
         let mut dependents = IndexMap::new();
@@ -51,11 +74,21 @@ impl DependencyGraph {
     }
 
     /// Get dependencies for a node.
+    ///
+    /// # Arguments
+    /// * `node_id` - Node identifier to inspect
+    ///
+    /// # Returns
+    /// Either an [`IndexSet`] of upstream dependencies or `None` if the node
+    /// does not exist.
     pub fn get_dependencies(&self, node_id: &str) -> Option<&IndexSet<String>> {
         self.dependencies.get(node_id)
     }
 
     /// Check for circular dependencies.
+    ///
+    /// Performs a depth-first search to surface a representative cycle when one
+    /// exists.
     pub fn detect_cycles(&self) -> Result<()> {
         for node_id in self.dependencies.keys() {
             if let Some(cycle) = self.find_cycle_from(node_id) {
@@ -107,9 +140,31 @@ impl DependencyGraph {
     }
 }
 
-/// Compute topological sort order for evaluation.
+/// Compute the topological evaluation order.
 ///
-/// Returns nodes in an order where all dependencies are evaluated before dependents.
+/// Nodes are returned in an order where all dependencies appear before the
+/// nodes that depend on them. The function returns an error if a cycle is
+/// present.
+///
+/// # Arguments
+/// * `graph` - Dependency graph built from a [`FinancialModelSpec`](crate::types::FinancialModelSpec)
+///
+/// # Example
+///
+/// ```rust
+/// # use finstack_statements::builder::ModelBuilder;
+/// # use finstack_statements::evaluator::{DependencyGraph, evaluate_order};
+/// let model = ModelBuilder::new("demo")
+///     .periods("2025Q1..Q2", None)?
+///     .compute("a", "10")?
+///     .compute("b", "a * 2")?
+///     .build()?;
+///
+/// let graph = DependencyGraph::from_model(&model)?;
+/// let order = evaluate_order(&graph)?;
+/// assert!(order.iter().position(|n| n == "a") < order.iter().position(|n| n == "b"));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
     // Kahn's algorithm for topological sort
     let mut in_degree = IndexMap::new();

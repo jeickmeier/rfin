@@ -10,6 +10,7 @@
 //! isolate pricing policy from instrument data shapes.
 
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
+use crate::instruments::common::constants::isda_constants;
 use finstack_core::currency::Currency;
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
@@ -19,7 +20,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
 use finstack_core::{Error, Result};
-use crate::instruments::common::constants::isda_constants;
 
 /// Numerical integration method for protection leg
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

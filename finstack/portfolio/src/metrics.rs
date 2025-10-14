@@ -30,10 +30,10 @@ use serde::{Deserialize, Serialize};
 pub struct AggregatedMetric {
     /// Metric identifier
     pub metric_id: String,
-    
+
     /// Total value across all positions (for summable metrics)
     pub total: f64,
-    
+
     /// Aggregated values by entity
     pub by_entity: IndexMap<EntityId, f64>,
 }
@@ -59,7 +59,7 @@ pub struct AggregatedMetric {
 pub struct PortfolioMetrics {
     /// Aggregated metrics (summable only)
     pub aggregated: IndexMap<String, AggregatedMetric>,
-    
+
     /// Raw metrics by position (all metrics)
     pub by_position: IndexMap<PositionId, IndexMap<String, f64>>,
 }
@@ -95,7 +95,7 @@ impl PortfolioMetrics {
     pub fn get_metric(&self, metric_id: &str) -> Option<&AggregatedMetric> {
         self.aggregated.get(metric_id)
     }
-    
+
     /// Get metrics for a specific position.
     ///
     /// # Arguments
@@ -119,7 +119,7 @@ impl PortfolioMetrics {
     pub fn get_position_metrics(&self, position_id: &str) -> Option<&IndexMap<String, f64>> {
         self.by_position.get(position_id)
     }
-    
+
     /// Get the total value of a specific metric across the portfolio.
     ///
     /// # Arguments
@@ -156,7 +156,7 @@ impl PortfolioMetrics {
 ///
 /// These metrics scale linearly with position size and can be aggregated.
 const SUMMABLE_METRICS: &[&str] = &[
-    "theta",    
+    "theta",
     "dv01",
     "cs01",
     "delta",
@@ -227,27 +227,28 @@ pub fn is_summable(metric_id: &str) -> bool {
 pub fn aggregate_metrics(valuation: &PortfolioValuation) -> Result<PortfolioMetrics> {
     let mut by_position: IndexMap<PositionId, IndexMap<String, f64>> = IndexMap::new();
     let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
-    
+
     // Phase 1: Collect metrics from each position
     for (position_id, position_value) in &valuation.position_values {
         if let Some(val_result) = &position_value.valuation_result {
             let metrics = val_result.measures.clone();
             by_position.insert(position_id.clone(), metrics.clone());
-            
+
             // Phase 2: Aggregate summable metrics
             for (metric_id, value) in metrics {
                 if is_summable(&metric_id) {
-                    let agg = aggregated.entry(metric_id.clone()).or_insert_with(|| {
-                        AggregatedMetric {
-                            metric_id: metric_id.clone(),
-                            total: 0.0,
-                            by_entity: IndexMap::new(),
-                        }
-                    });
-                    
+                    let agg =
+                        aggregated
+                            .entry(metric_id.clone())
+                            .or_insert_with(|| AggregatedMetric {
+                                metric_id: metric_id.clone(),
+                                total: 0.0,
+                                by_entity: IndexMap::new(),
+                            });
+
                     // Add to total
                     agg.total += value;
-                    
+
                     // Add to entity
                     *agg.by_entity
                         .entry(position_value.entity_id.clone())
@@ -256,7 +257,7 @@ pub fn aggregate_metrics(valuation: &PortfolioValuation) -> Result<PortfolioMetr
             }
         }
     }
-    
+
     Ok(PortfolioMetrics {
         aggregated,
         by_position,
@@ -285,7 +286,7 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        
+
         MarketContext::new().insert_discount(curve)
     }
 
@@ -297,11 +298,11 @@ mod tests {
         assert!(!is_summable("ytm"));
         assert!(!is_summable("duration"));
     }
-    
+
     #[test]
     fn test_aggregate_metrics_basic() {
         let as_of = date!(2024 - 01 - 01);
-        
+
         let deposit = Deposit::builder()
             .id("DEP_1M".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -311,7 +312,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let position = Position::new(
             "POS_001",
             "ENTITY_A",
@@ -320,7 +321,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         );
-        
+
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
             .as_of(as_of)
@@ -328,15 +329,18 @@ mod tests {
             .position(position)
             .build()
             .unwrap();
-        
+
         let market = build_test_market();
         let config = FinstackConfig::default();
-        
+
         let valuation = value_portfolio(&portfolio, &market, &config).unwrap();
         let metrics = aggregate_metrics(&valuation).unwrap();
-        
+
         // Should have position-level metrics
         assert_eq!(valuation.position_values.len(), 1);
-        assert!(!metrics.by_position.is_empty(), "Should have position metrics");
+        assert!(
+            !metrics.by_position.is_empty(),
+            "Should have position metrics"
+        );
     }
 }

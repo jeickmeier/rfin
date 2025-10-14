@@ -2,8 +2,8 @@ mod common;
 
 use crate::common::*;
 use finstack_core::prelude::*;
-use finstack_portfolio::{Portfolio, PortfolioBuilder, PortfolioError, Position, PositionUnit};
 use finstack_portfolio::types::{Entity, DUMMY_ENTITY_ID};
+use finstack_portfolio::{Portfolio, PortfolioBuilder, PortfolioError, Position, PositionUnit};
 use finstack_valuations::instruments::deposit::Deposit;
 use std::sync::Arc;
 
@@ -85,12 +85,22 @@ fn builder_required_fields_and_dummy_auto_create() {
         .build()
         .unwrap();
 
-    let p = Position::new("P", DUMMY_ENTITY_ID, "D", Arc::new(dep), 1.0, PositionUnit::Units);
+    let p = Position::new(
+        "P",
+        DUMMY_ENTITY_ID,
+        "D",
+        Arc::new(dep),
+        1.0,
+        PositionUnit::Units,
+    );
 
     // Missing base_ccy
     assert!(PortfolioBuilder::new("P").as_of(as_of).build().is_err());
     // Missing as_of
-    assert!(PortfolioBuilder::new("P").base_ccy(Currency::USD).build().is_err());
+    assert!(PortfolioBuilder::new("P")
+        .base_ccy(Currency::USD)
+        .build()
+        .is_err());
 
     // Dummy should be auto-created because position references it
     let portfolio = PortfolioBuilder::new("P")
@@ -101,5 +111,3 @@ fn builder_required_fields_and_dummy_auto_create() {
         .unwrap();
     assert!(portfolio.has_dummy_entity());
 }
-
-

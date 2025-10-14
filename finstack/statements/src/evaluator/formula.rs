@@ -1,21 +1,8 @@
-//! Formula evaluation logic.
+//! Evaluate compiled formulas against an evaluation context.
 //!
-//! # Design Note: Arithmetic Operations Handling
-//!
-//! This module evaluates arithmetic operations (Add, Sub, Mul, Div, Mod) directly
-//! rather than delegating them to finstack-core's Function enum. This design choice:
-//!
-//! 1. **Maintains separation of concerns**: Core focuses on financial/statistical
-//!    functions while basic arithmetic is handled locally.
-//!
-//! 2. **Optimizes performance**: Direct evaluation avoids function dispatch overhead
-//!    for the most common operations.
-//!
-//! 3. **Provides flexibility**: Each crate can tailor arithmetic evaluation to its
-//!    specific needs (numeric types, precision, error handling).
-//!
-//! While this means arithmetic follows a different evaluation path than advanced
-//! functions, both paths are well-tested and produce consistent results.
+//! Arithmetic operators are handled locally for performance and separation of
+//! concerns, while statistical/time-series functions delegate to the shared
+//! `finstack-core` helpers.
 
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;

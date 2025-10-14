@@ -12,6 +12,9 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::{Bond, InterestRateSwap};
 
 /// Helper to ensure capital structure exists and return mutable reference.
+///
+/// Returns a mutable reference to the capital structure spec, creating an empty
+/// instance if one is not already present.
 fn ensure_capital_structure<State>(builder: &mut ModelBuilder<State>) -> &mut CapitalStructureSpec {
     builder
         .capital_structure
@@ -23,7 +26,7 @@ fn ensure_capital_structure<State>(builder: &mut ModelBuilder<State>) -> &mut Ca
 }
 
 impl<State> ModelBuilder<State> {
-    /// Add a bond to the capital structure.
+    /// Add a bond instrument to the capital structure specification.
     ///
     /// # Arguments
     /// * `id` - Unique instrument identifier
@@ -32,6 +35,9 @@ impl<State> ModelBuilder<State> {
     /// * `issue_date` - Bond issue date
     /// * `maturity_date` - Bond maturity date
     /// * `discount_curve_id` - Discount curve ID for pricing
+    ///
+    /// # Returns
+    /// Updated builder with the bond appended to the capital-structure spec.
     ///
     /// # Example
     /// ```ignore
@@ -146,8 +152,8 @@ impl<State> ModelBuilder<State> {
 
     /// Add a generic debt instrument via JSON specification.
     ///
-    /// This allows adding custom debt instruments not covered by the
-    /// convenience methods (bonds, swaps).
+    /// This allows adding custom debt instruments not covered by the convenience
+    /// methods (bonds, swaps).
     ///
     /// # Example
     /// ```ignore

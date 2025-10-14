@@ -52,6 +52,16 @@ pub struct ModelBuilder<State> {
 impl ModelBuilder<NeedPeriods> {
     /// Create a new model builder.
     ///
+    /// # Arguments
+    /// * `id` - Unique identifier for the model
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// let builder = ModelBuilder::new("three_statement");
+    /// ```
+    ///
     /// You must call `.periods()` before adding nodes.
     pub fn new(id: impl Into<String>) -> Self {
         Self {
@@ -102,6 +112,22 @@ impl ModelBuilder<NeedPeriods> {
     }
 
     /// Define periods explicitly (for advanced use cases).
+    ///
+    /// # Arguments
+    /// * `periods` - Vector of [`Period`](finstack_core::dates::Period) instances, typically
+    ///   produced by `finstack_core::dates::build_periods`
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_core::dates::{build_periods, Period};
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let periods: Vec<Period> = build_periods("2025Q1..Q3", None)?.periods;
+    /// let builder = ModelBuilder::new("custom").periods_explicit(periods)?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn periods_explicit(self, periods: Vec<Period>) -> Result<ModelBuilder<Ready>> {
         if periods.is_empty() {
             return Err(Error::period(
@@ -124,6 +150,10 @@ impl ModelBuilder<Ready> {
     /// Add a value node with explicit period values.
     ///
     /// Value nodes contain only explicit data (actuals or assumptions).
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier for the node to create
+    /// * `values` - Slice of `(PeriodId, AmountOrScalar)` tuples representing actual values
     ///
     /// # Example
     ///
@@ -160,6 +190,10 @@ impl ModelBuilder<Ready> {
     /// Add a calculated node with a formula.
     ///
     /// Calculated nodes derive their values from formulas only.
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier for the node to create
+    /// * `formula` - Statements DSL expression (e.g., `"revenue - cogs"`)
     ///
     /// # Example
     ///
@@ -202,6 +236,9 @@ impl ModelBuilder<Ready> {
     /// Mixed nodes support Value, Forecast, and Formula with precedence: Value > Forecast > Formula.
     /// This method returns a fluent builder for configuring all aspects of a mixed node.
     ///
+    /// # Arguments
+    /// * `node_id` - Identifier for the mixed node being configured
+    ///
     /// # Example
     ///
     /// ```rust
@@ -242,6 +279,10 @@ impl ModelBuilder<Ready> {
     /// Add a forecast specification to an existing node.
     ///
     /// This allows forecasting values into future periods using various methods.
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier of the node to augment (created previously)
+    /// * `forecast_spec` - Forecast configuration created with [`ForecastSpec`](crate::types::ForecastSpec)
     ///
     /// # Example
     ///
@@ -292,6 +333,24 @@ impl ModelBuilder<Ready> {
     }
 
     /// Add metadata to the model.
+    ///
+    /// # Arguments
+    /// * `key` - Metadata key
+    /// * `value` - Arbitrary JSON payload
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("demo")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .with_meta("currency", serde_json::json!({ "code": "USD" }))
+    ///     .build()?;
+    /// assert_eq!(model.meta["currency"]["code"], "USD");
+    /// # Ok(())
+    /// # }
+    /// ```
     #[must_use = "builder methods must be chained"]
     pub fn with_meta(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.meta.insert(key.into(), value);
@@ -303,6 +362,9 @@ impl ModelBuilder<Ready> {
     /// The where clause is a conditional expression that determines whether
     /// the node should be evaluated for a given period. If the where clause
     /// evaluates to false (0.0), the node value will be set to 0.0 for that period.
+    ///
+    /// # Arguments
+    /// * `where_clause` - DSL expression evaluated as a predicate
     ///
     /// # Example
     ///
@@ -365,6 +427,8 @@ impl ModelBuilder<Ready> {
     }
 
     /// Load metrics from a JSON file and add them to the model.
+    /// # Arguments
+    /// * `path` - Path to a metrics JSON definition file
     ///
     /// # Example
     ///
@@ -398,6 +462,9 @@ impl ModelBuilder<Ready> {
     /// This is a convenience method that loads the built-in metrics registry
     /// and adds a specific metric to the model.
     ///
+    /// # Arguments
+    /// * `qualified_id` - Fully qualified metric identifier (e.g., `"fin.gross_margin"`)
+    ///
     /// # Example
     ///
     /// ```rust
@@ -423,6 +490,10 @@ impl ModelBuilder<Ready> {
     ///
     /// This allows selectively adding metrics from a registry instead of
     /// adding all of them.
+    ///
+    /// # Arguments
+    /// * `qualified_id` - Fully qualified metric identifier to add
+    /// * `registry` - Registry loaded by the caller (allows reuse across builders)
     ///
     /// # Example
     ///
@@ -560,6 +631,25 @@ pub struct MixedNodeBuilder {
 
 impl MixedNodeBuilder {
     /// Set explicit values for the mixed node.
+    ///
+    /// # Arguments
+    /// * `values` - Slice of `(PeriodId, AmountOrScalar)` tuples to seed actual periods
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_core::dates::PeriodId;
+    /// # use finstack_statements::types::AmountOrScalar;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let builder = ModelBuilder::new("demo")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .mixed("revenue")
+    ///     .values(&[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))])
+    ///     .finish();
+    /// # Ok(())
+    /// # }
+    /// ```
     #[must_use = "builder methods must be chained"]
     pub fn values(mut self, values: &[(PeriodId, AmountOrScalar)]) -> Self {
         self.values = Some(values.iter().cloned().collect());
@@ -567,6 +657,24 @@ impl MixedNodeBuilder {
     }
 
     /// Set the forecast specification.
+    ///
+    /// # Arguments
+    /// * `forecast_spec` - Forecast configuration created with [`ForecastSpec`](crate::types::ForecastSpec)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_statements::types::ForecastSpec;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let builder = ModelBuilder::new("demo")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .mixed("revenue")
+    ///     .forecast(ForecastSpec::forward_fill())
+    ///     .finish();
+    /// # Ok(())
+    /// # }
+    /// ```
     #[must_use = "builder methods must be chained"]
     pub fn forecast(mut self, forecast_spec: crate::types::ForecastSpec) -> Self {
         self.forecast = Some(forecast_spec);
@@ -574,6 +682,26 @@ impl MixedNodeBuilder {
     }
 
     /// Set the fallback formula.
+    ///
+    /// # Arguments
+    /// * `formula` - DSL expression evaluated when explicit values or forecasts are absent
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_core::dates::PeriodId;
+    /// # use finstack_statements::types::AmountOrScalar;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let builder = ModelBuilder::new("demo")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .mixed("revenue")
+    ///     .values(&[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))])
+    ///     .formula("lag(revenue, 1)")?
+    ///     .finish();
+    /// # Ok(())
+    /// # }
+    /// ```
     #[must_use = "builder methods must be chained"]
     pub fn formula(mut self, formula: impl Into<String>) -> Result<Self> {
         let formula = formula.into();
@@ -589,6 +717,23 @@ impl MixedNodeBuilder {
     }
 
     /// Set the human-readable name.
+    ///
+    /// # Arguments
+    /// * `name` - Display label used in reports or exports
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let builder = ModelBuilder::new("demo")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .mixed("revenue")
+    ///     .name("Revenue (actual + forecast)")
+    ///     .finish();
+    /// # Ok(())
+    /// # }
+    /// ```
     #[must_use = "builder methods must be chained"]
     pub fn name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
@@ -596,6 +741,25 @@ impl MixedNodeBuilder {
     }
 
     /// Finish building the mixed node and return to the parent builder.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_statements::types::ForecastSpec;
+    /// # use finstack_core::dates::PeriodId;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("demo")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .mixed("revenue")
+    ///         .values(&[(PeriodId::quarter(2025, 1), 100.0.into())])
+    ///         .forecast(ForecastSpec::forward_fill())
+    ///         .formula("lag(revenue, 1)")
+    ///         .finish()
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[must_use = "builder methods must be chained"]
     pub fn finish(mut self) -> ModelBuilder<Ready> {
         let mut node = NodeSpec::new(self.node_id.clone(), NodeType::Mixed);

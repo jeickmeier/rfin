@@ -51,6 +51,18 @@ pub struct NodeSpec {
 
 impl NodeSpec {
     /// Create a new node specification.
+    ///
+    /// # Arguments
+    /// * `node_id` - Unique identifier for the node
+    /// * `node_type` - Computation type that defines how the node is evaluated
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::types::{NodeSpec, NodeType};
+    /// let spec = NodeSpec::new("revenue", NodeType::Value);
+    /// assert_eq!(spec.node_id, "revenue");
+    /// ```
     pub fn new(node_id: impl Into<String>, node_type: NodeType) -> Self {
         Self {
             node_id: node_id.into(),
@@ -66,30 +78,57 @@ impl NodeSpec {
     }
 
     /// Set the human-readable name.
+    ///
+    /// # Arguments
+    /// * `name` - Display name shown in reports or UI
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
     }
 
     /// Add explicit values.
+    ///
+    /// # Arguments
+    /// * `values` - Period-indexed map of explicit values
+    ///
+    /// # Example
+    /// ```rust
+    /// # use finstack_statements::types::{NodeSpec, NodeType};
+    /// # use finstack_core::dates::PeriodId;
+    /// # use indexmap::indexmap;
+    /// let spec = NodeSpec::new("revenue", NodeType::Value).with_values(indexmap! {
+    ///     PeriodId::quarter(2025, 1) => 100_000.0.into(),
+    ///     PeriodId::quarter(2025, 2) => 110_000.0.into(),
+    /// });
+    /// assert!(spec.values.is_some());
+    /// ```
     pub fn with_values(mut self, values: IndexMap<PeriodId, AmountOrScalar>) -> Self {
         self.values = Some(values);
         self
     }
 
     /// Set the formula text.
+    ///
+    /// # Arguments
+    /// * `formula` - Expression written in the statements DSL
     pub fn with_formula(mut self, formula: impl Into<String>) -> Self {
         self.formula_text = Some(formula.into());
         self
     }
 
     /// Set the forecast specification.
+    ///
+    /// # Arguments
+    /// * `forecast_spec` - Forecast configuration created with [`ForecastSpec`]
     pub fn with_forecast(mut self, forecast_spec: ForecastSpec) -> Self {
         self.forecast = Some(forecast_spec);
         self
     }
 
     /// Add tags.
+    ///
+    /// # Arguments
+    /// * `tags` - Arbitrary labels used for grouping or filtering
     pub fn with_tags(mut self, tags: Vec<String>) -> Self {
         self.tags = tags;
         self
@@ -204,10 +243,10 @@ pub enum ForecastMethod {
     /// Carry last value forward
     ForwardFill,
 
-    /// Compound growth: v[t] = v[t-1] * (1 + rate)
+    /// Compound growth: `v[t] = v[t-1] * (1 + rate)`
     GrowthPct,
 
-    /// Period-specific growth rates: v[t] = v[t-1] * (1 + curve[t])
+    /// Period-specific growth rates: `v[t] = v[t-1] * (1 + curve[t])`
     CurvePct,
 
     /// Sample from normal distribution (deterministic with seed)

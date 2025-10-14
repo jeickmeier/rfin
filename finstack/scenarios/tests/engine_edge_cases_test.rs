@@ -206,10 +206,7 @@ fn test_warnings_attribute_based_operations() {
                 attrs: attrs.clone(),
                 pct: -5.0,
             },
-            OperationSpec::InstrumentSpreadBpByAttr {
-                attrs,
-                bp: 50.0,
-            },
+            OperationSpec::InstrumentSpreadBpByAttr { attrs, bp: 50.0 },
         ],
         priority: 0,
     };
@@ -274,13 +271,13 @@ fn test_rate_binding_missing_curve() {
 #[test]
 fn test_rate_binding_missing_node() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let curve = DiscountCurve::builder("USD_SOFR")
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
         .build()
         .unwrap();
-    
+
     let mut market = MarketContext::new().insert_discount(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
@@ -344,7 +341,7 @@ fn test_time_roll_with_apply_shocks_false() {
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 1, "Only time roll should apply");
-    
+
     // Date should be rolled
     let expected = base_date + time::Duration::days(30);
     assert_eq!(ctx.as_of, expected);
@@ -385,7 +382,7 @@ fn test_time_roll_with_apply_shocks_true() {
 
     let report = engine.apply(&scenario, &mut ctx).unwrap();
     assert_eq!(report.operations_applied, 2, "Both ops should apply");
-    
+
     // Verify price was shocked
     let price = market.price("SPY").unwrap();
     match price {
@@ -395,4 +392,3 @@ fn test_time_roll_with_apply_shocks_true() {
         _ => panic!("Expected Price scalar"),
     }
 }
-

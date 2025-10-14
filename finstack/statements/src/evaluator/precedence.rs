@@ -12,6 +12,28 @@ use finstack_core::dates::PeriodId;
 /// - Else if forecast is applicable → use Forecast
 /// - Else if formula exists → use Formula
 /// - Else → error (node cannot be resolved)
+///
+/// # Arguments
+/// * `node_spec` - Node metadata that includes values, forecast config, and formula text
+/// * `period_id` - Period being evaluated
+/// * `is_actual_period` - Flag indicating whether the period is classified as actuals (forecasts are skipped)
+///
+/// # Example
+///
+/// ```rust
+/// # use finstack_statements::types::{NodeSpec, NodeType};
+/// # use finstack_statements::evaluator::{resolve_node_value, NodeValueSource};
+/// # use finstack_core::dates::PeriodId;
+/// # use indexmap::indexmap;
+/// let mut node = NodeSpec::new("revenue", NodeType::Mixed).with_formula("lag(revenue, 1)");
+/// node = node.with_values(indexmap! {
+///     PeriodId::quarter(2025, 1) => 100.0.into()
+/// });
+///
+/// let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true)?;
+/// assert!(source.is_value());
+/// # Ok::<(), finstack_statements::Error>(())
+/// ```
 pub fn resolve_node_value(
     node_spec: &NodeSpec,
     period_id: &PeriodId,

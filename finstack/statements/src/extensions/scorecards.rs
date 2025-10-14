@@ -185,11 +185,21 @@ fn default_weight() -> f64 {
 
 impl CreditScorecardExtension {
     /// Create a new credit scorecard extension with default configuration.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use finstack_statements::extensions::CreditScorecardExtension;
+    /// let extension = CreditScorecardExtension::new();
+    /// assert!(extension.config().is_none());
+    /// ```
     pub fn new() -> Self {
         Self { config: None }
     }
 
     /// Create a new credit scorecard extension with the given configuration.
+    ///
+    /// # Arguments
+    /// * `config` - Pre-built [`ScorecardConfig`] to use
     pub fn with_config(config: ScorecardConfig) -> Self {
         Self {
             config: Some(config),
@@ -202,6 +212,9 @@ impl CreditScorecardExtension {
     }
 
     /// Set the configuration.
+    ///
+    /// # Arguments
+    /// * `config` - New configuration to assign
     pub fn set_config(&mut self, config: ScorecardConfig) {
         self.config = Some(config);
     }

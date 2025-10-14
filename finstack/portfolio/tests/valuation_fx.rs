@@ -2,8 +2,8 @@ mod common;
 
 use crate::common::*;
 use finstack_core::prelude::*;
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit, PortfolioError};
 use finstack_portfolio::types::{Entity, DUMMY_ENTITY_ID};
+use finstack_portfolio::{PortfolioBuilder, PortfolioError, Position, PositionUnit};
 use finstack_valuations::instruments::deposit::Deposit;
 use std::sync::Arc;
 
@@ -134,5 +134,3 @@ fn quantity_scaling_and_entity_totals() {
     assert!(pv.value_native.amount().is_sign_negative());
     assert!(valuation.get_entity_value(&"E1".to_string()).is_some());
 }
-
-

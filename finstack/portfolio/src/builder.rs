@@ -57,13 +57,13 @@ impl PortfolioBuilder {
     ///
     /// # Examples
     ///
-/// ```rust
-/// use finstack_portfolio::PortfolioBuilder;
-///
-/// let builder = PortfolioBuilder::new("FUND_A");
-/// // Additional configuration can be chained before calling `build`.
-/// # let _ = builder;
-/// ```
+    /// ```rust
+    /// use finstack_portfolio::PortfolioBuilder;
+    ///
+    /// let builder = PortfolioBuilder::new("FUND_A");
+    /// // Additional configuration can be chained before calling `build`.
+    /// # let _ = builder;
+    /// ```
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -76,7 +76,7 @@ impl PortfolioBuilder {
             meta: IndexMap::new(),
         }
     }
-    
+
     /// Set the portfolio's human-readable name.
     ///
     /// # Arguments
@@ -95,7 +95,7 @@ impl PortfolioBuilder {
         self.name = Some(name.into());
         self
     }
-    
+
     /// Declare the portfolio's reporting currency.
     ///
     /// # Arguments
@@ -115,7 +115,7 @@ impl PortfolioBuilder {
         self.base_ccy = Some(ccy);
         self
     }
-    
+
     /// Assign the valuation date used for pricing and analytics.
     ///
     /// # Arguments
@@ -135,7 +135,7 @@ impl PortfolioBuilder {
         self.as_of = Some(date);
         self
     }
-    
+
     /// Register a single [`Entity`] with the builder.
     ///
     /// # Arguments
@@ -155,7 +155,7 @@ impl PortfolioBuilder {
         self.entities.insert(entity.id.clone(), entity);
         self
     }
-    
+
     /// Register multiple entities in a single call.
     ///
     /// # Arguments
@@ -177,7 +177,7 @@ impl PortfolioBuilder {
         }
         self
     }
-    
+
     /// Add a single position to the portfolio.
     ///
     /// # Arguments
@@ -206,7 +206,7 @@ impl PortfolioBuilder {
         self.positions.push(position);
         self
     }
-    
+
     /// Add multiple positions from any iterator.
     ///
     /// # Arguments
@@ -225,7 +225,7 @@ impl PortfolioBuilder {
         self.positions.extend(positions);
         self
     }
-    
+
     /// Apply a portfolio-level tag.
     ///
     /// Tags allow categorisation and filtering of portfolios.
@@ -247,7 +247,7 @@ impl PortfolioBuilder {
         self.tags.insert(key.into(), value.into());
         self
     }
-    
+
     /// Attach an arbitrary JSON metadata entry.
     ///
     /// # Arguments
@@ -268,7 +268,7 @@ impl PortfolioBuilder {
         self.meta.insert(key.into(), value);
         self
     }
-    
+
     /// Build the portfolio with validation and entity reconciliation.
     ///
     /// This method performs several checks before returning a portfolio:
@@ -298,29 +298,27 @@ impl PortfolioBuilder {
     /// ```
     pub fn build(mut self) -> Result<Portfolio> {
         let base_ccy = self.base_ccy.ok_or_else(|| {
-            crate::error::PortfolioError::ValidationFailed(
-                "Base currency must be set".to_string()
-            )
+            crate::error::PortfolioError::ValidationFailed("Base currency must be set".to_string())
         })?;
-        
+
         let as_of = self.as_of.ok_or_else(|| {
             crate::error::PortfolioError::ValidationFailed(
-                "Valuation date (as_of) must be set".to_string()
+                "Valuation date (as_of) must be set".to_string(),
             )
         })?;
-        
+
         // Auto-create dummy entity if needed
-        let needs_dummy = self.positions.iter()
+        let needs_dummy = self
+            .positions
+            .iter()
             .any(|p| p.entity_id == DUMMY_ENTITY_ID);
-        
+
         if needs_dummy && !self.entities.contains_key(DUMMY_ENTITY_ID) {
             tracing::debug!("Auto-creating dummy entity for standalone instruments");
-            self.entities.insert(
-                DUMMY_ENTITY_ID.to_string(),
-                Entity::dummy(),
-            );
+            self.entities
+                .insert(DUMMY_ENTITY_ID.to_string(), Entity::dummy());
         }
-        
+
         let portfolio = Portfolio {
             id: self.id,
             name: self.name,
@@ -331,10 +329,10 @@ impl PortfolioBuilder {
             tags: self.tags,
             meta: self.meta,
         };
-        
+
         // Validate the portfolio
         portfolio.validate()?;
-        
+
         Ok(portfolio)
     }
 }
@@ -358,13 +356,13 @@ mod tests {
             .tag("strategy", "fixed_income")
             .build()
             .unwrap();
-        
+
         assert_eq!(portfolio.id, "TEST_PORTFOLIO");
         assert_eq!(portfolio.name, Some("Test Portfolio".to_string()));
         assert_eq!(portfolio.base_ccy, Currency::USD);
         assert!(portfolio.entities.contains_key("ACME"));
     }
-    
+
     #[test]
     fn test_builder_dummy_entity_auto_creation() {
         let deposit = Deposit::builder()
@@ -376,7 +374,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let position = Position::new(
             "POS_001",
             DUMMY_ENTITY_ID,
@@ -385,34 +383,34 @@ mod tests {
             1.0,
             PositionUnit::Units,
         );
-        
+
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
             .as_of(date!(2024 - 01 - 01))
             .position(position)
             .build()
             .unwrap();
-        
+
         // Dummy entity should be auto-created
         assert!(portfolio.has_dummy_entity());
         assert_eq!(portfolio.positions.len(), 1);
     }
-    
+
     #[test]
     fn test_builder_validation_fails_without_base_ccy() {
         let result = PortfolioBuilder::new("TEST")
             .as_of(date!(2024 - 01 - 01))
             .build();
-        
+
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_builder_validation_fails_without_as_of() {
         let result = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
             .build();
-        
+
         assert!(result.is_err());
     }
 }

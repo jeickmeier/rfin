@@ -119,11 +119,21 @@ fn default_tolerance() -> f64 {
 
 impl CorkscrewExtension {
     /// Create a new corkscrew extension with default configuration.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use finstack_statements::extensions::CorkscrewExtension;
+    /// let extension = CorkscrewExtension::new();
+    /// assert!(extension.config().is_none());
+    /// ```
     pub fn new() -> Self {
         Self { config: None }
     }
 
     /// Create a new corkscrew extension with the given configuration.
+    ///
+    /// # Arguments
+    /// * `config` - Pre-built [`CorkscrewConfig`] describing the accounts to validate
     pub fn with_config(config: CorkscrewConfig) -> Self {
         Self {
             config: Some(config),
@@ -136,6 +146,9 @@ impl CorkscrewExtension {
     }
 
     /// Set the configuration.
+    ///
+    /// # Arguments
+    /// * `config` - New configuration to assign
     pub fn set_config(&mut self, config: CorkscrewConfig) {
         self.config = Some(config);
     }

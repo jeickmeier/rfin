@@ -28,13 +28,13 @@ use std::sync::Arc;
 pub enum PositionUnit {
     /// Number of units/shares (for equities, baskets)
     Units,
-    
+
     /// Notional amount, optionally in a specific currency (for derivatives, FX)
     Notional(Option<Currency>),
-    
+
     /// Face value of debt instruments (for bonds, loans)
     FaceValue,
-    
+
     /// Percentage of ownership
     Percentage,
 }
@@ -68,25 +68,25 @@ pub enum PositionUnit {
 pub struct Position {
     /// Unique identifier for this position
     pub position_id: PositionId,
-    
+
     /// Entity that owns this position
     pub entity_id: EntityId,
-    
+
     /// Instrument identifier (for reference/lookup)
     pub instrument_id: String,
-    
+
     /// The actual instrument being held
     pub instrument: Arc<dyn Instrument>,
-    
+
     /// Signed quantity (positive=long, negative=short)
     pub quantity: f64,
-    
+
     /// Unit of measurement for the quantity
     pub unit: PositionUnit,
-    
+
     /// Position-level tags for attribute-based grouping
     pub tags: IndexMap<String, String>,
-    
+
     /// Additional metadata
     pub meta: IndexMap<String, serde_json::Value>,
 }
@@ -141,7 +141,7 @@ impl Position {
             meta: IndexMap::new(),
         }
     }
-    
+
     /// Add a tag to the position.
     ///
     /// Tags are stored in an [`indexmap::IndexMap`] to preserve insertion order.
@@ -175,7 +175,7 @@ impl Position {
         self.tags.insert(key.into(), value.into());
         self
     }
-    
+
     /// Add metadata.
     ///
     /// # Arguments
@@ -208,7 +208,7 @@ impl Position {
         self.meta.insert(key.into(), value);
         self
     }
-    
+
     /// Check if this position is long (positive quantity).
     ///
     /// # Examples
@@ -233,7 +233,7 @@ impl Position {
     pub fn is_long(&self) -> bool {
         self.quantity > 0.0
     }
-    
+
     /// Check if this position is short (negative quantity).
     ///
     /// # Examples
@@ -291,7 +291,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let position = Position::new(
             "POS_001",
             "FUND_A",
@@ -302,7 +302,7 @@ mod tests {
         )
         .with_tag("type", "cash")
         .with_tag("rating", "AAA");
-        
+
         assert_eq!(position.position_id, "POS_001");
         assert_eq!(position.entity_id, "FUND_A");
         assert_eq!(position.instrument_id, "DEP_1M");
@@ -310,7 +310,7 @@ mod tests {
         assert!(!position.is_short());
         assert_eq!(position.tags.get("type"), Some(&"cash".to_string()));
     }
-    
+
     #[test]
     fn test_position_unit_serialization() {
         let unit = PositionUnit::Notional(Some(Currency::USD));

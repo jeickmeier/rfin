@@ -4,10 +4,10 @@ use crate::dsl::ast::{BinOp as StmtBinOp, StmtExpr, UnaryOp as StmtUnaryOp};
 use crate::error::Result;
 use finstack_core::expr::{BinOp as CoreBinOp, Expr, Function, UnaryOp as CoreUnaryOp};
 
-/// Compile a `StmtExpr` AST to core's `Expr`.
+/// Compile a [`StmtExpr`] into a core [`Expr`].
 ///
-/// This converts the statements DSL syntax into the core expression engine's
-/// representation for evaluation.
+/// Converts the statements DSL syntax into the shared expression engine
+/// representation used by the evaluator.
 ///
 /// # Example
 ///

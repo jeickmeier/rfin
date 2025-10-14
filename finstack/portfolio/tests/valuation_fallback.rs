@@ -2,8 +2,8 @@ mod common;
 
 use crate::common::*;
 use finstack_core::prelude::*;
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 use finstack_portfolio::types::Entity;
+use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
 use finstack_valuations::pricer::InstrumentType;
 use finstack_valuations::results::ValuationResult;
@@ -20,17 +20,34 @@ struct ValueOnlyInstrument {
 
 impl ValueOnlyInstrument {
     fn new(id: &str, currency: Currency, value: f64) -> Self {
-        Self { id: id.to_string(), currency, value, attributes: Attributes::new() }
+        Self {
+            id: id.to_string(),
+            currency,
+            value,
+            attributes: Attributes::new(),
+        }
     }
 }
 
 impl Instrument for ValueOnlyInstrument {
-    fn id(&self) -> &str { &self.id }
-    fn key(&self) -> InstrumentType { InstrumentType::Basket }
-    fn as_any(&self) -> &dyn Any { self }
-    fn attributes(&self) -> &Attributes { &self.attributes }
-    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
-    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn key(&self) -> InstrumentType {
+        InstrumentType::Basket
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
 
     fn value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         Ok(Money::new(self.value, self.currency))
@@ -68,5 +85,3 @@ fn valuation_falls_back_when_metrics_fail() {
     assert_eq!(pv.value_native.currency(), Currency::USD);
     assert!((pv.value_native.amount() - 123.45).abs() < 1e-9);
 }
-
-

@@ -214,7 +214,6 @@ pub const CMBS_STANDARD_RECOVERY: f64 = 0.65;
 /// Standard CMBS CPR (annual)
 pub const CMBS_STANDARD_CPR: f64 = 0.10;
 
-
 // ============================================================================
 // DEAL CONFIGURATION STRUCTURES
 // ============================================================================
@@ -474,7 +473,7 @@ impl DefaultAssumptions {
         Self {
             base_cdr_annual: ABS_AUTO_STANDARD_CDR,
             base_recovery_rate: ABS_AUTO_STANDARD_RECOVERY,
-            base_cpr_annual: 0.0,     // Not used for auto
+            base_cpr_annual: 0.0, // Not used for auto
             psa_speed: None,
             sda_speed: None,
             abs_speed_monthly: Some(ABS_AUTO_STANDARD_SPEED),

@@ -57,11 +57,14 @@ fn test_curve_parallel_shock() {
 
     // Verify the bumped curve exists with original ID (ID is preserved for instrument references)
     let bumped_curve = market.get_discount_ref("USD-OIS").unwrap();
-    
+
     // The curve should be bumped (different discount factors than original)
     // At 1Y: original DF was 0.98, bumped should be lower (higher rates)
     let df_1y = bumped_curve.df(1.0);
-    assert!(df_1y < 0.98, "Curve should be bumped (lower DF due to +50bp)");
+    assert!(
+        df_1y < 0.98,
+        "Curve should be bumped (lower DF due to +50bp)"
+    );
 }
 
 #[test]
@@ -199,11 +202,7 @@ fn test_base_correlation_parallel_shock() {
 
     // Create base correlation curve
     let basecorr = BaseCorrelationCurve::builder("CDX_IG")
-        .points(vec![
-            (3.0, 0.25),
-            (7.0, 0.45),
-            (10.0, 0.60),
-        ])
+        .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
         .build()
         .unwrap();
 

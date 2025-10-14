@@ -2,9 +2,11 @@ mod common;
 
 use crate::common::*;
 use finstack_core::prelude::*;
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
-use finstack_portfolio::grouping::{aggregate_by_attribute, aggregate_by_multiple_attributes, group_by_attribute};
+use finstack_portfolio::grouping::{
+    aggregate_by_attribute, aggregate_by_multiple_attributes, group_by_attribute,
+};
 use finstack_portfolio::types::Entity;
+use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::deposit::Deposit;
 use std::sync::Arc;
 
@@ -53,7 +55,8 @@ fn grouping_and_multi_attribute_aggregation() {
     assert!(groups.contains_key("AAA") && groups.contains_key("AA"));
     assert!(!groups.contains_key("_untagged"));
 
-    let agg = aggregate_by_attribute(&valuation, &portfolio.positions, "rating", Currency::USD).unwrap();
+    let agg =
+        aggregate_by_attribute(&valuation, &portfolio.positions, "rating", Currency::USD).unwrap();
     assert!(agg.contains_key("AAA") && agg.contains_key("AA"));
 
     let agg2 = aggregate_by_multiple_attributes(
@@ -61,7 +64,8 @@ fn grouping_and_multi_attribute_aggregation() {
         &portfolio.positions,
         &["rating", "sector"],
         Currency::USD,
-    ).unwrap();
+    )
+    .unwrap();
     assert!(!agg2.is_empty());
 }
 
@@ -99,14 +103,28 @@ fn dataframe_exports_have_expected_columns() {
     let df_m = finstack_portfolio::dataframe::metrics_to_dataframe(&metrics).unwrap();
     let df_ma = finstack_portfolio::dataframe::aggregated_metrics_to_dataframe(&metrics).unwrap();
 
-    let pos_cols: Vec<&str> = df_pos.get_column_names().iter().map(|s| s.as_str()).collect();
+    let pos_cols: Vec<&str> = df_pos
+        .get_column_names()
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
     assert!(pos_cols.contains(&"position_id") && pos_cols.contains(&"value_base"));
-    let ent_cols: Vec<&str> = df_ent.get_column_names().iter().map(|s| s.as_str()).collect();
+    let ent_cols: Vec<&str> = df_ent
+        .get_column_names()
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
     assert!(ent_cols.contains(&"entity_id") && ent_cols.contains(&"total_value"));
     let m_cols: Vec<&str> = df_m.get_column_names().iter().map(|s| s.as_str()).collect();
-    assert!(m_cols.contains(&"metric_id") && m_cols.contains(&"position_id") && m_cols.contains(&"value"));
-    let ma_cols: Vec<&str> = df_ma.get_column_names().iter().map(|s| s.as_str()).collect();
+    assert!(
+        m_cols.contains(&"metric_id")
+            && m_cols.contains(&"position_id")
+            && m_cols.contains(&"value")
+    );
+    let ma_cols: Vec<&str> = df_ma
+        .get_column_names()
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
     assert!(ma_cols.contains(&"metric_id") && ma_cols.contains(&"total"));
 }
-
-

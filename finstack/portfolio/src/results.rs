@@ -35,10 +35,10 @@ use serde::{Deserialize, Serialize};
 pub struct PortfolioResults {
     /// Portfolio valuation results
     pub valuation: PortfolioValuation,
-    
+
     /// Aggregated metrics
     pub metrics: PortfolioMetrics,
-    
+
     /// Metadata about the calculation
     pub meta: ResultsMeta,
 }
@@ -59,7 +59,7 @@ impl PortfolioResults {
     /// use finstack_core::prelude::*;
     /// use finstack_core::config::{results_meta, FinstackConfig};
     /// use indexmap::IndexMap;
-///
+    ///
     /// let valuation = PortfolioValuation {
     ///     position_values: IndexMap::new(),
     ///     total_base_ccy: Money::new(0.0, Currency::USD),
@@ -84,7 +84,7 @@ impl PortfolioResults {
             meta,
         }
     }
-    
+
     /// Get the total portfolio value.
     ///
     /// # Examples
@@ -94,7 +94,7 @@ impl PortfolioResults {
     /// use finstack_core::prelude::*;
     /// use finstack_core::config::{results_meta, FinstackConfig};
     /// use indexmap::IndexMap;
-///
+    ///
     /// let results = PortfolioResults {
     ///     valuation: PortfolioValuation {
     ///         position_values: IndexMap::new(),
@@ -112,7 +112,7 @@ impl PortfolioResults {
     pub fn total_value(&self) -> &Money {
         &self.valuation.total_base_ccy
     }
-    
+
     /// Get a specific aggregated metric.
     ///
     /// # Arguments
@@ -178,14 +178,14 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        
+
         MarketContext::new().insert_discount(curve)
     }
 
     #[test]
     fn test_portfolio_results() {
         let as_of = date!(2024 - 01 - 01);
-        
+
         let deposit = Deposit::builder()
             .id("DEP_1M".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -195,7 +195,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let position = Position::new(
             "POS_001",
             "ENTITY_A",
@@ -204,7 +204,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         );
-        
+
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
             .as_of(as_of)
@@ -212,16 +212,16 @@ mod tests {
             .position(position)
             .build()
             .unwrap();
-        
+
         let market = build_test_market();
         let config = FinstackConfig::default();
-        
+
         let valuation = value_portfolio(&portfolio, &market, &config).unwrap();
         let metrics = aggregate_metrics(&valuation).unwrap();
         let meta = results_meta(&config);
-        
+
         let results = PortfolioResults::new(valuation, metrics, meta);
-        
+
         // Note: With flat curve, deposit PV is small but portfolio results should be present
         assert!(results.total_value().amount().abs() >= 0.0);
     }

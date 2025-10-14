@@ -153,7 +153,10 @@ fn test_time_roll_forward_default_apply_shocks() {
     let deserialized: OperationSpec = serde_json::from_str(&json).unwrap();
 
     match deserialized {
-        OperationSpec::TimeRollForward { period, apply_shocks } => {
+        OperationSpec::TimeRollForward {
+            period,
+            apply_shocks,
+        } => {
             assert_eq!(period, "1M");
             assert!(apply_shocks);
         }
@@ -172,7 +175,10 @@ fn test_time_roll_forward_apply_shocks_false() {
     let deserialized: OperationSpec = serde_json::from_str(&json).unwrap();
 
     match deserialized {
-        OperationSpec::TimeRollForward { period, apply_shocks } => {
+        OperationSpec::TimeRollForward {
+            period,
+            apply_shocks,
+        } => {
             assert_eq!(period, "1W");
             assert!(!apply_shocks);
         }
@@ -277,6 +283,9 @@ fn test_scenario_with_metadata() {
 
     assert_eq!(deserialized.id, "full_metadata");
     assert_eq!(deserialized.name, Some("Full Scenario Name".into()));
-    assert_eq!(deserialized.description, Some("This is a comprehensive test scenario".into()));
+    assert_eq!(
+        deserialized.description,
+        Some("This is a comprehensive test scenario".into())
+    );
     assert_eq!(deserialized.priority, 5);
 }

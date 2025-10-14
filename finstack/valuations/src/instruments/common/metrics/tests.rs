@@ -46,10 +46,16 @@ mod theta_utils_tests {
 
         let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let rolled = calculate_theta_date(base, "1D", None).unwrap();
-        assert_eq!(rolled, Date::from_calendar_date(2025, Month::January, 2).unwrap());
+        assert_eq!(
+            rolled,
+            Date::from_calendar_date(2025, Month::January, 2).unwrap()
+        );
 
         let rolled_week = calculate_theta_date(base, "1W", None).unwrap();
-        assert_eq!(rolled_week, Date::from_calendar_date(2025, Month::January, 8).unwrap());
+        assert_eq!(
+            rolled_week,
+            Date::from_calendar_date(2025, Month::January, 8).unwrap()
+        );
     }
 
     #[test]
@@ -66,7 +72,9 @@ mod theta_utils_tests {
 
         // Rolling 1 day is before expiry, should not cap
         let rolled_day = calculate_theta_date(base, "1D", Some(expiry)).unwrap();
-        assert_eq!(rolled_day, Date::from_calendar_date(2025, Month::January, 2).unwrap());
+        assert_eq!(
+            rolled_day,
+            Date::from_calendar_date(2025, Month::January, 2).unwrap()
+        );
     }
 }
-

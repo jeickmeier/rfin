@@ -50,13 +50,10 @@ pub fn group_by_attribute<'a>(
     attr_key: &str,
 ) -> IndexMap<String, Vec<&'a Position>> {
     let mut groups: IndexMap<String, Vec<&'a Position>> = IndexMap::new();
-    
+
     for position in positions {
         if let Some(attr_value) = position.tags.get(attr_key) {
-            groups
-                .entry(attr_value.clone())
-                .or_default()
-                .push(position);
+            groups.entry(attr_value.clone()).or_default().push(position);
         } else {
             // Positions without this attribute go into "untagged"
             groups
@@ -65,7 +62,7 @@ pub fn group_by_attribute<'a>(
                 .push(position);
         }
     }
-    
+
     groups
 }
 
@@ -113,13 +110,14 @@ pub fn aggregate_by_attribute(
     base_ccy: Currency,
 ) -> Result<IndexMap<String, Money>> {
     let mut aggregated: IndexMap<String, Money> = IndexMap::new();
-    
+
     for position in positions {
-        let attr_value = position.tags
+        let attr_value = position
+            .tags
             .get(attr_key)
             .cloned()
             .unwrap_or_else(|| "_untagged".to_string());
-        
+
         if let Some(position_value) = valuation.position_values.get(&position.position_id) {
             let total = aggregated
                 .entry(attr_value)
@@ -127,7 +125,7 @@ pub fn aggregate_by_attribute(
             *total = total.checked_add(position_value.value_base)?;
         }
     }
-    
+
     Ok(aggregated)
 }
 
@@ -175,19 +173,20 @@ pub fn aggregate_by_multiple_attributes(
     base_ccy: Currency,
 ) -> Result<IndexMap<Vec<String>, Money>> {
     let mut aggregated: IndexMap<Vec<String>, Money> = IndexMap::new();
-    
+
     for position in positions {
         // Build compound key from all attributes
         let key: Vec<String> = attr_keys
             .iter()
             .map(|&attr_key| {
-                position.tags
+                position
+                    .tags
                     .get(attr_key)
                     .cloned()
                     .unwrap_or_else(|| "_untagged".to_string())
             })
             .collect();
-        
+
         if let Some(position_value) = valuation.position_values.get(&position.position_id) {
             let total = aggregated
                 .entry(key)
@@ -195,7 +194,7 @@ pub fn aggregate_by_multiple_attributes(
             *total = total.checked_add(position_value.value_base)?;
         }
     }
-    
+
     Ok(aggregated)
 }
 
@@ -220,14 +219,14 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        
+
         MarketContext::new().insert_discount(curve)
     }
 
     #[test]
     fn test_group_by_attribute() {
         let as_of = date!(2024 - 01 - 01);
-        
+
         let dep1 = Deposit::builder()
             .id("DEP_1".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -237,7 +236,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let dep2 = Deposit::builder()
             .id("DEP_2".into())
             .notional(Money::new(500_000.0, Currency::USD))
@@ -247,7 +246,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let pos1 = Position::new(
             "POS_001",
             "ENTITY_A",
@@ -258,7 +257,7 @@ mod tests {
         )
         .with_tag("rating", "AAA")
         .with_tag("sector", "Banking");
-        
+
         let pos2 = Position::new(
             "POS_002",
             "ENTITY_A",
@@ -269,22 +268,22 @@ mod tests {
         )
         .with_tag("rating", "AA")
         .with_tag("sector", "Banking");
-        
+
         let positions = vec![pos1, pos2];
-        
+
         let groups = group_by_attribute(&positions, "rating");
-        
+
         assert_eq!(groups.len(), 2);
         assert!(groups.contains_key("AAA"));
         assert!(groups.contains_key("AA"));
         assert_eq!(groups.get("AAA").unwrap().len(), 1);
         assert_eq!(groups.get("AA").unwrap().len(), 1);
     }
-    
+
     #[test]
     fn test_aggregate_by_attribute() {
         let as_of = date!(2024 - 01 - 01);
-        
+
         let dep1 = Deposit::builder()
             .id("DEP_1".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -294,7 +293,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let dep2 = Deposit::builder()
             .id("DEP_2".into())
             .notional(Money::new(500_000.0, Currency::USD))
@@ -304,7 +303,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let pos1 = Position::new(
             "POS_001",
             "ENTITY_A",
@@ -314,7 +313,7 @@ mod tests {
             PositionUnit::Units,
         )
         .with_tag("rating", "AAA");
-        
+
         let pos2 = Position::new(
             "POS_002",
             "ENTITY_A",
@@ -324,7 +323,7 @@ mod tests {
             PositionUnit::Units,
         )
         .with_tag("rating", "AAA");
-        
+
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
             .as_of(as_of)
@@ -333,18 +332,15 @@ mod tests {
             .position(pos2)
             .build()
             .unwrap();
-        
+
         let market = build_test_market();
         let config = FinstackConfig::default();
-        
+
         let valuation = value_portfolio(&portfolio, &market, &config).unwrap();
-        let aggregated = aggregate_by_attribute(
-            &valuation,
-            &portfolio.positions,
-            "rating",
-            Currency::USD,
-        ).unwrap();
-        
+        let aggregated =
+            aggregate_by_attribute(&valuation, &portfolio.positions, "rating", Currency::USD)
+                .unwrap();
+
         assert!(aggregated.contains_key("AAA"));
         let total = aggregated.get("AAA").unwrap();
         assert!(total.amount().abs() >= 0.0);

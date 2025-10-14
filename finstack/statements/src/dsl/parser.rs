@@ -13,7 +13,13 @@ use nom::{
     IResult,
 };
 
-/// Parse a formula string into a `StmtExpr` AST.
+/// Parse a formula string into a [`StmtExpr`] AST.
+///
+/// # Arguments
+/// * `input` - Text of the DSL formula to parse
+///
+/// # Returns
+/// Parsed AST ready for compilation.
 ///
 /// # Example
 ///

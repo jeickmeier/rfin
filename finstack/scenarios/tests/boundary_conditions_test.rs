@@ -412,4 +412,3 @@ fn test_statement_assign_extreme_value() {
         _ => panic!("Expected scalar"),
     }
 }
-

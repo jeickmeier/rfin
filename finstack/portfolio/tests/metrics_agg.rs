@@ -2,8 +2,8 @@ mod common;
 
 use crate::common::*;
 use finstack_core::prelude::*;
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 use finstack_portfolio::types::Entity;
+use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::deposit::Deposit;
 use std::sync::Arc;
 
@@ -53,5 +53,3 @@ fn summable_vs_non_summable_metrics() {
         let _ = total; // present and numeric
     }
 }
-
-

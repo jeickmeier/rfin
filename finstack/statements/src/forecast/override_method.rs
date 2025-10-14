@@ -1,10 +1,14 @@
-//! Override forecast method for explicit period values.
+//! Override forecast method for injecting explicit period-level values.
+//!
+//! The override method lets callers provide sparse adjustments that supersede
+//! previously calculated projections. Any periods without an explicit override
+//! will inherit the most recent value (forward fill).
 
 use crate::error::{Error, Result};
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
-/// Override: Use explicit period-specific values, forward fill for remaining periods.
+/// Override: use explicit period-specific values, forward fill for the rest.
 ///
 /// # Parameters
 ///
@@ -12,13 +16,30 @@ use indexmap::IndexMap;
 ///
 /// # Example
 ///
-/// ```
-/// // base_value = 100
-/// // overrides = {"2025Q1": 120, "2025Q3": 130}
-/// // Period 2025Q1: 120 (override)
-/// // Period 2025Q2: 120 (forward fill from Q1)
-/// // Period 2025Q3: 130 (override)
-/// // Period 2025Q4: 130 (forward fill from Q3)
+/// ```rust
+/// # use finstack_statements::forecast::override_method;
+/// # use finstack_core::dates::PeriodId;
+/// # use indexmap::indexmap;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let periods = [
+///     PeriodId::quarter(2025, 1),
+///     PeriodId::quarter(2025, 2),
+///     PeriodId::quarter(2025, 3),
+///     PeriodId::quarter(2025, 4),
+/// ];
+/// let params = indexmap! {
+///     "overrides".to_string() => serde_json::json!({
+///         "2025Q1": 120.0,
+///         "2025Q3": 130.0,
+///     })
+/// };
+/// let projected = override_method::apply_override(100.0, &periods, &params)?;
+/// assert_eq!(projected[&periods[0]], 120.0); // explicit override
+/// assert_eq!(projected[&periods[1]], 120.0); // forward fill
+/// assert_eq!(projected[&periods[2]], 130.0); // explicit override
+/// assert_eq!(projected[&periods[3]], 130.0); // forward fill
+/// # Ok(())
+/// # }
 /// ```
 pub fn apply_override(
     base_value: f64,

@@ -6,13 +6,16 @@ use crate::registry::schema::MetricDefinition;
 
 /// Validate a metric definition.
 ///
-/// Checks:
-/// - ID is not empty
-/// - Name is not empty
-/// - Formula is valid (can be parsed)
-/// - Formula is not empty
+/// # Arguments
+/// * `metric` - Definition to validate
+/// * `namespace` - Namespace used for error reporting
 ///
-/// Returns Ok(()) if valid, Err otherwise.
+/// # Validation Rules
+/// - ID must be non-empty and contain only `[a-zA-Z0-9_-]`
+/// - Name must be non-empty
+/// - Formula must be non-empty and parseable
+///
+/// Returns `Ok(())` when the definition passes all checks.
 pub fn validate_metric_definition(metric: &MetricDefinition, namespace: &str) -> Result<()> {
     // Validate ID
     if metric.id.is_empty() {

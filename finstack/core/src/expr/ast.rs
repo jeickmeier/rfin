@@ -362,20 +362,26 @@ mod tests {
         let lit = Expr::literal(42.0);
         assert!(matches!(lit.node, ExprNode::Literal(v) if (v - 42.0).abs() < 1e-12));
 
-        let call = Expr::call(Function::Lag, vec![Expr::column("price"), Expr::literal(1.0)]);
+        let call = Expr::call(
+            Function::Lag,
+            vec![Expr::column("price"), Expr::literal(1.0)],
+        );
         assert!(matches!(call.node, ExprNode::Call(Function::Lag, _)));
 
         let bin = Expr::bin_op(BinOp::Add, Expr::column("a"), Expr::column("b"));
         assert!(matches!(bin.node, ExprNode::BinOp { op: BinOp::Add, .. }));
 
         let unary = Expr::unary_op(UnaryOp::Neg, Expr::literal(1.0));
-        assert!(matches!(unary.node, ExprNode::UnaryOp { op: UnaryOp::Neg, .. }));
+        assert!(matches!(
+            unary.node,
+            ExprNode::UnaryOp {
+                op: UnaryOp::Neg,
+                ..
+            }
+        ));
 
-        let conditional = Expr::if_then_else(
-            Expr::column("flag"),
-            Expr::literal(1.0),
-            Expr::literal(0.0),
-        );
+        let conditional =
+            Expr::if_then_else(Expr::column("flag"), Expr::literal(1.0), Expr::literal(0.0));
         assert!(matches!(conditional.node, ExprNode::IfThenElse { .. }));
     }
 

@@ -1,4 +1,9 @@
-//! Evaluation context for statement formulas.
+//! Evaluation context that backs formula execution during model evaluation.
+//!
+//! The context owns per-period state such as evaluated node values,
+//! historical lookups, and optional capital-structure cashflows. Evaluator
+//! components update and query this structure while traversing the dependency
+//! graph.
 
 use crate::error::{Error, Result};
 use finstack_core::dates::{PeriodId, PeriodKind};
@@ -21,8 +26,8 @@ pub struct EvaluationContext {
     /// Historical results: period_id → (node_id → value)
     pub historical_results: IndexMap<PeriodId, IndexMap<String, f64>>,
 
-    /// Current period results being built
-    /// Uses Option<f64> to distinguish between "not yet evaluated" (None) and "evaluated to NaN" (Some(NaN))
+    /// Current period results being built.
+    /// Uses `Option<f64>` to distinguish between "not yet evaluated" (`None`) and "evaluated to NaN" (`Some(NaN)`).
     pub current_values: Vec<Option<f64>>,
 
     /// Capital structure cashflows (optional)
@@ -31,6 +36,27 @@ pub struct EvaluationContext {
 
 impl EvaluationContext {
     /// Create a new evaluation context for a period.
+    ///
+    /// # Arguments
+    /// * `period_id` - Period currently being evaluated
+    /// * `node_to_column` - Mapping from node identifiers to their column index
+    /// * `historical_results` - Prior period results available for lag/lead lookups
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::evaluator::context::EvaluationContext;
+    /// # use finstack_core::dates::PeriodId;
+    /// # use indexmap::IndexMap;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let period = PeriodId::quarter(2025, 1);
+    /// let mut columns = IndexMap::new();
+    /// columns.insert("revenue".to_string(), 0);
+    /// let ctx = EvaluationContext::new(period, columns, IndexMap::new());
+    /// assert_eq!(ctx.period_id, period);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(
         period_id: PeriodId,
         node_to_column: IndexMap<String, usize>,
@@ -49,6 +75,9 @@ impl EvaluationContext {
     }
 
     /// Set capital structure cashflows for this context.
+    ///
+    /// Callers typically invoke this when the evaluator loads supplementary
+    /// data from the capital structure module.
     pub fn with_capital_structure(
         mut self,
         cashflows: crate::capital_structure::CapitalStructureCashflows,
@@ -59,7 +88,13 @@ impl EvaluationContext {
 
     /// Set the value for a node in the current period.
     ///
-    /// Accepts any f64 value, including NaN. Use None to indicate "not yet evaluated".
+    /// Accepts any `f64` value, including `NaN`. Values are stored even when they
+    /// originate from forecasts or capital-structure flows so that precedence
+    /// resolution can make informed decisions later.
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier of the node being updated
+    /// * `value` - Numeric result to store for the current period
     pub fn set_value(&mut self, node_id: &str, value: f64) -> Result<()> {
         let idx = self
             .node_to_column
@@ -71,8 +106,11 @@ impl EvaluationContext {
 
     /// Get the value for a node in the current period.
     ///
-    /// Returns an error if the node has not been evaluated yet (value is None).
-    /// Returns Ok(NaN) if the node was evaluated but resulted in NaN.
+    /// Returns an error if the node has not been evaluated yet (value is `None`).
+    /// Returns `Ok(NaN)` if the node was evaluated but resulted in `NaN`.
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier to query
     pub fn get_value(&self, node_id: &str) -> Result<f64> {
         let idx = self
             .node_to_column
@@ -90,6 +128,10 @@ impl EvaluationContext {
     }
 
     /// Get historical value for a node at a specific period.
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier to query
+    /// * `period_id` - Historical period to look up
     pub fn get_historical_value(&self, node_id: &str, period_id: &PeriodId) -> Option<f64> {
         self.historical_results
             .get(period_id)

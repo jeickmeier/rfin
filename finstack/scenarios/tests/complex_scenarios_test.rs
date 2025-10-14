@@ -19,19 +19,19 @@ use time::Month;
 #[test]
 fn test_fx_equity_curve_combo() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     // Setup FX
     let fx_provider = Arc::new(SimpleFxProvider::new());
     fx_provider.set_quote(Currency::EUR, Currency::USD, 1.1);
     let fx_matrix = FxMatrix::new(fx_provider);
-    
+
     // Setup curve
     let curve = DiscountCurve::builder("USD_SOFR")
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
         .build()
         .unwrap();
-    
+
     let mut market = MarketContext::new()
         .insert_fx(fx_matrix)
         .insert_discount(curve)
@@ -83,7 +83,10 @@ fn test_fx_equity_curve_combo() {
     let price = market.price("SPY").unwrap();
     match price {
         MarketScalar::Price(money) => {
-            assert!((money.amount() - 340.0).abs() < 1e-6, "Equity should be shocked");
+            assert!(
+                (money.amount() - 340.0).abs() < 1e-6,
+                "Equity should be shocked"
+            );
         }
         _ => panic!("Expected Price"),
     }
@@ -95,13 +98,13 @@ fn test_fx_equity_curve_combo() {
 #[test]
 fn test_statements_rate_bindings_curve() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let curve = DiscountCurve::builder("USD_SOFR")
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
         .build()
         .unwrap();
-    
+
     let mut market = MarketContext::new().insert_discount(curve);
 
     let period_plan = build_periods("2025Q1..Q2", None).unwrap();
@@ -177,7 +180,7 @@ fn test_statements_rate_bindings_curve() {
 #[test]
 fn test_time_roll_with_market_shocks() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let mut market = MarketContext::new()
         .insert_price("SPY", MarketScalar::Price(Money::new(450.0, Currency::USD)));
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -399,4 +402,3 @@ fn test_multiple_statement_operations() {
         _ => panic!("Expected scalar"),
     }
 }
-

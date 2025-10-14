@@ -9,8 +9,15 @@ use indexmap::IndexMap;
 
 /// Evaluate a forecast for a specific period.
 ///
-/// This function determines the base value and applies the forecast method
-/// to generate values for all forecast periods. Results are cached.
+/// Determines the base value, applies the configured forecast method, and
+/// caches the generated values for future lookups.
+///
+/// # Arguments
+/// * `node_spec` - Node metadata containing forecast configuration
+/// * `model` - Financial model definition providing periods
+/// * `period_id` - Forecast period being requested
+/// * `context` - Evaluation context with historical data
+/// * `forecast_cache` - Cache reused across nodes/periods
 pub(crate) fn evaluate_forecast(
     node_spec: &NodeSpec,
     model: &FinancialModelSpec,

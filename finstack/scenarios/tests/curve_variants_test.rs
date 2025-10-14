@@ -15,15 +15,11 @@ use time::Month;
 #[test]
 fn test_forecast_curve_parallel_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     // Create forward curve (3M = 0.25 years)
     let curve = ForwardCurve::builder("USD_LIBOR_3M", 0.25)
         .base_date(base_date)
-        .knots(vec![
-            (0.0, 0.05),
-            (1.0, 0.055),
-            (5.0, 0.06),
-        ])
+        .knots(vec![(0.0, 0.05), (1.0, 0.055), (5.0, 0.06)])
         .build()
         .unwrap();
 
@@ -63,16 +59,12 @@ fn test_forecast_curve_parallel_shock() {
 #[test]
 fn test_hazard_curve_parallel_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     // Create hazard curve
     let curve = HazardCurve::builder("CORP_BBB")
         .base_date(base_date)
         .recovery_rate(0.4)
-        .knots(vec![
-            (0.0, 0.0),
-            (1.0, 0.02),
-            (5.0, 0.025),
-        ])
+        .knots(vec![(0.0, 0.0), (1.0, 0.02), (5.0, 0.025)])
         .build()
         .unwrap();
 
@@ -111,7 +103,7 @@ fn test_hazard_curve_parallel_shock() {
 #[test]
 fn test_inflation_curve_parallel_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     // Create inflation curve
     let curve = InflationCurve::builder("US_CPI")
         .base_cpi(300.0)
@@ -159,14 +151,10 @@ fn test_inflation_curve_parallel_shock() {
 #[test]
 fn test_forecast_curve_node_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let curve = ForwardCurve::builder("USD_LIBOR_3M", 0.25)
         .base_date(base_date)
-        .knots(vec![
-            (0.0, 0.05),
-            (1.0, 0.055),
-            (5.0, 0.06),
-        ])
+        .knots(vec![(0.0, 0.05), (1.0, 0.055), (5.0, 0.06)])
         .build()
         .unwrap();
 
@@ -202,15 +190,11 @@ fn test_forecast_curve_node_shock() {
 #[test]
 fn test_hazard_curve_node_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let curve = HazardCurve::builder("CORP_BBB")
         .base_date(base_date)
         .recovery_rate(0.4)
-        .knots(vec![
-            (0.0, 0.0),
-            (1.0, 0.02),
-            (5.0, 0.025),
-        ])
+        .knots(vec![(0.0, 0.0), (1.0, 0.02), (5.0, 0.025)])
         .build()
         .unwrap();
 
@@ -246,14 +230,10 @@ fn test_hazard_curve_node_shock() {
 #[test]
 fn test_inflation_curve_node_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let curve = InflationCurve::builder("US_CPI")
         .base_cpi(300.0)
-        .knots(vec![
-            (0.0, 300.0),
-            (1.0, 306.0),
-            (5.0, 330.0),
-        ])
+        .knots(vec![(0.0, 300.0), (1.0, 306.0), (5.0, 330.0)])
         .build()
         .unwrap();
 
@@ -331,26 +311,26 @@ fn test_discount_curve_id_preservation() {
 fn test_all_curve_types_in_one_scenario() {
     // Test applying shocks to multiple curve types simultaneously
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let disc = DiscountCurve::builder("USD_SOFR")
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
         .build()
         .unwrap();
-    
+
     let fwd = ForwardCurve::builder("USD_LIBOR_3M", 0.25)
         .base_date(base_date)
         .knots(vec![(0.0, 0.05), (1.0, 0.055)])
         .build()
         .unwrap();
-    
+
     let hazard = HazardCurve::builder("CORP_BBB")
         .base_date(base_date)
         .recovery_rate(0.4)
         .knots(vec![(0.0, 0.0), (1.0, 0.02)])
         .build()
         .unwrap();
-    
+
     let inflation = InflationCurve::builder("US_CPI")
         .base_cpi(300.0)
         .knots(vec![(0.0, 300.0), (1.0, 306.0)])
@@ -362,7 +342,7 @@ fn test_all_curve_types_in_one_scenario() {
         .insert_forward(fwd)
         .insert_hazard(hazard)
         .insert_inflation(inflation);
-    
+
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
@@ -412,4 +392,3 @@ fn test_all_curve_types_in_one_scenario() {
     assert!(market.get_hazard_ref("CORP_BBB").is_ok());
     assert!(market.get_inflation_ref("US_CPI").is_ok());
 }
-

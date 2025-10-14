@@ -19,6 +19,24 @@ use std::time::Instant;
 ///
 /// The evaluator compiles formulas, resolves dependencies, and evaluates
 /// nodes period-by-period according to precedence rules.
+///
+/// # Example
+///
+/// ```rust
+/// # use finstack_statements::builder::ModelBuilder;
+/// # use finstack_statements::evaluator::Evaluator;
+/// # use finstack_core::dates::PeriodId;
+/// let model = ModelBuilder::new("demo")
+///     .periods("2025Q1..Q2", None)?
+///     .value("revenue", &[(PeriodId::quarter(2025, 1), 100_000.0.into())])
+///     .compute("gross_profit", "revenue * 0.6")?
+///     .build()?;
+///
+/// let mut evaluator = Evaluator::new();
+/// let results = evaluator.evaluate(&model)?;
+/// assert_eq!(results.get("revenue", &PeriodId::quarter(2025, 1)), Some(100_000.0));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Clone)]
 pub struct Evaluator {
     /// Cached compiled expressions
@@ -345,6 +363,18 @@ impl Default for Evaluator {
 ///
 /// This is a convenience wrapper that stores market context and as-of date,
 /// making it easier to evaluate models with capital structure.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use finstack_statements::evaluator::Evaluator;
+/// use finstack_core::{dates::Date, market_data::MarketContext};
+///
+/// let market_ctx = MarketContext::new();
+/// let as_of = Date::from_calendar_date(2025, time::Month::January, 31).unwrap();
+/// let mut evaluator = Evaluator::with_market_context(&market_ctx, as_of);
+/// let results = evaluator.evaluate(&model)?;
+/// ```
 #[derive(Clone)]
 pub struct EvaluatorWithContext {
     evaluator: Evaluator,

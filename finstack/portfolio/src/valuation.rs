@@ -35,16 +35,16 @@ use serde::{Deserialize, Serialize};
 pub struct PositionValue {
     /// Position identifier
     pub position_id: PositionId,
-    
+
     /// Entity that owns this position
     pub entity_id: EntityId,
-    
+
     /// Value in the instrument's native currency
     pub value_native: Money,
-    
+
     /// Value converted to portfolio base currency
     pub value_base: Money,
-    
+
     /// Full valuation result with metrics
     #[serde(skip)]
     pub valuation_result: Option<ValuationResult>,
@@ -72,10 +72,10 @@ pub struct PositionValue {
 pub struct PortfolioValuation {
     /// Values for each position
     pub position_values: IndexMap<PositionId, PositionValue>,
-    
+
     /// Total portfolio value in base currency
     pub total_base_ccy: Money,
-    
+
     /// Aggregated values by entity
     pub by_entity: IndexMap<EntityId, Money>,
 }
@@ -94,7 +94,7 @@ impl PortfolioValuation {
     /// use finstack_portfolio::valuation::PositionValue;
     /// use finstack_core::prelude::*;
     /// use indexmap::IndexMap;
-///
+    ///
     /// let mut position_values = IndexMap::new();
     /// position_values.insert(
     ///     "POS_1".into(),
@@ -116,7 +116,7 @@ impl PortfolioValuation {
     pub fn get_position_value(&self, position_id: &str) -> Option<&PositionValue> {
         self.position_values.get(position_id)
     }
-    
+
     /// Get the total value for a specific entity.
     ///
     /// # Arguments
@@ -129,7 +129,7 @@ impl PortfolioValuation {
     /// use finstack_portfolio::PortfolioValuation;
     /// use finstack_core::prelude::*;
     /// use indexmap::IndexMap;
-///
+    ///
     /// let mut by_entity = IndexMap::new();
     /// by_entity.insert("ENTITY_A".into(), Money::new(2.0, Currency::USD));
     /// let valuation = PortfolioValuation {
@@ -150,11 +150,7 @@ impl PortfolioValuation {
 /// Note: Using Theta, DV01, and CS01 which are widely supported as scalar metrics.
 /// Many instruments use bucketed metrics (series) which require special handling.
 fn standard_portfolio_metrics() -> Vec<MetricId> {
-    vec![
-        MetricId::Theta,
-        MetricId::Dv01,
-        MetricId::Cs01,
-    ]
+    vec![MetricId::Theta, MetricId::Dv01, MetricId::Cs01]
 }
 
 /// Value all positions in a portfolio with full metrics.
@@ -201,13 +197,14 @@ pub fn value_portfolio(
 ) -> Result<PortfolioValuation> {
     let mut position_values = IndexMap::new();
     let mut by_entity: IndexMap<EntityId, Money> = IndexMap::new();
-    
+
     // Get standard metrics to compute
     let metrics = standard_portfolio_metrics();
-    
+
     for position in &portfolio.positions {
         // Price the instrument with metrics (try with metrics, fall back to value only)
-        let valuation_result = position.instrument
+        let valuation_result = position
+            .instrument
             .price_with_metrics(market, portfolio.as_of, &metrics)
             .or_else(|_: finstack_core::Error| {
                 // If metrics fail, just get base value
@@ -222,12 +219,12 @@ pub fn value_portfolio(
                 position_id: position.position_id.clone(),
                 message: e.to_string(),
             })?;
-        
+
         let value_native = valuation_result.value;
-        
+
         // Scale by quantity if needed (for most instruments, returns unit value)
         let scaled_native = value_native * position.quantity;
-        
+
         // Convert to base currency
         let value_base = if scaled_native.currency() == portfolio.base_ccy {
             scaled_native
@@ -236,29 +233,35 @@ pub fn value_portfolio(
             let fx_matrix = market.fx.as_ref().ok_or_else(|| {
                 PortfolioError::MissingMarketData("FX matrix not available".to_string())
             })?;
-            
+
             // Get FX rate
             let query = FxQuery::new(
                 scaled_native.currency(),
                 portfolio.base_ccy,
                 portfolio.as_of,
             );
-            let rate_result = fx_matrix.rate(query)
-                .map_err(|_| PortfolioError::FxConversionFailed {
-                    from: scaled_native.currency(),
-                    to: portfolio.base_ccy,
-                })?;
-            
-            Money::new(scaled_native.amount() * rate_result.rate, portfolio.base_ccy)
+            let rate_result =
+                fx_matrix
+                    .rate(query)
+                    .map_err(|_| PortfolioError::FxConversionFailed {
+                        from: scaled_native.currency(),
+                        to: portfolio.base_ccy,
+                    })?;
+
+            Money::new(
+                scaled_native.amount() * rate_result.rate,
+                portfolio.base_ccy,
+            )
         };
-        
+
         // Aggregate by entity
-        let entity_total = by_entity.entry(position.entity_id.clone()).or_insert_with(|| {
-            Money::new(0.0, portfolio.base_ccy)
-        });
-        *entity_total = entity_total.checked_add(value_base)
+        let entity_total = by_entity
+            .entry(position.entity_id.clone())
+            .or_insert_with(|| Money::new(0.0, portfolio.base_ccy));
+        *entity_total = entity_total
+            .checked_add(value_base)
             .map_err(PortfolioError::Core)?;
-        
+
         // Store position value
         position_values.insert(
             position.position_id.clone(),
@@ -271,14 +274,15 @@ pub fn value_portfolio(
             },
         );
     }
-    
+
     // Calculate total
     let mut total_base_ccy = Money::new(0.0, portfolio.base_ccy);
     for v in by_entity.values() {
-        total_base_ccy = total_base_ccy.checked_add(*v)
+        total_base_ccy = total_base_ccy
+            .checked_add(*v)
             .map_err(PortfolioError::Core)?;
     }
-    
+
     Ok(PortfolioValuation {
         position_values,
         total_base_ccy,
@@ -307,14 +311,14 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        
+
         MarketContext::new().insert_discount(curve)
     }
 
     #[test]
     fn test_value_single_position() {
         let as_of = date!(2024 - 01 - 01);
-        
+
         let deposit = Deposit::builder()
             .id("DEP_1M".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -324,7 +328,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let position = Position::new(
             "POS_001",
             DUMMY_ENTITY_ID,
@@ -333,29 +337,29 @@ mod tests {
             1.0,
             PositionUnit::Units,
         );
-        
+
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
             .as_of(as_of)
             .position(position)
             .build()
             .unwrap();
-        
+
         let market = build_test_market();
         let config = FinstackConfig::default();
-        
+
         let valuation = value_portfolio(&portfolio, &market, &config).unwrap();
-        
+
         assert_eq!(valuation.position_values.len(), 1);
         // Note: With flat curve, deposit PV is small but should be present
         assert!(valuation.total_base_ccy.amount().abs() >= 0.0);
         assert_eq!(valuation.by_entity.len(), 1);
     }
-    
+
     #[test]
     fn test_value_multiple_entities() {
         let as_of = date!(2024 - 01 - 01);
-        
+
         let dep1 = Deposit::builder()
             .id("DEP_1".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -365,7 +369,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let dep2 = Deposit::builder()
             .id("DEP_2".into())
             .notional(Money::new(500_000.0, Currency::USD))
@@ -375,7 +379,7 @@ mod tests {
             .disc_id("USD".into())
             .build()
             .unwrap();
-        
+
         let pos1 = Position::new(
             "POS_001",
             "ENTITY_A",
@@ -384,7 +388,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         );
-        
+
         let pos2 = Position::new(
             "POS_002",
             "ENTITY_B",
@@ -393,7 +397,7 @@ mod tests {
             1.0,
             PositionUnit::Units,
         );
-        
+
         let portfolio = PortfolioBuilder::new("TEST")
             .base_ccy(Currency::USD)
             .as_of(as_of)
@@ -403,15 +407,19 @@ mod tests {
             .position(pos2)
             .build()
             .unwrap();
-        
+
         let market = build_test_market();
         let config = FinstackConfig::default();
-        
+
         let valuation = value_portfolio(&portfolio, &market, &config).unwrap();
-        
+
         assert_eq!(valuation.position_values.len(), 2);
         assert_eq!(valuation.by_entity.len(), 2);
-        assert!(valuation.get_entity_value(&"ENTITY_A".to_string()).is_some());
-        assert!(valuation.get_entity_value(&"ENTITY_B".to_string()).is_some());
+        assert!(valuation
+            .get_entity_value(&"ENTITY_A".to_string())
+            .is_some());
+        assert!(valuation
+            .get_entity_value(&"ENTITY_B".to_string())
+            .is_some());
     }
 }

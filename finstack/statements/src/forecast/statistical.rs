@@ -1,4 +1,8 @@
-//! Statistical forecast methods with deterministic seeding.
+//! Statistical forecast helpers that produce deterministic sequences.
+//!
+//! Each algorithm consumes a pre-seeded pseudo-random number generator so that
+//! repeated calls with identical parameters return the same series. This makes
+//! them suitable for scenario analysis where reproducibility matters.
 
 use crate::error::{Error, Result};
 use finstack_core::dates::PeriodId;
@@ -17,9 +21,25 @@ use indexmap::IndexMap;
 ///
 /// # Example
 ///
-/// ```
-/// // mean = 100_000, std_dev = 15_000, seed = 42
-/// // Generates deterministic samples from N(100_000, 15_000^2)
+/// ```rust
+/// # use finstack_statements::forecast::statistical;
+/// # use finstack_core::dates::PeriodId;
+/// # use indexmap::indexmap;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let periods = [
+///     PeriodId::quarter(2025, 1),
+///     PeriodId::quarter(2025, 2),
+///     PeriodId::quarter(2025, 3),
+/// ];
+/// let params = indexmap! {
+///     "mean".to_string() => serde_json::json!(100_000.0),
+///     "std_dev".to_string() => serde_json::json!(15_000.0),
+///     "seed".to_string() => serde_json::json!(42_u64),
+/// };
+/// let simulated = statistical::normal_forecast(0.0, &periods, &params)?;
+/// assert_eq!(simulated.len(), periods.len());
+/// # Ok(())
+/// # }
 /// ```
 pub fn normal_forecast(
     _base_value: f64,
@@ -89,10 +109,24 @@ pub fn normal_forecast(
 ///
 /// # Example
 ///
-/// ```
-/// // mean = 11.5, std_dev = 0.15, seed = 42
-/// // Generates deterministic samples from LogNormal(11.5, 0.15^2)
-/// // Results are always positive (suitable for revenue, prices)
+/// ```rust
+/// # use finstack_statements::forecast::statistical;
+/// # use finstack_core::dates::PeriodId;
+/// # use indexmap::indexmap;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let periods = [
+///     PeriodId::quarter(2025, 1),
+///     PeriodId::quarter(2025, 2),
+/// ];
+/// let params = indexmap! {
+///     "mean".to_string() => serde_json::json!(11.5),
+///     "std_dev".to_string() => serde_json::json!(0.15),
+///     "seed".to_string() => serde_json::json!(42_u64),
+/// };
+/// let simulated = statistical::lognormal_forecast(0.0, &periods, &params)?;
+/// assert!(simulated.values().all(|v| *v > 0.0));
+/// # Ok(())
+/// # }
 /// ```
 pub fn lognormal_forecast(
     _base_value: f64,

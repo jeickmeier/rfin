@@ -1,14 +1,37 @@
-//! Deterministic forecast methods.
+//! Deterministic forecast algorithms for projecting values across periods.
+//!
+//! The helpers in this module operate on raw numeric series and return
+//! [`IndexMap`]s keyed by [`PeriodId`]. They are building blocks used by the
+//! higher-level forecast engine but can also be invoked directly in custom
+//! workflows or extensions.
 
 use crate::error::{Error, Result};
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
-/// Forward fill: Carry the last value forward to all forecast periods.
+/// Forward fill: carry the last observed value into every forecast period.
+///
+/// # Arguments
+///
+/// * `base_value` - Value to repeat
+/// * `forecast_periods` - Periods that require projected values
 ///
 /// # Example
 ///
-/// If base_value = 100, all forecast periods will have value 100.
+/// ```rust
+/// # use finstack_statements::forecast::deterministic;
+/// # use finstack_core::dates::PeriodId;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let periods = [
+///     PeriodId::quarter(2025, 3),
+///     PeriodId::quarter(2025, 4),
+/// ];
+/// let projected = deterministic::forward_fill(125.0, &periods)?;
+/// assert_eq!(projected[&periods[0]], 125.0);
+/// assert_eq!(projected[&periods[1]], 125.0);
+/// # Ok(())
+/// # }
+/// ```
 pub fn forward_fill(
     base_value: f64,
     forecast_periods: &[PeriodId],
@@ -22,9 +45,10 @@ pub fn forward_fill(
     Ok(results)
 }
 
-/// Growth percentage: Apply compound growth rate.
+/// Growth percentage: apply a constant compound growth rate each period.
 ///
-/// Formula: `v[t] = v[t-1] * (1 + rate)`
+/// The recurrence relation is `v[t] = v[t-1] * (1 + rate)`, where `rate`
+/// represents the fractional growth between consecutive periods.
 ///
 /// # Parameters
 ///
@@ -32,11 +56,21 @@ pub fn forward_fill(
 ///
 /// # Example
 ///
-/// ```
-/// // base_value = 100, rate = 0.05
-/// // Period 1: 100 * 1.05 = 105
-/// // Period 2: 105 * 1.05 = 110.25
-/// // Period 3: 110.25 * 1.05 = 115.76
+/// ```rust
+/// # use finstack_statements::forecast::deterministic;
+/// # use finstack_core::dates::PeriodId;
+/// # use indexmap::indexmap;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let periods = [
+///     PeriodId::quarter(2025, 1),
+///     PeriodId::quarter(2025, 2),
+///     PeriodId::quarter(2025, 3),
+/// ];
+/// let params = indexmap! { "rate".to_string() => serde_json::json!(0.05) };
+/// let projected = deterministic::growth_pct(100.0, &periods, &params)?;
+/// assert!((projected[&periods[2]] - 115.7625).abs() < 1e-6);
+/// # Ok(())
+/// # }
 /// ```
 pub fn growth_pct(
     base_value: f64,
@@ -62,9 +96,10 @@ pub fn growth_pct(
     Ok(results)
 }
 
-/// Curve percentage: Apply period-specific growth rates from a curve.
+/// Curve percentage: apply period-specific growth rates supplied as a curve.
 ///
-/// Formula: `v[t] = v[t-1] * (1 + curve[t])`
+/// The recurrence relation is `v[t] = v[t-1] * (1 + curve[t])`, where `curve`
+/// contains the growth factor for the *t*-th forecast period.
 ///
 /// # Parameters
 ///
@@ -72,11 +107,23 @@ pub fn growth_pct(
 ///
 /// # Example
 ///
-/// ```
-/// // base_value = 100, curve = [0.05, 0.06, 0.05]
-/// // Period 1: 100 * 1.05 = 105
-/// // Period 2: 105 * 1.06 = 111.3
-/// // Period 3: 111.3 * 1.05 = 116.865
+/// ```rust
+/// # use finstack_statements::forecast::deterministic;
+/// # use finstack_core::dates::PeriodId;
+/// # use indexmap::indexmap;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let periods = [
+///     PeriodId::quarter(2025, 1),
+///     PeriodId::quarter(2025, 2),
+///     PeriodId::quarter(2025, 3),
+/// ];
+/// let params = indexmap! {
+///     "curve".to_string() => serde_json::json!([0.05, 0.06, 0.05])
+/// };
+/// let projected = deterministic::curve_pct(100.0, &periods, &params)?;
+/// assert!((projected[&periods[2]] - 116.865).abs() < 1e-6);
+/// # Ok(())
+/// # }
 /// ```
 pub fn curve_pct(
     base_value: f64,

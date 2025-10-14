@@ -26,7 +26,7 @@ where
 
     // Helper to compute contribution for a single period
     let mut accumulate = |start: finstack_core::dates::Date,
-                      end: finstack_core::dates::Date|
+                          end: finstack_core::dates::Date|
      -> finstack_core::Result<f64> {
         let t_fix = option.day_count.year_fraction(
             base_date,

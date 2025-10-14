@@ -11,7 +11,7 @@ use crate::instruments::common::parameters::CreditParams;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::money::Money;
-use finstack_core::types::{InstrumentId, CurveId};
+use finstack_core::types::{CurveId, InstrumentId};
 
 // Reuse CDS components for conventions and legs
 use crate::instruments::cds::{
