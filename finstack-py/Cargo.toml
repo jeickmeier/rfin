@@ -16,6 +16,7 @@ finstack-core = { path = "../finstack/core", features = ["std"] }
 finstack-valuations = { path = "../finstack/valuations" }
 finstack-statements = { path = "../finstack/statements", features = ["polars_export"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
+finstack-portfolio = { path = "../finstack/portfolio", features = ["scenarios"] }
 pyo3 = { version = "0.25", features = ["extension-module"] }
 serde_json = "1"
 indexmap = "2"
@@ -30,4 +31,5 @@ parking_lot = "0.12"
 pyo3-build-config = "0.25"
 
 [features]
-default = []
+default = ["scenarios"]
+scenarios = []

@@ -74,4 +74,14 @@ globals()["statements"] = _statements
 _sys.modules[f"{__name__}.statements"] = _statements
 _walk_and_register(_statements, "statements")
 
-del _finstack, _sys, _name, _core, _valuations, _statements, _types, _walk_and_register, _Any, _MutableMapping
+_scenarios = _finstack.scenarios
+globals()["scenarios"] = _scenarios
+_sys.modules[f"{__name__}.scenarios"] = _scenarios
+_walk_and_register(_scenarios, "scenarios")
+
+_portfolio = _finstack.portfolio
+globals()["portfolio"] = _portfolio
+_sys.modules[f"{__name__}.portfolio"] = _portfolio
+_walk_and_register(_portfolio, "portfolio")
+
+del _finstack, _sys, _name, _core, _valuations, _statements, _scenarios, _portfolio, _types, _walk_and_register, _Any, _MutableMapping
