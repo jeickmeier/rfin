@@ -1,0 +1,62 @@
+[workspace]
+members = [
+    "finstack/core",
+    "finstack/statements",
+    "finstack/valuations",
+    "finstack/valuations/macros",
+    "finstack/portfolio",
+    "finstack/io",
+    "finstack/scenarios",
+    "finstack-py",
+    "finstack-wasm",
+    "finstack"
+]
+resolver = "2"
+
+# Exclude Python and WASM bindings from default builds and coverage
+default-members = [
+    "finstack/core",
+    "finstack/statements", 
+    "finstack/valuations",
+    "finstack/portfolio",
+    "finstack/io",
+    "finstack/scenarios",
+    "finstack"
+]
+
+[workspace.metadata.coverage]
+# Coverage configuration: only run on core Rust library, not bindings
+exclude = ["finstack-py", "finstack-wasm"]
+# Additional patterns to exclude from coverage reports
+ignore-filename-regex = ["tests?/", "target/", "\\.cargo/", ".*finstack-py/.*", ".*finstack-wasm/.*"]
+
+[workspace.package]
+version = "0.3.0"
+edition = "2021"
+rust-version = "1.78"
+authors = ["Jon Eickmeier (me@jeickmeier.com)"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/rustfin/rfin"
+
+[workspace.dependencies]
+# Synchronized enum and macro crates to prevent version mismatches
+strum = "0.25"
+strum_macros = "0.25"
+
+# Patch dependencies for WASM support
+[patch.crates-io]
+# Override getrandom to use js feature for WASM builds
+getrandom = { version = "0.2", default-features = false, features = ["js"] }
+
+# Build profiles
+[profile.dev]
+# Standard development profile (cargo-llvm-cov will override these for coverage runs)
+incremental = true
+opt-level = 0
+debug = 2
+
+[profile.test]
+# Standard test profile
+incremental = true
+opt-level = 0
+debug = 2

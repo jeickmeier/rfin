@@ -3,6 +3,7 @@
 use wasm_bindgen::prelude::*;
 
 mod core;
+mod portfolio;
 mod scenarios;
 mod statements;
 mod valuations;
@@ -113,6 +114,23 @@ pub use scenarios::{
     JsRollForwardReport as RollForwardReport, JsScenarioEngine as ScenarioEngine,
     JsScenarioSpec as ScenarioSpec, JsTenorMatchMode as TenorMatchMode,
     JsVolSurfaceKind as VolSurfaceKind,
+};
+
+// Portfolio exports
+pub use portfolio::{
+    js_aggregate_by_attribute as aggregateByAttribute, js_aggregate_metrics as aggregateMetrics,
+    js_create_position_from_bond as createPositionFromBond,
+    js_create_position_from_deposit as createPositionFromDeposit,
+    js_group_by_attribute as groupByAttribute, js_value_portfolio as valuePortfolio,
+    JsAggregatedMetric as AggregatedMetric, JsEntity as Entity, JsPortfolio as Portfolio,
+    JsPortfolioBuilder as PortfolioBuilder, JsPortfolioMetrics as PortfolioMetrics,
+    JsPortfolioResults as PortfolioResults, JsPortfolioValuation as PortfolioValuation,
+    JsPosition as Position, JsPositionUnit as PositionUnit, JsPositionValue as PositionValue,
+};
+
+#[cfg(feature = "scenarios")]
+pub use portfolio::{
+    js_apply_and_revalue as applyAndRevalue, js_apply_scenario as applyScenario,
 };
 
 #[cfg(feature = "console_error_panic_hook")]

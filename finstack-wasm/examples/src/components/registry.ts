@@ -26,6 +26,7 @@ import { StructuredProductsExample } from './StructuredProducts';
 import { StructuredCreditExample } from './StructuredCreditExample';
 import StatementsModeling from './StatementsModeling';
 import ScenariosExample from './ScenariosExample';
+import PortfolioExample from './PortfolioExample';
 
 export type ExampleDefinition = {
   slug: string;
@@ -203,6 +204,13 @@ export const EXAMPLES: ExampleDefinition[] = [
     description: 'Apply deterministic market shocks, statement adjustments, and time roll-forwards with full composability.',
     group: 'Scenarios',
     Component: ScenariosExample,
+  },
+  {
+    slug: 'portfolio-management',
+    title: 'Portfolio Management',
+    description: 'Create entities, build portfolios, value positions, and aggregate metrics with cross-currency support.',
+    group: 'Portfolio',
+    Component: PortfolioExample,
   },
 ];
 
