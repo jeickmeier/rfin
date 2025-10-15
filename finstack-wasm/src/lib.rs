@@ -3,6 +3,7 @@
 use wasm_bindgen::prelude::*;
 
 mod core;
+mod scenarios;
 mod statements;
 mod valuations;
 
@@ -103,6 +104,15 @@ pub use statements::{
     JsMetricRegistry as StatementsMetricRegistry, JsModelBuilder as ModelBuilder,
     JsNodeSpec as NodeSpec, JsNodeType as NodeType, JsRegistry as Registry, JsResults as Results,
     JsResultsMeta as ResultsMeta, JsSeasonalMode as SeasonalMode, JsUnitType as UnitType,
+};
+
+// Scenarios exports
+pub use scenarios::{
+    JsApplicationReport as ApplicationReport, JsCurveKind as ScenarioCurveKind,
+    JsExecutionContext as ExecutionContext, JsOperationSpec as OperationSpec,
+    JsRollForwardReport as RollForwardReport, JsScenarioEngine as ScenarioEngine,
+    JsScenarioSpec as ScenarioSpec, JsTenorMatchMode as TenorMatchMode,
+    JsVolSurfaceKind as VolSurfaceKind,
 };
 
 #[cfg(feature = "console_error_panic_hook")]

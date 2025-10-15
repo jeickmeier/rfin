@@ -61,7 +61,7 @@ pub enum PositionUnit {
 /// #     .disc_id("USD".into())
 /// #     .build()
 /// #     .unwrap());
-/// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units);
+/// let position = Position::new("POS_1", "ENTITY_A", "DEP", instrument.clone(), 1.0, PositionUnit::Units);
 /// assert!(position.is_long());
 /// ```
 #[derive(Clone)]
@@ -117,12 +117,12 @@ impl Position {
     /// #     .end(time::macros::date!(2024 - 02 - 01))
     /// #     .day_count(finstack_core::dates::DayCount::Act360)
     /// #     .disc_id("USD".into())
-    /// #     .build()
-    /// #     .unwrap());
-    /// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units);
-    /// assert_eq!(position.position_id, "POS_1");
-    /// ```
-    pub fn new(
+/// #     .build()
+/// #     .unwrap());
+/// let position = Position::new("POS_1", "ENTITY_A", "DEP", instrument.clone(), 1.0, PositionUnit::Units);
+/// assert_eq!(position.position_id, "POS_1");
+/// ```
+pub fn new(
         position_id: impl Into<PositionId>,
         entity_id: impl Into<EntityId>,
         instrument_id: impl Into<String>,
@@ -165,13 +165,13 @@ impl Position {
     /// #     .end(time::macros::date!(2024 - 02 - 01))
     /// #     .day_count(finstack_core::dates::DayCount::Act360)
     /// #     .disc_id("USD".into())
-    /// #     .build()
-    /// #     .unwrap());
-    /// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units)
-    ///     .with_tag("desk", "rates");
-    /// assert_eq!(position.tags.get("desk"), Some(&"rates".into()));
-    /// ```
-    pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+/// #     .build()
+/// #     .unwrap());
+/// let position = Position::new("POS_1", "ENTITY_A", "DEP", instrument.clone(), 1.0, PositionUnit::Units)
+///     .with_tag("desk", "rates");
+/// assert_eq!(position.tags.get("desk"), Some(&"rates".into()));
+/// ```
+pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.insert(key.into(), value.into());
         self
     }
@@ -198,13 +198,13 @@ impl Position {
     /// #     .end(time::macros::date!(2024 - 02 - 01))
     /// #     .day_count(finstack_core::dates::DayCount::Act360)
     /// #     .disc_id("USD".into())
-    /// #     .build()
-    /// #     .unwrap());
-    /// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units)
-    ///     .with_meta("notes", json!({"owner": "desk"}));
-    /// assert!(position.meta.contains_key("notes"));
-    /// ```
-    pub fn with_meta(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
+/// #     .build()
+/// #     .unwrap());
+/// let position = Position::new("POS_1", "ENTITY_A", "DEP", instrument.clone(), 1.0, PositionUnit::Units)
+///     .with_meta("notes", json!({"owner": "desk"}));
+/// assert!(position.meta.contains_key("notes"));
+/// ```
+pub fn with_meta(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.meta.insert(key.into(), value);
         self
     }
@@ -225,12 +225,12 @@ impl Position {
     /// #     .end(time::macros::date!(2024 - 02 - 01))
     /// #     .day_count(finstack_core::dates::DayCount::Act360)
     /// #     .disc_id("USD".into())
-    /// #     .build()
-    /// #     .unwrap());
-    /// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units);
-    /// assert!(position.is_long());
-    /// ```
-    pub fn is_long(&self) -> bool {
+/// #     .build()
+/// #     .unwrap());
+/// let position = Position::new("POS_1", "ENTITY_A", "DEP", instrument.clone(), 1.0, PositionUnit::Units);
+/// assert!(position.is_long());
+/// ```
+pub fn is_long(&self) -> bool {
         self.quantity > 0.0
     }
 
@@ -250,12 +250,12 @@ impl Position {
     /// #     .end(time::macros::date!(2024 - 02 - 01))
     /// #     .day_count(finstack_core::dates::DayCount::Act360)
     /// #     .disc_id("USD".into())
-    /// #     .build()
-    /// #     .unwrap());
-    /// let position = Position::new("POS_1", "ENTITY_A", "DEP", Arc::clone(&instrument), -1.0, PositionUnit::Units);
-    /// assert!(position.is_short());
-    /// ```
-    pub fn is_short(&self) -> bool {
+/// #     .build()
+/// #     .unwrap());
+/// let position = Position::new("POS_1", "ENTITY_A", "DEP", instrument.clone(), -1.0, PositionUnit::Units);
+/// assert!(position.is_short());
+/// ```
+pub fn is_short(&self) -> bool {
         self.quantity < 0.0
     }
 }

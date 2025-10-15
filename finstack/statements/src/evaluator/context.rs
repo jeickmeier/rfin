@@ -45,7 +45,7 @@ impl EvaluationContext {
     /// # Example
     ///
     /// ```rust
-    /// # use finstack_statements::evaluator::context::EvaluationContext;
+    /// # use finstack_statements::evaluator::EvaluationContext;
     /// # use finstack_core::dates::PeriodId;
     /// # use indexmap::IndexMap;
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {

@@ -113,7 +113,7 @@ impl MetricDefinition {
     /// # Example
     ///
     /// ```rust
-    /// # use finstack_statements::registry::schema::MetricDefinition;
+    /// # use finstack_statements::registry::MetricDefinition;
     /// # use indexmap::IndexMap;
     /// let def = MetricDefinition {
     ///     id: "gross_margin".into(),

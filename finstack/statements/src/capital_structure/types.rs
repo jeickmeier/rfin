@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```rust
-/// # use finstack_statements::capital_structure::types::{CapitalStructureCashflows, CashflowBreakdown};
+/// # use finstack_statements::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};
 /// # use finstack_core::dates::PeriodId;
 /// let mut cs = CapitalStructureCashflows::new();
 /// let period = PeriodId::quarter(2025, 1);
@@ -69,7 +69,7 @@ impl CapitalStructureCashflows {
     /// # Example
     ///
     /// ```rust
-    /// # use finstack_statements::capital_structure::types::CapitalStructureCashflows;
+    /// # use finstack_statements::capital_structure::CapitalStructureCashflows;
     /// let cashflows = CapitalStructureCashflows::new();
     /// assert!(cashflows.by_instrument.is_empty());
     /// assert!(cashflows.totals.is_empty());
@@ -88,7 +88,7 @@ impl CapitalStructureCashflows {
     /// # Example
     ///
     /// ```rust
-    /// # use finstack_statements::capital_structure::types::{CapitalStructureCashflows, CashflowBreakdown};
+    /// # use finstack_statements::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};
     /// # use finstack_core::dates::PeriodId;
     /// let mut cashflows = CapitalStructureCashflows::new();
     /// let period = PeriodId::quarter(2025, 1);

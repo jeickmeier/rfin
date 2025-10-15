@@ -19,14 +19,14 @@ use indexmap::IndexMap;
 /// # Example
 ///
 /// ```rust
-/// # use finstack_statements::forecast::deterministic;
+/// # use finstack_statements::forecast::forward_fill;
 /// # use finstack_core::dates::PeriodId;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let periods = [
 ///     PeriodId::quarter(2025, 3),
 ///     PeriodId::quarter(2025, 4),
 /// ];
-/// let projected = deterministic::forward_fill(125.0, &periods)?;
+/// let projected = forward_fill(125.0, &periods)?;
 /// assert_eq!(projected[&periods[0]], 125.0);
 /// assert_eq!(projected[&periods[1]], 125.0);
 /// # Ok(())
@@ -57,7 +57,7 @@ pub fn forward_fill(
 /// # Example
 ///
 /// ```rust
-/// # use finstack_statements::forecast::deterministic;
+/// # use finstack_statements::forecast::growth_pct;
 /// # use finstack_core::dates::PeriodId;
 /// # use indexmap::indexmap;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -67,7 +67,7 @@ pub fn forward_fill(
 ///     PeriodId::quarter(2025, 3),
 /// ];
 /// let params = indexmap! { "rate".to_string() => serde_json::json!(0.05) };
-/// let projected = deterministic::growth_pct(100.0, &periods, &params)?;
+/// let projected = growth_pct(100.0, &periods, &params)?;
 /// assert!((projected[&periods[2]] - 115.7625).abs() < 1e-6);
 /// # Ok(())
 /// # }
@@ -108,7 +108,7 @@ pub fn growth_pct(
 /// # Example
 ///
 /// ```rust
-/// # use finstack_statements::forecast::deterministic;
+/// # use finstack_statements::forecast::curve_pct;
 /// # use finstack_core::dates::PeriodId;
 /// # use indexmap::indexmap;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -120,7 +120,7 @@ pub fn growth_pct(
 /// let params = indexmap! {
 ///     "curve".to_string() => serde_json::json!([0.05, 0.06, 0.05])
 /// };
-/// let projected = deterministic::curve_pct(100.0, &periods, &params)?;
+/// let projected = curve_pct(100.0, &periods, &params)?;
 /// assert!((projected[&periods[2]] - 116.865).abs() < 1e-6);
 /// # Ok(())
 /// # }

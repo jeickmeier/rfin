@@ -28,7 +28,10 @@ use std::time::Instant;
 /// # use finstack_core::dates::PeriodId;
 /// let model = ModelBuilder::new("demo")
 ///     .periods("2025Q1..Q2", None)?
-///     .value("revenue", &[(PeriodId::quarter(2025, 1), 100_000.0.into())])
+///     .value("revenue", &[
+///         (PeriodId::quarter(2025, 1), 100_000.0.into()),
+///         (PeriodId::quarter(2025, 2), 105_000.0.into()),
+///     ])
 ///     .compute("gross_profit", "revenue * 0.6")?
 ///     .build()?;
 ///

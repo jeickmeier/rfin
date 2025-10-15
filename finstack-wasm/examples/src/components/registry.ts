@@ -25,6 +25,7 @@ import { InflationInstrumentsExample } from './InflationInstruments';
 import { StructuredProductsExample } from './StructuredProducts';
 import { StructuredCreditExample } from './StructuredCreditExample';
 import StatementsModeling from './StatementsModeling';
+import ScenariosExample from './ScenariosExample';
 
 export type ExampleDefinition = {
   slug: string;
@@ -195,6 +196,13 @@ export const EXAMPLES: ExampleDefinition[] = [
     description: 'Build and evaluate financial statement models with formulas, forecasts, and dynamic metrics.',
     group: 'Statements',
     Component: StatementsModeling,
+  },
+  {
+    slug: 'scenarios-stress-testing',
+    title: 'Scenarios & Stress Testing',
+    description: 'Apply deterministic market shocks, statement adjustments, and time roll-forwards with full composability.',
+    group: 'Scenarios',
+    Component: ScenariosExample,
   },
 ];
 

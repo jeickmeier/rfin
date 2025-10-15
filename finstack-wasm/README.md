@@ -98,6 +98,20 @@ achieving feature parity with the Python bindings.
 - `ValuationResult` – pricing results with present value and risk metrics.
 - Instrument-specific pricing methods (e.g., `priceBond`, `priceCreditDefaultSwap`, etc.).
 
+### Scenarios & Stress Testing
+- **`JsScenarioEngine`** – deterministic scenario execution engine.
+- **`JsScenarioSpec`** – scenario specifications with operations and metadata.
+- **`JsOperationSpec`** – individual shock operations (market, statement, time).
+- **`JsExecutionContext`** – execution context wrapping market, model, and date.
+- **`JsApplicationReport`** – results from scenario application with warnings.
+- **`JsRollForwardReport`** – P&L breakdown from time roll-forward operations.
+- Supported operations:
+  - Market shocks: FX, equity, curves, volatility surfaces, base correlation
+  - Statement adjustments: forecast percent changes and value assignments
+  - Instrument shocks: price/spread by type or attributes
+  - Time operations: roll forward with carry/theta calculations
+- Features: scenario composition, priority ordering, JSON serialization
+
 ### Calibration
 - `DiscountCurveCalibrator` – calibrate discount curves from deposits and swaps.
 - `ForwardCurveCalibrator` – calibrate forward curves from FRAs and swaps.

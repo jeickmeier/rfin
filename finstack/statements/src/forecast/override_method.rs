@@ -17,7 +17,7 @@ use indexmap::IndexMap;
 /// # Example
 ///
 /// ```rust
-/// # use finstack_statements::forecast::override_method;
+/// # use finstack_statements::forecast::apply_override;
 /// # use finstack_core::dates::PeriodId;
 /// # use indexmap::indexmap;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -33,7 +33,7 @@ use indexmap::IndexMap;
 ///         "2025Q3": 130.0,
 ///     })
 /// };
-/// let projected = override_method::apply_override(100.0, &periods, &params)?;
+/// let projected = apply_override(100.0, &periods, &params)?;
 /// assert_eq!(projected[&periods[0]], 120.0); // explicit override
 /// assert_eq!(projected[&periods[1]], 120.0); // forward fill
 /// assert_eq!(projected[&periods[2]], 130.0); // explicit override

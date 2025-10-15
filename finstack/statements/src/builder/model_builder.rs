@@ -754,7 +754,7 @@ impl MixedNodeBuilder {
     ///     .mixed("revenue")
     ///         .values(&[(PeriodId::quarter(2025, 1), 100.0.into())])
     ///         .forecast(ForecastSpec::forward_fill())
-    ///         .formula("lag(revenue, 1)")
+    ///         .formula("lag(revenue, 1)")?
     ///         .finish()
     ///     .build()?;
     /// # Ok(())

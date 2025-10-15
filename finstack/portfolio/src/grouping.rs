@@ -40,9 +40,10 @@ use indexmap::IndexMap;
 /// #     .disc_id("USD".into())
 /// #     .build()
 /// #     .unwrap());
-/// let pos = Position::new("POS", "ENTITY", "DEP", Arc::clone(&instrument), 1.0, PositionUnit::Units)
+/// let pos = Position::new("POS", "ENTITY", "DEP", instrument.clone(), 1.0, PositionUnit::Units)
 ///     .with_tag("strategy", "carry");
-/// let groups = group_by_attribute(&[pos], "strategy");
+/// let positions = [pos];
+/// let groups = group_by_attribute(&positions, "strategy");
 /// assert!(groups.contains_key("carry"));
 /// ```
 pub fn group_by_attribute<'a>(

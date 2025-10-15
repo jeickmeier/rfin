@@ -22,7 +22,7 @@ use indexmap::IndexMap;
 /// # Example
 ///
 /// ```rust
-/// # use finstack_statements::forecast::statistical;
+/// # use finstack_statements::forecast::normal_forecast;
 /// # use finstack_core::dates::PeriodId;
 /// # use indexmap::indexmap;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -36,7 +36,7 @@ use indexmap::IndexMap;
 ///     "std_dev".to_string() => serde_json::json!(15_000.0),
 ///     "seed".to_string() => serde_json::json!(42_u64),
 /// };
-/// let simulated = statistical::normal_forecast(0.0, &periods, &params)?;
+/// let simulated = normal_forecast(0.0, &periods, &params)?;
 /// assert_eq!(simulated.len(), periods.len());
 /// # Ok(())
 /// # }
@@ -110,7 +110,7 @@ pub fn normal_forecast(
 /// # Example
 ///
 /// ```rust
-/// # use finstack_statements::forecast::statistical;
+/// # use finstack_statements::forecast::lognormal_forecast;
 /// # use finstack_core::dates::PeriodId;
 /// # use indexmap::indexmap;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -123,7 +123,7 @@ pub fn normal_forecast(
 ///     "std_dev".to_string() => serde_json::json!(0.15),
 ///     "seed".to_string() => serde_json::json!(42_u64),
 /// };
-/// let simulated = statistical::lognormal_forecast(0.0, &periods, &params)?;
+/// let simulated = lognormal_forecast(0.0, &periods, &params)?;
 /// assert!(simulated.values().all(|v| *v > 0.0));
 /// # Ok(())
 /// # }
