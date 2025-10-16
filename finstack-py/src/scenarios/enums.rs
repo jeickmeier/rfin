@@ -222,11 +222,13 @@ impl PyTenorMatchMode {
 }
 
 /// Register enum types with the scenarios module.
-pub(crate) fn register(_py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
+pub(crate) fn register(
+    _py: Python<'_>,
+    module: &Bound<'_, PyModule>,
+) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyCurveKind>()?;
     module.add_class::<PyVolSurfaceKind>()?;
     module.add_class::<PyTenorMatchMode>()?;
 
     Ok(vec!["CurveKind", "VolSurfaceKind", "TenorMatchMode"])
 }
-

@@ -213,4 +213,3 @@ impl JsPortfolioBuilder {
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
-

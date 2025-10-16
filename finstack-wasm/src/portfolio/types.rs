@@ -334,7 +334,6 @@ impl JsPosition {
 
 #[wasm_bindgen]
 impl JsPosition {
-
     /// Add a tag to the position.
     ///
     /// # Arguments
@@ -475,12 +474,19 @@ pub fn js_create_position_from_deposit(
     use crate::valuations::instruments::InstrumentWrapper;
     use finstack_valuations::instruments::common::traits::Instrument;
     use std::sync::Arc;
-    
+
     let instrument_id = deposit.instrument_id();
     let rust_deposit = deposit.inner();
     let arc_inst: Arc<dyn Instrument> = Arc::new(rust_deposit);
-    
-    JsPosition::new_with_instrument(position_id, entity_id, instrument_id, arc_inst, quantity, unit.inner)
+
+    JsPosition::new_with_instrument(
+        position_id,
+        entity_id,
+        instrument_id,
+        arc_inst,
+        quantity,
+        unit.inner,
+    )
 }
 
 /// Create a position from a Bond instrument.
@@ -516,11 +522,17 @@ pub fn js_create_position_from_bond(
     use crate::valuations::instruments::InstrumentWrapper;
     use finstack_valuations::instruments::common::traits::Instrument;
     use std::sync::Arc;
-    
+
     let instrument_id = bond.instrument_id();
     let rust_bond = bond.inner();
     let arc_inst: Arc<dyn Instrument> = Arc::new(rust_bond);
-    
-    JsPosition::new_with_instrument(position_id, entity_id, instrument_id, arc_inst, quantity, unit.inner)
-}
 
+    JsPosition::new_with_instrument(
+        position_id,
+        entity_id,
+        instrument_id,
+        arc_inst,
+        quantity,
+        unit.inner,
+    )
+}

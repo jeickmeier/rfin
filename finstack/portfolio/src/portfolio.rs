@@ -111,12 +111,12 @@ impl Portfolio {
     /// #     .end(time::macros::date!(2024 - 02 - 01))
     /// #     .day_count(finstack_core::dates::DayCount::Act360)
     /// #     .disc_id("USD".into())
-/// #     .build()
-/// #     .unwrap());
-/// # portfolio.positions.push(Position::new("POS_1", "ACME", "DEP", instrument.clone(), 1.0, PositionUnit::Units));
-/// assert!(portfolio.get_position("POS_1").is_some());
-/// ```
-pub fn get_position(&self, position_id: &str) -> Option<&Position> {
+    /// #     .build()
+    /// #     .unwrap());
+    /// # portfolio.positions.push(Position::new("POS_1", "ACME", "DEP", instrument.clone(), 1.0, PositionUnit::Units));
+    /// assert!(portfolio.get_position("POS_1").is_some());
+    /// ```
+    pub fn get_position(&self, position_id: &str) -> Option<&Position> {
         self.positions.iter().find(|p| p.position_id == position_id)
     }
 
@@ -141,13 +141,13 @@ pub fn get_position(&self, position_id: &str) -> Option<&Position> {
     /// #     .end(time::macros::date!(2024 - 02 - 01))
     /// #     .day_count(finstack_core::dates::DayCount::Act360)
     /// #     .disc_id("USD".into())
-/// #     .build()
-/// #     .unwrap());
-/// # portfolio.positions.push(Position::new("POS_1", "ENTITY_A", "DEP", instrument.clone(), 1.0, PositionUnit::Units));
-/// let entity_id = "ENTITY_A".to_string();
-/// assert_eq!(portfolio.positions_for_entity(&entity_id).len(), 1);
-/// ```
-pub fn positions_for_entity(&self, entity_id: &EntityId) -> Vec<&Position> {
+    /// #     .build()
+    /// #     .unwrap());
+    /// # portfolio.positions.push(Position::new("POS_1", "ENTITY_A", "DEP", instrument.clone(), 1.0, PositionUnit::Units));
+    /// let entity_id = "ENTITY_A".to_string();
+    /// assert_eq!(portfolio.positions_for_entity(&entity_id).len(), 1);
+    /// ```
+    pub fn positions_for_entity(&self, entity_id: &EntityId) -> Vec<&Position> {
         self.positions
             .iter()
             .filter(|p| &p.entity_id == entity_id)
@@ -176,14 +176,14 @@ pub fn positions_for_entity(&self, entity_id: &EntityId) -> Vec<&Position> {
     /// #     .end(time::macros::date!(2024 - 02 - 01))
     /// #     .day_count(finstack_core::dates::DayCount::Act360)
     /// #     .disc_id("USD".into())
-/// #     .build()
-/// #     .unwrap());
-/// # let position = Position::new("POS_1", "ENTITY_A", "DEP", instrument.clone(), 1.0, PositionUnit::Units)
-/// #     .with_tag("desk", "rates");
-/// # portfolio.positions.push(position);
-/// assert_eq!(portfolio.positions_with_tag("desk", "rates").len(), 1);
-/// ```
-pub fn positions_with_tag(&self, key: &str, value: &str) -> Vec<&Position> {
+    /// #     .build()
+    /// #     .unwrap());
+    /// # let position = Position::new("POS_1", "ENTITY_A", "DEP", instrument.clone(), 1.0, PositionUnit::Units)
+    /// #     .with_tag("desk", "rates");
+    /// # portfolio.positions.push(position);
+    /// assert_eq!(portfolio.positions_with_tag("desk", "rates").len(), 1);
+    /// ```
+    pub fn positions_with_tag(&self, key: &str, value: &str) -> Vec<&Position> {
         self.positions
             .iter()
             .filter(|p| p.tags.get(key).map(|v| v.as_str()) == Some(value))

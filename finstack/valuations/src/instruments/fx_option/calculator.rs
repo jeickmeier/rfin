@@ -81,7 +81,12 @@ impl FxOptionCalculator {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<(f64, f64, f64, f64, f64)> {
-        let t = self.year_fraction(as_of, inst.expiry, inst.day_count)?;
+        // Handle expired options - avoid InvalidDateRange error
+        let t = if as_of >= inst.expiry {
+            0.0
+        } else {
+            self.year_fraction(as_of, inst.expiry, inst.day_count)?
+        };
 
         // Discount curves provide domestic and foreign zero rates
         let domestic_disc = curves.get_discount_ref(inst.domestic_disc_id.as_str())?;
@@ -117,7 +122,12 @@ impl FxOptionCalculator {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<(f64, f64, f64, f64)> {
-        let t = self.year_fraction(as_of, inst.expiry, inst.day_count)?;
+        // Handle expired options - avoid InvalidDateRange error
+        let t = if as_of >= inst.expiry {
+            0.0
+        } else {
+            self.year_fraction(as_of, inst.expiry, inst.day_count)?
+        };
 
         let domestic_disc = curves.get_discount_ref(inst.domestic_disc_id.as_str())?;
         let foreign_disc = curves.get_discount_ref(inst.foreign_disc_id.as_str())?;

@@ -146,9 +146,9 @@ impl PyExecutionContext {
     /// list | None
     ///     Instruments if set.
     fn instruments(&self, py: Python<'_>) -> Option<Vec<PyObject>> {
-        self.instruments.as_ref().map(|vec| {
-            vec.iter().map(|obj| obj.clone_ref(py)).collect()
-        })
+        self.instruments
+            .as_ref()
+            .map(|vec| vec.iter().map(|obj| obj.clone_ref(py)).collect())
     }
 
     #[setter]
@@ -239,8 +239,7 @@ impl PyScenarioEngine {
     /// ScenarioSpec
     ///     Combined scenario containing all operations with deterministic ordering.
     fn compose(&self, scenarios: Vec<PyScenarioSpec>) -> PyScenarioSpec {
-        let rust_scenarios: Vec<ScenarioSpec> =
-            scenarios.iter().map(|s| s.inner.clone()).collect();
+        let rust_scenarios: Vec<ScenarioSpec> = scenarios.iter().map(|s| s.inner.clone()).collect();
         let composed = self.inner.compose(rust_scenarios);
         PyScenarioSpec::from_inner(composed)
     }
@@ -322,10 +321,12 @@ impl PyScenarioEngine {
 }
 
 /// Register engine types with the scenarios module.
-pub(crate) fn register(_py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
+pub(crate) fn register(
+    _py: Python<'_>,
+    module: &Bound<'_, PyModule>,
+) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyExecutionContext>()?;
     module.add_class::<PyScenarioEngine>()?;
 
     Ok(vec!["ExecutionContext", "ScenarioEngine"])
 }
-

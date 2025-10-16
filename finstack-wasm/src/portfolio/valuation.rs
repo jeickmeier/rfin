@@ -237,8 +237,9 @@ impl JsPortfolioValuation {
     /// JavaScript object
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner)
-            .map_err(|e| JsValue::from_str(&format!("Failed to serialize PortfolioValuation: {}", e)))
+        serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
+            JsValue::from_str(&format!("Failed to serialize PortfolioValuation: {}", e))
+        })
     }
 }
 
@@ -287,4 +288,3 @@ pub fn js_value_portfolio(
         .map(JsPortfolioValuation::from_inner)
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }
-

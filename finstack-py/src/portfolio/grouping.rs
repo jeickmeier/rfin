@@ -84,9 +84,13 @@ fn py_aggregate_by_attribute(
     let valuation_inner = extract_portfolio_valuation(valuation)?;
     let portfolio_inner = extract_portfolio(portfolio)?;
 
-    let aggregated =
-        aggregate_by_attribute(&valuation_inner, &portfolio_inner.positions, attribute_key, portfolio_inner.base_ccy)
-            .map_err(portfolio_to_py)?;
+    let aggregated = aggregate_by_attribute(
+        &valuation_inner,
+        &portfolio_inner.positions,
+        attribute_key,
+        portfolio_inner.base_ccy,
+    )
+    .map_err(portfolio_to_py)?;
 
     let dict = PyDict::new(py);
     for (key, money) in aggregated {
@@ -103,7 +107,7 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<String>> {
     let wrapped_group = wrap_pyfunction!(py_group_by_attribute, parent)?;
     parent.add("group_by_attribute", wrapped_group)?;
-    
+
     let wrapped_agg = wrap_pyfunction!(py_aggregate_by_attribute, parent)?;
     parent.add("aggregate_by_attribute", wrapped_agg)?;
 
@@ -112,4 +116,3 @@ pub(crate) fn register<'py>(
         "aggregate_by_attribute".to_string(),
     ])
 }
-

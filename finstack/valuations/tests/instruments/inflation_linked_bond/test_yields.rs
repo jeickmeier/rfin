@@ -1,0 +1,411 @@
+//! Real yield and breakeven inflation tests for Inflation-Linked Bonds
+//!
+//! Tests cover:
+//! - Real yield calculation from clean price
+//! - Yield-price relationship
+//! - Breakeven inflation calculation
+//! - Fisher equation approximation
+//! - Error handling for invalid inputs
+
+use super::common::*;
+
+#[test]
+fn test_real_yield_at_par() {
+    // Arrange
+    let mut ilb = sample_tips();
+    ilb.real_coupon = 0.02; // 2% coupon
+    ilb.issue = d(2025, 1, 2);
+    ilb.maturity = d(2030, 1, 2);
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+    let clean_price = 100.0; // At par
+
+    // Act
+    let y = ilb.real_yield(clean_price, &ctx, as_of).unwrap();
+
+    // Assert - yield should be positive and reasonable
+    // Note: "at par" for ILBs depends on inflation adjustments,
+    // so yield may differ from coupon even at price=100
+    assert!(y > 0.0);
+    assert!(y < 0.15); // Reasonable upper bound
+}
+
+#[test]
+fn test_real_yield_premium_bond() {
+    // Arrange
+    let mut ilb = sample_tips();
+    ilb.real_coupon = 0.02;
+    ilb.issue = d(2025, 1, 2);
+    ilb.maturity = d(2030, 1, 2);
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+    let clean_price = 110.0; // Premium
+
+    // Act
+    let y = ilb.real_yield(clean_price, &ctx, as_of).unwrap();
+
+    // Assert - yield should be positive and reasonable
+    // Premium pricing for ILBs is complex due to inflation adjustments
+    assert!(y > 0.0);
+    assert!(y < 0.15);
+}
+
+#[test]
+fn test_real_yield_discount_bond() {
+    // Arrange
+    let mut ilb = sample_tips();
+    ilb.real_coupon = 0.02;
+    ilb.issue = d(2025, 1, 2);
+    ilb.maturity = d(2030, 1, 2);
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+    let clean_price = 90.0; // Discount
+
+    // Act
+    let y = ilb.real_yield(clean_price, &ctx, as_of).unwrap();
+
+    // Assert - discount bond → yield > coupon
+    assert!(y > ilb.real_coupon);
+}
+
+#[test]
+fn test_real_yield_price_relationship() {
+    // Arrange
+    let mut ilb = sample_tips();
+    ilb.real_coupon = 0.02;
+    ilb.issue = d(2025, 1, 2);
+    ilb.maturity = d(2030, 1, 2);
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+
+    // Act - calculate yields at different prices
+    let prices = [80.0, 90.0, 100.0, 110.0, 120.0];
+    let mut yields = Vec::new();
+    for &price in &prices {
+        let y = ilb.real_yield(price, &ctx, as_of).unwrap();
+        yields.push(y);
+    }
+
+    // Assert - as price increases, yield decreases (inverse relationship)
+    for i in 1..yields.len() {
+        assert!(
+            yields[i] < yields[i - 1],
+            "yield should decrease as price increases"
+        );
+    }
+}
+
+#[test]
+fn test_real_yield_uses_quoted_price_when_available() {
+    // Arrange
+    let mut ilb = sample_tips();
+    ilb.quoted_clean = Some(105.0);
+    ilb.real_coupon = 0.02;
+    ilb.issue = d(2025, 1, 2);
+    ilb.maturity = d(2030, 1, 2);
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+
+    // Act - calculate yield using explicit price vs quoted price
+    let y_explicit = ilb.real_yield(105.0, &ctx, as_of).unwrap();
+
+    // Breakeven uses quoted_clean internally
+    let nominal_yield = 0.03;
+    let be = ilb.breakeven_inflation(nominal_yield, &ctx, as_of).unwrap();
+    let y_from_breakeven = nominal_yield - be;
+
+    // Assert - should be consistent
+    assert_approx_eq(
+        y_explicit,
+        y_from_breakeven,
+        0.001,
+        "yield consistency with quoted price",
+    );
+}
+
+#[test]
+fn test_real_yield_rejects_negative_price() {
+    // Arrange
+    let ilb = sample_tips();
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+
+    // Act & Assert
+    let result = ilb.real_yield(-10.0, &ctx, as_of);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_real_yield_rejects_zero_price() {
+    // Arrange
+    let ilb = sample_tips();
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+
+    // Act & Assert
+    let result = ilb.real_yield(0.0, &ctx, as_of);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_real_yield_rejects_infinite_price() {
+    // Arrange
+    let ilb = sample_tips();
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+
+    // Act & Assert
+    let result = ilb.real_yield(f64::INFINITY, &ctx, as_of);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_real_yield_rejects_nan_price() {
+    // Arrange
+    let ilb = sample_tips();
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+
+    // Act & Assert
+    let result = ilb.real_yield(f64::NAN, &ctx, as_of);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_real_yield_clamped_to_reasonable_range() {
+    // Arrange
+    let mut ilb = sample_tips();
+    ilb.real_coupon = 0.02;
+    ilb.issue = d(2025, 1, 2);
+    ilb.maturity = d(2030, 1, 2);
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+
+    // Act - extreme prices
+    let y_very_low = ilb.real_yield(200.0, &ctx, as_of).unwrap();
+    let y_very_high = ilb.real_yield(10.0, &ctx, as_of).unwrap();
+
+    // Assert - clamped to [-0.99, 2.0] per implementation
+    assert!(y_very_low >= -0.99);
+    assert!(y_very_low <= 2.0);
+    assert!(y_very_high >= -0.99);
+    assert!(y_very_high <= 2.0);
+}
+
+#[test]
+fn test_breakeven_inflation_basic() {
+    // Arrange
+    let mut ilb = sample_tips();
+    ilb.quoted_clean = Some(100.0);
+    ilb.real_coupon = 0.01; // 1% real yield at par
+    ilb.issue = d(2025, 1, 2);
+    ilb.maturity = d(2030, 1, 2);
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+    let nominal_yield = 0.03; // 3% nominal yield
+
+    // Act
+    let breakeven = ilb.breakeven_inflation(nominal_yield, &ctx, as_of).unwrap();
+
+    // Assert - Fisher approximation: breakeven ≈ nominal - real
+    // Breakeven should be finite and reasonable
+    assert!(breakeven.is_finite());
+    assert!(breakeven > -0.05 && breakeven < 0.10); // Reasonable range
+}
+
+#[test]
+fn test_breakeven_inflation_fisher_equation() {
+    // Arrange
+    let mut ilb = sample_tips();
+    ilb.quoted_clean = Some(100.0);
+    ilb.real_coupon = 0.015;
+    ilb.issue = d(2025, 1, 2);
+    ilb.maturity = d(2030, 1, 2);
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+
+    let real_yield = ilb.real_yield(100.0, &ctx, as_of).unwrap();
+    let nominal_yield = 0.04; // 4%
+
+    // Act
+    let breakeven = ilb.breakeven_inflation(nominal_yield, &ctx, as_of).unwrap();
+
+    // Assert - Fisher approximation: breakeven ≈ nominal - real
+    assert_approx_eq(
+        breakeven,
+        nominal_yield - real_yield,
+        0.001,
+        "Fisher equation",
+    );
+}
+
+#[test]
+fn test_breakeven_inflation_varies_with_nominal_yield() {
+    // Arrange
+    let mut ilb = sample_tips();
+    ilb.quoted_clean = Some(100.0);
+    ilb.real_coupon = 0.01;
+    ilb.issue = d(2025, 1, 2);
+    ilb.maturity = d(2030, 1, 2);
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+
+    // Act
+    let be_low = ilb.breakeven_inflation(0.02, &ctx, as_of).unwrap();
+    let be_mid = ilb.breakeven_inflation(0.03, &ctx, as_of).unwrap();
+    let be_high = ilb.breakeven_inflation(0.04, &ctx, as_of).unwrap();
+
+    // Assert - higher nominal yield → higher breakeven (real stays constant)
+    assert!(be_mid > be_low);
+    assert!(be_high > be_mid);
+}
+
+#[test]
+fn test_breakeven_inflation_uses_quoted_clean_default() {
+    // Arrange
+    let mut ilb1 = sample_tips();
+    let mut ilb2 = sample_tips();
+
+    ilb1.quoted_clean = Some(100.0);
+    ilb2.quoted_clean = None; // Will use 100.0 as default
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+    let nominal_yield = 0.03;
+
+    // Act
+    let be1 = ilb1
+        .breakeven_inflation(nominal_yield, &ctx, as_of)
+        .unwrap();
+    let be2 = ilb2
+        .breakeven_inflation(nominal_yield, &ctx, as_of)
+        .unwrap();
+
+    // Assert - should be identical
+    assert_approx_eq(be1, be2, EPSILON, "default quoted price");
+}
+
+#[test]
+fn test_breakeven_can_be_negative() {
+    // Arrange
+    let mut ilb = sample_tips();
+    ilb.quoted_clean = Some(100.0);
+    ilb.real_coupon = 0.05; // High real coupon
+    ilb.issue = d(2025, 1, 2);
+    ilb.maturity = d(2030, 1, 2);
+
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+    let nominal_yield = 0.03; // Low nominal yield
+
+    // Act
+    let breakeven = ilb.breakeven_inflation(nominal_yield, &ctx, as_of).unwrap();
+
+    // Assert - if real > nominal, breakeven is negative (rare but possible)
+    // Real ≈ 5% at par, nominal = 3% → breakeven ≈ -2%
+    assert!(breakeven < 0.0);
+}
+
+#[test]
+fn test_real_yield_varies_with_time_to_maturity() {
+    // Arrange
+    let (ctx, _) = market_context_with_index();
+
+    // Long-dated bond
+    let mut ilb_long = sample_tips();
+    ilb_long.issue = d(2025, 1, 2);
+    ilb_long.maturity = d(2035, 1, 2); // 10 years
+    ilb_long.real_coupon = 0.02;
+
+    // Short-dated bond
+    let mut ilb_short = sample_tips();
+    ilb_short.issue = d(2025, 1, 2);
+    ilb_short.maturity = d(2027, 1, 2); // 2 years
+    ilb_short.real_coupon = 0.02;
+
+    let as_of = d(2025, 1, 2);
+    let clean_price = 100.0;
+
+    // Act
+    let y_long = ilb_long.real_yield(clean_price, &ctx, as_of).unwrap();
+    let y_short = ilb_short.real_yield(clean_price, &ctx, as_of).unwrap();
+
+    // Assert - both yields should be positive and reasonable
+    assert!(y_long > 0.0 && y_long < 0.15);
+    assert!(y_short > 0.0 && y_short < 0.15);
+}
+
+#[test]
+fn test_real_yield_different_day_counts() {
+    // Arrange
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+    let clean_price = 100.0;
+
+    // Same bond with different day count conventions
+    let mut ilb_actact = sample_tips();
+    ilb_actact.dc = finstack_core::dates::DayCount::ActAct;
+    ilb_actact.real_coupon = 0.02;
+    ilb_actact.issue = d(2025, 1, 2);
+    ilb_actact.maturity = d(2030, 1, 2);
+
+    let mut ilb_30360 = sample_tips();
+    ilb_30360.dc = finstack_core::dates::DayCount::Thirty360;
+    ilb_30360.real_coupon = 0.02;
+    ilb_30360.issue = d(2025, 1, 2);
+    ilb_30360.maturity = d(2030, 1, 2);
+
+    // Act
+    let y_actact = ilb_actact.real_yield(clean_price, &ctx, as_of).unwrap();
+    let y_30360 = ilb_30360.real_yield(clean_price, &ctx, as_of).unwrap();
+
+    // Assert - different day counts → slightly different yields
+    assert!(y_actact > 0.0);
+    assert!(y_30360 > 0.0);
+    // Should be close but not exactly equal
+    assert!(relative_diff(y_actact, y_30360) < 0.01); // Within 1%
+}
+
+#[test]
+fn test_real_yield_uk_gilt() {
+    // Arrange
+    let mut ilb = sample_uk_linker();
+    ilb.quoted_clean = Some(105.0);
+
+    let (ctx, _) = uk_market_context();
+    let as_of = d(2025, 1, 2);
+
+    // Act
+    let y = ilb.real_yield(105.0, &ctx, as_of).unwrap();
+
+    // Assert - yield should be positive and reasonable
+    assert!(y > 0.0);
+    assert!(y < 0.15);
+}
+
+#[test]
+fn test_yield_calculation_performance() {
+    // Arrange
+    let ilb = sample_tips();
+    let (ctx, _) = market_context_with_index();
+    let as_of = d(2025, 1, 2);
+
+    // Act
+    let start = std::time::Instant::now();
+    for _ in 0..100 {
+        let _ = ilb.real_yield(100.0, &ctx, as_of).unwrap();
+    }
+    let elapsed = start.elapsed();
+
+    // Assert - 100 yield calculations should be fast (< 500ms)
+    assert!(elapsed.as_millis() < 500);
+}

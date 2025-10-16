@@ -94,9 +94,12 @@ pub fn js_aggregate_by_attribute(
     let obj = Object::new();
     for (attr_value, money) in aggregated {
         let js_money = JsMoney::from_inner(money);
-        js_sys::Reflect::set(&obj, &JsValue::from_str(&attr_value), &JsValue::from(js_money))?;
+        js_sys::Reflect::set(
+            &obj,
+            &JsValue::from_str(&attr_value),
+            &JsValue::from(js_money),
+        )?;
     }
 
     Ok(JsValue::from(obj))
 }
-

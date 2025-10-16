@@ -274,4 +274,3 @@ pub fn js_aggregate_metrics(
         .map(JsPortfolioMetrics::from_inner)
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }
-

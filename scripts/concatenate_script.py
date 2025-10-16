@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Define the paths to include (can be empty for 'include everything' mode)
 include_paths = [
-    "finstack/valuations",
+    "finstack/",
 ]
 
 # Define patterns to exclude
@@ -83,7 +83,7 @@ def concatenate_files(output_filename="concatenated_code.txt"):
             # Only descend into dirs, or add the file directly
             if path.is_dir():
                 # Skip heavy/binary build and vendor directories
-                skip_dirs = {"target", "node_modules", "pkg", ".git", "__pycache__"}
+                skip_dirs = {"target", "node_modules", "pkg", ".git", "__pycache__","docs","examples"}
                 for candidate in path.rglob("*"):
                     # Fast skip for directories by name
                     try:

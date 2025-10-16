@@ -13,4 +13,3 @@ pub use engine::{JsExecutionContext, JsScenarioEngine};
 pub use enums::{JsCurveKind, JsTenorMatchMode, JsVolSurfaceKind};
 pub use reports::{JsApplicationReport, JsRollForwardReport};
 pub use spec::{JsOperationSpec, JsScenarioSpec};
-

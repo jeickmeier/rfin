@@ -200,19 +200,24 @@ fn py_value_portfolio(
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
 
     let cfg = if let Some(config_obj) = config {
-        config_obj.extract::<PyRef<PyFinstackConfig>>()?.inner.clone()
+        config_obj
+            .extract::<PyRef<PyFinstackConfig>>()?
+            .inner
+            .clone()
     } else {
         finstack_core::config::FinstackConfig::default()
     };
 
-    let valuation = value_portfolio(&portfolio_inner, &market_ctx.inner, &cfg)
-        .map_err(portfolio_to_py)?;
+    let valuation =
+        value_portfolio(&portfolio_inner, &market_ctx.inner, &cfg).map_err(portfolio_to_py)?;
 
     Ok(PyPortfolioValuation::new(valuation))
 }
 
 /// Extract a PortfolioValuation from Python object.
-pub(crate) fn extract_portfolio_valuation(value: &Bound<'_, PyAny>) -> PyResult<PortfolioValuation> {
+pub(crate) fn extract_portfolio_valuation(
+    value: &Bound<'_, PyAny>,
+) -> PyResult<PortfolioValuation> {
     if let Ok(py_val) = value.extract::<PyRef<PyPortfolioValuation>>() {
         Ok(py_val.inner.clone())
     } else {
@@ -227,7 +232,7 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<String>> {
     parent.add_class::<PyPositionValue>()?;
     parent.add_class::<PyPortfolioValuation>()?;
-    
+
     let wrapped_fn = wrap_pyfunction!(py_value_portfolio, parent)?;
     parent.add("value_portfolio", wrapped_fn)?;
 
@@ -237,4 +242,3 @@ pub(crate) fn register<'py>(
         "value_portfolio".to_string(),
     ])
 }
-

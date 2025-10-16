@@ -12,12 +12,9 @@ pub fn scenario_to_py(err: finstack_scenarios::Error) -> PyErr {
         finstack_scenarios::Error::NodeNotFound { node_id } => {
             PyValueError::new_err(format!("Statement node not found: {}", node_id))
         }
-        finstack_scenarios::Error::CurveTypeMismatch { expected, actual } => {
-            PyValueError::new_err(format!(
-                "Curve type mismatch: expected {}, got {}",
-                expected, actual
-            ))
-        }
+        finstack_scenarios::Error::CurveTypeMismatch { expected, actual } => PyValueError::new_err(
+            format!("Curve type mismatch: expected {}, got {}", expected, actual),
+        ),
         finstack_scenarios::Error::UnsupportedOperation { operation, target } => {
             PyValueError::new_err(format!(
                 "Unsupported operation {} for target {}",
@@ -37,12 +34,9 @@ pub fn scenario_to_py(err: finstack_scenarios::Error) -> PyErr {
         finstack_scenarios::Error::InvalidTenor(msg) => {
             PyValueError::new_err(format!("Invalid tenor string: {}", msg))
         }
-        finstack_scenarios::Error::TenorNotFound { tenor, curve_id } => {
-            PyValueError::new_err(format!(
-                "Tenor not found in curve: {} in {}",
-                tenor, curve_id
-            ))
-        }
+        finstack_scenarios::Error::TenorNotFound { tenor, curve_id } => PyValueError::new_err(
+            format!("Tenor not found in curve: {} in {}", tenor, curve_id),
+        ),
         finstack_scenarios::Error::InvalidPeriod(msg) => {
             PyValueError::new_err(format!("Invalid time period: {}", msg))
         }
@@ -51,4 +45,3 @@ pub fn scenario_to_py(err: finstack_scenarios::Error) -> PyErr {
         }
     }
 }
-

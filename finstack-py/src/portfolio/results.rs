@@ -49,8 +49,14 @@ impl PyPortfolioResults {
         metrics: &Bound<'_, PyAny>,
         meta: &Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        let val_inner = valuation.extract::<PyRef<PyPortfolioValuation>>()?.inner.clone();
-        let metrics_inner = metrics.extract::<PyRef<PyPortfolioMetrics>>()?.inner.clone();
+        let val_inner = valuation
+            .extract::<PyRef<PyPortfolioValuation>>()?
+            .inner
+            .clone();
+        let metrics_inner = metrics
+            .extract::<PyRef<PyPortfolioMetrics>>()?
+            .inner
+            .clone();
         let meta_inner: finstack_core::config::ResultsMeta = pythonize::depythonize(meta)
             .map_err(|e| PyValueError::new_err(format!("Failed to convert meta: {}", e)))?;
 
@@ -137,4 +143,3 @@ pub(crate) fn register<'py>(
 
     Ok(vec!["PortfolioResults".to_string()])
 }
-

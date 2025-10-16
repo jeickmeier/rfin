@@ -129,9 +129,7 @@ pub use portfolio::{
 };
 
 #[cfg(feature = "scenarios")]
-pub use portfolio::{
-    js_apply_and_revalue as applyAndRevalue, js_apply_scenario as applyScenario,
-};
+pub use portfolio::{js_apply_and_revalue as applyAndRevalue, js_apply_scenario as applyScenario};
 
 #[cfg(feature = "console_error_panic_hook")]
 fn init_panic_hook() {

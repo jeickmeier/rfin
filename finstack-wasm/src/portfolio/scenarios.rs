@@ -1,7 +1,6 @@
 //! Scenario application for portfolios in WASM.
 ///
 /// This module is only available when the `scenarios` feature is enabled.
-
 use crate::core::config::JsFinstackConfig;
 use crate::core::market_data::context::JsMarketContext;
 use crate::portfolio::portfolio::JsPortfolio;
@@ -40,13 +39,10 @@ pub fn js_apply_scenario(
     market_context: &JsMarketContext,
 ) -> Result<JsPortfolio, JsValue> {
     let market_ctx = market_context.inner();
-    
-    let (transformed, _market, _report) = finstack_portfolio::apply_scenario(
-        &portfolio.inner,
-        &scenario.inner,
-        market_ctx,
-    )
-    .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    let (transformed, _market, _report) =
+        finstack_portfolio::apply_scenario(&portfolio.inner, &scenario.inner, market_ctx)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     Ok(JsPortfolio::from_inner(transformed))
 }
@@ -102,4 +98,3 @@ pub fn js_apply_and_revalue(
 
     Ok(JsPortfolioValuation::from_inner(valuation))
 }
-

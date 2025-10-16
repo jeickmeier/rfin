@@ -119,7 +119,11 @@ impl PyPortfolioMetrics {
     ///     >>> position_metrics = metrics.get_position_metrics("POS_1")
     ///     >>> position_metrics["dv01"]
     ///     5.0
-    fn get_position_metrics(&self, position_id: &str, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn get_position_metrics(
+        &self,
+        position_id: &str,
+        py: Python<'_>,
+    ) -> PyResult<Option<PyObject>> {
         if let Some(metrics_map) = self.inner.get_position_metrics(position_id) {
             let dict = PyDict::new(py);
             for (metric_id, value) in metrics_map {
@@ -222,7 +226,7 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<String>> {
     parent.add_class::<PyAggregatedMetric>()?;
     parent.add_class::<PyPortfolioMetrics>()?;
-    
+
     let wrapped_fn = wrap_pyfunction!(py_aggregate_metrics, parent)?;
     parent.add("aggregate_metrics", wrapped_fn)?;
 
@@ -232,4 +236,3 @@ pub(crate) fn register<'py>(
         "aggregate_metrics".to_string(),
     ])
 }
-

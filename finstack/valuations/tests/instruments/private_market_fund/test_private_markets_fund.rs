@@ -1,7 +1,7 @@
 //! Comprehensive tests for private markets fund waterfall functionality.
 
 use finstack_core::prelude::*;
-use finstack_core::F;
+// use finstack_core::F; // F does not exist
 use finstack_valuations::instruments::private_markets_fund::*;
 use time::Month;
 
@@ -57,7 +57,7 @@ fn test_return_of_capital_first() {
     );
 
     // LP should get back their $1M capital first
-    let total_lp_roc: F = roc_rows.iter().map(|r| r.to_lp.amount()).sum();
+    let total_lp_roc: f64 = roc_rows.iter().map(|r| r.to_lp.amount()).sum();
 
     assert!(
         (total_lp_roc - 1000000.0).abs() < 1e-6,
@@ -89,7 +89,7 @@ fn test_preferred_return_calculation() {
 
     if !pref_rows.is_empty() {
         // With 8% hurdle over 5 years, LP should get additional return to meet IRR target
-        let total_pref: F = pref_rows.iter().map(|r| r.to_lp.amount()).sum();
+        let total_pref: f64 = pref_rows.iter().map(|r| r.to_lp.amount()).sum();
 
         assert!(
             total_pref > 0.0,
@@ -97,7 +97,7 @@ fn test_preferred_return_calculation() {
         );
 
         // All preferred return should go to LP
-        let total_gp_pref: F = pref_rows.iter().map(|r| r.to_gp.amount()).sum();
+        let total_gp_pref: f64 = pref_rows.iter().map(|r| r.to_gp.amount()).sum();
         assert!(
             (total_gp_pref).abs() < 1e-6,
             "GP should get no preferred return"
@@ -311,7 +311,7 @@ fn test_private_markets_fund_creation() {
     let (spec, events) = simple_2x_scenario();
     let pe = PrivateMarketsFund::new("TEST_FUND", test_currency(), spec, events);
 
-    assert_eq!(pe.id, "TEST_FUND");
+    assert_eq!(pe.id, "TEST_FUND".into());
     assert_eq!(pe.currency, test_currency());
     assert!(pe.disc_id.is_none());
 }
@@ -322,7 +322,7 @@ fn test_private_markets_fund_with_discount_curve() {
     let pe = PrivateMarketsFund::new("TEST_FUND", test_currency(), spec, events)
         .with_discount_curve("USD-OIS");
 
-    assert_eq!(pe.disc_id, Some("USD-OIS"));
+    assert_eq!(pe.disc_id, Some("USD-OIS".into()));
 }
 
 #[test]
@@ -338,7 +338,7 @@ fn test_lp_cashflows_via_ledger() {
     );
 
     // Verify we have meaningful flows
-    let total_flow: F = lp_flows.iter().map(|(_, amount)| amount.amount()).sum();
+    let total_flow: f64 = lp_flows.iter().map(|(_, amount)| amount.amount()).sum();
     assert!(
         total_flow.abs() > 1e-6,
         "Should have meaningful cashflow amounts"

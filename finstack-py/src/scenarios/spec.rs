@@ -696,10 +696,12 @@ impl PyScenarioSpec {
 }
 
 /// Register spec types with the scenarios module.
-pub(crate) fn register(_py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
+pub(crate) fn register(
+    _py: Python<'_>,
+    module: &Bound<'_, PyModule>,
+) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyOperationSpec>()?;
     module.add_class::<PyScenarioSpec>()?;
 
     Ok(vec!["OperationSpec", "ScenarioSpec"])
 }
-

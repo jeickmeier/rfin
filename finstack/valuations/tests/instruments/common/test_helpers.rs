@@ -1,0 +1,232 @@
+//! Shared test helpers and fixtures for common module tests.
+//!
+//! Provides:
+//! - Standard market data fixtures
+//! - Test curve builders
+//! - Comparison utilities with tolerance
+//! - Common test scenarios
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::{Date, DayCount};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::math::interp::InterpStyle;
+use finstack_core::money::Money;
+use time::Month;
+
+/// Standard tolerance for numerical comparisons (0.01%)
+pub const TOLERANCE: f64 = 1e-4;
+
+/// Tight tolerance for exact calculations (0.0001%)
+pub const TIGHT_TOLERANCE: f64 = 1e-6;
+
+/// Relative tolerance for percentage checks (1%)
+pub const RELATIVE_TOLERANCE: f64 = 0.01;
+
+/// Assert two floats are approximately equal with given tolerance
+pub fn assert_approx_eq(actual: f64, expected: f64, tolerance: f64, msg: &str) {
+    let diff = (actual - expected).abs();
+    assert!(
+        diff < tolerance,
+        "{}: expected {}, got {} (diff: {})",
+        msg,
+        expected,
+        actual,
+        diff
+    );
+}
+
+/// Assert two floats are approximately equal with relative tolerance
+pub fn assert_relative_eq(actual: f64, expected: f64, rel_tolerance: f64, msg: &str) {
+    if expected.abs() < 1e-10 {
+        // For near-zero values, use absolute tolerance
+        assert_approx_eq(actual, expected, 1e-10, msg);
+    } else {
+        let rel_diff = ((actual - expected) / expected).abs();
+        assert!(
+            rel_diff < rel_tolerance,
+            "{}: expected {}, got {} (relative diff: {:.2}%)",
+            msg,
+            expected,
+            actual,
+            rel_diff * 100.0
+        );
+    }
+}
+
+/// Assert Money values are approximately equal
+pub fn assert_money_eq(actual: Money, expected: Money, tolerance: f64, msg: &str) {
+    assert_eq!(
+        actual.currency(),
+        expected.currency(),
+        "{}: currency mismatch",
+        msg
+    );
+    assert_approx_eq(actual.amount(), expected.amount(), tolerance, msg);
+}
+
+/// Create a standard test date (2025-01-01)
+pub fn test_date() -> Date {
+    Date::from_calendar_date(2025, Month::January, 1).unwrap()
+}
+
+/// Create a flat discount curve for testing
+pub fn flat_curve(rate: f64, curve_id: &str) -> DiscountCurve {
+    let base = test_date();
+    let t_max = 30.0; // 30 years
+    let df_max = (-rate * t_max).exp() as f64;
+
+    DiscountCurve::builder(curve_id)
+        .base_date(base)
+        .knots([(0.0, 1.0), (t_max, df_max)])
+        .set_interp(InterpStyle::LogLinear)
+        .build()
+        .unwrap()
+}
+
+/// Create a standard upward-sloping curve
+pub fn upward_curve(curve_id: &str) -> DiscountCurve {
+    let base = test_date();
+
+    DiscountCurve::builder(curve_id)
+        .base_date(base)
+        .knots([
+            (0.0, 1.0),
+            (1.0, 0.97),
+            (2.0, 0.94),
+            (5.0, 0.85),
+            (10.0, 0.70),
+            (30.0, 0.40),
+        ])
+        .set_interp(InterpStyle::LogLinear)
+        .build()
+        .unwrap()
+}
+
+/// Create a standard market context with USD and EUR curves
+pub fn standard_market() -> MarketContext {
+    MarketContext::new()
+        .insert_discount(flat_curve(0.05, "USD-OIS"))
+        .insert_discount(flat_curve(0.052, "USD-SOFR-3M"))
+        .insert_discount(flat_curve(0.03, "EUR-OIS"))
+        .insert_discount(flat_curve(0.032, "EUR-EURIBOR-6M"))
+}
+
+/// Create test money in USD
+pub fn usd(amount: f64) -> Money {
+    Money::new(amount, Currency::USD)
+}
+
+/// Create test money in EUR
+pub fn eur(amount: f64) -> Money {
+    Money::new(amount, Currency::EUR)
+}
+
+/// Standard day count for testing
+pub fn standard_dc() -> DayCount {
+    DayCount::Act365F
+}
+
+/// Calculate year fraction for testing
+pub fn year_fraction(start: Date, end: Date) -> f64 {
+    use finstack_core::dates::DayCountCtx;
+    standard_dc()
+        .year_fraction(start, end, DayCountCtx::default())
+        .unwrap_or(0.0)
+}
+
+/// Black-Scholes analytical solution for European call (for validation)
+pub fn black_scholes_call(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    vol: f64,
+    time: f64,
+    div_yield: f64,
+) -> f64 {
+    use finstack_core::math::norm_cdf;
+
+    if time <= 0.0 {
+        return (spot - strike).max(0.0);
+    }
+
+    let sqrt_t = time.sqrt();
+    let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
+    let d2 = d1 - vol * sqrt_t;
+
+    let discount = (-rate * time).exp() as f64;
+    let forward_discount = (-(rate - div_yield) * time).exp() as f64;
+
+    spot * forward_discount * norm_cdf(d1) - strike * discount * norm_cdf(d2)
+}
+
+/// Black-Scholes analytical solution for European put (for validation)
+pub fn black_scholes_put(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    vol: f64,
+    time: f64,
+    div_yield: f64,
+) -> f64 {
+    let call = black_scholes_call(spot, strike, rate, vol, time, div_yield);
+    let pv_strike = strike * ((-rate * time).exp() as f64);
+    let pv_spot = spot * ((-div_yield * time).exp() as f64);
+
+    // Put-call parity: P = C - S*e^(-qT) + K*e^(-rT)
+    call - pv_spot + pv_strike
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_approx_eq() {
+        assert_approx_eq(1.0001, 1.0, 0.001, "Should be approximately equal");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_approx_eq_fails() {
+        assert_approx_eq(1.1, 1.0, 0.01, "Should fail");
+    }
+
+    #[test]
+    fn test_relative_eq() {
+        assert_relative_eq(100.0, 99.0, 0.02, "1% difference should pass");
+    }
+
+    #[test]
+    fn test_black_scholes_put_call_parity() {
+        let spot = 100.0;
+        let strike = 100.0;
+        let rate = 0.05;
+        let vol = 0.20;
+        let time = 1.0;
+        let div = 0.0;
+
+        let call = black_scholes_call(spot, strike, rate, vol, time, div);
+        let put = black_scholes_put(spot, strike, rate, vol, time, div);
+
+        // Put-call parity: C - P = S - K*e^(-rT)
+        let lhs = call - put;
+        let rhs = spot - strike * (-rate * time).exp() as f64;
+
+        assert_approx_eq(lhs, rhs, TIGHT_TOLERANCE, "Put-call parity");
+    }
+
+    #[test]
+    fn test_flat_curve_creation() {
+        let curve = flat_curve(0.05, "TEST");
+        assert_eq!(curve.id().as_str(), "TEST");
+        assert_eq!(curve.base_date(), test_date());
+    }
+
+    #[test]
+    fn test_standard_market_has_curves() {
+        let market = standard_market();
+        assert!(market.get_discount_ref("USD-OIS").is_ok());
+        assert!(market.get_discount_ref("EUR-OIS").is_ok());
+    }
+}

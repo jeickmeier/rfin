@@ -139,7 +139,10 @@ impl PyEntity {
     }
 
     fn __str__(&self) -> String {
-        self.inner.name.clone().unwrap_or_else(|| self.inner.id.clone())
+        self.inner
+            .name
+            .clone()
+            .unwrap_or_else(|| self.inner.id.clone())
     }
 }
 
@@ -209,7 +212,8 @@ impl PyPositionUnit {
         let ccy = if let Ok(py_ccy) = currency.extract::<PyRef<PyCurrency>>() {
             py_ccy.inner
         } else if let Ok(s) = currency.extract::<String>() {
-            s.parse().map_err(|e| PyValueError::new_err(format!("Invalid currency: {}", e)))?
+            s.parse()
+                .map_err(|e| PyValueError::new_err(format!("Invalid currency: {}", e)))?
         } else {
             return Err(PyTypeError::new_err("Expected Currency or string"));
         };
@@ -220,7 +224,9 @@ impl PyPositionUnit {
         match self.inner {
             PositionUnit::Units => "PositionUnit.UNITS".to_string(),
             PositionUnit::Notional(None) => "PositionUnit.notional()".to_string(),
-            PositionUnit::Notional(Some(ccy)) => format!("PositionUnit.notional_with_ccy(Currency.{})", ccy),
+            PositionUnit::Notional(Some(ccy)) => {
+                format!("PositionUnit.notional_with_ccy(Currency.{})", ccy)
+            }
             PositionUnit::FaceValue => "PositionUnit.FACE_VALUE".to_string(),
             PositionUnit::Percentage => "PositionUnit.PERCENTAGE".to_string(),
         }
@@ -420,4 +426,3 @@ pub(crate) fn register<'py>(
         "Position".to_string(),
     ])
 }
-

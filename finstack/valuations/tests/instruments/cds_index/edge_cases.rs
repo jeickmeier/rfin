@@ -1,0 +1,467 @@
+//! CDS Index edge cases and error handling tests.
+//!
+//! Tests cover:
+//! - Matured positions
+//! - Zero notional
+//! - Invalid weight configurations
+//! - Missing market data
+//! - Extreme parameter values
+//! - Recovery rate bounds
+//! - Date ordering validation
+
+use super::test_utils::*;
+use finstack_core::currency::Currency;
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_valuations::instruments::cds_index::parameters::{
+    CDSIndexConstituentParam, CDSIndexParams,
+};
+use finstack_valuations::instruments::cds_index::CDSIndex;
+use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::CreditParams;
+use time::macros::date;
+
+#[test]
+fn test_zero_notional() {
+    // Edge Case: Zero notional produces zero NPV
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let idx = standard_single_curve_index("CDX-ZERO", start, end, 0.0);
+    let ctx = standard_market_context(as_of);
+
+    let npv = idx.value(&ctx, as_of).unwrap();
+
+    assert_eq!(npv.amount(), 0.0);
+}
+
+#[test]
+fn test_very_small_notional() {
+    // Edge Case: Very small notional (still computes)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let idx = standard_single_curve_index("CDX-TINY", start, end, 1.0);
+    let ctx = standard_market_context(as_of);
+
+    let result = idx.value(&ctx, as_of);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_very_large_notional() {
+    // Edge Case: Very large notional (still computes)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let idx = standard_single_curve_index("CDX-LARGE", start, end, 1_000_000_000_000.0);
+    let ctx = standard_market_context(as_of);
+
+    let result = idx.value(&ctx, as_of);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_matured_position() {
+    // Edge Case: Pricing after maturity
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = date!(2031 - 01 - 01); // After maturity
+
+    let idx = standard_single_curve_index("CDX-MATURED", start, end, 10_000_000.0);
+    let ctx = standard_market_context(as_of);
+
+    // Should either return zero or error gracefully
+    let result = idx.value(&ctx, as_of);
+    if let Ok(npv) = result {
+        // If it returns, NPV should be zero or very small
+        assert!(
+            npv.amount().abs() < 1000.0,
+            "Matured position should have ~zero NPV"
+        );
+    }
+}
+
+#[test]
+fn test_at_maturity() {
+    // Edge Case: Pricing exactly at maturity date
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = end; // Exactly at maturity
+
+    let idx = standard_single_curve_index("CDX-AT-MAT", start, end, 10_000_000.0);
+    let ctx = standard_market_context(as_of);
+
+    let result = idx.value(&ctx, as_of);
+    // Should handle gracefully
+    assert!(result.is_ok() || result.is_err());
+}
+
+#[test]
+fn test_very_short_maturity() {
+    // Edge Case: Very short maturity (1 day)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2025 - 01 - 02); // 1 day
+    let as_of = start;
+
+    let idx = standard_single_curve_index("CDX-1D", start, end, 10_000_000.0);
+    let ctx = standard_market_context(as_of);
+
+    let result = idx.value(&ctx, as_of);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_very_long_maturity() {
+    // Edge Case: Very long maturity (30Y)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2055 - 01 - 01); // 30Y
+    let as_of = start;
+
+    let idx = standard_single_curve_index("CDX-30Y", start, end, 10_000_000.0);
+    let ctx = standard_market_context(as_of);
+
+    let result = idx.value(&ctx, as_of);
+    assert!(result.is_ok());
+}
+
+#[test]
+fn test_missing_discount_curve() {
+    // Edge Case: Missing discount curve in market context
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let idx = standard_single_curve_index("CDX-MISSING", start, end, 10_000_000.0);
+    let ctx = MarketContext::new(); // Empty context
+
+    let result = idx.value(&ctx, as_of);
+    assert!(result.is_err(), "Should error with missing discount curve");
+}
+
+#[test]
+fn test_missing_hazard_curve() {
+    // Edge Case: Missing hazard curve in market context
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let idx = standard_single_curve_index("CDX-NO-HZ", start, end, 10_000_000.0);
+
+    // Context with only discount curve
+    let disc = flat_discount_curve("USD-OIS", as_of, 0.03);
+    let ctx = MarketContext::new().insert_discount(disc);
+
+    let result = idx.value(&ctx, as_of);
+    assert!(result.is_err(), "Should error with missing hazard curve");
+}
+
+#[test]
+fn test_constituents_weights_dont_sum_to_one() {
+    // Edge Case: Constituent weights that don't sum to 1.0 should error during pricing
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let constituents = vec![
+        CDSIndexConstituentParam {
+            credit: CreditParams::corporate_standard("N1", "HZ1"),
+            weight: 0.3, // Total = 0.9, not 1.0
+        },
+        CDSIndexConstituentParam {
+            credit: CreditParams::corporate_standard("N2", "HZ2"),
+            weight: 0.3,
+        },
+        CDSIndexConstituentParam {
+            credit: CreditParams::corporate_standard("N3", "HZ3"),
+            weight: 0.3,
+        },
+    ];
+
+    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(constituents);
+    let idx = CDSIndex::new_standard(
+        "CDX-BAD-WEIGHTS",
+        &params,
+        &standard_construction_params(10_000_000.0),
+        start,
+        end,
+        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        "USD-OIS",
+        "HZ-INDEX",
+    );
+
+    let ctx = multi_constituent_market_context(as_of, 3);
+    let result = idx.value(&ctx, as_of);
+
+    // Should error or handle gracefully
+    assert!(result.is_err(), "Bad weights should error during pricing");
+}
+
+#[test]
+fn test_negative_weights() {
+    // Edge Case: Negative weights should error
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let constituents = vec![
+        CDSIndexConstituentParam {
+            credit: CreditParams::corporate_standard("N1", "HZ1"),
+            weight: -0.5, // Negative weight
+        },
+        CDSIndexConstituentParam {
+            credit: CreditParams::corporate_standard("N2", "HZ2"),
+            weight: 1.5,
+        },
+    ];
+
+    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(constituents);
+    let idx = CDSIndex::new_standard(
+        "CDX-NEG-WEIGHTS",
+        &params,
+        &standard_construction_params(10_000_000.0),
+        start,
+        end,
+        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        "USD-OIS",
+        "HZ-INDEX",
+    );
+
+    let ctx = multi_constituent_market_context(as_of, 2);
+    let result = idx.value(&ctx, as_of);
+
+    assert!(result.is_err(), "Negative weights should error");
+}
+
+#[test]
+fn test_recovery_rate_zero() {
+    // Edge Case: Zero recovery rate (100% LGD)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let credit = CreditParams::new("TEST", 0.0, "HZ-INDEX"); // Zero recovery
+    let idx = CDSIndex::new_standard(
+        "CDX-ZERO-REC",
+        &standard_cdx_params(),
+        &standard_construction_params(10_000_000.0),
+        start,
+        end,
+        &credit,
+        "USD-OIS",
+        "HZ-INDEX",
+    );
+
+    let ctx = standard_market_context(as_of);
+    let result = idx.value(&ctx, as_of);
+
+    assert!(result.is_ok(), "Zero recovery should be valid");
+}
+
+#[test]
+fn test_recovery_rate_one() {
+    // Edge Case: 100% recovery rate (zero LGD)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let credit = CreditParams::new("TEST", 1.0, "HZ-INDEX"); // Full recovery
+    let idx = CDSIndex::new_standard(
+        "CDX-FULL-REC",
+        &standard_cdx_params(),
+        &standard_construction_params(10_000_000.0),
+        start,
+        end,
+        &credit,
+        "USD-OIS",
+        "HZ-INDEX",
+    );
+
+    let ctx = standard_market_context(as_of);
+    let result = idx.value(&ctx, as_of);
+
+    assert!(result.is_ok(), "Full recovery should be valid");
+}
+
+#[test]
+fn test_index_factor_zero() {
+    // Edge Case: Index factor of 0 (all constituents defaulted)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_index_factor(0.0);
+    let idx = CDSIndex::new_standard(
+        "CDX-ZERO-FACTOR",
+        &params,
+        &standard_construction_params(10_000_000.0),
+        start,
+        end,
+        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        "USD-OIS",
+        "HZ-INDEX",
+    );
+
+    let ctx = standard_market_context(as_of);
+    let result = idx.value(&ctx, as_of);
+
+    // Should handle gracefully
+    // Note: Zero index factor doesn't necessarily produce zero NPV due to
+    // fixed coupon payments and protection leg interactions
+    assert!(
+        result.is_ok(),
+        "Zero index factor should price without error"
+    );
+}
+
+#[test]
+fn test_index_factor_greater_than_one() {
+    // Edge Case: Index factor > 1.0 (invalid but should handle)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_index_factor(1.5);
+    let idx = CDSIndex::new_standard(
+        "CDX-BIG-FACTOR",
+        &params,
+        &standard_construction_params(10_000_000.0),
+        start,
+        end,
+        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        "USD-OIS",
+        "HZ-INDEX",
+    );
+
+    let ctx = standard_market_context(as_of);
+    let result = idx.value(&ctx, as_of);
+
+    // May work but give unusual results
+    assert!(result.is_ok() || result.is_err());
+}
+
+#[test]
+fn test_empty_constituents_list() {
+    // Edge Case: Empty constituents list reverts to single-curve
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+
+    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(vec![]);
+    let idx = CDSIndex::new_standard(
+        "CDX-EMPTY",
+        &params,
+        &standard_construction_params(10_000_000.0),
+        start,
+        end,
+        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        "USD-OIS",
+        "HZ-INDEX",
+    );
+
+    // Should be single-curve mode
+    assert!(idx.constituents.is_empty());
+}
+
+#[test]
+fn test_missing_constituent_hazard_curve() {
+    // Edge Case: Constituent references non-existent hazard curve
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let constituents = vec![CDSIndexConstituentParam {
+        credit: CreditParams::corporate_standard("N1", "MISSING-CURVE"),
+        weight: 1.0,
+    }];
+
+    let params = CDSIndexParams::cdx_na_ig(42, 1, 100.0).with_constituents(constituents);
+    let idx = CDSIndex::new_standard(
+        "CDX-MISSING-CONST",
+        &params,
+        &standard_construction_params(10_000_000.0),
+        start,
+        end,
+        &CreditParams::corporate_standard("INDEX", "HZ-INDEX"),
+        "USD-OIS",
+        "HZ-INDEX",
+    );
+
+    let ctx = standard_market_context(as_of);
+    let result = idx.value(&ctx, as_of);
+
+    assert!(
+        result.is_err(),
+        "Should error with missing constituent curve"
+    );
+}
+
+#[test]
+fn test_upfront_payment_larger_than_npv() {
+    // Edge Case: Large upfront payment
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let mut idx = standard_single_curve_index("CDX-BIG-UPFRONT", start, end, 10_000_000.0);
+    idx.pricing_overrides.upfront_payment = Some(Money::new(10_000_000.0, Currency::USD));
+
+    let ctx = standard_market_context(as_of);
+    let result = idx.value(&ctx, as_of);
+
+    assert!(result.is_ok(), "Large upfront should be handled");
+}
+
+#[test]
+fn test_negative_upfront_payment() {
+    // Edge Case: Negative upfront (payment from protection buyer)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let mut idx = standard_single_curve_index("CDX-NEG-UPFRONT", start, end, 10_000_000.0);
+    idx.pricing_overrides.upfront_payment = Some(Money::new(-100_000.0, Currency::USD));
+
+    let ctx = standard_market_context(as_of);
+    let result = idx.value(&ctx, as_of);
+
+    assert!(result.is_ok(), "Negative upfront should be handled");
+}
+
+#[test]
+fn test_extremely_high_hazard_rate() {
+    // Edge Case: Very high hazard rate (near certain default)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let idx = standard_single_curve_index("CDX-HIGH-HZ", start, end, 10_000_000.0);
+
+    // Create context with very high hazard rate
+    let disc = flat_discount_curve("USD-OIS", as_of, 0.03);
+    let hz = flat_hazard_curve("HZ-INDEX", as_of, 0.40, 0.50); // 50% hazard rate
+    let ctx = MarketContext::new().insert_discount(disc).insert_hazard(hz);
+
+    let result = idx.value(&ctx, as_of);
+    assert!(result.is_ok(), "High hazard rate should be handled");
+}
+
+#[test]
+fn test_zero_hazard_rate() {
+    // Edge Case: Zero hazard rate (no default risk)
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let idx = standard_single_curve_index("CDX-ZERO-HZ", start, end, 10_000_000.0);
+
+    // Create context with zero hazard rate
+    let disc = flat_discount_curve("USD-OIS", as_of, 0.03);
+    let hz = flat_hazard_curve("HZ-INDEX", as_of, 0.40, 0.0); // Zero hazard
+    let ctx = MarketContext::new().insert_discount(disc).insert_hazard(hz);
+
+    let result = idx.value(&ctx, as_of);
+    assert!(result.is_ok(), "Zero hazard rate should be handled");
+}

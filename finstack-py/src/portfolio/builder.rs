@@ -81,7 +81,10 @@ impl PyPortfolioBuilder {
     /// Examples:
     ///     >>> from finstack.core import Currency
     ///     >>> builder = PortfolioBuilder("FUND_A").base_ccy(Currency.USD)
-    fn base_ccy<'py>(mut slf: PyRefMut<'py, Self>, ccy: &Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn base_ccy<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let currency = if let Ok(py_ccy) = ccy.extract::<PyRef<PyCurrency>>() {
             py_ccy.inner
         } else if let Ok(s) = ccy.extract::<String>() {
@@ -107,7 +110,10 @@ impl PyPortfolioBuilder {
     /// Examples:
     ///     >>> from datetime import date
     ///     >>> builder = PortfolioBuilder("FUND_A").as_of(date(2024, 1, 1))
-    fn as_of<'py>(mut slf: PyRefMut<'py, Self>, date: &Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn as_of<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let dt = py_to_date(date)?;
         let temp = std::mem::replace(&mut slf.inner, PortfolioBuilder::new(""));
         slf.inner = temp.as_of(dt);
@@ -130,7 +136,10 @@ impl PyPortfolioBuilder {
     ///     >>> builder = PortfolioBuilder("FUND_A").entity(entity)
     ///     >>> # Or with multiple entities:
     ///     >>> builder = PortfolioBuilder("FUND_A").entity([entity1, entity2])
-    fn entity<'py>(mut slf: PyRefMut<'py, Self>, entity_or_entities: &Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn entity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        entity_or_entities: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         // Try to extract as single entity first
         if let Ok(entity) = extract_entity(entity_or_entities) {
             let temp = std::mem::replace(&mut slf.inner, PortfolioBuilder::new(""));
@@ -168,7 +177,10 @@ impl PyPortfolioBuilder {
     ///     >>> builder = PortfolioBuilder("FUND_A").position(position)
     ///     >>> # Or with multiple positions:
     ///     >>> builder = PortfolioBuilder("FUND_A").position([pos1, pos2])
-    fn position<'py>(mut slf: PyRefMut<'py, Self>, position_or_positions: &Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn position<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        position_or_positions: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         // Try to extract as single position first
         if let Ok(position) = extract_position(position_or_positions) {
             let temp = std::mem::replace(&mut slf.inner, PortfolioBuilder::new(""));
@@ -187,7 +199,9 @@ impl PyPortfolioBuilder {
             return Ok(slf);
         }
 
-        Err(PyTypeError::new_err("Expected Position or list of positions"))
+        Err(PyTypeError::new_err(
+            "Expected Position or list of positions",
+        ))
     }
 
     #[pyo3(text_signature = "($self, key, value)")]
@@ -220,7 +234,11 @@ impl PyPortfolioBuilder {
     ///
     /// Examples:
     ///     >>> builder = PortfolioBuilder("FUND_A").meta("inception", "2020-01-01")
-    fn meta<'py>(mut slf: PyRefMut<'py, Self>, key: String, value: &Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn meta<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        key: String,
+        value: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let json_value: serde_json::Value = pythonize::depythonize(value)
             .map_err(|e| PyValueError::new_err(format!("Failed to convert meta value: {}", e)))?;
         let temp = std::mem::replace(&mut slf.inner, PortfolioBuilder::new(""));
@@ -259,4 +277,3 @@ pub(crate) fn register<'py>(
 
     Ok(vec!["PortfolioBuilder".to_string()])
 }
-

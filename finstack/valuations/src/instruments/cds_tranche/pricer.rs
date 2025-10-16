@@ -36,7 +36,7 @@
 //! * Uses constant recovery rate across all entities
 //! * Base correlation model can have small arbitrage inconsistencies at curve knots
 
-use crate::cashflow::builder::schedule_utils::build_dates;
+use crate::cashflow::builder::build_dates;
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::dates::next_cds_date;
 use finstack_core::dates::{Date, StubKind};

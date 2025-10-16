@@ -165,4 +165,3 @@ impl From<JsTenorMatchMode> for TenorMatchMode {
         js.inner
     }
 }
-

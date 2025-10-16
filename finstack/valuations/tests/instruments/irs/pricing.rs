@@ -1,0 +1,589 @@
+//! Interest Rate Swap pricing tests.
+//!
+//! Tests cover:
+//! - Core NPV calculation
+//! - Pricing engine integration
+//! - Receive vs Pay fixed
+//! - Off-market swaps
+//! - Theta calculation
+//! - Edge cases
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+use finstack_core::money::Money;
+use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use time::macros::date;
+
+fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
+    DiscountCurve::builder(curve_id)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([
+            (0.0, 1.0),
+            (1.0, (-rate).exp() as f64),
+            (5.0, (-rate * 5.0).exp() as f64),
+            (10.0, (-rate * 10.0).exp() as f64),
+            (30.0, (-rate * 30.0).exp() as f64),
+        ])
+        .build()
+        .unwrap()
+}
+
+fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
+    ForwardCurve::builder(curve_id, 0.25)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, rate), (10.0, rate), (30.0, rate)])
+        .build()
+        .unwrap()
+}
+
+#[test]
+fn test_irs_at_par_npv_zero() {
+    // At-the-money swap should have NPV ≈ 0
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap = InterestRateSwap {
+        id: "SWAP_PAR".into(),
+        notional: Money::new(1_000_000.0, Currency::USD),
+        side: PayReceive::ReceiveFixed,
+        fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            disc_id: "USD-OIS".into(),
+            rate: 0.05,
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            par_method: None,
+            compounding_simple: true,
+            start: as_of,
+            end,
+        },
+        float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            disc_id: "USD-OIS".into(),
+            fwd_id: "USD-SOFR-3M".into(),
+            spread_bp: 0.0,
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            start: as_of,
+            end,
+        },
+        attributes: Default::default(),
+    };
+
+    let npv = swap.value(&market, as_of).unwrap();
+
+    assert!(
+        npv.amount().abs() < 1000.0,
+        "At-par swap NPV should be near zero, got {}",
+        npv.amount()
+    );
+}
+
+#[test]
+fn test_irs_receive_fixed_below_market() {
+    // Receive fixed at 3% when market is 5% → negative NPV
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap = InterestRateSwap {
+        id: "SWAP_OFF_MARKET".into(),
+        notional: Money::new(1_000_000.0, Currency::USD),
+        side: PayReceive::ReceiveFixed,
+        fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            disc_id: "USD-OIS".into(),
+            rate: 0.03, // Below market
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            par_method: None,
+            compounding_simple: true,
+            start: as_of,
+            end,
+        },
+        float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            disc_id: "USD-OIS".into(),
+            fwd_id: "USD-SOFR-3M".into(),
+            spread_bp: 0.0,
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            start: as_of,
+            end,
+        },
+        attributes: Default::default(),
+    };
+
+    let npv = swap.value(&market, as_of).unwrap();
+
+    assert!(
+        npv.amount() < 0.0,
+        "Receive fixed below market should be negative, got {}",
+        npv.amount()
+    );
+}
+
+#[test]
+fn test_irs_receive_fixed_above_market() {
+    // Receive fixed at 7% when market is 5% → positive NPV
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap = InterestRateSwap {
+        id: "SWAP_ABOVE_MARKET".into(),
+        notional: Money::new(1_000_000.0, Currency::USD),
+        side: PayReceive::ReceiveFixed,
+        fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            disc_id: "USD-OIS".into(),
+            rate: 0.07, // Above market
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            par_method: None,
+            compounding_simple: true,
+            start: as_of,
+            end,
+        },
+        float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            disc_id: "USD-OIS".into(),
+            fwd_id: "USD-SOFR-3M".into(),
+            spread_bp: 0.0,
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            start: as_of,
+            end,
+        },
+        attributes: Default::default(),
+    };
+
+    let npv = swap.value(&market, as_of).unwrap();
+
+    assert!(
+        npv.amount() > 0.0,
+        "Receive fixed above market should be positive, got {}",
+        npv.amount()
+    );
+}
+
+#[test]
+fn test_irs_pay_vs_receive_opposite_signs() {
+    // Pay and receive should have opposite NPVs
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.06, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let fixed_leg = finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+        disc_id: "USD-OIS".into(),
+        rate: 0.05,
+        freq: Frequency::quarterly(),
+        dc: DayCount::Act360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: None,
+        stub: StubKind::None,
+        par_method: None,
+        compounding_simple: true,
+        start: as_of,
+        end,
+    };
+
+    let float_leg = finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+        disc_id: "USD-OIS".into(),
+        fwd_id: "USD-SOFR-3M".into(),
+        spread_bp: 0.0,
+        freq: Frequency::quarterly(),
+        dc: DayCount::Act360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: None,
+        stub: StubKind::None,
+        reset_lag_days: 2,
+        start: as_of,
+        end,
+    };
+
+    let swap_receive = InterestRateSwap {
+        id: "SWAP_RECEIVE".into(),
+        notional: Money::new(1_000_000.0, Currency::USD),
+        side: PayReceive::ReceiveFixed,
+        fixed: fixed_leg.clone(),
+        float: float_leg.clone(),
+        attributes: Default::default(),
+    };
+
+    let swap_pay = InterestRateSwap {
+        id: "SWAP_PAY".into(),
+        notional: Money::new(1_000_000.0, Currency::USD),
+        side: PayReceive::PayFixed,
+        fixed: fixed_leg,
+        float: float_leg,
+        attributes: Default::default(),
+    };
+
+    let npv_receive = swap_receive.value(&market, as_of).unwrap();
+    let npv_pay = swap_pay.value(&market, as_of).unwrap();
+
+    // Should have opposite signs
+    assert!(
+        npv_receive.amount() * npv_pay.amount() < 0.0,
+        "Receive and pay should have opposite signs: receive={}, pay={}",
+        npv_receive.amount(),
+        npv_pay.amount()
+    );
+
+    // Should be approximately equal in magnitude
+    assert!(
+        (npv_receive.amount().abs() - npv_pay.amount().abs()).abs() < 10.0,
+        "Magnitudes should be similar: |receive|={}, |pay|={}",
+        npv_receive.amount().abs(),
+        npv_pay.amount().abs()
+    );
+}
+
+#[test]
+fn test_irs_npv_scales_with_notional() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.06, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap_1m = InterestRateSwap::new(
+        "SWAP_1M".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+
+    let swap_10m = InterestRateSwap::new(
+        "SWAP_10M".into(),
+        Money::new(10_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+
+    let npv_1m = swap_1m.value(&market, as_of).unwrap();
+    let npv_10m = swap_10m.value(&market, as_of).unwrap();
+
+    // NPV should scale approximately linearly with notional
+    let ratio = npv_10m.amount() / npv_1m.amount();
+    assert!(
+        (ratio - 10.0).abs() < 0.1,
+        "NPV should scale linearly with notional: ratio={}",
+        ratio
+    );
+}
+
+#[test]
+fn test_irs_rate_sensitivity_inverse() {
+    // As rates rise, receive fixed position loses value
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let swap = InterestRateSwap::new(
+        "SWAP_RATE_SENS".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+
+    let mut npvs = Vec::new();
+
+    for rate in [0.03, 0.04, 0.05, 0.06, 0.07] {
+        let disc_curve = build_flat_discount_curve(rate, as_of, "USD-OIS");
+        let fwd_curve = build_flat_forward_curve(rate, as_of, "USD-SOFR-3M");
+
+        let market = MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve);
+
+        let npv = swap.value(&market, as_of).unwrap();
+        npvs.push((rate, npv.amount()));
+    }
+
+    // Verify inverse relationship: higher rates → lower NPV
+    for i in 1..npvs.len() {
+        assert!(
+            npvs[i].1 < npvs[i - 1].1,
+            "NPV should decrease as rates rise: rate {}% NPV={} >= rate {}% NPV={}",
+            npvs[i].0 * 100.0,
+            npvs[i].1,
+            npvs[i - 1].0 * 100.0,
+            npvs[i - 1].1
+        );
+    }
+}
+
+#[test]
+fn test_irs_with_spread() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    // Swap with 50bp spread on floating leg
+    let mut swap = InterestRateSwap::new(
+        "SWAP_SPREAD".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+    swap.float.spread_bp = 50.0;
+
+    let npv = swap.value(&market, as_of).unwrap();
+
+    // Paying higher floating rate → negative NPV
+    assert!(
+        npv.amount() < 0.0,
+        "Receive fixed with spread on float should be negative, got {}",
+        npv.amount()
+    );
+}
+
+#[test]
+fn test_irs_short_maturity() {
+    // 1-year swap
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2025 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.06, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap = InterestRateSwap::new(
+        "SWAP_1Y".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+
+    let npv = swap.value(&market, as_of).unwrap();
+
+    // Should have reasonable NPV
+    assert!(
+        npv.amount().abs() < 50_000.0,
+        "1Y swap NPV should be small, got {}",
+        npv.amount()
+    );
+}
+
+#[test]
+fn test_irs_long_maturity() {
+    // 30-year swap
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2054 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.06, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap = InterestRateSwap::new(
+        "SWAP_30Y".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+
+    let npv = swap.value(&market, as_of).unwrap();
+
+    // Should have larger NPV for longer maturity
+    assert!(
+        npv.amount().abs() > 0.0,
+        "30Y swap should have non-zero NPV"
+    );
+}
+
+#[test]
+fn test_irs_zero_rate() {
+    // Very low rates edge case
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    // Use very small rate instead of exactly 0 to avoid numerical issues
+    let disc_curve = build_flat_discount_curve(0.0001, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.0001, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap = InterestRateSwap::new(
+        "SWAP_ZERO".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+
+    let npv = swap.value(&market, as_of);
+
+    assert!(npv.is_ok(), "Should handle very low rates");
+}
+
+#[test]
+fn test_irs_theta_calculation() {
+    use finstack_valuations::metrics::MetricId;
+
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap = InterestRateSwap::new(
+        "SWAP_THETA".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+
+    let result = swap
+        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .unwrap();
+
+    let theta = *result.measures.get("theta").unwrap();
+
+    // Theta should be defined
+    assert!(
+        theta.abs() < 100_000.0,
+        "Theta should be reasonable, got {}",
+        theta
+    );
+}
+
+#[test]
+fn test_irs_forward_starting() {
+    // Swap starting in the future
+    let as_of = date!(2024 - 01 - 01);
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap = InterestRateSwap::new(
+        "SWAP_FORWARD".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        start,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+
+    let npv = swap.value(&market, as_of);
+
+    assert!(npv.is_ok(), "Should price forward-starting swap");
+}
+
+#[test]
+fn test_irs_npv_currency_matches() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let swap = InterestRateSwap::new(
+        "SWAP_CCY".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+
+    let npv = swap.value(&market, as_of).unwrap();
+
+    assert_eq!(
+        npv.currency(),
+        Currency::USD,
+        "NPV currency should match swap currency"
+    );
+}

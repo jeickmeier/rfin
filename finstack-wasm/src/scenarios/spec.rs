@@ -163,10 +163,7 @@ impl JsOperationSpec {
     #[wasm_bindgen(js_name = baseCorrParallelPts)]
     pub fn base_corr_parallel_pts(surface_id: String, points: f64) -> JsOperationSpec {
         JsOperationSpec {
-            inner: OperationSpec::BaseCorrParallelPts {
-                surface_id,
-                points,
-            },
+            inner: OperationSpec::BaseCorrParallelPts { surface_id, points },
         }
     }
 
@@ -319,7 +316,9 @@ impl JsOperationSpec {
         pct: f64,
     ) -> Result<JsOperationSpec, JsValue> {
         let types: Vec<InstrumentType> = serde_wasm_bindgen::from_value(instrument_types.clone())
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse instrument types: {}", e)))?;
+            .map_err(|e| {
+            JsValue::from_str(&format!("Failed to parse instrument types: {}", e))
+        })?;
         Ok(JsOperationSpec {
             inner: OperationSpec::InstrumentPricePctByType {
                 instrument_types: types,
@@ -342,7 +341,9 @@ impl JsOperationSpec {
         bp: f64,
     ) -> Result<JsOperationSpec, JsValue> {
         let types: Vec<InstrumentType> = serde_wasm_bindgen::from_value(instrument_types.clone())
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse instrument types: {}", e)))?;
+            .map_err(|e| {
+            JsValue::from_str(&format!("Failed to parse instrument types: {}", e))
+        })?;
         Ok(JsOperationSpec {
             inner: OperationSpec::InstrumentSpreadBpByType {
                 instrument_types: types,
@@ -492,4 +493,3 @@ impl From<ScenarioSpec> for JsScenarioSpec {
         Self { inner }
     }
 }
-

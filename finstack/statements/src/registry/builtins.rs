@@ -40,8 +40,7 @@ use std::path::PathBuf;
 ///
 /// This helper is consumed by [`Registry::load_builtins`](crate::registry::Registry::load_builtins).
 pub(crate) fn builtin_metric_sources() -> Result<Vec<String>> {
-    let metrics_dir =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data/metrics");
+    let metrics_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("data/metrics");
 
     let mut discovered: Vec<(String, String)> = fs::read_dir(&metrics_dir)
         .map_err(|e| {

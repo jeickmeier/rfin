@@ -48,8 +48,9 @@ impl JsScenarioEngine {
     /// Combined scenario specification
     #[wasm_bindgen]
     pub fn compose(&self, scenarios: &JsValue) -> Result<JsScenarioSpec, JsValue> {
-        let specs: Vec<finstack_scenarios::ScenarioSpec> = serde_wasm_bindgen::from_value(scenarios.clone())
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse scenarios: {}", e)))?;
+        let specs: Vec<finstack_scenarios::ScenarioSpec> =
+            serde_wasm_bindgen::from_value(scenarios.clone())
+                .map_err(|e| JsValue::from_str(&format!("Failed to parse scenarios: {}", e)))?;
 
         let composed = self.inner.compose(specs);
         Ok(JsScenarioSpec::from(composed))
@@ -120,11 +121,15 @@ impl JsExecutionContext {
     /// # Returns
     /// Execution context instance
     #[wasm_bindgen(constructor)]
-    pub fn new(market: &MarketContext, model: &JsFinancialModelSpec, as_of: &FsDate) -> Result<JsExecutionContext, JsValue> {
+    pub fn new(
+        market: &MarketContext,
+        model: &JsFinancialModelSpec,
+        as_of: &FsDate,
+    ) -> Result<JsExecutionContext, JsValue> {
         // Access inner via the public method
         let market_inner = market.inner().clone();
         let model_inner = model.inner.clone();
-        
+
         Ok(JsExecutionContext {
             inner_market: market_inner,
             inner_model: model_inner,
@@ -156,5 +161,3 @@ impl JsExecutionContext {
         JsFinancialModelSpec::new(self.inner_model.clone())
     }
 }
-
-

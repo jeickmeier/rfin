@@ -48,4 +48,3 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
 
     Ok(())
 }
-

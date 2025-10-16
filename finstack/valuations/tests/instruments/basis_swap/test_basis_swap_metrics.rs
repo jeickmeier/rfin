@@ -1,10 +1,12 @@
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
+use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::basis_swap::types::{BasisLegSpec, BasisSwap};
+use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
+use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 
@@ -38,25 +40,20 @@ fn market() -> MarketContext {
 }
 
 fn swap() -> BasisSwap {
-    let sched = ScheduleParams::quarterly_act360();
-    BasisSwap::builder()
-        .id("BASIS-TEST".into())
-        .notional(Money::new(10_000_000.0, USD))
-        .primary(BasisLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
-        .reference(BasisLegSpec::new("USD-OIS", "USD-SOFR-1M", 0.0, DayCount::Act360))
-        .schedule(
-            finstack_valuations::instruments::basis_swap::types::BasisScheduleSpec::from_params(
-                d(2025, 1, 2),
-                d(2026, 1, 2),
-                sched,
-            ),
-        )
-        .build()
-        .unwrap()
+    let _sched = ScheduleParams::quarterly_act360();
+    BasisSwap::new(
+        "BASIS-TEST",
+        Money::new(10_000_000.0, USD),
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-3M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
+        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-1M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
+        CurveId::new("USD-OIS"),
+    )
 }
 
 #[test]
-fn net_dv01_and_par_spread_are_consistent() {
+fn dv01_metrics() {
     let s = swap();
     let ctx = market();
     let as_of = d(2025, 1, 2);

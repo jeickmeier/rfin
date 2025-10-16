@@ -122,4 +122,3 @@ impl From<RollForwardReport> for JsRollForwardReport {
         Self { inner }
     }
 }
-

@@ -45,8 +45,9 @@ fn py_apply_scenario(
     let scenario_inner = scenario.extract::<PyRef<PyScenarioSpec>>()?.inner.clone();
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
 
-    let (transformed, _market, _report) = apply_scenario(&portfolio_inner, &scenario_inner, &market_ctx.inner)
-        .map_err(portfolio_to_py)?;
+    let (transformed, _market, _report) =
+        apply_scenario(&portfolio_inner, &scenario_inner, &market_ctx.inner)
+            .map_err(portfolio_to_py)?;
 
     Ok(PyPortfolio::new(transformed))
 }
@@ -88,13 +89,17 @@ fn py_apply_and_revalue(
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
 
     let cfg = if let Some(config_obj) = config {
-        config_obj.extract::<PyRef<PyFinstackConfig>>()?.inner.clone()
+        config_obj
+            .extract::<PyRef<PyFinstackConfig>>()?
+            .inner
+            .clone()
     } else {
         finstack_core::config::FinstackConfig::default()
     };
 
-    let (valuation, _report) = apply_and_revalue(&portfolio_inner, &scenario_inner, &market_ctx.inner, &cfg)
-        .map_err(portfolio_to_py)?;
+    let (valuation, _report) =
+        apply_and_revalue(&portfolio_inner, &scenario_inner, &market_ctx.inner, &cfg)
+            .map_err(portfolio_to_py)?;
 
     Ok(PyPortfolioValuation::new(valuation))
 }
@@ -108,10 +113,10 @@ pub(crate) fn register<'py>(
     {
         let wrapped_apply = wrap_pyfunction!(py_apply_scenario, parent)?;
         parent.add("apply_scenario", wrapped_apply)?;
-        
+
         let wrapped_revalue = wrap_pyfunction!(py_apply_and_revalue, parent)?;
         parent.add("apply_and_revalue", wrapped_revalue)?;
-        
+
         Ok(vec![
             "apply_scenario".to_string(),
             "apply_and_revalue".to_string(),
@@ -123,4 +128,3 @@ pub(crate) fn register<'py>(
         Ok(vec![])
     }
 }
-

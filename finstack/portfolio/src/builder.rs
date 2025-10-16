@@ -197,12 +197,12 @@ impl PortfolioBuilder {
     /// #     .end(time::macros::date!(2024 - 02 - 01))
     /// #     .day_count(finstack_core::dates::DayCount::Act360)
     /// #     .disc_id("USD".into())
-/// #     .build()
-/// #     .unwrap());
-/// let position = Position::new("POS_1", "ACME", "INST_1", instrument.clone(), 1.0, PositionUnit::Units);
-/// let builder = PortfolioBuilder::new("FUND_A").position(position);
-/// ```
-pub fn position(mut self, position: Position) -> Self {
+    /// #     .build()
+    /// #     .unwrap());
+    /// let position = Position::new("POS_1", "ACME", "INST_1", instrument.clone(), 1.0, PositionUnit::Units);
+    /// let builder = PortfolioBuilder::new("FUND_A").position(position);
+    /// ```
+    pub fn position(mut self, position: Position) -> Self {
         self.positions.push(position);
         self
     }

@@ -151,4 +151,3 @@ impl JsPortfolioResults {
         Self { inner }
     }
 }
-

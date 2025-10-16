@@ -10,4 +10,4 @@ pub mod pricer;
 mod types;
 
 pub use pricer::SimpleInflationSwapDiscountingPricer;
-pub use types::{InflationSwap, PayReceiveInflation};
+pub use types::{InflationSwap, InflationSwapBuilder, PayReceiveInflation};

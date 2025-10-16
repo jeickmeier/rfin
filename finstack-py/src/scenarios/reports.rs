@@ -205,10 +205,12 @@ impl PyRollForwardReport {
 }
 
 /// Register report types with the scenarios module.
-pub(crate) fn register(_py: Python<'_>, module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
+pub(crate) fn register(
+    _py: Python<'_>,
+    module: &Bound<'_, PyModule>,
+) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyApplicationReport>()?;
     module.add_class::<PyRollForwardReport>()?;
 
     Ok(vec!["ApplicationReport", "RollForwardReport"])
 }
-

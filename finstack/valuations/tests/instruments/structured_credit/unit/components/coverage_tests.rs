@@ -1,0 +1,499 @@
+//! Unit tests for OC/IC coverage test calculations.
+//!
+//! Tests cover:
+//! - OC test calculation logic
+//! - IC test calculation logic
+//! - Passing/failing scenarios
+//! - Cure amount calculations
+//! - Edge cases and boundary conditions
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::money::Money;
+use finstack_valuations::instruments::structured_credit::{
+    AssetPool, CoverageTest, DealType, PoolAsset, TestContext, Tranche, TrancheCoupon,
+    TrancheSeniority, TrancheStructure,
+};
+use time::Month;
+
+fn test_date() -> Date {
+    Date::from_calendar_date(2025, Month::January, 1).unwrap()
+}
+
+fn maturity_date() -> Date {
+    Date::from_calendar_date(2030, Month::December, 31).unwrap()
+}
+
+// ============================================================================
+// OC Test Creation Tests
+// ============================================================================
+
+#[test]
+fn test_oc_test_creation() {
+    // Arrange & Act
+    let test = CoverageTest::new_oc(1.25);
+
+    // Assert
+    assert_eq!(test.required_level(), 1.25);
+}
+
+// ============================================================================
+// OC Test Calculation Tests
+// ============================================================================
+
+#[test]
+fn test_oc_test_passing_scenario() {
+    // Arrange: Pool value > required multiple of tranche
+    let mut pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
+    pool.assets.push(PoolAsset::floating_rate_loan(
+        "L1",
+        Money::new(125_000_000.0, Currency::USD),
+        "SOFR-3M",
+        400.0,
+        maturity_date(),
+    ));
+
+    let equity = Tranche::new(
+        "EQUITY",
+        0.0,
+        10.0,
+        TrancheSeniority::Equity,
+        Money::new(11_111_111.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.12 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let senior = Tranche::new(
+        "SENIOR",
+        10.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(100_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.05 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
+
+    let context = TestContext {
+        pool: &pool,
+        tranches: &tranches,
+        tranche_id: "SENIOR",
+        as_of: test_date(),
+        cash_balance: Money::new(0.0, Currency::USD),
+        interest_collections: Money::new(0.0, Currency::USD),
+    };
+
+    let test = CoverageTest::new_oc(1.25);
+
+    // Act
+    let result = test.calculate(&context);
+
+    // Assert: 125M / 100M = 1.25 (exactly at threshold, should pass)
+    assert!(result.is_passing);
+    assert!((result.current_ratio - 1.25).abs() < 0.01);
+}
+
+#[test]
+fn test_oc_test_failing_scenario() {
+    // Arrange: Pool value < required multiple
+    let mut pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
+    pool.assets.push(PoolAsset::floating_rate_loan(
+        "L1",
+        Money::new(120_000_000.0, Currency::USD),
+        "SOFR-3M",
+        400.0,
+        maturity_date(),
+    ));
+
+    let equity = Tranche::new(
+        "EQUITY",
+        0.0,
+        10.0,
+        TrancheSeniority::Equity,
+        Money::new(11_111_111.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.12 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let senior = Tranche::new(
+        "SENIOR",
+        10.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(100_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.05 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
+
+    let context = TestContext {
+        pool: &pool,
+        tranches: &tranches,
+        tranche_id: "SENIOR",
+        as_of: test_date(),
+        cash_balance: Money::new(0.0, Currency::USD),
+        interest_collections: Money::new(0.0, Currency::USD),
+    };
+
+    let test = CoverageTest::new_oc(1.25);
+
+    // Act
+    let result = test.calculate(&context);
+
+    // Assert: 120M / 100M = 1.20 < 1.25 (failing)
+    assert!(!result.is_passing);
+    assert!((result.current_ratio - 1.20).abs() < 0.01);
+}
+
+#[test]
+fn test_oc_test_with_cash_balance() {
+    // Arrange: Pool + cash should pass
+    let mut pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
+    pool.assets.push(PoolAsset::floating_rate_loan(
+        "L1",
+        Money::new(120_000_000.0, Currency::USD),
+        "SOFR-3M",
+        400.0,
+        maturity_date(),
+    ));
+
+    let equity = Tranche::new(
+        "EQUITY",
+        0.0,
+        10.0,
+        TrancheSeniority::Equity,
+        Money::new(11_111_111.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.12 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let senior = Tranche::new(
+        "SENIOR",
+        10.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(100_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.05 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
+
+    let context = TestContext {
+        pool: &pool,
+        tranches: &tranches,
+        tranche_id: "SENIOR",
+        as_of: test_date(),
+        cash_balance: Money::new(5_000_000.0, Currency::USD), // Additional cash
+        interest_collections: Money::new(0.0, Currency::USD),
+    };
+
+    let test = CoverageTest::new_oc(1.25);
+
+    // Act
+    let result = test.calculate(&context);
+
+    // Assert: (120M + 5M) / 100M = 1.25 (passing)
+    assert!(result.is_passing);
+}
+
+#[test]
+fn test_oc_test_cure_amount_calculation() {
+    // Arrange
+    let mut pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
+    pool.assets.push(PoolAsset::floating_rate_loan(
+        "L1",
+        Money::new(115_000_000.0, Currency::USD),
+        "SOFR-3M",
+        400.0,
+        maturity_date(),
+    ));
+
+    let tranche = Tranche::new(
+        "SENIOR",
+        10.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(100_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.05 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+
+    let context = TestContext {
+        pool: &pool,
+        tranches: &tranches,
+        tranche_id: "SENIOR",
+        as_of: test_date(),
+        cash_balance: Money::new(0.0, Currency::USD),
+        interest_collections: Money::new(0.0, Currency::USD),
+    };
+
+    let test = CoverageTest::new_oc(1.25);
+
+    // Act
+    let result = test.calculate(&context);
+
+    // Assert: Need 125M, have 115M → cure amount = 10M
+    assert!(!result.is_passing);
+    assert!(result.cure_amount.is_some());
+    assert_eq!(result.cure_amount.unwrap().amount(), 10_000_000.0);
+}
+
+// ============================================================================
+// IC Test Creation Tests
+// ============================================================================
+
+#[test]
+fn test_ic_test_creation() {
+    // Arrange & Act
+    let test = CoverageTest::new_ic(1.20);
+
+    // Assert
+    assert_eq!(test.required_level(), 1.20);
+}
+
+// ============================================================================
+// IC Test Calculation Tests
+// ============================================================================
+
+#[test]
+fn test_ic_test_passing_scenario() {
+    // Arrange: Interest collections > required multiple of interest due
+    let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
+
+    let tranche = Tranche::new(
+        "SENIOR",
+        10.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(100_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.05 }, // 5% = 1.25M quarterly
+        maturity_date(),
+    )
+    .unwrap();
+
+    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+
+    let context = TestContext {
+        pool: &pool,
+        tranches: &tranches,
+        tranche_id: "SENIOR",
+        as_of: test_date(),
+        cash_balance: Money::new(0.0, Currency::USD),
+        interest_collections: Money::new(1_500_000.0, Currency::USD), // 1.5M collected
+    };
+
+    let test = CoverageTest::new_ic(1.20);
+
+    // Act
+    let result = test.calculate(&context);
+
+    // Assert: 1.5M / 1.25M = 1.20 (passing)
+    assert!(result.is_passing);
+    assert!((result.current_ratio - 1.20).abs() < 0.01);
+}
+
+#[test]
+fn test_ic_test_failing_scenario() {
+    // Arrange: Interest collections < required
+    let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
+
+    let tranche = Tranche::new(
+        "SENIOR",
+        10.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(100_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.05 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+
+    let context = TestContext {
+        pool: &pool,
+        tranches: &tranches,
+        tranche_id: "SENIOR",
+        as_of: test_date(),
+        cash_balance: Money::new(0.0, Currency::USD),
+        interest_collections: Money::new(1_000_000.0, Currency::USD), // Only 1M
+    };
+
+    let test = CoverageTest::new_ic(1.20);
+
+    // Act
+    let result = test.calculate(&context);
+
+    // Assert: 1M / 1.25M = 0.80 < 1.20 (failing)
+    assert!(!result.is_passing);
+}
+
+#[test]
+fn test_ic_test_no_cure_amount() {
+    // Arrange
+    let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
+
+    let tranche = Tranche::new(
+        "SENIOR",
+        10.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(100_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.05 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+
+    let context = TestContext {
+        pool: &pool,
+        tranches: &tranches,
+        tranche_id: "SENIOR",
+        as_of: test_date(),
+        cash_balance: Money::new(0.0, Currency::USD),
+        interest_collections: Money::new(1_000_000.0, Currency::USD),
+    };
+
+    let test = CoverageTest::new_ic(1.20);
+
+    // Act
+    let result = test.calculate(&context);
+
+    // Assert: IC tests don't calculate cure amounts
+    assert!(result.cure_amount.is_none());
+}
+
+// ============================================================================
+// Edge Cases Tests
+// ============================================================================
+
+#[test]
+fn test_oc_test_empty_pool() {
+    // Arrange: Empty pool
+    let pool = AssetPool::new("EMPTY", DealType::CLO, Currency::USD);
+
+    let tranche = Tranche::new(
+        "SENIOR",
+        10.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(100_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.05 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+
+    let context = TestContext {
+        pool: &pool,
+        tranches: &tranches,
+        tranche_id: "SENIOR",
+        as_of: test_date(),
+        cash_balance: Money::new(0.0, Currency::USD),
+        interest_collections: Money::new(0.0, Currency::USD),
+    };
+
+    let test = CoverageTest::new_oc(1.25);
+
+    // Act
+    let result = test.calculate(&context);
+
+    // Assert: Should fail with 0 ratio
+    assert!(!result.is_passing);
+    assert_eq!(result.current_ratio, 0.0);
+}
+
+#[test]
+fn test_ic_test_no_interest_collections() {
+    // Arrange
+    let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
+
+    let tranche = Tranche::new(
+        "SENIOR",
+        10.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(100_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.05 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+
+    let context = TestContext {
+        pool: &pool,
+        tranches: &tranches,
+        tranche_id: "SENIOR",
+        as_of: test_date(),
+        cash_balance: Money::new(0.0, Currency::USD),
+        interest_collections: Money::new(0.0, Currency::USD),
+    };
+
+    let test = CoverageTest::new_ic(1.20);
+
+    // Act
+    let result = test.calculate(&context);
+
+    // Assert: Should fail
+    assert!(!result.is_passing);
+}
+
+#[test]
+fn test_oc_test_infinity_ratio_zero_debt() {
+    // Arrange: Edge case with zero tranche balance
+    let mut pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
+    pool.assets.push(PoolAsset::floating_rate_loan(
+        "L1",
+        Money::new(100_000_000.0, Currency::USD),
+        "SOFR-3M",
+        400.0,
+        maturity_date(),
+    ));
+
+    let tranche = Tranche::new(
+        "SENIOR",
+        10.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(0.0, Currency::USD), // Zero balance
+        TrancheCoupon::Fixed { rate: 0.05 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+
+    let context = TestContext {
+        pool: &pool,
+        tranches: &tranches,
+        tranche_id: "SENIOR",
+        as_of: test_date(),
+        cash_balance: Money::new(0.0, Currency::USD),
+        interest_collections: Money::new(0.0, Currency::USD),
+    };
+
+    let test = CoverageTest::new_oc(1.25);
+
+    // Act
+    let result = test.calculate(&context);
+
+    // Assert: Should pass with infinite ratio
+    assert!(result.is_passing);
+    assert_eq!(result.current_ratio, f64::INFINITY);
+}
+

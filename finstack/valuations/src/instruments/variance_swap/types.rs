@@ -225,7 +225,7 @@ impl VarianceSwap {
     }
 
     /// Sampling policy aware annualization factor (uses market overrides when available).
-    pub(crate) fn annualization_factor_with_policy(&self, context: &MarketContext) -> f64 {
+    pub fn annualization_factor_with_policy(&self, context: &MarketContext) -> f64 {
         // Allow market override via unitless scalars
         // Priority: UNDERLYING_TRADING_DAYS_PER_YEAR, TRADING_DAYS_PER_YEAR
         let tdy_override = context
@@ -292,7 +292,7 @@ impl VarianceSwap {
     }
 
     /// Calculate realized fraction based on observation counts (sampling-based weight).
-    pub(crate) fn realized_fraction_by_observations(&self, as_of: Date) -> f64 {
+    pub fn realized_fraction_by_observations(&self, as_of: Date) -> f64 {
         let all = self.observation_dates();
         if all.is_empty() {
             return 0.0;
@@ -309,11 +309,7 @@ impl VarianceSwap {
     }
 
     /// Get historical prices aligned to observation dates when available.
-    pub(crate) fn get_historical_prices(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Result<Vec<f64>> {
+    pub fn get_historical_prices(&self, context: &MarketContext, as_of: Date) -> Result<Vec<f64>> {
         // Try generic time series first (preferred)
         if let Ok(series) = context.series(&self.underlying_id) {
             let dates: Vec<Date> = self
@@ -338,11 +334,7 @@ impl VarianceSwap {
     }
 
     /// Calculate partial realized variance for the elapsed period.
-    pub(crate) fn partial_realized_variance(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Result<f64> {
+    pub fn partial_realized_variance(&self, context: &MarketContext, as_of: Date) -> Result<f64> {
         let prices = self.get_historical_prices(context, as_of)?;
         if prices.len() < 2 {
             return Ok(0.0);
@@ -355,11 +347,7 @@ impl VarianceSwap {
     }
 
     /// Calculate implied forward variance for the remaining period.
-    pub(crate) fn remaining_forward_variance(
-        &self,
-        context: &MarketContext,
-        _as_of: Date,
-    ) -> Result<f64> {
+    pub fn remaining_forward_variance(&self, context: &MarketContext, _as_of: Date) -> Result<f64> {
         // Prefer replication from a vol surface; fallback to ATM surface vol,
         // then scalar implied vol, and finally strike variance.
 
@@ -548,275 +536,5 @@ impl CashflowProvider for VarianceSwap {
             self.maturity,
             Money::new(0.0, self.notional.currency()),
         )])
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::instruments::common::traits::Attributes;
-    use finstack_core::{
-        currency::Currency,
-        dates::{DayCount, Frequency},
-        market_data::{
-            context::MarketContext,
-            scalars::{MarketScalar, ScalarTimeSeries, SeriesInterpolation},
-            surfaces::vol_surface::VolSurface,
-            term_structures::discount_curve::DiscountCurve,
-        },
-        math::stats::{realized_variance, RealizedVarMethod},
-        money::Money,
-        types::{CurveId, InstrumentId},
-    };
-    use time::Month;
-
-    const DISC_ID: &str = "USD_OIS";
-    const UNDERLYING_ID: &str = "SPX";
-
-    fn date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
-    }
-
-    fn sample_swap(side: PayReceive) -> VarianceSwap {
-        VarianceSwap::builder()
-            .id(InstrumentId::new(format!("VAR-{side:?}")))
-            .underlying_id(UNDERLYING_ID.to_string())
-            .notional(Money::new(1_000_000.0, Currency::USD))
-            .strike_variance(0.04)
-            .start_date(date(2025, 1, 2))
-            .maturity(date(2025, 4, 1))
-            .observation_freq(Frequency::daily())
-            .realized_var_method(RealizedVarMethod::CloseToClose)
-            .side(side)
-            .disc_id(CurveId::new(DISC_ID))
-            .day_count(DayCount::Act365F)
-            .attributes(Attributes::new())
-            .build()
-            .unwrap()
-    }
-
-    fn base_context() -> MarketContext {
-        let disc_curve = DiscountCurve::builder(DISC_ID)
-            .base_date(date(2025, 1, 2))
-            .knots([(0.0, 1.0), (0.5, 0.98), (1.0, 0.95)])
-            .build()
-            .unwrap();
-        MarketContext::new()
-            .insert_discount(disc_curve)
-            .insert_price(UNDERLYING_ID, MarketScalar::Unitless(5_000.0))
-    }
-
-    fn add_series(ctx: MarketContext, prices: &[(Date, f64)]) -> MarketContext {
-        let series = ScalarTimeSeries::new(UNDERLYING_ID, prices.to_vec(), None)
-            .unwrap()
-            .with_interpolation(SeriesInterpolation::Step);
-        ctx.insert_series(series)
-    }
-
-    fn add_unitless(ctx: MarketContext, id: impl AsRef<str>, value: f64) -> MarketContext {
-        ctx.insert_price(id, MarketScalar::Unitless(value))
-    }
-
-    fn add_surface(ctx: MarketContext, surface: VolSurface) -> MarketContext {
-        ctx.insert_surface(surface)
-    }
-
-    fn sample_surface() -> VolSurface {
-        VolSurface::builder(UNDERLYING_ID)
-            .expiries(&[0.25, 0.50])
-            .strikes(&[4_800.0, 5_200.0])
-            .row(&[0.30, 0.29])
-            .row(&[0.28, 0.27])
-            .build()
-            .unwrap()
-    }
-
-    fn price_series(swap: &VarianceSwap, base: f64, step: f64) -> Vec<(Date, f64)> {
-        swap.observation_dates()
-            .into_iter()
-            .enumerate()
-            .map(|(i, d)| (d, base + step * i as f64))
-            .collect()
-    }
-
-    #[test]
-    fn payoff_sign_matches_side() {
-        let long = sample_swap(PayReceive::Receive);
-        let short = sample_swap(PayReceive::Pay);
-        let realized = 0.05;
-
-        let long_amount = long.payoff(realized).amount();
-        let short_amount = short.payoff(realized).amount();
-
-        assert!(long_amount > 0.0);
-        assert!((long_amount + short_amount).abs() < 1e-8);
-    }
-
-    #[test]
-    fn annualization_factor_matches_market_conventions() {
-        let mut swap = sample_swap(PayReceive::Receive);
-        swap.observation_freq = Frequency::daily();
-        assert_eq!(swap.annualization_factor(), 252.0);
-
-        swap.observation_freq = Frequency::weekly();
-        assert_eq!(swap.annualization_factor(), 52.0);
-
-        swap.observation_freq = Frequency::monthly();
-        assert_eq!(swap.annualization_factor(), 12.0);
-
-        swap.observation_freq = Frequency::semi_annual();
-        assert_eq!(swap.annualization_factor(), 2.0);
-    }
-
-    #[test]
-    fn annualization_policy_override_is_applied() {
-        let swap = sample_swap(PayReceive::Receive);
-        let context = add_unitless(
-            base_context(),
-            format!("{UNDERLYING_ID}_TRADING_DAYS_PER_YEAR"),
-            260.0,
-        );
-        assert_eq!(swap.annualization_factor_with_policy(&context), 260.0);
-
-        let global = add_unitless(base_context(), "TRADING_DAYS_PER_YEAR", 255.0);
-        assert_eq!(swap.annualization_factor_with_policy(&global), 255.0);
-    }
-
-    #[test]
-    fn observation_dates_are_monotonic_and_include_maturity() {
-        let mut swap = sample_swap(PayReceive::Receive);
-        swap.observation_freq = Frequency::weekly();
-        let dates = swap.observation_dates();
-
-        assert!(!dates.is_empty());
-        assert_eq!(dates.first().copied(), Some(swap.start_date));
-        assert_eq!(dates.last().copied(), Some(swap.maturity));
-        assert!(dates.windows(2).all(|w| w[0] < w[1]));
-    }
-
-    #[test]
-    fn time_elapsed_fraction_respects_daycount() {
-        let swap = sample_swap(PayReceive::Receive);
-        assert_eq!(swap.time_elapsed_fraction(date(2024, 12, 1)), 0.0);
-        assert_eq!(swap.time_elapsed_fraction(swap.start_date), 0.0);
-        let midway = swap.time_elapsed_fraction(date(2025, 2, 15));
-        assert!(midway > 0.3 && midway < 0.7);
-        assert_eq!(swap.time_elapsed_fraction(swap.maturity), 1.0);
-        assert_eq!(swap.time_elapsed_fraction(date(2025, 5, 1)), 1.0);
-    }
-
-    #[test]
-    fn get_historical_prices_prefers_time_series() {
-        let swap = sample_swap(PayReceive::Receive);
-        let prices = price_series(&swap, 4_900.0, 5.0);
-        let context = add_series(base_context(), &prices);
-
-        let extracted = swap.get_historical_prices(&context, swap.maturity).unwrap();
-        assert!(extracted.len() >= prices.len());
-    }
-
-    #[test]
-    fn partial_realized_variance_matches_manual_calculation() {
-        let swap = sample_swap(PayReceive::Receive);
-        let prices = price_series(&swap, 5_000.0, 2.0);
-        let context = add_series(base_context(), &prices);
-        let as_of = date(2025, 2, 1);
-
-        let realized = swap.partial_realized_variance(&context, as_of).unwrap();
-        let obs_dates = swap.observation_dates();
-        let used_prices: Vec<f64> = obs_dates
-            .iter()
-            .filter(|d| **d <= as_of)
-            .map(|d| {
-                prices
-                    .iter()
-                    .find(|(pd, _)| pd == d)
-                    .map(|(_, p)| *p)
-                    .unwrap()
-            })
-            .collect();
-        let manual = realized_variance(&used_prices, RealizedVarMethod::CloseToClose, 252.0);
-
-        assert!((realized - manual).abs() < 1e-10);
-    }
-
-    #[test]
-    fn remaining_forward_variance_uses_surface_when_present() {
-        let swap = sample_swap(PayReceive::Receive);
-        let surface = sample_surface();
-        let context = add_unitless(
-            add_surface(base_context(), sample_surface()),
-            format!("{UNDERLYING_ID}-DIVYIELD"),
-            0.01,
-        );
-        let as_of = date(2024, 12, 1);
-
-        let forward = swap.remaining_forward_variance(&context, as_of).unwrap();
-        let t = swap
-            .day_count
-            .year_fraction(as_of, swap.maturity, Default::default())
-            .unwrap();
-        let vol_atm = surface.value_clamped(t.max(1e-8), 5_000.0);
-
-        assert!((forward - vol_atm.powi(2)).abs() < 1e-10);
-    }
-
-    #[test]
-    fn npv_before_start_uses_forward_variance_and_discounting() {
-        let swap = sample_swap(PayReceive::Receive);
-        let context = add_unitless(base_context(), format!("{UNDERLYING_ID}_IMPL_VOL"), 0.22);
-        let as_of = date(2024, 12, 1);
-
-        let pv = swap.npv(&context, as_of).unwrap();
-        let forward_var = 0.22_f64.powi(2);
-        let undiscounted = swap.payoff(forward_var).amount();
-        let t = swap
-            .day_count
-            .year_fraction(as_of, swap.maturity, Default::default())
-            .unwrap();
-        let df = context.get_discount_ref(DISC_ID).unwrap().df(t);
-        let expected = undiscounted * df;
-
-        assert!((pv.amount() - expected).abs() < 1e-6);
-    }
-
-    #[test]
-    fn npv_mid_period_blends_realized_and_forward_components() {
-        let mut swap = sample_swap(PayReceive::Receive);
-        swap.observation_freq = Frequency::weekly();
-        let prices = price_series(&swap, 4_950.0, 10.0);
-        let context = add_series(base_context(), &prices);
-        let as_of = swap.observation_dates()[swap.observation_dates().len() / 2];
-
-        let pv = swap.npv(&context, as_of).unwrap();
-        let realized = swap.partial_realized_variance(&context, as_of).unwrap();
-        let forward = swap.remaining_forward_variance(&context, as_of).unwrap();
-        let weight = swap.realized_fraction_by_observations(as_of);
-        let expected_var = realized * weight + forward * (1.0 - weight);
-        let t = swap
-            .day_count
-            .year_fraction(as_of, swap.maturity, Default::default())
-            .unwrap();
-        let df = context.get_discount_ref(DISC_ID).unwrap().df(t);
-        let expected = swap.payoff(expected_var).amount() * df;
-
-        assert!((pv.amount() - expected).abs() < 1e-6);
-    }
-
-    #[test]
-    fn npv_at_maturity_recovers_realized_payoff() {
-        let swap = sample_swap(PayReceive::Receive);
-        let prices = price_series(&swap, 5_000.0, 3.0);
-        let context = add_series(base_context(), &prices);
-
-        let pv = swap.npv(&context, swap.maturity).unwrap();
-        let realized = realized_variance(
-            &prices.iter().map(|(_, p)| *p).collect::<Vec<_>>(),
-            RealizedVarMethod::CloseToClose,
-            252.0,
-        );
-        let expected = swap.payoff(realized);
-
-        assert!((pv.amount() - expected.amount()).abs() < 1e-6);
     }
 }

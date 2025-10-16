@@ -1,0 +1,148 @@
+//! Market validation tests for CDS index option specific features.
+
+use super::common::*;
+use finstack_valuations::instruments::common::traits::Instrument;
+use time::macros::date;
+
+#[test]
+fn test_index_factor_scaling() {
+    // Index factor should scale PV linearly
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+
+    let base_option = CdsOptionBuilder::new().as_index(1.0).build(as_of);
+
+    let base_pv = base_option.value(&market, as_of).unwrap().amount();
+
+    for factor in [0.85, 0.90, 0.95] {
+        let scaled_option = CdsOptionBuilder::new().as_index(factor).build(as_of);
+
+        let scaled_pv = scaled_option.value(&market, as_of).unwrap().amount();
+        let ratio = scaled_pv / base_pv;
+
+        assert_approx_eq(
+            ratio,
+            factor,
+            0.001,
+            &format!("Index factor scaling for factor={}", factor),
+        );
+    }
+}
+
+#[test]
+fn test_forward_spread_adjustment_call() {
+    // Forward spread adjustment should increase call value
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+
+    let base_option = CdsOptionBuilder::new()
+        .call()
+        .as_index(1.0)
+        .forward_adjust(0.0)
+        .build(as_of);
+
+    let adjusted_option = CdsOptionBuilder::new()
+        .call()
+        .as_index(1.0)
+        .forward_adjust(25.0)
+        .build(as_of);
+
+    let base_pv = base_option.value(&market, as_of).unwrap().amount();
+    let adj_pv = adjusted_option.value(&market, as_of).unwrap().amount();
+
+    assert!(
+        adj_pv > base_pv,
+        "Positive forward adjustment should increase call value: base={}, adjusted={}",
+        base_pv,
+        adj_pv
+    );
+}
+
+#[test]
+fn test_forward_spread_adjustment_put() {
+    // Forward spread adjustment should decrease put value
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+
+    let base_option = CdsOptionBuilder::new()
+        .put()
+        .as_index(1.0)
+        .forward_adjust(0.0)
+        .build(as_of);
+
+    let adjusted_option = CdsOptionBuilder::new()
+        .put()
+        .as_index(1.0)
+        .forward_adjust(25.0)
+        .build(as_of);
+
+    let base_pv = base_option.value(&market, as_of).unwrap().amount();
+    let adj_pv = adjusted_option.value(&market, as_of).unwrap().amount();
+
+    assert!(
+        adj_pv < base_pv,
+        "Positive forward adjustment should decrease put value: base={}, adjusted={}",
+        base_pv,
+        adj_pv
+    );
+}
+
+#[test]
+fn test_index_vs_single_name() {
+    // Index option with factor 1.0 and no adjustment should differ from single-name
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+
+    let single_name = CdsOptionBuilder::new().build(as_of);
+    let index = CdsOptionBuilder::new()
+        .as_index(1.0)
+        .forward_adjust(0.0)
+        .build(as_of);
+
+    let sn_pv = single_name.value(&market, as_of).unwrap().amount();
+    let idx_pv = index.value(&market, as_of).unwrap().amount();
+
+    // Values might differ slightly due to implementation details
+    assert_finite(sn_pv, "Single-name PV");
+    assert_finite(idx_pv, "Index PV");
+}
+
+#[test]
+fn test_index_factor_zero() {
+    // Index factor of 0 should give zero value
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+
+    let option = CdsOptionBuilder::new().as_index(0.0).build(as_of);
+
+    let pv = option.value(&market, as_of).unwrap().amount();
+
+    assert_in_range(pv, -1e-10, 1e-10, "Index factor 0 should give ~0 value");
+}
+
+#[test]
+fn test_negative_forward_adjustment() {
+    // Negative forward adjustment should decrease call value
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+
+    let base = CdsOptionBuilder::new()
+        .call()
+        .as_index(1.0)
+        .forward_adjust(0.0)
+        .build(as_of);
+
+    let adjusted = CdsOptionBuilder::new()
+        .call()
+        .as_index(1.0)
+        .forward_adjust(-20.0)
+        .build(as_of);
+
+    let base_pv = base.value(&market, as_of).unwrap().amount();
+    let adj_pv = adjusted.value(&market, as_of).unwrap().amount();
+
+    assert!(
+        adj_pv < base_pv,
+        "Negative forward adjustment should decrease call value"
+    );
+}

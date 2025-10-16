@@ -81,7 +81,9 @@ impl PyPortfolio {
     /// Examples:
     ///     >>> position = portfolio.get_position("POS_1")
     fn get_position(&self, position_id: &str) -> Option<PyPosition> {
-        self.inner.get_position(position_id).map(|p| PyPosition::new(p.clone()))
+        self.inner
+            .get_position(position_id)
+            .map(|p| PyPosition::new(p.clone()))
     }
 
     #[pyo3(text_signature = "($self, entity_id)")]
@@ -249,4 +251,3 @@ pub(crate) fn register<'py>(
 
     Ok(vec!["Portfolio".to_string()])
 }
-

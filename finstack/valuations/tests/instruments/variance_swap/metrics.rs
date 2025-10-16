@@ -1,0 +1,534 @@
+//! Comprehensive tests for variance swap metrics.
+
+use super::common::*;
+use finstack_core::dates::Frequency;
+use finstack_core::math::stats::{realized_variance, RealizedVarMethod};
+use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::variance_swap::PayReceive;
+use finstack_valuations::metrics::MetricId;
+
+// ============================================================================
+// Basic Metrics Tests
+// ============================================================================
+
+#[test]
+fn test_variance_notional_returns_correct_amount() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+    let as_of = swap.start_date;
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::VarianceNotional])
+        .unwrap();
+    let notional = *result
+        .measures
+        .get(MetricId::VarianceNotional.as_str())
+        .unwrap();
+
+    // Assert
+    assert_eq!(notional, swap.notional.amount());
+}
+
+#[test]
+fn test_strike_vol_is_square_root_of_strike_variance() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+    let as_of = swap.start_date;
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::VarianceStrikeVol])
+        .unwrap();
+    let strike_vol = *result
+        .measures
+        .get(MetricId::VarianceStrikeVol.as_str())
+        .unwrap();
+
+    // Assert
+    assert!((strike_vol - swap.strike_variance.sqrt()).abs() < EPSILON);
+}
+
+#[test]
+fn test_time_to_maturity_before_maturity_is_positive() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+    let as_of = swap.start_date;
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::VarianceTimeToMaturity])
+        .unwrap();
+    let ttm = *result
+        .measures
+        .get(MetricId::VarianceTimeToMaturity.as_str())
+        .unwrap();
+
+    // Assert
+    assert!(ttm > 0.0);
+}
+
+#[test]
+fn test_time_to_maturity_at_maturity_is_zero() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, swap.maturity, &[MetricId::VarianceTimeToMaturity])
+        .unwrap();
+    let ttm = *result
+        .measures
+        .get(MetricId::VarianceTimeToMaturity.as_str())
+        .unwrap();
+
+    // Assert
+    assert_eq!(ttm, 0.0);
+}
+
+#[test]
+fn test_time_to_maturity_decreases_over_time() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+    let dates = vec![
+        date(2024, 12, 1),
+        swap.start_date,
+        date(2025, 2, 1),
+        date(2025, 3, 1),
+        swap.maturity,
+    ];
+
+    // Act
+    let ttms: Vec<f64> = dates
+        .iter()
+        .map(|&d| {
+            swap.price_with_metrics(&ctx, d, &[MetricId::VarianceTimeToMaturity])
+                .unwrap()
+                .measures[MetricId::VarianceTimeToMaturity.as_str()]
+        })
+        .collect();
+
+    // Assert
+    for window in ttms.windows(2) {
+        assert!(window[0] >= window[1], "TTM must decrease over time");
+    }
+}
+
+// ============================================================================
+// Realized and Expected Variance Metrics Tests
+// ============================================================================
+
+#[test]
+fn test_realized_variance_before_start_is_zero() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = base_context();
+    let as_of = date(2024, 12, 1);
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::RealizedVariance])
+        .unwrap();
+    let rv = *result
+        .measures
+        .get(MetricId::RealizedVariance.as_str())
+        .unwrap();
+
+    // Assert
+    assert_eq!(rv, 0.0);
+}
+
+#[test]
+fn test_realized_variance_matches_series_calculation() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let prices: Vec<(finstack_core::dates::Date, f64)> = swap
+        .observation_dates()
+        .into_iter()
+        .map(|d| (d, 4_900.0 + (d.ordinal() as f64 % 30.0)))
+        .collect();
+    let ctx = add_series(base_context(), &prices);
+    let as_of = date(2025, 2, 1);
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::RealizedVariance])
+        .unwrap();
+    let rv = *result
+        .measures
+        .get(MetricId::RealizedVariance.as_str())
+        .unwrap();
+
+    // Assert - RealizedVarianceCalculator uses frequency-based annualization
+    let annualization_factor = match swap.observation_freq.days() {
+        Some(1) => 365.0,
+        Some(7) => 52.0,
+        _ => match swap.observation_freq.months() {
+            Some(1) => 12.0,
+            Some(3) => 4.0,
+            Some(12) => 1.0,
+            _ => 252.0,
+        },
+    };
+
+    let used_prices: Vec<f64> = prices
+        .iter()
+        .filter(|(d, _)| *d >= swap.start_date && *d <= as_of)
+        .map(|(_, p)| *p)
+        .collect();
+    let manual = realized_variance(
+        &used_prices,
+        RealizedVarMethod::CloseToClose,
+        annualization_factor,
+    );
+
+    assert!((rv - manual).abs() < EPSILON);
+}
+
+#[test]
+fn test_expected_variance_before_start_uses_implied_vol() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.22);
+    let as_of = date(2024, 12, 1);
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedVariance])
+        .unwrap();
+    let ev = *result
+        .measures
+        .get(MetricId::ExpectedVariance.as_str())
+        .unwrap();
+
+    // Assert
+    assert!((ev - 0.22_f64.powi(2)).abs() < EPSILON);
+}
+
+#[test]
+fn test_expected_variance_blends_realized_and_forward_mid_period() {
+    // Arrange
+    let mut swap = sample_swap(PayReceive::Receive);
+    swap.observation_freq = Frequency::weekly();
+    let prices: Vec<(finstack_core::dates::Date, f64)> = swap
+        .observation_dates()
+        .into_iter()
+        .map(|d| (d, 4_950.0 + (d.ordinal() as f64 % 20.0)))
+        .collect();
+    let as_of = swap.start_date + time::Duration::days(28);
+    let ctx = add_unitless(
+        add_series(base_context(), &prices),
+        format!("{}_IMPL_VOL", UNDERLYING_ID),
+        0.23,
+    );
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedVariance])
+        .unwrap();
+    let ev = *result
+        .measures
+        .get(MetricId::ExpectedVariance.as_str())
+        .unwrap();
+
+    // Assert - should blend realized and forward
+    let obs_dates = swap.observation_dates();
+    let used_prices: Vec<f64> = obs_dates
+        .iter()
+        .filter(|d| **d <= as_of)
+        .filter_map(|d| prices.iter().find(|(pd, _)| pd == d).map(|(_, p)| *p))
+        .collect();
+    let realized = realized_variance(&used_prices, RealizedVarMethod::CloseToClose, 52.0);
+    let forward = 0.23_f64.powi(2);
+    let w = observation_weight(&swap, as_of);
+    let expected = realized * w + forward * (1.0 - w);
+
+    assert!((ev - expected).abs() < LOOSE_EPSILON);
+}
+
+// ============================================================================
+// Vega and Variance Vega Tests
+// ============================================================================
+
+#[test]
+fn test_vega_matches_formula() {
+    // Arrange
+    let mut swap = sample_swap(PayReceive::Receive);
+    swap.observation_freq = Frequency::weekly();
+    let as_of = swap.start_date + time::Duration::days(21);
+    let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.25);
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::Vega])
+        .unwrap();
+    let vega = *result.measures.get(MetricId::Vega.as_str()).unwrap();
+
+    // Assert
+    let remaining_fraction = 1.0 - observation_weight(&swap, as_of);
+    let t = swap
+        .day_count
+        .year_fraction(as_of, swap.maturity, Default::default())
+        .unwrap();
+    let df = ctx.get_discount_ref(DISC_ID).unwrap().df(t);
+    let expected =
+        df * 2.0 * swap.notional.amount() * 0.25 * 0.01 * remaining_fraction * swap.side.sign();
+
+    assert!((vega - expected).abs() < LOOSE_EPSILON);
+}
+
+#[test]
+fn test_vega_sign_matches_swap_side() {
+    // Arrange
+    let receive = sample_swap(PayReceive::Receive);
+    let pay = sample_swap(PayReceive::Pay);
+    let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.25);
+    let as_of = receive.start_date;
+
+    // Act
+    let vega_receive = receive
+        .price_with_metrics(&ctx, as_of, &[MetricId::Vega])
+        .unwrap()
+        .measures[MetricId::Vega.as_str()];
+    let vega_pay = pay
+        .price_with_metrics(&ctx, as_of, &[MetricId::Vega])
+        .unwrap()
+        .measures[MetricId::Vega.as_str()];
+
+    // Assert
+    assert!(vega_receive > 0.0);
+    assert!(vega_pay < 0.0);
+}
+
+#[test]
+fn test_variance_vega_matches_formula() {
+    // Arrange
+    let mut swap = sample_swap(PayReceive::Receive);
+    swap.observation_freq = Frequency::weekly();
+    let as_of = swap.start_date + time::Duration::days(21);
+    let ctx = base_context();
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::VarianceVega])
+        .unwrap();
+    let var_vega = *result
+        .measures
+        .get(MetricId::VarianceVega.as_str())
+        .unwrap();
+
+    // Assert
+    let remaining_fraction = 1.0 - observation_weight(&swap, as_of);
+    let t = swap
+        .day_count
+        .year_fraction(as_of, swap.maturity, Default::default())
+        .unwrap();
+    let df = ctx.get_discount_ref(DISC_ID).unwrap().df(t);
+    let expected = df * swap.notional.amount() * remaining_fraction * swap.side.sign();
+
+    assert!((var_vega - expected).abs() < LOOSE_EPSILON);
+}
+
+#[test]
+fn test_vega_decreases_as_maturity_approaches() {
+    // Arrange
+    let mut swap = sample_swap(PayReceive::Receive);
+    swap.observation_freq = Frequency::weekly();
+    let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.25);
+    let dates = swap.observation_dates();
+
+    // Act
+    let vegas: Vec<f64> = dates
+        .iter()
+        .map(|&d| {
+            swap.price_with_metrics(&ctx, d, &[MetricId::Vega])
+                .unwrap()
+                .measures[MetricId::Vega.as_str()]
+        })
+        .collect();
+
+    // Assert - magnitude should decrease
+    for window in vegas.windows(2) {
+        assert!(
+            window[0].abs() >= window[1].abs(),
+            "Vega magnitude should decrease"
+        );
+    }
+}
+
+// ============================================================================
+// DV01 Tests
+// ============================================================================
+
+#[test]
+fn test_dv01_matches_pv_times_duration_approximation() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let as_of = date(2025, 1, 10);
+    let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.20);
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .unwrap();
+    let dv01 = *result.measures.get(MetricId::Dv01.as_str()).unwrap();
+
+    // Assert
+    let pv = swap.value(&ctx, as_of).unwrap().amount();
+    let t = swap
+        .day_count
+        .year_fraction(as_of, swap.maturity, Default::default())
+        .unwrap();
+    let approx = -pv * t * 1e-4;
+
+    assert!((dv01 - approx).abs() < LOOSE_EPSILON);
+}
+
+#[test]
+fn test_dv01_at_maturity_is_zero() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let prices = price_series(&swap, 5_000.0, 3.0);
+    let ctx = add_series(base_context(), &prices);
+
+    // Act
+    let result = swap
+        .price_with_metrics(&ctx, swap.maturity, &[MetricId::Dv01])
+        .unwrap();
+    let dv01 = *result.measures.get(MetricId::Dv01.as_str()).unwrap();
+
+    // Assert
+    assert_eq!(dv01, 0.0);
+}
+
+#[test]
+fn test_dv01_decreases_as_maturity_approaches() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.22);
+    let dates = vec![
+        date(2024, 12, 1),
+        swap.start_date,
+        date(2025, 2, 1),
+        swap.maturity,
+    ];
+
+    // Act
+    let dv01s: Vec<f64> = dates
+        .iter()
+        .map(|&d| {
+            swap.price_with_metrics(&ctx, d, &[MetricId::Dv01])
+                .unwrap()
+                .measures[MetricId::Dv01.as_str()]
+        })
+        .collect();
+
+    // Assert - magnitude should decrease
+    for window in dv01s.windows(2) {
+        assert!(
+            window[0].abs() >= window[1].abs(),
+            "DV01 magnitude should decrease"
+        );
+    }
+}
+
+// ============================================================================
+// Combined Metrics Tests
+// ============================================================================
+
+#[test]
+fn test_all_metrics_pre_start() {
+    // Arrange
+    let swap = sample_swap(PayReceive::Receive);
+    let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.22);
+    let as_of = date(2024, 12, 1);
+
+    // Act
+    let result = swap
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[
+                MetricId::Vega,
+                MetricId::Dv01,
+                MetricId::VarianceVega,
+                MetricId::ExpectedVariance,
+                MetricId::RealizedVariance,
+                MetricId::VarianceNotional,
+                MetricId::VarianceStrikeVol,
+                MetricId::VarianceTimeToMaturity,
+            ],
+        )
+        .unwrap();
+
+    // Assert - all metrics should be present and finite
+    assert!(result.measures.contains_key(MetricId::Vega.as_str()));
+    assert!(result.measures.contains_key(MetricId::Dv01.as_str()));
+    assert!(result
+        .measures
+        .contains_key(MetricId::VarianceVega.as_str()));
+    assert!(result
+        .measures
+        .contains_key(MetricId::ExpectedVariance.as_str()));
+    assert!(result
+        .measures
+        .contains_key(MetricId::RealizedVariance.as_str()));
+    assert!(result
+        .measures
+        .contains_key(MetricId::VarianceNotional.as_str()));
+    assert!(result
+        .measures
+        .contains_key(MetricId::VarianceStrikeVol.as_str()));
+    assert!(result
+        .measures
+        .contains_key(MetricId::VarianceTimeToMaturity.as_str()));
+
+    for (_, &value) in result.measures.iter() {
+        assert!(value.is_finite(), "All metrics must be finite");
+    }
+}
+
+#[test]
+fn test_all_metrics_mid_period() {
+    // Arrange
+    let mut swap = sample_swap(PayReceive::Receive);
+    swap.observation_freq = Frequency::weekly();
+    let prices = price_series(&swap, 5_000.0, 5.0);
+    let ctx = add_series(
+        add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.23),
+        &prices,
+    );
+    let dates = swap.observation_dates();
+    let as_of = dates[dates.len() / 2];
+
+    // Act
+    let result = swap
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[
+                MetricId::Vega,
+                MetricId::Dv01,
+                MetricId::VarianceVega,
+                MetricId::ExpectedVariance,
+                MetricId::RealizedVariance,
+                MetricId::VarianceNotional,
+                MetricId::VarianceStrikeVol,
+                MetricId::VarianceTimeToMaturity,
+            ],
+        )
+        .unwrap();
+
+    // Assert - all metrics should be present, finite, and reasonable
+    for (_, &value) in result.measures.iter() {
+        assert!(value.is_finite(), "All metrics must be finite");
+    }
+
+    // Realized variance should be positive mid-period
+    assert!(result.measures[MetricId::RealizedVariance.as_str()] >= 0.0);
+}

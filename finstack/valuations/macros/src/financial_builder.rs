@@ -73,7 +73,7 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
             if ident == format_ident!("start_date") {
                 has_start_date = true;
             }
-            if ident == format_ident!("maturity") {
+            if ident == format_ident!("maturity") || ident == format_ident!("maturity_date") {
                 has_maturity = true;
             }
             if ident == format_ident!("strike_variance") {
@@ -182,8 +182,15 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     // Post-build validation snippets based on field presence
     let mut post_build_checks = proc_macro2::TokenStream::new();
     if has_start_date && has_maturity {
+        // Check if the struct has maturity or maturity_date field
+        let maturity_field = if required_fields.iter().any(|(id, _)| id == "maturity") ||
+                                 optional_fields.iter().any(|(id, _)| id == "maturity") {
+            quote! { __built.maturity }
+        } else {
+            quote! { __built.maturity_date }
+        };
         post_build_checks.extend(quote! {
-            if __built.start_date >= __built.maturity {
+            if __built.start_date >= #maturity_field {
                 return ::core::result::Result::Err(finstack_core::error::InputError::InvalidDateRange.into());
             }
         });

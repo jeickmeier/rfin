@@ -24,4 +24,3 @@ pub use valuation::{js_value_portfolio, JsPortfolioValuation, JsPositionValue};
 
 #[cfg(feature = "scenarios")]
 pub use scenarios::{js_apply_and_revalue, js_apply_scenario};
-

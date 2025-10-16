@@ -242,4 +242,3 @@ impl JsPortfolio {
         Self { inner }
     }
 }
-

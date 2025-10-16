@@ -1,0 +1,379 @@
+//! Pricing tests for interest rate options.
+//!
+//! Validates Black-76 model implementation for caps, floors, caplets, and floorlets.
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+use finstack_core::money::Money;
+use finstack_valuations::instruments::cap_floor::{InterestRateOption, RateOptionType};
+use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
+use time::macros::date;
+
+fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
+    ForwardCurve::builder(curve_id, 0.25)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, rate), (10.0, rate)])
+        .build()
+        .unwrap()
+}
+
+fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
+    DiscountCurve::builder(curve_id)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([
+            (0.0, 1.0),
+            (1.0, (-rate).exp() as f64),
+            (5.0, (-rate * 5.0).exp() as f64),
+            (10.0, (-rate * 10.0).exp() as f64),
+        ])
+        .build()
+        .unwrap()
+}
+
+fn build_flat_vol_surface(vol: f64, _base_date: Date, surface_id: &str) -> VolSurface {
+    VolSurface::builder(surface_id)
+        .expiries(&[0.25, 1.0, 5.0, 10.0])
+        .strikes(&[0.01, 0.03, 0.05, 0.07, 0.10])
+        .row(&[vol, vol, vol, vol, vol])
+        .row(&[vol, vol, vol, vol, vol])
+        .row(&[vol, vol, vol, vol, vol])
+        .row(&[vol, vol, vol, vol, vol])
+        .build()
+        .unwrap()
+}
+
+fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
+    InterestRateOption {
+        id: "CAP_TEST".into(),
+        rate_option_type: RateOptionType::Cap,
+        notional: Money::new(1_000_000.0, Currency::USD),
+        strike_rate: strike,
+        start_date: as_of,
+        end_date: end,
+        frequency: Frequency::quarterly(),
+        day_count: DayCount::Act360,
+        stub_kind: StubKind::None,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: None,
+        exercise_style: ExerciseStyle::European,
+        settlement: SettlementType::Cash,
+        disc_id: "USD_OIS".into(),
+        forward_id: "USD_LIBOR_3M".into(),
+        vol_id: "USD_CAP_VOL".into(),
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    }
+}
+
+fn create_standard_floor(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
+    InterestRateOption {
+        id: "FLOOR_TEST".into(),
+        rate_option_type: RateOptionType::Floor,
+        notional: Money::new(1_000_000.0, Currency::USD),
+        strike_rate: strike,
+        start_date: as_of,
+        end_date: end,
+        frequency: Frequency::quarterly(),
+        day_count: DayCount::Act360,
+        stub_kind: StubKind::None,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: None,
+        exercise_style: ExerciseStyle::European,
+        settlement: SettlementType::Cash,
+        disc_id: "USD_OIS".into(),
+        forward_id: "USD_LIBOR_3M".into(),
+        vol_id: "USD_CAP_VOL".into(),
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    }
+}
+
+#[test]
+fn test_cap_pv_positive() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let cap = create_standard_cap(as_of, end, 0.05);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let pv = cap.value(&market, as_of).unwrap();
+
+    // Cap should have positive value due to vol
+    assert!(pv.amount() > 0.0, "Cap PV should be positive");
+    assert!(pv.currency() == Currency::USD);
+}
+
+#[test]
+fn test_floor_pv_positive() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let floor = create_standard_floor(as_of, end, 0.05);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let pv = floor.value(&market, as_of).unwrap();
+
+    // Floor should have positive value due to vol
+    assert!(pv.amount() > 0.0, "Floor PV should be positive");
+}
+
+#[test]
+fn test_atm_cap_pricing() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    // ATM: strike equals forward
+    let cap = create_standard_cap(as_of, end, 0.05);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let pv = cap.value(&market, as_of).unwrap().amount();
+
+    // ATM cap should have significant value
+    assert!(
+        pv > 10_000.0,
+        "ATM cap should have meaningful value: {}",
+        pv
+    );
+}
+
+#[test]
+fn test_itm_cap_more_valuable_than_atm() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let atm_cap = create_standard_cap(as_of, end, 0.05);
+    let itm_cap = create_standard_cap(as_of, end, 0.03); // Strike < forward = ITM
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let atm_pv = atm_cap.value(&market, as_of).unwrap().amount();
+    let itm_pv = itm_cap.value(&market, as_of).unwrap().amount();
+
+    // ITM cap should be more valuable than ATM
+    assert!(
+        itm_pv > atm_pv,
+        "ITM cap ({}) should be more valuable than ATM ({})",
+        itm_pv,
+        atm_pv
+    );
+}
+
+#[test]
+fn test_otm_cap_less_valuable_than_atm() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let atm_cap = create_standard_cap(as_of, end, 0.05);
+    let otm_cap = create_standard_cap(as_of, end, 0.07); // Strike > forward = OTM
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let atm_pv = atm_cap.value(&market, as_of).unwrap().amount();
+    let otm_pv = otm_cap.value(&market, as_of).unwrap().amount();
+
+    // OTM cap should be less valuable than ATM
+    assert!(
+        otm_pv < atm_pv,
+        "OTM cap ({}) should be less valuable than ATM ({})",
+        otm_pv,
+        atm_pv
+    );
+}
+
+#[test]
+fn test_higher_vol_increases_cap_value() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let cap = create_standard_cap(as_of, end, 0.05);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+
+    let low_vol_surface = build_flat_vol_surface(0.20, as_of, "USD_CAP_VOL");
+    let high_vol_surface = build_flat_vol_surface(0.40, as_of, "USD_CAP_VOL");
+
+    let low_vol_market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(low_vol_surface);
+
+    let disc_curve2 = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve2 = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+
+    let high_vol_market = MarketContext::new()
+        .insert_discount(disc_curve2)
+        .insert_forward(fwd_curve2)
+        .insert_surface(high_vol_surface);
+
+    let low_vol_pv = cap.value(&low_vol_market, as_of).unwrap().amount();
+    let high_vol_pv = cap.value(&high_vol_market, as_of).unwrap().amount();
+
+    // Higher vol should increase option value
+    assert!(
+        high_vol_pv > low_vol_pv,
+        "High vol ({}) should produce higher value than low vol ({})",
+        high_vol_pv,
+        low_vol_pv
+    );
+}
+
+#[test]
+fn test_caplet_single_period_pricing() {
+    let as_of = date!(2024 - 01 - 01);
+    let start = date!(2024 - 01 - 01);
+    let end = date!(2024 - 04 - 01); // Single 3M period
+
+    let caplet = InterestRateOption {
+        id: "CAPLET_TEST".into(),
+        rate_option_type: RateOptionType::Caplet,
+        notional: Money::new(1_000_000.0, Currency::USD),
+        strike_rate: 0.05,
+        start_date: start,
+        end_date: end,
+        frequency: Frequency::quarterly(),
+        day_count: DayCount::Act360,
+        stub_kind: StubKind::None,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: None,
+        exercise_style: ExerciseStyle::European,
+        settlement: SettlementType::Cash,
+        disc_id: "USD_OIS".into(),
+        forward_id: "USD_LIBOR_3M".into(),
+        vol_id: "USD_CAP_VOL".into(),
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let pv = caplet.value(&market, as_of).unwrap();
+
+    // Caplet should price successfully
+    assert!(pv.amount() >= 0.0, "Caplet PV should be non-negative");
+}
+
+#[test]
+fn test_pricing_with_implied_vol_override() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let mut cap = create_standard_cap(as_of, end, 0.05);
+    cap.pricing_overrides.implied_volatility = Some(0.25);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let pv = cap.value(&market, as_of).unwrap();
+
+    // Should use override vol (0.25) instead of surface vol (0.30)
+    assert!(pv.amount() > 0.0, "Cap with vol override should price");
+}
+
+#[test]
+fn test_zero_notional_cap() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let mut cap = create_standard_cap(as_of, end, 0.05);
+    cap.notional = Money::new(0.0, Currency::USD);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let pv = cap.value(&market, as_of).unwrap().amount();
+
+    // Zero notional should result in zero PV
+    assert_eq!(pv, 0.0, "Zero notional cap should have zero PV");
+}
+
+#[test]
+fn test_longer_maturity_more_valuable() {
+    let as_of = date!(2024 - 01 - 01);
+
+    let short_cap = create_standard_cap(as_of, date!(2026 - 01 - 01), 0.05);
+    let long_cap = create_standard_cap(as_of, date!(2034 - 01 - 01), 0.05);
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let short_pv = short_cap.value(&market, as_of).unwrap().amount();
+    let long_pv = long_cap.value(&market, as_of).unwrap().amount();
+
+    // Longer maturity cap contains more caplets, should be more valuable
+    assert!(
+        long_pv > short_pv,
+        "10Y cap ({}) should be more valuable than 2Y cap ({})",
+        long_pv,
+        short_pv
+    );
+}
