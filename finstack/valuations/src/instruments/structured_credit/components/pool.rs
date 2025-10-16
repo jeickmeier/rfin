@@ -182,6 +182,10 @@ impl PoolAsset {
 
     /// Remaining term to maturity in years
     pub fn remaining_term(&self, as_of: Date, day_count: DayCount) -> finstack_core::Result<f64> {
+        // Handle past maturity - return 0.0 instead of error
+        if as_of >= self.maturity {
+            return Ok(0.0);
+        }
         day_count.year_fraction(
             as_of,
             self.maturity,

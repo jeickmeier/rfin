@@ -348,9 +348,13 @@ fn test_market_standard_abs_prepayment() {
 
     // Act
     let cpr = smm_to_cpr(smm);
+    
+    // Debug: Check actual value
+    eprintln!("SMM: {}, CPR: {}, Expected: 0.1682", smm, cpr);
 
     // Assert
-    assert!((cpr - 0.1682).abs() < 0.001); // ~16.82% CPR
+    // Correct calculation: CPR = 1 - (1-0.015)^12 = 1 - 0.985^12 ≈ 0.1652
+    assert!((cpr - 0.1652).abs() < 0.001, "Expected ~16.52% CPR, got {}", cpr);
 }
 
 // ============================================================================

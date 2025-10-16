@@ -217,7 +217,18 @@ fn test_oc_test_cure_amount_calculation() {
         maturity_date(),
     ));
 
-    let tranche = Tranche::new(
+    let equity = Tranche::new(
+        "EQUITY",
+        0.0,
+        10.0,
+        TrancheSeniority::Equity,
+        Money::new(11_111_111.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.12 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let senior = Tranche::new(
         "SENIOR",
         10.0,
         100.0,
@@ -228,7 +239,7 @@ fn test_oc_test_cure_amount_calculation() {
     )
     .unwrap();
 
-    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+    let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
     let context = TestContext {
         pool: &pool,
@@ -272,7 +283,18 @@ fn test_ic_test_passing_scenario() {
     // Arrange: Interest collections > required multiple of interest due
     let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
 
-    let tranche = Tranche::new(
+    let equity = Tranche::new(
+        "EQUITY",
+        0.0,
+        10.0,
+        TrancheSeniority::Equity,
+        Money::new(11_111_111.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.12 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let senior = Tranche::new(
         "SENIOR",
         10.0,
         100.0,
@@ -283,7 +305,7 @@ fn test_ic_test_passing_scenario() {
     )
     .unwrap();
 
-    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+    let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
     let context = TestContext {
         pool: &pool,
@@ -309,7 +331,18 @@ fn test_ic_test_failing_scenario() {
     // Arrange: Interest collections < required
     let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
 
-    let tranche = Tranche::new(
+    let equity = Tranche::new(
+        "EQUITY",
+        0.0,
+        10.0,
+        TrancheSeniority::Equity,
+        Money::new(11_111_111.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.12 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let senior = Tranche::new(
         "SENIOR",
         10.0,
         100.0,
@@ -320,7 +353,7 @@ fn test_ic_test_failing_scenario() {
     )
     .unwrap();
 
-    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+    let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
     let context = TestContext {
         pool: &pool,
@@ -345,7 +378,18 @@ fn test_ic_test_no_cure_amount() {
     // Arrange
     let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
 
-    let tranche = Tranche::new(
+    let equity = Tranche::new(
+        "EQUITY",
+        0.0,
+        10.0,
+        TrancheSeniority::Equity,
+        Money::new(11_111_111.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.12 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let senior = Tranche::new(
         "SENIOR",
         10.0,
         100.0,
@@ -356,7 +400,7 @@ fn test_ic_test_no_cure_amount() {
     )
     .unwrap();
 
-    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+    let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
     let context = TestContext {
         pool: &pool,
@@ -385,7 +429,18 @@ fn test_oc_test_empty_pool() {
     // Arrange: Empty pool
     let pool = AssetPool::new("EMPTY", DealType::CLO, Currency::USD);
 
-    let tranche = Tranche::new(
+    let equity = Tranche::new(
+        "EQUITY",
+        0.0,
+        10.0,
+        TrancheSeniority::Equity,
+        Money::new(11_111_111.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.12 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let senior = Tranche::new(
         "SENIOR",
         10.0,
         100.0,
@@ -396,7 +451,7 @@ fn test_oc_test_empty_pool() {
     )
     .unwrap();
 
-    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+    let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
     let context = TestContext {
         pool: &pool,
@@ -422,7 +477,18 @@ fn test_ic_test_no_interest_collections() {
     // Arrange
     let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
 
-    let tranche = Tranche::new(
+    let equity = Tranche::new(
+        "EQUITY",
+        0.0,
+        10.0,
+        TrancheSeniority::Equity,
+        Money::new(11_111_111.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.12 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let senior = Tranche::new(
         "SENIOR",
         10.0,
         100.0,
@@ -433,7 +499,7 @@ fn test_ic_test_no_interest_collections() {
     )
     .unwrap();
 
-    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+    let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
     let context = TestContext {
         pool: &pool,
@@ -465,7 +531,18 @@ fn test_oc_test_infinity_ratio_zero_debt() {
         maturity_date(),
     ));
 
-    let tranche = Tranche::new(
+    let equity = Tranche::new(
+        "EQUITY",
+        0.0,
+        10.0,
+        TrancheSeniority::Equity,
+        Money::new(11_111_111.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.12 },
+        maturity_date(),
+    )
+    .unwrap();
+
+    let senior = Tranche::new(
         "SENIOR",
         10.0,
         100.0,
@@ -476,7 +553,7 @@ fn test_oc_test_infinity_ratio_zero_debt() {
     )
     .unwrap();
 
-    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+    let tranches = TrancheStructure::new(vec![equity, senior]).unwrap();
 
     let context = TestContext {
         pool: &pool,

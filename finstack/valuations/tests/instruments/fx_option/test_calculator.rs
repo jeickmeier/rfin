@@ -32,7 +32,8 @@ fn test_npv_matches_garman_kohlhagen() {
     assert_approx_eq(r_d, 0.03, 1e-3, 1e-3, "Domestic rate");
     assert_approx_eq(r_f, 0.01, 1e-3, 1e-3, "Foreign rate");
     assert_approx_eq(sigma, 0.15, 1e-10, 1e-10, "Vol");
-    assert_approx_eq(t, 1.0, 1e-3, 1e-3, "Time to expiry");
+    // 2024 is a leap year, so 366/365 ≈ 1.0027
+    assert_approx_eq(t, 1.0, 5e-3, 5e-3, "Time to expiry");
 }
 
 #[test]

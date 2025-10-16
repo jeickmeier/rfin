@@ -70,7 +70,10 @@ fn test_schedule_discountable_simple() {
     
     // Assert
     assert!(pv.amount().is_finite(), "PV is finite");
-    assert!(pv.amount() > 0.0, "PV is positive");
+    // Note: PV includes initial notional outflow at issue date
+    // With 5% coupon and 5% discount rate, bond trades near par
+    // PV should be close to 0 (slightly negative due to time value)
+    assert!(pv.amount().abs() < 1.0, "PV near zero for at-par bond: got {}", pv.amount());
     assert_eq!(pv.currency(), Currency::USD);
 }
 
@@ -111,7 +114,8 @@ fn test_npv_zero_rate() {
     let pv = schedule.npv(&curve, curve.base_date(), DayCount::Act365F).unwrap();
     
     // Assert: With zero rate, PV = sum of cashflows
-    let expected = 1_000.0 + 1_000.0 * 0.05; // Principal + 1yr coupon
+    // Cashflows: -1000 (initial outflow) + 50 (coupon) + 1000 (principal repayment) = 50
+    let expected = 1_000.0 * 0.05; // Net cashflow (coupon only, principal nets to zero)
     assert_approx_eq(pv.amount(), expected, 1.0, "PV equals cashflow sum at 0%");
 }
 

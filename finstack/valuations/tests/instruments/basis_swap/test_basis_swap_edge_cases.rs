@@ -121,12 +121,12 @@ fn very_large_notional() {
     );
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01Primary])
         .unwrap();
-    let dv01 = res.measures[MetricId::Dv01.as_str()];
+    let dv01 = res.measures[MetricId::Dv01Primary.as_str()];
 
     assert!(dv01.is_finite());
-    assert!(dv01 > 1_000_000.0); // Should be substantial
+    assert!(dv01 > 1_000_000.0, "Large notional should have substantial DV01: got {}", dv01); // Should be substantial
 }
 
 #[test]
