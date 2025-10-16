@@ -46,7 +46,7 @@ fn test_ir01_finite_difference_validation() {
     let mut bumped_points: Vec<(f64, f64)> = Vec::new();
     for &t in disc_base.knots() {
         let df = disc_base.df(t);
-        let df_b = df * (-0.0001 * t).exp() as f64; // bump rates by 1bp
+        let df_b = df * (-0.0001 * t).exp(); // bump rates by 1bp
         bumped_points.push((t, df_b));
     }
 

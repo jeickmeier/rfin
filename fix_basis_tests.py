@@ -1,31 +1,43 @@
-import re
+"""Ensure basis swap test builders include a discount curve identifier."""
+# ruff: noqa: I001
+from __future__ import annotations
 
-# Only add .discount_curve_id where it's missing, don't change anything else
-files = [
-    'finstack/valuations/tests/instruments/basis_swap/test_basis_swap_edge_cases.rs',
-    'finstack/valuations/tests/instruments/basis_swap/test_basis_swap_sensitivities.rs',
-    'finstack/valuations/tests/instruments/basis_swap/test_basis_swap_par_spread.rs',
-    'finstack/valuations/tests/instruments/basis_swap/test_basis_swap_theta.rs',
-    'finstack/valuations/tests/instruments/basis_swap/test_basis_swap_metrics.rs'
+import re
+import pathlib
+
+
+FILES = [
+    pathlib.Path("finstack/valuations/tests/instruments/basis_swap/test_basis_swap_edge_cases.rs"),
+    pathlib.Path("finstack/valuations/tests/instruments/basis_swap/test_basis_swap_sensitivities.rs"),
+    pathlib.Path("finstack/valuations/tests/instruments/basis_swap/test_basis_swap_par_spread.rs"),
+    pathlib.Path("finstack/valuations/tests/instruments/basis_swap/test_basis_swap_theta.rs"),
+    pathlib.Path("finstack/valuations/tests/instruments/basis_swap/test_basis_swap_metrics.rs"),
 ]
 
-for file_path in files:
-    with open(file_path, 'r') as f:
-        content = f.read()
-    
-    # Find builders that don't have discount_curve_id
-    pattern = r'(BasisSwap::builder\(\)[^;]+?)\.build\(\)'
-    
-    def add_discount_curve(match):
-        builder = match.group(1)
-        if '.discount_curve_id' not in builder:
-            # Add discount_curve_id before build
-            return builder + '\n        .discount_curve_id(CurveId::new("USD-OIS"))\n        .build()'
-        return match.group(0)
-    
-    new_content = re.sub(pattern, add_discount_curve, content, flags=re.DOTALL)
-    
-    with open(file_path, 'w') as f:
-        f.write(new_content)
-    
-    print(f"Fixed {file_path}")
+PATTERN = re.compile(r"(BasisSwap::builder\(\)[^;]+?)\.build\(\)", flags=re.DOTALL)
+
+
+def add_discount_curve(match: re.Match[str]) -> str:
+    """Insert a discount curve ID into builder chains that omit it."""
+    builder = match.group(1)
+    if ".discount_curve_id" not in builder:
+        return f'{builder}\n        .discount_curve_id(CurveId::new("USD-OIS"))\n        .build()'
+    return match.group(0)
+
+
+def process_file(path: pathlib.Path) -> None:
+    """Apply the discount-curve fix in-place for the given file."""
+    content = path.read_text()
+    new_content = PATTERN.sub(add_discount_curve, content)
+    if new_content != content:
+        path.write_text(new_content)
+
+
+def main() -> None:
+    """Run the fix across all configured basis swap test files."""
+    for path in FILES:
+        process_file(path)
+
+
+if __name__ == "__main__":
+    main()

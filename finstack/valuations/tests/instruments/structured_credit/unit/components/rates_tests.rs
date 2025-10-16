@@ -389,7 +389,7 @@ fn test_very_small_rates() {
 #[test]
 fn test_conversion_monotonicity() {
     // Arrange: Test that conversions are monotonic
-    let rates = vec![0.0, 0.05, 0.10, 0.15, 0.20];
+    let rates = [0.0, 0.05, 0.10, 0.15, 0.20];
 
     // Act & Assert: CPR to SMM should be monotonically increasing
     let smms: Vec<f64> = rates.iter().map(|&cpr| cpr_to_smm(cpr)).collect();
@@ -400,4 +400,3 @@ fn test_conversion_monotonicity() {
         );
     }
 }
-

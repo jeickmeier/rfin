@@ -19,7 +19,7 @@ fn create_flat_curve(rate: f64, base_date: Date) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .day_count(DayCount::Act365F)
-        .knots([(0.0, 1.0), (5.0, (-rate * 5.0).exp() as f64)])
+        .knots([(0.0, 1.0), (5.0, (-rate * 5.0).exp())])
         .build()
         .unwrap()
 }

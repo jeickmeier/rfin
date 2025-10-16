@@ -29,12 +29,12 @@ pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> 
         .day_count(DayCount::Act365F)
         .knots([
             (0.0, 1.0),
-            (0.25, (-rate * 0.25).exp() as f64),
-            (0.5, (-rate * 0.5).exp() as f64),
-            (1.0, (-rate).exp() as f64),
-            (2.0, (-rate * 2.0).exp() as f64),
-            (5.0, (-rate * 5.0).exp() as f64),
-            (10.0, (-rate * 10.0).exp() as f64),
+            (0.25, (-rate * 0.25).exp()),
+            (0.5, (-rate * 0.5).exp()),
+            (1.0, (-rate).exp()),
+            (2.0, (-rate * 2.0).exp()),
+            (5.0, (-rate * 5.0).exp()),
+            (10.0, (-rate * 10.0).exp()),
         ])
         .build()
         .unwrap()
@@ -192,4 +192,29 @@ pub fn assert_non_negative(value: f64, label: &str) {
         label,
         value
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::Month;
+
+    #[test]
+    fn test_assert_approx_eq_helper() {
+        assert_approx_eq(1.0 + DEFAULT_TOL * 0.5, 1.0, "Within default tolerance");
+    }
+
+    #[test]
+    fn test_smile_surface_builder() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let surface = build_smile_vol_surface(as_of, "EQ_SMILE");
+        assert_eq!(surface.id().as_str(), "EQ_SMILE");
+    }
+
+    #[test]
+    fn test_smile_market_builder() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let market = build_smile_market(as_of, 150.0, 0.02, 0.01);
+        assert!(market.get_discount_ref(DISC_ID).is_ok());
+    }
 }

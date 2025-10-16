@@ -323,7 +323,7 @@ fn test_deep_itm_approaches_forward() {
     let pv = call.value(&market, as_of).unwrap().amount();
 
     // Deep ITM call ≈ (S - K*e^(-rT)) * contract_size
-    let forward_value = (spot - strike * (-rate * 1.0).exp() as f64) * call.contract_size;
+    let forward_value = (spot - strike * (-rate * 1.0).exp()) * call.contract_size;
 
     assert!(
         (pv - forward_value).abs() < 100.0,

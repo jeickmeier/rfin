@@ -24,9 +24,9 @@ fn build_test_curves() -> MarketContext {
         .day_count(DayCount::Act360)
         .knots([
             (0.0, 1.0),
-            (1.0, (-0.05_f64).exp() as f64),
-            (5.0, (-0.05_f64 * 5.0).exp() as f64),
-            (10.0, (-0.05_f64 * 10.0).exp() as f64),
+            (1.0, (-0.05_f64).exp()),
+            (5.0, (-0.05_f64 * 5.0).exp()),
+            (10.0, (-0.05_f64 * 10.0).exp()),
         ])
         .build()
         .unwrap();

@@ -31,7 +31,7 @@ fn test_put_call_parity_atm() {
     // Put-call parity: C - P = S * exp(-r_f * T) - K * exp(-r_d * T)
     let notional = call.notional.amount();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() as f64 - strike * (-r_d * t).exp() as f64);
+    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
 
     // Assert
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold ATM");
@@ -57,7 +57,7 @@ fn test_put_call_parity_itm() {
     
     let notional = call.notional.amount();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() as f64 - strike * (-r_d * t).exp() as f64);
+    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
 
     // Assert
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold ITM");
@@ -83,7 +83,7 @@ fn test_put_call_parity_otm() {
     
     let notional = call.notional.amount();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() as f64 - strike * (-r_d * t).exp() as f64);
+    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
 
     // Assert
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold OTM");
@@ -109,7 +109,7 @@ fn test_put_call_parity_high_vol() {
     
     let notional = call.notional.amount();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() as f64 - strike * (-r_d * t).exp() as f64);
+    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
 
     // Assert: Parity holds regardless of vol level
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold at high vol");
@@ -135,7 +135,7 @@ fn test_put_call_parity_steep_carry() {
     
     let notional = call.notional.amount();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() as f64 - strike * (-r_d * t).exp() as f64);
+    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
 
     // Assert: Parity holds with carry
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold with steep carry");
@@ -161,7 +161,7 @@ fn test_put_call_parity_short_dated() {
     
     let notional = call.notional.amount();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() as f64 - strike * (-r_d * t).exp() as f64);
+    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
 
     // Assert
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold for short dated");
@@ -187,7 +187,7 @@ fn test_put_call_parity_long_dated() {
     
     let notional = call.notional.amount();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() as f64 - strike * (-r_d * t).exp() as f64);
+    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
 
     // Assert
     assert_approx_eq(lhs, rhs, 1e-5, 10.0, "Put-call parity should hold for long dated");
@@ -213,7 +213,7 @@ fn test_put_call_parity_different_notionals() {
         let (spot, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
         
         let lhs = call_pv.amount() - put_pv.amount();
-        let rhs = notional * (spot * (-r_f * t).exp() as f64 - strike * (-r_d * t).exp() as f64);
+        let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
 
         // Assert
         let tol = notional * 1e-6;

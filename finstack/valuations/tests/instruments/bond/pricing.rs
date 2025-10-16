@@ -21,9 +21,9 @@ fn create_flat_curve(rate: f64, base_date: Date, id: &str) -> DiscountCurve {
         .day_count(DayCount::Act365F)
         .knots([
             (0.0, 1.0),
-            (1.0, (-rate).exp() as f64),
-            (5.0, (-rate * 5.0).exp() as f64),
-            (10.0, (-rate * 10.0).exp() as f64),
+            (1.0, (-rate).exp()),
+            (5.0, (-rate * 5.0).exp()),
+            (10.0, (-rate * 10.0).exp()),
         ])
         .build()
         .unwrap()

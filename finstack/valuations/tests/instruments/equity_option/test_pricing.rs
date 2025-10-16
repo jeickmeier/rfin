@@ -268,7 +268,7 @@ fn test_zero_vol_itm_call_equals_discounted_intrinsic() {
 
     // With zero vol, ITM call = max(0, S*exp(-qT) - K*exp(-rT)) * contract_size
     // Since q=0: S - K*exp(-rT)
-    let expected = (spot - strike * (-rate * 1.0).exp() as f64) * call.contract_size;
+    let expected = (spot - strike * (-rate * 1.0).exp()) * call.contract_size;
 
     assert_approx_eq_tol(
         pv.amount(),

@@ -22,9 +22,9 @@ fn build_flat_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketCo
         .day_count(DayCount::Act360)
         .knots([
             (0.0, 1.0),
-            (1.0, (-disc_rate).exp() as f64),
-            (5.0, (-disc_rate * 5.0).exp() as f64),
-            (10.0, (-disc_rate * 10.0).exp() as f64),
+            (1.0, (-disc_rate).exp()),
+            (5.0, (-disc_rate * 5.0).exp()),
+            (10.0, (-disc_rate * 10.0).exp()),
         ])
         .build()
         .unwrap();
@@ -141,9 +141,9 @@ fn test_multi_curve_environment() {
         .day_count(DayCount::Act360)
         .knots([
             (0.0, 1.0),
-            (1.0, (-0.04_f64).exp() as f64), // OIS at 4%
-            (5.0, (-0.04_f64 * 5.0).exp() as f64),
-            (10.0, (-0.04_f64 * 10.0).exp() as f64),
+            (1.0, (-0.04_f64).exp()), // OIS at 4%
+            (5.0, (-0.04_f64 * 5.0).exp()),
+            (10.0, (-0.04_f64 * 10.0).exp()),
         ])
         .build()
         .unwrap();
@@ -179,9 +179,9 @@ fn test_forward_starting_swap() {
         .day_count(DayCount::Act360)
         .knots([
             (0.0, 1.0),
-            (1.0, (-0.05_f64).exp() as f64),
-            (5.0, (-0.05_f64 * 5.0).exp() as f64),
-            (10.0, (-0.05_f64 * 10.0).exp() as f64),
+            (1.0, (-0.05_f64).exp()),
+            (5.0, (-0.05_f64 * 5.0).exp()),
+            (10.0, (-0.05_f64 * 10.0).exp()),
         ])
         .build()
         .unwrap();
@@ -298,8 +298,8 @@ fn test_swap_seasoned() {
         .day_count(DayCount::Act360)
         .knots([
             (0.0, 1.0),
-            (1.0, (-0.06_f64).exp() as f64), // Rates have risen
-            (5.0, (-0.06_f64 * 5.0).exp() as f64),
+            (1.0, (-0.06_f64).exp()), // Rates have risen
+            (5.0, (-0.06_f64 * 5.0).exp()),
         ])
         .build()
         .unwrap();

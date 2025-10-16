@@ -73,7 +73,7 @@ fn create_simple_waterfall() -> WaterfallEngine {
 fn flat_discount_curve(rate: f64, base: Date) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
         .base_date(base)
-        .knots(vec![(0.0, 1.0), (1.0, (-rate).exp() as f64), (5.0, (-rate * 5.0).exp() as f64)])
+        .knots(vec![(0.0, 1.0), (1.0, (-rate).exp()), (5.0, (-rate * 5.0).exp())])
         .build()
         .unwrap()
 }

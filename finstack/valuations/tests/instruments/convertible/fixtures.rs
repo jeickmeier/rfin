@@ -120,7 +120,7 @@ pub fn create_market_context_with_params(spot: f64, vol: f64, div_yield: f64) ->
 pub fn create_market_context_with_rate(rate: f64) -> MarketContext {
     let base_date = dates::base_date();
 
-    let df_10y = (-rate * 10.0).exp() as f64;
+    let df_10y = (-rate * 10.0).exp();
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (10.0, df_10y)])

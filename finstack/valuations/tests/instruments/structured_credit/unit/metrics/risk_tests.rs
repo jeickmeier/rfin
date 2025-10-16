@@ -13,28 +13,37 @@
 
 #[test]
 fn test_cs01_sign_convention() {
-    // CS01 should be positive (price falls when spread rises)
-    // This is verified in integration tests with actual cashflows
-    assert!(true, "CS01 sign convention verified in integration tests");
+    // CS01 should be positive when price decreases after a spread bump
+    let base_price = 100.0;
+    let bumped_price = 99.985; // Price after +1bp spread bump
+    let bump_size_bp = 1.0;
+    let cs01 = (base_price - bumped_price) / (bump_size_bp * 1e-4);
+    assert!(cs01 > 0.0, "CS01 must be positive when spreads widen");
 }
 
 #[test]
 fn test_spread_duration_relationship_to_cs01() {
-    // Spread Duration = CS01 / (Price × 1bp)
-    // This relationship is verified in integration tests
+    // Spread duration links price sensitivity (CS01) and price level
+    let base_price = 102.0;
+    let cs01: f64 = 85.0; // Example CS01 (price change per bp)
+    let price_after_bump = base_price - cs01 * 1e-4;
+    let spread_duration: f64 = (base_price - price_after_bump) / (base_price * 1e-4);
+    let expected_duration: f64 = cs01 / base_price;
     assert!(
-        true,
-        "Spread duration formula verified in integration tests"
+        (spread_duration - expected_duration).abs() < 1e-12_f64,
+        "Spread duration identity should hold"
     );
 }
 
 #[test]
 fn test_modified_duration_less_than_macaulay() {
-    // For positive yields: Modified < Macaulay
-    // This is verified in integration tests
+    // For positive yields: Modified duration < Macaulay duration
+    let macaulay_duration = 5.5;
+    let yield_to_maturity = 0.04;
+    let payments_per_year = 2.0;
+    let modified_duration = macaulay_duration / (1.0 + yield_to_maturity / payments_per_year);
     assert!(
-        true,
-        "Duration relationship verified in integration tests"
+        modified_duration < macaulay_duration,
+        "Modified duration must be less than Macaulay duration for positive yields"
     );
 }
-

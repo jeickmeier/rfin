@@ -95,7 +95,7 @@ fn test_time_to_maturity_decreases_over_time() {
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
     let ctx = base_context();
-    let dates = vec![
+    let dates = [
         date(2024, 12, 1),
         swap.start_date,
         date(2025, 2, 1),
@@ -411,7 +411,7 @@ fn test_dv01_decreases_as_maturity_approaches() {
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
     let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.22);
-    let dates = vec![
+    let dates = [
         date(2024, 12, 1),
         swap.start_date,
         date(2025, 2, 1),

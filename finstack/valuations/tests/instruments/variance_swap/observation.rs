@@ -306,7 +306,7 @@ fn test_time_elapsed_fraction_respects_day_count_convention() {
 fn test_time_elapsed_fraction_is_monotonic() {
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
-    let dates = vec![
+    let dates = [
         date(2024, 12, 1),
         swap.start_date,
         date(2025, 1, 15),

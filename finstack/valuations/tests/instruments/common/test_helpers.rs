@@ -74,7 +74,7 @@ pub fn test_date() -> Date {
 pub fn flat_curve(rate: f64, curve_id: &str) -> DiscountCurve {
     let base = test_date();
     let t_max = 30.0; // 30 years
-    let df_max = (-rate * t_max).exp() as f64;
+    let df_max = (-rate * t_max).exp();
 
     DiscountCurve::builder(curve_id)
         .base_date(base)
@@ -154,8 +154,8 @@ pub fn black_scholes_call(
     let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
     let d2 = d1 - vol * sqrt_t;
 
-    let discount = (-rate * time).exp() as f64;
-    let forward_discount = (-(rate - div_yield) * time).exp() as f64;
+    let discount = (-rate * time).exp();
+    let forward_discount = (-(rate - div_yield) * time).exp();
 
     spot * forward_discount * norm_cdf(d1) - strike * discount * norm_cdf(d2)
 }
@@ -170,8 +170,8 @@ pub fn black_scholes_put(
     div_yield: f64,
 ) -> f64 {
     let call = black_scholes_call(spot, strike, rate, vol, time, div_yield);
-    let pv_strike = strike * ((-rate * time).exp() as f64);
-    let pv_spot = spot * ((-div_yield * time).exp() as f64);
+    let pv_strike = strike * (-rate * time).exp();
+    let pv_spot = spot * (-div_yield * time).exp();
 
     // Put-call parity: P = C - S*e^(-qT) + K*e^(-rT)
     call - pv_spot + pv_strike
@@ -194,7 +194,36 @@ mod tests {
 
     #[test]
     fn test_relative_eq() {
-        assert_relative_eq(100.0, 99.0, 0.02, "1% difference should pass");
+        assert_relative_eq(100.0, 99.5, RELATIVE_TOLERANCE, "Within relative tolerance");
+    }
+
+    #[test]
+    fn test_money_helpers() {
+        let base = usd(100.0);
+        let bumped = usd(100.0 + TOLERANCE * 0.5);
+        assert_money_eq(base, bumped, TOLERANCE, "USD helper within tolerance");
+
+        let eur_value = eur(50.0);
+        assert_eq!(eur_value.currency(), Currency::EUR);
+    }
+
+    #[test]
+    fn test_upward_curve_builder() {
+        let curve = upward_curve("UPWARD");
+        assert_eq!(curve.id().as_str(), "UPWARD");
+        // Later maturity should discount less than near term
+        let df_short = curve.df(1.0);
+        let df_long = curve.df(10.0);
+        assert!(df_long < df_short);
+    }
+
+    #[test]
+    fn test_year_fraction_helper() {
+        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let yf = year_fraction(start, end);
+        assert!((yf - 1.0).abs() < 1e-4);
+        assert_eq!(standard_dc(), DayCount::Act365F);
     }
 
     #[test]
@@ -211,7 +240,7 @@ mod tests {
 
         // Put-call parity: C - P = S - K*e^(-rT)
         let lhs = call - put;
-        let rhs = spot - strike * (-rate * time).exp() as f64;
+        let rhs = spot - strike * (-rate * time).exp();
 
         assert_approx_eq(lhs, rhs, TIGHT_TOLERANCE, "Put-call parity");
     }

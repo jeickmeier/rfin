@@ -8,7 +8,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED;
-use finstack_valuations::instruments::cds::CDSConvention;
 use finstack_valuations::instruments::cds_index::parameters::{
     CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams,
 };
@@ -17,11 +16,11 @@ use finstack_valuations::instruments::CreditParams;
 
 /// Create a flat discount curve for testing
 pub fn flat_discount_curve(id: &str, base: Date, rate: f64) -> DiscountCurve {
-    let df_10y = (-rate * 10.0).exp() as f64;
+    let df_10y = (-rate * 10.0).exp();
     DiscountCurve::builder(id)
         .base_date(base)
         .day_count(DayCount::Act360)
-        .knots([(0.0, 1.0), (5.0, (-rate * 5.0).exp() as f64), (10.0, df_10y)])
+        .knots([(0.0, 1.0), (5.0, (-rate * 5.0).exp()), (10.0, df_10y)])
         .build()
         .unwrap()
 }

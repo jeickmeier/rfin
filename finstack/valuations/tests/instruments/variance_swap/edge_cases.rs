@@ -429,7 +429,7 @@ fn test_metrics_are_stable_under_repeated_calculations() {
 fn test_payoff_is_linear_in_variance_difference() {
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
-    let var_diffs = vec![0.01, 0.02, 0.03, 0.04];
+    let var_diffs = [0.01, 0.02, 0.03, 0.04];
 
     // Act
     let payoffs: Vec<f64> = var_diffs

@@ -13,10 +13,10 @@ use finstack_core::money::Money;
 pub fn flat_discount(id: &str, base: Date, rate: f64) -> DiscountCurve {
     let knots = vec![
         (0.0, 1.0),
-        (1.0, (-rate).exp() as f64),
-        (5.0, (-rate * 5.0).exp() as f64),
-        (10.0, (-rate * 10.0).exp() as f64),
-        (30.0, (-rate * 30.0).exp() as f64),
+        (1.0, (-rate).exp()),
+        (5.0, (-rate * 5.0).exp()),
+        (10.0, (-rate * 10.0).exp()),
+        (30.0, (-rate * 30.0).exp()),
     ];
     DiscountCurve::builder(id)
         .base_date(base)

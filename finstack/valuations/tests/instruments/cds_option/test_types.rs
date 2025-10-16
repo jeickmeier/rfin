@@ -78,7 +78,7 @@ fn test_single_name_option_defaults() {
 fn test_index_option_construction() {
     let as_of = date!(2025 - 01 - 01);
     let option = CdsOptionBuilder::new()
-        .as_index(0.88)
+        .with_index(0.88)
         .forward_adjust(15.0)
         .build(as_of);
 

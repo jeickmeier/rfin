@@ -17,9 +17,9 @@ use finstack_valuations::instruments::CreditParams;
 
 /// Standard flat discount curve for testing
 pub fn flat_discount(id: &str, base: Date, rate: f64) -> DiscountCurve {
-    let df1 = (-rate).exp() as f64;
-    let df5 = (-rate * 5.0).exp() as f64;
-    let df10 = (-rate * 10.0).exp() as f64;
+    let df1 = (-rate).exp();
+    let df5 = (-rate * 5.0).exp();
+    let df10 = (-rate * 10.0).exp();
 
     DiscountCurve::builder(id)
         .base_date(base)
@@ -127,7 +127,7 @@ impl CdsOptionBuilder {
         self
     }
 
-    pub fn as_index(mut self, factor: f64) -> Self {
+    pub fn with_index(mut self, factor: f64) -> Self {
         self.is_index = true;
         self.index_factor = Some(factor);
         self

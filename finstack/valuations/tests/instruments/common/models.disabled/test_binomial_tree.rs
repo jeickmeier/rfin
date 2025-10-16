@@ -233,7 +233,7 @@ fn test_put_call_parity() {
 
     // Assert: C - P = S - K*e^(-rT)
     let lhs = call_price - put_price;
-    let rhs = spot - strike * (-rate * time).exp() as f64;
+    let rhs = spot - strike * (-rate * time).exp();
 
     assert_approx_eq(lhs, rhs, 0.1, "Put-call parity");
 }
@@ -602,6 +602,6 @@ fn test_zero_volatility() {
 
     // Assert: Should be close to discounted intrinsic
     let intrinsic = 5.0;
-    let discounted = intrinsic * (-0.05 * 1.0).exp() as f64;
+    let discounted = intrinsic * (-0.05 * 1.0).exp();
     assert_relative_eq(price, discounted, 0.1, "Low vol ~ discounted intrinsic");
 }

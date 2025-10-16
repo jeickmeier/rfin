@@ -16,9 +16,9 @@ fn build_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketContext
         .day_count(DayCount::Act360)
         .knots([
             (0.0, 1.0),
-            (1.0, (-disc_rate).exp() as f64),
-            (5.0, (-disc_rate * 5.0).exp() as f64),
-            (10.0, (-disc_rate * 10.0).exp() as f64),
+            (1.0, (-disc_rate).exp()),
+            (5.0, (-disc_rate * 5.0).exp()),
+            (10.0, (-disc_rate * 10.0).exp()),
         ])
         .build()
         .unwrap();

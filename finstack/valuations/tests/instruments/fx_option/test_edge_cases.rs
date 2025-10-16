@@ -26,7 +26,7 @@ fn test_zero_volatility_call_becomes_forward() {
     // Assert: At zero vol, ATM option ~ forward value
     // Forward = S * exp(-r_f * T) - K * exp(-r_d * T)
     let (_, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
-    let forward_value = 1_000_000.0 * (spot * (-r_f * t).exp() as f64 - strike * (-r_d * t).exp() as f64);
+    let forward_value = 1_000_000.0 * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
     
     // At zero vol, option converges to max(forward, 0)
     assert_approx_eq(pv.amount(), forward_value.max(0.0), 1e-2, 100.0, "Zero vol option");
@@ -275,7 +275,7 @@ fn test_strike_zero_edge_case() {
 
     // Assert: Call with K=0 is worth discounted forward spot
     let (spot, _, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
-    let expected = 1_000_000.0 * spot * (-r_f * t).exp() as f64;
+    let expected = 1_000_000.0 * spot * (-r_f * t).exp();
     assert_approx_eq(pv.amount(), expected, 1e-2, 100.0, "Call with K=0 is forward");
 }
 

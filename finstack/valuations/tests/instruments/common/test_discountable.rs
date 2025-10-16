@@ -28,7 +28,7 @@ impl Discounting for FlatCurve {
     }
     
     fn df(&self, t: f64) -> f64 {
-        (-self.rate * t).exp() as f64
+        (-self.rate * t).exp()
     }
 }
 

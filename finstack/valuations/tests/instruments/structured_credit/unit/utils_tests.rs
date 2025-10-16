@@ -88,7 +88,7 @@ fn test_rating_factor_table_creation() {
 #[test]
 fn test_rating_factor_monotonicity() {
     // Arrange: Better ratings should have lower factors
-    let ratings = vec![
+    let ratings = [
         (CreditRating::AAA, 1.0),
         (CreditRating::AA, 10.0),
         (CreditRating::A, 40.0),
@@ -252,4 +252,3 @@ fn test_reinvestment_manager_respects_budget() {
     // Assert: Should only select 2 assets (not 3)
     assert_eq!(selected.len(), 2);
 }
-

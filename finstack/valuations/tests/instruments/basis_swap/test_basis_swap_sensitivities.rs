@@ -189,51 +189,6 @@ fn dv01_vs_numerical_bump() {
     // Base market
     let ctx_base = market();
 
-    // Bumped market (+1bp on all curves)
-    let disc_bumped = DiscountCurve::builder("USD-OIS")
-        .base_date(d(2025, 1, 2))
-        .knots(vec![
-            (0.0, 1.0),
-            (0.5, 0.99 * (1.0_f64 - 0.0001 * 0.5).exp()),
-            (1.0, 0.98 * (1.0_f64 - 0.0001).exp()),
-            (2.0, 0.96 * (1.0_f64 - 0.0001 * 2.0).exp()),
-            (3.0, 0.94 * (1.0_f64 - 0.0001 * 3.0).exp()),
-        ])
-        .set_interp(InterpStyle::LogLinear)
-        .build()
-        .unwrap();
-
-    let f3m_bumped = ForwardCurve::builder("USD-SOFR-3M", 0.25)
-        .base_date(d(2025, 1, 2))
-        .knots(vec![
-            (0.0, 0.02001),
-            (0.5, 0.02101),
-            (1.0, 0.02201),
-            (2.0, 0.02301),
-            (3.0, 0.02401),
-        ])
-        .set_interp(InterpStyle::Linear)
-        .build()
-        .unwrap();
-
-    let f1m_bumped = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
-        .base_date(d(2025, 1, 2))
-        .knots(vec![
-            (0.0, 0.01901),
-            (0.5, 0.02001),
-            (1.0, 0.02101),
-            (2.0, 0.02201),
-            (3.0, 0.02301),
-        ])
-        .set_interp(InterpStyle::Linear)
-        .build()
-        .unwrap();
-
-    let ctx_bumped = MarketContext::new()
-        .insert_discount(disc_bumped)
-        .insert_forward(f3m_bumped)
-        .insert_forward(f1m_bumped);
-
     let swap = BasisSwap::new(
         "DV01-BUMP-TEST",
         Money::new(10_000_000.0, USD),
@@ -435,4 +390,3 @@ fn sensitivity_to_spread() {
         ratio
     );
 }
-

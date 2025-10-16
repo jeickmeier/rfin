@@ -168,7 +168,7 @@ fn test_zero_volatility_itm() {
     let pv = call.value(&market, as_of).unwrap();
 
     // With zero vol, ITM call = S - K*exp(-rT)
-    let expected = (spot - strike * (-0.05_f64 * 1.0).exp() as f64) * call.contract_size;
+    let expected = (spot - strike * (-0.05_f64 * 1.0).exp()) * call.contract_size;
 
     assert_approx_eq_tol(pv.amount(), expected, LOOSE_TOL, "Zero vol ITM call");
 }

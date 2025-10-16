@@ -42,9 +42,9 @@ pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> 
         .day_count(DayCount::Act360)
         .knots([
             (0.0, 1.0),
-            (1.0, (-rate).exp() as f64),
-            (5.0, (-rate * 5.0).exp() as f64),
-            (10.0, (-rate * 10.0).exp() as f64),
+            (1.0, (-rate).exp()),
+            (5.0, (-rate * 5.0).exp()),
+            (10.0, (-rate * 10.0).exp()),
         ])
         .set_interp(InterpStyle::Linear)
         .build()
@@ -208,7 +208,6 @@ impl TestFraBuilder {
 }
 
 /// Assertion helpers for FRA tests
-
 /// Assert value is finite (not NaN or infinite)
 pub fn assert_finite(value: f64, msg: &str) {
     assert!(value.is_finite(), "{}: value is not finite: {}", msg, value);

@@ -35,8 +35,8 @@ fn test_put_call_parity_atm() {
 
     // C - P = (S*e^(-qT) - K*e^(-rT)) * contract_size
     let t = 1.0_f64; // 1 year
-    let forward_spot = spot * (-div_yield * t).exp() as f64;
-    let pv_strike = strike * (-rate * t).exp() as f64;
+    let forward_spot = spot * (-div_yield * t).exp();
+    let pv_strike = strike * (-rate * t).exp();
     let expected_diff = (forward_spot - pv_strike) * call.contract_size;
 
     let actual_diff = call_pv - put_pv;
@@ -67,8 +67,8 @@ fn test_put_call_parity_itm_call() {
     let put_pv = put.value(&market, as_of).unwrap().amount();
 
     let t = 1.0_f64;
-    let forward_spot = spot * (-div_yield * t).exp() as f64;
-    let pv_strike = strike * (-rate * t).exp() as f64;
+    let forward_spot = spot * (-div_yield * t).exp();
+    let pv_strike = strike * (-rate * t).exp();
     let expected_diff = (forward_spot - pv_strike) * call.contract_size;
 
     let actual_diff = call_pv - put_pv;
@@ -94,8 +94,8 @@ fn test_put_call_parity_otm_call() {
     let put_pv = put.value(&market, as_of).unwrap().amount();
 
     let t = 1.0_f64;
-    let forward_spot = spot * (-div_yield * t).exp() as f64;
-    let pv_strike = strike * (-rate * t).exp() as f64;
+    let forward_spot = spot * (-div_yield * t).exp();
+    let pv_strike = strike * (-rate * t).exp();
     let expected_diff = (forward_spot - pv_strike) * call.contract_size;
 
     let actual_diff = call_pv - put_pv;
@@ -121,8 +121,8 @@ fn test_put_call_parity_short_dated() {
     let put_pv = put.value(&market, as_of).unwrap().amount();
 
     let t = 0.25; // 3 months
-    let forward_spot = spot * (-div_yield * t).exp() as f64;
-    let pv_strike = strike * (-rate * t).exp() as f64;
+    let forward_spot = spot * (-div_yield * t).exp();
+    let pv_strike = strike * (-rate * t).exp();
     let expected_diff = (forward_spot - pv_strike) * call.contract_size;
 
     let actual_diff = call_pv - put_pv;
@@ -153,8 +153,8 @@ fn test_put_call_parity_long_dated() {
     let put_pv = put.value(&market, as_of).unwrap().amount();
 
     let t = 2.0; // 2 years
-    let forward_spot = spot * (-div_yield * t).exp() as f64;
-    let pv_strike = strike * (-rate * t).exp() as f64;
+    let forward_spot = spot * (-div_yield * t).exp();
+    let pv_strike = strike * (-rate * t).exp();
     let expected_diff = (forward_spot - pv_strike) * call.contract_size;
 
     let actual_diff = call_pv - put_pv;
@@ -185,8 +185,8 @@ fn test_put_call_parity_with_high_dividends() {
     let put_pv = put.value(&market, as_of).unwrap().amount();
 
     let t = 1.0_f64;
-    let forward_spot = spot * (-div_yield * t).exp() as f64;
-    let pv_strike = strike * (-rate * t).exp() as f64;
+    let forward_spot = spot * (-div_yield * t).exp();
+    let pv_strike = strike * (-rate * t).exp();
     let expected_diff = (forward_spot - pv_strike) * call.contract_size;
 
     let actual_diff = call_pv - put_pv;
@@ -242,8 +242,8 @@ fn test_put_call_parity_across_volatilities() {
     let put = create_put(as_of, expiry, strike);
 
     let t = 1.0_f64;
-    let forward_spot = spot * (-div_yield * t).exp() as f64;
-    let pv_strike = strike * (-rate * t).exp() as f64;
+    let forward_spot = spot * (-div_yield * t).exp();
+    let pv_strike = strike * (-rate * t).exp();
     let expected_diff = (forward_spot - pv_strike) * call.contract_size;
 
     // Test across different volatilities
@@ -284,8 +284,8 @@ fn test_put_call_parity_across_spot_levels() {
         let call_pv = call.value(&market, as_of).unwrap().amount();
         let put_pv = put.value(&market, as_of).unwrap().amount();
 
-        let forward_spot = spot * (-div_yield * t).exp() as f64;
-        let pv_strike = strike * (-rate * t).exp() as f64;
+        let forward_spot = spot * (-div_yield * t).exp();
+        let pv_strike = strike * (-rate * t).exp();
         let expected_diff = (forward_spot - pv_strike) * call.contract_size;
 
         let actual_diff = call_pv - put_pv;

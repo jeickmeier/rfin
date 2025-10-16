@@ -24,9 +24,9 @@ fn build_flat_discount(rate: f64, base_date: Date, curve_id: &str) -> DiscountCu
         .day_count(DayCount::Act360)
         .knots([
             (0.0, 1.0),
-            (1.0, (-rate).exp() as f64),
-            (5.0, (-rate * 5.0).exp() as f64),
-            (10.0, (-rate * 10.0).exp() as f64),
+            (1.0, (-rate).exp()),
+            (5.0, (-rate * 5.0).exp()),
+            (10.0, (-rate * 10.0).exp()),
         ])
         .build()
         .unwrap()
@@ -357,7 +357,7 @@ fn test_expected_loss_formula_validation() {
     let expected_loss = *result.measures.get("expected_loss").unwrap();
 
     // Theoretical calculation
-    let pd = 1.0 - (-hazard_rate * tenor).exp() as f64;
+    let pd = 1.0 - (-hazard_rate * tenor).exp();
     let lgd = 1.0 - recovery;
     let theoretical_el = 10_000_000.0 * pd * lgd;
 

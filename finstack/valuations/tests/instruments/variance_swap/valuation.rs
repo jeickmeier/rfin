@@ -331,7 +331,7 @@ fn test_npv_time_progression_from_pre_start_to_maturity() {
         &prices,
     );
 
-    let eval_dates = vec![
+    let eval_dates = [
         date(2024, 12, 1), // Pre-start
         swap.start_date,   // At start
         date(2025, 2, 1),  // Mid-period

@@ -260,7 +260,7 @@ fn test_black_scholes_put_call_parity() {
 
     // Assert: C - P = S*e^(-qT) - K*e^(-rT)
     let lhs = call - put;
-    let rhs = spot * (-div * time).exp() as f64 - strike * (-rate * time).exp() as f64;
+    let rhs = spot * (-div * time).exp() - strike * (-rate * time).exp();
 
     assert_approx_eq(lhs, rhs, TIGHT_TOLERANCE, "Put-call parity");
 }
@@ -456,6 +456,6 @@ fn test_negative_rates() {
 
     // Put-call parity should still hold
     let lhs = call - put;
-    let rhs = spot - strike * (-rate * time).exp() as f64;
+    let rhs = spot - strike * (-rate * time).exp();
     assert_approx_eq(lhs, rhs, TOLERANCE, "Parity holds with negative rates");
 }
