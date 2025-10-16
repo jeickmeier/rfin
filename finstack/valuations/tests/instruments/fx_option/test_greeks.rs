@@ -39,7 +39,10 @@ fn test_delta_itm_call_approaches_one() {
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
 
     // Assert: Delta should be high (approaching notional)
-    assert!(greeks.delta > 800_000.0, "Deep ITM call delta should be high");
+    assert!(
+        greeks.delta > 800_000.0,
+        "Deep ITM call delta should be high"
+    );
 }
 
 #[test]
@@ -56,7 +59,10 @@ fn test_delta_otm_call_approaches_zero() {
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
 
     // Assert: Delta should be low
-    assert!(greeks.delta < 200_000.0, "Deep OTM call delta should be low");
+    assert!(
+        greeks.delta < 200_000.0,
+        "Deep OTM call delta should be low"
+    );
     assert!(greeks.delta > 0.0, "Call delta should be positive");
 }
 
@@ -89,13 +95,19 @@ fn test_delta_matches_finite_difference() {
 
     // Act: Analytical delta
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
-    
+
     // Act: Finite difference delta
     let bump = 0.001; // 10 pips
     let fd_delta = finite_diff_delta(&call, &market, as_of, bump).unwrap();
 
     // Assert: Should match within tolerance
-    assert_approx_eq(greeks.delta, fd_delta, 1e-2, 100.0, "Delta vs finite difference");
+    assert_approx_eq(
+        greeks.delta,
+        fd_delta,
+        1e-2,
+        100.0,
+        "Delta vs finite difference",
+    );
 }
 
 #[test]
@@ -146,13 +158,19 @@ fn test_gamma_matches_finite_difference() {
 
     // Act: Analytical gamma
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
-    
+
     // Act: Finite difference gamma
     let bump = 0.001;
     let fd_gamma = finite_diff_gamma(&call, &market, as_of, bump).unwrap();
 
     // Assert: Should match within tolerance
-    assert_approx_eq(greeks.gamma, fd_gamma, 1e-1, 100.0, "Gamma vs finite difference");
+    assert_approx_eq(
+        greeks.gamma,
+        fd_gamma,
+        1e-1,
+        100.0,
+        "Gamma vs finite difference",
+    );
 }
 
 #[test]
@@ -172,9 +190,15 @@ fn test_vega_positive_for_long_option() {
     // Assert: Both should have positive vega
     assert!(call_greeks.vega > 0.0, "Call vega should be positive");
     assert!(put_greeks.vega > 0.0, "Put vega should be positive");
-    
+
     // Call and put vega should be equal for same strike/expiry
-    assert_approx_eq(call_greeks.vega, put_greeks.vega, 1e-6, 1e-6, "Call and put vega equal");
+    assert_approx_eq(
+        call_greeks.vega,
+        put_greeks.vega,
+        1e-6,
+        1e-6,
+        "Call and put vega equal",
+    );
 }
 
 #[test]
@@ -193,7 +217,10 @@ fn test_vega_higher_with_longer_expiry() {
     let greeks_1y = calc.compute_greeks(&call_1y, &market, as_of).unwrap();
 
     // Assert: 1Y vega should be higher
-    assert!(greeks_1y.vega > greeks_3m.vega, "Longer dated vega should be higher");
+    assert!(
+        greeks_1y.vega > greeks_3m.vega,
+        "Longer dated vega should be higher"
+    );
 }
 
 #[test]
@@ -207,13 +234,19 @@ fn test_vega_matches_finite_difference() {
 
     // Act: Analytical vega (per 1% vol move)
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
-    
+
     // Act: Finite difference vega
     let bump = 0.01; // 1% vol move
     let fd_vega = finite_diff_vega(&call, &market, as_of, bump).unwrap();
 
     // Assert: Should match within tolerance
-    assert_approx_eq(greeks.vega, fd_vega, 5e-2, 500.0, "Vega vs finite difference");
+    assert_approx_eq(
+        greeks.vega,
+        fd_vega,
+        5e-2,
+        500.0,
+        "Vega vs finite difference",
+    );
 }
 
 #[test]
@@ -232,7 +265,10 @@ fn test_theta_negative_for_long_option() {
 
     // Assert: Theta should be negative (time decay)
     // Note: Sign convention varies; here we expect negative for decay
-    assert!(call_greeks.theta.abs() > 0.0, "Call theta should be non-zero");
+    assert!(
+        call_greeks.theta.abs() > 0.0,
+        "Call theta should be non-zero"
+    );
     assert!(put_greeks.theta.abs() > 0.0, "Put theta should be non-zero");
 }
 
@@ -249,7 +285,10 @@ fn test_rho_domestic_has_expected_sign() {
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
 
     // Assert: Call rho_domestic should be positive
-    assert!(greeks.rho_domestic > 0.0, "Call rho_domestic should be positive");
+    assert!(
+        greeks.rho_domestic > 0.0,
+        "Call rho_domestic should be positive"
+    );
 }
 
 #[test]
@@ -265,7 +304,10 @@ fn test_rho_foreign_has_expected_sign() {
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
 
     // Assert: Call rho_foreign should be negative
-    assert!(greeks.rho_foreign < 0.0, "Call rho_foreign should be negative");
+    assert!(
+        greeks.rho_foreign < 0.0,
+        "Call rho_foreign should be negative"
+    );
 }
 
 #[test]
@@ -285,8 +327,14 @@ fn test_all_greeks_computed_together() {
     assert!(greeks.gamma.is_finite(), "Gamma should be finite");
     assert!(greeks.vega.is_finite(), "Vega should be finite");
     assert!(greeks.theta.is_finite(), "Theta should be finite");
-    assert!(greeks.rho_domestic.is_finite(), "Rho domestic should be finite");
-    assert!(greeks.rho_foreign.is_finite(), "Rho foreign should be finite");
+    assert!(
+        greeks.rho_domestic.is_finite(),
+        "Rho domestic should be finite"
+    );
+    assert!(
+        greeks.rho_foreign.is_finite(),
+        "Rho foreign should be finite"
+    );
 }
 
 #[test]
@@ -297,14 +345,26 @@ fn test_expired_call_greeks_static() {
     let strike = 1.10;
     let spot = 1.20;
     let call = build_call_option(expiry, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams { spot, ..Default::default() });
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            spot,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
 
     // Assert: Gamma, vega, theta should be zero; delta should be 1
-    assert_approx_eq(greeks.delta, 1_000_000.0, 1e-6, 1e-6, "Expired ITM call delta = notional");
+    assert_approx_eq(
+        greeks.delta,
+        1_000_000.0,
+        1e-6,
+        1e-6,
+        "Expired ITM call delta = notional",
+    );
     assert_eq!(greeks.gamma, 0.0, "Expired gamma = 0");
     assert_eq!(greeks.vega, 0.0, "Expired vega = 0");
     assert_eq!(greeks.theta, 0.0, "Expired theta = 0");
@@ -318,14 +378,26 @@ fn test_expired_put_greeks_static() {
     let strike = 1.30;
     let spot = 1.20;
     let put = build_put_option(expiry, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams { spot, ..Default::default() });
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            spot,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
     let greeks = calc.compute_greeks(&put, &market, as_of).unwrap();
 
     // Assert: Gamma, vega, theta should be zero; delta should be -1
-    assert_approx_eq(greeks.delta, -1_000_000.0, 1e-6, 1e-6, "Expired ITM put delta = -notional");
+    assert_approx_eq(
+        greeks.delta,
+        -1_000_000.0,
+        1e-6,
+        1e-6,
+        "Expired ITM put delta = -notional",
+    );
     assert_eq!(greeks.gamma, 0.0, "Expired gamma = 0");
     assert_eq!(greeks.vega, 0.0, "Expired vega = 0");
     assert_eq!(greeks.theta, 0.0, "Expired theta = 0");
@@ -339,7 +411,13 @@ fn test_expired_otm_call_greeks_zero() {
     let strike = 1.30;
     let spot = 1.20;
     let call = build_call_option(expiry, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams { spot, ..Default::default() });
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            spot,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
@@ -351,4 +429,3 @@ fn test_expired_otm_call_greeks_zero() {
     assert_eq!(greeks.vega, 0.0, "Expired vega = 0");
     assert_eq!(greeks.theta, 0.0, "Expired theta = 0");
 }
-

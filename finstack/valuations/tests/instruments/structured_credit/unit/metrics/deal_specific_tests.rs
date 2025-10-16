@@ -45,7 +45,13 @@ fn test_cmbs_metrics_require_cmbs_deal_type() {
         );
     }
 
-    let non_cmbs = [DealType::CLO, DealType::CBO, DealType::ABS, DealType::RMBS, DealType::Auto];
+    let non_cmbs = [
+        DealType::CLO,
+        DealType::CBO,
+        DealType::ABS,
+        DealType::RMBS,
+        DealType::Auto,
+    ];
     for deal in &non_cmbs {
         assert!(
             !matches!(*deal, DealType::CMBS),

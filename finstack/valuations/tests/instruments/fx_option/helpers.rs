@@ -11,11 +11,11 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::parameters::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::fx_option::FxOption;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
-use finstack_core::types::{CurveId, InstrumentId};
 use std::sync::Arc;
 
 /// Standard currency pairs for testing.
@@ -107,7 +107,6 @@ pub fn build_flat_vol_surface(vol: f64, surface_id: &str) -> VolSurface {
         .unwrap()
 }
 
-
 /// Create FX matrix with a given spot rate.
 pub fn create_fx_matrix(eur_usd_rate: f64) -> FxMatrix {
     let provider = SimpleFxProvider::new();
@@ -181,7 +180,7 @@ pub fn assert_approx_eq(actual: f64, expected: f64, rel_tol: f64, abs_tol: f64, 
     } else {
         diff
     };
-    
+
     let passes = diff <= abs_tol || rel_diff <= rel_tol;
     assert!(
         passes,
@@ -195,7 +194,10 @@ pub fn assert_in_range(value: f64, min: f64, max: f64, msg: &str) {
     assert!(
         value >= min && value <= max,
         "{}: expected value in [{}, {}], got {}",
-        msg, min, max, value
+        msg,
+        min,
+        max,
+        value
     );
 }
 
@@ -289,4 +291,3 @@ pub fn finite_diff_vega(
     // Vega is per 1% vol move, so scale by 100
     Ok((pv_up.amount() - pv_down.amount()) / (2.0 * bump) / 100.0)
 }
-

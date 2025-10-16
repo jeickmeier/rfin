@@ -262,7 +262,7 @@ fn test_cashflow_dates_respect_payment_frequency() {
         let first_date = flows[0].0;
         let second_date = flows[1].0;
         let days_diff = (second_date - first_date).whole_days();
-        
+
         // Quarterly is approximately 90 days (allow some variance)
         assert!(
             (days_diff - 90).abs() < 10,
@@ -298,4 +298,3 @@ fn test_cashflow_amounts_are_positive() {
         );
     }
 }
-

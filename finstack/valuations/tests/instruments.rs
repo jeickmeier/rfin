@@ -82,6 +82,10 @@ mod cds_tranche;
 // Equity Derivatives
 // ============================================================================
 
+/// Equity tests - Equity spot instruments
+#[path = "instruments/equity/mod.rs"]
+mod equity;
+
 /// Basket option tests - Multi-underlying options
 #[path = "instruments/basket/mod.rs"]
 mod basket;
@@ -137,4 +141,3 @@ mod structured_credit;
 /// Repo tests - Repurchase agreements
 #[path = "instruments/repo/mod.rs"]
 mod repo;
-

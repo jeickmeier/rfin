@@ -117,10 +117,7 @@ fn test_pool_asset_default_with_recovery() {
     );
 
     // Act
-    asset.default_with_recovery(
-        Money::new(400_000.0, Currency::USD),
-        test_date(),
-    );
+    asset.default_with_recovery(Money::new(400_000.0, Currency::USD), test_date());
 
     // Assert
     assert!(asset.is_defaulted);
@@ -208,7 +205,7 @@ fn test_asset_pool_empty_pool_balance() {
 fn test_asset_pool_performing_balance_excludes_defaults() {
     // Arrange
     let mut pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
-    
+
     // Add performing asset
     pool.assets.push(PoolAsset::floating_rate_loan(
         "L1",
@@ -217,7 +214,7 @@ fn test_asset_pool_performing_balance_excludes_defaults() {
         400.0,
         maturity_date(),
     ));
-    
+
     // Add defaulted asset
     let mut defaulted = PoolAsset::floating_rate_loan(
         "L2",
@@ -326,7 +323,7 @@ fn test_pool_weighted_avg_spread_floating_rate_assets() {
 fn test_pool_weighted_avg_spread_mixed_assets() {
     // Arrange
     let mut pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
-    
+
     // Floating rate with explicit spread
     pool.assets.push(PoolAsset::floating_rate_loan(
         "L1",
@@ -335,7 +332,7 @@ fn test_pool_weighted_avg_spread_mixed_assets() {
         450.0,
         maturity_date(),
     ));
-    
+
     // Fixed rate (spread derived from rate)
     pool.assets.push(PoolAsset::fixed_rate_bond(
         "B1",
@@ -499,7 +496,10 @@ fn test_pool_assets_by_industry() {
 
     // Assert
     assert_eq!(tech_assets.len(), 2);
-    assert_eq!(tech_assets[0].balance.amount() + tech_assets[1].balance.amount(), 30_000_000.0);
+    assert_eq!(
+        tech_assets[0].balance.amount() + tech_assets[1].balance.amount(),
+        30_000_000.0
+    );
 }
 
 #[test]
@@ -542,7 +542,7 @@ fn test_pool_assets_by_obligor() {
 fn test_calculate_pool_stats_comprehensive() {
     // Arrange
     let mut pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
-    
+
     // Add diverse assets
     pool.assets.push(
         PoolAsset::floating_rate_loan(
@@ -556,7 +556,7 @@ fn test_calculate_pool_stats_comprehensive() {
         .with_industry("Technology")
         .with_obligor("OB1"),
     );
-    
+
     pool.assets.push(
         PoolAsset::fixed_rate_bond(
             "B1",
@@ -585,7 +585,7 @@ fn test_calculate_pool_stats_comprehensive() {
 fn test_calculate_pool_stats_with_defaults() {
     // Arrange
     let mut pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
-    
+
     // Add performing asset
     pool.assets.push(PoolAsset::floating_rate_loan(
         "L1",
@@ -594,7 +594,7 @@ fn test_calculate_pool_stats_with_defaults() {
         400.0,
         maturity_date(),
     ));
-    
+
     // Add defaulted asset
     let mut defaulted = PoolAsset::floating_rate_loan(
         "L2",
@@ -684,4 +684,3 @@ fn test_pool_asset_type_classification() {
         _ => panic!("Expected FirstLienLoan"),
     }
 }
-

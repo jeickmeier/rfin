@@ -1,21 +1,21 @@
 use super::common::{
-    sample_base_correlation_curve, sample_base_date, sample_discount_curve,
-    sample_forward_curve, sample_hazard_curve, sample_inflation_curve, sample_vol_surface,
+    sample_base_correlation_curve, sample_base_date, sample_discount_curve, sample_forward_curve,
+    sample_hazard_curve, sample_inflation_curve, sample_vol_surface,
 };
-use hashbrown::HashMap;
-use std::sync::Arc;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::{BumpSpec, CurveStorage, MarketContext};
 use finstack_core::market_data::dividends::DividendSchedule;
-use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
-use finstack_core::money::Money;
 use finstack_core::market_data::scalars::{
     inflation_index::{InflationIndex, InflationInterpolation},
     MarketScalar, ScalarTimeSeries, SeriesInterpolation,
 };
-use finstack_core::money::fx::{FxMatrix, FxProvider, FxConversionPolicy};
+use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
+use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
+use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use hashbrown::HashMap;
+use std::sync::Arc;
 use time::Month;
 
 // Simple static FX provider for testing
@@ -82,10 +82,7 @@ fn market_context_inserts_and_retrieves_curves() {
         ctx.get_forward("USD-LIBOR").unwrap().id().as_str(),
         "USD-LIBOR"
     );
-    assert_eq!(
-        ctx.get_hazard("CDX").unwrap().id().as_str(),
-        "CDX"
-    );
+    assert_eq!(ctx.get_hazard("CDX").unwrap().id().as_str(), "CDX");
     assert_eq!(
         ctx.get_inflation("USD-CPI").unwrap().id().as_str(),
         "USD-CPI"
@@ -136,8 +133,14 @@ fn market_context_manages_fx_and_scalars() {
     let index = InflationIndex::new(
         "US-CPI",
         vec![
-            (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 100.0),
-            (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 101.0),
+            (
+                Date::from_calendar_date(2024, Month::January, 31).unwrap(),
+                100.0,
+            ),
+            (
+                Date::from_calendar_date(2024, Month::February, 29).unwrap(),
+                101.0,
+            ),
         ],
         Currency::USD,
     )
@@ -197,12 +200,14 @@ fn market_context_supports_curve_bumps() {
     );
 
     let bumped = ctx.bump(bumps).expect("bump should succeed");
-    assert!(ctx
-        .get_discount("USD-OIS_bump_50bp")
-        .is_err(), "original context unchanged");
-    assert!(bumped
-        .get_discount("USD-OIS_bump_50bp")
-        .is_ok(), "bumped curve present");
+    assert!(
+        ctx.get_discount("USD-OIS_bump_50bp").is_err(),
+        "original context unchanged"
+    );
+    assert!(
+        bumped.get_discount("USD-OIS_bump_50bp").is_ok(),
+        "bumped curve present"
+    );
 }
 
 #[test]
@@ -240,10 +245,7 @@ fn market_context_update_and_bump_failures() {
     let new_curve = Arc::new(sample_base_correlation_curve("CDX-NEW"));
     assert!(ctx.update_base_correlation_curve("CDX", new_curve.clone()));
     assert_eq!(
-        ctx.credit_index("CDX")
-            .unwrap()
-            .base_correlation_curve
-            .id(),
+        ctx.credit_index("CDX").unwrap().base_correlation_curve.id(),
         new_curve.id()
     );
     assert!(!ctx.update_base_correlation_curve("UNKNOWN", new_curve));

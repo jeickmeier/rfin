@@ -12,4 +12,3 @@ mod test_basis_swap_metrics;
 mod test_basis_swap_par_spread;
 mod test_basis_swap_sensitivities;
 mod test_basis_swap_theta;
-

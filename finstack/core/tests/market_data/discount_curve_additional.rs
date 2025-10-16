@@ -11,7 +11,10 @@ fn discount_curve_require_monotonic_enforces_decreasing_dfs() {
         .require_monotonic()
         .knots([(0.0, 1.0), (1.0, 0.99), (2.0, 1.01)])
         .build();
-    assert!(result.is_err(), "non-monotonic discounts should be rejected");
+    assert!(
+        result.is_err(),
+        "non-monotonic discounts should be rejected"
+    );
 }
 
 #[test]
@@ -57,7 +60,10 @@ fn discount_curve_flat_forward_extrapolation_continues_slope() {
 
     let df2 = curve.df(2.0);
     let df4 = curve.df(4.0);
-    assert!(df4 < df2, "flat-forward extrapolation should decay beyond last knot");
+    assert!(
+        df4 < df2,
+        "flat-forward extrapolation should decay beyond last knot"
+    );
 }
 
 #[test]
@@ -90,7 +96,6 @@ fn discount_curve_key_rate_bump_targets_segment() {
     // First segment untouched, later segments scaled
     assert_eq!(bumped.df(0.0), curve.df(0.0));
     assert!(bumped.df(1.5) < curve.df(1.5));
-
 }
 
 #[test]

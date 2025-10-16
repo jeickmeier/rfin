@@ -348,13 +348,17 @@ fn test_market_standard_abs_prepayment() {
 
     // Act
     let cpr = smm_to_cpr(smm);
-    
+
     // Debug: Check actual value
     eprintln!("SMM: {}, CPR: {}, Expected: 0.1682", smm, cpr);
 
     // Assert
     // Correct calculation: CPR = 1 - (1-0.015)^12 = 1 - 0.985^12 ≈ 0.1652
-    assert!((cpr - 0.1652).abs() < 0.001, "Expected ~16.52% CPR, got {}", cpr);
+    assert!(
+        (cpr - 0.1652).abs() < 0.001,
+        "Expected ~16.52% CPR, got {}",
+        cpr
+    );
 }
 
 // ============================================================================
@@ -394,9 +398,6 @@ fn test_conversion_monotonicity() {
     // Act & Assert: CPR to SMM should be monotonically increasing
     let smms: Vec<f64> = rates.iter().map(|&cpr| cpr_to_smm(cpr)).collect();
     for i in 1..smms.len() {
-        assert!(
-            smms[i] > smms[i - 1],
-            "CPR to SMM conversion not monotonic"
-        );
+        assert!(smms[i] > smms[i - 1], "CPR to SMM conversion not monotonic");
     }
 }

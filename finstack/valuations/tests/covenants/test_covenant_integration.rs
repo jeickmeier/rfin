@@ -4,7 +4,9 @@ use finstack_valuations::covenants::mod_types::CovenantReport;
 
 #[test]
 fn test_covenant_report_smoke() {
-    let report = CovenantReport::failed("Debt/EBITDA <= 4.00").with_actual(5.0).with_threshold(4.0);
+    let report = CovenantReport::failed("Debt/EBITDA <= 4.00")
+        .with_actual(5.0)
+        .with_threshold(4.0);
     assert!(!report.passed);
 }
 

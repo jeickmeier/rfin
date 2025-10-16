@@ -15,9 +15,16 @@ fn test_zero_volatility_call_becomes_forward() {
     let expiry = date!(2025 - 01 - 01);
     let strike = 1.20;
     let spot = 1.20;
-    
+
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams { spot, vol: 1e-10, ..Default::default() });
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            spot,
+            vol: 1e-10,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
@@ -27,9 +34,15 @@ fn test_zero_volatility_call_becomes_forward() {
     // Forward = S * exp(-r_f * T) - K * exp(-r_d * T)
     let (_, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
     let forward_value = 1_000_000.0 * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
-    
+
     // At zero vol, option converges to max(forward, 0)
-    assert_approx_eq(pv.amount(), forward_value.max(0.0), 1e-2, 100.0, "Zero vol option");
+    assert_approx_eq(
+        pv.amount(),
+        forward_value.max(0.0),
+        1e-2,
+        100.0,
+        "Zero vol option",
+    );
 }
 
 #[test]
@@ -38,7 +51,13 @@ fn test_very_high_volatility() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams { vol: 1.0, ..Default::default() });
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            vol: 1.0,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
@@ -46,10 +65,19 @@ fn test_very_high_volatility() {
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
 
     // Assert: Should produce finite results
-    assert!(pv.amount().is_finite() && pv.amount() > 0.0, "High vol PV should be finite and positive");
+    assert!(
+        pv.amount().is_finite() && pv.amount() > 0.0,
+        "High vol PV should be finite and positive"
+    );
     assert!(greeks.delta.is_finite(), "High vol delta should be finite");
-    assert!(greeks.gamma.is_finite() && greeks.gamma >= 0.0, "High vol gamma should be finite and non-negative");
-    assert!(greeks.vega.is_finite() && greeks.vega > 0.0, "High vol vega should be finite and positive");
+    assert!(
+        greeks.gamma.is_finite() && greeks.gamma >= 0.0,
+        "High vol gamma should be finite and non-negative"
+    );
+    assert!(
+        greeks.vega.is_finite() && greeks.vega > 0.0,
+        "High vol vega should be finite and positive"
+    );
 }
 
 #[test]
@@ -58,7 +86,7 @@ fn test_deep_itm_call_behaves_like_forward() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let strike = 0.50; // Very deep ITM (spot = 1.20)
-    
+
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
     let calc = FxOptionCalculator::new();
@@ -67,8 +95,11 @@ fn test_deep_itm_call_behaves_like_forward() {
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
 
     // Assert: Delta should be very close to 1 (scaled by notional)
-    assert!(greeks.delta > 950_000.0, "Deep ITM delta should approach notional");
-    
+    assert!(
+        greeks.delta > 950_000.0,
+        "Deep ITM delta should approach notional"
+    );
+
     // Gamma and vega should be near zero for deep ITM
     assert!(greeks.gamma < 100.0, "Deep ITM gamma should be small");
     assert!(greeks.vega < 10_000.0, "Deep ITM vega should be small");
@@ -80,7 +111,7 @@ fn test_deep_otm_call_has_minimal_value() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let strike = 2.00; // Very deep OTM (spot = 1.20)
-    
+
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
     let calc = FxOptionCalculator::new();
@@ -92,7 +123,7 @@ fn test_deep_otm_call_has_minimal_value() {
     // Assert: Value should be very small
     assert!(pv.amount() < 10_000.0, "Deep OTM value should be small");
     assert!(pv.amount() >= 0.0, "Value should be non-negative");
-    
+
     // Delta should be near zero
     assert!(greeks.delta < 100_000.0, "Deep OTM delta should be small");
     assert!(greeks.delta >= 0.0, "Call delta should be non-negative");
@@ -112,11 +143,20 @@ fn test_very_short_dated_option() {
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
 
     // Assert: Should produce valid results
-    assert!(pv.amount() > 0.0 && pv.amount().is_finite(), "Short dated PV should be positive and finite");
-    assert!(greeks.gamma >= 0.0 && greeks.gamma.is_finite(), "Short dated gamma should be finite");
-    
+    assert!(
+        pv.amount() > 0.0 && pv.amount().is_finite(),
+        "Short dated PV should be positive and finite"
+    );
+    assert!(
+        greeks.gamma >= 0.0 && greeks.gamma.is_finite(),
+        "Short dated gamma should be finite"
+    );
+
     // Theta should be large in absolute value (rapid decay)
-    assert!(greeks.theta.abs() > 0.0, "Short dated theta should be non-zero");
+    assert!(
+        greeks.theta.abs() > 0.0,
+        "Short dated theta should be non-zero"
+    );
 }
 
 #[test]
@@ -126,9 +166,15 @@ fn test_at_expiry_boundary() {
     let as_of = expiry;
     let strike = 1.20;
     let spot = 1.25;
-    
+
     let call = build_call_option(expiry, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams { spot, ..Default::default() });
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            spot,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
@@ -136,7 +182,13 @@ fn test_at_expiry_boundary() {
 
     // Assert: Should equal intrinsic
     let intrinsic = (spot - strike).max(0.0) * 1_000_000.0;
-    assert_approx_eq(pv.amount(), intrinsic, 1e-6, 1e-6, "At expiry value = intrinsic");
+    assert_approx_eq(
+        pv.amount(),
+        intrinsic,
+        1e-6,
+        1e-6,
+        "At expiry value = intrinsic",
+    );
 }
 
 #[test]
@@ -146,9 +198,15 @@ fn test_past_expiry_is_intrinsic() {
     let as_of = date!(2024 - 01 - 15); // 2 weeks past expiry
     let strike = 1.20;
     let spot = 1.30;
-    
+
     let call = build_call_option(expiry, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams { spot, ..Default::default() });
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            spot,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
@@ -157,7 +215,13 @@ fn test_past_expiry_is_intrinsic() {
     // Assert: Should equal intrinsic at expiry spot (not current spot)
     // Note: System uses current spot, but time = 0, so it computes intrinsic
     let intrinsic = (spot - strike).max(0.0) * 1_000_000.0;
-    assert_approx_eq(pv.amount(), intrinsic, 1e-6, 1e-6, "Past expiry value = intrinsic");
+    assert_approx_eq(
+        pv.amount(),
+        intrinsic,
+        1e-6,
+        1e-6,
+        "Past expiry value = intrinsic",
+    );
 }
 
 #[test]
@@ -174,8 +238,14 @@ fn test_very_small_notional() {
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
 
     // Assert: Should scale correctly
-    assert!(pv.amount() > 0.0 && pv.amount() < 1.0, "Small notional PV should be scaled");
-    assert!(greeks.delta.is_finite() && greeks.delta.abs() < 10.0, "Small notional delta scaled");
+    assert!(
+        pv.amount() > 0.0 && pv.amount() < 1.0,
+        "Small notional PV should be scaled"
+    );
+    assert!(
+        greeks.delta.is_finite() && greeks.delta.abs() < 10.0,
+        "Small notional delta scaled"
+    );
 }
 
 #[test]
@@ -192,8 +262,14 @@ fn test_very_large_notional() {
     let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
 
     // Assert: Should scale linearly without overflow
-    assert!(pv.amount() > 1_000_000.0 && pv.amount().is_finite(), "Large notional PV should be scaled and finite");
-    assert!(greeks.delta.is_finite(), "Large notional delta should be finite");
+    assert!(
+        pv.amount() > 1_000_000.0 && pv.amount().is_finite(),
+        "Large notional PV should be scaled and finite"
+    );
+    assert!(
+        greeks.delta.is_finite(),
+        "Large notional delta should be finite"
+    );
 }
 
 #[test]
@@ -203,10 +279,16 @@ fn test_strike_equals_spot_exactly() {
     let expiry = date!(2025 - 01 - 01);
     let strike = 1.20;
     let spot = 1.20;
-    
+
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let put = build_put_option(as_of, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams { spot, ..Default::default() });
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            spot,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
@@ -218,9 +300,15 @@ fn test_strike_equals_spot_exactly() {
     // Assert: Both should have positive value
     assert!(call_pv.amount() > 0.0, "Exactly ATM call has time value");
     assert!(put_pv.amount() > 0.0, "Exactly ATM put has time value");
-    
+
     // Vega should be equal
-    assert_approx_eq(call_greeks.vega, put_greeks.vega, 1e-6, 1e-6, "ATM vega equal for call/put");
+    assert_approx_eq(
+        call_greeks.vega,
+        put_greeks.vega,
+        1e-6,
+        1e-6,
+        "ATM vega equal for call/put",
+    );
 }
 
 #[test]
@@ -230,9 +318,15 @@ fn test_negative_time_to_expiry_treated_as_expired() {
     let as_of = date!(2024 - 06 - 01);
     let strike = 1.10;
     let spot = 1.20;
-    
+
     let call = build_call_option(expiry, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams { spot, ..Default::default() });
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            spot,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
@@ -241,7 +335,13 @@ fn test_negative_time_to_expiry_treated_as_expired() {
 
     // Assert: Should behave as expired
     let intrinsic = (spot - strike).max(0.0) * 1_000_000.0;
-    assert_approx_eq(pv.amount(), intrinsic, 1e-6, 1e-6, "Negative time = expired");
+    assert_approx_eq(
+        pv.amount(),
+        intrinsic,
+        1e-6,
+        1e-6,
+        "Negative time = expired",
+    );
     assert_eq!(greeks.gamma, 0.0, "Expired gamma = 0");
 }
 
@@ -251,14 +351,23 @@ fn test_spot_zero_edge_case() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams { spot: 1e-10, ..Default::default() });
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            spot: 1e-10,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
     let pv = calc.npv(&call, &market, as_of).unwrap();
 
     // Assert: Call should be worthless if spot ~ 0
-    assert!(pv.amount() < 1.0, "Call at spot=0 should be nearly worthless");
+    assert!(
+        pv.amount() < 1.0,
+        "Call at spot=0 should be nearly worthless"
+    );
 }
 
 #[test]
@@ -276,7 +385,13 @@ fn test_strike_zero_edge_case() {
     // Assert: Call with K=0 is worth discounted forward spot
     let (spot, _, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
     let expected = 1_000_000.0 * spot * (-r_f * t).exp();
-    assert_approx_eq(pv.amount(), expected, 1e-2, 100.0, "Call with K=0 is forward");
+    assert_approx_eq(
+        pv.amount(),
+        expected,
+        1e-2,
+        100.0,
+        "Call with K=0 is forward",
+    );
 }
 
 #[test]
@@ -285,15 +400,21 @@ fn test_put_type_with_various_moneyness() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let spot = 1.20;
-    
+
     // Deep ITM put
     let put_itm = build_put_option(as_of, expiry, 1.40, 1_000_000.0);
     // ATM put
     let put_atm = build_put_option(as_of, expiry, 1.20, 1_000_000.0);
     // OTM put
     let put_otm = build_put_option(as_of, expiry, 1.00, 1_000_000.0);
-    
-    let market = build_market_context(as_of, MarketParams { spot, ..Default::default() });
+
+    let market = build_market_context(
+        as_of,
+        MarketParams {
+            spot,
+            ..Default::default()
+        },
+    );
     let calc = FxOptionCalculator::new();
 
     // Act
@@ -314,7 +435,7 @@ fn test_currency_mismatch_detected() {
     let expiry = date!(2025 - 01 - 01);
     let mut call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     call.notional = Money::new(1_000_000.0, QUOTE); // Wrong currency
-    
+
     let market = build_market_context(as_of, MarketParams::atm());
     let calc = FxOptionCalculator::new();
 
@@ -322,4 +443,3 @@ fn test_currency_mismatch_detected() {
     let result = calc.npv(&call, &market, as_of);
     assert!(result.is_err(), "Currency mismatch should error");
 }
-

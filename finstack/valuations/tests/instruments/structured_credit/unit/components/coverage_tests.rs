@@ -573,4 +573,3 @@ fn test_oc_test_infinity_ratio_zero_debt() {
     assert!(result.is_passing);
     assert_eq!(result.current_ratio, f64::INFINITY);
 }
-

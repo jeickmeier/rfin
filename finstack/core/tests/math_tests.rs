@@ -10,6 +10,8 @@ mod interp_linear;
 mod interp_log_linear;
 #[path = "math/interp_monotone_convex.rs"]
 mod interp_monotone_convex;
+#[path = "math/interp_traits.rs"]
+mod interp_traits;
 #[path = "math/math_integration.rs"]
 mod math_integration;
 #[path = "math/math_root_finding.rs"]
@@ -20,8 +22,6 @@ mod math_stats;
 mod math_summation;
 #[path = "math/monotone_convex.rs"]
 mod monotone_convex;
-#[path = "math/interp_traits.rs"]
-mod interp_traits;
 
 #[cfg(feature = "serde")]
 #[path = "math/test_interp_serde.rs"]

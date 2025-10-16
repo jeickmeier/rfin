@@ -1,7 +1,7 @@
 //! Comprehensive tests for theta (time decay) calculation utilities.
 
-use finstack_valuations::instruments::common::metrics::theta_utils::*;
 use super::super::test_helpers::*;
+use finstack_valuations::instruments::common::metrics::theta_utils::*;
 use time::Month;
 
 // ============================================================================
@@ -116,7 +116,8 @@ fn test_calculate_theta_date_one_month() {
     let rolled = calculate_theta_date(base, "1M", None).unwrap();
 
     // Assert
-    let expected = finstack_core::dates::Date::from_calendar_date(2025, Month::January, 31).unwrap();
+    let expected =
+        finstack_core::dates::Date::from_calendar_date(2025, Month::January, 31).unwrap();
     assert_eq!(rolled, expected);
 }
 
@@ -201,8 +202,10 @@ fn test_theta_workflow_short_dated_option() {
 
     // Act: Calculate 1D theta (should work)
     let theta_date_1d = calculate_theta_date(base, "1D", Some(expiry)).unwrap();
-    assert_eq!(theta_date_1d, 
-               finstack_core::dates::Date::from_calendar_date(2025, Month::January, 2).unwrap());
+    assert_eq!(
+        theta_date_1d,
+        finstack_core::dates::Date::from_calendar_date(2025, Month::January, 2).unwrap()
+    );
 
     // Act: Calculate 1W theta (should cap at expiry)
     let theta_date_1w = calculate_theta_date(base, "1W", Some(expiry)).unwrap();
@@ -233,12 +236,26 @@ fn test_theta_workflow_long_dated_option() {
 #[test]
 fn test_period_parsing_robustness() {
     // Arrange & Act & Assert: Various valid formats
-    assert_eq!(parse_period_days("1D").unwrap(), parse_period_days("1d").unwrap());
-    assert_eq!(parse_period_days("1W").unwrap(), parse_period_days("1w").unwrap());
-    assert_eq!(parse_period_days("1M").unwrap(), parse_period_days("1m").unwrap());
-    assert_eq!(parse_period_days("1Y").unwrap(), parse_period_days("1y").unwrap());
+    assert_eq!(
+        parse_period_days("1D").unwrap(),
+        parse_period_days("1d").unwrap()
+    );
+    assert_eq!(
+        parse_period_days("1W").unwrap(),
+        parse_period_days("1w").unwrap()
+    );
+    assert_eq!(
+        parse_period_days("1M").unwrap(),
+        parse_period_days("1m").unwrap()
+    );
+    assert_eq!(
+        parse_period_days("1Y").unwrap(),
+        parse_period_days("1y").unwrap()
+    );
 
     // Whitespace handling
-    assert_eq!(parse_period_days("1D").unwrap(), parse_period_days(" 1D ").unwrap());
+    assert_eq!(
+        parse_period_days("1D").unwrap(),
+        parse_period_days(" 1D ").unwrap()
+    );
 }
-

@@ -33,7 +33,6 @@ fn dividend_schedule_builds_and_filters() {
 
 #[test]
 fn dividend_schedule_validate_rejects_negative_cash() {
-    let schedule = DividendSchedule::new("NEG")
-        .add_cash(jan(5), Money::new(-1.0, Currency::USD));
+    let schedule = DividendSchedule::new("NEG").add_cash(jan(5), Money::new(-1.0, Currency::USD));
     assert!(schedule.validate().is_err());
 }

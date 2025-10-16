@@ -8,15 +8,15 @@
 
 #[cfg(test)]
 mod tests {
-    use finstack_valuations::instruments::structured_credit::{
-        config::{DealConfig, DealDates, DefaultAssumptions},
-        components::{AssetPool, PoolAsset, CreditRating, DealType},
-        utils,
-    };
     use finstack_core::{
         currency::Currency,
         dates::{Date, Frequency},
         money::Money,
+    };
+    use finstack_valuations::instruments::structured_credit::{
+        components::{AssetPool, CreditRating, DealType, PoolAsset},
+        config::{DealConfig, DealDates, DefaultAssumptions},
+        utils,
     };
     use time::Month;
 

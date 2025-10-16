@@ -1,7 +1,7 @@
 //! Tests for market conventions.
 
-use finstack_valuations::instruments::common::parameters::{BondConvention, IRSConvention};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
+use finstack_valuations::instruments::common::parameters::{BondConvention, IRSConvention};
 use std::str::FromStr;
 
 #[test]
@@ -12,7 +12,10 @@ fn test_bond_convention_us_treasury() {
     // Assert
     assert_eq!(conv.day_count(), DayCount::ActActIsma);
     assert_eq!(conv.frequency(), Frequency::semi_annual());
-    assert_eq!(conv.business_day_convention(), BusinessDayConvention::Following);
+    assert_eq!(
+        conv.business_day_convention(),
+        BusinessDayConvention::Following
+    );
     assert_eq!(conv.default_disc_curve(), "USD-TREASURY");
 }
 
@@ -29,10 +32,22 @@ fn test_bond_convention_german_bund() {
 #[test]
 fn test_bond_convention_from_str() {
     // Arrange & Act & Assert
-    assert_eq!(BondConvention::from_str("us_treasury").unwrap(), BondConvention::USTreasury);
-    assert_eq!(BondConvention::from_str("UST").unwrap(), BondConvention::USTreasury);
-    assert_eq!(BondConvention::from_str("german_bund").unwrap(), BondConvention::GermanBund);
-    assert_eq!(BondConvention::from_str("corporate").unwrap(), BondConvention::Corporate);
+    assert_eq!(
+        BondConvention::from_str("us_treasury").unwrap(),
+        BondConvention::USTreasury
+    );
+    assert_eq!(
+        BondConvention::from_str("UST").unwrap(),
+        BondConvention::USTreasury
+    );
+    assert_eq!(
+        BondConvention::from_str("german_bund").unwrap(),
+        BondConvention::GermanBund
+    );
+    assert_eq!(
+        BondConvention::from_str("corporate").unwrap(),
+        BondConvention::Corporate
+    );
 }
 
 #[test]
@@ -56,4 +71,3 @@ fn test_irs_convention_eur() {
     assert_eq!(conv.fixed_frequency(), Frequency::annual());
     assert_eq!(conv.float_frequency(), Frequency::semi_annual());
 }
-

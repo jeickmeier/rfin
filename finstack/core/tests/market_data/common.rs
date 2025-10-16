@@ -66,4 +66,3 @@ pub(crate) fn sample_vol_surface() -> Arc<VolSurface> {
             .unwrap(),
     )
 }
-

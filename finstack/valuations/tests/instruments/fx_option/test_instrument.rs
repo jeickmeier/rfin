@@ -10,7 +10,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::parameters::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::common::parameters::FxUnderlyingParams;
 use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
-use finstack_valuations::instruments::fx_option::{FxOption, parameters::FxOptionParams};
+use finstack_valuations::instruments::fx_option::{parameters::FxOptionParams, FxOption};
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use time::macros::date;
 
@@ -95,7 +95,12 @@ fn test_new_with_parameter_structs() {
     let underlying_params = FxUnderlyingParams::usd_eur();
 
     // Act
-    let option = FxOption::new("TEST_OPTION", &option_params, &underlying_params, "EURUSD-VOL");
+    let option = FxOption::new(
+        "TEST_OPTION",
+        &option_params,
+        &underlying_params,
+        "EURUSD-VOL",
+    );
 
     // Assert
     assert_eq!(option.id.as_str(), "TEST_OPTION");
@@ -108,7 +113,12 @@ fn test_new_with_parameter_structs() {
 #[test]
 fn test_instrument_trait_id() {
     // Arrange
-    let call = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let call = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
 
     // Act & Assert
     assert_eq!(call.id(), "FX_CALL_TEST");
@@ -117,7 +127,12 @@ fn test_instrument_trait_id() {
 #[test]
 fn test_instrument_trait_key() {
     // Arrange
-    let call = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let call = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
 
     // Act
     use finstack_valuations::pricer::InstrumentType;
@@ -130,7 +145,12 @@ fn test_instrument_trait_key() {
 #[test]
 fn test_instrument_trait_as_any() {
     // Arrange
-    let call = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let call = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
 
     // Act
     let any = call.as_any();
@@ -142,10 +162,17 @@ fn test_instrument_trait_as_any() {
 #[test]
 fn test_instrument_trait_attributes() {
     // Arrange
-    let mut call = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let mut call = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
 
     // Act: Set and get attributes
-    call.attributes_mut().meta.insert("test_key".to_string(), "test_value".to_string());
+    call.attributes_mut()
+        .meta
+        .insert("test_key".to_string(), "test_value".to_string());
     let value = call.attributes().meta.get("test_key");
 
     // Assert
@@ -155,7 +182,12 @@ fn test_instrument_trait_attributes() {
 #[test]
 fn test_instrument_trait_clone_box() {
     // Arrange
-    let call = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let call = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
 
     // Act
     let boxed = call.clone_box();
@@ -249,7 +281,12 @@ fn test_implied_vol_method() {
 #[test]
 fn test_calculator_method() {
     // Arrange
-    let call = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let call = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
 
     // Act
     let calc = call.calculator();
@@ -265,10 +302,10 @@ fn test_pricing_overrides_applied() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let mut call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
-    
+
     // Override vol to 30%
     call.pricing_overrides.implied_volatility = Some(0.30);
-    
+
     let market = build_market_context(as_of, MarketParams::atm()); // Market vol is 15%
     let calc = call.calculator();
 
@@ -282,21 +319,41 @@ fn test_pricing_overrides_applied() {
 #[test]
 fn test_attributes_are_mutable() {
     // Arrange
-    let mut call = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let mut call = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
 
     // Act
-    call.attributes_mut().meta.insert("trader".to_string(), "Alice".to_string());
-    call.attributes_mut().meta.insert("book".to_string(), "FX_OPTIONS".to_string());
+    call.attributes_mut()
+        .meta
+        .insert("trader".to_string(), "Alice".to_string());
+    call.attributes_mut()
+        .meta
+        .insert("book".to_string(), "FX_OPTIONS".to_string());
 
     // Assert
-    assert_eq!(call.attributes().meta.get("trader").map(|s| s.as_str()), Some("Alice"));
-    assert_eq!(call.attributes().meta.get("book").map(|s| s.as_str()), Some("FX_OPTIONS"));
+    assert_eq!(
+        call.attributes().meta.get("trader").map(|s| s.as_str()),
+        Some("Alice")
+    );
+    assert_eq!(
+        call.attributes().meta.get("book").map(|s| s.as_str()),
+        Some("FX_OPTIONS")
+    );
 }
 
 #[test]
 fn test_clone_preserves_all_fields() {
     // Arrange
-    let original = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let original = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
 
     // Act
     let cloned = original.clone();
@@ -312,7 +369,12 @@ fn test_clone_preserves_all_fields() {
 #[test]
 fn test_debug_trait_implemented() {
     // Arrange
-    let call = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let call = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
 
     // Act: Format as debug string
     let debug_str = format!("{:?}", call);
@@ -325,12 +387,17 @@ fn test_debug_trait_implemented() {
 #[test]
 fn test_settlement_types() {
     // Arrange & Act: Create with physical settlement
-    let mut call = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let mut call = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
     call.settlement = SettlementType::Physical;
 
     // Assert
     assert_eq!(call.settlement, SettlementType::Physical);
-    
+
     // Change to cash
     call.settlement = SettlementType::Cash;
     assert_eq!(call.settlement, SettlementType::Cash);
@@ -339,13 +406,17 @@ fn test_settlement_types() {
 #[test]
 fn test_exercise_styles() {
     // Arrange: Test different exercise styles can be set
-    let mut call = build_call_option(date!(2024 - 01 - 01), date!(2025 - 01 - 01), 1.20, 1_000_000.0);
+    let mut call = build_call_option(
+        date!(2024 - 01 - 01),
+        date!(2025 - 01 - 01),
+        1.20,
+        1_000_000.0,
+    );
 
     // Act & Assert: European (default)
     assert_eq!(call.exercise_style, ExerciseStyle::European);
-    
+
     // Change to American (though not priced differently yet)
     call.exercise_style = ExerciseStyle::American;
     assert_eq!(call.exercise_style, ExerciseStyle::American);
 }
-

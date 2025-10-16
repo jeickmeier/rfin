@@ -1,5 +1,5 @@
 /// Tests for the piece‐wise linear DF interpolator.
-use finstack_core::math::interp::{InterpFn, LinearDf, ExtrapolationPolicy};
+use finstack_core::math::interp::{ExtrapolationPolicy, InterpFn, LinearDf};
 
 fn build_inputs() -> (Box<[f64]>, Box<[f64]>) {
     // Simple flat 2 % zero‐rate curve => DF = exp(−0.02 t)
@@ -11,7 +11,8 @@ fn build_inputs() -> (Box<[f64]>, Box<[f64]>) {
 #[test]
 fn linear_exact_fit() {
     let (knots, dfs) = build_inputs();
-    let interp = LinearDf::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::default()).expect("build");
+    let interp =
+        LinearDf::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::default()).expect("build");
 
     for (i, &t) in knots.iter().enumerate() {
         assert!((interp.interp(t) - dfs[i]).abs() < 1e-12);

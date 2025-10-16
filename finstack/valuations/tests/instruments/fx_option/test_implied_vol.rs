@@ -23,7 +23,13 @@ fn test_implied_vol_recovers_market_vol() {
         .unwrap();
 
     // Assert: Should recover market vol (15%)
-    assert_approx_eq(implied_vol, 0.15, 1e-6, 1e-6, "IV should recover market vol");
+    assert_approx_eq(
+        implied_vol,
+        0.15,
+        1e-6,
+        1e-6,
+        "IV should recover market vol",
+    );
 }
 
 #[test]
@@ -43,7 +49,13 @@ fn test_implied_vol_with_custom_initial_guess() {
         .unwrap();
 
     // Assert: Should still converge to correct vol
-    assert_approx_eq(implied_vol, 0.15, 1e-6, 1e-6, "IV converges from custom guess");
+    assert_approx_eq(
+        implied_vol,
+        0.15,
+        1e-6,
+        1e-6,
+        "IV converges from custom guess",
+    );
 }
 
 #[test]
@@ -100,7 +112,13 @@ fn test_implied_vol_put_option() {
         .unwrap();
 
     // Assert
-    assert_approx_eq(implied_vol, 0.15, 1e-6, 1e-6, "Put IV should recover market vol");
+    assert_approx_eq(
+        implied_vol,
+        0.15,
+        1e-6,
+        1e-6,
+        "Put IV should recover market vol",
+    );
 }
 
 #[test]
@@ -119,7 +137,13 @@ fn test_implied_vol_itm_option() {
         .unwrap();
 
     // Assert
-    assert_approx_eq(implied_vol, 0.15, 1e-6, 1e-6, "ITM IV should recover market vol");
+    assert_approx_eq(
+        implied_vol,
+        0.15,
+        1e-6,
+        1e-6,
+        "ITM IV should recover market vol",
+    );
 }
 
 #[test]
@@ -138,7 +162,13 @@ fn test_implied_vol_otm_option() {
         .unwrap();
 
     // Assert
-    assert_approx_eq(implied_vol, 0.15, 1e-6, 1e-6, "OTM IV should recover market vol");
+    assert_approx_eq(
+        implied_vol,
+        0.15,
+        1e-6,
+        1e-6,
+        "OTM IV should recover market vol",
+    );
 }
 
 #[test]
@@ -157,7 +187,13 @@ fn test_implied_vol_short_dated_option() {
         .unwrap();
 
     // Assert
-    assert_approx_eq(implied_vol, 0.15, 1e-5, 1e-5, "Short dated IV should converge");
+    assert_approx_eq(
+        implied_vol,
+        0.15,
+        1e-5,
+        1e-5,
+        "Short dated IV should converge",
+    );
 }
 
 #[test]
@@ -176,7 +212,13 @@ fn test_implied_vol_long_dated_option() {
         .unwrap();
 
     // Assert
-    assert_approx_eq(implied_vol, 0.15, 1e-6, 1e-6, "Long dated IV should converge");
+    assert_approx_eq(
+        implied_vol,
+        0.15,
+        1e-6,
+        1e-6,
+        "Long dated IV should converge",
+    );
 }
 
 #[test]
@@ -205,13 +247,13 @@ fn test_implied_vol_uses_override_as_initial_guess() {
     let expiry = date!(2025 - 01 - 01);
     let mut call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     call.pricing_overrides.implied_volatility = Some(0.25);
-    
+
     let market = build_market_context(as_of, MarketParams::atm());
     let calc = FxOptionCalculator::new();
 
     // Price at override vol
     let pv = calc.npv(&call, &market, as_of).unwrap();
-    
+
     // Remove override for IV solve
     call.pricing_overrides.implied_volatility = None;
 
@@ -223,6 +265,8 @@ fn test_implied_vol_uses_override_as_initial_guess() {
     // Assert: Should converge to the price's implied vol
     // (which was 25% from the override used for pricing)
     // But since we removed override, it uses surface vol as guess and should still find correct IV
-    assert!(implied_vol > 0.0 && implied_vol < 1.0, "IV should be reasonable");
+    assert!(
+        implied_vol > 0.0 && implied_vol < 1.0,
+        "IV should be reasonable"
+    );
 }
-

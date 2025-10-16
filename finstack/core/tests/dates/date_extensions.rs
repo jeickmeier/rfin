@@ -1,7 +1,7 @@
 //! Tests for date extension traits
 
 use finstack_core::dates::calendar::TARGET2;
-use finstack_core::dates::{Date, DateExt, OffsetDateTimeExt, FiscalConfig};
+use finstack_core::dates::{Date, DateExt, FiscalConfig, OffsetDateTimeExt};
 use time::Month;
 
 fn make_date(y: i32, m: u8, d: u8) -> Date {
@@ -221,4 +221,3 @@ fn offset_datetime_ext_next_imm() {
     assert_eq!(next.date(), make_date(2025, 3, 19)); // March IMM
     assert_eq!(next.time(), dt.time()); // Time preserved
 }
-

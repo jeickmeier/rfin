@@ -183,8 +183,9 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     let mut post_build_checks = proc_macro2::TokenStream::new();
     if has_start_date && has_maturity {
         // Check if the struct has maturity or maturity_date field
-        let maturity_field = if required_fields.iter().any(|(id, _)| id == "maturity") ||
-                                 optional_fields.iter().any(|(id, _)| id == "maturity") {
+        let maturity_field = if required_fields.iter().any(|(id, _)| id == "maturity")
+            || optional_fields.iter().any(|(id, _)| id == "maturity")
+        {
             quote! { __built.maturity }
         } else {
             quote! { __built.maturity_date }

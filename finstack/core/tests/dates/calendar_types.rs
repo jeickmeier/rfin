@@ -1,5 +1,7 @@
 use finstack_core::dates::calendar::business_days::HolidayCalendar;
-use finstack_core::dates::calendar::generated::{day_of_year_0_based, YearBits, BASE_YEAR, BITSET_WORDS};
+use finstack_core::dates::calendar::generated::{
+    day_of_year_0_based, YearBits, BASE_YEAR, BITSET_WORDS,
+};
 use finstack_core::dates::calendar::rule::Rule;
 use finstack_core::dates::calendar::types::Calendar;
 use finstack_core::dates::Date;
@@ -34,8 +36,7 @@ fn calendar_bitset_lookup_honors_ignore_weekends() {
     let bit = day_idx as usize & 63;
     bits[word] |= 1u64 << bit;
 
-    let cal = Calendar::new("bit", "Bitset", true, &[])
-        .with_bitsets(Box::leak(Box::new([bits])));
+    let cal = Calendar::new("bit", "Bitset", true, &[]).with_bitsets(Box::leak(Box::new([bits])));
     assert!(!cal.is_holiday(weekend_day));
 
     let weekday = weekend_day + Duration::days(2);

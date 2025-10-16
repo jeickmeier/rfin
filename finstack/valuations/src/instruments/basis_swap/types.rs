@@ -271,7 +271,7 @@ impl BasisSwap {
             let yf = leg
                 .day_count
                 .year_fraction(prev, d, DayCountCtx::default())?;
-            
+
             // Discount from as_of for correct theta
             let t_d = disc_dc
                 .year_fraction(disc.base_date(), d, DayCountCtx::default())
@@ -282,12 +282,12 @@ impl BasisSwap {
             } else {
                 1.0
             };
-            
+
             // Only include future payments
             if d > as_of {
                 annuity += yf * df;
             }
-            
+
             prev = d;
         }
         Ok(annuity)

@@ -404,10 +404,14 @@ fn test_scalar_evaluation_all_functions() {
 
         // Ensure scalar evaluation worked
         assert_eq!(scalar_result.len(), data[0].len());
-        
+
         // Verify all results are finite or NaN where expected
         for val in &scalar_result {
-            assert!(val.is_finite() || val.is_nan(), "Function {:?} produced invalid value", func);
+            assert!(
+                val.is_finite() || val.is_nan(),
+                "Function {:?} produced invalid value",
+                func
+            );
         }
     }
 }

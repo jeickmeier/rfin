@@ -272,9 +272,7 @@ fn test_compiled_expr_shift_rank_quantile() {
         Function::Quantile,
         vec![Expr::column("y"), Expr::literal(0.5)],
     ));
-    let quantiles = quantile_expr
-        .eval(&ctx, &cols, EvalOpts::default())
-        .values;
+    let quantiles = quantile_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!(quantiles.iter().all(|&v| (v - 30.0).abs() < 1e-12));
 }
 
@@ -303,9 +301,7 @@ fn test_compiled_expr_rolling_extrema_and_count() {
         Function::RollingCount,
         vec![Expr::column("x"), Expr::literal(2.0)],
     ));
-    let counts = rolling_count
-        .eval(&ctx, &cols, EvalOpts::default())
-        .values;
+    let counts = rolling_count.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!(counts[0].is_nan());
     assert_eq!(counts[2], 2.0);
 }

@@ -1,8 +1,8 @@
 //! Tests for amortization and notional functionality.
+use finstack_core::cashflow::primitives::{AmortizationSpec, Notional};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::cashflow::primitives::{AmortizationSpec, Notional};
 
 #[test]
 fn test_notional_par() {

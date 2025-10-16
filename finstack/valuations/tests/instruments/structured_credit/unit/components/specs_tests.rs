@@ -312,4 +312,3 @@ fn test_recovery_spec_serialization() {
         assert_eq!(spec, deserialized);
     }
 }
-

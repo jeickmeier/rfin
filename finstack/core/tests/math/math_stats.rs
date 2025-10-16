@@ -1,5 +1,7 @@
+use finstack_core::math::stats::{
+    log_returns, realized_variance, realized_variance_ohlc, RealizedVarMethod,
+};
 use finstack_core::math::{correlation, covariance, mean, mean_var, variance};
-use finstack_core::math::stats::{log_returns, realized_variance, realized_variance_ohlc, RealizedVarMethod};
 
 #[test]
 fn mean_and_variance_basic() {

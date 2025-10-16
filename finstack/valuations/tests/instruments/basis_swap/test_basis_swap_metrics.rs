@@ -2,8 +2,8 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
 use finstack_core::types::CurveId;
+use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::instruments::common::traits::Instrument;
@@ -46,8 +46,20 @@ fn swap() -> BasisSwap {
         Money::new(10_000_000.0, USD),
         d(2025, 1, 2),
         d(2026, 1, 2),
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-3M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-1M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
         CurveId::new("USD-OIS"),
     )
 }
@@ -92,8 +104,8 @@ fn theta_defined_and_finite() {
     let s = swap();
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let res = s.price_with_metrics(&ctx, as_of, &[MetricId::Theta]).unwrap();
+    let res = s
+        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .unwrap();
     assert!(res.measures[MetricId::Theta.as_str()].is_finite());
 }
-
-

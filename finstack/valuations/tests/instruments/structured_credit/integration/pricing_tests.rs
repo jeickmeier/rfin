@@ -10,9 +10,8 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PaymentCalculation, PaymentRecipient,
-    PaymentRule, PoolAsset, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority,
-    TrancheStructure, WaterfallEngine,
+    AssetPool, DealType, PaymentCalculation, PaymentRecipient, PaymentRule, PoolAsset,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -73,7 +72,11 @@ fn create_simple_waterfall() -> WaterfallEngine {
 fn flat_discount_curve(rate: f64, base: Date) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
         .base_date(base)
-        .knots(vec![(0.0, 1.0), (1.0, (-rate).exp()), (5.0, (-rate * 5.0).exp())])
+        .knots(vec![
+            (0.0, 1.0),
+            (1.0, (-rate).exp()),
+            (5.0, (-rate * 5.0).exp()),
+        ])
         .build()
         .unwrap()
 }
@@ -95,8 +98,7 @@ fn test_structured_credit_value_computation() {
         "USD-OIS",
     );
 
-    let market = MarketContext::new()
-        .insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
     // Act
     let result = sc.value(&market, test_date());
@@ -120,8 +122,7 @@ fn test_structured_credit_dirty_price() {
         "USD-OIS",
     );
 
-    let market = MarketContext::new()
-        .insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
     // Act
     let result = sc.price_with_metrics(&market, test_date(), &[MetricId::DirtyPrice]);
@@ -130,7 +131,7 @@ fn test_structured_credit_dirty_price() {
     assert!(result.is_ok());
     let result = result.unwrap();
     assert!(result.measures.contains_key("dirty_price"));
-    
+
     let price = result.measures["dirty_price"];
     assert!(
         price > 0.0 && price < 200.0,
@@ -152,24 +153,27 @@ fn test_structured_credit_clean_price() {
         "USD-OIS",
     );
 
-    let market = MarketContext::new()
-        .insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
     // Act
     let result = sc.price_with_metrics(
         &market,
         test_date(),
-        &[MetricId::DirtyPrice, MetricId::CleanPrice, MetricId::Accrued],
+        &[
+            MetricId::DirtyPrice,
+            MetricId::CleanPrice,
+            MetricId::Accrued,
+        ],
     );
 
     // Assert
     assert!(result.is_ok());
     let result = result.unwrap();
-    
+
     let dirty = result.measures["dirty_price"];
     let clean = result.measures["clean_price"];
     let accrued = result.measures["accrued"];
-    
+
     // Clean should be <= Dirty
     assert!(clean <= dirty + 0.01); // Small tolerance for rounding
     assert!(accrued >= 0.0);
@@ -192,8 +196,7 @@ fn test_structured_credit_full_metric_suite() {
         "USD-OIS",
     );
 
-    let market = MarketContext::new()
-        .insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
     // Act: Request comprehensive metrics
     let result = sc.price_with_metrics(
@@ -224,11 +227,7 @@ fn test_structured_credit_full_metric_suite() {
     );
 
     let result = result.unwrap();
-    assert_eq!(
-        result.measures.len(),
-        13,
-        "Should compute all 13 metrics"
-    );
+    assert_eq!(result.measures.len(), 13, "Should compute all 13 metrics");
 
     // Verify all metrics are finite
     for (key, value) in &result.measures {
@@ -249,8 +248,7 @@ fn test_structured_credit_empty_metrics_request() {
         "USD-OIS",
     );
 
-    let market = MarketContext::new()
-        .insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
     // Act: Request NO metrics
     let result = sc.price_with_metrics(&market, test_date(), &[]);
@@ -274,8 +272,7 @@ fn test_structured_credit_metric_dependency_resolution() {
         "USD-OIS",
     );
 
-    let market = MarketContext::new()
-        .insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
     // Act: Request only CleanPrice (dependencies should auto-compute)
     let result = sc.price_with_metrics(&market, test_date(), &[MetricId::CleanPrice]);
@@ -314,8 +311,7 @@ fn test_structured_credit_pool_balance_cleanup() {
         "USD-OIS",
     );
 
-    let market = MarketContext::new()
-        .insert_discount(flat_discount_curve(0.04, test_date()));
+    let market = MarketContext::new().insert_discount(flat_discount_curve(0.04, test_date()));
 
     // Act
     let result = sc.build_schedule(&market, test_date());
@@ -323,4 +319,3 @@ fn test_structured_credit_pool_balance_cleanup() {
     // Assert: Should handle small balances gracefully
     assert!(result.is_ok());
 }
-

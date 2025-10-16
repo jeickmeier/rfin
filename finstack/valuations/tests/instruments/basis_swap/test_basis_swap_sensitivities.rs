@@ -4,10 +4,10 @@
 //! risk measurement and hedge ratio calculations.
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
-use finstack_core::types::CurveId;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
@@ -74,8 +74,20 @@ fn dv01_net_equals_difference() {
         Money::new(10_000_000.0, USD),
         d(2025, 1, 2),
         d(2027, 1, 2),
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-3M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-1M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
         CurveId::new("USD-OIS"),
     );
 
@@ -83,7 +95,11 @@ fn dv01_net_equals_difference() {
         .price_with_metrics(
             &ctx,
             as_of,
-            &[MetricId::Dv01, MetricId::Dv01Primary, MetricId::Dv01Reference],
+            &[
+                MetricId::Dv01,
+                MetricId::Dv01Primary,
+                MetricId::Dv01Reference,
+            ],
         )
         .unwrap();
 
@@ -112,14 +128,26 @@ fn dv01_scales_with_notional() {
 
     for notional in &notionals {
         let swap = BasisSwap::new(
-        format!("DV01-SCALE-{}", notional),
-        Money::new(*notional, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-3M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-1M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        CurveId::new("USD-OIS"),
-    );
+            format!("DV01-SCALE-{}", notional),
+            Money::new(*notional, USD),
+            d(2025, 1, 2),
+            d(2026, 1, 2),
+            BasisSwapLeg {
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                frequency: Frequency::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                spread: 0.0,
+            },
+            BasisSwapLeg {
+                forward_curve_id: CurveId::new("USD-SOFR-1M"),
+                frequency: Frequency::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                spread: 0.0,
+            },
+            CurveId::new("USD-OIS"),
+        );
 
         let res = swap
             .price_with_metrics(&ctx, as_of, &[MetricId::Dv01Primary])
@@ -156,8 +184,20 @@ fn dv01_sign_convention() {
         Money::new(10_000_000.0, USD),
         d(2025, 1, 2),
         d(2026, 1, 2),
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-3M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-1M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
         CurveId::new("USD-OIS"),
     );
 
@@ -194,8 +234,20 @@ fn dv01_vs_numerical_bump() {
         Money::new(10_000_000.0, USD),
         d(2025, 1, 2),
         d(2026, 1, 2),
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-3M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-1M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
         CurveId::new("USD-OIS"),
     );
 
@@ -232,14 +284,26 @@ fn annuity_positive_and_increasing() {
 
     for maturity in &maturities {
         let swap = BasisSwap::new(
-        format!("ANNUITY-{}", maturity),
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        *maturity,
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-3M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-1M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        CurveId::new("USD-OIS"),
-    );
+            format!("ANNUITY-{}", maturity),
+            Money::new(10_000_000.0, USD),
+            d(2025, 1, 2),
+            *maturity,
+            BasisSwapLeg {
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                frequency: Frequency::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                spread: 0.0,
+            },
+            BasisSwapLeg {
+                forward_curve_id: CurveId::new("USD-SOFR-1M"),
+                frequency: Frequency::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                spread: 0.0,
+            },
+            CurveId::new("USD-OIS"),
+        );
 
         let res = swap
             .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
@@ -253,14 +317,8 @@ fn annuity_positive_and_increasing() {
     }
 
     // Annuities should be increasing
-    assert!(
-        annuities[1] > annuities[0],
-        "2Y annuity should exceed 1Y"
-    );
-    assert!(
-        annuities[2] > annuities[1],
-        "3Y annuity should exceed 2Y"
-    );
+    assert!(annuities[1] > annuities[0], "2Y annuity should exceed 1Y");
+    assert!(annuities[2] > annuities[1], "3Y annuity should exceed 2Y");
 }
 
 #[test]
@@ -275,8 +333,20 @@ fn bucketed_dv01_sums_to_total() {
         Money::new(10_000_000.0, USD),
         d(2025, 1, 2),
         d(2027, 1, 2),
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-3M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-1M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
         CurveId::new("USD-OIS"),
     );
 
@@ -304,8 +374,20 @@ fn dv01_leg_components_reasonable() {
         Money::new(notional, USD),
         d(2025, 1, 2),
         d(2026, 1, 2),
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-3M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-1M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
         CurveId::new("USD-OIS"),
     );
 
@@ -353,14 +435,26 @@ fn sensitivity_to_spread() {
 
     for spread in &spreads {
         let swap = BasisSwap::new(
-        format!("SPREAD-SENS-{}", spread),
-        Money::new(10_000_000.0, USD),
-        d(2025, 1, 2),
-        d(2026, 1, 2),
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-3M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: *spread },
-        BasisSwapLeg { forward_curve_id: CurveId::new("USD-SOFR-1M"), frequency: Frequency::quarterly(), day_count: DayCount::Act360, bdc: BusinessDayConvention::ModifiedFollowing, spread: 0.0 },
-        CurveId::new("USD-OIS"),
-    );
+            format!("SPREAD-SENS-{}", spread),
+            Money::new(10_000_000.0, USD),
+            d(2025, 1, 2),
+            d(2026, 1, 2),
+            BasisSwapLeg {
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                frequency: Frequency::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                spread: *spread,
+            },
+            BasisSwapLeg {
+                forward_curve_id: CurveId::new("USD-SOFR-1M"),
+                frequency: Frequency::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                spread: 0.0,
+            },
+            CurveId::new("USD-OIS"),
+        );
 
         let npv = swap.value(&ctx, as_of).unwrap().amount();
         npvs.push(npv);

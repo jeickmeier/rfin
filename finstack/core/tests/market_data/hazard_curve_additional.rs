@@ -10,7 +10,9 @@ fn base_date() -> Date {
 
 #[test]
 fn hazard_curve_builder_validates_inputs() {
-    let err = HazardCurve::builder("BAD").build().expect_err("no points should fail");
+    let err = HazardCurve::builder("BAD")
+        .build()
+        .expect_err("no points should fail");
     assert!(matches!(err, finstack_core::Error::Input(_)));
 
     let err = HazardCurve::builder("NEG")

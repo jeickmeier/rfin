@@ -99,11 +99,7 @@ fn simple_context_resolve_index_trait_method() {
 
 #[test]
 fn simple_context_from_vec_string() {
-    let columns = vec![
-        "col1".to_string(),
-        "col2".to_string(),
-        "col3".to_string(),
-    ];
+    let columns = vec!["col1".to_string(), "col2".to_string(), "col3".to_string()];
     let ctx = SimpleContext::new(columns);
 
     assert_eq!(ctx.index_of("col1"), Some(0));
@@ -147,4 +143,3 @@ fn simple_context_unicode_names() {
     assert_eq!(ctx.index_of("数量"), Some(1));
     assert_eq!(ctx.index_of("タイムスタンプ"), Some(2));
 }
-

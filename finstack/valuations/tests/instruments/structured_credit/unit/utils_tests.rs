@@ -10,8 +10,8 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
-    moodys_warf_factor, AssetPool, AssetType, CreditRating, DealType, PoolAsset,
-    RatingFactorTable, ReinvestmentManager,
+    moodys_warf_factor, AssetPool, AssetType, CreditRating, DealType, PoolAsset, RatingFactorTable,
+    ReinvestmentManager,
 };
 use time::Month;
 
@@ -135,9 +135,8 @@ fn test_reinvestment_manager_can_reinvest_before_end() {
     let manager = ReinvestmentManager::new(end_date);
 
     // Act
-    let can_reinvest = manager.can_reinvest(
-        Date::from_calendar_date(2026, Month::January, 1).unwrap(),
-    );
+    let can_reinvest =
+        manager.can_reinvest(Date::from_calendar_date(2026, Month::January, 1).unwrap());
 
     // Assert
     assert!(can_reinvest);
@@ -150,9 +149,8 @@ fn test_reinvestment_manager_cannot_reinvest_after_end() {
     let manager = ReinvestmentManager::new(end_date);
 
     // Act
-    let can_reinvest = manager.can_reinvest(
-        Date::from_calendar_date(2028, Month::January, 1).unwrap(),
-    );
+    let can_reinvest =
+        manager.can_reinvest(Date::from_calendar_date(2028, Month::January, 1).unwrap());
 
     // Assert
     assert!(!can_reinvest);
@@ -161,9 +159,8 @@ fn test_reinvestment_manager_cannot_reinvest_after_end() {
 #[test]
 fn test_reinvestment_manager_selects_cheapest_first() {
     // Arrange
-    let manager = ReinvestmentManager::new(
-        Date::from_calendar_date(2027, Month::January, 1).unwrap(),
-    );
+    let manager =
+        ReinvestmentManager::new(Date::from_calendar_date(2027, Month::January, 1).unwrap());
     let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
 
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
@@ -223,9 +220,8 @@ fn test_reinvestment_manager_selects_cheapest_first() {
 #[test]
 fn test_reinvestment_manager_respects_budget() {
     // Arrange
-    let manager = ReinvestmentManager::new(
-        Date::from_calendar_date(2027, Month::January, 1).unwrap(),
-    );
+    let manager =
+        ReinvestmentManager::new(Date::from_calendar_date(2027, Month::January, 1).unwrap());
     let pool = AssetPool::new("POOL", DealType::CLO, Currency::USD);
 
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();

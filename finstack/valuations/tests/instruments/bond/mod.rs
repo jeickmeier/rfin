@@ -11,6 +11,7 @@
 
 mod cashflows;
 mod construction;
+mod helpers_tests;
 mod integration;
 mod metrics;
 mod pricing;

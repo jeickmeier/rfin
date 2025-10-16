@@ -2,9 +2,7 @@ use super::common::{
     sample_base_correlation_curve, sample_discount_curve, sample_forward_curve,
     sample_hazard_curve, sample_inflation_curve,
 };
-use finstack_core::market_data::bumps::{
-    BumpMode, BumpSpec, BumpUnits, Bumpable,
-};
+use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpUnits, Bumpable};
 
 #[test]
 fn bump_spec_constructors_normalize_values() {

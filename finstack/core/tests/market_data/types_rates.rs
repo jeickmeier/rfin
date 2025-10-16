@@ -298,4 +298,3 @@ fn rate_ordering() {
     assert!(r2 > r1);
     assert_eq!(r1, r3);
 }
-

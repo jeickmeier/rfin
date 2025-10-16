@@ -11,13 +11,12 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::{
-    CoverageTrigger, CreditRating, Tranche, TrancheBuilder, TrancheCoupon,
-    TrancheSeniority, TrancheStructure, TriggerConsequence,
-};
 use finstack_core::types::CurveId;
+use finstack_valuations::instruments::structured_credit::{
+    CoverageTrigger, CreditRating, Tranche, TrancheBuilder, TrancheCoupon, TrancheSeniority,
+    TrancheStructure, TriggerConsequence,
+};
 use time::Month;
-
 
 fn maturity_date() -> Date {
     Date::from_calendar_date(2030, Month::December, 31).unwrap()
@@ -523,13 +522,8 @@ fn test_tranche_structure_senior_to() {
 fn test_tranche_structure_senior_balance() {
     // Arrange
     let equity = create_tranche("EQUITY", 0.0, 10.0, TrancheSeniority::Equity);
-    let mezz = create_tranche_with_balance(
-        "MEZZ",
-        10.0,
-        15.0,
-        TrancheSeniority::Mezzanine,
-        5_000_000.0,
-    );
+    let mezz =
+        create_tranche_with_balance("MEZZ", 10.0, 15.0, TrancheSeniority::Mezzanine, 5_000_000.0);
     let senior = create_tranche_with_balance(
         "SENIOR",
         15.0,
@@ -550,20 +544,10 @@ fn test_tranche_structure_senior_balance() {
 #[test]
 fn test_tranche_structure_subordination_amount() {
     // Arrange
-    let equity = create_tranche_with_balance(
-        "EQUITY",
-        0.0,
-        10.0,
-        TrancheSeniority::Equity,
-        10_000_000.0,
-    );
-    let mezz = create_tranche_with_balance(
-        "MEZZ",
-        10.0,
-        15.0,
-        TrancheSeniority::Mezzanine,
-        5_000_000.0,
-    );
+    let equity =
+        create_tranche_with_balance("EQUITY", 0.0, 10.0, TrancheSeniority::Equity, 10_000_000.0);
+    let mezz =
+        create_tranche_with_balance("MEZZ", 10.0, 15.0, TrancheSeniority::Mezzanine, 5_000_000.0);
     let senior = create_tranche_with_balance(
         "SENIOR",
         15.0,
@@ -588,8 +572,8 @@ fn test_tranche_structure_subordination_amount() {
 #[test]
 fn test_coverage_trigger_creation() {
     // Arrange & Act
-    let trigger = CoverageTrigger::new(1.20, TriggerConsequence::DivertCashFlow)
-        .with_cure_level(1.25);
+    let trigger =
+        CoverageTrigger::new(1.20, TriggerConsequence::DivertCashFlow).with_cure_level(1.25);
 
     // Assert
     assert_eq!(trigger.trigger_level, 1.20);
@@ -610,8 +594,8 @@ fn test_coverage_trigger_is_breached() {
 #[test]
 fn test_coverage_trigger_is_cured() {
     // Arrange
-    let trigger = CoverageTrigger::new(1.20, TriggerConsequence::DivertCashFlow)
-        .with_cure_level(1.25);
+    let trigger =
+        CoverageTrigger::new(1.20, TriggerConsequence::DivertCashFlow).with_cure_level(1.25);
 
     // Act & Assert
     assert!(!trigger.is_cured(1.22)); // Above trigger but below cure
@@ -623,12 +607,7 @@ fn test_coverage_trigger_is_cured() {
 // Helper Functions
 // ============================================================================
 
-fn create_tranche(
-    id: &str,
-    attach: f64,
-    detach: f64,
-    seniority: TrancheSeniority,
-) -> Tranche {
+fn create_tranche(id: &str, attach: f64, detach: f64, seniority: TrancheSeniority) -> Tranche {
     Tranche::new(
         id,
         attach,
@@ -659,4 +638,3 @@ fn create_tranche_with_balance(
     )
     .unwrap()
 }
-

@@ -1,7 +1,7 @@
 //! Additional tests for day count conventions
 
 use finstack_core::dates::calendar::TARGET2;
-use finstack_core::dates::{DayCount, DayCountCtx, Date, Frequency};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Frequency};
 use time::Month;
 
 fn make_date(y: i32, m: u8, d: u8) -> Date {
@@ -338,14 +338,18 @@ fn actact_isma_multiple_frequencies() {
         calendar: None,
         frequency: Some(Frequency::Months(3)),
     };
-    let yf_q = DayCount::ActActIsma.year_fraction(start, end, ctx_q).unwrap();
+    let yf_q = DayCount::ActActIsma
+        .year_fraction(start, end, ctx_q)
+        .unwrap();
 
     // Monthly
     let ctx_m = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::Months(1)),
     };
-    let yf_m = DayCount::ActActIsma.year_fraction(start, end, ctx_m).unwrap();
+    let yf_m = DayCount::ActActIsma
+        .year_fraction(start, end, ctx_m)
+        .unwrap();
 
     // Different frequencies give different results for ISMA
     // Quarterly: 1 full period = 1.0
@@ -415,7 +419,9 @@ fn daycount_short_periods() {
         DayCount::ActAct,
         DayCount::Act365L,
     ] {
-        let yf = dc.year_fraction(start, end, DayCountCtx::default()).unwrap();
+        let yf = dc
+            .year_fraction(start, end, DayCountCtx::default())
+            .unwrap();
         assert!(yf > 0.0 && yf < 0.05); // Small positive fraction
     }
 }
@@ -433,7 +439,9 @@ fn daycount_long_periods() {
         DayCount::ThirtyE360,
         DayCount::ActAct,
     ] {
-        let yf = dc.year_fraction(start, end, DayCountCtx::default()).unwrap();
+        let yf = dc
+            .year_fraction(start, end, DayCountCtx::default())
+            .unwrap();
         assert!(yf > 9.9 && yf < 10.2, "Failed for {:?}: yf = {}", dc, yf); // Close to 10 years
     }
 
@@ -507,10 +515,11 @@ fn actact_vs_actact_isma_comparison() {
         calendar: None,
         frequency: Some(Frequency::Months(12)),
     };
-    let yf_isma = DayCount::ActActIsma.year_fraction(start, end, ctx_isma).unwrap();
+    let yf_isma = DayCount::ActActIsma
+        .year_fraction(start, end, ctx_isma)
+        .unwrap();
 
     // For a full year period with annual frequency, both should give 1.0
     assert!((yf_isda - 1.0).abs() < 1e-10);
     assert!((yf_isma - 1.0).abs() < 1e-10);
 }
-

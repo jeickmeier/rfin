@@ -62,5 +62,7 @@ fn empty_inputs_return_empty_map() {
     let periods = quarters_2025();
 
     assert!(aggregate_by_period(&flows, &periods).is_empty());
-    assert!(aggregate_by_period(&[(d(2025, 1, 1), Money::new(1.0, Currency::USD))], &[]).is_empty());
+    assert!(
+        aggregate_by_period(&[(d(2025, 1, 1), Money::new(1.0, Currency::USD))], &[]).is_empty()
+    );
 }

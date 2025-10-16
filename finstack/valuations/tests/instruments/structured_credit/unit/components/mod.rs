@@ -6,4 +6,3 @@ pub mod rates_tests;
 pub mod specs_tests;
 pub mod tranches_tests;
 pub mod waterfall_tests;
-

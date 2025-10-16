@@ -1,7 +1,9 @@
 //! Additional coverage for business day adjustment edge cases.
 
 use super::common::{make_date, TestCal};
-use finstack_core::dates::calendar::business_days::{BusinessDayConvention, CalendarMetadata, HolidayCalendar};
+use finstack_core::dates::calendar::business_days::{
+    BusinessDayConvention, CalendarMetadata, HolidayCalendar,
+};
 
 /// Custom calendar that exposes metadata for testing.
 struct MetadataCal;
@@ -25,17 +27,13 @@ impl HolidayCalendar for MetadataCal {
 fn following_skips_multiple_consecutive_holidays() {
     // Set up calendar with back-to-back weekday holidays surrounding a weekend.
     let cal = TestCal::new()
-        .with_holiday(make_date(2025, 7, 3))  // Thursday
+        .with_holiday(make_date(2025, 7, 3)) // Thursday
         .with_holiday(make_date(2025, 7, 4)); // Friday (Independence Day)
 
     // Start from Thursday holiday: should roll forward to Monday July 7th.
     let thursday = make_date(2025, 7, 3);
-    let adjusted = finstack_core::dates::adjust(
-        thursday,
-        BusinessDayConvention::Following,
-        &cal,
-    )
-    .expect("Following adjustment should succeed");
+    let adjusted = finstack_core::dates::adjust(thursday, BusinessDayConvention::Following, &cal)
+        .expect("Following adjustment should succeed");
     assert_eq!(adjusted, make_date(2025, 7, 7));
 }
 
@@ -46,12 +44,8 @@ fn preceding_skips_multiple_consecutive_holidays() {
         .with_holiday(make_date(2025, 12, 30)); // Tuesday
 
     let holiday = make_date(2025, 12, 30);
-    let adjusted = finstack_core::dates::adjust(
-        holiday,
-        BusinessDayConvention::Preceding,
-        &cal,
-    )
-    .expect("Preceding adjustment should succeed");
+    let adjusted = finstack_core::dates::adjust(holiday, BusinessDayConvention::Preceding, &cal)
+        .expect("Preceding adjustment should succeed");
     assert_eq!(adjusted, make_date(2025, 12, 26)); // Friday, skipping weekend + holidays
 }
 
@@ -60,7 +54,10 @@ fn business_day_convention_display_strings() {
     let values = [
         (BusinessDayConvention::Unadjusted, "Unadjusted"),
         (BusinessDayConvention::Following, "Following"),
-        (BusinessDayConvention::ModifiedFollowing, "ModifiedFollowing"),
+        (
+            BusinessDayConvention::ModifiedFollowing,
+            "ModifiedFollowing",
+        ),
         (BusinessDayConvention::Preceding, "Preceding"),
         (
             BusinessDayConvention::ModifiedPreceding,

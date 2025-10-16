@@ -57,7 +57,10 @@ fn simple_fx_provider_set_and_get_direct() {
     provider.set_quote(Currency::EUR, Currency::USD, 1.15);
 
     // Direct lookup
-    assert_eq!(provider.get_direct(Currency::EUR, Currency::USD), Some(1.15));
+    assert_eq!(
+        provider.get_direct(Currency::EUR, Currency::USD),
+        Some(1.15)
+    );
 
     // Opposite direction not set
     assert_eq!(provider.get_direct(Currency::USD, Currency::EUR), None);
@@ -103,9 +106,18 @@ fn simple_fx_provider_set_quotes_bulk() {
     ]);
 
     // All should be retrievable
-    assert_eq!(provider.get_direct(Currency::EUR, Currency::USD), Some(1.10));
-    assert_eq!(provider.get_direct(Currency::GBP, Currency::USD), Some(1.25));
-    assert_eq!(provider.get_direct(Currency::JPY, Currency::USD), Some(0.0091));
+    assert_eq!(
+        provider.get_direct(Currency::EUR, Currency::USD),
+        Some(1.10)
+    );
+    assert_eq!(
+        provider.get_direct(Currency::GBP, Currency::USD),
+        Some(1.25)
+    );
+    assert_eq!(
+        provider.get_direct(Currency::JPY, Currency::USD),
+        Some(0.0091)
+    );
 }
 
 #[test]
@@ -114,11 +126,17 @@ fn simple_fx_provider_update_existing_quote() {
 
     // Set initial quote
     provider.set_quote(Currency::EUR, Currency::USD, 1.10);
-    assert_eq!(provider.get_direct(Currency::EUR, Currency::USD), Some(1.10));
+    assert_eq!(
+        provider.get_direct(Currency::EUR, Currency::USD),
+        Some(1.10)
+    );
 
     // Update quote
     provider.set_quote(Currency::EUR, Currency::USD, 1.15);
-    assert_eq!(provider.get_direct(Currency::EUR, Currency::USD), Some(1.15));
+    assert_eq!(
+        provider.get_direct(Currency::EUR, Currency::USD),
+        Some(1.15)
+    );
 }
 
 #[test]
@@ -254,8 +272,14 @@ fn simple_fx_provider_thread_safety() {
     handle.join().unwrap();
 
     // Both quotes should be available
-    assert_eq!(provider.get_direct(Currency::EUR, Currency::USD), Some(1.10));
-    assert_eq!(provider.get_direct(Currency::GBP, Currency::USD), Some(1.25));
+    assert_eq!(
+        provider.get_direct(Currency::EUR, Currency::USD),
+        Some(1.10)
+    );
+    assert_eq!(
+        provider.get_direct(Currency::GBP, Currency::USD),
+        Some(1.25)
+    );
 }
 
 #[test]
@@ -280,4 +304,3 @@ fn simple_fx_provider_many_currencies() {
         assert_eq!(rate, Some(expected));
     }
 }
-

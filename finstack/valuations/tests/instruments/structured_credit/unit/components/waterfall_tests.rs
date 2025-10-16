@@ -31,7 +31,7 @@ fn test_waterfall_builder_creates_proper_priority_order() {
 
     // Assert
     assert_eq!(waterfall.payment_rules.len(), 5);
-    
+
     // Verify priority order (1, 2, 3, 4, 5)
     for (i, rule) in waterfall.payment_rules.iter().enumerate() {
         assert_eq!(rule.priority, (i + 1) as u32);
@@ -48,15 +48,15 @@ fn test_waterfall_builder_fee_types() {
 
     // Assert
     assert_eq!(waterfall.payment_rules.len(), 2);
-    
+
     // Verify fee recipients
     match &waterfall.payment_rules[0].recipient {
-        PaymentRecipient::ManagerFee(ManagementFeeType::Senior) => {},
+        PaymentRecipient::ManagerFee(ManagementFeeType::Senior) => {}
         _ => panic!("Expected senior management fee"),
     }
-    
+
     match &waterfall.payment_rules[1].recipient {
-        PaymentRecipient::ManagerFee(ManagementFeeType::Subordinated) => {},
+        PaymentRecipient::ManagerFee(ManagementFeeType::Subordinated) => {}
         _ => panic!("Expected subordinated management fee"),
     }
 }
@@ -72,7 +72,7 @@ fn test_waterfall_builder_tranche_payments() {
 
     // Assert
     assert_eq!(waterfall.payment_rules.len(), 3);
-    
+
     // Check divertible flag
     assert!(!waterfall.payment_rules[0].divertible); // A interest not divertible
     assert!(waterfall.payment_rules[1].divertible); // B interest divertible
@@ -234,4 +234,3 @@ fn test_payment_calculation_residual_cash() {
     // Assert
     assert!(matches!(calc, PaymentCalculation::ResidualCash));
 }
-

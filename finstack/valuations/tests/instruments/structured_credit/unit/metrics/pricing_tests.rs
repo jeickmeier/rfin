@@ -313,4 +313,3 @@ fn test_wal_clo_short_duration() {
     // Assert: (60k×2 + 40k×3) / 100k = 2.4 years (typical for CLO AAA)
     assert!((wal - 2.4).abs() < 0.01);
 }
-

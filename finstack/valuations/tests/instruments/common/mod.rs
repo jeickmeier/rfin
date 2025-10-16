@@ -15,4 +15,3 @@ pub mod test_discountable;
 pub mod test_helpers;
 pub mod test_pricing;
 // pub mod test_traits; // Disabled - tests removed traits
-

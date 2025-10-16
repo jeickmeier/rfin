@@ -2,6 +2,7 @@
 
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::Currency;
 use finstack_valuations::calibration::methods::swaption_vol::{
@@ -12,7 +13,6 @@ use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::Swaption;
 use finstack_valuations::instruments::Instrument;
 use time::Month;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Create test discount curve for forward rate calculations.
 fn create_test_discount_curve() -> DiscountCurve {
@@ -228,7 +228,9 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
     });
 
     let quotes = create_extended_swaption_quotes();
-    let (surface, report) = calibrator.calibrate(&quotes, &context).expect("calibration ok");
+    let (surface, report) = calibrator
+        .calibrate(&quotes, &context)
+        .expect("calibration ok");
     assert!(report.success);
     assert!(report.iterations > 0);
     // Interpolation checks at non-grid points
@@ -240,9 +242,9 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
 
 #[test]
 fn test_swaption_vol_calibration_via_simple_calibration() {
+    use finstack_core::dates::{DayCount, Frequency};
     use finstack_valuations::calibration::simple_calibration::SimpleCalibration;
     use finstack_valuations::calibration::{MarketQuote, RatesQuote};
-    use finstack_core::dates::{DayCount, Frequency};
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 

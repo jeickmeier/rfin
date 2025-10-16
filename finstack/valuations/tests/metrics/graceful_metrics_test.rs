@@ -31,12 +31,7 @@ fn test_missing_metric_returns_zero() {
 
     // Create context
     let instrument_arc: Arc<dyn Instrument> = Arc::new(bond);
-    let mut context = MetricContext::new(
-        instrument_arc,
-        Arc::new(market),
-        as_of,
-        base_value,
-    );
+    let mut context = MetricContext::new(instrument_arc, Arc::new(market), as_of, base_value);
 
     // Create empty registry
     let registry = MetricRegistry::new();
@@ -78,12 +73,7 @@ fn test_partial_metric_failure_continues() {
 
     // Create context
     let instrument_arc: Arc<dyn Instrument> = Arc::new(bond);
-    let mut context = MetricContext::new(
-        instrument_arc,
-        Arc::new(market),
-        as_of,
-        base_value,
-    );
+    let mut context = MetricContext::new(instrument_arc, Arc::new(market), as_of, base_value);
 
     // Create empty registry
     let registry = MetricRegistry::new();
@@ -93,7 +83,10 @@ fn test_partial_metric_failure_continues() {
     let result = registry.compute(&metrics, &mut context);
 
     // Should not error
-    assert!(result.is_ok(), "Should handle all missing metrics gracefully");
+    assert!(
+        result.is_ok(),
+        "Should handle all missing metrics gracefully"
+    );
 
     let computed = result.unwrap();
 
@@ -126,12 +119,7 @@ fn test_some_metrics_succeed_some_fail() {
 
     // Create context
     let instrument_arc: Arc<dyn Instrument> = Arc::new(bond);
-    let mut context = MetricContext::new(
-        instrument_arc,
-        Arc::new(market),
-        as_of,
-        base_value,
-    );
+    let mut context = MetricContext::new(instrument_arc, Arc::new(market), as_of, base_value);
 
     // Use standard registry which has bond metrics
     let registry = standard_registry();
@@ -155,4 +143,3 @@ fn test_some_metrics_succeed_some_fail() {
         "Should return results for all requested metrics"
     );
 }
-

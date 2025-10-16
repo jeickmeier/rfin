@@ -1,6 +1,6 @@
 //! Tests for interpolation traits and default implementations
 
-use finstack_core::math::interp::{InterpFn, LinearDf, LogLinearDf, ExtrapolationPolicy};
+use finstack_core::math::interp::{ExtrapolationPolicy, InterpFn, LinearDf, LogLinearDf};
 
 // Test interpolator using default derivative implementation
 #[derive(Debug)]
@@ -130,4 +130,3 @@ fn interp_fn_derivative_extrapolation_flat_forward() {
     assert!((deriv_interior - deriv_below).abs() < 1e-6);
     assert!((deriv_interior - deriv_above).abs() < 1e-6);
 }
-

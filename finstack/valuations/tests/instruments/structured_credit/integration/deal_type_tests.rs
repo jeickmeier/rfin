@@ -6,8 +6,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PoolAsset, PrepaymentModelSpec, StructuredCredit,
-    Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
+    AssetPool, DealType, PoolAsset, PrepaymentModelSpec, StructuredCredit, Tranche, TrancheCoupon,
+    TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
 use time::Month;
 
@@ -319,4 +319,3 @@ fn test_all_deal_types_have_correct_classification() {
     assert_eq!(rmbs.deal_type, DealType::RMBS);
     assert_eq!(cmbs.deal_type, DealType::CMBS);
 }
-

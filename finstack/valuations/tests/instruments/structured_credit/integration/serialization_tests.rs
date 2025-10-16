@@ -8,8 +8,7 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
     AssetPool, DealType, DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
-    WaterfallEngine,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
 use time::Month;
 
@@ -228,4 +227,3 @@ fn test_recovery_spec_json_format() {
     assert!(json.contains("\"rate\""));
     assert!(json.contains("0.7"));
 }
-
