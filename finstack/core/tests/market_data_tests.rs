@@ -16,3 +16,9 @@ mod discount_curve_additional;
 mod dividends;
 #[path = "market_data/hazard_curve_additional.rs"]
 mod hazard_curve_additional;
+#[path = "market_data/fx_providers.rs"]
+mod fx_providers;
+#[path = "market_data/types_rates.rs"]
+mod types_rates;
+#[path = "market_data/money_rounding.rs"]
+mod money_rounding;

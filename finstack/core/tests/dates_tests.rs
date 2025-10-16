@@ -16,6 +16,10 @@ mod cny_edge_years;
 mod calendar_types;
 #[path = "dates/schedule_iter.rs"]
 mod schedule_iter;
+#[path = "dates/date_extensions.rs"]
+mod date_extensions;
+#[path = "dates/daycount_additional.rs"]
+mod daycount_additional;
 
 #[cfg(feature = "serde")]
 #[path = "dates/calendar_serde.rs"]
