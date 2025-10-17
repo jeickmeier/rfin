@@ -37,3 +37,6 @@ mod test_option_bounds;
 
 // Metrics tests
 mod test_metrics_registry;
+
+// QuantLib parity tests
+mod quantlib_parity;

@@ -31,6 +31,14 @@ use crate::{
     types::CurveId,
 };
 
+/// Default forward rate used as fallback when converting discount curves to forward curves.
+///
+/// This value (4.5%) represents a typical mid-cycle interest rate for major currencies
+/// and is used only when insufficient data prevents computing forward rates from
+/// discount factor differences. In normal usage with well-formed curves, this fallback
+/// should rarely be triggered.
+const DEFAULT_FORWARD_RATE_FALLBACK: f64 = 0.045;
+
 /// Piece-wise discount factor curve supporting several interpolation styles.
 #[derive(Debug)]
 pub struct DiscountCurve {
@@ -324,7 +332,7 @@ impl DiscountCurve {
                     // Use spot rate
                     (-df.ln()) / t
                 } else {
-                    0.045 // Default rate
+                    DEFAULT_FORWARD_RATE_FALLBACK
                 }
             } else if i < self.knots.len() - 1 {
                 // Interior points: use central difference
@@ -338,7 +346,7 @@ impl DiscountCurve {
                 if dt > 0.0 && df_next > 0.0 && df_prev > 0.0 {
                     (df_prev.ln() - df_next.ln()) / dt
                 } else {
-                    0.045 // Default rate
+                    DEFAULT_FORWARD_RATE_FALLBACK
                 }
             } else {
                 // Last point: use backward difference
@@ -350,7 +358,7 @@ impl DiscountCurve {
                 if dt > 0.0 && df > 0.0 && df_prev > 0.0 {
                     (df_prev / df - 1.0) / dt
                 } else {
-                    0.045 // Default rate
+                    DEFAULT_FORWARD_RATE_FALLBACK
                 }
             };
 
@@ -394,7 +402,7 @@ impl DiscountCurve {
                 } else if t > 0.0 && df > 0.0 {
                     (-df.ln()) / t
                 } else {
-                    0.045
+                    DEFAULT_FORWARD_RATE_FALLBACK
                 }
             } else if i < self.knots.len() - 1 {
                 let t_prev = self.knots[i - 1];
@@ -406,7 +414,7 @@ impl DiscountCurve {
                 if dt > 0.0 && df_next > 0.0 && df_prev > 0.0 {
                     (df_prev.ln() - df_next.ln()) / dt
                 } else {
-                    0.045
+                    DEFAULT_FORWARD_RATE_FALLBACK
                 }
             } else {
                 let t_prev = self.knots[i - 1];
@@ -417,7 +425,7 @@ impl DiscountCurve {
                 if dt > 0.0 && df > 0.0 && df_prev > 0.0 {
                     (df_prev / df - 1.0) / dt
                 } else {
-                    0.045
+                    DEFAULT_FORWARD_RATE_FALLBACK
                 }
             };
 

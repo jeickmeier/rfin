@@ -84,6 +84,13 @@ pub struct CallPutSchedule {
     pub puts: Vec<CallPut>,
 }
 
+impl CallPutSchedule {
+    /// Check if this schedule has any active call or put options.
+    pub fn has_options(&self) -> bool {
+        !self.calls.is_empty() || !self.puts.is_empty()
+    }
+}
+
 /// Floating-rate parameters for FRN-style bonds.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -316,6 +323,76 @@ impl Bond {
         // Build the schedule with market curves for floating rate computation
         b.build_with_curves(Some(curves))
     }
+
+    /// Price bond using tree-based pricing for embedded options (calls/puts).
+    ///
+    /// This method is automatically called by `value()` when the bond has a non-empty
+    /// call/put schedule. It uses a short-rate tree model to properly value the
+    /// embedded optionality via backward induction.
+    ///
+    /// # Arguments
+    /// * `curves` - Market context with discount curve (and optionally hazard curve)
+    /// * `as_of` - Valuation date
+    ///
+    /// # Returns
+    /// Option-adjusted present value of the bond
+    fn value_with_tree(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::instruments::bond::pricing::tree_pricer::BondValuator;
+        use crate::instruments::common::models::{
+            short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
+        };
+
+        // Calculate time to maturity
+        let time_to_maturity = self
+            .dc
+            .year_fraction(
+                as_of,
+                self.maturity,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+
+        if time_to_maturity <= 0.0 {
+            return Ok(Money::new(0.0, self.notional.currency()));
+        }
+
+        // Get discount curve and calibrate tree
+        let discount_curve = curves.get_discount_ref(&self.disc_id)?;
+
+        // Tree configuration - use 100 steps and 1% volatility as defaults
+        // These can be overridden via attributes if needed for specific calibration
+        let tree_steps = 100;
+        let tree_config = ShortRateTreeConfig {
+            steps: tree_steps,
+            volatility: 0.01,
+            ..Default::default()
+        };
+
+        // Initialize and calibrate short-rate tree to match discount curve
+        let mut tree = ShortRateTree::new(tree_config);
+        tree.calibrate(discount_curve, time_to_maturity)?;
+
+        // Create bond valuator with call/put schedule mapped to tree steps
+        let valuator = BondValuator::new(
+            self.clone(),
+            curves,
+            time_to_maturity,
+            tree_steps,
+        )?;
+
+        // Set up initial state variables (no OAS for vanilla pricing)
+        let mut vars = StateVariables::new();
+        vars.insert(short_rate_keys::OAS, 0.0);
+
+        // Price via tree with backward induction applying call/put constraints
+        let price_amount = tree.price(vars, time_to_maturity, curves, &valuator)?;
+
+        Ok(Money::new(price_amount, self.notional.currency()))
+    }
 }
 
 // Explicit trait implementations for better IDE support and code clarity
@@ -351,7 +428,14 @@ impl crate::instruments::common::traits::Instrument for Bond {
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Route through helper for schedule-based PV calculation
+        // Check if bond has embedded options requiring tree-based pricing
+        if let Some(ref cp) = self.call_put {
+            if cp.has_options() {
+                return self.value_with_tree(curves, as_of);
+            }
+        }
+        
+        // Standard cashflow discounting for straight bonds
         crate::instruments::common::helpers::schedule_pv_impl(
             self,
             curves,

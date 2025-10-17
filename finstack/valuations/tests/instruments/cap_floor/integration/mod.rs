@@ -5,3 +5,4 @@
 
 mod market_scenarios;
 mod parity;
+mod quantlib_parity;

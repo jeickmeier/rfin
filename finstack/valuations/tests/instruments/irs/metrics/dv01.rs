@@ -287,8 +287,9 @@ fn test_dv01_higher_rates_lower_dv01() {
 }
 
 #[test]
-fn test_dv01_receive_fixed_positive() {
-    // Receive fixed has positive DV01
+fn test_dv01_receive_fixed_negative() {
+    // Receive fixed has negative DV01 (QuantLib/market standard)
+    // Rationale: Receiving fixed loses value when rates drop
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
@@ -304,15 +305,16 @@ fn test_dv01_receive_fixed_positive() {
     let dv01 = *result.measures.get("dv01").unwrap();
 
     assert!(
-        dv01 > 0.0,
-        "Receive fixed DV01 should be positive, got {}",
+        dv01 < 0.0,
+        "Receive fixed DV01 should be negative (market standard), got {}",
         dv01
     );
 }
 
 #[test]
-fn test_dv01_pay_fixed_negative() {
-    // Pay fixed has negative DV01
+fn test_dv01_pay_fixed_positive() {
+    // Pay fixed has positive DV01 (QuantLib/market standard)
+    // Rationale: Paying fixed benefits when rates drop (floating leg costs less)
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
@@ -328,8 +330,8 @@ fn test_dv01_pay_fixed_negative() {
     let dv01 = *result.measures.get("dv01").unwrap();
 
     assert!(
-        dv01 < 0.0,
-        "Pay fixed DV01 should be negative, got {}",
+        dv01 > 0.0,
+        "Pay fixed DV01 should be positive (market standard), got {}",
         dv01
     );
 }

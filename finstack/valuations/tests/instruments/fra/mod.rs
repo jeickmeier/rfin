@@ -11,8 +11,9 @@
 //! - `cashflows` - Cashflow schedule generation tests
 //! - `metrics/` - Comprehensive metric calculator tests
 //! - `validation/` - Market-standard validation tests
+//! - `quantlib_parity` - QuantLib parity tests for cross-validation
 //!
-//! ## Total Coverage: ~70 tests
+//! ## Total Coverage: ~80 tests
 //!
 //! See README.md for detailed test inventory.
 
@@ -21,4 +22,5 @@ mod common;
 mod construction;
 mod metrics;
 mod pricing;
+mod quantlib_parity;
 mod validation;

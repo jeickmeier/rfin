@@ -8,3 +8,4 @@
 //! - Comprehensive metric calculations
 
 mod complex_scenarios;
+mod quantlib_parity;

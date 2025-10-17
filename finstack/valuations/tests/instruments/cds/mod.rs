@@ -15,5 +15,8 @@ mod test_cds_market_validation;
 mod test_cds_metrics;
 mod test_cds_pricing;
 
+// QuantLib parity tests
+mod quantlib_parity;
+
 // CDS index tests (commented out - needs API updates)
 // mod test_cds_index_imm_factor_cs01;

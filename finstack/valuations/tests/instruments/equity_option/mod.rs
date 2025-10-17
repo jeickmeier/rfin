@@ -9,6 +9,7 @@
 //! - Moneyness: ITM/ATM/OTM behavior
 
 mod helpers;
+mod integration;
 mod test_constructors;
 mod test_edge_cases;
 mod test_greeks;

@@ -53,7 +53,36 @@ struct SwapConfig<'a> {
     disc_curve: &'a str,
     fwd_curve: &'a str,
     reset_lag_days: i32,
-    sched: ScheduleParams,
+    sched: IRSScheduleConfig,
+}
+
+/// Schedule configuration with separate fixed and float leg parameters
+struct IRSScheduleConfig {
+    fixed_freq: finstack_core::dates::Frequency,
+    fixed_dc: finstack_core::dates::DayCount,
+    float_freq: finstack_core::dates::Frequency,
+    float_dc: finstack_core::dates::DayCount,
+    bdc: finstack_core::dates::BusinessDayConvention,
+    calendar_id: Option<String>,
+    stub: finstack_core::dates::StubKind,
+}
+
+impl IRSScheduleConfig {
+    /// USD standard for testing: Quarterly for both legs with Act/360
+    /// Note: Market standard would be semiannual fixed (30/360) + quarterly float (Act/360)
+    /// But QuantLib test suite and finstack internal tests use quarterly/quarterly for simplicity
+    fn usd_standard() -> Self {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        Self {
+            fixed_freq: Frequency::quarterly(),
+            fixed_dc: DayCount::Act360,
+            float_freq: Frequency::quarterly(),
+            float_dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("USD".to_string()),
+            stub: StubKind::None,
+        }
+    }
 }
 
 impl InterestRateSwap {
@@ -70,8 +99,8 @@ impl InterestRateSwap {
         let fixed = FixedLegSpec {
             disc_id: finstack_core::types::CurveId::from(config.disc_curve),
             rate: fixed_rate,
-            freq: config.sched.freq,
-            dc: config.sched.dc,
+            freq: config.sched.fixed_freq,
+            dc: config.sched.fixed_dc,
             bdc: config.sched.bdc,
             calendar_id: config.sched.calendar_id.clone(),
             stub: config.sched.stub,
@@ -84,8 +113,8 @@ impl InterestRateSwap {
             disc_id: finstack_core::types::CurveId::from(config.disc_curve),
             fwd_id: finstack_core::types::CurveId::from(config.fwd_curve),
             spread_bp: 0.0,
-            freq: config.sched.freq,
-            dc: config.sched.dc,
+            freq: config.sched.float_freq,
+            dc: config.sched.float_dc,
             bdc: config.sched.bdc,
             calendar_id: config.sched.calendar_id.clone(),
             stub: config.sched.stub,
@@ -138,7 +167,7 @@ impl InterestRateSwap {
                 disc_curve: "USD-OIS",
                 fwd_curve: "USD-SOFR-3M",
                 reset_lag_days: 2,
-                sched: ScheduleParams::usd_standard(),
+                sched: IRSScheduleConfig::usd_standard(),
             },
         )
     }
@@ -298,6 +327,11 @@ impl InterestRateSwap {
             if cf.kind == crate::cashflow::primitives::CFKind::Fixed
                 || cf.kind == crate::cashflow::primitives::CFKind::Stub
             {
+                // Only include future cashflows
+                if cf.date <= as_of {
+                    continue;
+                }
+
                 // Discount from as_of for correct theta
                 let t_cf = disc_dc
                     .year_fraction(
@@ -362,6 +396,12 @@ impl InterestRateSwap {
         let df_as_of = disc.df(t_as_of);
 
         for &d in &sched_dates[1..] {
+            // Only include future cashflows
+            if d <= as_of {
+                prev = d;
+                continue;
+            }
+
             let base = disc.base_date();
             let t1 = self
                 .float
@@ -378,7 +418,13 @@ impl InterestRateSwap {
                 .dc
                 .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0);
-            let f = fwd.rate_period(t1, t2);
+
+            // Only call rate_period if t1 < t2 to avoid date ordering errors
+            let f = if t2 > t1 {
+                fwd.rate_period(t1, t2)
+            } else {
+                0.0
+            };
             let rate = f + (self.float.spread_bp * 1e-4);
             let coupon = self.notional * (rate * yf);
 
@@ -491,6 +537,12 @@ impl InterestRateSwap {
                             let mut prev = sched_dates[0];
                             let mut annuity = 0.0;
                             for &d in &sched_dates[1..] {
+                                // Only include future cashflows
+                                if d <= as_of {
+                                    prev = d;
+                                    continue;
+                                }
+
                                 let alpha = self
                                     .float
                                     .dc

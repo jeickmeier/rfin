@@ -10,9 +10,11 @@
 //! - `test_sensitivities`: Market parameter sensitivities
 //! - `test_edge_cases`: Edge cases, error handling, currency safety
 //! - `test_metrics`: Metric calculator framework integration
+//! - `quantlib_parity`: QuantLib parity tests for convertible bonds
 
 // Test modules
 mod fixtures;
+mod quantlib_parity;
 mod test_conversion_policies;
 mod test_edge_cases;
 mod test_embedded_options;

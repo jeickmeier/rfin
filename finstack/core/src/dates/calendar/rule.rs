@@ -146,10 +146,25 @@ impl Rule {
 
 // Chinese New Year helpers now provided by calendar::algo
 
-// Add helper to compute Qing Ming day
+/// Calculate Qing Ming (Tomb-Sweeping Day) based on solar term calculations.
+///
+/// Qing Ming is one of the 24 solar terms in the traditional Chinese calendar,
+/// typically falling around April 4-5 when the sun reaches celestial longitude 15°.
+///
+/// The formula uses mean solar longitude calculations with epoch 1900.
+/// Accurate for years 1900-2100.
+///
+/// # Constants
+/// - Base offset: 5.59 days into April
+/// - Slope: 0.2422 days per year (accounts for calendar drift)
+/// - Epoch: 1900 (reference year for calculation)
 fn qing_ming_day(year: i32) -> u8 {
-    let y = (year - 1900) as f64;
-    (5.59 + 0.2422 * y - (y / 4.0).floor()) as u8
+    const QINGMING_BASE: f64 = 5.59;
+    const QINGMING_SLOPE: f64 = 0.2422;
+    const QINGMING_EPOCH: i32 = 1900;
+    
+    let y = (year - QINGMING_EPOCH) as f64;
+    (QINGMING_BASE + QINGMING_SLOPE * y - (y / 4.0).floor()) as u8
 }
 
 // Helper for Buddha's Birthday approximation (CNY +95 days)
@@ -157,15 +172,55 @@ fn buddhas_birthday_date(year: i32) -> Option<Date> {
     algo::cny_date(year).map(|cny| cny + Duration::days(95))
 }
 
+/// Calculate Vernal Equinox Day for Japan.
+///
+/// Uses the formula from Japan's National Astronomical Observatory (NAO)
+/// for approximating the date of the vernal (spring) equinox, which is
+/// a national holiday in Japan.
+///
+/// The formula is based on astronomical calculations with epoch 1980.
+/// Accurate for years 1900-2100.
+///
+/// # Constants
+/// - Epoch: 1980 (reference year for NAO formula)
+/// - Base: 20.8431 days into March
+/// - Slope: 0.242194 days per year (accounts for precession)
+///
+/// # Reference
+/// Japan National Astronomical Observatory (国立天文台)
 fn vernal_equinox_jp(year: i32) -> Date {
-    let y = (year - 1980) as f64;
-    let day = (20.8431 + 0.242194 * y - (y / 4.0).floor()).floor() as u8;
+    const VERNAL_EPOCH: i32 = 1980;
+    const VERNAL_BASE: f64 = 20.8431;
+    const VERNAL_SLOPE: f64 = 0.242194;
+    
+    let y = (year - VERNAL_EPOCH) as f64;
+    let day = (VERNAL_BASE + VERNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
     Date::from_calendar_date(year, Month::March, day).unwrap()
 }
 
+/// Calculate Autumnal Equinox Day for Japan.
+///
+/// Uses the formula from Japan's National Astronomical Observatory (NAO)
+/// for approximating the date of the autumnal (fall) equinox, which is
+/// a national holiday in Japan.
+///
+/// The formula is based on astronomical calculations with epoch 1980.
+/// Accurate for years 1900-2100.
+///
+/// # Constants
+/// - Epoch: 1980 (reference year for NAO formula)
+/// - Base: 23.2488 days into September
+/// - Slope: 0.242194 days per year (accounts for precession)
+///
+/// # Reference
+/// Japan National Astronomical Observatory (国立天文台)
 fn autumnal_equinox_jp(year: i32) -> Date {
-    let y = (year - 1980) as f64;
-    let day = (23.2488 + 0.242194 * y - (y / 4.0).floor()).floor() as u8;
+    const AUTUMNAL_EPOCH: i32 = 1980;
+    const AUTUMNAL_BASE: f64 = 23.2488;
+    const AUTUMNAL_SLOPE: f64 = 0.242194;
+    
+    let y = (year - AUTUMNAL_EPOCH) as f64;
+    let day = (AUTUMNAL_BASE + AUTUMNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
     Date::from_calendar_date(year, Month::September, day).unwrap()
 }
 

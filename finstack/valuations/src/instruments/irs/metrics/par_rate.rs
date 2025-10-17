@@ -26,7 +26,9 @@ impl MetricCalculator for ParRateCalculator {
             ParRateMethod::ForwardBased => {
                 // float PV / (N * annuity)
                 let fwd = context.curves.get_forward(&irs.float.fwd_id)?;
+                let as_of = context.as_of;
 
+                // Annuity is sum(yf*df) in years
                 let annuity = context
                     .computed
                     .get(&MetricId::Annuity)
@@ -49,9 +51,21 @@ impl MetricCalculator for ParRateCalculator {
                     return Ok(0.0);
                 }
 
+                let disc_dc = disc.day_count();
+                let t_as_of = disc_dc
+                    .year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0);
+                let df_as_of = disc.df(t_as_of);
+
                 let mut pv = 0.0;
                 let mut prev = schedule[0];
                 for &d in &schedule[1..] {
+                    // Only include future cashflows
+                    if d <= as_of {
+                        prev = d;
+                        continue;
+                    }
+
                     let t1 = irs
                         .float
                         .dc
@@ -67,18 +81,38 @@ impl MetricCalculator for ParRateCalculator {
                         .dc
                         .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
                         .unwrap_or(0.0);
-                    let f = fwd.rate_period(t1, t2);
+
+                    // Only call rate_period if t1 < t2 to avoid date ordering errors
+                    let f = if t2 > t1 {
+                        fwd.rate_period(t1, t2)
+                    } else {
+                        0.0
+                    };
                     let rate = f + (irs.float.spread_bp * 1e-4);
                     let coupon = irs.notional.amount() * rate * yf;
-                    let df = disc.df_on_date_curve(d);
+
+                    // Discount from as_of for correct theta and seasoned swap handling
+                    let t_d = disc_dc
+                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
+                        .unwrap_or(0.0);
+                    let df_d_abs = disc.df(t_d);
+                    let df = if df_as_of != 0.0 {
+                        df_d_abs / df_as_of
+                    } else {
+                        1.0
+                    };
+
                     pv += coupon * df;
                     prev = d;
                 }
 
-                Ok(pv / irs.notional.amount() / annuity)
+                // Par rate = float_pv / (notional * annuity)
+                // Annuity is sum(yf*df), so this gives: pv / (notional * sum(yf*df))
+                Ok(pv / (irs.notional.amount() * annuity))
             }
             ParRateMethod::DiscountRatio => {
                 // (P(0,T0) - P(0,Tn)) / Sum alpha_i P(0,Ti)
+                let as_of = context.as_of;
                 let sched = crate::cashflow::builder::build_dates(
                     irs.fixed.start,
                     irs.fixed.end,
@@ -92,21 +126,62 @@ impl MetricCalculator for ParRateCalculator {
                     return Ok(0.0);
                 }
 
-                // Numerator: P(0,T0) - P(0,Tn)
-                let p0 = disc.df_on_date_curve(dates[0]);
-                let pn = disc.df_on_date_curve(*dates.last().unwrap());
+                let disc_dc = disc.day_count();
+                let t_as_of = disc_dc
+                    .year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0);
+                let df_as_of = disc.df(t_as_of);
+
+                // Numerator: P(as_of,T0) - P(as_of,Tn)
+                let t0 = disc_dc
+                    .year_fraction(base, dates[0], finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0);
+                let tn = disc_dc
+                    .year_fraction(
+                        base,
+                        *dates.last().unwrap(),
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
+
+                let p0_abs = disc.df(t0);
+                let pn_abs = disc.df(tn);
+                let p0 = if df_as_of != 0.0 {
+                    p0_abs / df_as_of
+                } else {
+                    1.0
+                };
+                let pn = if df_as_of != 0.0 {
+                    pn_abs / df_as_of
+                } else {
+                    1.0
+                };
                 let num = p0 - pn;
 
-                // Denominator: Sum alpha_i P(0,Ti)
+                // Denominator: Sum alpha_i P(as_of,Ti) for future cashflows
                 let mut den = 0.0;
                 let mut prev = dates[0];
                 for &d in &dates[1..] {
+                    // Only include future cashflows
+                    if d <= as_of {
+                        prev = d;
+                        continue;
+                    }
+
                     let alpha = irs
                         .fixed
                         .dc
                         .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
                         .unwrap_or(0.0);
-                    let p = disc.df_on_date_curve(d);
+                    let t_d = disc_dc
+                        .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
+                        .unwrap_or(0.0);
+                    let p_abs = disc.df(t_d);
+                    let p = if df_as_of != 0.0 {
+                        p_abs / df_as_of
+                    } else {
+                        1.0
+                    };
                     den += alpha * p;
                     prev = d;
                 }
