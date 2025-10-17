@@ -89,12 +89,23 @@ export const RatesInstrumentsExample: React.FC = () => {
         const results: InstrumentRow[] = [];
 
         // Interest Rate Swap
-        const swap = InterestRateSwap.usdReceiveFixed(
+        const swap = new InterestRateSwap(
           'irs_receive_fixed',
           notional,
           0.0325,
           asOf,
-          new FsDate(2029, 1, 2)
+          new FsDate(2029, 1, 2),
+          'USD-OIS',
+          'USD-SOFR-3M',
+          'receive_fixed',
+          null,
+          DayCount.thirty360(),
+          null,
+          DayCount.act360(),
+          null,
+          null,
+          null,
+          2
         );
         const swapOpts = new PricingRequest().withMetrics(['dv01', 'annuity', 'par_rate']);
         const swapResult = registry.priceInterestRateSwap(swap, 'discounting', market, swapOpts);
@@ -144,6 +155,9 @@ export const RatesInstrumentsExample: React.FC = () => {
           new FsDate(2030, 1, 2),
           'USD-OIS',
           'USD-SOFR-3M',
+          'SWAPTION-VOL',
+          null,
+          null,
           null,
           null,
           null
@@ -169,7 +183,7 @@ export const RatesInstrumentsExample: React.FC = () => {
           new FsDate(2029, 1, 2),
           'USD-OIS',
           'USD-SOFR-3M',
-          null,
+          'IR-CAP-VOL',
           4,
           DayCount.act360()
         );

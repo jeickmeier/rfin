@@ -1,4 +1,3 @@
-// use crate::core::error::core_to_py; // not used in this module currently
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
@@ -113,7 +112,9 @@ impl PyCdsOption {
         let discount = extract_curve_id(&discount_curve)?;
         let credit = extract_curve_id(&credit_curve)?;
         let option_type_value = parse_option_type(option_type)?;
-        let recovery = recovery_rate.unwrap_or(0.40);
+        let recovery = recovery_rate.unwrap_or(
+            finstack_valuations::instruments::common::constants::isda_constants::STANDARD_RECOVERY_SENIOR,
+        );
         if !(0.0..=1.0).contains(&recovery) {
             return Err(PyValueError::new_err(
                 "recovery_rate must be between 0 and 1",

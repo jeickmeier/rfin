@@ -4,6 +4,7 @@ use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::intern_calendar_id_opt;
 use finstack_valuations::instruments::fx_option::FxOption;
 use finstack_valuations::instruments::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx_swap::FxSwap;
@@ -35,7 +36,7 @@ impl PyFxSpot {
 impl PyFxSpot {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, base_currency, quote_currency, *, settlement=None, settlement_lag_days=None, spot_rate=None, notional=None, bdc='following', calendar=None)"
+        text_signature = "(cls, instrument_id, base_currency, quote_currency, *, settlement=None, settlement_lag_days=None, spot_rate=None, notional=None, bdc=None, calendar=None)"
     )]
     #[pyo3(
         signature = (
@@ -106,10 +107,8 @@ impl PyFxSpot {
             let BusinessDayConventionArg(conv) = bdc_obj.extract()?;
             inst = inst.with_bdc(conv);
         }
-        if let Some(id) = calendar {
-            // Leak calendar id to static lifetime as required by core types
-            let leaked: &'static str = Box::leak(id.to_string().into_boxed_str());
-            inst = inst.with_calendar_id(leaked);
+        if let Some(cal_id) = intern_calendar_id_opt(calendar) {
+            inst = inst.with_calendar_id(cal_id);
         }
 
         Ok(Self::new(inst))
@@ -273,9 +272,9 @@ impl PyFxOption {
 impl PyFxOption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, base_currency, quote_currency, strike, expiry, notional)"
+        text_signature = "(cls, instrument_id, base_currency, quote_currency, strike, expiry, notional, vol_surface)"
     )]
-    /// Create a European call option with standard USD-centric curves.
+    /// Create a European call option with explicit volatility surface.
     ///
     /// Args:
     ///     instrument_id: Instrument identifier or string-like object.
@@ -284,12 +283,24 @@ impl PyFxOption {
     ///     strike: Strike rate in quote per base units.
     ///     expiry: Expiry date of the option.
     ///     notional: Notional amount as :class:`finstack.core.money.Money`.
+    ///     vol_surface: Volatility surface identifier for pricing.
     ///
     /// Returns:
     ///     FxOption: Configured call option instrument.
     ///
     /// Raises:
     ///     ValueError: If identifiers or dates cannot be parsed.
+    #[pyo3(
+        signature = (
+            instrument_id,
+            base_currency,
+            quote_currency,
+            strike,
+            expiry,
+            notional,
+            vol_surface
+        )
+    )]
     fn european_call(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -298,12 +309,14 @@ impl PyFxOption {
         strike: f64,
         expiry: Bound<'_, PyAny>,
         notional: Bound<'_, PyAny>,
+        vol_surface: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
         let id = extract_instrument_id(&instrument_id)?;
         let CurrencyArg(base) = base_currency.extract()?;
         let CurrencyArg(quote) = quote_currency.extract()?;
         let expiry_date = py_to_date(&expiry)?;
         let amt = extract_money(&notional)?;
+        let vol_id = extract_curve_id(&vol_surface)?;
         Ok(Self::new(FxOption::european_call(
             id,
             base,
@@ -311,14 +324,15 @@ impl PyFxOption {
             strike,
             expiry_date,
             amt,
+            vol_id,
         )))
     }
 
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, base_currency, quote_currency, strike, expiry, notional)"
+        text_signature = "(cls, instrument_id, base_currency, quote_currency, strike, expiry, notional, vol_surface)"
     )]
-    /// Create a European put option with standard USD-centric curves.
+    /// Create a European put option with explicit volatility surface.
     ///
     /// Args:
     ///     instrument_id: Instrument identifier or string-like object.
@@ -327,12 +341,24 @@ impl PyFxOption {
     ///     strike: Strike rate in quote per base units.
     ///     expiry: Expiry date of the option.
     ///     notional: Notional amount as :class:`finstack.core.money.Money`.
+    ///     vol_surface: Volatility surface identifier for pricing.
     ///
     /// Returns:
     ///     FxOption: Configured put option instrument.
     ///
     /// Raises:
     ///     ValueError: If identifiers or dates cannot be parsed.
+    #[pyo3(
+        signature = (
+            instrument_id,
+            base_currency,
+            quote_currency,
+            strike,
+            expiry,
+            notional,
+            vol_surface
+        )
+    )]
     fn european_put(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -341,12 +367,14 @@ impl PyFxOption {
         strike: f64,
         expiry: Bound<'_, PyAny>,
         notional: Bound<'_, PyAny>,
+        vol_surface: Bound<'_, PyAny>,
     ) -> PyResult<Self> {
         let id = extract_instrument_id(&instrument_id)?;
         let CurrencyArg(base) = base_currency.extract()?;
         let CurrencyArg(quote) = quote_currency.extract()?;
         let expiry_date = py_to_date(&expiry)?;
         let amt = extract_money(&notional)?;
+        let vol_id = extract_curve_id(&vol_surface)?;
         Ok(Self::new(FxOption::european_put(
             id,
             base,
@@ -354,6 +382,7 @@ impl PyFxOption {
             strike,
             expiry_date,
             amt,
+            vol_id,
         )))
     }
 
@@ -471,8 +500,8 @@ impl PyFxOption {
     /// Returns:
     ///     str: Volatility surface label.
     #[getter]
-    fn vol_surface(&self) -> &'static str {
-        self.inner.vol_id
+    fn vol_surface(&self) -> String {
+        self.inner.vol_id.as_str().to_string()
     }
 
     /// Instrument type enum (``InstrumentType.FX_OPTION``).

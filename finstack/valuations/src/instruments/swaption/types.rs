@@ -114,7 +114,7 @@ impl Swaption {
         forward_id: impl Into<CurveId>,
         vol_id: impl Into<CurveId>,
     ) -> Self {
-        Self {
+        let mut s = Self {
             id: id.into(),
             option_type: OptionType::Call,
             notional: params.notional,
@@ -133,7 +133,11 @@ impl Swaption {
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
-        }
+        };
+        if let Some(f) = params.fixed_freq { s.fixed_freq = f; }
+        if let Some(f) = params.float_freq { s.float_freq = f; }
+        if let Some(dc) = params.day_count { s.day_count = dc; }
+        s
     }
 
     /// Create a new receiver swaption using parameter structs.
@@ -144,7 +148,7 @@ impl Swaption {
         forward_id: impl Into<CurveId>,
         vol_id: impl Into<CurveId>,
     ) -> Self {
-        Self {
+        let mut s = Self {
             id: id.into(),
             option_type: OptionType::Put,
             notional: params.notional,
@@ -163,7 +167,11 @@ impl Swaption {
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
-        }
+        };
+        if let Some(f) = params.fixed_freq { s.fixed_freq = f; }
+        if let Some(f) = params.float_freq { s.float_freq = f; }
+        if let Some(dc) = params.day_count { s.day_count = dc; }
+        s
     }
 
     /// Attach SABR parameters to enable SABR-implied volatility pricing.

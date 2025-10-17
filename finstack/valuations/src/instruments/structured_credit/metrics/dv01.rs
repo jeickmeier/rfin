@@ -32,11 +32,12 @@ impl MetricCalculator for StructuredCreditDv01Calculator {
             .copied()
             .unwrap_or(0.0);
 
+        // Prefer computed dirty price; otherwise use base PV in currency
         let dirty_price = context
             .computed
             .get(&MetricId::DirtyPrice)
             .copied()
-            .unwrap_or(100.0); // Default to par if not available
+            .unwrap_or_else(|| context.base_value.amount());
 
         // DV01 = Price × Modified Duration × 1bp
         let dv01 = dirty_price * modified_duration * ONE_BASIS_POINT;

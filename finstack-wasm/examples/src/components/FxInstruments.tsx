@@ -107,7 +107,10 @@ export const FxInstrumentsExample: React.FC = () => {
           usd,
           1.10,
           new FsDate(2025, 1, 2),
-          Money.fromCode(2_000_000, 'EUR')
+          Money.fromCode(2_000_000, 'EUR'),
+          'USD-OIS',
+          'EUR-OIS',
+          'FX-VOL'
         );
         const callOpts = new PricingRequest().withMetrics(['delta']);
         const callResult = registry.priceFxOption(call, 'discounting', market, callOpts);
@@ -132,7 +135,10 @@ export const FxInstrumentsExample: React.FC = () => {
           usd,
           1.06,
           new FsDate(2024, 7, 2),
-          Money.fromCode(1_500_000, 'EUR')
+          Money.fromCode(1_500_000, 'EUR'),
+          'USD-OIS',
+          'EUR-OIS',
+          'FX-VOL'
         );
         const putResult = registry.priceFxOption(put, 'discounting', market);
         results.push({

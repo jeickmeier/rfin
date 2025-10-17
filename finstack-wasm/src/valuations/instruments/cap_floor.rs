@@ -2,7 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_valuations::instruments::cap_floor::InterestRateOption;
@@ -45,13 +45,13 @@ impl JsInterestRateOption {
         end_date: &JsDate,
         discount_curve: &str,
         forward_curve: &str,
-        vol_surface: Option<String>,
+        vol_surface: &str,
         payments_per_year: Option<u32>,
         day_count: Option<JsDayCount>,
     ) -> Result<JsInterestRateOption, JsValue> {
         let freq = frequency_from_payments(payments_per_year)?;
         let dc = extract_day_count(day_count);
-        let vol_id = optional_static_str(vol_surface).unwrap_or("IR-CAP-VOL");
+        let vol_id = curve_id_from_str(vol_surface);
 
         let option = InterestRateOption::new_cap(
             instrument_id_from_str(instrument_id),
@@ -79,13 +79,13 @@ impl JsInterestRateOption {
         end_date: &JsDate,
         discount_curve: &str,
         forward_curve: &str,
-        vol_surface: Option<String>,
+        vol_surface: &str,
         payments_per_year: Option<u32>,
         day_count: Option<JsDayCount>,
     ) -> Result<JsInterestRateOption, JsValue> {
         let freq = frequency_from_payments(payments_per_year)?;
         let dc = extract_day_count(day_count);
-        let vol_id = optional_static_str(vol_surface).unwrap_or("IR-CAP-VOL");
+        let vol_id = curve_id_from_str(vol_surface);
 
         let option = InterestRateOption::new_floor(
             instrument_id_from_str(instrument_id),

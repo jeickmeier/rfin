@@ -108,7 +108,7 @@ impl FxOptionCalculator {
         let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = curves.surface_ref(inst.vol_id)?;
+            let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
             vol_surface.value_clamped(t, inst.strike)
         };
 
@@ -214,7 +214,7 @@ impl FxOptionCalculator {
             v
         } else {
             curves
-                .surface_ref(inst.vol_id)
+                .surface_ref(inst.vol_id.as_str())
                 .ok()
                 .map(|s| s.value_clamped(t, inst.strike))
                 .unwrap_or(self.config.iv_initial_guess)
@@ -476,7 +476,7 @@ mod tests {
             .settlement(SettlementType::Cash)
             .domestic_disc_id(CurveId::new(DOMESTIC_ID))
             .foreign_disc_id(CurveId::new(FOREIGN_ID))
-            .vol_id(VOL_ID)
+            .vol_id(CurveId::new(VOL_ID))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()

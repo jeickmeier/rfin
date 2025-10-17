@@ -307,13 +307,24 @@ async function run() {
     // Price instruments using the registry
     const registry = createStandardRegistry();
     
-    // Example: Price an interest rate swap
-    const swap = InterestRateSwap.usdPayFixed(
+    // Example: Price an interest rate swap (explicit inputs, no defaults)
+    const swap = new InterestRateSwap(
         'swap_1',
         Money.fromCode(10_000_000, 'USD'),
         0.0325,
         tradeDate,
-        new FinstackDate(2029, 9, 30)
+        new FinstackDate(2029, 9, 30),
+        'USD-OIS',            // discount curve id
+        'USD-SOFR-3M',        // forward curve id
+        'pay_fixed',          // side: 'pay_fixed' | 'receive_fixed'
+        null,                 // fixed frequency (optional)
+        DayCount.thirty360(), // fixed day count (optional)
+        null,                 // float frequency (optional)
+        DayCount.act360(),    // float day count (optional)
+        null,                 // business day convention (optional)
+        null,                 // calendar id (optional)
+        null,                 // stub kind (optional)
+        2                     // reset lag days (optional)
     );
     const swapResult = registry.priceInterestRateSwapWithMetrics(
         swap,

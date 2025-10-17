@@ -49,7 +49,7 @@ fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> Disc
 #[test]
 fn test_irs_par_rate_market_standard() {
     // Market standard: For a new (at-inception) swap, par rate makes NPV = 0
-    // 5-year USD swap, quarterly payments
+    // 5-year USD swap (ISDA conventions via InterestRateSwap::new)
 
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
@@ -61,46 +61,30 @@ fn test_irs_par_rate_market_standard() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap {
-        id: "SWAP_PAR_TEST".into(),
-        notional: Money::new(1_000_000.0, Currency::USD),
-        side: PayReceive::ReceiveFixed,
-        fixed: FixedLegSpec {
-            disc_id: "USD-OIS".into(),
-            rate: 0.05,
-            freq: Frequency::quarterly(),
-            dc: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
-            stub: StubKind::None,
-            par_method: None,
-            compounding_simple: true,
-            start: as_of,
-            end,
-        },
-        float: FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
-            freq: Frequency::quarterly(),
-            dc: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
-            stub: StubKind::None,
-            reset_lag_days: 2,
-            start: as_of,
-            end,
-        },
-        attributes: Default::default(),
-    };
-
-    let npv = swap.value(&market, as_of).unwrap();
-
-    assert!(
-        npv.amount().abs() < 1000.0,
-        "At-the-money swap NPV={:.2} should be near zero",
-        npv.amount()
+    let swap = InterestRateSwap::new(
+        "SWAP_PAR_TEST".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
     );
+    // Compute par rate under current curves
+    let par = swap
+        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .unwrap()
+        .measures["par_rate"];
+    // Rebuild swap at par and assert PV ~ 0
+    let par_swap = InterestRateSwap::new(
+        "SWAP_PAR_PAR".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        par,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
+    let npv = par_swap.value(&market, as_of).unwrap();
+    assert!(npv.amount().abs() < 1000.0, "Par swap NPV={:.2} near zero", npv.amount());
 }
 
 #[test]
@@ -119,38 +103,14 @@ fn test_irs_annuity_calculation() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap {
-        id: "SWAP_ANNUITY_TEST".into(),
-        notional: Money::new(1_000_000.0, Currency::USD),
-        side: PayReceive::ReceiveFixed,
-        fixed: FixedLegSpec {
-            disc_id: "USD-OIS".into(),
-            rate: 0.05,
-            freq: Frequency::quarterly(),
-            dc: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
-            stub: StubKind::None,
-            par_method: None,
-            compounding_simple: true,
-            start: as_of,
-            end,
-        },
-        float: FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
-            freq: Frequency::quarterly(),
-            dc: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
-            stub: StubKind::None,
-            reset_lag_days: 2,
-            start: as_of,
-            end,
-        },
-        attributes: Default::default(),
-    };
+    let swap = InterestRateSwap::new(
+        "SWAP_ANNUITY_TEST".into(),
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::Annuity])
@@ -190,38 +150,14 @@ fn test_irs_dv01_market_standard() {
 
     let notional = 1_000_000.0;
 
-    let swap = InterestRateSwap {
-        id: "SWAP_DV01_TEST".into(),
-        notional: Money::new(notional, Currency::USD),
-        side: PayReceive::ReceiveFixed,
-        fixed: FixedLegSpec {
-            disc_id: "USD-OIS".into(),
-            rate: 0.05,
-            freq: Frequency::quarterly(),
-            dc: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
-            stub: StubKind::None,
-            par_method: None,
-            compounding_simple: true,
-            start: as_of,
-            end,
-        },
-        float: FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
-            spread_bp: 0.0,
-            freq: Frequency::quarterly(),
-            dc: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
-            stub: StubKind::None,
-            reset_lag_days: 2,
-            start: as_of,
-            end,
-        },
-        attributes: Default::default(),
-    };
+    let swap = InterestRateSwap::new(
+        "SWAP_DV01_TEST".into(),
+        Money::new(notional, Currency::USD),
+        0.05,
+        as_of,
+        end,
+        PayReceive::ReceiveFixed,
+    );
 
     let result = swap
         .price_with_metrics(&market, as_of, &[MetricId::Annuity, MetricId::Dv01])

@@ -1,3 +1,4 @@
+use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::error::js_error;
@@ -5,7 +6,7 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_core::dates::{BusinessDayConvention, DayCount};
+use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo, RepoType};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
@@ -60,9 +61,13 @@ impl JsRepo {
         repo_type: Option<String>,
         haircut: Option<f64>,
         day_count: Option<JsDayCount>,
+        business_day_convention: Option<JsBusinessDayConvention>,
     ) -> Result<JsRepo, JsValue> {
         let repo_type_value = parse_optional_with_default(repo_type, RepoType::Term)?;
         let dc = day_count.map(|d| d.inner()).unwrap_or(DayCount::Act360);
+        let bdc = business_day_convention
+            .map(Into::<finstack_core::dates::BusinessDayConvention>::into)
+            .unwrap_or(finstack_core::dates::BusinessDayConvention::Following);
 
         let builder = Repo::builder()
             .id(instrument_id_from_str(instrument_id))
@@ -75,7 +80,7 @@ impl JsRepo {
             .repo_type(repo_type_value)
             .triparty(false)
             .day_count(dc)
-            .bdc(BusinessDayConvention::Following)
+            .bdc(bdc)
             .disc_id(curve_id_from_str(discount_curve));
 
         builder

@@ -73,6 +73,51 @@ fn test_cs01_positive_for_buyer() {
 }
 
 #[test]
+fn test_cs01_hazard_vs_risky_pv01_consistency() {
+    // Validate hazard-bump CS01 is consistent with risky PV01 approximation
+    let as_of = date!(2024 - 01 - 01);
+    let maturity = date!(2029 - 01 - 01);
+
+    let cds = create_test_cds(as_of, maturity);
+
+    // Ensure hazard builder used in market has explicit base/daycount/recovery
+    let market = {
+        let mut ctx = MarketContext::new();
+        let disc = DiscountCurve::builder("USD_OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 1.0), (10.0, (-(0.05_f64 * 10.0_f64)).exp())])
+            .build()
+            .unwrap();
+        let hazard = HazardCurve::builder(cds.protection.credit_id.clone())
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .recovery_rate(0.4)
+            .knots([(0.0, 0.01), (5.0, 0.012), (10.0, 0.013)])
+            .build()
+            .unwrap();
+        ctx = ctx.insert_discount(disc).insert_hazard(hazard);
+        ctx
+    };
+
+    let result = cds
+        .price_with_metrics(&market, as_of, &[MetricId::RiskyPv01, MetricId::HazardCs01])
+        .unwrap();
+
+    let risky_pv01 = *result.measures.get("risky_pv01").unwrap();
+    let hazard_cs01 = *result.measures.get("hazard_cs01").unwrap();
+
+    // Both measures should be positive for protection buyer
+    assert!(risky_pv01 > 0.0, "Risky PV01 should be positive");
+    assert!(hazard_cs01 > 0.0, "Hazard CS01 should be positive");
+
+    // They should be within reasonable tolerance in magnitude for small bumps
+    let rel_diff = (hazard_cs01 - risky_pv01).abs() / risky_pv01.max(1e-6);
+    // Allow wider tolerance; methods differ (hazard bump vs spread PV01 proxy)
+    assert!(rel_diff < 0.45);
+}
+
+#[test]
 fn test_risky_pv01_positive() {
     let as_of = date!(2024 - 01 - 01);
     let maturity = date!(2029 - 01 - 01);

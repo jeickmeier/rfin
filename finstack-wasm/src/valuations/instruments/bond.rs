@@ -239,6 +239,7 @@ impl JsBond {
         coupon_rate: f64,
         issue: &JsDate,
         maturity: &JsDate,
+        discount_curve: &str,
         quoted_clean_price: Option<f64>,
     ) -> JsBond {
         use finstack_valuations::instruments::common::parameters::BondConvention;
@@ -249,7 +250,7 @@ impl JsBond {
             issue.inner(),
             maturity.inner(),
             BondConvention::USTreasury,
-            "USD-TREASURY",
+            discount_curve,
         );
         if let Some(price) = quoted_clean_price {
             bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);

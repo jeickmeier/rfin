@@ -30,7 +30,7 @@ fn test_builder_pattern_creates_valid_option() {
         .settlement(SettlementType::Cash)
         .domestic_disc_id(CurveId::new("USD-OIS"))
         .foreign_disc_id(CurveId::new("EUR-OIS"))
-        .vol_id("EURUSD-VOL")
+        .vol_id(CurveId::new("EURUSD-VOL"))
         .pricing_overrides(PricingOverrides::default())
         .attributes(Attributes::new())
         .build();
@@ -53,6 +53,7 @@ fn test_european_call_convenience_constructor() {
         1.20,
         date!(2025 - 01 - 01),
         Money::new(1_000_000.0, Currency::EUR),
+        CurveId::new("EURUSD-VOL"),
     );
 
     // Assert
@@ -75,6 +76,7 @@ fn test_european_put_convenience_constructor() {
         1.20,
         date!(2025 - 01 - 01),
         Money::new(1_000_000.0, Currency::EUR),
+        CurveId::new("EURUSD-VOL"),
     );
 
     // Assert

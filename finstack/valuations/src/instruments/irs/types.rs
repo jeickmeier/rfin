@@ -68,14 +68,12 @@ struct IRSScheduleConfig {
 }
 
 impl IRSScheduleConfig {
-    /// USD standard for testing: Quarterly for both legs with Act/360
-    /// Note: Market standard would be semiannual fixed (30/360) + quarterly float (Act/360)
-    /// But QuantLib test suite and finstack internal tests use quarterly/quarterly for simplicity
-    fn usd_standard() -> Self {
+    /// USD market standard: Fixed semiannual 30/360; Float quarterly Act/360
+    fn usd_isda_standard() -> Self {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
         Self {
-            fixed_freq: Frequency::quarterly(),
-            fixed_dc: DayCount::Act360,
+            fixed_freq: Frequency::semi_annual(),
+            fixed_dc: DayCount::Thirty360,
             float_freq: Frequency::quarterly(),
             float_dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -167,7 +165,44 @@ impl InterestRateSwap {
                 disc_curve: "USD-OIS",
                 fwd_curve: "USD-SOFR-3M",
                 reset_lag_days: 2,
-                sched: IRSScheduleConfig::usd_standard(),
+                sched: IRSScheduleConfig::usd_isda_standard(),
+            },
+        )
+    }
+
+    /// Test-only constructor preserving historical quarterly/quarterly settings.
+    /// Intended for internal tests that assume Q/Q Act/360 both legs.
+    #[cfg(test)]
+    pub fn new_quarterly_test_only(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+        side: PayReceive,
+    ) -> Self {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        let sched = IRSScheduleConfig {
+            fixed_freq: Frequency::quarterly(),
+            fixed_dc: DayCount::Act360,
+            float_freq: Frequency::quarterly(),
+            float_dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("USD".to_string()),
+            stub: StubKind::None,
+        };
+        Self::create_swap(
+            id,
+            notional,
+            fixed_rate,
+            start,
+            end,
+            side,
+            SwapConfig {
+                disc_curve: "USD-OIS",
+                fwd_curve: "USD-SOFR-3M",
+                reset_lag_days: 2,
+                sched,
             },
         )
     }

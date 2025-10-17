@@ -1,10 +1,13 @@
+use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
+use crate::core::dates::daycount::{JsDayCount, JsFrequency};
 use crate::core::money::JsMoney;
-use crate::valuations::common::instrument_id_from_str;
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::irs::InterestRateSwap;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
+use crate::core::error::js_error;
 
 #[wasm_bindgen(js_name = InterestRateSwap)]
 #[derive(Clone, Debug)]
@@ -22,44 +25,74 @@ impl InstrumentWrapper for JsInterestRateSwap {
 
 #[wasm_bindgen(js_class = InterestRateSwap)]
 impl JsInterestRateSwap {
-    #[wasm_bindgen(js_name = usdPayFixed)]
-    pub fn usd_pay_fixed(
+    #[wasm_bindgen(constructor)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
         instrument_id: &str,
         notional: &JsMoney,
         fixed_rate: f64,
         start: &JsDate,
         end: &JsDate,
-    ) -> JsInterestRateSwap {
-        use finstack_valuations::instruments::common::parameters::PayReceive;
-        let swap = InterestRateSwap::new(
-            instrument_id_from_str(instrument_id),
-            notional.inner(),
-            fixed_rate,
-            start.inner(),
-            end.inner(),
-            PayReceive::PayFixed,
-        );
-        JsInterestRateSwap::from_inner(swap)
-    }
+        discount_curve: &str,
+        forward_curve: &str,
+        side: &str,
+        fixed_frequency: Option<JsFrequency>,
+        fixed_day_count: Option<JsDayCount>,
+        float_frequency: Option<JsFrequency>,
+        float_day_count: Option<JsDayCount>,
+        business_day_convention: Option<JsBusinessDayConvention>,
+        calendar_id: Option<String>,
+        stub_kind: Option<crate::core::dates::schedule::JsStubKind>,
+        reset_lag_days: Option<i32>,
+    ) -> Result<JsInterestRateSwap, JsValue> {
+        use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec, PayReceive};
+        use finstack_core::dates::BusinessDayConvention;
+        use finstack_core::dates::StubKind;
 
-    #[wasm_bindgen(js_name = usdReceiveFixed)]
-    pub fn usd_receive_fixed(
-        instrument_id: &str,
-        notional: &JsMoney,
-        fixed_rate: f64,
-        start: &JsDate,
-        end: &JsDate,
-    ) -> JsInterestRateSwap {
-        use finstack_valuations::instruments::common::parameters::PayReceive;
-        let swap = InterestRateSwap::new(
-            instrument_id_from_str(instrument_id),
-            notional.inner(),
-            fixed_rate,
-            start.inner(),
-            end.inner(),
-            PayReceive::ReceiveFixed,
-        );
-        JsInterestRateSwap::from_inner(swap)
+        let side_parsed: PayReceive = side.parse().map_err(js_error)?;
+        let bdc = business_day_convention
+            .map(Into::<BusinessDayConvention>::into)
+            .unwrap_or(BusinessDayConvention::ModifiedFollowing);
+        let fixed_freq = fixed_frequency.map(|f| f.inner()).unwrap_or(finstack_core::dates::Frequency::semi_annual());
+        let float_freq = float_frequency.map(|f| f.inner()).unwrap_or(finstack_core::dates::Frequency::quarterly());
+        let fixed_dc = fixed_day_count.map(|d| d.inner()).unwrap_or(finstack_core::dates::DayCount::Thirty360);
+        let float_dc = float_day_count.map(|d| d.inner()).unwrap_or(finstack_core::dates::DayCount::Act360);
+        let stub = stub_kind.map(|s| s.inner()).unwrap_or(StubKind::None);
+        let fixed = FixedLegSpec {
+            disc_id: curve_id_from_str(discount_curve),
+            rate: fixed_rate,
+            freq: fixed_freq,
+            dc: fixed_dc,
+            bdc,
+            calendar_id: calendar_id.clone(),
+            stub,
+            start: start.inner(),
+            end: end.inner(),
+            par_method: None,
+            compounding_simple: true,
+        };
+        let float = FloatLegSpec {
+            disc_id: curve_id_from_str(discount_curve),
+            fwd_id: curve_id_from_str(forward_curve),
+            spread_bp: 0.0,
+            freq: float_freq,
+            dc: float_dc,
+            bdc,
+            calendar_id,
+            stub,
+            reset_lag_days: reset_lag_days.unwrap_or(2),
+            start: start.inner(),
+            end: end.inner(),
+        };
+        let swap = InterestRateSwap::builder()
+            .id(instrument_id_from_str(instrument_id))
+            .notional(notional.inner())
+            .side(side_parsed)
+            .fixed(fixed)
+            .float(float)
+            .build()
+            .map_err(|e| js_error(e.to_string()))?;
+        Ok(JsInterestRateSwap::from_inner(swap))
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]

@@ -594,7 +594,10 @@ impl JsPricerRegistry {
 /// const bond = Bond.fixedSemiannual(...);
 /// const bondResult = registry.priceBond(bond, "discounting", market);
 ///
-/// const swap = InterestRateSwap.usdReceiveFixed(...);
+/// const swap = new InterestRateSwap(
+///   'swap_1', notional, rate, start, end,
+///   'USD-OIS', 'USD-SOFR-3M', 'receive_fixed', null, DayCount.thirty360(), null, DayCount.act360(), null, null, null, 2
+/// );
 /// const swapResult = registry.priceInterestRateSwapWithMetrics(
 ///   swap,
 ///   "discounting",

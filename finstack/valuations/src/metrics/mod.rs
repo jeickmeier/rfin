@@ -27,12 +27,14 @@ pub mod ids;
 pub mod registration_macro;
 pub mod registry;
 pub mod traits;
+pub mod helpers;
 
 pub use bucketed::{
     compute_key_rate_dv01_series, compute_key_rate_dv01_series_with_context,
     compute_key_rate_series_for_id, compute_key_rate_series_with_context_for_id,
     standard_ir_dv01_buckets,
 };
+pub use helpers::dv01_from_modified_duration;
 pub use ids::MetricId;
 pub use registry::MetricRegistry;
 pub use traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};

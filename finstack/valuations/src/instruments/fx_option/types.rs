@@ -30,7 +30,7 @@ pub struct FxOption {
     pub settlement: SettlementType,
     pub domestic_disc_id: CurveId,
     pub foreign_disc_id: CurveId,
-    pub vol_id: &'static str,
+    pub vol_id: CurveId,
     pub pricing_overrides: PricingOverrides,
     pub attributes: Attributes,
 }
@@ -44,6 +44,7 @@ impl FxOption {
         strike: f64,
         expiry: Date,
         notional: Money,
+        vol_id: impl Into<CurveId>,
     ) -> Self {
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
@@ -66,7 +67,7 @@ impl FxOption {
             .settlement(SettlementType::Cash)
             .domestic_disc_id(fx_underlying.domestic_disc_id.to_owned())
             .foreign_disc_id(fx_underlying.foreign_disc_id.to_owned())
-            .vol_id("FX-VOL")
+            .vol_id(vol_id.into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -81,6 +82,7 @@ impl FxOption {
         strike: f64,
         expiry: Date,
         notional: Money,
+        vol_id: impl Into<CurveId>,
     ) -> Self {
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
@@ -103,7 +105,7 @@ impl FxOption {
             .settlement(SettlementType::Cash)
             .domestic_disc_id(fx_underlying.domestic_disc_id.to_owned())
             .foreign_disc_id(fx_underlying.foreign_disc_id.to_owned())
-            .vol_id("FX-VOL")
+            .vol_id(vol_id.into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -115,7 +117,7 @@ impl FxOption {
         id: impl Into<InstrumentId>,
         option_params: &FxOptionParams,
         underlying_params: &FxUnderlyingParams,
-        vol_id: &'static str,
+        vol_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -130,7 +132,7 @@ impl FxOption {
             settlement: option_params.settlement,
             domestic_disc_id: underlying_params.domestic_disc_id.to_owned(),
             foreign_disc_id: underlying_params.foreign_disc_id.to_owned(),
-            vol_id,
+            vol_id: vol_id.into(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }

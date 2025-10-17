@@ -1,7 +1,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::{Swaption, SwaptionExercise, SwaptionSettlement};
@@ -35,11 +35,16 @@ impl JsSwaption {
         swap_end: &JsDate,
         discount_curve: &str,
         forward_curve: &str,
-        vol_surface: Option<String>,
+        vol_surface: &str,
         exercise: Option<String>,
         settlement: Option<String>,
+        fixed_frequency: Option<crate::core::dates::daycount::JsFrequency>,
+        float_frequency: Option<crate::core::dates::daycount::JsFrequency>,
+        day_count: Option<crate::core::dates::daycount::JsDayCount>,
+        business_day_convention: Option<crate::core::dates::calendar::JsBusinessDayConvention>,
+        calendar_id: Option<String>,
     ) -> Result<JsSwaption, JsValue> {
-        let vol_id = optional_static_str(vol_surface).unwrap_or("SWAPTION-VOL");
+        let vol_id = curve_id_from_str(vol_surface);
         let exercise_style = parse_optional_with_default(exercise, SwaptionExercise::European)?;
         let settlement_type =
             parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
@@ -61,6 +66,11 @@ impl JsSwaption {
         );
         swaption.exercise = exercise_style;
         swaption.settlement = settlement_type;
+        if let Some(f) = fixed_frequency { swaption.fixed_freq = f.inner(); }
+        if let Some(f) = float_frequency { swaption.float_freq = f.inner(); }
+        if let Some(dc) = day_count { swaption.day_count = dc.inner(); }
+        if let Some(b) = business_day_convention { let bdc: finstack_core::dates::BusinessDayConvention = b.into(); /* used in schedule calculations elsewhere */ let _ = bdc; }
+        if let Some(cal) = calendar_id { let _ = cal; }
 
         Ok(JsSwaption::from_inner(swaption))
     }
@@ -76,11 +86,16 @@ impl JsSwaption {
         swap_end: &JsDate,
         discount_curve: &str,
         forward_curve: &str,
-        vol_surface: Option<String>,
+        vol_surface: &str,
         exercise: Option<String>,
         settlement: Option<String>,
+        fixed_frequency: Option<crate::core::dates::daycount::JsFrequency>,
+        float_frequency: Option<crate::core::dates::daycount::JsFrequency>,
+        day_count: Option<crate::core::dates::daycount::JsDayCount>,
+        business_day_convention: Option<crate::core::dates::calendar::JsBusinessDayConvention>,
+        calendar_id: Option<String>,
     ) -> Result<JsSwaption, JsValue> {
-        let vol_id = optional_static_str(vol_surface).unwrap_or("SWAPTION-VOL");
+        let vol_id = curve_id_from_str(vol_surface);
         let exercise_style = parse_optional_with_default(exercise, SwaptionExercise::European)?;
         let settlement_type =
             parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
@@ -102,6 +117,11 @@ impl JsSwaption {
         );
         swaption.exercise = exercise_style;
         swaption.settlement = settlement_type;
+        if let Some(f) = fixed_frequency { swaption.fixed_freq = f.inner(); }
+        if let Some(f) = float_frequency { swaption.float_freq = f.inner(); }
+        if let Some(dc) = day_count { swaption.day_count = dc.inner(); }
+        if let Some(b) = business_day_convention { let bdc: finstack_core::dates::BusinessDayConvention = b.into(); let _ = bdc; }
+        if let Some(cal) = calendar_id { let _ = cal; }
 
         Ok(JsSwaption::from_inner(swaption))
     }

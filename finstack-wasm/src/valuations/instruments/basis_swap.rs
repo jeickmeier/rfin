@@ -23,16 +23,18 @@ impl JsBasisSwapLeg {
         frequency: Option<String>,
         day_count: Option<String>,
         spread: Option<f64>,
+        business_day_convention: Option<String>,
     ) -> Result<JsBasisSwapLeg, JsValue> {
         let freq = parse_optional_with_default(frequency, Frequency::quarterly())?;
         let dc = parse_optional_with_default(day_count, DayCount::Act360)?;
+        let bdc = parse_optional_with_default(business_day_convention, BusinessDayConvention::ModifiedFollowing)?;
 
         Ok(JsBasisSwapLeg {
             inner: BasisSwapLeg {
                 forward_curve_id: curve_id_from_str(forward_curve),
                 frequency: freq,
                 day_count: dc,
-                bdc: BusinessDayConvention::ModifiedFollowing,
+                bdc,
                 spread: spread.unwrap_or(0.0),
             },
         })

@@ -4,7 +4,7 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::fx_option::FxOption;
+use finstack_valuations::instruments::fx_option::{parameters::FxOptionParams, FxOption};
 use finstack_valuations::instruments::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx_swap::FxSwap;
 use finstack_valuations::pricer::InstrumentType;
@@ -118,6 +118,7 @@ impl InstrumentWrapper for JsFxOption {
 #[wasm_bindgen(js_class = FxOption)]
 impl JsFxOption {
     #[wasm_bindgen(js_name = europeanCall)]
+    #[allow(clippy::too_many_arguments)]
     pub fn european_call(
         instrument_id: &str,
         base_currency: &JsCurrency,
@@ -125,19 +126,29 @@ impl JsFxOption {
         strike: f64,
         expiry: &JsDate,
         notional: &JsMoney,
+        domestic_curve: &str,
+        foreign_curve: &str,
+        vol_surface: &str,
     ) -> JsFxOption {
-        let option = FxOption::european_call(
-            instrument_id_from_str(instrument_id),
+        use finstack_valuations::instruments::common::parameters::FxUnderlyingParams;
+        let option_params = FxOptionParams::european_call(strike, expiry.inner(), notional.inner());
+        let underlying = FxUnderlyingParams::new(
             base_currency.inner(),
             quote_currency.inner(),
-            strike,
-            expiry.inner(),
-            notional.inner(),
+            curve_id_from_str(domestic_curve),
+            curve_id_from_str(foreign_curve),
+        );
+        let option = FxOption::new(
+            instrument_id_from_str(instrument_id),
+            &option_params,
+            &underlying,
+            curve_id_from_str(vol_surface),
         );
         JsFxOption::from_inner(option)
     }
 
     #[wasm_bindgen(js_name = europeanPut)]
+    #[allow(clippy::too_many_arguments)]
     pub fn european_put(
         instrument_id: &str,
         base_currency: &JsCurrency,
@@ -145,14 +156,23 @@ impl JsFxOption {
         strike: f64,
         expiry: &JsDate,
         notional: &JsMoney,
+        domestic_curve: &str,
+        foreign_curve: &str,
+        vol_surface: &str,
     ) -> JsFxOption {
-        let option = FxOption::european_put(
-            instrument_id_from_str(instrument_id),
+        use finstack_valuations::instruments::common::parameters::FxUnderlyingParams;
+        let option_params = FxOptionParams::european_put(strike, expiry.inner(), notional.inner());
+        let underlying = FxUnderlyingParams::new(
             base_currency.inner(),
             quote_currency.inner(),
-            strike,
-            expiry.inner(),
-            notional.inner(),
+            curve_id_from_str(domestic_curve),
+            curve_id_from_str(foreign_curve),
+        );
+        let option = FxOption::new(
+            instrument_id_from_str(instrument_id),
+            &option_params,
+            &underlying,
+            curve_id_from_str(vol_surface),
         );
         JsFxOption::from_inner(option)
     }

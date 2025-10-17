@@ -459,6 +459,14 @@ pub(crate) fn frequency_from_payments_per_year(
     Frequency::from_payments_per_year(payments).map_err(|e| PyValueError::new_err(e))
 }
 
+pub(crate) fn intern_calendar_id_opt(value: Option<&str>) -> Option<&'static str> {
+    value.map(|s| Box::leak(s.to_ascii_lowercase().into_boxed_str()) as &'static str)
+}
+#[allow(dead_code)]
+pub(crate) fn intern_calendar_id(value: &str) -> &'static str {
+    Box::leak(value.to_ascii_lowercase().into_boxed_str())
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
