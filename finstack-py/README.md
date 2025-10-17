@@ -130,6 +130,19 @@ print(ctx.stats())
 print(fx.rate(Currency("EUR"), Currency("USD"), date(2024, 1, 2), FxConversionPolicy.CASHFLOW_DATE))
 ```
 
+## Valuations: required inputs and defaults
+
+For reproducible pricing, provide explicit market identifiers rather than relying on implicit defaults:
+
+- Cap/Floor, Swaption: pass an explicit `vol_surface` identifier. No hard-coded default is used.
+- FX Option: prefer `FxOption.builder(...)` where you must provide `domestic_curve`, `foreign_curve`, and `vol_surface`. The simple `european_call/put` helpers are demo-oriented and infer curves for a few majors.
+- Equity Option: prefer `EquityOption.builder(...)` requiring `discount_curve`, `spot_id`, and `vol_surface` (optional `dividend_yield_id`).
+- JSON-defined instruments (Basket, StructuredCredit, PrivateMarketsFund): Python dicts are serialized via `json.dumps` before parsing; pass either a JSON string or a dict-like object.
+- Frequencies and stubs: bindings accept common synonyms (e.g., `"q"`, `"3m"`, `"semiannual"`, `"6m"`). Unknown values raise `ValueError`.
+- Business-day conventions: getters reflect core enum values. Unknown variants map to the closest standard label for stability.
+
+When in doubt, construct a `MarketContext` with the exact curves/surfaces required by an instrument and use the instrument’s builder taking explicit IDs. This guarantees parity with Rust pricers.
+
 ## Financial Statements Modeling
 
 The `finstack.statements` module provides a complete financial statement modeling engine:
@@ -199,12 +212,28 @@ pip install finstack[analytics]
 
 ## Generating type stubs
 
-The bindings are compiled with PyO3's docstrings and signatures. To generate `.pyi` stub files once
-the API settles, run:
+Type stubs (`.pyi` files) use a **hybrid approach** due to `pyo3-stubgen` limitations:
+
+- **Auto-generated** for function-heavy modules (`core/dates`, `portfolio`, etc.)
+- **Manual** for class-heavy modules (`scenarios`, `statements`, `valuations`)
+
+> **Why?** `pyo3-stubgen` only generates stubs for module-level functions, not PyO3 classes.
+
+To regenerate auto-generated stubs after API changes:
 
 ```bash
-uv run pyo3-stubgen finstack
+# From project root
+./scripts/generate-stubs.sh
 ```
 
-Place the generated files under `finstack-py/finstack/` and add them to the `tool.maturin.include`
-list if you want to ship them in wheels.
+This script:
+1. Builds the extension in release mode
+2. Runs `pyo3-stubgen` on all finstack modules
+3. Updates auto-generated `.pyi` files (preserves manual stubs)
+4. Ensures the `py.typed` marker exists for PEP 561 compliance
+
+**Maintenance:**
+- **Auto-generated stubs**: Never hand-edit - regenerate from Rust
+- **Manual stubs**: Update when adding/changing classes/methods
+
+See `finstack-py/STUB_GENERATION.md` for details.

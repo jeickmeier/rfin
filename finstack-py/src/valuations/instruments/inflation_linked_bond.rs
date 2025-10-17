@@ -3,7 +3,7 @@ use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
-use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind};
 use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
 use finstack_valuations::instruments::inflation_linked_bond::{
     DeflationProtection, IndexationMethod, InflationLinkedBond,
@@ -128,20 +128,7 @@ impl PyInflationLinkedBond {
         let disc_id = extract_curve_id(&discount_curve)?;
         let inflation_id = extract_curve_id(&inflation_curve)?;
         let indexation_method = parse_indexation_method(indexation)?;
-        let freq = match frequency
-            .map(crate::core::common::labels::normalize_label)
-            .as_deref()
-        {
-            None | Some("semi_annual") | Some("semiannual") => Frequency::semi_annual(),
-            Some("annual") => Frequency::annual(),
-            Some("quarterly") => Frequency::quarterly(),
-            Some("monthly") => Frequency::monthly(),
-            Some(other) => {
-                return Err(PyValueError::new_err(format!(
-                    "Unsupported frequency: {other}",
-                )))
-            }
-        };
+        let freq = crate::valuations::common::parse_frequency_label(frequency)?;
         let dc = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract()?;
             value

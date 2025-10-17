@@ -6,37 +6,17 @@ use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstr
 use crate::valuations::common::intern_calendar_id_opt;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
 
 fn parse_frequency(label: Option<&str>) -> PyResult<Frequency> {
-    match label {
-        None => Ok(Frequency::quarterly()),
-        Some(s) => {
-            // Try standard names first
-            match s.to_ascii_lowercase().as_str() {
-                "quarterly" => Ok(Frequency::quarterly()),
-                "monthly" => Ok(Frequency::monthly()),
-                "semi_annual" | "semiannual" => Ok(Frequency::semi_annual()),
-                "annual" => Ok(Frequency::annual()),
-                "bimonthly" => Ok(Frequency::bimonthly()),
-                _ => Err(PyValueError::new_err(format!(
-                    "Unsupported frequency label: {}",
-                    s
-                ))),
-            }
-        }
-    }
+    crate::valuations::common::parse_frequency_label(label)
 }
 
 fn parse_stub(label: Option<&str>) -> PyResult<finstack_core::dates::StubKind> {
-    match label {
-        None => Ok(finstack_core::dates::StubKind::None),
-        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
-    }
+    crate::valuations::common::parse_stub_kind(label)
 }
 
 /// Basis swap leg helper mirroring ``BasisSwapLeg``.

@@ -6,18 +6,26 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_valuations::instruments::private_markets_fund::PrivateMarketsFund;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule, PyType};
+use pyo3::types::{PyDict, PyList, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
 
 fn parse_pmf_json(value: &Bound<'_, PyAny>) -> PyResult<PrivateMarketsFund> {
     if let Ok(json_str) = value.extract::<&str>() {
-        serde_json::from_str(json_str).map_err(|err| PyValueError::new_err(err.to_string()))
-    } else {
-        let json_str = value.str()?.to_string_lossy().into_owned();
-        serde_json::from_str(&json_str)
-            .map_err(|_| PyTypeError::new_err("Expected JSON string or dict convertible to JSON"))
+        return serde_json::from_str(json_str)
+            .map_err(|err| PyValueError::new_err(err.to_string()));
     }
+    if let Ok(dict) = value.downcast::<PyDict>() {
+        let py = dict.py();
+        let json = pyo3::types::PyModule::import(py, "json")?
+            .call_method1("dumps", (dict,))?
+            .extract::<String>()?;
+        return serde_json::from_str(&json)
+            .map_err(|err| PyValueError::new_err(err.to_string()));
+    }
+    Err(PyTypeError::new_err(
+        "Expected JSON string or dict convertible to JSON",
+    ))
 }
 
 /// Private markets fund instrument wrapper parsed from JSON definitions.

@@ -63,12 +63,12 @@ impl PyInterestRateOption {
             end_date,
             discount_curve,
             forward_curve,
+            vol_surface,
             *,
-            vol_surface=None,
             payments_per_year=4,
             day_count=None
         ),
-        text_signature = "(cls, instrument_id, notional, strike, start_date, end_date, discount_curve, forward_curve, vol_surface=None, payments_per_year=4, day_count='act_360')"
+        text_signature = "(cls, instrument_id, notional, strike, start_date, end_date, discount_curve, forward_curve, vol_surface, payments_per_year=4, day_count='act_360')"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a standard interest-rate cap.
@@ -99,7 +99,7 @@ impl PyInterestRateOption {
         end_date: Bound<'_, PyAny>,
         discount_curve: Bound<'_, PyAny>,
         forward_curve: Bound<'_, PyAny>,
-        vol_surface: Option<&str>,
+        vol_surface: Bound<'_, PyAny>,
         payments_per_year: Option<u32>,
         day_count: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
@@ -111,10 +111,10 @@ impl PyInterestRateOption {
         let fwd = extract_curve_id(&forward_curve)?;
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
-        let vol_id = vol_surface.unwrap_or("IR-CAP-VOL");
-
-        let option =
-            InterestRateOption::new_cap(id, amt, strike, start, end, freq, dc, disc, fwd, vol_id);
+        let vol_id = extract_curve_id(&vol_surface)?;
+        let option = InterestRateOption::new_cap(
+            id, amt, strike, start, end, freq, dc, disc, fwd, vol_id,
+        );
         Ok(Self::new(option))
     }
 
@@ -128,12 +128,12 @@ impl PyInterestRateOption {
             end_date,
             discount_curve,
             forward_curve,
+            vol_surface,
             *,
-            vol_surface=None,
             payments_per_year=4,
             day_count=None
         ),
-        text_signature = "(cls, instrument_id, notional, strike, start_date, end_date, discount_curve, forward_curve, vol_surface=None, payments_per_year=4, day_count='act_360')"
+        text_signature = "(cls, instrument_id, notional, strike, start_date, end_date, discount_curve, forward_curve, vol_surface, payments_per_year=4, day_count='act_360')"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a standard interest-rate floor.
@@ -164,7 +164,7 @@ impl PyInterestRateOption {
         end_date: Bound<'_, PyAny>,
         discount_curve: Bound<'_, PyAny>,
         forward_curve: Bound<'_, PyAny>,
-        vol_surface: Option<&str>,
+        vol_surface: Bound<'_, PyAny>,
         payments_per_year: Option<u32>,
         day_count: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
@@ -176,10 +176,10 @@ impl PyInterestRateOption {
         let fwd = extract_curve_id(&forward_curve)?;
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
-        let vol_id = vol_surface.unwrap_or("IR-CAP-VOL");
-
-        let option =
-            InterestRateOption::new_floor(id, amt, strike, start, end, freq, dc, disc, fwd, vol_id);
+        let vol_id = extract_curve_id(&vol_surface)?;
+        let option = InterestRateOption::new_floor(
+            id, amt, strike, start, end, freq, dc, disc, fwd, vol_id,
+        );
         Ok(Self::new(option))
     }
 

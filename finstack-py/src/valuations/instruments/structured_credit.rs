@@ -2,18 +2,25 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_valuations::instruments::structured_credit::StructuredCredit;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyModule, PyType};
+use pyo3::types::{PyDict, PyModule, PyType};
 use std::fmt;
 
 fn parse_structured_credit_json(value: &Bound<'_, PyAny>) -> PyResult<StructuredCredit> {
     if let Ok(json_str) = value.extract::<&str>() {
-        serde_json::from_str(json_str).map_err(|err| PyValueError::new_err(err.to_string()))
-    } else {
-        // Accept Python dict-like object; convert to string via __repr__ and parse
-        let json_str: String = value.str()?.to_string_lossy().into_owned();
-        serde_json::from_str(&json_str)
-            .map_err(|_| PyTypeError::new_err("Expected JSON string or dict convertible to JSON"))
+        return serde_json::from_str(json_str)
+            .map_err(|err| PyValueError::new_err(err.to_string()));
     }
+    if let Ok(dict) = value.downcast::<PyDict>() {
+        let py = dict.py();
+        let json = pyo3::types::PyModule::import(py, "json")?
+            .call_method1("dumps", (dict,))?
+            .extract::<String>()?;
+        return serde_json::from_str(&json)
+            .map_err(|err| PyValueError::new_err(err.to_string()));
+    }
+    Err(PyTypeError::new_err(
+        "Expected JSON string or dict convertible to JSON",
+    ))
 }
 
 /// Unified structured credit instrument wrapper (ABS, CLO, CMBS, RMBS).

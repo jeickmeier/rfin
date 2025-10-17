@@ -42,7 +42,7 @@ impl PySwaption {
 impl PySwaption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, notional, strike, expiry, swap_start, swap_end, discount_curve, forward_curve, vol_surface=None, exercise='european', settlement='physical')"
+        text_signature = "(cls, instrument_id, notional, strike, expiry, swap_start, swap_end, discount_curve, forward_curve, vol_surface, exercise='european', settlement='physical')"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a payer swaption (pay fixed underlying swap).
@@ -56,7 +56,7 @@ impl PySwaption {
         swap_end: Bound<'_, PyAny>,
         discount_curve: Bound<'_, PyAny>,
         forward_curve: Bound<'_, PyAny>,
-        vol_surface: Option<&str>,
+        vol_surface: Bound<'_, PyAny>,
         exercise: Option<&str>,
         settlement: Option<&str>,
     ) -> PyResult<Self> {
@@ -78,7 +78,7 @@ impl PySwaption {
 
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, notional, strike, expiry, swap_start, swap_end, discount_curve, forward_curve, vol_surface=None, exercise='european', settlement='physical')"
+        text_signature = "(cls, instrument_id, notional, strike, expiry, swap_start, swap_end, discount_curve, forward_curve, vol_surface, exercise='european', settlement='physical')"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a receiver swaption (receive fixed underlying swap).
@@ -92,7 +92,7 @@ impl PySwaption {
         swap_end: Bound<'_, PyAny>,
         discount_curve: Bound<'_, PyAny>,
         forward_curve: Bound<'_, PyAny>,
-        vol_surface: Option<&str>,
+        vol_surface: Bound<'_, PyAny>,
         exercise: Option<&str>,
         settlement: Option<&str>,
     ) -> PyResult<Self> {
@@ -216,7 +216,7 @@ fn construct_swaption(
     swap_end: Bound<'_, PyAny>,
     discount_curve: Bound<'_, PyAny>,
     forward_curve: Bound<'_, PyAny>,
-    vol_surface: Option<&str>,
+    vol_surface: Bound<'_, PyAny>,
     exercise: Option<&str>,
     settlement: Option<&str>,
     payer: bool,
@@ -237,7 +237,7 @@ fn construct_swaption(
         SwaptionParams::receiver(amt, strike, expiry_date, start, end)
     };
 
-    let vol_id = vol_surface.unwrap_or("SWAPTION-VOL");
+    let vol_id = extract_curve_id(&vol_surface)?;
 
     let mut swaption = if payer {
         Swaption::new_payer(id.clone(), &params, disc, fwd, vol_id)

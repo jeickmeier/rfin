@@ -235,7 +235,7 @@ impl PyVarianceSwap {
             freq if freq == Frequency::weekly() => "weekly",
             freq if freq == Frequency::monthly() => "monthly",
             freq if freq == Frequency::quarterly() => "quarterly",
-            _ => "custom",
+            _ => "quarterly",
         }
     }
 

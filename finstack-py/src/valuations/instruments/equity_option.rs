@@ -1,7 +1,8 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_instrument_id, PyInstrumentType};
+use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
 use finstack_valuations::instruments::equity_option::EquityOption;
+use finstack_core::types::CurveId;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -120,6 +121,68 @@ impl PyEquityOption {
             notional_money,
             contract,
         )))
+    }
+
+    #[classmethod]
+    #[pyo3(
+        text_signature = "(cls, instrument_id, ticker, strike, expiry, notional, discount_curve, spot_id, vol_surface, /, *, dividend_yield_id=None, contract_size=1.0)",
+        signature = (
+            instrument_id,
+            ticker,
+            strike,
+            expiry,
+            notional,
+            discount_curve,
+            spot_id,
+            vol_surface,
+            *,
+            dividend_yield_id=None,
+            contract_size=None
+        )
+    )]
+    #[allow(clippy::too_many_arguments)]
+    /// Create an equity option with explicit discount curve, spot id, vol surface and optional dividend yield.
+    fn builder(
+        _cls: &Bound<'_, PyType>,
+        instrument_id: Bound<'_, PyAny>,
+        ticker: &str,
+        strike: f64,
+        expiry: Bound<'_, PyAny>,
+        notional: Bound<'_, PyAny>,
+        discount_curve: Bound<'_, PyAny>,
+        spot_id: &str,
+        vol_surface: Bound<'_, PyAny>,
+        dividend_yield_id: Option<&str>,
+        contract_size: Option<f64>,
+    ) -> PyResult<Self> {
+        use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
+        use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
+
+        let id = extract_instrument_id(&instrument_id)?;
+        let expiry_date = py_to_date(&expiry)?;
+        let notional_money = extract_money(&notional)?;
+        let disc_id = extract_curve_id(&discount_curve)?;
+        let vol_id = extract_curve_id(&vol_surface)?;
+
+        let mut underlying = EquityUnderlyingParams::new(ticker, spot_id, notional_money.currency());
+        if let Some(div) = dividend_yield_id {
+            underlying = underlying.with_dividend_yield(div);
+        }
+        if let Some(cs) = contract_size {
+            underlying = underlying.with_contract_size(cs);
+        }
+
+        let strike_money = finstack_core::money::Money::new(strike, notional_money.currency());
+        let cs = contract_size.unwrap_or(1.0);
+        let params = EquityOptionParams::european_call(strike_money, expiry_date, cs);
+        let option = finstack_valuations::instruments::equity_option::EquityOption::new(
+            id.into_string(),
+            &params,
+            &underlying,
+            CurveId::new(disc_id.as_str()),
+            CurveId::new(vol_id.as_str()),
+        );
+        Ok(Self::new(option))
     }
 
     /// Instrument identifier.

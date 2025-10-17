@@ -1,4 +1,5 @@
 use crate::core::common::pycmp::richcmp_eq_ne;
+use crate::core::common::labels::normalize_label;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::pricer::{InstrumentType, ModelKey, PricerKey, PricingError};
 use pyo3::basic::CompareOp;
@@ -457,6 +458,36 @@ pub(crate) fn frequency_from_payments_per_year(
     use finstack_core::dates::Frequency;
     let payments = payments_per_year.unwrap_or(4);
     Frequency::from_payments_per_year(payments).map_err(|e| PyValueError::new_err(e))
+}
+
+/// Parse a frequency label with broad market-friendly synonyms.
+/// Examples: "quarterly", "q", "3m"; "semi_annual", "semiannual", "6m"; "annual", "yearly", "12m"; "monthly", "1m"; "bimonthly", "2m".
+pub(crate) fn parse_frequency_label(
+    label: Option<&str>,
+) -> PyResult<finstack_core::dates::Frequency> {
+    use finstack_core::dates::Frequency;
+    match label.map(normalize_label).as_deref() {
+        None => Ok(Frequency::quarterly()),
+        Some("quarterly") | Some("q") | Some("3m") => Ok(Frequency::quarterly()),
+        Some("semi_annual") | Some("semiannual") | Some("6m") | Some("sa") => {
+            Ok(Frequency::semi_annual())
+        }
+        Some("annual") | Some("yearly") | Some("12m") | Some("1y") => Ok(Frequency::annual()),
+        Some("monthly") | Some("1m") | Some("m") => Ok(Frequency::monthly()),
+        Some("bimonthly") | Some("2m") => Ok(Frequency::bimonthly()),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Unsupported frequency label: {}",
+            other
+        ))),
+    }
+}
+
+/// Parse a stub label into StubKind, defaulting to None.
+pub(crate) fn parse_stub_kind(label: Option<&str>) -> PyResult<finstack_core::dates::StubKind> {
+    match label {
+        None => Ok(finstack_core::dates::StubKind::None),
+        Some(s) => s.parse().map_err(|e: String| PyValueError::new_err(e)),
+    }
 }
 
 pub(crate) fn intern_calendar_id_opt(value: Option<&str>) -> Option<&'static str> {

@@ -125,6 +125,7 @@ def main() -> None:
         strike=1.10,
         expiry=date(2025, 1, 2),
         notional=Money(2_000_000, EUR),
+        vol_surface="FX-VOL",
     )
     option_result = registry.price_with_metrics(
         fx_call,
@@ -143,6 +144,7 @@ def main() -> None:
         strike=1.06,
         expiry=date(2024, 7, 2),
         notional=Money(1_500_000, EUR),
+        vol_surface="FX-VOL",
     )
     put_value = registry.price(fx_put, "discounting", market)
     print("FX put PV:", round(put_value.value.amount, 2), put_value.value.currency)

@@ -192,7 +192,7 @@ impl PyFxSpot {
             finstack_core::dates::BusinessDayConvention::Preceding => "preceding",
             finstack_core::dates::BusinessDayConvention::ModifiedPreceding => "modified_preceding",
             finstack_core::dates::BusinessDayConvention::Unadjusted => "unadjusted",
-            _ => "unadjusted",
+            _ => "modified_following",
         }
     }
 
@@ -384,6 +384,76 @@ impl PyFxOption {
             amt,
             vol_id,
         )))
+    }
+
+    #[classmethod]
+    #[pyo3(
+        text_signature = "(cls, instrument_id, base_currency, quote_currency, strike, expiry, notional, domestic_curve, foreign_curve, vol_surface, /, *, settlement='cash')",
+        signature = (
+            instrument_id,
+            base_currency,
+            quote_currency,
+            strike,
+            expiry,
+            notional,
+            domestic_curve,
+            foreign_curve,
+            vol_surface,
+            *,
+            settlement=None
+        )
+    )]
+    #[allow(clippy::too_many_arguments)]
+    /// Create an FX option with explicit domestic/foreign curves and vol surface.
+    fn builder(
+        _cls: &Bound<'_, PyType>,
+        instrument_id: Bound<'_, PyAny>,
+        base_currency: Bound<'_, PyAny>,
+        quote_currency: Bound<'_, PyAny>,
+        strike: f64,
+        expiry: Bound<'_, PyAny>,
+        notional: Bound<'_, PyAny>,
+        domestic_curve: Bound<'_, PyAny>,
+        foreign_curve: Bound<'_, PyAny>,
+        vol_surface: Bound<'_, PyAny>,
+        settlement: Option<&str>,
+    ) -> PyResult<Self> {
+        let id = extract_instrument_id(&instrument_id)?;
+        let CurrencyArg(base) = base_currency.extract()?;
+        let CurrencyArg(quote) = quote_currency.extract()?;
+        let expiry_date = py_to_date(&expiry)?;
+        let amt = extract_money(&notional)?;
+        let dom = extract_curve_id(&domestic_curve)?;
+        let for_id = extract_curve_id(&foreign_curve)?;
+        let vol_id = extract_curve_id(&vol_surface)?;
+
+        let settle = match settlement.map(crate::core::common::labels::normalize_label).as_deref() {
+            None | Some("cash") => SettlementType::Cash,
+            Some("physical") => SettlementType::Physical,
+            Some(other) => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unsupported settlement: {other}",
+                )))
+            }
+        };
+
+        let mut builder = FxOption::builder();
+        builder = builder.id(id);
+        builder = builder.base_currency(base);
+        builder = builder.quote_currency(quote);
+        builder = builder.strike(strike);
+        builder = builder.option_type(OptionType::Call);
+        builder = builder.exercise_style(ExerciseStyle::European);
+        builder = builder.expiry(expiry_date);
+        builder = builder.day_count(finstack_core::dates::DayCount::Act365F);
+        builder = builder.notional(amt);
+        builder = builder.settlement(settle);
+        builder = builder.domestic_disc_id(dom);
+        builder = builder.foreign_disc_id(for_id);
+        builder = builder.vol_id(vol_id);
+        builder = builder.pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
+        builder = builder.attributes(finstack_valuations::instruments::common::traits::Attributes::new());
+        Ok(Self::new(builder.build().map_err(core_to_py)?))
     }
 
     /// Instrument identifier.

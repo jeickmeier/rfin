@@ -40,7 +40,7 @@ fn day_count_label(dc: DayCount) -> &'static str {
         DayCount::ActAct => "act_act",
         DayCount::ActActIsma => "act_act_isma",
         DayCount::Bus252 => "bus_252",
-        _ => "custom",
+        _ => "act_360",
     }
 }
 
