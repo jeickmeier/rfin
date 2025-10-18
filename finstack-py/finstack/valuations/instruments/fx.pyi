@@ -1,0 +1,112 @@
+"""FX instruments."""
+
+from typing import Optional
+from datetime import date
+from ...core.money import Money
+from ...core.currency import Currency
+from ..common import InstrumentType
+
+class FxSpot:
+    """FX spot instrument."""
+    
+    def __init__(
+        self,
+        instrument_id: str,
+        base_currency: Currency,
+        quote_currency: Currency,
+        quantity: float,
+        as_of: date
+    ) -> None:
+        """Create an FX spot instrument."""
+        ...
+    
+    @property
+    def instrument_id(self) -> str: ...
+    @property
+    def base_currency(self) -> Currency: ...
+    @property
+    def quote_currency(self) -> Currency: ...
+    @property
+    def quantity(self) -> float: ...
+    @property
+    def as_of(self) -> date: ...
+    @property
+    def instrument_type(self) -> InstrumentType: ...
+    
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
+class FxOption:
+    """FX option instrument."""
+    
+    def __init__(
+        self,
+        instrument_id: str,
+        base_currency: Currency,
+        quote_currency: Currency,
+        quantity: float,
+        strike: float,
+        expiry: date,
+        option_type: str,  # "call" or "put"
+        as_of: date
+    ) -> None:
+        """Create an FX option instrument."""
+        ...
+    
+    @property
+    def instrument_id(self) -> str: ...
+    @property
+    def base_currency(self) -> Currency: ...
+    @property
+    def quote_currency(self) -> Currency: ...
+    @property
+    def quantity(self) -> float: ...
+    @property
+    def strike(self) -> float: ...
+    @property
+    def expiry(self) -> date: ...
+    @property
+    def option_type(self) -> str: ...
+    @property
+    def as_of(self) -> date: ...
+    @property
+    def instrument_type(self) -> InstrumentType: ...
+    
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
+class FxSwap:
+    """FX swap instrument."""
+    
+    def __init__(
+        self,
+        instrument_id: str,
+        base_currency: Currency,
+        quote_currency: Currency,
+        quantity: float,
+        near_date: date,
+        far_date: date,
+        as_of: date
+    ) -> None:
+        """Create an FX swap instrument."""
+        ...
+    
+    @property
+    def instrument_id(self) -> str: ...
+    @property
+    def base_currency(self) -> Currency: ...
+    @property
+    def quote_currency(self) -> Currency: ...
+    @property
+    def quantity(self) -> float: ...
+    @property
+    def near_date(self) -> date: ...
+    @property
+    def far_date(self) -> date: ...
+    @property
+    def as_of(self) -> date: ...
+    @property
+    def instrument_type(self) -> InstrumentType: ...
+    
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...

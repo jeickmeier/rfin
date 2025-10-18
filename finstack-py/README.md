@@ -210,30 +210,22 @@ work with numpy/pandas/polars alongside the bindings:
 pip install finstack[analytics]
 ```
 
-## Generating type stubs
+## Type Stubs
 
-Type stubs (`.pyi` files) use a **hybrid approach** due to `pyo3-stubgen` limitations:
+Type stubs (`.pyi` files) are **manually maintained** for all modules. We don't use automated stub generation because tools like `pyo3-stubgen` only work for functions, not PyO3 classes (which make up most of our API).
 
-- **Auto-generated** for function-heavy modules (`core/dates`, `portfolio`, etc.)
-- **Manual** for class-heavy modules (`scenarios`, `statements`, `valuations`)
+**When to update stubs:**
+- After adding/changing classes, methods, or functions in Rust
+- When method signatures change
+- After user reports of missing type information
 
-> **Why?** `pyo3-stubgen` only generates stubs for module-level functions, not PyO3 classes.
-
-To regenerate auto-generated stubs after API changes:
-
+**Testing stubs:**
 ```bash
-# From project root
-./scripts/generate-stubs.sh
+# Run type checker on examples
+uv run mypy finstack-py/examples/
+
+# Verify runtime imports still work
+uv run pytest finstack-py/tests/
 ```
 
-This script:
-1. Builds the extension in release mode
-2. Runs `pyo3-stubgen` on all finstack modules
-3. Updates auto-generated `.pyi` files (preserves manual stubs)
-4. Ensures the `py.typed` marker exists for PEP 561 compliance
-
-**Maintenance:**
-- **Auto-generated stubs**: Never hand-edit - regenerate from Rust
-- **Manual stubs**: Update when adding/changing classes/methods
-
-See `finstack-py/STUB_GENERATION.md` for details.
+See `finstack-py/STUB_GENERATION.md` for detailed guidelines on writing and maintaining stubs.

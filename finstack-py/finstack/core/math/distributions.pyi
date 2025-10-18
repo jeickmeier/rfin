@@ -1,61 +1,68 @@
-# flake8: noqa: PYI021
-def binomial_probability(trials, successes, probability):
-    """
-    Compute the probability mass at a target count for a Binomial distribution.
+"""Statistical distribution bindings.
 
-    Computes the probability ``P(X = successes)`` where ``X ~ Binomial(trials, probability)``.
+Provides binomial probability calculations and related
+logarithmic functions for financial modeling.
+"""
 
-    Args:
-        trials (int): Total number of Bernoulli trials (``n``).
-        successes (int): Target number of successes (``k``).
-        probability (float): Probability of success per trial (``p``), in the range [0, 1].
+def binomial_probability(trials: int, successes: int, probability: float) -> float: ...
+"""Calculate binomial probability.
 
-    Returns:
-        float: Probability mass at ``successes``.
+Parameters
+----------
+trials : int
+    Number of trials.
+successes : int
+    Number of successes.
+probability : float
+    Success probability per trial.
 
-    Examples:
-        >>> from finstack.core.math.distributions import binomial_probability
-        >>> binomial_probability(10, 3, 0.5)
-        0.1171875
-    """
+Returns
+-------
+float
+    Binomial probability.
 
-def log_binomial_coefficient(trials, successes):
-    """
-    Natural logarithm of the binomial coefficient.
+Raises
+------
+ValueError
+    If parameters are invalid.
+"""
 
-    Computes ``ln(C(trials, successes)) = ln(n! / (k!(n-k)!))``.
+def log_binomial_coefficient(trials: int, successes: int) -> float: ...
+"""Calculate log of binomial coefficient.
 
-    Args:
-        trials (int): Total number of items (``n``).
-        successes (int): Number of items chosen (``k``).
+Parameters
+----------
+trials : int
+    Number of trials.
+successes : int
+    Number of successes.
 
-    Returns:
-        float: Natural logarithm of the binomial coefficient.
+Returns
+-------
+float
+    Log of binomial coefficient.
 
-    Examples:
-        >>> from finstack.core.math.distributions import log_binomial_coefficient
-        >>> round(log_binomial_coefficient(5, 2), 6)
-        2.397895
-    """
+Raises
+------
+ValueError
+    If parameters are invalid.
+"""
 
-def log_factorial(value):
-    """
-    Natural logarithm of a factorial.
+def log_factorial(value: int) -> float: ...
+"""Calculate log of factorial.
 
-    Computes ``ln(value!)`` using exact arithmetic for small values and a
-    stable approximation (e.g., Stirling-like) when needed.
+Parameters
+----------
+value : int
+    Value to compute factorial of.
 
-    Args:
-        value (int): Non-negative integer ``n`` whose factorial is evaluated.
+Returns
+-------
+float
+    Log of factorial.
 
-    Returns:
-        float: ``ln(n!)``.
-
-    Raises:
-        ValueError: If ``value`` is negative.
-
-    Examples:
-        >>> from finstack.core.math.distributions import log_factorial
-        >>> round(log_factorial(5), 6)
-        4.787492
-    """
+Raises
+------
+ValueError
+    If value is negative.
+"""

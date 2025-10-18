@@ -1,106 +1,273 @@
-# flake8: noqa: PYI021
-def adaptive_quadrature(func, a, b, tol, max_depth):
+"""Numerical integration bindings.
+
+Provides various numerical integration methods including
+Simpson's rule, Gauss-Legendre quadrature, and adaptive methods.
+"""
+
+from typing import Callable
+
+class GaussHermiteQuadrature:
+    """Gauss-Hermite quadrature for infinite integrals.
+    
+    Provides high-order quadrature rules for integrals of the form:
+    ∫ f(x) * exp(-x²) dx from -∞ to +∞
     """
-    Adaptive Simpson quadrature (alias of `adaptive_simpson`).
-
-    Args:
-        func (Callable[[float], float]): Callable evaluated at requested points.
-        a (float): Lower bound of the integration interval.
-        b (float): Upper bound of the integration interval.
-        tol (float): Target absolute error tolerance.
-        max_depth (int): Maximum recursion depth for refinement.
-
-    Returns:
-        float: Integral estimate identical to `adaptive_simpson`.
+    
+    @classmethod
+    def order_5(cls) -> GaussHermiteQuadrature: ...
+    """Create 5th order Gauss-Hermite quadrature."""
+    
+    @classmethod
+    def order_7(cls) -> GaussHermiteQuadrature: ...
+    """Create 7th order Gauss-Hermite quadrature."""
+    
+    @classmethod
+    def order_10(cls) -> GaussHermiteQuadrature: ...
+    """Create 10th order Gauss-Hermite quadrature."""
+    
+    @property
+    def order(self) -> int: ...
+    """Get the quadrature order.
+    
+    Returns
+    -------
+    int
+        Quadrature order.
     """
-
-def adaptive_simpson(func, a, b, tol, max_depth):
+    
+    @property
+    def points(self) -> List[float]: ...
+    """Get the quadrature points.
+    
+    Returns
+    -------
+    List[float]
+        Quadrature points.
     """
-    Adaptive Simpson integration with automatic refinement.
-
-    Args:
-        func (Callable[[float], float]): Callable evaluated at requested points.
-        a (float): Lower bound of the integration interval.
-        b (float): Upper bound of the integration interval.
-        tol (float): Target absolute error tolerance.
-        max_depth (int): Maximum recursion depth controlling refinement.
-
-    Returns:
-        float: Integral estimate satisfying the tolerance when possible.
+    
+    @property
+    def weights(self) -> List[float]: ...
+    """Get the quadrature weights.
+    
+    Returns
+    -------
+    List[float]
+        Quadrature weights.
     """
-
-def gauss_legendre_integrate(func, a, b, order):
+    
+    def integrate(self, func: Callable[[float], float]) -> float: ...
+    """Integrate a function using Gauss-Hermite quadrature.
+    
+    Parameters
+    ----------
+    func : Callable[[float], float]
+        Function to integrate.
+        
+    Returns
+    -------
+    float
+        Integral value.
     """
-    Gauss-Legendre quadrature on ``[a, b]`` with fixed order.
-
-    Args:
-        func (Callable[[float], float]): Function evaluated at node locations.
-        a (float): Lower integration bound.
-        b (float): Upper integration bound.
-        order (int): Supported quadrature order (2, 4, 8, or 16).
-
-    Returns:
-        float: Integral approximation over ``[a, b]``.
+    
+    def integrate_adaptive(self, func: Callable[[float], float], tolerance: float) -> float: ...
+    """Integrate with adaptive tolerance.
+    
+    Parameters
+    ----------
+    func : Callable[[float], float]
+        Function to integrate.
+    tolerance : float
+        Integration tolerance.
+        
+    Returns
+    -------
+    float
+        Integral value.
     """
+    
+    def __repr__(self) -> str: ...
 
-def gauss_legendre_integrate_adaptive(func, a, b, order, tol, max_depth):
-    """
-    Adaptive Gauss-Legendre quadrature with panel refinement.
+def simpson_rule(func: Callable[[float], float], a: float, b: float, intervals: int) -> float: ...
+"""Simpson's rule integration.
 
-    Args:
-        func (Callable[[float], float]): Function to integrate.
-        a (float): Lower bound of the integration domain.
-        b (float): Upper bound of the integration domain.
-        order (int): Base quadrature order (2, 4, 8, or 16).
-        tol (float): Error tolerance governing panel refinement.
-        max_depth (int): Maximum number of recursive refinements.
+Parameters
+----------
+func : Callable[[float], float]
+    Function to integrate.
+a : float
+    Lower bound.
+b : float
+    Upper bound.
+intervals : int
+    Number of intervals.
 
-    Returns:
-        float: Integral approximation with adaptive panel splitting.
-    """
+Returns
+-------
+float
+    Integral value.
+"""
 
-def gauss_legendre_integrate_composite(func, a, b, order, panels):
-    """
-    Composite Gauss-Legendre quadrature with multiple panels.
+def adaptive_simpson(
+    func: Callable[[float], float],
+    a: float,
+    b: float,
+    tol: float,
+    max_depth: int,
+) -> float: ...
+"""Adaptive Simpson's rule integration.
 
-    Args:
-        func (Callable[[float], float]): Function evaluated for each sub-interval.
-        a (float): Lower bound.
-        b (float): Upper bound.
-        order (int): Individual panel quadrature order.
-        panels (int): Number of sub-intervals to tile across ``[a, b]``.
+Parameters
+----------
+func : Callable[[float], float]
+    Function to integrate.
+a : float
+    Lower bound.
+b : float
+    Upper bound.
+tol : float
+    Tolerance.
+max_depth : int
+    Maximum recursion depth.
 
-    Returns:
-        float: Integrated value across the full interval.
-    """
+Returns
+-------
+float
+    Integral value.
+"""
 
-def simpson_rule(func, a, b, intervals):
-    """
-    Simpson's composite rule for integrating a callable on ``[a, b]``.
+def adaptive_quadrature(
+    func: Callable[[float], float],
+    a: float,
+    b: float,
+    tol: float,
+    max_depth: int,
+) -> float: ...
+"""Adaptive quadrature integration.
 
-    Args:
-        func (Callable[[float], float]): Function to evaluate at grid points.
-        a (float): Lower integration bound.
-        b (float): Upper integration bound.
-        intervals (int): Even number of sub-intervals used by Simpson's rule.
+Parameters
+----------
+func : Callable[[float], float]
+    Function to integrate.
+a : float
+    Lower bound.
+b : float
+    Upper bound.
+tol : float
+    Tolerance.
+max_depth : int
+    Maximum recursion depth.
 
-    Returns:
-        float: Integral estimate across ``[a, b]``.
+Returns
+-------
+float
+    Integral value.
+"""
 
-    Raises:
-        ValueError: If ``intervals`` is zero or odd.
-    """
+def gauss_legendre_integrate(
+    func: Callable[[float], float],
+    a: float,
+    b: float,
+    order: int,
+) -> float: ...
+"""Gauss-Legendre quadrature integration.
 
-def trapezoidal_rule(func, a, b, intervals):
-    """
-    Trapezoidal rule for integrating a callable on ``[a, b]``.
+Parameters
+----------
+func : Callable[[float], float]
+    Function to integrate.
+a : float
+    Lower bound.
+b : float
+    Upper bound.
+order : int
+    Quadrature order.
 
-    Args:
-        func (Callable[[float], float]): Function evaluated at grid points.
-        a (float): Lower bound of the integration interval.
-        b (float): Upper bound of the integration interval.
-        intervals (int): Number of sub-intervals to apply.
+Returns
+-------
+float
+    Integral value.
+"""
 
-    Returns:
-        float: Integral approximation from the trapezoidal rule.
-    """
+def gauss_legendre_integrate_composite(
+    func: Callable[[float], float],
+    a: float,
+    b: float,
+    order: int,
+    panels: int,
+) -> float: ...
+"""Composite Gauss-Legendre quadrature integration.
+
+Parameters
+----------
+func : Callable[[float], float]
+    Function to integrate.
+a : float
+    Lower bound.
+b : float
+    Upper bound.
+order : int
+    Quadrature order.
+panels : int
+    Number of panels.
+
+Returns
+-------
+float
+    Integral value.
+"""
+
+def gauss_legendre_integrate_adaptive(
+    func: Callable[[float], float],
+    a: float,
+    b: float,
+    order: int,
+    tol: float,
+    max_depth: int,
+) -> float: ...
+"""Adaptive Gauss-Legendre quadrature integration.
+
+Parameters
+----------
+func : Callable[[float], float]
+    Function to integrate.
+a : float
+    Lower bound.
+b : float
+    Upper bound.
+order : int
+    Quadrature order.
+tol : float
+    Tolerance.
+max_depth : int
+    Maximum recursion depth.
+
+Returns
+-------
+float
+    Integral value.
+"""
+
+def trapezoidal_rule(
+    func: Callable[[float], float],
+    a: float,
+    b: float,
+    intervals: int,
+) -> float: ...
+"""Trapezoidal rule integration.
+
+Parameters
+----------
+func : Callable[[float], float]
+    Function to integrate.
+a : float
+    Lower bound.
+b : float
+    Upper bound.
+intervals : int
+    Number of intervals.
+
+Returns
+-------
+float
+    Integral value.
+"""

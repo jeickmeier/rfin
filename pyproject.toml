@@ -46,7 +46,6 @@ dev-dependencies = [
     "ruff>=0.1.0",
     "ipython>=8.0",
     "jupyter>=1.0",
-    "pyo3-stubgen>=0.1.0",
 ]
 
 [tool.maturin]
