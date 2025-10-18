@@ -1,9 +1,16 @@
 # finstack Python bindings
 
 Python-friendly access to the [finstack](https://github.com/finstacklabs/rfin) Rust crates. The
-package wraps the `finstack-core` primitives (currencies, configuration, money, and holiday
-calendars) without introducing new business logic, making it easy to drive analytics and
-prototyping directly from Python notebooks.
+package provides comprehensive Python bindings for all finstack modules:
+
+- **`finstack.core`**: Financial primitives (currencies, money, dates, market data, math)
+- **`finstack.valuations`**: Instrument pricing, cashflow modeling, and risk metrics
+- **`finstack.statements`**: Financial statement modeling with forecasting and extensions
+- **`finstack.scenarios`**: Deterministic scenario analysis and stress testing
+- **`finstack.portfolio`**: Portfolio management, aggregation, and multi-entity analysis
+
+All business logic remains in the Rust library, with Python bindings providing ergonomic interfaces
+for analytics, prototyping, and production workflows.
 
 ## Installation
 
@@ -14,6 +21,21 @@ uv run maturin develop --release
 ```
 
 This compiles the Rust crate and exposes the `finstack` module to your active Python environment.
+
+### Features
+
+The package includes several optional features:
+- **`scenarios`** (default): Enables scenario analysis capabilities
+- **`polars_export`**: Enables Polars DataFrame exports for statements
+
+### Dependencies
+
+The core extension has no required Python dependencies. Install the `analytics` extra if you plan to
+work with numpy/pandas/polars alongside the bindings:
+
+```bash
+pip install finstack[analytics]
+```
 
 ## Quick start
 
@@ -130,18 +152,66 @@ print(ctx.stats())
 print(fx.rate(Currency("EUR"), Currency("USD"), date(2024, 1, 2), FxConversionPolicy.CASHFLOW_DATE))
 ```
 
-## Valuations: required inputs and defaults
+## Valuations
+
+The `finstack.valuations` module provides comprehensive instrument pricing, cashflow modeling, and risk metrics:
+
+```python
+from finstack.valuations.instruments import Bond, EquityOption, IRS
+from finstack.valuations.pricer import Pricer
+from finstack.valuations.cashflow import CashflowBuilder
+from finstack.core.market_data import MarketContext
+
+# Create instruments
+bond = Bond.builder("BOND_1")
+    .notional(1_000_000)
+    .currency("USD")
+    .coupon_rate(0.05)
+    .frequency("semiannual")
+    .maturity(date(2029, 6, 15))
+    .build()
+
+# Price with market context
+market = MarketContext()
+# ... add curves, surfaces, etc. ...
+pricer = Pricer()
+results = pricer.price(bond, market)
+
+print(f"Bond PV: ${results.present_value:,.2f}")
+print(f"Duration: {results.duration:.2f}")
+print(f"Convexity: {results.convexity:.2f}")
+```
+
+### Available Instruments
+
+- **Fixed Income**: Bonds, FRAs, IRS, Swaptions, Cap/Floor
+- **Equity**: Equity options, variance swaps, TRS
+- **Credit**: CDS, CDS Index, CDS Tranche, CDS Options
+- **FX**: FX options, FX forwards
+- **Inflation**: Inflation-linked bonds, inflation swaps
+- **Structured**: Convertible bonds, structured credit, private markets funds
+- **Other**: Repos, basis swaps, baskets
+
+### Key Features
+
+- **Comprehensive instrument coverage** with 20+ instrument types
+- **Cashflow modeling** with flexible builder patterns
+- **Risk metrics** (duration, convexity, Greeks, DV01, CS01)
+- **Calibration framework** for curve and surface fitting
+- **Currency-safe pricing** with explicit FX handling
+- **JSON serialization** for instrument persistence
+
+### Required Inputs and Defaults
 
 For reproducible pricing, provide explicit market identifiers rather than relying on implicit defaults:
 
-- Cap/Floor, Swaption: pass an explicit `vol_surface` identifier. No hard-coded default is used.
-- FX Option: prefer `FxOption.builder(...)` where you must provide `domestic_curve`, `foreign_curve`, and `vol_surface`. The simple `european_call/put` helpers are demo-oriented and infer curves for a few majors.
-- Equity Option: prefer `EquityOption.builder(...)` requiring `discount_curve`, `spot_id`, and `vol_surface` (optional `dividend_yield_id`).
-- JSON-defined instruments (Basket, StructuredCredit, PrivateMarketsFund): Python dicts are serialized via `json.dumps` before parsing; pass either a JSON string or a dict-like object.
-- Frequencies and stubs: bindings accept common synonyms (e.g., `"q"`, `"3m"`, `"semiannual"`, `"6m"`). Unknown values raise `ValueError`.
-- Business-day conventions: getters reflect core enum values. Unknown variants map to the closest standard label for stability.
+- **Cap/Floor, Swaption**: Pass an explicit `vol_surface` identifier. No hard-coded default is used.
+- **FX Option**: Prefer `FxOption.builder(...)` where you must provide `domestic_curve`, `foreign_curve`, and `vol_surface`.
+- **Equity Option**: Prefer `EquityOption.builder(...)` requiring `discount_curve`, `spot_id`, and `vol_surface`.
+- **JSON-defined instruments**: Python dicts are serialized via `json.dumps` before parsing.
+- **Frequencies and stubs**: Bindings accept common synonyms (e.g., `"q"`, `"3m"`, `"semiannual"`, `"6m"`).
 
-When in doubt, construct a `MarketContext` with the exact curves/surfaces required by an instrument and use the instrument’s builder taking explicit IDs. This guarantees parity with Rust pricers.
+When in doubt, construct a `MarketContext` with the exact curves/surfaces required by an instrument and use the instrument's builder taking explicit IDs.
 
 ## Financial Statements Modeling
 
@@ -201,14 +271,87 @@ print(f"Available metrics: {registry.list_metrics('fin')}")
 - **Extension system** for custom analysis (corkscrew, scorecards)
 - **JSON serialization** for model persistence
 
-## Optional Python dependencies
+## Portfolio Management
 
-The core extension has no required Python dependencies. Install the `analytics` extra if you plan to
-work with numpy/pandas/polars alongside the bindings:
+The `finstack.portfolio` module provides comprehensive portfolio management capabilities:
 
-```bash
-pip install finstack[analytics]
+```python
+from finstack.portfolio import Portfolio, PortfolioBuilder, Entity, Position
+from finstack.core.market_data import MarketContext
+from finstack.valuations.instruments import Bond
+
+# Create a portfolio with entities and positions
+portfolio = (
+    PortfolioBuilder("FUND_A")
+    .name("Alpha Fund")
+    .base_ccy("USD")
+    .as_of(date(2024, 1, 1))
+    .entity(Entity("ACME", name="Acme Corp"))
+    .position(Position("POS_1", "ACME", "BOND_1", 1_000_000.0))
+    .build()
+)
+
+# Value the portfolio
+market = MarketContext()
+# ... add market data ...
+results = portfolio.value(market)
+
+# Group and aggregate by attributes
+grouped = portfolio.group_by_attribute("sector")
+print(f"Portfolio value: ${results.total_value:,.2f}")
+print(f"Positions by sector: {grouped}")
 ```
+
+### Key Features
+
+- **Entity and position management** with validation
+- **Fluent builder API** for portfolio construction
+- **Multi-entity portfolios** with base currency aggregation
+- **Attribute-based grouping** (sector, rating, etc.)
+- **Scenario integration** for stress testing
+- **DataFrame exports** for analysis and reporting
+
+## Scenario Analysis
+
+The `finstack.scenarios` module provides deterministic scenario analysis for stress testing and what-if analysis:
+
+```python
+from finstack.scenarios import ScenarioSpec, OperationSpec, ScenarioEngine, ExecutionContext
+from finstack.scenarios import CurveKind, VolSurfaceKind
+
+# Create scenario operations
+operations = [
+    OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-OIS", 50.0),  # +50bp parallel shift
+    OperationSpec.equity_shock("AAPL", 0.1),  # +10% equity shock
+    OperationSpec.vol_surface_shift(VolSurfaceKind.Equity, "EQ-FLAT", 0.05),  # +5% vol shift
+]
+
+# Build scenario specification
+scenario = ScenarioSpec(
+    "stress_test_q1",
+    operations,
+    name="Q1 Stress Test",
+    description="Parallel rate shock with equity and vol adjustments",
+    priority=1
+)
+
+# Apply scenario to execution context
+engine = ScenarioEngine()
+context = ExecutionContext(market=market, model=model, as_of=date(2024, 1, 1))
+report = engine.apply(scenario, context)
+
+print(f"Scenario applied: {report.applied_operations} operations")
+print(f"Market context updated: {len(context.market.discount_curves)} curves")
+```
+
+### Key Features
+
+- **Deterministic composition** with priority-based conflict resolution
+- **Market data shocks** (curves, surfaces, FX, equities, base correlation)
+- **Statement forecast adjustments** with percentage and assignment operations
+- **Instrument pricing updates** by type and attributes
+- **Time roll operations** with carry and theta calculations
+- **JSON serialization** for scenario persistence and sharing
 
 ## Type Stubs
 
@@ -229,3 +372,50 @@ uv run pytest finstack-py/tests/
 ```
 
 See `finstack-py/STUB_GENERATION.md` for detailed guidelines on writing and maintaining stubs.
+
+## Examples
+
+The package includes comprehensive examples demonstrating all major features:
+
+### Core Examples
+- **`core_basics.py`**: Currency, money, dates, and market data fundamentals
+- **`cashflow_basics.py`**: Cashflow modeling and scheduling
+- **`math_core_showcase.py`**: Mathematical utilities and distributions
+
+### Valuations Examples
+- **`bond_capabilities.py`**: Fixed income instrument pricing
+- **`equity_capabilities.py`**: Equity options and derivatives
+- **`credit_capabilities.py`**: CDS and credit derivatives
+- **`fx_capabilities.py`**: FX options and forwards
+- **`irs_capabilities.py`**: Interest rate swaps and swaptions
+- **`inflation_capabilities.py`**: Inflation-linked instruments
+- **`structured_credit_capabilities.py`**: Structured credit products
+- **`private_markets_capabilities.py`**: Private markets fund modeling
+- **`calibration_capabilities.py`**: Curve and surface calibration
+- **`cashflow_builder_capabilities.py`**: Advanced cashflow modeling
+
+### Statements Examples
+- **`statements_example.py`**: Financial statement modeling with forecasting
+
+### Scenarios Examples
+- **`scenarios_example.py`**: Scenario analysis and stress testing
+
+### Portfolio Examples
+- **`portfolio_example.py`**: Portfolio management and aggregation
+
+### Running Examples
+
+```bash
+# Run all examples
+uv run python finstack-py/examples/scripts/run_all_examples.py
+
+# Run specific examples
+uv run python finstack-py/examples/scripts/core/core_basics.py
+uv run python finstack-py/examples/scripts/valuations/bond_capabilities.py
+uv run python finstack-py/examples/scripts/portfolio/portfolio_example.py
+```
+
+### Jupyter Notebooks
+
+Interactive notebooks are available in `finstack-py/examples/notebooks/`:
+- **`core_basics.ipynb`**: Interactive core functionality walkthrough
