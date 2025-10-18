@@ -173,7 +173,6 @@ fn example_4_time_series() -> Result<(), Box<dyn std::error::Error>> {
 
     let formulas = vec![
         ("lag(revenue, 1)", "Previous period value"),
-        ("lead(revenue, 1)", "Next period value"),
         ("diff(revenue, 1)", "First difference"),
         ("pct_change(revenue, 1)", "Period-over-period growth"),
         (

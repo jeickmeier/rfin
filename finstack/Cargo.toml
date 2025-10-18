@@ -10,11 +10,16 @@ repository.workspace = true
 default = ["core"]
 core = ["dep:finstack_core"]
 statements = ["core", "dep:finstack_statements"]
+statements_polars = ["core", "dep:finstack_statements", "finstack_statements/polars_export"]
 valuations = ["core", "dep:finstack_valuations"]
 portfolio = ["core", "statements", "valuations", "dep:finstack_portfolio"]
 io = ["dep:finstack_io"]
 scenarios = ["core", "statements", "dep:finstack_scenarios"]
 all = ["core", "statements", "valuations", "portfolio", "io", "scenarios"]
+# Additional features for examples
+serde = []
+new-context = []
+polars_export = ["finstack_statements/polars_export"]
 
 [dependencies]
 finstack_core = { package = "finstack-core", path = "core", optional = true }
@@ -23,5 +28,97 @@ finstack_valuations = { package = "finstack-valuations", path = "valuations", op
 finstack_portfolio = { package = "finstack-portfolio", path = "portfolio", optional = true }
 finstack_io = { package = "finstack-io", path = "io", optional = true }
 finstack_scenarios = { package = "finstack-scenarios", path = "scenarios", optional = true }
+time = { version = "0.3", features = ["macros"] }
+serde_json = "1.0"
+indexmap = { version = "2", features = ["serde"] }
+
+# Core Examples
+
+
+[[example]]
+name = "market_context_v2_demo"
+path = "examples/core/market_context_v2_demo.rs"
+required-features = ["core"]
+
+# Statements Examples
+[[example]]
+name = "statements_phase1_example"
+path = "examples/statements/statements_phase1_example.rs"
+required-features = ["statements"]
+
+[[example]]
+name = "statements_phase2_example"
+path = "examples/statements/statements_phase2_example.rs"
+required-features = ["statements"]
+
+[[example]]
+name = "statements_phase3_example"
+path = "examples/statements/statements_phase3_example.rs"
+required-features = ["statements"]
+
+
+[[example]]
+name = "statements_phase5_example"
+path = "examples/statements/statements_phase5_example.rs"
+required-features = ["statements"]
+
+[[example]]
+name = "statements_phase6_example"
+path = "examples/statements/statements_phase6_example.rs"
+required-features = ["statements"]
+
+[[example]]
+name = "statements_phase7_example"
+path = "examples/statements/statements_phase7_example.rs"
+required-features = ["statements_polars"]
+
+[[example]]
+name = "capital_structure_dsl_example"
+path = "examples/statements/capital_structure_dsl_example.rs"
+required-features = ["statements"]
+
+[[example]]
+name = "lbo_model_complete"
+path = "examples/statements/lbo_model_complete.rs"
+required-features = ["statements"]
+
+# Valuations Examples
+[[example]]
+name = "bond_custom_cashflows_example"
+path = "examples/valuations/bond_custom_cashflows_example.rs"
+required-features = ["valuations"]
+
+[[example]]
+name = "enhanced_builders_example"
+path = "examples/valuations/enhanced_builders_example.rs"
+required-features = ["valuations"]
+
+[[example]]
+name = "calibration_report_builder_example"
+path = "examples/valuations/calibration_report_builder_example.rs"
+required-features = ["valuations"]
+
+[[example]]
+name = "multi_curve_framework_example"
+path = "examples/valuations/multi_curve_framework_example.rs"
+required-features = ["valuations"]
+
+
+[[example]]
+name = "tranche_valuation_example"
+path = "examples/valuations/tranche_valuation_example.rs"
+required-features = ["valuations"]
+
+# Scenarios Examples
+[[example]]
+name = "scenarios_lite_example"
+path = "examples/scenarios/scenarios_lite_example.rs"
+required-features = ["scenarios"]
+
+# Portfolio Examples
+[[example]]
+name = "portfolio_example"
+path = "examples/portfolio/portfolio_example.rs"
+required-features = ["portfolio", "scenarios"]
 
 

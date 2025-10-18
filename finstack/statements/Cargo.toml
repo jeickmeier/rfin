@@ -25,39 +25,3 @@ default = []
 polars_export = ["dep:polars"]
 full = ["polars_export"]
 
-[[example]]
-name = "statements_phase1_example"
-path = "../../examples/rust/statements_phase1_example.rs"
-
-[[example]]
-name = "statements_phase2_example"
-path = "../../examples/rust/statements_phase2_example.rs"
-
-[[example]]
-name = "statements_phase3_example"
-path = "../../examples/rust/statements_phase3_example.rs"
-
-[[example]]
-name = "statements_phase4_example"
-path = "../../examples/rust/statements_phase4_example.rs"
-
-[[example]]
-name = "statements_phase5_example"
-path = "../../examples/rust/statements_phase5_example.rs"
-
-[[example]]
-name = "statements_phase6_example"
-path = "../../examples/rust/statements_phase6_example.rs"
-
-[[example]]
-name = "statements_phase7_example"
-path = "../../examples/rust/statements_phase7_example.rs"
-required-features = ["polars_export"]
-
-[[example]]
-name = "capital_structure_dsl_example"
-path = "../../examples/rust/capital_structure_dsl_example.rs"
-
-[[example]]
-name = "lbo_model_complete"
-path = "../../examples/rust/lbo_model_complete.rs"

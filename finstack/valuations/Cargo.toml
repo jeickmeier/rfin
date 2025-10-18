@@ -29,25 +29,6 @@ thiserror = "1.0"
 time = { version = "0.3", features = ["macros"] }
 
 
-[[example]]
-name = "bond_custom_cashflows_example"
-path = "../../examples/rust/bond_custom_cashflows_example.rs"
-
-[[example]]
-name = "enhanced_builders_example"
-path = "../../examples/rust/enhanced_builders_example.rs"
-
-[[example]]
-name = "calibration_report_builder_example"
-path = "../../examples/rust/calibration_report_builder_example.rs"
-
-[[example]]
-name = "multi_curve_framework_example"
-path = "../../examples/rust/multi_curve_framework_example.rs"
-
-[[example]]
-name = "tranche_valuation_example"
-path = "../../examples/rust/tranche_valuation_example.rs"
 
 [features]
 default = ["serde"]

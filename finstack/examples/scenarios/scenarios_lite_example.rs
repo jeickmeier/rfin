@@ -146,12 +146,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Show shocked market state
     println!("Shocked market state:");
     println!(
-        "  USD_SOFR_bump_50bp 1Y DF: {:.4}",
-        market.get_discount("USD_SOFR_bump_50bp")?.df(1.0)
+        "  USD_SOFR 1Y DF: {:.4}",
+        market.get_discount("USD_SOFR")?.df(1.0)
     );
     println!(
-        "  EUR_EURIBOR_bump_50bp 1Y DF: {:.4}",
-        market.get_discount("EUR_EURIBOR_bump_50bp")?.df(1.0)
+        "  EUR_EURIBOR 1Y DF: {:.4}",
+        market.get_discount("EUR_EURIBOR")?.df(1.0)
     );
     println!(
         "  SPY Price: ${:.2}",

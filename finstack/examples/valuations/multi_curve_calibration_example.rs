@@ -4,22 +4,22 @@
 //! - OIS discount curve for discounting
 //! - Separate forward curves per tenor (1M, 3M, 6M)
 
-use finstack::calibration::{
+use finstack_valuations::calibration::{
     methods::{DiscountCurveCalibrator, ForwardCurveCalibrator},
     quote::{FutureSpecs, RatesQuote},
     CalibrationConfig, Calibrator,
 };
-use finstack::currency::Currency;
-use finstack::dates::{Date, DayCount, Frequency};
-use finstack::market_data::{
+use finstack_core::currency::Currency;
+use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::market_data::{
     context::MarketContext,
     interp::types::InterpStyle,
     traits::{Discount, Forward, TermStructure},
 };
-use finstack::prelude::*;
+use finstack_core::prelude::*;
 use time::Month;
 
-fn main() -> finstack::Result<()> {
+fn main() -> finstack_core::Result<()> {
     let base_date = Date::from_calendar_date(2025, Month::January, 1)?;
     
     // Step 1: Create market context

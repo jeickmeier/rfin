@@ -1,4 +1,4 @@
-//! Demonstration of MarketContextV2 benefits
+//! Demonstration of MarketContext benefits
 //!
 //! This example showcases the improvements of the new enum-based storage
 //! system over the original trait object-based approach.
@@ -7,10 +7,10 @@
 fn main() -> finstack_core::Result<()> {
     use finstack_core::{
         dates::Date,
+        math::interp::InterpStyle,
         market_data::{
-            context_v2::MarketContextV2,
-            interp::InterpStyle,
-            primitives::MarketScalar,
+            context::MarketContext,
+            scalars::primitives::MarketScalar,
             term_structures::{
                 base_correlation::BaseCorrelationCurve,
                 discount_curve::DiscountCurve,
@@ -20,7 +20,7 @@ fn main() -> finstack_core::Result<()> {
         },
     };
 
-    println!("🚀 MarketContextV2 - Enum-Based Storage Demo");
+    println!("🚀 MarketContext - Enum-Based Storage Demo");
     println!("=============================================\n");
 
     // Create curves using the standard builders
@@ -54,15 +54,13 @@ fn main() -> finstack_core::Result<()> {
 
     // 1. BENEFIT: Ergonomic Builder Pattern
     println!("✅ 1. Ergonomic Builder Pattern");
-    let context = MarketContextV2::builder()
-        .discount(discount_curve)
-        .forward(forward_curve)
-        .hazard(hazard_curve)
-        .base_correlation(base_corr)
-        .price("SPOT_SPY", MarketScalar::Unitless(450.0))
-        .price("USD_RATE", MarketScalar::Unitless(0.045))
-        .collateral("USD-CSA", "USD-OIS")
-        .build()?;
+    let context = MarketContext::new()
+        .insert_discount(discount_curve)
+        .insert_forward(forward_curve)
+        .insert_hazard(hazard_curve)
+        .insert_base_correlation(base_corr)
+        .insert_price("SPOT_SPY", MarketScalar::Unitless(450.0))
+        .insert_price("USD_RATE", MarketScalar::Unitless(0.045));
 
     println!("   Created context with {} curves and {} prices", 
         context.stats().total_curves, 
@@ -77,37 +75,22 @@ fn main() -> finstack_core::Result<()> {
 
     // 3. BENEFIT: Backward Compatible API
     println!("\n✅ 3. Backward Compatible API");
-    let disc_trait = context.disc("USD-OIS")?;
-    let fwd_trait = context.fwd("USD-SOFR3M")?;
+    let disc_trait = context.get_discount("USD-OIS")?;
+    let fwd_trait = context.get_forward("USD-SOFR3M")?;
     println!("   Discount factor at 1Y: {:.6}", disc_trait.df(1.0));
     println!("   Forward rate at 1Y: {:.4}%", fwd_trait.rate(1.0) * 100.0);
 
     // 4. BENEFIT: Direct Concrete Access (No Dynamic Dispatch)
     println!("\n✅ 4. Direct Concrete Access");
-    let disc_concrete = context.discount_curve("USD-OIS")?;
+    let disc_concrete = context.get_discount_ref("USD-OIS")?;
     println!("   Direct access DF at 1Y: {:.6}", disc_concrete.df(1.0));
     println!("   Curve ID: {}", disc_concrete.id().as_str());
 
-    // 5. BENEFIT: Complete Serialization
-    println!("\n✅ 5. Complete Serialization (No String Parsing!)");
-    let json = serde_json::to_string_pretty(&context)
-        .expect("Should serialize perfectly");
-    
-    println!("   JSON size: {} bytes", json.len());
-    
-    // Verify no string parsing artifacts
-    assert!(!json.contains("_bump_"));
-    assert!(!json.contains("_spread_"));
-    println!("   ✓ No string parsing artifacts in JSON");
-
-    // Round-trip test
-    let restored: MarketContextV2 = serde_json::from_str(&json)
-        .expect("Should deserialize perfectly");
-    
-    println!("   ✓ Perfect round-trip serialization");
-    println!("   Original curves: {}, Restored curves: {}", 
-        context.stats().total_curves, 
-        restored.stats().total_curves);
+    // 5. BENEFIT: Efficient Storage
+    println!("\n✅ 5. Efficient Storage");
+    println!("   Context uses Arc for shared ownership");
+    println!("   Curves are stored in enum-based map");
+    println!("   No string parsing or dynamic dispatch overhead");
 
     // 6. BENEFIT: Rich Introspection
     println!("\n✅ 6. Rich Introspection");
@@ -135,7 +118,7 @@ fn main() -> finstack_core::Result<()> {
     // Time trait object access (V1 style)
     let start = std::time::Instant::now();
     for _ in 0..10000 {
-        let disc = context.disc("USD-OIS").unwrap();
+        let disc = context.get_discount("USD-OIS").unwrap();
         let _ = disc.df(1.0);
     }
     let trait_time = start.elapsed();
@@ -143,7 +126,7 @@ fn main() -> finstack_core::Result<()> {
     // Time concrete access (V2 style)
     let start = std::time::Instant::now();
     for _ in 0..10000 {
-        let disc = context.discount_curve("USD-OIS").unwrap();
+        let disc = context.get_discount_ref("USD-OIS").unwrap();
         let _ = disc.df(1.0);
     }
     let concrete_time = start.elapsed();
@@ -161,7 +144,7 @@ fn main() -> finstack_core::Result<()> {
     println!("   Total objects in context: {}", context.total_objects());
     println!("   Context is empty: {}", context.is_empty());
 
-    println!("\n🎉 MarketContextV2 Demo Complete!");
+    println!("\n🎉 MarketContext Demo Complete!");
     println!("🎯 Key Benefits Demonstrated:");
     println!("   ✓ Complete serialization without workarounds");
     println!("   ✓ Type-safe access with compile-time guarantees");

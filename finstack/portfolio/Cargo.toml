@@ -25,6 +25,3 @@ default = ["scenarios", "dataframe"]
 scenarios = ["dep:finstack-scenarios", "dep:finstack-statements"]
 dataframe = ["dep:polars"]
 
-[[example]]
-name = "portfolio_example"
-path = "../../examples/rust/portfolio_example.rs"
