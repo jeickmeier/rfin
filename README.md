@@ -8,7 +8,8 @@ A high-performance financial computation library written in Rust with bindings f
 - `finstack-py/` - Python bindings using PyO3 (crate name `finstack-py`)
 - `finstack-wasm/` - WebAssembly bindings using wasm-bindgen (crate name `finstack-wasm`)
 - `finstack/` - Meta-crate re-exporting subcrates via features
-- `examples/` - Example usage for different bindings
+- `finstack/examples/` - Rust examples organized by functionality
+- `examples/` - Example usage for different bindings (Python, WASM)
 - `docs/` - Technical documentation and design documents
 
 ## Development Setup
