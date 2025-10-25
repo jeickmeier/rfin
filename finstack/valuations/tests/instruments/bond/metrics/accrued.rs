@@ -61,8 +61,8 @@ fn test_accrued_mid_period() {
 #[test]
 fn test_accrued_frn_uses_forward_rate() {
     // FRN accrued should use forward rate from the last reset period
-    use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::dates::DayCount;
+    use finstack_core::market_data::term_structures::ForwardCurve;
 
     let issue = date!(2025 - 01 - 01);
     let as_of = date!(2025 - 03 - 15); // mid-quarter
@@ -84,11 +84,11 @@ fn test_accrued_frn_uses_forward_rate() {
         .insert_forward(fwd);
 
     // Floating-rate bond with SOFR 3M (build with BondFloatSpec)
-    use finstack_valuations::instruments::bond::BondFloatSpec;
-    use finstack_core::types::CurveId;
     use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
-    use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
+    use finstack_core::types::CurveId;
+    use finstack_valuations::instruments::bond::BondFloatSpec;
     use finstack_valuations::instruments::common::traits::Attributes;
+    use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
     let bond = Bond::builder()
         .id("FRN1".into())
         .notional(Money::new(100.0, Currency::USD))
@@ -151,7 +151,15 @@ fn test_clean_dirty_ex_coupon_parity() {
 
     // Before coupon date: accrued > 0
     let res_before = bond
-        .price_with_metrics(&market, as_of_before, &[MetricId::Accrued, MetricId::DirtyPrice, MetricId::CleanPrice])
+        .price_with_metrics(
+            &market,
+            as_of_before,
+            &[
+                MetricId::Accrued,
+                MetricId::DirtyPrice,
+                MetricId::CleanPrice,
+            ],
+        )
         .unwrap();
     let acc_before = *res_before.measures.get("accrued").unwrap();
     // Use base value as dirty price when no quoted clean is provided
@@ -171,5 +179,8 @@ fn test_clean_dirty_ex_coupon_parity() {
     let clean_after = *res_after.measures.get("clean_price").unwrap();
     let dirty_after = res_after.value.amount();
     assert!((clean_after - (dirty_after - acc_after)).abs() < 1e-2);
-    assert!(acc_after < acc_before, "Accrued should decrease after coupon");
+    assert!(
+        acc_after < acc_before,
+        "Accrued should decrease after coupon"
+    );
 }

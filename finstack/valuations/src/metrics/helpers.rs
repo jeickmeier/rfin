@@ -17,5 +17,3 @@ pub fn dv01_from_modified_duration(price_amount: f64, modified_duration: f64) ->
     }
     price_amount * modified_duration * ONE_BASIS_POINT
 }
-
-

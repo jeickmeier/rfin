@@ -21,10 +21,7 @@ use time::macros::date;
 /// Helper: Create a flat discount curve
 fn create_flat_curve(base_date: time::Date, rate: f64, curve_id: &str) -> DiscountCurve {
     let times = [0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0];
-    let dfs: Vec<_> = times
-        .iter()
-        .map(|&t| (t, (-rate * t).exp()))
-        .collect();
+    let dfs: Vec<_> = times.iter().map(|&t| (t, (-rate * t).exp())).collect();
 
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
@@ -71,7 +68,7 @@ fn quantlib_parity_callable_less_than_straight() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
         date: date!(2025 - 01 - 01),
@@ -95,10 +92,7 @@ fn quantlib_parity_callable_less_than_straight() {
 
     // QuantLib reference: Typical spread is 2-5% of bond value
     let call_value = straight_pv.amount() - callable_pv.amount();
-    assert!(
-        call_value > 0.0,
-        "Call option should have positive value"
-    );
+    assert!(call_value > 0.0, "Call option should have positive value");
     assert!(
         call_value < straight_pv.amount() * 0.10,
         "Call option value should be < 10% of bond value"
@@ -137,7 +131,7 @@ fn quantlib_parity_putable_more_than_straight() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut put_schedule = CallPutSchedule::default();
     put_schedule.puts.push(CallPut {
         date: date!(2025 - 01 - 01),
@@ -161,10 +155,7 @@ fn quantlib_parity_putable_more_than_straight() {
 
     // QuantLib reference: Typical spread is 1-5% of bond value
     let put_value = putable_pv.amount() - straight_pv.amount();
-    assert!(
-        put_value > 0.0,
-        "Put option should have positive value"
-    );
+    assert!(put_value > 0.0, "Put option should have positive value");
     assert!(
         put_value < straight_pv.amount() * 0.10,
         "Put option value should be < 10% of bond value"
@@ -201,7 +192,7 @@ fn quantlib_parity_call_value_rate_sensitivity() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
         date: date!(2025 - 01 - 01),
@@ -260,7 +251,7 @@ fn quantlib_parity_put_value_rate_sensitivity() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut put_schedule = CallPutSchedule::default();
     put_schedule.puts.push(CallPut {
         date: date!(2025 - 01 - 01),
@@ -320,7 +311,7 @@ fn quantlib_parity_multiple_call_dates() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
         date: date!(2023 - 01 - 01), // First call at 105
@@ -380,7 +371,7 @@ fn quantlib_parity_callable_near_call_date() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
         date: call_date,
@@ -428,7 +419,7 @@ fn quantlib_parity_putable_provides_floor() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut put_schedule = CallPutSchedule::default();
     put_schedule.puts.push(CallPut {
         date: put_date,
@@ -443,7 +434,7 @@ fn quantlib_parity_putable_provides_floor() {
     // QuantLib expectation: Even with high rates, put provides a floor
     // The present value of exercising the put at 95% should provide support
     let pv_of_put_exercise = 95.0 * (-0.12_f64 * 5.0).exp(); // ~52
-    
+
     assert!(
         putable_pv.amount() > pv_of_put_exercise,
         "Putable bond value (${:.2}) should exceed PV of put exercise (${:.2})",
@@ -483,12 +474,12 @@ fn quantlib_parity_make_whole_call() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = CallPutSchedule::default();
     // Can call immediately but at high premium
     call_schedule.calls.push(CallPut {
         date: date!(2020 - 07 - 01), // 6 months from now
-        price_pct_of_par: 110.0, // High make-whole premium
+        price_pct_of_par: 110.0,     // High make-whole premium
     });
     callable_bond.call_put = Some(call_schedule);
 
@@ -500,7 +491,7 @@ fn quantlib_parity_make_whole_call() {
     // QuantLib expectation: High call premium reduces call option value
     // Callable should be close to straight bond value
     let call_value = straight_pv.amount() - callable_pv.amount();
-    
+
     assert!(
         callable_pv.amount() < straight_pv.amount(),
         "Callable bond still worth less (call has some value)"
@@ -542,7 +533,7 @@ fn quantlib_parity_bermudan_callable() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = CallPutSchedule::default();
     for year in (5..=15).step_by(2) {
         call_schedule.calls.push(CallPut {
@@ -601,7 +592,7 @@ fn quantlib_parity_callable_and_putable() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut schedule = CallPutSchedule::default();
     // Investor can put at 98 in year 3
     schedule.puts.push(CallPut {
@@ -652,7 +643,7 @@ fn quantlib_parity_call_protection_period() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
         date: date!(2027 - 01 - 01), // Callable after 7 years
@@ -669,7 +660,7 @@ fn quantlib_parity_call_protection_period() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut immediate_schedule = CallPutSchedule::default();
     immediate_schedule.calls.push(CallPut {
         date: date!(2020 - 07 - 01), // Callable in 6 months
@@ -722,7 +713,7 @@ fn quantlib_parity_otm_call_option() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = CallPutSchedule::default();
     call_schedule.calls.push(CallPut {
         date: date!(2023 - 01 - 01),
@@ -739,7 +730,7 @@ fn quantlib_parity_otm_call_option() {
     // QuantLib expectation: When bond trades << call price, call has little value
     // Callable should be very close to straight bond value
     let call_value = straight_pv.amount() - callable_pv.amount();
-    
+
     assert!(
         call_value < 2.0,
         "Out-of-money call should have value < $2, got ${:.2}",
@@ -777,7 +768,7 @@ fn quantlib_parity_itm_put_option() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut put_schedule = CallPutSchedule::default();
     put_schedule.puts.push(CallPut {
         date: date!(2025 - 01 - 01),
@@ -793,7 +784,7 @@ fn quantlib_parity_itm_put_option() {
 
     // QuantLib expectation: With high rates, put is valuable
     let put_value = putable_pv.amount() - straight_pv.amount();
-    
+
     assert!(
         put_value > 5.0,
         "In-the-money put should have significant value (> $5), got ${:.2}",
@@ -833,10 +824,12 @@ fn quantlib_parity_tree_pricing_convergence() {
     let mut bond_with_tree = bond.clone();
     let mut empty_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
     // Add a far out-of-the-money call to trigger tree pricing without affecting value
-    empty_schedule.calls.push(finstack_valuations::instruments::bond::CallPut {
-        date: date!(2024 - 12 - 31),
-        price_pct_of_par: 150.0, // Far OTM
-    });
+    empty_schedule
+        .calls
+        .push(finstack_valuations::instruments::bond::CallPut {
+            date: date!(2024 - 12 - 31),
+            price_pct_of_par: 150.0, // Far OTM
+        });
     bond_with_tree.call_put = Some(empty_schedule);
 
     let tree_pv = bond_with_tree.value(&market, as_of).unwrap();
@@ -873,16 +866,18 @@ fn quantlib_parity_oas_calculation() {
         maturity,
         "USD-OIS",
     );
-    
+
     // Add call schedule
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
-    call_schedule.calls.push(finstack_valuations::instruments::bond::CallPut {
-        date: date!(2025 - 01 - 01),
-        price_pct_of_par: 102.0,
-    });
+    call_schedule
+        .calls
+        .push(finstack_valuations::instruments::bond::CallPut {
+            date: date!(2025 - 01 - 01),
+            price_pct_of_par: 102.0,
+        });
     callable_bond.call_put = Some(call_schedule);
-    callable_bond.pricing_overrides = 
-        finstack_valuations::instruments::PricingOverrides::default().with_clean_price(market_price);
+    callable_bond.pricing_overrides = finstack_valuations::instruments::PricingOverrides::default()
+        .with_clean_price(market_price);
 
     let market = create_market(as_of, 0.04);
 
@@ -895,14 +890,10 @@ fn quantlib_parity_oas_calculation() {
     // Note: OAS compensates investors for giving up the call option to the issuer
     assert!(oas_result.is_ok(), "OAS calculation should succeed");
     let oas = oas_result.unwrap();
-    
+
     // OAS should be finite - actual magnitude depends on tree calibration details
     // and the specific market scenario
-    assert!(
-        oas.is_finite(),
-        "OAS should be finite, got {}",
-        oas
-    );
+    assert!(oas.is_finite(), "OAS should be finite, got {}", oas);
 }
 
 // =============================================================================
@@ -926,12 +917,14 @@ fn quantlib_parity_oas_price_sensitivity() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
-    call_schedule.calls.push(finstack_valuations::instruments::bond::CallPut {
-        date: date!(2025 - 01 - 01),
-        price_pct_of_par: 102.0,
-    });
+    call_schedule
+        .calls
+        .push(finstack_valuations::instruments::bond::CallPut {
+            date: date!(2025 - 01 - 01),
+            price_pct_of_par: 102.0,
+        });
     callable_bond.call_put = Some(call_schedule);
 
     let market = create_market(as_of, 0.05);
@@ -991,17 +984,19 @@ fn quantlib_parity_effective_duration() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
-    call_schedule.calls.push(finstack_valuations::instruments::bond::CallPut {
-        date: date!(2025 - 01 - 01),
-        price_pct_of_par: 102.0,
-    });
+    call_schedule
+        .calls
+        .push(finstack_valuations::instruments::bond::CallPut {
+            date: date!(2025 - 01 - 01),
+            price_pct_of_par: 102.0,
+        });
     callable_bond.call_put = Some(call_schedule);
 
     // Base market and shifted markets
     let market_base = create_market(as_of, 0.04);
-    let market_up = create_market(as_of, 0.0401);   // +1bp
+    let market_up = create_market(as_of, 0.0401); // +1bp
     let market_down = create_market(as_of, 0.0399); // -1bp
 
     // Price callable bond at base and shifted rates
@@ -1010,14 +1005,15 @@ fn quantlib_parity_effective_duration() {
     let pv_down = callable_bond.value(&market_down, as_of).unwrap();
 
     // Calculate effective duration numerically
-    let effective_duration = (pv_down.amount() - pv_up.amount()) / (2.0 * 0.0001 * pv_base.amount());
+    let effective_duration =
+        (pv_down.amount() - pv_up.amount()) / (2.0 * 0.0001 * pv_base.amount());
 
     // Price straight bond for comparison
     let straight_pv_base = straight_bond.value(&market_base, as_of).unwrap();
     let straight_pv_up = straight_bond.value(&market_up, as_of).unwrap();
     let straight_pv_down = straight_bond.value(&market_down, as_of).unwrap();
 
-    let straight_duration = (straight_pv_down.amount() - straight_pv_up.amount()) 
+    let straight_duration = (straight_pv_down.amount() - straight_pv_up.amount())
         / (2.0 * 0.0001 * straight_pv_base.amount());
 
     // QuantLib expectation: Callable bond has lower effective duration than straight bond
@@ -1055,12 +1051,14 @@ fn quantlib_parity_negative_convexity() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
-    call_schedule.calls.push(finstack_valuations::instruments::bond::CallPut {
-        date: date!(2025 - 01 - 01),
-        price_pct_of_par: 102.0,
-    });
+    call_schedule
+        .calls
+        .push(finstack_valuations::instruments::bond::CallPut {
+            date: date!(2025 - 01 - 01),
+            price_pct_of_par: 102.0,
+        });
     callable_bond.call_put = Some(call_schedule);
 
     // Use low base rate to make call likely (high coupon vs low market rate)
@@ -1076,13 +1074,13 @@ fn quantlib_parity_negative_convexity() {
     let pv_down = callable_bond.value(&market_down, as_of).unwrap();
 
     // Approximate convexity: (P+ + P- - 2*P0) / (P0 * dy^2)
-    let convexity = (pv_up.amount() + pv_down.amount() - 2.0 * pv_base.amount()) 
+    let convexity = (pv_up.amount() + pv_down.amount() - 2.0 * pv_base.amount())
         / (pv_base.amount() * rate_shift * rate_shift);
 
     // QuantLib expectation: Callable bonds can exhibit negative or reduced convexity
     // when the call option is near-the-money or in-the-money
     // With 8% coupon and 3% market rate, call is very likely
-    
+
     // Compare with straight bond convexity
     let straight_bond = Bond::fixed(
         "STRAIGHT_CVX",
@@ -1092,14 +1090,15 @@ fn quantlib_parity_negative_convexity() {
         maturity,
         "USD-OIS",
     );
-    
+
     let straight_base = straight_bond.value(&market_base, as_of).unwrap();
     let straight_up = straight_bond.value(&market_up, as_of).unwrap();
     let straight_down = straight_bond.value(&market_down, as_of).unwrap();
-    
-    let straight_convexity = (straight_up.amount() + straight_down.amount() - 2.0 * straight_base.amount())
+
+    let straight_convexity = (straight_up.amount() + straight_down.amount()
+        - 2.0 * straight_base.amount())
         / (straight_base.amount() * rate_shift * rate_shift);
-    
+
     // Callable bond should have lower convexity than straight bond
     assert!(
         convexity < straight_convexity,
@@ -1107,11 +1106,11 @@ fn quantlib_parity_negative_convexity() {
         convexity,
         straight_convexity
     );
-    
+
     // Verify call option limits price appreciation
     let callable_upside = pv_down.amount() / pv_base.amount() - 1.0;
     let straight_upside = straight_down.amount() / straight_base.amount() - 1.0;
-    
+
     assert!(
         callable_upside < straight_upside,
         "Callable price gain ({:.2}%) should be less than straight gain ({:.2}%)",
@@ -1141,12 +1140,14 @@ fn quantlib_parity_tree_step_convergence() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
-    call_schedule.calls.push(finstack_valuations::instruments::bond::CallPut {
-        date: date!(2023 - 01 - 01),
-        price_pct_of_par: 102.0,
-    });
+    call_schedule
+        .calls
+        .push(finstack_valuations::instruments::bond::CallPut {
+            date: date!(2023 - 01 - 01),
+            price_pct_of_par: 102.0,
+        });
     callable_bond.call_put = Some(call_schedule);
 
     let market = create_market(as_of, 0.05);
@@ -1157,9 +1158,8 @@ fn quantlib_parity_tree_step_convergence() {
     // QuantLib expectation: Price should be stable and finite
     assert!(pv_default.amount().is_finite());
     assert!(pv_default.amount() > 90.0 && pv_default.amount() < 110.0);
-    
+
     // The tree pricing should produce reasonable values
     // (Actual convergence testing would require exposing tree step config,
     // which is currently internal to the tree implementation)
 }
-

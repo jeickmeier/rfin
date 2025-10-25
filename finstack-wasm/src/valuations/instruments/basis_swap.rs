@@ -27,7 +27,10 @@ impl JsBasisSwapLeg {
     ) -> Result<JsBasisSwapLeg, JsValue> {
         let freq = parse_optional_with_default(frequency, Frequency::quarterly())?;
         let dc = parse_optional_with_default(day_count, DayCount::Act360)?;
-        let bdc = parse_optional_with_default(business_day_convention, BusinessDayConvention::ModifiedFollowing)?;
+        let bdc = parse_optional_with_default(
+            business_day_convention,
+            BusinessDayConvention::ModifiedFollowing,
+        )?;
 
         Ok(JsBasisSwapLeg {
             inner: BasisSwapLeg {

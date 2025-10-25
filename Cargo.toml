@@ -33,7 +33,7 @@ ignore-filename-regex = ["tests?/", "target/", "\\.cargo/", ".*finstack-py/.*", 
 [workspace.package]
 version = "0.3.0"
 edition = "2021"
-rust-version = "1.78"
+rust-version = "1.90"
 authors = ["Jon Eickmeier (me@jeickmeier.com)"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rustfin/rfin"

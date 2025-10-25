@@ -60,7 +60,7 @@ fn test_quantlib_black76_positive_value() {
     // QuantLib property: options have positive value before expiry
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     for strike in [100.0, 200.0, 300.0] {
         let call = CdsOptionBuilder::new()
             .call()
@@ -69,7 +69,7 @@ fn test_quantlib_black76_positive_value() {
             .cds_maturity_months(60)
             .implied_vol(0.30)
             .build(as_of);
-        
+
         let put = CdsOptionBuilder::new()
             .put()
             .strike(strike)
@@ -77,7 +77,7 @@ fn test_quantlib_black76_positive_value() {
             .cds_maturity_months(60)
             .implied_vol(0.30)
             .build(as_of);
-        
+
         assert_positive(
             call.value(&market, as_of).unwrap().amount(),
             &format!("Call value at strike {}", strike),
@@ -94,12 +94,14 @@ fn test_quantlib_black76_atf_call_put_parity() {
     // QuantLib property: at-the-forward, call ≈ put
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     // Get forward spread
     let temp_option = CdsOptionBuilder::new().build(as_of);
     let pricer = finstack_valuations::instruments::cds_option::pricer::CdsOptionPricer::default();
-    let forward = pricer.forward_spread_bp(&temp_option, &market, as_of).unwrap();
-    
+    let forward = pricer
+        .forward_spread_bp(&temp_option, &market, as_of)
+        .unwrap();
+
     // Option struck at forward
     let call = CdsOptionBuilder::new()
         .call()
@@ -108,7 +110,7 @@ fn test_quantlib_black76_atf_call_put_parity() {
         .cds_maturity_months(60)
         .implied_vol(0.30)
         .build(as_of);
-    
+
     let put = CdsOptionBuilder::new()
         .put()
         .strike(forward)
@@ -116,10 +118,10 @@ fn test_quantlib_black76_atf_call_put_parity() {
         .cds_maturity_months(60)
         .implied_vol(0.30)
         .build(as_of);
-    
+
     let call_pv = call.value(&market, as_of).unwrap().amount();
     let put_pv = put.value(&market, as_of).unwrap().amount();
-    
+
     // QuantLib: ATF call should approximately equal ATF put
     let rel_diff = (call_pv - put_pv).abs() / call_pv.max(put_pv);
     assert!(
@@ -136,9 +138,9 @@ fn test_quantlib_black76_strike_monotonicity() {
     // QuantLib property: ∂C/∂K < 0, ∂P/∂K > 0
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     let strikes = [100.0, 150.0, 200.0, 250.0, 300.0];
-    
+
     // Call values should decrease with strike
     let mut prev_call = f64::INFINITY;
     for &strike in &strikes {
@@ -149,12 +151,12 @@ fn test_quantlib_black76_strike_monotonicity() {
             .cds_maturity_months(60)
             .implied_vol(0.30)
             .build(as_of);
-        
+
         let pv = call.value(&market, as_of).unwrap().amount();
         assert!(pv < prev_call, "Call value should decrease with strike");
         prev_call = pv;
     }
-    
+
     // Put values should increase with strike
     let mut prev_put = 0.0;
     for &strike in &strikes {
@@ -165,7 +167,7 @@ fn test_quantlib_black76_strike_monotonicity() {
             .cds_maturity_months(60)
             .implied_vol(0.30)
             .build(as_of);
-        
+
         let pv = put.value(&market, as_of).unwrap().amount();
         assert!(pv > prev_put, "Put value should increase with strike");
         prev_put = pv;
@@ -181,7 +183,7 @@ fn test_quantlib_greeks_delta_signs() {
     // QuantLib property: call delta > 0, put delta < 0
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     let call = CdsOptionBuilder::new()
         .call()
         .strike(200.0)
@@ -189,7 +191,7 @@ fn test_quantlib_greeks_delta_signs() {
         .cds_maturity_months(60)
         .implied_vol(0.30)
         .build(as_of);
-    
+
     let put = CdsOptionBuilder::new()
         .put()
         .strike(200.0)
@@ -197,10 +199,10 @@ fn test_quantlib_greeks_delta_signs() {
         .cds_maturity_months(60)
         .implied_vol(0.30)
         .build(as_of);
-    
+
     let call_delta = call.delta(&market, as_of).unwrap();
     let put_delta = put.delta(&market, as_of).unwrap();
-    
+
     assert!(call_delta > 0.0, "Call delta should be positive");
     assert!(put_delta < 0.0, "Put delta should be negative");
 }
@@ -210,16 +212,19 @@ fn test_quantlib_greeks_gamma_positive() {
     // QuantLib property: gamma > 0 for all options
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     for strike in [100.0, 200.0, 300.0] {
-        for option_type in [CdsOptionBuilder::new().call(), CdsOptionBuilder::new().put()] {
+        for option_type in [
+            CdsOptionBuilder::new().call(),
+            CdsOptionBuilder::new().put(),
+        ] {
             let option = option_type
                 .strike(strike)
                 .expiry_months(12)
                 .cds_maturity_months(60)
                 .implied_vol(0.30)
                 .build(as_of);
-            
+
             let gamma = option.gamma(&market, as_of).unwrap();
             assert_non_negative(gamma, &format!("Gamma at strike {}", strike));
         }
@@ -231,7 +236,7 @@ fn test_quantlib_greeks_vega_positive() {
     // QuantLib property: vega > 0 for all options
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     for strike in [100.0, 200.0, 300.0] {
         let option = CdsOptionBuilder::new()
             .call()
@@ -240,7 +245,7 @@ fn test_quantlib_greeks_vega_positive() {
             .cds_maturity_months(60)
             .implied_vol(0.30)
             .build(as_of);
-        
+
         let vega = option.vega(&market, as_of).unwrap();
         assert_positive(vega, &format!("Vega at strike {}", strike));
     }
@@ -251,11 +256,11 @@ fn test_quantlib_greeks_gamma_vega_peak_atm() {
     // QuantLib property: gamma and vega peak at ATM
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     let strikes = [100.0, 150.0, 200.0, 250.0, 300.0];
     let mut gammas = Vec::new();
     let mut vegas = Vec::new();
-    
+
     for &strike in &strikes {
         let option = CdsOptionBuilder::new()
             .call()
@@ -264,11 +269,11 @@ fn test_quantlib_greeks_gamma_vega_peak_atm() {
             .cds_maturity_months(60)
             .implied_vol(0.30)
             .build(as_of);
-        
+
         gammas.push(option.gamma(&market, as_of).unwrap());
         vegas.push(option.vega(&market, as_of).unwrap());
     }
-    
+
     // Find max positions
     let max_gamma_idx = gammas
         .iter()
@@ -282,7 +287,7 @@ fn test_quantlib_greeks_gamma_vega_peak_atm() {
         .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
         .unwrap()
         .0;
-    
+
     // Max should not be at extremes (ITM or OTM), but near middle (ATM)
     assert!(
         max_gamma_idx > 0 && max_gamma_idx < strikes.len() - 1,
@@ -299,7 +304,7 @@ fn test_quantlib_greeks_finite() {
     // QuantLib property: all greeks are finite
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     let option = CdsOptionBuilder::new()
         .call()
         .strike(200.0)
@@ -307,7 +312,7 @@ fn test_quantlib_greeks_finite() {
         .cds_maturity_months(60)
         .implied_vol(0.30)
         .build(as_of);
-    
+
     let result = option
         .price_with_metrics(
             &market,
@@ -321,7 +326,7 @@ fn test_quantlib_greeks_finite() {
             ],
         )
         .unwrap();
-    
+
     for (name, value) in &result.measures {
         assert_finite(*value, &format!("Greek: {}", name));
     }
@@ -337,7 +342,7 @@ fn test_quantlib_iv_round_trip_atm() {
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
     let target_vol = 0.30;
-    
+
     let option = CdsOptionBuilder::new()
         .call()
         .strike(200.0)
@@ -345,13 +350,13 @@ fn test_quantlib_iv_round_trip_atm() {
         .cds_maturity_months(60)
         .implied_vol(target_vol)
         .build(as_of);
-    
+
     let pv = option.value(&market, as_of).unwrap().amount();
-    
+
     let mut option_solve = option.clone();
     option_solve.pricing_overrides.implied_volatility = None;
     let solved_iv = option_solve.implied_vol(&market, as_of, pv, None).unwrap();
-    
+
     assert_approx_eq(solved_iv, target_vol, 1e-6, "IV round-trip ATM");
 }
 
@@ -361,7 +366,7 @@ fn test_quantlib_iv_round_trip_moneyness() {
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
     let target_vol = 0.35;
-    
+
     for strike in [100.0, 150.0, 200.0, 250.0, 300.0] {
         let option = CdsOptionBuilder::new()
             .call()
@@ -370,19 +375,19 @@ fn test_quantlib_iv_round_trip_moneyness() {
             .cds_maturity_months(60)
             .implied_vol(target_vol)
             .build(as_of);
-        
+
         let pv = option.value(&market, as_of).unwrap().amount();
-        
+
         let mut option_solve = option.clone();
         option_solve.pricing_overrides.implied_volatility = None;
         let solved_iv = option_solve.implied_vol(&market, as_of, pv, None).unwrap();
-        
+
         let tolerance = if !(150.0..=250.0).contains(&strike) {
             1e-4 // Looser for deep ITM/OTM
         } else {
             1e-6 // Tight for near-ATM
         };
-        
+
         assert_approx_eq(
             solved_iv,
             target_vol,
@@ -398,7 +403,7 @@ fn test_quantlib_iv_convergence_from_different_guesses() {
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
     let true_vol = 0.28;
-    
+
     let option = CdsOptionBuilder::new()
         .call()
         .strike(200.0)
@@ -406,9 +411,9 @@ fn test_quantlib_iv_convergence_from_different_guesses() {
         .cds_maturity_months(60)
         .implied_vol(true_vol)
         .build(as_of);
-    
+
     let pv = option.value(&market, as_of).unwrap().amount();
-    
+
     let mut results = Vec::new();
     for guess in [0.10, 0.25, 0.50, 0.75] {
         let mut option_solve = option.clone();
@@ -418,7 +423,7 @@ fn test_quantlib_iv_convergence_from_different_guesses() {
             .unwrap();
         results.push(solved);
     }
-    
+
     // All results should be close to true_vol
     for (i, &iv) in results.iter().enumerate() {
         assert_approx_eq(
@@ -439,11 +444,11 @@ fn test_quantlib_forward_spread_positive() {
     // QuantLib property: forward spread should be positive for normal credits
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     let option = CdsOptionBuilder::new().build(as_of);
     let pricer = finstack_valuations::instruments::cds_option::pricer::CdsOptionPricer::default();
     let forward = pricer.forward_spread_bp(&option, &market, as_of).unwrap();
-    
+
     assert_positive(forward, "Forward spread");
     assert_in_range(forward, 50.0, 500.0, "Forward spread reasonableness");
 }
@@ -453,11 +458,11 @@ fn test_quantlib_forward_spread_atf_parity() {
     // QuantLib property: ATF call ≈ ATF put (forward parity)
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     let temp = CdsOptionBuilder::new().build(as_of);
     let pricer = finstack_valuations::instruments::cds_option::pricer::CdsOptionPricer::default();
     let forward = pricer.forward_spread_bp(&temp, &market, as_of).unwrap();
-    
+
     let call = CdsOptionBuilder::new()
         .call()
         .strike(forward)
@@ -465,7 +470,7 @@ fn test_quantlib_forward_spread_atf_parity() {
         .cds_maturity_months(60)
         .implied_vol(0.30)
         .build(as_of);
-    
+
     let put = CdsOptionBuilder::new()
         .put()
         .strike(forward)
@@ -473,10 +478,10 @@ fn test_quantlib_forward_spread_atf_parity() {
         .cds_maturity_months(60)
         .implied_vol(0.30)
         .build(as_of);
-    
+
     let call_pv = call.value(&market, as_of).unwrap().amount();
     let put_pv = put.value(&market, as_of).unwrap().amount();
-    
+
     assert_approx_eq(
         call_pv,
         put_pv,
@@ -494,7 +499,7 @@ fn test_quantlib_index_factor_linear_scaling() {
     // QuantLib property: PV scales linearly with index factor
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     let base = CdsOptionBuilder::new()
         .call()
         .strike(200.0)
@@ -503,9 +508,9 @@ fn test_quantlib_index_factor_linear_scaling() {
         .implied_vol(0.30)
         .with_index(1.0)
         .build(as_of);
-    
+
     let base_pv = base.value(&market, as_of).unwrap().amount();
-    
+
     for factor in [0.75, 0.85, 0.95] {
         let scaled = CdsOptionBuilder::new()
             .call()
@@ -515,10 +520,10 @@ fn test_quantlib_index_factor_linear_scaling() {
             .implied_vol(0.30)
             .with_index(factor)
             .build(as_of);
-        
+
         let scaled_pv = scaled.value(&market, as_of).unwrap().amount();
         let expected = base_pv * factor;
-        
+
         assert_approx_eq(
             scaled_pv,
             expected,
@@ -533,7 +538,7 @@ fn test_quantlib_index_forward_adjustment_direction() {
     // QuantLib property: positive adjustment increases call value, decreases put value
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     // Call: positive adjustment should increase value
     let call_base = CdsOptionBuilder::new()
         .call()
@@ -544,7 +549,7 @@ fn test_quantlib_index_forward_adjustment_direction() {
         .with_index(1.0)
         .forward_adjust(0.0)
         .build(as_of);
-    
+
     let call_adj = CdsOptionBuilder::new()
         .call()
         .strike(200.0)
@@ -554,15 +559,15 @@ fn test_quantlib_index_forward_adjustment_direction() {
         .with_index(1.0)
         .forward_adjust(25.0)
         .build(as_of);
-    
+
     let call_base_pv = call_base.value(&market, as_of).unwrap().amount();
     let call_adj_pv = call_adj.value(&market, as_of).unwrap().amount();
-    
+
     assert!(
         call_adj_pv > call_base_pv,
         "Positive adjustment should increase call value"
     );
-    
+
     // Put: positive adjustment should decrease value
     let put_base = CdsOptionBuilder::new()
         .put()
@@ -573,7 +578,7 @@ fn test_quantlib_index_forward_adjustment_direction() {
         .with_index(1.0)
         .forward_adjust(0.0)
         .build(as_of);
-    
+
     let put_adj = CdsOptionBuilder::new()
         .put()
         .strike(200.0)
@@ -583,10 +588,10 @@ fn test_quantlib_index_forward_adjustment_direction() {
         .with_index(1.0)
         .forward_adjust(25.0)
         .build(as_of);
-    
+
     let put_base_pv = put_base.value(&market, as_of).unwrap().amount();
     let put_adj_pv = put_adj.value(&market, as_of).unwrap().amount();
-    
+
     assert!(
         put_adj_pv < put_base_pv,
         "Positive adjustment should decrease put value"
@@ -602,11 +607,11 @@ fn test_quantlib_butterfly_no_arbitrage() {
     // QuantLib property: C(K1) + C(K3) >= 2*C(K2) for K1 < K2 < K3
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     let k1 = 100.0;
     let k2 = 200.0;
     let k3 = 300.0;
-    
+
     let c1 = CdsOptionBuilder::new()
         .call()
         .strike(k1)
@@ -617,7 +622,7 @@ fn test_quantlib_butterfly_no_arbitrage() {
         .value(&market, as_of)
         .unwrap()
         .amount();
-    
+
     let c2 = CdsOptionBuilder::new()
         .call()
         .strike(k2)
@@ -628,7 +633,7 @@ fn test_quantlib_butterfly_no_arbitrage() {
         .value(&market, as_of)
         .unwrap()
         .amount();
-    
+
     let c3 = CdsOptionBuilder::new()
         .call()
         .strike(k3)
@@ -639,7 +644,7 @@ fn test_quantlib_butterfly_no_arbitrage() {
         .value(&market, as_of)
         .unwrap()
         .amount();
-    
+
     assert!(
         c1 + c3 >= 2.0 * c2 - 1e-6,
         "Butterfly no-arbitrage: C({}) + C({}) = {} < 2*C({}) = {}",
@@ -656,10 +661,10 @@ fn test_quantlib_digital_spread_positive() {
     // QuantLib property: (C(K1) - C(K2))/(K2 - K1) >= 0 for K1 < K2
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     let k1 = 150.0;
     let k2 = 250.0;
-    
+
     let c1 = CdsOptionBuilder::new()
         .call()
         .strike(k1)
@@ -670,7 +675,7 @@ fn test_quantlib_digital_spread_positive() {
         .value(&market, as_of)
         .unwrap()
         .amount();
-    
+
     let c2 = CdsOptionBuilder::new()
         .call()
         .strike(k2)
@@ -681,9 +686,9 @@ fn test_quantlib_digital_spread_positive() {
         .value(&market, as_of)
         .unwrap()
         .amount();
-    
+
     let spread_value = (c1 - c2) / (k2 - k1);
-    
+
     assert!(
         spread_value >= -1e-6,
         "Digital spread value should be non-negative: {}",
@@ -700,7 +705,7 @@ fn test_quantlib_comprehensive_properties() {
     // Comprehensive test covering all major QuantLib properties
     let as_of = date!(2024 - 12 - 20);
     let market = standard_market(as_of);
-    
+
     let option = CdsOptionBuilder::new()
         .call()
         .strike(200.0)
@@ -709,7 +714,7 @@ fn test_quantlib_comprehensive_properties() {
         .implied_vol(0.30)
         .notional(10_000_000.0, Currency::USD)
         .build(as_of);
-    
+
     // Test all metrics
     let result = option
         .price_with_metrics(
@@ -725,24 +730,24 @@ fn test_quantlib_comprehensive_properties() {
             ],
         )
         .unwrap();
-    
+
     // QuantLib property 1: Positive value
     assert_positive(result.value.amount(), "Option PV");
-    
+
     // QuantLib property 2: All greeks finite
     for (name, value) in &result.measures {
         assert_finite(*value, &format!("Metric: {}", name));
     }
-    
+
     // QuantLib property 3: Greek signs
     let delta = *result.measures.get("delta").unwrap();
     let gamma = *result.measures.get("gamma").unwrap();
     let vega = *result.measures.get("vega").unwrap();
-    
+
     assert!(delta > 0.0, "Call delta should be positive");
     assert_non_negative(gamma, "Gamma");
     assert_positive(vega, "Vega");
-    
+
     // QuantLib property 4: Implied vol round-trip
     let iv = *result.measures.get("implied_vol").unwrap();
     assert_approx_eq(iv, 0.30, 1e-6, "Implied vol round-trip");

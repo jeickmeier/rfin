@@ -457,7 +457,11 @@ fn test_quantlib_parity_delta_sign() {
     let floor_delta = *floor_result.measures.get("delta").unwrap();
 
     // Cap benefits from higher forwards (positive delta)
-    assert!(cap_delta > 0.0, "Cap delta should be positive: {}", cap_delta);
+    assert!(
+        cap_delta > 0.0,
+        "Cap delta should be positive: {}",
+        cap_delta
+    );
 
     // Floor benefits from lower forwards (negative delta)
     assert!(
@@ -739,4 +743,3 @@ fn test_quantlib_parity_frequency_impact() {
         ratio
     );
 }
-

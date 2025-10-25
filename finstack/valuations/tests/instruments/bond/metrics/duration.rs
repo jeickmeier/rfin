@@ -39,8 +39,8 @@ fn test_duration_zero_coupon() {
 #[test]
 fn test_modified_duration_matches_macaulay_over_yield() {
     // For a simple fixed bond, Duration_mod ≈ Duration_mac / (1 + y/m)
-    use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::dates::DayCount;
+    use finstack_core::market_data::term_structures::DiscountCurve;
 
     let as_of = date!(2025 - 01 - 01);
     let maturity = date!(2030 - 01 - 01);
@@ -63,7 +63,11 @@ fn test_modified_duration_matches_macaulay_over_yield() {
     let market = finstack_core::market_data::context::MarketContext::new().insert_discount(curve);
 
     let res = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::DurationMac, MetricId::DurationMod])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm, MetricId::DurationMac, MetricId::DurationMod],
+        )
         .unwrap();
     let ytm = *res.measures.get("ytm").unwrap();
     let d_mac = *res.measures.get("duration_mac").unwrap();

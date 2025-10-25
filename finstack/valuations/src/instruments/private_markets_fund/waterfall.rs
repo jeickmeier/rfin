@@ -1065,7 +1065,8 @@ mod tests {
     }
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).expect("Valid date"), day).expect("Valid date")
+        Date::from_calendar_date(year, Month::try_from(month).expect("Valid date"), day)
+            .expect("Valid date")
     }
 
     #[test]

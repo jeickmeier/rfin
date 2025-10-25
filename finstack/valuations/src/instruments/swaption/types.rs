@@ -134,9 +134,15 @@ impl Swaption {
             sabr_params: None,
             attributes: Attributes::default(),
         };
-        if let Some(f) = params.fixed_freq { s.fixed_freq = f; }
-        if let Some(f) = params.float_freq { s.float_freq = f; }
-        if let Some(dc) = params.day_count { s.day_count = dc; }
+        if let Some(f) = params.fixed_freq {
+            s.fixed_freq = f;
+        }
+        if let Some(f) = params.float_freq {
+            s.float_freq = f;
+        }
+        if let Some(dc) = params.day_count {
+            s.day_count = dc;
+        }
         s
     }
 
@@ -168,9 +174,15 @@ impl Swaption {
             sabr_params: None,
             attributes: Attributes::default(),
         };
-        if let Some(f) = params.fixed_freq { s.fixed_freq = f; }
-        if let Some(f) = params.float_freq { s.float_freq = f; }
-        if let Some(dc) = params.day_count { s.day_count = dc; }
+        if let Some(f) = params.fixed_freq {
+            s.fixed_freq = f;
+        }
+        if let Some(f) = params.float_freq {
+            s.float_freq = f;
+        }
+        if let Some(dc) = params.day_count {
+            s.day_count = dc;
+        }
         s
     }
 

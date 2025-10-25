@@ -9,9 +9,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::models::{
-    ShortRateTree, ShortRateTreeConfig,
-};
+use finstack_valuations::instruments::common::models::{ShortRateTree, ShortRateTreeConfig};
 use finstack_valuations::instruments::common::traits::Instrument;
 use time::macros::date;
 
@@ -54,7 +52,7 @@ fn test_tree_calibrates_to_curve() {
 
     for &t in &test_times {
         let curve_df = (-rate * t).exp();
-        
+
         // We can't directly get tree DF, but we can price a zero-coupon bond
         // and compare with expected value
         println!("Time {}Y: curve DF = {:.6}", t, curve_df);
@@ -95,12 +93,14 @@ fn test_callable_bond_tree_pricing_reasonable() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
-    call_schedule.calls.push(finstack_valuations::instruments::bond::CallPut {
-        date: date!(2025 - 01 - 01),
-        price_pct_of_par: 102.0,
-    });
+    call_schedule
+        .calls
+        .push(finstack_valuations::instruments::bond::CallPut {
+            date: date!(2025 - 01 - 01),
+            price_pct_of_par: 102.0,
+        });
     callable_bond.call_put = Some(call_schedule);
 
     let curve = create_flat_curve(as_of, 0.04, "USD-OIS");
@@ -111,7 +111,10 @@ fn test_callable_bond_tree_pricing_reasonable() {
 
     println!("Straight bond PV: ${:.2}", straight_pv.amount());
     println!("Callable bond PV: ${:.2}", callable_pv.amount());
-    println!("Call option value: ${:.2}", straight_pv.amount() - callable_pv.amount());
+    println!(
+        "Call option value: ${:.2}",
+        straight_pv.amount() - callable_pv.amount()
+    );
 
     // Callable should be less than straight
     assert!(
@@ -154,12 +157,14 @@ fn test_tree_convergence_with_steps() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
-    call_schedule.calls.push(finstack_valuations::instruments::bond::CallPut {
-        date: date!(2023 - 01 - 01),
-        price_pct_of_par: 102.0,
-    });
+    call_schedule
+        .calls
+        .push(finstack_valuations::instruments::bond::CallPut {
+            date: date!(2023 - 01 - 01),
+            price_pct_of_par: 102.0,
+        });
     callable_bond.call_put = Some(call_schedule);
 
     let curve = create_flat_curve(as_of, 0.05, "USD-OIS");
@@ -173,7 +178,7 @@ fn test_tree_convergence_with_steps() {
     // Note: We use the default 100 steps. Convergence would require
     // adding configurable tree steps to bond attributes or pricing overrides.
     // For now, we verify that pricing is stable and reasonable.
-    
+
     assert!(pv_100.amount() > 90.0, "PV should be reasonable");
     assert!(pv_100.amount() < 120.0, "PV should be reasonable");
 }
@@ -206,12 +211,14 @@ fn test_putable_bond_tree_pricing_reasonable() {
         maturity,
         "USD-OIS",
     );
-    
+
     let mut put_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
-    put_schedule.puts.push(finstack_valuations::instruments::bond::CallPut {
-        date: date!(2025 - 01 - 01),
-        price_pct_of_par: 98.0,
-    });
+    put_schedule
+        .puts
+        .push(finstack_valuations::instruments::bond::CallPut {
+            date: date!(2025 - 01 - 01),
+            price_pct_of_par: 98.0,
+        });
     putable_bond.call_put = Some(put_schedule);
 
     let curve = create_flat_curve(as_of, 0.07, "USD-OIS");
@@ -222,7 +229,10 @@ fn test_putable_bond_tree_pricing_reasonable() {
 
     println!("Straight bond PV: ${:.2}", straight_pv.amount());
     println!("Putable bond PV: ${:.2}", putable_pv.amount());
-    println!("Put option value: ${:.2}", putable_pv.amount() - straight_pv.amount());
+    println!(
+        "Put option value: ${:.2}",
+        putable_pv.amount() - straight_pv.amount()
+    );
 
     // Putable should be more than straight
     assert!(
@@ -240,4 +250,3 @@ fn test_putable_bond_tree_pricing_reasonable() {
         "Option value should be < 15% of bond value"
     );
 }
-

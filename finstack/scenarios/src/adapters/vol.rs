@@ -142,11 +142,11 @@ pub fn apply_vol_bucket_shock(
             let val = surface.value(expiry, strike);
 
             // Check if this bucket matches filters
-            let tenor_match = tenor_years.as_ref().map_or(true, |tenors| {
+            let tenor_match = tenor_years.as_ref().is_none_or(|tenors| {
                 tenors.iter().any(|&t| (t - expiry).abs() < 0.01) // 0.01 year tolerance
             });
 
-            let strike_match = strikes.map_or(true, |strike_filters| {
+            let strike_match = strikes.is_none_or(|strike_filters| {
                 strike_filters.iter().any(|&s| (s - strike).abs() < 0.01) // 0.01 strike tolerance
             });
 

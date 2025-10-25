@@ -20,8 +20,7 @@ fn parse_pmf_json(value: &Bound<'_, PyAny>) -> PyResult<PrivateMarketsFund> {
         let json = pyo3::types::PyModule::import(py, "json")?
             .call_method1("dumps", (dict,))?
             .extract::<String>()?;
-        return serde_json::from_str(&json)
-            .map_err(|err| PyValueError::new_err(err.to_string()));
+        return serde_json::from_str(&json).map_err(|err| PyValueError::new_err(err.to_string()));
     }
     Err(PyTypeError::new_err(
         "Expected JSON string or dict convertible to JSON",

@@ -200,7 +200,7 @@ pub fn compute_metric(
     let mut metric_ctx = MetricContext::new(instrument_arc, Arc::new(ctx.clone()), base, base_val);
 
     let results = registry
-        .compute(&[metric_id.clone()], &mut metric_ctx)
+        .compute(std::slice::from_ref(&metric_id), &mut metric_ctx)
         .unwrap();
     *results.get(&metric_id).unwrap()
 }

@@ -28,7 +28,11 @@ use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
 /// Helper: Create a simple discount curve from explicit discount factors
-fn create_curve_from_dfs(base_date: time::Date, knots: Vec<(f64, f64)>, curve_id: &str) -> DiscountCurve {
+fn create_curve_from_dfs(
+    base_date: time::Date,
+    knots: Vec<(f64, f64)>,
+    curve_id: &str,
+) -> DiscountCurve {
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
         .knots(knots)
@@ -39,10 +43,7 @@ fn create_curve_from_dfs(base_date: time::Date, knots: Vec<(f64, f64)>, curve_id
 /// Helper: Create a flat discount curve using continuous compounding
 fn create_flat_curve(base_date: time::Date, rate: f64, curve_id: &str) -> DiscountCurve {
     let times = [0.0, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0];
-    let dfs: Vec<_> = times
-        .iter()
-        .map(|&t| (t, (-rate * t).exp()))
-        .collect();
+    let dfs: Vec<_> = times.iter().map(|&t| (t, (-rate * t).exp())).collect();
 
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
@@ -133,11 +134,7 @@ fn quantlib_parity_par_bond() {
 
     // 5% flat curve: DF(1Y) = 0.9524, DF(2Y) = 0.9070 (implies ~5% rate)
     // QuantLib calculation: PV = 5 * 0.9524 + 105 * 0.9070 = 4.762 + 95.235 = 100.00
-    let curve = create_curve_from_dfs(
-        base,
-        vec![(0.0, 1.0), (1.0, 0.9524), (2.0, 0.9070)],
-        "PAR",
-    );
+    let curve = create_curve_from_dfs(base, vec![(0.0, 1.0), (1.0, 0.9524), (2.0, 0.9070)], "PAR");
     let market = create_market_with_curve(curve);
 
     let pv = bond.value(&market, base).unwrap();
@@ -241,7 +238,7 @@ fn quantlib_parity_accrued_interest() {
     let maturity = date!(2025 - 01 - 01);
     let notional = 100.0;
     let coupon_rate = 0.06; // 6% annual
-    
+
     // Value 3 months into first semi-annual period
     let as_of = date!(2020 - 04 - 01);
 
@@ -355,7 +352,10 @@ fn quantlib_parity_ytm_below_par() {
 
     // QuantLib expectation: YTM > coupon for discount bond
     // Should be approximately 5.9-6.2% for this setup
-    assert!(ytm > coupon_rate, "YTM should exceed coupon for discount bond");
+    assert!(
+        ytm > coupon_rate,
+        "YTM should exceed coupon for discount bond"
+    );
     assert!(ytm < 0.08, "YTM should be reasonable");
 }
 
@@ -396,7 +396,7 @@ fn quantlib_parity_macaulay_duration() {
 }
 
 // =============================================================================
-// Test 9: Duration - Modified  
+// Test 9: Duration - Modified
 // =============================================================================
 // QuantLib reference: bonds.cpp, testModifiedDuration()
 
@@ -536,7 +536,10 @@ fn quantlib_parity_z_spread() {
     let z_spread = *result.measures.get("z_spread").unwrap();
 
     // QuantLib expectation: Positive z-spread for bond trading below par
-    assert!(z_spread > 0.0, "Z-spread should be positive for discount bond");
+    assert!(
+        z_spread > 0.0,
+        "Z-spread should be positive for discount bond"
+    );
     assert!(z_spread < 0.02, "Z-spread should be reasonable (<200 bps)");
 }
 
@@ -661,7 +664,7 @@ fn quantlib_parity_day_count_conventions() {
     let maturity = date!(2025 - 01 - 01);
     let notional = 100.0;
     let coupon_rate = 0.05;
-    
+
     // Value bonds mid-period to observe day count effects
     let as_of = date!(2020 - 04 - 01); // 3 months after issue
 
@@ -712,13 +715,20 @@ fn quantlib_parity_day_count_conventions() {
     // QuantLib expectation: Different day counts produce different values
     // Both should be close to par but not identical
     assert!(pv_act365.amount() > 95.0, "ACT/365 bond should be near par");
-    assert!(pv_act365.amount() < 105.0, "ACT/365 bond should be near par");
+    assert!(
+        pv_act365.amount() < 105.0,
+        "ACT/365 bond should be near par"
+    );
     assert!(pv_30360.amount() > 95.0, "30/360 bond should be near par");
     assert!(pv_30360.amount() < 105.0, "30/360 bond should be near par");
-    
+
     // The values should differ due to day count convention effects
     // For a 5-year bond valued 3 months after issue, expect small but measurable difference
     let diff = (pv_act365.amount() - pv_30360.amount()).abs();
-    assert!(diff > 0.001, "Day counts should produce different values (diff = {})", diff);
+    assert!(
+        diff > 0.001,
+        "Day counts should produce different values (diff = {})",
+        diff
+    );
     assert!(diff < 1.0, "Difference should be reasonable (< $1)");
 }

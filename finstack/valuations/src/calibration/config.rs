@@ -210,5 +210,4 @@ impl Default for CalibrationTolerances {
     }
 }
 
-impl CalibrationTolerances {
-}
+impl CalibrationTolerances {}

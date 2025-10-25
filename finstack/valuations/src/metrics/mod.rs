@@ -24,6 +24,8 @@
 
 /// bucketed module.
 pub mod bucketed;
+/// helpers module.
+pub mod helpers;
 /// ids module.
 pub mod ids;
 /// registration macro module.
@@ -32,8 +34,6 @@ pub mod registration_macro;
 pub mod registry;
 /// traits module.
 pub mod traits;
-/// helpers module.
-pub mod helpers;
 
 pub use bucketed::{
     compute_key_rate_dv01_series, compute_key_rate_dv01_series_with_context,

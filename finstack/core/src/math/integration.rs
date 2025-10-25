@@ -235,7 +235,7 @@ pub fn simpson_rule<F2>(f: F2, a: f64, b: f64, n: usize) -> Result<f64, Error>
 where
     F2: Fn(f64) -> f64,
 {
-    if n % 2 != 0 || n == 0 {
+    if n == 0 || !n.is_multiple_of(2) {
         return Err(InputError::Invalid.into());
     }
 

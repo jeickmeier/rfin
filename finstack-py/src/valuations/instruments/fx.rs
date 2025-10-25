@@ -3,8 +3,8 @@ use crate::core::currency::PyCurrency;
 use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
 use crate::valuations::common::intern_calendar_id_opt;
+use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
 use finstack_valuations::instruments::fx_option::FxOption;
 use finstack_valuations::instruments::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx_swap::FxSwap;
@@ -427,7 +427,10 @@ impl PyFxOption {
         let for_id = extract_curve_id(&foreign_curve)?;
         let vol_id = extract_curve_id(&vol_surface)?;
 
-        let settle = match settlement.map(crate::core::common::labels::normalize_label).as_deref() {
+        let settle = match settlement
+            .map(crate::core::common::labels::normalize_label)
+            .as_deref()
+        {
             None | Some("cash") => SettlementType::Cash,
             Some("physical") => SettlementType::Physical,
             Some(other) => {
@@ -451,8 +454,10 @@ impl PyFxOption {
         builder = builder.domestic_disc_id(dom);
         builder = builder.foreign_disc_id(for_id);
         builder = builder.vol_id(vol_id);
-        builder = builder.pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder = builder.attributes(finstack_valuations::instruments::common::traits::Attributes::new());
+        builder = builder
+            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
+        builder =
+            builder.attributes(finstack_valuations::instruments::common::traits::Attributes::new());
         Ok(Self::new(builder.build().map_err(core_to_py)?))
     }
 

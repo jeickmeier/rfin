@@ -2,11 +2,11 @@
 
 use super::common::*;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::instruments::FxSpot;
 use finstack_core::{
     currency::Currency, dates::BusinessDayConvention, market_data::MarketContext, money::Money,
 };
 use finstack_valuations::cashflow::traits::CashflowProvider;
+use finstack_valuations::instruments::FxSpot;
 
 #[test]
 fn test_settlement_explicit_date() {
@@ -105,15 +105,11 @@ fn test_settlement_explicit_rate_overrides_matrix() {
 
 #[test]
 fn test_settlement_lag_custom() {
-    let fx = FxSpot::new(
-        InstrumentId::new("EURUSD"),
-        Currency::EUR,
-        Currency::USD,
-    )
-    .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
-    .unwrap()
-    .with_rate(1.20)
-    .with_settlement(d(2025, 1, 16)); // T+1
+    let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .unwrap()
+        .with_rate(1.20)
+        .with_settlement(d(2025, 1, 16)); // T+1
 
     let market = MarketContext::new();
     let as_of = d(2025, 1, 15); // Wednesday
@@ -213,15 +209,11 @@ fn test_settlement_without_rate_or_matrix_fails() {
 #[test]
 fn test_settlement_lag_negative() {
     // Test backward-looking settlement (unusual but valid)
-    let fx = FxSpot::new(
-        InstrumentId::new("EURUSD"),
-        Currency::EUR,
-        Currency::USD,
-    )
-    .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
-    .unwrap()
-    .with_rate(1.20)
-    .with_settlement(d(2025, 1, 15)); // Past date
+    let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .unwrap()
+        .with_rate(1.20)
+        .with_settlement(d(2025, 1, 15)); // Past date
 
     let market = MarketContext::new();
     let as_of = d(2025, 1, 17); // Friday

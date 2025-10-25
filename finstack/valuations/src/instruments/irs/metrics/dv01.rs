@@ -29,8 +29,8 @@ impl MetricCalculator for Dv01Calculator {
             .unwrap_or(0.0);
         let dv01_mag = annuity * irs.notional.amount() * 1e-4;
         let dv01 = match irs.side {
-            PayReceive::ReceiveFixed => -dv01_mag,  // Negative: loses value when rates drop
-            PayReceive::PayFixed => dv01_mag,       // Positive: gains value when rates drop
+            PayReceive::ReceiveFixed => -dv01_mag, // Negative: loses value when rates drop
+            PayReceive::PayFixed => dv01_mag,      // Positive: gains value when rates drop
         };
         Ok(dv01)
     }

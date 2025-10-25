@@ -28,11 +28,11 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::types::{CouponType, FixedCouponSpec};
 use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};
 use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::convertible::{
-    AntiDilutionPolicy, ConversionPolicy, ConversionSpec, ConvertibleBond, DividendAdjustment,
-};
 use finstack_valuations::instruments::convertible::pricer::{
     calculate_convertible_greeks, calculate_parity, price_convertible_bond, ConvertibleTreeType,
+};
+use finstack_valuations::instruments::convertible::{
+    AntiDilutionPolicy, ConversionPolicy, ConversionSpec, ConvertibleBond, DividendAdjustment,
 };
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -40,10 +40,7 @@ use time::macros::date;
 /// Helper: Create a flat discount curve for convertible bond tests
 fn create_flat_discount_curve(base_date: Date, rate: f64, curve_id: &str) -> DiscountCurve {
     let times = [0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0];
-    let dfs: Vec<_> = times
-        .iter()
-        .map(|&t| (t, (-rate * t).exp()))
-        .collect();
+    let dfs: Vec<_> = times.iter().map(|&t| (t, (-rate * t).exp())).collect();
 
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
@@ -142,7 +139,7 @@ fn quantlib_parity_basic_convertible() {
 
     let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100)).unwrap();
 
-    // QuantLib expectation: 
+    // QuantLib expectation:
     // Conversion value = 100 * 10 = $1,000
     // Bond floor (approx) = PV of coupons + principal ≈ $1,090 (5% coupon with 3% discount)
     // Convertible should price above bond floor due to option value
@@ -179,8 +176,9 @@ fn quantlib_parity_at_the_money() {
     let conversion_ratio = 10.0;
     let spot = 100.0; // ATM: spot * ratio = notional
 
-    let bond = create_quantlib_convertible("CB_ATM", base, maturity, notional, 0.05, conversion_ratio);
-    
+    let bond =
+        create_quantlib_convertible("CB_ATM", base, maturity, notional, 0.05, conversion_ratio);
+
     let parity = calculate_parity(&bond, spot);
 
     // QuantLib expectation: Parity = (100 * 10) / 1000 = 1.0 (100%)
@@ -208,8 +206,9 @@ fn quantlib_parity_in_the_money() {
     let conversion_ratio = 10.0;
     let spot = 150.0; // ITM: spot * ratio > notional
 
-    let bond = create_quantlib_convertible("CB_ITM", base, maturity, notional, 0.05, conversion_ratio);
-    
+    let bond =
+        create_quantlib_convertible("CB_ITM", base, maturity, notional, 0.05, conversion_ratio);
+
     let parity = calculate_parity(&bond, spot);
 
     // QuantLib expectation: Parity = (150 * 10) / 1000 = 1.5 (150%)
@@ -237,8 +236,9 @@ fn quantlib_parity_out_of_the_money() {
     let conversion_ratio = 10.0;
     let spot = 50.0; // OTM: spot * ratio < notional
 
-    let bond = create_quantlib_convertible("CB_OTM", base, maturity, notional, 0.05, conversion_ratio);
-    
+    let bond =
+        create_quantlib_convertible("CB_OTM", base, maturity, notional, 0.05, conversion_ratio);
+
     let parity = calculate_parity(&bond, spot);
 
     // QuantLib expectation: Parity = (50 * 10) / 1000 = 0.5 (50%)
@@ -266,7 +266,14 @@ fn quantlib_parity_delta_in_the_money() {
     let conversion_ratio = 10.0;
     let spot = 150.0; // ITM
 
-    let bond = create_quantlib_convertible("CB_DELTA_ITM", base, maturity, notional, 0.05, conversion_ratio);
+    let bond = create_quantlib_convertible(
+        "CB_DELTA_ITM",
+        base,
+        maturity,
+        notional,
+        0.05,
+        conversion_ratio,
+    );
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
     let greeks = calculate_convertible_greeks(
@@ -306,7 +313,14 @@ fn quantlib_parity_delta_out_of_the_money() {
     let conversion_ratio = 10.0;
     let spot = 50.0; // OTM
 
-    let bond = create_quantlib_convertible("CB_DELTA_OTM", base, maturity, notional, 0.05, conversion_ratio);
+    let bond = create_quantlib_convertible(
+        "CB_DELTA_OTM",
+        base,
+        maturity,
+        notional,
+        0.05,
+        conversion_ratio,
+    );
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
     let greeks = calculate_convertible_greeks(
@@ -345,7 +359,8 @@ fn quantlib_parity_gamma() {
     let conversion_ratio = 10.0;
     let spot = 100.0; // ATM
 
-    let bond = create_quantlib_convertible("CB_GAMMA", base, maturity, notional, 0.05, conversion_ratio);
+    let bond =
+        create_quantlib_convertible("CB_GAMMA", base, maturity, notional, 0.05, conversion_ratio);
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
     let greeks = calculate_convertible_greeks(
@@ -379,7 +394,8 @@ fn quantlib_parity_vega() {
     let conversion_ratio = 10.0;
     let spot = 100.0;
 
-    let bond = create_quantlib_convertible("CB_VEGA", base, maturity, notional, 0.05, conversion_ratio);
+    let bond =
+        create_quantlib_convertible("CB_VEGA", base, maturity, notional, 0.05, conversion_ratio);
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
     let greeks = calculate_convertible_greeks(
@@ -412,7 +428,8 @@ fn quantlib_parity_theta() {
     let conversion_ratio = 10.0;
     let spot = 100.0;
 
-    let bond = create_quantlib_convertible("CB_THETA", base, maturity, notional, 0.05, conversion_ratio);
+    let bond =
+        create_quantlib_convertible("CB_THETA", base, maturity, notional, 0.05, conversion_ratio);
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
     let greeks = calculate_convertible_greeks(
@@ -451,7 +468,8 @@ fn quantlib_parity_rho() {
     let conversion_ratio = 10.0;
     let spot = 100.0;
 
-    let bond = create_quantlib_convertible("CB_RHO", base, maturity, notional, 0.05, conversion_ratio);
+    let bond =
+        create_quantlib_convertible("CB_RHO", base, maturity, notional, 0.05, conversion_ratio);
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
     let greeks = calculate_convertible_greeks(
@@ -487,7 +505,8 @@ fn quantlib_parity_callable_convertible() {
     let plain_bond = create_quantlib_convertible("CB_PLAIN", base, maturity, notional, 0.06, 10.0);
 
     // Callable convertible
-    let mut callable_bond = create_quantlib_convertible("CB_CALL", base, maturity, notional, 0.06, 10.0);
+    let mut callable_bond =
+        create_quantlib_convertible("CB_CALL", base, maturity, notional, 0.06, 10.0);
     let mut schedule = CallPutSchedule::default();
     schedule.calls.push(CallPut {
         date: call_date,
@@ -500,7 +519,8 @@ fn quantlib_parity_callable_convertible() {
     let plain_price =
         price_convertible_bond(&plain_bond, &market, ConvertibleTreeType::Binomial(100)).unwrap();
     let callable_price =
-        price_convertible_bond(&callable_bond, &market, ConvertibleTreeType::Binomial(100)).unwrap();
+        price_convertible_bond(&callable_bond, &market, ConvertibleTreeType::Binomial(100))
+            .unwrap();
 
     // QuantLib expectation: Callable bond < Plain bond (issuer option reduces value)
     assert!(
@@ -528,7 +548,8 @@ fn quantlib_parity_puttable_convertible() {
     let plain_bond = create_quantlib_convertible("CB_PLAIN2", base, maturity, notional, 0.04, 10.0);
 
     // Puttable convertible
-    let mut puttable_bond = create_quantlib_convertible("CB_PUT", base, maturity, notional, 0.04, 10.0);
+    let mut puttable_bond =
+        create_quantlib_convertible("CB_PUT", base, maturity, notional, 0.04, 10.0);
     let mut schedule = CallPutSchedule::default();
     schedule.puts.push(CallPut {
         date: put_date,
@@ -542,7 +563,8 @@ fn quantlib_parity_puttable_convertible() {
     let plain_price =
         price_convertible_bond(&plain_bond, &market, ConvertibleTreeType::Binomial(100)).unwrap();
     let puttable_price =
-        price_convertible_bond(&puttable_bond, &market, ConvertibleTreeType::Binomial(100)).unwrap();
+        price_convertible_bond(&puttable_bond, &market, ConvertibleTreeType::Binomial(100))
+            .unwrap();
 
     // QuantLib expectation: Puttable bond >= Plain bond (holder option adds value)
     assert!(
@@ -591,9 +613,10 @@ fn quantlib_parity_zero_coupon_convertible() {
 
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
-    let price = price_convertible_bond(&zero_coupon, &market, ConvertibleTreeType::Binomial(100)).unwrap();
+    let price =
+        price_convertible_bond(&zero_coupon, &market, ConvertibleTreeType::Binomial(100)).unwrap();
 
-    // QuantLib expectation: 
+    // QuantLib expectation:
     // Conversion value = 150 * 10 = $1,500
     // Should price close to or above conversion value
     let conversion_value = spot * conversion_ratio;
@@ -629,7 +652,8 @@ fn quantlib_parity_volatility_sensitivity() {
     // High volatility
     let market_high_vol = create_convertible_market(base, spot, 0.40, 0.02, 0.03);
     let price_high_vol =
-        price_convertible_bond(&bond, &market_high_vol, ConvertibleTreeType::Binomial(100)).unwrap();
+        price_convertible_bond(&bond, &market_high_vol, ConvertibleTreeType::Binomial(100))
+            .unwrap();
 
     // QuantLib expectation: Higher vol → higher option value → higher price
     assert!(
@@ -661,8 +685,8 @@ fn quantlib_parity_tree_convergence() {
         price_convertible_bond(&bond, &market, ConvertibleTreeType::Trinomial(200)).unwrap();
 
     // QuantLib expectation: With enough steps, both methods converge
-    let diff_pct = (binomial_price.amount() - trinomial_price.amount()).abs()
-        / binomial_price.amount();
+    let diff_pct =
+        (binomial_price.amount() - trinomial_price.amount()).abs() / binomial_price.amount();
 
     assert!(
         diff_pct < 0.05, // Within 5%
@@ -687,7 +711,8 @@ fn quantlib_parity_conversion_premium() {
     let conversion_ratio = 10.0;
     let spot = 100.0;
 
-    let bond = create_quantlib_convertible("CB_PREM", base, maturity, notional, 0.05, conversion_ratio);
+    let bond =
+        create_quantlib_convertible("CB_PREM", base, maturity, notional, 0.05, conversion_ratio);
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
     let as_of = base;
@@ -720,7 +745,14 @@ fn quantlib_parity_deep_itm() {
     let conversion_ratio = 10.0;
     let spot = 250.0; // Very high spot (deep ITM)
 
-    let bond = create_quantlib_convertible("CB_DEEP_ITM", base, maturity, notional, 0.05, conversion_ratio);
+    let bond = create_quantlib_convertible(
+        "CB_DEEP_ITM",
+        base,
+        maturity,
+        notional,
+        0.05,
+        conversion_ratio,
+    );
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
     let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100)).unwrap();
@@ -752,7 +784,14 @@ fn quantlib_parity_deep_otm() {
     let conversion_ratio = 10.0;
     let spot = 10.0; // Very low spot (deep OTM)
 
-    let bond = create_quantlib_convertible("CB_DEEP_OTM", base, maturity, notional, 0.05, conversion_ratio);
+    let bond = create_quantlib_convertible(
+        "CB_DEEP_OTM",
+        base,
+        maturity,
+        notional,
+        0.05,
+        conversion_ratio,
+    );
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
     let price = price_convertible_bond(&bond, &market, ConvertibleTreeType::Binomial(100)).unwrap();
@@ -823,14 +862,15 @@ fn quantlib_parity_mandatory_conversion() {
 
     let market = create_convertible_market(base, spot, 0.25, 0.02, 0.03);
 
-    let price = price_convertible_bond(&mandatory_bond, &market, ConvertibleTreeType::Binomial(100)).unwrap();
+    let price =
+        price_convertible_bond(&mandatory_bond, &market, ConvertibleTreeType::Binomial(100))
+            .unwrap();
 
     // QuantLib expectation: Mandatory conversion should price successfully
     // Should be in reasonable range relative to conversion value
     let conversion_value = spot * conversion_ratio;
     assert!(
-        price.amount() > conversion_value * 0.7
-            && price.amount() < conversion_value * 1.3,
+        price.amount() > conversion_value * 0.7 && price.amount() < conversion_value * 1.3,
         "Mandatory conversion bond should be near conversion value: {} vs {}",
         price.amount(),
         conversion_value
@@ -889,7 +929,8 @@ fn quantlib_parity_window_conversion() {
 
     let market = create_convertible_market(base, 150.0, 0.25, 0.02, 0.03);
 
-    let price = price_convertible_bond(&window_bond, &market, ConvertibleTreeType::Binomial(100)).unwrap();
+    let price =
+        price_convertible_bond(&window_bond, &market, ConvertibleTreeType::Binomial(100)).unwrap();
 
     // QuantLib expectation: Window conversion should price successfully
     // Should be less than voluntary (more restricted)
@@ -899,4 +940,3 @@ fn quantlib_parity_window_conversion() {
         price.amount()
     );
 }
-

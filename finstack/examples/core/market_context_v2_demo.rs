@@ -7,17 +7,15 @@
 fn main() -> finstack_core::Result<()> {
     use finstack_core::{
         dates::Date,
-        math::interp::InterpStyle,
         market_data::{
             context::MarketContext,
             scalars::primitives::MarketScalar,
             term_structures::{
-                base_correlation::BaseCorrelationCurve,
-                discount_curve::DiscountCurve,
-                forward_curve::ForwardCurve,
-                hazard_curve::HazardCurve,
+                base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
+                forward_curve::ForwardCurve, hazard_curve::HazardCurve,
             },
         },
+        math::interp::InterpStyle,
     };
 
     println!("🚀 MarketContext - Enum-Based Storage Demo");
@@ -25,7 +23,7 @@ fn main() -> finstack_core::Result<()> {
 
     // Create curves using the standard builders
     let base_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    
+
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.67)])
@@ -62,9 +60,11 @@ fn main() -> finstack_core::Result<()> {
         .insert_price("SPOT_SPY", MarketScalar::Unitless(450.0))
         .insert_price("USD_RATE", MarketScalar::Unitless(0.045));
 
-    println!("   Created context with {} curves and {} prices", 
-        context.stats().total_curves, 
-        context.stats().price_count);
+    println!(
+        "   Created context with {} curves and {} prices",
+        context.stats().total_curves,
+        context.stats().price_count
+    );
 
     // 2. BENEFIT: Type-Safe Access with Compile-Time Guarantees
     println!("\n✅ 2. Type-Safe Access");
@@ -107,14 +107,14 @@ fn main() -> finstack_core::Result<()> {
     println!("\n✅ 7. Advanced Filtering");
     let discount_curves: Vec<_> = context.curves_of_type("Discount").collect();
     println!("   Found {} discount curves", discount_curves.len());
-    
+
     for (id, storage) in discount_curves {
         println!("     - {}: {}", id, storage.curve_type());
     }
 
     // 8. BENEFIT: Performance Characteristics
     println!("\n✅ 8. Performance Comparison");
-    
+
     // Time trait object access (V1 style)
     let start = std::time::Instant::now();
     for _ in 0..10000 {
@@ -122,7 +122,7 @@ fn main() -> finstack_core::Result<()> {
         let _ = disc.df(1.0);
     }
     let trait_time = start.elapsed();
-    
+
     // Time concrete access (V2 style)
     let start = std::time::Instant::now();
     for _ in 0..10000 {
@@ -130,10 +130,10 @@ fn main() -> finstack_core::Result<()> {
         let _ = disc.df(1.0);
     }
     let concrete_time = start.elapsed();
-    
+
     println!("   Trait object access (10k calls): {:?}", trait_time);
     println!("   Concrete access (10k calls): {:?}", concrete_time);
-    
+
     if concrete_time < trait_time {
         let speedup = trait_time.as_nanos() as f64 / concrete_time.as_nanos() as f64;
         println!("   🎉 Concrete access {:.1}x faster!", speedup);
@@ -159,5 +159,7 @@ fn main() -> finstack_core::Result<()> {
 #[cfg(not(all(feature = "new-context", feature = "serde")))]
 fn main() {
     println!("This example requires both 'new-context' and 'serde' features.");
-    println!("Run with: cargo run --example market_context_v2_demo --features \"new-context,serde\"");
+    println!(
+        "Run with: cargo run --example market_context_v2_demo --features \"new-context,serde\""
+    );
 }

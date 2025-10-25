@@ -43,7 +43,6 @@ impl Default for ParityConfig {
 }
 
 impl ParityConfig {
-
     /// Create configuration with specific relative tolerance
     pub fn with_relative_tolerance(tolerance: f64) -> Self {
         Self {
@@ -267,7 +266,7 @@ mod tests {
         let config = ParityConfig::tight();
         let result = compare_values(100.0005, 100.0, config);
         assert!(result.passed);
-        
+
         let result = compare_values(100.002, 100.0, config);
         assert!(!result.passed);
     }
@@ -277,9 +276,8 @@ mod tests {
         let config = ParityConfig::loose();
         let result = compare_values(100.05, 100.0, config);
         assert!(result.passed);
-        
+
         let result = compare_values(100.2, 100.0, config);
         assert!(!result.passed);
     }
 }
-

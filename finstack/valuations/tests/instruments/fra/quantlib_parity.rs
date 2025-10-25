@@ -43,10 +43,7 @@ use time::macros::date;
 /// Helper: Create a flat discount curve
 fn create_flat_discount_curve(base_date: Date, rate: f64, curve_id: &str) -> DiscountCurve {
     let times = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
-    let dfs: Vec<_> = times
-        .iter()
-        .map(|&t| (t, (-rate * t).exp()))
-        .collect();
+    let dfs: Vec<_> = times.iter().map(|&t| (t, (-rate * t).exp())).collect();
 
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
@@ -57,7 +54,12 @@ fn create_flat_discount_curve(base_date: Date, rate: f64, curve_id: &str) -> Dis
 }
 
 /// Helper: Create a flat forward curve
-fn create_flat_forward_curve(base_date: Date, rate: f64, curve_id: &str, tenor: f64) -> ForwardCurve {
+fn create_flat_forward_curve(
+    base_date: Date,
+    rate: f64,
+    curve_id: &str,
+    tenor: f64,
+) -> ForwardCurve {
     let times = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
     let rates: Vec<_> = times.iter().map(|&t| (t, rate)).collect();
 
@@ -170,7 +172,7 @@ fn quantlib_parity_fra_off_market_valuation() {
 
     // QuantLib produces similar value (accounting for exact day count and DF)
     let expected_npv = 2464.0; // Approximate expected value
-    
+
     assert_parity!(
         pv.amount(),
         expected_npv,
@@ -212,7 +214,7 @@ fn quantlib_parity_fra_implied_rate() {
     };
 
     let market = create_flat_market(base, market_rate);
-    
+
     // Calculate par rate
     let result = fra
         .price_with_metrics(&market, base, &[MetricId::ParRate])
@@ -221,7 +223,7 @@ fn quantlib_parity_fra_implied_rate() {
 
     // QuantLib expectation: Par rate should equal forward rate
     let expected_forward = market_rate;
-    
+
     assert_parity!(
         par_rate,
         expected_forward,
@@ -278,10 +280,10 @@ fn quantlib_parity_fra_settlement_adjustment() {
     // Forward rate F = 0.10
     // Strike K = 0.11
     // Rate diff (F - K) = -0.01
-    // 
+    //
     // Without settlement adjustment:
     // PV_naive = 1M × DF × τ × (F - K) = 1M × 0.9753 × 0.2528 × (-0.01) ≈ -2,465
-    // 
+    //
     // With settlement adjustment: 1 / (1 + F × τ) = 1 / (1 + 0.10 × 0.2528) ≈ 0.9753
     // PV_adjusted = PV_naive × 0.9753 ≈ -2,404
     //
@@ -355,7 +357,7 @@ fn quantlib_parity_fra_buy_sell_symmetry() {
 
     // QuantLib expectation: Buy and sell should be exact opposites
     let sum = pv_receive.amount() + pv_pay.amount();
-    
+
     assert!(
         sum.abs() < 0.01,
         "Buy and sell FRAs should sum to zero (zero-sum game): receive={}, pay={}, sum={}",
@@ -397,7 +399,10 @@ fn quantlib_parity_fra_standard_tenor_3x6() {
     let pv = fra.value(&market, base).unwrap();
 
     // At-market FRA should have near-zero NPV
-    assert!(pv.amount().abs() < 1000.0, "3x6 at-market FRA should be near zero");
+    assert!(
+        pv.amount().abs() < 1000.0,
+        "3x6 at-market FRA should be near zero"
+    );
 }
 
 #[test]
@@ -424,7 +429,10 @@ fn quantlib_parity_fra_standard_tenor_6x9() {
     let market = create_flat_market(base, 0.05);
     let pv = fra.value(&market, base).unwrap();
 
-    assert!(pv.amount().abs() < 1000.0, "6x9 at-market FRA should be near zero");
+    assert!(
+        pv.amount().abs() < 1000.0,
+        "6x9 at-market FRA should be near zero"
+    );
 }
 
 #[test]
@@ -451,7 +459,10 @@ fn quantlib_parity_fra_standard_tenor_6x12() {
     let market = create_flat_market(base, 0.05);
     let pv = fra.value(&market, base).unwrap();
 
-    assert!(pv.amount().abs() < 2000.0, "6x12 at-market FRA should be near zero");
+    assert!(
+        pv.amount().abs() < 2000.0,
+        "6x12 at-market FRA should be near zero"
+    );
 }
 
 // =============================================================================
@@ -498,7 +509,7 @@ fn quantlib_parity_fra_dv01_sign_convention() {
     };
 
     let market = create_flat_market(base, 0.05);
-    
+
     let result_receive = fra_receive
         .price_with_metrics(&market, base, &[MetricId::Dv01])
         .unwrap();
@@ -510,9 +521,12 @@ fn quantlib_parity_fra_dv01_sign_convention() {
     let dv01_pay = *result_pay.measures.get("dv01").unwrap();
 
     // QuantLib convention: receive fixed → negative DV01, pay fixed → positive DV01
-    assert!(dv01_receive < 0.0, "Receive fixed should have negative DV01");
+    assert!(
+        dv01_receive < 0.0,
+        "Receive fixed should have negative DV01"
+    );
     assert!(dv01_pay > 0.0, "Pay fixed should have positive DV01");
-    
+
     // DV01s should be equal in magnitude
     assert_parity!(
         dv01_receive.abs(),
@@ -581,7 +595,7 @@ fn quantlib_parity_fra_day_count_act360_vs_act365() {
     // Difference should be approximately (365-360)/360 ≈ 1.39%
     let ratio = pv_360.amount() / pv_365.amount();
     let expected_ratio = 365.0 / 360.0; // ≈ 1.0139
-    
+
     assert_parity!(
         ratio,
         expected_ratio,
@@ -589,4 +603,3 @@ fn quantlib_parity_fra_day_count_act360_vs_act365() {
         "Day count convention ratio"
     );
 }
-

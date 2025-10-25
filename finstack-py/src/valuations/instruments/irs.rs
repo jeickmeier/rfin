@@ -2,8 +2,8 @@ use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
 use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
 use crate::valuations::common::intern_calendar_id_opt;
+use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
 use finstack_valuations::instruments::irs::{
     FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
 };
@@ -319,7 +319,8 @@ impl PyInterestRateSwap {
         let disc_id = extract_curve_id(&discount_curve)?;
         let fwd_id = extract_curve_id(&forward_curve)?;
 
-        let side_value = side.parse::<PayReceive>()
+        let side_value = side
+            .parse::<PayReceive>()
             .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))?;
 
         let fixed_freq = fixed_frequency

@@ -17,8 +17,8 @@
 //! resulting in a negative P&L for a long position. The DV01 magnitude
 //! indicates the dollar loss per 1bp rate increase.
 
-use crate::metrics::dv01_from_modified_duration;
 use crate::instruments::bond::Bond;
+use crate::metrics::dv01_from_modified_duration;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 

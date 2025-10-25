@@ -1,5 +1,5 @@
-use crate::core::common::pycmp::richcmp_eq_ne;
 use crate::core::common::labels::normalize_label;
+use crate::core::common::pycmp::richcmp_eq_ne;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::pricer::{InstrumentType, ModelKey, PricerKey, PricingError};
 use pyo3::basic::CompareOp;

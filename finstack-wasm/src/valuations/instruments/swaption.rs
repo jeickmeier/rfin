@@ -66,11 +66,22 @@ impl JsSwaption {
         );
         swaption.exercise = exercise_style;
         swaption.settlement = settlement_type;
-        if let Some(f) = fixed_frequency { swaption.fixed_freq = f.inner(); }
-        if let Some(f) = float_frequency { swaption.float_freq = f.inner(); }
-        if let Some(dc) = day_count { swaption.day_count = dc.inner(); }
-        if let Some(b) = business_day_convention { let bdc: finstack_core::dates::BusinessDayConvention = b.into(); /* used in schedule calculations elsewhere */ let _ = bdc; }
-        if let Some(cal) = calendar_id { let _ = cal; }
+        if let Some(f) = fixed_frequency {
+            swaption.fixed_freq = f.inner();
+        }
+        if let Some(f) = float_frequency {
+            swaption.float_freq = f.inner();
+        }
+        if let Some(dc) = day_count {
+            swaption.day_count = dc.inner();
+        }
+        if let Some(b) = business_day_convention {
+            let bdc: finstack_core::dates::BusinessDayConvention = b.into(); /* used in schedule calculations elsewhere */
+            let _ = bdc;
+        }
+        if let Some(cal) = calendar_id {
+            let _ = cal;
+        }
 
         Ok(JsSwaption::from_inner(swaption))
     }
@@ -117,11 +128,22 @@ impl JsSwaption {
         );
         swaption.exercise = exercise_style;
         swaption.settlement = settlement_type;
-        if let Some(f) = fixed_frequency { swaption.fixed_freq = f.inner(); }
-        if let Some(f) = float_frequency { swaption.float_freq = f.inner(); }
-        if let Some(dc) = day_count { swaption.day_count = dc.inner(); }
-        if let Some(b) = business_day_convention { let bdc: finstack_core::dates::BusinessDayConvention = b.into(); let _ = bdc; }
-        if let Some(cal) = calendar_id { let _ = cal; }
+        if let Some(f) = fixed_frequency {
+            swaption.fixed_freq = f.inner();
+        }
+        if let Some(f) = float_frequency {
+            swaption.float_freq = f.inner();
+        }
+        if let Some(dc) = day_count {
+            swaption.day_count = dc.inner();
+        }
+        if let Some(b) = business_day_convention {
+            let bdc: finstack_core::dates::BusinessDayConvention = b.into();
+            let _ = bdc;
+        }
+        if let Some(cal) = calendar_id {
+            let _ = cal;
+        }
 
         Ok(JsSwaption::from_inner(swaption))
     }

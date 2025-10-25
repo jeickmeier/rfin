@@ -162,7 +162,7 @@ fn qing_ming_day(year: i32) -> u8 {
     const QINGMING_BASE: f64 = 5.59;
     const QINGMING_SLOPE: f64 = 0.2422;
     const QINGMING_EPOCH: i32 = 1900;
-    
+
     let y = (year - QINGMING_EPOCH) as f64;
     (QINGMING_BASE + QINGMING_SLOPE * y - (y / 4.0).floor()) as u8
 }
@@ -192,7 +192,7 @@ fn vernal_equinox_jp(year: i32) -> Date {
     const VERNAL_EPOCH: i32 = 1980;
     const VERNAL_BASE: f64 = 20.8431;
     const VERNAL_SLOPE: f64 = 0.242194;
-    
+
     let y = (year - VERNAL_EPOCH) as f64;
     let day = (VERNAL_BASE + VERNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
     Date::from_calendar_date(year, Month::March, day).unwrap()
@@ -218,7 +218,7 @@ fn autumnal_equinox_jp(year: i32) -> Date {
     const AUTUMNAL_EPOCH: i32 = 1980;
     const AUTUMNAL_BASE: f64 = 23.2488;
     const AUTUMNAL_SLOPE: f64 = 0.242194;
-    
+
     let y = (year - AUTUMNAL_EPOCH) as f64;
     let day = (AUTUMNAL_BASE + AUTUMNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
     Date::from_calendar_date(year, Month::September, day).unwrap()

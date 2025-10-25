@@ -6,8 +6,8 @@
 
 use crate::error::{Error, Result};
 use finstack_core::market_data::MarketContext;
-use finstack_statements::{AmountOrScalar, FinancialModelSpec};
 use finstack_statements::evaluator::Evaluator;
+use finstack_statements::{AmountOrScalar, FinancialModelSpec};
 
 /// Apply a percentage change to a statement node's forecast values.
 ///

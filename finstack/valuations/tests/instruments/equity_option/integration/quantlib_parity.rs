@@ -190,7 +190,7 @@ fn quantlib_parity_put_call_parity() {
     );
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
-    
+
     let call_pv = call.value(&market, as_of).unwrap();
     let put_pv = put.value(&market, as_of).unwrap();
 

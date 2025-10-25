@@ -1,8 +1,8 @@
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
-use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_core::types::CurveId;
+use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -155,8 +155,8 @@ impl PyEquityOption {
         dividend_yield_id: Option<&str>,
         contract_size: Option<f64>,
     ) -> PyResult<Self> {
-        use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
         use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
+        use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
 
         let id = extract_instrument_id(&instrument_id)?;
         let expiry_date = py_to_date(&expiry)?;
@@ -164,7 +164,8 @@ impl PyEquityOption {
         let disc_id = extract_curve_id(&discount_curve)?;
         let vol_id = extract_curve_id(&vol_surface)?;
 
-        let mut underlying = EquityUnderlyingParams::new(ticker, spot_id, notional_money.currency());
+        let mut underlying =
+            EquityUnderlyingParams::new(ticker, spot_id, notional_money.currency());
         if let Some(div) = dividend_yield_id {
             underlying = underlying.with_dividend_yield(div);
         }

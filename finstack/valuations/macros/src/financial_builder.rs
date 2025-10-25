@@ -2,8 +2,8 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Expr};
 use std::collections::HashMap;
+use syn::{parse_macro_input, Data, DeriveInput, Expr, Fields};
 
 /// Implementation of the FinancialBuilder derive macro.
 ///
@@ -71,7 +71,8 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
                                 default_expr = Some(value);
                             } else {
                                 // Use type's Default::default()
-                                let ty_default: Expr = syn::parse_quote! { ::core::default::Default::default() };
+                                let ty_default: Expr =
+                                    syn::parse_quote! { ::core::default::Default::default() };
                                 default_expr = Some(ty_default);
                             }
                         }
@@ -190,16 +191,14 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     });
 
     // Build expression: required fields unwrap, optional fields carry through (unwrap_or(None)) and initialize attributes if present
-    let assign_req = required_fields
-        .iter()
-        .map(|(id, _)| {
-            if let Some(expr) = defaults.get(id) {
-                let expr_clone = expr.clone();
-                quote! { #id: self.#id.unwrap_or(#expr_clone) }
-            } else {
-                quote! { #id: self.#id.ok_or(finstack_core::error::InputError::Invalid)? }
-            }
-        });
+    let assign_req = required_fields.iter().map(|(id, _)| {
+        if let Some(expr) = defaults.get(id) {
+            let expr_clone = expr.clone();
+            quote! { #id: self.#id.unwrap_or(#expr_clone) }
+        } else {
+            quote! { #id: self.#id.ok_or(finstack_core::error::InputError::Invalid)? }
+        }
+    });
 
     let assign_opt = optional_fields.iter().map(|(id, ty)| {
         if let syn::Type::Path(ref tp) = ty {
@@ -252,7 +251,7 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     let new_doc = "Creates a new builder instance.";
     let build_doc = "Builds the final instance.";
     let builder_method_doc = "Creates a new builder.";
-    
+
     let expanded = quote! {
         #[doc = #builder_doc]
         #[allow(non_camel_case_types)]

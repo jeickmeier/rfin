@@ -88,7 +88,7 @@ fn determine_base_value(
     context: &EvaluationContext,
 ) -> Result<f64> {
     // Try to get last actual period value
-    let last_actual_period = model.periods.iter().filter(|p| p.is_actual).last();
+    let last_actual_period = model.periods.iter().filter(|p| p.is_actual).next_back();
 
     if let Some(last_actual) = last_actual_period {
         // Check node's explicit values

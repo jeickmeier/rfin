@@ -33,14 +33,14 @@ pub fn is_standalone_identifier(
         formula
             .chars()
             .nth(start_idx - 1)
-            .map_or(true, |c| is_identifier_boundary(c) && c != '.')
+            .is_none_or(|c| is_identifier_boundary(c) && c != '.')
     } else {
         true
     };
 
     // Check character after identifier
     let after_ok = if end_idx < formula.len() {
-        formula.chars().nth(end_idx).map_or(true, |c| {
+        formula.chars().nth(end_idx).is_none_or(|c| {
             if allow_dot_after {
                 is_identifier_boundary(c)
             } else {

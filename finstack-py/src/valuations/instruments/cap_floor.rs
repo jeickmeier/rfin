@@ -112,9 +112,8 @@ impl PyInterestRateOption {
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
         let vol_id = extract_curve_id(&vol_surface)?;
-        let option = InterestRateOption::new_cap(
-            id, amt, strike, start, end, freq, dc, disc, fwd, vol_id,
-        );
+        let option =
+            InterestRateOption::new_cap(id, amt, strike, start, end, freq, dc, disc, fwd, vol_id);
         Ok(Self::new(option))
     }
 
@@ -177,9 +176,8 @@ impl PyInterestRateOption {
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
         let vol_id = extract_curve_id(&vol_surface)?;
-        let option = InterestRateOption::new_floor(
-            id, amt, strike, start, end, freq, dc, disc, fwd, vol_id,
-        );
+        let option =
+            InterestRateOption::new_floor(id, amt, strike, start, end, freq, dc, disc, fwd, vol_id);
         Ok(Self::new(option))
     }
 

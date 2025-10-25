@@ -771,11 +771,7 @@ fn test_quantlib_parity_full_greeks_suite() {
         .unwrap();
 
     // Verify all metrics computed successfully
-    assert_eq!(
-        result.measures.len(),
-        7,
-        "All 7 metrics should be computed"
-    );
+    assert_eq!(result.measures.len(), 7, "All 7 metrics should be computed");
 
     // Verify all are finite
     for (name, value) in &result.measures {
@@ -796,4 +792,3 @@ fn test_quantlib_parity_full_greeks_suite() {
         "Implied vol should match input"
     );
 }
-

@@ -29,11 +29,10 @@ use time::macros::date;
 
 /// Helper: Create a flat discount curve
 fn create_flat_discount_curve(base_date: time::Date, rate: f64, curve_id: &str) -> DiscountCurve {
-    let times = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
-    let dfs: Vec<_> = times
-        .iter()
-        .map(|&t| (t, (-rate * t).exp()))
-        .collect();
+    let times = [
+        0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
+    ];
+    let dfs: Vec<_> = times.iter().map(|&t| (t, (-rate * t).exp())).collect();
 
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
@@ -43,12 +42,16 @@ fn create_flat_discount_curve(base_date: time::Date, rate: f64, curve_id: &str) 
 }
 
 /// Helper: Create a flat forward curve
-fn create_flat_forward_curve(base_date: time::Date, rate: f64, curve_id: &str, tenor: f64) -> ForwardCurve {
-    let times = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
-    let forwards: Vec<_> = times
-        .iter()
-        .map(|&t| (t, rate))
-        .collect();
+fn create_flat_forward_curve(
+    base_date: time::Date,
+    rate: f64,
+    curve_id: &str,
+    tenor: f64,
+) -> ForwardCurve {
+    let times = [
+        0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
+    ];
+    let forwards: Vec<_> = times.iter().map(|&t| (t, rate)).collect();
 
     ForwardCurve::builder(curve_id, tenor)
         .base_date(base_date)
@@ -88,8 +91,8 @@ fn create_quantlib_swap(
         fixed: FixedLegSpec {
             disc_id: "USD-OIS".into(),
             rate: fixed_rate,
-            freq: Frequency::semi_annual(),   // QuantLib uses semiannual
-            dc: DayCount::Thirty360,          // QuantLib uses 30/360
+            freq: Frequency::semi_annual(), // QuantLib uses semiannual
+            dc: DayCount::Thirty360,        // QuantLib uses 30/360
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::None,
@@ -102,8 +105,8 @@ fn create_quantlib_swap(
             disc_id: "USD-OIS".into(),
             fwd_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
-            freq: Frequency::semi_annual(),   // QuantLib uses semiannual (same as fixed!)
-            dc: DayCount::Thirty360,          // QuantLib uses 30/360 (same as fixed!)
+            freq: Frequency::semi_annual(), // QuantLib uses semiannual (same as fixed!)
+            dc: DayCount::Thirty360,        // QuantLib uses 30/360 (same as fixed!)
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::None,
@@ -222,7 +225,7 @@ fn quantlib_parity_receive_fixed_swap() {
     );
 
     let market = create_market(as_of, market_rate);
-    
+
     let pay_npv = pay_swap.value(&market, as_of).unwrap();
     let receive_npv = receive_swap.value(&market, as_of).unwrap();
 

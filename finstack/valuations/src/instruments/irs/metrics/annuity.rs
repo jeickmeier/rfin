@@ -46,7 +46,7 @@ impl MetricCalculator for AnnuityCalculator {
 
         let mut annuity = 0.0;
         let mut prev = dates[0];
-        
+
         for &d in &dates[1..] {
             // Only include future cashflows
             if d <= as_of {
@@ -83,7 +83,7 @@ impl MetricCalculator for AnnuityCalculator {
             }
             prev = d;
         }
-        // Return annuity in dollar terms 
+        // Return annuity in dollar terms
         // Note: Just return sum(yf * df) without scaling - the raw sum is what's needed
         // for par rate calculations and other metrics
         Ok(annuity)

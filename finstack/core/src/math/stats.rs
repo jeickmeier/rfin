@@ -248,12 +248,12 @@ pub fn realized_variance_ohlc(
             // Reference: Yang, D., & Zhang, Q. (2000). "Drift-Independent Volatility
             // Estimation Based on High, Low, Open, and Close Prices."
             // Journal of Business, 73(3), 477-491.
-            
+
             /// Yang-Zhang optimal weight numerator for combining variance components
             const YANG_ZHANG_K_NUMERATOR: f64 = 0.34;
             /// Yang-Zhang optimal weight denominator base adjustment
             const YANG_ZHANG_K_DENOMINATOR_BASE: f64 = 1.34;
-            
+
             let mut sum_oc = 0.0;
             let mut sum_rs = 0.0;
 
@@ -270,7 +270,8 @@ pub fn realized_variance_ohlc(
                 sum_rs += hc * ho + lc * lo;
             }
 
-            let k = YANG_ZHANG_K_NUMERATOR / (YANG_ZHANG_K_DENOMINATOR_BASE + (n + 1) as f64 / (n - 1) as f64);
+            let k = YANG_ZHANG_K_NUMERATOR
+                / (YANG_ZHANG_K_DENOMINATOR_BASE + (n + 1) as f64 / (n - 1) as f64);
             let var_oc = sum_oc / (n - 1) as f64;
             let var_rs = sum_rs / n as f64;
 

@@ -84,7 +84,11 @@ fn test_irs_par_rate_market_standard() {
         PayReceive::ReceiveFixed,
     );
     let npv = par_swap.value(&market, as_of).unwrap();
-    assert!(npv.amount().abs() < 1000.0, "Par swap NPV={:.2} near zero", npv.amount());
+    assert!(
+        npv.amount().abs() < 1000.0,
+        "Par swap NPV={:.2} near zero",
+        npv.amount()
+    );
 }
 
 #[test]

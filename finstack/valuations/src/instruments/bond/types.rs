@@ -377,12 +377,7 @@ impl Bond {
         tree.calibrate(discount_curve, time_to_maturity)?;
 
         // Create bond valuator with call/put schedule mapped to tree steps
-        let valuator = BondValuator::new(
-            self.clone(),
-            curves,
-            time_to_maturity,
-            tree_steps,
-        )?;
+        let valuator = BondValuator::new(self.clone(), curves, time_to_maturity, tree_steps)?;
 
         // Set up initial state variables (no OAS for vanilla pricing)
         let mut vars = StateVariables::new();
@@ -434,7 +429,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
                 return self.value_with_tree(curves, as_of);
             }
         }
-        
+
         // Standard cashflow discounting for straight bonds
         crate::instruments::common::helpers::schedule_pv_impl(
             self,

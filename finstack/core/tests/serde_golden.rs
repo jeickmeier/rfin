@@ -20,7 +20,7 @@ fn test_currency_json_stable() {
     let ccy = Currency::EUR;
     let json = serde_json::to_string(&ccy).unwrap();
     assert_eq!(json, r#""EUR""#);
-    
+
     let deserialized: Currency = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized, ccy);
 }
@@ -30,7 +30,7 @@ fn test_date_json_stable() {
     let date = test_date();
     let json = serde_json::to_string(&date).unwrap();
     assert_eq!(json, r#""2025-01-15""#);
-    
+
     let deserialized: Date = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized, date);
 }
@@ -40,7 +40,7 @@ fn test_frequency_json_stable() {
     let freq = Frequency::quarterly();
     let json = serde_json::to_string(&freq).unwrap();
     assert_eq!(json, r#"{"Months":3}"#);
-    
+
     let deserialized: Frequency = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized, freq);
 }
@@ -50,7 +50,7 @@ fn test_daycount_json_stable() {
     let dc = DayCount::Act360;
     let json = serde_json::to_string(&dc).unwrap();
     assert_eq!(json, r#""Act360""#);
-    
+
     let deserialized: DayCount = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized, dc);
 }
@@ -60,7 +60,7 @@ fn test_business_day_convention_json_stable() {
     let bdc = BusinessDayConvention::ModifiedFollowing;
     let json = serde_json::to_string(&bdc).unwrap();
     assert_eq!(json, r#""modified_following""#);
-    
+
     let deserialized: BusinessDayConvention = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized, bdc);
 }
@@ -70,7 +70,7 @@ fn test_stub_kind_json_stable() {
     let stub = StubKind::ShortFront;
     let json = serde_json::to_string(&stub).unwrap();
     assert_eq!(json, r#""ShortFront""#);
-    
+
     let deserialized: StubKind = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized, stub);
 }
@@ -80,7 +80,7 @@ fn test_cfkind_json_stable() {
     let kind = CFKind::Fixed;
     let json = serde_json::to_string(&kind).unwrap();
     assert_eq!(json, r#""Fixed""#);
-    
+
     let deserialized: CFKind = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized, kind);
 }
@@ -90,7 +90,7 @@ fn test_instrument_id_json_stable() {
     let id = InstrumentId::new("BOND_5Y_USD");
     let json = serde_json::to_string(&id).unwrap();
     assert_eq!(json, r#""BOND_5Y_USD""#);
-    
+
     let deserialized: InstrumentId = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized, id);
 }
@@ -100,7 +100,7 @@ fn test_curve_id_json_stable() {
     let id = CurveId::new("USD_SOFR_CURVE");
     let json = serde_json::to_string(&id).unwrap();
     assert_eq!(json, r#""USD_SOFR_CURVE""#);
-    
+
     let deserialized: CurveId = serde_json::from_str(&json).unwrap();
     assert_eq!(deserialized, id);
 }
@@ -108,10 +108,16 @@ fn test_curve_id_json_stable() {
 #[test]
 fn test_roundtrip_all_currencies() {
     let currencies = vec![
-        Currency::USD, Currency::EUR, Currency::GBP, Currency::JPY,
-        Currency::CHF, Currency::AUD, Currency::CAD, Currency::CNY,
+        Currency::USD,
+        Currency::EUR,
+        Currency::GBP,
+        Currency::JPY,
+        Currency::CHF,
+        Currency::AUD,
+        Currency::CAD,
+        Currency::CNY,
     ];
-    
+
     for ccy in currencies {
         let json = serde_json::to_string(&ccy).unwrap();
         let deserialized: Currency = serde_json::from_str(&json).unwrap();
@@ -131,7 +137,7 @@ fn test_roundtrip_all_daycounts() {
         DayCount::ActActIsma,
         DayCount::Bus252,
     ];
-    
+
     for dc in daycounts {
         let json = serde_json::to_string(&dc).unwrap();
         let deserialized: DayCount = serde_json::from_str(&json).unwrap();
@@ -148,11 +154,15 @@ fn test_roundtrip_all_business_day_conventions() {
         BusinessDayConvention::Preceding,
         BusinessDayConvention::ModifiedPreceding,
     ];
-    
+
     for bdc in conventions {
         let json = serde_json::to_string(&bdc).unwrap();
         let deserialized: BusinessDayConvention = serde_json::from_str(&json).unwrap();
-        assert_eq!(deserialized, bdc, "BusinessDayConvention {:?} failed roundtrip", bdc);
+        assert_eq!(
+            deserialized, bdc,
+            "BusinessDayConvention {:?} failed roundtrip",
+            bdc
+        );
     }
 }
 
@@ -167,7 +177,7 @@ fn test_roundtrip_all_cfkinds() {
         CFKind::Fee,
         CFKind::Stub,
     ];
-    
+
     for kind in kinds {
         let json = serde_json::to_string(&kind).unwrap();
         let deserialized: CFKind = serde_json::from_str(&json).unwrap();
@@ -181,18 +191,39 @@ fn test_roundtrip_all_cfkinds() {
 fn test_wire_format_documentation() {
     // Primitive types use simple string representation
     assert_eq!(serde_json::to_string(&Currency::USD).unwrap(), r#""USD""#);
-    assert_eq!(serde_json::to_string(&DayCount::Act360).unwrap(), r#""Act360""#);
+    assert_eq!(
+        serde_json::to_string(&DayCount::Act360).unwrap(),
+        r#""Act360""#
+    );
     assert_eq!(serde_json::to_string(&CFKind::Fixed).unwrap(), r#""Fixed""#);
-    
+
     // Date uses ISO 8601 format
-    assert_eq!(serde_json::to_string(&test_date()).unwrap(), r#""2025-01-15""#);
-    
+    assert_eq!(
+        serde_json::to_string(&test_date()).unwrap(),
+        r#""2025-01-15""#
+    );
+
     // Frequency uses structured format with Months (capitalized)
-    assert_eq!(serde_json::to_string(&Frequency::quarterly()).unwrap(), r#"{"Months":3}"#);
-    assert_eq!(serde_json::to_string(&Frequency::monthly()).unwrap(), r#"{"Months":1}"#);
-    assert_eq!(serde_json::to_string(&Frequency::annual()).unwrap(), r#"{"Months":12}"#);
-    
+    assert_eq!(
+        serde_json::to_string(&Frequency::quarterly()).unwrap(),
+        r#"{"Months":3}"#
+    );
+    assert_eq!(
+        serde_json::to_string(&Frequency::monthly()).unwrap(),
+        r#"{"Months":1}"#
+    );
+    assert_eq!(
+        serde_json::to_string(&Frequency::annual()).unwrap(),
+        r#"{"Months":12}"#
+    );
+
     // IDs use simple string representation
-    assert_eq!(serde_json::to_string(&InstrumentId::new("BOND")).unwrap(), r#""BOND""#);
-    assert_eq!(serde_json::to_string(&CurveId::new("CURVE")).unwrap(), r#""CURVE""#);
+    assert_eq!(
+        serde_json::to_string(&InstrumentId::new("BOND")).unwrap(),
+        r#""BOND""#
+    );
+    assert_eq!(
+        serde_json::to_string(&CurveId::new("CURVE")).unwrap(),
+        r#""CURVE""#
+    );
 }

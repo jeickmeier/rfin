@@ -22,16 +22,12 @@ pub struct AnnuityCalculator {
 impl AnnuityCalculator {
     /// Creates a calculator for the primary leg.
     pub const fn primary() -> Self {
-        Self {
-            is_primary: true
-        }
+        Self { is_primary: true }
     }
 
     /// Creates a calculator for the reference leg.
     pub const fn reference() -> Self {
-        Self {
-            is_primary: false
-        }
+        Self { is_primary: false }
     }
 }
 

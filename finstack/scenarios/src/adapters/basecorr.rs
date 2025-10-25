@@ -136,7 +136,7 @@ pub fn apply_basecorr_bucket_shock(
         let correlation = correlations[i];
 
         // Check if this detachment point matches filter
-        let matches = target_detachments.as_ref().map_or(true, |targets| {
+        let matches = target_detachments.as_ref().is_none_or(|targets| {
             targets.iter().any(|&t| (t - detachment).abs() < 0.01) // 0.01% tolerance
         });
 

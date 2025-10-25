@@ -1,13 +1,13 @@
 use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::{JsDayCount, JsFrequency};
+use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::irs::InterestRateSwap;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
-use crate::core::error::js_error;
 
 #[wasm_bindgen(js_name = InterestRateSwap)]
 #[derive(Clone, Debug)]
@@ -45,18 +45,28 @@ impl JsInterestRateSwap {
         stub_kind: Option<crate::core::dates::schedule::JsStubKind>,
         reset_lag_days: Option<i32>,
     ) -> Result<JsInterestRateSwap, JsValue> {
-        use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec, PayReceive};
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;
+        use finstack_valuations::instruments::common::parameters::legs::{
+            FixedLegSpec, FloatLegSpec, PayReceive,
+        };
 
         let side_parsed: PayReceive = side.parse().map_err(js_error)?;
         let bdc = business_day_convention
             .map(Into::<BusinessDayConvention>::into)
             .unwrap_or(BusinessDayConvention::ModifiedFollowing);
-        let fixed_freq = fixed_frequency.map(|f| f.inner()).unwrap_or(finstack_core::dates::Frequency::semi_annual());
-        let float_freq = float_frequency.map(|f| f.inner()).unwrap_or(finstack_core::dates::Frequency::quarterly());
-        let fixed_dc = fixed_day_count.map(|d| d.inner()).unwrap_or(finstack_core::dates::DayCount::Thirty360);
-        let float_dc = float_day_count.map(|d| d.inner()).unwrap_or(finstack_core::dates::DayCount::Act360);
+        let fixed_freq = fixed_frequency
+            .map(|f| f.inner())
+            .unwrap_or(finstack_core::dates::Frequency::semi_annual());
+        let float_freq = float_frequency
+            .map(|f| f.inner())
+            .unwrap_or(finstack_core::dates::Frequency::quarterly());
+        let fixed_dc = fixed_day_count
+            .map(|d| d.inner())
+            .unwrap_or(finstack_core::dates::DayCount::Thirty360);
+        let float_dc = float_day_count
+            .map(|d| d.inner())
+            .unwrap_or(finstack_core::dates::DayCount::Act360);
         let stub = stub_kind.map(|s| s.inner()).unwrap_or(StubKind::None);
         let fixed = FixedLegSpec {
             disc_id: curve_id_from_str(discount_curve),

@@ -68,7 +68,7 @@ impl BinomialTree {
         }
 
         // LR recommend an odd number of steps for best accuracy; use nearest upper odd in mapping
-        let n_eff = if n % 2 == 0 { n + 1 } else { n } as f64;
+        let n_eff = (if n.is_multiple_of(2) { n + 1 } else { n }) as f64;
         let sign = if z >= 0.0 { 1.0 } else { -1.0 };
         let z2 = z * z;
 
