@@ -221,8 +221,9 @@ def test_discount_curve_calibrator_basic() -> None:
         ),
     ]
     calibrator = cal.DiscountCurveCalibrator("USD-OIS", base_date, "USD")
-    with pytest.raises(RuntimeError):
-        calibrator.calibrate(quotes)
+    curve, report = calibrator.calibrate(quotes)
+    assert report.success
+    assert len(curve.points) > 0
 
 
 def test_forward_curve_calibrator_with_context() -> None:
@@ -243,8 +244,9 @@ def test_forward_curve_calibrator_with_context() -> None:
         "USD",
         "USD-OIS",
     )
-    with pytest.raises(RuntimeError):
-        calibrator.calibrate([fra], market)
+    curve, report = calibrator.calibrate([fra], market)
+    assert report.success
+    assert len(curve.points) > 0
 
 
 def test_hazard_curve_calibrator_basic() -> None:

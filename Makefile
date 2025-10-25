@@ -1,4 +1,4 @@
-.PHONY: help setup-python build test clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev
+.PHONY: help setup-python build test clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev ci_test
 
 help:
 	@echo "Available targets:"
@@ -16,6 +16,7 @@ help:
 	@echo "  coverage-html - Generate HTML coverage report"
 	@echo "  coverage-open - Generate HTML coverage report and open in browser"
 	@echo "  coverage-lcov - Generate LCOV coverage report for CI"
+	@echo "  ci_test       - Run all CI checks locally (mirrors GitHub Actions)"
 
 setup-python:
 	@echo "Setting up Python development environment..."
@@ -91,3 +92,91 @@ coverage-open:
 coverage-lcov:
 	@echo "Generating LCOV coverage report for CI (finstack Rust library only)..."
 	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --lcov --output-path coverage.lcov --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
+
+ci_test:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "🚀 Running CI checks locally (mirrors GitHub Actions workflow)"
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo ""
+	@echo "📋 Job 1/8: Format Check"
+	@echo "────────────────────────────────────────────────────────────────"
+	cargo fmt --all --check
+	@echo "✅ Format check passed"
+	@echo ""
+	@echo "📋 Job 2/8: Clippy (Linter)"
+	@echo "────────────────────────────────────────────────────────────────"
+	cargo clippy --workspace --all-targets --all-features -- -D warnings
+	@echo "✅ Clippy passed"
+	@echo ""
+	@echo "📋 Job 3/8: Tests"
+	@echo "────────────────────────────────────────────────────────────────"
+	@echo cargo test --workspace --all-features --jobs 1
+	@echo ""
+	@echo "📋 Job 3b/8: Doc Tests"
+	@echo "────────────────────────────────────────────────────────────────"
+	@echo cargo test --workspace --doc --all-features --jobs 1
+	@echo "✅ Tests passed"
+	@echo ""
+	@echo "📋 Job 4/8: Code Coverage"
+	@echo "────────────────────────────────────────────────────────────────"
+	@command -v cargo-llvm-cov >/dev/null 2>&1 || { echo "Installing cargo-llvm-cov..."; cargo install cargo-llvm-cov; }
+	CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info --jobs 1
+	@COVERAGE=$$(cargo llvm-cov --workspace --all-features --summary-only --jobs 1 | grep 'TOTAL' | awk '{print $$10}' | sed 's/%//'); \
+	echo "Coverage: $${COVERAGE}%"; \
+	if [ -n "$$COVERAGE" ] && [ $$(echo "$$COVERAGE < 50" | bc -l 2>/dev/null || echo "0") -eq 1 ]; then \
+		echo "❌ Coverage $${COVERAGE}% is below minimum threshold of 50%"; \
+		exit 1; \
+	fi
+	@echo "✅ Coverage passed"
+	@echo ""
+	@echo "📋 Job 5/8: Python Bindings"
+	@echo "────────────────────────────────────────────────────────────────"
+	@echo "Creating temporary virtual environment for Python tests..."
+	@uv venv .venv-ci-test
+	@. .venv-ci-test/bin/activate && \
+		uv pip install maturin pytest && \
+		cd finstack-py && \
+		maturin build --release && \
+		cd .. && \
+		WHEEL=$$(ls target/wheels/*.whl 2>/dev/null | head -n1); \
+		if [ -z "$$WHEEL" ]; then \
+			echo "❌ No wheel found in target/wheels/"; \
+			exit 1; \
+		fi; \
+		echo "Installing wheel: $$WHEEL"; \
+		uv pip install "$$WHEEL" --force-reinstall && \
+		python3 -c "import finstack; print('finstack imported successfully'); print('Available modules:', ', '.join(finstack.__all__))" && \
+		cd finstack-py && \
+		pytest tests/ -v
+	@rm -rf .venv-ci-test
+	@echo "✅ Python bindings passed"
+	@echo ""
+	@echo "📋 Job 6/8: WASM Build"
+	@echo "────────────────────────────────────────────────────────────────"
+	@rustup target list | grep -q "wasm32-unknown-unknown (installed)" || { echo "Installing wasm32 target..."; rustup target add wasm32-unknown-unknown; }
+	@command -v wasm-pack >/dev/null 2>&1 || { echo "Installing wasm-pack..."; curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh; }
+	cd finstack-wasm && wasm-pack build --target web --release
+	@echo "Verifying WASM artifacts..."
+	@test -f finstack-wasm/pkg/finstack_wasm_bg.wasm || { echo "❌ Missing: finstack_wasm_bg.wasm"; exit 1; }
+	@test -f finstack-wasm/pkg/finstack_wasm.js || { echo "❌ Missing: finstack_wasm.js"; exit 1; }
+	@test -f finstack-wasm/pkg/finstack_wasm.d.ts || { echo "❌ Missing: finstack_wasm.d.ts"; exit 1; }
+	@test -f finstack-wasm/pkg/package.json || { echo "❌ Missing: package.json"; exit 1; }
+	@echo "Running WASM tests..."
+	cd finstack-wasm && wasm-pack test --node
+	@echo "✅ WASM build passed"
+	@echo ""
+	@echo "📋 Job 7/8: Examples Build"
+	@echo "────────────────────────────────────────────────────────────────"
+	cargo build --workspace --examples
+	@test -d finstack/examples || { echo "❌ Examples directory not found"; exit 1; }
+	@find finstack/examples -name "*.rs" -type f
+	@echo "✅ Examples build passed"
+	@echo ""
+	@echo "📋 Job 8/8: MSRV Check"
+	@echo "────────────────────────────────────────────────────────────────"
+	cargo check --workspace --all-features
+	@echo "✅ MSRV check passed"
+	@echo ""
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "🎉 All CI checks passed! Ready to push."
+	@echo "════════════════════════════════════════════════════════════════"

@@ -86,7 +86,8 @@ python_functions = ["test_*"]
 python_classes = ["Test*"]
 
 # Pytest general options (migrated from pytest.ini)
-addopts = "--cov-report term-missing --cov=finstack-py tests/"
+# Note: Coverage disabled for Rust extension modules (PyO3) - use Rust coverage tools instead
+addopts = "tests/"
 
 # Custom markers used across the test-suite
 markers = [
@@ -95,9 +96,6 @@ markers = [
     "integration: integration tests",
     "slow: long-running tests (waterfall/valuation) that are opt-in",
 ]
-
-# Match asyncio plugin behaviour from pytest.ini
-asyncio_default_fixture_loop_scope = "module"
 
 # Warnings configuration
 filterwarnings = [
