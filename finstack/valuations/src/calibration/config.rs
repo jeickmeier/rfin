@@ -164,6 +164,7 @@ impl CalibrationConfig {
 ///
 /// Calibration Tolerances structure.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[allow(dead_code)] // Public API type intended for external consumers; not used internally yet
 pub struct CalibrationTolerances {
     /// Maximum absolute residual for deposits/futures (basis points).
     ///

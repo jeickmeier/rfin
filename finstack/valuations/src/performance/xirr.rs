@@ -15,7 +15,7 @@ use finstack_core::math::solver::{HybridSolver, Solver};
 ///
 /// # Arguments
 /// * `cash_flows` - Vector of (date, amount) tuples. Negative amounts represent outflows,
-///                  positive amounts represent inflows.
+///   positive amounts represent inflows.
 /// * `guess` - Optional initial guess for the IRR (defaults to 0.1 = 10%)
 ///
 /// # Returns

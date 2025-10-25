@@ -40,10 +40,4 @@ impl MetricCalculator for RhoCalculator {
     }
 }
 
-pub struct ThetaCalculator;
-impl MetricCalculator for ThetaCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let bond = context.instrument_as::<ConvertibleBond>()?;
-        bond.theta(&context.curves)
-    }
-}
+// Theta calculator is implemented in `metrics/theta.rs` to share a generic implementation.
