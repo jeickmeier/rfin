@@ -34,11 +34,7 @@ jobs:
 
   test:
     name: Test
-    strategy:
-      matrix:
-        #os: [ubuntu-latest, windows-latest, macos-latest]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     env:
       CARGO_BUILD_JOBS: 1
     steps:
@@ -86,40 +82,39 @@ jobs:
           fi
 
   python:
-    name: Python ${{ matrix.python-version }} - ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        #os: [ubuntu-latest, macos-latest, windows-latest]
-        os: [ubuntu-latest]
-        python-version: ["3.12"]
+    name: Python Bindings
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
       - uses: dtolnay/rust-toolchain@1.90
       - uses: Swatinem/rust-cache@v2
       - name: Install uv
         run: pip install uv
-      - name: Build Python wheel
-        working-directory: finstack-py
+      - name: Create virtual environment
+        run: uv venv .venv-ci-test
+      - name: Build and test Python bindings
         run: |
-          uv pip install --system maturin
+          . .venv-ci-test/bin/activate
+          uv pip install maturin pytest
+          cd finstack-py
           maturin build --release
-      - name: Install wheel
-        shell: bash
-        run: |
-          WHEEL=$(ls target/wheels/*.whl | head -n1)
-          uv pip install --system "$WHEEL"
-      - name: Test Python import
-        run: python -c "import finstack; print('finstack imported successfully'); print('Available modules:', ', '.join(finstack.__all__))"
-      - name: Run Python tests
-        working-directory: finstack-py
-        run: |
-          uv pip install --system pytest
+          cd ..
+          WHEEL=$(ls target/wheels/*.whl 2>/dev/null | head -n1)
+          if [ -z "$WHEEL" ]; then
+            echo "❌ No wheel found in target/wheels/"
+            exit 1
+          fi
+          echo "Installing wheel: $WHEEL"
+          uv pip install "$WHEEL" --force-reinstall
+          python3 -c "import finstack; print('finstack imported successfully'); print('Available modules:', ', '.join(finstack.__all__))"
+          cd finstack-py
           pytest tests/ -v
+      - name: Cleanup
+        if: always()
+        run: rm -rf .venv-ci-test
 
   wasm:
     name: WASM Build
@@ -152,19 +147,17 @@ jobs:
         run: wasm-pack test --node
 
   examples:
-    name: Examples
+    name: Examples Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.90
       - uses: Swatinem/rust-cache@v2
       - name: Build all examples
         run: cargo build --workspace --examples
-      - name: Check example metadata
+      - name: Verify examples directory
         run: |
-          # Verify examples directory structure
-          test -d finstack/examples
-          # List all examples for visibility
+          test -d finstack/examples || { echo "❌ Examples directory not found"; exit 1; }
           find finstack/examples -name "*.rs" -type f
 
   msrv:

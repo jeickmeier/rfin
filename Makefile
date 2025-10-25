@@ -110,11 +110,11 @@ ci_test:
 	@echo ""
 	@echo "📋 Job 3/8: Tests"
 	@echo "────────────────────────────────────────────────────────────────"
-	@echo cargo test --workspace --all-features --jobs 1
+	cargo test --workspace --all-features --jobs 1
 	@echo ""
 	@echo "📋 Job 3b/8: Doc Tests"
 	@echo "────────────────────────────────────────────────────────────────"
-	@echo cargo test --workspace --doc --all-features --jobs 1
+	cargo test --workspace --doc --all-features --jobs 1
 	@echo "✅ Tests passed"
 	@echo ""
 	@echo "📋 Job 4/8: Code Coverage"
