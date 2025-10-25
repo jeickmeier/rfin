@@ -1,42 +1,13 @@
-[llvm-cov]
-# Enable workspace mode by default
-workspace = true
+# Cargo configuration for CI and local builds
 
-# Generate both summary and HTML reports
-html = true
+[build]
+# Limit jobs to prevent resource exhaustion on CI
+# jobs = 1  # Uncomment if needed
 
-# Include test code in coverage
-test = true
+[target.x86_64-unknown-linux-gnu]
+# Force single-threaded linking to prevent memory exhaustion on CI
+rustflags = ["-C", "link-arg=-Wl,--no-threads"]
 
-# Include doctests in coverage
-doctest = true
-
-# Set coverage directory
-output-dir = "target/llvm-cov"
-
-# Generate LCOV format for CI integration
-lcov = true
-
-# Set coverage format
-format = "html+lcov"
-
-# Disable incremental compilation to prevent metadata mismatches  
-no-cfg-coverage = false
-
-# Use stable instrumentation to reduce function mismatches
-branch = false
-
-# Skip dead functions that cause metadata issues
-skip-functions = true
-
-# Additional flags to reduce metadata conflicts
-remap-path-prefix = true
-
-# Ignore generic instantiations in generated code and bindings
-ignore-filename-regex = ".*/target/.*|.*/.cargo/.*|.*finstack-py/.*|.*finstack-wasm/.*"
-
-# Reduce inlining conflicts that cause metadata mismatches
-no-demangle = true
-
-# Explicitly exclude binding crates from coverage
-exclude-packages = ["finstack-py", "finstack-wasm"]
+[target.aarch64-unknown-linux-gnu]
+# Force single-threaded linking to prevent memory exhaustion on CI
+rustflags = ["-C", "link-arg=-Wl,--no-threads"]

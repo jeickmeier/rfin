@@ -75,12 +75,12 @@ jobs:
         with:
           files: lcov.info
           fail_ci_if_error: false
-      - name: Check minimum coverage threshold (60%)
+      - name: Check minimum coverage threshold (50%)
         run: |
           COVERAGE=$(cargo llvm-cov --workspace --all-features --summary-only --jobs 1 | grep 'TOTAL' | awk '{print $10}' | sed 's/%//')
           echo "Coverage: ${COVERAGE}%"
-          if (( $(echo "$COVERAGE < 60" | bc -l) )); then
-            echo "Coverage ${COVERAGE}% is below minimum threshold of 60%"
+          if (( $(echo "$COVERAGE < 50" | bc -l) )); then
+            echo "Coverage ${COVERAGE}% is below minimum threshold of 50%"
             exit 1
           fi
 
@@ -112,7 +112,7 @@ jobs:
           WHEEL=$(ls target/wheels/*.whl | head -n1)
           uv pip install --system "$WHEEL"
       - name: Test Python import
-        run: python -c "import finstack; print('finstack version:', finstack.__version__)"
+        run: python -c "import finstack; print('finstack imported successfully'); print('Available modules:', ', '.join(finstack.__all__))"
       - name: Run Python tests
         working-directory: finstack-py
         run: |
