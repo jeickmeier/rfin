@@ -1,8 +1,6 @@
-"""Deterministic scenario capability for stress testing and what-if analysis.
+"""Reproducible scenario capability for stress testing and what-if analysis.
 
-This module provides tools for applying shocks to market data and financial
-statement forecasts, enabling deterministic scenario analysis with stable
-composition and priority-based conflict resolution.
+statement forecasts, enabling reproducible scenario analysis with stable
 """
 
 from .enums import CurveKind, VolSurfaceKind, TenorMatchMode

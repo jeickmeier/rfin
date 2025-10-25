@@ -260,11 +260,6 @@ impl JsPositionUnit {
     pub(crate) fn from_inner(inner: PositionUnit) -> Self {
         Self { inner }
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> PositionUnit {
-        self.inner
-    }
 }
 
 /// A position in an instrument.
@@ -310,7 +305,6 @@ impl JsPosition {
     /// # Returns
     ///
     /// New Position instance
-    #[allow(dead_code)]
     pub(crate) fn new_with_instrument(
         position_id: String,
         entity_id: String,

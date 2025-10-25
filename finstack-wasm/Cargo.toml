@@ -6,7 +6,7 @@ rust-version.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "WebAssembly bindings for Finstack - deterministic financial computation library"
+description = "WebAssembly bindings for Finstack - high-performance financial computation library"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

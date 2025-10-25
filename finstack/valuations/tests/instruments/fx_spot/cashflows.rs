@@ -1,6 +1,8 @@
 //! FX Spot cashflow generation and settlement tests.
 
 use super::common::*;
+use finstack_core::types::InstrumentId;
+use finstack_valuations::instruments::FxSpot;
 use finstack_core::{
     currency::Currency, dates::BusinessDayConvention, market_data::MarketContext, money::Money,
 };
@@ -101,27 +103,26 @@ fn test_settlement_explicit_rate_overrides_matrix() {
     );
 }
 
-// TODO: Re-enable when with_settlement_lag_days is implemented
-// #[test]
-// fn test_settlement_lag_custom() {
-//     let fx = FxSpot::new(
-//         InstrumentId::new("EURUSD"),
-//         Currency::EUR,
-//         Currency::USD,
-//     )
-//     .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
-//     .unwrap()
-//     .with_rate(1.20)
-//     .with_settlement(d(2025, 1, 16)); // T+1
-//
-//     let market = MarketContext::new();
-//     let as_of = d(2025, 1, 15); // Wednesday
-//
-//     let cashflows = fx.build_schedule(&market, as_of).unwrap();
-//
-//     assert_eq!(cashflows.len(), 1);
-//     assert_eq!(cashflows[0].0, d(2025, 1, 16));
-// }
+#[test]
+fn test_settlement_lag_custom() {
+    let fx = FxSpot::new(
+        InstrumentId::new("EURUSD"),
+        Currency::EUR,
+        Currency::USD,
+    )
+    .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+    .unwrap()
+    .with_rate(1.20)
+    .with_settlement(d(2025, 1, 16)); // T+1
+
+    let market = MarketContext::new();
+    let as_of = d(2025, 1, 15); // Wednesday
+
+    let cashflows = fx.build_schedule(&market, as_of).unwrap();
+
+    assert_eq!(cashflows.len(), 1);
+    assert_eq!(cashflows[0].0, d(2025, 1, 16));
+}
 
 #[test]
 fn test_settlement_lag_over_weekend() {
@@ -209,45 +210,43 @@ fn test_settlement_without_rate_or_matrix_fails() {
     assert!(result.is_err());
 }
 
-// TODO: Re-enable when with_settlement_lag_days is implemented
-// #[test]
-// fn test_settlement_lag_negative() {
-//     // Test backward-looking settlement (unusual but valid)
-//     let fx = FxSpot::new(
-//         InstrumentId::new("EURUSD"),
-//         Currency::EUR,
-//         Currency::USD,
-//     )
-//     .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
-//     .unwrap()
-//     .with_rate(1.20)
-//     .with_settlement(d(2025, 1, 15)); // Past date
-//
-//     let market = MarketContext::new();
-//     let as_of = d(2025, 1, 17); // Friday
-//
-//     let cashflows = fx.build_schedule(&market, as_of).unwrap();
-//
-//     // Past date means no cashflow
-//     assert_eq!(cashflows.len(), 0);
-// }
+#[test]
+fn test_settlement_lag_negative() {
+    // Test backward-looking settlement (unusual but valid)
+    let fx = FxSpot::new(
+        InstrumentId::new("EURUSD"),
+        Currency::EUR,
+        Currency::USD,
+    )
+    .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+    .unwrap()
+    .with_rate(1.20)
+    .with_settlement(d(2025, 1, 15)); // Past date
 
-// TODO: Re-enable when with_settlement_lag_days is implemented
-// #[test]
-// fn test_calendar_aware_settlement_lag() {
-//     let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-//         .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
-//         .unwrap()
-//         .with_rate(1.20)
-//         .with_calendar_id("NewYork")
-//         .with_settlement(d(2025, 1, 17)); // T+2
-//
-//     let market = MarketContext::new();
-//     let as_of = d(2025, 1, 15);
-//
-//     let cashflows = fx.build_schedule(&market, as_of).unwrap();
-//
-//     assert_eq!(cashflows.len(), 1);
-//     // Should respect calendar holidays if any
-//     assert!(cashflows[0].0 > as_of);
-// }
+    let market = MarketContext::new();
+    let as_of = d(2025, 1, 17); // Friday
+
+    let cashflows = fx.build_schedule(&market, as_of).unwrap();
+
+    // Past date means no cashflow
+    assert_eq!(cashflows.len(), 0);
+}
+
+#[test]
+fn test_calendar_aware_settlement_lag() {
+    let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .unwrap()
+        .with_rate(1.20)
+        .with_calendar_id("NewYork")
+        .with_settlement(d(2025, 1, 17)); // T+2
+
+    let market = MarketContext::new();
+    let as_of = d(2025, 1, 15);
+
+    let cashflows = fx.build_schedule(&market, as_of).unwrap();
+
+    assert_eq!(cashflows.len(), 1);
+    // Should respect calendar holidays if any
+    assert!(cashflows[0].0 > as_of);
+}

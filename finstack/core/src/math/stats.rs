@@ -18,18 +18,15 @@
 //! assert!((correlation(&xs, &ys) - 1.0).abs() < 1e-12);
 //! ```
 
-use super::summation::{kahan_sum, pairwise_sum};
+use super::summation::kahan_sum;
 
 /// Arithmetic mean.
 pub fn mean(xs: &[f64]) -> f64 {
     if xs.is_empty() {
         return 0.0;
     }
-    let s = if cfg!(feature = "deterministic") {
-        pairwise_sum(xs)
-    } else {
-        kahan_sum(xs.iter().copied())
-    };
+    // Use Kahan summation for numerical stability by default
+    let s = kahan_sum(xs.iter().copied());
     s / xs.len() as f64
 }
 

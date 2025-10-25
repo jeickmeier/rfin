@@ -7,6 +7,7 @@
 use crate::error::{Error, Result};
 use finstack_core::market_data::MarketContext;
 use finstack_statements::{AmountOrScalar, FinancialModelSpec};
+use finstack_statements::evaluator::Evaluator;
 
 /// Apply a percentage change to a statement node's forecast values.
 ///
@@ -199,8 +200,10 @@ pub fn update_rate_from_curve(
 /// assert!(reevaluate_model(&mut model).is_ok());
 /// ```
 pub fn reevaluate_model(_model: &mut FinancialModelSpec) -> Result<()> {
-    // FinancialModelSpec needs to be evaluated via Evaluator
-    // For scenarios, the caller should re-evaluate after applying shocks
-    // TODO: Implement this
+    // Evaluate the model to propagate any changes made by scenario operations.
+    // Results are intentionally discarded here; callers can re-run evaluation
+    // and consume results as needed after scenarios are applied.
+    let mut evaluator = Evaluator::new();
+    evaluator.evaluate(_model)?;
     Ok(())
 }

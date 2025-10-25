@@ -99,7 +99,7 @@ achieving feature parity with the Python bindings.
 - Instrument-specific pricing methods (e.g., `priceBond`, `priceCreditDefaultSwap`, etc.).
 
 ### Scenarios & Stress Testing
-- **`JsScenarioEngine`** – deterministic scenario execution engine.
+- **`JsScenarioEngine`** – reproducible scenario execution engine with stable ordering.
 - **`JsScenarioSpec`** – scenario specifications with operations and metadata.
 - **`JsOperationSpec`** – individual shock operations (market, statement, time).
 - **`JsExecutionContext`** – execution context wrapping market, model, and date.

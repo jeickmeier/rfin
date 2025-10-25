@@ -51,6 +51,7 @@ pub mod pricing_overrides;
 pub mod private_markets_fund;
 /// repo module.
 pub mod repo;
+// Revolving credit facility is incomplete - disabled for beta release
 // pub mod revolving_credit;
 /// structured credit module.
 pub mod structured_credit;

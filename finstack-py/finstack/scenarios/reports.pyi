@@ -9,7 +9,7 @@ class ApplicationReport:
     Attributes:
         operations_applied: Number of operations successfully applied
         warnings: Warnings generated during application (non-fatal)
-        rounding_context: Rounding context stamp (for determinism tracking)
+        rounding_context: Rounding context stamp (for reproducibility metadata)
     """
     
     @property
@@ -32,7 +32,7 @@ class ApplicationReport:
     
     @property
     def rounding_context(self) -> Optional[str]:
-        """Rounding context stamp (for determinism tracking).
+        """Rounding context stamp (for reproducibility metadata).
         
         Returns:
             str | None: Rounding context identifier if available

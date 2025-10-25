@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 /// - Ratio comparisons (leverage, margins)
 /// - Percentage change comparisons
 ///
-/// Note: For currency comparisons, use the Money type with Decimal arithmetic, not f64.
+/// Note: For currency comparisons, use the Money type and currency-safe logic, not raw f64 arithmetic.
 const EPSILON: f64 = 1e-10;
 
 /// Convert boolean to f64 (1.0 for true, 0.0 for false).

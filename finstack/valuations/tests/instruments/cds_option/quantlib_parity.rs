@@ -41,7 +41,7 @@
 //! ## Implementation Notes:
 //!
 //! - Property-based rather than exact value comparison (no direct QuantLib integration)
-//! - Uses Decimal for deterministic calculations (QuantLib uses double)
+//! - Uses f64 with documented tolerances; QuantLib uses double
 //! - Follows Black-on-spreads convention (same as QuantLib)
 //! - Implements ISDA-standard risky annuity calculation
 

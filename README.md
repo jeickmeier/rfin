@@ -138,7 +138,8 @@ python -m http.server 8000
 ## CI/CD
 ## Determinism and Parallelism Policy
 
-By default, builds enable deterministic numerics for accounting-grade reproducibility. When the `parallel` feature is enabled, parallel execution is used only in ways that preserve bit-identical results relative to the sequential path. If a parallel path cannot be proven bit-identical, it remains disabled.
+- Default numeric mode is f64. Results are reproducible on a consistent architecture/toolchain and within documented numerical tolerances.
+- Parallel execution (via the `parallel` feature) is used in ways that preserve stable ordering and numerics relative to the sequential path. If a parallel path cannot be validated to match within tolerances, it remains disabled.
 
 
 The project uses GitHub Actions for continuous integration:

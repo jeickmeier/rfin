@@ -29,7 +29,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   test:
     name: Test
@@ -43,8 +44,118 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-      - name: Test all features
-        run: cargo test
+      - uses: Swatinem/rust-cache@v2
+      - name: Test workspace
+        run: cargo test --workspace --all-features
+      - name: Test doc examples
+        run: cargo test --workspace --doc --all-features
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate coverage
+        run: cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+      - name: Check minimum coverage threshold (60%)
+        run: |
+          COVERAGE=$(cargo llvm-cov --workspace --all-features --summary-only | grep 'TOTAL' | awk '{print $10}' | sed 's/%//')
+          echo "Coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 60" | bc -l) )); then
+            echo "Coverage ${COVERAGE}% is below minimum threshold of 60%"
+            exit 1
+          fi
+
+  python:
+    name: Python ${{ matrix.python-version }} - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install uv
+        run: pip install uv
+      - name: Build Python wheel
+        working-directory: finstack-py
+        run: |
+          uv pip install --system maturin
+          maturin build --release
+      - name: Install wheel
+        working-directory: finstack-py
+        shell: bash
+        run: |
+          WHEEL=$(ls target/wheels/*.whl | head -n1)
+          uv pip install --system "$WHEEL"
+      - name: Test Python import
+        run: python -c "import finstack; print('finstack version:', finstack.__version__)"
+      - name: Run Python tests
+        working-directory: finstack-py
+        run: |
+          uv pip install --system pytest
+          pytest tests/ -v
+
+  wasm:
+    name: WASM Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Build WASM package
+        working-directory: finstack-wasm
+        run: wasm-pack build --target web --release
+      - name: Verify WASM artifacts
+        working-directory: finstack-wasm
+        run: |
+          ls -la pkg/
+          test -f pkg/finstack_wasm_bg.wasm
+          test -f pkg/finstack_wasm.js
+          test -f pkg/finstack_wasm.d.ts
+          test -f pkg/package.json
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run WASM tests
+        working-directory: finstack-wasm
+        run: wasm-pack test --node
+
+  examples:
+    name: Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build all examples
+        run: cargo build --workspace --examples
+      - name: Check example metadata
+        run: |
+          # Verify examples directory structure
+          test -d finstack/examples
+          # List all examples for visibility
+          find finstack/examples -name "*.rs" -type f
 
   no-std-check:
     name: Check no_std
@@ -54,50 +165,28 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: thumbv6m-none-eabi
+      - uses: Swatinem/rust-cache@v2
       - name: Check core builds for no_std target
-        run: cargo check
+        working-directory: finstack/core
+        run: cargo check --target thumbv6m-none-eabi --no-default-features
 
-  # python:
-  #   name: Python Bindings
-  #   runs-on: ${{ matrix.os }}
-  #   strategy:
-  #     matrix:
-  #       os: [ubuntu-latest, windows-latest, macos-latest]
-  #       python-version: ["3.8", "3.11", "3.12"]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-python@v5
-  #       with:
-  #         python-version: ${{ matrix.python-version }}
-  #     - uses: dtolnay/rust-toolchain@stable
-  #     - name: Install maturin
-  #       run: pip install maturin
-  #     - name: Build Python wheel
-  #       working-directory: rfin-python
-  #       run: maturin build
-  #     - name: Install and test import
-  #       working-directory: rfin-python
-  #       run: |
-  #         pip install target/wheels/*.whl
-  #         python -c "import rfin; print(rfin.__version__)"
+  deny:
+    name: Cargo Deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          log-level: warn
+          command: check
+          arguments: --all-features
 
-  # wasm:
-  #   name: WASM Build
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: dtolnay/rust-toolchain@stable
-  #       with:
-  #         targets: wasm32-unknown-unknown
-  #     - name: Install wasm-pack
-  #       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-  #     - name: Build WASM package
-  #       working-directory: rfin-wasm
-  #       run: wasm-pack build --target web
-  #     - name: Check WASM package
-  #       working-directory: rfin-wasm
-  #       run: |
-  #         ls -la pkg/
-  #         test -f pkg/rfin_wasm_bg.wasm
-  #         test -f pkg/rfin_wasm.js
-  #         test -f pkg/package.json
+  msrv:
+    name: Minimum Supported Rust Version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.78
+      - uses: Swatinem/rust-cache@v2
+      - name: Check MSRV
+        run: cargo check --workspace --all-features

@@ -250,7 +250,7 @@ The WASM bindings provide 100% API parity with the Rust implementation:
 ✅ Priority-based ordering  
 ✅ JSON serialization  
 ✅ Error handling  
-✅ Deterministic execution  
+✅ Reproducible execution  
 
 ## Further Documentation
 

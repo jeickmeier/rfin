@@ -82,7 +82,6 @@ impl<'py> FromPyObject<'py> for BusinessDayConventionArg {
     }
 }
 
-#[allow(dead_code)]
 pub struct DayCountArg(pub DayCount);
 
 impl<'py> FromPyObject<'py> for DayCountArg {
@@ -115,7 +114,6 @@ impl<'py> FromPyObject<'py> for DayCountArg {
     }
 }
 
-#[allow(dead_code)]
 pub struct InterpStyleArg(pub InterpStyle);
 
 impl<'py> FromPyObject<'py> for InterpStyleArg {
@@ -145,7 +143,6 @@ impl<'py> FromPyObject<'py> for InterpStyleArg {
     }
 }
 
-#[allow(dead_code)]
 pub struct ExtrapolationPolicyArg(pub ExtrapolationPolicy);
 
 impl<'py> FromPyObject<'py> for ExtrapolationPolicyArg {

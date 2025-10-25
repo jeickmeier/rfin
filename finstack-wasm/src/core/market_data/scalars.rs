@@ -15,11 +15,6 @@ pub struct JsSeriesInterpolation {
 }
 
 impl JsSeriesInterpolation {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> SeriesInterpolation {
-        self.inner
-    }
-
     fn new(inner: SeriesInterpolation) -> Self {
         Self { inner }
     }

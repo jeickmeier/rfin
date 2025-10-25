@@ -32,7 +32,7 @@
 //! The engine currently operates in a single numeric mode: [`NumericMode::F64`].
 //! To make this explicit and avoid unnecessary function calls, the active mode
 //! is exposed as a constant: [`NUMERIC_MODE`]. Future releases may introduce
-//! additional modes (e.g., Decimal) or feature-gated switching; in that case
+//! additional modes (e.g., alternative numeric strategies) or feature-gated switching; in that case
 //! the constant will remain stable and reflect the compile-time choice.
 
 #[cfg(feature = "serde")]

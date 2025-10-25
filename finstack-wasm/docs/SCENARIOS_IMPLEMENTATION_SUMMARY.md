@@ -36,7 +36,7 @@ Complete WASM bindings for the `finstack-scenarios` crate have been successfully
 4. **`src/scenarios/engine.rs`** (150 lines)
    - `JsScenarioEngine` - Main execution orchestrator
      * `new()` - Create engine instance
-     * `compose(scenarios)` - Deterministic scenario composition
+     * `compose(scenarios)` - Stable scenario composition
      * `apply(spec, context)` - Execute scenario against context
    - `JsExecutionContext` - Mutable state container
      * Wraps MarketContext, FinancialModelSpec, and as_of date
@@ -104,7 +104,7 @@ Complete WASM bindings for the `finstack-scenarios` crate have been successfully
 ### Engine Features
 
 ✅ Scenario composition with priority-based ordering
-✅ Deterministic execution with stable sort
+✅ Reproducible execution with stable sort
 ✅ Warning collection for non-fatal issues
 ✅ Comprehensive error handling with JavaScript exceptions
 

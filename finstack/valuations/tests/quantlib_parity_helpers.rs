@@ -12,7 +12,7 @@
 //!
 //! Default tolerance is 0.01% relative (1 basis point), which is appropriate for
 //! most financial calculations. This accounts for:
-//! - Rounding differences between Decimal (finstack) and double (QuantLib)
+//! - Rounding differences between f64 (finstack) and QuantLib double
 //! - Minor numerical method differences
 //! - Day count convention edge cases
 //!

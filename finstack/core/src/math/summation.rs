@@ -44,14 +44,6 @@ pub fn pairwise_sum(xs: &[f64]) -> f64 {
 /// Determinism-aware sum: when the `deterministic` feature is enabled, use a
 /// stable summation (pairwise). Otherwise use the standard iterator sum.
 pub fn stable_sum(xs: &[f64]) -> f64 {
-    #[cfg(feature = "deterministic")]
-    {
-        pairwise_sum(xs)
-    }
-    #[cfg(not(feature = "deterministic"))]
-    {
-        // Use Kahan summation in non-deterministic mode for better numerical stability
-        // while preserving iteration order.
-        kahan_sum(xs.iter().copied())
-    }
+    // Use Kahan summation for numerical stability by default
+    kahan_sum(xs.iter().copied())
 }

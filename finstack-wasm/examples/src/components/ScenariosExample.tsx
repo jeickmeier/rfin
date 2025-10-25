@@ -640,7 +640,7 @@ export default function ScenariosExample() {
     <div className="example-container">
       <h1>Scenarios Engine</h1>
       <p className="description">
-        Deterministic scenario analysis for stress testing and what-if analysis.
+        Reproducible scenario analysis for stress testing and what-if analysis.
         Apply market shocks, statement adjustments, and time roll-forwards with
         full composability and priority-based ordering.
       </p>
@@ -770,10 +770,7 @@ export default function ScenariosExample() {
           <h3>Engine Features</h3>
           <ul>
             <li>
-              <strong>Composition:</strong> Merge multiple scenarios with priority ordering
-            </li>
-            <li>
-              <strong>Deterministic:</strong> Stable execution order and results
+              <strong>Reproducible:</strong> Stable execution order and results
             </li>
             <li>
               <strong>Warning Collection:</strong> Non-fatal issues captured

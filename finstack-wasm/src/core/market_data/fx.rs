@@ -17,7 +17,6 @@ pub struct JsFxConversionPolicy {
 }
 
 impl JsFxConversionPolicy {
-    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> FxConversionPolicy {
         self.inner
     }
@@ -153,35 +152,6 @@ impl From<FxRateResult> for JsFxRateResult {
 }
 
 // SimpleFxProvider is now provided by finstack-core
-
-#[allow(dead_code)]
-fn parse_policy_value(policy: Option<JsValue>) -> Result<FxConversionPolicy, JsValue> {
-    match policy {
-        None => Ok(FxConversionPolicy::CashflowDate),
-        Some(value) if value.is_undefined() || value.is_null() => {
-            Ok(FxConversionPolicy::CashflowDate)
-        }
-        Some(value) => {
-            if let Some(label) = value.as_string() {
-                JsFxConversionPolicy::from_name(&label).map(Into::into)
-            } else if let Some(code) = value.as_f64() {
-                match code as u32 {
-                    0 => Ok(FxConversionPolicy::CashflowDate),
-                    1 => Ok(FxConversionPolicy::PeriodEnd),
-                    2 => Ok(FxConversionPolicy::PeriodAverage),
-                    3 => Ok(FxConversionPolicy::Custom),
-                    other => Err(js_error(format!(
-                        "Unknown FxConversionPolicy discriminant: {other}"
-                    ))),
-                }
-            } else {
-                Err(js_error(
-                    "policy must be a conversion policy enum or string name",
-                ))
-            }
-        }
-    }
-}
 
 #[wasm_bindgen(js_name = FxMatrix)]
 #[derive(Clone)]

@@ -1,6 +1,7 @@
 # Scenarios WASM Bindings
 
-Complete WebAssembly bindings for the finstack-scenarios crate, providing deterministic scenario analysis and stress testing capabilities for JavaScript/TypeScript environments.
+Complete WebAssembly bindings for the finstack-scenarios crate, providing reproducible scenario analysis and stress testing capabilities for JavaScript/TypeScript environments.
+- **Reproducibility**: Consistent results across runs on a consistent architecture/toolchain
 
 ## Quick Start
 

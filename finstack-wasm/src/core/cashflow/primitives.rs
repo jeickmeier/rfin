@@ -30,11 +30,6 @@ impl JsCFKind {
     pub(crate) fn from_inner(inner: CFKind) -> Self {
         Self { inner }
     }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> CFKind {
-        self.inner
-    }
 }
 
 impl From<CFKind> for JsCFKind {
@@ -146,11 +141,6 @@ pub struct JsCashFlow {
 impl JsCashFlow {
     pub(crate) fn from_inner(inner: CashFlow) -> Self {
         Self { inner }
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> CashFlow {
-        self.inner
     }
 }
 

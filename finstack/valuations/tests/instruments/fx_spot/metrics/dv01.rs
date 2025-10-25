@@ -1,6 +1,7 @@
 //! DV01 metric tests for FX Spot.
 
 use super::super::common::*;
+use finstack_core::types::InstrumentId;
 use finstack_core::{currency::Currency, dates::Date, market_data::MarketContext, money::Money};
 use finstack_valuations::{
     instruments::{
@@ -131,32 +132,31 @@ fn test_dv01_default_settlement_lag() {
     assert!(dv01 > 0.0, "DV01 positive with default lag");
 }
 
-// TODO: Re-enable when with_settlement_lag_days is implemented
-// #[test]
-// fn test_dv01_custom_settlement_lag() {
-//     let calc = FxSpotDv01Calculator;
-//
-//     let fx1 = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-//         .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
-//         .unwrap()
-//         .with_rate(1.20)
-//         .with_settlement(d(2025, 1, 16)); // T+1
-//
-//     let fx2 = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
-//         .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
-//         .unwrap()
-//         .with_rate(1.20)
-//         .with_settlement(d(2025, 1, 20)); // T+5
-//
-//     let mut ctx1 = create_context(fx1, test_date());
-//     let mut ctx2 = create_context(fx2, test_date());
-//
-//     let dv01_1 = calc.calculate(&mut ctx1).unwrap();
-//     let dv01_2 = calc.calculate(&mut ctx2).unwrap();
-//
-//     // T+5 should have higher DV01 than T+1
-//     assert!(dv01_2 > dv01_1, "Longer lag => higher DV01");
-// }
+#[test]
+fn test_dv01_custom_settlement_lag() {
+    let calc = FxSpotDv01Calculator;
+
+    let fx1 = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .unwrap()
+        .with_rate(1.20)
+        .with_settlement(d(2025, 1, 16)); // T+1
+
+    let fx2 = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+        .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+        .unwrap()
+        .with_rate(1.20)
+        .with_settlement(d(2025, 1, 20)); // T+5
+
+    let mut ctx1 = create_context(fx1, test_date());
+    let mut ctx2 = create_context(fx2, test_date());
+
+    let dv01_1 = calc.calculate(&mut ctx1).unwrap();
+    let dv01_2 = calc.calculate(&mut ctx2).unwrap();
+
+    // T+5 should have higher DV01 than T+1
+    assert!(dv01_2 > dv01_1, "Longer lag => higher DV01");
+}
 
 #[test]
 fn test_dv01_various_currencies() {

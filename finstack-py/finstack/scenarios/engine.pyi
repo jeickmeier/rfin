@@ -125,16 +125,9 @@ class ExecutionContext:
     def __repr__(self) -> str: ...
 
 class ScenarioEngine:
-    """Orchestrates the deterministic application of a ScenarioSpec.
-    
-    The engine is intentionally lightweight: it does not own any state and can
-    be cloned or reused freely. All mutable inputs are supplied via ExecutionContext.
-    
-    Examples:
-        >>> from finstack.scenarios import ScenarioEngine, ScenarioSpec, OperationSpec
-        >>> engine = ScenarioEngine()
-        >>> # Create and apply scenarios...
-    """
+    """Orchestrates the reproducible application of a ScenarioSpec with stable ordering.
+        
+        """
     
     def __init__(self) -> None:
         """Create a new scenario engine with default settings.

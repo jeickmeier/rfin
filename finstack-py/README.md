@@ -6,7 +6,7 @@ package provides comprehensive Python bindings for all finstack modules:
 - **`finstack.core`**: Financial primitives (currencies, money, dates, market data, math)
 - **`finstack.valuations`**: Instrument pricing, cashflow modeling, and risk metrics
 - **`finstack.statements`**: Financial statement modeling with forecasting and extensions
-- **`finstack.scenarios`**: Deterministic scenario analysis and stress testing
+- **`finstack.scenarios`**: Reproducible scenario analysis and stress testing with stable ordering
 - **`finstack.portfolio`**: Portfolio management, aggregation, and multi-entity analysis
 
 All business logic remains in the Rust library, with Python bindings providing ergonomic interfaces
@@ -313,7 +313,7 @@ print(f"Positions by sector: {grouped}")
 
 ## Scenario Analysis
 
-The `finstack.scenarios` module provides deterministic scenario analysis for stress testing and what-if analysis:
+The `finstack.scenarios` module provides reproducible scenario analysis for stress testing and what-if analysis:
 
 ```python
 from finstack.scenarios import ScenarioSpec, OperationSpec, ScenarioEngine, ExecutionContext
@@ -346,7 +346,7 @@ print(f"Market context updated: {len(context.market.discount_curves)} curves")
 
 ### Key Features
 
-- **Deterministic composition** with priority-based conflict resolution
+- **Stable composition** with priority-based conflict resolution
 - **Market data shocks** (curves, surfaces, FX, equities, base correlation)
 - **Statement forecast adjustments** with percentage and assignment operations
 - **Instrument pricing updates** by type and attributes

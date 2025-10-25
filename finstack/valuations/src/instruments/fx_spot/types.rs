@@ -137,6 +137,12 @@ impl FxSpot {
         self
     }
 
+    /// Set the settlement lag in business days (positive for T+N, negative for T-N).
+    pub fn with_settlement_lag_days(mut self, lag_days: i32) -> Self {
+        self.settlement_lag_days = Some(lag_days);
+        self
+    }
+
     /// Fallible setter for notional that validates currency matches base
     pub fn try_with_notional(mut self, notional: Money) -> finstack_core::Result<Self> {
         if notional.currency() != self.base {

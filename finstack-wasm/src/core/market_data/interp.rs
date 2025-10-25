@@ -10,11 +10,6 @@ pub struct JsInterpStyle {
 }
 
 impl JsInterpStyle {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> InterpStyle {
-        self.inner
-    }
-
     fn new(inner: InterpStyle) -> Self {
         Self { inner }
     }
@@ -79,11 +74,6 @@ pub struct JsExtrapolationPolicy {
 }
 
 impl JsExtrapolationPolicy {
-    #[allow(dead_code)]
-    pub(crate) fn inner(&self) -> ExtrapolationPolicy {
-        self.inner
-    }
-
     fn new(inner: ExtrapolationPolicy) -> Self {
         Self { inner }
     }

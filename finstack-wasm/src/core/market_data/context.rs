@@ -107,12 +107,10 @@ pub struct JsMarketContext {
 }
 
 impl JsMarketContext {
-    #[allow(dead_code)]
     pub(crate) fn inner(&self) -> &MarketContext {
         &self.inner
     }
 
-    #[allow(dead_code)]
     pub(crate) fn from_owned(inner: MarketContext) -> Self {
         Self { inner }
     }

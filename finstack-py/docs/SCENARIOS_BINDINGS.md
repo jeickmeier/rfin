@@ -37,7 +37,7 @@ Complete Python bindings for the `finstack-scenarios` crate with 100% parity bet
 
 5. **Scenario Engine** (`engine.rs`)
    - `PyScenarioEngine`: Orchestrates scenario application
-   - `compose()`: Deterministic scenario composition by priority
+   - `compose()`: Stable scenario composition by priority
    - `apply()`: Apply scenario to execution context
    - Automatic reference management and state synchronization
 
@@ -87,7 +87,7 @@ The key challenge was handling Rust's mutable references in Python. Solution:
 This approach ensures:
 - Zero-copy where possible
 - Safe concurrent access via PyO3's GIL handling
-- Deterministic mutation visible across language boundary
+- **Reproducibility**: Consistent results across languages on a consistent architecture/toolchain
 
 ### Instrument Handling
 
@@ -220,7 +220,7 @@ cargo test -p finstack-scenarios
 ## Conclusion
 
 The Python bindings provide complete parity with the Rust API while maintaining:
-- **Determinism**: Identical results across languages
+- **Reproducibility**: Consistent results across languages on a consistent architecture/toolchain
 - **Performance**: All computation in Rust
 - **Ergonomics**: Pythonic interface with type hints
 - **Stability**: Full serde support for pipelines
