@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 /// on `CalibrationConfig`. Note that LevenbergMarquardt and DifferentialEvolution variants
 /// automatically fall back to Hybrid for 1D solve_1d() calls.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+/// Solver Kind enumeration.
 pub enum SolverKind {
     /// Newton-Raphson solver with automatic derivative estimation (1D only)
     Newton,
@@ -35,6 +36,7 @@ pub enum SolverKind {
 
 /// Multi-curve calibration configuration
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Multi Curve Config structure.
 pub struct MultiCurveConfig {
     /// Whether to calibrate basis spreads
     pub calibrate_basis: bool,
@@ -61,6 +63,7 @@ impl MultiCurveConfig {
 
 /// Configuration for calibration processes.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+/// Calibration Config structure.
 pub struct CalibrationConfig {
     /// Solver tolerance
     pub tolerance: f64,
@@ -147,5 +150,111 @@ impl CalibrationConfig {
             self.solver_kind,
             SolverKind::LevenbergMarquardt | SolverKind::DifferentialEvolution
         )
+    }
+}
+
+/// Market-standard acceptable calibration residual tolerances.
+///
+/// These tolerances represent typical market practice for liquid instruments in normal
+/// market conditions. Adjust based on:
+/// - Instrument liquidity (wider for illiquid instruments)
+/// - Market volatility (wider during stressed periods)
+/// - Data quality (wider for stale or indicative quotes)
+/// - Use case (tighter for arbitrage strategies, wider for risk management)
+///
+/// Calibration Tolerances structure.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CalibrationTolerances {
+    /// Maximum absolute residual for deposits/futures (basis points).
+    ///
+    /// Standard: 0.1 bp for highly liquid overnight and short-term money markets.
+    /// Consider 0.5 bp for less liquid tenors or currencies.
+    pub deposits_bp: f64,
+
+    /// Maximum absolute residual for swaps (basis points).
+    ///
+    /// Standard: 0.5 bp for standard benchmark tenors (2Y, 5Y, 10Y, 30Y) in G10 currencies.
+    /// Consider 1-2 bp for off-the-run tenors or emerging market currencies.
+    pub swaps_bp: f64,
+
+    /// Maximum relative residual for volatility surface calibration.
+    ///
+    /// Standard: 1% (0.01) for ATM volatilities, 2% (0.02) for wings and far strikes.
+    /// Absolute tolerance for low-vol regimes may be more appropriate.
+    pub vol_relative: f64,
+
+    /// Maximum absolute residual for credit spreads (basis points).
+    ///
+    /// Standard: 1 bp for liquid single-name CDS, 2-3 bp for CDS indices.
+    /// Consider 5-10 bp for illiquid names or during credit stress.
+    pub credit_bp: f64,
+
+    /// Maximum absolute residual for basis swaps (basis points).
+    ///
+    /// Standard: 0.5 bp for standard LIBOR basis swaps (3M vs 6M).
+    /// Consider 1-2 bp for cross-currency basis or exotic bases.
+    pub basis_bp: f64,
+}
+
+impl Default for CalibrationTolerances {
+    /// Returns market-standard tolerances for liquid G10 instruments.
+    fn default() -> Self {
+        Self {
+            deposits_bp: 0.1,
+            swaps_bp: 0.5,
+            vol_relative: 0.01,
+            credit_bp: 1.0,
+            basis_bp: 0.5,
+        }
+    }
+}
+
+impl CalibrationTolerances {
+    /// Create default tolerances for liquid markets.
+    #[allow(dead_code)]
+    pub fn liquid() -> Self {
+        Self::default()
+    }
+
+    /// Create relaxed tolerances for illiquid markets or stressed conditions.
+    #[allow(dead_code)]
+    pub fn illiquid() -> Self {
+        Self {
+            deposits_bp: 0.5,
+            swaps_bp: 2.0,
+            vol_relative: 0.03,
+            credit_bp: 5.0,
+            basis_bp: 2.0,
+        }
+    }
+
+    /// Create very tight tolerances for arbitrage-sensitive applications.
+    #[allow(dead_code)]
+    pub fn arbitrage() -> Self {
+        Self {
+            deposits_bp: 0.05,
+            swaps_bp: 0.25,
+            vol_relative: 0.005,
+            credit_bp: 0.5,
+            basis_bp: 0.25,
+        }
+    }
+
+    /// Create custom tolerances with specified values.
+    #[allow(dead_code)]
+    pub fn custom(
+        deposits_bp: f64,
+        swaps_bp: f64,
+        vol_relative: f64,
+        credit_bp: f64,
+        basis_bp: f64,
+    ) -> Self {
+        Self {
+            deposits_bp,
+            swaps_bp,
+            vol_relative,
+            credit_bp,
+            basis_bp,
+        }
     }
 }

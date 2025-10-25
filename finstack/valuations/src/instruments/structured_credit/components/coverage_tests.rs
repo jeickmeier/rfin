@@ -183,12 +183,19 @@ impl CoverageTest {
 /// Simplified context that provides pool and tranche structure references,
 /// allowing the test to compute derived values (like senior balance, interest due) internally.
 #[derive(Debug)]
+/// Test Context structure.
 pub struct TestContext<'a> {
+    /// pool.
     pub pool: &'a AssetPool,
+    /// tranches.
     pub tranches: &'a super::TrancheStructure,
+    /// tranche id.
     pub tranche_id: &'a str,
+    /// as of.
     pub as_of: finstack_core::dates::Date,
+    /// cash balance.
     pub cash_balance: Money,
+    /// interest collections.
     pub interest_collections: Money,
 }
 
@@ -235,17 +242,17 @@ mod coverage_test_tests {
             TrancheSeniority::Senior,
             Money::new(100_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.05 },
-            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2030, Month::January, 1).expect("Valid date"),
         )
-        .unwrap();
+        .expect("Valid tranche");
 
-        let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+        let tranches = TrancheStructure::new(vec![tranche]).expect("Valid tranche structure");
 
         let context = TestContext {
             pool: &pool,
             tranches: &tranches,
             tranche_id: "TEST_TRANCHE",
-            as_of: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            as_of: Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"),
             cash_balance: Money::new(0.0, Currency::USD),
             interest_collections: Money::new(0.0, Currency::USD),
         };
@@ -276,17 +283,17 @@ mod coverage_test_tests {
             TrancheSeniority::Senior,
             Money::new(100_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.05 },
-            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2030, Month::January, 1).expect("Valid date"),
         )
-        .unwrap();
+        .expect("Valid tranche");
 
-        let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+        let tranches = TrancheStructure::new(vec![tranche]).expect("Valid tranche structure");
 
         let context = TestContext {
             pool: &pool,
             tranches: &tranches,
             tranche_id: "TEST_TRANCHE",
-            as_of: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            as_of: Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"),
             cash_balance: Money::new(0.0, Currency::USD),
             interest_collections: Money::new(1_500.0, Currency::USD),
         };

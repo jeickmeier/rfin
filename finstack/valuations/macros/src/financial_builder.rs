@@ -2,7 +2,8 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields};
+use syn::{parse_macro_input, Data, DeriveInput, Fields, Expr};
+use std::collections::HashMap;
 
 /// Implementation of the FinancialBuilder derive macro.
 ///
@@ -39,6 +40,7 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     // Collect fields and builder annotations
     let mut required_fields: Vec<(syn::Ident, syn::Type)> = Vec::new();
     let mut optional_fields: Vec<(syn::Ident, syn::Type)> = Vec::new();
+    let mut defaults: HashMap<syn::Ident, Expr> = HashMap::new();
     // Heuristics for post-build validations
     let mut has_start_date: bool = false;
     let mut has_maturity: bool = false;
@@ -56,15 +58,30 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
             let ty = f.ty.clone();
 
             let mut has_optional_attr = false;
+            let mut default_expr: Option<Expr> = None;
             for attr in f.attrs {
                 if attr.path().is_ident("builder") {
                     let _ = attr.parse_nested_meta(|meta| {
                         if meta.path.is_ident("optional") {
                             has_optional_attr = true;
+                        } else if meta.path.is_ident("default") {
+                            // Support #[builder(default)] and #[builder(default = <expr>)]
+                            if meta.input.peek(syn::Token![=]) {
+                                let value: Expr = meta.value()?.parse()?;
+                                default_expr = Some(value);
+                            } else {
+                                // Use type's Default::default()
+                                let ty_default: Expr = syn::parse_quote! { ::core::default::Default::default() };
+                                default_expr = Some(ty_default);
+                            }
                         }
                         Ok(())
                     });
                 }
+            }
+
+            if let Some(expr) = default_expr {
+                defaults.insert(ident.clone(), expr);
             }
 
             let is_option_ty = matches!(ty, syn::Type::Path(ref tp) if tp.path.segments.last().map(|s| s.ident == "Option").unwrap_or(false));
@@ -117,11 +134,17 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     });
 
     // Setter methods
-    let setter_req = required_fields.iter().map(|(id, ty)| quote! {
-        pub fn #id(mut self, value: #ty) -> Self { self.#id = ::core::option::Option::Some(value); self }
+    let setter_req = required_fields.iter().map(|(id, ty)| {
+        let doc_text = format!("Sets the `{}` field.", id);
+        quote! {
+            #[doc = #doc_text]
+            pub fn #id(mut self, value: #ty) -> Self { self.#id = ::core::option::Option::Some(value); self }
+        }
     });
 
     let setter_opt = optional_fields.iter().map(|(id, ty)| {
+        let doc_text = format!("Sets the `{}` field.", id);
+        let doc_text_opt = format!("Sets the `{}` field as an option.", id);
         if let syn::Type::Path(ref tp) = ty {
             if let Some(seg) = tp.path.segments.last() {
                 if seg.ident == "Option" {
@@ -135,27 +158,48 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
                     if let Some(inner) = inner_ty {
                         let set_opt = format_ident!("{}_opt", id);
                         quote! {
+                            #[doc = #doc_text]
                             pub fn #id(mut self, value: #inner) -> Self { self.#id = ::core::option::Option::Some(value); self }
+                            #[doc = #doc_text_opt]
                             pub fn #set_opt(mut self, value: #ty) -> Self { self.#id = value; self }
                         }
                     } else {
-                        quote! { pub fn #id(mut self, value: #ty) -> Self { self.#id = value; self } }
+                        quote! {
+                            #[doc = #doc_text]
+                            pub fn #id(mut self, value: #ty) -> Self { self.#id = value; self }
+                        }
                     }
                 } else {
-                    quote! { pub fn #id(mut self, value: #ty) -> Self { self.#id = ::core::option::Option::Some(value); self } }
+                    quote! {
+                        #[doc = #doc_text]
+                        pub fn #id(mut self, value: #ty) -> Self { self.#id = ::core::option::Option::Some(value); self }
+                    }
                 }
             } else {
-                quote! { pub fn #id(mut self, value: #ty) -> Self { self.#id = ::core::option::Option::Some(value); self } }
+                quote! {
+                    #[doc = #doc_text]
+                    pub fn #id(mut self, value: #ty) -> Self { self.#id = ::core::option::Option::Some(value); self }
+                }
             }
         } else {
-            quote! { pub fn #id(mut self, value: #ty) -> Self { self.#id = ::core::option::Option::Some(value); self } }
+            quote! {
+                #[doc = #doc_text]
+                pub fn #id(mut self, value: #ty) -> Self { self.#id = ::core::option::Option::Some(value); self }
+            }
         }
     });
 
     // Build expression: required fields unwrap, optional fields carry through (unwrap_or(None)) and initialize attributes if present
     let assign_req = required_fields
         .iter()
-        .map(|(id, _)| quote! { #id: self.#id.ok_or(finstack_core::error::InputError::Invalid)? });
+        .map(|(id, _)| {
+            if let Some(expr) = defaults.get(id) {
+                let expr_clone = expr.clone();
+                quote! { #id: self.#id.unwrap_or(#expr_clone) }
+            } else {
+                quote! { #id: self.#id.ok_or(finstack_core::error::InputError::Invalid)? }
+            }
+        });
 
     let assign_opt = optional_fields.iter().map(|(id, ty)| {
         if let syn::Type::Path(ref tp) = ty {
@@ -204,7 +248,13 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
         });
     }
 
+    let builder_doc = format!("Builder for `{}`.", struct_name);
+    let new_doc = "Creates a new builder instance.";
+    let build_doc = "Builds the final instance.";
+    let builder_method_doc = "Creates a new builder.";
+    
     let expanded = quote! {
+        #[doc = #builder_doc]
         #[allow(non_camel_case_types)]
         #[derive(Default)]
         pub struct #builder_name {
@@ -213,10 +263,12 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
         }
 
         impl #builder_name {
+            #[doc = #new_doc]
             pub fn new() -> Self { Self::default() }
             #(#setter_req)*
             #(#setter_opt)*
 
+            #[doc = #build_doc]
             pub fn build(self) -> finstack_core::Result<#struct_name> {
                 let __built = #struct_name {
                     #(#assign_req,)*
@@ -229,6 +281,7 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
         }
 
         impl #struct_name {
+            #[doc = #builder_method_doc]
             pub fn builder() -> #builder_name { #builder_name::new() }
         }
     };

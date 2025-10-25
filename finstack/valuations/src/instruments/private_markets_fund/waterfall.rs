@@ -57,7 +57,10 @@ impl Default for CatchUpMode {
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum Hurdle {
     /// IRR-based hurdle (annual rate)
-    Irr { rate: f64 },
+    Irr {
+        /// Rate.
+        rate: f64,
+    },
     // Future: Moic { multiple: F } - can be added without breaking serde
 }
 
@@ -69,13 +72,22 @@ pub enum Tranche {
     /// Return LP capital contributions before any profit sharing
     ReturnOfCapital,
     /// Preferred return to LPs at specified IRR
-    PreferredIrr { irr: f64 },
+    PreferredIrr {
+        /// Irr.
+        irr: f64,
+    },
     /// Catch-up allocation to GP
-    CatchUp { gp_share: f64 },
+    CatchUp {
+        /// Gp share.
+        gp_share: f64,
+    },
     /// Promote tier with hurdle and LP/GP split
     PromoteTier {
+        /// Hurdle.
         hurdle: Hurdle,
+        /// Lp share.
         lp_share: f64,
+        /// Gp share.
         gp_share: f64,
     },
 }
@@ -195,40 +207,48 @@ impl Default for WaterfallSpecBuilder {
 }
 
 impl WaterfallSpecBuilder {
+    /// new.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// style.
     pub fn style(mut self, style: WaterfallStyle) -> Self {
         self.style = style;
         self
     }
 
+    /// irr basis.
     pub fn irr_basis(mut self, basis: DayCount) -> Self {
         self.irr_basis = basis;
         self
     }
 
+    /// catchup mode.
     pub fn catchup_mode(mut self, mode: CatchUpMode) -> Self {
         self.catchup_mode = mode;
         self
     }
 
+    /// return of capital.
     pub fn return_of_capital(mut self) -> Self {
         self.tranches.push(Tranche::ReturnOfCapital);
         self
     }
 
+    /// preferred irr.
     pub fn preferred_irr(mut self, irr: f64) -> Self {
         self.tranches.push(Tranche::PreferredIrr { irr });
         self
     }
 
+    /// catchup.
     pub fn catchup(mut self, gp_share: f64) -> Self {
         self.tranches.push(Tranche::CatchUp { gp_share });
         self
     }
 
+    /// promote tier.
     pub fn promote_tier(mut self, hurdle_irr: f64, lp_share: f64, gp_share: f64) -> Self {
         self.tranches.push(Tranche::PromoteTier {
             hurdle: Hurdle::Irr { rate: hurdle_irr },
@@ -238,11 +258,13 @@ impl WaterfallSpecBuilder {
         self
     }
 
+    /// clawback.
     pub fn clawback(mut self, spec: ClawbackSpec) -> Self {
         self.clawback = Some(spec);
         self
     }
 
+    /// build.
     pub fn build(self) -> finstack_core::Result<WaterfallSpec> {
         let spec = WaterfallSpec {
             style: self.style,
@@ -1043,7 +1065,7 @@ mod tests {
     }
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
-        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+        Date::from_calendar_date(year, Month::try_from(month).expect("Valid date"), day).expect("Valid date")
     }
 
     #[test]
@@ -1055,7 +1077,7 @@ mod tests {
             .catchup(1.0)
             .promote_tier(0.0, 0.8, 0.2)
             .build()
-            .unwrap();
+            .expect("Operation succeeded");
 
         assert_eq!(spec.style, WaterfallStyle::European);
         assert_eq!(spec.tranches.len(), 4);
@@ -1087,7 +1109,7 @@ mod tests {
             .return_of_capital()
             .promote_tier(0.0, 0.8, 0.2) // Simple 80/20 split
             .build()
-            .unwrap();
+            .expect("Operation succeeded");
 
         let events = vec![
             FundEvent::contribution(
@@ -1101,7 +1123,7 @@ mod tests {
         ];
 
         let engine = EquityWaterfallEngine::new(&spec);
-        let ledger = engine.run(&events).unwrap();
+        let ledger = engine.run(&events).expect("Operation succeeded");
 
         assert!(!ledger.rows.is_empty());
 
@@ -1123,7 +1145,7 @@ mod tests {
         let spec = WaterfallSpec::builder()
             .return_of_capital()
             .build()
-            .unwrap();
+            .expect("Operation succeeded");
 
         let events = vec![
             FundEvent::contribution(
@@ -1137,7 +1159,7 @@ mod tests {
         ];
 
         let engine = EquityWaterfallEngine::new(&spec);
-        let ledger = engine.run(&events).unwrap();
+        let ledger = engine.run(&events).expect("Operation succeeded");
         let (columns, _rows) = ledger.to_tabular_data();
 
         // Check tabular structure
@@ -1181,7 +1203,7 @@ mod tests {
             .catchup(1.0)
             .promote_tier(0.0, 0.8, 0.2)
             .build()
-            .unwrap();
+            .expect("Operation succeeded");
 
         let events = vec![
             FundEvent::contribution(test_date(2020, 1, 1), Money::new(100.0, test_currency())),
@@ -1189,7 +1211,7 @@ mod tests {
         ];
 
         let engine = EquityWaterfallEngine::new(&spec);
-        let ledger = engine.run(&events).unwrap();
+        let ledger = engine.run(&events).expect("Operation succeeded");
 
         let total_gp: f64 = ledger.rows.iter().map(|r| r.to_gp.amount()).sum();
         let total_lp: f64 = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
@@ -1227,7 +1249,7 @@ mod tests {
             .promote_tier(0.0, 0.8, 0.2)
             .clawback(claw)
             .build()
-            .unwrap();
+            .expect("Operation succeeded");
 
         let events = vec![
             FundEvent::contribution(test_date(2020, 1, 1), Money::new(100.0, test_currency())),
@@ -1236,7 +1258,7 @@ mod tests {
         ];
 
         let engine = EquityWaterfallEngine::new(&spec);
-        let ledger = engine.run(&events).unwrap();
+        let ledger = engine.run(&events).expect("Operation succeeded");
 
         // Last row should be clawback settlement with negative GP amount
         let last = ledger.rows.last().expect("rows");
@@ -1252,7 +1274,7 @@ mod tests {
             .return_of_capital()
             .promote_tier(0.0, 0.8, 0.2)
             .build()
-            .unwrap();
+            .expect("Operation succeeded");
 
         let events = vec![
             FundEvent::contribution(
@@ -1267,9 +1289,9 @@ mod tests {
 
         let engine = EquityWaterfallEngine::new(&spec)
             .with_period_range("2024Q4..2025Q2", None)
-            .unwrap();
+            .expect("Operation succeeded");
 
-        let ledger = engine.run(&events).unwrap();
+        let ledger = engine.run(&events).expect("Operation succeeded");
 
         // All distribution allocation rows should have 2025Q1 period key
         let distribution_rows: Vec<_> = ledger
@@ -1289,7 +1311,7 @@ mod tests {
         let spec = WaterfallSpec::builder()
             .return_of_capital()
             .build()
-            .unwrap();
+            .expect("Operation succeeded");
 
         let events = vec![
             FundEvent::contribution(
@@ -1304,9 +1326,9 @@ mod tests {
 
         let engine = EquityWaterfallEngine::new(&spec)
             .with_period_range("2025Q1..Q4", None)
-            .unwrap();
+            .expect("Operation succeeded");
 
-        let ledger = engine.run(&events).unwrap();
+        let ledger = engine.run(&events).expect("Operation succeeded");
 
         // All rows should have None period_key since dates are outside range
         for row in &ledger.rows {
@@ -1327,7 +1349,7 @@ mod tests {
             .promote_tier(0.0, 0.8, 0.2)
             .clawback(claw)
             .build()
-            .unwrap();
+            .expect("Operation succeeded");
 
         let events = vec![
             FundEvent::contribution(test_date(2025, 1, 1), Money::new(100.0, test_currency())),
@@ -1339,9 +1361,9 @@ mod tests {
 
         let engine = EquityWaterfallEngine::new(&spec)
             .with_period_range("2025Q1..Q4", None)
-            .unwrap();
+            .expect("Operation succeeded");
 
-        let ledger = engine.run(&events).unwrap();
+        let ledger = engine.run(&events).expect("Operation succeeded");
 
         // Find clawback settlement row
         let clawback_row = ledger
@@ -1359,7 +1381,7 @@ mod tests {
         let spec = WaterfallSpec::builder()
             .return_of_capital()
             .build()
-            .unwrap();
+            .expect("Operation succeeded");
 
         let events = vec![
             FundEvent::contribution(
@@ -1374,7 +1396,7 @@ mod tests {
 
         // Engine without periods
         let engine = EquityWaterfallEngine::new(&spec);
-        let ledger = engine.run(&events).unwrap();
+        let ledger = engine.run(&events).expect("Operation succeeded");
 
         // All rows should have None period_key (legacy behavior preserved)
         for row in &ledger.rows {

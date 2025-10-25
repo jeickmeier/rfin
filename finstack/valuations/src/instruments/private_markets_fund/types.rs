@@ -14,16 +14,23 @@ use finstack_core::types::{CurveId, InstrumentId};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct PrivateMarketsFund {
+    /// id.
     pub id: InstrumentId,
+    /// currency.
     pub currency: Currency,
+    /// spec.
     pub spec: WaterfallSpec,
+    /// events.
     pub events: Vec<FundEvent>,
+    /// disc id.
     pub disc_id: Option<CurveId>,
+    /// Attributes.
     #[cfg_attr(feature = "serde", serde(default))]
     pub attributes: Attributes,
 }
 
 impl PrivateMarketsFund {
+    /// new.
     pub fn new(
         id: impl Into<InstrumentId>,
         currency: Currency,
@@ -40,11 +47,13 @@ impl PrivateMarketsFund {
         }
     }
 
+    /// with discount curve.
     pub fn with_discount_curve(mut self, disc_id: impl Into<CurveId>) -> Self {
         self.disc_id = Some(disc_id.into());
         self
     }
 
+    /// run waterfall.
     pub fn run_waterfall(&self) -> finstack_core::Result<AllocationLedger> {
         for event in &self.events {
             if event.amount.currency() != self.currency {
@@ -58,6 +67,7 @@ impl PrivateMarketsFund {
         engine.run(&self.events)
     }
 
+    /// lp cashflows.
     pub fn lp_cashflows(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
         let ledger = self.run_waterfall()?;
         Ok(ledger.lp_cashflows())

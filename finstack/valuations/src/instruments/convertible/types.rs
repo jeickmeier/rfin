@@ -58,7 +58,12 @@ pub enum ConversionPolicy {
     /// Bond will mandatorily convert on the specified date.
     MandatoryOn(Date),
     /// Holder may convert within a window.
-    Window { start: Date, end: Date },
+    Window {
+        /// Start.
+        start: Date,
+        /// End.
+        end: Date,
+    },
     /// Conversion tied to an external event or condition.
     UponEvent(ConversionEvent),
 }
@@ -67,11 +72,15 @@ pub enum ConversionPolicy {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ConversionEvent {
+    /// Qualified Ipo variant.
     QualifiedIpo,
+    /// Change Of Control variant.
     ChangeOfControl,
     /// Forced conversion if share price meets threshold for a lookback period.
     PriceTrigger {
+        /// Threshold.
         threshold: f64,
+        /// Lookback days.
         lookback_days: u32,
     },
 }
@@ -80,8 +89,11 @@ pub enum ConversionEvent {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AntiDilutionPolicy {
+    /// None variant.
     None,
+    /// Full Ratchet variant.
     FullRatchet,
+    /// Weighted Average variant.
     WeightedAverage,
 }
 
@@ -89,8 +101,11 @@ pub enum AntiDilutionPolicy {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DividendAdjustment {
+    /// None variant.
     None,
+    /// Adjust Price variant.
     AdjustPrice,
+    /// Adjust Ratio variant.
     AdjustRatio,
 }
 

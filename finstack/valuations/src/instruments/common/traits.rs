@@ -10,6 +10,7 @@ use std::any::Any;
 
 /// Attributes for scenario selection and tagging.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+/// Attributes structure.
 pub struct Attributes {
     /// User-defined tags for categorization.
     pub tags: HashSet<String>,
@@ -87,6 +88,7 @@ pub trait Instrument: Send + Sync {
 
     /// Attributes accessors
     fn attributes(&self) -> &Attributes;
+    /// Attributes mut.
     fn attributes_mut(&mut self) -> &mut Attributes;
 
     /// Check if the instrument matches a selector.

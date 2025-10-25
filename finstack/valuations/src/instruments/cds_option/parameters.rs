@@ -10,6 +10,8 @@ use finstack_core::{dates::Date, money::Money};
 /// - This struct holds strike (bp), expiry, underlying CDS maturity, notional, option type.
 /// - Reference entity, recovery rate, and hazard `credit_id` live in `CreditParams`.
 /// - Discount `disc_id` and vol `vol_id` are instrument-level market IDs passed to `CdsOption::new`.
+///
+/// Cds Option Params structure.
 #[derive(Clone, Debug)]
 pub struct CdsOptionParams {
     /// Strike spread in basis points

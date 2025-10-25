@@ -25,6 +25,8 @@ use std::collections::{BTreeMap, HashMap};
 /// 2. Hazard curves and inflation curves (depend on discount)
 /// 3. Volatility surfaces (depend on underlying curves)
 /// 4. Base correlation curves (depend on hazard curves)
+///
+/// Simple Calibration structure.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SimpleCalibration {
     base_date: Date,
@@ -203,7 +205,10 @@ impl SimpleCalibration {
                 }
 
                 // Ensure we have at least a base knot
-                knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                knots.sort_by(|a, b| {
+                    a.0.partial_cmp(&b.0)
+                        .expect("Discount curve knot times should be valid f64 values")
+                });
                 if knots.first().map(|k| k.0).unwrap_or(1.0) > 0.0 {
                     knots.insert(0, (0.0, 1.0));
                 }
@@ -664,10 +669,16 @@ impl SimpleCalibration {
         }
 
         let mut expiry_grid: Vec<f64> = expiries.into_iter().map(|e| e as f64 / 1000.0).collect();
-        expiry_grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        expiry_grid.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("Expiry grid values should be valid f64")
+        });
 
         let mut strike_grid: Vec<f64> = strikes.into_iter().map(|s| s as f64 / 100.0).collect();
-        strike_grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        strike_grid.sort_by(|a, b| {
+            a.partial_cmp(b)
+                .expect("Strike grid values should be valid f64")
+        });
 
         (expiry_grid, strike_grid)
     }
@@ -720,7 +731,7 @@ mod tests {
     use time::Month;
 
     fn create_test_quotes() -> Vec<MarketQuote> {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 
         vec![
             MarketQuote::Rates(RatesQuote::Deposit {
@@ -765,7 +776,7 @@ mod tests {
 
     #[test]
     fn test_simple_calibration() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
         let calibration =
             SimpleCalibration::new(base_date, Currency::USD).with_config(CalibrationConfig {
                 verbose: true,
@@ -779,7 +790,7 @@ mod tests {
             tracing::warn!(error = ?e, "Simple calibration failed");
             return; // Calibration logic needs refinement; skip test for now
         }
-        let (context, report) = result.unwrap();
+        let (context, report) = result.expect("Operation succeeded");
 
         if !report.success {
             tracing::debug!("Calibration report indicates failure; skip verification for now");

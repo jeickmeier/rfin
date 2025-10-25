@@ -41,16 +41,27 @@ pub enum DealType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum CreditRating {
+    /// A A A variant.
     AAA,
+    /// A A variant.
     AA,
+    /// A variant.
     A,
+    /// B B B variant.
     BBB,
+    /// B B variant.
     BB,
+    /// B variant.
     B,
+    /// C C C variant.
     CCC,
+    /// C C variant.
     CC,
+    /// C variant.
     C,
+    /// D variant.
     D,
+    /// N R variant.
     NR,
 }
 
@@ -86,56 +97,118 @@ pub enum TrancheSeniority {
 pub enum AssetType {
     // ========== LOAN TYPES ==========
     /// First lien corporate loan
-    FirstLienLoan { industry: Option<String> },
+    FirstLienLoan {
+        /// Industry.
+        industry: Option<String>,
+    },
     /// Second lien corporate loan
-    SecondLienLoan { industry: Option<String> },
+    SecondLienLoan {
+        /// Industry.
+        industry: Option<String>,
+    },
     /// Revolving credit facility
-    RevolverLoan { industry: Option<String> },
+    RevolverLoan {
+        /// Industry.
+        industry: Option<String>,
+    },
     /// Bridge loan
-    BridgeLoan { industry: Option<String> },
+    BridgeLoan {
+        /// Industry.
+        industry: Option<String>,
+    },
     /// Mezzanine loan
-    MezzanineLoan { industry: Option<String> },
+    MezzanineLoan {
+        /// Industry.
+        industry: Option<String>,
+    },
 
     // ========== BOND TYPES ==========
     /// High yield bond
-    HighYieldBond { industry: Option<String> },
+    HighYieldBond {
+        /// Industry.
+        industry: Option<String>,
+    },
     /// Investment grade bond
-    InvestmentGradeBond { industry: Option<String> },
+    InvestmentGradeBond {
+        /// Industry.
+        industry: Option<String>,
+    },
     /// Distressed bond
-    DistressedBond { industry: Option<String> },
+    DistressedBond {
+        /// Industry.
+        industry: Option<String>,
+    },
     /// Emerging markets bond
-    EmergingMarketsBond { industry: Option<String> },
+    EmergingMarketsBond {
+        /// Industry.
+        industry: Option<String>,
+    },
 
     // ========== MORTGAGE TYPES ==========
     /// Single family residential mortgage
-    SingleFamilyMortgage { ltv: Option<f64> },
+    SingleFamilyMortgage {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
     /// Multifamily residential mortgage
-    MultifamilyMortgage { ltv: Option<f64> },
+    MultifamilyMortgage {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
     /// Commercial real estate mortgage
-    CommercialMortgage { ltv: Option<f64> },
+    CommercialMortgage {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
     /// Industrial property mortgage
-    IndustrialMortgage { ltv: Option<f64> },
+    IndustrialMortgage {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
     /// Retail property mortgage
-    RetailMortgage { ltv: Option<f64> },
+    RetailMortgage {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
     /// Office property mortgage
-    OfficeMortgage { ltv: Option<f64> },
+    OfficeMortgage {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
     /// Hotel property mortgage
-    HotelMortgage { ltv: Option<f64> },
+    HotelMortgage {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
     /// Other property type mortgage
     OtherMortgage {
+        /// Property type.
         property_type: String,
+        /// Ltv.
         ltv: Option<f64>,
     },
 
     // ========== AUTO LOAN TYPES ==========
     /// New vehicle auto loan
-    NewAutoLoan { ltv: Option<f64> },
+    NewAutoLoan {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
     /// Used vehicle auto loan
-    UsedAutoLoan { ltv: Option<f64> },
+    UsedAutoLoan {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
     /// Vehicle lease
-    LeaseAutoLoan { ltv: Option<f64> },
+    LeaseAutoLoan {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
     /// Fleet vehicle loan
-    FleetAutoLoan { ltv: Option<f64> },
+    FleetAutoLoan {
+        /// Ltv.
+        ltv: Option<f64>,
+    },
 
     // ========== CREDIT CARD TYPES ==========
     /// Prime credit card receivables
@@ -159,10 +232,15 @@ pub enum AssetType {
 
     // ========== OTHER TYPES ==========
     /// Equipment financing
-    Equipment { equipment_type: String },
+    Equipment {
+        /// Equipment type.
+        equipment_type: String,
+    },
     /// Generic asset placeholder
     Generic {
+        /// Description.
         description: String,
+        /// Asset class.
         asset_class: String,
     },
 }
@@ -182,22 +260,33 @@ pub enum PaymentMode {
     /// Sequential payment (turbo) due to trigger breach
     #[cfg_attr(feature = "serde", serde(alias = "sequential"))]
     Sequential {
+        /// Triggered by.
         triggered_by: String,
+        /// Trigger date.
         trigger_date: Date,
     },
     /// Hybrid mode with custom rules
     #[cfg_attr(feature = "serde", serde(alias = "hybrid"))]
-    Hybrid { description: String },
+    Hybrid {
+        /// Description.
+        description: String,
+    },
 }
 
 /// Consequences when triggers are breached
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TriggerConsequence {
+    /// Divert Cash Flow variant.
     DivertCashFlow,
+    /// Trap Excess Spread variant.
     TrapExcessSpread,
+    /// Accelerate Amortization variant.
     AccelerateAmortization,
+    /// Stop Reinvestment variant.
     StopReinvestment,
+    /// Reduce Manager Fee variant.
     ReduceManagerFee,
+    /// Custom variant.
     Custom(String),
 }

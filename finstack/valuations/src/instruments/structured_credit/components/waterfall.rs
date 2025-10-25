@@ -36,8 +36,11 @@ pub enum PaymentRecipient {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ManagementFeeType {
+    /// Senior variant.
     Senior,
+    /// Subordinated variant.
     Subordinated,
+    /// Incentive variant.
     Incentive,
 }
 
@@ -46,14 +49,27 @@ pub enum ManagementFeeType {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum PaymentCalculation {
     /// Fixed amount
-    FixedAmount { amount: Money },
+    FixedAmount {
+        /// Amount.
+        amount: Money,
+    },
     /// Percentage of collateral balance
-    PercentageOfCollateral { rate: f64, annualized: bool },
+    PercentageOfCollateral {
+        /// Rate.
+        rate: f64,
+        /// Annualized.
+        annualized: bool,
+    },
     /// Interest due on tranche
-    TrancheInterest { tranche_id: String },
+    TrancheInterest {
+        /// Tranche id.
+        tranche_id: String,
+    },
     /// Principal payment to tranche
     TranchePrincipal {
+        /// Tranche id.
         tranche_id: String,
+        /// Target balance.
         target_balance: Option<Money>,
     },
     /// All remaining cash
@@ -146,12 +162,19 @@ pub struct WaterfallResult {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PaymentRecord {
+    /// rule id.
     pub rule_id: String,
+    /// priority.
     pub priority: u32,
+    /// recipient.
     pub recipient: PaymentRecipient,
+    /// requested amount.
     pub requested_amount: Money,
+    /// paid amount.
     pub paid_amount: Money,
+    /// shortfall.
     pub shortfall: Money,
+    /// diverted.
     pub diverted: bool,
 }
 

@@ -260,6 +260,15 @@ pub fn build_any_instrument_from_spec(
                 return Ok(Arc::new(repo));
             }
 
+            // Commented out until revolving_credit module is implemented
+            /*
+            if let Ok(rcf) =
+                serde_json::from_value::<RevolvingCreditFacility>(json_spec.clone())
+            {
+                return Ok(Arc::new(rcf));
+            }
+            */
+
             // If all deserialization attempts fail, return an error
             Err(crate::error::Error::build(format!(
                 "Failed to deserialize generic debt instrument '{}' as any known type. \

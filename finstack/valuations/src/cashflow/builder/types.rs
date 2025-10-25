@@ -17,9 +17,17 @@ use finstack_core::types::CurveId;
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CouponType {
+    /// Cash variant.
     Cash,
+    /// P I K variant.
     PIK,
-    Split { cash_pct: f64, pik_pct: f64 },
+    /// Split variant.
+    Split {
+        /// Cash pct.
+        cash_pct: f64,
+        /// Pik pct.
+        pik_pct: f64,
+    },
 }
 
 impl CouponType {
@@ -54,12 +62,19 @@ impl CouponType {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FixedCouponSpec {
+    /// coupon type.
     pub coupon_type: CouponType,
+    /// rate.
     pub rate: f64,
+    /// freq.
     pub freq: Frequency,
+    /// dc.
     pub dc: DayCount,
+    /// bdc.
     pub bdc: BusinessDayConvention,
+    /// calendar id.
     pub calendar_id: Option<String>,
+    /// stub.
     pub stub: StubKind,
 }
 
@@ -67,15 +82,25 @@ pub struct FixedCouponSpec {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FloatingCouponSpec {
+    /// index id.
     pub index_id: CurveId,
+    /// margin bp.
     pub margin_bp: f64,
+    /// gearing.
     pub gearing: f64,
+    /// coupon type.
     pub coupon_type: CouponType,
+    /// freq.
     pub freq: Frequency,
+    /// dc.
     pub dc: DayCount,
+    /// bdc.
     pub bdc: BusinessDayConvention,
+    /// calendar id.
     pub calendar_id: Option<String>,
+    /// stub.
     pub stub: StubKind,
+    /// reset lag days.
     pub reset_lag_days: i32,
 }
 
@@ -83,17 +108,28 @@ pub struct FloatingCouponSpec {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum FeeSpec {
+    /// Fixed variant.
     Fixed {
+        /// Date.
         date: Date,
+        /// Amount.
         amount: Money,
     },
+    /// Periodic Bps variant.
     PeriodicBps {
+        /// Base.
         base: FeeBase,
+        /// Bps.
         bps: f64,
+        /// Freq.
         freq: Frequency,
+        /// Dc.
         dc: DayCount,
+        /// Bdc.
         bdc: BusinessDayConvention,
+        /// Calendar id.
         calendar_id: Option<String>,
+        /// Stub.
         stub: StubKind,
     },
 }
@@ -105,16 +141,25 @@ pub enum FeeBase {
     /// Base on drawn outstanding (post-amortization, post-PIK).
     Drawn,
     /// Base on undrawn = max(limit − outstanding, 0).
-    Undrawn { facility_limit: Money },
+    Undrawn {
+        /// Facility limit.
+        facility_limit: Money,
+    },
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone)]
+/// Schedule Params structure.
 pub struct ScheduleParams {
+    /// freq.
     pub freq: Frequency,
+    /// dc.
     pub dc: DayCount,
+    /// bdc.
     pub bdc: BusinessDayConvention,
+    /// calendar id.
     pub calendar_id: Option<String>,
+    /// stub.
     pub stub: StubKind,
 }
 
@@ -198,21 +243,32 @@ impl ScheduleParams {
 }
 
 #[derive(Debug, Clone)]
+/// Float Coupon Params structure.
 pub struct FloatCouponParams {
+    /// index id.
     pub index_id: CurveId,
+    /// margin bp.
     pub margin_bp: f64,
+    /// gearing.
     pub gearing: f64,
+    /// reset lag days.
     pub reset_lag_days: i32,
 }
 
 #[derive(Debug, Clone)]
+/// Fixed Window structure.
 pub struct FixedWindow {
+    /// rate.
     pub rate: f64,
+    /// schedule.
     pub schedule: ScheduleParams,
 }
 
 #[derive(Debug, Clone)]
+/// Float Window structure.
 pub struct FloatWindow {
+    /// params.
     pub params: FloatCouponParams,
+    /// schedule.
     pub schedule: ScheduleParams,
 }

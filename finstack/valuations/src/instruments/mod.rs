@@ -5,32 +5,60 @@
 pub mod common;
 
 // Flattened instrument modules
+/// basis swap module.
 pub mod basis_swap;
+/// basket module.
 pub mod basket;
+/// bond module.
 pub mod bond;
+/// cap floor module.
 pub mod cap_floor;
+/// cds module.
 pub mod cds;
+/// cds index module.
 pub mod cds_index;
+/// cds option module.
 pub mod cds_option;
+/// cds tranche module.
 pub mod cds_tranche;
+/// convertible module.
 pub mod convertible;
+/// deposit module.
 pub mod deposit;
+/// equity module.
 pub mod equity;
+/// equity option module.
 pub mod equity_option;
+/// fra module.
 pub mod fra;
+/// fx option module.
 pub mod fx_option;
+/// fx spot module.
 pub mod fx_spot;
+/// fx swap module.
 pub mod fx_swap;
+/// inflation linked bond module.
 pub mod inflation_linked_bond;
+/// inflation swap module.
 pub mod inflation_swap;
+/// ir future module.
 pub mod ir_future;
+/// irs module.
 pub mod irs;
+/// pricing overrides module.
 pub mod pricing_overrides;
+/// private markets fund module.
 pub mod private_markets_fund;
+/// repo module.
 pub mod repo;
+// pub mod revolving_credit;
+/// structured credit module.
 pub mod structured_credit;
+/// swaption module.
 pub mod swaption;
+/// trs module.
 pub mod trs;
+/// variance swap module.
 pub mod variance_swap;
 
 // Preserve public path for equity metrics after move
@@ -60,6 +88,7 @@ pub use irs::InterestRateSwap;
 pub use pricing_overrides::PricingOverrides;
 pub use private_markets_fund::PrivateMarketsFund;
 pub use repo::{CollateralSpec, CollateralType, Repo, RepoType};
+// pub use revolving_credit::RevolvingCreditFacility;
 pub use structured_credit::StructuredCredit;
 pub use swaption::Swaption;
 pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};

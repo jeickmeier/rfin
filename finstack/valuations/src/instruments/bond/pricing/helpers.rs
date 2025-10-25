@@ -13,11 +13,17 @@ use finstack_core::money::Money;
 use time::Duration;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Yield Compounding enumeration.
 pub enum YieldCompounding {
+    /// Simple variant.
     Simple,
+    /// Annual variant.
     Annual,
+    /// Periodic variant.
     Periodic(u32),
+    /// Continuous variant.
     Continuous,
+    /// Street variant.
     Street,
 }
 
@@ -69,6 +75,7 @@ pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core:
 }
 
 #[inline]
+/// Df from yield.
 pub fn df_from_yield(
     ytm: f64,
     t: f64,
@@ -93,6 +100,7 @@ pub fn df_from_yield(
     })
 }
 
+/// price from ytm.
 pub fn price_from_ytm(
     bond: &Bond,
     flows: &[(finstack_core::dates::Date, finstack_core::money::Money)],
@@ -128,6 +136,7 @@ pub fn price_from_ytm_compounded_params(
     Ok(pv)
 }
 
+/// price from ytm compounded.
 pub fn price_from_ytm_compounded(
     bond: &Bond,
     flows: &[(finstack_core::dates::Date, finstack_core::money::Money)],
@@ -467,7 +476,7 @@ pub fn compute_accrued_interest_with_context(
     }
 
     // FRN path: approximate accrual using forward rate fixed at last reset
-    let fl = bond.float.as_ref().unwrap();
+    let fl = bond.float.as_ref().expect("Operation succeeded");
     let fwd = curves.get_forward_ref(fl.fwd_id.as_str())?;
 
     // Build schedule with instrument conventions to locate current coupon window

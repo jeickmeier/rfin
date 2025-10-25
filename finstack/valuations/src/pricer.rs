@@ -13,33 +13,63 @@ use finstack_core::market_data::MarketContext as Market;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u16)]
+/// Instrument Type enumeration.
 pub enum InstrumentType {
+    /// Bond variant.
     Bond = 1,
+    /// Loan variant.
     Loan = 2,
+    /// C D S variant.
     CDS = 3,
+    /// C D S Index variant.
     CDSIndex = 4,
+    /// C D S Tranche variant.
     CDSTranche = 5,
+    /// C D S Option variant.
     CDSOption = 6,
+    /// I R S variant.
     IRS = 7,
+    /// Cap Floor variant.
     CapFloor = 8,
+    /// Swaption variant.
     Swaption = 9,
+    /// T R S variant.
     TRS = 10,
+    /// Basis Swap variant.
     BasisSwap = 11,
+    /// Basket variant.
     Basket = 12,
+    /// Convertible variant.
     Convertible = 13,
+    /// Deposit variant.
     Deposit = 14,
+    /// Equity Option variant.
     EquityOption = 15,
+    /// Fx Option variant.
     FxOption = 16,
+    /// Fx Spot variant.
     FxSpot = 17,
+    /// Fx Swap variant.
     FxSwap = 18,
+    /// Inflation Linked Bond variant.
     InflationLinkedBond = 19,
+    /// Inflation Swap variant.
     InflationSwap = 20,
+    /// Interest Rate Future variant.
     InterestRateFuture = 21,
+    /// Variance Swap variant.
     VarianceSwap = 22,
+    /// Equity variant.
     Equity = 23,
+    /// Repo variant.
     Repo = 24,
+    /// F R A variant.
     FRA = 25,
+    /// Structured Credit variant.
     StructuredCredit = 26,
+    /// Revolving Credit variant.
+    RevolvingCredit = 27,
+    /// Private Markets Fund variant.
     PrivateMarketsFund = 30,
 }
 
@@ -76,6 +106,7 @@ impl InstrumentType {
             InstrumentType::Repo => "Repo",
             InstrumentType::FRA => "FRA",
             InstrumentType::StructuredCredit => "StructuredCredit",
+            InstrumentType::RevolvingCredit => "RevolvingCredit",
             InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
         }
     }
@@ -110,6 +141,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::Repo => "repo",
             InstrumentType::FRA => "fra",
             InstrumentType::StructuredCredit => "structured_credit",
+            InstrumentType::RevolvingCredit => "revolving_credit",
             InstrumentType::PrivateMarketsFund => "private_markets_fund",
         };
         write!(f, "{}", label)
@@ -153,6 +185,7 @@ impl std::str::FromStr for InstrumentType {
             "structured_credit" | "clo" | "abs" | "rmbs" | "cmbs" => {
                 Ok(InstrumentType::StructuredCredit)
             }
+            "revolving_credit" | "rcf" => Ok(InstrumentType::RevolvingCredit),
             "private_markets_fund" | "pmf" => Ok(InstrumentType::PrivateMarketsFund),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
@@ -161,11 +194,17 @@ impl std::str::FromStr for InstrumentType {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u16)]
+/// Model Key enumeration.
 pub enum ModelKey {
+    /// Discounting variant.
     Discounting = 1,
+    /// Tree variant.
     Tree = 2,
+    /// Black76 variant.
     Black76 = 3,
+    /// Hull White1 F variant.
     HullWhite1F = 4,
+    /// Hazard Rate variant.
     HazardRate = 5,
 }
 
@@ -200,12 +239,16 @@ impl std::str::FromStr for ModelKey {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// Pricer Key structure.
 pub struct PricerKey {
+    /// instrument.
     pub instrument: InstrumentType,
+    /// model.
     pub model: ModelKey,
 }
 
 impl PricerKey {
+    /// fn constant.
     pub const fn new(instrument: InstrumentType, model: ModelKey) -> Self {
         Self { instrument, model }
     }
@@ -290,23 +333,28 @@ use std::collections::HashMap;
 
 /// Trait-based pricer registry
 #[derive(Default)]
+/// Pricer Registry structure.
 pub struct PricerRegistry {
     pricers: HashMap<PricerKey, Box<dyn Pricer>>,
 }
 
 impl PricerRegistry {
+    /// new.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// register pricer.
     pub fn register_pricer(&mut self, key: PricerKey, pricer: Box<dyn Pricer>) {
         self.pricers.insert(key, pricer);
     }
 
+    /// get pricer.
     pub fn get_pricer(&self, key: PricerKey) -> Option<&dyn Pricer> {
         self.pricers.get(&key).map(|p| p.as_ref())
     }
 
+    /// price with registry.
     pub fn price_with_registry(
         &self,
         instrument: &dyn Priceable,
