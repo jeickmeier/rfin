@@ -16,7 +16,7 @@ include!("../../generated/holiday_generated.rs");
 pub const YEARS: usize = (END_YEAR - BASE_YEAR + 1) as usize;
 
 /// Words needed to cover 366 bits.
-pub const BITSET_WORDS: usize = (366 + 63) / 64; // 6 u64 words
+pub const BITSET_WORDS: usize = 366_usize.div_ceil(64); // 6 u64 words
 
 /// Bitset type for one year (366 bits).
 pub type YearBits = [u64; BITSET_WORDS];

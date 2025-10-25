@@ -270,9 +270,7 @@ impl CompiledExpr {
                 return cols[idx].to_vec();
             }
             ExprNode::Literal(v) => {
-                for x in &mut out {
-                    *x = *v;
-                }
+                out.fill(*v);
             }
             ExprNode::Call(fun, args) => {
                 // Recursively evaluate arguments

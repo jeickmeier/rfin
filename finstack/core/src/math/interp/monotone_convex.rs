@@ -53,9 +53,9 @@ impl MonotoneConvex {
     ///
     /// # Parameters
     /// * `knots` – strictly increasing times in the same units as evaluation
-    ///             points (e.g. years).
+    ///   points (e.g. years).
     /// * `dfs`   – corresponding discount factors, positive and
-    ///             non-increasing (arbitrage-free).
+    ///   non-increasing (arbitrage-free).
     /// * `extrapolation` – policy for out-of-bounds evaluation.
     ///
     /// # Errors
