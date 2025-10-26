@@ -91,6 +91,9 @@ pub use valuations::pricer::{
     create_standard_registry_js as createStandardRegistry, JsPricerRegistry as PricerRegistry,
 };
 pub use valuations::results::JsValuationResult as ValuationResult;
+// Note: ResultsMeta already exported from statements evaluator
+// Using valuations::results::JsResultsMeta for ValuationResult.meta
+pub use valuations::results::JsResultsMeta as ValuationResultsMeta;
 
 // Statements exports
 pub use statements::{

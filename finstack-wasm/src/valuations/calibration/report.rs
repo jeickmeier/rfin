@@ -1,5 +1,6 @@
 //! Calibration report bindings for WASM.
 
+use crate::core::explain::WasmExplanationTrace;
 use finstack_valuations::calibration::CalibrationReport;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
@@ -58,6 +59,43 @@ impl JsCalibrationReport {
     #[wasm_bindgen(getter, js_name = convergenceReason)]
     pub fn convergence_reason(&self) -> String {
         self.inner.convergence_reason.clone()
+    }
+
+    /// Optional explanation trace if explain=true was passed.
+    ///
+    /// Returns detailed iteration-by-iteration diagnostics including
+    /// residuals, knots updated, and convergence status.
+    ///
+    /// @returns {ExplanationTrace | null} Trace object or null if explanation was disabled
+    ///
+    /// @example
+    /// ```javascript
+    /// const report = calibrator.calibrate(quotes, market);
+    /// if (report.explanation) {
+    ///     console.log('Trace type:', report.explanation.traceType);
+    ///     console.log('Iterations:', report.explanation.entryCount);
+    ///     console.log(report.explanation.toJsonString());
+    /// }
+    /// ```
+    #[wasm_bindgen(getter)]
+    pub fn explanation(&self) -> Option<WasmExplanationTrace> {
+        self.inner
+            .explanation
+            .as_ref()
+            .map(|trace| WasmExplanationTrace::new(trace.clone()))
+    }
+
+    /// Get explanation trace as JSON string.
+    ///
+    /// Convenience method for logging or debugging.
+    ///
+    /// @returns {string | null} Pretty-printed JSON or null if no explanation
+    #[wasm_bindgen(js_name = explainJson)]
+    pub fn explain_json(&self) -> Option<String> {
+        self.inner
+            .explanation
+            .as_ref()
+            .and_then(|trace| trace.to_json_pretty().ok())
     }
 
     /// Convert report to JSON object.
