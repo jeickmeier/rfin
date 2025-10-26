@@ -18,9 +18,14 @@ time = { version = "0.3" }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
 default = ["serde"]
 serde = []
+
+[[bench]]
+name = "scenarios"
+harness = false
 
 

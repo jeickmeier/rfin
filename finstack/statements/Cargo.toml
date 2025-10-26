@@ -19,9 +19,13 @@ polars = { version = "0.44", optional = true, default-features = false }
 [dev-dependencies]
 indexmap = { version = "2", features = ["serde"] }
 time = { version = "0.3", features = ["macros"] }
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
 default = []
 polars_export = ["dep:polars"]
 full = ["polars_export"]
 
+[[bench]]
+name = "statements_operations"
+harness = false
