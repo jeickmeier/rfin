@@ -44,6 +44,26 @@ parallel = ["dep:rayon"]
 linear-algebra = ["dep:ndarray-linalg"]
 
 
+[[bench]]
+name = "money_operations"
+harness = false
+
+[[bench]]
+name = "daycount_operations"
+harness = false
+
+[[bench]]
+name = "calendar_operations"
+harness = false
+
+[[bench]]
+name = "interpolation"
+harness = false
+
+[[bench]]
+name = "curve_operations"
+harness = false
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
