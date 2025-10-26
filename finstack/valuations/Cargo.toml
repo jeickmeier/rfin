@@ -28,6 +28,7 @@ thiserror = "1.0"
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
 proptest = "1.0"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 
 
@@ -38,3 +39,47 @@ serde = ["finstack-core/serde", "hashbrown/serde"]
 index = []
 stochastic-models = ["dep:rand", "dep:rand_pcg", "dep:rand_distr"]
 linear-algebra = ["dep:ndarray-linalg"]
+
+[[bench]]
+name = "bond_pricing"
+harness = false
+
+[[bench]]
+name = "swap_pricing"
+harness = false
+
+[[bench]]
+name = "option_pricing"
+harness = false
+
+[[bench]]
+name = "cds_pricing"
+harness = false
+
+[[bench]]
+name = "cashflow_generation"
+harness = false
+
+[[bench]]
+name = "cds_option_pricing"
+harness = false
+
+[[bench]]
+name = "cds_tranche_pricing"
+harness = false
+
+[[bench]]
+name = "swaption_pricing"
+harness = false
+
+[[bench]]
+name = "cds_index_pricing"
+harness = false
+
+[[bench]]
+name = "structured_credit_pricing"
+harness = false
+
+[[bench]]
+name = "convertible_pricing"
+harness = false
