@@ -1,6 +1,7 @@
 pub(crate) mod calibration;
 pub(crate) mod cashflow;
 pub(crate) mod common;
+pub(crate) mod dataframe;
 pub(crate) mod instruments;
 pub(crate) mod metrics;
 pub(crate) mod pricer;
@@ -48,6 +49,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let calibration_exports = calibration::register(py, &module)?;
     reexport_from_submodule(&module, "calibration", &calibration_exports)?;
     exports.extend(calibration_exports.iter().copied());
+
+    let dataframe_exports = dataframe::register(py, &module)?;
+    reexport_from_submodule(&module, "dataframe", &dataframe_exports)?;
+    exports.extend(dataframe_exports.iter().copied());
 
     let mut uniq = HashSet::new();
     exports.retain(|item| uniq.insert(*item));

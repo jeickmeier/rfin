@@ -1,0 +1,48 @@
+name: Python Type Checking
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'finstack-py/**/*.py'
+      - 'finstack-py/**/*.pyi'
+      - 'pyproject.toml'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'finstack-py/**/*.py'
+      - 'finstack-py/**/*.pyi'
+      - 'pyproject.toml'
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install 3.12
+    
+    - name: Install dependencies
+      run: |
+        cd finstack-py
+        uv sync --all-extras
+    
+    - name: Run mypy
+      run: |
+        cd finstack-py
+        uv run mypy finstack/ --strict --ignore-missing-imports || true
+      continue-on-error: true
+    
+    - name: Run pyright  
+      run: |
+        cd finstack-py
+        uv run pyright finstack/ || true
+      continue-on-error: true
+

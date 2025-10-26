@@ -7,4 +7,5 @@ pub mod error;
 pub mod market_data;
 pub mod math;
 pub mod money;
+pub mod progress;
 pub mod utils;

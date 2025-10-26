@@ -7,6 +7,7 @@ use finstack_valuations::results::{ResultsMeta, ValuationResult};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule};
 use pyo3::Bound;
+use pythonize::pythonize;
 use std::fmt;
 
 /// Covenant evaluation outcome attached to a valuation result.
@@ -158,6 +159,24 @@ impl PyResultsMeta {
         self.inner.fx_policy_applied.as_deref()
     }
 
+    /// Timestamp when result was computed (ISO 8601 format).
+    ///
+    /// Returns:
+    ///     str | None: Timestamp of computation for audit trails.
+    #[getter]
+    fn timestamp(&self) -> Option<&str> {
+        self.inner.timestamp.as_deref()
+    }
+
+    /// Finstack library version used to produce this result.
+    ///
+    /// Returns:
+    ///     str | None: Library version for reproducibility.
+    #[getter]
+    fn version(&self) -> Option<&str> {
+        self.inner.version.as_deref()
+    }
+
     /// Rounding context snapshot as a dictionary.
     ///
     /// Returns:
@@ -184,6 +203,12 @@ impl PyResultsMeta {
             dict.set_item("fx_policy_applied", policy.clone())?;
         } else {
             dict.set_item("fx_policy_applied", py.None())?;
+        }
+        if let Some(timestamp) = &self.inner.timestamp {
+            dict.set_item("timestamp", timestamp.clone())?;
+        }
+        if let Some(version) = &self.inner.version {
+            dict.set_item("version", version.clone())?;
         }
         Ok(dict.into())
     }
@@ -300,6 +325,49 @@ impl PyValuationResult {
     #[getter]
     fn covenants<'py>(&self, py: Python<'py>) -> PyResult<Option<PyObject>> {
         self.covenants_dict(py)
+    }
+
+    /// Optional explanation trace when explain=True was passed.
+    ///
+    /// Returns:
+    ///     dict | None: Detailed trace of computation steps, or None if explanation was disabled.
+    ///
+    /// Examples:
+    ///     >>> result = pricer.price(bond, market, as_of, explain=True)
+    ///     >>> if result.explanation:
+    ///     ...     print(result.explanation['type'])
+    ///     pricing
+    #[getter]
+    fn explanation(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+        match &self.inner.explanation {
+            Some(trace) => {
+                let bound = pythonize(py, trace)
+                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+                Ok(Some(bound.unbind()))
+            }
+            None => Ok(None),
+        }
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Get the explanation trace as pretty-printed JSON.
+    ///
+    /// Returns:
+    ///     str | None: JSON string of the explanation, or None if disabled.
+    ///
+    /// Examples:
+    ///     >>> result = pricer.price(bond, market, as_of, explain=True)
+    ///     >>> if result.explanation:
+    ///     ...     print(result.explain_json())
+    fn explain_json(&self) -> PyResult<Option<String>> {
+        match &self.inner.explanation {
+            Some(trace) => {
+                let json = trace.to_json_pretty()
+                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+                Ok(Some(json))
+            }
+            None => Ok(None),
+        }
     }
 
     #[pyo3(text_signature = "(self)")]

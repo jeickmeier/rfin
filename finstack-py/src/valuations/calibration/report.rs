@@ -2,6 +2,7 @@ use finstack_valuations::calibration::CalibrationReport;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule};
 use pyo3::Bound;
+use pythonize::pythonize;
 
 #[pyclass(
     module = "finstack.valuations.calibration",
@@ -83,6 +84,36 @@ impl PyCalibrationReport {
         Self::string_map_to_dict(py, &self.inner.metadata)
     }
 
+    #[getter]
+    fn results_meta(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let bound = pythonize(py, &self.inner.results_meta)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        Ok(bound.unbind())
+    }
+
+    #[getter]
+    fn explanation(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+        match &self.inner.explanation {
+            Some(trace) => {
+                let bound = pythonize(py, trace)
+                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+                Ok(Some(bound.unbind()))
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn explain_json(&self) -> PyResult<Option<String>> {
+        match &self.inner.explanation {
+            Some(trace) => {
+                let json = trace.to_json_pretty()
+                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+                Ok(Some(json))
+            }
+            None => Ok(None),
+        }
+    }
+
     fn to_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
         dict.set_item("success", self.inner.success)?;
@@ -93,6 +124,10 @@ impl PyCalibrationReport {
         dict.set_item("convergence_reason", &self.inner.convergence_reason)?;
         dict.set_item("residuals", self.residuals(py)?)?;
         dict.set_item("metadata", self.metadata(py)?)?;
+        dict.set_item("results_meta", self.results_meta(py)?)?;
+        if let Some(explanation) = self.explanation(py)? {
+            dict.set_item("explanation", explanation)?;
+        }
         Ok(dict.into())
     }
 
