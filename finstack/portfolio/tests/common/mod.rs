@@ -11,20 +11,24 @@ pub fn base_date() -> Date {
 
 #[allow(dead_code)]
 fn usd_curve() -> DiscountCurve {
+    // Flat curve for testing - requires allow_non_monotonic()
     DiscountCurve::builder("USD")
         .base_date(base_date())
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
         .set_interp(InterpStyle::Linear)
+        .allow_non_monotonic()
         .build()
         .unwrap()
 }
 
 #[allow(dead_code)]
 fn eur_curve() -> DiscountCurve {
+    // Flat curve for testing - requires allow_non_monotonic()
     DiscountCurve::builder("EUR")
         .base_date(base_date())
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
         .set_interp(InterpStyle::Linear)
+        .allow_non_monotonic()
         .build()
         .unwrap()
 }

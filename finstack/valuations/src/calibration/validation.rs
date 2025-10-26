@@ -688,6 +688,7 @@ mod tests {
         assert!(valid_curve.validate().is_ok());
 
         // Invalid curve - increasing discount factors
+        // NOTE: Must use allow_non_monotonic() since monotonicity is now enforced by default
         let invalid_curve = DiscountCurve::builder("TEST-INVALID")
             .base_date(base_date)
             .knots(vec![
@@ -697,6 +698,7 @@ mod tests {
                 (5.0, 0.90),
             ])
             .set_interp(InterpStyle::Linear)
+            .allow_non_monotonic() // Allow construction of invalid curve for testing validation
             .build()
             .unwrap();
 

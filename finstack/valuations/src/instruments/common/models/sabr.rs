@@ -23,20 +23,38 @@ pub struct SABRParameters {
 }
 
 impl SABRParameters {
-    /// Create new SABR parameters with validation
+    /// Create new SABR parameters with validation.
+    ///
+    /// Enforces market-standard parameter bounds:
+    /// - α (alpha) > 0: Initial volatility must be positive
+    /// - β (beta) ∈ [0, 1]: CEV exponent (0=normal, 1=lognormal)
+    /// - ν (nu) ≥ 0: Volatility of volatility must be non-negative
+    /// - ρ (rho) ∈ [-1, 1]: Correlation must be valid
     pub fn new(alpha: f64, beta: f64, nu: f64, rho: f64) -> Result<Self> {
-        // Validate parameters
+        // Validate parameters with descriptive error messages
         if alpha <= 0.0 {
-            return Err(Error::Internal); // Alpha must be positive
+            return Err(Error::Validation(format!(
+                "SABR parameter α (alpha) must be positive, got: {:.6}",
+                alpha
+            )));
         }
         if !(0.0..=1.0).contains(&beta) {
-            return Err(Error::Internal); // Beta must be in [0, 1]
+            return Err(Error::Validation(format!(
+                "SABR parameter β (beta) must be in [0, 1], got: {:.6}",
+                beta
+            )));
         }
         if nu < 0.0 {
-            return Err(Error::Internal); // Nu must be non-negative
+            return Err(Error::Validation(format!(
+                "SABR parameter ν (nu) must be non-negative, got: {:.6}",
+                nu
+            )));
         }
         if !(-1.0..=1.0).contains(&rho) {
-            return Err(Error::Internal); // Rho must be in [-1, 1]
+            return Err(Error::Validation(format!(
+                "SABR parameter ρ (rho) must be in [-1, 1], got: {:.6}",
+                rho
+            )));
         }
 
         Ok(Self {
@@ -48,24 +66,42 @@ impl SABRParameters {
         })
     }
 
-    /// Create new SABR parameters with shift for negative rates
+    /// Create new SABR parameters with shift for negative rates.
+    ///
+    /// Same validation as `new()` plus shift validation:
+    /// - shift > 0: Shift must be positive for negative rate support
     pub fn new_with_shift(alpha: f64, beta: f64, nu: f64, rho: f64, shift: f64) -> Result<Self> {
-        // Validate base parameters
+        // Validate base parameters with descriptive messages
         if alpha <= 0.0 {
-            return Err(Error::Internal); // Alpha must be positive
+            return Err(Error::Validation(format!(
+                "SABR parameter α (alpha) must be positive, got: {:.6}",
+                alpha
+            )));
         }
         if !(0.0..=1.0).contains(&beta) {
-            return Err(Error::Internal); // Beta must be in [0, 1]
+            return Err(Error::Validation(format!(
+                "SABR parameter β (beta) must be in [0, 1], got: {:.6}",
+                beta
+            )));
         }
         if nu < 0.0 {
-            return Err(Error::Internal); // Nu must be non-negative
+            return Err(Error::Validation(format!(
+                "SABR parameter ν (nu) must be non-negative, got: {:.6}",
+                nu
+            )));
         }
         if !(-1.0..=1.0).contains(&rho) {
-            return Err(Error::Internal); // Rho must be in [-1, 1]
+            return Err(Error::Validation(format!(
+                "SABR parameter ρ (rho) must be in [-1, 1], got: {:.6}",
+                rho
+            )));
         }
         // Shift should be positive to handle negative rates
         if shift <= 0.0 {
-            return Err(Error::Internal); // Shift must be positive for negative rate support
+            return Err(Error::Validation(format!(
+                "SABR shift parameter must be positive for negative rate support, got: {:.6}",
+                shift
+            )));
         }
 
         Ok(Self {
@@ -1128,5 +1164,94 @@ mod tests {
         let model_rho_minus_one = SABRModel::new(params_rho_minus_one);
         let chi_rho_minus_one = model_rho_minus_one.calculate_chi_robust(0.1);
         assert!(chi_rho_minus_one.is_ok());
+    }
+
+    // ===================================================================
+    // Market Standards Validation Tests (Priority 1, Task 1.2)
+    // ===================================================================
+
+    #[test]
+    fn test_sabr_rejects_negative_alpha() {
+        let result = SABRParameters::new(-0.1, 0.5, 0.3, 0.1);
+        assert!(result.is_err(), "Negative alpha should be rejected");
+        
+        let err = result.unwrap_err();
+        assert!(matches!(err, Error::Validation(_)), "Should return Validation error");
+        
+        // Verify error message mentions alpha
+        let err_str = format!("{}", err);
+        assert!(err_str.contains("alpha") || err_str.contains("α"));
+    }
+
+    #[test]
+    fn test_sabr_rejects_zero_alpha() {
+        let result = SABRParameters::new(0.0, 0.5, 0.3, 0.1);
+        assert!(result.is_err(), "Zero alpha should be rejected");
+        
+        let err = result.unwrap_err();
+        assert!(matches!(err, Error::Validation(_)));
+    }
+
+    #[test]
+    fn test_sabr_rejects_invalid_rho() {
+        // Rho > 1
+        let result1 = SABRParameters::new(0.2, 0.5, 0.3, 1.5);
+        assert!(result1.is_err(), "Rho > 1 should be rejected");
+        assert!(matches!(result1.unwrap_err(), Error::Validation(_)));
+        
+        // Rho < -1
+        let result2 = SABRParameters::new(0.2, 0.5, 0.3, -1.5);
+        assert!(result2.is_err(), "Rho < -1 should be rejected");
+        assert!(matches!(result2.unwrap_err(), Error::Validation(_)));
+        
+        // Rho = exactly 1.0 should be OK
+        let result3 = SABRParameters::new(0.2, 0.5, 0.3, 1.0);
+        assert!(result3.is_ok(), "Rho = 1.0 is valid");
+        
+        // Rho = exactly -1.0 should be OK
+        let result4 = SABRParameters::new(0.2, 0.5, 0.3, -1.0);
+        assert!(result4.is_ok(), "Rho = -1.0 is valid");
+    }
+
+    #[test]
+    fn test_sabr_rejects_negative_nu() {
+        let result = SABRParameters::new(0.2, 0.5, -0.1, 0.1);
+        assert!(result.is_err(), "Negative nu should be rejected");
+        
+        let err = result.unwrap_err();
+        assert!(matches!(err, Error::Validation(_)));
+        
+        // Verify error message mentions nu
+        let err_str = format!("{}", err);
+        assert!(err_str.contains("nu") || err_str.contains("ν"));
+    }
+
+    #[test]
+    fn test_sabr_rejects_invalid_beta() {
+        // Beta > 1
+        let result1 = SABRParameters::new(0.2, 1.5, 0.3, 0.1);
+        assert!(result1.is_err(), "Beta > 1 should be rejected");
+        assert!(matches!(result1.unwrap_err(), Error::Validation(_)));
+        
+        // Beta < 0
+        let result2 = SABRParameters::new(0.2, -0.1, 0.3, 0.1);
+        assert!(result2.is_err(), "Beta < 0 should be rejected");
+        assert!(matches!(result2.unwrap_err(), Error::Validation(_)));
+        
+        // Beta = 0 should be OK (normal SABR)
+        let result3 = SABRParameters::new(0.2, 0.0, 0.3, 0.1);
+        assert!(result3.is_ok(), "Beta = 0 is valid (normal SABR)");
+        
+        // Beta = 1 should be OK (lognormal SABR)
+        let result4 = SABRParameters::new(0.2, 1.0, 0.3, 0.1);
+        assert!(result4.is_ok(), "Beta = 1 is valid (lognormal SABR)");
+    }
+
+    #[test]
+    fn test_sabr_accepts_boundary_values() {
+        // Test that exact boundary values are accepted
+        assert!(SABRParameters::new(1e-10, 0.0, 0.0, -1.0).is_ok());
+        assert!(SABRParameters::new(1e-10, 1.0, 0.0, 1.0).is_ok());
+        assert!(SABRParameters::new(0.001, 0.5, 0.0, 0.0).is_ok());
     }
 }

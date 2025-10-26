@@ -99,12 +99,14 @@ mod tests {
 
     fn create_test_context() -> MarketContext {
         let as_of = test_date(2025, 1, 10);
+        // Use a near-zero rate curve (0.01% = 1bp) for testing
+        // DF(10) = exp(-0.0001 * 10) ≈ 0.999
         let disc =
             finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
                 "USD-OIS",
             )
             .base_date(as_of)
-            .knots(vec![(0.0, 1.0), (10.0, 1.0)])
+            .knots(vec![(0.0, 1.0), (10.0, 0.999)])
             .build()
             .unwrap();
         MarketContext::new().insert_discount(disc).insert_price(

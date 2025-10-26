@@ -2,6 +2,9 @@
 //!
 //! Provides pricing, risk metrics, and cashflow generation for financial instruments.
 //! Built on a simplified registry system that replaces complex macro-driven pricing.
+
+#![forbid(unsafe_code)]
+// Note: #![warn(missing_docs)] will be added after comprehensive documentation in Priority 5
 //!
 //! # Quick Start (New Simplified API)
 //! ```rust,no_run

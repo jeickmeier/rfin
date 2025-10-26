@@ -12,12 +12,17 @@ use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::equity::Equity;
 
 fn build_flat_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
-    DiscountCurve::builder(curve_id)
+    let mut builder = DiscountCurve::builder(curve_id)
         .base_date(base_date)
         .day_count(DayCount::Act365F)
-        .knots([(0.0, 1.0), (0.5, (-rate * 0.5).exp()), (1.0, (-rate).exp())])
-        .build()
-        .expect("Failed to build discount curve")
+        .knots([(0.0, 1.0), (0.5, (-rate * 0.5).exp()), (1.0, (-rate).exp())]);
+    
+    // For zero or negative rates, the curve may be flat or increasing
+    if rate.abs() < 1e-10 || rate < 0.0 {
+        builder = builder.allow_non_monotonic();
+    }
+    
+    builder.build().expect("Failed to build discount curve")
 }
 
 #[test]

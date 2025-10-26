@@ -305,10 +305,12 @@ mod tests {
     fn build_test_market() -> MarketContext {
         let base_date = date!(2024 - 01 - 01);
         // Create a flat discount curve (0% rate) so deposits have near-zero PV
+        // NOTE: Flat curve requires allow_non_monotonic() since monotonicity is enforced by default
         let curve = DiscountCurve::builder("USD")
             .base_date(base_date)
             .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
             .set_interp(InterpStyle::Linear)
+            .allow_non_monotonic() // Flat curve for testing
             .build()
             .unwrap();
 

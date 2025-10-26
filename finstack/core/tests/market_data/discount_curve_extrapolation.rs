@@ -75,30 +75,31 @@ fn test_monotonic_validation_success() {
 #[test]
 fn test_monotonic_validation_failure() {
     // Invalid non-monotonic discount factors (increases at t=2)
+    // NOTE: Monotonicity is now enforced by default, so this will fail even without require_monotonic()
     let result = DiscountCurve::builder("INVALID-CURVE")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.96), (5.0, 0.78)]) // 0.96 > 0.95
         .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
-        .require_monotonic()
-        .build();
+        .build(); // No need for require_monotonic() - it's default now
 
     assert!(result.is_err());
     let error = result.unwrap_err();
+    // Error type changed to Validation in the new implementation
     assert!(matches!(
         error,
-        finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
+        finstack_core::Error::Validation(_)
     ));
 }
 
 #[test]
 fn test_non_monotonic_without_validation() {
-    // Non-monotonic should succeed when validation is not required and using linear interpolation
-    // Note: MonotoneConvex interpolation requires monotonic data by design, so we use linear
+    // Non-monotonic should succeed when validation is explicitly disabled
+    // NOTE: Monotonicity is now enforced by default, so must use allow_non_monotonic() to override
     let result = DiscountCurve::builder("NON-MONOTONIC")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.96), (5.0, 0.78)])
         .set_interp(finstack_core::math::interp::InterpStyle::Linear) // Use linear instead of monotone_convex for non-monotonic data
-        // Note: not calling require_monotonic()
+        .allow_non_monotonic() // Must explicitly allow non-monotonic DFs (dangerous!)
         .build();
 
     assert!(result.is_ok());

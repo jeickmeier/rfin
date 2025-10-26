@@ -158,10 +158,13 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
     b.principal(init, issue, maturity).fixed_cf(fixed.clone());
     let schedule = b.build().unwrap();
 
+    // Use a flat DF=1.0 curve for this test (testing NPV = sum when no discounting)
+    // NOTE: Flat curves are not monotonically decreasing, so must allow_non_monotonic()
     let curve = CoreDiscCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (5.0, 1.0)])
         .set_interp(InterpStyle::Linear)
+        .allow_non_monotonic() // Flat curve for testing NPV = sum of cashflows
         .build()
         .unwrap();
 
@@ -169,7 +172,7 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
         .npv(&curve, curve.base_date(), schedule.day_count)
         .unwrap();
 
-    // PV with flat curve 1.0 should equal sum of coupon amounts
+    // PV with flat curve DF=1.0 should equal sum of coupon amounts (no discounting)
     let expected = schedule
         .flows
         .iter()

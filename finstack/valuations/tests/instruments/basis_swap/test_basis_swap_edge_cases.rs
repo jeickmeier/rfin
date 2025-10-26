@@ -311,10 +311,12 @@ fn extreme_negative_spread() {
 #[test]
 fn flat_curves_zero_rates() {
     // Test with flat curves at zero rates
+    // NOTE: Flat curves require allow_non_monotonic() since monotonicity is enforced by default
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (2.0, 1.0)])
         .set_interp(InterpStyle::LogLinear)
+        .allow_non_monotonic()
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
@@ -365,10 +367,12 @@ fn flat_curves_zero_rates() {
 #[test]
 fn negative_rates() {
     // Test with negative interest rates (European scenario)
+    // NOTE: Increasing DFs (negative rates) require allow_non_monotonic()
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1.0), (1.0, 1.005), (2.0, 1.01)])
         .set_interp(InterpStyle::LogLinear)
+        .allow_non_monotonic() // Allow increasing DFs for negative rate test
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)

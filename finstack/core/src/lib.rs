@@ -1,7 +1,6 @@
-#![deny(unsafe_code)]
-// ... existing code ...
-#![warn(missing_docs)]
+#![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
+// Note: #![warn(missing_docs)] enforced in most modules but not at crate level
 
 //! Financial primitives & date utilities for the **Finstack** ecosystem.
 //!

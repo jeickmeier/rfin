@@ -73,8 +73,20 @@ pub struct DiscountCurveState {
     points: super::common::StateKnotPoints,
     #[cfg_attr(feature = "serde", serde(flatten))]
     interp: super::common::StateInterp,
-    /// Whether monotonic discount factors were required
+    /// Whether monotonic discount factors were required (deprecated, always true now)
+    #[cfg_attr(feature = "serde", serde(default = "default_true"))]
     pub require_monotonic: bool,
+    /// Minimum forward rate floor (if set)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub min_forward_rate: Option<f64>,
+    /// Whether non-monotonic DFs are allowed (dangerous override)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub allow_non_monotonic: bool,
+}
+
+#[cfg(feature = "serde")]
+fn default_true() -> bool {
+    true
 }
 
 #[cfg(feature = "serde")]
@@ -283,6 +295,10 @@ impl DiscountCurve {
     }
 
     /// Builder entry-point.
+    ///
+    /// **Note:** Monotonic discount factor validation is enabled by default to ensure
+    /// no-arbitrage conditions. Use `.allow_non_monotonic()` if you need to disable this
+    /// validation (not recommended for production use).
     pub fn builder(id: impl Into<CurveId>) -> DiscountCurveBuilder {
         DiscountCurveBuilder {
             id: id.into(),
@@ -291,7 +307,9 @@ impl DiscountCurve {
             points: Vec::new(),
             style: InterpStyle::Linear,
             extrapolation: ExtrapolationPolicy::default(),
-            require_monotonic: false,
+            require_monotonic: true,  // Enforced by default for no-arbitrage
+            min_forward_rate: None,    // No floor by default
+            allow_non_monotonic: false, // Strict validation by default
         }
     }
 
@@ -460,7 +478,9 @@ impl DiscountCurve {
                 interp_style: self.style,
                 extrapolation: self.extrapolation,
             },
-            require_monotonic: false, // Default - we can't recover this info from existing curves
+            require_monotonic: true, // Always true in new version
+            min_forward_rate: None,  // Can't recover from existing curves
+            allow_non_monotonic: false, // Safe default
         }
     }
 
@@ -474,8 +494,14 @@ impl DiscountCurve {
             .set_interp(state.interp.interp_style)
             .extrapolation(state.interp.extrapolation);
 
-        if state.require_monotonic {
-            builder = builder.require_monotonic();
+        // Handle legacy require_monotonic field (now always true by default)
+        if !state.require_monotonic || state.allow_non_monotonic {
+            builder = builder.allow_non_monotonic();
+        }
+
+        // Apply forward rate floor if specified
+        if let Some(min_rate) = state.min_forward_rate {
+            builder = builder.with_min_forward_rate(min_rate);
         }
 
         builder.build()
@@ -510,7 +536,9 @@ pub struct DiscountCurveBuilder {
     points: Vec<(f64, f64)>, // (t, df)
     style: InterpStyle,
     extrapolation: ExtrapolationPolicy,
-    require_monotonic: bool, // Critical for credit curves
+    require_monotonic: bool, // Enforced by default for no-arbitrage
+    min_forward_rate: Option<f64>, // Minimum allowed forward rate (e.g., -50bp = -0.005)
+    allow_non_monotonic: bool, // Override to disable monotonicity checks (use with caution)
 }
 
 impl DiscountCurveBuilder {
@@ -547,8 +575,76 @@ impl DiscountCurveBuilder {
 
     /// Require monotonic (strictly decreasing) discount factors.
     /// This is critical for credit curves to ensure arbitrage-free pricing.
+    ///
+    /// **Note:** Monotonicity is enforced by default. This method is kept for
+    /// backward compatibility but has no effect since validation is now automatic.
     pub fn require_monotonic(mut self) -> Self {
         self.require_monotonic = true;
+        self
+    }
+
+    /// Enforce comprehensive no-arbitrage checks on the discount curve.
+    ///
+    /// This enables:
+    /// - Monotonic (strictly decreasing) discount factors
+    /// - Forward rate floor at -50bp to prevent unrealistic negative rates
+    ///
+    /// # Example
+    /// ```
+    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    /// let curve = DiscountCurve::builder("USD-OIS")
+    ///     .base_date(base)
+    ///     .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
+    ///     .enforce_no_arbitrage()
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn enforce_no_arbitrage(mut self) -> Self {
+        self.require_monotonic = true;
+        self.min_forward_rate = Some(-0.005); // -50bp floor
+        self
+    }
+
+    /// Set a custom minimum forward rate (in decimal).
+    ///
+    /// Forward rates below this threshold will trigger a validation error.
+    /// This prevents unrealistic negative rate scenarios that could indicate
+    /// data errors or create arbitrage opportunities.
+    ///
+    /// # Example
+    /// ```
+    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    /// let curve = DiscountCurve::builder("USD-OIS")
+    ///     .base_date(base)
+    ///     .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
+    ///     .with_min_forward_rate(-0.01)  // Floor at -100bp
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn with_min_forward_rate(mut self, min_rate: f64) -> Self {
+        self.min_forward_rate = Some(min_rate);
+        self
+    }
+
+    /// Allow non-monotonic discount factors (use with extreme caution).
+    ///
+    /// This disables the default monotonicity validation and should only be used
+    /// in exceptional circumstances where you need to work with malformed market data.
+    ///
+    /// **Warning:** Non-monotonic discount factors create arbitrage opportunities
+    /// and will produce incorrect pricing results. Only use this override if you
+    /// understand the implications.
+    pub fn allow_non_monotonic(mut self) -> Self {
+        self.allow_non_monotonic = true;
+        self.require_monotonic = false;
         self
     }
 
@@ -565,10 +661,14 @@ impl DiscountCurveBuilder {
         crate::math::interp::utils::validate_knots(&knots_vec)
             .map_err(|_| crate::error::InputError::NonMonotonicKnots)?;
 
-        // Validate monotonic discount factors if required (critical for credit curves)
-        if self.require_monotonic {
-            crate::math::interp::utils::validate_monotone_nonincreasing(&dfs_vec)
-                .map_err(|_| crate::error::InputError::Invalid)?;
+        // Enforce monotonicity by default (can be disabled via allow_non_monotonic)
+        if self.require_monotonic && !self.allow_non_monotonic {
+            validate_monotonic_df(&knots_vec, &dfs_vec)?;
+        }
+
+        // Validate forward rates if minimum is specified
+        if let Some(min_fwd) = self.min_forward_rate {
+            validate_forward_rates(&knots_vec, &dfs_vec, min_fwd)?;
         }
 
         let knots = knots_vec.into_boxed_slice();
@@ -588,6 +688,53 @@ impl DiscountCurveBuilder {
             extrapolation: self.extrapolation,
         })
     }
+}
+
+// -----------------------------------------------------------------------------
+// Validation helper functions
+// -----------------------------------------------------------------------------
+
+/// Validate that discount factors are strictly decreasing (monotonic).
+///
+/// Non-monotonic discount factors violate no-arbitrage conditions and will
+/// produce incorrect pricing results.
+fn validate_monotonic_df(knots: &[f64], dfs: &[f64]) -> crate::Result<()> {
+    for i in 1..dfs.len() {
+        if dfs[i] >= dfs[i - 1] {
+            return Err(crate::Error::Validation(format!(
+                "Discount factors must be strictly decreasing: DF(t={:.4}) = {:.6} >= DF(t={:.4}) = {:.6}",
+                knots[i], dfs[i], knots[i - 1], dfs[i - 1]
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Validate that implied forward rates are above a minimum threshold.
+///
+/// Forward rates are calculated as: f(t1, t2) = -ln(DF(t2)/DF(t1)) / (t2 - t1)
+///
+/// Excessively negative forward rates (below the specified floor) indicate
+/// either data errors or unrealistic market conditions.
+fn validate_forward_rates(knots: &[f64], dfs: &[f64], min_rate: f64) -> crate::Result<()> {
+    for i in 1..knots.len() {
+        let dt = knots[i] - knots[i - 1];
+        if dt <= 0.0 {
+            continue; // Skip degenerate intervals
+        }
+
+        // Calculate implied forward rate
+        let fwd = -(dfs[i] / dfs[i - 1]).ln() / dt;
+
+        if fwd < min_rate {
+            return Err(crate::Error::Validation(format!(
+                "Forward rate {:.4}% (decimal: {:.6}) between t={:.4} and t={:.4} is below minimum {:.4}% (decimal: {:.6}). \
+                 This may indicate a data error or create arbitrage opportunities.",
+                fwd * 100.0, fwd, knots[i - 1], knots[i], min_rate * 100.0, min_rate
+            )));
+        }
+    }
+    Ok(())
 }
 
 // -----------------------------------------------------------------------------

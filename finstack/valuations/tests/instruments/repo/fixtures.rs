@@ -49,10 +49,12 @@ pub fn create_steep_discount_curve() -> DiscountCurve {
 
 /// Create a flat discount curve (useful for isolating interest calculations).
 pub fn create_flat_discount_curve() -> DiscountCurve {
+    // Flat curve for testing (zero rates) - requires allow_non_monotonic()
     DiscountCurve::builder("USD-FLAT")
         .base_date(base_date())
         .knots([(0.0, 1.0), (10.0, 1.0)])
         .set_interp(InterpStyle::Linear)
+        .allow_non_monotonic()
         .build()
         .unwrap()
 }

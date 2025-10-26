@@ -201,6 +201,9 @@ impl VolSurfaceCalibrator {
                 self.beta,
             ) {
                 Ok(params) => {
+                    // Validate calibrated parameters meet market standards
+                    validate_sabr_params(&params)?;
+                    
                     sabr_params_by_expiry.insert(time_to_expiry.into(), params.clone());
 
                     // Calculate residuals for this expiry
@@ -462,6 +465,48 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
 
         self.calibrate_internal(instruments, &forward_fn)
     }
+}
+
+// ============================================================================
+// Validation Helper Functions
+// ============================================================================
+
+/// Validate SABR parameters meet market-standard bounds.
+///
+/// Ensures:
+/// - α (alpha) > 0: Initial volatility must be positive
+/// - β (beta) ∈ [0, 1]: CEV exponent must be valid
+/// - ν (nu) ≥ 0: Volatility of volatility must be non-negative
+/// - ρ (rho) ∈ [-1, 1]: Correlation must be valid
+///
+/// This provides an additional safety check on calibrated parameters, though
+/// the SABRParameters::new() constructor already enforces these bounds.
+fn validate_sabr_params(params: &SABRParameters) -> Result<()> {
+    if params.alpha <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "Calibrated SABR α (alpha) = {:.6} is not positive",
+            params.alpha
+        )));
+    }
+    if !(0.0..=1.0).contains(&params.beta) {
+        return Err(finstack_core::Error::Validation(format!(
+            "Calibrated SABR β (beta) = {:.6} is not in [0, 1]",
+            params.beta
+        )));
+    }
+    if params.nu < 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "Calibrated SABR ν (nu) = {:.6} is negative",
+            params.nu
+        )));
+    }
+    if !(-1.0..=1.0).contains(&params.rho) {
+        return Err(finstack_core::Error::Validation(format!(
+            "Calibrated SABR ρ (rho) = {:.6} is not in [-1, 1]",
+            params.rho
+        )));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

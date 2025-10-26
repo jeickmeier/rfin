@@ -32,7 +32,7 @@ fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> Forwa
 }
 
 fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
-    DiscountCurve::builder(curve_id)
+    let mut builder = DiscountCurve::builder(curve_id)
         .base_date(base_date)
         .day_count(DayCount::Act360)
         .knots([
@@ -41,9 +41,14 @@ fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> Disc
             (5.0, (-rate * 5.0).exp()),
             (10.0, (-rate * 10.0).exp()),
             (30.0, (-rate * 30.0).exp()),
-        ])
-        .build()
-        .unwrap()
+        ]);
+    
+    // For zero or negative rates, DFs may be flat or increasing
+    if rate.abs() < 1e-10 || rate < 0.0 {
+        builder = builder.allow_non_monotonic();
+    }
+    
+    builder.build().unwrap()
 }
 
 #[test]

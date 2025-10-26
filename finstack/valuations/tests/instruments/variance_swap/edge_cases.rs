@@ -85,6 +85,7 @@ fn test_valuation_with_negative_rates() {
             (0.5, 1.01),
             (1.0, 1.02),
         ])
+        .allow_non_monotonic() // Increasing DFs for negative rates
         .build()
         .unwrap();
     let ctx = MarketContext::new()

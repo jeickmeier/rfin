@@ -24,7 +24,7 @@ pub const LOOSE_TOL: f64 = 1e-3;
 
 /// Build a flat discount curve with constant zero rate
 pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
-    DiscountCurve::builder(curve_id)
+    let mut builder = DiscountCurve::builder(curve_id)
         .base_date(base_date)
         .day_count(DayCount::Act365F)
         .knots([
@@ -35,9 +35,15 @@ pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> 
             (2.0, (-rate * 2.0).exp()),
             (5.0, (-rate * 5.0).exp()),
             (10.0, (-rate * 10.0).exp()),
-        ])
-        .build()
-        .unwrap()
+        ]);
+    
+    // For zero or negative rates, the curve may be flat or increasing
+    // which requires allow_non_monotonic()
+    if rate.abs() < 1e-10 || rate < 0.0 {
+        builder = builder.allow_non_monotonic();
+    }
+    
+    builder.build().unwrap()
 }
 
 /// Build a flat volatility surface (same vol for all strikes/expiries)
