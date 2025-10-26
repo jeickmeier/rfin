@@ -21,6 +21,7 @@ cargo bench --package finstack-valuations --bench swaption_pricing
 cargo bench --package finstack-valuations --bench cds_index_pricing
 cargo bench --package finstack-valuations --bench structured_credit_pricing
 cargo bench --package finstack-valuations --bench convertible_pricing
+cargo bench --package finstack-valuations --bench calibration
 
 # Quick mode (fewer samples)
 cargo bench --package finstack-valuations -- --quick
@@ -112,6 +113,25 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 - **convertible_parity**: Parity calculation by moneyness
 - **convertible_convergence**: Tree convergence (10-500 steps)
 
+### calibration.rs - Market Data Calibration (45+ scenarios)
+- **discount_curve_small**: Discount curve bootstrap (8 instruments)
+- **discount_curve_medium**: Discount curve bootstrap (16 instruments)
+- **discount_curve_large**: Discount curve bootstrap (22 instruments)
+- **discount_curve_interp**: Interpolation methods (Linear, MonotoneConvex, CubicHermite)
+- **forward_curve**: Forward curve calibration (4, 8, 16 FRAs)
+- **hazard_curve**: Credit curve calibration (3, 6 tenors)
+- **simple_calibration_small**: End-to-end minimal market calibration
+- **simple_calibration_medium**: Rates + credit calibration
+- **simple_calibration_full**: Complete market calibration with vol surfaces
+- **calibration_solver**: Solver comparison (Newton, Brent, Hybrid)
+- **base_correlation_small**: Base correlation curve (3 tranches)
+- **base_correlation_full**: Base correlation curve (5 tranches)
+- **inflation_curve**: CPI curve calibration (3, 5, 10 tenors)
+- **sabr_surface_small**: SABR vol surface (2 expiries × 5 strikes)
+- **sabr_surface_medium**: SABR vol surface (4 expiries × 7 strikes)
+- **swaption_vol_small**: Swaption vol calibration (2 exp × 2 ten)
+- **swaption_vol_medium**: Swaption vol calibration (3 exp × 3 ten)
+
 ## Typical Performance (M1 Mac, Release Build)
 
 | Operation | Tenor | Latency | Note |
@@ -176,6 +196,25 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 | Convertible Greeks | 50 steps | ~2-4 ms | All Greeks (bump-reprice) |
 | Convertible Parity | - | ~5-10 μs | Equity conversion value |
 | Convertible Convergence | 500 steps | ~8-12 ms | Maximum accuracy |
+| **Calibration** | | | |
+| Discount Curve | 8 instruments | ~135-140 μs | Bootstrap with solver |
+| Discount Curve | 16 instruments | ~295-300 μs | Medium curve |
+| Discount Curve | 22 instruments | ~730-770 μs | Large curve |
+| Forward Curve | 4 FRAs | ~220-225 μs | Short-end calibration |
+| Forward Curve | 16 FRAs | ~910-925 μs | Full curve |
+| Hazard Curve | 3 tenors | ~840-850 μs | Credit spread bootstrap |
+| Hazard Curve | 6 tenors | ~2.5-2.6 ms | Full credit curve |
+| Simple Calibration | Minimal | ~200-205 μs | Deposits + swaps only |
+| Simple Calibration | Medium | ~4.7-4.8 ms | Rates + credit |
+| Simple Calibration | Full | ~5.2-5.3 ms | Complete market with vol |
+| Base Correlation | 3 tranches | ~1.0-1.1 s | Sequential bootstrap |
+| Base Correlation | 5 tranches | ~1.6-1.7 s | Full tranche curve |
+| Inflation Curve | 3 tenors | ~150-200 μs | CPI curve bootstrap |
+| Inflation Curve | 10 tenors | ~500-600 μs | Full CPI curve |
+| SABR Surface | 2exp×5strikes | ~80-100 μs | Small vol surface |
+| SABR Surface | 4exp×7strikes | ~200-250 μs | Medium vol surface |
+| Swaption Vol | 2exp×2ten | ~150-200 μs | Small swaption surface |
+| Swaption Vol | 3exp×3ten | ~350-400 μs | Medium swaption surface |
 | **Cashflows** | | | |
 | Schedule Builder | 30Y | ~11 μs | Fixed semi-annual |
 | Kahan Sum | 20 flows | ~60 ns | Fast path |

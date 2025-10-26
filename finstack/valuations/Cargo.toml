@@ -83,3 +83,7 @@ harness = false
 [[bench]]
 name = "convertible_pricing"
 harness = false
+
+[[bench]]
+name = "calibration"
+harness = false
