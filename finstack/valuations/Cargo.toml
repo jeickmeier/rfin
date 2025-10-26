@@ -27,6 +27,7 @@ thiserror = "1.0"
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
+proptest = "1.0"
 
 
 

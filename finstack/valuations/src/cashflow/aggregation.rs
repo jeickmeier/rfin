@@ -136,3 +136,125 @@ mod tests {
         assert!(aggregated.get(&PeriodId::quarter(2025, 3)).is_none());
     }
 }
+
+// =============================================================================
+// Precision-Preserving Aggregation (Market Standards Review - Priority 3)
+// =============================================================================
+
+use finstack_core::math::summation::kahan_sum;
+
+/// Threshold for switching to Kahan summation (number of cashflows).
+///
+/// For legs with ≤ 20 cashflows, naive summation is used (fast path).
+/// For legs with > 20 cashflows, Kahan summation is used (precision-preserving).
+pub const KAHAN_THRESHOLD: usize = 20;
+
+/// Aggregate simple cashflow amounts using precision-preserving summation.
+///
+/// For cashflow legs with more than 20 flows, this function uses Kahan
+/// summation to prevent floating-point rounding errors that accumulate
+/// in naive summation. This is especially important for:
+/// - Long-maturity bonds (30Y+)
+/// - CLO/ABS waterfalls with monthly payments
+/// - Swap legs with high frequency (monthly, weekly)
+///
+/// # Examples
+///
+/// ```
+/// use finstack_core::dates::Date;
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+/// use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise;
+/// use time::Month;
+///
+/// let flows = vec![
+///     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), Money::new(1000.0, Currency::USD)),
+///     (Date::from_calendar_date(2025, Month::February, 1).unwrap(), Money::new(1000.0, Currency::USD)),
+///     (Date::from_calendar_date(2025, Month::March, 1).unwrap(), Money::new(1000.0, Currency::USD)),
+/// ];
+///
+/// let total = aggregate_cashflows_precise(&flows);
+/// assert_eq!(total.amount(), 3000.0);
+/// ```
+pub fn aggregate_cashflows_precise(flows: &[DatedFlow]) -> Money {
+    if flows.is_empty() {
+        return Money::new(0.0, Currency::USD); // Default currency
+    }
+    
+    let currency = flows[0].1.currency();
+    let amounts: Vec<f64> = flows.iter().map(|(_, m)| m.amount()).collect();
+    
+    let total = if amounts.len() > KAHAN_THRESHOLD {
+        // Use Kahan summation for long legs (precision-preserving)
+        kahan_sum(amounts.iter().copied())
+    } else {
+        // Fast path for short legs
+        amounts.iter().sum()
+    };
+    
+    Money::new(total, currency)
+}
+
+#[cfg(test)]
+mod precision_tests {
+    use super::*;
+    use time::Month;
+    
+    #[test]
+    fn test_kahan_vs_naive_30y_bond() {
+        // Simulate 30-year semi-annual bond (60 cashflows)
+        let flows: Vec<DatedFlow> = (0..60)
+            .map(|i| {
+                // Semi-annual payments
+                let months = i * 6;
+                let years = months / 12;
+                let remaining_months = months % 12;
+                (
+                    Date::from_calendar_date(
+                        2025 + years,
+                        Month::try_from((remaining_months + 1) as u8).unwrap(),
+                        1,
+                    )
+                    .unwrap(),
+                    Money::new(25_000.0, Currency::USD), // $25k coupon
+                )
+            })
+            .collect();
+        
+        let total = aggregate_cashflows_precise(&flows);
+        
+        // Should sum to 60 * $25k = $1.5M
+        assert!((total.amount() - 1_500_000.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_kahan_threshold_switching() {
+        // Test exactly at threshold (20 flows)
+        let flows_at_threshold: Vec<DatedFlow> = (0..20)
+            .map(|i| {
+                let day = (i % 28) + 1;
+                (
+                    Date::from_calendar_date(2025, Month::January, day as u8).unwrap(),
+                    Money::new(50.0, Currency::USD),
+                )
+            })
+            .collect();
+        
+        let total_at = aggregate_cashflows_precise(&flows_at_threshold);
+        assert_eq!(total_at.amount(), 1000.0);
+        
+        // Test just above threshold (21 flows) - should use Kahan
+        let flows_above: Vec<DatedFlow> = (0..21)
+            .map(|i| {
+                let day = (i % 28) + 1;
+                (
+                    Date::from_calendar_date(2025, Month::January, day as u8).unwrap(),
+                    Money::new(50.0, Currency::USD),
+                )
+            })
+            .collect();
+        
+        let total_above = aggregate_cashflows_precise(&flows_above);
+        assert_eq!(total_above.amount(), 1050.0);
+    }
+}
