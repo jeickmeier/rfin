@@ -6,6 +6,7 @@ pub(crate) mod instruments;
 pub(crate) mod metrics;
 pub(crate) mod pricer;
 pub(crate) mod results;
+pub(crate) mod risk;
 
 use crate::core::common::reexport::reexport_from_submodule;
 use pyo3::prelude::*;
@@ -53,6 +54,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let dataframe_exports = dataframe::register(py, &module)?;
     reexport_from_submodule(&module, "dataframe", &dataframe_exports)?;
     exports.extend(dataframe_exports.iter().copied());
+
+    let risk_exports = risk::register(py, &module)?;
+    reexport_from_submodule(&module, "risk", &risk_exports)?;
+    exports.extend(risk_exports.iter().copied());
 
     let mut uniq = HashSet::new();
     exports.retain(|item| uniq.insert(*item));

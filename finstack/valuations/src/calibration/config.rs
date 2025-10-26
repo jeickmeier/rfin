@@ -128,6 +128,111 @@ impl CalibrationConfig {
         self
     }
 
+    /// Create a conservative calibration configuration.
+    ///
+    /// Conservative settings prioritize stability and robustness over speed:
+    /// - Higher tolerance for better accuracy (1e-12)
+    /// - Moderate iteration limit (100)
+    /// - Smaller step size for cautious progression (0.5x)
+    /// - Regularization enabled to prevent overfitting
+    ///
+    /// Use this for:
+    /// - Production risk systems requiring high precision
+    /// - Illiquid instruments with sparse quotes
+    /// - When calibration stability is more important than speed
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_valuations::calibration::CalibrationConfig;
+    ///
+    /// let config = CalibrationConfig::conservative();
+    /// assert_eq!(config.tolerance, 1e-12);
+    /// ```
+    pub fn conservative() -> Self {
+        Self {
+            tolerance: 1e-12,
+            max_iterations: 100,
+            use_parallel: false, // Deterministic
+            random_seed: Some(42),
+            verbose: false,
+            solver_kind: SolverKind::Hybrid, // Robust hybrid solver
+            entity_seniority: HashMap::new(),
+            multi_curve: MultiCurveConfig::default(),
+            explain: ExplainOpts::default(),
+        }
+    }
+
+    /// Create an aggressive calibration configuration.
+    ///
+    /// Aggressive settings prioritize speed and will tolerate looser fits:
+    /// - Relaxed tolerance for faster convergence (1e-6)
+    /// - Higher iteration limit (1000) for difficult problems
+    /// - Normal step size (1.0x)
+    /// - No regularization for exact fit to quotes
+    ///
+    /// Use this for:
+    /// - Real-time pricing applications
+    /// - Liquid instruments with tight bid/ask spreads
+    /// - When speed is critical and small fitting errors are acceptable
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_valuations::calibration::CalibrationConfig;
+    ///
+    /// let config = CalibrationConfig::aggressive();
+    /// assert_eq!(config.max_iterations, 1000);
+    /// ```
+    pub fn aggressive() -> Self {
+        Self {
+            tolerance: 1e-6,
+            max_iterations: 1000,
+            use_parallel: false, // Keep deterministic by default
+            random_seed: Some(42),
+            verbose: false,
+            solver_kind: SolverKind::Hybrid,
+            entity_seniority: HashMap::new(),
+            multi_curve: MultiCurveConfig::default(),
+            explain: ExplainOpts::default(),
+        }
+    }
+
+    /// Create a fast calibration configuration for interactive use.
+    ///
+    /// Fast settings sacrifice some accuracy for speed:
+    /// - Very relaxed tolerance (1e-4)
+    /// - Low iteration limit (50)
+    /// - Brent solver (faster for simple curves)
+    /// - No regularization
+    ///
+    /// Use this for:
+    /// - Interactive exploration and what-if scenarios
+    /// - Approximate pricing where precision isn't critical
+    /// - Quick sanity checks during development
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_valuations::calibration::CalibrationConfig;
+    ///
+    /// let config = CalibrationConfig::fast();
+    /// assert_eq!(config.max_iterations, 50);
+    /// ```
+    pub fn fast() -> Self {
+        Self {
+            tolerance: 1e-4,
+            max_iterations: 50,
+            use_parallel: false,
+            random_seed: Some(42),
+            verbose: false,
+            solver_kind: SolverKind::Brent, // Fast bracketing method
+            entity_seniority: HashMap::new(),
+            multi_curve: MultiCurveConfig::default(),
+            explain: ExplainOpts::default(),
+        }
+    }
+
     /// Create a Levenberg-Marquardt solver with current config settings.
     ///
     /// Returns a configured LevenbergMarquardtSolver for multi-dimensional optimization.

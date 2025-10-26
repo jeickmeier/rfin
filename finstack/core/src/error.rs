@@ -8,6 +8,17 @@ use crate::dates::calendar::business_days::BusinessDayConvention;
 use thiserror::Error;
 use time::Date;
 
+/// Format suggestions for error messages.
+fn format_suggestions(suggestions: &[String]) -> String {
+    if suggestions.is_empty() {
+        String::new()
+    } else if suggestions.len() == 1 {
+        format!(". Did you mean '{}'?", suggestions[0])
+    } else {
+        format!(". Did you mean one of: {}?", suggestions.join(", "))
+    }
+}
+
 /// Detailed user input validation failures.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -46,6 +57,14 @@ pub enum InputError {
     NotFound {
         /// The identifier of the requested item that was not found
         id: String,
+    },
+    /// Requested curve not found in market context (with suggestions).
+    #[error("Curve not found: {requested}{}", format_suggestions(.suggestions))]
+    MissingCurve {
+        /// The requested curve ID
+        requested: String,
+        /// Similar curve IDs that might be what the user meant
+        suggestions: Vec<String>,
     },
     /// Unknown or unsupported currency code supplied by the caller.
     #[error("Unknown currency code")]
@@ -93,6 +112,83 @@ pub enum Error {
     Internal,
 }
 
+impl Error {
+    /// Create a MissingCurve error with suggestions based on available curves.
+    ///
+    /// Performs fuzzy matching to find similar curve IDs.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::error::Error;
+    ///
+    /// let available = vec!["USD_OIS".to_string(), "EUR_OIS".to_string(), "GBP_OIS".to_string()];
+    /// let err = Error::missing_curve_with_suggestions("USD_OS", &available);
+    ///
+    /// let msg = format!("{}", err);
+    /// assert!(msg.contains("Did you mean"));
+    /// ```
+    pub fn missing_curve_with_suggestions(requested: impl Into<String>, available: &[String]) -> Self {
+        let requested_str = requested.into();
+        
+        // Find curves that contain the requested string (case-insensitive fuzzy match)
+        let requested_lower = requested_str.to_lowercase();
+        let mut suggestions: Vec<String> = available
+            .iter()
+            .filter(|id| {
+                let id_lower = id.to_lowercase();
+                // Match if:
+                // 1. Contains the requested string
+                // 2. Starts with similar prefix
+                // 3. Edit distance is small
+                id_lower.contains(&requested_lower) 
+                    || requested_lower.contains(&id_lower)
+                    || edit_distance(&requested_lower, &id_lower) <= 2
+            })
+            .cloned()
+            .collect();
+        
+        // Limit to top 3 suggestions
+        suggestions.truncate(3);
+        
+        Self::Input(InputError::MissingCurve {
+            requested: requested_str,
+            suggestions,
+        })
+    }
+}
+
+/// Simple Levenshtein edit distance for fuzzy matching.
+fn edit_distance(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let a_len = a_chars.len();
+    let b_len = b_chars.len();
+    
+    if a_len == 0 {
+        return b_len;
+    }
+    if b_len == 0 {
+        return a_len;
+    }
+    
+    let mut prev_row: Vec<usize> = (0..=b_len).collect();
+    let mut curr_row = vec![0; b_len + 1];
+    
+    for i in 1..=a_len {
+        curr_row[0] = i;
+        for j in 1..=b_len {
+            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+            curr_row[j] = (curr_row[j - 1] + 1)
+                .min(prev_row[j] + 1)
+                .min(prev_row[j - 1] + cost);
+        }
+        std::mem::swap(&mut prev_row, &mut curr_row);
+    }
+    
+    prev_row[b_len]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -110,5 +206,39 @@ mod tests {
             format!("{}", not_found_err),
             "Requested item not found: test_curve"
         );
+    }
+
+    #[test]
+    fn test_missing_curve_with_suggestions() {
+        let available = vec![
+            "USD_OIS".to_string(),
+            "USD_GOVT".to_string(),
+            "EUR_OIS".to_string(),
+            "GBP_GILT".to_string(),
+        ];
+
+        // Test exact fuzzy match
+        let err = Error::missing_curve_with_suggestions("USD_OS", &available);
+        let msg = format!("{}", err);
+        assert!(msg.contains("USD_OIS") || msg.contains("Did you mean"));
+
+        // Test prefix match
+        let err2 = Error::missing_curve_with_suggestions("USD", &available);
+        let msg2 = format!("{}", err2);
+        assert!(msg2.contains("USD_OIS") || msg2.contains("USD_GOVT"));
+
+        // Test no match
+        let err3 = Error::missing_curve_with_suggestions("JPY_UNKNOWN", &available);
+        let msg3 = format!("{}", err3);
+        assert!(msg3.contains("Curve not found"));
+    }
+
+    #[test]
+    fn test_edit_distance() {
+        assert_eq!(edit_distance("", ""), 0);
+        assert_eq!(edit_distance("abc", "abc"), 0);
+        assert_eq!(edit_distance("abc", "abd"), 1);
+        assert_eq!(edit_distance("abc", "ab"), 1);
+        assert_eq!(edit_distance("", "abc"), 3);
     }
 }

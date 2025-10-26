@@ -26,6 +26,26 @@ use super::rounding::{
     amount_from_repr, repr_add, repr_div_f64, repr_mul_f64, repr_sub, round_f64, AmountRepr,
 };
 
+/// Helper function to format integers with thousands separators.
+fn format_with_separators(n: i64) -> String {
+    let s = n.abs().to_string();
+    let mut result = String::new();
+    let chars: Vec<char> = s.chars().collect();
+    
+    for (i, c) in chars.iter().rev().enumerate() {
+        if i > 0 && i % 3 == 0 {
+            result.insert(0, ',');
+        }
+        result.insert(0, *c);
+    }
+    
+    if n < 0 {
+        result.insert(0, '-');
+    }
+    
+    result
+}
+
 /// Currency-tagged monetary amount with safe arithmetic.
 ///
 /// Values are stored using a fixed-point representation derived from ISO 4217
@@ -53,6 +73,61 @@ impl Money {
     // ---------------------------------------------------------------------
     // Constructors & accessors
     // ---------------------------------------------------------------------
+
+    /// Format the amount with custom decimals and optional currency symbol.
+    ///
+    /// # Arguments
+    ///
+    /// * `decimals` - Number of decimal places to display
+    /// * `show_currency` - Whether to include currency code
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let amount = Money::new(1_042_315.67, Currency::USD);
+    /// assert_eq!(amount.format(2, true), "1042315.67 USD");
+    /// assert_eq!(amount.format(2, false), "1042315.67");
+    /// assert_eq!(amount.format(0, true), "1042316 USD");
+    /// ```
+    pub fn format(&self, decimals: usize, show_currency: bool) -> String {
+        let value = format!("{:.*}", decimals, self.amount());
+        if show_currency {
+            format!("{} {}", value, self.currency())
+        } else {
+            value
+        }
+    }
+
+    /// Format with thousands separators and currency.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let amount = Money::new(1_042_315.67, Currency::USD);
+    /// let formatted = amount.format_with_separators(2);
+    /// // Exact format may vary by locale, but should include currency
+    /// assert!(formatted.contains("USD"));
+    /// ```
+    pub fn format_with_separators(&self, decimals: usize) -> String {
+        let amt = self.amount();
+        let int_part = amt.trunc() as i64;
+        let frac_part = ((amt - amt.trunc()) * 10_f64.powi(decimals as i32)).round() as i64;
+        
+        // Format integer part with thousands separators
+        let int_str = format_with_separators(int_part);
+        
+        if decimals > 0 {
+            format!("{}.{:0width$} {}", int_str, frac_part, self.currency(), width = decimals)
+        } else {
+            format!("{} {}", int_str, self.currency())
+        }
+    }
 
     /// Create a new [`Money`] value using ISO 4217 minor units.
     ///

@@ -166,6 +166,8 @@ define_metrics! {
     ParRate => "par_rate",
     /// Dollar value of 01 (DV01)
     Dv01 => "dv01",
+    /// Present value of 01 (PV01) - Alias for DV01 (credit market convention)
+    Pv01 => "pv01",
     /// Present value of fixed leg
     PvFixed => "pv_fixed",
     /// Present value of floating leg
