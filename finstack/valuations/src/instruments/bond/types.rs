@@ -108,13 +108,66 @@ pub struct BondFloatSpec {
 impl Bond {
     /// Create a standard fixed-rate bond (most common use case).
     ///
-    /// Creates a bond with semi-annual frequency and 30/360 day count,
-    /// which covers ~80% of use cases. For other conventions, use
+    /// Creates a bond with semi-annual frequency and 30/360 day count following
+    /// **US market conventions**. For other regional conventions, use
     /// `::with_convention()` or `::builder()` for full customization.
+    ///
+    /// # Regional Bond Conventions (Market Standards Review - Week 5)
+    ///
+    /// ## United States (Default)
+    /// - **Day Count:** 30/360 (US Bond Basis)
+    /// - **Frequency:** Semi-annual
+    /// - **Settlement:** T+1 (corporate), T+1 (treasuries)
+    /// - **Calendar:** US (NYSE holidays)
+    ///
+    /// ## United Kingdom
+    /// - **Day Count:** ACT/ACT (ISMA/ICMA)
+    /// - **Frequency:** Semi-annual
+    /// - **Settlement:** T+1 (gilts)
+    /// - **Calendar:** UK (London holidays)
+    ///
+    /// ## Europe (Eurozone)
+    /// - **Day Count:** 30E/360 (ICMA, Eurobond basis) or ACT/ACT
+    /// - **Frequency:** Annual
+    /// - **Settlement:** T+2 (standard), T+3 (some markets)
+    /// - **Calendar:** TARGET (European Central Bank)
+    ///
+    /// ## Japan
+    /// - **Day Count:** ACT/365 (Fixed)
+    /// - **Frequency:** Semi-annual
+    /// - **Settlement:** T+3 (JGBs)
+    /// - **Calendar:** Japan holidays
     ///
     /// # Example
     /// ```ignore
-    /// let bond = Bond::fixed("BOND-001", notional, 0.05, issue, maturity, "USD-OIS");
+    /// // US Treasury-style bond (default)
+    /// let us_bond = Bond::fixed("US-001", notional, 0.05, issue, maturity, "USD-OIS");
+    ///
+    /// // UK Gilt-style bond
+    /// let uk_bond = Bond::builder()
+    ///     .id("UK-001")
+    ///     .notional(notional)
+    ///     .coupon(0.04)
+    ///     .freq(Frequency::semi_annual())
+    ///     .dc(DayCount::ActAct)  // ISDA variant
+    ///     .issue(issue)
+    ///     .maturity(maturity)
+    ///     .disc_id("GBP-GILT")
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// // European bond
+    /// let eur_bond = Bond::builder()
+    ///     .id("EUR-001")
+    ///     .notional(notional)
+    ///     .coupon(0.03)
+    ///     .freq(Frequency::annual())
+    ///     .dc(DayCount::ThirtyE360)  // European 30/360
+    ///     .issue(issue)
+    ///     .maturity(maturity)
+    ///     .disc_id("EUR-GOVT")
+    ///     .build()
+    ///     .unwrap();
     /// ```
     pub fn fixed(
         id: impl Into<InstrumentId>,

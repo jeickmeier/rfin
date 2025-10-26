@@ -15,4 +15,5 @@ mod helpers_tests;
 mod integration;
 mod metrics;
 mod pricing;
+mod test_ytm_edge_cases;
 mod validation;

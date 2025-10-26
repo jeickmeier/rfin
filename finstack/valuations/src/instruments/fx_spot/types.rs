@@ -4,6 +4,51 @@
 //! standard instrument macro. Pricing is delegated to `pricing::FxSpotPricer`
 //! to match the repository conventions (pricing separated from types), and
 //! metrics live under `metrics/`.
+//!
+//! # FX Quote Conventions (Market Standards Review - Week 5)
+//!
+//! ## Base Currency vs Quote Currency
+//!
+//! FX rates are always quoted as **CCY1/CCY2** where:
+//! - **CCY1 (base):** The currency being priced (numerator)
+//! - **CCY2 (quote):** The currency used for pricing (denominator)
+//!
+//! **Example: EUR/USD = 1.10**
+//! - Base: EUR (1 Euro)
+//! - Quote: USD (costs 1.10 US Dollars)
+//! - Interpretation: "1 EUR costs 1.10 USD"
+//!
+//! ## Common Market Conventions
+//!
+//! | Pair | Direction | Interpretation |
+//! |------|-----------|----------------|
+//! | EUR/USD | Euro vs Dollar | "Euro in Dollar" - price of 1 EUR in USD |
+//! | GBP/USD | Pound vs Dollar | "Cable" - price of 1 GBP in USD |
+//! | USD/JPY | Dollar vs Yen | "Dollar-yen" - price of 1 USD in JPY |
+//! | AUD/USD | Aussie vs Dollar | Price of 1 AUD in USD |
+//!
+//! ## Reciprocal Rates
+//!
+//! The reciprocal rate swaps base and quote:
+//! - EUR/USD = 1.10 → USD/EUR = 1/1.10 = 0.909
+//! - GBP/USD = 1.25 → USD/GBP = 1/1.25 = 0.80
+//!
+//! ## In This Implementation
+//!
+//! The `FxSpot` instrument stores:
+//! ```ignore
+//! FxSpot {
+//!     base: Currency,   // CCY1 - the currency being priced
+//!     quote: Currency,  // CCY2 - the pricing currency
+//!     spot_rate: f64,   // How many units of `quote` per 1 unit of `base`
+//! }
+//! ```
+//!
+//! Example:
+//! ```ignore
+//! let eur_usd = FxSpot::new("EURUSD", Currency::EUR, Currency::USD);
+//! // If spot_rate = 1.10, this means: 1 EUR = 1.10 USD
+//! ```
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
@@ -14,11 +59,23 @@ use finstack_core::types::InstrumentId;
 
 /// FX Spot instrument (1 unit of `base` priced in `quote`).
 ///
-/// Represents the spot exchange rate between two currencies.
-/// The value represents how many units of the quote currency
-/// are needed to buy one unit of the base currency.
+/// Represents the spot exchange rate between two currencies following
+/// standard market quoting conventions (base/quote or CCY1/CCY2).
 ///
-/// See unit tests and `examples/` for usage.
+/// # Quote Convention
+///
+/// The rate is interpreted as: **1 unit of base = rate units of quote**
+///
+/// For example, if `base = EUR`, `quote = USD`, and `spot_rate = 1.10`:
+/// - 1 EUR = 1.10 USD
+/// - This is the "EUR/USD" rate
+///
+/// # Settlement
+///
+/// FX spot typically settles T+2 (two business days after trade date).
+/// This can be customized via `settlement_lag_days`.
+///
+/// See module-level documentation for comprehensive FX quoting conventions.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FxSpot {

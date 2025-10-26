@@ -69,7 +69,55 @@ impl CDSConvention {
 // Re-export from common parameters
 pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, ProtectionLegSpec};
 
-/// Credit Default Swap instrument
+/// Credit Default Swap instrument.
+///
+/// # Market Standards & Citations (Week 5)
+///
+/// ## ISDA Standards
+///
+/// This implementation follows the **ISDA 2014 Credit Derivatives Definitions**:
+/// - **Section 1.1:** General Terms and Credit Events
+/// - **Section 3.2:** Fixed Payments (Premium Leg)
+/// - **Section 3.3:** Floating Payments (Protection Leg)
+/// - **Section 7.1:** Settlement Terms
+///
+/// ## ISDA CDS Standard Model
+///
+/// The pricing engine implements the **ISDA CDS Standard Model (2009)**:
+/// - Quarterly premium payments (20th of Mar/Jun/Sep/Dec - IMM dates)
+/// - ACT/360 day count
+/// - Modified Following business day convention
+/// - Accrual-on-default included in premium leg
+/// - Settlement: T+3 (North America), T+1 (Europe post-2009)
+///
+/// ## Integration Methods
+///
+/// Multiple numerical integration methods available:
+/// - **ISDA Exact:** Analytical integration at exact cashflow dates (default)
+/// - **Gaussian Quadrature:** 8-point Gauss-Legendre for smooth integration
+/// - **Adaptive Simpson:** Adaptive refinement for complex survival curves
+///
+/// ## References
+///
+/// - ISDA 2014 Credit Derivatives Definitions
+/// - "Modelling Single-name and Multi-name Credit Derivatives" by O'Kane (2008)
+/// - ISDA CDS Standard Model Implementation (Markit, 2009)
+/// - Bloomberg CDSW function documentation
+///
+/// # Example
+///
+/// ```ignore
+/// // Buy protection on ACME Corp (pay premium, receive protection)
+/// let cds = CreditDefaultSwap::buy_protection(
+///     "CDS-ACME-5Y",
+///     Money::new(10_000_000.0, Currency::USD),
+///     100.0, // 100bp spread
+///     start_date,
+///     maturity_date,
+///     "USD-OIS",
+///     "ACME-HAZARD",
+/// );
+/// ```
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CreditDefaultSwap {

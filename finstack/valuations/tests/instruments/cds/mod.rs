@@ -14,6 +14,7 @@ mod test_cds_integration_methods;
 mod test_cds_market_validation;
 mod test_cds_metrics;
 mod test_cds_pricing;
+mod test_par_spread_roundtrip;
 
 // QuantLib parity tests
 mod quantlib_parity;

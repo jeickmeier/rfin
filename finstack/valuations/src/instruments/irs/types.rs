@@ -31,6 +31,30 @@ pub use crate::instruments::common::parameters::legs::FloatLegSpec;
 ///
 /// Represents a standard interest rate swap where one party pays
 /// a fixed rate and the other pays a floating rate plus spread.
+///
+/// # Market Standards & Citations (Week 5)
+///
+/// ## ISDA Definitions
+///
+/// This implementation follows the **ISDA 2006 Definitions** for interest rate derivatives:
+/// - **Section 4.1:** Fixed Rate Payer calculation conventions
+/// - **Section 4.2:** Floating Rate Option conventions
+/// - **Section 4.5:** Compounding methods
+/// - **Section 4.16:** Business Day Conventions
+///
+/// ## USD Market Standard (Default)
+///
+/// Per **ISDA 2006 Definitions** and US market practice:
+/// - **Fixed Leg:** Semi-annual, 30/360, Modified Following
+/// - **Floating Leg:** Quarterly, ACT/360, Modified Following
+/// - **Reset Lag:** T-2 (2 business days before period start)
+/// - **Discounting:** OIS curve (post-2008 multi-curve framework)
+///
+/// ## References
+///
+/// - ISDA 2006 Definitions (incorporating 2008 Supplement for OIS)
+/// - "Interest Rate Swaps and Their Derivatives" by Amir Sadr
+/// - Bloomberg SWPM function documentation
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InterestRateSwap {
