@@ -9,6 +9,8 @@ repository.workspace = true
 
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["rc"], optional = true }
+serde_json = { version = "1.0", optional = true }
+schemars = { version = "0.8", optional = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { version = "1.0", default-features = false }
@@ -37,9 +39,10 @@ serde_json = "1.0"
 criterion = "0.5"
 
 [features]
-default = ["std"]
+default = ["std", "serde"]
 std = ["serde?/std"]
-serde = ["dep:serde", "serde/derive", "time/serde", "time/serde-human-readable", "hashbrown/serde"]
+serde = ["dep:serde", "dep:serde_json", "serde/derive", "time/serde", "time/serde-human-readable", "hashbrown/serde"]
+schema = ["dep:schemars", "serde"]
 parallel = ["dep:rayon"]
 linear-algebra = ["dep:ndarray-linalg"]
 

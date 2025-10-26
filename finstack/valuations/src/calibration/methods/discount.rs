@@ -16,6 +16,7 @@ use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::ir_future::InterestRateFuture;
 use crate::instruments::InterestRateSwap;
 use finstack_core::dates::{add_months, Date};
+use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -107,6 +108,13 @@ impl DiscountCurveCalibrator {
         let mut residuals = BTreeMap::new();
         let mut residual_key_counter: usize = 0;
         let mut total_iterations = 0;
+
+        // Initialize explanation trace if requested
+        let mut trace = if self.config.explain.enabled {
+            Some(ExplanationTrace::new("calibration"))
+        } else {
+            None
+        };
 
         for (idx, quote) in sorted_quotes.iter().enumerate() {
             let maturity_date = self.get_maturity(quote);
@@ -400,8 +408,22 @@ impl DiscountCurveCalibrator {
                 }
             };
             residual_key_counter += 1;
-            residuals.insert(key, final_residual);
+            residuals.insert(key.clone(), final_residual);
             total_iterations += 1;
+
+            // Add trace entry if explanation is enabled
+            if let Some(ref mut t) = trace {
+                let converged = final_residual.abs() < self.config.tolerance;
+                t.push(
+                    TraceEntry::CalibrationIteration {
+                        iteration: total_iterations,
+                        residual: final_residual,
+                        knots_updated: vec![format!("{:.4}y", time_to_maturity)],
+                        converged,
+                    },
+                    self.config.explain.max_entries,
+                );
+            }
         }
 
         // Build final discount curve with configured interpolation
@@ -438,10 +460,15 @@ impl DiscountCurveCalibrator {
             })?;
 
         // Create calibration report
-        let report = CalibrationReport::for_type("yield_curve", residuals, total_iterations)
+        let mut report = CalibrationReport::for_type("yield_curve", residuals, total_iterations)
             .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
             .with_metadata("currency", self.currency.to_string())
             .with_metadata("validation", "passed");
+
+        // Attach explanation trace if present
+        if let Some(explanation) = trace {
+            report = report.with_explanation(explanation);
+        }
 
         Ok((curve, report))
     }

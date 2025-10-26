@@ -120,6 +120,8 @@ fn test_evaluation_result_serde() {
                 version: 1,
             },
             fx_policy_applied: None,
+            timestamp: None,
+            version: None,
         },
     };
 
@@ -191,6 +193,8 @@ fn test_execution_plan_serde() {
                 version: 1,
             },
             fx_policy_applied: None,
+            timestamp: None,
+            version: None,
         },
         cache_strategy: CacheStrategy {
             cache_nodes,
@@ -242,6 +246,8 @@ fn test_compiled_expr_serde() {
             version: 1,
         },
         fx_policy_applied: None,
+        timestamp: None,
+        version: None,
     };
 
     let expr = Expr::call(

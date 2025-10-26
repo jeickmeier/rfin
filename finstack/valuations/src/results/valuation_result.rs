@@ -1,4 +1,5 @@
 use crate::covenants::CovenantReport;
+use finstack_core::explain::ExplanationTrace;
 use finstack_core::prelude::*;
 
 use indexmap::IndexMap;
@@ -22,6 +23,12 @@ pub struct ValuationResult {
     pub meta: ResultsMeta,
     /// Covenant check results (if applicable).
     pub covenants: Option<IndexMap<String, CovenantReport>>,
+    /// Optional explanation trace (enabled via ExplainOpts).
+    #[cfg_attr(
+        feature = "serde",
+        serde(skip_serializing_if = "Option::is_none")
+    )]
+    pub explanation: Option<ExplanationTrace>,
 }
 
 impl ValuationResult {
@@ -54,7 +61,14 @@ impl ValuationResult {
             measures: IndexMap::new(),
             meta,
             covenants: None,
+            explanation: None,
         }
+    }
+
+    /// Attach an explanation trace to this result.
+    pub fn with_explanation(mut self, trace: ExplanationTrace) -> Self {
+        self.explanation = Some(trace);
+        self
     }
 
     /// Add measures to the result.

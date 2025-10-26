@@ -66,6 +66,8 @@ fn test_dag_dedup_ignores_expr_id() {
             version: 1,
         },
         fx_policy_applied: None,
+        timestamp: None,
+        version: None,
     };
     let plan = builder.build_plan(vec![rm_a, rm_b], meta);
 
@@ -103,6 +105,8 @@ fn test_dag_builder_simple_expressions() {
             version: 1,
         },
         fx_policy_applied: None,
+        timestamp: None,
+        version: None,
     };
     let plan = builder.build_plan(vec![rolling_mean], meta);
 
@@ -134,6 +138,8 @@ fn test_dag_builder_shared_subexpressions() {
             version: 1,
         },
         fx_policy_applied: None,
+        timestamp: None,
+        version: None,
     };
     let plan = builder.build_plan(vec![rolling_mean, rolling_sum], meta);
 
@@ -178,6 +184,8 @@ fn test_dag_multiple_function_types() {
             version: 1,
         },
         fx_policy_applied: None,
+        timestamp: None,
+        version: None,
     };
     let plan = builder.build_plan(vec![rolling_mean, cum_sum], meta);
 
@@ -213,6 +221,8 @@ fn test_dag_cost_estimation() {
             version: 1,
         },
         fx_policy_applied: None,
+        timestamp: None,
+        version: None,
     };
     let plan = builder.build_plan(vec![lag, rolling_std], meta);
 
@@ -250,6 +260,8 @@ fn test_pushdown_boundary_analysis() {
             version: 1,
         },
         fx_policy_applied: None,
+        timestamp: None,
+        version: None,
     };
     let plan = builder.build_plan(vec![rolling_mean], meta);
 
@@ -294,6 +306,8 @@ fn test_dag_cache_strategy() {
             version: 1,
         },
         fx_policy_applied: None,
+        timestamp: None,
+        version: None,
     };
     let plan = builder.build_plan(vec![expr1, expr2], meta);
 
@@ -331,6 +345,8 @@ fn test_dag_topological_ordering() {
             version: 1,
         },
         fx_policy_applied: None,
+        timestamp: None,
+        version: None,
     };
     let plan = builder.build_plan(vec![diff_lag], meta);
 
@@ -368,6 +384,8 @@ fn test_dag_empty_plan() {
             version: 1,
         },
         fx_policy_applied: None,
+        timestamp: None,
+        version: None,
     };
     let plan = builder.build_plan(vec![], meta);
 

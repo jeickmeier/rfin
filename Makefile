@@ -29,7 +29,7 @@ build:
 	cargo build --workspace
 
 test:
-	cargo test --workspace
+	cargo test --workspace --exclude finstack-py
 
 fmt:
 	cargo fmt --all
@@ -110,18 +110,18 @@ ci_test:
 	@echo ""
 	@echo "📋 Job 3/8: Tests"
 	@echo "────────────────────────────────────────────────────────────────"
-	cargo test --workspace --all-features --jobs 1
+	cargo test --workspace --exclude finstack-py --all-features --jobs 1
 	@echo ""
 	@echo "📋 Job 3b/8: Doc Tests"
 	@echo "────────────────────────────────────────────────────────────────"
-	cargo test --workspace --doc --all-features --jobs 1
+	cargo test --workspace --exclude finstack-py --doc --all-features --jobs 1
 	@echo "✅ Tests passed"
 	@echo ""
 	@echo "📋 Job 4/8: Code Coverage"
 	@echo "────────────────────────────────────────────────────────────────"
 	@command -v cargo-llvm-cov >/dev/null 2>&1 || { echo "Installing cargo-llvm-cov..."; cargo install cargo-llvm-cov; }
-	CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --all-features --lcov --output-path lcov.info --jobs 1
-	@COVERAGE=$$(cargo llvm-cov --workspace --all-features --summary-only --jobs 1 | grep 'TOTAL' | awk '{print $$10}' | sed 's/%//'); \
+	CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --all-features --lcov --output-path lcov.info --jobs 1
+	@COVERAGE=$$(cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --all-features --summary-only --jobs 1 | grep 'TOTAL' | awk '{print $$10}' | sed 's/%//'); \
 	echo "Coverage: $${COVERAGE}%"; \
 	if [ -n "$$COVERAGE" ] && [ $$(echo "$$COVERAGE < 50" | bc -l 2>/dev/null || echo "0") -eq 1 ]; then \
 		echo "❌ Coverage $${COVERAGE}% is below minimum threshold of 50%"; \

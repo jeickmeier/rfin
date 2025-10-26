@@ -27,19 +27,10 @@ pub struct DagNode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode};
+    use crate::config::ResultsMeta;
 
     fn meta() -> ResultsMeta {
-        ResultsMeta {
-            numeric_mode: NumericMode::F64,
-            rounding: RoundingContext {
-                mode: RoundingMode::Bankers,
-                ingest_scale_by_ccy: Default::default(),
-                output_scale_by_ccy: Default::default(),
-                version: 1,
-            },
-            fx_policy_applied: None,
-        }
+        crate::config::results_meta(&crate::config::FinstackConfig::default())
     }
 
     #[test]

@@ -80,6 +80,7 @@ fn test_calibration_config_serialization() {
             calibrate_basis: true,
             enforce_separation: true,
         },
+        explain: finstack_core::explain::ExplainOpts::default(),
     };
 
     let restored = roundtrip_json(&config);
@@ -304,6 +305,10 @@ fn test_calibration_report_serialization() {
         rmse: 2.1e-8,
         convergence_reason: "Tolerance met".to_string(),
         metadata,
+        results_meta: finstack_core::config::results_meta(
+            &finstack_core::config::FinstackConfig::default()
+        ),
+        explanation: None,
     };
 
     let restored = roundtrip_json(&report);
@@ -611,6 +616,7 @@ fn test_complex_calibration_workflow_serialization() {
             calibrate_basis: true,
             enforce_separation: true,
         },
+        explain: finstack_core::explain::ExplainOpts::default(),
     };
 
     // Create multiple calibrators with this config

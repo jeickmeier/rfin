@@ -550,13 +550,13 @@ fn bench_results_export(c: &mut Criterion) {
 
     group.bench_function("export_to_long_dataframe", |b| {
         b.iter(|| {
-            black_box(small_results.to_long_dataframe().unwrap())
+            black_box(small_results.to_polars_long().unwrap())
         })
     });
 
     group.bench_function("export_to_wide_dataframe", |b| {
         b.iter(|| {
-            black_box(small_results.to_wide_dataframe().unwrap())
+            black_box(small_results.to_polars_wide().unwrap())
         })
     });
 
@@ -577,7 +577,7 @@ fn bench_results_export(c: &mut Criterion) {
 
     for i in 1..=20 {
         large_builder = large_builder
-            .compute(&format!("metric_{}", i), &format!("revenue * {}", 0.05 * i as f64))
+            .compute(format!("metric_{}", i), format!("revenue * {}", 0.05 * i as f64))
             .unwrap();
     }
 
@@ -587,13 +587,13 @@ fn bench_results_export(c: &mut Criterion) {
 
     group.bench_function("export_large_to_long_dataframe", |b| {
         b.iter(|| {
-            black_box(large_results.to_long_dataframe().unwrap())
+            black_box(large_results.to_polars_long().unwrap())
         })
     });
 
     group.bench_function("export_large_to_wide_dataframe", |b| {
         b.iter(|| {
-            black_box(large_results.to_wide_dataframe().unwrap())
+            black_box(large_results.to_polars_wide().unwrap())
         })
     });
 

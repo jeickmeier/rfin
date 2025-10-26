@@ -178,7 +178,7 @@ pub enum NumericMode {
 /// Metadata bundle that accompanies valuation outputs.
 ///
 /// The metadata is intentionally small so it can be attached to reports and
-/// downstream data stores.
+/// downstream data stores for reproducibility and audit trails.
 ///
 /// # Examples
 /// ```rust
@@ -186,6 +186,7 @@ pub enum NumericMode {
 ///
 /// let meta = results_meta(&FinstackConfig::default());
 /// assert_eq!(meta.numeric_mode, NumericMode::F64);
+/// assert!(meta.timestamp.is_some());
 /// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -197,6 +198,19 @@ pub struct ResultsMeta {
     /// Optional FX policy applied by the computing layer (human-readable key).
     #[cfg_attr(feature = "serde", serde(default))]
     pub fx_policy_applied: Option<String>,
+    /// Timestamp when result was computed (ISO 8601 format).
+    /// Useful for audit trails and reproducibility.
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none", default))]
+    pub timestamp: Option<String>,
+    /// Finstack library version used to produce the result.
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none", default))]
+    pub version: Option<String>,
+}
+
+impl Default for ResultsMeta {
+    fn default() -> Self {
+        results_meta(&FinstackConfig::default())
+    }
 }
 
 impl FinstackConfig {
@@ -245,7 +259,7 @@ pub const NUMERIC_MODE: NumericMode = NumericMode::F64;
 /// Construct a [`ResultsMeta`] snapshot for stamping into result envelopes.
 ///
 /// Convenience wrapper that combines [`NUMERIC_MODE`] and
-/// [`rounding_context_from`].
+/// [`rounding_context_from`], with automatic timestamping.
 ///
 /// # Examples
 /// ```rust
@@ -254,12 +268,31 @@ pub const NUMERIC_MODE: NumericMode = NumericMode::F64;
 /// let cfg = FinstackConfig::default();
 /// let meta = results_meta(&cfg);
 /// assert_eq!(meta.numeric_mode, NumericMode::F64);
+/// assert!(meta.timestamp.is_some());
 /// ```
 pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
+    // Generate ISO 8601 timestamp
+    let timestamp = {
+        #[cfg(feature = "std")]
+        {
+            Some(
+                time::OffsetDateTime::now_utc()
+                    .format(&time::format_description::well_known::Iso8601::DEFAULT)
+                    .unwrap_or_else(|_| String::from("unknown"))
+            )
+        }
+        #[cfg(not(feature = "std"))]
+        {
+            None
+        }
+    };
+
     ResultsMeta {
         numeric_mode: NUMERIC_MODE,
         rounding: rounding_context_from(cfg),
         fx_policy_applied: None,
+        timestamp,
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
     }
 }
 

@@ -10,6 +10,7 @@ use super::TrancheStructure;
 use crate::instruments::structured_credit::config::QUARTERLY_PERIODS_PER_YEAR;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::explain::{ExplainOpts, ExplanationTrace, TraceEntry};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -156,6 +157,12 @@ pub struct WaterfallResult {
     pub had_diversions: bool,
     /// Diversion reason if applicable
     pub diversion_reason: Option<String>,
+    /// Optional explanation trace (enabled via ExplainOpts)
+    #[cfg_attr(
+        feature = "serde",
+        serde(skip_serializing_if = "Option::is_none")
+    )]
+    pub explanation: Option<ExplanationTrace>,
 }
 
 /// Record of individual payment
@@ -229,12 +236,47 @@ impl WaterfallEngine {
         _pool: &AssetPool,
         market: &MarketContext,
     ) -> Result<WaterfallResult> {
+        self.apply_waterfall_with_explanation(
+            available_cash,
+            interest_collections,
+            payment_date,
+            tranches,
+            pool_balance,
+            _pool,
+            market,
+            ExplainOpts::disabled(),
+        )
+    }
+
+    /// Apply waterfall with optional explanation trace.
+    ///
+    /// Returns waterfall result with optional trace containing
+    /// step-by-step payment allocations when explanation is enabled.
+    #[allow(clippy::too_many_arguments)]
+    pub fn apply_waterfall_with_explanation(
+        &mut self,
+        available_cash: Money,
+        interest_collections: Money,
+        payment_date: Date,
+        tranches: &TrancheStructure,
+        pool_balance: Money,
+        _pool: &AssetPool,
+        market: &MarketContext,
+        explain: ExplainOpts,
+    ) -> Result<WaterfallResult> {
         let mut remaining = available_cash;
         let mut distributions: HashMap<PaymentRecipient, Money> =
             HashMap::with_capacity(self.payment_rules.len());
         let mut payment_records = Vec::with_capacity(self.payment_rules.len());
         let mut had_diversions = false;
         let mut diversion_reason = None;
+
+        // Initialize explanation trace if requested
+        let mut trace = if explain.enabled {
+            Some(ExplanationTrace::new("waterfall"))
+        } else {
+            None
+        };
 
         // Build tranche index for O(1) lookup by id
         let mut tranche_index: HashMap<&str, usize> =
@@ -312,12 +354,38 @@ impl WaterfallEngine {
             payment_records.push(PaymentRecord {
                 rule_id: rule.id.clone(),
                 priority: rule.priority,
-                recipient,
+                recipient: recipient.clone(),
                 requested_amount: requested,
                 paid_amount: paid,
                 shortfall,
                 diverted,
             });
+
+            // Add trace entry if explanation is enabled
+            if let Some(ref mut t) = trace {
+                let step_name = format!("{} - {:?}", rule.id, recipient);
+                t.push(
+                    TraceEntry::WaterfallStep {
+                        period: 0, // Single period waterfall
+                        step_name,
+                        cash_in_amount: requested.amount(),
+                        cash_in_currency: requested.currency().to_string(),
+                        cash_out_amount: paid.amount(),
+                        cash_out_currency: paid.currency().to_string(),
+                        shortfall_amount: if shortfall.amount() > 0.0 {
+                            Some(shortfall.amount())
+                        } else {
+                            None
+                        },
+                        shortfall_currency: if shortfall.amount() > 0.0 {
+                            Some(shortfall.currency().to_string())
+                        } else {
+                            None
+                        },
+                    },
+                    explain.max_entries,
+                );
+            }
 
             remaining = remaining.checked_sub(paid)?;
         }
@@ -330,6 +398,7 @@ impl WaterfallEngine {
             remaining_cash: remaining,
             had_diversions,
             diversion_reason,
+            explanation: trace,
         })
     }
 

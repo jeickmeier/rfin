@@ -5,6 +5,7 @@
 //! - Multi-curve framework configuration (post-2008 standard)
 //! - Entity seniority mappings for credit calibration
 
+use finstack_core::explain::ExplainOpts;
 use finstack_core::market_data::term_structures::Seniority;
 
 use hashbrown::HashMap;
@@ -81,6 +82,9 @@ pub struct CalibrationConfig {
     pub entity_seniority: HashMap<String, Seniority>,
     /// Multi-curve framework configuration
     pub multi_curve: MultiCurveConfig,
+    /// Explanation options (opt-in detailed trace)
+    #[serde(skip)]
+    pub explain: ExplainOpts,
 }
 
 impl Default for CalibrationConfig {
@@ -94,6 +98,7 @@ impl Default for CalibrationConfig {
             solver_kind: SolverKind::default(),
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
+            explain: ExplainOpts::default(), // Disabled by default (zero overhead)
         }
     }
 }
@@ -109,6 +114,18 @@ impl CalibrationConfig {
     /// Create a configuration for multi-curve mode (standard).
     pub fn multi_curve() -> Self {
         Self::default()
+    }
+
+    /// Enable explanation tracing with default settings.
+    pub fn with_explain(mut self) -> Self {
+        self.explain = ExplainOpts::enabled();
+        self
+    }
+
+    /// Set custom explanation options.
+    pub fn with_explain_opts(mut self, opts: ExplainOpts) -> Self {
+        self.explain = opts;
+        self
     }
 
     /// Create a Levenberg-Marquardt solver with current config settings.

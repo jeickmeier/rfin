@@ -1,5 +1,7 @@
 //! Calibration reporting and diagnostics.
 
+use finstack_core::config::ResultsMeta;
+use finstack_core::explain::ExplanationTrace;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -20,8 +22,14 @@ pub struct CalibrationReport {
     pub rmse: f64,
     /// Convergence reason
     pub convergence_reason: String,
-    /// Calibration metadata
+    /// Calibration metadata (key-value pairs for domain-specific info)
     pub metadata: BTreeMap<String, String>,
+    /// Result metadata (timestamp, version, rounding context, etc.)
+    #[serde(default)]
+    pub results_meta: ResultsMeta,
+    /// Optional explanation trace (enabled via CalibrationConfig.explain)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub explanation: Option<ExplanationTrace>,
 }
 
 impl CalibrationReport {
@@ -56,6 +64,11 @@ impl CalibrationReport {
             (sum_sq / finite_vals.len() as f64).sqrt()
         };
 
+        // Create default results metadata with stamping
+        let results_meta = finstack_core::config::results_meta(
+            &finstack_core::config::FinstackConfig::default()
+        );
+
         Self {
             success,
             residuals,
@@ -65,7 +78,21 @@ impl CalibrationReport {
             rmse,
             convergence_reason: convergence_reason.into(),
             metadata: BTreeMap::new(),
+            results_meta,
+            explanation: None,
         }
+    }
+
+    /// Attach an explanation trace to this report.
+    pub fn with_explanation(mut self, trace: ExplanationTrace) -> Self {
+        self.explanation = Some(trace);
+        self
+    }
+
+    /// Attach custom results metadata to this report.
+    pub fn with_results_meta(mut self, meta: ResultsMeta) -> Self {
+        self.results_meta = meta;
+        self
     }
 
     pub fn success_empty(reason: impl Into<String>) -> Self {
@@ -94,6 +121,10 @@ impl CalibrationReport {
 
 impl Default for CalibrationReport {
     fn default() -> Self {
+        let results_meta = finstack_core::config::results_meta(
+            &finstack_core::config::FinstackConfig::default()
+        );
+
         Self {
             success: false,
             residuals: BTreeMap::new(),
@@ -103,6 +134,8 @@ impl Default for CalibrationReport {
             rmse: f64::INFINITY,
             convergence_reason: "Not started".to_string(),
             metadata: BTreeMap::new(),
+            results_meta,
+            explanation: None,
         }
     }
 }

@@ -5,6 +5,7 @@ use pyo3::types::{PyList, PyModule, PyModuleMethods};
 use pyo3::Bound;
 
 mod core;
+mod errors;
 mod portfolio;
 mod scenarios;
 mod statements;
@@ -82,6 +83,9 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             m.setattr(name, &sub)?;
         }
     }
+
+    // Register custom exception hierarchy
+    errors::register_exceptions(py, &m)?;
 
     // Root-level placeholders for backwards compatibility (minimal set)
     m.add_class::<PyCurrency>()?;
