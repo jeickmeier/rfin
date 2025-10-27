@@ -15,8 +15,7 @@ mod forward_points;
 mod fx01;
 mod ir01_domestic;
 mod ir01_foreign;
-mod theta;
-// risk_bucketed_dv01 - now using generic implementation
+// risk_bucketed_dv01 and theta now using generic implementations
 
 use crate::metrics::MetricRegistry;
 
@@ -55,7 +54,9 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
         instrument: "FxSwap",
         metrics: [
             (Dv01, dv01::FxSwapDv01Calculator),
-            (Theta, theta::ThetaCalculator),
+            (Theta, crate::instruments::common::metrics::GenericTheta::<
+                crate::instruments::FxSwap,
+            >::default()),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::FxSwap,
             >::default()),

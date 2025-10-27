@@ -12,8 +12,7 @@
 mod conversion_premium;
 mod greeks;
 mod parity;
-mod theta;
-// risk_bucketed_dv01 - now using generic implementation
+// risk_bucketed_dv01 and theta now using generic implementations
 
 use crate::metrics::MetricRegistry;
 
@@ -43,7 +42,9 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
             (Gamma, greeks::GammaCalculator),
             (Vega, greeks::VegaCalculator),
             (Rho, greeks::RhoCalculator),
-            (Theta, theta::ThetaCalculator),
+            (Theta, crate::instruments::common::metrics::GenericTheta::<
+                crate::instruments::ConvertibleBond,
+            >::default()),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::ConvertibleBond,
             >::default()),

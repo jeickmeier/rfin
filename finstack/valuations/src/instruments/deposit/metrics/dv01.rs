@@ -1,16 +1,18 @@
 //! Deposit DV01 metric calculator.
 //!
-//! Provides DV01 calculation for deposit instruments:
-//! DV01 ≈ Notional × tau(start, end) × DF(end) × 1bp
-//! Sign convention: positive for deposits (receiving fixed rate).
+//! Provides DV01 calculation for deposit instruments using bump-and-reprice methodology.
+//! Computes the change in PV for a +1bp parallel bump to the discount curve.
+//!
+//! Sign convention: DV01 = base_pv - bumped_pv (positive for instruments that lose value when rates rise).
 
-use crate::constants::ONE_BASIS_POINT;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::context::BumpSpec;
 use finstack_core::Result;
+use hashbrown::HashMap;
 
-/// DV01 calculator for deposits.
+/// DV01 calculator for deposits using discount curve bump-and-reprice.
 pub struct DepositDv01Calculator;
 
 impl MetricCalculator for DepositDv01Calculator {
@@ -22,28 +24,20 @@ impl MetricCalculator for DepositDv01Calculator {
             return Ok(0.0);
         }
 
-        let disc = context.curves.get_discount_ref(deposit.disc_id.as_str())?;
-        let base = disc.base_date();
+        // Base PV from context
+        let base_pv = context.base_value;
 
-        // Accrual period
-        let tau = deposit
-            .day_count
-            .year_fraction(
-                deposit.start,
-                deposit.end,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
-        if tau == 0.0 {
-            return Ok(0.0);
-        }
+        // Parallel +1bp bump on discount curve
+        let mut bumps = HashMap::new();
+        bumps.insert(deposit.disc_id.clone(), BumpSpec::parallel_bp(1.0));
+        let bumped_context = context.curves.bump(bumps)?;
+        
+        // Reprice with bumped curve
+        let bumped_pv = deposit.value(&bumped_context, as_of)?;
 
-        // Discount factor to end date
-        let df_end = DiscountCurve::df_on(disc, base, deposit.end, deposit.day_count);
-
-        // DV01 = Notional × tau × DF(end) × 1bp
-        let dv01 = deposit.notional.amount() * tau * df_end * ONE_BASIS_POINT;
-
-        Ok(dv01)
+        // DV01 = base_pv - bumped_pv (positive when rates rise causes value to fall)
+        let dv01 = base_pv.checked_sub(bumped_pv)?;
+        
+        Ok(dv01.amount())
     }
 }

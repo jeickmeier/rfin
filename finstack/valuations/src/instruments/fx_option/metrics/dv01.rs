@@ -1,15 +1,17 @@
 //! FX Option DV01 metric calculator.
 //!
-//! Provides DV01 calculation for FX Option instruments:
-//! DV01 ≈ Notional × Time to Expiry × 1bp
-//! Sign convention: positive for long positions.
+//! Provides DV01 calculation for FX Option instruments using bump-and-reprice methodology.
+//! Bumps both domestic and foreign discount curves by +1bp and measures the combined impact.
+//!
+//! Sign convention: DV01 = base_pv - bumped_pv (positive when rates rise causes value to fall).
 
-use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::fx_option::FxOption;
 use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::market_data::context::BumpSpec;
 use finstack_core::Result;
+use hashbrown::HashMap;
 
-/// DV01 calculator for FX Option instruments.
+/// DV01 calculator for FX Option instruments using dual-curve bump-and-reprice.
 pub struct FxOptionDv01Calculator;
 
 impl MetricCalculator for FxOptionDv01Calculator {
@@ -21,18 +23,21 @@ impl MetricCalculator for FxOptionDv01Calculator {
             return Ok(0.0);
         }
 
-        // Simple DV01 approximation: Notional × Time to Expiry × 1bp
-        let time_to_expiry = fx_option
-            .day_count
-            .year_fraction(
-                as_of,
-                fx_option.expiry,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
+        // Base PV from context
+        let base_pv = context.base_value;
 
-        let dv01 = fx_option.notional.amount() * time_to_expiry * ONE_BASIS_POINT;
+        // Parallel +1bp bump on both domestic and foreign discount curves
+        let mut bumps = HashMap::new();
+        bumps.insert(fx_option.domestic_disc_id.clone(), BumpSpec::parallel_bp(1.0));
+        bumps.insert(fx_option.foreign_disc_id.clone(), BumpSpec::parallel_bp(1.0));
+        let bumped_context = context.curves.bump(bumps)?;
+        
+        // Reprice with bumped curves
+        let bumped_pv = fx_option.value(&bumped_context, as_of)?;
 
-        Ok(dv01)
+        // DV01 = base_pv - bumped_pv
+        let dv01 = base_pv.checked_sub(bumped_pv)?;
+        
+        Ok(dv01.amount())
     }
 }

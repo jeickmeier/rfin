@@ -11,7 +11,6 @@ pub mod dv01;
 pub mod pool;
 pub mod pricing;
 pub mod risk;
-pub mod theta;
 
 // Re-export all calculators for convenience
 pub use deal_specific::*;
@@ -42,7 +41,9 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
             (CPR, pool::CprCalculator),
             (CDR, pool::CdrCalculator),
             (Dv01, StructuredCreditDv01Calculator),
-            (Theta, theta::ThetaCalculator)
+            (Theta, crate::instruments::common::metrics::GenericTheta::<
+                crate::instruments::StructuredCredit,
+            >::default())
         ]
     }
 

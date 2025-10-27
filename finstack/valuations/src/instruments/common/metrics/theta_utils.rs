@@ -4,10 +4,11 @@
 //! works for any instrument implementing the `Instrument` trait.
 
 use crate::instruments::common::traits::Instrument;
-use crate::metrics::MetricContext;
+use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::Result;
 use std::any::Any;
+use std::marker::PhantomData;
 
 /// Parse a period string to calendar days.
 ///
@@ -154,6 +155,54 @@ where
 
     // Theta = PV change + cashflows received
     Ok(pv_change + cashflows_during_period)
+}
+
+/// Generic Theta calculator wrapper for any instrument implementing `Instrument` trait.
+///
+/// This eliminates the need for per-instrument theta calculator files that only
+/// wrap the `generic_theta_calculator` function. Instead, instruments can directly
+/// register `GenericTheta::<InstrumentType>::default()` in their metric registries.
+///
+/// # Type Parameters
+/// * `I` - Instrument type implementing `Instrument` trait
+///
+/// # Examples
+/// ```
+/// use finstack_valuations::instruments::common::metrics::GenericTheta;
+/// use finstack_valuations::instruments::Bond;
+/// use finstack_valuations::metrics::{MetricRegistry, MetricId};
+/// use std::sync::Arc;
+///
+/// let mut registry = MetricRegistry::new();
+/// registry.register_metric(
+///     MetricId::Theta,
+///     Arc::new(GenericTheta::<Bond>::default()),
+///     &["Bond"],
+/// );
+/// ```
+pub struct GenericTheta<I> {
+    _phantom: PhantomData<I>,
+}
+
+impl<I> Default for GenericTheta<I> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<I> MetricCalculator for GenericTheta<I>
+where
+    I: Instrument + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        generic_theta_calculator::<I>(context)
+    }
+
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
 
 /// Collect cashflows that occur during a time period.

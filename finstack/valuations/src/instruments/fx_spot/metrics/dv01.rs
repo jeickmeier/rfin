@@ -1,8 +1,9 @@
 //! FX Spot DV01 metric calculator.
 //!
-//! Provides DV01 calculation for FX Spot instruments:
-//! DV01 ≈ Notional × Time to Settlement × 1bp
-//! Sign convention: positive for long positions.
+//! For FX Spot, DV01 is typically negligible as the instrument has minimal interest rate sensitivity
+//! (only from settlement lag). This implementation returns a small estimate based on settlement timing.
+//!
+//! Note: FX Spot is primarily sensitive to spot rate changes (FX01), not interest rates.
 
 use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::fx_spot::FxSpot;
@@ -11,6 +12,9 @@ use finstack_core::prelude::*;
 use finstack_core::Result;
 
 /// DV01 calculator for FX Spot instruments.
+///
+/// Returns a small DV01 estimate based on settlement lag. For most FX Spot trades,
+/// interest rate sensitivity is minimal and FX01 (spot rate sensitivity) is more relevant.
 pub struct FxSpotDv01Calculator;
 
 impl MetricCalculator for FxSpotDv01Calculator {
@@ -28,7 +32,8 @@ impl MetricCalculator for FxSpotDv01Calculator {
             return Ok(0.0);
         }
 
-        // Simple DV01 approximation: Notional × Time to Settlement × 1bp
+        // For FX Spot with short settlement (T+2), interest rate sensitivity is minimal
+        // Approximate DV01 using time to settlement
         let time_to_settlement = finstack_core::dates::DayCount::Act360
             .year_fraction(
                 as_of,

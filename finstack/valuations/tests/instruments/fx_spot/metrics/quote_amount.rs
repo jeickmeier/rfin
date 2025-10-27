@@ -4,8 +4,8 @@ use super::super::common::*;
 use finstack_core::{currency::Currency, dates::Date, market_data::MarketContext, money::Money};
 use finstack_valuations::{
     instruments::{
-        common::traits::Instrument,
-        fx_spot::{metrics::quote_amount::QuoteAmountCalculator, FxSpot},
+        common::{metrics::GenericPv, traits::Instrument},
+        fx_spot::FxSpot,
     },
     metrics::{traits::MetricCalculator, MetricContext},
 };
@@ -22,7 +22,7 @@ fn create_context(fx: FxSpot, as_of: Date) -> MetricContext {
 fn test_quote_amount_basic() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
     let mut ctx = create_context(fx, test_date());
-    let calc = QuoteAmountCalculator;
+    let calc = GenericPv;
 
     let amount = calc.calculate(&mut ctx).unwrap();
     assert_approx_eq(amount, 1_200_000.0, EPSILON, "Quote amount");
@@ -32,7 +32,7 @@ fn test_quote_amount_basic() {
 fn test_quote_amount_equals_base_value() {
     let fx = eurusd_with_notional(2_000_000.0, 1.22);
     let ctx = create_context(fx, test_date());
-    let calc = QuoteAmountCalculator;
+    let calc = GenericPv;
 
     let mut ctx_mut = ctx;
     let quote_amt = calc.calculate(&mut ctx_mut).unwrap();
@@ -45,7 +45,7 @@ fn test_quote_amount_equals_base_value() {
 fn test_quote_amount_default_notional() {
     let fx = sample_eurusd().with_rate(1.18);
     let mut ctx = create_context(fx, test_date());
-    let calc = QuoteAmountCalculator;
+    let calc = GenericPv;
 
     let amount = calc.calculate(&mut ctx).unwrap();
     assert_approx_eq(amount, 1.18, EPSILON, "Default notional quote amount");
@@ -53,7 +53,7 @@ fn test_quote_amount_default_notional() {
 
 #[test]
 fn test_quote_amount_various_rates() {
-    let calc = QuoteAmountCalculator;
+    let calc = GenericPv;
 
     let rates = vec![0.5, 1.0, 1.2, 1.5, 2.0, 100.0];
     let notional = 1_000_000.0;
@@ -76,7 +76,7 @@ fn test_quote_amount_various_rates() {
 
 #[test]
 fn test_quote_amount_various_currencies() {
-    let calc = QuoteAmountCalculator;
+    let calc = GenericPv;
 
     // GBPUSD
     let gbp_fx = sample_gbpusd()
@@ -112,7 +112,7 @@ fn test_quote_amount_zero_notional() {
         .unwrap()
         .with_rate(1.20);
     let mut ctx = create_context(fx, test_date());
-    let calc = QuoteAmountCalculator;
+    let calc = GenericPv;
 
     let amount = calc.calculate(&mut ctx).unwrap();
     assert_approx_eq(amount, 0.0, EPSILON, "Zero notional");
@@ -122,7 +122,7 @@ fn test_quote_amount_zero_notional() {
 fn test_quote_amount_large_notional() {
     let fx = eurusd_with_notional(1_000_000_000.0, 1.20);
     let mut ctx = create_context(fx, test_date());
-    let calc = QuoteAmountCalculator;
+    let calc = GenericPv;
 
     let amount = calc.calculate(&mut ctx).unwrap();
     assert_approx_eq(amount, 1_200_000_000.0, 1.0, "Large notional");
@@ -130,7 +130,7 @@ fn test_quote_amount_large_notional() {
 
 #[test]
 fn test_quote_amount_independence_from_date() {
-    let calc = QuoteAmountCalculator;
+    let calc = GenericPv;
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
 
     let mut ctx1 = create_context(fx.clone(), d(2025, 1, 15));
@@ -156,7 +156,7 @@ fn test_quote_amount_conversion_relationship() {
     let mut ctx = create_context(fx.clone(), test_date());
 
     let base_calc = BaseAmountCalculator;
-    let quote_calc = QuoteAmountCalculator;
+    let quote_calc = GenericPv;
 
     let base_amt = base_calc.calculate(&mut ctx).unwrap();
     let quote_amt = quote_calc.calculate(&mut ctx).unwrap();

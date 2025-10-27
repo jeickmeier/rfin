@@ -8,8 +8,7 @@ pub mod dv01;
 pub mod par_rate;
 pub mod pv_fixed;
 pub mod pv_float;
-pub mod theta;
-// risk_bucketed_dv01 - now using generic implementation
+// risk_bucketed_dv01 and theta now using generic implementations
 
 /// Registers all IRS metrics into a provided registry.
 pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
@@ -20,7 +19,9 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (Annuity, annuity::AnnuityCalculator),
             (ParRate, par_rate::ParRateCalculator),
             (Dv01, dv01::Dv01Calculator),
-            (Theta, theta::ThetaCalculator),
+            (Theta, crate::instruments::common::metrics::GenericTheta::<
+                crate::instruments::InterestRateSwap,
+            >::default()),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::InterestRateSwap,
             >::default()),

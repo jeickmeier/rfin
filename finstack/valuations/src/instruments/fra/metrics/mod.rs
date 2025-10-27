@@ -9,12 +9,10 @@
 
 mod dv01;
 mod par_rate;
-mod pv;
 
-use crate::metrics::{MetricCalculator, MetricId, MetricRegistry};
+use crate::metrics::{MetricId, MetricRegistry};
 pub use dv01::FraDv01Calculator;
 pub use par_rate::FraParRateCalculator;
-pub use pv::FraPvCalculator;
 use std::sync::Arc;
 
 /// Registers all FRA metrics to a registry.
@@ -22,24 +20,19 @@ use std::sync::Arc;
 /// Each metric is registered with the "FRA" instrument type to ensure
 /// proper applicability filtering.
 pub fn register_fra_metrics(registry: &mut MetricRegistry) {
-    let dv01_calc: Arc<dyn MetricCalculator> = Arc::new(FraDv01Calculator);
-
-    // Custom metrics
+    // Custom metrics using GenericPv
     registry.register_metric(
         MetricId::custom("fra_pv"),
-        Arc::new(FraPvCalculator),
+        Arc::new(crate::instruments::common::metrics::GenericPv),
         &["FRA"],
     );
-
-    // Shared DV01 calculator for standard and custom aliases
-    registry.register_metric(MetricId::Dv01, Arc::clone(&dv01_calc), &["FRA"]);
-    registry.register_metric(MetricId::custom("pv01"), dv01_calc, &["FRA"]);
 
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,
         instrument: "FRA",
         metrics: [
+            (Dv01, FraDv01Calculator),
             (ParRate, FraParRateCalculator),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::ForwardRateAgreement,

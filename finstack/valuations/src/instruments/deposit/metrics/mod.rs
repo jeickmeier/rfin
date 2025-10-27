@@ -16,7 +16,6 @@ mod df_start;
 mod dv01;
 mod par_rate;
 mod quote_rate;
-mod theta;
 mod year_fraction;
 
 pub use df_end::DfEndCalculator;
@@ -45,7 +44,9 @@ pub fn register_deposit_metrics(registry: &mut MetricRegistry) {
             (DfEndFromQuote, DfEndFromQuoteCalculator),
             (QuoteRate, QuoteRateCalculator),
             (Dv01, DepositDv01Calculator),
-            (Theta, theta::ThetaCalculator),
+            (Theta, crate::instruments::common::metrics::GenericTheta::<
+                crate::instruments::Deposit,
+            >::default()),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
                 crate::instruments::Deposit,
             >::default()),

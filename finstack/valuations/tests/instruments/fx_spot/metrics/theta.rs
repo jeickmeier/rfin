@@ -4,8 +4,8 @@ use super::super::common::*;
 use finstack_core::{currency::Currency, dates::Date, money::Money};
 use finstack_valuations::{
     instruments::{
-        common::traits::Instrument,
-        fx_spot::{metrics::theta::ThetaCalculator, FxSpot},
+        common::{metrics::GenericTheta, traits::Instrument},
+        fx_spot::FxSpot,
     },
     metrics::{traits::MetricCalculator, MetricContext},
 };
@@ -22,7 +22,7 @@ fn create_context(fx: FxSpot, as_of: Date) -> MetricContext {
 fn test_theta_basic() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 1, 17));
     let mut ctx = create_context(fx, test_date());
-    let calc = ThetaCalculator;
+    let calc = GenericTheta::<FxSpot>::default();
 
     let theta = calc.calculate(&mut ctx).unwrap();
 
@@ -35,7 +35,7 @@ fn test_theta_basic() {
 fn test_theta_settled_position() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 1, 10)); // Past
     let mut ctx = create_context(fx, test_date());
-    let calc = ThetaCalculator;
+    let calc = GenericTheta::<FxSpot>::default();
 
     let theta = calc.calculate(&mut ctx).unwrap();
 
@@ -45,7 +45,7 @@ fn test_theta_settled_position() {
 
 #[test]
 fn test_theta_dependencies() {
-    let calc = ThetaCalculator;
+    let calc = GenericTheta::<FxSpot>::default();
     let deps = calc.dependencies();
 
     // Theta should have no additional dependencies
@@ -56,7 +56,7 @@ fn test_theta_dependencies() {
 fn test_theta_with_future_settlement() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 2, 15)); // 1 month out
     let mut ctx = create_context(fx, test_date());
-    let calc = ThetaCalculator;
+    let calc = GenericTheta::<FxSpot>::default();
 
     // Should not panic
     let _theta = calc.calculate(&mut ctx).unwrap();
@@ -70,7 +70,7 @@ fn test_theta_zero_notional() {
         .with_rate(1.20)
         .with_settlement(d(2025, 1, 17));
     let mut ctx = create_context(fx, test_date());
-    let calc = ThetaCalculator;
+    let calc = GenericTheta::<FxSpot>::default();
 
     let theta = calc.calculate(&mut ctx).unwrap();
     assert_approx_eq(theta, 0.0, EPSILON, "Theta zero for zero notional");
@@ -79,7 +79,7 @@ fn test_theta_zero_notional() {
 #[test]
 fn test_theta_calculation_completes() {
     // Regression test: ensure theta calculation completes without error
-    let calc = ThetaCalculator;
+    let calc = GenericTheta::<FxSpot>::default();
     let test_cases = vec![
         eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 1, 17)),
         eurusd_with_notional(5_000_000.0, 1.25).with_settlement(d(2025, 2, 15)),

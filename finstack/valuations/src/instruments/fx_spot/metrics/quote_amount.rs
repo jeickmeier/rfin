@@ -1,26 +1,16 @@
 //! Quote amount metric for `FxSpot`.
 //!
 //! Returns the PV value in the quote currency as a scalar.
+//! Now uses the generic PV calculator from common metrics.
 
-use crate::metrics::{MetricCalculator, MetricContext};
-
-fn quote_amount(context: &MetricContext) -> f64 {
-    context.base_value.amount()
-}
+use crate::instruments::common::metrics::GenericPv;
 
 /// Returns the quote amount (PV in quote currency).
-pub struct QuoteAmountCalculator;
-
-impl MetricCalculator for QuoteAmountCalculator {
-    #[inline(never)]
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        Ok(quote_amount(context))
-    }
-}
+/// This is now a type alias to GenericPv for consistency.
+pub type QuoteAmountCalculator = GenericPv;
 
 #[cfg(test)]
 mod tests {
-    use super::{quote_amount, QuoteAmountCalculator};
     use crate::instruments::{common::traits::Instrument, fx_spot::FxSpot};
     use crate::metrics::{traits::MetricCalculator, MetricContext};
     use finstack_core::{
@@ -50,15 +40,9 @@ mod tests {
     }
 
     #[test]
-    fn helper_reads_base_value_amount() {
-        let ctx = context();
-        assert!((quote_amount(&ctx) - ctx.base_value.amount()).abs() < 1e-12);
-    }
-
-    #[test]
-    fn calculator_matches_helper() {
+    fn calculator_returns_base_value_amount() {
         let mut ctx = context();
-        let calc = QuoteAmountCalculator;
+        let calc = crate::instruments::common::metrics::GenericPv;
         let value = calc.calculate(&mut ctx).unwrap();
         assert!((value - ctx.base_value.amount()).abs() < 1e-12);
     }

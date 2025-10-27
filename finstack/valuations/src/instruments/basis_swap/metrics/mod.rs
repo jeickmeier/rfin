@@ -8,8 +8,7 @@ pub mod dv01;
 pub mod net_dv01;
 pub mod par_spread;
 pub mod pv;
-pub mod theta;
-// risk_bucketed_dv01 - now using generic implementation
+// risk_bucketed_dv01 and theta now using generic implementations
 
 pub use annuity::AnnuityCalculator;
 pub use dv01::Dv01Calculator;
@@ -69,7 +68,9 @@ pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (Dv01, NetDv01Calculator),
             (BasisParSpread, ParSpreadCalculator),
-            (Theta, theta::ThetaCalculator),
+            (Theta, crate::instruments::common::metrics::GenericTheta::<
+                crate::instruments::BasisSwap,
+            >::default()),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::BasisSwap,
             >::default()),

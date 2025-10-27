@@ -21,9 +21,8 @@ mod jump_to_default;
 mod par_spread;
 mod pv_premium;
 mod pv_protection;
-// risk_bucketed_dv01 - now using generic implementation
+// risk_bucketed_dv01 and theta now using generic implementations
 mod risky_pv01;
-mod theta;
 
 use crate::metrics::MetricRegistry;
 
@@ -50,7 +49,9 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
             (Dv01, dv01::CdsDv01Calculator),
-            (Theta, theta::ThetaCalculator),
+            (Theta, crate::instruments::common::metrics::GenericTheta::<
+                crate::instruments::CreditDefaultSwap,
+            >::default()),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::CreditDefaultSwap,
             >::default()),

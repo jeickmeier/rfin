@@ -4,7 +4,7 @@ use super::super::common::*;
 use finstack_core::{currency::Currency, dates::Date, market_data::MarketContext, money::Money};
 use finstack_valuations::{
     instruments::{
-        common::traits::Instrument,
+        common::{metrics::GenericPv, traits::Instrument},
         fx_spot::{metrics::spot_rate::SpotRateCalculator, FxSpot},
     },
     metrics::{traits::MetricCalculator, MetricContext},
@@ -163,15 +163,13 @@ fn test_spot_rate_fractional_values() {
 #[test]
 fn test_spot_rate_relationship_with_amounts() {
     // Verify: spot_rate = quote_amount / base_amount
-    use finstack_valuations::instruments::fx_spot::metrics::{
-        base_amount::BaseAmountCalculator, quote_amount::QuoteAmountCalculator,
-    };
+    use finstack_valuations::instruments::fx_spot::metrics::base_amount::BaseAmountCalculator;
 
     let fx = eurusd_with_notional(1_500_000.0, 1.25);
     let mut ctx = create_context(fx, test_date());
 
     let base_calc = BaseAmountCalculator;
-    let quote_calc = QuoteAmountCalculator;
+    let quote_calc = GenericPv;
     let rate_calc = SpotRateCalculator;
 
     let base_amt = base_calc.calculate(&mut ctx).unwrap();

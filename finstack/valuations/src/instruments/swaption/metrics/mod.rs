@@ -9,15 +9,13 @@ mod dv01;
 mod gamma;
 mod implied_vol;
 mod rho;
-// risk_bucketed_dv01 - now using generic implementation
-mod theta;
+// risk_bucketed_dv01 and theta now using generic implementations
 mod vega;
 
 pub use delta::DeltaCalculator;
 pub use gamma::GammaCalculator;
 pub use implied_vol::ImpliedVolCalculator;
 pub use rho::RhoCalculator;
-pub use theta::ThetaCalculator;
 pub use vega::VegaCalculator;
 
 use crate::metrics::MetricRegistry;
@@ -32,7 +30,9 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
             (Gamma, GammaCalculator),
             (Vega, VegaCalculator),
             (Dv01, dv01::SwaptionDv01Calculator),
-            (Theta, ThetaCalculator),
+            (Theta, crate::instruments::common::metrics::GenericTheta::<
+                crate::instruments::Swaption,
+            >::default()),
             (Rho, RhoCalculator),
             (ImpliedVol, ImpliedVolCalculator),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<

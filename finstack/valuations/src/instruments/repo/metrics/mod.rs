@@ -24,8 +24,7 @@ pub mod funding_risk;
 pub mod implied_collateral_return;
 pub mod repo_interest;
 pub mod required_collateral;
-// risk_bucketed_dv01 - now using generic implementation
-pub mod theta;
+// risk_bucketed_dv01 and theta now using generic implementations
 pub mod time_to_maturity;
 
 use crate::metrics::MetricRegistry;
@@ -59,7 +58,9 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
             (EffectiveRate, effective_rate::EffectiveRateCalculator),
             (TimeToMaturity, time_to_maturity::TimeToMaturityCalculator),
             (ImpliedCollateralReturn, implied_collateral_return::ImpliedCollateralReturnCalculator),
-            (Theta, theta::ThetaCalculator),
+            (Theta, crate::instruments::common::metrics::GenericTheta::<
+                crate::instruments::Repo,
+            >::default()),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
                 crate::instruments::Repo,
             >::default()),

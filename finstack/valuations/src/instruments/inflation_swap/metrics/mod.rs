@@ -18,8 +18,7 @@ mod inflation01;
 mod inflation_leg_pv;
 mod ir01;
 mod par_rate;
-mod theta;
-// risk_bucketed_dv01 - now using generic implementation
+// risk_bucketed_dv01 and theta now using generic implementations
 
 use crate::metrics::MetricRegistry;
 
@@ -64,7 +63,9 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             (Ir01, ir01::Ir01Calculator),
             (ParRate, par_rate::ParRateCalculator),
             (Dv01, dv01::InflationSwapDv01Calculator),
-            (Theta, theta::ThetaCalculator),
+            (Theta, crate::instruments::common::metrics::GenericTheta::<
+                crate::instruments::InflationSwap,
+            >::default()),
             (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
                 crate::instruments::InflationSwap,
             >::default()),

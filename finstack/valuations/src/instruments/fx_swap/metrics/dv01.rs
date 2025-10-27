@@ -1,16 +1,18 @@
 //! FX Swap DV01 metric calculator.
 //!
-//! Provides DV01 calculation for FX swap instruments:
-//! DV01 ≈ Notional × tau(near, far) × DF(far) × 1bp
-//! Sign convention: positive for paying fixed (receiving floating).
+//! Provides DV01 calculation for FX swap instruments using bump-and-reprice methodology.
+//! Computes the change in PV for a +1bp parallel bump to the domestic discount curve.
+//!
+//! Sign convention: DV01 = base_pv - bumped_pv (positive when rates rise causes value to fall).
 
-use crate::constants::ONE_BASIS_POINT;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::context::BumpSpec;
 use finstack_core::Result;
+use hashbrown::HashMap;
 
-/// DV01 calculator for FX swaps.
+/// DV01 calculator for FX swaps using domestic discount curve bump-and-reprice.
 pub struct FxSwapDv01Calculator;
 
 impl MetricCalculator for FxSwapDv01Calculator {
@@ -22,32 +24,20 @@ impl MetricCalculator for FxSwapDv01Calculator {
             return Ok(0.0);
         }
 
-        let disc = context
-            .curves
-            .get_discount_ref(fx_swap.domestic_disc_id.as_str())?;
-        let base = disc.base_date();
+        // Base PV from context
+        let base_pv = context.base_value;
 
-        // Use domestic curve day count convention
-        let day_count = disc.day_count();
+        // Parallel +1bp bump on domestic discount curve
+        let mut bumps = HashMap::new();
+        bumps.insert(fx_swap.domestic_disc_id.clone(), BumpSpec::parallel_bp(1.0));
+        let bumped_context = context.curves.bump(bumps)?;
+        
+        // Reprice with bumped curve
+        let bumped_pv = fx_swap.value(&bumped_context, as_of)?;
 
-        // Accrual period from near to far date
-        let tau = day_count
-            .year_fraction(
-                fx_swap.near_date,
-                fx_swap.far_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
-        if tau == 0.0 {
-            return Ok(0.0);
-        }
-
-        // Discount factor to far date
-        let df_far = DiscountCurve::df_on(disc, base, fx_swap.far_date, day_count);
-
-        // DV01 = Notional × tau × DF(far) × 1bp
-        let dv01 = fx_swap.base_notional.amount() * tau * df_far * ONE_BASIS_POINT;
-
-        Ok(dv01)
+        // DV01 = base_pv - bumped_pv
+        let dv01 = base_pv.checked_sub(bumped_pv)?;
+        
+        Ok(dv01.amount())
     }
 }
