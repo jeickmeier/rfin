@@ -194,8 +194,8 @@ impl DiscountCurveCalibrator {
             let knots_clone = knots.clone();
             let self_clone = self.clone();
             let quote_clone = quote.clone();
-            // Use Arc reference instead of cloning the entire context
-            let base_context_ref = std::sync::Arc::new(base_context.clone());
+            // Capture context by reference; clone only once per evaluation (not twice)
+            let base_context_ref = base_context;
 
             let objective = move |df: f64| -> f64 {
                 let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
@@ -225,19 +225,19 @@ impl DiscountCurveCalibrator {
                             Ok(curve) => curve,
                             Err(_) => return crate::calibration::PENALTY,
                         };
-                        (*base_context_ref)
+                        base_context_ref
                             .clone()
                             .insert_discount(temp_curve)
                             .insert_forward(fwd)
                     } else {
                         // Require pre-existing forward curve in context for non-OIS instruments
-                        if (*base_context_ref).get_forward_ref("CALIB_FWD").is_err() {
+                        if base_context_ref.get_forward_ref("CALIB_FWD").is_err() {
                             return crate::calibration::PENALTY;
                         }
-                        (*base_context_ref).clone().insert_discount(temp_curve)
+                        base_context_ref.clone().insert_discount(temp_curve)
                     }
                 } else {
-                    (*base_context_ref).clone().insert_discount(temp_curve)
+                    base_context_ref.clone().insert_discount(temp_curve)
                 };
 
                 // Price the instrument and return error (target is zero)
@@ -810,6 +810,22 @@ impl DiscountCurveCalibrator {
     }
 
     /// Validate quote sequence for no-arbitrage and completeness.
+    /// 
+    /// ## Multi-Curve Framework Guidance
+    /// 
+    /// **Appropriate for discount curve calibration:**
+    /// - OIS swaps (e.g., SOFR, ESTR, SONIA): overnight compounded, collateral-aligned
+    /// - Deposits: short-end risk-free rates
+    /// 
+    /// **Not recommended for discount curves (use dedicated forward curve calibration):**
+    /// - FRAs: reference LIBOR/term rates, require forward curve for pricing
+    /// - Futures: reference term rates, convexity-adjusted
+    /// - Tenor swaps (3M, 6M LIBOR-based): require forward curves per tenor
+    /// - Basis swaps: used for cross-tenor calibration, not discount
+    /// 
+    /// This validator warns (not errors) when forward-dependent instruments are used,
+    /// allowing flexibility while alerting to potential misuse. In strict mode (future),
+    /// this could be configured to error instead.
     fn validate_quotes(&self, quotes: &[RatesQuote]) -> Result<()> {
         if quotes.is_empty() {
             return Err(finstack_core::Error::Input(
@@ -838,7 +854,7 @@ impl DiscountCurveCalibrator {
             }
         }
 
-        // Multi-curve mode validation
+        // Multi-curve mode validation: warn if mixing instrument types inappropriately
         let mut has_forward_dependent = false;
         let mut has_ois_suitable = false;
 
@@ -852,11 +868,13 @@ impl DiscountCurveCalibrator {
         }
 
         // Warn if using forward-dependent instruments for discount curve calibration
+        // (strict mode to error on this could be added via config.multi_curve.enforce_separation)
         if has_forward_dependent && !has_ois_suitable {
             tracing::warn!(
-                "Using forward-dependent instruments (FRA, Future, Swap) \
-                 for discount curve calibration. Consider using OIS swaps or deposits instead. \
-                 Forward curves must be provided in the context for these instruments to price correctly."
+                "Discount curve calibration using forward-dependent instruments (FRA, Future, Swap). \
+                 Best practice: use OIS swaps (SOFR/ESTR/SONIA) or deposits for discount curves, \
+                 and calibrate forward curves separately. Forward curves must be available in the \
+                 market context for these instruments to price correctly in multi-curve mode."
             );
         }
 

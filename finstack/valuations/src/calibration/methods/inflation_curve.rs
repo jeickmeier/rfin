@@ -182,9 +182,8 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
             let _ = base_context.get_discount_ref(&self.discount_id)?;
 
-            // Provide a 'static discount id for instrument builder requirements
-            let disc_id_static: &'static str =
-                Box::leak(self.discount_id.as_str().to_string().into_boxed_str());
+            // Clone discount id for use in closures (avoids memory leak from Box::leak)
+            let disc_id = self.discount_id.clone();
 
             // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
 
@@ -229,8 +228,9 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
                 // Objective priced via instrument pricer
                 let knots_clone = knots.clone();
-                let base_ctx_clone = base_context.clone();
+                let base_ctx_ref = base_context;
                 let notional = Money::new(1_000_000.0, self.currency);
+                let disc_id_clone = disc_id.clone();
 
                 let base_date = self.base_date;
                 let objective = move |cpi_guess: f64| -> f64 {
@@ -261,7 +261,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                         .maturity(maturity)
                         .fixed_rate(par_rate)
                         .inflation_id(CALIB_INDEX_ID.into())
-                        .disc_id(disc_id_static.into())
+                        .disc_id(disc_id_clone.clone())
                         .dc(self.accrual_dc)
                         .side(PayReceiveInflation::PayFixed)
                         .build()
@@ -271,7 +271,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     };
 
                     // Update market context with temp inflation curve
-                    let temp_ctx = base_ctx_clone.clone().insert_inflation(temp_curve);
+                    let temp_ctx = base_ctx_ref.clone().insert_inflation(temp_curve);
 
                     match swap.value(&temp_ctx, base_date) {
                         Ok(pv) => pv.amount() / notional.amount(),

@@ -76,6 +76,19 @@ pub struct SwaptionVolCalibrator {
 }
 
 impl SwaptionVolCalibrator {
+    /// Get market-standard SABR beta by currency for lognormal convention.
+    /// 
+    /// Market practice for interest rate swaptions typically uses:
+    /// - USD/EUR: β ≈ 0.5 (captures empirical smile dynamics)
+    /// - Other G10: β ≈ 0.5
+    /// - Can be overridden via builder method
+    fn default_sabr_beta_lognormal(currency: Currency) -> f64 {
+        match currency {
+            Currency::USD | Currency::EUR | Currency::GBP | Currency::CHF | Currency::JPY => 0.5,
+            _ => 0.5, // Conservative default for other currencies
+        }
+    }
+
     /// Create a new swaption volatility calibrator.
     pub fn new(
         surface_id: impl Into<String>,
@@ -85,11 +98,11 @@ impl SwaptionVolCalibrator {
         disc_id: impl Into<CurveId>,
         currency: Currency,
     ) -> Self {
-        // Set SABR beta based on volatility convention
+        // Set SABR beta based on volatility convention and currency
         let sabr_beta = match vol_convention {
             SwaptionVolConvention::Normal => 0.0,
             SwaptionVolConvention::Lognormal | SwaptionVolConvention::ShiftedLognormal { .. } => {
-                1.0
+                Self::default_sabr_beta_lognormal(currency)
             }
         };
 
@@ -124,8 +137,19 @@ impl SwaptionVolCalibrator {
         self.config = config;
         self
     }
+    
+    /// Override the default SABR beta parameter.
+    /// By default, beta is currency-aware: 0.5 for USD/EUR rates, 0.0 for normal vols.
+    pub fn with_sabr_beta(mut self, beta: f64) -> Self {
+        self.sabr_beta = beta;
+        self
+    }
 
     /// Calculate forward swap rate for a given expiry and tenor.
+    ///
+    /// In multi-curve mode (when `forward_id` is set), this properly computes
+    /// the floating leg PV using the forward curve and returns `float_pv / pv01`.
+    /// In single-curve mode, it uses the traditional formula `(DF_start - DF_end) / PV01`.
     fn calculate_forward_swap_rate(
         &self,
         expiry: Date,
@@ -148,25 +172,85 @@ impl SwaptionVolCalibrator {
         )?;
 
         if t_start < 0.0 || t_end <= t_start {
+            // TODO: Add field context - include expiry/tenor info to help debug invalid date ranges
             return Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::InvalidDateRange,
             ));
         }
 
-        let df_start = disc.df(t_start);
-        let df_end = disc.df(t_end);
-
         // Calculate annuity using proper schedule
         let pv01 = self.calculate_pv01_proper(swap_start, swap_end, disc)?;
 
         if pv01 <= self.market_conventions.zero_threshold {
+            // TODO: Add field context - specify which swap (expiry/tenor) has invalid PV01
             return Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::Invalid,
             ));
         }
 
-        // Forward swap rate = (DF(start) - DF(end)) / PV01
-        Ok((df_start - df_end) / pv01)
+        // Multi-curve mode: use forward curve for floating leg if configured
+        if let Some(ref forward_id) = self.forward_id {
+            let fwd = context.get_forward_ref(forward_id)?;
+            
+            // Build floating leg schedule
+            let float_sched = crate::cashflow::builder::build_dates(
+                swap_start,
+                swap_end,
+                self.market_conventions.float_freq,
+                StubKind::None,
+                BusinessDayConvention::Following,
+                None,
+            );
+            
+            if float_sched.dates.len() < 2 {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ));
+            }
+            
+            // Calculate floating leg PV using forward curve
+            let mut float_pv = 0.0;
+            let mut prev = float_sched.dates[0];
+            
+            for &pay_date in &float_sched.dates[1..] {
+                // Accrual fraction for this period
+                let accrual = self.market_conventions.day_count.year_fraction(
+                    prev,
+                    pay_date,
+                    DayCountCtx::default(),
+                )?;
+                
+                // Time to payment
+                let t_pay = self.market_conventions.day_count.year_fraction(
+                    self.base_date,
+                    pay_date,
+                    DayCountCtx::default(),
+                )?;
+                
+                // Time to period start
+                let t_prev = self.market_conventions.day_count.year_fraction(
+                    self.base_date,
+                    prev,
+                    DayCountCtx::default(),
+                )?;
+                
+                // Forward rate for this period (using the forward curve)
+                let forward_rate = fwd.rate_period(t_prev, t_pay);
+                
+                // Payment = forward_rate * accrual * discount_factor
+                float_pv += forward_rate * accrual * disc.df(t_pay);
+                
+                prev = pay_date;
+            }
+            
+            // Par rate = floating leg PV / annuity (PV01)
+            Ok(float_pv / pv01)
+        } else {
+            // Single-curve mode: traditional formula
+            let df_start = disc.df(t_start);
+            let df_end = disc.df(t_end);
+            Ok((df_start - df_end) / pv01)
+        }
     }
 
     /// Calculate PV01 using the centralized cashflow::builder date generation.
@@ -546,7 +630,8 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
 
         let sabr_calibrator = SABRCalibrator::new()
             .with_tolerance(self.config.tolerance)
-            .with_max_iterations(self.config.max_iterations);
+            .with_max_iterations(self.config.max_iterations)
+            .with_fd_gradients(self.config.use_fd_sabr_gradients);
 
         for ((expiry_bp, tenor_bp), strikes_vols) in &grouped_quotes {
             if strikes_vols.len() < self.market_conventions.min_sabr_points {

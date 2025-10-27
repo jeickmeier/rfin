@@ -210,6 +210,7 @@ impl BaseCorrelationCalibrator {
                 (last_correlation + CORRELATION_STEP).min(MAX_MONOTONIC_CORRELATION)
             };
 
+            let market_ctx_ref = market_context;
             let objective = |trial_correlation: f64| -> f64 {
                 let mut temp_corr_points = solved_correlations.clone();
                 temp_corr_points.push((*detach_pct, trial_correlation));
@@ -227,7 +228,7 @@ impl BaseCorrelationCalibrator {
                     Err(_) => return crate::calibration::PENALTY,
                 };
 
-                let mut temp_market_ctx = market_context.clone();
+                let mut temp_market_ctx = market_ctx_ref.clone();
                 let _ = temp_market_ctx.update_base_correlation_curve(
                     &synthetic_tranche.credit_index_id,
                     temp_base_corr_curve,

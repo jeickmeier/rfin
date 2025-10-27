@@ -83,6 +83,10 @@ pub struct CalibrationConfig {
     pub entity_seniority: HashMap<String, Seniority>,
     /// Multi-curve framework configuration
     pub multi_curve: MultiCurveConfig,
+    /// Use finite-difference gradients for SABR calibration instead of analytical approximations.
+    /// Analytical gradients are faster but use approximations (treating x(z) as ~constant).
+    /// FD gradients are slower but more accurate, especially for far-from-ATM strikes.
+    pub use_fd_sabr_gradients: bool,
     /// Explanation options (opt-in detailed trace)
     #[serde(skip)]
     pub explain: ExplainOpts,
@@ -102,6 +106,7 @@ impl Default for CalibrationConfig {
             solver_kind: SolverKind::default(),
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
+            use_fd_sabr_gradients: false, // Use fast analytical approximations by default
             explain: ExplainOpts::default(), // Disabled by default (zero overhead)
             progress: ProgressReporter::default(), // Disabled by default (zero overhead)
         }
@@ -187,6 +192,7 @@ impl CalibrationConfig {
             solver_kind: SolverKind::Hybrid, // Robust hybrid solver
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
+            use_fd_sabr_gradients: true, // Use more accurate FD gradients for conservative mode
             explain: ExplainOpts::default(),
             progress: ProgressReporter::default(),
         }
@@ -223,6 +229,7 @@ impl CalibrationConfig {
             solver_kind: SolverKind::Hybrid,
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
+            use_fd_sabr_gradients: false, // Use fast analytical approximations for speed
             explain: ExplainOpts::default(),
             progress: ProgressReporter::default(),
         }
@@ -259,6 +266,7 @@ impl CalibrationConfig {
             solver_kind: SolverKind::Brent, // Fast bracketing method
             entity_seniority: HashMap::new(),
             multi_curve: MultiCurveConfig::default(),
+            use_fd_sabr_gradients: false, // Use fast analytical approximations
             explain: ExplainOpts::default(),
             progress: ProgressReporter::default(),
         }

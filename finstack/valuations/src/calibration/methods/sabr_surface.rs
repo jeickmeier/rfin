@@ -163,7 +163,8 @@ impl VolSurfaceCalibrator {
         let mut residual_key_counter: usize = 0;
         let sabr_calibrator = SABRCalibrator::new()
             .with_tolerance(self.config.tolerance)
-            .with_max_iterations(self.config.max_iterations);
+            .with_max_iterations(self.config.max_iterations)
+            .with_fd_gradients(self.config.use_fd_sabr_gradients);
 
         for (t_key, expiry_quotes) in &quotes_by_expiry {
             if expiry_quotes.len() < 3 {
@@ -395,6 +396,7 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
                 _ => None,
             })
             .ok_or(finstack_core::Error::Input(
+                // TODO: Add field context - specify underlying asset that's missing from quotes
                 finstack_core::error::InputError::Invalid,
             ))?;
 
@@ -432,6 +434,7 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
 
         // Resolve a discount curve from the context
         // Preference order: explicit id via self.discount_id → inferred "<CCY>-OIS" → first discount in context
+        // For production use, always specify an explicit discount_id to avoid ambiguity in multi-currency contexts.
         let disc: std::sync::Arc<
             finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         > = {
@@ -440,11 +443,22 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
             } else {
                 let inferred = format!("{}-OIS", self.base_currency);
                 match base_context.get_discount(inferred.as_str()) {
-                    Ok(c) => c,
+                    Ok(c) => {
+                        tracing::debug!(
+                            "Vol surface calibration for {} using inferred discount curve: {}",
+                            self.surface_id, inferred
+                        );
+                        c
+                    },
                     Err(_) => {
                         // Fallback to first discount curve available in the context
                         let mut iter = base_context.curves_of_type("Discount");
                         if let Some((id, _storage)) = iter.next() {
+                            tracing::warn!(
+                                "Vol surface calibration for {} auto-selecting first available discount curve: {}. \
+                                Consider specifying explicit discount_id to avoid ambiguity.",
+                                self.surface_id, id
+                            );
                             base_context.get_discount(id.as_str())?
                         } else {
                             return Err(finstack_core::Error::Input(

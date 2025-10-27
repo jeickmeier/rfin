@@ -415,6 +415,8 @@ pub struct SABRCalibrator {
     tolerance: f64,
     /// Maximum iterations
     max_iterations: usize,
+    /// Use finite-difference gradients instead of analytical approximations
+    use_fd_gradients: bool,
 }
 
 impl SABRCalibrator {
@@ -423,6 +425,7 @@ impl SABRCalibrator {
         Self {
             tolerance: 1e-6,
             max_iterations: 100,
+            use_fd_gradients: false,
         }
     }
 
@@ -435,6 +438,12 @@ impl SABRCalibrator {
     /// Set maximum iterations
     pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
         self.max_iterations = max_iterations;
+        self
+    }
+    
+    /// Enable finite-difference gradients for higher accuracy (slower).
+    pub fn with_fd_gradients(mut self, use_fd: bool) -> Self {
+        self.use_fd_gradients = use_fd;
         self
     }
 
@@ -639,8 +648,12 @@ impl SABRCalibrator {
             beta,
         };
 
-        // Create derivatives provider
-        let derivatives_provider = SABRCalibrationDerivatives::new(market_data.clone());
+        // Create derivatives provider (with or without FD gradients)
+        let derivatives_provider = if self.use_fd_gradients {
+            SABRCalibrationDerivatives::new_with_fd(market_data.clone())
+        } else {
+            SABRCalibrationDerivatives::new(market_data.clone())
+        };
 
         // Create Levenberg-Marquardt solver
         let solver = LevenbergMarquardtSolver::new()

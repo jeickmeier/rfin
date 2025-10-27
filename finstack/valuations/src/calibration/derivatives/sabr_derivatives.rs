@@ -28,14 +28,31 @@ pub struct SABRMarketData {
 ///
 /// This implementation provides exact gradients of the least-squares
 /// objective function with respect to SABR parameters (alpha, nu, rho).
+/// 
+/// Can optionally use finite-difference gradients for higher accuracy
+/// at the expense of performance.
 pub struct SABRCalibrationDerivatives {
     market_data: SABRMarketData,
+    /// Use finite-difference gradients instead of analytical approximations
+    use_fd: bool,
 }
 
 impl SABRCalibrationDerivatives {
-    /// Create a new SABR derivatives provider.
+    /// Create a new SABR derivatives provider with analytical gradients (default).
     pub fn new(market_data: SABRMarketData) -> Self {
-        Self { market_data }
+        Self { 
+            market_data,
+            use_fd: false,
+        }
+    }
+    
+    /// Create a new SABR derivatives provider with finite-difference gradients.
+    /// More accurate but slower than analytical approximations.
+    pub fn new_with_fd(market_data: SABRMarketData) -> Self {
+        Self {
+            market_data,
+            use_fd: true,
+        }
     }
 
     /// Compute SABR implied volatility and its derivatives.
@@ -90,13 +107,40 @@ impl SABRCalibrationDerivatives {
 
         let vol = term1 * x * term2_base;
 
-        // Compute derivatives
-        let sabr_params = SABRModelParams::new(alpha, nu, rho, self.market_data.beta);
-        let d_vol_d_alpha = self.d_vol_d_alpha_impl(strike, &sabr_params, vol, x, term2_base);
-        let d_vol_d_nu = self.d_vol_d_nu_impl(strike, &sabr_params, vol, x, term2_base);
-        let d_vol_d_rho = self.d_vol_d_rho_impl(strike, &sabr_params, vol, x, term2_base);
+        // Compute derivatives (analytical or finite-difference)
+        if self.use_fd {
+            // Finite-difference gradients for higher accuracy
+            let eps = 1e-6;
+            let d_vol_d_alpha = (self.sabr_vol_fd(strike, alpha + eps, nu, rho) - vol) / eps;
+            let d_vol_d_nu = (self.sabr_vol_fd(strike, alpha, nu + eps, rho) - vol) / eps;
+            let d_vol_d_rho = (self.sabr_vol_fd(strike, alpha, nu, rho + eps) - vol) / eps;
+            (vol, d_vol_d_alpha, d_vol_d_nu, d_vol_d_rho)
+        } else {
+            // Analytical approximations (faster)
+            let sabr_params = SABRModelParams::new(alpha, nu, rho, self.market_data.beta);
+            let d_vol_d_alpha = self.d_vol_d_alpha_impl(strike, &sabr_params, vol, x, term2_base);
+            let d_vol_d_nu = self.d_vol_d_nu_impl(strike, &sabr_params, vol, x, term2_base);
+            let d_vol_d_rho = self.d_vol_d_rho_impl(strike, &sabr_params, vol, x, term2_base);
+            (vol, d_vol_d_alpha, d_vol_d_nu, d_vol_d_rho)
+        }
+    }
 
-        (vol, d_vol_d_alpha, d_vol_d_nu, d_vol_d_rho)
+    /// Compute SABR volatility only (for finite differences).
+    fn sabr_vol_fd(&self, strike: f64, alpha: f64, nu: f64, rho: f64) -> f64 {
+        use crate::instruments::common::models::{SABRModel, SABRParameters};
+        
+        // Create SABR parameters
+        let params = match SABRParameters::new(alpha, self.market_data.beta, nu, rho) {
+            Ok(p) => p,
+            Err(_) => return 0.0, // Return 0 for invalid parameters
+        };
+        
+        let sabr = SABRModel::new(params);
+        sabr.implied_volatility(
+            self.market_data.forward,
+            strike,
+            self.market_data.time_to_expiry,
+        ).unwrap_or(0.0)
     }
 
     /// Compute ATM volatility and derivatives.
