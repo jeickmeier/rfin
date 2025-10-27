@@ -29,6 +29,8 @@ pub(crate) use wrapper::InstrumentWrapper;
 
 pub use basis_swap::JsBasisSwap as BasisSwap;
 pub use bond::JsBond as Bond;
+// Also export JsBond name for use within this crate
+pub use bond::JsBond;
 pub use cap_floor::JsInterestRateOption as InterestRateOption;
 pub use cds::JsCreditDefaultSwap as CreditDefaultSwap;
 pub use cds_index::JsCDSIndex as CDSIndex;

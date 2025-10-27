@@ -95,6 +95,9 @@ pub use valuations::results::JsValuationResult as ValuationResult;
 // Using valuations::results::JsResultsMeta for ValuationResult.meta
 pub use valuations::results::JsResultsMeta as ValuationResultsMeta;
 
+// Risk analysis functions
+pub use valuations::risk::{cs01_ladder as cs01Ladder, krd_dv01_ladder as krdDv01Ladder};
+
 // Statements exports
 pub use statements::{
     JsAmountOrScalar as AmountOrScalar, JsCapitalStructureSpec as CapitalStructureSpec,

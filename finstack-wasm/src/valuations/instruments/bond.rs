@@ -118,6 +118,14 @@ impl InstrumentWrapper for JsBond {
     }
 }
 
+// Public accessor for use in other modules
+impl JsBond {
+    /// Get a clone of the inner Bond (for internal WASM use).
+    pub(crate) fn inner_bond(&self) -> Bond {
+        self.0.clone()
+    }
+}
+
 #[wasm_bindgen(js_class = Bond)]
 impl JsBond {
     #[wasm_bindgen(constructor)]

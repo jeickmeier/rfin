@@ -81,6 +81,7 @@ fn test_calibration_config_serialization() {
             enforce_separation: true,
         },
         explain: finstack_core::explain::ExplainOpts::default(),
+        progress: finstack_core::progress::ProgressReporter::default(),
     };
 
     let restored = roundtrip_json(&config);
@@ -617,6 +618,7 @@ fn test_complex_calibration_workflow_serialization() {
             enforce_separation: true,
         },
         explain: finstack_core::explain::ExplainOpts::default(),
+        progress: finstack_core::progress::ProgressReporter::default(),
     };
 
     // Create multiple calibrators with this config
