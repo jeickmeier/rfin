@@ -62,4 +62,3 @@ pub mod schema;
 pub mod instruments;
 pub mod covenants;
 pub mod metrics;
-pub mod performance;

@@ -4,9 +4,9 @@
 //! at irregular intervals. XIRR is widely used for evaluating investment returns
 //! when cash flows are not evenly spaced in time.
 
-use finstack_core::dates::{Date, DayCount};
-use finstack_core::error::InputError;
-use finstack_core::math::solver::{HybridSolver, Solver};
+use crate::dates::{Date, DayCount, DayCountCtx};
+use crate::error::InputError;
+use crate::math::solver::{HybridSolver, Solver};
 
 /// Calculates XIRR (Extended Internal Rate of Return) for a series of cash flows.
 ///
@@ -28,7 +28,7 @@ use finstack_core::math::solver::{HybridSolver, Solver};
 /// - Cannot converge to a solution within tolerance
 ///
 /// See unit tests and `examples/` for usage.
-pub fn xirr(cash_flows: &[(Date, f64)], guess: Option<f64>) -> finstack_core::Result<f64> {
+pub fn xirr(cash_flows: &[(Date, f64)], guess: Option<f64>) -> crate::Result<f64> {
     // Validate inputs
     if cash_flows.len() < 2 {
         return Err(InputError::TooFewPoints.into());
@@ -50,7 +50,7 @@ pub fn xirr(cash_flows: &[(Date, f64)], guess: Option<f64>) -> finstack_core::Re
                 .year_fraction(
                     first_date,
                     date,
-                    finstack_core::dates::DayCountCtx::default(),
+                    DayCountCtx::default(),
                 )
                 .unwrap_or(0.0);
             (years, amount)
@@ -235,7 +235,7 @@ mod tests {
                 .year_fraction(
                     first_date,
                     date,
-                    finstack_core::dates::DayCountCtx::default(),
+                    DayCountCtx::default(),
                 )
                 .unwrap_or(0.0);
             let discount = (1.0 + rate).powf(years);

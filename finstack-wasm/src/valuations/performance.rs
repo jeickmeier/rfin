@@ -76,7 +76,7 @@ pub fn xirr_wasm(cash_flows: Array, guess: Option<f64>) -> Result<f64, JsValue> 
     }
 
     // Call the Rust XIRR function
-    finstack_valuations::performance::xirr(&flows, guess)
+    finstack_core::cashflow::xirr(&flows, guess)
         .map_err(|e| JsValue::from_str(&format!("XIRR calculation failed: {}", e)))
 }
 
