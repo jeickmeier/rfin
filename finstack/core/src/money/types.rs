@@ -5,6 +5,12 @@
 //! Instances retain their [`Currency`] tag and refuse to mix currencies unless
 //! explicitly converted via [`super::fx::FxProvider`].
 //!
+//! Note: Formatting is intentionally non-locale. Separators are ASCII and
+//! currency code precedes the amount (e.g., "USD 1,234.56"). Use
+//! [`Money::format_with_config`] or wrap at the UI layer if locale-aware
+//! presentation is required; the numeric representation remains deterministic
+//! and stable for pipelines.
+//!
 //! # Examples
 //! ```rust
 //! use finstack_core::money::Money;

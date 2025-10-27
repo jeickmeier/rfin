@@ -43,6 +43,7 @@ fn hazard_curve_survival_and_default_probabilities() {
 #[test]
 fn hazard_curve_with_hazard_shift_clamps_negative_rates() {
     let curve = HazardCurve::builder("HC")
+        .base_date(base_date())
         .knots([(0.0, 0.01), (5.0, 0.02)])
         .build()
         .unwrap();

@@ -150,17 +150,27 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
     conv: BusinessDayConvention,
     cal: &C,
 ) -> Result<Date, Error> {
+    adjust_with_limit(date, conv, cal, MAX_BUSINESS_DAY_SEARCH_DAYS)
+}
+
+/// Adjust `date` according to `conv` utilising `cal` for holiday lookup with a custom search limit.
+pub fn adjust_with_limit<C: HolidayCalendar + ?Sized>(
+    date: Date,
+    conv: BusinessDayConvention,
+    cal: &C,
+    max_days: i32,
+) -> Result<Date, Error> {
     match conv {
         BusinessDayConvention::Unadjusted => Ok(date),
         BusinessDayConvention::Following => {
             if cal.is_business_day(date) {
                 return Ok(date);
             }
-            seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal).ok_or({
+            seek_business_day(date, 1, max_days, cal).ok_or({
                 Error::Input(InputError::AdjustmentFailed {
                     date,
                     convention: BusinessDayConvention::Following,
-                    max_days: MAX_BUSINESS_DAY_SEARCH_DAYS,
+                    max_days,
                 })
             })
         }
@@ -169,21 +179,21 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
                 return Ok(date);
             }
             let original_month = date.month();
-            let forward = seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal).ok_or(
+            let forward = seek_business_day(date, 1, max_days, cal).ok_or(
                 Error::Input(InputError::AdjustmentFailed {
                     date,
                     convention: BusinessDayConvention::ModifiedFollowing,
-                    max_days: MAX_BUSINESS_DAY_SEARCH_DAYS,
+                    max_days,
                 }),
             )?;
             if forward.month() == original_month {
                 Ok(forward)
             } else {
-                seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal).ok_or({
+                seek_business_day(date, -1, max_days, cal).ok_or({
                     Error::Input(InputError::AdjustmentFailed {
                         date,
                         convention: BusinessDayConvention::ModifiedFollowing,
-                        max_days: MAX_BUSINESS_DAY_SEARCH_DAYS,
+                        max_days,
                     })
                 })
             }
@@ -192,11 +202,11 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             if cal.is_business_day(date) {
                 return Ok(date);
             }
-            seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal).ok_or({
+            seek_business_day(date, -1, max_days, cal).ok_or({
                 Error::Input(InputError::AdjustmentFailed {
                     date,
                     convention: BusinessDayConvention::Preceding,
-                    max_days: MAX_BUSINESS_DAY_SEARCH_DAYS,
+                    max_days,
                 })
             })
         }
@@ -205,21 +215,21 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
                 return Ok(date);
             }
             let original_month = date.month();
-            let back = seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal).ok_or(
+            let back = seek_business_day(date, -1, max_days, cal).ok_or(
                 Error::Input(InputError::AdjustmentFailed {
                     date,
                     convention: BusinessDayConvention::ModifiedPreceding,
-                    max_days: MAX_BUSINESS_DAY_SEARCH_DAYS,
+                    max_days,
                 }),
             )?;
             if back.month() == original_month {
                 Ok(back)
             } else {
-                seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal).ok_or({
+                seek_business_day(date, 1, max_days, cal).ok_or({
                     Error::Input(InputError::AdjustmentFailed {
                         date,
                         convention: BusinessDayConvention::ModifiedPreceding,
-                        max_days: MAX_BUSINESS_DAY_SEARCH_DAYS,
+                        max_days,
                     })
                 })
             }

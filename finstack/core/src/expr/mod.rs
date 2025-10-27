@@ -8,7 +8,9 @@
 //! - rolling_std / rolling_var / rolling_median
 //! - ewm_mean(expr, alpha, adjust)
 //! - std / var / median
-//! - shift / rank / quantile
+//! - shift / rank / quantile (reducer over entire series; broadcasts scalar)
+//!   - For rolling/windowed quantiles, use `rolling_median` or implement a
+//!     domain-specific rolling estimator; `quantile` here is a global reducer.
 //! - rolling_min / rolling_max / rolling_count
 //! - ewm_std / ewm_var
 //!

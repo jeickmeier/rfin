@@ -11,7 +11,7 @@
 //! use time::Month;
 //!
 //! let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-//! let hc = HazardCurve::builder("USD-CRED")
+//! let hc = HazardCurve::builder("USD-CREDIT")
 //!     .base_date(base)
 //!     .knots([(0.0, 0.01), (10.0, 0.015)])
 //!     .build()
@@ -399,6 +399,10 @@ impl HazardCurveBuilder {
 
     /// Validate input and build the [`HazardCurve`].
     pub fn build(self) -> crate::Result<HazardCurve> {
+        // Require explicit base_date to avoid accidentally anchoring to 1970-01-01
+        if self.base == Date::from_calendar_date(1970, time::Month::January, 1).unwrap() {
+            return Err(InputError::Invalid.into());
+        }
         if self.points.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
@@ -437,9 +441,12 @@ impl HazardCurveBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use time::Month;
     #[test]
     fn survival_monotone_decreasing() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let hc = HazardCurve::builder("USD-CREDIT")
+            .base_date(base)
             .knots([(0.0, 0.01), (5.0, 0.02)])
             .build()
             .unwrap();
@@ -449,7 +456,9 @@ mod tests {
 
     #[test]
     fn default_prob_positive() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let hc = HazardCurve::builder("USD")
+            .base_date(base)
             .knots([(0.0, 0.01), (10.0, 0.015)])
             .build()
             .unwrap();
@@ -459,7 +468,9 @@ mod tests {
 
     #[test]
     fn quoted_spread_interpolation_linear() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let hc = HazardCurve::builder("TEST")
+            .base_date(base)
             .knots([(1.0, 0.02)])
             .par_spreads([(1.0, 100.0), (3.0, 200.0)])
             .build()

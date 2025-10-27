@@ -307,6 +307,11 @@ pub enum Function {
     /// Rank values (dense ranking).
     Rank,
     /// Calculate quantile/percentile of values.
+    ///
+    /// Note: This function reduces the entire series to a single scalar value
+    /// and broadcasts that scalar across the output length. It is not a
+    /// rolling/windowed quantile. For windowed behavior, prefer `RollingMedian`
+    /// or a domain-specific rolling estimator.
     Quantile,
     /// Rolling minimum over a fixed row window size.
     RollingMin,

@@ -125,6 +125,7 @@ impl PyDayCount {
             DayCountCtx {
                 calendar: ctx_ref.calendar.as_ref().map(|cal| cal.inner),
                 frequency: ctx_ref.frequency,
+                bus_basis: None,
             }
         } else {
             DayCountCtx::default()

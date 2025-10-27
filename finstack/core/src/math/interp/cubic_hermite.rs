@@ -50,6 +50,31 @@ impl CubicHermite {
         })
     }
 
+    /// Optional runtime monotonicity validation (debug builds only).
+    ///
+    /// When `enable` is true, this checks that `dfs` are strictly decreasing
+    /// and logs a warning if not. This is a no-op in release builds and always
+    /// returns `self` for chaining.
+    pub fn with_monotone_validation(self, enable: bool) -> Self {
+        #[cfg(debug_assertions)]
+        {
+            if enable {
+                for i in 1..self.dfs.len() {
+                    if self.dfs[i] >= self.dfs[i - 1] {
+                        log::warn!(
+                            "CubicHermite DFS are not strictly decreasing at index {}: df[i-1]={:.8}, df[i]={:.8}",
+                            i,
+                            self.dfs[i - 1],
+                            self.dfs[i]
+                        );
+                        break;
+                    }
+                }
+            }
+        }
+        self
+    }
+
     // Shared `locate_segment` from utils is used.
 
     /// Get the extrapolation policy for serialization

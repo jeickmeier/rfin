@@ -125,6 +125,8 @@ impl JsFrequency {
 pub struct JsDayCountContext {
     calendar: Option<String>,
     frequency: Option<Frequency>,
+    // Optional business-day basis for Bus/N conventions; when None defaults to 252
+    bus_basis: Option<u16>,
 }
 
 #[wasm_bindgen(js_class = DayCountContext)]
@@ -159,6 +161,16 @@ impl JsDayCountContext {
         self.frequency = None;
     }
 
+    #[wasm_bindgen(js_name = setBusBasis)]
+    pub fn set_bus_basis(&mut self, basis: u16) {
+        self.bus_basis = Some(basis);
+    }
+
+    #[wasm_bindgen(js_name = clearBusBasis)]
+    pub fn clear_bus_basis(&mut self) {
+        self.bus_basis = None;
+    }
+
     #[wasm_bindgen(getter, js_name = calendarCode)]
     pub fn calendar_code(&self) -> Option<String> {
         self.calendar.clone()
@@ -179,6 +191,7 @@ impl JsDayCountContext {
         Ok(DayCountCtx {
             calendar,
             frequency: self.frequency,
+            bus_basis: self.bus_basis,
         })
     }
 }

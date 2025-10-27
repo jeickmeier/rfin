@@ -33,7 +33,7 @@
 //!
 //! // Calculate year fraction with a calendar in context
 //! let yf = DayCount::Bus252
-//!     .year_fraction(start, end, DayCountCtx { calendar: Some(&calendar), frequency: None })
+//!     .year_fraction(start, end, DayCountCtx { calendar: Some(&calendar), frequency: None, bus_basis: None })
 //!     .unwrap();
 //! ```
 //!
@@ -59,7 +59,7 @@
 //! // ACT/ACT (ISMA): requires frequency for coupon period context
 //! let freq = Frequency::Months(6); // Semi-annual
 //! let yf_isma = DayCount::ActActIsma
-//!     .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq) })
+//!     .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq), bus_basis: None })
 //!     .unwrap();
 //! ```
 
@@ -85,6 +85,8 @@ pub struct DayCountCtx<'a> {
     pub calendar: Option<&'a dyn HolidayCalendar>,
     /// Optional coupon frequency for coupon-aware conventions (e.g., Act/Act ISMA).
     pub frequency: Option<Frequency>,
+    /// Optional business days per year basis for Bus/N conventions (default 252 when None).
+    pub bus_basis: Option<u16>,
 }
 
 /// Supported day-count conventions.
@@ -187,7 +189,8 @@ impl DayCount {
                     DayCount::Bus252 => match ctx.calendar {
                         Some(cal) => {
                             let biz_days = count_business_days(start, end, cal) as f64;
-                            biz_days / 252.0
+                            let basis = f64::from(ctx.bus_basis.unwrap_or(252));
+                            biz_days / basis
                         }
                         None => return Err(InputError::Invalid.into()),
                     },
@@ -341,9 +344,8 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate:
 /// Extend start date backward to find the beginning of its coupon period.
 fn extend_backward_for_coupon_period(date: Date, freq: Frequency) -> Date {
     match freq {
-        // Align coupon schedule to the provided date; treat `date` as an anchor.
-        Frequency::Months(_) => date,
-        Frequency::Days(_) => date,
+        Frequency::Months(m) => add_months(date, -(m as i32)),
+        Frequency::Days(d) => date - Duration::days(d as i64),
     }
 }
 
@@ -561,6 +563,7 @@ mod tests {
                 DayCountCtx {
                     calendar: Some(&calendar),
                     frequency: None,
+                    bus_basis: None,
                 },
             )
             .unwrap()
@@ -574,6 +577,7 @@ mod tests {
                 DayCountCtx {
                     calendar: Some(&calendar),
                     frequency: None,
+                    bus_basis: None,
                 },
             )
             .unwrap();
@@ -597,6 +601,7 @@ mod tests {
                 DayCountCtx {
                     calendar: Some(&calendar),
                     frequency: None,
+                    bus_basis: None,
                 },
             )
             .unwrap()
@@ -611,6 +616,7 @@ mod tests {
                 DayCountCtx {
                     calendar: Some(&calendar),
                     frequency: None,
+                    bus_basis: None,
                 },
             )
             .unwrap();
@@ -642,6 +648,7 @@ mod tests {
                 DayCountCtx {
                     calendar: Some(&calendar),
                     frequency: None,
+                    bus_basis: None,
                 },
             )
             .unwrap()
@@ -655,6 +662,7 @@ mod tests {
                 DayCountCtx {
                     calendar: Some(&calendar),
                     frequency: None,
+                    bus_basis: None,
                 },
             )
             .unwrap();
@@ -675,6 +683,7 @@ mod tests {
                 DayCountCtx {
                     calendar: None,
                     frequency: Some(freq),
+                    bus_basis: None,
                 },
             )
             .unwrap();
@@ -697,6 +706,7 @@ mod tests {
                 DayCountCtx {
                     calendar: None,
                     frequency: Some(freq),
+                    bus_basis: None,
                 },
             )
             .unwrap();
@@ -719,6 +729,7 @@ mod tests {
                 DayCountCtx {
                     calendar: None,
                     frequency: Some(freq),
+                    bus_basis: None,
                 },
             )
             .unwrap();
@@ -741,6 +752,7 @@ mod tests {
                 DayCountCtx {
                     calendar: None,
                     frequency: Some(freq),
+                    bus_basis: None,
                 },
             )
             .unwrap();
@@ -763,6 +775,7 @@ mod tests {
                 DayCountCtx {
                     calendar: None,
                     frequency: Some(freq),
+                    bus_basis: None,
                 },
             )
             .unwrap();
@@ -785,6 +798,7 @@ mod tests {
                 DayCountCtx {
                     calendar: None,
                     frequency: Some(freq),
+                    bus_basis: None,
                 },
             )
             .unwrap();
@@ -806,7 +820,8 @@ mod tests {
                 end,
                 DayCountCtx {
                     calendar: None,
-                    frequency: Some(freq)
+                    frequency: Some(freq),
+                    bus_basis: None,
                 }
             )
             .is_err());
@@ -825,6 +840,7 @@ mod tests {
                 DayCountCtx {
                     calendar: None,
                     frequency: Some(freq),
+                    bus_basis: None,
                 },
             )
             .unwrap();
@@ -848,6 +864,7 @@ mod tests {
                 DayCountCtx {
                     calendar: None,
                     frequency: Some(freq),
+                    bus_basis: None,
                 },
             )
             .unwrap();

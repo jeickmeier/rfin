@@ -33,9 +33,10 @@ pub fn npv_static<D: Discounting + ?Sized>(
     for (d, amt) in flows {
         let t = if *d == base {
             0.0
+        } else if *d > base {
+            dc.year_fraction(base, *d, DayCountCtx::default())?
         } else {
-            dc.year_fraction(base, *d, DayCountCtx::default())
-                .unwrap_or(0.0)
+            -dc.year_fraction(*d, base, DayCountCtx::default())?
         };
         let df = disc.df(t);
         let disc_amt = *amt * df;

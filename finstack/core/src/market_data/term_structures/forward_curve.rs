@@ -82,6 +82,7 @@ impl ForwardCurve {
             tenor: tenor_years,
             points: Vec::new(),
             style: InterpStyle::Linear,
+            min_forward_rate: None,
         }
     }
 
@@ -187,6 +188,7 @@ pub struct ForwardCurveBuilder {
     tenor: f64,
     points: Vec<(f64, f64)>,
     style: InterpStyle,
+    min_forward_rate: Option<f64>,
 }
 
 impl ForwardCurveBuilder {
@@ -219,6 +221,17 @@ impl ForwardCurveBuilder {
         self
     }
 
+    /// Enforce a minimum forward rate across the provided knot points.
+    pub fn with_min_forward_rate(mut self, min_rate: f64) -> Self {
+        self.min_forward_rate = Some(min_rate);
+        self
+    }
+
+    /// Convenience for requiring non-negative forwards.
+    pub fn require_non_negative_forwards(self) -> Self {
+        self.with_min_forward_rate(0.0)
+    }
+
     /// Validate input and build the [`ForwardCurve`].
     pub fn build(self) -> crate::Result<ForwardCurve> {
         if self.points.len() < 2 {
@@ -226,6 +239,16 @@ impl ForwardCurveBuilder {
         }
         let (kvec, fvec): (Vec<f64>, Vec<f64>) = split_points(self.points);
         crate::math::interp::utils::validate_knots(&kvec)?;
+        if let Some(min_fwd) = self.min_forward_rate {
+            for (i, &f) in fvec.iter().enumerate() {
+                if f < min_fwd {
+                    return Err(crate::Error::Validation(format!(
+                        "Forward rate below minimum at t={:.6}: fwd={:.8} < min={:.8} (index {})",
+                        kvec[i], f, min_fwd, i
+                    )));
+                }
+            }
+        }
         let knots = kvec.into_boxed_slice();
         let forwards = fvec.into_boxed_slice();
         let interp = build_interp(

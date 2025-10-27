@@ -83,6 +83,7 @@ fn bench_daycount_actact_isma(c: &mut Criterion) {
                         DayCountCtx {
                             calendar: None,
                             frequency: Some(freq),
+                            bus_basis: None,
                         },
                     )
                     .unwrap();
@@ -115,6 +116,7 @@ fn bench_daycount_bus252(c: &mut Criterion) {
                         DayCountCtx {
                             calendar: Some(calendar),
                             frequency: None,
+                            bus_basis: None,
                         },
                     )
                     .unwrap();

@@ -504,6 +504,7 @@ fn quantlib_parity_actact_isma_semiannual() {
     let ctx = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::semi_annual()),
+        bus_basis: None,
     };
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
@@ -522,6 +523,7 @@ fn quantlib_parity_actact_isma_partial_period() {
     let ctx = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::semi_annual()),
+        bus_basis: None,
     };
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
@@ -652,6 +654,7 @@ fn quantlib_parity_actact_isma_quarterly() {
     let ctx = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::quarterly()),
+        bus_basis: None,
     };
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
@@ -1579,6 +1582,7 @@ fn quantlib_parity_actact_isma_annual_frequency() {
     let ctx = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::annual()),
+        bus_basis: None,
     };
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
@@ -2120,6 +2124,7 @@ fn quantlib_parity_actact_isma_monthly() {
     let ctx = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::monthly()),
+        bus_basis: None,
     };
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
@@ -2713,6 +2718,7 @@ fn quantlib_parity_actact_isma_two_full_periods() {
     let ctx = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::semi_annual()),
+        bus_basis: None,
     };
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();

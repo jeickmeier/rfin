@@ -154,6 +154,7 @@ fn actact_isma_requires_frequency() {
     let ctx = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::Months(6)),
+        bus_basis: None,
     };
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
     assert!(yf > 0.0);
@@ -167,6 +168,7 @@ fn actact_isma_full_coupon_period() {
     let ctx = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::Months(6)),
+        bus_basis: None,
     };
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
@@ -189,6 +191,7 @@ fn bus252_requires_calendar() {
     let ctx = DayCountCtx {
         calendar: Some(&calendar),
         frequency: None,
+        bus_basis: None,
     };
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
     assert!(yf > 0.0);
@@ -203,6 +206,7 @@ fn bus252_counts_only_business_days() {
     let ctx = DayCountCtx {
         calendar: Some(&calendar),
         frequency: None,
+        bus_basis: None,
     };
 
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
@@ -262,6 +266,7 @@ fn daycount_equal_dates_returns_zero() {
     let ctx_bus = DayCountCtx {
         calendar: Some(&calendar),
         frequency: None,
+        bus_basis: None,
     };
     let yf = DayCount::Bus252.year_fraction(date, date, ctx_bus).unwrap();
     assert_eq!(yf, 0.0);
@@ -270,6 +275,7 @@ fn daycount_equal_dates_returns_zero() {
     let ctx_isma = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::Months(6)),
+        bus_basis: None,
     };
     let yf = DayCount::ActActIsma
         .year_fraction(date, date, ctx_isma)
@@ -337,6 +343,7 @@ fn actact_isma_multiple_frequencies() {
     let ctx_q = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::Months(3)),
+        bus_basis: None,
     };
     let yf_q = DayCount::ActActIsma
         .year_fraction(start, end, ctx_q)
@@ -346,6 +353,7 @@ fn actact_isma_multiple_frequencies() {
     let ctx_m = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::Months(1)),
+        bus_basis: None,
     };
     let yf_m = DayCount::ActActIsma
         .year_fraction(start, end, ctx_m)
@@ -353,9 +361,9 @@ fn actact_isma_multiple_frequencies() {
 
     // Different frequencies give different results for ISMA
     // Quarterly: 1 full period = 1.0
-    assert!((yf_q - 1.0).abs() < 1e-6);
+    assert!((yf_q - 1.0).abs() < 1.0e-6);
     // Monthly: 3 full periods = 3.0
-    assert!((yf_m - 3.0).abs() < 1e-6);
+    assert!((yf_m - 3.0).abs() < 1.0e-6);
 }
 
 #[test]
@@ -367,6 +375,7 @@ fn bus252_full_year_approximately_252() {
     let ctx = DayCountCtx {
         calendar: Some(&calendar),
         frequency: None,
+        bus_basis: None,
     };
 
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
@@ -460,6 +469,7 @@ fn actact_isma_partial_period() {
     let ctx = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::Months(6)),
+        bus_basis: None,
     };
 
     let yf = DayCount::ActActIsma.year_fraction(start, end, ctx).unwrap();
@@ -479,6 +489,7 @@ fn bus252_excludes_holidays() {
     let ctx = DayCountCtx {
         calendar: Some(&calendar),
         frequency: None,
+        bus_basis: None,
     };
 
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
@@ -514,6 +525,7 @@ fn actact_vs_actact_isma_comparison() {
     let ctx_isma = DayCountCtx {
         calendar: None,
         frequency: Some(Frequency::Months(12)),
+        bus_basis: None,
     };
     let yf_isma = DayCount::ActActIsma
         .year_fraction(start, end, ctx_isma)
