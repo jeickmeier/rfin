@@ -6,7 +6,7 @@
 use finstack_valuations::results::dataframe::results_to_rows;
 use finstack_valuations::results::ValuationResult;
 use pyo3::prelude::*;
-use pyo3::types::PyModule;
+use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 use pythonize::pythonize;
 
@@ -132,16 +132,24 @@ pub fn py_results_to_parquet(
 }
 
 pub(crate) fn register<'py>(
-    _py: Python<'py>,
-    module: &Bound<'py, PyModule>,
+    py: Python<'py>,
+    parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    module.add_function(wrap_pyfunction!(py_results_to_polars, module)?)?;
-    module.add_function(wrap_pyfunction!(py_results_to_pandas, module)?)?;
-    module.add_function(wrap_pyfunction!(py_results_to_parquet, module)?)?;
-    Ok(vec![
+    let module = PyModule::new(py, "dataframe")?;
+    module.setattr(
+        "__doc__",
+        "DataFrame export utilities for valuation results (Polars, Pandas, Parquet).",
+    )?;
+    module.add_function(wrap_pyfunction!(py_results_to_polars, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_results_to_pandas, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_results_to_parquet, &module)?)?;
+    let exports = vec![
         "results_to_polars",
         "results_to_pandas",
         "results_to_parquet",
-    ])
+    ];
+    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    parent.add_submodule(&module)?;
+    Ok(exports)
 }
 

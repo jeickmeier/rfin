@@ -6,7 +6,7 @@ use crate::core::market_data::PyMarketContext;
 use crate::core::utils as core_utils;
 use finstack_valuations::metrics::standard_ir_dv01_buckets;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyModule};
+use pyo3::types::{PyDict, PyList, PyModule};
 use pyo3::Bound;
 
 /// Compute Key Rate Duration (KRD) DV01 ladder for a bond.
@@ -197,11 +197,19 @@ pub fn cs01_ladder(
 }
 
 pub(crate) fn register<'py>(
-    _py: Python<'py>,
-    module: &Bound<'py, PyModule>,
+    py: Python<'py>,
+    parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    module.add_function(wrap_pyfunction!(krd_dv01_ladder, module)?)?;
-    module.add_function(wrap_pyfunction!(cs01_ladder, module)?)?;
-    Ok(vec!["krd_dv01_ladder", "cs01_ladder"])
+    let module = PyModule::new(py, "risk")?;
+    module.setattr(
+        "__doc__",
+        "Risk ladder calculations (KRD DV01, CS01) for bonds and credit instruments.",
+    )?;
+    module.add_function(wrap_pyfunction!(krd_dv01_ladder, &module)?)?;
+    module.add_function(wrap_pyfunction!(cs01_ladder, &module)?)?;
+    let exports = vec!["krd_dv01_ladder", "cs01_ladder"];
+    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    parent.add_submodule(&module)?;
+    Ok(exports)
 }
 
