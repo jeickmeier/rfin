@@ -146,24 +146,34 @@ let result = engine.price(
 
 ## Architecture
 
+### Dependencies on Core Math
+
+This MC module depends on `finstack_core::math` for general-purpose mathematical utilities:
+- **Normal distributions**: `norm_cdf`, `norm_pdf`, `standard_normal_inv_cdf` from `core::math::special_functions`
+- **Linear algebra**: Cholesky decomposition and correlation utilities from `core::math::linalg`
+- **Statistics**: Streaming statistics (`OnlineStats`) from `core::math::stats`
+- **RNG**: Base RNG traits from `core::math::random`
+
+The MC module focuses on simulation infrastructure and pricing components specific to Monte Carlo methods.
+
 ### Module Structure
 
 ```
 mc/
-├── traits.rs          - Core abstractions
+├── traits.rs          - Core abstractions (RandomStream, StochasticProcess, Discretization, Payoff)
 ├── engine.rs          - Execution harness
 ├── time_grid.rs       - Time discretization
-├── stats.rs           - Welford statistics
-├── results.rs         - Result types
+├── stats.rs           - Re-exports from core::math::stats
+├── results.rs         - Result types (MoneyEstimate, Estimate)
 ├── rng/              - Random number generation
-│   ├── philox.rs      - Philox 4x32-10 PRNG
-│   ├── sobol.rs       - Sobol QMC with Owen scrambling
-│   └── transforms.rs  - Box-Muller, inverse CDF
+│   ├── philox.rs      - Philox 4x32-10 PRNG (re-exported from core::math::random)
+│   ├── sobol.rs       - Sobol QMC with Owen scrambling (re-exported from core::math::random)
+│   └── transforms.rs  - Box-Muller, re-exports inverse CDF from core
 ├── process/          - Stochastic processes
 │   ├── gbm.rs         - Geometric Brownian Motion
 │   ├── heston.rs      - Heston stochastic vol
 │   ├── ou.rs          - Ornstein-Uhlenbeck / Hull-White
-│   └── correlation.rs - Cholesky, correlation matrices
+│   └── correlation.rs - Re-exports Cholesky and correlation from core::math::linalg
 ├── discretization/   - Time-stepping schemes
 │   ├── exact.rs       - Exact solutions (GBM, OU)
 │   ├── euler.rs       - Euler-Maruyama
@@ -193,6 +203,15 @@ mc/
 ```
 
 ## Key Design Principles
+
+### 0. Consolidation with Core Math
+
+General-purpose mathematical utilities are consolidated in `finstack_core::math`:
+- **Re-use, don't duplicate**: Use existing functions from `core::math` for normal distributions, linear algebra, statistics
+- **MC-specific only**: Keep only Monte Carlo simulation infrastructure in this module (processes, discretization, payoffs, pricers)
+- **Clear separation**: General math belongs in core, MC simulation belongs here
+
+See `.cursor/rules/rust/code-standards.mdc` for detailed consolidation guidelines.
 
 ### 1. Determinism
 - **Counter-based RNG**: Each path gets unique `(seed, path_id)` → identical results regardless of thread count

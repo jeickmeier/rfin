@@ -36,6 +36,39 @@ pub struct MyType;
 ```
 - Do not add #[allow(missing_docs)], add missing docs instead
 
+### Mathematical Utilities Organization
+
+**Default Principle**: Mathematical functions belong in `finstack_core::math::` unless they are exclusively useful for a specific domain (e.g., Monte Carlo path simulation, not general numerical computation).
+
+**Core Math Modules** (`finstack_core::math::`):
+- `stats` - Statistical functions (mean, variance, correlation, streaming statistics via `OnlineStats`)
+- `special_functions` - Normal distribution functions (norm_cdf, norm_pdf, erf, inverse CDF)
+- `linalg` - Linear algebra (Cholesky decomposition, correlation matrices)
+- `random` - RNG traits and implementations (SimpleRng, Philox, Sobol)
+- `integration` - Numerical integration (Gauss-Hermite, adaptive Simpson, etc.)
+- `solver` - Root finding and optimization
+- `summation` - Numerically stable summation (Kahan, pairwise)
+- `interp` - Interpolation methods
+- `distributions` - Probability distributions and sampling
+
+**Domain-Specific Modules** (e.g., `valuations::mc::`):
+Keep in domain-specific modules ONLY if exclusively useful for that domain:
+- **MC-specific**: Stochastic processes (GBM, Heston), discretization schemes (Euler, Milstein, QE), payoff definitions, pricing engines, variance reduction strategies specific to MC simulation
+- **Statements-specific**: Precedence evaluation, corkscrew logic, articulation
+- **Portfolio-specific**: Position aggregation, book hierarchies
+
+**Examples**:
+- ✅ Move `PhiloxRng` to `core::math::random` - useful for parallel simulations across modules
+- ✅ Move `cholesky_decomposition` to `core::math::linalg` - useful for factor models, portfolio optimization
+- ✅ Move `OnlineStats` to `core::math::stats` - useful for streaming metrics anywhere
+- ❌ Keep `GbmProcess` in `mc::process` - specific to stochastic path simulation
+- ❌ Keep `EuropeanCall` payoff in `mc::payoff` - specific to MC option pricing
+
+**Before adding math utilities**:
+1. Check if similar functionality exists in `core::math`
+2. If adding to a domain module, justify why it can't be generalized to `core::math`
+3. Prefer re-exporting from `core::math` over duplicating code
+
 ## Error Handling
 
 ### Unified Error Type

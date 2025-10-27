@@ -5,6 +5,9 @@
 
 use std::f64::consts::PI;
 
+// Re-export inverse normal CDF from core/math (better tail handling)
+pub use finstack_core::math::special_functions::standard_normal_inv_cdf as inverse_normal_cdf;
+
 /// Box-Muller transform: U(0,1)² → N(0,1)².
 ///
 /// Generates two independent standard normal random variables
@@ -59,83 +62,6 @@ where
     }
 }
 
-/// Approximate inverse standard normal CDF (Beasley-Springer-Moro).
-///
-/// Accurate to ~1e-9 for p in (0.00001, 0.99999).
-///
-/// # Arguments
-///
-/// * `p` - Probability in (0, 1)
-///
-/// # Returns
-///
-/// z such that Φ(z) = p, where Φ is standard normal CDF.
-pub fn inverse_normal_cdf(p: f64) -> f64 {
-    if p <= 0.0 || p >= 1.0 {
-        return if p <= 0.0 {
-            f64::NEG_INFINITY
-        } else {
-            f64::INFINITY
-        };
-    }
-
-    // Beasley-Springer-Moro algorithm
-    const A: [f64; 4] = [
-        2.50662823884,
-        -18.61500062529,
-        41.39119773534,
-        -25.44106049637,
-    ];
-    const B: [f64; 4] = [
-        -8.47351093090,
-        23.08336743743,
-        -21.06224101826,
-        3.13082909833,
-    ];
-    const C: [f64; 9] = [
-        0.3374754822726147,
-        0.9761690190917186,
-        0.1607979714918209,
-        0.0276438810333863,
-        0.0038405729373609,
-        0.0003951896511919,
-        0.0000321767881768,
-        0.0000002888167364,
-        0.0000003960315187,
-    ];
-
-    let y = p - 0.5;
-
-    if y.abs() < 0.42 {
-        // Central region
-        let r = y * y;
-        let num = (((A[3] * r + A[2]) * r + A[1]) * r + A[0]) * y;
-        let den = (((B[3] * r + B[2]) * r + B[1]) * r + B[0]) * r + 1.0;
-        return num / den;
-    }
-
-    // Tail regions
-    let r = if y < 0.0 { p } else { 1.0 - p };
-    let s = (-r.ln()).ln();
-
-    let t = if s < 5.0 {
-        let s = s - 2.5;
-        C[0]
-            + s * (C[1]
-                + s * (C[2] + s * (C[3] + s * (C[4] + s * (C[5] + s * (C[6] + s * (C[7] + s * C[8])))))))
-    } else {
-        let s = s - 5.0;
-        C[0]
-            + s * (C[1]
-                + s * (C[2] + s * (C[3] + s * (C[4] + s * (C[5] + s * (C[6] + s * (C[7] + s * C[8])))))))
-    };
-
-    if y < 0.0 {
-        -t
-    } else {
-        t
-    }
-}
 
 /// Moment matching: adjust samples to have exact mean and variance.
 ///
@@ -203,9 +129,7 @@ mod tests {
 
     #[test]
     fn test_inverse_normal_cdf() {
-        // Test basic properties of inverse CDF
-        // Note: This is a simplified implementation for internal use
-        // Production code uses finstack_core::math::special_functions::standard_normal_inv_cdf
+        // Test re-exported function from finstack_core::math::special_functions::standard_normal_inv_cdf
         
         let z_50 = inverse_normal_cdf(0.5);
         assert!(z_50.is_finite());
@@ -218,9 +142,54 @@ mod tests {
         assert!(z_low < z_mid);
         assert!(z_mid < z_high);
 
-        // Test extremes
-        assert!(inverse_normal_cdf(0.0).is_infinite());
-        assert!(inverse_normal_cdf(1.0).is_infinite());
+        // Test extremes - core version returns bounded values, not infinity
+        assert!(inverse_normal_cdf(0.0) < -5.0);
+        assert!(inverse_normal_cdf(1.0) > 5.0);
+    }
+
+    #[test]
+    fn test_inverse_normal_cdf_parity_with_core() {
+        // Verify that the re-exported function from core/math works correctly
+        // for typical MC use cases
+        
+        use finstack_core::math::norm_cdf;
+        
+        // Test round-trip accuracy for probabilities commonly used in MC
+        let test_probs = vec![
+            0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 0.999,
+        ];
+        
+        for &p in &test_probs {
+            let z = inverse_normal_cdf(p);
+            let p_back = norm_cdf(z);
+            
+            // Allow small numerical error in round-trip
+            assert!(
+                (p - p_back).abs() < 1e-3,
+                "Round-trip failed for p={}: z={}, p_back={}, error={}",
+                p, z, p_back, (p - p_back).abs()
+            );
+        }
+        
+        // Test symmetry
+        for &p in &[0.1, 0.25, 0.4] {
+            let z_low = inverse_normal_cdf(p);
+            let z_high = inverse_normal_cdf(1.0 - p);
+            assert!(
+                (z_low + z_high).abs() < 1e-6,
+                "Symmetry violated for p={}: z_low={}, z_high={}",
+                p, z_low, z_high
+            );
+        }
+        
+        // Test that it's strictly monotonic
+        let probs: Vec<f64> = (1..100).map(|i| i as f64 / 100.0).collect();
+        for window in probs.windows(2) {
+            let z1 = inverse_normal_cdf(window[0]);
+            let z2 = inverse_normal_cdf(window[1]);
+            assert!(z1 < z2, "Not monotonic: p1={}, p2={}, z1={}, z2={}", 
+                    window[0], window[1], z1, z2);
+        }
     }
 
     #[test]

@@ -23,6 +23,7 @@
 pub mod distributions;
 pub mod integration;
 pub mod interp;
+pub mod linalg;
 pub mod random;
 pub mod solver;
 pub mod solver_multi;
@@ -41,6 +42,10 @@ pub use integration::{
 };
 pub use interp::{
     CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
+};
+pub use linalg::{
+    apply_correlation, build_correlation_matrix, cholesky_decomposition,
+    validate_correlation_matrix,
 };
 pub use random::{RandomNumberGenerator, SimpleRng};
 // Raw root finding functions are no longer exported - use trait-based solvers instead
