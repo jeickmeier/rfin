@@ -4,7 +4,6 @@
 //! used by the base-correlation `OperationSpec` variants.
 
 use crate::error::{Error, Result};
-use finstack_core::market_data::bumps::{BumpSpec, Bumpable};
 use finstack_core::market_data::MarketContext;
 
 /// Apply a parallel point shock to a base correlation surface.
@@ -47,15 +46,23 @@ pub fn apply_basecorr_parallel_shock(
                 id: surface_id.to_string(),
             })?;
 
-    // Convert points to percent for BumpSpec (e.g., 0.05 points = 5%)
-    let pct = points * 100.0;
-    let bump_spec = BumpSpec::correlation_shift_pct(pct);
+    // Apply additive point shock to all detachment points
+    let detachment_points = curve.detachment_points().to_vec();
+    let correlations = curve.correlations().to_vec();
 
-    let bumped = curve
-        .apply_bump(bump_spec)
-        .ok_or_else(|| Error::UnsupportedOperation {
-            operation: format!("correlation shift points={}", points),
-            target: format!("base correlation {}", surface_id),
+    let shocked_points: Vec<(f64, f64)> = detachment_points
+        .into_iter()
+        .zip(correlations)
+        .map(|(d, c)| (d, (c + points).clamp(0.0, 1.0)))
+        .collect();
+
+    let bumped = finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve::builder(
+        curve.id().as_str()
+    )
+        .points(shocked_points)
+        .build()
+        .map_err(|e| {
+            Error::Internal(format!("Failed to rebuild base correlation curve: {}", e))
         })?;
 
     market.insert_base_correlation_mut(std::sync::Arc::new(bumped));

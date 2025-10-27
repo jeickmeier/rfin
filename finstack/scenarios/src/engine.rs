@@ -283,7 +283,7 @@ impl ScenarioEngine {
         for op in &spec.operations {
             match op {
                 OperationSpec::MarketFxPct { base, quote, pct } => {
-                    crate::adapters::fx::apply_fx_shock(ctx.market, *base, *quote, *pct)?;
+                    crate::adapters::fx::apply_fx_shock(ctx.market, ctx.as_of, *base, *quote, *pct)?;
                     applied += 1;
                 }
                 OperationSpec::EquityPricePct { ids, pct } => {

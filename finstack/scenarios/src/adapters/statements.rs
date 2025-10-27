@@ -113,6 +113,20 @@ pub fn apply_forecast_assign(
 
 /// Update a statement rate node with a representative rate from a market curve.
 ///
+/// This function uses a heuristic to extract a scalar rate from market curves:
+/// - **Discount curves**: Continuously compounded 1Y zero rate, computed as `-ln(DF(1Y))`.
+///   This provides the annualized rate implied by the 1-year discount factor.
+/// - **Forward curves**: First tenor forward rate from the curve's forward array.
+///   This represents the forward rate for the curve's native tenor at the earliest period.
+///
+/// # Assumptions
+/// - Statement nodes are expected to accept rates in these units (continuously compounded
+///   for discount-derived rates, simple forward rates for forecast curves).
+/// - Day count conventions and compounding frequencies are not parameterized; the function
+///   assumes the statement model will interpret rates consistently.
+/// - For more sophisticated rate extraction (e.g., matching node tenor, different day count,
+///   or compounding), extend this function or use custom bindings.
+///
 /// # Arguments
 /// - `model`: Financial model whose node will be updated.
 /// - `node_id`: Identifier of the statement node.

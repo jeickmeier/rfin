@@ -47,9 +47,30 @@ pub fn apply_vol_parallel_shock(
             id: surface_id.to_string(),
         })?;
 
-    // Clone and apply multiplicative shock to all vols
+    // Apply multiplicative shock to all vols and rebuild surface
     let factor = 1.0 + (pct / 100.0);
-    let bumped = surface.clone_with_shock(factor);
+    let expiries = surface.expiries().to_vec();
+    let strikes = surface.strikes().to_vec();
+    let (n_expiries, n_strikes) = surface.grid_shape();
+
+    let mut builder = finstack_core::market_data::surfaces::vol_surface::VolSurface::builder(
+        surface.id().as_str(),
+    )
+    .expiries(&expiries)
+    .strikes(&strikes);
+
+    for &expiry in expiries.iter().take(n_expiries) {
+        let mut row = Vec::with_capacity(n_strikes);
+        for &strike in strikes.iter().take(n_strikes) {
+            let val = surface.value(expiry, strike);
+            row.push(val * factor);
+        }
+        builder = builder.row(&row);
+    }
+
+    let bumped = builder
+        .build()
+        .map_err(|e| Error::Internal(format!("Failed to rebuild vol surface: {}", e)))?;
 
     market.insert_surface_mut(std::sync::Arc::new(bumped));
     Ok(())
@@ -166,35 +187,4 @@ pub fn apply_vol_bucket_shock(
 
     market.insert_surface_mut(std::sync::Arc::new(bumped));
     Ok(())
-}
-
-// Extension trait for VolSurface cloning with shock
-trait VolSurfaceShock {
-    fn clone_with_shock(&self, factor: f64) -> Self;
-}
-
-impl VolSurfaceShock for finstack_core::market_data::surfaces::vol_surface::VolSurface {
-    fn clone_with_shock(&self, factor: f64) -> Self {
-        // Access internal data and apply shock
-        let expiries = self.expiries().to_vec();
-        let strikes = self.strikes().to_vec();
-        let (n_expiries, n_strikes) = self.grid_shape();
-
-        // Rebuild surface with shocked vols
-        let mut builder = Self::builder(self.id().as_str())
-            .expiries(&expiries)
-            .strikes(&strikes);
-
-        // Apply shock row by row
-        for &expiry in expiries.iter().take(n_expiries) {
-            let mut row = Vec::with_capacity(n_strikes);
-            for &strike in strikes.iter().take(n_strikes) {
-                let val = self.value(expiry, strike);
-                row.push(val * factor);
-            }
-            builder = builder.row(&row);
-        }
-
-        builder.build().expect("Failed to rebuild vol surface")
-    }
 }

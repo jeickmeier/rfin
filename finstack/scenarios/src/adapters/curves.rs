@@ -276,127 +276,149 @@ pub fn apply_curve_node_shock(
             market.insert_discount_mut(base_curve);
         }
         CurveKind::Forecast => {
-            let mut base_curve =
+            let base_curve =
                 market
-                    .get_forward(curve_id)
+                    .get_forward_ref(curve_id)
                     .map_err(|_| Error::MarketDataNotFound {
                         id: curve_id.to_string(),
                     })?;
 
-            // Forward curves: apply bumps via BumpSpec (sequential application)
+            // Extract knots and forwards for key-rate bumping
+            let knots = base_curve.knots().to_vec();
+            let mut forwards = base_curve.forwards().to_vec();
+
+            // Apply each node shock sequentially
             for (tenor_str, bp) in nodes {
                 let tenor_years = parse_tenor_to_years(tenor_str)?;
+                let add = *bp / 10_000.0;
 
-                let bumped_curve = match match_mode {
+                match match_mode {
                     TenorMatchMode::Exact => {
-                        let knots = base_curve.knots();
-                        if !knots.iter().any(|&t| (t - tenor_years).abs() < 1e-6) {
+                        // Find exact pillar match
+                        if let Some((i, _)) = knots
+                            .iter()
+                            .enumerate()
+                            .find(|(_, &t)| (t - tenor_years).abs() < 1e-6)
+                        {
+                            forwards[i] += add;
+                        } else {
                             return Err(Error::TenorNotFound {
                                 tenor: tenor_str.clone(),
                                 curve_id: curve_id.to_string(),
                             });
                         }
-                        // For forward curves, apply parallel bump (exact pillar logic TBD)
-                        let bump_spec = BumpSpec::parallel_bp(*bp);
-                        base_curve.apply_bump(bump_spec).ok_or_else(|| {
-                            Error::UnsupportedOperation {
-                                operation: format!("node bump bp={}", bp),
-                                target: format!("forward curve {}", curve_id),
-                            }
-                        })?
                     }
                     TenorMatchMode::Interpolate => {
-                        // Use parallel bump as approximation for forward curves
-                        let bump_spec = BumpSpec::parallel_bp(*bp);
-                        base_curve.apply_bump(bump_spec).ok_or_else(|| {
-                            Error::UnsupportedOperation {
-                                operation: format!("interpolate node bump bp={}", bp),
-                                target: format!("forward curve {}", curve_id),
-                            }
-                        })?
+                        // Distribute bump to bracket pillars via linear weights
+                        let pos = knots.iter().position(|&t| t >= tenor_years).unwrap_or(knots.len() - 1);
+                        if pos == 0 {
+                            forwards[0] += add;
+                        } else {
+                            let i0 = pos - 1;
+                            let i1 = pos.min(knots.len() - 1);
+                            let (t0, t1) = (knots[i0], knots[i1]);
+                            let w1 = if (t1 - t0).abs() < 1e-12 {
+                                0.5
+                            } else {
+                                (tenor_years - t0) / (t1 - t0)
+                            };
+                            let w0 = 1.0 - w1;
+                            forwards[i0] += add * w0;
+                            forwards[i1] += add * w1;
+                        }
                     }
-                };
-
-                base_curve = std::sync::Arc::new(bumped_curve);
+                }
             }
 
-            market.insert_forward_mut(base_curve);
+            // Rebuild forward curve with adjusted forwards
+            let bumped_points: Vec<(f64, f64)> = knots.into_iter().zip(forwards).collect();
+            let rebuilt = finstack_core::market_data::term_structures::forward_curve::ForwardCurve::builder(
+                base_curve.id().as_str(),
+                base_curve.tenor(),
+            )
+            .base_date(base_curve.base_date())
+            .knots(bumped_points)
+            .build()
+            .map_err(|e| Error::Internal(format!("Failed to rebuild forward curve: {}", e)))?;
+
+            market.insert_forward_mut(std::sync::Arc::new(rebuilt));
         }
         CurveKind::Hazard => {
-            let mut base_curve =
-                market
-                    .get_hazard(curve_id)
-                    .map_err(|_| Error::MarketDataNotFound {
-                        id: curve_id.to_string(),
-                    })?;
-
-            // Hazard curves: apply bumps sequentially
-            for (_tenor_str, bp) in nodes {
-                let _tenor_years = parse_tenor_to_years(_tenor_str)?;
-
-                let bumped_curve = match match_mode {
-                    TenorMatchMode::Exact | TenorMatchMode::Interpolate => {
-                        // Note: Hazard curves don't expose knots publicly
-                        // For now, apply parallel bump for both modes
-                        let bump_spec = BumpSpec::parallel_bp(*bp);
-                        base_curve.apply_bump(bump_spec).ok_or_else(|| {
-                            Error::UnsupportedOperation {
-                                operation: format!("node bump bp={}", bp),
-                                target: format!("hazard curve {}", curve_id),
-                            }
-                        })?
-                    }
-                };
-
-                base_curve = std::sync::Arc::new(bumped_curve);
-            }
-
-            market.insert_hazard_mut(base_curve);
+            // Hazard curves don't expose knots publicly, so node-specific bumps cannot be implemented
+            // without extending the core API. Return UnsupportedOperation until core provides
+            // either knots() access or a with_key_rate_bump API.
+            return Err(Error::UnsupportedOperation {
+                operation: "node bump (hazard curves don't expose knots)".to_string(),
+                target: format!("hazard curve {}", curve_id),
+            });
         }
         CurveKind::Inflation => {
-            let mut base_curve =
+            let base_curve =
                 market
-                    .get_inflation(curve_id)
+                    .get_inflation_ref(curve_id)
                     .map_err(|_| Error::MarketDataNotFound {
                         id: curve_id.to_string(),
                     })?;
 
-            // Inflation curves: use percent bumps
+            // Extract knots and CPI levels for multiplicative bumping
+            let knots = base_curve.knots().to_vec();
+            let mut cpi_levels = base_curve.cpi_levels().to_vec();
+
+            // Apply each node shock sequentially
+            // Inflation curves store CPI levels, so bp bumps translate to multiplicative factors
             for (tenor_str, bp) in nodes {
                 let tenor_years = parse_tenor_to_years(tenor_str)?;
+                let factor = 1.0 + (*bp / 10_000.0);
 
-                let bumped_curve = match match_mode {
+                match match_mode {
                     TenorMatchMode::Exact => {
-                        let knots = base_curve.knots();
-                        if !knots.iter().any(|&t| (t - tenor_years).abs() < 1e-6) {
+                        // Find exact pillar match
+                        if let Some((i, _)) = knots
+                            .iter()
+                            .enumerate()
+                            .find(|(_, &t)| (t - tenor_years).abs() < 1e-6)
+                        {
+                            cpi_levels[i] *= factor;
+                        } else {
                             return Err(Error::TenorNotFound {
                                 tenor: tenor_str.clone(),
                                 curve_id: curve_id.to_string(),
                             });
                         }
-                        let pct_bump = BumpSpec::inflation_shift_pct(*bp / 100.0);
-                        base_curve.apply_bump(pct_bump).ok_or_else(|| {
-                            Error::UnsupportedOperation {
-                                operation: format!("exact node bump pct={}", bp / 100.0),
-                                target: format!("inflation curve {}", curve_id),
-                            }
-                        })?
                     }
                     TenorMatchMode::Interpolate => {
-                        let pct_bump = BumpSpec::inflation_shift_pct(*bp / 100.0);
-                        base_curve.apply_bump(pct_bump).ok_or_else(|| {
-                            Error::UnsupportedOperation {
-                                operation: format!("interpolate node bump pct={}", bp / 100.0),
-                                target: format!("inflation curve {}", curve_id),
-                            }
-                        })?
+                        // Distribute multiplicative factor to bracket pillars via linear weights
+                        let pos = knots.iter().position(|&t| t >= tenor_years).unwrap_or(knots.len() - 1);
+                        if pos == 0 {
+                            cpi_levels[0] *= factor;
+                        } else {
+                            let i0 = pos - 1;
+                            let i1 = pos.min(knots.len() - 1);
+                            let (t0, t1) = (knots[i0], knots[i1]);
+                            let w1 = if (t1 - t0).abs() < 1e-12 {
+                                0.5
+                            } else {
+                                (tenor_years - t0) / (t1 - t0)
+                            };
+                            let w0 = 1.0 - w1;
+                            cpi_levels[i0] *= 1.0 + (factor - 1.0) * w0;
+                            cpi_levels[i1] *= 1.0 + (factor - 1.0) * w1;
+                        }
                     }
-                };
-
-                base_curve = std::sync::Arc::new(bumped_curve);
+                }
             }
 
-            market.insert_inflation_mut(base_curve);
+            // Rebuild inflation curve with adjusted CPI levels
+            let bumped_points: Vec<(f64, f64)> = knots.into_iter().zip(cpi_levels).collect();
+            let rebuilt = finstack_core::market_data::term_structures::inflation::InflationCurve::builder(
+                base_curve.id().as_str(),
+            )
+            .base_cpi(base_curve.base_cpi())
+            .knots(bumped_points)
+            .build()
+            .map_err(|e| Error::Internal(format!("Failed to rebuild inflation curve: {}", e)))?;
+
+            market.insert_inflation_mut(std::sync::Arc::new(rebuilt));
         }
     }
 

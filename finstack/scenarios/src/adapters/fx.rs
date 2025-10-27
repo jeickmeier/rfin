@@ -7,6 +7,7 @@
 
 use crate::error::{Error, Result};
 use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::fx::providers::SimpleFxProvider;
 use finstack_core::money::fx::FxMatrix;
@@ -21,6 +22,7 @@ use std::sync::Arc;
 ///
 /// # Arguments
 /// - `market`: Market context whose FX matrix will be shocked.
+/// - `as_of`: Valuation date for querying the FX rate.
 /// - `base`: Base currency of the rate to shock.
 /// - `quote`: Quote currency of the rate to shock.
 /// - `pct`: Percentage change to apply (e.g., `5.0` means +5%).
@@ -40,16 +42,19 @@ use std::sync::Arc;
 /// use finstack_scenarios::adapters::fx::apply_fx_shock;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::market_data::MarketContext;
+/// use time::macros::date;
 ///
 /// # fn main() -> finstack_scenarios::Result<()> {
 /// let mut market = MarketContext::new();
+/// let as_of = date!(2025 - 01 - 01);
 /// // ... populate `market` with an FX matrix ...
-/// apply_fx_shock(&mut market, Currency::USD, Currency::EUR, 2.5)?;
+/// apply_fx_shock(&mut market, as_of, Currency::USD, Currency::EUR, 2.5)?;
 /// # Ok(())
 /// # }
 /// ```
 pub fn apply_fx_shock(
     market: &mut MarketContext,
+    as_of: Date,
     base: Currency,
     quote: Currency,
     pct: f64,
@@ -62,13 +67,9 @@ pub fn apply_fx_shock(
             id: "FX matrix".to_string(),
         })?;
 
-    // Try to get the current rate
+    // Try to get the current rate using the provided as_of date
     let current_rate = fx
-        .rate(finstack_core::money::fx::FxQuery::new(
-            base,
-            quote,
-            finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
-        ))
+        .rate(finstack_core::money::fx::FxQuery::new(base, quote, as_of))
         .map_err(Error::Core)?
         .rate;
 
@@ -76,7 +77,9 @@ pub fn apply_fx_shock(
     let factor = 1.0 + (pct / 100.0);
     let shocked_rate = current_rate * factor;
 
-    // Create a new SimpleFxProvider with the shocked rate
+    // Create a new SimpleFxProvider with the shocked rate.
+    // TODO: Expose a merge API in SimpleFxProvider to preserve other quotes instead of replacing
+    // the entire matrix. Current implementation replaces the matrix, which drops other pairs.
     let provider = Arc::new(SimpleFxProvider::new());
     provider.set_quote(base, quote, shocked_rate);
 

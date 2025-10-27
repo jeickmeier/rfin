@@ -223,8 +223,16 @@ fn test_hazard_curve_node_shock() {
         as_of: base_date,
     };
 
-    let report = engine.apply(&scenario, &mut ctx).unwrap();
-    assert_eq!(report.operations_applied, 1);
+    // Hazard curves don't expose knots, so node shocks should fail
+    let result = engine.apply(&scenario, &mut ctx);
+    assert!(result.is_err());
+    match result {
+        Err(finstack_scenarios::error::Error::UnsupportedOperation { operation, target }) => {
+            assert!(operation.contains("hazard curves don't expose knots"));
+            assert!(target.contains("CORP_BBB"));
+        }
+        _ => panic!("Expected UnsupportedOperation error"),
+    }
 }
 
 #[test]
