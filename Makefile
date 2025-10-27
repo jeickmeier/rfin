@@ -28,10 +28,10 @@ setup-python:
 	@echo "  make python-dev"
 
 build:
-	cargo build --workspace --exclude finstack-py
+	cargo build --workspace --exclude finstack-py --exclude finstack-wasm
 
 build-prod:
-	RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --release
+	RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --exclude finstack-wasm --release
 
 test:
 	cargo test --workspace --exclude finstack-py --all-features
