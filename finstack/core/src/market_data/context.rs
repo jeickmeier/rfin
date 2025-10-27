@@ -1480,8 +1480,8 @@ impl MarketContext {
     /// let mut bumps = HashMap::new();
     /// bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
     /// let bumped = context.bump(bumps).unwrap();
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as _;
-    /// assert!(bumped.get_discount("USD-OIS_bump_100bp").is_ok());
+    /// // The bumped curve replaces the original under the same ID
+    /// assert!(bumped.get_discount("USD-OIS").is_ok());
     /// ```
     pub fn bump(&self, bumps: HashMap<CurveId, BumpSpec>) -> Result<Self> {
         let mut new_context = self.clone();
@@ -1492,42 +1492,42 @@ impl MarketContext {
 
             if let Ok(original) = self.get_discount_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().to_owned();
+                    // Replace the original curve with the bumped one under the same ID
                     new_context
                         .curves
-                        .insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
+                        .insert(curve_id.clone(), CurveStorage::Discount(Arc::new(bumped)));
                     found = true;
                 }
             } else if let Ok(original) = self.get_forward_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().to_owned();
+                    // Replace the original curve with the bumped one under the same ID
                     new_context
                         .curves
-                        .insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
+                        .insert(curve_id.clone(), CurveStorage::Forward(Arc::new(bumped)));
                     found = true;
                 }
             } else if let Ok(original) = self.get_hazard_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().to_owned();
+                    // Replace the original curve with the bumped one under the same ID
                     new_context
                         .curves
-                        .insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
+                        .insert(curve_id.clone(), CurveStorage::Hazard(Arc::new(bumped)));
                     found = true;
                 }
             } else if let Ok(original) = self.get_inflation_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().to_owned();
+                    // Replace the original curve with the bumped one under the same ID
                     new_context
                         .curves
-                        .insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
+                        .insert(curve_id.clone(), CurveStorage::Inflation(Arc::new(bumped)));
                     found = true;
                 }
             } else if let Ok(original) = self.get_base_correlation_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().to_owned();
+                    // Replace the original curve with the bumped one under the same ID
                     new_context
                         .curves
-                        .insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
+                        .insert(curve_id.clone(), CurveStorage::BaseCorrelation(Arc::new(bumped)));
                     found = true;
                 }
             }

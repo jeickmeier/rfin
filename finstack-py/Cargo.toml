@@ -12,9 +12,9 @@ name = "finstack"
 crate-type = ["cdylib"]
 
 [dependencies]
-finstack-core = { path = "../finstack/core", features = ["std"] }
+finstack-core = { path = "../finstack/core" }
 finstack-valuations = { path = "../finstack/valuations" }
-finstack-statements = { path = "../finstack/statements", features = ["polars_export"] }
+finstack-statements = { path = "../finstack/statements", features = ["dataframes"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio", features = ["scenarios"] }
 pyo3 = { version = "0.25", features = ["extension-module"] }

@@ -199,15 +199,20 @@ fn market_context_supports_curve_bumps() {
         finstack_core::market_data::context::BumpSpec::parallel_bp(50.0),
     );
 
+    // Get the original discount factor for verification
+    let orig_disc = ctx.get_discount_ref("USD-OIS").unwrap();
+    let orig_df_5y = orig_disc.df(5.0);
+
     let bumped = ctx.bump(bumps).expect("bump should succeed");
-    assert!(
-        ctx.get_discount("USD-OIS_bump_50bp").is_err(),
-        "original context unchanged"
-    );
-    assert!(
-        bumped.get_discount("USD-OIS_bump_50bp").is_ok(),
-        "bumped curve present"
-    );
+    
+    // Original context is unchanged
+    let orig_disc_after = ctx.get_discount_ref("USD-OIS").unwrap();
+    assert_eq!(orig_disc_after.df(5.0), orig_df_5y, "original context unchanged");
+    
+    // Bumped context has the curve under the same ID, but with bumped values
+    let bumped_disc = bumped.get_discount_ref("USD-OIS").unwrap();
+    assert_ne!(bumped_disc.df(5.0), orig_df_5y, "bumped curve has different values");
+    assert!(bumped_disc.df(5.0) < orig_df_5y, "bumped curve has lower discount factors (higher rates)");
 }
 
 #[test]

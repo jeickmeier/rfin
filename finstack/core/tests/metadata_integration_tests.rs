@@ -10,8 +10,7 @@ fn test_results_meta_default_stamping() {
     // Should have numeric mode
     assert_eq!(meta.numeric_mode, NumericMode::F64);
 
-    // Should have timestamp (when std feature is enabled)
-    #[cfg(feature = "std")]
+    // Should have timestamp
     assert!(meta.timestamp.is_some());
 
     // Should have version
@@ -73,24 +72,17 @@ fn test_results_meta_with_fx_policy() {
 #[test]
 fn test_results_meta_timestamp_format() {
     let meta = results_meta(&FinstackConfig::default());
-
-    #[cfg(feature = "std")]
-    {
-        let timestamp = meta.timestamp.expect("Timestamp should be present");
-        // Should look like ISO 8601 format (basic check)
-        assert!(timestamp.contains("T") || timestamp.contains("Z") || timestamp.contains("-"));
-        assert!(!timestamp.is_empty());
-    }
+    let timestamp = meta.timestamp.expect("Timestamp should be present");
+    // Should look like ISO 8601 format (basic check)
+    assert!(timestamp.contains("T") || timestamp.contains("Z") || timestamp.contains("-"));
+    assert!(!timestamp.is_empty());
 }
 
 #[test]
 fn test_results_meta_default_impl() {
     let meta = ResultsMeta::default();
     assert_eq!(meta.numeric_mode, NumericMode::F64);
-
-    #[cfg(feature = "std")]
     assert!(meta.timestamp.is_some());
-
     assert!(meta.version.is_some());
 }
 
@@ -101,16 +93,12 @@ mod property_tests {
     #[test]
     fn property_timestamp_never_in_future() {
         let meta = results_meta(&FinstackConfig::default());
-
-        #[cfg(feature = "std")]
-        {
-            if let Some(timestamp_str) = meta.timestamp {
-                // Parse timestamp and verify it's not in the future
-                // (basic sanity check - should be close to now)
-                assert!(!timestamp_str.is_empty());
-                // We can't easily check if it's in the past without time parsing,
-                // but at minimum it should be a valid string
-            }
+        if let Some(timestamp_str) = meta.timestamp {
+            // Parse timestamp and verify it's not in the future
+            // (basic sanity check - should be close to now)
+            assert!(!timestamp_str.is_empty());
+            // We can't easily check if it's in the past without time parsing,
+            // but at minimum it should be a valid string
         }
     }
 

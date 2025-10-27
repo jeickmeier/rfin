@@ -3,7 +3,6 @@
 //! This example showcases the improvements of the new enum-based storage
 //! system over the original trait object-based approach.
 
-#[cfg(all(feature = "new-context", feature = "serde"))]
 fn main() -> finstack_core::Result<()> {
     use finstack_core::{
         dates::Date,
@@ -154,12 +153,4 @@ fn main() -> finstack_core::Result<()> {
     println!("   ✓ Clean, maintainable architecture");
 
     Ok(())
-}
-
-#[cfg(not(all(feature = "new-context", feature = "serde")))]
-fn main() {
-    println!("This example requires both 'new-context' and 'serde' features.");
-    println!(
-        "Run with: cargo run --example market_context_v2_demo --features \"new-context,serde\""
-    );
 }

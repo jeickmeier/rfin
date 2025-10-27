@@ -28,9 +28,6 @@ default = ["scenarios", "dataframes"]
 scenarios = ["dep:finstack-scenarios", "dep:finstack-statements"]
 dataframes = ["dep:polars"]
 
-# Deprecated alias (will be removed in 0.4.0)
-dataframe = ["dataframes"]
-
 [[bench]]
 name = "portfolio_valuation"
 harness = false

@@ -100,9 +100,6 @@ mod tests {
     use super::*;
     use core::mem;
 
-    #[cfg(feature = "std")]
-    use std::format;
-
     #[test]
     fn test_currency_size() {
         assert_eq!(mem::size_of::<Currency>(), 2);
@@ -120,7 +117,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn test_currency_display() {
         assert_eq!(format!("{}", Currency::USD), "USD");
         assert_eq!(format!("{}", Currency::EUR), "EUR");
@@ -149,7 +145,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn test_currency_round_trip() {
         let currencies = [
             Currency::USD,
@@ -202,7 +197,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn test_currency_error_display() {
         use crate::error::{Error, InputError};
         let error: Error = InputError::Invalid.into();

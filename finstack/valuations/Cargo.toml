@@ -36,9 +36,6 @@ serde = ["finstack-core/serde", "hashbrown/serde"]
 parallel = ["dep:rayon", "finstack-core/parallel"]
 stochastic = ["dep:rand", "dep:rand_pcg", "dep:rand_distr"]
 
-# Deprecated (will be removed in 0.4.0)
-stochastic-models = ["stochastic"]
-
 [[bench]]
 name = "bond_pricing"
 harness = false

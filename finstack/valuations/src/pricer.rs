@@ -67,8 +67,6 @@ pub enum InstrumentType {
     FRA = 25,
     /// Structured Credit variant.
     StructuredCredit = 26,
-    /// Revolving Credit variant.
-    RevolvingCredit = 27,
     /// Private Markets Fund variant.
     PrivateMarketsFund = 30,
 }
@@ -106,7 +104,6 @@ impl InstrumentType {
             InstrumentType::Repo => "Repo",
             InstrumentType::FRA => "FRA",
             InstrumentType::StructuredCredit => "StructuredCredit",
-            InstrumentType::RevolvingCredit => "RevolvingCredit",
             InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
         }
     }
@@ -141,7 +138,6 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::Repo => "repo",
             InstrumentType::FRA => "fra",
             InstrumentType::StructuredCredit => "structured_credit",
-            InstrumentType::RevolvingCredit => "revolving_credit",
             InstrumentType::PrivateMarketsFund => "private_markets_fund",
         };
         write!(f, "{}", label)
@@ -185,7 +181,6 @@ impl std::str::FromStr for InstrumentType {
             "structured_credit" | "clo" | "abs" | "rmbs" | "cmbs" => {
                 Ok(InstrumentType::StructuredCredit)
             }
-            "revolving_credit" | "rcf" => Ok(InstrumentType::RevolvingCredit),
             "private_markets_fund" | "pmf" => Ok(InstrumentType::PrivateMarketsFund),
             other => Err(format!("Unknown instrument type: {}", other)),
         }

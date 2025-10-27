@@ -51,8 +51,6 @@ pub mod pricing_overrides;
 pub mod private_markets_fund;
 /// repo module.
 pub mod repo;
-// Revolving credit facility is incomplete - disabled for beta release
-// pub mod revolving_credit;
 /// structured credit module.
 pub mod structured_credit;
 /// swaption module.
@@ -89,7 +87,6 @@ pub use irs::InterestRateSwap;
 pub use pricing_overrides::PricingOverrides;
 pub use private_markets_fund::PrivateMarketsFund;
 pub use repo::{CollateralSpec, CollateralType, Repo, RepoType};
-// pub use revolving_credit::RevolvingCreditFacility;
 pub use structured_credit::StructuredCredit;
 pub use swaption::Swaption;
 pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};

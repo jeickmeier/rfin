@@ -272,20 +272,11 @@ pub const NUMERIC_MODE: NumericMode = NumericMode::F64;
 /// ```
 pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
     // Generate ISO 8601 timestamp
-    let timestamp = {
-        #[cfg(feature = "std")]
-        {
-            Some(
-                time::OffsetDateTime::now_utc()
-                    .format(&time::format_description::well_known::Iso8601::DEFAULT)
-                    .unwrap_or_else(|_| String::from("unknown"))
-            )
-        }
-        #[cfg(not(feature = "std"))]
-        {
-            None
-        }
-    };
+    let timestamp = Some(
+        time::OffsetDateTime::now_utc()
+            .format(&time::format_description::well_known::Iso8601::DEFAULT)
+            .unwrap_or_else(|_| String::from("unknown"))
+    );
 
     ResultsMeta {
         numeric_mode: NUMERIC_MODE,

@@ -24,11 +24,6 @@ parallel = ["finstack_core/parallel", "finstack_valuations/parallel"]
 dataframes = ["finstack_statements/dataframes", "finstack_portfolio/dataframes"]
 stochastic = ["finstack_valuations/stochastic"]
 
-# Deprecated aliases (will be removed in 0.4.0)
-polars_export = ["dataframes"]
-statements_polars = ["statements", "dataframes"]
-new-context = []  # Unused, can be removed
-
 [dependencies]
 finstack_core = { package = "finstack-core", path = "core", optional = true }
 finstack_statements = { package = "finstack-statements", path = "statements", optional = true }
@@ -110,19 +105,6 @@ required-features = ["valuations"]
 name = "multi_curve_framework_example"
 path = "examples/valuations/multi_curve_framework_example.rs"
 required-features = ["valuations"]
-
-# Commented out - needs API updates for MarketContext v2
-# [[example]]
-# name = "multi_curve_calibration_example"
-# path = "examples/valuations/multi_curve_calibration_example.rs"
-# required-features = ["valuations"]
-
-# Commented out - revolving_credit module not yet implemented
-# [[example]]
-# name = "revolving_credit"
-# path = "examples/valuations/revolving_credit.rs"
-# required-features = ["valuations"]
-
 
 [[example]]
 name = "tranche_valuation_example"

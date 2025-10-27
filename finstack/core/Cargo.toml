@@ -39,9 +39,6 @@ default = ["serde", "parallel"]
 serde = ["dep:serde", "dep:serde_json", "serde/derive", "time/serde", "time/serde-human-readable", "hashbrown/serde"]
 parallel = ["dep:rayon"]
 
-# Deprecated (will be removed in 0.4.0)
-std = []  # Now always enabled
-
 
 [[bench]]
 name = "money_operations"

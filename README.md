@@ -172,14 +172,6 @@ finstack = { version = "0.3", features = ["dataframes", "stochastic"] }
 finstack = { version = "0.3", default-features = false, features = ["serde"] }
 ```
 
-## Deprecated Features
-
-The following features are deprecated and will be removed in version 0.4.0:
-- `polars_export` → use `dataframes` instead
-- `statements_polars` → use `["statements", "dataframes"]` instead
-- `stochastic-models` → use `stochastic` instead
-- `std` → always enabled, no longer needs to be specified
-
 **Note:** `parallel` is now included by default. To opt-out, use `default-features = false`.
 
 ## Language Bindings
