@@ -111,11 +111,15 @@ name = "multi_curve_framework_example"
 path = "examples/valuations/multi_curve_framework_example.rs"
 required-features = ["valuations"]
 
-# Commented out until revolving_credit module is implemented
-# [[example]]
-# name = "revolving_credit_example"
-# path = "examples/valuations/revolving_credit.rs"
-# required-features = ["valuations"]
+[[example]]
+name = "multi_curve_calibration_example"
+path = "examples/valuations/multi_curve_calibration_example.rs"
+required-features = ["valuations"]
+
+[[example]]
+name = "revolving_credit"
+path = "examples/valuations/revolving_credit.rs"
+required-features = ["valuations"]
 
 
 [[example]]
