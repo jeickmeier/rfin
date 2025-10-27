@@ -113,7 +113,8 @@ fn test_context_get_cs_value_interest_total() {
     // Create sample capital structure cashflows
     let mut cs_cashflows = CapitalStructureCashflows::new();
     let breakdown = finstack_statements::capital_structure::CashflowBreakdown {
-        interest_expense: 50_000.0,
+        interest_expense_cash: 50_000.0,
+        interest_expense_pik: 0.0,
         principal_payment: 100_000.0,
         debt_balance: 1_000_000.0,
         ..Default::default()
@@ -572,7 +573,8 @@ fn test_capital_structure_cashflows_accessors() {
     let period = PeriodId::quarter(2025, 1);
 
     let breakdown = CashflowBreakdown {
-        interest_expense: 10_000.0,
+        interest_expense_cash: 10_000.0,
+        interest_expense_pik: 0.0,
         principal_payment: 25_000.0,
         debt_balance: 500_000.0,
         fees: 1_000.0,

@@ -82,8 +82,8 @@ pub fn aggregate_instrument_cashflows(
 
                     match cf.kind {
                         CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => {
-                            // Interest payments (coupons, floating resets)
-                            breakdown.interest_expense += value;
+                            // Cash interest payments (coupons, floating resets)
+                            breakdown.interest_expense_cash += value;
                         }
                         CFKind::Amortization => {
                             // Principal amortization payments
@@ -98,8 +98,9 @@ pub fn aggregate_instrument_cashflows(
                             breakdown.fees += value;
                         }
                         CFKind::PIK => {
-                            // PIK interest increases outstanding (negative interest expense)
-                            breakdown.interest_expense += value;
+                            // PIK (payment-in-kind) interest accrued but not paid in cash
+                            // This increases the outstanding balance and is tracked separately
+                            breakdown.interest_expense_pik += value;
                         }
                         CFKind::Notional if cf.amount.amount() <= 0.0 => {
                             // Negative notional flows (initial exchange) - typically netted against principal
@@ -108,10 +109,10 @@ pub fn aggregate_instrument_cashflows(
                         }
                         _ => {
                             // CFKind is non-exhaustive, so we need this catch-all for forward compatibility.
-                            // If new CFKind variants are added in the future, conservatively treat them as interest.
+                            // If new CFKind variants are added in the future, conservatively treat them as cash interest.
                             // Note: If this case is hit frequently, consider adding explicit handling for the new CFKind.
                             // In production, this should be logged with: tracing::warn!("Unknown CFKind: {:?}", cf.kind)
-                            breakdown.interest_expense += value;
+                            breakdown.interest_expense_cash += value;
                         }
                     }
                 }
@@ -141,7 +142,8 @@ pub fn aggregate_instrument_cashflows(
         for (period_id, breakdown) in &instrument_periods {
             // SAFETY: All periods were initialized at function start
             let total = result.totals.get_mut(period_id).unwrap();
-            total.interest_expense += breakdown.interest_expense;
+            total.interest_expense_cash += breakdown.interest_expense_cash;
+            total.interest_expense_pik += breakdown.interest_expense_pik;
             total.principal_payment += breakdown.principal_payment;
             total.debt_balance += breakdown.debt_balance;
             total.fees += breakdown.fees;

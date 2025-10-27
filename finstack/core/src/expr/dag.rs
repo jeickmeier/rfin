@@ -282,6 +282,7 @@ impl DagBuilder {
                     // Custom financial functions
                     Function::Sum | Function::Mean => 5,
                     Function::Annualize => 2,
+                    Function::AnnualizeRate => 3, // Slightly more expensive due to powf
                     Function::Ttm => 30, // Similar cost to rolling functions
                     Function::Coalesce => 3,
                 };

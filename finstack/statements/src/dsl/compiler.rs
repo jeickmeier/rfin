@@ -131,6 +131,7 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
         "mean" => Some(Function::Mean),
         "ttm" => Some(Function::Ttm),
         "annualize" => Some(Function::Annualize),
+        "annualize_rate" => Some(Function::AnnualizeRate),
         "coalesce" => Some(Function::Coalesce),
         _ => None,
     };
@@ -160,6 +161,13 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
                     ));
                 }
             }
+            Function::AnnualizeRate => {
+                if compiled_args.len() != 3 {
+                    return Err(crate::error::Error::eval(
+                        "annualize_rate() requires 3 arguments (rate, periods_per_year, compounding)",
+                    ));
+                }
+            }
             Function::Coalesce => {
                 if compiled_args.len() < 2 {
                     return Err(crate::error::Error::eval(
@@ -182,8 +190,30 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
 
 /// Compile min function by transforming to nested if-then-else.
 ///
+/// # Syntax
+///
 /// min(a, b) → if(a < b, a, b)
 /// min(a, b, c) → if(a < b, if(a < c, a, c), if(b < c, b, c))
+///
+/// # NaN Handling
+///
+/// NaN values propagate through comparisons per IEEE 754:
+/// - `NaN < x` is always `false`, so `min(NaN, x)` returns `x`
+/// - `x < NaN` is always `false`, so `min(x, NaN)` returns `NaN`
+/// - The behavior depends on argument order
+///
+/// # Tie Behavior
+///
+/// When values are equal, the first value in argument order is returned.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// min(5, 3)     // returns 3
+/// min(3, 3)     // returns 3 (first value)
+/// min(NaN, 5)   // returns 5 (NaN < 5 is false)
+/// min(5, NaN)   // returns NaN (5 < NaN is false)
+/// ```
 fn compile_min_function(args: &[Expr]) -> Result<Expr> {
     if args.is_empty() {
         return Err(crate::error::Error::eval(
@@ -208,8 +238,30 @@ fn compile_min_function(args: &[Expr]) -> Result<Expr> {
 
 /// Compile max function by transforming to nested if-then-else.
 ///
+/// # Syntax
+///
 /// max(a, b) → if(a > b, a, b)
 /// max(a, b, c) → if(a > b, if(a > c, a, c), if(b > c, b, c))
+///
+/// # NaN Handling
+///
+/// NaN values propagate through comparisons per IEEE 754:
+/// - `NaN > x` is always `false`, so `max(NaN, x)` returns `x`
+/// - `x > NaN` is always `false`, so `max(x, NaN)` returns `NaN`
+/// - The behavior depends on argument order
+///
+/// # Tie Behavior
+///
+/// When values are equal, the first value in argument order is returned.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// max(5, 3)     // returns 5
+/// max(3, 3)     // returns 3 (first value)
+/// max(NaN, 5)   // returns 5 (NaN > 5 is false)
+/// max(5, NaN)   // returns NaN (5 > NaN is false)
+/// ```
 fn compile_max_function(args: &[Expr]) -> Result<Expr> {
     if args.is_empty() {
         return Err(crate::error::Error::eval(

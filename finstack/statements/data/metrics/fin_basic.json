@@ -35,11 +35,11 @@
     {
       "id": "ebit",
       "name": "EBIT",
-      "formula": "revenue - cogs - opex",
-      "description": "Earnings before interest and taxes",
+      "formula": "revenue - cogs - opex - depreciation - amortization",
+      "description": "Earnings before interest and taxes (EBITDA minus depreciation and amortization)",
       "category": "income_statement",
       "unit_type": "currency",
-      "requires": ["revenue", "cogs", "opex"],
+      "requires": ["revenue", "cogs", "opex", "depreciation", "amortization"],
       "tags": ["income_statement", "profitability"]
     },
     {
@@ -55,11 +55,11 @@
     {
       "id": "net_income",
       "name": "Net Income",
-      "formula": "revenue - cogs - opex - interest_expense - taxes",
+      "formula": "revenue - cogs - opex - interest_expense - tax_expense",
       "description": "Earnings after all expenses and taxes",
       "category": "income_statement",
       "unit_type": "currency",
-      "requires": ["revenue", "cogs", "opex", "interest_expense", "taxes"],
+      "requires": ["revenue", "cogs", "opex", "interest_expense", "tax_expense"],
       "tags": ["income_statement", "profitability", "bottom_line"]
     }
   ]

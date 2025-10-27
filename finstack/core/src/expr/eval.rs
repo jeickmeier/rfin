@@ -1063,6 +1063,7 @@ impl CompiledExpr {
             | Function::Mean
             | Function::Ttm
             | Function::Annualize
+            | Function::AnnualizeRate
             | Function::Coalesce => {
                 panic!("Custom financial functions should be evaluated in the statements layer, not in core")
             }

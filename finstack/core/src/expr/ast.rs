@@ -329,8 +329,20 @@ pub enum Function {
     Sum,
     /// Average of multiple values, skipping NaN values.
     Mean,
-    /// Annualize a value by multiplying by periods per year.
+    /// Annualize a flow value by multiplying by periods per year.
+    /// 
+    /// Use this for cash flows, income, and expense items.
+    /// For periodic rates, use `AnnualizeRate` instead.
     Annualize,
+    /// Annualize a periodic rate with simple or compound methodology.
+    ///
+    /// Arguments: (rate, periods_per_year, compounding)
+    /// - compounding = 0.0: Simple (rate * periods_per_year)
+    /// - compounding = 1.0: Compound ((1 + rate)^periods_per_year - 1)
+    ///
+    /// Use this for interest rates, returns, and growth rates.
+    /// For cash flows, use `Annualize` instead.
+    AnnualizeRate,
     /// Trailing twelve months (rolling sum with window of 4 for quarterly).
     Ttm,
     /// Return first non-NaN/non-zero value (coalesce).

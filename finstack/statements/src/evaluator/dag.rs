@@ -40,6 +40,9 @@ impl DependencyGraph {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn from_model(model: &FinancialModelSpec) -> Result<Self> {
+        // Validate all formula references before building graph
+        Self::validate_formula_references(model)?;
+
         let mut dependencies = IndexMap::new();
         let mut dependents = IndexMap::new();
 
@@ -71,6 +74,71 @@ impl DependencyGraph {
             dependencies,
             dependents,
         })
+    }
+
+    /// Validate that all identifier references in formulas exist in the model.
+    ///
+    /// This catches typos and unknown references at build time instead of runtime.
+    fn validate_formula_references(model: &FinancialModelSpec) -> Result<()> {
+        // Create set of all valid identifiers (all node IDs in the model)
+        let valid_identifiers: IndexSet<String> = model.nodes.keys().cloned().collect();
+
+        // Check each formula
+        for (node_id, node_spec) in &model.nodes {
+            if let Some(formula) = &node_spec.formula_text {
+                // Extract all identifiers from the formula
+                let all_identifiers = crate::utils::formula::extract_all_identifiers(formula)?;
+
+                // Check each identifier
+                for identifier in &all_identifiers {
+                    // Skip cs.* references (capital structure - validated at runtime)
+                    if identifier.starts_with("cs.") {
+                        continue;
+                    }
+
+                    // Check if identifier exists in model nodes
+                    if !valid_identifiers.contains(identifier) {
+                        return Err(Error::eval(format!(
+                            "Unknown identifier '{}' in formula for node '{}'. \
+                             Formula: '{}'. \
+                             This identifier does not exist in the model. \
+                             Did you mean one of: {}?",
+                            identifier,
+                            node_id,
+                            formula,
+                            suggest_similar_identifiers(identifier, &valid_identifiers)
+                        )));
+                    }
+                }
+            }
+
+            // Also validate where clauses
+            if let Some(where_clause) = &node_spec.where_text {
+                let all_identifiers =
+                    crate::utils::formula::extract_all_identifiers(where_clause)?;
+
+                for identifier in &all_identifiers {
+                    if identifier.starts_with("cs.") {
+                        continue;
+                    }
+
+                    if !valid_identifiers.contains(identifier) {
+                        return Err(Error::eval(format!(
+                            "Unknown identifier '{}' in where clause for node '{}'. \
+                             Where clause: '{}'. \
+                             This identifier does not exist in the model. \
+                             Did you mean one of: {}?",
+                            identifier,
+                            node_id,
+                            where_clause,
+                            suggest_similar_identifiers(identifier, &valid_identifiers)
+                        )));
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Get dependencies for a node.
@@ -224,6 +292,55 @@ fn extract_dependencies(formula: &str, all_node_ids: &IndexSet<String>) -> Index
     crate::utils::formula::extract_identifiers(formula, all_node_ids)
 }
 
+/// Suggest similar identifiers for a typo using Levenshtein distance.
+///
+/// Returns a comma-separated list of up to 3 most similar identifiers.
+fn suggest_similar_identifiers(typo: &str, valid: &IndexSet<String>) -> String {
+    let mut similarities: Vec<(usize, &String)> = valid
+        .iter()
+        .map(|id| (levenshtein_distance(typo, id), id))
+        .collect();
+
+    // Sort by distance (closest first)
+    similarities.sort_by_key(|(dist, _)| *dist);
+
+    // Take top 3
+    similarities
+        .iter()
+        .take(3)
+        .map(|(_, id)| id.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Calculate Levenshtein distance between two strings.
+fn levenshtein_distance(s1: &str, s2: &str) -> usize {
+    let len1 = s1.chars().count();
+    let len2 = s2.chars().count();
+    let mut matrix = vec![vec![0; len2 + 1]; len1 + 1];
+
+    for (i, row) in matrix.iter_mut().enumerate().take(len1 + 1) {
+        row[0] = i;
+    }
+    for j in 0..=len2 {
+        matrix[0][j] = j;
+    }
+
+    let s1_chars: Vec<char> = s1.chars().collect();
+    let s2_chars: Vec<char> = s2.chars().collect();
+
+    for (i, c1) in s1_chars.iter().enumerate() {
+        for (j, c2) in s2_chars.iter().enumerate() {
+            let cost = if c1 == c2 { 0 } else { 1 };
+            matrix[i + 1][j + 1] = (matrix[i][j + 1] + 1) // deletion
+                .min(matrix[i + 1][j] + 1) // insertion
+                .min(matrix[i][j] + cost); // substitution
+        }
+    }
+
+    matrix[len1][len2]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -311,4 +428,5 @@ mod tests {
         assert!(deps.contains("revenue"));
         assert!(deps.contains("cogs"));
     }
+
 }

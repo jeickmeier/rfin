@@ -51,7 +51,8 @@ fn test_capital_structure_cashflows_serialization() {
 
     // Add breakdown for an instrument
     let breakdown = CashflowBreakdown {
-        interest_expense: 5_000.0,
+        interest_expense_cash: 5_000.0,
+        interest_expense_pik: 0.0,
         principal_payment: 10_000.0,
         debt_balance: 100_000.0,
         fees: 500.0,
@@ -276,7 +277,8 @@ fn test_results_to_json_file() {
 fn test_capital_structure_json_roundtrip() {
     // Test CashflowBreakdown JSON serialization
     let breakdown = CashflowBreakdown {
-        interest_expense: 5_000.0,
+        interest_expense_cash: 5_000.0,
+        interest_expense_pik: 0.0,
         principal_payment: 10_000.0,
         debt_balance: 100_000.0,
         fees: 500.0,
@@ -286,7 +288,8 @@ fn test_capital_structure_json_roundtrip() {
     let deserialized: CashflowBreakdown =
         serde_json::from_str(&json).expect("Failed to deserialize");
 
-    assert_eq!(deserialized.interest_expense, 5_000.0);
+    assert_eq!(deserialized.interest_expense_cash, 5_000.0);
+    assert_eq!(deserialized.interest_expense_pik, 0.0);
     assert_eq!(deserialized.principal_payment, 10_000.0);
     assert_eq!(deserialized.debt_balance, 100_000.0);
     assert_eq!(deserialized.fees, 500.0);

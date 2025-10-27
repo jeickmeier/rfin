@@ -1,5 +1,7 @@
 //! Shared formula utilities for identifier extraction and manipulation.
 
+use crate::dsl::ast::StmtExpr;
+use crate::dsl::parse_formula;
 use indexmap::IndexSet;
 
 /// Check if a character is a valid identifier boundary.
@@ -52,6 +54,76 @@ pub fn is_standalone_identifier(
     };
 
     before_ok && after_ok
+}
+
+/// Extract ALL identifiers from a formula by parsing the AST.
+///
+/// This function parses the formula and extracts all node references and
+/// qualified references (e.g., `fin.ebitda`), regardless of whether they
+/// are known or not. This is useful for validation.
+///
+/// # Arguments
+///
+/// * `formula` - The formula string to analyze
+///
+/// # Returns
+///
+/// Returns a set of all identifiers found in the formula. For qualified
+/// references (e.g., `fin.ebitda`), returns the qualified name.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let formula = "revenue - cogs + fin.gross_profit";
+/// let all_ids = extract_all_identifiers(formula)?;
+/// assert!(all_ids.contains("revenue"));
+/// assert!(all_ids.contains("cogs"));
+/// assert!(all_ids.contains("fin.gross_profit"));
+/// ```
+pub fn extract_all_identifiers(formula: &str) -> crate::error::Result<IndexSet<String>> {
+    let ast = parse_formula(formula)?;
+    let mut identifiers = IndexSet::new();
+    collect_identifiers_from_ast(&ast, &mut identifiers);
+    Ok(identifiers)
+}
+
+/// Recursively collect identifiers from an AST node.
+fn collect_identifiers_from_ast(expr: &StmtExpr, identifiers: &mut IndexSet<String>) {
+    match expr {
+        StmtExpr::Literal(_) => {}
+        StmtExpr::NodeRef(name) => {
+            identifiers.insert(name.clone());
+        }
+        StmtExpr::CSRef {
+            component,
+            instrument_or_total,
+        } => {
+            // Encode cs.* references in the same format as the evaluator
+            let encoded = format!("cs.{}.{}", component, instrument_or_total);
+            identifiers.insert(encoded);
+        }
+        StmtExpr::BinOp { left, right, .. } => {
+            collect_identifiers_from_ast(left, identifiers);
+            collect_identifiers_from_ast(right, identifiers);
+        }
+        StmtExpr::UnaryOp { operand, .. } => {
+            collect_identifiers_from_ast(operand, identifiers);
+        }
+        StmtExpr::Call { args, .. } => {
+            for arg in args {
+                collect_identifiers_from_ast(arg, identifiers);
+            }
+        }
+        StmtExpr::IfThenElse {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            collect_identifiers_from_ast(condition, identifiers);
+            collect_identifiers_from_ast(then_expr, identifiers);
+            collect_identifiers_from_ast(else_expr, identifiers);
+        }
+    }
 }
 
 /// Extract identifiers from a formula that match a given set of known identifiers.

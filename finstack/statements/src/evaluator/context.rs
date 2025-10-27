@@ -141,8 +141,22 @@ impl EvaluationContext {
     /// Get capital structure value for the current period.
     ///
     /// # Arguments
-    /// * `component` - Component type: "interest_expense", "principal_payment", or "debt_balance"
+    /// * `component` - Component type: "interest_expense", "interest_expense_cash", "interest_expense_pik",
+    ///   "principal_payment", or "debt_balance"
     /// * `instrument_or_total` - Instrument ID or "total" for aggregate
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// // Total interest (cash + PIK)
+    /// let total_interest = context.get_cs_value("interest_expense", "total")?;
+    ///
+    /// // Cash interest only
+    /// let cash_interest = context.get_cs_value("interest_expense_cash", "total")?;
+    ///
+    /// // PIK interest only
+    /// let pik_interest = context.get_cs_value("interest_expense_pik", "total")?;
+    /// ```
     pub fn get_cs_value(&self, component: &str, instrument_or_total: &str) -> Result<f64> {
         let cs_cashflows = self
             .capital_structure_cashflows
@@ -153,10 +167,12 @@ impl EvaluationContext {
             // Get total for all instruments
             match component {
                 "interest_expense" => cs_cashflows.get_total_interest(&self.period_id),
+                "interest_expense_cash" => cs_cashflows.get_total_interest_cash(&self.period_id),
+                "interest_expense_pik" => cs_cashflows.get_total_interest_pik(&self.period_id),
                 "principal_payment" => cs_cashflows.get_total_principal(&self.period_id),
                 "debt_balance" => cs_cashflows.get_total_debt_balance(&self.period_id),
                 _ => return Err(Error::capital_structure(format!(
-                    "Unknown capital structure component: {}. Expected: interest_expense, principal_payment, or debt_balance",
+                    "Unknown capital structure component: {}. Expected: interest_expense, interest_expense_cash, interest_expense_pik, principal_payment, or debt_balance",
                     component
                 ))),
             }
@@ -164,10 +180,12 @@ impl EvaluationContext {
             // Get value for specific instrument
             match component {
                 "interest_expense" => cs_cashflows.get_interest(instrument_or_total, &self.period_id),
+                "interest_expense_cash" => cs_cashflows.get_interest_cash(instrument_or_total, &self.period_id),
+                "interest_expense_pik" => cs_cashflows.get_interest_pik(instrument_or_total, &self.period_id),
                 "principal_payment" => cs_cashflows.get_principal(instrument_or_total, &self.period_id),
                 "debt_balance" => cs_cashflows.get_debt_balance(instrument_or_total, &self.period_id),
                 _ => return Err(Error::capital_structure(format!(
-                    "Unknown capital structure component: {}. Expected: interest_expense, principal_payment, or debt_balance",
+                    "Unknown capital structure component: {}. Expected: interest_expense, interest_expense_cash, interest_expense_pik, principal_payment, or debt_balance",
                     component
                 ))),
             }

@@ -17,6 +17,15 @@ use std::collections::BTreeMap;
 /// - Interest rate comparisons (0.01 basis point precision)
 /// - Ratio comparisons (leverage, margins)
 /// - Percentage change comparisons
+/// - Equality comparisons in DSL (== and != operators)
+///
+/// # Breaking Change (v2.0)
+///
+/// As of version 2.0, the DSL `==` and `!=` operators use approximate equality
+/// with this epsilon tolerance. This prevents spurious inequality from floating-point
+/// rounding errors. For example:
+/// - `100000.0 == 100000.0000000001` returns `true` (within epsilon)
+/// - `100000.0 == 100001.0` returns `false` (exceeds epsilon)
 ///
 /// Note: For currency comparisons, use the Money type and currency-safe logic, not raw f64 arithmetic.
 const EPSILON: f64 = 1e-10;
@@ -236,9 +245,9 @@ pub(crate) fn evaluate_expr(expr: &Expr, context: &EvaluationContext) -> Result<
                 }
                 BinOp::Mod => left_val % right_val,
 
-                // Comparison operations
-                BinOp::Eq => bool_to_f64(left_val == right_val),
-                BinOp::Ne => bool_to_f64(left_val != right_val),
+                // Comparison operations (use approximate equality for == and !=)
+                BinOp::Eq => bool_to_f64((left_val - right_val).abs() <= EPSILON),
+                BinOp::Ne => bool_to_f64((left_val - right_val).abs() > EPSILON),
                 BinOp::Lt => bool_to_f64(left_val < right_val),
                 BinOp::Le => bool_to_f64(left_val <= right_val),
                 BinOp::Gt => bool_to_f64(left_val > right_val),
@@ -696,7 +705,28 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         Function::Ttm => {
             require_args("ttm", args, 1)?;
 
-            // Determine window size based on period frequency (market standard)
+            // Trailing Twelve Months (TTM) - Financial Reporting Standard
+            //
+            // TTM computes a rolling sum over a period-appropriate window:
+            // - For quarterly periods: sums current period + prior 3 periods (4 periods total)
+            // - For monthly periods: sums current period + prior 11 periods (12 periods total)
+            // - For annual periods: returns current period value only (1 period total)
+            //
+            // Behavior:
+            // 1. Window size = periods_per_year (4 for quarterly, 12 for monthly, 1 for annual)
+            // 2. Includes current period + (N-1) historical periods in chronological order
+            // 3. Incomplete windows (< N periods available): returns sum of available data
+            // 4. NaN values are excluded from summation (skipped, not propagated)
+            // 5. All-NaN window: returns 0.0
+            //
+            // Example (quarterly):
+            // Period | Revenue | ttm(revenue)
+            // -------|---------|-------------
+            // 2024Q1 |   100   |    100       (only 1 period available)
+            // 2024Q2 |   105   |    205       (2 periods: 100 + 105)
+            // 2024Q3 |   110   |    315       (3 periods: 100 + 105 + 110)
+            // 2024Q4 |   115   |    430       (4 periods: 100 + 105 + 110 + 115)
+            // 2025Q1 |   120   |    450       (4 periods: 105 + 110 + 115 + 120)
             let window = context.period_kind.periods_per_year() as usize;
 
             // For column references, get rolling sum over appropriate window
@@ -719,6 +749,10 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
         Function::Annualize => {
             require_args("annualize", args, 2)?;
 
+            // Annualize a FLOW value (cash flows, income, expenses)
+            // by multiplying by periods per year.
+            //
+            // For periodic RATES, use annualize_rate() instead.
             let value = evaluate_expr(&args[0], context)?;
             let periods_per_year = evaluate_expr(&args[1], context)?;
 
@@ -726,6 +760,48 @@ fn evaluate_function(func: &Function, args: &[Expr], context: &EvaluationContext
                 Ok(f64::NAN)
             } else {
                 Ok(value * periods_per_year)
+            }
+        }
+
+        Function::AnnualizeRate => {
+            require_args("annualize_rate", args, 3)?;
+
+            // Annualize a PERIODIC RATE (interest rates, returns, growth rates)
+            // using either simple or compound methodology.
+            //
+            // Arguments:
+            // - rate: Periodic rate (e.g., 0.02 for 2% quarterly return)
+            // - periods_per_year: Number of periods in a year (4 for quarterly, 12 for monthly)
+            // - compounding: 0.0 for simple, 1.0 for compound
+            //
+            // Simple:   annual_rate = periodic_rate × periods_per_year
+            // Compound: annual_rate = (1 + periodic_rate)^periods_per_year - 1
+            //
+            // Examples:
+            // - Quarterly return of 2%:
+            //   Simple:   annualize_rate(0.02, 4, 0) = 0.08 (8%)
+            //   Compound: annualize_rate(0.02, 4, 1) = 0.0824 (8.24%)
+            let rate = evaluate_expr(&args[0], context)?;
+            let periods_per_year = evaluate_expr(&args[1], context)?;
+            let compounding = evaluate_expr(&args[2], context)?;
+
+            if rate.is_nan() || periods_per_year.is_nan() || compounding.is_nan() {
+                return Ok(f64::NAN);
+            }
+
+            if periods_per_year <= 0.0 {
+                return Err(Error::eval(
+                    "annualize_rate() periods_per_year must be positive",
+                ));
+            }
+
+            // Determine methodology based on compounding parameter
+            if compounding == 0.0 {
+                // Simple annualization
+                Ok(rate * periods_per_year)
+            } else {
+                // Compound annualization: (1 + rate)^periods - 1
+                Ok((1.0 + rate).powf(periods_per_year) - 1.0)
             }
         }
 
