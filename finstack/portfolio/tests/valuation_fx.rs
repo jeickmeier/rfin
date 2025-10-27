@@ -96,13 +96,16 @@ fn missing_fx_matrix_errors_for_cross_currency() {
 
 #[test]
 fn quantity_scaling_and_entity_totals() {
+    use time::Duration;
     let as_of = base_date();
+    let end_date = as_of + Duration::days(90);
 
     let dep = Deposit::builder()
         .id("DEP_USD".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start(as_of)
-        .end(as_of)
+        .end(end_date)
+        .quote_rate(0.05)  // Add a 5% rate so deposit has non-zero PV
         .day_count(finstack_core::dates::DayCount::Act360)
         .disc_id("USD".into())
         .build()
@@ -131,6 +134,8 @@ fn quantity_scaling_and_entity_totals() {
     let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
 
     let pv = valuation.get_position_value("POS_SHORT").unwrap();
-    assert!(pv.value_native.amount().is_sign_negative());
+    // With a negative quantity and positive instrument PV, the position value should be negative
+    assert!(pv.value_native.amount().is_sign_negative(), 
+            "Expected negative position value, got: {}", pv.value_native.amount());
     assert!(valuation.get_entity_value(&"E1".to_string()).is_some());
 }

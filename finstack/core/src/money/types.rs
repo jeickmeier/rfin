@@ -93,7 +93,9 @@ impl Money {
     /// assert_eq!(amount.format(0, true), "1042316 USD");
     /// ```
     pub fn format(&self, decimals: usize, show_currency: bool) -> String {
-        let value = format!("{:.*}", decimals, self.amount());
+        use super::rounding::round_decimal;
+        let rounded = round_decimal(self.amount, decimals as i32, crate::config::RoundingMode::Bankers);
+        let value = format!("{:.prec$}", rounded, prec = decimals);
         if show_currency {
             format!("{} {}", value, self.currency())
         } else {
@@ -115,7 +117,9 @@ impl Money {
     /// assert!(formatted.contains("USD"));
     /// ```
     pub fn format_with_separators(&self, decimals: usize) -> String {
-        let amt = self.amount();
+        use super::rounding::round_decimal;
+        let rounded = round_decimal(self.amount, decimals as i32, crate::config::RoundingMode::Bankers);
+        let amt = amount_from_repr(rounded);
         let int_part = amt.trunc() as i64;
         let frac_part = ((amt - amt.trunc()) * 10_f64.powi(decimals as i32)).round() as i64;
         
@@ -327,8 +331,7 @@ impl fmt::Display for Money {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Default formatting uses ISO-4217 minor units and bankers rounding.
         let dp = self.currency.decimals() as usize;
-        // For f64 mode, format with currency-specific minor units. Rounding mode is
-        // not customisable here (uses standard formatting semantics).
+        // Format with currency-specific minor units using Decimal precision
         write!(
             f,
             "{} {val:.prec$}",
@@ -357,11 +360,13 @@ impl Money {
     /// assert_eq!(amt.format_with_config(&cfg), "USD 10.0000");
     /// ```
     pub fn format_with_config(&self, cfg: &FinstackConfig) -> String {
+        use super::rounding::round_decimal;
         let dp = cfg.output_scale(self.currency) as usize;
+        let rounded = round_decimal(self.amount, dp as i32, cfg.rounding.mode);
         format!(
             "{} {val:.prec$}",
             self.currency,
-            val = self.amount,
+            val = rounded,
             prec = dp
         )
     }
