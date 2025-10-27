@@ -521,7 +521,7 @@ fn bench_registry_operations(c: &mut Criterion) {
 // Results Export Benchmarks
 // ============================================================================
 
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 fn bench_results_export(c: &mut Criterion) {
     let mut group = c.benchmark_group("results_export");
 
@@ -752,7 +752,7 @@ fn bench_end_to_end(c: &mut Criterion) {
 // Criterion Configuration
 // ============================================================================
 
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 criterion_group!(
     benches,
     bench_model_building,
@@ -766,7 +766,7 @@ criterion_group!(
     bench_end_to_end
 );
 
-#[cfg(not(feature = "polars_export"))]
+#[cfg(not(feature = "dataframes"))]
 criterion_group!(
     benches,
     bench_model_building,

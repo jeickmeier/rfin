@@ -1,12 +1,12 @@
 //! DataFrame export functionality for Results.
 
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 use crate::error::Result;
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 use crate::evaluator::Results;
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 use finstack_core::dates::PeriodId;
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 use polars::prelude::*;
 
 /// Export results to long-format Polars DataFrame.
@@ -29,7 +29,7 @@ use polars::prelude::*;
 /// // │ cogs        │ 2025Q1    │ 60000.0    │
 /// // └─────────────┴───────────┴────────────┘
 /// ```
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
     let mut node_ids = Vec::new();
     let mut period_ids = Vec::new();
@@ -69,7 +69,7 @@ pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
 /// ```ignore
 /// let df = to_polars_long_filtered(&results, &["revenue", "cogs"])?;
 /// ```
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Result<DataFrame> {
     let mut node_ids = Vec::new();
     let mut period_ids = Vec::new();
@@ -119,7 +119,7 @@ pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Resul
 /// // │ 2025Q2    │ 105000.0   │ 63000.0  │
 /// // └───────────┴────────────┴──────────┘
 /// ```
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 pub fn to_polars_wide(results: &Results) -> Result<DataFrame> {
     // Collect all unique periods in order
     let mut all_periods: Vec<PeriodId> = results
@@ -162,7 +162,7 @@ pub fn to_polars_wide(results: &Results) -> Result<DataFrame> {
     Ok(df)
 }
 
-#[cfg(all(test, feature = "polars_export"))]
+#[cfg(all(test, feature = "dataframes"))]
 mod tests {
     use super::*;
     use crate::evaluator::ResultsMeta;

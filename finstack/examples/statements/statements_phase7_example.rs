@@ -3,14 +3,14 @@
 //! This example demonstrates the DataFrame export functionality added in Phase 7,
 //! showing how to export evaluation results to both long and wide format DataFrames.
 //!
-//! **Features Required:** `polars_export`
+//! **Features Required:** `dataframes`
 //!
 //! Run with:
 //! ```bash
-//! cargo run --example statements_phase7_example --features polars_export
+//! cargo run --example statements_phase7_example --features dataframes
 //! ```
 
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use finstack_statements::prelude::*;
     use indexmap::indexmap;
@@ -215,9 +215,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(not(feature = "polars_export"))]
+#[cfg(not(feature = "dataframes"))]
 fn main() {
-    eprintln!("This example requires the 'polars_export' feature.");
-    eprintln!("Run with: cargo run --example statements_phase7_example --features polars_export");
+    eprintln!("This example requires the 'dataframes' feature.");
+    eprintln!("Run with: cargo run --example statements_phase7_example --features dataframes");
     std::process::exit(1);
 }

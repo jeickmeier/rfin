@@ -8,18 +8,26 @@ repository.workspace = true
 
 [features]
 default = ["core"]
+
+# Crate selection features
 core = ["dep:finstack_core"]
 statements = ["core", "dep:finstack_statements"]
-statements_polars = ["core", "dep:finstack_statements", "finstack_statements/polars_export"]
 valuations = ["core", "dep:finstack_valuations"]
+scenarios = ["core", "statements", "dep:finstack_scenarios"]
 portfolio = ["core", "statements", "valuations", "dep:finstack_portfolio"]
 io = ["dep:finstack_io"]
-scenarios = ["core", "statements", "dep:finstack_scenarios"]
 all = ["core", "statements", "valuations", "portfolio", "io", "scenarios"]
-# Additional features for examples
-serde = []
-new-context = []
-polars_export = ["finstack_statements/polars_export"]
+
+# Cross-cutting capability features
+serde = []  # Delegated to subcrates (enabled by default in most)
+parallel = ["finstack_core/parallel", "finstack_valuations/parallel"]
+dataframes = ["finstack_statements/dataframes", "finstack_portfolio/dataframes"]
+stochastic = ["finstack_valuations/stochastic"]
+
+# Deprecated aliases (will be removed in 0.4.0)
+polars_export = ["dataframes"]
+statements_polars = ["statements", "dataframes"]
+new-context = []  # Unused, can be removed
 
 [dependencies]
 finstack_core = { package = "finstack-core", path = "core", optional = true }
@@ -70,7 +78,7 @@ required-features = ["statements"]
 [[example]]
 name = "statements_phase7_example"
 path = "examples/statements/statements_phase7_example.rs"
-required-features = ["statements_polars"]
+required-features = ["statements", "dataframes"]
 
 [[example]]
 name = "capital_structure_dsl_example"

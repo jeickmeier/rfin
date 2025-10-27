@@ -4,7 +4,7 @@ use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "polars_export")]
+#[cfg(feature = "dataframes")]
 use crate::error::Result;
 
 /// Results from evaluating a financial model.
@@ -112,7 +112,7 @@ impl Results {
     /// Export to Polars long format DataFrame.
     ///
     /// Schema: `(node_id: Utf8, period_id: Utf8, value: Float64)`
-    #[cfg(feature = "polars_export")]
+    #[cfg(feature = "dataframes")]
     pub fn to_polars_long(&self) -> Result<polars::prelude::DataFrame> {
         crate::results::export::to_polars_long(self)
     }
@@ -123,7 +123,7 @@ impl Results {
     ///
     /// # Arguments
     /// * `node_filter` - Optional list of node identifiers to keep
-    #[cfg(feature = "polars_export")]
+    #[cfg(feature = "dataframes")]
     pub fn to_polars_long_filtered(
         &self,
         node_filter: &[&str],
@@ -134,7 +134,7 @@ impl Results {
     /// Export to Polars wide format DataFrame.
     ///
     /// Schema: `(period_id: Utf8, <node1>: Float64, <node2>: Float64, ...)`
-    #[cfg(feature = "polars_export")]
+    #[cfg(feature = "dataframes")]
     pub fn to_polars_wide(&self) -> Result<polars::prelude::DataFrame> {
         crate::results::export::to_polars_wide(self)
     }

@@ -1,6 +1,6 @@
 //! Integration tests for results export functionality.
 
-#![cfg(feature = "polars_export")]
+#![cfg(feature = "dataframes")]
 
 use finstack_statements::prelude::*;
 use indexmap::indexmap;

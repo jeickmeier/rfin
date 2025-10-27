@@ -120,15 +120,74 @@ python -m http.server 8000
 
 ## Features
 
-- **Core Library** (`finstack-core`):
-  - `std` - Standard library support (always on)
-  - `serde` - Serialization support
-  - `parallel` - Optional Rayon-backed parallel evaluation (order-stable)
-  - `linear-algebra` - Optional ndarray-linalg support
+Finstack uses a minimal set of feature flags for maximum clarity:
+
+### Default Features (Included)
+
+- **`serde`** - Serialization/deserialization support
+  - Enables JSON, CBOR, MessagePack wire formats
+  - Required for Python/WASM bindings
+  - Applied to: all crates
+  - Size: +150 KB
+
+- **`parallel`** - Multi-threaded computation with Rayon
+  - 2-10x speedup on multi-core CPUs
+  - Deterministic results (identical to sequential execution)
+  - Applied to: `core`, `valuations`
+  - Size: +200 KB
+
+### Optional Features
+
+- **`dataframes`** (opt-in) - Polars DataFrame exports
+  - Time-series analysis integration
+  - CSV/Parquet/Arrow interoperability
+  - Jupyter notebook support
+  - Applied to: `statements`, `portfolio`
+  - Size: +2-3 MB
+
+- **`stochastic`** (opt-in) - Monte Carlo & stochastic models
+  - Random number generation (reproducible with seeds)
+  - Path-dependent pricing
+  - Advanced risk analytics
+  - Applied to: `valuations`
+  - Size: +100 KB
+  - Status: Feature reserved, implementation planned for 0.3.x
+
+## Usage Examples
+
+```toml
+# Basic usage (default: serde + parallel)
+finstack = "0.3"
+
+# Data science workflow (add DataFrames)
+finstack = { version = "0.3", features = ["dataframes"] }
+
+# Quantitative research (add stochastic models)
+finstack = { version = "0.3", features = ["stochastic"] }
+
+# Everything enabled
+finstack = { version = "0.3", features = ["dataframes", "stochastic"] }
+
+# Minimal build (opt-out of defaults)
+finstack = { version = "0.3", default-features = false, features = ["serde"] }
+```
+
+## Deprecated Features
+
+The following features are deprecated and will be removed in version 0.4.0:
+- `polars_export` → use `dataframes` instead
+- `statements_polars` → use `["statements", "dataframes"]` instead
+- `stochastic-models` → use `stochastic` instead
+- `std` → always enabled, no longer needs to be specified
+
+**Note:** `parallel` is now included by default. To opt-out, use `default-features = false`.
+
+## Language Bindings
 
 - **Python Bindings** (`finstack-py`):
   - Inherits features from core
   - Provides Pythonic API
+  - Pydantic v2 integration
 
 - **WASM Bindings** (`finstack-wasm`):
   - Optimized for web browsers
@@ -140,10 +199,6 @@ python -m http.server 8000
 
 - Default numeric mode is f64. Results are reproducible on a consistent architecture/toolchain and within documented numerical tolerances.
 - Parallel execution (via the `parallel` feature) is used in ways that preserve stable ordering and numerics relative to the sequential path. If a parallel path cannot be validated to match within tolerances, it remains disabled.
-
-
-The project uses GitHub Actions for continuous integration:
-
 - Code formatting (`cargo fmt`)
 - Linting (`cargo clippy`)
 - Testing (`cargo test`)

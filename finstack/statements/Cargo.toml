@@ -23,8 +23,11 @@ criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
 default = []
-polars_export = ["dep:polars"]
-full = ["polars_export"]
+dataframes = ["dep:polars"]
+
+# Deprecated aliases (will be removed in 0.4.0)
+polars_export = ["dataframes"]
+full = ["dataframes"]
 
 [[bench]]
 name = "statements_operations"
