@@ -16,13 +16,10 @@ rayon = { version = "1.10", optional = true }
 ordered-float = { version = "4.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-schemars = { version = "0.8", optional = true }
 time = { version = "0.3" }
-num-traits = "0.2"
 rand = { version = "0.8", optional = true }
 rand_pcg = { version = "0.3", optional = true }
 rand_distr = { version = "0.4", optional = true }
-ndarray-linalg = { version = "0.16", optional = true }
 tracing = { version = "0.1", default-features = false }
 thiserror = "1.0"
 
@@ -37,10 +34,8 @@ criterion = { version = "0.5", features = ["html_reports"] }
 default = ["serde"]
 parallel = ["dep:rayon"]
 serde = ["finstack-core/serde", "hashbrown/serde"]
-schema = ["dep:schemars", "serde", "finstack-core/schema"]
 index = []
 stochastic-models = ["dep:rand", "dep:rand_pcg", "dep:rand_distr"]
-linear-algebra = ["dep:ndarray-linalg"]
 
 [[bench]]
 name = "bond_pricing"
