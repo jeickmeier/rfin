@@ -1,4 +1,4 @@
-.PHONY: help setup-python build test clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev ci_test
+.PHONY: help setup-python build test clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test
 
 help:
 	@echo "Available targets:"
@@ -12,6 +12,7 @@ help:
 	@echo "  stubs         - Regenerate *.pyi stub files for VS Code IntelliSense"
 	@echo "  wasm-build    - Build WASM package"
 	@echo "  wasm-examples-dev - Build WASM, then start examples dev server"
+	@echo "  examples      - Run all Rust examples"
 	@echo "  coverage      - Run code coverage and print summary"
 	@echo "  coverage-html - Generate HTML coverage report"
 	@echo "  coverage-open - Generate HTML coverage report and open in browser"
@@ -29,7 +30,7 @@ build:
 	cargo build --workspace
 
 test:
-	cargo test --workspace --exclude finstack-py
+	cargo test --workspace --exclude finstack-py --all-features
 
 fmt:
 	cargo fmt --all
@@ -71,6 +72,35 @@ wasm-examples-dev: wasm-build
 	cd finstack-wasm && \
 	npm run examples:install && \
 	npm run examples:dev
+
+examples:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "🚀 Running all Rust examples"
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo ""
+	@command -v jq >/dev/null 2>&1 || { echo "❌ jq is required but not installed. Install with: brew install jq"; exit 1; }
+	@example_list=$$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[] | select(.name == "finstack") | .targets[] | select(.kind[] == "example") | .name'); \
+	last_category=""; \
+	for example in $$example_list; do \
+		category=""; \
+		if echo "$$example" | grep -q "^market_context"; then category="Core"; \
+		elif echo "$$example" | grep -q "portfolio"; then category="Portfolio"; \
+		elif echo "$$example" | grep -q "scenario"; then category="Scenarios"; \
+		elif echo "$$example" | grep -q "^statements\|^capital_structure\|^lbo_"; then category="Statements"; \
+		else category="Valuations"; fi; \
+		if [ "$$category" != "$$last_category" ]; then \
+			echo ""; \
+			echo "📋 $$category Examples"; \
+			echo "────────────────────────────────────────────────────────────────"; \
+			last_category="$$category"; \
+		fi; \
+		echo "Running $$example..."; \
+		cargo run --example $$example --all-features || exit 1; \
+		echo ""; \
+	done
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "🎉 All examples completed successfully!"
+	@echo "════════════════════════════════════════════════════════════════"
 
 stubs:
 	@echo "(re)generating Python stub files …"

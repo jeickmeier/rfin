@@ -30,7 +30,7 @@
 #![deny(unsafe_code)]
 
 pub mod builder;
-#[cfg(feature = "dataframe")]
+#[cfg(feature = "dataframes")]
 pub mod dataframe;
 pub mod error;
 pub mod grouping;
