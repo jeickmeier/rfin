@@ -23,6 +23,10 @@ pub mod parameters;
 // Option pricing models and frameworks
 pub mod models;
 
+// Monte Carlo pricing engine (requires mc feature)
+#[cfg(feature = "mc")]
+pub mod mc;
+
 // Generic metric calculators to reduce duplication
 pub mod metrics;
 

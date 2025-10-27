@@ -201,6 +201,12 @@ pub enum ModelKey {
     HullWhite1F = 4,
     /// Hazard Rate variant.
     HazardRate = 5,
+    /// Monte Carlo with GBM process
+    MonteCarloGBM = 10,
+    /// Monte Carlo with Heston stochastic volatility
+    MonteCarloHeston = 11,
+    /// Monte Carlo with Hull-White 1F (rates)
+    MonteCarloHullWhite1F = 12,
 }
 
 impl std::fmt::Display for ModelKey {
@@ -211,6 +217,9 @@ impl std::fmt::Display for ModelKey {
             ModelKey::Black76 => "black76",
             ModelKey::HullWhite1F => "hull_white_1f",
             ModelKey::HazardRate => "hazard_rate",
+            ModelKey::MonteCarloGBM => "monte_carlo_gbm",
+            ModelKey::MonteCarloHeston => "monte_carlo_heston",
+            ModelKey::MonteCarloHullWhite1F => "monte_carlo_hull_white_1f",
         };
         write!(f, "{}", label)
     }
@@ -227,6 +236,9 @@ impl std::str::FromStr for ModelKey {
             "black76" | "black" | "black_76" => Ok(ModelKey::Black76),
             "hull_white_1f" | "hullwhite1f" | "hw1f" => Ok(ModelKey::HullWhite1F),
             "hazard_rate" | "hazard" => Ok(ModelKey::HazardRate),
+            "monte_carlo_gbm" | "mc_gbm" | "montecarlo_gbm" => Ok(ModelKey::MonteCarloGBM),
+            "monte_carlo_heston" | "mc_heston" | "montecarlo_heston" => Ok(ModelKey::MonteCarloHeston),
+            "monte_carlo_hull_white_1f" | "mc_hw1f" | "montecarlo_hw1f" => Ok(ModelKey::MonteCarloHullWhite1F),
             other => Err(format!("Unknown model key: {}", other)),
         }
     }

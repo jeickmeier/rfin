@@ -20,6 +20,8 @@ time = { version = "0.3" }
 rand = { version = "0.8", optional = true }
 rand_pcg = { version = "0.3", optional = true }
 rand_distr = { version = "0.4", optional = true }
+rand_core = { version = "0.6", optional = true }
+nalgebra = { version = "0.33", optional = true }
 tracing = { version = "0.1", default-features = false }
 thiserror = "1.0"
 
@@ -34,7 +36,8 @@ criterion = { version = "0.5", features = ["html_reports"] }
 default = ["serde", "parallel"]
 serde = ["finstack-core/serde", "hashbrown/serde"]
 parallel = ["dep:rayon", "finstack-core/parallel"]
-stochastic = ["dep:rand", "dep:rand_pcg", "dep:rand_distr"]
+stochastic = ["dep:rand", "dep:rand_pcg", "dep:rand_distr", "dep:rand_core"]
+mc = ["stochastic", "dep:nalgebra"]
 
 [[bench]]
 name = "bond_pricing"
@@ -83,3 +86,8 @@ harness = false
 [[bench]]
 name = "calibration"
 harness = false
+
+[[bench]]
+name = "mc_pricing"
+harness = false
+required-features = ["mc"]
