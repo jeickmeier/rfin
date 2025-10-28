@@ -1,11 +1,12 @@
-.PHONY: help setup-python build build-prod test clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test
+.PHONY: help setup-python build build-prod test test-slow clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test
 
 help:
 	@echo "Available targets:"
 	@echo "  setup-python  - Set up Python development environment with uv"
 	@echo "  build         - Build all crates"
 	@echo "  build-prod    - Build all crates optimized without debug info"
-	@echo "  test          - Run all tests"
+	@echo "  test          - Run all tests (excluding slow tests)"
+	@echo "  test-slow     - Run all tests including slow tests"
 	@echo "  fmt           - Format all code"
 	@echo "  lint          - Run linters"
 	@echo "  clean         - Clean build artifacts"
@@ -34,7 +35,10 @@ build-prod:
 	RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --exclude finstack-wasm --release
 
 test:
-	cargo test --workspace --exclude finstack-py --all-features
+	cargo test --workspace --exclude finstack-py --features mc
+
+test-slow:
+	cargo test --workspace --exclude finstack-py --features mc,slow
 
 fmt:
 	cargo fmt --all
