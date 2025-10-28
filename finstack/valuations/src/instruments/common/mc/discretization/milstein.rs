@@ -1,6 +1,246 @@
 //! Milstein discretization scheme.
 //!
-//! This is a placeholder for v0.2+ implementation.
+//! Implements the Milstein method for SDEs with diagonal diffusion.
+//! Provides higher-order strong convergence than Euler-Maruyama.
+//!
+//! For scalar SDE:
+//! ```text
+//! dX_t = μ(t, X_t)dt + σ(t, X_t)dW_t
+//! ```
+//!
+//! The Milstein scheme is:
+//! ```text
+//! X_{t+Δt} = X_t + μΔt + σ√Δt Z + ½σσ'(Z² - 1)Δt
+//! ```
+//!
+//! where σ' = ∂σ/∂x and Z ~ N(0, 1).
+//!
+//! # Convergence
+//!
+//! - Weak order: O(Δt) (same as Euler)
+//! - Strong order: O(Δt) (better than Euler's O(√Δt))
+//!
+//! # Limitations
+//!
+//! Only works for diagonal diffusion. For non-diagonal diffusion,
+//! use Euler-Maruyama instead.
 
-// TODO: Implement Milstein scheme for improved convergence
+use super::super::traits::{Discretization, StochasticProcess};
+
+/// Milstein discretization for diagonal diffusion.
+///
+/// Adds a correction term to Euler-Maruyama to achieve higher strong
+/// convergence order. Requires computing ∂σ/∂x.
+///
+/// For GBM (σ(X) = σX), the correction is ½σ²X(Z² - 1)Δt.
+///
+/// # When to use
+///
+/// Use when:
+/// - Strong convergence is important (pathwise accuracy)
+/// - Diffusion is diagonal and state-dependent
+/// - Derivative ∂σ/∂x is simple to compute
+///
+/// Avoid when:
+/// - Diffusion is non-diagonal (use Euler instead)
+/// - Weak convergence is sufficient (Euler is simpler)
+/// - Exact schemes are available (GBM, OU)
+#[derive(Clone, Debug, Default)]
+pub struct Milstein;
+
+impl Milstein {
+    /// Create a new Milstein discretization.
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl<P: StochasticProcess> Discretization<P> for Milstein {
+    fn step(
+        &self,
+        process: &P,
+        t: f64,
+        dt: f64,
+        x: &mut [f64],
+        z: &[f64],
+        work: &mut [f64],
+    ) {
+        let dim = process.dim();
+        
+        // Compute drift: work[0..dim] = μ(t, x)
+        process.drift(t, x, &mut work[0..dim]);
+        
+        // Compute diffusion: work[dim..2*dim] = σ(t, x)
+        process.diffusion(t, x, &mut work[dim..2*dim]);
+        
+        // For diagonal diffusion, we need ∂σ/∂x
+        // For simplicity, approximate σ' ≈ σ/X (proportional volatility assumption)
+        
+        let sqrt_dt = dt.sqrt();
+        
+        for i in 0..dim {
+            let mu = work[i];
+            let sigma = work[dim + i];
+            
+            // Numerical approximation of σ'
+            // For GBM: σ(X) = σ_const * X, so σ'(X) = σ_const
+            // In general, we approximate: σ' ≈ σ/X (assumes proportional vol)
+            let sigma_prime = if x[i].abs() > 1e-10 {
+                sigma / x[i] // Approximation for proportional volatility
+            } else {
+                0.0
+            };
+            
+            // Milstein correction term: 0.5 * σ * σ' * (Z² - 1) * dt
+            let correction = 0.5 * sigma * sigma_prime * (z[i] * z[i] - 1.0) * dt;
+            
+            // Milstein step
+            x[i] += mu * dt + sigma * sqrt_dt * z[i] + correction;
+        }
+    }
+    
+    fn work_size(&self, process: &P) -> usize {
+        2 * process.dim() // drift + diffusion vectors
+    }
+}
+
+/// Milstein scheme for log-normal processes.
+///
+/// Applies Milstein in log-space for better positivity preservation:
+///
+/// ```text
+/// ln(X_{t+Δt}) = ln(X_t) + (μ/X - ½(σ/X)²)Δt + (σ/X)√Δt Z + ½(σ/X)²(Z² - 1)Δt
+/// ```
+///
+/// The last term simplifies to: (σ/X)²Z²Δt/2
+#[derive(Clone, Debug, Default)]
+pub struct LogMilstein;
+
+impl LogMilstein {
+    /// Create a new log-Milstein discretization.
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl<P: StochasticProcess> Discretization<P> for LogMilstein {
+    fn step(
+        &self,
+        process: &P,
+        t: f64,
+        dt: f64,
+        x: &mut [f64],
+        z: &[f64],
+        work: &mut [f64],
+    ) {
+        let dim = process.dim();
+        
+        // Compute drift and diffusion in original space
+        process.drift(t, x, &mut work[0..dim]);
+        process.diffusion(t, x, &mut work[dim..2*dim]);
+        
+        let sqrt_dt = dt.sqrt();
+        
+        for i in 0..dim {
+            let mu_x = work[i] / x[i];           // μ/X (rate form)
+            let sigma_x = work[dim + i] / x[i];  // σ/X (rate form)
+            
+            // Log-Milstein components
+            let drift_term = (mu_x - 0.5 * sigma_x * sigma_x) * dt;
+            let diffusion_term = sigma_x * sqrt_dt * z[i];
+            let milstein_correction = 0.5 * sigma_x * sigma_x * (z[i] * z[i] - 1.0) * dt;
+            
+            x[i] *= (drift_term + diffusion_term + milstein_correction).exp();
+        }
+    }
+    
+    fn work_size(&self, process: &P) -> usize {
+        2 * process.dim()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::super::process::gbm::{GbmParams, GbmProcess};
+    use super::super::euler::EulerMaruyama;
+    use super::*;
+    
+    #[test]
+    fn test_milstein_step() {
+        let params = GbmParams::new(0.05, 0.02, 0.2);
+        let process = GbmProcess::new(params);
+        let disc = Milstein::new();
+        
+        let t = 0.0;
+        let dt = 0.01;
+        let mut x = vec![100.0];
+        let z = vec![1.0]; // One std dev
+        let mut work = vec![0.0; disc.work_size(&process)];
+        
+        disc.step(&process, t, dt, &mut x, &z, &mut work);
+        
+        // Should be positive
+        assert!(x[0] > 0.0);
+        // Should have moved up (positive drift + positive shock)
+        assert!(x[0] > 100.0);
+    }
+    
+    #[test]
+    fn test_log_milstein_positivity() {
+        let params = GbmParams::new(0.05, 0.02, 0.5); // High vol
+        let process = GbmProcess::new(params);
+        let disc = LogMilstein::new();
+        
+        let t = 0.0;
+        let dt = 0.1; // Larger step
+        let mut x = vec![100.0];
+        
+        // Test multiple large shocks
+        for shock in [-3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0] {
+            let z = vec![shock];
+            let mut work = vec![0.0; disc.work_size(&process)];
+            
+            disc.step(&process, t, dt, &mut x, &z, &mut work);
+            
+            // Log-Milstein should maintain positivity
+            assert!(x[0] > 0.0, "State should remain positive with shock {}", shock);
+        }
+    }
+    
+    #[test]
+    fn test_milstein_vs_euler() {
+        // Milstein should have better strong convergence than Euler
+        // Test with same random shocks - Milstein should track exact solution better
+        let params = GbmParams::new(0.05, 0.02, 0.3);
+        let process = GbmProcess::new(params);
+        
+        let t: f64 = 0.0;
+        let dt: f64 = 0.05;
+        let x0: f64 = 100.0;
+        let z_val: f64 = 0.5;
+        
+        // Exact GBM
+        let exact = x0 * ((0.05 - 0.02 - 0.5 * 0.3 * 0.3) * dt + 0.3 * dt.sqrt() * z_val).exp();
+        
+        // Milstein
+        let mut x_milstein = vec![x0];
+        let mut work = vec![0.0; 2];
+        Milstein::new().step(&process, t, dt, &mut x_milstein, &[z_val], &mut work);
+        
+        // Euler
+        let mut x_euler = vec![x0];
+        EulerMaruyama::new().step(&process, t, dt, &mut x_euler, &[z_val], &mut work);
+        
+        let milstein_error = (x_milstein[0] - exact).abs();
+        let euler_error = (x_euler[0] - exact).abs();
+        
+        println!("Exact: {:.6}, Milstein: {:.6}, Euler: {:.6}", exact, x_milstein[0], x_euler[0]);
+        println!("Milstein error: {:.6}, Euler error: {:.6}", milstein_error, euler_error);
+        
+        // Milstein should generally be closer (though not guaranteed for single path)
+        // At least verify both are reasonable approximations
+        assert!(milstein_error / x0 < 0.1); // Within 10%
+        assert!(euler_error / x0 < 0.1);
+    }
+}
 

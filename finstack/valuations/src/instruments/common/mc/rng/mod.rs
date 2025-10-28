@@ -9,6 +9,9 @@ pub mod transforms;
 #[cfg(feature = "mc")]
 pub mod sobol;
 
+#[cfg(feature = "mc")]
+pub mod poisson;
+
 pub use philox::PhiloxRng;
 pub use transforms::*;
 

@@ -10,7 +10,7 @@ Production-grade Monte Carlo simulation framework for derivative pricing with de
 - ✅ **Currency Safety**: All payoffs use `Money` types - no implicit currency mixing
 - ✅ **Quasi-Monte Carlo**: Sobol sequences with Owen scrambling
 - ✅ **Variance Reduction**: Antithetic variates, control variates, moment matching, importance sampling
-- ✅ **Advanced Models**: GBM, Heston (QE discretization), Hull-White ready
+- ✅ **Advanced Models**: GBM, Heston, Hull-White 1F, CIR/CIR++, Merton/Bates jump-diffusion
 - ✅ **Early Exercise**: LSMC (Longstaff-Schwartz) for American/Bermudan options
 - ✅ **Greeks**: Pathwise, LRM, CRN finite differences
 
@@ -20,6 +20,8 @@ Production-grade Monte Carlo simulation framework for derivative pricing with de
 - **Barrier**: Up/Down, In/Out with bridge corrections and Gobet-Miri adjustment
 - **Lookback**: Fixed and floating strike
 - **American**: Via LSMC with polynomial or Laguerre basis
+- **Basket**: Sum, average, max/min, exchange options (with Margrabe validation)
+- **Rates**: Caps, floors with Hull-White 1F
 
 ## Quick Start
 

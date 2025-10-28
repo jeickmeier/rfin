@@ -1,0 +1,467 @@
+//! Basket option payoffs for multi-asset derivatives.
+//!
+//! Provides payoffs based on combinations of multiple underlying assets:
+//! - Sum: Total of all asset values
+//! - Average: Arithmetic mean
+//! - Max: Best-of (maximum value)
+//! - Min: Worst-of (minimum value)
+//!
+//! Uses existing `MultiGbmProcess` for correlated multi-asset simulation.
+
+use super::super::traits::{Payoff, PathState};
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
+
+/// Type of basket aggregation for multi-asset payoffs.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum BasketType {
+    /// Sum of all asset values
+    Sum,
+    /// Arithmetic average of all asset values
+    Average,
+    /// Maximum asset value (best-of)
+    Max,
+    /// Minimum asset value (worst-of)
+    Min,
+}
+
+/// Basket call option payoff.
+///
+/// A call option where the underlying is a basket of multiple assets.
+/// The basket value is computed according to the `basket_type`.
+///
+/// # Example
+///
+/// ```ignore
+/// use finstack_valuations::instruments::common::mc::payoff::basket::*;
+///
+/// // Best-of call on 3 assets
+/// let basket_call = BasketCall::new(
+///     100.0,           // strike
+///     1_000_000.0,     // notional
+///     BasketType::Max,
+///     3,               // number of assets
+///     252,             // maturity step
+///     Currency::USD,
+/// );
+/// ```
+#[derive(Clone, Debug)]
+pub struct BasketCall {
+    /// Strike price
+    pub strike: f64,
+    /// Notional amount
+    pub notional: f64,
+    /// Type of basket aggregation
+    pub basket_type: BasketType,
+    /// Number of assets in the basket
+    pub num_assets: usize,
+    /// Step index at maturity
+    pub maturity_step: usize,
+    /// Currency for the payoff
+    pub currency: Currency,
+    
+    // State tracking (public for testing)
+    pub terminal_basket_value: f64,
+}
+
+impl BasketCall {
+    /// Create a new basket call option.
+    ///
+    /// # Arguments
+    ///
+    /// * `strike` - Strike price
+    /// * `notional` - Notional amount
+    /// * `basket_type` - How to aggregate asset values
+    /// * `num_assets` - Number of assets in the basket
+    /// * `maturity_step` - Step index at maturity
+    /// * `currency` - Currency for the payoff
+    pub fn new(
+        strike: f64,
+        notional: f64,
+        basket_type: BasketType,
+        num_assets: usize,
+        maturity_step: usize,
+        currency: Currency,
+    ) -> Self {
+        Self {
+            strike,
+            notional,
+            basket_type,
+            num_assets,
+            maturity_step,
+            currency,
+            terminal_basket_value: 0.0,
+        }
+    }
+    
+    /// Compute basket value from asset values.
+    pub fn compute_basket_value(&self, asset_values: &[f64]) -> f64 {
+        match self.basket_type {
+            BasketType::Sum => asset_values.iter().sum(),
+            BasketType::Average => {
+                let sum: f64 = asset_values.iter().sum();
+                sum / asset_values.len() as f64
+            }
+            BasketType::Max => {
+                asset_values.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+            }
+            BasketType::Min => {
+                asset_values.iter().copied().fold(f64::INFINITY, f64::min)
+            }
+        }
+    }
+}
+
+impl Payoff for BasketCall {
+    fn on_event(&mut self, state: &PathState) {
+        // Update terminal value if at maturity
+        if state.step == self.maturity_step {
+            // Extract asset values from path state
+            // For multi-asset, we use keys "spot_0", "spot_1", etc.
+            let mut asset_values = Vec::with_capacity(self.num_assets);
+            for i in 0..self.num_assets {
+                let key = format!("spot_{}", i);
+                let value = state.get(&key).unwrap_or(0.0);
+                asset_values.push(value);
+            }
+            
+            self.terminal_basket_value = self.compute_basket_value(&asset_values);
+        }
+    }
+    
+    fn value(&self, _currency: Currency) -> Money {
+        // Call payoff: max(S - K, 0) * N
+        let intrinsic = (self.terminal_basket_value - self.strike).max(0.0);
+        Money::new(intrinsic * self.notional, self.currency)
+    }
+    
+    fn reset(&mut self) {
+        self.terminal_basket_value = 0.0;
+    }
+}
+
+/// Basket put option payoff.
+///
+/// A put option where the underlying is a basket of multiple assets.
+#[derive(Clone, Debug)]
+pub struct BasketPut {
+    /// Strike price
+    pub strike: f64,
+    /// Notional amount
+    pub notional: f64,
+    /// Type of basket aggregation
+    pub basket_type: BasketType,
+    /// Number of assets in the basket
+    pub num_assets: usize,
+    /// Step index at maturity
+    pub maturity_step: usize,
+    /// Currency for the payoff
+    pub currency: Currency,
+    
+    // State tracking (public for testing)
+    pub terminal_basket_value: f64,
+}
+
+impl BasketPut {
+    /// Create a new basket put option.
+    pub fn new(
+        strike: f64,
+        notional: f64,
+        basket_type: BasketType,
+        num_assets: usize,
+        maturity_step: usize,
+        currency: Currency,
+    ) -> Self {
+        Self {
+            strike,
+            notional,
+            basket_type,
+            num_assets,
+            maturity_step,
+            currency,
+            terminal_basket_value: 0.0,
+        }
+    }
+    
+    /// Compute basket value from asset values.
+    pub fn compute_basket_value(&self, asset_values: &[f64]) -> f64 {
+        match self.basket_type {
+            BasketType::Sum => asset_values.iter().sum(),
+            BasketType::Average => {
+                let sum: f64 = asset_values.iter().sum();
+                sum / asset_values.len() as f64
+            }
+            BasketType::Max => {
+                asset_values.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+            }
+            BasketType::Min => {
+                asset_values.iter().copied().fold(f64::INFINITY, f64::min)
+            }
+        }
+    }
+}
+
+impl Payoff for BasketPut {
+    fn on_event(&mut self, state: &PathState) {
+        if state.step == self.maturity_step {
+            // Extract asset values from path state
+            let mut asset_values = Vec::with_capacity(self.num_assets);
+            for i in 0..self.num_assets {
+                let key = format!("spot_{}", i);
+                let value = state.get(&key).unwrap_or(0.0);
+                asset_values.push(value);
+            }
+            
+            self.terminal_basket_value = self.compute_basket_value(&asset_values);
+        }
+    }
+    
+    fn value(&self, _currency: Currency) -> Money {
+        // Put payoff: max(K - S, 0) * N
+        let intrinsic = (self.strike - self.terminal_basket_value).max(0.0);
+        Money::new(intrinsic * self.notional, self.currency)
+    }
+    
+    fn reset(&mut self) {
+        self.terminal_basket_value = 0.0;
+    }
+}
+
+/// Exchange option (Margrabe formula).
+///
+/// Option to exchange asset 2 for asset 1: max(S_1 - S_2, 0).
+/// This is a special case of a basket option with exact analytical pricing.
+#[derive(Clone, Debug)]
+pub struct ExchangeOption {
+    /// Index of first asset
+    pub asset1_idx: usize,
+    /// Index of second asset
+    pub asset2_idx: usize,
+    /// Notional amount
+    pub notional: f64,
+    /// Step index at maturity
+    pub maturity_step: usize,
+    /// Currency for the payoff
+    pub currency: Currency,
+    
+    // State tracking
+    terminal_s1: f64,
+    terminal_s2: f64,
+}
+
+impl ExchangeOption {
+    /// Create a new exchange option.
+    ///
+    /// # Arguments
+    ///
+    /// * `asset1_idx` - Index of asset to receive
+    /// * `asset2_idx` - Index of asset to deliver
+    /// * `notional` - Notional amount
+    /// * `maturity_step` - Step index at maturity
+    /// * `currency` - Currency for the payoff
+    pub fn new(
+        asset1_idx: usize,
+        asset2_idx: usize,
+        notional: f64,
+        maturity_step: usize,
+        currency: Currency,
+    ) -> Self {
+        Self {
+            asset1_idx,
+            asset2_idx,
+            notional,
+            maturity_step,
+            currency,
+            terminal_s1: 0.0,
+            terminal_s2: 0.0,
+        }
+    }
+}
+
+impl Payoff for ExchangeOption {
+    fn on_event(&mut self, state: &PathState) {
+        if state.step == self.maturity_step {
+            let key1 = format!("spot_{}", self.asset1_idx);
+            let key2 = format!("spot_{}", self.asset2_idx);
+            
+            self.terminal_s1 = state.get(&key1).unwrap_or(0.0);
+            self.terminal_s2 = state.get(&key2).unwrap_or(0.0);
+        }
+    }
+    
+    fn value(&self, _currency: Currency) -> Money {
+        // Exchange payoff: max(S_1 - S_2, 0) * N
+        let intrinsic = (self.terminal_s1 - self.terminal_s2).max(0.0);
+        Money::new(intrinsic * self.notional, self.currency)
+    }
+    
+    fn reset(&mut self) {
+        self.terminal_s1 = 0.0;
+        self.terminal_s2 = 0.0;
+    }
+}
+
+/// Margrabe formula for exchange option pricing (analytical benchmark).
+///
+/// Computes the exact price of an option to exchange asset 2 for asset 1.
+///
+/// # Arguments
+///
+/// * `s1` - Current price of asset 1
+/// * `s2` - Current price of asset 2
+/// * `sigma1` - Volatility of asset 1
+/// * `sigma2` - Volatility of asset 2
+/// * `rho` - Correlation between assets
+/// * `time_to_maturity` - Time to maturity in years
+/// * `q1` - Dividend yield of asset 1
+/// * `q2` - Dividend yield of asset 2
+///
+/// # Returns
+///
+/// Analytical price of the exchange option
+///
+/// # Formula
+///
+/// ```text
+/// V = S_1 e^{-q_1 T} Φ(d_1) - S_2 e^{-q_2 T} Φ(d_2)
+/// where:
+///   σ = √(σ_1² + σ_2² - 2ρσ_1σ_2)
+///   d_1 = [ln(S_1/S_2) + (q_2 - q_1 + σ²/2)T] / (σ√T)
+///   d_2 = d_1 - σ√T
+/// ```
+pub fn margrabe_exchange_option(
+    s1: f64,
+    s2: f64,
+    sigma1: f64,
+    sigma2: f64,
+    rho: f64,
+    time_to_maturity: f64,
+    q1: f64,
+    q2: f64,
+) -> f64 {
+    use finstack_core::math::special_functions::norm_cdf;
+    
+    // Combined volatility
+    let sigma_sq = sigma1 * sigma1 + sigma2 * sigma2 - 2.0 * rho * sigma1 * sigma2;
+    let sigma = sigma_sq.sqrt();
+    
+    // Edge case: if combined volatility is zero, return intrinsic value
+    if sigma < 1e-10 {
+        // No uncertainty, so value is forward intrinsic
+        let df1 = (-q1 * time_to_maturity).exp();
+        let df2 = (-q2 * time_to_maturity).exp();
+        return (s1 * df1 - s2 * df2).max(0.0);
+    }
+    
+    let sigma_sqrt_t = sigma * time_to_maturity.sqrt();
+    
+    // d1 and d2
+    let ln_ratio = (s1 / s2).ln();
+    let d1 = (ln_ratio + (q2 - q1 + 0.5 * sigma_sq) * time_to_maturity) / sigma_sqrt_t;
+    let d2 = d1 - sigma_sqrt_t;
+    
+    // Discount factors
+    let df1 = (-q1 * time_to_maturity).exp();
+    let df2 = (-q2 * time_to_maturity).exp();
+    
+    // Margrabe formula
+    s1 * df1 * norm_cdf(d1) - s2 * df2 * norm_cdf(d2)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_basket_type_sum() {
+        let basket = BasketCall::new(
+            100.0,
+            1.0,
+            BasketType::Sum,
+            3,
+            1,
+            Currency::USD,
+        );
+        
+        let values = vec![30.0, 40.0, 50.0];
+        assert_eq!(basket.compute_basket_value(&values), 120.0);
+    }
+    
+    #[test]
+    fn test_basket_type_average() {
+        let basket = BasketCall::new(
+            100.0,
+            1.0,
+            BasketType::Average,
+            3,
+            1,
+            Currency::USD,
+        );
+        
+        let values = vec![30.0, 40.0, 50.0];
+        assert_eq!(basket.compute_basket_value(&values), 40.0);
+    }
+    
+    #[test]
+    fn test_basket_type_max() {
+        let basket = BasketCall::new(
+            100.0,
+            1.0,
+            BasketType::Max,
+            3,
+            1,
+            Currency::USD,
+        );
+        
+        let values = vec![30.0, 50.0, 40.0];
+        assert_eq!(basket.compute_basket_value(&values), 50.0);
+    }
+    
+    #[test]
+    fn test_basket_type_min() {
+        let basket = BasketCall::new(
+            100.0,
+            1.0,
+            BasketType::Min,
+            3,
+            1,
+            Currency::USD,
+        );
+        
+        let values = vec![30.0, 50.0, 40.0];
+        assert_eq!(basket.compute_basket_value(&values), 30.0);
+    }
+    
+    #[test]
+    fn test_margrabe_symmetry() {
+        // Exchange option should be zero when assets are identical
+        let price = margrabe_exchange_option(
+            100.0, 100.0, // Same spot
+            0.2, 0.2,     // Same vol
+            1.0,          // Perfect correlation
+            1.0,          // 1 year
+            0.0, 0.0,     // No dividends
+        );
+        
+        // Should be approximately zero (numerical tolerance)
+        assert!(price.abs() < 1e-10);
+    }
+    
+    #[test]
+    fn test_margrabe_basic() {
+        // Basic sanity check: option to exchange cheaper for more expensive
+        let price = margrabe_exchange_option(
+            110.0, 100.0, // S1 > S2
+            0.2, 0.2,     // Same vol
+            0.5,          // Moderate correlation
+            1.0,          // 1 year
+            0.0, 0.0,     // No dividends
+        );
+        
+        // Should be positive (in the money)
+        assert!(price > 0.0);
+        // Rough bound: at least intrinsic value
+        assert!(price >= 10.0);
+    }
+}
+
