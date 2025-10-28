@@ -15,6 +15,8 @@
 //! ## Usage
 //!
 //! ```rust
+//! # use finstack_core::Result;
+//! # fn main() -> Result<()> {
 //! use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
 //!
 //! // Uniform grid: 1 year with 252 trading days
@@ -23,6 +25,8 @@
 //! // Custom grid with irregular periods
 //! let times = vec![0.0, 0.25, 0.5, 0.75, 1.0]; // Quarterly
 //! let grid = TimeGrid::from_times(times)?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ## Converting from Dates
