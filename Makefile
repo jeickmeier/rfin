@@ -1,12 +1,30 @@
-.PHONY: help setup-python build build-prod test test-slow clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test
+.PHONY: help setup-python build build-prod test test-slow test-core test-core-slow test-io test-io-slow test-portfolio test-portfolio-slow test-scenarios test-scenarios-slow test-statements test-statements-slow test-valuations test-valuations-slow clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test
 
 help:
 	@echo "Available targets:"
 	@echo "  setup-python  - Set up Python development environment with uv"
 	@echo "  build         - Build all crates"
 	@echo "  build-prod    - Build all crates optimized without debug info"
+	@echo ""
+	@echo "Testing (all crates):"
 	@echo "  test          - Run all tests (excluding slow tests)"
 	@echo "  test-slow     - Run all tests including slow tests"
+	@echo ""
+	@echo "Testing (by crate):"
+	@echo "  test-core             - Run core crate tests only"
+	@echo "  test-core-slow        - Run core crate tests including slow"
+	@echo "  test-io               - Run io crate tests only"
+	@echo "  test-io-slow          - Run io crate tests including slow"
+	@echo "  test-portfolio        - Run portfolio crate tests only"
+	@echo "  test-portfolio-slow   - Run portfolio crate tests including slow"
+	@echo "  test-scenarios        - Run scenarios crate tests only"
+	@echo "  test-scenarios-slow   - Run scenarios crate tests including slow"
+	@echo "  test-statements       - Run statements crate tests only"
+	@echo "  test-statements-slow  - Run statements crate tests including slow"
+	@echo "  test-valuations       - Run valuations crate tests only"
+	@echo "  test-valuations-slow  - Run valuations crate tests including slow"
+	@echo ""
+	@echo "Other:"
 	@echo "  fmt           - Format all code"
 	@echo "  lint          - Run linters"
 	@echo "  clean         - Clean build artifacts"
@@ -39,6 +57,28 @@ test:
 
 test-slow:
 	cargo test --workspace --exclude finstack-py --features mc,slow
+
+# Per-crate test targets
+test-core:
+	cargo test -p finstack-core
+
+test-io:
+	cargo test -p finstack-io
+
+test-portfolio:
+	cargo test -p finstack-portfolio
+
+test-scenarios:
+	cargo test -p finstack-scenarios
+
+test-statements:
+	cargo test -p finstack-statements
+
+test-valuations:
+	cargo test -p finstack-valuations --features mc
+
+test-valuations-slow:
+	cargo test -p finstack-valuations --features mc,slow
 
 fmt:
 	cargo fmt --all
