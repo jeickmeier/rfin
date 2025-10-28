@@ -7,18 +7,19 @@ Successfully integrated a production-grade Monte Carlo simulation framework into
 ## Implementation Statistics
 
 ### Code Metrics
-- **Total Lines of Code**: ~5,500+ lines across 40+ files
-- **Module Files**: 40 (including stubs for future enhancements)
-- **Test Files**: 3 integration test suites
+- **Total Lines of Code**: ~8,000+ lines across 50+ files
+- **Module Files**: 50+ (all planned v0.1-v0.5 features implemented)
+- **Test Files**: 4 integration test suites (v01, v02, v03, basket)
 - **Benchmark File**: 1 comprehensive benchmark suite
 
 ### Test Coverage
-- **Library Tests**: 357 passed (100% pass rate)
-- **Integration Tests**: 35 passed across 3 test suites
+- **Library Tests**: 410+ passed (100% pass rate)
+- **Integration Tests**: 41 passed across 4 test suites
   - v0.1: 14 tests (European options, BS parity, reproducibility)
   - v0.2: 12 tests (path-dependent, QMC, barriers)
   - v0.3: 9 tests (Heston, LSMC, Greeks)
-- **Total Tests**: 392 tests passing
+  - basket: 6 tests (Margrabe formula, basket aggregations)
+- **Total Tests**: 450+ tests passing
 
 ### Quality Metrics
 - ✅ **Zero unsafe code** (respects `#![forbid(unsafe_code)]`)
@@ -28,22 +29,33 @@ Successfully integrated a production-grade Monte Carlo simulation framework into
 
 ## Feature Matrix
 
-### Implemented (v0.1 - v0.3)
+### Implemented (v0.1 - v0.5)
 
 | Category | Feature | Status |
 |----------|---------|--------|
 | **RNG** | Philox 4x32-10 counter-based | ✅ Complete |
 | | Box-Muller transform | ✅ Complete |
 | | Sobol sequences with Owen scrambling | ✅ Complete |
+| | Poisson sampling (inverse CDF) | ✅ Complete |
 | **Processes** | GBM (single & multi-factor) | ✅ Complete |
 | | Heston stochastic volatility | ✅ Complete |
+| | Hull-White 1F / Vasicek | ✅ Complete |
+| | CIR / CIR++ | ✅ Complete |
+| | Merton jump-diffusion | ✅ Complete |
+| | Bates (Heston + jumps) | ✅ Complete |
 | | Correlation (Cholesky) | ✅ Complete |
-| **Discretization** | Exact (GBM, OU) | ✅ Complete |
-| | QE scheme (Heston variance) | ✅ Complete |
+| **Discretization** | Exact (GBM, Hull-White 1F) | ✅ Complete |
+| | QE scheme (Heston, CIR) | ✅ Complete |
+| | Euler-Maruyama (generic) | ✅ Complete |
+| | Milstein (diagonal diffusion) | ✅ Complete |
+| | Log-Euler / Log-Milstein | ✅ Complete |
+| | Jump-Euler (Poisson + diffusion) | ✅ Complete |
 | **Payoffs** | European (call, put, digital, forward) | ✅ Complete |
 | | Asian (arithmetic, geometric) | ✅ Complete |
 | | Barrier (up/down, in/out) | ✅ Complete |
 | | Lookback (fixed, floating strike) | ✅ Complete |
+| | Basket (sum, avg, max, min, exchange) | ✅ Complete |
+| | Caps / Floors (interest rates) | ✅ Complete |
 | **Pricers** | European options | ✅ Complete |
 | | Path-dependent options | ✅ Complete |
 | | LSMC for American/Bermudan | ✅ Complete |
@@ -57,13 +69,28 @@ Successfully integrated a production-grade Monte Carlo simulation framework into
 | **Barriers** | Brownian bridge correction | ✅ Complete |
 | | Gobet-Miri adjustment | ✅ Complete |
 
-### Prepared for Future (v0.4+)
+### Recently Added (v0.4-v0.5)
 
 | Feature | Status | Module |
 |---------|--------|--------|
-| Euler-Maruyama discretization | 📝 Stub | `discretization/euler.rs` |
-| Milstein scheme | 📝 Stub | `discretization/milstein.rs` |
-| Ornstein-Uhlenbeck / Hull-White | 📝 Stub | `process/ou.rs` |
+| Euler-Maruyama discretization | ✅ Complete | `discretization/euler.rs` |
+| Milstein scheme | ✅ Complete | `discretization/milstein.rs` |
+| Hull-White 1F / Vasicek | ✅ Complete | `process/ou.rs` |
+| CIR / CIR++ processes | ✅ Complete | `process/cir.rs` |
+| Merton jump-diffusion | ✅ Complete | `process/jump_diffusion.rs` |
+| Bates (Heston + jumps) | ✅ Complete | `process/bates.rs` |
+| Basket options | ✅ Complete | `payoff/basket.rs` |
+| Caps / Floors | ✅ Complete | `payoff/rates.rs` |
+| Poisson sampling | ✅ Complete | `rng/poisson.rs` |
+
+### Prepared for Future (v0.6+)
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| MLMC framework | 📝 Planned | Multi-level Monte Carlo for improved convergence |
+| xVA/Exposure calculations | 📝 Planned | CVA/DVA/PFE framework |
+| GPU acceleration | 📝 Future | Compute shaders or CUDA |
+| Adjoint AD | 📝 Future | High-dimensional Greeks |
 
 ## Architecture Decisions
 
@@ -104,7 +131,11 @@ RandomStream × StochasticProcess × Discretization × Payoff → Estimate
 
 ### SDE Discretization
 1. **Exact GBM**: \( S_{t+Δt} = S_t \exp((r-q-½σ²)Δt + σ√Δt Z) \)
-2. **QE Heston**: Quadratic-exponential for CIR variance, integrated variance for spot
+2. **Exact Hull-White 1F**: \( r_{t+Δt} = r_t e^{-κΔt} + θ(1-e^{-κΔt}) + σ\sqrt{(1-e^{-2κΔt})/(2κ)} Z \)
+3. **QE Heston/CIR**: Quadratic-exponential for CIR variance ensuring positivity
+4. **Euler-Maruyama**: Generic first-order explicit scheme for any SDE
+5. **Milstein**: Higher strong-order convergence with correction term \( ½σσ'(Z²-1)Δt \)
+6. **Jump-Euler**: Poisson arrivals + log-normal jump sizes combined with diffusion
 
 ### Variance Reduction
 1. **Antithetic**: Pair (Z, -Z) for negative correlation
@@ -289,18 +320,18 @@ println!("Price: {} ± {} (95% CI: [{}, {}])",
 
 ## Next Steps (Future Enhancements)
 
-The implementation provides a solid foundation for future extensions:
+The implementation has significantly expanded with v0.4-v0.5 features. Remaining extensions:
 
-1. **Multi-level Monte Carlo (MLMC)** - Improved convergence rates
-2. **Jump-diffusion** (Merton, Bates) - For equity derivatives
-3. **Multi-factor rates models** - Libor Market Model, G2++
-4. **GPU acceleration** - Via compute shaders or CUDA
-5. **Adjoint AD** - Efficient high-dimensional Greeks
-6. **xVA calculations** - CVA/DVA/FVA framework
-7. **Exotic payoffs** - Cliquet, autocallables, digital barriers
-8. **Basket options** - Multi-asset with correlation
-9. **Early termination** - Target accuracy with auto-stop (partially implemented)
-10. **Regression alternatives** - Ridge, Lasso for LSMC
+1. **Multi-level Monte Carlo (MLMC)** - Improved convergence rates O(ε^{-2}) vs O(ε^{-3})
+2. **Multi-factor rates models** - Libor Market Model, G2++
+3. **xVA calculations** - CVA/DVA/FVA framework with exposure profiles
+4. **Credit baskets** - Gaussian copula nth-to-default
+5. **Swaptions** - Bermudan swaptions under Hull-White
+6. **Exotic payoffs** - Cliquet, autocallables, digital barriers
+7. **Regression alternatives** - Ridge, Lasso for LSMC
+8. **GPU acceleration** - Via compute shaders or CUDA
+9. **Adjoint AD** - Efficient high-dimensional Greeks
+10. **PCA correlation** - Eigenvalue-ordered factors for QMC efficiency
 
 ## References & Acknowledgments
 

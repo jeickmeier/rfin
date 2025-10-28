@@ -64,6 +64,9 @@ pub mod time_grid;
 pub mod traits;
 pub mod variance_reduction;
 
+#[cfg(feature = "mc")]
+pub mod mlmc;
+
 /// Prelude for convenient imports
 pub mod prelude {
     // Engine and configuration
@@ -130,5 +133,9 @@ pub mod prelude {
     // Variance reduction
     pub use super::variance_reduction::antithetic::AntitheticConfig;
     pub use super::variance_reduction::control_variate::{black_scholes_call, black_scholes_put};
+    
+    // MLMC
+    #[cfg(feature = "mc")]
+    pub use super::mlmc::{MlmcEngine, MlmcConfig, MlmcLevel, MlmcEstimate, optimal_allocation};
 }
 
