@@ -69,6 +69,8 @@ pub enum InstrumentType {
     StructuredCredit = 26,
     /// Private Markets Fund variant.
     PrivateMarketsFund = 30,
+    /// Revolving Credit variant.
+    RevolvingCredit = 31,
 }
 
 impl InstrumentType {
@@ -105,6 +107,7 @@ impl InstrumentType {
             InstrumentType::FRA => "FRA",
             InstrumentType::StructuredCredit => "StructuredCredit",
             InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
+            InstrumentType::RevolvingCredit => "RevolvingCredit",
         }
     }
 }
@@ -139,6 +142,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::FRA => "fra",
             InstrumentType::StructuredCredit => "structured_credit",
             InstrumentType::PrivateMarketsFund => "private_markets_fund",
+            InstrumentType::RevolvingCredit => "revolving_credit",
         };
         write!(f, "{}", label)
     }
@@ -182,6 +186,7 @@ impl std::str::FromStr for InstrumentType {
                 Ok(InstrumentType::StructuredCredit)
             }
             "private_markets_fund" | "pmf" => Ok(InstrumentType::PrivateMarketsFund),
+            "revolving_credit" | "revolver" | "rc" => Ok(InstrumentType::RevolvingCredit),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }
@@ -618,6 +623,17 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         Box::new(
             crate::instruments::structured_credit::StructuredCreditDiscountingPricer::default(),
         ),
+    );
+
+    // Revolving Credit
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::Discounting),
+        Box::new(crate::instruments::revolving_credit::pricer::RevolvingCreditDiscountingPricer::new()),
+    );
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::MonteCarloGBM),
+        Box::new(crate::instruments::revolving_credit::pricer::RevolvingCreditMcPricer::new()),
     );
 }
 

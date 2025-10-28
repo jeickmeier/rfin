@@ -1,0 +1,282 @@
+//! Revolving credit facility types and instrument trait implementations.
+//!
+//! Defines the `RevolvingCredit` instrument with support for deterministic and
+//! stochastic cashflow modeling. Supports standard fee structures (upfront,
+//! commitment, usage, and facility fees) and both fixed and floating rate bases.
+
+use finstack_core::dates::{DayCount, Date, Frequency};
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+
+use crate::instruments::common::traits::Attributes;
+
+/// Revolving credit facility instrument.
+///
+/// Models a credit facility with draws/repayments, interest payments on drawn
+/// amounts, and fees (commitment, usage, facility, upfront). Supports both
+/// deterministic schedules and stochastic utilization via Monte Carlo.
+///
+/// # Example
+/// ```ignore
+/// let facility = RevolvingCredit::builder()
+///     .id("RC-001".into())
+///     .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+///     .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+///     .commitment_date(start)
+///     .maturity_date(maturity)
+///     .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
+///     .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+///     .build()?;
+/// ```
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RevolvingCredit {
+    /// Unique identifier for the facility.
+    pub id: InstrumentId,
+
+    /// Total committed amount for the facility.
+    pub commitment_amount: Money,
+
+    /// Current drawn amount (initial utilization).
+    pub drawn_amount: Money,
+
+    /// Date when the facility becomes available.
+    pub commitment_date: Date,
+
+    /// Date when the facility expires.
+    pub maturity_date: Date,
+
+    /// Base rate specification (fixed or floating).
+    pub base_rate_spec: BaseRateSpec,
+
+    /// Day count convention for interest accrual.
+    pub day_count: DayCount,
+
+    /// Payment frequency for interest and fees.
+    pub payment_frequency: Frequency,
+
+    /// Fee structure for the facility.
+    pub fees: RevolvingCreditFees,
+
+    /// Draw and repayment schedule (deterministic or stochastic).
+    pub draw_repay_spec: DrawRepaySpec,
+
+    /// Discount curve identifier for pricing.
+    pub disc_id: CurveId,
+
+    /// Attributes for scenario selection and tagging.
+    pub attributes: Attributes,
+}
+
+/// Base rate specification for revolving credit interest.
+///
+/// Defines whether the facility pays a fixed rate or a floating rate
+/// tied to a market index plus margin.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum BaseRateSpec {
+    /// Fixed rate (annualized).
+    Fixed {
+        /// Annual interest rate (e.g., 0.05 for 5%).
+        rate: f64,
+    },
+
+    /// Floating rate linked to an index.
+    Floating {
+        /// Forward curve identifier for the floating index (e.g., USD-SOFR-3M).
+        index_id: CurveId,
+        /// Margin over the index in basis points.
+        margin_bp: f64,
+        /// Reset frequency for rate fixings.
+        reset_freq: Frequency,
+    },
+}
+
+/// Fee structure for a revolving credit facility.
+///
+/// Contains the various fees charged on the facility:
+/// - Upfront: one-time fee at commitment
+/// - Commitment: annual fee on undrawn amount
+/// - Usage: annual fee on drawn amount
+/// - Facility: annual fee on total commitment
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RevolvingCreditFees {
+    /// One-time upfront fee paid at commitment.
+    pub upfront_fee: Option<Money>,
+
+    /// Annual commitment fee rate on undrawn amount (basis points).
+    pub commitment_fee_bp: f64,
+
+    /// Annual usage fee rate on drawn amount (basis points).
+    pub usage_fee_bp: f64,
+
+    /// Annual facility fee rate on total commitment (basis points).
+    pub facility_fee_bp: f64,
+}
+
+/// Draw and repayment specification.
+///
+/// Determines whether the facility uses a known (deterministic) schedule
+/// or stochastic utilization for Monte Carlo pricing.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum DrawRepaySpec {
+    /// Deterministic schedule of draws and repayments.
+    Deterministic(Vec<DrawRepayEvent>),
+
+    /// Stochastic utilization for Monte Carlo simulation.
+    Stochastic(StochasticUtilizationSpec),
+}
+
+/// A single draw or repayment event.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DrawRepayEvent {
+    /// Date of the draw or repayment.
+    pub date: Date,
+
+    /// Amount being drawn or repaid (absolute value).
+    pub amount: Money,
+
+    /// True if this is a draw, false if it's a repayment.
+    pub is_draw: bool,
+}
+
+/// Specification for stochastic utilization modeling.
+///
+/// Defines the stochastic process and simulation parameters for
+/// Monte Carlo pricing with uncertain draw/repayment patterns.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StochasticUtilizationSpec {
+    /// Utilization process specification.
+    pub utilization_process: UtilizationProcess,
+
+    /// Number of Monte Carlo paths to simulate.
+    pub num_paths: usize,
+
+    /// Random seed for reproducibility (None for non-deterministic).
+    pub seed: Option<u64>,
+}
+
+/// Utilization process for stochastic draws/repayments.
+///
+/// For the 80/20 implementation, we support a single mean-reverting process.
+/// This can be extended in the future to support other processes (jump-diffusion,
+/// regime-switching, etc.).
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum UtilizationProcess {
+    /// Mean-reverting utilization rate process.
+    ///
+    /// Models utilization as reverting to a long-term target with specified
+    /// speed and volatility. Uses Ornstein-Uhlenbeck dynamics:
+    /// dU(t) = speed * (target_rate - U(t)) * dt + volatility * dW(t)
+    MeanReverting {
+        /// Target utilization rate (0.0 to 1.0).
+        target_rate: f64,
+        /// Mean reversion speed (annualized).
+        speed: f64,
+        /// Volatility of utilization changes (annualized).
+        volatility: f64,
+    },
+}
+
+impl RevolvingCredit {
+    /// Get the current undrawn amount.
+    pub fn undrawn_amount(&self) -> finstack_core::Result<Money> {
+        self.commitment_amount.checked_sub(self.drawn_amount)
+    }
+
+    /// Get the current utilization rate (drawn / committed).
+    pub fn utilization_rate(&self) -> f64 {
+        if self.commitment_amount.amount() == 0.0 {
+            0.0
+        } else {
+            self.drawn_amount.amount() / self.commitment_amount.amount()
+        }
+    }
+
+    /// Check if the facility uses deterministic cashflows.
+    pub fn is_deterministic(&self) -> bool {
+        matches!(self.draw_repay_spec, DrawRepaySpec::Deterministic(_))
+    }
+
+    /// Check if the facility uses stochastic utilization.
+    pub fn is_stochastic(&self) -> bool {
+        matches!(self.draw_repay_spec, DrawRepaySpec::Stochastic(_))
+    }
+}
+
+// Implement the Instrument trait
+impl crate::instruments::common::traits::Instrument for RevolvingCredit {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    fn key(&self) -> crate::pricer::InstrumentType {
+        crate::pricer::InstrumentType::RevolvingCredit
+    }
+
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
+
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        // Route to appropriate pricer based on spec type
+        if self.is_deterministic() {
+            crate::instruments::revolving_credit::pricer::RevolvingCreditDiscountingPricer::price_deterministic(
+                self, curves, as_of,
+            )
+        } else {
+            #[cfg(feature = "mc")]
+            {
+                crate::instruments::revolving_credit::pricer::RevolvingCreditMcPricer::price_stochastic(
+                    self, curves, as_of,
+                )
+            }
+            #[cfg(not(feature = "mc"))]
+            {
+                Err(finstack_core::error::InputError::Invalid.into())
+            }
+        }
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn(
+            self, curves, as_of, base_value, metrics,
+        )
+    }
+}
+
+
+// Implement HasDiscountCurve for generic metric calculators
+impl crate::instruments::common::pricing::HasDiscountCurve for RevolvingCredit {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.disc_id
+    }
+}
+
