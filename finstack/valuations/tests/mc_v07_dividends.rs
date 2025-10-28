@@ -1,8 +1,12 @@
 //! Monte Carlo v0.7 integration tests - Discrete dividends.
 //!
 //! Tests GBM with discrete dividends for equity derivative pricing.
+//!
+//! NOTE: These tests use many MC paths and take a long time to run.
+//! They are ignored by default but can be run with: cargo test -- --ignored
 
 #![cfg(feature = "mc")]
+#![allow(unused_attributes)]  // For #[ignore] on all tests
 
 use finstack_core::currency::Currency;
 use finstack_valuations::instruments::common::mc::discretization::exact_gbm_div::ExactGbmWithDividends;
@@ -23,6 +27,7 @@ use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_no_dividends_matches_standard_gbm() {
     // GBM with empty dividend schedule should match standard GBM
     let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2));
@@ -85,6 +90,7 @@ fn test_no_dividends_matches_standard_gbm() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_cash_dividend_reduces_call_value() {
     // Call option value should decrease with cash dividends
     let spot = 100.0;
@@ -143,6 +149,7 @@ fn test_cash_dividend_reduces_call_value() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_cash_dividend_increases_put_value() {
     // Put option value should increase with cash dividends
     let spot = 100.0;
@@ -201,6 +208,7 @@ fn test_cash_dividend_increases_put_value() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_proportional_dividend_vs_continuous_yield() {
     // Proportional dividends should behave similarly to continuous yield
     let spot = 100.0;
@@ -268,6 +276,7 @@ fn test_proportional_dividend_vs_continuous_yield() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_dividend_timing_matters() {
     // Dividends early vs late should affect option value differently
     let spot = 100.0;
@@ -341,6 +350,7 @@ fn test_dividend_timing_matters() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_multiple_dividends_accumulate() {
     // Multiple dividends should have cumulative effect
     let spot = 100.0;

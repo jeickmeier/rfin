@@ -2,8 +2,12 @@
 //!
 //! Tests Monte Carlo Greeks (pathwise, LRM, finite-diff) against
 //! analytical Black-Scholes Greeks.
+//!
+//! NOTE: These tests use 200,000+ paths and take a long time to run.
+//! They are ignored by default but can be run with: cargo test -- --ignored
 
 #![cfg(feature = "mc")]
+#![allow(unused_attributes)]  // For #[ignore] on all tests
 
 use finstack_core::currency::Currency;
 use finstack_valuations::instruments::common::mc::analytical::black_scholes_greeks::{
@@ -20,6 +24,7 @@ use finstack_valuations::instruments::common::mc::process::gbm::{GbmParams, GbmP
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_pathwise_delta_vs_bs_atm_call() {
     // ATM call: S=100, K=100, T=1, r=5%, q=2%, σ=20%
     let spot = 100.0;
@@ -61,6 +66,7 @@ fn test_pathwise_delta_vs_bs_atm_call() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_pathwise_delta_vs_bs_itm_call() {
     // ITM call: S=110, K=100
     let spot = 110.0;
@@ -90,6 +96,7 @@ fn test_pathwise_delta_vs_bs_itm_call() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_pathwise_delta_vs_bs_otm_call() {
     // OTM call: S=90, K=100
     let spot = 90.0;
@@ -123,6 +130,7 @@ fn test_pathwise_delta_vs_bs_otm_call() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_finite_diff_gamma_vs_bs() {
     // Test finite-difference gamma against analytical
     let spot = 100.0;
@@ -156,6 +164,7 @@ fn test_finite_diff_gamma_vs_bs() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_gamma_convergence_with_bump_size() {
     // Test that gamma converges to analytical value as bump decreases
     let spot = 100.0;
@@ -189,6 +198,7 @@ fn test_gamma_convergence_with_bump_size() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_vega_positive_for_all_strikes() {
     // Vega should be positive for all strikes (long options gain from vol)
     let spot = 100.0;
@@ -209,6 +219,7 @@ fn test_vega_positive_for_all_strikes() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_vega_peaks_at_atm() {
     // Vega should be highest for ATM options
     let spot = 100.0;
@@ -236,6 +247,7 @@ fn test_vega_peaks_at_atm() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_delta_gamma_relationship() {
     // Test relationship: Γ = dΔ/dS
     let spot = 100.0;
@@ -266,6 +278,7 @@ fn test_delta_gamma_relationship() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_put_call_delta_parity() {
     // Δ_call - Δ_put = exp(-qT)
     let spot = 100.0;
@@ -295,6 +308,7 @@ fn test_put_call_delta_parity() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_greeks_decrease_with_time() {
     // Gamma and vega should decrease as time to maturity decreases
     let spot = 100.0;
@@ -323,6 +337,7 @@ fn test_greeks_decrease_with_time() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_finite_diff_optimal_bump_size() {
     // Test different bump sizes to find optimal (balancing truncation vs roundoff)
     let spot = 100.0;

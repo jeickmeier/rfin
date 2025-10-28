@@ -18,6 +18,7 @@ use finstack_valuations::instruments::common::mc::variance_reduction::{
 };
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_mc_vs_black_scholes_call_atm() {
     // ATM call: S=100, K=100, T=1, r=5%, q=2%, σ=20%
     let config = EuropeanPricerConfig::new(100_000).with_seed(42).with_parallel(false);
@@ -57,6 +58,7 @@ fn test_mc_vs_black_scholes_call_atm() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_mc_vs_black_scholes_put_itm() {
     // ITM put: S=90, K=100, T=0.5, r=5%, q=1%, σ=25%
     let config = EuropeanPricerConfig::new(100_000).with_seed(123).with_parallel(false);
@@ -191,6 +193,7 @@ fn test_antithetic_variance_reduction() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_convergence_with_paths() {
     // Verify that stderr decreases as O(N^{-1/2})
     let seeds_and_paths = vec![(42, 1_000), (43, 10_000), (44, 100_000)];
@@ -312,6 +315,7 @@ fn test_parallel_determinism() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_put_call_parity_mc() {
     // Verify put-call parity holds for MC prices
     // C - P = S*e^(-qT) - K*e^(-rT)

@@ -206,7 +206,7 @@ fn test_lsmc_with_different_basis() {
 // ============================================================================
 
 #[test]
-#[ignore = "Heston MC systematically underprices vs Fourier (~35% low) - needs investigation"]
+#[cfg_attr(not(feature = "slow"), ignore = "Heston MC systematically underprices vs Fourier (~35% low) - needs investigation")]
 fn test_heston_mc_vs_fourier_atm_call() {
     // ATM call: S=100, K=100, T=1, Heston with moderate vol-of-vol
     let params = HestonParams::new(
@@ -271,7 +271,7 @@ fn test_heston_mc_vs_fourier_atm_call() {
 }
 
 #[test]
-#[ignore = "Heston MC systematically underprices vs Fourier (~7% low) - needs investigation"]
+#[cfg_attr(not(feature = "slow"), ignore = "Heston MC systematically underprices vs Fourier (~7% low) - needs investigation")]
 fn test_heston_mc_vs_fourier_itm_call() {
     // ITM call: S=110, K=100, T=0.5
     let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.2, -0.5, 0.04);
@@ -327,7 +327,7 @@ fn test_heston_mc_vs_fourier_itm_call() {
 }
 
 #[test]
-#[ignore = "Heston MC systematically underprices vs Fourier (~52% low) - needs investigation"]
+#[cfg_attr(not(feature = "slow"), ignore = "Heston MC systematically underprices vs Fourier (~52% low) - needs investigation")]
 fn test_heston_mc_vs_fourier_otm_call() {
     // OTM call: S=90, K=100, T=1.0
     let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
@@ -383,7 +383,7 @@ fn test_heston_mc_vs_fourier_otm_call() {
 }
 
 #[test]
-#[ignore = "Heston Fourier prices violate put-call parity (C-P=-1.88 vs expected=2.90) - needs investigation"]
+#[cfg_attr(not(feature = "slow"), ignore = "Heston Fourier prices violate put-call parity (C-P=-1.88 vs expected=2.90) - needs investigation")]
 fn test_heston_put_call_parity() {
     // Test put-call parity for Heston
     let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);

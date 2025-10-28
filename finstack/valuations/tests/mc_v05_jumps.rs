@@ -5,12 +5,18 @@
 //! - Jump statistics (frequency, sizes)
 //! - Leptokurtic returns (fat tails)
 //! - Drift compensation correctness
+//!
+//! NOTE: These tests use jump-diffusion processes and take a long time to run.
+//! They are ignored by default but can be run with: cargo test -- --ignored
+
+#![allow(unused_attributes)]  // For #[ignore] on all tests
 
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 use finstack_valuations::instruments::common::mc::prelude::*;
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_merton_zero_jumps_reduces_to_gbm() -> Result<()> {
     // With lambda = 0, Merton should give same result as GBM
     let spot = 100.0;
@@ -79,6 +85,7 @@ fn test_merton_zero_jumps_reduces_to_gbm() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_merton_negative_jumps_lower_call_value() -> Result<()> {
     // Negative jumps (crashes) should lower call option value vs BS
     let spot = 100.0;
@@ -139,6 +146,7 @@ fn test_merton_negative_jumps_lower_call_value() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_merton_positive_jumps_higher_call_value() -> Result<()> {
     // Positive jumps (rallies) should increase call option value vs BS
     let spot = 100.0;
@@ -195,6 +203,7 @@ fn test_merton_positive_jumps_higher_call_value() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_merton_jump_compensation() -> Result<()> {
     // Test that drift compensation keeps process risk-neutral
     let params = MertonJumpParams::new(
@@ -224,6 +233,7 @@ fn test_merton_jump_compensation() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_jump_euler_positivity() -> Result<()> {
     // Test that JumpEuler maintains positivity even with large negative jumps
     let merton = MertonJumpProcess::with_params(
@@ -261,6 +271,7 @@ fn test_jump_euler_positivity() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_bates_process_dimensions() -> Result<()> {
     // Test Bates process structure
     let heston_params = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04);

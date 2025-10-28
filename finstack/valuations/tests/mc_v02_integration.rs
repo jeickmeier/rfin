@@ -23,6 +23,7 @@ use finstack_valuations::instruments::common::mc::pricer::path_dependent::{
 use finstack_valuations::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_geometric_asian_vs_closed_form() {
     // Geometric Asian has a known closed-form solution
     let config = PathDependentPricerConfig::new(50_000)
@@ -492,7 +493,7 @@ fn test_sobol_sequence_low_discrepancy() {
 // ============================================================================
 
 #[test]
-#[ignore = "Too slow - takes over 60 seconds"]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_barrier_continuous_limit() {
     // As dt → 0, discrete barrier should converge to continuous barrier formula
     let spot = 100.0;
@@ -554,7 +555,7 @@ fn test_barrier_continuous_limit() {
 }
 
 #[test]
-#[ignore = "Too slow - takes over 60 seconds"]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_barrier_knock_in_plus_out_equals_vanilla() {
     // Parity test: Knock-In + Knock-Out = Vanilla
     let spot = 100.0;
@@ -669,6 +670,7 @@ fn test_continuous_barrier_in_out_parity() {
 // ============================================================================
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_asian_geometric_put_call_parity() {
     // Geometric Asian options satisfy modified put-call parity
     let spot = 100.0;
@@ -758,6 +760,7 @@ fn test_asian_geometric_put_call_parity() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_arithmetic_asian_bounds() {
     // Arithmetic Asian should satisfy: Geometric ≤ Arithmetic ≤ Maximum
     let spot = 100.0;
@@ -802,6 +805,7 @@ fn test_arithmetic_asian_bounds() {
 }
 
 #[test]
+#[cfg_attr(not(feature = "slow"), ignore = "Slow test - enable with --features slow")]
 fn test_lookback_bounds_vs_european() {
     // Lookback call should be worth at least as much as European
     let spot = 100.0;
