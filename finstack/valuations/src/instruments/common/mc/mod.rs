@@ -50,10 +50,12 @@
 // Allow some clippy lints for MC module (many parameters are necessary for flexibility)
 #![allow(clippy::too_many_arguments)]
 
+pub mod analytical;
 pub mod barriers;
 pub mod discretization;
 pub mod engine;
 pub mod greeks;
+pub mod multi_curve;
 pub mod payoff;
 pub mod pricer;
 pub mod process;
@@ -63,6 +65,7 @@ pub mod stats;
 pub mod time_grid;
 pub mod traits;
 pub mod variance_reduction;
+pub mod xva;
 
 #[cfg(feature = "mc")]
 pub mod mlmc;

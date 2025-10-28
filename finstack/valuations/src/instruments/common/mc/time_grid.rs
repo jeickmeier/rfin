@@ -1,6 +1,49 @@
 //! Time grids for Monte Carlo simulation.
 //!
 //! Provides uniform and custom time grids with validation.
+//!
+//! # Time Convention
+//!
+//! Time grids operate on **year fractions** (f64), not calendar dates.
+//! The MC engine is agnostic to day-count conventions.
+//!
+//! ## Design Philosophy
+//!
+//! - **MC Layer**: Pure mathematical time (this module)
+//! - **Instrument Layer**: Converts dates → year fractions using `finstack_core::dates`
+//!
+//! ## Usage
+//!
+//! ```rust
+//! use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
+//!
+//! // Uniform grid: 1 year with 252 trading days
+//! let grid = TimeGrid::uniform(1.0, 252)?;
+//!
+//! // Custom grid with irregular periods
+//! let times = vec![0.0, 0.25, 0.5, 0.75, 1.0]; // Quarterly
+//! let grid = TimeGrid::from_times(times)?;
+//! ```
+//!
+//! ## Converting from Dates
+//!
+//! Use `finstack_core::dates` to convert calendar dates to year fractions:
+//!
+//! ```rust,ignore
+//! use finstack_core::dates::{day_count_fraction, DayCount};
+//! use time::macros::date;
+//!
+//! let start = date!(2024-01-15);
+//! let end = date!(2025-01-15);
+//!
+//! // Apply day-count convention
+//! let time = day_count_fraction(start, end, DayCount::Act365F);
+//!
+//! // Create time grid
+//! let grid = TimeGrid::uniform(time, 252)?;
+//! ```
+//!
+//! See [CONVENTIONS.md](CONVENTIONS.md) for detailed guidelines.
 
 use finstack_core::Result;
 use thiserror::Error;

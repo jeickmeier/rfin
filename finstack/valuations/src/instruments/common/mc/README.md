@@ -215,6 +215,22 @@ General-purpose mathematical utilities are consolidated in `finstack_core::math`
 
 See `.cursor/rules/rust/code-standards.mdc` for detailed consolidation guidelines.
 
+### 0.1. Time and Day-Count Conventions
+
+The MC engine operates on **year fractions** (f64) and is agnostic to day-count conventions:
+
+- **MC Layer**: Pure mathematical time (continuous processes)
+- **Instrument Layer**: Converts calendar dates → year fractions using day-count conventions
+
+This separation enables:
+- Simpler, faster pricing algorithms without calendar dependencies
+- Flexibility to work with any day-count convention
+- Deterministic behavior with pure numerical operations
+
+**Important**: Always convert dates to year fractions using `finstack_core::dates` before calling MC pricers.
+
+See [CONVENTIONS.md](CONVENTIONS.md) for detailed guidelines and examples.
+
 ### 1. Determinism
 - **Counter-based RNG**: Each path gets unique `(seed, path_id)` → identical results regardless of thread count
 - **Stable reduction**: Deterministic order for parallel aggregation

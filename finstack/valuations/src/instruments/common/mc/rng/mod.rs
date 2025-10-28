@@ -3,6 +3,7 @@
 //! Provides counter-based RNGs (Philox) for deterministic parallel simulation
 //! and quasi-Monte Carlo sequences (Sobol with Owen scrambling).
 
+pub mod brownian_bridge;
 pub mod philox;
 pub mod transforms;
 
@@ -10,8 +11,12 @@ pub mod transforms;
 pub mod sobol;
 
 #[cfg(feature = "mc")]
+pub mod sobol_pca;
+
+#[cfg(feature = "mc")]
 pub mod poisson;
 
+pub use brownian_bridge::BrownianBridge;
 pub use philox::PhiloxRng;
 pub use transforms::*;
 

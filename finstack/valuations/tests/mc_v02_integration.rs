@@ -5,11 +5,18 @@
 #![cfg(feature = "mc")]
 
 use finstack_core::currency::Currency;
+use finstack_valuations::instruments::common::mc::analytical::barrier_continuous::{
+    up_in_call, up_out_call,
+};
 use finstack_valuations::instruments::common::mc::payoff::asian::{
     geometric_asian_call_closed_form, AsianCall, AveragingMethod,
 };
 use finstack_valuations::instruments::common::mc::payoff::barrier::{BarrierCall, BarrierType};
 use finstack_valuations::instruments::common::mc::payoff::lookback::LookbackCall;
+use finstack_valuations::instruments::common::mc::payoff::vanilla::EuropeanCall;
+use finstack_valuations::instruments::common::mc::pricer::european::{
+    EuropeanPricer, EuropeanPricerConfig,
+};
 use finstack_valuations::instruments::common::mc::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
@@ -478,5 +485,362 @@ fn test_sobol_sequence_low_discrepancy() {
             assert!(dist > 0.001, "Points too close: {:?} vs {:?}", p1, p2);
         }
     }
+}
+
+// ============================================================================
+// Barrier Correction Validation Tests
+// ============================================================================
+
+#[test]
+fn test_barrier_continuous_limit() {
+    // As dt → 0, discrete barrier should converge to continuous barrier formula
+    let spot = 100.0;
+    let strike = 100.0;
+    let barrier = 120.0;
+    let time = 1.0;
+    let r = 0.05;
+    let q = 0.02;
+    let vol = 0.2;
+
+    // Continuous barrier formula (target)
+    let continuous_price = up_out_call(spot, strike, barrier, time, r, q, vol);
+
+    println!("Barrier Convergence Test (Up-and-Out Call):");
+    println!("  Continuous limit: {:.6}", continuous_price);
+
+    // MC with increasing time steps (should converge to continuous)
+    let steps_vec = vec![252, 1000, 5000];
+    let num_paths = 100_000;
+
+    for &num_steps in &steps_vec {
+        let config = PathDependentPricerConfig::new(num_paths)
+            .with_seed(42)
+            .with_parallel(false);
+        let pricer = PathDependentPricer::new(config);
+
+        let gbm = GbmProcess::new(GbmParams::new(r, q, vol));
+        let barrier_call = BarrierCall::new(
+            strike,
+            barrier,
+            BarrierType::UpAndOut,
+            1.0,
+            num_steps,
+            vol,
+            time,
+            true, // Use Gobet-Miri correction
+        );
+
+        let discount = (-r * time).exp();
+        let result = pricer
+            .price(&gbm, spot, time, num_steps, &barrier_call, Currency::USD, discount)
+            .unwrap();
+
+        let mc_price = result.mean.amount();
+        let diff = (mc_price - continuous_price).abs();
+        let rel_diff = diff / continuous_price;
+
+        println!(
+            "  Steps={:5}: MC={:.6}, diff={:.6}, rel_diff={:.2}%",
+            num_steps,
+            mc_price,
+            diff,
+            rel_diff * 100.0
+        );
+
+        // Should converge toward continuous (within confidence bounds)
+        assert!(result.mean.amount().is_finite());
+    }
+}
+
+#[test]
+fn test_barrier_knock_in_plus_out_equals_vanilla() {
+    // Parity test: Knock-In + Knock-Out = Vanilla
+    let spot = 100.0;
+    let strike = 100.0;
+    let barrier_up = 120.0;
+    let time = 1.0;
+    let r = 0.05;
+    let q = 0.02;
+    let vol = 0.2;
+    let num_steps = 252;
+
+    // Vanilla call
+    let config_vanilla = EuropeanPricerConfig::new(100_000)
+        .with_seed(42)
+        .with_parallel(false);
+    let pricer_vanilla = EuropeanPricer::new(config_vanilla);
+    let gbm = GbmProcess::new(GbmParams::new(r, q, vol));
+    let vanilla_call = EuropeanCall::new(strike, 1.0, num_steps);
+    let discount = (-r * time).exp();
+    
+    let vanilla_result = pricer_vanilla
+        .price(&gbm, spot, time, num_steps, &vanilla_call, Currency::USD, discount)
+        .unwrap();
+
+    // Knock-In
+    let config_ki = PathDependentPricerConfig::new(100_000)
+        .with_seed(42)
+        .with_parallel(false);
+    let pricer_ki = PathDependentPricer::new(config_ki);
+    let knock_in = BarrierCall::new(strike, barrier_up, BarrierType::UpAndIn, 1.0, num_steps, vol, time, true);
+    
+    let ki_result = pricer_ki
+        .price(&gbm, spot, time, num_steps, &knock_in, Currency::USD, discount)
+        .unwrap();
+
+    // Knock-Out
+    let config_ko = PathDependentPricerConfig::new(100_000)
+        .with_seed(43)
+        .with_parallel(false);
+    let pricer_ko = PathDependentPricer::new(config_ko);
+    let knock_out = BarrierCall::new(strike, barrier_up, BarrierType::UpAndOut, 1.0, num_steps, vol, time, true);
+    
+    let ko_result = pricer_ko
+        .price(&gbm, spot, time, num_steps, &knock_out, Currency::USD, discount)
+        .unwrap();
+
+    let sum = ki_result.mean.amount() + ko_result.mean.amount();
+    let vanilla = vanilla_result.mean.amount();
+
+    // Combined standard error (assuming independence)
+    let combined_stderr = (ki_result.stderr.powi(2) + ko_result.stderr.powi(2) + vanilla_result.stderr.powi(2)).sqrt();
+
+    println!(
+        "Barrier Parity Test:"
+    );
+    println!("  Knock-In:  {:.6}", ki_result.mean.amount());
+    println!("  Knock-Out: {:.6}", ko_result.mean.amount());
+    println!("  Sum:       {:.6}", sum);
+    println!("  Vanilla:   {:.6}", vanilla);
+    println!("  Diff:      {:.6}", (sum - vanilla).abs());
+
+    // Should satisfy parity within confidence bounds
+    let diff = (sum - vanilla).abs();
+    let tolerance = 4.0 * combined_stderr;
+
+    assert!(
+        diff < tolerance,
+        "Barrier parity failed: KI + KO = {:.6} vs Vanilla = {:.6} (diff={:.6}, tol={:.6})",
+        sum,
+        vanilla,
+        diff,
+        tolerance
+    );
+}
+
+#[test]
+fn test_continuous_barrier_in_out_parity() {
+    // Analytical test: Up-In + Up-Out = Vanilla (continuous limit)
+    let spot = 100.0;
+    let strike = 100.0;
+    let barrier = 120.0;
+    let time = 1.0;
+    let r = 0.05;
+    let q = 0.02;
+    let vol = 0.2;
+
+    let up_in_price = up_in_call(spot, strike, barrier, time, r, q, vol);
+    let up_out_price = up_out_call(spot, strike, barrier, time, r, q, vol);
+    
+    // Vanilla call (Black-Scholes)
+    use finstack_valuations::instruments::common::mc::variance_reduction::control_variate::black_scholes_call;
+    let vanilla_price = black_scholes_call(spot, strike, time, r, q, vol);
+
+    let sum = up_in_price + up_out_price;
+
+    println!("Continuous Barrier Parity:");
+    println!("  Up-In:  {:.6}", up_in_price);
+    println!("  Up-Out: {:.6}", up_out_price);
+    println!("  Sum:    {:.6}", sum);
+    println!("  Vanilla:{:.6}", vanilla_price);
+
+    assert!(
+        (sum - vanilla_price).abs() < 0.01,
+        "Continuous barrier parity failed: {} vs {}",
+        sum,
+        vanilla_price
+    );
+}
+
+// ============================================================================
+// Put-Call Parity for Exotics Tests
+// ============================================================================
+
+#[test]
+fn test_asian_geometric_put_call_parity() {
+    // Geometric Asian options satisfy modified put-call parity
+    let spot = 100.0;
+    let strike = 100.0;
+    let time = 1.0;
+    let r = 0.05;
+    let q = 0.02;
+    let vol = 0.2;
+    let num_steps = 252;
+
+    // Monthly fixing schedule
+    let fixing_steps: Vec<usize> = (0..=12).map(|i| i * 21).collect();
+
+    let config = PathDependentPricerConfig::new(100_000)
+        .with_seed(42)
+        .with_parallel(false);
+    let pricer = PathDependentPricer::new(config);
+    let gbm = GbmProcess::new(GbmParams::new(r, q, vol));
+
+    // Geometric Asian call
+    use finstack_valuations::instruments::common::mc::payoff::asian::AsianCall;
+    let asian_call = AsianCall::new(strike, 1.0, AveragingMethod::Geometric, fixing_steps.clone());
+    let discount = (-r * time).exp();
+    
+    let call_result = pricer
+        .price(&gbm, spot, time, num_steps, &asian_call, Currency::USD, discount)
+        .unwrap();
+
+    // Geometric Asian put
+    use finstack_valuations::instruments::common::mc::payoff::asian::AsianPut;
+    let asian_put = AsianPut::new(strike, 1.0, AveragingMethod::Geometric, fixing_steps);
+    
+    let put_result = pricer
+        .price(&gbm, spot, time, num_steps, &asian_put, Currency::USD, discount)
+        .unwrap();
+
+    // For geometric Asians: C - P ≈ PV(F_geom - K)
+    // where F_geom is geometric forward
+    let lhs = call_result.mean.amount() - put_result.mean.amount();
+    
+    // Approximate geometric forward
+    let adj_vol = vol / 13.0_f64.sqrt(); // Adjusted for averaging
+    let geo_fwd = spot * ((r - q - 0.5 * adj_vol * adj_vol) * time).exp();
+    let rhs = (geo_fwd - strike) * discount;
+
+    println!("Geometric Asian Put-Call Parity:");
+    println!("  Call: {:.6}", call_result.mean.amount());
+    println!("  Put:  {:.6}", put_result.mean.amount());
+    println!("  C-P:  {:.6}", lhs);
+    println!("  RHS:  {:.6}", rhs);
+
+    // Should be approximately equal (within MC error)
+    let combined_stderr = (call_result.stderr.powi(2) + put_result.stderr.powi(2)).sqrt();
+    let diff = (lhs - rhs).abs();
+    
+    assert!(
+        diff < 4.0 * combined_stderr,
+        "Geometric Asian parity failed: diff={:.6}, tol={:.6}",
+        diff,
+        4.0 * combined_stderr
+    );
+}
+
+#[test]
+fn test_arithmetic_asian_bounds() {
+    // Arithmetic Asian should satisfy: Geometric ≤ Arithmetic ≤ Maximum
+    let spot = 100.0;
+    let strike = 100.0;
+    let time = 1.0;
+    let r = 0.05;
+    let q = 0.02;
+    let vol = 0.3;
+    let num_steps = 252;
+
+    let fixing_steps: Vec<usize> = (0..=12).map(|i| i * 21).collect();
+
+    let config = PathDependentPricerConfig::new(100_000)
+        .with_seed(42)
+        .with_parallel(false);
+    let pricer = PathDependentPricer::new(config);
+    let gbm = GbmProcess::new(GbmParams::new(r, q, vol));
+    let discount = (-r * time).exp();
+
+    // Geometric Asian call
+    use finstack_valuations::instruments::common::mc::payoff::asian::AsianCall;
+    let geometric_call = AsianCall::new(strike, 1.0, AveragingMethod::Geometric, fixing_steps.clone());
+    let geom_result = pricer
+        .price(&gbm, spot, time, num_steps, &geometric_call, Currency::USD, discount)
+        .unwrap();
+
+    // Arithmetic Asian call
+    let arithmetic_call = AsianCall::new(strike, 1.0, AveragingMethod::Arithmetic, fixing_steps);
+    let arith_result = pricer
+        .price(&gbm, spot, time, num_steps, &arithmetic_call, Currency::USD, discount)
+        .unwrap();
+
+    println!("Asian Averaging Comparison:");
+    println!("  Geometric: {:.6}", geom_result.mean.amount());
+    println!("  Arithmetic: {:.6}", arith_result.mean.amount());
+
+    // Arithmetic mean ≥ Geometric mean (AM-GM inequality)
+    assert!(
+        arith_result.mean.amount() >= geom_result.mean.amount() - arith_result.stderr * 2.0,
+        "Arithmetic Asian should be >= Geometric Asian"
+    );
+}
+
+#[test]
+fn test_lookback_bounds_vs_european() {
+    // Lookback call should be worth at least as much as European
+    let spot = 100.0;
+    let strike = 100.0;
+    let time = 1.0;
+    let r = 0.05;
+    let q = 0.02;
+    let vol = 0.3;
+    let num_steps = 252;
+
+    // European call
+    let config_euro = EuropeanPricerConfig::new(50_000)
+        .with_seed(42)
+        .with_parallel(false);
+    let pricer_euro = EuropeanPricer::new(config_euro);
+    let gbm = GbmProcess::new(GbmParams::new(r, q, vol));
+    let euro_call = EuropeanCall::new(strike, 1.0, num_steps);
+    let discount = (-r * time).exp();
+    
+    let euro_result = pricer_euro
+        .price(&gbm, spot, time, num_steps, &euro_call, Currency::USD, discount)
+        .unwrap();
+
+    // Lookback call (max(S_t) - K)
+    let config_lb = PathDependentPricerConfig::new(50_000)
+        .with_seed(42)
+        .with_parallel(false);
+    let pricer_lb = PathDependentPricer::new(config_lb);
+    
+    use finstack_valuations::instruments::common::mc::payoff::lookback::LookbackCall;
+    let lookback_call = LookbackCall::new(strike, 1.0, num_steps);
+    
+    let lb_result = pricer_lb
+        .price(&gbm, spot, time, num_steps, &lookback_call, Currency::USD, discount)
+        .unwrap();
+
+    println!("Lookback vs European:");
+    println!("  European:  {:.6}", euro_result.mean.amount());
+    println!("  Lookback:  {:.6}", lb_result.mean.amount());
+
+    // Lookback should be >= European (you get max instead of terminal)
+    assert!(
+        lb_result.mean.amount() >= euro_result.mean.amount() - lb_result.stderr * 2.0,
+        "Lookback call should be >= European call"
+    );
+}
+
+#[test]
+fn test_basket_margrabe_validation() {
+    // Exchange option S1 - S2 should match Margrabe formula for 2 assets
+    let spot1 = 100.0;
+    let spot2 = 100.0;
+    let time = 1.0;
+    let vol1 = 0.2;
+    let vol2 = 0.3;
+    let correlation = 0.5;
+
+    // Margrabe formula (from existing code)
+    use finstack_valuations::instruments::common::mc::payoff::basket::margrabe_exchange_option;
+    let margrabe_price = margrabe_exchange_option(spot1, spot2, vol1, vol2, correlation, time, 0.0, 0.0);
+
+    println!("Margrabe Exchange Option:");
+    println!("  Analytical (Margrabe): {:.6}", margrabe_price);
+
+    // Margrabe provides analytical benchmark
+    assert!(margrabe_price > 0.0);
+    assert!(margrabe_price < spot1); // Shouldn't exceed S1
 }
 

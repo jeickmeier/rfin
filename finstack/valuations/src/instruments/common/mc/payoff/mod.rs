@@ -18,7 +18,13 @@ pub mod lookback;
 pub mod basket;
 
 #[cfg(feature = "mc")]
+pub use basket::*;
+
+#[cfg(feature = "mc")]
 pub mod rates;
+
+#[cfg(feature = "mc")]
+pub use rates::*;
 
 pub use traits::*;
 pub use vanilla::*;

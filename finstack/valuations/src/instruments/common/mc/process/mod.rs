@@ -4,6 +4,7 @@
 
 pub mod correlation;
 pub mod gbm;
+pub mod gbm_dividends;
 
 #[cfg(feature = "mc")]
 pub mod heston;
@@ -22,4 +23,5 @@ pub mod bates;
 
 pub use correlation::*;
 pub use gbm::*;
+pub use gbm_dividends::*;
 

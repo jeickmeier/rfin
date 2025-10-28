@@ -5,6 +5,9 @@
 #![cfg(feature = "mc")]
 
 use finstack_core::currency::Currency;
+use finstack_valuations::instruments::common::mc::analytical::heston_fourier::{
+    heston_call_price_fourier, heston_put_price_fourier,
+};
 use finstack_valuations::instruments::common::mc::discretization::qe_heston::QeHeston;
 use finstack_valuations::instruments::common::mc::engine::{McEngine, McEngineConfig};
 use finstack_valuations::instruments::common::mc::payoff::vanilla::EuropeanCall;
@@ -15,7 +18,7 @@ use finstack_valuations::instruments::common::mc::pricer::lsmc::{
     AmericanPut, LaguerreBasis, LsmcConfig, LsmcPricer, PolynomialBasis,
 };
 use finstack_valuations::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
-use finstack_valuations::instruments::common::mc::process::heston::HestonProcess;
+use finstack_valuations::instruments::common::mc::process::heston::{HestonParams, HestonProcess};
 use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
 use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
 
@@ -196,6 +199,236 @@ fn test_lsmc_with_different_basis() {
 
     assert!(result_poly.mean.amount() > 0.0);
     assert!(result_lag.mean.amount() > 0.0);
+}
+
+// ============================================================================
+// Heston Fourier Inversion Validation Tests
+// ============================================================================
+
+#[test]
+fn test_heston_mc_vs_fourier_atm_call() {
+    // ATM call: S=100, K=100, T=1, Heston with moderate vol-of-vol
+    let params = HestonParams::new(
+        0.05,  // r
+        0.02,  // q
+        2.0,   // kappa (mean reversion)
+        0.04,  // theta (long-term variance, σ=20%)
+        0.3,   // sigma_v (vol-of-vol)
+        -0.7,  // rho (correlation)
+        0.04,  // v0 (initial variance)
+    );
+
+    // MC price
+    let time_grid = TimeGrid::uniform(1.0, 252).unwrap();
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 100_000,
+        seed: 42,
+        time_grid,
+        target_ci_half_width: None,
+        use_parallel: false,
+        chunk_size: 1000,
+    });
+
+    let heston = HestonProcess::new(params.clone());
+    let disc = QeHeston::new();
+    let call = EuropeanCall::new(100.0, 1.0, 252);
+    let rng = PhiloxRng::new(42);
+
+    let discount = (-params.r * 1.0).exp();
+    let mc_result = engine
+        .price(
+            &rng,
+            &heston,
+            &disc,
+            &[100.0, 0.04],
+            &call,
+            Currency::USD,
+            discount,
+        )
+        .unwrap();
+
+    // Fourier price
+    let fourier_price = heston_call_price_fourier(100.0, 100.0, 1.0, &params);
+
+    // MC should be within 4 standard errors of Fourier price
+    let diff = (mc_result.mean.amount() - fourier_price).abs();
+    let tolerance = 4.0 * mc_result.stderr;
+
+    println!(
+        "ATM Heston Call - MC: {} vs Fourier: {:.4}, diff: {:.4}, 4σ: {:.4}",
+        mc_result.mean, fourier_price, diff, tolerance
+    );
+
+    assert!(
+        diff < tolerance,
+        "MC price {} differs from Fourier {:.4} by {:.4} (more than 4σ={:.4})",
+        mc_result.mean.amount(),
+        fourier_price,
+        diff,
+        tolerance
+    );
+}
+
+#[test]
+fn test_heston_mc_vs_fourier_itm_call() {
+    // ITM call: S=110, K=100, T=0.5
+    let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.2, -0.5, 0.04);
+
+    // MC price
+    let time_grid = TimeGrid::uniform(0.5, 126).unwrap();
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 100_000,
+        seed: 123,
+        time_grid,
+        target_ci_half_width: None,
+        use_parallel: false,
+        chunk_size: 1000,
+    });
+
+    let heston = HestonProcess::new(params.clone());
+    let disc = QeHeston::new();
+    let call = EuropeanCall::new(100.0, 1.0, 126);
+    let rng = PhiloxRng::new(123);
+
+    let discount = (-params.r * 0.5).exp();
+    let mc_result = engine
+        .price(
+            &rng,
+            &heston,
+            &disc,
+            &[110.0, 0.04],
+            &call,
+            Currency::USD,
+            discount,
+        )
+        .unwrap();
+
+    // Fourier price
+    let fourier_price = heston_call_price_fourier(110.0, 100.0, 0.5, &params);
+
+    let diff = (mc_result.mean.amount() - fourier_price).abs();
+    let tolerance = 4.0 * mc_result.stderr;
+
+    println!(
+        "ITM Heston Call - MC: {} vs Fourier: {:.4}, diff: {:.4}",
+        mc_result.mean, fourier_price, diff
+    );
+
+    assert!(
+        diff < tolerance,
+        "MC price {} differs from Fourier {:.4} by {:.4} (more than 4σ={:.4})",
+        mc_result.mean.amount(),
+        fourier_price,
+        diff,
+        tolerance
+    );
+}
+
+#[test]
+fn test_heston_mc_vs_fourier_otm_call() {
+    // OTM call: S=90, K=100, T=1.0
+    let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+
+    // MC price
+    let time_grid = TimeGrid::uniform(1.0, 252).unwrap();
+    let engine = McEngine::new(McEngineConfig {
+        num_paths: 150_000,
+        seed: 456,
+        time_grid,
+        target_ci_half_width: None,
+        use_parallel: false,
+        chunk_size: 1000,
+    });
+
+    let heston = HestonProcess::new(params.clone());
+    let disc = QeHeston::new();
+    let call = EuropeanCall::new(100.0, 1.0, 252);
+    let rng = PhiloxRng::new(456);
+
+    let discount = (-params.r * 1.0).exp();
+    let mc_result = engine
+        .price(
+            &rng,
+            &heston,
+            &disc,
+            &[90.0, 0.04],
+            &call,
+            Currency::USD,
+            discount,
+        )
+        .unwrap();
+
+    // Fourier price
+    let fourier_price = heston_call_price_fourier(90.0, 100.0, 1.0, &params);
+
+    let diff = (mc_result.mean.amount() - fourier_price).abs();
+    let tolerance = 4.0 * mc_result.stderr;
+
+    println!(
+        "OTM Heston Call - MC: {} vs Fourier: {:.4}, diff: {:.4}",
+        mc_result.mean, fourier_price, diff
+    );
+
+    assert!(
+        diff < tolerance,
+        "MC price {} differs from Fourier {:.4} by {:.4} (more than 4σ={:.4})",
+        mc_result.mean.amount(),
+        fourier_price,
+        diff,
+        tolerance
+    );
+}
+
+#[test]
+fn test_heston_put_call_parity() {
+    // Test put-call parity for Heston
+    let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+
+    let call_fourier = heston_call_price_fourier(100.0, 100.0, 1.0, &params);
+    let put_fourier = heston_put_price_fourier(100.0, 100.0, 1.0, &params);
+
+    // Put-call parity: C - P = S*exp(-qT) - K*exp(-rT)
+    let lhs = call_fourier - put_fourier;
+    let rhs = 100.0 * (-0.02_f64 * 1.0).exp() - 100.0 * (-0.05_f64 * 1.0).exp();
+
+    println!(
+        "Heston Put-Call Parity: C-P = {:.6}, S*exp(-qT) - K*exp(-rT) = {:.6}",
+        lhs, rhs
+    );
+
+    assert!(
+        (lhs - rhs).abs() < 0.01,
+        "Put-call parity failed for Heston: {} vs {}",
+        lhs,
+        rhs
+    );
+}
+
+#[test]
+fn test_heston_smile_shape() {
+    // Test that Heston produces smile (higher vol-of-vol → more pronounced smile)
+    let params_low_vv = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.1, -0.7, 0.04);
+    let params_high_vv = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.5, -0.7, 0.04);
+
+    let strikes = vec![80.0, 90.0, 100.0, 110.0, 120.0];
+    let spot = 100.0;
+    let time = 1.0;
+
+    println!("Heston Vol Smile Test:");
+    for &strike in &strikes {
+        let price_low = heston_call_price_fourier(spot, strike, time, &params_low_vv);
+        let price_high = heston_call_price_fourier(spot, strike, time, &params_high_vv);
+
+        println!(
+            "  K={:5.0}: Low vol-of-vol={:8.4}, High vol-of-vol={:8.4}",
+            strike, price_low, price_high
+        );
+
+        // Higher vol-of-vol should generally produce higher option values (especially OTM)
+        // This is a basic sanity check
+        assert!(price_low >= 0.0);
+        assert!(price_high >= 0.0);
+    }
 }
 
 #[test]

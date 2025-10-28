@@ -3,6 +3,7 @@
 //! Implements exact, Euler, Milstein, and specialized schemes.
 
 pub mod exact;
+pub mod exact_gbm_div;
 
 #[cfg(feature = "mc")]
 pub mod exact_hw1f;
@@ -23,6 +24,7 @@ pub mod qe_cir;
 pub mod jump_euler;
 
 pub use exact::*;
+pub use exact_gbm_div::ExactGbmWithDividends;
 
 #[cfg(feature = "mc")]
 pub use exact_hw1f::ExactHullWhite1F;

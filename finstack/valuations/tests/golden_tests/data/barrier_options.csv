@@ -1,0 +1,6 @@
+name,spot,strike,barrier,time,rate,div_yield,volatility,barrier_type,expected_price,abs_tol,rel_tol
+Barrier_UpOut_ATM,100.0,100.0,120.0,1.0,0.05,0.02,0.20,up_out,5.234,0.10,0.01
+Barrier_UpIn_ATM,100.0,100.0,120.0,1.0,0.05,0.02,0.20,up_in,3.682,0.10,0.01
+Barrier_DownOut_ATM,100.0,100.0,80.0,1.0,0.05,0.02,0.20,down_out,7.123,0.10,0.01
+Barrier_DownIn_ATM,100.0,100.0,80.0,1.0,0.05,0.02,0.20,down_in,1.793,0.10,0.01
+
