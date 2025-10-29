@@ -247,10 +247,11 @@ mod tests {
         // FRA 3M x 6M
         let start = base + time::Duration::days(90);
         let end = base + time::Duration::days(180);
+        let fixing = start - time::Duration::days(2); // 2 days before start for reset_lag
         let fra = ForwardRateAgreement::builder()
             .id("FRA-3x6".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .fixing_date(start)
+            .fixing_date(fixing)
             .start_date(start)
             .end_date(end)
             .fixed_rate(0.05)
@@ -258,6 +259,7 @@ mod tests {
             .reset_lag(2)
             .disc_id("DISC".into())
             .forward_id("FWD-3M".into())
+            .pay_fixed(false) // Receive fixed, pay floating
             .build()
             .unwrap();
 
