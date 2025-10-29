@@ -39,15 +39,7 @@ impl ExactGbmWithDividends {
     /// Evolve spot under GBM from time t to t+dt.
     ///
     /// Uses exact solution: S(t+dt) = S(t) * exp((r - q - σ²/2)*dt + σ*√dt*Z)
-    fn evolve_gbm(
-        &self,
-        spot: f64,
-        r: f64,
-        q: f64,
-        sigma: f64,
-        dt: f64,
-        z: f64,
-    ) -> f64 {
+    fn evolve_gbm(&self, spot: f64, r: f64, q: f64, sigma: f64, dt: f64, z: f64) -> f64 {
         let drift = (r - q - 0.5 * sigma * sigma) * dt;
         let diffusion = sigma * dt.sqrt() * z;
         spot * (drift + diffusion).exp()
@@ -101,10 +93,10 @@ impl Discretization<GbmWithDividends> for ExactGbmWithDividends {
             // Distribute random shock across sub-intervals
             // Use independent shocks for each sub-interval (simplest approach)
             // More sophisticated: correlate shocks or use Brownian bridge
-            
+
             // For simplicity: split shock proportionally to √(sub_dt / dt)
             let total_time = dt;
-            
+
             for (start, end, div_opt) in sub_intervals {
                 if let Some(div) = div_opt {
                     // Apply dividend jump
@@ -132,9 +124,9 @@ impl Discretization<GbmWithDividends> for ExactGbmWithDividends {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::process::gbm::GbmParams;
     use super::super::super::process::gbm_dividends::Dividend;
+    use super::*;
 
     #[test]
     fn test_exact_gbm_div_no_dividends() {
@@ -160,11 +152,8 @@ mod tests {
     fn test_exact_gbm_div_with_cash_dividend() {
         // With cash dividend, spot should jump down
         let dividends = vec![(0.005, Dividend::Cash(1.0))]; // Dividend at t=0.005
-        
-        let gbm_div = GbmWithDividends::new(
-            GbmParams::new(0.05, 0.0, 0.2),
-            dividends,
-        );
+
+        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2), dividends);
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
@@ -183,11 +172,8 @@ mod tests {
     #[test]
     fn test_exact_gbm_div_multiple_dividends() {
         // Multiple dividends in one step
-        let dividends = vec![
-            (0.003, Dividend::Cash(0.5)),
-            (0.007, Dividend::Cash(0.5)),
-        ];
-        
+        let dividends = vec![(0.003, Dividend::Cash(0.5)), (0.007, Dividend::Cash(0.5))];
+
         let gbm_div = GbmWithDividends::new(
             GbmParams::new(0.05, 0.0, 0.1), // Low vol for stability
             dividends,
@@ -208,7 +194,7 @@ mod tests {
     #[test]
     fn test_exact_gbm_div_proportional_dividend() {
         let dividends = vec![(0.005, Dividend::Proportional(0.02))]; // 2% dividend
-        
+
         let gbm_div = GbmWithDividends::new(
             GbmParams::new(0.05, 0.0, 0.0), // Zero vol for deterministic test
             dividends,
@@ -231,11 +217,8 @@ mod tests {
     fn test_spot_remains_positive() {
         // Large dividend that could make spot negative
         let dividends = vec![(0.005, Dividend::Cash(150.0))];
-        
-        let gbm_div = GbmWithDividends::new(
-            GbmParams::new(0.05, 0.0, 0.2),
-            dividends,
-        );
+
+        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2), dividends);
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
@@ -248,4 +231,3 @@ mod tests {
         assert!(x[0] >= 0.0);
     }
 }
-

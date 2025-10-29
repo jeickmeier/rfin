@@ -16,4 +16,3 @@ impl MetricCalculator for AvailableCapacityCalculator {
         Ok(available.amount())
     }
 }
-

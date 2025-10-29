@@ -16,7 +16,8 @@ pub struct BondEngine;
 impl BondEngine {
     /// Price a bond using discount curve present value calculation.
     pub fn price(bond: &Bond, context: &MarketContext, as_of: Date) -> Result<Money> {
-        Self::price_with_explanation(bond, context, as_of, ExplainOpts::disabled()).map(|(pv, _)| pv)
+        Self::price_with_explanation(bond, context, as_of, ExplainOpts::disabled())
+            .map(|(pv, _)| pv)
     }
 
     /// Price a bond with optional explanation trace.

@@ -7,7 +7,7 @@
 
 use super::super::barriers::bridge::{check_barrier_hit, BarrierDirection};
 use super::super::barriers::corrections::gobet_miri_adjusted_barrier;
-use super::super::traits::{Payoff, PathState};
+use super::super::traits::{PathState, Payoff};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -70,7 +70,7 @@ pub struct BarrierCall {
     pub dt: f64,
     /// Use Gobet-Miri adjustment
     pub use_gobet_miri: bool,
-    
+
     // State
     terminal_spot: f64,
     barrier_hit: bool,
@@ -163,7 +163,7 @@ impl Payoff for BarrierCall {
             let pseudo_random = ((current_spot * 12345.0).fract()).abs();
 
             let effective_barrier = self.effective_barrier();
-            
+
             let hit = check_barrier_hit(
                 self.previous_spot,
                 current_spot,
@@ -208,8 +208,8 @@ impl Payoff for BarrierCall {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::traits::state_keys;
+    use super::*;
 
     fn create_path_state(step: usize, spot: f64) -> PathState {
         let mut state = PathState::new(step, step as f64 * 0.01);
@@ -267,16 +267,8 @@ mod tests {
 
     #[test]
     fn test_barrier_call_knock_in() {
-        let mut barrier_call = BarrierCall::new(
-            100.0,
-            110.0,
-            BarrierType::UpAndIn,
-            1.0,
-            10,
-            0.2,
-            1.0,
-            false,
-        );
+        let mut barrier_call =
+            BarrierCall::new(100.0, 110.0, BarrierType::UpAndIn, 1.0, 10, 0.2, 1.0, false);
 
         // Path that never hits barrier
         for step in 0..=10 {
@@ -291,16 +283,8 @@ mod tests {
 
     #[test]
     fn test_barrier_call_knock_in_activated() {
-        let mut barrier_call = BarrierCall::new(
-            100.0,
-            110.0,
-            BarrierType::UpAndIn,
-            1.0,
-            10,
-            0.2,
-            1.0,
-            false,
-        );
+        let mut barrier_call =
+            BarrierCall::new(100.0, 110.0, BarrierType::UpAndIn, 1.0, 10, 0.2, 1.0, false);
 
         // Path that hits barrier
         barrier_call.on_event(&create_path_state(0, 105.0));

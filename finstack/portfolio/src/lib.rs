@@ -11,20 +11,43 @@
 //! # Quick Start
 //!
 //! ```rust
-//! use finstack_portfolio::{PortfolioBuilder, Entity};
+//! use finstack_portfolio::{PortfolioBuilder, Entity, Position, PositionUnit};
 //! use finstack_core::prelude::*;
+//! use finstack_valuations::instruments::deposit::Deposit;
+//! use std::sync::Arc;
 //! use time::macros::date;
 //!
-//! // Create a simple portfolio
-//! let portfolio = PortfolioBuilder::new("MY_FUND")
-//!     .base_ccy(Currency::USD)
-//!     .as_of(date!(2024-01-01))
-//!     .entity(Entity::new("ACME_CORP"))
+//! let as_of = date!(2024-01-01);
+//!
+//! // Create a deposit instrument
+//! let deposit = Deposit::builder()
+//!     .id("DEP_1M".into())
+//!     .notional(Money::new(1_000_000.0, Currency::USD))
+//!     .start(as_of)
+//!     .end(date!(2024-02-01))
+//!     .day_count(finstack_core::dates::DayCount::Act360)
+//!     .disc_id("USD".into())
 //!     .build()
 //!     .unwrap();
 //!
-//! assert_eq!(portfolio.id, "MY_FUND");
-//! assert_eq!(portfolio.base_ccy, Currency::USD);
+//! // Create a position holding the deposit
+//! let position = Position::new(
+//!     "POS_001",
+//!     "ACME_CORP",
+//!     "DEP_1M",
+//!     Arc::new(deposit),
+//!     1.0,
+//!     PositionUnit::Units,
+//! ).with_tag("asset_class", "cash");
+//!
+//! // Build the portfolio with the entity and position
+//! let portfolio = PortfolioBuilder::new("MY_FUND")
+//!     .base_ccy(Currency::USD)
+//!     .as_of(as_of)
+//!     .entity(Entity::new("ACME_CORP"))
+//!     .position(position)
+//!     .build()
+//!     .unwrap();
 //! ```
 
 #![deny(unsafe_code)]

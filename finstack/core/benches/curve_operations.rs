@@ -133,7 +133,10 @@ fn bench_discount_curve_forward(c: &mut Criterion) {
                 })
                 .collect();
             b.iter(|| {
-                let fwds: Vec<_> = times.iter().map(|&(t1, t2)| curve.forward(t1, t2)).collect();
+                let fwds: Vec<_> = times
+                    .iter()
+                    .map(|&(t1, t2)| curve.forward(t1, t2))
+                    .collect();
                 black_box(fwds);
             })
         });
@@ -263,4 +266,3 @@ criterion_group!(
     bench_curve_building,
 );
 criterion_main!(benches);
-

@@ -54,13 +54,13 @@ pub struct YtmSolverConfig {
     /// Default: `1e-12` for maximum precision.
     /// Consider `1e-10` for faster convergence with negligible accuracy loss.
     pub tolerance: f64,
-    
+
     /// Maximum solver iterations before failing.
     pub max_iterations: usize,
-    
+
     /// Use smart initial guess based on current yield and pull-to-par.
     pub use_smart_guess: bool,
-    
+
     /// Use Newton-Raphson with Brent fallback (hybrid solver).
     pub use_newton: bool,
 }

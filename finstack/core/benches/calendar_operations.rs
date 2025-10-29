@@ -8,7 +8,9 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::dates::calendar::{GBLO, NYSE, TARGET2, USNY};
-use finstack_core::dates::{adjust, BusinessDayConvention, CompositeCalendar, Date, HolidayCalendar};
+use finstack_core::dates::{
+    adjust, BusinessDayConvention, CompositeCalendar, Date, HolidayCalendar,
+};
 use time::Month;
 
 fn bench_holiday_checks(c: &mut Criterion) {
@@ -20,7 +22,10 @@ fn bench_holiday_checks(c: &mut Criterion) {
     ];
 
     let test_dates = [
-        ("weekday", Date::from_calendar_date(2025, Month::March, 3).unwrap()), // Monday
+        (
+            "weekday",
+            Date::from_calendar_date(2025, Month::March, 3).unwrap(),
+        ), // Monday
         (
             "weekend",
             Date::from_calendar_date(2025, Month::March, 1).unwrap(),
@@ -80,7 +85,8 @@ fn bench_business_day_adjustments(c: &mut Criterion) {
     for (name, convention) in conventions {
         c.bench_function(&format!("calendar_adjust_{}", name), |b| {
             b.iter(|| {
-                let result = adjust(black_box(date), black_box(convention), black_box(calendar)).unwrap();
+                let result =
+                    adjust(black_box(date), black_box(convention), black_box(calendar)).unwrap();
                 black_box(result);
             })
         });
@@ -92,7 +98,10 @@ fn bench_business_days_between(c: &mut Criterion) {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     let periods = [
-        ("1w", Date::from_calendar_date(2025, Month::January, 8).unwrap()),
+        (
+            "1w",
+            Date::from_calendar_date(2025, Month::January, 8).unwrap(),
+        ),
         (
             "1m",
             Date::from_calendar_date(2025, Month::February, 1).unwrap(),
@@ -221,4 +230,3 @@ criterion_group!(
     bench_calendar_batch_operations,
 );
 criterion_main!(benches);
-

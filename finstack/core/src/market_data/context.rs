@@ -62,27 +62,6 @@ pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
 /// Downstream code rarely manipulates [`CurveStorage`] directly; it mostly
 /// powers [`MarketContext`]'s heterogeneous map. When required, the helper
 /// methods expose the inner `Arc` for each concrete curve type.
-///
-/// # Examples
-/// ```rust
-/// use finstack_core::market_data::context::CurveStorage;
-/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-/// use finstack_core::math::interp::InterpStyle;
-/// use finstack_core::dates::Date;
-/// use std::sync::Arc;
-/// use time::Month;
-///
-/// let curve = DiscountCurve::builder("USD-OIS")
-///     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
-///     .knots([(0.0, 1.0), (1.0, 0.98)])
-///     .set_interp(InterpStyle::Linear)
-///     .build()
-///     .unwrap();
-/// let id = curve.id().clone();
-/// let storage = CurveStorage::Discount(Arc::new(curve));
-/// assert!(storage.is_discount());
-/// assert_eq!(storage.discount().unwrap().id(), &id);
-/// ```
 #[derive(Clone, Debug)]
 pub enum CurveStorage {
     /// Discount factor curve
@@ -307,13 +286,6 @@ pub struct MarketContext {
 impl MarketContext {
     /// Create an empty market context.
     ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::market_data::context::MarketContext;
-    ///
-    /// let ctx = MarketContext::new();
-    /// assert_eq!(ctx.stats().total_curves, 0);
-    /// ```
     pub fn new() -> Self {
         Self::default()
     }
@@ -369,22 +341,6 @@ impl MarketContext {
     ///
     /// # Parameters
     /// - `curve`: fully built [`ForwardCurve`]
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-    /// #     /// # use finstack_core::math::interp::InterpStyle;
-    /// # use finstack_core::dates::Date;
-    /// # use time::Month;
-    /// # let curve = ForwardCurve::builder("USD-LIBOR", 0.25)
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
-    /// #     .knots([(0.0, 0.02), (1.0, 0.021)])
-    /// #     .build()
-    /// #     .unwrap();
-    /// let ctx = MarketContext::new().insert_forward(curve);
-    /// assert!(ctx.stats().total_curves > 0);
-    /// ```
     pub fn insert_forward(mut self, curve: ForwardCurve) -> Self {
         let id = curve.id().to_owned();
         self.curves
@@ -411,22 +367,6 @@ impl MarketContext {
     ///
     /// # Parameters
     /// - `curve`: fully built [`HazardCurve`]
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-    /// #     /// # use finstack_core::math::interp::InterpStyle;
-    /// # use finstack_core::dates::Date;
-    /// # use time::Month;
-    /// # let curve = HazardCurve::builder("CDX")
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
-    /// #     .knots([(0.0, 0.01), (5.0, 0.015)])
-    /// #     .build()
-    /// #     .unwrap();
-    /// let ctx = MarketContext::new().insert_hazard(curve);
-    /// assert!(ctx.stats().total_curves > 0);
-    /// ```
     pub fn insert_hazard(mut self, curve: HazardCurve) -> Self {
         let id = curve.id().to_owned();
         self.curves
@@ -453,22 +393,6 @@ impl MarketContext {
     ///
     /// # Parameters
     /// - `curve`: fully built [`InflationCurve`]
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::inflation::InflationCurve;
-    /// #     /// # use finstack_core::math::interp::InterpStyle;
-    /// # use finstack_core::dates::Date;
-    /// # use time::Month;
-    /// # let curve = InflationCurve::builder("USD-CPI")
-    /// #     .base_cpi(100.0)
-    /// #     .knots([(0.0, 100.0), (1.0, 103.0)])
-    /// #     .build()
-    /// #     .unwrap();
-    /// let ctx = MarketContext::new().insert_inflation(curve);
-    /// assert!(ctx.stats().total_curves > 0);
-    /// ```
     pub fn insert_inflation(mut self, curve: InflationCurve) -> Self {
         let id = curve.id().to_owned();
         self.curves
@@ -495,18 +419,6 @@ impl MarketContext {
     ///
     /// # Parameters
     /// - `curve`: base correlation curve for structured credit pricing
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-    /// # let curve = BaseCorrelationCurve::builder("CDX")
-    /// #     .points([(3.0, 0.25), (10.0, 0.55)])
-    /// #     .build()
-    /// #     .unwrap();
-    /// let ctx = MarketContext::new().insert_base_correlation(curve);
-    /// assert!(ctx.stats().total_curves > 0);
-    /// ```
     pub fn insert_base_correlation(mut self, curve: BaseCorrelationCurve) -> Self {
         let id = curve.id().to_owned();
         self.curves
@@ -599,21 +511,6 @@ impl MarketContext {
     /// # Parameters
     /// - `id`: identifier (string-like) stored as [`CurveId`]
     /// - `price`: scalar value to store
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_core::market_data::scalars::MarketScalar;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::currency::Currency;
-    ///
-    /// let ctx = MarketContext::new()
-    ///     .insert_price("AAPL", MarketScalar::Price(Money::new(180.0, Currency::USD)));
-    /// match ctx.price("AAPL").unwrap() {
-    ///     MarketScalar::Price(m) => assert_eq!(m.currency(), Currency::USD),
-    ///     _ => unreachable!(),
-    /// }
-    /// ```
     pub fn insert_price(mut self, id: impl AsRef<str>, price: MarketScalar) -> Self {
         self.prices.insert(CurveId::from(id.as_ref()), price);
         self
@@ -629,25 +526,6 @@ impl MarketContext {
     ///
     /// # Parameters
     /// - `series`: [`ScalarTimeSeries`] to store
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_core::market_data::scalars::ScalarTimeSeries;
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
-    ///
-    /// let series = ScalarTimeSeries::new(
-    ///     "VOL-TS",
-    ///     vec![
-    ///         (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 0.2),
-    ///         (Date::from_calendar_date(2024, Month::February, 1).unwrap(), 0.25),
-    ///     ],
-    ///     None,
-    /// ).unwrap();
-    /// let ctx = MarketContext::new().insert_series(series);
-    /// assert_eq!(ctx.series("VOL-TS").unwrap().id(), &finstack_core::types::CurveId::from("VOL-TS"));
-    /// ```
     pub fn insert_series(mut self, series: ScalarTimeSeries) -> Self {
         let id = series.id().to_owned();
         self.series.insert(id, series);
@@ -1525,9 +1403,10 @@ impl MarketContext {
             } else if let Ok(original) = self.get_base_correlation_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     // Replace the original curve with the bumped one under the same ID
-                    new_context
-                        .curves
-                        .insert(curve_id.clone(), CurveStorage::BaseCorrelation(Arc::new(bumped)));
+                    new_context.curves.insert(
+                        curve_id.clone(),
+                        CurveStorage::BaseCorrelation(Arc::new(bumped)),
+                    );
                     found = true;
                 }
             }

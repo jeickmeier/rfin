@@ -17,14 +17,14 @@ use time::Month;
 fn create_test_cds() -> CreditDefaultSwap {
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
-    
+
     CreditDefaultSwap::buy_protection(
         "CDS-DETERMINISM-TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0, // 100bp spread
         as_of,
         maturity,
-        "USD-OIS", // disc_id
+        "USD-OIS",     // disc_id
         "ACME-HAZARD", // credit_id (hazard curve contains recovery rate)
     )
 }
@@ -42,7 +42,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    
+
     let hazard = HazardCurve::builder("ACME-HAZARD")
         .issuer("ACME-Corp")
         .seniority(Seniority::Senior)
@@ -58,7 +58,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
         ])
         .build()
         .unwrap();
-    
+
     MarketContext::new()
         .insert_discount(disc)
         .insert_hazard(hazard)
@@ -69,12 +69,12 @@ fn test_cds_pv_determinism() {
     let cds = create_test_cds();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Price the CDS 100 times
     let prices: Vec<f64> = (0..100)
         .map(|_| cds.value(&market, as_of).unwrap().amount())
         .collect();
-    
+
     // All prices must be bitwise identical
     for i in 1..prices.len() {
         assert_eq!(
@@ -90,15 +90,17 @@ fn test_cds_cs01_determinism() {
     let cds = create_test_cds();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate CS01 50 times
     let cs01s: Vec<f64> = (0..50)
         .map(|_| {
-            let result = cds.price_with_metrics(&market, as_of, &[MetricId::Cs01]).unwrap();
+            let result = cds
+                .price_with_metrics(&market, as_of, &[MetricId::Cs01])
+                .unwrap();
             result.measures[MetricId::Cs01.as_str()]
         })
         .collect();
-    
+
     // All CS01s must be identical
     for i in 1..cs01s.len() {
         assert_eq!(
@@ -114,15 +116,17 @@ fn test_cds_par_spread_determinism() {
     let cds = create_test_cds();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate par spread 50 times
     let spreads: Vec<f64> = (0..50)
         .map(|_| {
-            let result = cds.price_with_metrics(&market, as_of, &[MetricId::ParSpread]).unwrap();
+            let result = cds
+                .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+                .unwrap();
             result.measures[MetricId::ParSpread.as_str()]
         })
         .collect();
-    
+
     // All spreads must be identical
     for i in 1..spreads.len() {
         assert_eq!(
@@ -138,7 +142,7 @@ fn test_cds_risky_annuity_determinism() {
     let cds = create_test_cds();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate risky PV01 50 times
     let pv01s: Vec<f64> = (0..50)
         .map(|_| {
@@ -148,7 +152,7 @@ fn test_cds_risky_annuity_determinism() {
             result.measures[MetricId::RiskyPv01.as_str()]
         })
         .collect();
-    
+
     // All risky PV01s must be identical
     for i in 1..pv01s.len() {
         assert_eq!(
@@ -164,7 +168,7 @@ fn test_cds_all_metrics_determinism() {
     let cds = create_test_cds();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     let metrics = vec![
         MetricId::Cs01,
         MetricId::ParSpread,
@@ -172,24 +176,28 @@ fn test_cds_all_metrics_determinism() {
         MetricId::ProtectionLegPv,
         MetricId::PremiumLegPv,
     ];
-    
+
     // Calculate all metrics 30 times
     let results: Vec<_> = (0..30)
         .map(|_| cds.price_with_metrics(&market, as_of, &metrics).unwrap())
         .collect();
-    
+
     // Verify each metric is deterministic
     for metric in &metrics {
         let values: Vec<f64> = results
             .iter()
             .map(|r| r.measures[metric.as_str()])
             .collect();
-        
+
         for i in 1..values.len() {
             assert_eq!(
-                values[i], values[0],
+                values[i],
+                values[0],
                 "{} differs at iteration {}: {:.15} vs {:.15}",
-                metric.as_str(), i, values[i], values[0]
+                metric.as_str(),
+                i,
+                values[i],
+                values[0]
             );
         }
     }
@@ -199,14 +207,14 @@ fn test_cds_all_metrics_determinism() {
 fn test_cds_different_tenors_determinism() {
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Test 1Y, 3Y, and 5Y CDS
     let maturities = vec![
         Date::from_calendar_date(2026, Month::January, 15).unwrap(),
         Date::from_calendar_date(2028, Month::January, 15).unwrap(),
         Date::from_calendar_date(2030, Month::January, 15).unwrap(),
     ];
-    
+
     for maturity in maturities {
         let cds = CreditDefaultSwap::buy_protection(
             format!("CDS-{}", maturity),
@@ -214,14 +222,14 @@ fn test_cds_different_tenors_determinism() {
             100.0, // 100bp spread
             as_of,
             maturity,
-            "USD-OIS", // disc_id
+            "USD-OIS",     // disc_id
             "ACME-HAZARD", // credit_id
         );
-        
+
         let prices: Vec<f64> = (0..30)
             .map(|_| cds.value(&market, as_of).unwrap().amount())
             .collect();
-        
+
         for i in 1..prices.len() {
             assert_eq!(
                 prices[i], prices[0],
@@ -231,4 +239,3 @@ fn test_cds_different_tenors_determinism() {
         }
     }
 }
-

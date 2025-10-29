@@ -9,15 +9,7 @@
 /// in a single pass, which is critical for Monte Carlo where we
 /// process millions of samples.
 ///
-/// # Example
-///
-/// ```rust,ignore
-/// let mut stats = OnlineStats::new();
-/// for sample in samples {
-///     stats.update(sample);
-/// }
-/// println!("Mean: {}, StdErr: {}", stats.mean(), stats.stderr());
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, Default)]
 pub struct OnlineStats {
     count: usize,
@@ -58,8 +50,7 @@ impl OnlineStats {
         let delta = other.mean - self.mean;
         let combined_m2 = self.m2
             + other.m2
-            + delta * delta * (self.count as f64) * (other.count as f64)
-                / (total_count as f64);
+            + delta * delta * (self.count as f64) * (other.count as f64) / (total_count as f64);
 
         self.mean = (self.count as f64 * self.mean + other.count as f64 * other.mean)
             / (total_count as f64);
@@ -272,4 +263,3 @@ mod tests {
         assert!(n > 38000); // Should be ~38416 for z=1.96
     }
 }
-

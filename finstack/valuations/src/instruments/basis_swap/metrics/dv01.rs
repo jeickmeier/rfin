@@ -8,13 +8,7 @@ use finstack_core::{Error, Result};
 /// DV01 represents the change in present value for a 1 basis point change in rates.
 /// It is calculated as the product of the annuity, notional amount, and 1 basis point.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_valuations::instruments::basis_swap::metrics::Dv01Calculator;
-///
-/// let primary_calc = Dv01Calculator::primary();
-/// let reference_calc = Dv01Calculator::reference();
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct Dv01Calculator {
     /// Whether this calculator is for the primary leg (true) or reference leg (false).
     pub is_primary: bool,

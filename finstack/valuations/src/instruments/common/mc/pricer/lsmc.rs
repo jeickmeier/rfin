@@ -203,7 +203,14 @@ impl LsmcPricer {
         let paths = self.generate_paths(process, initial_spot, time_to_maturity, num_steps)?;
 
         // Step 2: Backward induction with regression
-        let values = self.backward_induction(&paths, exercise, basis, discount_rate, time_to_maturity, num_steps)?;
+        let values = self.backward_induction(
+            &paths,
+            exercise,
+            basis,
+            discount_rate,
+            time_to_maturity,
+            num_steps,
+        )?;
 
         // Step 3: Compute statistics
         let mut stats = OnlineStats::new();
@@ -216,7 +223,8 @@ impl LsmcPricer {
             stats.stderr(),
             stats.ci_95(),
             values.len(),
-        ).with_std_dev(stats.std_dev());
+        )
+        .with_std_dev(stats.std_dev());
 
         Ok(MoneyEstimate::from_estimate(estimate, currency))
     }
@@ -323,8 +331,7 @@ impl LsmcPricer {
 
             // Perform regression if we have enough ITM paths
             if regression_x.len() > basis.num_basis() + 10 {
-                let continuation_values =
-                    self.regression(&regression_x, &regression_y, basis)?;
+                let continuation_values = self.regression(&regression_x, &regression_y, basis)?;
 
                 // Exercise decision
                 for (j, &i) in regression_indices.iter().enumerate() {
@@ -353,12 +360,7 @@ impl LsmcPricer {
     /// Perform least-squares regression.
     ///
     /// Fits continuation value = Σ β_i φ_i(S) using ordinary least squares.
-    fn regression<B>(
-        &self,
-        x: &[f64],
-        y: &[f64],
-        basis: &B,
-    ) -> Result<Vec<f64>>
+    fn regression<B>(&self, x: &[f64], y: &[f64], basis: &B) -> Result<Vec<f64>>
     where
         B: BasisFunctions,
     {
@@ -413,19 +415,19 @@ impl LsmcPricer {
 /// This is critical for LSMC with high-degree polynomials or extreme spot ranges.
 fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Result<Vec<f64>> {
     use nalgebra::{DMatrix, DVector};
-    
+
     // Check for degenerate cases
     if n < k {
         return Err(finstack_core::Error::Internal);
     }
-    
+
     // Convert to nalgebra matrices
     let x_matrix = DMatrix::from_row_slice(n, k, design);
     let y_vector = DVector::from_vec(y.to_vec());
-    
+
     // Solve least squares problem using SVD (more robust than QR for overdetermined systems)
     let svd = x_matrix.svd(true, true);
-    
+
     match svd.solve(&y_vector, 1e-10) {
         Ok(beta) => {
             // Convert back to Vec<f64>
@@ -437,7 +439,7 @@ fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Result<
             // - Linearly dependent basis functions
             // - Too few ITM paths for regression
             // - Numerical issues with extreme values
-            
+
             // Fallback: return zero coefficients (exercise immediately)
             // This is conservative but safe
             tracing::warn!(
@@ -450,8 +452,8 @@ fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Result<
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::process::gbm::GbmParams;
+    use super::*;
 
     #[test]
     fn test_polynomial_basis() {
@@ -541,19 +543,18 @@ mod tests {
 
         let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3));
         let put = AmericanPut { strike: 100.0 };
-        
+
         // High-degree polynomial basis (more prone to ill-conditioning)
         let basis = PolynomialBasis::new(5);
 
-        let result = pricer
-            .price(&gbm, 80.0, 1.0, 100, &put, &basis, Currency::USD, 0.05);
+        let result = pricer.price(&gbm, 80.0, 1.0, 100, &put, &basis, Currency::USD, 0.05);
 
         // Should not panic or produce NaN
         assert!(result.is_ok());
         let price = result.unwrap();
         assert!(price.mean.amount().is_finite());
         assert!(price.mean.amount() > 0.0);
-        
+
         println!("High-degree poly LSMC (deep ITM): {}", price.mean);
     }
 
@@ -570,15 +571,14 @@ mod tests {
         let put = AmericanPut { strike: 100.0 };
         let basis = PolynomialBasis::new(3);
 
-        let result = pricer
-            .price(&gbm, 100.0, 1.0, 100, &put, &basis, Currency::USD, 0.05);
+        let result = pricer.price(&gbm, 100.0, 1.0, 100, &put, &basis, Currency::USD, 0.05);
 
         // Should remain stable even with extreme paths
         assert!(result.is_ok());
         let price = result.unwrap();
         assert!(price.mean.amount().is_finite());
         assert!(price.mean.amount() >= 0.0);
-        
+
         println!("Extreme spot ranges LSMC: {}", price.mean);
     }
 
@@ -596,8 +596,7 @@ mod tests {
         let basis = PolynomialBasis::new(2);
 
         // Start well above strike
-        let result = pricer
-            .price(&gbm, 150.0, 0.5, 100, &put, &basis, Currency::USD, 0.05);
+        let result = pricer.price(&gbm, 150.0, 0.5, 100, &put, &basis, Currency::USD, 0.05);
 
         // Should handle gracefully (very small value expected)
         assert!(result.is_ok());
@@ -605,7 +604,7 @@ mod tests {
         assert!(price.mean.amount().is_finite());
         assert!(price.mean.amount() >= 0.0);
         assert!(price.mean.amount() < 0.1); // Should be near zero
-        
+
         println!("Few ITM paths LSMC: {}", price.mean);
     }
 
@@ -614,8 +613,7 @@ mod tests {
         // Test with singular matrix (linearly dependent columns)
         let design = vec![
             1.0, 1.0, 2.0, // Column 3 = 2 * Column 2
-            1.0, 2.0, 4.0,
-            1.0, 3.0, 6.0,
+            1.0, 2.0, 4.0, 1.0, 3.0, 6.0,
         ];
         let y = vec![1.0, 2.0, 3.0];
 
@@ -633,18 +631,18 @@ mod tests {
         // Create ill-conditioned polynomial design matrix
         let x_values = vec![1.0, 1.1, 1.2, 1.3, 1.4];
         let mut design = Vec::new();
-        
+
         for &x in &x_values {
             design.push(1.0);
             design.push(x);
             design.push(x * x);
             design.push(x * x * x);
         }
-        
+
         let y = vec![1.0, 1.2, 1.5, 1.8, 2.0];
-        
+
         let solution = solve_least_squares(&design, &y, 5, 4);
-        
+
         // Should complete without error (QR handles ill-conditioning better)
         assert!(solution.is_ok());
         let beta = solution.unwrap();

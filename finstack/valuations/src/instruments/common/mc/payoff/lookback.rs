@@ -3,7 +3,7 @@
 //! Lookback options depend on the maximum or minimum spot price
 //! observed over the life of the option.
 
-use super::super::traits::{Payoff, PathState};
+use super::super::traits::{PathState, Payoff};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -20,7 +20,7 @@ pub struct LookbackCall {
     pub notional: f64,
     /// Maturity step
     pub maturity_step: usize,
-    
+
     // State
     max_spot: f64,
 }
@@ -64,7 +64,7 @@ pub struct LookbackPut {
     pub strike: f64,
     pub notional: f64,
     pub maturity_step: usize,
-    
+
     min_spot: f64,
 }
 
@@ -106,7 +106,7 @@ impl Payoff for LookbackPut {
 pub struct FloatingStrikeLookbackCall {
     pub notional: f64,
     pub maturity_step: usize,
-    
+
     terminal_spot: f64,
     min_spot: f64,
 }
@@ -146,8 +146,8 @@ impl Payoff for FloatingStrikeLookbackCall {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::traits::state_keys;
+    use super::*;
 
     fn create_state(step: usize, spot: f64) -> PathState {
         let mut state = PathState::new(step, step as f64 * 0.1);

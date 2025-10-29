@@ -28,16 +28,22 @@ impl MetricCalculator for FxOptionDv01Calculator {
 
         // Parallel +1bp bump on both domestic and foreign discount curves
         let mut bumps = HashMap::new();
-        bumps.insert(fx_option.domestic_disc_id.clone(), BumpSpec::parallel_bp(1.0));
-        bumps.insert(fx_option.foreign_disc_id.clone(), BumpSpec::parallel_bp(1.0));
+        bumps.insert(
+            fx_option.domestic_disc_id.clone(),
+            BumpSpec::parallel_bp(1.0),
+        );
+        bumps.insert(
+            fx_option.foreign_disc_id.clone(),
+            BumpSpec::parallel_bp(1.0),
+        );
         let bumped_context = context.curves.bump(bumps)?;
-        
+
         // Reprice with bumped curves
         let bumped_pv = fx_option.value(&bumped_context, as_of)?;
 
         // DV01 = base_pv - bumped_pv
         let dv01 = base_pv.checked_sub(bumped_pv)?;
-        
+
         Ok(dv01.amount())
     }
 }

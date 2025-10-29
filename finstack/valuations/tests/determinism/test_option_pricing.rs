@@ -18,7 +18,7 @@ use time::Month;
 
 fn create_test_call() -> EquityOption {
     let expiry = Date::from_calendar_date(2026, Month::January, 15).unwrap();
-    
+
     EquityOption::european_call(
         "CALL-DETERMINISM",
         "AAPL",
@@ -32,16 +32,11 @@ fn create_test_call() -> EquityOption {
 fn create_test_market(base_date: Date) -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
-        .knots([
-            (0.0, 1.0),
-            (0.5, 0.98),
-            (1.0, 0.96),
-            (2.0, 0.92),
-        ])
+        .knots([(0.0, 1.0), (0.5, 0.98), (1.0, 0.96), (2.0, 0.92)])
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    
+
     // Flat vol surface using from_grid
     let vol_surface = VolSurface::from_grid(
         "EQUITY-VOL",
@@ -50,11 +45,14 @@ fn create_test_market(base_date: Date) -> MarketContext {
         &[0.25; 20], // 20 = 4 expiries × 5 strikes
     )
     .unwrap();
-    
+
     MarketContext::new()
         .insert_discount(disc)
         .insert_surface(vol_surface)
-        .insert_price("EQUITY-SPOT", MarketScalar::Price(Money::new(100.0, Currency::USD)))
+        .insert_price(
+            "EQUITY-SPOT",
+            MarketScalar::Price(Money::new(100.0, Currency::USD)),
+        )
         .insert_price("EQUITY-DIVYIELD", MarketScalar::Unitless(0.02)) // 2% div yield
 }
 
@@ -63,12 +61,12 @@ fn test_option_pv_determinism() {
     let option = create_test_call();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Price the option 100 times
     let prices: Vec<f64> = (0..100)
         .map(|_| option.value(&market, as_of).unwrap().amount())
         .collect();
-    
+
     // All prices must be bitwise identical
     for i in 1..prices.len() {
         assert_eq!(
@@ -84,15 +82,17 @@ fn test_option_delta_determinism() {
     let option = create_test_call();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate delta 50 times
     let deltas: Vec<f64> = (0..50)
         .map(|_| {
-            let result = option.price_with_metrics(&market, as_of, &[MetricId::Delta]).unwrap();
+            let result = option
+                .price_with_metrics(&market, as_of, &[MetricId::Delta])
+                .unwrap();
             result.measures[MetricId::Delta.as_str()]
         })
         .collect();
-    
+
     // All deltas must be identical
     for i in 1..deltas.len() {
         assert_eq!(
@@ -108,15 +108,17 @@ fn test_option_gamma_determinism() {
     let option = create_test_call();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate gamma 50 times
     let gammas: Vec<f64> = (0..50)
         .map(|_| {
-            let result = option.price_with_metrics(&market, as_of, &[MetricId::Gamma]).unwrap();
+            let result = option
+                .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+                .unwrap();
             result.measures[MetricId::Gamma.as_str()]
         })
         .collect();
-    
+
     // All gammas must be identical
     for i in 1..gammas.len() {
         assert_eq!(
@@ -132,15 +134,17 @@ fn test_option_vega_determinism() {
     let option = create_test_call();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate vega 50 times
     let vegas: Vec<f64> = (0..50)
         .map(|_| {
-            let result = option.price_with_metrics(&market, as_of, &[MetricId::Vega]).unwrap();
+            let result = option
+                .price_with_metrics(&market, as_of, &[MetricId::Vega])
+                .unwrap();
             result.measures[MetricId::Vega.as_str()]
         })
         .collect();
-    
+
     // All vegas must be identical
     for i in 1..vegas.len() {
         assert_eq!(
@@ -156,15 +160,17 @@ fn test_option_theta_determinism() {
     let option = create_test_call();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate theta 50 times
     let thetas: Vec<f64> = (0..50)
         .map(|_| {
-            let result = option.price_with_metrics(&market, as_of, &[MetricId::Theta]).unwrap();
+            let result = option
+                .price_with_metrics(&market, as_of, &[MetricId::Theta])
+                .unwrap();
             result.measures[MetricId::Theta.as_str()]
         })
         .collect();
-    
+
     // All thetas must be identical
     for i in 1..thetas.len() {
         assert_eq!(
@@ -180,7 +186,7 @@ fn test_option_all_greeks_determinism() {
     let option = create_test_call();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     let metrics = vec![
         MetricId::Delta,
         MetricId::Gamma,
@@ -188,24 +194,28 @@ fn test_option_all_greeks_determinism() {
         MetricId::Theta,
         MetricId::Rho,
     ];
-    
+
     // Calculate all greeks 30 times
     let results: Vec<_> = (0..30)
         .map(|_| option.price_with_metrics(&market, as_of, &metrics).unwrap())
         .collect();
-    
+
     // Verify each metric is deterministic
     for metric in &metrics {
         let values: Vec<f64> = results
             .iter()
             .map(|r| r.measures[metric.as_str()])
             .collect();
-        
+
         for i in 1..values.len() {
             assert_eq!(
-                values[i], values[0],
+                values[i],
+                values[0],
                 "{} differs at iteration {}: {:.15} vs {:.15}",
-                metric.as_str(), i, values[i], values[0]
+                metric.as_str(),
+                i,
+                values[i],
+                values[0]
             );
         }
     }
@@ -222,15 +232,15 @@ fn test_option_put_determinism() {
         Money::new(100.0, Currency::USD),
         100.0,
     );
-    
+
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Price the put 100 times
     let prices: Vec<f64> = (0..100)
         .map(|_| put.value(&market, as_of).unwrap().amount())
         .collect();
-    
+
     // All prices must be identical
     for i in 1..prices.len() {
         assert_eq!(
@@ -246,10 +256,10 @@ fn test_option_different_moneyness_determinism() {
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let expiry = Date::from_calendar_date(2026, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Test OTM, ATM, and ITM options
     let strikes = vec![80.0, 100.0, 120.0];
-    
+
     for strike in strikes {
         let call = EquityOption::european_call(
             format!("CALL-K{}", strike),
@@ -259,11 +269,11 @@ fn test_option_different_moneyness_determinism() {
             Money::new(100.0, Currency::USD),
             1.0,
         );
-        
+
         let prices: Vec<f64> = (0..30)
             .map(|_| call.value(&market, as_of).unwrap().amount())
             .collect();
-        
+
         for i in 1..prices.len() {
             assert_eq!(
                 prices[i], prices[0],
@@ -273,4 +283,3 @@ fn test_option_different_moneyness_determinism() {
         }
     }
 }
-

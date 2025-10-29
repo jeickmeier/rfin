@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Custom bond structure integration tests (PIK, step-up, etc.).
 
 use finstack_core::currency::Currency;

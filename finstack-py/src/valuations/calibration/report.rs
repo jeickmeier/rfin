@@ -95,8 +95,9 @@ impl PyCalibrationReport {
     fn explanation(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
         match &self.inner.explanation {
             Some(trace) => {
-                let bound = pythonize(py, trace)
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+                let bound = pythonize(py, trace).map_err(|e| {
+                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                })?;
                 Ok(Some(bound.unbind()))
             }
             None => Ok(None),
@@ -106,8 +107,9 @@ impl PyCalibrationReport {
     fn explain_json(&self) -> PyResult<Option<String>> {
         match &self.inner.explanation {
             Some(trace) => {
-                let json = trace.to_json_pretty()
-                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+                let json = trace.to_json_pretty().map_err(|e| {
+                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
+                })?;
                 Ok(Some(json))
             }
             None => Ok(None),

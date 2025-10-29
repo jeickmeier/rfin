@@ -15,17 +15,7 @@ use finstack_core::{
 /// The holder receives the total return (price appreciation + dividends) of the underlying
 /// equity in exchange for paying a floating rate plus spread on the notional amount.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_valuations::instruments::trs::EquityTotalReturnSwap;
-/// use finstack_core::{money::Money, currency::Currency, dates::Date};
-/// use time::Month;
-///
-/// let trs = EquityTotalReturnSwap::builder()
-///     .id("EQ_TRS_001".into())
-///     .notional(Money::new(1_000_000.0, Currency::USD))
-///     .build();
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]

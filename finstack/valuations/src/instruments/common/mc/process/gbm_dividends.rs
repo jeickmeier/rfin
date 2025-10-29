@@ -49,24 +49,7 @@ impl Dividend {
 
 /// GBM process with discrete dividends.
 ///
-/// # Example
-///
-/// ```rust,ignore
-/// use finstack_valuations::instruments::common::mc::process::gbm_dividends::*;
-///
-/// // Quarterly dividends of $0.50 per share
-/// let dividends = vec![
-///     (0.25, Dividend::Cash(0.50)),
-///     (0.50, Dividend::Cash(0.50)),
-///     (0.75, Dividend::Cash(0.50)),
-///     (1.00, Dividend::Cash(0.50)),
-/// ];
-///
-/// let gbm_div = GbmWithDividends::new(
-///     GbmParams::new(0.05, 0.0, 0.2),  // r, q=0 (dividends explicit), σ
-///     dividends,
-/// );
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 pub struct GbmWithDividends {
     /// Base GBM parameters (note: q should typically be 0 since dividends are explicit)
@@ -90,7 +73,7 @@ impl GbmWithDividends {
     pub fn new(params: GbmParams, mut dividends: Vec<(f64, Dividend)>) -> Self {
         // Sort dividends by time
         dividends.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        
+
         // Validate sorted order
         for i in 1..dividends.len() {
             assert!(
@@ -176,7 +159,7 @@ mod tests {
         let div = Dividend::Cash(1.0);
         assert_eq!(div.amount(100.0), 1.0);
         assert_eq!(div.amount(50.0), 1.0); // Fixed amount
-        
+
         assert_eq!(div.apply(100.0), 99.0);
         assert_eq!(div.apply(50.0), 49.0);
     }
@@ -186,7 +169,7 @@ mod tests {
         let div = Dividend::Proportional(0.02); // 2%
         assert_eq!(div.amount(100.0), 2.0);
         assert_eq!(div.amount(50.0), 1.0); // Scales with spot
-        
+
         assert_eq!(div.apply(100.0), 98.0);
         assert_eq!(div.apply(50.0), 49.0);
     }
@@ -195,22 +178,16 @@ mod tests {
     fn test_dividend_prevents_negative_spot() {
         let div = Dividend::Cash(150.0);
         assert_eq!(div.apply(100.0), 0.0); // Can't go negative
-        
+
         let div_pct = Dividend::Proportional(1.5); // 150%
         assert_eq!(div_pct.apply(100.0), 0.0);
     }
 
     #[test]
     fn test_gbm_with_dividends_creation() {
-        let dividends = vec![
-            (0.25, Dividend::Cash(0.50)),
-            (0.50, Dividend::Cash(0.50)),
-        ];
+        let dividends = vec![(0.25, Dividend::Cash(0.50)), (0.50, Dividend::Cash(0.50))];
 
-        let gbm_div = GbmWithDividends::new(
-            GbmParams::new(0.05, 0.0, 0.2),
-            dividends,
-        );
+        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2), dividends);
 
         assert_eq!(gbm_div.dividends().len(), 2);
         assert_eq!(gbm_div.dim(), 1);
@@ -224,10 +201,7 @@ mod tests {
             (0.75, Dividend::Cash(1.00)),
         ];
 
-        let gbm_div = GbmWithDividends::new(
-            GbmParams::new(0.05, 0.0, 0.2),
-            dividends,
-        );
+        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2), dividends);
 
         // Interval (0.2, 0.6] should capture dividends at 0.25 and 0.50
         let divs = gbm_div.dividends_in_interval(0.2, 0.4);
@@ -252,16 +226,13 @@ mod tests {
             (0.50, Dividend::Proportional(0.02)), // 2%
         ];
 
-        let gbm_div = GbmWithDividends::new(
-            GbmParams::new(0.05, 0.0, 0.2),
-            dividends,
-        );
+        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2), dividends);
 
         let spot = 100.0;
 
         // Apply dividends in (0.0, 0.6]
         let adjusted = gbm_div.apply_dividends(spot, 0.0, 0.6);
-        
+
         // First: S = 100 - 1 = 99
         // Then: S = 99 * 0.98 = 97.02
         assert!((adjusted - 97.02).abs() < 1e-10);
@@ -276,10 +247,7 @@ mod tests {
             (0.50, Dividend::Cash(0.75)),
         ];
 
-        let gbm_div = GbmWithDividends::new(
-            GbmParams::new(0.05, 0.0, 0.2),
-            dividends,
-        );
+        let gbm_div = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2), dividends);
 
         // Should be sorted
         assert_eq!(gbm_div.dividends()[0].0, 0.25);
@@ -295,10 +263,6 @@ mod tests {
             (0.25, Dividend::Cash(0.5)), // Duplicate time
         ];
 
-        let _ = GbmWithDividends::new(
-            GbmParams::new(0.05, 0.0, 0.2),
-            dividends,
-        );
+        let _ = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2), dividends);
     }
 }
-

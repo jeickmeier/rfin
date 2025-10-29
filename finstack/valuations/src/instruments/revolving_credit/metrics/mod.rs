@@ -59,4 +59,3 @@ pub fn register_revolving_credit_metrics(registry: &mut MetricRegistry) {
         &["RevolvingCredit"],
     );
 }
-

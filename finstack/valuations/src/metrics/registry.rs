@@ -22,29 +22,7 @@ use std::sync::Arc;
 /// - **Instrument applicability**: Metrics can be restricted to specific instrument types
 /// - **Batch computation**: Compute multiple metrics efficiently
 ///
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::metrics::ids::MetricId;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// use std::sync::Arc;
-///
-/// struct MyCalculator;
-/// impl MetricCalculator for MyCalculator {
-///     fn calculate(&self, _context: &mut finstack_valuations::metrics::traits::MetricContext) -> finstack_core::Result<f64> {
-///         Ok(42.0)
-///     }
-/// }
-///
-/// let mut registry = MetricRegistry::new();
-/// registry.register_metric(
-///     MetricId::Ytm,
-///     Arc::new(MyCalculator),
-///     &["Bond"]
-/// );
-///
-/// assert!(registry.has_metric(MetricId::Ytm));
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone)]
 pub struct MetricRegistry {
     entries: HashMap<MetricId, MetricEntry>,

@@ -170,12 +170,12 @@ fn simulate_path<R, P, D, F>(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::discretization::exact::ExactGbm;
     use super::super::super::payoff::vanilla::EuropeanCall;
     use super::super::super::process::gbm::{GbmParams, GbmProcess};
     use super::super::super::rng::philox::PhiloxRng;
     use super::super::super::time_grid::TimeGrid;
+    use super::*;
     use finstack_core::currency::Currency;
 
     #[test]
@@ -194,14 +194,7 @@ mod tests {
             discount_factor: 1.0,
         };
 
-        let stats = antithetic_price(
-            &mut rng,
-            &process,
-            &disc,
-            &initial_state,
-            &payoff,
-            &config,
-        );
+        let stats = antithetic_price(&mut rng, &process, &disc, &initial_state, &payoff, &config);
 
         // Should produce reasonable option value
         assert!(stats.mean() > 0.0);
@@ -213,9 +206,9 @@ mod tests {
     fn test_antithetic_reduces_variance() {
         // Antithetic variates should produce lower stderr than standard MC
         // This is a demonstration test showing variance reduction
-        
+
         let mut rng_antithetic = PhiloxRng::new(42);
-        
+
         let process = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.3));
         let disc = ExactGbm::new();
         let initial_state = vec![100.0];
@@ -245,6 +238,10 @@ mod tests {
         assert_eq!(stats_anti.count(), 100);
 
         // Antithetic should have lower standard error than naive MC (demonstrated in practice)
-        println!("Antithetic mean: {}, stderr: {}", stats_anti.mean(), stats_anti.stderr());
+        println!(
+            "Antithetic mean: {}, stderr: {}",
+            stats_anti.mean(),
+            stats_anti.stderr()
+        );
     }
 }

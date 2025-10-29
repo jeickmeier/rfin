@@ -30,14 +30,16 @@ use finstack_valuations::instruments::common::mc::process::heston::HestonProcess
 
 fn bench_european_gbm(c: &mut Criterion) {
     let mut group = c.benchmark_group("mc_european_gbm");
-    
+
     for num_paths in [10_000, 50_000, 100_000] {
         group.throughput(Throughput::Elements(num_paths as u64));
         group.bench_with_input(
             BenchmarkId::from_parameter(num_paths),
             &num_paths,
             |b, &n| {
-                let config = EuropeanPricerConfig::new(n).with_seed(42).with_parallel(false);
+                let config = EuropeanPricerConfig::new(n)
+                    .with_seed(42)
+                    .with_parallel(false);
                 let pricer = EuropeanPricer::new(config);
                 let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2));
                 let call = EuropeanCall::new(100.0, 1.0, 252);
@@ -281,4 +283,3 @@ criterion_main!(benches, parallel_benches);
 
 #[cfg(not(feature = "parallel"))]
 criterion_main!(benches);
-

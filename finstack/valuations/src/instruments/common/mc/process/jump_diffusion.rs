@@ -54,7 +54,7 @@ impl MertonJumpParams {
     pub fn new(r: f64, q: f64, sigma: f64, lambda: f64, mu_j: f64, sigma_j: f64) -> Self {
         assert!(lambda >= 0.0, "Jump intensity must be non-negative");
         assert!(sigma_j >= 0.0, "Jump volatility must be non-negative");
-        
+
         Self {
             gbm: GbmParams::new(r, q, sigma),
             lambda,
@@ -62,14 +62,14 @@ impl MertonJumpParams {
             sigma_j,
         }
     }
-    
+
     /// Compute jump compensation term k = E[J - 1].
     ///
     /// For log-normal jumps: k = e^{μ_J + σ_J²/2} - 1
     pub fn jump_compensation(&self) -> f64 {
         (self.mu_j + 0.5 * self.sigma_j * self.sigma_j).exp() - 1.0
     }
-    
+
     /// Compensated drift for risk-neutral measure.
     ///
     /// μ_compensated = r - q - λk
@@ -99,19 +99,12 @@ impl MertonJumpProcess {
     pub fn new(params: MertonJumpParams) -> Self {
         Self { params }
     }
-    
+
     /// Create with explicit parameters.
-    pub fn with_params(
-        r: f64,
-        q: f64,
-        sigma: f64,
-        lambda: f64,
-        mu_j: f64,
-        sigma_j: f64,
-    ) -> Self {
+    pub fn with_params(r: f64, q: f64, sigma: f64, lambda: f64, mu_j: f64, sigma_j: f64) -> Self {
         Self::new(MertonJumpParams::new(r, q, sigma, lambda, mu_j, sigma_j))
     }
-    
+
     /// Get parameters.
     pub fn params(&self) -> &MertonJumpParams {
         &self.params
@@ -122,23 +115,23 @@ impl StochasticProcess for MertonJumpProcess {
     fn dim(&self) -> usize {
         1
     }
-    
+
     fn num_factors(&self) -> usize {
         // Need at least 2: one for diffusion, one for Poisson
         // In practice, JumpEuler will need more for jump sizes
         2
     }
-    
+
     fn drift(&self, _t: f64, x: &[f64], out: &mut [f64]) {
         // Compensated drift: μ(S) = (r - q - λk) S
         out[0] = self.params.compensated_drift() * x[0];
     }
-    
+
     fn diffusion(&self, _t: f64, x: &[f64], out: &mut [f64]) {
         // Continuous diffusion: σ(S) = σ S
         out[0] = self.params.gbm.sigma * x[0];
     }
-    
+
     fn is_diagonal(&self) -> bool {
         true
     }
@@ -147,7 +140,7 @@ impl StochasticProcess for MertonJumpProcess {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_merton_params() {
         let params = MertonJumpParams::new(
@@ -158,89 +151,86 @@ mod tests {
             -0.05, // mu_j (slightly negative jumps)
             0.1,   // sigma_j
         );
-        
+
         assert_eq!(params.lambda, 2.0);
         assert_eq!(params.mu_j, -0.05);
         assert_eq!(params.sigma_j, 0.1);
     }
-    
+
     #[test]
     fn test_jump_compensation() {
         let params = MertonJumpParams::new(
-            0.05, 0.02, 0.2,
-            1.0,    // lambda
-            -0.1,   // mu_j (negative jumps)
-            0.15,   // sigma_j
+            0.05, 0.02, 0.2, 1.0,  // lambda
+            -0.1, // mu_j (negative jumps)
+            0.15, // sigma_j
         );
-        
+
         let k = params.jump_compensation();
-        
+
         // k = e^{-0.1 + 0.5*0.15²} - 1 ≈ e^{-0.08875} - 1 ≈ -0.085
         assert!(k < 0.0); // Negative jumps → negative compensation
         let expected: f64 = (-0.1_f64 + 0.5 * 0.15 * 0.15).exp() - 1.0;
         assert!((k - expected).abs() < 1e-10);
     }
-    
+
     #[test]
     fn test_compensated_drift() {
         let params = MertonJumpParams::new(
-            0.05, 0.02, 0.2,
-            2.0,   // lambda
-            0.0,   // mu_j (neutral jumps)
-            0.1,   // sigma_j
+            0.05, 0.02, 0.2, 2.0, // lambda
+            0.0, // mu_j (neutral jumps)
+            0.1, // sigma_j
         );
-        
+
         let drift = params.compensated_drift();
-        
+
         // Drift = r - q - λk = 0.05 - 0.02 - 2*(e^{0.005} - 1)
         // With mu_j=0, sigma_j=0.1: k = e^{0.005} - 1 ≈ 0.00501
         let k: f64 = (0.5_f64 * 0.1 * 0.1).exp() - 1.0;
         let expected = 0.05 - 0.02 - 2.0 * k;
-        
+
         assert!((drift - expected).abs() < 1e-6);
     }
-    
+
     #[test]
     fn test_merton_drift() {
         let params = MertonJumpParams::new(0.05, 0.02, 0.2, 1.0, -0.05, 0.1);
         let process = MertonJumpProcess::new(params);
-        
+
         let x = vec![100.0];
         let mut drift = vec![0.0];
-        
+
         process.drift(0.0, &x, &mut drift);
-        
+
         // Drift should be compensated_drift * S
         let expected_drift_rate = process.params().compensated_drift();
         assert_eq!(drift[0], expected_drift_rate * 100.0);
     }
-    
+
     #[test]
     fn test_merton_diffusion() {
         let params = MertonJumpParams::new(0.05, 0.02, 0.25, 1.0, 0.0, 0.1);
         let process = MertonJumpProcess::new(params);
-        
+
         let x = vec![100.0];
         let mut diffusion = vec![0.0];
-        
+
         process.diffusion(0.0, &x, &mut diffusion);
-        
+
         // Diffusion should be sigma * S
         assert_eq!(diffusion[0], 0.25 * 100.0);
     }
-    
+
     #[test]
     fn test_zero_jumps_reduces_to_gbm() {
         // With lambda = 0, should behave like GBM
         let params = MertonJumpParams::new(0.05, 0.02, 0.2, 0.0, 0.0, 0.0);
         let process = MertonJumpProcess::new(params);
-        
+
         // Drift should be (r - q) * S
         let x = vec![100.0];
         let mut drift = vec![0.0];
         process.drift(0.0, &x, &mut drift);
-        
+
         assert_eq!(drift[0], (0.05 - 0.02) * 100.0);
     }
 }
-

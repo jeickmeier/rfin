@@ -18,17 +18,7 @@ use std::collections::HashMap;
 /// Implementations must support deterministic stream splitting for parallel execution.
 /// Each stream is independent and can be split into substreams identified by a unique ID.
 ///
-/// # Example
-///
-/// ```rust,ignore
-/// let mut rng = PhiloxRng::new(42);
-/// let mut stream1 = rng.split(1);
-/// let mut stream2 = rng.split(2);
-///
-/// // stream1 and stream2 are independent
-/// stream1.fill_std_normals(&mut z1);
-/// stream2.fill_std_normals(&mut z2);
-/// ```
+/// See unit tests and `examples/` for usage.
 pub trait RandomStream: Send + Sync {
     /// Split this stream into a new independent substream.
     ///
@@ -327,4 +317,3 @@ mod tests {
         assert_eq!(state.get_or("nonexistent", 42.0), 42.0);
     }
 }
-

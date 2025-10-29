@@ -12,8 +12,7 @@
 //! - Include shrinking for minimal counter-examples
 //! - Run for sufficient iterations (default: 256 cases)
 
-mod test_swap_symmetry;
-mod test_option_bounds;
 mod test_curve_monotonicity;
 mod test_forward_parity;
-
+mod test_option_bounds;
+mod test_swap_symmetry;

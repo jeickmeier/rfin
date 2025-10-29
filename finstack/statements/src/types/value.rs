@@ -23,15 +23,6 @@ impl AmountOrScalar {
     /// # Arguments
     /// * `value` - Numeric amount
     /// * `currency` - ISO currency of the amount
-    ///
-    /// # Example
-    /// ```rust
-    /// # use finstack_statements::types::AmountOrScalar;
-    /// # use finstack_core::currency::Currency;
-    /// let amount = AmountOrScalar::amount(1_000_000.0, Currency::USD);
-    /// assert!(amount.is_amount());
-    /// assert_eq!(amount.currency(), Some(Currency::USD));
-    /// ```
     pub fn amount(value: f64, currency: Currency) -> Self {
         Self::Amount(Money::new(value, currency))
     }

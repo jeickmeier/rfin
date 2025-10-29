@@ -33,11 +33,10 @@ pub use exact_hw1f::ExactHullWhite1F;
 pub use euler::{EulerMaruyama, LogEuler};
 
 #[cfg(feature = "mc")]
-pub use milstein::{Milstein, LogMilstein};
+pub use milstein::{LogMilstein, Milstein};
 
 #[cfg(feature = "mc")]
 pub use qe_cir::QeCir;
 
 #[cfg(feature = "mc")]
 pub use jump_euler::JumpEuler;
-

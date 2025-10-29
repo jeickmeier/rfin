@@ -63,4 +63,3 @@ mod tests {
         assert!(!reporter.is_enabled()); // Still disabled without callback
     }
 }
-

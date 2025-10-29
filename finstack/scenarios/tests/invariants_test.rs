@@ -11,7 +11,9 @@ use finstack_core::market_data::term_structures::base_correlation::BaseCorrelati
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::market_data::MarketContext;
-use finstack_scenarios::{CurveKind, OperationSpec, ScenarioEngine, ScenarioSpec, ExecutionContext};
+use finstack_scenarios::{
+    CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec,
+};
 use finstack_statements::FinancialModelSpec;
 use std::sync::Arc;
 use time::macros::date;
@@ -517,4 +519,3 @@ fn test_vol_surface_non_negative_after_bucket_shock() {
         }
     }
 }
-

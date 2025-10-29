@@ -14,4 +14,3 @@ impl MetricCalculator for UtilizationRateCalculator {
         Ok(utilization_rate)
     }
 }
-

@@ -79,11 +79,7 @@ pub fn lrm_vega(
 }
 
 /// Compute rho (sensitivity to interest rate) using LRM.
-pub fn lrm_rho(
-    payoffs: &[f64],
-    time_to_maturity: f64,
-    discount_factor: f64,
-) -> (f64, f64) {
+pub fn lrm_rho(payoffs: &[f64], time_to_maturity: f64, discount_factor: f64) -> (f64, f64) {
     let mut stats = OnlineStats::new();
 
     for &payoff in payoffs {

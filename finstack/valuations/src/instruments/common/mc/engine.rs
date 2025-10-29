@@ -10,7 +10,7 @@
 use super::results::{Estimate, MoneyEstimate};
 use super::stats::OnlineStats;
 use super::time_grid::TimeGrid;
-use super::traits::{Discretization, Payoff, PathState, RandomStream, StochasticProcess};
+use super::traits::{Discretization, PathState, Payoff, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -139,9 +139,9 @@ impl McEngineBuilder {
 
     /// Build the engine.
     pub fn build(self) -> Result<McEngine> {
-        let time_grid = self.time_grid.ok_or(
-            finstack_core::error::InputError::Invalid
-        )?;
+        let time_grid = self
+            .time_grid
+            .ok_or(finstack_core::error::InputError::Invalid)?;
 
         let config = McEngineConfig {
             num_paths: self.num_paths,
@@ -225,23 +225,9 @@ impl McEngine {
         F: Payoff,
     {
         let estimate = if self.config.use_parallel {
-            self.price_parallel(
-                rng,
-                process,
-                disc,
-                initial_state,
-                payoff,
-                discount_factor,
-            )?
+            self.price_parallel(rng, process, disc, initial_state, payoff, discount_factor)?
         } else {
-            self.price_serial(
-                rng,
-                process,
-                disc,
-                initial_state,
-                payoff,
-                discount_factor,
-            )?
+            self.price_serial(rng, process, disc, initial_state, payoff, discount_factor)?
         };
 
         Ok(MoneyEstimate::from_estimate(estimate, currency))
@@ -304,13 +290,10 @@ impl McEngine {
             }
         }
 
-        Ok(Estimate::new(
-            stats.mean(),
-            stats.stderr(),
-            stats.ci_95(),
-            stats.count(),
+        Ok(
+            Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count())
+                .with_std_dev(stats.std_dev()),
         )
-        .with_std_dev(stats.std_dev()))
     }
 
     /// Parallel pricing implementation.
@@ -571,11 +554,18 @@ mod tests {
         let payoff = DummyPayoff;
 
         let result = engine
-            .price(&rng, &process, &disc, &initial_state, &payoff, Currency::USD, 1.0)
+            .price(
+                &rng,
+                &process,
+                &disc,
+                &initial_state,
+                &payoff,
+                Currency::USD,
+                1.0,
+            )
             .unwrap();
 
         assert_eq!(result.mean.amount(), 100.0);
         assert_eq!(result.num_paths, 100);
     }
 }
-

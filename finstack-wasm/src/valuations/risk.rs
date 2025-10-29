@@ -86,12 +86,8 @@ pub fn krd_dv01_ladder(
 
     // Create JavaScript object with arrays
     let result = js_sys::Object::new();
-    let bucket_array = js_sys::Array::from_iter(
-        bucket_labels.iter().map(|s| JsValue::from_str(s))
-    );
-    let dv01_array = js_sys::Array::from_iter(
-        dv01_values.iter().map(|v| JsValue::from_f64(*v))
-    );
+    let bucket_array = js_sys::Array::from_iter(bucket_labels.iter().map(|s| JsValue::from_str(s)));
+    let dv01_array = js_sys::Array::from_iter(dv01_values.iter().map(|v| JsValue::from_f64(*v)));
 
     js_sys::Reflect::set(&result, &JsValue::from_str("bucket"), &bucket_array)?;
     js_sys::Reflect::set(&result, &JsValue::from_str("dv01"), &dv01_array)?;
@@ -165,16 +161,11 @@ pub fn cs01_ladder(
 
     // Create JavaScript object
     let result = js_sys::Object::new();
-    let bucket_array = js_sys::Array::from_iter(
-        bucket_labels.iter().map(|s| JsValue::from_str(s))
-    );
-    let cs01_array = js_sys::Array::from_iter(
-        cs01_values.iter().map(|v| JsValue::from_f64(*v))
-    );
+    let bucket_array = js_sys::Array::from_iter(bucket_labels.iter().map(|s| JsValue::from_str(s)));
+    let cs01_array = js_sys::Array::from_iter(cs01_values.iter().map(|v| JsValue::from_f64(*v)));
 
     js_sys::Reflect::set(&result, &JsValue::from_str("bucket"), &bucket_array)?;
     js_sys::Reflect::set(&result, &JsValue::from_str("cs01"), &cs01_array)?;
 
     Ok(result.into())
 }
-

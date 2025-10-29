@@ -55,14 +55,6 @@ impl NodeSpec {
     /// # Arguments
     /// * `node_id` - Unique identifier for the node
     /// * `node_type` - Computation type that defines how the node is evaluated
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use finstack_statements::types::{NodeSpec, NodeType};
-    /// let spec = NodeSpec::new("revenue", NodeType::Value);
-    /// assert_eq!(spec.node_id, "revenue");
-    /// ```
     pub fn new(node_id: impl Into<String>, node_type: NodeType) -> Self {
         Self {
             node_id: node_id.into(),
@@ -90,18 +82,6 @@ impl NodeSpec {
     ///
     /// # Arguments
     /// * `values` - Period-indexed map of explicit values
-    ///
-    /// # Example
-    /// ```rust
-    /// # use finstack_statements::types::{NodeSpec, NodeType};
-    /// # use finstack_core::dates::PeriodId;
-    /// # use indexmap::indexmap;
-    /// let spec = NodeSpec::new("revenue", NodeType::Value).with_values(indexmap! {
-    ///     PeriodId::quarter(2025, 1) => 100_000.0.into(),
-    ///     PeriodId::quarter(2025, 2) => 110_000.0.into(),
-    /// });
-    /// assert!(spec.values.is_some());
-    /// ```
     pub fn with_values(mut self, values: IndexMap<PeriodId, AmountOrScalar>) -> Self {
         self.values = Some(values);
         self

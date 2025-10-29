@@ -207,7 +207,9 @@ impl CapitalStructureCashflows {
     /// # Arguments
     /// * `period_id` - Period to inspect
     pub fn get_total_interest(&self, period_id: &PeriodId) -> Option<f64> {
-        self.totals.get(period_id).map(|cf| cf.interest_expense_total())
+        self.totals
+            .get(period_id)
+            .map(|cf| cf.interest_expense_total())
     }
 
     /// Get total cash interest expense across all instruments for a period.
@@ -215,7 +217,9 @@ impl CapitalStructureCashflows {
     /// # Arguments
     /// * `period_id` - Period to inspect
     pub fn get_total_interest_cash(&self, period_id: &PeriodId) -> Option<f64> {
-        self.totals.get(period_id).map(|cf| cf.interest_expense_cash)
+        self.totals
+            .get(period_id)
+            .map(|cf| cf.interest_expense_cash)
     }
 
     /// Get total PIK interest expense across all instruments for a period.

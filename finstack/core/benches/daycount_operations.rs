@@ -96,12 +96,7 @@ fn bench_daycount_actact_isma(c: &mut Criterion) {
 fn bench_daycount_bus252(c: &mut Criterion) {
     let calendar = &TARGET2;
 
-    let periods = [
-        ("1m", 1, 1),
-        ("3m", 1, 1),
-        ("6m", 1, 1),
-        ("1y", 1, 1),
-    ];
+    let periods = [("1m", 1, 1), ("3m", 1, 1), ("6m", 1, 1), ("1y", 1, 1)];
 
     for (name, start_month, end_month) in periods {
         let start = Date::from_calendar_date(2025, Month::January, start_month).unwrap();
@@ -132,44 +127,48 @@ fn bench_daycount_batch_calculations(c: &mut Criterion) {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     for size in [10, 50, 100, 500] {
-        group.bench_with_input(BenchmarkId::new("year_fractions", size), &size, |b, &size| {
-            // Generate dates at monthly intervals
-            let dates: Vec<_> = (1..=size)
-                .map(|i| {
-                    Date::from_calendar_date(
-                        2025 + (i / 12),
-                        match ((i % 12) + 1) as u8 {
-                            1 => Month::January,
-                            2 => Month::February,
-                            3 => Month::March,
-                            4 => Month::April,
-                            5 => Month::May,
-                            6 => Month::June,
-                            7 => Month::July,
-                            8 => Month::August,
-                            9 => Month::September,
-                            10 => Month::October,
-                            11 => Month::November,
-                            _ => Month::December,
-                        },
-                        1,
-                    )
-                    .unwrap()
-                })
-                .collect();
-
-            b.iter(|| {
-                let results: Vec<_> = dates
-                    .iter()
-                    .map(|&end| {
-                        convention
-                            .year_fraction(start, end, DayCountCtx::default())
-                            .unwrap()
+        group.bench_with_input(
+            BenchmarkId::new("year_fractions", size),
+            &size,
+            |b, &size| {
+                // Generate dates at monthly intervals
+                let dates: Vec<_> = (1..=size)
+                    .map(|i| {
+                        Date::from_calendar_date(
+                            2025 + (i / 12),
+                            match ((i % 12) + 1) as u8 {
+                                1 => Month::January,
+                                2 => Month::February,
+                                3 => Month::March,
+                                4 => Month::April,
+                                5 => Month::May,
+                                6 => Month::June,
+                                7 => Month::July,
+                                8 => Month::August,
+                                9 => Month::September,
+                                10 => Month::October,
+                                11 => Month::November,
+                                _ => Month::December,
+                            },
+                            1,
+                        )
+                        .unwrap()
                     })
                     .collect();
-                black_box(results);
-            })
-        });
+
+                b.iter(|| {
+                    let results: Vec<_> = dates
+                        .iter()
+                        .map(|&end| {
+                            convention
+                                .year_fraction(start, end, DayCountCtx::default())
+                                .unwrap()
+                        })
+                        .collect();
+                    black_box(results);
+                })
+            },
+        );
     }
 
     group.finish();
@@ -183,4 +182,3 @@ criterion_group!(
     bench_daycount_batch_calculations,
 );
 criterion_main!(benches);
-

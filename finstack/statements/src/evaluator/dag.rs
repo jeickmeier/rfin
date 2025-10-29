@@ -114,8 +114,7 @@ impl DependencyGraph {
 
             // Also validate where clauses
             if let Some(where_clause) = &node_spec.where_text {
-                let all_identifiers =
-                    crate::utils::formula::extract_all_identifiers(where_clause)?;
+                let all_identifiers = crate::utils::formula::extract_all_identifiers(where_clause)?;
 
                 for identifier in &all_identifiers {
                     if identifier.starts_with("cs.") {
@@ -428,5 +427,4 @@ mod tests {
         assert!(deps.contains("revenue"));
         assert!(deps.contains("cogs"));
     }
-
 }

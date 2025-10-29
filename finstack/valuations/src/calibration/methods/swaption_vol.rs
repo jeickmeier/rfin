@@ -778,6 +778,7 @@ mod tests {
     use super::*;
     use time::Month;
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_normal_vs_lognormal_conversion() {
         let calibrator = SwaptionVolCalibrator::new(
@@ -815,6 +816,7 @@ mod tests {
         assert!((recovered_normal - normal_vol).abs() < 1e-10);
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_atm_strike_conventions() {
         let calibrator = SwaptionVolCalibrator::new(

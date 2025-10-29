@@ -213,9 +213,7 @@ fn bench_cds_tranche_npv(c: &mut Criterion) {
     for (name, attach, detach) in tranches {
         let tranche = create_tranche(attach, detach, 5);
         group.bench_with_input(BenchmarkId::from_parameter(name), name, |b, _| {
-            b.iter(|| {
-                tranche.npv(black_box(&market), black_box(as_of))
-            });
+            b.iter(|| tranche.npv(black_box(&market), black_box(as_of)));
         });
     }
     group.finish();
@@ -229,9 +227,7 @@ fn bench_cds_tranche_cs01(c: &mut Criterion) {
     let tranche = create_tranche(3.0, 7.0, 5);
 
     group.bench_function("cs01", |b| {
-        b.iter(|| {
-            tranche.cs01(black_box(&market), black_box(as_of))
-        });
+        b.iter(|| tranche.cs01(black_box(&market), black_box(as_of)));
     });
 
     group.finish();
@@ -245,9 +241,7 @@ fn bench_cds_tranche_correlation_delta(c: &mut Criterion) {
     let tranche = create_tranche(3.0, 7.0, 5);
 
     group.bench_function("correlation_delta", |b| {
-        b.iter(|| {
-            tranche.correlation_delta(black_box(&market), black_box(as_of))
-        });
+        b.iter(|| tranche.correlation_delta(black_box(&market), black_box(as_of)));
     });
 
     group.finish();
@@ -261,9 +255,7 @@ fn bench_cds_tranche_jump_to_default(c: &mut Criterion) {
     let tranche = create_tranche(3.0, 7.0, 5);
 
     group.bench_function("jump_to_default", |b| {
-        b.iter(|| {
-            tranche.jump_to_default(black_box(&market), black_box(as_of))
-        });
+        b.iter(|| tranche.jump_to_default(black_box(&market), black_box(as_of)));
     });
 
     group.finish();
@@ -277,9 +269,7 @@ fn bench_cds_tranche_par_spread(c: &mut Criterion) {
     let tranche = create_tranche(3.0, 7.0, 5);
 
     group.bench_function("par_spread", |b| {
-        b.iter(|| {
-            tranche.par_spread(black_box(&market), black_box(as_of))
-        });
+        b.iter(|| tranche.par_spread(black_box(&market), black_box(as_of)));
     });
 
     group.finish();
@@ -320,9 +310,7 @@ fn bench_cds_tranche_heterogeneous(c: &mut Criterion) {
             BenchmarkId::new("npv_hetero", pool_size),
             &pool_size,
             |b, _| {
-                b.iter(|| {
-                    tranche.npv(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| tranche.npv(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -340,4 +328,3 @@ criterion_group!(
     bench_cds_tranche_heterogeneous
 );
 criterion_main!(benches);
-

@@ -430,6 +430,7 @@ mod tests {
         .unwrap()
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_inflation_curve_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -460,6 +461,7 @@ mod tests {
         assert!(!curve.cpi_levels().is_empty());
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_inflation_curve_with_lag_and_seasonality() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -500,6 +502,7 @@ mod tests {
         assert!(curve.cpi(1.0) > 0.0);
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_inflation_swap_repricing_under_bootstrap() {
         // Base setup

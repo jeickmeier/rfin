@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Amortizing bond integration tests.
 
 use finstack_core::currency::Currency;

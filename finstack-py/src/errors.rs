@@ -102,7 +102,10 @@ pub fn register_exceptions(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> 
 
     // Validation errors
     m.add("ValidationError", py.get_type::<ValidationError>())?;
-    m.add("CurrencyMismatchError", py.get_type::<CurrencyMismatchError>())?;
+    m.add(
+        "CurrencyMismatchError",
+        py.get_type::<CurrencyMismatchError>(),
+    )?;
     m.add("DateError", py.get_type::<DateError>())?;
     m.add("ParameterError", py.get_type::<ParameterError>())?;
 
@@ -137,12 +140,9 @@ pub fn map_error(err: CoreError) -> PyErr {
         }
 
         // Currency mismatch
-        CoreError::CurrencyMismatch { expected, actual } => {
-            CurrencyMismatchError::new_err(format!(
-                "Currency mismatch: expected {}, got {}",
-                expected, actual
-            ))
-        }
+        CoreError::CurrencyMismatch { expected, actual } => CurrencyMismatchError::new_err(
+            format!("Currency mismatch: expected {}, got {}", expected, actual),
+        ),
 
         // Calibration errors
         CoreError::Calibration { message, category } => {
@@ -243,4 +243,3 @@ mod tests {
         assert!(err_msg.contains("yield_curve"));
     }
 }
-

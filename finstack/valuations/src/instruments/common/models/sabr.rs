@@ -440,7 +440,7 @@ impl SABRCalibrator {
         self.max_iterations = max_iterations;
         self
     }
-    
+
     /// Enable finite-difference gradients for higher accuracy (slower).
     pub fn with_fd_gradients(mut self, use_fd: bool) -> Self {
         self.use_fd_gradients = use_fd;
@@ -1187,10 +1187,13 @@ mod tests {
     fn test_sabr_rejects_negative_alpha() {
         let result = SABRParameters::new(-0.1, 0.5, 0.3, 0.1);
         assert!(result.is_err(), "Negative alpha should be rejected");
-        
+
         let err = result.unwrap_err();
-        assert!(matches!(err, Error::Validation(_)), "Should return Validation error");
-        
+        assert!(
+            matches!(err, Error::Validation(_)),
+            "Should return Validation error"
+        );
+
         // Verify error message mentions alpha
         let err_str = format!("{}", err);
         assert!(err_str.contains("alpha") || err_str.contains("α"));
@@ -1200,7 +1203,7 @@ mod tests {
     fn test_sabr_rejects_zero_alpha() {
         let result = SABRParameters::new(0.0, 0.5, 0.3, 0.1);
         assert!(result.is_err(), "Zero alpha should be rejected");
-        
+
         let err = result.unwrap_err();
         assert!(matches!(err, Error::Validation(_)));
     }
@@ -1211,16 +1214,16 @@ mod tests {
         let result1 = SABRParameters::new(0.2, 0.5, 0.3, 1.5);
         assert!(result1.is_err(), "Rho > 1 should be rejected");
         assert!(matches!(result1.unwrap_err(), Error::Validation(_)));
-        
+
         // Rho < -1
         let result2 = SABRParameters::new(0.2, 0.5, 0.3, -1.5);
         assert!(result2.is_err(), "Rho < -1 should be rejected");
         assert!(matches!(result2.unwrap_err(), Error::Validation(_)));
-        
+
         // Rho = exactly 1.0 should be OK
         let result3 = SABRParameters::new(0.2, 0.5, 0.3, 1.0);
         assert!(result3.is_ok(), "Rho = 1.0 is valid");
-        
+
         // Rho = exactly -1.0 should be OK
         let result4 = SABRParameters::new(0.2, 0.5, 0.3, -1.0);
         assert!(result4.is_ok(), "Rho = -1.0 is valid");
@@ -1230,10 +1233,10 @@ mod tests {
     fn test_sabr_rejects_negative_nu() {
         let result = SABRParameters::new(0.2, 0.5, -0.1, 0.1);
         assert!(result.is_err(), "Negative nu should be rejected");
-        
+
         let err = result.unwrap_err();
         assert!(matches!(err, Error::Validation(_)));
-        
+
         // Verify error message mentions nu
         let err_str = format!("{}", err);
         assert!(err_str.contains("nu") || err_str.contains("ν"));
@@ -1245,16 +1248,16 @@ mod tests {
         let result1 = SABRParameters::new(0.2, 1.5, 0.3, 0.1);
         assert!(result1.is_err(), "Beta > 1 should be rejected");
         assert!(matches!(result1.unwrap_err(), Error::Validation(_)));
-        
+
         // Beta < 0
         let result2 = SABRParameters::new(0.2, -0.1, 0.3, 0.1);
         assert!(result2.is_err(), "Beta < 0 should be rejected");
         assert!(matches!(result2.unwrap_err(), Error::Validation(_)));
-        
+
         // Beta = 0 should be OK (normal SABR)
         let result3 = SABRParameters::new(0.2, 0.0, 0.3, 0.1);
         assert!(result3.is_ok(), "Beta = 0 is valid (normal SABR)");
-        
+
         // Beta = 1 should be OK (lognormal SABR)
         let result4 = SABRParameters::new(0.2, 1.0, 0.3, 0.1);
         assert!(result4.is_ok(), "Beta = 1 is valid (lognormal SABR)");

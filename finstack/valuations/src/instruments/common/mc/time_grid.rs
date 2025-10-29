@@ -221,4 +221,3 @@ mod tests {
         assert!(TimeGrid::from_times(vec![0.0, 0.5, 0.3, 1.0]).is_err());
     }
 }
-

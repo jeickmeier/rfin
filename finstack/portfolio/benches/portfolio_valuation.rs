@@ -32,26 +32,20 @@ use finstack_core::prelude::FinstackConfig;
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::{value_portfolio, PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::cashflow::builder::types::{CouponType, FixedCouponSpec};
+use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::cds::{
     CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec, ProtectionLegSpec,
 };
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
 use finstack_valuations::instruments::cds_option::CdsOption;
 use finstack_valuations::instruments::cds_tranche::parameters::CDSTrancheParams;
 use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::instruments::common::parameters::CreditParams;
-use finstack_valuations::instruments::common::parameters::{ExerciseStyle, OptionType, SettlementType};
-use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
-use finstack_valuations::instruments::inflation_linked_bond::InflationLinkedBond;
-use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
-use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PaymentCalculation, PaymentRecipient, PaymentRule, PoolAsset,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
+use finstack_valuations::instruments::common::parameters::{
+    ExerciseStyle, OptionType, SettlementType,
 };
-use finstack_valuations::instruments::variance_swap::{RealizedVarMethod, VarianceSwap};
+use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::convertible::{
     AntiDilutionPolicy, ConversionPolicy, ConversionSpec, ConvertibleBond, DividendAdjustment,
 };
@@ -60,10 +54,18 @@ use finstack_valuations::instruments::equity::Equity;
 use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_valuations::instruments::fx_option::FxOption;
 use finstack_valuations::instruments::fx_spot::FxSpot;
+use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
+use finstack_valuations::instruments::inflation_linked_bond::InflationLinkedBond;
+use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use finstack_valuations::instruments::irs::InterestRateSwap;
 use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo};
+use finstack_valuations::instruments::structured_credit::{
+    AssetPool, DealType, PaymentCalculation, PaymentRecipient, PaymentRule, PoolAsset,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
+};
 use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::swaption::Swaption;
+use finstack_valuations::instruments::variance_swap::{RealizedVarMethod, VarianceSwap};
 use std::sync::Arc;
 use time::Month;
 
@@ -163,12 +165,7 @@ fn create_market_context() -> MarketContext {
     // Inflation curve for inflation-linked bonds and swaps
     let inflation = InflationCurve::builder("USD-CPI")
         .base_cpi(100.0)
-        .knots([
-            (0.0, 100.0),
-            (1.0, 102.0),
-            (5.0, 110.0),
-            (10.0, 122.0),
-        ])
+        .knots([(0.0, 100.0), (1.0, 102.0), (5.0, 110.0), (10.0, 122.0)])
         .build()
         .unwrap();
 
@@ -265,13 +262,25 @@ fn create_market_context() -> MarketContext {
         // Equity market data
         .insert_price("EQUITY-SPOT", MarketScalar::Unitless(150.0))
         .insert_price("EQUITY-DIVYIELD", MarketScalar::Unitless(0.02))
-        .insert_price("AAPL", MarketScalar::Price(Money::new(150.0, Currency::USD)))
+        .insert_price(
+            "AAPL",
+            MarketScalar::Price(Money::new(150.0, Currency::USD)),
+        )
         .insert_price("AAPL-VOL", MarketScalar::Unitless(0.25))
         .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02))
         // Repo collateral prices
-        .insert_price("BOND_0_PRICE", MarketScalar::Price(Money::new(1_000_000.0, Currency::USD)))
-        .insert_price("BOND_1_PRICE", MarketScalar::Price(Money::new(1_000_000.0, Currency::USD)))
-        .insert_price("BOND_2_PRICE", MarketScalar::Price(Money::new(1_000_000.0, Currency::USD)))
+        .insert_price(
+            "BOND_0_PRICE",
+            MarketScalar::Price(Money::new(1_000_000.0, Currency::USD)),
+        )
+        .insert_price(
+            "BOND_1_PRICE",
+            MarketScalar::Price(Money::new(1_000_000.0, Currency::USD)),
+        )
+        .insert_price(
+            "BOND_2_PRICE",
+            MarketScalar::Price(Money::new(1_000_000.0, Currency::USD)),
+        )
 }
 
 // Create a diverse institutional portfolio
@@ -291,11 +300,11 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     // Common instruments get more weight (30%)
     let common_positions = (num_positions as f64 * 0.30) as usize;
     let positions_per_common = common_positions / 6; // 6 common types
-    
+
     // Less common derivatives (20%)
     let derivative_positions = (num_positions as f64 * 0.20) as usize;
     let positions_per_derivative = (derivative_positions / 6).max(2); // At least 2 each
-    
+
     // Exotic/complex instruments (50% split among many types)
     let exotic_positions = num_positions - common_positions - derivative_positions;
     let positions_per_exotic = (exotic_positions / 6).max(2); // At least 2 each
@@ -303,7 +312,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     let mut position_id = 0;
 
     // === Common Instruments (30% of portfolio) ===
-    
+
     // 1. Deposits (short-term cash)
     for i in 0..positions_per_common {
         let ccy = match i % 3 {
@@ -407,11 +416,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     // 4. Equity (direct holdings)
     for i in 0..positions_per_common {
         let equity_id = format!("EQUITY_{}", i);
-        let equity = Equity::new(
-            equity_id.clone(),
-            "AAPL",
-            Currency::USD,
-        );
+        let equity = Equity::new(equity_id.clone(), "AAPL", Currency::USD);
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
         builder = builder.position(Position::new(
@@ -499,7 +504,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     }
 
     // === Derivative Instruments (20% of portfolio) ===
-    
+
     // 7. FX Spot (currency pairs)
     for i in 0..positions_per_derivative.min(3) {
         let fx_id = format!("FXSPOT_{}", i);
@@ -508,7 +513,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             1 => (Currency::GBP, Currency::USD),
             _ => (Currency::USD, Currency::JPY),
         };
-        
+
         let fx_spot = FxSpot::new(fx_id.clone().into(), base, quote);
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
@@ -532,7 +537,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             quantity: 1_000_000.0,
             market_value_id: format!("BOND_{}_PRICE", i),
         };
-        
+
         let repo = Repo::term(
             repo_id.clone(),
             Money::new(5_000_000.0, Currency::USD),
@@ -561,7 +566,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         let expiry = base + time::Duration::days(180); // 6M expiry
         let swap_start = expiry;
         let swap_end = maturity_5y();
-        
+
         let params = SwaptionParams::payer(
             Money::new(5_000_000.0, Currency::USD),
             0.04,
@@ -627,11 +632,11 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     // 11. CDS Options
     for i in 0..positions_per_derivative.min(2) {
         let cds_option_id = format!("CDSOPTION_{}", i);
-        
+
         let option_params = CdsOptionParams::call(
-            100.0, // strike spread bp
+            100.0,                            // strike spread bp
             base + time::Duration::days(180), // expiry
-            maturity_5y(), // CDS maturity
+            maturity_5y(),                    // CDS maturity
             Money::new(10_000_000.0, Currency::USD),
         );
 
@@ -693,11 +698,11 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     }
 
     // === Complex/Exotic Instruments (50% of portfolio) ===
-    
+
     // 13. CDS Tranches (structured credit risk)
     for i in 0..positions_per_exotic.min(2) {
         let tranche_id = format!("CDSTRANCHE_{}", i);
-        
+
         let tranche_params = CDSTrancheParams::equity_tranche(
             "CDX.NA.IG",
             42, // series
@@ -738,7 +743,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     // 14. Inflation-Linked Bonds (real yield bonds)
     for i in 0..positions_per_exotic.min(2) {
         let ilb_id = format!("TIPS_{}", i);
-        
+
         let bond_params = InflationLinkedBondParams::tips(
             Money::new(1_000_000.0, Currency::USD),
             0.01, // 1% real coupon
@@ -747,12 +752,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             100.0, // base CPI
         );
 
-        let ilb = InflationLinkedBond::new_tips(
-            ilb_id.clone(),
-            &bond_params,
-            "USD-OIS",
-            "USD-CPI",
-        );
+        let ilb = InflationLinkedBond::new_tips(ilb_id.clone(), &bond_params, "USD-OIS", "USD-CPI");
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
         builder = builder.position(Position::new(
@@ -798,7 +798,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     // 16. Structured Credit (CLO/ABS/RMBS/CMBS)
     for i in 0..positions_per_exotic.min(2) {
         let sc_id = format!("CLO_{}", i);
-        
+
         // Create simple pool
         let mut pool = AssetPool::new(sc_id.clone(), DealType::CLO, Currency::USD);
         for j in 0..10 {
@@ -948,7 +948,11 @@ fn bench_portfolio_valuation(c: &mut Criterion) {
             num_positions,
             |b, _| {
                 b.iter(|| {
-                    value_portfolio(black_box(&portfolio), black_box(&market), black_box(&config))
+                    value_portfolio(
+                        black_box(&portfolio),
+                        black_box(&market),
+                        black_box(&config),
+                    )
                 });
             },
         );
@@ -972,9 +976,12 @@ fn bench_entity_aggregation(c: &mut Criterion) {
             num_positions,
             |b, _| {
                 b.iter(|| {
-                    let valuation =
-                        value_portfolio(black_box(&portfolio), black_box(&market), black_box(&config))
-                            .unwrap();
+                    let valuation = value_portfolio(
+                        black_box(&portfolio),
+                        black_box(&market),
+                        black_box(&config),
+                    )
+                    .unwrap();
                     // Access entity aggregates
                     for i in 1..=5 {
                         let _ = valuation.get_entity_value(&format!("FUND_{}", i));
@@ -998,7 +1005,11 @@ fn bench_multicurrency_aggregation(c: &mut Criterion) {
 
     group.bench_function("100pos_multicurrency", |b| {
         b.iter(|| {
-            value_portfolio(black_box(&portfolio), black_box(&market), black_box(&config))
+            value_portfolio(
+                black_box(&portfolio),
+                black_box(&market),
+                black_box(&config),
+            )
         });
     });
     group.finish();
@@ -1043,7 +1054,11 @@ fn bench_portfolio_with_metrics(c: &mut Criterion) {
 
     group.bench_function("50pos_base_valuation", |b| {
         b.iter(|| {
-            value_portfolio(black_box(&portfolio), black_box(&market), black_box(&config))
+            value_portfolio(
+                black_box(&portfolio),
+                black_box(&market),
+                black_box(&config),
+            )
         });
     });
 
@@ -1066,7 +1081,11 @@ fn bench_portfolio_scaling(c: &mut Criterion) {
             num_positions,
             |b, _| {
                 b.iter(|| {
-                    value_portfolio(black_box(&portfolio), black_box(&market), black_box(&config))
+                    value_portfolio(
+                        black_box(&portfolio),
+                        black_box(&market),
+                        black_box(&config),
+                    )
                 });
             },
         );
@@ -1084,4 +1103,3 @@ criterion_group!(
     bench_portfolio_scaling
 );
 criterion_main!(benches);
-

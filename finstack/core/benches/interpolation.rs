@@ -9,8 +9,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::math::interp::{
-    CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf,
-    MonotoneConvex,
+    CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
 };
 
 fn create_test_curve(num_points: usize) -> (Box<[f64]>, Box<[f64]>) {
@@ -207,8 +206,7 @@ fn bench_interp_extrapolation(c: &mut Criterion) {
     let (knots, dfs) = create_test_curve(10);
     let interp_flat_zero =
         LinearDf::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::FlatZero).unwrap();
-    let interp_flat_fwd =
-        LinearDf::new(knots, dfs, ExtrapolationPolicy::FlatForward).unwrap();
+    let interp_flat_fwd = LinearDf::new(knots, dfs, ExtrapolationPolicy::FlatForward).unwrap();
 
     c.bench_function("interp_extrap_flat_zero_left", |b| {
         b.iter(|| {
@@ -250,4 +248,3 @@ criterion_group!(
     bench_interp_extrapolation,
 );
 criterion_main!(benches);
-

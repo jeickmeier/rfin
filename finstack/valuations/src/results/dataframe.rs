@@ -47,9 +47,11 @@ impl ValuationResult {
             currency: self.value.currency().to_string(),
             dv01: self.measures.get("dv01").copied(),
             convexity: self.measures.get("convexity").copied(),
-            duration: self.measures.get("duration").or_else(|| {
-                self.measures.get("modified_duration")
-            }).copied(),
+            duration: self
+                .measures
+                .get("duration")
+                .or_else(|| self.measures.get("modified_duration"))
+                .copied(),
             ytm: self.measures.get("ytm").copied(),
         }
     }
@@ -65,16 +67,7 @@ impl ValuationResult {
 
 /// Convert multiple valuation results to rows for DataFrame construction.
 ///
-/// # Example
-///
-/// ```rust
-/// use finstack_valuations::results::dataframe::results_to_rows;
-/// use finstack_valuations::results::ValuationResult;
-///
-/// let results: Vec<ValuationResult> = vec![/* ... */];
-/// let rows = results_to_rows(&results);
-/// // Now serialize rows to JSON/Parquet/etc.
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn results_to_rows(results: &[ValuationResult]) -> Vec<ValuationRow> {
     results.iter().flat_map(|r| r.to_rows()).collect()
 }
@@ -149,9 +142,7 @@ mod tests {
         assert!(json.contains("USD"));
 
         // Roundtrip
-        let deserialized: ValuationRow =
-            serde_json::from_str(&json).expect("Should deserialize");
+        let deserialized: ValuationRow = serde_json::from_str(&json).expect("Should deserialize");
         assert_eq!(deserialized.instrument_id, "BOND-001");
     }
 }
-

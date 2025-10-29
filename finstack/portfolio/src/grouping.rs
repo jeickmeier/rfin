@@ -23,29 +23,6 @@ use indexmap::IndexMap;
 ///
 /// An [`IndexMap`] mapping attribute values to the positions that match.
 /// Order is stable because [`IndexMap`] preserves insertion order.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_portfolio::grouping::group_by_attribute;
-/// use finstack_portfolio::{Position, PositionUnit};
-/// use std::sync::Arc;
-///
-/// # let instrument = Arc::new(finstack_valuations::instruments::deposit::Deposit::builder()
-/// #     .id("DEP".into())
-/// #     .notional(finstack_core::prelude::Money::new(1.0, finstack_core::prelude::Currency::USD))
-/// #     .start(time::macros::date!(2024 - 01 - 01))
-/// #     .end(time::macros::date!(2024 - 02 - 01))
-/// #     .day_count(finstack_core::dates::DayCount::Act360)
-/// #     .disc_id("USD".into())
-/// #     .build()
-/// #     .unwrap());
-/// let pos = Position::new("POS", "ENTITY", "DEP", instrument.clone(), 1.0, PositionUnit::Units)
-///     .with_tag("strategy", "carry");
-/// let positions = [pos];
-/// let groups = group_by_attribute(&positions, "strategy");
-/// assert!(groups.contains_key("carry"));
-/// ```
 pub fn group_by_attribute<'a>(
     positions: &'a [Position],
     attr_key: &str,
@@ -81,29 +58,6 @@ pub fn group_by_attribute<'a>(
 /// # Returns
 ///
 /// [`Result`] with an [`IndexMap`] of attribute values to aggregated [`Money`].
-///
-/// # Examples
-///
-/// ```no_run
-/// use finstack_portfolio::grouping::aggregate_by_attribute;
-/// # use finstack_portfolio::{PortfolioBuilder, Entity, Position, PositionUnit};
-/// # use finstack_portfolio::valuation::value_portfolio;
-/// # use finstack_core::prelude::*;
-/// # use finstack_core::market_data::MarketContext;
-/// # use finstack_core::config::FinstackConfig;
-///
-/// # fn demo(valuation: &finstack_portfolio::PortfolioValuation,
-/// #         positions: Vec<Position>) -> finstack_portfolio::Result<()> {
-/// let grouped = aggregate_by_attribute(
-///     valuation,
-///     &positions,
-///     "strategy",
-///     Currency::USD,
-/// )?;
-/// # let _ = grouped;
-/// # Ok(())
-/// # }
-/// ```
 pub fn aggregate_by_attribute(
     valuation: &PortfolioValuation,
     positions: &[Position],
@@ -146,27 +100,6 @@ pub fn aggregate_by_attribute(
 ///
 /// [`Result`] containing an [`IndexMap`] whose keys are the ordered attribute values
 /// and whose values are the aggregated [`Money`] totals.
-///
-/// # Examples
-///
-/// ```no_run
-/// use finstack_portfolio::grouping::aggregate_by_multiple_attributes;
-/// use finstack_core::prelude::Currency;
-///
-/// # fn demo(
-/// #     valuation: &finstack_portfolio::PortfolioValuation,
-/// #     positions: &[finstack_portfolio::Position],
-/// # ) -> finstack_portfolio::Result<()> {
-/// let totals = aggregate_by_multiple_attributes(
-///     valuation,
-///     positions,
-///    &["strategy", "bucket"],
-///     Currency::USD,
-/// )?;
-/// # let _ = totals;
-/// # Ok(())
-/// # }
-/// ```
 pub fn aggregate_by_multiple_attributes(
     valuation: &PortfolioValuation,
     positions: &[Position],

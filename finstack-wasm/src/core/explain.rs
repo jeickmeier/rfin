@@ -122,4 +122,3 @@ mod tests {
         assert!(json_str.contains("USD_GOVT"));
     }
 }
-

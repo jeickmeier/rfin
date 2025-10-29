@@ -22,11 +22,10 @@
 //!
 //! Reference: Giles (2008) - "Multilevel Monte Carlo Path Simulation"
 
-pub mod level;
 pub mod engine;
 pub mod estimator;
+pub mod level;
 
+pub use engine::{MlmcConfig, MlmcEngine};
+pub use estimator::{optimal_allocation, MlmcEstimate};
 pub use level::MlmcLevel;
-pub use engine::{MlmcEngine, MlmcConfig};
-pub use estimator::{MlmcEstimate, optimal_allocation};
-

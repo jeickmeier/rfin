@@ -24,4 +24,3 @@ pub mod bates;
 pub use correlation::*;
 pub use gbm::*;
 pub use gbm_dividends::*;
-

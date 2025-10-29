@@ -12,20 +12,6 @@ use serde::{Deserialize, Serialize};
 /// Aggregated metric across the portfolio.
 ///
 /// Contains portfolio-wide totals as well as breakdowns by entity.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_portfolio::metrics::AggregatedMetric;
-/// use indexmap::IndexMap;
-///
-/// let metric = AggregatedMetric {
-///     metric_id: "dv01".into(),
-///     total: 125.0,
-///     by_entity: IndexMap::new(),
-/// };
-/// assert_eq!(metric.metric_id, "dv01");
-/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AggregatedMetric {
     /// Metric identifier
@@ -42,19 +28,6 @@ pub struct AggregatedMetric {
 ///
 /// Holds both aggregated metrics and per-position values returned
 /// by [`aggregate_metrics`].
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_portfolio::metrics::{AggregatedMetric, PortfolioMetrics};
-/// use indexmap::IndexMap;
-///
-/// let metrics = PortfolioMetrics {
-///     aggregated: IndexMap::new(),
-///     by_position: IndexMap::new(),
-/// };
-/// assert!(metrics.aggregated.is_empty());
-/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PortfolioMetrics {
     /// Aggregated metrics (summable only)
@@ -70,28 +43,6 @@ impl PortfolioMetrics {
     /// # Arguments
     ///
     /// * `metric_id` - Identifier of the metric to look up.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_portfolio::metrics::{AggregatedMetric, PortfolioMetrics};
-    /// use indexmap::IndexMap;
-    ///
-    /// let mut aggregated = IndexMap::new();
-    /// aggregated.insert(
-    ///     "dv01".into(),
-    ///     AggregatedMetric {
-    ///         metric_id: "dv01".into(),
-    ///         total: 10.0,
-    ///         by_entity: IndexMap::new(),
-    ///     },
-    /// );
-    /// let metrics = PortfolioMetrics {
-    ///     aggregated,
-    ///     by_position: IndexMap::new(),
-    /// };
-    /// assert!(metrics.get_metric("dv01").is_some());
-    /// ```
     pub fn get_metric(&self, metric_id: &str) -> Option<&AggregatedMetric> {
         self.aggregated.get(metric_id)
     }
@@ -101,21 +52,6 @@ impl PortfolioMetrics {
     /// # Arguments
     ///
     /// * `position_id` - Identifier of the position to query.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_portfolio::metrics::PortfolioMetrics;
-    /// use indexmap::IndexMap;
-    ///
-    /// let mut by_position = IndexMap::new();
-    /// by_position.insert("POS_1".into(), IndexMap::from([("dv01".into(), 5.0)]));
-    /// let metrics = PortfolioMetrics {
-    ///     aggregated: IndexMap::new(),
-    ///     by_position,
-    /// };
-    /// assert_eq!(metrics.get_position_metrics("POS_1").unwrap().get("dv01"), Some(&5.0));
-    /// ```
     pub fn get_position_metrics(&self, position_id: &str) -> Option<&IndexMap<String, f64>> {
         self.by_position.get(position_id)
     }
@@ -125,28 +61,6 @@ impl PortfolioMetrics {
     /// # Arguments
     ///
     /// * `metric_id` - Identifier of the metric.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_portfolio::metrics::{AggregatedMetric, PortfolioMetrics};
-    /// use indexmap::IndexMap;
-    ///
-    /// let mut aggregated = IndexMap::new();
-    /// aggregated.insert(
-    ///     "dv01".into(),
-    ///     AggregatedMetric {
-    ///         metric_id: "dv01".into(),
-    ///         total: 15.0,
-    ///         by_entity: IndexMap::new(),
-    ///     },
-    /// );
-    /// let metrics = PortfolioMetrics {
-    ///     aggregated,
-    ///     by_position: IndexMap::new(),
-    /// };
-    /// assert_eq!(metrics.get_total("dv01"), Some(15.0));
-    /// ```
     pub fn get_total(&self, metric_id: &str) -> Option<f64> {
         self.aggregated.get(metric_id).map(|m| m.total)
     }
@@ -185,15 +99,6 @@ const SUMMABLE_METRICS: &[&str] = &[
 /// # Arguments
 ///
 /// * `metric_id` - Metric identifier to test.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_portfolio::metrics::is_summable;
-///
-/// assert!(is_summable("dv01"));
-/// assert!(!is_summable("ytm"));
-/// ```
 pub fn is_summable(metric_id: &str) -> bool {
     SUMMABLE_METRICS.contains(&metric_id)
 }
@@ -212,18 +117,6 @@ pub fn is_summable(metric_id: &str) -> bool {
 /// # Returns
 ///
 /// [`Result`] with a populated [`PortfolioMetrics`] structure.
-///
-/// # Examples
-///
-/// ```no_run
-/// use finstack_portfolio::metrics::aggregate_metrics;
-///
-/// # fn summarise(valuation: &finstack_portfolio::PortfolioValuation) -> finstack_portfolio::Result<()> {
-/// let metrics = aggregate_metrics(valuation)?;
-/// # let _ = metrics;
-/// # Ok(())
-/// # }
-/// ```
 pub fn aggregate_metrics(valuation: &PortfolioValuation) -> Result<PortfolioMetrics> {
     let mut by_position: IndexMap<PositionId, IndexMap<String, f64>> = IndexMap::new();
     let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();

@@ -144,8 +144,8 @@ impl RevolvingCreditMcPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        use super::types::{UtilizationProcess, DrawRepaySpec};
-        
+        use super::types::{DrawRepaySpec, UtilizationProcess};
+
         // Extract stochastic spec
         let stoch_spec = match &facility.draw_repay_spec {
             DrawRepaySpec::Stochastic(spec) => spec,
@@ -194,23 +194,23 @@ impl RevolvingCreditMcPricer {
         // Setup MC simulation
         let num_paths = stoch_spec.num_paths;
         let seed = stoch_spec.seed.unwrap_or(42);
-        
+
         // Use quarterly time steps for cashflow generation
         let dt = 0.25; // 3 months
         let num_steps = (time_horizon / dt).ceil() as usize;
-        
+
         // Initialize RNG
         use crate::instruments::common::mc::rng::philox::PhiloxRng;
         use crate::instruments::common::mc::traits::RandomStream;
-        
+
         let base_rng = PhiloxRng::new(seed);
 
         // Run MC simulation
         let mut sum_pv = 0.0;
-        
+
         for path_idx in 0..num_paths {
             let mut rng = base_rng.split(path_idx as u64);
-            
+
             // Simulate utilization path
             let mut utilization = facility.utilization_rate();
             let mut path_pv = 0.0;
@@ -218,7 +218,11 @@ impl RevolvingCreditMcPricer {
             // Get base rate for interest calculation
             let base_rate = match &facility.base_rate_spec {
                 super::types::BaseRateSpec::Fixed { rate } => *rate,
-                super::types::BaseRateSpec::Floating { index_id, margin_bp, .. } => {
+                super::types::BaseRateSpec::Floating {
+                    index_id,
+                    margin_bp,
+                    ..
+                } => {
                     let fwd = market.get_forward_ref(index_id.as_str())?;
                     fwd.rate(0.25) + (margin_bp * 1e-4)
                 }
@@ -241,13 +245,13 @@ impl RevolvingCreditMcPricer {
                 // Calculate cashflows for this period
                 // Interest on drawn
                 let interest = drawn * base_rate * actual_dt;
-                
+
                 // Commitment fee on undrawn
                 let commitment_fee = undrawn * (facility.fees.commitment_fee_bp * 1e-4) * actual_dt;
-                
+
                 // Usage fee on drawn
                 let usage_fee = drawn * (facility.fees.usage_fee_bp * 1e-4) * actual_dt;
-                
+
                 // Facility fee on total commitment
                 let facility_fee = commitment * (facility.fees.facility_fee_bp * 1e-4) * actual_dt;
 
@@ -256,8 +260,12 @@ impl RevolvingCreditMcPricer {
 
                 // Discount to valuation date
                 let df_abs = disc.df(t_next);
-                let df = if df_as_of != 0.0 { df_abs / df_as_of } else { 1.0 };
-                
+                let df = if df_as_of != 0.0 {
+                    df_abs / df_as_of
+                } else {
+                    1.0
+                };
+
                 path_pv += total_cf * df;
 
                 // Evolve utilization using Euler-Maruyama discretization
@@ -266,7 +274,7 @@ impl RevolvingCreditMcPricer {
                     let drift = speed * (target_rate - utilization) * actual_dt;
                     let diffusion = volatility * actual_dt.sqrt() * rng.next_std_normal();
                     utilization += drift + diffusion;
-                    
+
                     // Clamp utilization to [0, 1]
                     utilization = utilization.clamp(0.0, 1.0);
                 }
@@ -324,7 +332,6 @@ impl Pricer for RevolvingCreditMcPricer {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -348,4 +355,3 @@ mod tests {
         );
     }
 }
-

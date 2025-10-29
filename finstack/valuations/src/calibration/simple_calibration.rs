@@ -774,6 +774,7 @@ mod tests {
         ]
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_simple_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");

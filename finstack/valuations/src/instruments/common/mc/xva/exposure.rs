@@ -40,10 +40,7 @@ impl ExposureProfile {
 
     /// Get maximum EPE (peak exposure).
     pub fn max_epe(&self) -> f64 {
-        self.epe
-            .iter()
-            .copied()
-            .fold(f64::NEG_INFINITY, f64::max)
+        self.epe.iter().copied().fold(f64::NEG_INFINITY, f64::max)
     }
 
     /// Get time-averaged EPE.
@@ -151,10 +148,7 @@ mod tests {
 
     #[test]
     fn test_max_and_average_epe() {
-        let path_values = vec![
-            vec![0.0, 5.0, 10.0],
-            vec![0.0, 8.0, 3.0],
-        ];
+        let path_values = vec![vec![0.0, 5.0, 10.0], vec![0.0, 8.0, 3.0]];
         let times = vec![0.0, 0.5, 1.0];
 
         let profile = calculate_exposure_profile(&path_values, times);
@@ -171,4 +165,3 @@ mod tests {
         println!("Max EPE: {:.2}, Average EPE: {:.2}", max_epe, avg_epe);
     }
 }
-

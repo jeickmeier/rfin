@@ -4,32 +4,7 @@
 
 /// Simplifies metric registration by providing a declarative syntax.
 ///
-/// # Examples
-///
-/// ```rust,ignore
-/// use finstack_valuations::register_metrics;
-///
-/// register_metrics! {
-///     registry: my_registry,
-///     instrument: "Bond",
-///     metrics: [
-///         (Accrued, AccruedInterestCalculator),
-///         (Ytm, YtmCalculator),
-///         (DurationMod, ModifiedDurationCalculator),
-///     ]
-/// }
-/// ```
-///
-/// This expands to:
-/// ```rust,ignore
-/// {
-///     use crate::metrics::MetricId;
-///     use std::sync::Arc;
-///     my_registry.register_metric(MetricId::Accrued, Arc::new(AccruedInterestCalculator), &["Bond"]);
-///     my_registry.register_metric(MetricId::Ytm, Arc::new(YtmCalculator), &["Bond"]);
-///     my_registry.register_metric(MetricId::DurationMod, Arc::new(ModifiedDurationCalculator), &["Bond"]);
-/// }
-/// ```
+/// See unit tests and `examples/` for usage.
 #[macro_export]
 macro_rules! register_metrics {
     (

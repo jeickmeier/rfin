@@ -104,20 +104,7 @@ pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, Protectio
 /// - ISDA CDS Standard Model Implementation (Markit, 2009)
 /// - Bloomberg CDSW function documentation
 ///
-/// # Example
-///
-/// ```ignore
-/// // Buy protection on ACME Corp (pay premium, receive protection)
-/// let cds = CreditDefaultSwap::buy_protection(
-///     "CDS-ACME-5Y",
-///     Money::new(10_000_000.0, Currency::USD),
-///     100.0, // 100bp spread
-///     start_date,
-///     maturity_date,
-///     "USD-OIS",
-///     "ACME-HAZARD",
-/// );
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CreditDefaultSwap {

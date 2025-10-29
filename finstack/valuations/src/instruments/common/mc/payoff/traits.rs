@@ -3,7 +3,7 @@
 //! The core Payoff trait is already defined in super::super::traits.
 //! This module provides additional utilities and helper traits.
 
-use super::super::traits::{Payoff, PathState};
+use super::super::traits::{PathState, Payoff};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -100,8 +100,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::traits::state_keys;
+    use super::*;
 
     #[test]
     fn test_simple_terminal_payoff() {
@@ -139,4 +139,3 @@ mod tests {
         assert!(!payoff.is_maturity(&state_before));
     }
 }
-

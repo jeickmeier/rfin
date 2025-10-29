@@ -62,7 +62,6 @@ where
     }
 }
 
-
 /// Moment matching: adjust samples to have exact mean and variance.
 ///
 /// This variance reduction technique forces the sample to have
@@ -130,7 +129,7 @@ mod tests {
     #[test]
     fn test_inverse_normal_cdf() {
         // Test re-exported function from finstack_core::math::special_functions::standard_normal_inv_cdf
-        
+
         let z_50 = inverse_normal_cdf(0.5);
         assert!(z_50.is_finite());
         assert!(z_50.abs() < 0.5); // Should be near 0
@@ -151,26 +150,29 @@ mod tests {
     fn test_inverse_normal_cdf_parity_with_core() {
         // Verify that the re-exported function from core/math works correctly
         // for typical MC use cases
-        
+
         use finstack_core::math::norm_cdf;
-        
+
         // Test round-trip accuracy for probabilities commonly used in MC
         let test_probs = vec![
             0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 0.999,
         ];
-        
+
         for &p in &test_probs {
             let z = inverse_normal_cdf(p);
             let p_back = norm_cdf(z);
-            
+
             // Allow small numerical error in round-trip
             assert!(
                 (p - p_back).abs() < 1e-3,
                 "Round-trip failed for p={}: z={}, p_back={}, error={}",
-                p, z, p_back, (p - p_back).abs()
+                p,
+                z,
+                p_back,
+                (p - p_back).abs()
             );
         }
-        
+
         // Test symmetry
         for &p in &[0.1, 0.25, 0.4] {
             let z_low = inverse_normal_cdf(p);
@@ -178,17 +180,25 @@ mod tests {
             assert!(
                 (z_low + z_high).abs() < 1e-6,
                 "Symmetry violated for p={}: z_low={}, z_high={}",
-                p, z_low, z_high
+                p,
+                z_low,
+                z_high
             );
         }
-        
+
         // Test that it's strictly monotonic
         let probs: Vec<f64> = (1..100).map(|i| i as f64 / 100.0).collect();
         for window in probs.windows(2) {
             let z1 = inverse_normal_cdf(window[0]);
             let z2 = inverse_normal_cdf(window[1]);
-            assert!(z1 < z2, "Not monotonic: p1={}, p2={}, z1={}, z2={}", 
-                    window[0], window[1], z1, z2);
+            assert!(
+                z1 < z2,
+                "Not monotonic: p1={}, p2={}, z1={}, z2={}",
+                window[0],
+                window[1],
+                z1,
+                z2
+            );
         }
     }
 
@@ -198,8 +208,7 @@ mod tests {
         moment_match(&mut samples, 0.0, 1.0);
 
         let mean = samples.iter().sum::<f64>() / samples.len() as f64;
-        let var =
-            samples.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / samples.len() as f64;
+        let var = samples.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / samples.len() as f64;
 
         assert!(mean.abs() < 1e-10);
         assert!((var - 1.0).abs() < 1e-10);
@@ -216,4 +225,3 @@ mod tests {
         assert!(z2.is_finite());
     }
 }
-

@@ -4,7 +4,7 @@
 //! stochastic cashflow modeling. Supports standard fee structures (upfront,
 //! commitment, usage, and facility fees) and both fixed and floating rate bases.
 
-use finstack_core::dates::{DayCount, Date, Frequency};
+use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -16,18 +16,7 @@ use crate::instruments::common::traits::Attributes;
 /// amounts, and fees (commitment, usage, facility, upfront). Supports both
 /// deterministic schedules and stochastic utilization via Monte Carlo.
 ///
-/// # Example
-/// ```ignore
-/// let facility = RevolvingCredit::builder()
-///     .id("RC-001".into())
-///     .commitment_amount(Money::new(10_000_000.0, Currency::USD))
-///     .drawn_amount(Money::new(5_000_000.0, Currency::USD))
-///     .commitment_date(start)
-///     .maturity_date(maturity)
-///     .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
-///     .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-///     .build()?;
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RevolvingCredit {
@@ -272,11 +261,9 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
     }
 }
 
-
 // Implement HasDiscountCurve for generic metric calculators
 impl crate::instruments::common::pricing::HasDiscountCurve for RevolvingCredit {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }
 }
-

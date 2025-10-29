@@ -31,13 +31,13 @@ impl MetricCalculator for FxSwapDv01Calculator {
         let mut bumps = HashMap::new();
         bumps.insert(fx_swap.domestic_disc_id.clone(), BumpSpec::parallel_bp(1.0));
         let bumped_context = context.curves.bump(bumps)?;
-        
+
         // Reprice with bumped curve
         let bumped_pv = fx_swap.value(&bumped_context, as_of)?;
 
         // DV01 = base_pv - bumped_pv
         let dv01 = base_pv.checked_sub(bumped_pv)?;
-        
+
         Ok(dv01.amount())
     }
 }

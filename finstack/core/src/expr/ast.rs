@@ -330,7 +330,7 @@ pub enum Function {
     /// Average of multiple values, skipping NaN values.
     Mean,
     /// Annualize a flow value by multiplying by periods per year.
-    /// 
+    ///
     /// Use this for cash flows, income, and expense items.
     /// For periodic rates, use `AnnualizeRate` instead.
     Annualize,

@@ -15,7 +15,7 @@
 //! For Hull-White, the short rate r(t) is simulated, and forward rates
 //! are derived using the model's bond price formulas.
 
-use super::super::traits::{Payoff, PathState};
+use super::super::traits::{PathState, Payoff};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -41,7 +41,7 @@ pub struct CapPayoff {
     pub currency: Currency,
     /// Discount factors for each payment (pre-computed or from curve)
     pub discount_factors: Vec<f64>,
-    
+
     // State
     accumulated_pv: f64,
     next_fixing_idx: usize,
@@ -76,7 +76,7 @@ impl CapPayoff {
             discount_factors.len(),
             "Fixing dates and discount factors must match"
         );
-        
+
         Self {
             strike_rate,
             notional,
@@ -88,7 +88,7 @@ impl CapPayoff {
             next_fixing_idx: 0,
         }
     }
-    
+
     /// Compute forward rate from short rate (simplified approximation).
     ///
     /// In practice, this would use the Hull-White bond price formula.
@@ -106,31 +106,31 @@ impl Payoff for CapPayoff {
         // Check if we're at a fixing date
         if self.next_fixing_idx < self.fixing_dates.len() {
             let target_time = self.fixing_dates[self.next_fixing_idx];
-            
+
             // Use small tolerance for time matching
             if (state.time - target_time).abs() < 1e-6 {
                 // Get short rate from path state
                 let short_rate = state.get("short_rate").unwrap_or(0.0);
-                
+
                 // Compute forward rate
                 let forward_rate = self.compute_forward_rate(short_rate, self.next_fixing_idx);
-                
+
                 // Caplet payoff: max(L - K, 0) * τ * N * DF
                 let caplet_payoff = (forward_rate - self.strike_rate).max(0.0)
                     * self.accrual_fractions[self.next_fixing_idx]
                     * self.notional
                     * self.discount_factors[self.next_fixing_idx];
-                
+
                 self.accumulated_pv += caplet_payoff;
                 self.next_fixing_idx += 1;
             }
         }
     }
-    
+
     fn value(&self, _currency: Currency) -> Money {
         Money::new(self.accumulated_pv, self.currency)
     }
-    
+
     fn reset(&mut self) {
         self.accumulated_pv = 0.0;
         self.next_fixing_idx = 0;
@@ -154,7 +154,7 @@ pub struct FloorPayoff {
     pub currency: Currency,
     /// Discount factors
     pub discount_factors: Vec<f64>,
-    
+
     // State
     accumulated_pv: f64,
     next_fixing_idx: usize,
@@ -172,7 +172,7 @@ impl FloorPayoff {
     ) -> Self {
         assert_eq!(fixing_dates.len(), accrual_fractions.len());
         assert_eq!(fixing_dates.len(), discount_factors.len());
-        
+
         Self {
             strike_rate,
             notional,
@@ -184,7 +184,7 @@ impl FloorPayoff {
             next_fixing_idx: 0,
         }
     }
-    
+
     fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
         short_rate
     }
@@ -194,27 +194,27 @@ impl Payoff for FloorPayoff {
     fn on_event(&mut self, state: &PathState) {
         if self.next_fixing_idx < self.fixing_dates.len() {
             let target_time = self.fixing_dates[self.next_fixing_idx];
-            
+
             if (state.time - target_time).abs() < 1e-6 {
                 let short_rate = state.get("short_rate").unwrap_or(0.0);
                 let forward_rate = self.compute_forward_rate(short_rate, self.next_fixing_idx);
-                
+
                 // Floorlet payoff: max(K - L, 0) * τ * N * DF
                 let floorlet_payoff = (self.strike_rate - forward_rate).max(0.0)
                     * self.accrual_fractions[self.next_fixing_idx]
                     * self.notional
                     * self.discount_factors[self.next_fixing_idx];
-                
+
                 self.accumulated_pv += floorlet_payoff;
                 self.next_fixing_idx += 1;
             }
         }
     }
-    
+
     fn value(&self, _currency: Currency) -> Money {
         Money::new(self.accumulated_pv, self.currency)
     }
-    
+
     fn reset(&mut self) {
         self.accumulated_pv = 0.0;
         self.next_fixing_idx = 0;
@@ -242,28 +242,26 @@ pub fn cap_floor_parity_swap_value(
     assert_eq!(fixing_dates.len(), forward_rates.len());
     assert_eq!(fixing_dates.len(), accrual_fractions.len());
     assert_eq!(fixing_dates.len(), discount_factors.len());
-    
+
     let mut pv = 0.0;
     for i in 0..fixing_dates.len() {
-        let cashflow = (forward_rates[i] - strike_rate) 
-            * accrual_fractions[i] 
-            * notional;
+        let cashflow = (forward_rates[i] - strike_rate) * accrual_fractions[i] * notional;
         pv += cashflow * discount_factors[i];
     }
-    
+
     pv
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_cap_payoff_structure() {
         let fixing_dates = vec![0.25, 0.5, 0.75, 1.0];
         let accruals = vec![0.25, 0.25, 0.25, 0.25];
         let dfs = vec![0.99, 0.98, 0.97, 0.96];
-        
+
         let cap = CapPayoff::new(
             0.03,
             1_000_000.0,
@@ -272,31 +270,24 @@ mod tests {
             dfs,
             Currency::USD,
         );
-        
+
         assert_eq!(cap.strike_rate, 0.03);
         assert_eq!(cap.notional, 1_000_000.0);
         assert_eq!(cap.fixing_dates.len(), 4);
     }
-    
+
     #[test]
     fn test_floor_payoff_structure() {
         let fixing_dates = vec![0.25, 0.5];
         let accruals = vec![0.25, 0.25];
         let dfs = vec![0.99, 0.98];
-        
-        let floor = FloorPayoff::new(
-            0.02,
-            500_000.0,
-            fixing_dates,
-            accruals,
-            dfs,
-            Currency::EUR,
-        );
-        
+
+        let floor = FloorPayoff::new(0.02, 500_000.0, fixing_dates, accruals, dfs, Currency::EUR);
+
         assert_eq!(floor.strike_rate, 0.02);
         assert_eq!(floor.notional, 500_000.0);
     }
-    
+
     #[test]
     fn test_cap_floor_parity() {
         let fixing_dates = vec![0.5, 1.0];
@@ -305,7 +296,7 @@ mod tests {
         let dfs = vec![0.98, 0.96];
         let strike = 0.03;
         let notional = 1_000_000.0;
-        
+
         let swap_value = cap_floor_parity_swap_value(
             &fixing_dates,
             &forward_rates,
@@ -314,16 +305,15 @@ mod tests {
             strike,
             notional,
         );
-        
+
         // Manual calculation:
         // Period 1: (0.04 - 0.03) * 0.5 * 1M * 0.98 = 4,900
         // Period 2: (0.045 - 0.03) * 0.5 * 1M * 0.96 = 7,200
         // Total: 12,100
-        
-        let expected = (0.04 - 0.03) * 0.5 * 1_000_000.0 * 0.98
-                     + (0.045 - 0.03) * 0.5 * 1_000_000.0 * 0.96;
-        
+
+        let expected =
+            (0.04 - 0.03) * 0.5 * 1_000_000.0 * 0.98 + (0.045 - 0.03) * 0.5 * 1_000_000.0 * 0.96;
+
         assert!((swap_value - expected).abs() < 1.0);
     }
 }
-

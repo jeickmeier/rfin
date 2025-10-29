@@ -348,6 +348,7 @@ mod tests {
         ]
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn hazard_calibration_reprices_cds_within_one_dollar_per_million() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -407,6 +408,7 @@ mod tests {
         }
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn hazard_calibration_basic_properties_and_metadata() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -478,6 +480,7 @@ mod tests {
         }
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn hazard_calibration_errors_on_empty_quotes() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -496,6 +499,7 @@ mod tests {
         assert!(res.is_err());
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_upfront_cds_quote_support() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -532,6 +536,7 @@ mod tests {
         assert!(report.residuals.contains_key(&upfront_residual_key));
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_default_discount_curve_id_helpers() {
         // Test currency-based discount curve ID generation

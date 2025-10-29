@@ -7,10 +7,10 @@
 //! - Fixed and floating rate bases
 //! - Full metrics (PV, DV01, Theta, BucketedDV01, CS01, plus facility-specific)
 
-pub mod types;
 pub mod cashflows;
-pub mod pricer;
 pub mod metrics;
+pub mod pricer;
+pub mod types;
 
 // Re-export main types
 pub use types::{

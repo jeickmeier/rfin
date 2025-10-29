@@ -5,8 +5,8 @@
 //!
 //! Sign convention: DV01 = base_pv - bumped_pv (positive when rates rise causes value to fall).
 
-use crate::instruments::common::traits::Instrument;
 use crate::instruments::cap_floor::InterestRateOption;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::context::BumpSpec;
 use finstack_core::Result;
@@ -31,13 +31,13 @@ impl MetricCalculator for CapFloorDv01Calculator {
         let mut bumps = HashMap::new();
         bumps.insert(option.disc_id.clone(), BumpSpec::parallel_bp(1.0));
         let bumped_context = context.curves.bump(bumps)?;
-        
+
         // Reprice with bumped curve
         let bumped_pv = option.value(&bumped_context, as_of)?;
 
         // DV01 = base_pv - bumped_pv
         let dv01 = base_pv.checked_sub(bumped_pv)?;
-        
+
         Ok(dv01.amount())
     }
 }

@@ -180,10 +180,10 @@ pub fn aggregate_cashflows_precise(flows: &[DatedFlow]) -> Money {
     if flows.is_empty() {
         return Money::new(0.0, Currency::USD); // Default currency
     }
-    
+
     let currency = flows[0].1.currency();
     let amounts: Vec<f64> = flows.iter().map(|(_, m)| m.amount()).collect();
-    
+
     let total = if amounts.len() > KAHAN_THRESHOLD {
         // Use Kahan summation for long legs (precision-preserving)
         kahan_sum(amounts.iter().copied())
@@ -191,7 +191,7 @@ pub fn aggregate_cashflows_precise(flows: &[DatedFlow]) -> Money {
         // Fast path for short legs
         amounts.iter().sum()
     };
-    
+
     Money::new(total, currency)
 }
 
@@ -199,7 +199,7 @@ pub fn aggregate_cashflows_precise(flows: &[DatedFlow]) -> Money {
 mod precision_tests {
     use super::*;
     use time::Month;
-    
+
     #[test]
     fn test_kahan_vs_naive_30y_bond() {
         // Simulate 30-year semi-annual bond (60 cashflows)
@@ -220,9 +220,9 @@ mod precision_tests {
                 )
             })
             .collect();
-        
+
         let total = aggregate_cashflows_precise(&flows);
-        
+
         // Should sum to 60 * $25k = $1.5M
         assert!((total.amount() - 1_500_000.0).abs() < 0.01);
     }
@@ -239,10 +239,10 @@ mod precision_tests {
                 )
             })
             .collect();
-        
+
         let total_at = aggregate_cashflows_precise(&flows_at_threshold);
         assert_eq!(total_at.amount(), 1000.0);
-        
+
         // Test just above threshold (21 flows) - should use Kahan
         let flows_above: Vec<DatedFlow> = (0..21)
             .map(|i| {
@@ -253,7 +253,7 @@ mod precision_tests {
                 )
             })
             .collect();
-        
+
         let total_above = aggregate_cashflows_precise(&flows_above);
         assert_eq!(total_above.amount(), 1050.0);
     }

@@ -447,6 +447,7 @@ mod tests {
         assert!(market_context.get_discount("USD-OIS").is_ok());
     }
     #[test]
+    #[ignore = "Slow test: Tree pricer with OAS calculation"]
     fn test_oas_calculator_plain_bond() {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
@@ -459,6 +460,7 @@ mod tests {
         assert!(oas_bp < 5000.0);
     }
     #[test]
+    #[ignore = "Slow test: Tree pricer with OAS calculation for callable bond"]
     fn test_oas_calculator_callable_bond() {
         let bond = create_callable_bond();
         let market_context = create_test_market_context();
@@ -479,6 +481,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "Slow test: Tree pricer with credit and default scenarios"]
     fn test_rates_credit_default_lowers_price() {
         let bond = create_test_bond();
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();

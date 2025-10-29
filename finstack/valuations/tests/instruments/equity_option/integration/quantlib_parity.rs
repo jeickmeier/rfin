@@ -83,6 +83,7 @@ fn create_option_market(
 // QuantLib reference: europeanoption.cpp, testEuropeanValues()
 // ATM call with standard parameters
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_atm_call_black_scholes() {
     let as_of = date!(2020 - 01 - 01);
@@ -122,6 +123,7 @@ fn quantlib_parity_atm_call_black_scholes() {
 // QuantLib reference: europeanoption.cpp, testEuropeanValues()
 // ATM put with standard parameters
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_atm_put_black_scholes() {
     let as_of = date!(2020 - 01 - 01);
@@ -161,6 +163,7 @@ fn quantlib_parity_atm_put_black_scholes() {
 // QuantLib reference: europeanoption.cpp, testPutCallParity()
 // C - P = S*e^(-q*T) - K*e^(-r*T)
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_put_call_parity() {
     let as_of = date!(2020 - 01 - 01);
@@ -216,6 +219,7 @@ fn quantlib_parity_put_call_parity() {
 // QuantLib reference: europeanoption.cpp, testMoneyness()
 // In-the-money call should be worth more than ATM
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_itm_call() {
     let as_of = date!(2020 - 01 - 01);
@@ -255,6 +259,7 @@ fn quantlib_parity_itm_call() {
 // QuantLib reference: europeanoption.cpp, testMoneyness()
 // Out-of-the-money put should be worth less than ATM
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_otm_put() {
     let as_of = date!(2020 - 01 - 01);
@@ -300,6 +305,7 @@ fn quantlib_parity_otm_put() {
 // QuantLib reference: europeanoption.cpp, testShortDated()
 // Short expiry option
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_short_dated_option() {
     let as_of = date!(2020 - 01 - 01);
@@ -340,6 +346,7 @@ fn quantlib_parity_short_dated_option() {
 // QuantLib reference: europeanoption.cpp, testLongDated()
 // Long expiry option
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_long_dated_option() {
     let as_of = date!(2020 - 01 - 01);
@@ -379,6 +386,7 @@ fn quantlib_parity_long_dated_option() {
 // QuantLib reference: europeanoption.cpp, testVolatility()
 // Option with high volatility
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_high_vol_option() {
     let as_of = date!(2020 - 01 - 01);
@@ -419,6 +427,7 @@ fn quantlib_parity_high_vol_option() {
 // QuantLib reference: europeanoption.cpp, testDeepITM()
 // Deep ITM option should approach intrinsic value
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_deep_itm_call() {
     let as_of = date!(2020 - 01 - 01);
@@ -461,6 +470,7 @@ fn quantlib_parity_deep_itm_call() {
 // QuantLib reference: europeanoption.cpp, testDeepOTM()
 // Deep OTM option should have very low value
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_deep_otm_put() {
     let as_of = date!(2020 - 01 - 01);

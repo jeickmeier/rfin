@@ -518,6 +518,7 @@ mod tests {
             .insert_credit_index("CDX.NA.IG.42", index_data)
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_base_correlation_calibrator_creation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -532,6 +533,7 @@ mod tests {
         );
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_synthetic_tranche_creation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -547,6 +549,7 @@ mod tests {
         assert_eq!(tranche.side, TrancheSide::SellProtection);
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_base_correlation_curve_building() {
         // Test direct BaseCorrelationCurve building functionality
@@ -563,6 +566,7 @@ mod tests {
         assert!((curve.correlation(5.0) - 0.35).abs() < 1e-9); // Midpoint between 3% and 7%
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_base_correlation_surface_calibrator() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -580,6 +584,7 @@ mod tests {
         );
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_base_correlation_calibration_round_trip() {
         use crate::instruments::cds_tranche::pricer::CDSTranchePricer;

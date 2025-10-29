@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test test-slow test-core test-core-slow test-io test-io-slow test-portfolio test-portfolio-slow test-scenarios test-scenarios-slow test-statements test-statements-slow test-valuations test-valuations-slow clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test
+.PHONY: help setup-python build build-prod test test-slow test-doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest
 
 help:
 	@echo "Available targets:"
@@ -6,28 +6,16 @@ help:
 	@echo "  build         - Build all crates"
 	@echo "  build-prod    - Build all crates optimized without debug info"
 	@echo ""
-	@echo "Testing (all crates):"
-	@echo "  test          - Run all tests (excluding slow tests)"
-	@echo "  test-slow     - Run all tests including slow tests"
-	@echo ""
-	@echo "Testing (by crate):"
-	@echo "  test-core             - Run core crate tests only"
-	@echo "  test-core-slow        - Run core crate tests including slow"
-	@echo "  test-io               - Run io crate tests only"
-	@echo "  test-io-slow          - Run io crate tests including slow"
-	@echo "  test-portfolio        - Run portfolio crate tests only"
-	@echo "  test-portfolio-slow   - Run portfolio crate tests including slow"
-	@echo "  test-scenarios        - Run scenarios crate tests only"
-	@echo "  test-scenarios-slow   - Run scenarios crate tests including slow"
-	@echo "  test-statements       - Run statements crate tests only"
-	@echo "  test-statements-slow  - Run statements crate tests including slow"
-	@echo "  test-valuations       - Run valuations crate tests only"
-	@echo "  test-valuations-slow  - Run valuations crate tests including slow"
+	@echo "Testing:"
+	@echo "  test           - Run all tests (cargo-nextest)"
+	@echo "  test-slow      - Run all tests incl. slow (cargo-nextest)"
+	@echo "  test-doc       - Run documentation tests only"
 	@echo ""
 	@echo "Other:"
-	@echo "  fmt           - Format all code"
-	@echo "  lint          - Run linters"
-	@echo "  clean         - Clean build artifacts"
+	@echo "  fmt            - Format all code"
+	@echo "  lint           - Run linters"
+	@echo "  clean          - Clean build artifacts"
+	@echo "  install-nextest  - Install cargo-nextest (test runner)"
 	@echo "  python-dev    - Build Python bindings in development mode"
 	@echo "  stubs         - Regenerate *.pyi stub files for VS Code IntelliSense"
 	@echo "  wasm-build    - Build WASM package"
@@ -47,44 +35,33 @@ setup-python:
 	@echo "  make python-dev"
 
 build:
-	cargo build --workspace --exclude finstack-py --exclude finstack-wasm
+	CARGO_INCREMENTAL=1 cargo build --workspace --exclude finstack-py --exclude finstack-wasm
 
 build-prod:
-	RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --exclude finstack-wasm --release
+	CARGO_INCREMENTAL=1 RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --exclude finstack-wasm --release
 
-test:
-	cargo test --workspace --exclude finstack-py --features mc
+test: install-nextest
+	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc
 
-test-slow:
-	cargo test --workspace --exclude finstack-py --features mc,slow
+test-slow: install-nextest
+	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,slow --run-ignored all
 
-# Per-crate test targets
-test-core:
-	cargo test -p finstack-core
+test-doc:
+	CARGO_INCREMENTAL=1 cargo test --workspace --exclude finstack-py --doc --features mc
 
-test-io:
-	cargo test -p finstack-io
-
-test-portfolio:
-	cargo test -p finstack-portfolio
-
-test-scenarios:
-	cargo test -p finstack-scenarios
-
-test-statements:
-	cargo test -p finstack-statements
-
-test-valuations:
-	cargo test -p finstack-valuations --features mc
-
-test-valuations-slow:
-	cargo test -p finstack-valuations --features mc,slow
+install-nextest:
+	@if command -v cargo-nextest >/dev/null 2>&1; then \
+		echo "cargo-nextest already installed"; \
+	else \
+		echo "Installing cargo-nextest..."; \
+		cargo install cargo-nextest --locked; \
+	fi
 
 fmt:
 	cargo fmt --all
 
 lint:
-	PYO3_PYTHON=python3 cargo clippy --workspace --all-targets --all-features  -- -D warnings
+	PYO3_PYTHON=python3 CARGO_INCREMENTAL=1 cargo clippy --workspace --all-targets --all-features  -- -D warnings
 	@if command -v uv >/dev/null 2>&1; then \
 		if [ -f .venv/bin/activate ]; then \
 			. .venv/bin/activate && ruff check .; \
@@ -111,7 +88,7 @@ python-dev:
 	. .venv/bin/activate && \
 	uv pip install maturin pytest pytest-benchmark black mypy ruff ipython jupyter && \
 	cd finstack-py && \
-	python -m maturin develop --release
+		CARGO_INCREMENTAL=1 python -m maturin develop --release
 
 wasm-build:
 	cd finstack-wasm && wasm-pack build --target web
@@ -143,7 +120,7 @@ examples:
 			last_category="$$category"; \
 		fi; \
 		echo "Running $$example..."; \
-		cargo run --example $$example --all-features || exit 1; \
+		CARGO_INCREMENTAL=1 cargo run --example $$example --all-features || exit 1; \
 		echo ""; \
 	done
 	@echo "════════════════════════════════════════════════════════════════"
@@ -183,23 +160,24 @@ ci_test:
 	@echo ""
 	@echo "📋 Job 2/8: Clippy (Linter)"
 	@echo "────────────────────────────────────────────────────────────────"
-	cargo clippy --workspace --all-targets --all-features -- -D warnings
+	CARGO_INCREMENTAL=1 cargo clippy --workspace --all-targets --all-features -- -D warnings
 	@echo "✅ Clippy passed"
 	@echo ""
-	@echo "📋 Job 3/8: Tests"
+	@echo "📋 Job 3/8: Tests (cargo-nextest)"
 	@echo "────────────────────────────────────────────────────────────────"
-	cargo test --workspace --exclude finstack-py --all-features --jobs 1
+	@command -v cargo-nextest >/dev/null 2>&1 || { echo "Installing cargo-nextest..."; cargo install cargo-nextest --locked; }
+	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --all-features --run-ignored all
 	@echo ""
 	@echo "📋 Job 3b/8: Doc Tests"
 	@echo "────────────────────────────────────────────────────────────────"
-	cargo test --workspace --exclude finstack-py --doc --all-features --jobs 1
+	CARGO_INCREMENTAL=1 cargo test --workspace --exclude finstack-py --doc --all-features --jobs 1 -- --include-ignored
 	@echo "✅ Tests passed"
 	@echo ""
 	@echo "📋 Job 4/8: Code Coverage"
 	@echo "────────────────────────────────────────────────────────────────"
 	@command -v cargo-llvm-cov >/dev/null 2>&1 || { echo "Installing cargo-llvm-cov..."; cargo install cargo-llvm-cov; }
-	CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --all-features --lcov --output-path lcov.info --jobs 1
-	@COVERAGE=$$(cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --all-features --summary-only --jobs 1 | grep 'TOTAL' | awk '{print $$10}' | sed 's/%//'); \
+	CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --all-features --lcov --output-path lcov.info --jobs 1 -- --include-ignored
+	@COVERAGE=$$(cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --all-features --summary-only --jobs 1 -- --include-ignored | grep 'TOTAL' | awk '{print $$10}' | sed 's/%//'); \
 	echo "Coverage: $${COVERAGE}%"; \
 	if [ -n "$$COVERAGE" ] && [ $$(echo "$$COVERAGE < 50" | bc -l 2>/dev/null || echo "0") -eq 1 ]; then \
 		echo "❌ Coverage $${COVERAGE}% is below minimum threshold of 50%"; \
@@ -214,7 +192,7 @@ ci_test:
 	@. .venv-ci-test/bin/activate && \
 		uv pip install maturin pytest && \
 		cd finstack-py && \
-		maturin build --release && \
+		CARGO_INCREMENTAL=1 maturin build --release && \
 		cd .. && \
 		WHEEL=$$(ls target/wheels/*.whl 2>/dev/null | head -n1); \
 		if [ -z "$$WHEEL" ]; then \
@@ -245,14 +223,14 @@ ci_test:
 	@echo ""
 	@echo "📋 Job 7/8: Examples Build"
 	@echo "────────────────────────────────────────────────────────────────"
-	cargo build --workspace --examples
+	CARGO_INCREMENTAL=1 cargo build --workspace --examples
 	@test -d finstack/examples || { echo "❌ Examples directory not found"; exit 1; }
 	@find finstack/examples -name "*.rs" -type f
 	@echo "✅ Examples build passed"
 	@echo ""
 	@echo "📋 Job 8/8: MSRV Check"
 	@echo "────────────────────────────────────────────────────────────────"
-	cargo check --workspace --all-features
+	CARGO_INCREMENTAL=1 cargo check --workspace --all-features
 	@echo "✅ MSRV check passed"
 	@echo ""
 	@echo "════════════════════════════════════════════════════════════════"

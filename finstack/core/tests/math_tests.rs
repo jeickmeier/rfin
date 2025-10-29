@@ -20,8 +20,6 @@ mod math_root_finding;
 mod math_stats;
 #[path = "math/math_summation.rs"]
 mod math_summation;
-#[path = "math/monotone_convex.rs"]
-mod monotone_convex;
 
 #[cfg(feature = "serde")]
 #[path = "math/test_interp_serde.rs"]

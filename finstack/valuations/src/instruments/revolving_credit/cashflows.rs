@@ -14,7 +14,7 @@ use finstack_core::Result;
 use crate::cashflow::builder::{
     CashFlowSchedule, CouponType, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec,
 };
-use crate::cashflow::primitives::{CashFlow, CFKind};
+use crate::cashflow::primitives::{CFKind, CashFlow};
 
 use super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCredit};
 
@@ -199,9 +199,11 @@ fn generate_facility_fee_flows(
 
     let mut prev = dates[0];
     for &current in &dates[1..] {
-        let accrual = facility
-            .day_count
-            .year_fraction(prev, current, finstack_core::dates::DayCountCtx::default())?;
+        let accrual = facility.day_count.year_fraction(
+            prev,
+            current,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         let fee_amount = facility.commitment_amount * (*fee_bp * 1e-4 * accrual);
 
@@ -282,8 +284,8 @@ mod tests {
             .fees(super::super::types::RevolvingCreditFees {
                 upfront_fee: Some(Money::new(50_000.0, Currency::USD)),
                 commitment_fee_bp: 25.0, // 25 bps
-                usage_fee_bp: 10.0,       // 10 bps
-                facility_fee_bp: 5.0,     // 5 bps
+                usage_fee_bp: 10.0,      // 10 bps
+                facility_fee_bp: 5.0,    // 5 bps
             })
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .disc_id("USD-OIS".into())
@@ -296,7 +298,11 @@ mod tests {
         assert!(!schedule.flows.is_empty());
 
         // Check that we have at least some fees
-        let fee_count = schedule.flows.iter().filter(|cf| cf.kind == CFKind::Fee).count();
+        let fee_count = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == CFKind::Fee)
+            .count();
         assert!(fee_count > 0, "Should have fee cashflows");
     }
 
@@ -346,4 +352,3 @@ mod tests {
         assert_eq!(balance_after_repay.amount(), 6_000_000.0);
     }
 }
-

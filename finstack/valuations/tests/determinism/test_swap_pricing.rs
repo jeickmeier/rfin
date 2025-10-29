@@ -17,7 +17,7 @@ use time::Month;
 fn create_test_swap() -> InterestRateSwap {
     let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 15).unwrap();
-    
+
     InterestRateSwap::new(
         "IRS-DETERMINISM-TEST".into(),
         Money::new(10_000_000.0, Currency::USD),
@@ -41,7 +41,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    
+
     let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(base_date)
         .knots([
@@ -54,7 +54,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    
+
     MarketContext::new()
         .insert_discount(disc)
         .insert_forward(fwd)
@@ -65,12 +65,12 @@ fn test_swap_pv_determinism() {
     let swap = create_test_swap();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Price the swap 100 times
     let prices: Vec<f64> = (0..100)
         .map(|_| swap.value(&market, as_of).unwrap().amount())
         .collect();
-    
+
     // All prices must be bitwise identical
     for i in 1..prices.len() {
         assert_eq!(
@@ -86,15 +86,17 @@ fn test_swap_dv01_determinism() {
     let swap = create_test_swap();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate DV01 50 times
     let dv01s: Vec<f64> = (0..50)
         .map(|_| {
-            let result = swap.price_with_metrics(&market, as_of, &[MetricId::Dv01]).unwrap();
+            let result = swap
+                .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+                .unwrap();
             result.measures[MetricId::Dv01.as_str()]
         })
         .collect();
-    
+
     // All DV01s must be identical
     for i in 1..dv01s.len() {
         assert_eq!(
@@ -110,15 +112,17 @@ fn test_swap_annuity_determinism() {
     let swap = create_test_swap();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate annuity 50 times
     let annuities: Vec<f64> = (0..50)
         .map(|_| {
-            let result = swap.price_with_metrics(&market, as_of, &[MetricId::Annuity]).unwrap();
+            let result = swap
+                .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+                .unwrap();
             result.measures[MetricId::Annuity.as_str()]
         })
         .collect();
-    
+
     // All annuities must be identical
     for i in 1..annuities.len() {
         assert_eq!(
@@ -134,15 +138,17 @@ fn test_swap_par_rate_determinism() {
     let swap = create_test_swap();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate par rate 50 times
     let par_rates: Vec<f64> = (0..50)
         .map(|_| {
-            let result = swap.price_with_metrics(&market, as_of, &[MetricId::ParRate]).unwrap();
+            let result = swap
+                .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+                .unwrap();
             result.measures[MetricId::ParRate.as_str()]
         })
         .collect();
-    
+
     // All par rates must be identical
     for i in 1..par_rates.len() {
         assert_eq!(
@@ -158,7 +164,7 @@ fn test_swap_multiple_metrics_determinism() {
     let swap = create_test_swap();
     let as_of = Date::from_calendar_date(2025, Month::February, 1).unwrap();
     let market = create_test_market(as_of);
-    
+
     let metrics = vec![
         MetricId::Dv01,
         MetricId::Annuity,
@@ -166,24 +172,28 @@ fn test_swap_multiple_metrics_determinism() {
         MetricId::PvFixed,
         MetricId::PvFloat,
     ];
-    
+
     // Calculate all metrics 30 times
     let results: Vec<_> = (0..30)
         .map(|_| swap.price_with_metrics(&market, as_of, &metrics).unwrap())
         .collect();
-    
+
     // Verify each metric is deterministic
     for metric in &metrics {
         let values: Vec<f64> = results
             .iter()
             .map(|r| r.measures[metric.as_str()])
             .collect();
-        
+
         for i in 1..values.len() {
             assert_eq!(
-                values[i], values[0],
+                values[i],
+                values[0],
                 "{} differs at iteration {}: {:.15} vs {:.15}",
-                metric.as_str(), i, values[i], values[0]
+                metric.as_str(),
+                i,
+                values[i],
+                values[0]
             );
         }
     }
@@ -193,11 +203,11 @@ fn test_swap_multiple_metrics_determinism() {
 fn test_swap_pay_vs_receive_determinism() {
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Create both pay-fixed and receive-fixed swaps
     let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 15).unwrap();
-    
+
     let swap_pay = InterestRateSwap::new(
         "PAY-FIXED".into(),
         Money::new(10_000_000.0, Currency::USD),
@@ -206,7 +216,7 @@ fn test_swap_pay_vs_receive_determinism() {
         end,
         PayReceive::PayFixed,
     );
-    
+
     let swap_rec = InterestRateSwap::new(
         "RECEIVE-FIXED".into(),
         Money::new(10_000_000.0, Currency::USD),
@@ -215,29 +225,29 @@ fn test_swap_pay_vs_receive_determinism() {
         end,
         PayReceive::ReceiveFixed,
     );
-    
+
     // Price each swap 30 times
     let pay_prices: Vec<f64> = (0..30)
         .map(|_| swap_pay.value(&market, as_of).unwrap().amount())
         .collect();
-    
+
     let rec_prices: Vec<f64> = (0..30)
         .map(|_| swap_rec.value(&market, as_of).unwrap().amount())
         .collect();
-    
+
     // Verify determinism for each side
     for i in 1..pay_prices.len() {
         assert_eq!(pay_prices[i], pay_prices[0]);
         assert_eq!(rec_prices[i], rec_prices[0]);
     }
-    
+
     // Verify symmetry: pay + receive ≈ 0 (and this relationship is deterministic)
     let sym_sum: Vec<f64> = pay_prices
         .iter()
         .zip(rec_prices.iter())
         .map(|(p, r)| p + r)
         .collect();
-    
+
     for i in 1..sym_sum.len() {
         assert_eq!(
             sym_sum[i], sym_sum[0],
@@ -246,4 +256,3 @@ fn test_swap_pay_vs_receive_determinism() {
         );
     }
 }
-

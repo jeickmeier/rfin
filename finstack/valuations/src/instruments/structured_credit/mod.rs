@@ -28,19 +28,9 @@ pub mod utils;
 /// Prelude module for end-users.
 ///
 /// Import this module to get the most commonly used types for working with
-/// structured credit instruments:
+/// structured credit instruments.
 ///
-/// ```rust,ignore
-/// use finstack_valuations::instruments::structured_credit::prelude::*;
-///
-/// let clo = StructuredCredit::builder()
-///     .deal_type(DealType::CLO)
-///     .pool(pool)
-///     .tranches(tranches)
-///     .legal_maturity(maturity)
-///     .disc_id("USD-OIS".into())
-///     .build()?;
-/// ```
+/// See unit tests and `examples/` for usage.
 pub mod prelude {
     // Main types
     pub use super::DealType;

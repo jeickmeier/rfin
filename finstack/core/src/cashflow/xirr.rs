@@ -47,11 +47,7 @@ pub fn xirr(cash_flows: &[(Date, f64)], guess: Option<f64>) -> crate::Result<f64
         .iter()
         .map(|&(date, amount)| {
             let years = dc
-                .year_fraction(
-                    first_date,
-                    date,
-                    DayCountCtx::default(),
-                )
+                .year_fraction(first_date, date, DayCountCtx::default())
                 .unwrap_or(0.0);
             (years, amount)
         })
@@ -232,11 +228,7 @@ mod tests {
 
         for &(date, amount) in flows {
             let years = dc
-                .year_fraction(
-                    first_date,
-                    date,
-                    DayCountCtx::default(),
-                )
+                .year_fraction(first_date, date, DayCountCtx::default())
                 .unwrap_or(0.0);
             let discount = (1.0 + rate).powf(years);
             sum += amount / discount;

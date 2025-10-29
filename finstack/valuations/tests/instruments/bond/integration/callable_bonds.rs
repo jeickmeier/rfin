@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Callable and putable bond integration tests.
 
 use finstack_core::currency::Currency;

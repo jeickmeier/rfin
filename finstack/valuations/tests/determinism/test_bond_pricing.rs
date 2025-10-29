@@ -17,7 +17,7 @@ use time::Month;
 fn create_test_bond() -> Bond {
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
-    
+
     Bond::fixed(
         "BOND-DETERMINISM-TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -41,7 +41,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
         .set_interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
-    
+
     MarketContext::new().insert_discount(curve)
 }
 
@@ -50,12 +50,12 @@ fn test_bond_pv_determinism() {
     let bond = create_test_bond();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Price the bond 100 times
     let prices: Vec<f64> = (0..100)
         .map(|_| bond.value(&market, as_of).unwrap().amount())
         .collect();
-    
+
     // All prices must be bitwise identical
     for i in 1..prices.len() {
         assert_eq!(
@@ -64,10 +64,13 @@ fn test_bond_pv_determinism() {
             i, prices[i], prices[0]
         );
     }
-    
+
     // Verify the price is reasonable (allow wider range since it depends on curve)
-    assert!(prices[0] > 800_000.0 && prices[0] < 1_200_000.0, 
-        "Bond price {} outside reasonable range", prices[0]);
+    assert!(
+        prices[0] > 800_000.0 && prices[0] < 1_200_000.0,
+        "Bond price {} outside reasonable range",
+        prices[0]
+    );
 }
 
 #[test]
@@ -75,15 +78,17 @@ fn test_bond_ytm_determinism() {
     let bond = create_test_bond();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate YTM 50 times (involves iterative solver)
     let ytms: Vec<f64> = (0..50)
         .map(|_| {
-            let result = bond.price_with_metrics(&market, as_of, &[MetricId::Ytm]).unwrap();
+            let result = bond
+                .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+                .unwrap();
             result.measures[MetricId::Ytm.as_str()]
         })
         .collect();
-    
+
     // All YTMs must be bitwise identical despite solver iterations
     for i in 1..ytms.len() {
         assert_eq!(
@@ -92,10 +97,14 @@ fn test_bond_ytm_determinism() {
             i, ytms[i], ytms[0]
         );
     }
-    
+
     // YTM should be reasonable (allow very wide range or skip if zero)
     // Note: YTM might be zero at issue date, so just verify it's finite
-    assert!(ytms[0].is_finite(), "YTM should be finite, got: {}", ytms[0]);
+    assert!(
+        ytms[0].is_finite(),
+        "YTM should be finite, got: {}",
+        ytms[0]
+    );
 }
 
 #[test]
@@ -103,17 +112,17 @@ fn test_bond_duration_determinism() {
     let bond = create_test_bond();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate modified duration 50 times
     let durations: Vec<f64> = (0..50)
         .map(|_| {
             let result = bond
                 .price_with_metrics(&market, as_of, &[MetricId::DurationMod])
-            .unwrap();
+                .unwrap();
             result.measures[MetricId::DurationMod.as_str()]
         })
         .collect();
-    
+
     // All durations must be identical
     for i in 1..durations.len() {
         assert_eq!(
@@ -129,7 +138,7 @@ fn test_bond_convexity_determinism() {
     let bond = create_test_bond();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate convexity 50 times
     let convexities: Vec<f64> = (0..50)
         .map(|_| {
@@ -139,7 +148,7 @@ fn test_bond_convexity_determinism() {
             result.measures[MetricId::Convexity.as_str()]
         })
         .collect();
-    
+
     // All convexities must be identical
     for i in 1..convexities.len() {
         assert_eq!(
@@ -155,7 +164,7 @@ fn test_bond_dv01_determinism() {
     let bond = create_test_bond();
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate DV01 50 times
     let dv01s: Vec<f64> = (0..50)
         .map(|_| {
@@ -165,7 +174,7 @@ fn test_bond_dv01_determinism() {
             result.measures[MetricId::Dv01.as_str()]
         })
         .collect();
-    
+
     // All DV01s must be identical
     for i in 1..dv01s.len() {
         assert_eq!(
@@ -181,7 +190,7 @@ fn test_bond_accrued_determinism() {
     let bond = create_test_bond();
     let as_of = Date::from_calendar_date(2025, Month::March, 1).unwrap();
     let market = create_test_market(as_of);
-    
+
     // Calculate accrued interest 100 times
     let accrueds: Vec<f64> = (0..100)
         .map(|_| {
@@ -191,7 +200,7 @@ fn test_bond_accrued_determinism() {
             result.measures[MetricId::AccruedInterest.as_str()]
         })
         .collect();
-    
+
     // All accrued values must be identical
     for i in 1..accrueds.len() {
         assert_eq!(
@@ -207,7 +216,7 @@ fn test_bond_multiple_metrics_determinism() {
     let bond = create_test_bond();
     let as_of = Date::from_calendar_date(2025, Month::February, 1).unwrap();
     let market = create_test_market(as_of);
-    
+
     let metrics = vec![
         MetricId::CleanPrice,
         MetricId::DirtyPrice,
@@ -217,26 +226,29 @@ fn test_bond_multiple_metrics_determinism() {
         MetricId::Convexity,
         MetricId::Dv01,
     ];
-    
+
     // Calculate all metrics 20 times
     let results: Vec<_> = (0..20)
         .map(|_| bond.price_with_metrics(&market, as_of, &metrics).unwrap())
         .collect();
-    
+
     // Verify each metric is deterministic
     for metric in &metrics {
         let values: Vec<f64> = results
             .iter()
             .map(|r| r.measures[metric.as_str()])
             .collect();
-        
+
         for i in 1..values.len() {
             assert_eq!(
-                values[i], values[0],
+                values[i],
+                values[0],
                 "{} differs at iteration {}: {} vs {}",
-                metric.as_str(), i, values[i], values[0]
+                metric.as_str(),
+                i,
+                values[i],
+                values[0]
             );
         }
     }
 }
-

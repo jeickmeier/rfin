@@ -59,32 +59,7 @@ impl EuropeanPricerConfig {
 ///
 /// Prices European-style payoffs under Geometric Brownian Motion.
 ///
-/// # Example
-///
-/// ```rust,ignore
-/// use finstack_valuations::instruments::common::mc::prelude::*;
-/// use finstack_core::currency::Currency;
-///
-/// let pricer = EuropeanPricer::new(EuropeanPricerConfig::default());
-///
-/// // GBM parameters: r=5%, q=2%, σ=20%
-/// let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
-///
-/// // European call: S0=100, K=100, T=1.0, N=1.0
-/// let call = EuropeanCall::new(100.0, 1.0, 252);
-///
-/// let result = pricer.price(
-///     &gbm,
-///     100.0,  // initial spot
-///     1.0,    // time to maturity
-///     252,    // num steps
-///     &call,
-///     Currency::USD,
-///     0.95,   // discount factor
-/// )?;
-///
-/// println!("Call price: {}", result.mean);
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct EuropeanPricer {
     config: EuropeanPricerConfig,
 }
@@ -171,7 +146,9 @@ mod tests {
 
     #[test]
     fn test_european_pricer_basic() {
-        let config = EuropeanPricerConfig::new(1000).with_seed(42).with_parallel(false);
+        let config = EuropeanPricerConfig::new(1000)
+            .with_seed(42)
+            .with_parallel(false);
         let pricer = EuropeanPricer::new(config);
 
         let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
@@ -190,7 +167,9 @@ mod tests {
     #[test]
     fn test_european_pricer_atm_call() {
         // ATM call should have value > intrinsic value of 0
-        let config = EuropeanPricerConfig::new(10000).with_seed(42).with_parallel(false);
+        let config = EuropeanPricerConfig::new(10000)
+            .with_seed(42)
+            .with_parallel(false);
         let pricer = EuropeanPricer::new(config);
 
         let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2));
@@ -207,7 +186,9 @@ mod tests {
     #[test]
     fn test_european_pricer_deep_itm() {
         // Deep ITM call should be close to intrinsic value
-        let config = EuropeanPricerConfig::new(10000).with_seed(42).with_parallel(false);
+        let config = EuropeanPricerConfig::new(10000)
+            .with_seed(42)
+            .with_parallel(false);
         let pricer = EuropeanPricer::new(config);
 
         let gbm = GbmProcess::new(GbmParams::new(0.0, 0.0, 0.01)); // Very low vol, no drift
@@ -221,4 +202,3 @@ mod tests {
         assert!((result.mean.amount() - 50.0).abs() < 5.0);
     }
 }
-

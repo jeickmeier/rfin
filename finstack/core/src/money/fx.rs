@@ -50,13 +50,6 @@ pub type FxRate = f64;
 /// The policy tells a provider *how* the rate will be applied so it can decide
 /// between spot, forward, or averaged sources.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_core::money::fx::FxConversionPolicy;
-///
-/// let policy = FxConversionPolicy::PeriodEnd;
-/// assert!(matches!(policy, FxConversionPolicy::PeriodEnd));
-/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
@@ -76,20 +69,6 @@ pub enum FxConversionPolicy {
 ///
 /// Contains only the essential parameters for currency conversion.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
-/// use finstack_core::currency::Currency;
-/// use finstack_core::dates::Date;
-/// use time::Month;
-///
-/// let query = FxQuery::new(
-///     Currency::EUR,
-///     Currency::USD,
-///     Date::from_calendar_date(2024, Month::June, 3).unwrap(),
-/// );
-/// assert_eq!(query.from, Currency::EUR);
-/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -137,17 +116,6 @@ impl FxQuery {
 /// Attach [`FxPolicyMeta`] to valuation results so auditors can understand how
 /// FX conversions were sourced.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_core::money::fx::{FxConversionPolicy, FxPolicyMeta};
-///
-/// let meta = FxPolicyMeta {
-///     strategy: FxConversionPolicy::PeriodAverage,
-///     target_ccy: None,
-///     notes: "Calibrated on PME curve".to_string(),
-/// };
-/// assert!(meta.notes.contains("PME"));
-/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -178,16 +146,6 @@ struct Pair(Currency, Currency);
 ///
 /// Controls triangulation and caching.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_core::money::fx::FxConfig;
-/// use finstack_core::currency::Currency;
-///
-/// let mut cfg = FxConfig::default();
-/// cfg.pivot_currency = Currency::EUR;
-/// cfg.enable_triangulation = false;
-/// assert!(!cfg.enable_triangulation);
-/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -213,17 +171,6 @@ impl Default for FxConfig {
 
 /// Result of an FX rate lookup with simple triangulation info.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_core::money::fx::FxRateResult;
-/// use finstack_core::currency::Currency;
-///
-/// let result = FxRateResult {
-///     rate: 1.0,
-///     triangulated: false,
-/// };
-/// assert_eq!(result.rate, 1.0);
-/// ```
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]

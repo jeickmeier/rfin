@@ -21,11 +21,18 @@ fn bs_d2(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64)
 /// Black-Scholes call delta.
 ///
 /// Δ_call = exp(-qT) * N(d1)
-pub fn bs_call_delta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
+pub fn bs_call_delta(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+) -> f64 {
     if time <= 0.0 {
         return if spot > strike { 1.0 } else { 0.0 };
     }
-    
+
     let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
     (-div_yield * time).exp() * norm_cdf(d1)
 }
@@ -37,7 +44,7 @@ pub fn bs_put_delta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64
     if time <= 0.0 {
         return if spot < strike { -1.0 } else { 0.0 };
     }
-    
+
     let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
     -(-div_yield * time).exp() * norm_cdf(-d1)
 }
@@ -49,7 +56,7 @@ pub fn bs_gamma(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vo
     if time <= 0.0 || spot <= 0.0 || vol <= 0.0 {
         return 0.0;
     }
-    
+
     let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
     (-div_yield * time).exp() * norm_pdf(d1) / (spot * vol * time.sqrt())
 }
@@ -61,7 +68,7 @@ pub fn bs_vega(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol
     if time <= 0.0 {
         return 0.0;
     }
-    
+
     let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
     spot * (-div_yield * time).exp() * time.sqrt() * norm_pdf(d1)
 }
@@ -69,18 +76,25 @@ pub fn bs_vega(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol
 /// Black-Scholes call theta.
 ///
 /// Θ_call = -S * φ(d1) * σ / (2√T) * exp(-qT) - r*K*exp(-rT)*N(d2) + q*S*exp(-qT)*N(d1)
-pub fn bs_call_theta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
+pub fn bs_call_theta(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+) -> f64 {
     if time <= 0.0 {
         return 0.0;
     }
-    
+
     let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
     let d2 = bs_d2(spot, strike, time, rate, div_yield, vol);
-    
+
     let term1 = -spot * norm_pdf(d1) * vol * (-div_yield * time).exp() / (2.0 * time.sqrt());
     let term2 = -rate * strike * (-rate * time).exp() * norm_cdf(d2);
     let term3 = div_yield * spot * (-div_yield * time).exp() * norm_cdf(d1);
-    
+
     term1 + term2 + term3
 }
 
@@ -91,14 +105,14 @@ pub fn bs_put_theta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64
     if time <= 0.0 {
         return 0.0;
     }
-    
+
     let d1 = bs_d1(spot, strike, time, rate, div_yield, vol);
     let d2 = bs_d2(spot, strike, time, rate, div_yield, vol);
-    
+
     let term1 = -spot * norm_pdf(d1) * vol * (-div_yield * time).exp() / (2.0 * time.sqrt());
     let term2 = rate * strike * (-rate * time).exp() * norm_cdf(-d2);
     let term3 = -div_yield * spot * (-div_yield * time).exp() * norm_cdf(-d1);
-    
+
     term1 + term2 + term3
 }
 
@@ -109,7 +123,7 @@ pub fn bs_call_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64,
     if time <= 0.0 {
         return 0.0;
     }
-    
+
     let d2 = bs_d2(spot, strike, time, rate, div_yield, vol);
     strike * time * (-rate * time).exp() * norm_cdf(d2)
 }
@@ -121,7 +135,7 @@ pub fn bs_put_rho(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, 
     if time <= 0.0 {
         return 0.0;
     }
-    
+
     let d2 = bs_d2(spot, strike, time, rate, div_yield, vol);
     -strike * time * (-rate * time).exp() * norm_cdf(-d2)
 }
@@ -145,7 +159,14 @@ pub struct PutGreeks {
 }
 
 /// Compute all call Greeks at once.
-pub fn bs_call_greeks(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> CallGreeks {
+pub fn bs_call_greeks(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+) -> CallGreeks {
     CallGreeks {
         delta: bs_call_delta(spot, strike, time, rate, div_yield, vol),
         gamma: bs_gamma(spot, strike, time, rate, div_yield, vol),
@@ -156,7 +177,14 @@ pub fn bs_call_greeks(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f
 }
 
 /// Compute all put Greeks at once.
-pub fn bs_put_greeks(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> PutGreeks {
+pub fn bs_put_greeks(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+) -> PutGreeks {
     PutGreeks {
         delta: bs_put_delta(spot, strike, time, rate, div_yield, vol),
         gamma: bs_gamma(spot, strike, time, rate, div_yield, vol),
@@ -165,7 +193,6 @@ pub fn bs_put_greeks(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f6
         rho: bs_put_rho(spot, strike, time, rate, div_yield, vol),
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -203,12 +230,16 @@ mod tests {
     fn test_put_call_delta_parity() {
         let call_delta = bs_call_delta(100.0, 100.0, 1.0, 0.05, 0.02, 0.2);
         let put_delta = bs_put_delta(100.0, 100.0, 1.0, 0.05, 0.02, 0.2);
-        
+
         // Delta parity: Δ_call - Δ_put = exp(-qT)
         let lhs = call_delta - put_delta;
         let rhs = (-0.02_f64 * 1.0).exp();
-        
-        assert!((lhs - rhs).abs() < 0.001, "Delta parity failed: {} vs {}", lhs, rhs);
+
+        assert!(
+            (lhs - rhs).abs() < 0.001,
+            "Delta parity failed: {} vs {}",
+            lhs,
+            rhs
+        );
     }
 }
-

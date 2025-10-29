@@ -6,7 +6,7 @@
 //! - **Arithmetic Asian**: Average = (1/n) Σ S_i
 //! - **Geometric Asian**: Average = (Π S_i)^(1/n)
 
-use super::super::traits::{Payoff, PathState};
+use super::super::traits::{PathState, Payoff};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -34,9 +34,9 @@ pub struct AsianCall {
     pub averaging: AveragingMethod,
     /// Fixing steps (indices where we sample the spot)
     pub fixing_steps: Vec<usize>,
-    
+
     // State
-    sum_spots: f64,  // For arithmetic
+    sum_spots: f64,     // For arithmetic
     product_spots: f64, // For geometric (stored as log-product)
     num_fixings_seen: usize,
 }
@@ -74,9 +74,7 @@ impl AsianCall {
         }
 
         match self.averaging {
-            AveragingMethod::Arithmetic => {
-                self.sum_spots / self.num_fixings_seen as f64
-            }
+            AveragingMethod::Arithmetic => self.sum_spots / self.num_fixings_seen as f64,
             AveragingMethod::Geometric => {
                 // exp(log-sum / n) = (product)^(1/n)
                 (self.product_spots / self.num_fixings_seen as f64).exp()
@@ -126,7 +124,7 @@ pub struct AsianPut {
     pub notional: f64,
     pub averaging: AveragingMethod,
     pub fixing_steps: Vec<usize>,
-    
+
     sum_spots: f64,
     product_spots: f64,
     num_fixings_seen: usize,
@@ -157,12 +155,8 @@ impl AsianPut {
         }
 
         match self.averaging {
-            AveragingMethod::Arithmetic => {
-                self.sum_spots / self.num_fixings_seen as f64
-            }
-            AveragingMethod::Geometric => {
-                (self.product_spots / self.num_fixings_seen as f64).exp()
-            }
+            AveragingMethod::Arithmetic => self.sum_spots / self.num_fixings_seen as f64,
+            AveragingMethod::Geometric => (self.product_spots / self.num_fixings_seen as f64).exp(),
         }
     }
 }
@@ -232,18 +226,19 @@ pub fn geometric_asian_call_closed_form(
     // σ_G = σ / √3
     // μ_G = (r - q - σ²/2) / 2 + (r - q + σ²/2) / 2 = r - q
     // But we need to adjust for the fact that geometric average < arithmetic
-    
+
     // Adjusted volatility for geometric Asian
     let n = num_fixings as f64;
     let sigma_adj = volatility * ((n + 1.0) / (2.0 * n)).sqrt();
-    
+
     // Adjusted dividend yield
     let nu = rate - dividend_yield - 0.5 * volatility * volatility;
     let q_adj = dividend_yield + 0.5 * nu;
 
     // Use Black-Scholes formula with adjusted parameters
     let sqrt_t = time_to_maturity.sqrt();
-    let d1 = ((spot / strike).ln() + (rate - q_adj + 0.5 * sigma_adj * sigma_adj) * time_to_maturity)
+    let d1 = ((spot / strike).ln()
+        + (rate - q_adj + 0.5 * sigma_adj * sigma_adj) * time_to_maturity)
         / (sigma_adj * sqrt_t);
     let d2 = d1 - sigma_adj * sqrt_t;
 
@@ -255,8 +250,8 @@ pub fn geometric_asian_call_closed_form(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::traits::state_keys;
+    use super::*;
 
     fn create_state(step: usize, spot: f64) -> PathState {
         let mut state = PathState::new(step, step as f64 * 0.1);
@@ -342,9 +337,7 @@ mod tests {
     #[test]
     fn test_geometric_asian_closed_form() {
         // Test that closed form gives reasonable results
-        let price = geometric_asian_call_closed_form(
-            100.0, 100.0, 1.0, 0.05, 0.02, 0.2, 12,
-        );
+        let price = geometric_asian_call_closed_form(100.0, 100.0, 1.0, 0.05, 0.02, 0.2, 12);
 
         // Should be positive and less than ATM European
         assert!(price > 0.0);

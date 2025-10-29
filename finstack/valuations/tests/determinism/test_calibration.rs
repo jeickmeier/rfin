@@ -51,7 +51,7 @@ fn create_calibration_market(base_date: Date) -> MarketContext {
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    
+
     MarketContext::new().insert_discount(disc)
 }
 
@@ -60,7 +60,7 @@ fn test_hazard_curve_calibration_determinism() {
     let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let quotes = create_test_quotes();
     let market = create_calibration_market(base);
-    
+
     let calibrator = HazardCurveCalibrator::new(
         "TEST-ENTITY",
         Seniority::Senior,
@@ -69,7 +69,7 @@ fn test_hazard_curve_calibration_determinism() {
         Currency::USD,
         "USD-OIS",
     );
-    
+
     // Calibrate the curve 20 times
     let curves: Vec<_> = (0..20)
         .map(|_| {
@@ -79,21 +79,22 @@ fn test_hazard_curve_calibration_determinism() {
                 .0 // Extract the curve from (curve, report) tuple
         })
         .collect();
-    
+
     // Verify all curves have identical knot points
     let first_knots: Vec<(f64, f64)> = curves[0].knot_points().collect();
-    
+
     for (i, curve) in curves.iter().enumerate().skip(1) {
         let knots: Vec<(f64, f64)> = curve.knot_points().collect();
-        
+
         assert_eq!(
             knots.len(),
             first_knots.len(),
             "Calibration {} produced different number of knots",
             i
         );
-        
-        for (j, ((t1, lambda1), (t2, lambda2))) in first_knots.iter().zip(knots.iter()).enumerate() {
+
+        for (j, ((t1, lambda1), (t2, lambda2))) in first_knots.iter().zip(knots.iter()).enumerate()
+        {
             assert_eq!(
                 *t1, *t2,
                 "Knot {} time differs at calibration {}: {:.15} vs {:.15}",
@@ -113,7 +114,7 @@ fn test_hazard_curve_survival_probability_determinism() {
     let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let quotes = create_test_quotes();
     let market = create_calibration_market(base);
-    
+
     let calibrator = HazardCurveCalibrator::new(
         "TEST-ENTITY",
         Seniority::Senior,
@@ -122,10 +123,10 @@ fn test_hazard_curve_survival_probability_determinism() {
         Currency::USD,
         "USD-OIS",
     );
-    
+
     // Calibrate 30 times and check survival probabilities
     let test_times = vec![0.5, 1.0, 2.0, 3.0, 5.0];
-    
+
     for t in test_times {
         let survival_probs: Vec<f64> = (0..30)
             .map(|_| {
@@ -133,7 +134,7 @@ fn test_hazard_curve_survival_probability_determinism() {
                 curve.sp(t)
             })
             .collect();
-        
+
         for i in 1..survival_probs.len() {
             assert_eq!(
                 survival_probs[i], survival_probs[0],
@@ -149,7 +150,7 @@ fn test_calibration_report_determinism() {
     let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let quotes = create_test_quotes();
     let market = create_calibration_market(base);
-    
+
     let calibrator = HazardCurveCalibrator::new(
         "TEST-ENTITY",
         Seniority::Senior,
@@ -158,7 +159,7 @@ fn test_calibration_report_determinism() {
         Currency::USD,
         "USD-OIS",
     );
-    
+
     // Calibrate 20 times and check reports
     let reports: Vec<_> = (0..20)
         .map(|_| {
@@ -168,7 +169,7 @@ fn test_calibration_report_determinism() {
                 .1 // Extract the report from (curve, report) tuple
         })
         .collect();
-    
+
     // Verify iteration counts are identical
     for i in 1..reports.len() {
         assert_eq!(
@@ -177,7 +178,7 @@ fn test_calibration_report_determinism() {
             i, reports[i].iterations, reports[0].iterations
         );
     }
-    
+
     // Verify residuals are identical
     for i in 1..reports.len() {
         assert_eq!(
@@ -187,4 +188,3 @@ fn test_calibration_report_determinism() {
         );
     }
 }
-

@@ -48,7 +48,8 @@ impl SobolRng {
                 0
             } else {
                 // Simple hash of scramble_seed + dimension
-                ((scramble_seed.wrapping_mul(2654435761)) ^ (i as u64)).wrapping_mul(2246822519) as u32
+                ((scramble_seed.wrapping_mul(2654435761)) ^ (i as u64)).wrapping_mul(2246822519)
+                    as u32
             };
             scramble_seeds.push(seed);
         }
@@ -172,9 +173,13 @@ fn initialize_direction_numbers(max_dim: usize) -> Vec<Vec<u32>> {
         vec![1, 1, 7, 11, 15],
     ];
 
-    for (_d, initial_m) in direction_data.iter().enumerate().take(max_dim.saturating_sub(1)) {
+    for (_d, initial_m) in direction_data
+        .iter()
+        .enumerate()
+        .take(max_dim.saturating_sub(1))
+    {
         let mut directions = Vec::with_capacity(32);
-        
+
         // Set initial direction numbers
         for &m in initial_m {
             directions.push(m << (32 - directions.len() - 1));

@@ -69,30 +69,7 @@ impl PathDependentPricerConfig {
 ///
 /// Prices options that depend on the path history (Asians, barriers, lookbacks).
 ///
-/// # Example
-///
-/// ```rust,ignore
-/// use finstack_valuations::instruments::common::mc::prelude::*;
-/// use finstack_core::currency::Currency;
-///
-/// let pricer = PathDependentPricer::new(PathDependentPricerConfig::default());
-///
-/// // Arithmetic Asian call with monthly fixings
-/// let fixing_steps = (0..=12).map(|i| i * 21).collect();
-/// let asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
-///
-/// let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
-///
-/// let result = pricer.price(
-///     &gbm,
-///     100.0,  // initial spot
-///     1.0,    // time to maturity
-///     252,    // num steps
-///     &asian,
-///     Currency::USD,
-///     0.95,   // discount factor
-/// )?;
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct PathDependentPricer {
     config: PathDependentPricerConfig,
 }

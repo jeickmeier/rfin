@@ -96,9 +96,9 @@ fn create_market() -> MarketContext {
     // Volatility surface (flat 30% vol for simplicity)
     let vol_surface = VolSurface::from_grid(
         "CDS-VOL",
-        &[0.25, 0.5, 1.0, 2.0, 3.0],     // Expiries in years
+        &[0.25, 0.5, 1.0, 2.0, 3.0],        // Expiries in years
         &[50.0, 75.0, 100.0, 150.0, 200.0], // Strikes in bp
-        &[0.30; 25],                      // Flat 30% vol
+        &[0.30; 25],                        // Flat 30% vol
     )
     .unwrap();
 
@@ -127,9 +127,7 @@ fn bench_cds_option_npv(c: &mut Criterion) {
             BenchmarkId::new("call", format!("{}M_{}Y", expiry_months, cds_tenor)),
             &(expiry_months, cds_tenor),
             |b, _| {
-                b.iter(|| {
-                    call.npv(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| call.npv(black_box(&market), black_box(as_of)));
             },
         );
 
@@ -138,9 +136,7 @@ fn bench_cds_option_npv(c: &mut Criterion) {
             BenchmarkId::new("put", format!("{}M_{}Y", expiry_months, cds_tenor)),
             &(expiry_months, cds_tenor),
             |b, _| {
-                b.iter(|| {
-                    put.npv(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| put.npv(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -155,27 +151,19 @@ fn bench_cds_option_greeks(c: &mut Criterion) {
     let option = create_cds_option(OptionType::Call, 6, 5);
 
     group.bench_function("delta", |b| {
-        b.iter(|| {
-            option.delta(black_box(&market), black_box(as_of))
-        });
+        b.iter(|| option.delta(black_box(&market), black_box(as_of)));
     });
 
     group.bench_function("gamma", |b| {
-        b.iter(|| {
-            option.gamma(black_box(&market), black_box(as_of))
-        });
+        b.iter(|| option.gamma(black_box(&market), black_box(as_of)));
     });
 
     group.bench_function("vega", |b| {
-        b.iter(|| {
-            option.vega(black_box(&market), black_box(as_of))
-        });
+        b.iter(|| option.vega(black_box(&market), black_box(as_of)));
     });
 
     group.bench_function("theta", |b| {
-        b.iter(|| {
-            option.theta(black_box(&market), black_box(as_of))
-        });
+        b.iter(|| option.theta(black_box(&market), black_box(as_of)));
     });
 
     group.finish();
@@ -206,7 +194,7 @@ fn bench_cds_option_implied_vol(c: &mut Criterion) {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     let option = create_cds_option(OptionType::Call, 6, 5);
-    
+
     // Get a target price from NPV
     let target_price = option.npv(&market, as_of).unwrap().amount();
 
@@ -232,4 +220,3 @@ criterion_group!(
     bench_cds_option_implied_vol
 );
 criterion_main!(benches);
-

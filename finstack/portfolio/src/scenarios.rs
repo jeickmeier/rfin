@@ -44,23 +44,6 @@ use std::sync::Arc;
 /// # Errors
 ///
 /// Returns [`PortfolioError::ScenarioError`] when the scenario engine reports a failure.
-///
-/// # Examples
-///
-/// ```no_run
-/// use finstack_portfolio::scenarios::apply_scenario;
-///
-/// # fn run(
-/// #     portfolio: &finstack_portfolio::Portfolio,
-/// #     scenario: &finstack_scenarios::spec::ScenarioSpec,
-/// #     market: &finstack_core::market_data::MarketContext,
-/// # ) -> finstack_portfolio::Result<()> {
-/// let (modified_portfolio, modified_market, report) =
-///     apply_scenario(portfolio, scenario, market)?;
-/// # let _ = (modified_portfolio, modified_market, report);
-/// # Ok(())
-/// # }
-/// ```
 #[cfg(feature = "scenarios")]
 pub fn apply_scenario(
     portfolio: &Portfolio,
@@ -128,23 +111,6 @@ pub fn apply_scenario(
 /// # Errors
 ///
 /// Propagates errors from [`apply_scenario`] and [`value_portfolio`](crate::valuation::value_portfolio).
-///
-/// # Examples
-///
-/// ```no_run
-/// use finstack_portfolio::scenarios::apply_and_revalue;
-///
-/// # fn analyse(
-/// #     portfolio: &finstack_portfolio::Portfolio,
-/// #     scenario: &finstack_scenarios::spec::ScenarioSpec,
-/// #     market: &finstack_core::market_data::MarketContext,
-/// #     config: &finstack_core::config::FinstackConfig,
-/// # ) -> finstack_portfolio::Result<()> {
-/// let (valuation, report) = apply_and_revalue(portfolio, scenario, market, config)?;
-/// # let _ = (valuation, report);
-/// # Ok(())
-/// # }
-/// ```
 #[cfg(feature = "scenarios")]
 pub fn apply_and_revalue(
     portfolio: &Portfolio,

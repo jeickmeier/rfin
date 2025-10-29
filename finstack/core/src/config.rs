@@ -200,10 +200,16 @@ pub struct ResultsMeta {
     pub fx_policy_applied: Option<String>,
     /// Timestamp when result was computed (ISO 8601 format).
     /// Useful for audit trails and reproducibility.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none", default))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(skip_serializing_if = "Option::is_none", default)
+    )]
     pub timestamp: Option<String>,
     /// Finstack library version used to produce the result.
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none", default))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(skip_serializing_if = "Option::is_none", default)
+    )]
     pub version: Option<String>,
 }
 
@@ -275,7 +281,7 @@ pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
     let timestamp = Some(
         time::OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Iso8601::DEFAULT)
-            .unwrap_or_else(|_| String::from("unknown"))
+            .unwrap_or_else(|_| String::from("unknown")),
     );
 
     ResultsMeta {

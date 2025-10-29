@@ -39,7 +39,7 @@ impl JumpEuler {
             max_jumps_per_step: 10,
         }
     }
-    
+
     /// Create with custom maximum jumps per step.
     pub fn with_max_jumps(max_jumps: usize) -> Self {
         Self {
@@ -60,17 +60,17 @@ impl Discretization<MertonJumpProcess> for JumpEuler {
     ) {
         let params = process.params();
         let s_t = x[0];
-        
+
         // Step 1: Continuous diffusion (log-Euler for positivity)
         // dS/S = (r - q - λk)dt + σ dW
         let drift_rate = params.compensated_drift();
         let sigma = params.gbm.sigma;
-        
+
         let log_drift = (drift_rate - 0.5 * sigma * sigma) * dt;
         let log_diffusion = sigma * dt.sqrt() * z[0];
-        
+
         let s_diffusion = s_t * (log_drift + log_diffusion).exp();
-        
+
         // Step 2: Sample number of jumps
         let lambda_dt = params.lambda * dt;
         let num_jumps = if lambda_dt > 1e-10 {
@@ -79,13 +79,13 @@ impl Discretization<MertonJumpProcess> for JumpEuler {
         } else {
             0
         };
-        
+
         // Step 3: Apply jumps
         let mut jump_product = 1.0;
         if num_jumps > 0 {
             // Limit to max_jumps to avoid overflow
             let actual_jumps = num_jumps.min(self.max_jumps_per_step);
-            
+
             for i in 0..actual_jumps {
                 // Sample jump size J ~ LogNormal(μ_J, σ_J)
                 // Use work buffer for additional random numbers if needed
@@ -95,17 +95,17 @@ impl Discretization<MertonJumpProcess> for JumpEuler {
                     // Use work buffer as backup (deterministically seeded)
                     work[i % work.len()]
                 };
-                
+
                 let log_jump = params.mu_j + params.sigma_j * z_jump;
                 let jump_size = log_jump.exp();
                 jump_product *= jump_size;
             }
         }
-        
+
         // Step 4: Combine diffusion and jumps
         x[0] = s_diffusion * jump_product;
     }
-    
+
     fn work_size(&self, _process: &MertonJumpProcess) -> usize {
         self.max_jumps_per_step // Buffer for extra jump random numbers
     }
@@ -115,99 +115,95 @@ impl Discretization<MertonJumpProcess> for JumpEuler {
 mod tests {
     use super::super::super::process::jump_diffusion::{MertonJumpParams, MertonJumpProcess};
     use super::*;
-    
+
     #[test]
     fn test_jump_euler_no_jumps() {
         // With lambda = 0, should behave like log-Euler
         let params = MertonJumpParams::new(0.05, 0.02, 0.2, 0.0, 0.0, 0.0);
         let process = MertonJumpProcess::new(params);
         let disc = JumpEuler::new();
-        
+
         let t: f64 = 0.0;
         let dt: f64 = 0.01;
         let mut x = vec![100.0];
         let z = vec![0.5, 0.0]; // Diffusion shock, no jumps
         let mut work = vec![0.0; disc.work_size(&process)];
-        
+
         disc.step(&process, t, dt, &mut x, &z, &mut work);
-        
+
         // Should be positive and above initial (positive drift + shock)
         assert!(x[0] > 0.0);
         assert!(x[0] > 100.0);
     }
-    
+
     #[test]
     fn test_jump_euler_positive_jumps() {
         // Test with positive jumps
         let params = MertonJumpParams::new(
-            0.05, 0.02, 0.15,
-            5.0,   // lambda (expect ~5 jumps per year)
-            0.02,  // mu_j (small positive jumps)
-            0.05,  // sigma_j
+            0.05, 0.02, 0.15, 5.0,  // lambda (expect ~5 jumps per year)
+            0.02, // mu_j (small positive jumps)
+            0.05, // sigma_j
         );
         let process = MertonJumpProcess::new(params);
         let disc = JumpEuler::new();
-        
+
         let t: f64 = 0.0;
         let dt: f64 = 0.1; // 10% of year → expect ~0.5 jumps
         let mut x = vec![100.0];
-        
+
         // Force a jump with high Poisson draw
         let z = vec![0.0, 2.0, 1.0]; // diffusion=0, Poisson=high, jump_size=+1σ
         let mut work = vec![0.0; disc.work_size(&process)];
-        
+
         disc.step(&process, t, dt, &mut x, &z, &mut work);
-        
+
         // Should still be positive
         assert!(x[0] > 0.0);
     }
-    
+
     #[test]
     fn test_jump_euler_negative_jumps() {
         // Test with negative jumps (crashes)
         let params = MertonJumpParams::new(
-            0.05, 0.02, 0.2,
-            1.0,    // lambda
-            -0.1,   // mu_j (negative jumps)
-            0.15,   // sigma_j
+            0.05, 0.02, 0.2, 1.0,  // lambda
+            -0.1, // mu_j (negative jumps)
+            0.15, // sigma_j
         );
         let process = MertonJumpProcess::new(params);
         let disc = JumpEuler::new();
-        
+
         let t: f64 = 0.0;
         let dt: f64 = 0.05;
         let mut x = vec![100.0];
-        
+
         // No diffusion shock, potential jump
         let z = vec![0.0, 0.0, -1.0]; // jump size = mu_j - sigma_j
         let mut work = vec![0.0; disc.work_size(&process)];
-        
+
         disc.step(&process, t, dt, &mut x, &z, &mut work);
-        
+
         // Should maintain positivity even with negative jumps
         assert!(x[0] > 0.0);
     }
-    
+
     #[test]
     fn test_jump_compensation() {
         // Test that compensated drift makes sense
         let params = MertonJumpParams::new(
-            0.05, 0.02, 0.2,
-            2.0,   // 2 jumps/year
-            0.05,  // positive mu_j
+            0.05, 0.02, 0.2, 2.0,  // 2 jumps/year
+            0.05, // positive mu_j
             0.1,
         );
-        
+
         let drift = params.compensated_drift();
         let pure_gbm_drift = params.gbm.r - params.gbm.q;
-        
+
         // Compensated drift should be less than GBM drift (removed jump comp)
         // Since jumps are positive on average, we subtract
         assert!(drift < pure_gbm_drift);
-        
+
         let k = params.jump_compensation();
         assert!(k > 0.0); // Positive jumps
         assert_eq!(drift, pure_gbm_drift - params.lambda * k);
     }
 }
-

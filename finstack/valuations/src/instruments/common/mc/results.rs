@@ -213,4 +213,3 @@ mod tests {
         assert!(s.contains("n=10000"));
     }
 }
-

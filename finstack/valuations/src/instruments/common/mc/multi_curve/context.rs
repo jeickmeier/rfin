@@ -152,34 +152,15 @@ impl ForwardCurve for FlatForwardCurve {
 /// Maintains separate curves for discounting (OIS) and forwarding (IBOR),
 /// along with tenor basis adjustments.
 ///
-/// # Example
-///
-/// ```rust,ignore
-/// use finstack_valuations::instruments::common::mc::multi_curve::*;
-///
-/// // Create OIS curve for discounting
-/// let ois = Arc::new(FlatCurve::new(0.04));
-///
-/// // Create IBOR curves for different tenors
-/// let mut ibor_curves = HashMap::new();
-/// ibor_curves.insert(Tenor::M3, Arc::new(FlatForwardCurve::new(Tenor::M3, 0.045)));
-/// ibor_curves.insert(Tenor::M6, Arc::new(FlatForwardCurve::new(Tenor::M6, 0.046)));
-///
-/// // Define tenor basis (3M vs 6M)
-/// let tenor_basis = vec![
-///     TenorBasis::new(Tenor::M6, Tenor::M3, -15.0), // 3M trades 15bp below 6M
-/// ];
-///
-/// let context = MultiCurveContext::new(ois, ibor_curves, tenor_basis);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone)]
 pub struct MultiCurveContext {
     /// OIS curve for risk-free discounting
     pub ois_curve: Arc<dyn DiscountCurve>,
-    
+
     /// IBOR forward curves by tenor
     pub ibor_curves: HashMap<Tenor, Arc<dyn ForwardCurve>>,
-    
+
     /// Tenor basis adjustments
     pub tenor_basis: Vec<TenorBasis>,
 }
@@ -204,7 +185,7 @@ impl MultiCurveContext {
     pub fn single_curve(rate: f64) -> Self {
         let curve = Arc::new(FlatCurve::new(rate));
         let mut ibor_curves: HashMap<Tenor, Arc<dyn ForwardCurve>> = HashMap::new();
-        
+
         for tenor in [Tenor::M1, Tenor::M3, Tenor::M6, Tenor::M12] {
             ibor_curves.insert(
                 tenor,
@@ -228,10 +209,10 @@ impl MultiCurveContext {
     pub fn forward_rate(&self, tenor: Tenor, t: f64) -> f64 {
         if let Some(curve) = self.ibor_curves.get(&tenor) {
             let base_forward = curve.forward_rate(t);
-            
+
             // Apply tenor basis adjustments
             let basis_adjustment = self.get_tenor_basis_adjustment(tenor);
-            
+
             base_forward + basis_adjustment
         } else {
             // Fallback to OIS if tenor not found
@@ -266,7 +247,7 @@ mod tests {
     #[test]
     fn test_flat_curve() {
         let curve = FlatCurve::new(0.05);
-        
+
         assert_eq!(curve.discount_factor(0.0), 1.0);
         assert!((curve.discount_factor(1.0) - 0.05_f64.exp().recip()).abs() < 1e-10);
         assert!((curve.forward_rate(0.5) - 0.05).abs() < 1e-10);
@@ -276,7 +257,7 @@ mod tests {
     #[test]
     fn test_flat_forward_curve() {
         let curve = FlatForwardCurve::new(Tenor::M3, 0.045);
-        
+
         assert_eq!(curve.forward_rate(0.5), 0.045);
         assert_eq!(curve.tenor(), Tenor::M3);
     }
@@ -292,7 +273,7 @@ mod tests {
     #[test]
     fn test_tenor_basis() {
         let basis = TenorBasis::new(Tenor::M6, Tenor::M3, -15.0);
-        
+
         assert_eq!(basis.spread_bps, -15.0);
         assert_eq!(basis.spread_decimal(), -0.0015);
     }
@@ -300,11 +281,11 @@ mod tests {
     #[test]
     fn test_single_curve_context() {
         let context = MultiCurveContext::single_curve(0.05);
-        
+
         assert_eq!(context.discount_factor(1.0), (-0.05_f64).exp());
         assert_eq!(context.forward_rate(Tenor::M3, 0.5), 0.05);
         assert_eq!(context.forward_rate(Tenor::M6, 0.5), 0.05);
-        
+
         assert!(context.has_tenor(Tenor::M3));
         assert_eq!(context.available_tenors().len(), 4);
     }
@@ -312,16 +293,10 @@ mod tests {
     #[test]
     fn test_multi_curve_context_with_basis() {
         let ois = Arc::new(FlatCurve::new(0.04)) as Arc<dyn DiscountCurve>;
-        
+
         let mut ibor_curves: HashMap<Tenor, Arc<dyn ForwardCurve>> = HashMap::new();
-        ibor_curves.insert(
-            Tenor::M3,
-            Arc::new(FlatForwardCurve::new(Tenor::M3, 0.045)),
-        );
-        ibor_curves.insert(
-            Tenor::M6,
-            Arc::new(FlatForwardCurve::new(Tenor::M6, 0.046)),
-        );
+        ibor_curves.insert(Tenor::M3, Arc::new(FlatForwardCurve::new(Tenor::M3, 0.045)));
+        ibor_curves.insert(Tenor::M6, Arc::new(FlatForwardCurve::new(Tenor::M6, 0.046)));
 
         // 3M trades 15bp below 6M
         let tenor_basis = vec![TenorBasis::new(Tenor::M6, Tenor::M3, -15.0)];
@@ -340,4 +315,3 @@ mod tests {
         assert_eq!(fwd_6m, 0.046);
     }
 }
-

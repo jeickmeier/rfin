@@ -7,4 +7,3 @@
 
 #[path = "properties/mod.rs"]
 mod properties_tests;
-

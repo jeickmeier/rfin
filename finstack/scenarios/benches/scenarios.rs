@@ -142,10 +142,7 @@ fn create_base_market() -> MarketContext {
         .insert_hazard(hazard_hy)
         .insert_price("SPY", MarketScalar::Price(Money::new(450.0, Currency::USD)))
         .insert_price("QQQ", MarketScalar::Price(Money::new(380.0, Currency::USD)))
-        .insert_price(
-            "EWU",
-            MarketScalar::Price(Money::new(32.0, Currency::USD)),
-        )
+        .insert_price("EWU", MarketScalar::Price(Money::new(32.0, Currency::USD)))
 }
 
 /// Create a financial model with multiple nodes
@@ -264,7 +261,11 @@ fn bench_curve_parallel_shock(c: &mut Criterion) {
                 rate_bindings: None,
                 as_of: base_date,
             };
-            black_box(engine.apply(black_box(&scenario), black_box(&mut ctx)).unwrap())
+            black_box(
+                engine
+                    .apply(black_box(&scenario), black_box(&mut ctx))
+                    .unwrap(),
+            )
         });
     });
 
@@ -312,7 +313,11 @@ fn bench_curve_node_shock(c: &mut Criterion) {
                         rate_bindings: None,
                         as_of: base_date,
                     };
-                    black_box(engine.apply(black_box(scenario), black_box(&mut ctx)).unwrap())
+                    black_box(
+                        engine
+                            .apply(black_box(scenario), black_box(&mut ctx))
+                            .unwrap(),
+                    )
                 });
             },
         );
@@ -349,7 +354,11 @@ fn bench_fx_shock(c: &mut Criterion) {
                 rate_bindings: None,
                 as_of: base_date,
             };
-            black_box(engine.apply(black_box(&scenario), black_box(&mut ctx)).unwrap())
+            black_box(
+                engine
+                    .apply(black_box(&scenario), black_box(&mut ctx))
+                    .unwrap(),
+            )
         });
     });
 
@@ -390,7 +399,11 @@ fn bench_equity_shock(c: &mut Criterion) {
                         rate_bindings: None,
                         as_of: base_date,
                     };
-                    black_box(engine.apply(black_box(scenario), black_box(&mut ctx)).unwrap())
+                    black_box(
+                        engine
+                            .apply(black_box(scenario), black_box(&mut ctx))
+                            .unwrap(),
+                    )
                 });
             },
         );
@@ -686,7 +699,11 @@ fn bench_complex_multi_operation(c: &mut Criterion) {
                         rate_bindings: None,
                         as_of: base_date,
                     };
-                    black_box(engine.apply(black_box(scenario), black_box(&mut ctx)).unwrap())
+                    black_box(
+                        engine
+                            .apply(black_box(scenario), black_box(&mut ctx))
+                            .unwrap(),
+                    )
                 });
             },
         );
@@ -774,11 +791,7 @@ fn bench_serde_roundtrip(c: &mut Criterion) {
     let json = serde_json::to_string(&scenario).unwrap();
 
     group.bench_function("deserialize", |b| {
-        b.iter(|| {
-            black_box(
-                serde_json::from_str::<ScenarioSpec>(black_box(&json)).unwrap(),
-            )
-        });
+        b.iter(|| black_box(serde_json::from_str::<ScenarioSpec>(black_box(&json)).unwrap()));
     });
 
     group.bench_function("roundtrip", |b| {
@@ -824,7 +837,11 @@ fn bench_rate_bindings(c: &mut Criterion) {
                 rate_bindings: rate_bindings.clone(),
                 as_of: base_date,
             };
-            black_box(engine.apply(black_box(&scenario), black_box(&mut ctx)).unwrap())
+            black_box(
+                engine
+                    .apply(black_box(&scenario), black_box(&mut ctx))
+                    .unwrap(),
+            )
         });
     });
 
@@ -1114,4 +1131,3 @@ criterion_group!(
 );
 
 criterion_main!(benches);
-

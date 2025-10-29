@@ -15,16 +15,7 @@ use finstack_core::{
 /// The holder receives the total return (carry + roll) of the underlying index in exchange
 /// for paying a floating rate plus spread on the notional amount.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_valuations::instruments::trs::FIIndexTotalReturnSwap;
-/// use finstack_core::{money::Money, currency::Currency, types::id::IndexId};
-///
-/// let trs = FIIndexTotalReturnSwap::builder()
-///     .id("FI_TRS_001".into())
-///     .notional(Money::new(1_000_000.0, Currency::USD))
-///     .build();
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]

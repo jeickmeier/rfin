@@ -13,19 +13,7 @@ use finstack_core::Result;
 /// metrics-only runs that include PV, without duplicating the same code
 /// across multiple instruments.
 ///
-/// # Examples
-/// ```
-/// use finstack_valuations::instruments::common::metrics::GenericPv;
-/// use finstack_valuations::metrics::MetricRegistry;
-/// use std::sync::Arc;
-///
-/// let mut registry = MetricRegistry::new();
-/// registry.register_metric(
-///     finstack_valuations::metrics::MetricId::custom("pv"),
-///     Arc::new(GenericPv),
-///     &["MyInstrument"],
-/// );
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct GenericPv;
 
 impl MetricCalculator for GenericPv {
@@ -77,11 +65,7 @@ mod tests {
             Box::new(self.clone())
         }
 
-        fn value(
-            &self,
-            _curves: &MarketContext,
-            _as_of: Date,
-        ) -> Result<Money> {
+        fn value(&self, _curves: &MarketContext, _as_of: Date) -> Result<Money> {
             Ok(self.test_value)
         }
 
@@ -146,4 +130,3 @@ mod tests {
         assert!((result - test_pv.amount()).abs() < 1e-12);
     }
 }
-

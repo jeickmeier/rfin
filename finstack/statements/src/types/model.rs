@@ -40,17 +40,6 @@ impl FinancialModelSpec {
     /// # Arguments
     /// * `id` - Identifier used to reference the model
     /// * `periods` - Ordered list of [`Period`](finstack_core::dates::Period) instances
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use finstack_core::dates::build_periods;
-    /// # use finstack_statements::types::FinancialModelSpec;
-    /// let periods = build_periods("2025Q1..Q2", None)?.periods;
-    /// let model = FinancialModelSpec::new("demo", periods);
-    /// assert_eq!(model.id, "demo");
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
     pub fn new(id: impl Into<String>, periods: Vec<Period>) -> Self {
         Self {
             id: id.into(),

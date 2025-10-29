@@ -44,30 +44,22 @@ impl EulerMaruyama {
 }
 
 impl<P: StochasticProcess> Discretization<P> for EulerMaruyama {
-    fn step(
-        &self,
-        process: &P,
-        t: f64,
-        dt: f64,
-        x: &mut [f64],
-        z: &[f64],
-        work: &mut [f64],
-    ) {
+    fn step(&self, process: &P, t: f64, dt: f64, x: &mut [f64], z: &[f64], work: &mut [f64]) {
         let dim = process.dim();
-        
+
         // Compute drift: work[0..dim] = μ(t, x)
         process.drift(t, x, &mut work[0..dim]);
-        
+
         // Compute diffusion: work[dim..2*dim] = σ(t, x)
-        process.diffusion(t, x, &mut work[dim..2*dim]);
-        
+        process.diffusion(t, x, &mut work[dim..2 * dim]);
+
         // Euler step: x_{t+dt} = x_t + μ(t,x)dt + σ(t,x)√dt * Z
         let sqrt_dt = dt.sqrt();
         for i in 0..dim {
             x[i] += work[i] * dt + work[dim + i] * sqrt_dt * z[i];
         }
     }
-    
+
     fn work_size(&self, process: &P) -> usize {
         2 * process.dim() // drift + diffusion vectors
     }
@@ -93,35 +85,27 @@ impl LogEuler {
 }
 
 impl<P: StochasticProcess> Discretization<P> for LogEuler {
-    fn step(
-        &self,
-        process: &P,
-        t: f64,
-        dt: f64,
-        x: &mut [f64],
-        z: &[f64],
-        work: &mut [f64],
-    ) {
+    fn step(&self, process: &P, t: f64, dt: f64, x: &mut [f64], z: &[f64], work: &mut [f64]) {
         let dim = process.dim();
-        
+
         // Compute drift and diffusion in original space
         process.drift(t, x, &mut work[0..dim]);
-        process.diffusion(t, x, &mut work[dim..2*dim]);
-        
+        process.diffusion(t, x, &mut work[dim..2 * dim]);
+
         // Transform to log-space and apply Euler
         let sqrt_dt = dt.sqrt();
         for i in 0..dim {
-            let mu_x = work[i] / x[i];           // μ/X (rate form)
-            let sigma_x = work[dim + i] / x[i];  // σ/X (rate form)
-            
+            let mu_x = work[i] / x[i]; // μ/X (rate form)
+            let sigma_x = work[dim + i] / x[i]; // σ/X (rate form)
+
             // Log-Euler: ln(X_new) = ln(X) + (μ/X - ½(σ/X)²)Δt + (σ/X)√Δt Z
             let drift_term = (mu_x - 0.5 * sigma_x * sigma_x) * dt;
             let diffusion_term = sigma_x * sqrt_dt * z[i];
-            
+
             x[i] *= (drift_term + diffusion_term).exp();
         }
     }
-    
+
     fn work_size(&self, process: &P) -> usize {
         2 * process.dim()
     }
@@ -131,70 +115,69 @@ impl<P: StochasticProcess> Discretization<P> for LogEuler {
 mod tests {
     use super::super::super::process::gbm::{GbmParams, GbmProcess};
     use super::*;
-    
+
     #[test]
     fn test_euler_maruyama_step() {
         let params = GbmParams::new(0.05, 0.02, 0.2);
         let process = GbmProcess::new(params);
         let disc = EulerMaruyama::new();
-        
+
         let t = 0.0;
         let dt = 0.01; // 1% of a year
         let mut x = vec![100.0];
         let z = vec![0.5]; // Half a std dev
         let mut work = vec![0.0; disc.work_size(&process)];
-        
+
         disc.step(&process, t, dt, &mut x, &z, &mut work);
-        
+
         // Should be positive
         assert!(x[0] > 0.0);
         // Should have moved up (positive drift + positive shock)
         assert!(x[0] > 100.0);
     }
-    
+
     #[test]
     fn test_log_euler_positivity() {
         let params = GbmParams::new(0.05, 0.02, 0.4); // High vol
         let process = GbmProcess::new(params);
         let disc = LogEuler::new();
-        
+
         let t = 0.0;
         let dt = 0.1; // Larger step
         let mut x = vec![100.0];
-        
+
         // Test multiple large negative shocks
         for _ in 0..100 {
             let z = vec![-3.0]; // Very negative shock
             let mut work = vec![0.0; disc.work_size(&process)];
-            
+
             disc.step(&process, t, dt, &mut x, &z, &mut work);
-            
+
             // Log-Euler should maintain positivity
             assert!(x[0] > 0.0, "State should remain positive");
         }
     }
-    
+
     #[test]
     fn test_euler_convergence() {
         // Test that Euler converges to expected mean as dt -> 0
         let params = GbmParams::new(0.05, 0.02, 0.2);
         let process = GbmProcess::new(params);
         let disc = EulerMaruyama::new();
-        
+
         let t = 0.0;
         let dt = 0.001; // Very small step
         let x0 = 100.0;
         let expected_drift = (0.05 - 0.02) * x0 * dt; // μ S dt
-        
+
         // Zero shock should give pure drift
         let mut x = vec![x0];
         let z = vec![0.0];
         let mut work = vec![0.0; disc.work_size(&process)];
-        
+
         disc.step(&process, t, dt, &mut x, &z, &mut work);
-        
+
         // Should be close to x0 + expected_drift
         assert!((x[0] - (x0 + expected_drift)).abs() < 0.01);
     }
 }
-

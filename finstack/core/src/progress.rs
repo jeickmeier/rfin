@@ -91,7 +91,7 @@ impl ProgressReporter {
     pub fn report(&self, current: usize, total: usize, message: &str) {
         if let Some(ref cb) = self.callback {
             let mut last = self.last_reported.lock().unwrap();
-            
+
             // Report if:
             // 1. We've advanced by batch_size steps, OR
             // 2. We're at the end (current == total), OR
@@ -99,7 +99,7 @@ impl ProgressReporter {
             let should_report = current.saturating_sub(*last) >= self.batch_size
                 || current == total
                 || (*last == 0 && current > 0);
-            
+
             if should_report {
                 cb(current, total, message);
                 *last = current;
@@ -153,7 +153,7 @@ mod tests {
     fn test_disabled_reporter_is_no_op() {
         let reporter = ProgressReporter::disabled();
         assert!(!reporter.is_enabled());
-        
+
         // Should not panic
         reporter.report(0, 100, "Test");
         reporter.report(100, 100, "Done");
@@ -163,42 +163,46 @@ mod tests {
     fn test_reporter_batching() {
         let call_count = Arc::new(AtomicUsize::new(0));
         let call_count_clone = call_count.clone();
-        
+
         let reporter = ProgressReporter::new(
             Some(Arc::new(move |_current, _total, _msg| {
                 call_count_clone.fetch_add(1, Ordering::SeqCst);
             })),
             10,
         );
-        
+
         // Report 100 times with batch size 10
         for i in 0..100 {
             reporter.report(i, 100, "Progress");
         }
         reporter.report(100, 100, "Complete");
-        
+
         // Should be called ~10 times (0, 10, 20, ..., 90, 100)
         let calls = call_count.load(Ordering::SeqCst);
-        assert!((10..=12).contains(&calls), "Expected ~11 calls, got {}", calls);
+        assert!(
+            (10..=12).contains(&calls),
+            "Expected ~11 calls, got {}",
+            calls
+        );
     }
 
     #[test]
     fn test_reporter_force_ignores_batch() {
         let call_count = Arc::new(AtomicUsize::new(0));
         let call_count_clone = call_count.clone();
-        
+
         let reporter = ProgressReporter::new(
             Some(Arc::new(move |_current, _total, _msg| {
                 call_count_clone.fetch_add(1, Ordering::SeqCst);
             })),
             100, // Large batch size
         );
-        
+
         // Force report multiple times
         reporter.report_force(1, 100, "Milestone 1");
         reporter.report_force(2, 100, "Milestone 2");
         reporter.report_force(3, 100, "Milestone 3");
-        
+
         assert_eq!(call_count.load(Ordering::SeqCst), 3);
     }
 
@@ -206,7 +210,7 @@ mod tests {
     fn test_reporter_always_reports_completion() {
         let call_count = Arc::new(AtomicUsize::new(0));
         let call_count_clone = call_count.clone();
-        
+
         let reporter = ProgressReporter::new(
             Some(Arc::new(move |current, total, _msg| {
                 call_count_clone.fetch_add(1, Ordering::SeqCst);
@@ -217,15 +221,18 @@ mod tests {
             })),
             50, // Only report every 50 steps
         );
-        
+
         for i in 0..100 {
             reporter.report(i, 100, "Progress");
         }
         reporter.report(100, 100, "Complete");
-        
+
         let calls = call_count.load(Ordering::SeqCst);
         // Should at least report: 0 (first), 50, 100 (completion)
-        assert!(calls >= 2, "Expected at least 2 calls (start + end), got {}", calls);
+        assert!(
+            calls >= 2,
+            "Expected at least 2 calls (start + end), got {}",
+            calls
+        );
     }
 }
-

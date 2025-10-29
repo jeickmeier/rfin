@@ -44,11 +44,10 @@
 //!    │            └─ PFE(t, α)      └─ FVA
 //! ```
 
-pub mod exposure;
-pub mod cva;
 pub mod collateral;
+pub mod cva;
+pub mod exposure;
 
-pub use exposure::{ExposureProfile, calculate_exposure_profile};
+pub use collateral::{apply_collateral, CollateralAgreement};
 pub use cva::{calculate_cva, calculate_dva, CvaResult};
-pub use collateral::{CollateralAgreement, apply_collateral};
-
+pub use exposure::{calculate_exposure_profile, ExposureProfile};

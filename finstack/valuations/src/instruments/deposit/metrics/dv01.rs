@@ -31,13 +31,13 @@ impl MetricCalculator for DepositDv01Calculator {
         let mut bumps = HashMap::new();
         bumps.insert(deposit.disc_id.clone(), BumpSpec::parallel_bp(1.0));
         let bumped_context = context.curves.bump(bumps)?;
-        
+
         // Reprice with bumped curve
         let bumped_pv = deposit.value(&bumped_context, as_of)?;
 
         // DV01 = base_pv - bumped_pv (positive when rates rise causes value to fall)
         let dv01 = base_pv.checked_sub(bumped_pv)?;
-        
+
         Ok(dv01.amount())
     }
 }

@@ -24,10 +24,7 @@ pub struct ValuationResult {
     /// Covenant check results (if applicable).
     pub covenants: Option<IndexMap<String, CovenantReport>>,
     /// Optional explanation trace (enabled via ExplainOpts).
-    #[cfg_attr(
-        feature = "serde",
-        serde(skip_serializing_if = "Option::is_none")
-    )]
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub explanation: Option<ExplanationTrace>,
 }
 

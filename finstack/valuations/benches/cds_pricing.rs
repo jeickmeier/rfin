@@ -8,7 +8,7 @@
 //!
 //! Market Standards Review (Week 5)
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -23,7 +23,7 @@ use time::Month;
 fn create_cds(tenor_years: i32) -> CreditDefaultSwap {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2025 + tenor_years, Month::January, 1).unwrap();
-    
+
     CreditDefaultSwap::buy_protection(
         format!("CDS-{}Y", tenor_years),
         Money::new(10_000_000.0, Currency::USD),
@@ -37,7 +37,7 @@ fn create_cds(tenor_years: i32) -> CreditDefaultSwap {
 
 fn create_market() -> MarketContext {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base)
         .knots([
@@ -50,7 +50,7 @@ fn create_market() -> MarketContext {
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    
+
     let hazard = HazardCurve::builder("ACME-HAZARD")
         .issuer("ACME")
         .seniority(Seniority::Senior)
@@ -66,7 +66,7 @@ fn create_market() -> MarketContext {
         ])
         .build()
         .unwrap();
-    
+
     MarketContext::new()
         .insert_discount(disc)
         .insert_hazard(hazard)
@@ -76,16 +76,14 @@ fn bench_cds_pv(c: &mut Criterion) {
     let mut group = c.benchmark_group("cds_pv");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for tenor in [1, 3, 5, 10].iter() {
         let cds = create_cds(*tenor);
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
             |b, _| {
-                b.iter(|| {
-                    cds.value(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| cds.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -96,7 +94,7 @@ fn bench_cds_cs01(c: &mut Criterion) {
     let mut group = c.benchmark_group("cds_cs01");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for tenor in [1, 3, 5, 10].iter() {
         let cds = create_cds(*tenor);
         group.bench_with_input(
@@ -120,7 +118,7 @@ fn bench_cds_par_spread(c: &mut Criterion) {
     let mut group = c.benchmark_group("cds_par_spread");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for tenor in [1, 3, 5, 10].iter() {
         let cds = create_cds(*tenor);
         group.bench_with_input(
@@ -142,4 +140,3 @@ fn bench_cds_par_spread(c: &mut Criterion) {
 
 criterion_group!(benches, bench_cds_pv, bench_cds_cs01, bench_cds_par_spread);
 criterion_main!(benches);
-

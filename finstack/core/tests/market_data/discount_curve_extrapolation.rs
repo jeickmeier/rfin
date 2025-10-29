@@ -85,10 +85,7 @@ fn test_monotonic_validation_failure() {
     assert!(result.is_err());
     let error = result.unwrap_err();
     // Error type changed to Validation in the new implementation
-    assert!(matches!(
-        error,
-        finstack_core::Error::Validation(_)
-    ));
+    assert!(matches!(error, finstack_core::Error::Validation(_)));
 }
 
 #[test]

@@ -31,7 +31,7 @@ fn create_test_discount_curve(base: Date) -> DiscountCurve {
 #[test]
 fn test_hazard_calibration_positive_rates() {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let calibrator = HazardCurveCalibrator::new(
         "ACME-Corp",
         Seniority::Senior,
@@ -70,7 +70,7 @@ fn test_hazard_calibration_positive_rates() {
     let market = MarketContext::new().insert_discount(disc);
 
     let result = calibrator.calibrate(&quotes, &market);
-    
+
     assert!(
         result.is_ok(),
         "Calibration with realistic spreads should succeed: {:?}",
@@ -78,13 +78,14 @@ fn test_hazard_calibration_positive_rates() {
     );
 
     let (curve, _report) = result.unwrap();
-    
+
     // Verify all hazard rates are positive
     for (t, lambda) in curve.knot_points() {
         assert!(
             lambda > 0.0,
             "Hazard rate at t={} should be positive, got: {}",
-            t, lambda
+            t,
+            lambda
         );
     }
 }
@@ -93,7 +94,7 @@ fn test_hazard_calibration_positive_rates() {
 fn test_hazard_calibration_rejects_zero_spread() {
     // Zero spread should produce zero or negative hazard rate, which should be rejected
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let calibrator = HazardCurveCalibrator::new(
         "ZERO-SPREAD",
         Seniority::Senior,
@@ -103,21 +104,19 @@ fn test_hazard_calibration_rejects_zero_spread() {
         "TEST-DISC",
     );
 
-    let quotes = vec![
-        CreditQuote::CDS {
-            entity: "ZERO-SPREAD".to_string(),
-            maturity: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
-            spread_bp: 0.0, // Zero spread (risk-free)
-            recovery_rate: 0.40,
-            currency: Currency::USD,
-        },
-    ];
+    let quotes = vec![CreditQuote::CDS {
+        entity: "ZERO-SPREAD".to_string(),
+        maturity: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+        spread_bp: 0.0, // Zero spread (risk-free)
+        recovery_rate: 0.40,
+        currency: Currency::USD,
+    }];
 
     let disc = create_test_discount_curve(base);
     let market = MarketContext::new().insert_discount(disc);
 
     let result = calibrator.calibrate(&quotes, &market);
-    
+
     // Should either succeed with very small positive rate or fail gracefully
     // The solver may return a small positive value or fail to converge
     if let Ok((curve, _)) = result {
@@ -125,7 +124,8 @@ fn test_hazard_calibration_rejects_zero_spread() {
             assert!(
                 lambda > 0.0,
                 "Even with zero spread, hazard rate at t={} must be positive, got: {}",
-                t, lambda
+                t,
+                lambda
             );
         }
     }
@@ -137,9 +137,9 @@ fn test_hazard_calibration_positive_rates_validation() {
     // This test verifies the validation logic triggers on negative rates
     // In practice, the solver should not return negative rates with realistic data,
     // but this ensures the validation catches edge cases
-    
+
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let calibrator = HazardCurveCalibrator::new(
         "TEST-ENTITY",
         Seniority::Senior,
@@ -171,7 +171,7 @@ fn test_hazard_calibration_positive_rates_validation() {
     let market = MarketContext::new().insert_discount(disc);
 
     let result = calibrator.calibrate(&quotes, &market);
-    
+
     // Should succeed with positive rates
     assert!(
         result.is_ok(),
@@ -179,4 +179,3 @@ fn test_hazard_calibration_positive_rates_validation() {
         result.err()
     );
 }
-

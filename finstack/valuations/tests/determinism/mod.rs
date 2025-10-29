@@ -11,8 +11,7 @@
 //! - Cover major instrument types and pricing paths
 
 mod test_bond_pricing;
+mod test_calibration;
 mod test_cds_pricing;
 mod test_option_pricing;
 mod test_swap_pricing;
-mod test_calibration;
-

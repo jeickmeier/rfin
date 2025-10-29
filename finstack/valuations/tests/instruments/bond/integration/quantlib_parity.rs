@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! QuantLib Parity Tests for Bonds
 //!
 //! Test cases ported from QuantLib test suite: `bonds.cpp`
@@ -63,6 +64,7 @@ fn create_market_with_curve(curve: DiscountCurve) -> MarketContext {
 // QuantLib reference: bonds.cpp, testZeroCouponBond()
 // Exact test from finstack/core/tests/quantlib_parity_tests.rs::quantlib_parity_npv_zero_coupon_bond
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_zero_coupon_bond() {
     let base = date!(2024 - 01 - 01);
@@ -106,6 +108,7 @@ fn quantlib_parity_zero_coupon_bond() {
 // The default Bond::fixed() creates semi-annual bonds, so we use builder()
 // to explicitly set annual frequency for exact parity.
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_par_bond() {
     let base = date!(2024 - 01 - 01);
@@ -156,6 +159,7 @@ fn quantlib_parity_par_bond() {
 // QuantLib reference: bonds.cpp, testFixedRateBond() - premium bond
 // Bond with coupon > discount rate should price above par
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_premium_bond() {
     let base = date!(2024 - 01 - 01);
@@ -194,6 +198,7 @@ fn quantlib_parity_premium_bond() {
 // QuantLib reference: bonds.cpp, testFixedRateBond() - discount bond
 // Bond with coupon < discount rate should price below par
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_discount_bond() {
     let base = date!(2024 - 01 - 01);
@@ -232,6 +237,7 @@ fn quantlib_parity_discount_bond() {
 // QuantLib reference: bonds.cpp, testAccrued()
 // Accrued interest accumulates linearly within coupon period
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_accrued_interest() {
     let issue_date = date!(2020 - 01 - 01);
@@ -279,6 +285,7 @@ fn quantlib_parity_accrued_interest() {
 // QuantLib reference: bonds.cpp, testCleanDirtyPrice()
 // Dirty price = Clean price + Accrued interest
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_clean_dirty_price() {
     let issue_date = date!(2020 - 01 - 01);
@@ -323,6 +330,7 @@ fn quantlib_parity_clean_dirty_price() {
 // =============================================================================
 // QuantLib reference: bonds.cpp, testYield()
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_ytm_below_par() {
     let as_of = date!(2020 - 01 - 01);
@@ -364,6 +372,7 @@ fn quantlib_parity_ytm_below_par() {
 // =============================================================================
 // QuantLib reference: bonds.cpp, testDuration()
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_macaulay_duration() {
     let as_of = date!(2020 - 01 - 01);
@@ -400,6 +409,7 @@ fn quantlib_parity_macaulay_duration() {
 // =============================================================================
 // QuantLib reference: bonds.cpp, testModifiedDuration()
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_modified_duration() {
     let as_of = date!(2020 - 01 - 01);
@@ -436,6 +446,7 @@ fn quantlib_parity_modified_duration() {
 // =============================================================================
 // QuantLib reference: bonds.cpp, testConvexity()
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_convexity() {
     let as_of = date!(2020 - 01 - 01);
@@ -472,6 +483,7 @@ fn quantlib_parity_convexity() {
 // =============================================================================
 // QuantLib reference: bonds.cpp, testDV01()
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_dv01() {
     let as_of = date!(2020 - 01 - 01);
@@ -508,6 +520,7 @@ fn quantlib_parity_dv01() {
 // =============================================================================
 // QuantLib reference: bonds.cpp, testZSpread()
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_z_spread() {
     let as_of = date!(2020 - 01 - 01);
@@ -549,6 +562,7 @@ fn quantlib_parity_z_spread() {
 // QuantLib reference: callablebonds.cpp (separate file - requires tree pricing)
 // NOTE: Basic sanity check for callable bonds. Full suite in quantlib_parity_callable.rs
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_callable_bond() {
     let as_of = date!(2020 - 01 - 01);
@@ -602,6 +616,7 @@ fn quantlib_parity_callable_bond() {
 // QuantLib reference: callablebonds.cpp (separate file - requires tree pricing)
 // NOTE: Basic sanity check for putable bonds. Full suite in quantlib_parity_callable.rs
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_putable_bond() {
     let as_of = date!(2020 - 01 - 01);
@@ -658,6 +673,7 @@ fn quantlib_parity_putable_bond() {
 // mid-period (after accrual has begun). At issue date, both bonds have
 // identical cashflows and produce the same PV.
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_day_count_conventions() {
     let issue_date = date!(2020 - 01 - 01);

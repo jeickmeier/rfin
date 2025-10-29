@@ -14,12 +14,12 @@ use finstack_core::dates::{add_months, Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve, Seniority};
 use finstack_core::math::interp::InterpStyle;
+use finstack_valuations::calibration::methods::swaption_vol::{
+    AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
+};
 use finstack_valuations::calibration::methods::{
     BaseCorrelationCalibrator, DiscountCurveCalibrator, ForwardCurveCalibrator,
     HazardCurveCalibrator, InflationCurveCalibrator, VolSurfaceCalibrator,
-};
-use finstack_valuations::calibration::methods::swaption_vol::{
-    AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
 };
 use finstack_valuations::calibration::{
     CalibrationConfig, Calibrator, CreditQuote, InflationQuote, MarketQuote, RatesQuote,
@@ -193,7 +193,11 @@ fn create_tranche_quotes(base_date: Date, detachment_points: &[f64]) -> Vec<Cred
     let base_upfront = 10.0; // 10% base upfront
 
     for (i, &detachment) in detachment_points.iter().enumerate() {
-        let attachment = if i == 0 { 0.0 } else { detachment_points[i - 1] };
+        let attachment = if i == 0 {
+            0.0
+        } else {
+            detachment_points[i - 1]
+        };
         let upfront_pct = base_upfront + (detachment * 2.0); // Increasing upfront with detachment
 
         quotes.push(CreditQuote::CDSTranche {
@@ -229,14 +233,18 @@ fn create_inflation_quotes(base_date: Date, num_tenors: usize) -> Vec<InflationQ
 }
 
 /// Create option volatility quotes for SABR surface calibration
-fn create_sabr_vol_quotes(base_date: Date, num_expiries: usize, strikes_per_expiry: usize) -> Vec<VolQuote> {
+fn create_sabr_vol_quotes(
+    base_date: Date,
+    num_expiries: usize,
+    strikes_per_expiry: usize,
+) -> Vec<VolQuote> {
     let mut quotes = Vec::with_capacity(num_expiries * strikes_per_expiry);
     let base_vol = 0.25;
     let atm_strike = 100.0;
 
     for i in 1..=num_expiries {
         let expiry = add_months(base_date, (i * 3) as i32);
-        
+
         for j in 0..strikes_per_expiry {
             let strike_offset = (j as f64 - (strikes_per_expiry as f64 / 2.0)) * 5.0;
             let strike = atm_strike + strike_offset;
@@ -262,10 +270,10 @@ fn create_swaption_vol_quotes(base_date: Date, expiries: &[f64], tenors: &[f64])
 
     for &exp_years in expiries {
         let expiry_date = add_months(base_date, (exp_years * 12.0) as i32);
-        
+
         for &ten_years in tenors {
             let tenor_date = add_months(expiry_date, (ten_years * 12.0) as i32);
-            
+
             // ATM and wings
             for strike_offset in [-0.005_f64, 0.0, 0.005] {
                 let strike = 0.04 + strike_offset; // 4% base rate
@@ -293,12 +301,7 @@ fn create_market_with_credit_index(base_date: Date) -> MarketContext {
     // Discount curve
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
-        .knots([
-            (0.0, 1.0),
-            (1.0, 0.98),
-            (5.0, 0.88),
-            (10.0, 0.70),
-        ])
+        .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.88), (10.0, 0.70)])
         .set_interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
@@ -389,7 +392,10 @@ fn bench_discount_curve_large(c: &mut Criterion) {
 
     // Large curve: 11 deposits (up to 11 months) + 11 swaps (1Y+)
     let mut quotes = create_deposit_quotes(base_date, 11);
-    quotes.extend(create_swap_quotes(base_date, &[1, 2, 3, 4, 5, 6, 7, 10, 15, 20, 30]));
+    quotes.extend(create_swap_quotes(
+        base_date,
+        &[1, 2, 3, 4, 5, 6, 7, 10, 15, 20, 30],
+    ));
 
     let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
         .with_solve_interp(InterpStyle::MonotoneConvex);
@@ -421,16 +427,20 @@ fn bench_discount_curve_interpolation(c: &mut Criterion) {
         InterpStyle::MonotoneConvex,
         InterpStyle::CubicHermite,
     ] {
-        let calibrator =
-            DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_solve_interp(interp);
+        let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+            .with_solve_interp(interp);
 
-        group.bench_with_input(BenchmarkId::from_parameter(format!("{:?}", interp)), &interp, |b, _| {
-            b.iter(|| {
-                calibrator
-                    .calibrate(black_box(&quotes), black_box(&base_context))
-                    .unwrap()
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{:?}", interp)),
+            &interp,
+            |b, _| {
+                b.iter(|| {
+                    calibrator
+                        .calibrate(black_box(&quotes), black_box(&base_context))
+                        .unwrap()
+                });
+            },
+        );
     }
 
     group.finish();
@@ -521,9 +531,7 @@ fn bench_simple_calibration_small(c: &mut Criterion) {
     let calibration = SimpleCalibration::new(base_date, Currency::USD);
 
     group.bench_function("minimal_market", |b| {
-        b.iter(|| {
-            calibration.calibrate(black_box(&quotes)).unwrap()
-        });
+        b.iter(|| calibration.calibrate(black_box(&quotes)).unwrap());
     });
 
     group.finish();
@@ -549,9 +557,7 @@ fn bench_simple_calibration_medium(c: &mut Criterion) {
         .with_entity_seniority("CORP-A", Seniority::Senior);
 
     group.bench_function("rates_and_credit", |b| {
-        b.iter(|| {
-            calibration.calibrate(black_box(&quotes)).unwrap()
-        });
+        b.iter(|| calibration.calibrate(black_box(&quotes)).unwrap());
     });
 
     group.finish();
@@ -568,9 +574,7 @@ fn bench_simple_calibration_full(c: &mut Criterion) {
         .with_entity_seniority("CORP-A", Seniority::Senior);
 
     group.bench_function("complete_market", |b| {
-        b.iter(|| {
-            calibration.calibrate(black_box(&quotes)).unwrap()
-        });
+        b.iter(|| calibration.calibrate(black_box(&quotes)).unwrap());
     });
 
     group.finish();
@@ -592,16 +596,20 @@ fn bench_calibration_solver_comparison(c: &mut Criterion) {
             ..CalibrationConfig::default()
         };
 
-        let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-            .with_config(config);
+        let calibrator =
+            DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
 
-        group.bench_with_input(BenchmarkId::from_parameter(format!("{:?}", solver)), &solver, |b, _| {
-            b.iter(|| {
-                calibrator
-                    .calibrate(black_box(&quotes), black_box(&base_context))
-                    .unwrap()
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{:?}", solver)),
+            &solver,
+            |b, _| {
+                b.iter(|| {
+                    calibrator
+                        .calibrate(black_box(&quotes), black_box(&base_context))
+                        .unwrap()
+                });
+            },
+        );
     }
 
     group.finish();
@@ -885,4 +893,3 @@ criterion_group!(
     bench_swaption_vol_medium,
 );
 criterion_main!(benches);
-

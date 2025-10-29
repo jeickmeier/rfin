@@ -55,13 +55,6 @@ impl ModelBuilder<NeedPeriods> {
     /// # Arguments
     /// * `id` - Unique identifier for the model
     ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use finstack_statements::builder::ModelBuilder;
-    /// let builder = ModelBuilder::new("three_statement");
-    /// ```
-    ///
     /// You must call `.periods()` before adding nodes.
     pub fn new(id: impl Into<String>) -> Self {
         Self {
@@ -80,18 +73,6 @@ impl ModelBuilder<NeedPeriods> {
     ///
     /// * `range` - Period range (e.g., "2025Q1..Q4", "2025Q1..2026Q2")
     /// * `actuals_until` - Optional cutoff for actuals (e.g., Some("2025Q2"))
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use finstack_statements::builder::ModelBuilder;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let builder = ModelBuilder::new("test")
-    ///     .periods("2025Q1..Q4", Some("2025Q2"))?;
-    /// // Q1-Q2 are actuals, Q3-Q4 are forecast
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn periods(self, range: &str, actuals_until: Option<&str>) -> Result<ModelBuilder<Ready>> {
         let period_plan = build_periods(range, actuals_until)?;
 
@@ -116,18 +97,6 @@ impl ModelBuilder<NeedPeriods> {
     /// # Arguments
     /// * `periods` - Vector of [`Period`](finstack_core::dates::Period) instances, typically
     ///   produced by `finstack_core::dates::build_periods`
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use finstack_core::dates::{build_periods, Period};
-    /// # use finstack_statements::builder::ModelBuilder;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let periods: Vec<Period> = build_periods("2025Q1..Q3", None)?.periods;
-    /// let builder = ModelBuilder::new("custom").periods_explicit(periods)?;
-    /// # Ok(())
-    /// # }
-    /// ```
     pub fn periods_explicit(self, periods: Vec<Period>) -> Result<ModelBuilder<Ready>> {
         if periods.is_empty() {
             return Err(Error::period(

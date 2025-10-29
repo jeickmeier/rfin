@@ -19,4 +19,3 @@ pub mod poisson;
 pub use brownian_bridge::BrownianBridge;
 pub use philox::PhiloxRng;
 pub use transforms::*;
-

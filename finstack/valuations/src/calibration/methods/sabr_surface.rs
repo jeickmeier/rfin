@@ -583,6 +583,7 @@ mod tests {
         ]
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_vol_surface_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -619,6 +620,7 @@ mod tests {
         assert_eq!(surface.strikes().len(), 3);
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_sabr_parameter_interpolation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -656,6 +658,7 @@ mod tests {
         assert!((extrap_high.alpha - 0.3).abs() < 1e-10);
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_vol_grid_construction() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();

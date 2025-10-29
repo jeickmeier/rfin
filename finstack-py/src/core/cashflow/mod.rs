@@ -15,7 +15,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let mut exports = primitives::register(py, &module)?;
     let xirr_exports = xirr::register(py, &module)?;
     exports.extend(xirr_exports);
-    
+
     module.setattr("__all__", PyList::new(py, &exports)?)?;
 
     parent.add_submodule(&module)?;

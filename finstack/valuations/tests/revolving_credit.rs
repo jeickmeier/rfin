@@ -62,8 +62,8 @@ fn test_revolving_credit_basic_pricing() {
     // - Interest and fees received (positive)
     // - Principal repaid at maturity (positive, ~5M)
     // The net PV should be close to the drawn amount plus net carry
-    
-    // Rough estimate: 
+
+    // Rough estimate:
     // Principal repaid: 5M @ 97% DF ~= 4.85M
     // Interest: 5M * 0.05 * 97% DF = 242.5k
     // Fees: ~22.5k * 97% DF = 21.8k
@@ -121,7 +121,11 @@ fn test_revolving_credit_with_draws_and_repayments() {
     // From lender's perspective: principal repaid + interest/fees
     // Net drawn balance at maturity after events: 3M + 2M - 1M = 4M
     // PV should include this principal repayment plus carry
-    assert!(pv.amount() > 3_000_000.0, "PV should include principal repayment, got {}", pv.amount());
+    assert!(
+        pv.amount() > 3_000_000.0,
+        "PV should include principal repayment, got {}",
+        pv.amount()
+    );
 }
 
 #[test]
@@ -168,7 +172,10 @@ fn test_revolving_credit_utilization_metrics() {
 
     // Check utilization rate
     let utilization = result.measures.get("utilization_rate").unwrap();
-    assert!((utilization - 0.6).abs() < 1e-6, "Utilization should be 60%");
+    assert!(
+        (utilization - 0.6).abs() < 1e-6,
+        "Utilization should be 60%"
+    );
 
     // Check available capacity
     let capacity = result.measures.get("available_capacity").unwrap();
@@ -281,7 +288,11 @@ fn test_revolving_credit_bucketed_dv01() {
     let bucketed_total = result.measures.get("bucketed_dv01").unwrap();
     println!("Bucketed DV01: {}", bucketed_total);
     // Bucketed DV01 total should be finite
-    assert!(bucketed_total.is_finite(), "Total bucketed DV01 should be finite, got {}", bucketed_total);
+    assert!(
+        bucketed_total.is_finite(),
+        "Total bucketed DV01 should be finite, got {}",
+        bucketed_total
+    );
 }
 
 #[test]
@@ -310,4 +321,3 @@ fn test_revolving_credit_helpers() {
     let undrawn = facility.undrawn_amount().unwrap();
     assert_eq!(undrawn.amount(), 2_500_000.0);
 }
-

@@ -795,6 +795,7 @@ mod tests {
         ]
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_forward_curve_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -827,6 +828,7 @@ mod tests {
         assert!(report.max_residual < 1e-6);
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_tenor_matching() {
         let calibrator = ForwardCurveCalibrator::new(
@@ -842,6 +844,7 @@ mod tests {
         assert!(!calibrator.matches_tenor("USD-SOFR-6M", &Frequency::semi_annual()));
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_forward_curve_id_resolution() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -902,6 +905,7 @@ mod tests {
         assert!(unknown_id.as_str().contains("CUSTOM-INDEX"));
     }
 
+    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_basis_swap_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();

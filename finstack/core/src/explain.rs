@@ -97,10 +97,10 @@ pub struct ExplanationTrace {
     /// Type of trace (e.g., "calibration", "pricing", "waterfall")
     #[serde(rename = "type")]
     pub trace_type: String,
-    
+
     /// Sequence of trace entries
     pub entries: Vec<TraceEntry>,
-    
+
     /// Whether the trace was truncated due to size limits
     #[serde(skip_serializing_if = "Option::is_none")]
     pub truncated: Option<bool>,
@@ -240,7 +240,7 @@ mod tests {
     #[test]
     fn test_trace_push_respects_limits() {
         let mut trace = ExplanationTrace::new("test");
-        
+
         for i in 0..5 {
             trace.push(
                 TraceEntry::CalibrationIteration {
@@ -252,7 +252,7 @@ mod tests {
                 Some(3),
             );
         }
-        
+
         assert_eq!(trace.entries.len(), 3);
         assert!(trace.is_truncated());
     }
@@ -269,11 +269,11 @@ mod tests {
             },
             None,
         );
-        
+
         let json = trace.to_json_pretty().unwrap();
         assert!(json.contains("\"type\": \"calibration\""));
         assert!(json.contains("\"kind\": \"calibration_iteration\""));
-        
+
         // Roundtrip
         let deserialized: ExplanationTrace = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.trace_type, "calibration");
@@ -291,10 +291,9 @@ mod tests {
             pv_currency: "USD".to_string(),
             curve_id: "USD_GOVT".to_string(),
         };
-        
+
         let json = serde_json::to_string(&entry).unwrap();
         assert!(json.contains("\"kind\":\"cashflow_pv\""));
         assert!(json.contains("\"curve_id\":\"USD_GOVT\""));
     }
 }
-

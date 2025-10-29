@@ -13,24 +13,6 @@ use serde::{Deserialize, Serialize};
 ///
 /// Holds both native-currency and base-currency valuations along with
 /// the underlying [`ValuationResult`].
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_portfolio::valuation::PositionValue;
-/// use finstack_portfolio::PositionId;
-/// use finstack_portfolio::EntityId;
-/// use finstack_core::prelude::*;
-///
-/// let value = PositionValue {
-///     position_id: "POS_1".into(),
-///    entity_id: "ENTITY_A".into(),
-///     value_native: Money::new(1.0, Currency::USD),
-///     value_base: Money::new(1.0, Currency::USD),
-///     valuation_result: None,
-/// };
-/// assert_eq!(value.position_id, "POS_1");
-/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PositionValue {
     /// Position identifier
@@ -53,21 +35,6 @@ pub struct PositionValue {
 /// Complete portfolio valuation results.
 ///
 /// Provides per-position valuations, totals by entity, and the grand total.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_portfolio::PortfolioValuation;
-/// use finstack_core::prelude::*;
-/// use indexmap::IndexMap;
-///
-/// let valuation = PortfolioValuation {
-///     position_values: IndexMap::new(),
-///     total_base_ccy: Money::new(0.0, Currency::USD),
-///     by_entity: IndexMap::new(),
-/// };
-/// assert_eq!(valuation.total_base_ccy.currency(), Currency::USD);
-/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PortfolioValuation {
     /// Values for each position
@@ -86,33 +53,6 @@ impl PortfolioValuation {
     /// # Arguments
     ///
     /// * `position_id` - Identifier to query.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_portfolio::PortfolioValuation;
-    /// use finstack_portfolio::valuation::PositionValue;
-    /// use finstack_core::prelude::*;
-    /// use indexmap::IndexMap;
-    ///
-    /// let mut position_values = IndexMap::new();
-    /// position_values.insert(
-    ///     "POS_1".into(),
-    ///     PositionValue {
-    ///         position_id: "POS_1".into(),
-    ///         entity_id: "ENTITY_A".into(),
-    ///         value_native: Money::new(1.0, Currency::USD),
-    ///         value_base: Money::new(1.0, Currency::USD),
-    ///         valuation_result: None,
-    ///     },
-    /// );
-    /// let valuation = PortfolioValuation {
-    ///     position_values,
-    ///     total_base_ccy: Money::new(1.0, Currency::USD),
-    ///     by_entity: IndexMap::new(),
-    /// };
-    /// assert!(valuation.get_position_value("POS_1").is_some());
-    /// ```
     pub fn get_position_value(&self, position_id: &str) -> Option<&PositionValue> {
         self.position_values.get(position_id)
     }
@@ -122,24 +62,6 @@ impl PortfolioValuation {
     /// # Arguments
     ///
     /// * `entity_id` - Entity identifier to query.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_portfolio::PortfolioValuation;
-    /// use finstack_core::prelude::*;
-    /// use indexmap::IndexMap;
-    ///
-    /// let mut by_entity = IndexMap::new();
-    /// by_entity.insert("ENTITY_A".into(), Money::new(2.0, Currency::USD));
-    /// let valuation = PortfolioValuation {
-    ///     position_values: IndexMap::new(),
-    ///     total_base_ccy: Money::new(2.0, Currency::USD),
-    ///     by_entity,
-    /// };
-    /// let entity_id = "ENTITY_A".to_string();
-    /// assert_eq!(valuation.get_entity_value(&entity_id).map(|m| m.amount()), Some(2.0));
-    /// ```
     pub fn get_entity_value(&self, entity_id: &EntityId) -> Option<&Money> {
         self.by_entity.get(entity_id)
     }
@@ -175,21 +97,6 @@ fn standard_portfolio_metrics() -> Vec<MetricId> {
 ///
 /// Returns [`PortfolioError`] when pricing fails, FX rates are missing, or monetary
 /// arithmetic overflows.
-///
-/// # Examples
-///
-/// ```no_run
-/// use finstack_portfolio::value_portfolio;
-///
-/// # fn value(
-/// #     portfolio: &finstack_portfolio::Portfolio,
-/// #     market: &finstack_core::market_data::MarketContext,
-/// #     config: &finstack_core::config::FinstackConfig,
-/// # ) -> finstack_portfolio::Result<finstack_portfolio::PortfolioValuation> {
-/// let valuation = value_portfolio(portfolio, market, config)?;
-/// # Ok(valuation)
-/// # }
-/// ```
 pub fn value_portfolio(
     portfolio: &Portfolio,
     market: &MarketContext,

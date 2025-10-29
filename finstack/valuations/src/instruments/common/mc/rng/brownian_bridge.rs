@@ -51,12 +51,7 @@ impl BrownianBridge {
         let mut std_multipliers = Vec::with_capacity(num_steps);
 
         // Binary subdivision
-        Self::build_bridge_recursive(
-            0,
-            num_steps,
-            &mut construction_order,
-            &mut std_multipliers,
-        );
+        Self::build_bridge_recursive(0, num_steps, &mut construction_order, &mut std_multipliers);
 
         Self {
             construction_order,
@@ -177,8 +172,8 @@ impl BrownianBridge {
 
 #[cfg(test)]
 mod tests {
+    use super::super::sobol_pca::{effective_dimension, pca_ordering};
     use super::*;
-    use super::super::sobol_pca::{pca_ordering, effective_dimension};
 
     #[test]
     fn test_brownian_bridge_order() {
@@ -223,11 +218,7 @@ mod tests {
     #[test]
     fn test_pca_ordering_identity() {
         // Identity matrix: all eigenvalues = 1
-        let correlation = vec![
-            1.0, 0.0, 0.0,
-            0.0, 1.0, 0.0,
-            0.0, 0.0, 1.0,
-        ];
+        let correlation = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
 
         let (eigenvalues, _, _) = pca_ordering(&correlation, 3);
 
@@ -240,11 +231,7 @@ mod tests {
     #[test]
     fn test_pca_ordering_sorted() {
         // High correlation matrix
-        let correlation = vec![
-            1.0, 0.8, 0.6,
-            0.8, 1.0, 0.7,
-            0.6, 0.7, 1.0,
-        ];
+        let correlation = vec![1.0, 0.8, 0.6, 0.8, 1.0, 0.7, 0.6, 0.7, 1.0];
 
         let (eigenvalues, _, _) = pca_ordering(&correlation, 3);
 
@@ -278,4 +265,3 @@ mod tests {
         assert!(d_eff < 1.2);
     }
 }
-

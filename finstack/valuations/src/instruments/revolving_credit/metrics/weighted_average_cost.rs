@@ -65,4 +65,3 @@ impl MetricCalculator for WeightedAverageCostCalculator {
         Ok(weighted_avg_cost)
     }
 }
-

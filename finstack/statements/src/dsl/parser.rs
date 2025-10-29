@@ -20,17 +20,6 @@ use nom::{
 ///
 /// # Returns
 /// Parsed AST ready for compilation.
-///
-/// # Example
-///
-/// ```rust
-/// use finstack_statements::dsl::parse_formula;
-///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let ast = parse_formula("revenue - cogs")?;
-/// # Ok(())
-/// # }
-/// ```
 pub fn parse_formula(input: &str) -> Result<StmtExpr> {
     match expression(input) {
         Ok(("", expr)) => Ok(expr),

@@ -286,4 +286,3 @@ mod tests {
         assert!(cholesky_decomposition(&non_pd, 2).is_err());
     }
 }
-

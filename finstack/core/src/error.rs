@@ -128,9 +128,12 @@ impl Error {
     /// let msg = format!("{}", err);
     /// assert!(msg.contains("Did you mean"));
     /// ```
-    pub fn missing_curve_with_suggestions(requested: impl Into<String>, available: &[String]) -> Self {
+    pub fn missing_curve_with_suggestions(
+        requested: impl Into<String>,
+        available: &[String],
+    ) -> Self {
         let requested_str = requested.into();
-        
+
         // Find curves that contain the requested string (case-insensitive fuzzy match)
         let requested_lower = requested_str.to_lowercase();
         let mut suggestions: Vec<String> = available
@@ -141,16 +144,16 @@ impl Error {
                 // 1. Contains the requested string
                 // 2. Starts with similar prefix
                 // 3. Edit distance is small
-                id_lower.contains(&requested_lower) 
+                id_lower.contains(&requested_lower)
                     || requested_lower.contains(&id_lower)
                     || edit_distance(&requested_lower, &id_lower) <= 2
             })
             .cloned()
             .collect();
-        
+
         // Limit to top 3 suggestions
         suggestions.truncate(3);
-        
+
         Self::Input(InputError::MissingCurve {
             requested: requested_str,
             suggestions,
@@ -164,28 +167,32 @@ fn edit_distance(a: &str, b: &str) -> usize {
     let b_chars: Vec<char> = b.chars().collect();
     let a_len = a_chars.len();
     let b_len = b_chars.len();
-    
+
     if a_len == 0 {
         return b_len;
     }
     if b_len == 0 {
         return a_len;
     }
-    
+
     let mut prev_row: Vec<usize> = (0..=b_len).collect();
     let mut curr_row = vec![0; b_len + 1];
-    
+
     for i in 1..=a_len {
         curr_row[0] = i;
         for j in 1..=b_len {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+            let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                0
+            } else {
+                1
+            };
             curr_row[j] = (curr_row[j - 1] + 1)
                 .min(prev_row[j] + 1)
                 .min(prev_row[j - 1] + cost);
         }
         std::mem::swap(&mut prev_row, &mut curr_row);
     }
-    
+
     prev_row[b_len]
 }
 

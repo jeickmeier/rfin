@@ -33,10 +33,22 @@ fn bench_model_building(c: &mut Criterion) {
                 .value(
                     "revenue",
                     &[
-                        (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                        (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                        (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                        (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                        (
+                            PeriodId::quarter(2025, 1),
+                            AmountOrScalar::scalar(100_000.0),
+                        ),
+                        (
+                            PeriodId::quarter(2025, 2),
+                            AmountOrScalar::scalar(110_000.0),
+                        ),
+                        (
+                            PeriodId::quarter(2025, 3),
+                            AmountOrScalar::scalar(120_000.0),
+                        ),
+                        (
+                            PeriodId::quarter(2025, 4),
+                            AmountOrScalar::scalar(130_000.0),
+                        ),
                     ],
                 )
                 .build()
@@ -53,10 +65,22 @@ fn bench_model_building(c: &mut Criterion) {
                 .value(
                     "revenue",
                     &[
-                        (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                        (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                        (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                        (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                        (
+                            PeriodId::quarter(2025, 1),
+                            AmountOrScalar::scalar(100_000.0),
+                        ),
+                        (
+                            PeriodId::quarter(2025, 2),
+                            AmountOrScalar::scalar(110_000.0),
+                        ),
+                        (
+                            PeriodId::quarter(2025, 3),
+                            AmountOrScalar::scalar(120_000.0),
+                        ),
+                        (
+                            PeriodId::quarter(2025, 4),
+                            AmountOrScalar::scalar(130_000.0),
+                        ),
                     ],
                 )
                 .compute("cogs", "revenue * 0.6")
@@ -81,10 +105,22 @@ fn bench_model_building(c: &mut Criterion) {
                 .value(
                     "revenue",
                     &[
-                        (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                        (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                        (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                        (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                        (
+                            PeriodId::quarter(2025, 1),
+                            AmountOrScalar::scalar(100_000.0),
+                        ),
+                        (
+                            PeriodId::quarter(2025, 2),
+                            AmountOrScalar::scalar(110_000.0),
+                        ),
+                        (
+                            PeriodId::quarter(2025, 3),
+                            AmountOrScalar::scalar(120_000.0),
+                        ),
+                        (
+                            PeriodId::quarter(2025, 4),
+                            AmountOrScalar::scalar(130_000.0),
+                        ),
                     ],
                 );
 
@@ -119,10 +155,22 @@ fn bench_model_evaluation(c: &mut Criterion) {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
             ],
         )
         .build()
@@ -142,10 +190,22 @@ fn bench_model_evaluation(c: &mut Criterion) {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -173,10 +233,22 @@ fn bench_model_evaluation(c: &mut Criterion) {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -212,16 +284,31 @@ fn bench_model_evaluation(c: &mut Criterion) {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
             ],
         );
 
     for i in 1..50 {
         large_builder = large_builder
-            .compute(format!("metric_{}", i), format!("revenue * {}", 0.01 * i as f64))
+            .compute(
+                format!("metric_{}", i),
+                format!("revenue * {}", 0.01 * i as f64),
+            )
             .unwrap();
     }
     let large_model = large_builder.build().unwrap();
@@ -274,10 +361,7 @@ fn bench_dsl_operations(c: &mut Criterion) {
 
     group.bench_function("parse_simple_formula", |b| {
         b.iter(|| {
-            black_box(
-                finstack_statements::dsl::parser::parse_formula("revenue * 0.6")
-                    .unwrap()
-            )
+            black_box(finstack_statements::dsl::parser::parse_formula("revenue * 0.6").unwrap())
         })
     });
 
@@ -285,9 +369,9 @@ fn bench_dsl_operations(c: &mut Criterion) {
         b.iter(|| {
             black_box(
                 finstack_statements::dsl::parser::parse_formula(
-                    "(revenue - cogs) * (1 - tax_rate) + interest_income"
+                    "(revenue - cogs) * (1 - tax_rate) + interest_income",
                 )
-                .unwrap()
+                .unwrap(),
             )
         })
     });
@@ -296,36 +380,27 @@ fn bench_dsl_operations(c: &mut Criterion) {
         b.iter(|| {
             black_box(
                 finstack_statements::dsl::parser::parse_formula(
-                    "rolling_mean(revenue, 4) * pct_change(revenue) + lag(revenue, 1)"
+                    "rolling_mean(revenue, 4) * pct_change(revenue) + lag(revenue, 1)",
                 )
-                .unwrap()
+                .unwrap(),
             )
         })
     });
 
     // Compile to core expression
     let ast = finstack_statements::dsl::parser::parse_formula("revenue * 0.6").unwrap();
-    
+
     group.bench_function("compile_simple_ast", |b| {
-        b.iter(|| {
-            black_box(
-                finstack_statements::dsl::compiler::compile(&ast)
-                    .unwrap()
-            )
-        })
+        b.iter(|| black_box(finstack_statements::dsl::compiler::compile(&ast).unwrap()))
     });
 
     let complex_ast = finstack_statements::dsl::parser::parse_formula(
-        "(revenue - cogs) * (1 - tax_rate) + interest_income"
-    ).unwrap();
+        "(revenue - cogs) * (1 - tax_rate) + interest_income",
+    )
+    .unwrap();
 
     group.bench_function("compile_complex_ast", |b| {
-        b.iter(|| {
-            black_box(
-                finstack_statements::dsl::compiler::compile(&complex_ast)
-                    .unwrap()
-            )
-        })
+        b.iter(|| black_box(finstack_statements::dsl::compiler::compile(&complex_ast).unwrap()))
     });
 
     group.finish();
@@ -344,7 +419,10 @@ fn bench_forecast_methods(c: &mut Criterion) {
         .unwrap()
         .value(
             "revenue",
-            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0))],
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(100_000.0),
+            )],
         )
         .forecast("revenue", ForecastSpec::forward_fill())
         .build()
@@ -363,7 +441,10 @@ fn bench_forecast_methods(c: &mut Criterion) {
         .unwrap()
         .value(
             "revenue",
-            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0))],
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(100_000.0),
+            )],
         )
         .forecast("revenue", ForecastSpec::growth(0.05))
         .build()
@@ -378,19 +459,24 @@ fn bench_forecast_methods(c: &mut Criterion) {
 
     // Seasonal pattern
     let mut seasonal_params = IndexMap::new();
-    seasonal_params.insert("historical".into(), serde_json::json!([
-        100_000.0, 110_000.0, 120_000.0, 110_000.0,
-        105_000.0, 115_000.0, 125_000.0, 115_000.0
-    ]));
+    seasonal_params.insert(
+        "historical".into(),
+        serde_json::json!([
+            100_000.0, 110_000.0, 120_000.0, 110_000.0, 105_000.0, 115_000.0, 125_000.0, 115_000.0
+        ]),
+    );
     seasonal_params.insert("season_length".into(), serde_json::json!(4));
     seasonal_params.insert("mode".into(), serde_json::json!("multiplicative"));
-    
+
     let seasonal_model = ModelBuilder::new("seasonal")
         .periods("2025Q1..Q4", Some("2025Q1"))
         .unwrap()
         .value(
             "revenue",
-            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0))],
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(100_000.0),
+            )],
         )
         .forecast(
             "revenue",
@@ -415,7 +501,10 @@ fn bench_forecast_methods(c: &mut Criterion) {
         .unwrap()
         .value(
             "revenue",
-            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0))],
+            &[(
+                PeriodId::quarter(2025, 1),
+                AmountOrScalar::scalar(100_000.0),
+            )],
         )
         .forecast("revenue", ForecastSpec::lognormal(0.05, 0.10, 42))
         .build()
@@ -445,10 +534,22 @@ fn bench_extensions(c: &mut Criterion) {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -460,14 +561,14 @@ fn bench_extensions(c: &mut Criterion) {
         b.iter(|| {
             let mut evaluator = Evaluator::new();
             let results = evaluator.evaluate(&extension_model).unwrap();
-            
+
             // Test extension context creation (core overhead)
             let context = ExtensionContext::new(&extension_model, &results);
             let mut extension = CorkscrewExtension::new();
-            
+
             // Execute without config (will fail but tests the framework overhead)
             let _ = extension.execute(&context);
-            
+
             black_box(())
         })
     });
@@ -484,9 +585,7 @@ fn bench_registry_operations(c: &mut Criterion) {
 
     // Load registry
     group.bench_function("create_empty_registry", |b| {
-        b.iter(|| {
-            black_box(Registry::new())
-        })
+        b.iter(|| black_box(Registry::new()))
     });
 
     // Load builtins
@@ -503,15 +602,11 @@ fn bench_registry_operations(c: &mut Criterion) {
     registry.load_builtins().unwrap();
 
     group.bench_function("lookup_metric", |b| {
-        b.iter(|| {
-            black_box(registry.get("fin.gross_profit").unwrap())
-        })
+        b.iter(|| black_box(registry.get("fin.gross_profit").unwrap()))
     });
 
     group.bench_function("check_metric_exists", |b| {
-        b.iter(|| {
-            black_box(registry.has("fin.gross_profit"))
-        })
+        b.iter(|| black_box(registry.has("fin.gross_profit")))
     });
 
     group.finish();
@@ -532,10 +627,22 @@ fn bench_results_export(c: &mut Criterion) {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -549,15 +656,11 @@ fn bench_results_export(c: &mut Criterion) {
     let small_results = evaluator.evaluate(&small_model).unwrap();
 
     group.bench_function("export_to_long_dataframe", |b| {
-        b.iter(|| {
-            black_box(small_results.to_polars_long().unwrap())
-        })
+        b.iter(|| black_box(small_results.to_polars_long().unwrap()))
     });
 
     group.bench_function("export_to_wide_dataframe", |b| {
-        b.iter(|| {
-            black_box(small_results.to_polars_wide().unwrap())
-        })
+        b.iter(|| black_box(small_results.to_polars_wide().unwrap()))
     });
 
     // Large model export
@@ -577,7 +680,10 @@ fn bench_results_export(c: &mut Criterion) {
 
     for i in 1..=20 {
         large_builder = large_builder
-            .compute(format!("metric_{}", i), format!("revenue * {}", 0.05 * i as f64))
+            .compute(
+                format!("metric_{}", i),
+                format!("revenue * {}", 0.05 * i as f64),
+            )
             .unwrap();
     }
 
@@ -586,15 +692,11 @@ fn bench_results_export(c: &mut Criterion) {
     let large_results = evaluator.evaluate(&large_model).unwrap();
 
     group.bench_function("export_large_to_long_dataframe", |b| {
-        b.iter(|| {
-            black_box(large_results.to_polars_long().unwrap())
-        })
+        b.iter(|| black_box(large_results.to_polars_long().unwrap()))
     });
 
     group.bench_function("export_large_to_wide_dataframe", |b| {
-        b.iter(|| {
-            black_box(large_results.to_polars_wide().unwrap())
-        })
+        b.iter(|| black_box(large_results.to_polars_wide().unwrap()))
     });
 
     group.finish();
@@ -613,10 +715,22 @@ fn bench_serialization(c: &mut Criterion) {
         .value(
             "revenue",
             &[
-                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
-                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
-                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120_000.0)),
-                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130_000.0)),
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
             ],
         )
         .compute("cogs", "revenue * 0.6")
@@ -631,17 +745,13 @@ fn bench_serialization(c: &mut Criterion) {
         .unwrap();
 
     group.bench_function("serialize_model_to_json", |b| {
-        b.iter(|| {
-            black_box(serde_json::to_string(&model).unwrap())
-        })
+        b.iter(|| black_box(serde_json::to_string(&model).unwrap()))
     });
 
     let json = serde_json::to_string(&model).unwrap();
 
     group.bench_function("deserialize_model_from_json", |b| {
-        b.iter(|| {
-            black_box(serde_json::from_str::<FinancialModelSpec>(&json).unwrap())
-        })
+        b.iter(|| black_box(serde_json::from_str::<FinancialModelSpec>(&json).unwrap()))
     });
 
     group.finish();
@@ -663,8 +773,14 @@ fn bench_end_to_end(c: &mut Criterion) {
                 .value(
                     "revenue",
                     &[
-                        (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1_000_000.0)),
-                        (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(1_100_000.0)),
+                        (
+                            PeriodId::quarter(2025, 1),
+                            AmountOrScalar::scalar(1_000_000.0),
+                        ),
+                        (
+                            PeriodId::quarter(2025, 2),
+                            AmountOrScalar::scalar(1_100_000.0),
+                        ),
                     ],
                 )
                 .forecast("revenue", ForecastSpec::growth(0.05))
@@ -690,19 +806,31 @@ fn bench_end_to_end(c: &mut Criterion) {
     group.bench_function("complex_financial_model", |b| {
         b.iter(|| {
             let mut seasonal_params = IndexMap::new();
-            seasonal_params.insert("historical".into(), serde_json::json!([
-                1_000_000.0, 1_100_000.0, 1_200_000.0, 1_150_000.0,
-                1_050_000.0, 1_150_000.0, 1_250_000.0, 1_200_000.0
-            ]));
+            seasonal_params.insert(
+                "historical".into(),
+                serde_json::json!([
+                    1_000_000.0,
+                    1_100_000.0,
+                    1_200_000.0,
+                    1_150_000.0,
+                    1_050_000.0,
+                    1_150_000.0,
+                    1_250_000.0,
+                    1_200_000.0
+                ]),
+            );
             seasonal_params.insert("season_length".into(), serde_json::json!(4));
             seasonal_params.insert("mode".into(), serde_json::json!("multiplicative"));
-            
+
             let model = ModelBuilder::new("complex")
                 .periods("2025Q1..Q4", Some("2025Q1"))
                 .unwrap()
                 .value(
                     "revenue",
-                    &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1_000_000.0))],
+                    &[(
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(1_000_000.0),
+                    )],
                 )
                 .forecast(
                     "revenue",
@@ -780,4 +908,3 @@ criterion_group!(
 );
 
 criterion_main!(benches);
-

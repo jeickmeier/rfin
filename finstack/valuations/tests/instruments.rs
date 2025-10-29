@@ -146,3 +146,7 @@ mod structured_credit;
 /// Repo tests - Repurchase agreements
 #[path = "instruments/repo/mod.rs"]
 mod repo;
+
+/// Revolving credit tests - Revolving credit facilities
+#[path = "instruments/revolving_credit/mod.rs"]
+mod revolving_credit;

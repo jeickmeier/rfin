@@ -8,7 +8,7 @@
 //!
 //! Market Standards Review (Week 5)
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -24,7 +24,7 @@ use time::Month;
 fn create_test_bond(maturity_years: i32) -> Bond {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2025 + maturity_years, Month::January, 1).unwrap();
-    
+
     Bond::fixed(
         format!("BOND-{}Y", maturity_years),
         Money::new(1_000_000.0, Currency::USD),
@@ -50,7 +50,7 @@ fn create_market() -> MarketContext {
         .set_interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
-    
+
     MarketContext::new().insert_discount(curve)
 }
 
@@ -58,16 +58,14 @@ fn bench_bond_pv(c: &mut Criterion) {
     let mut group = c.benchmark_group("bond_pv");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for tenor in [2, 5, 10, 30].iter() {
         let bond = create_test_bond(*tenor);
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
             |b, _| {
-                b.iter(|| {
-                    bond.value(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| bond.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -78,12 +76,12 @@ fn bench_bond_ytm(c: &mut Criterion) {
     let mut group = c.benchmark_group("bond_ytm_solve");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for tenor in [2, 5, 10, 30].iter() {
         let mut bond = create_test_bond(*tenor);
         // Set quoted price to require YTM solving
         bond.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
-        
+
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
@@ -105,7 +103,7 @@ fn bench_bond_duration(c: &mut Criterion) {
     let mut group = c.benchmark_group("bond_duration");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for tenor in [2, 5, 10, 30].iter() {
         let bond = create_test_bond(*tenor);
         group.bench_with_input(
@@ -129,7 +127,7 @@ fn bench_bond_dv01(c: &mut Criterion) {
     let mut group = c.benchmark_group("bond_dv01");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for tenor in [2, 5, 10, 30].iter() {
         let bond = create_test_bond(*tenor);
         group.bench_with_input(
@@ -149,6 +147,11 @@ fn bench_bond_dv01(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_bond_pv, bench_bond_ytm, bench_bond_duration, bench_bond_dv01);
+criterion_group!(
+    benches,
+    bench_bond_pv,
+    bench_bond_ytm,
+    bench_bond_duration,
+    bench_bond_dv01
+);
 criterion_main!(benches);
-

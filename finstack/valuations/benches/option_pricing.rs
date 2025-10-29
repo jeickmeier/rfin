@@ -7,7 +7,7 @@
 //!
 //! Market Standards Review (Week 5)
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -24,7 +24,7 @@ use time::Month;
 fn create_call_option(expiry_months: i64) -> EquityOption {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let expiry = base + time::Duration::days(expiry_months * 30);
-    
+
     EquityOption::european_call(
         format!("CALL-{}M", expiry_months),
         "AAPL",
@@ -37,7 +37,7 @@ fn create_call_option(expiry_months: i64) -> EquityOption {
 
 fn create_market() -> MarketContext {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base)
         .knots([
@@ -50,7 +50,7 @@ fn create_market() -> MarketContext {
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    
+
     let vol_surface = VolSurface::from_grid(
         "EQUITY-VOL",
         &[0.25, 0.5, 1.0, 2.0],
@@ -58,11 +58,14 @@ fn create_market() -> MarketContext {
         &[0.25; 20], // Flat 25% vol
     )
     .unwrap();
-    
+
     MarketContext::new()
         .insert_discount(disc)
         .insert_surface(vol_surface)
-        .insert_price("EQUITY-SPOT", MarketScalar::Price(Money::new(100.0, Currency::USD)))
+        .insert_price(
+            "EQUITY-SPOT",
+            MarketScalar::Price(Money::new(100.0, Currency::USD)),
+        )
         .insert_price("EQUITY-DIVYIELD", MarketScalar::Unitless(0.02))
 }
 
@@ -70,16 +73,14 @@ fn bench_option_pv(c: &mut Criterion) {
     let mut group = c.benchmark_group("option_pv");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for months in [3, 6, 12, 24].iter() {
         let option = create_call_option(*months);
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}M", months)),
             months,
             |b, _| {
-                b.iter(|| {
-                    option.value(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| option.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -90,7 +91,7 @@ fn bench_option_greeks(c: &mut Criterion) {
     let mut group = c.benchmark_group("option_greeks");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let greeks = vec![
         MetricId::Delta,
         MetricId::Gamma,
@@ -98,7 +99,7 @@ fn bench_option_greeks(c: &mut Criterion) {
         MetricId::Theta,
         MetricId::Rho,
     ];
-    
+
     for months in [3, 6, 12].iter() {
         let option = create_call_option(*months);
         group.bench_with_input(
@@ -120,4 +121,3 @@ fn bench_option_greeks(c: &mut Criterion) {
 
 criterion_group!(benches, bench_option_pv, bench_option_greeks);
 criterion_main!(benches);
-

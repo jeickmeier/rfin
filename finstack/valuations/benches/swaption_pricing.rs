@@ -97,9 +97,9 @@ fn create_market() -> MarketContext {
     // Create a vol surface for swaption volatility
     let vol_surface = VolSurface::from_grid(
         "SWAPTION-VOL",
-        &[0.25, 0.5, 1.0, 2.0, 5.0],       // Expiry times
-        &[0.02, 0.03, 0.04, 0.05, 0.06],   // Strike rates
-        &[0.20; 25], // Flat 20% vol
+        &[0.25, 0.5, 1.0, 2.0, 5.0],     // Expiry times
+        &[0.02, 0.03, 0.04, 0.05, 0.06], // Strike rates
+        &[0.20; 25],                     // Flat 20% vol
     )
     .unwrap();
 
@@ -120,9 +120,7 @@ fn bench_swaption_pv(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}Mx{}Y", expiry_months, swap_tenor)),
             &(expiry_months, swap_tenor),
             |b, _| {
-                b.iter(|| {
-                    swaption.value(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| swaption.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -140,9 +138,7 @@ fn bench_swaption_sabr(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}Mx{}Y", expiry_months, swap_tenor)),
             &(expiry_months, swap_tenor),
             |b, _| {
-                b.iter(|| {
-                    swaption.value(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| swaption.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -188,14 +184,12 @@ fn bench_forward_swap_rate(c: &mut Criterion) {
     for (expiry_months, swap_tenor) in [(3, 5), (6, 5), (12, 5), (12, 10)].iter() {
         let swaption = create_swaption(*expiry_months, *swap_tenor);
         let disc = market.get_discount_ref(&swaption.disc_id).unwrap();
-        
+
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Mx{}Y", expiry_months, swap_tenor)),
             &(expiry_months, swap_tenor),
             |b, _| {
-                b.iter(|| {
-                    swaption.forward_swap_rate(black_box(disc), black_box(as_of))
-                });
+                b.iter(|| swaption.forward_swap_rate(black_box(disc), black_box(as_of)));
             },
         );
     }
@@ -210,14 +204,12 @@ fn bench_swap_annuity(c: &mut Criterion) {
     for (expiry_months, swap_tenor) in [(3, 5), (6, 5), (12, 5), (12, 10)].iter() {
         let swaption = create_swaption(*expiry_months, *swap_tenor);
         let disc = market.get_discount_ref(&swaption.disc_id).unwrap();
-        
+
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Mx{}Y", expiry_months, swap_tenor)),
             &(expiry_months, swap_tenor),
             |b, _| {
-                b.iter(|| {
-                    swaption.swap_annuity(black_box(disc), black_box(as_of))
-                });
+                b.iter(|| swaption.swap_annuity(black_box(disc), black_box(as_of)));
             },
         );
     }
@@ -233,4 +225,3 @@ criterion_group!(
     bench_swap_annuity
 );
 criterion_main!(benches);
-

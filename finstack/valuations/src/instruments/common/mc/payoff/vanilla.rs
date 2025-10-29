@@ -2,7 +2,7 @@
 //!
 //! All payoffs return Money types for currency safety.
 
-use super::super::traits::{Payoff, PathState};
+use super::super::traits::{PathState, Payoff};
 use super::traits::TerminalPayoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -262,8 +262,8 @@ impl TerminalPayoff for Forward {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::traits::state_keys;
+    use super::*;
 
     fn create_terminal_state(step: usize, spot: f64) -> PathState {
         let mut state = PathState::new(step, step as f64 * 0.1);
@@ -387,4 +387,3 @@ mod tests {
         assert_eq!(value.amount(), 100.0); // (110 - 100) * 10
     }
 }
-

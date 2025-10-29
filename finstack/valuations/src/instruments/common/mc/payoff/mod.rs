@@ -28,4 +28,3 @@ pub use rates::*;
 
 pub use traits::*;
 pub use vanilla::*;
-

@@ -71,15 +71,7 @@ impl<P> Discretization<P> for ExactMultiGbm
 where
     P: StochasticProcess,
 {
-    fn step(
-        &self,
-        process: &P,
-        _t: f64,
-        dt: f64,
-        x: &mut [f64],
-        z: &[f64],
-        work: &mut [f64],
-    ) {
+    fn step(&self, process: &P, _t: f64, dt: f64, x: &mut [f64], z: &[f64], work: &mut [f64]) {
         let dim = process.dim();
 
         // Get drift and diffusion coefficients
@@ -178,4 +170,3 @@ mod tests {
         assert_eq!(disc.work_size(&process), 0);
     }
 }
-

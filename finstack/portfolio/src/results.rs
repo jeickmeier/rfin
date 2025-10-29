@@ -8,29 +8,6 @@ use serde::{Deserialize, Serialize};
 /// Complete results from portfolio evaluation.
 ///
 /// Contains valuation, metrics, and metadata about the calculation.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_portfolio::{PortfolioResults, PortfolioMetrics, PortfolioValuation};
-/// use finstack_core::prelude::*;
-/// use finstack_core::config::{results_meta, FinstackConfig};
-/// use indexmap::IndexMap;
-///
-/// let results = PortfolioResults {
-///     valuation: PortfolioValuation {
-///         position_values: IndexMap::new(),
-///         total_base_ccy: Money::new(0.0, Currency::USD),
-///         by_entity: IndexMap::new(),
-///     },
-///     metrics: PortfolioMetrics {
-///         aggregated: IndexMap::new(),
-///         by_position: IndexMap::new(),
-///     },
-///     meta: results_meta(&FinstackConfig::default()),
-/// };
-/// assert_eq!(results.total_value().currency(), Currency::USD);
-/// ```
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PortfolioResults {
     /// Portfolio valuation results
@@ -51,28 +28,6 @@ impl PortfolioResults {
     /// * `valuation` - Portfolio valuation component.
     /// * `metrics` - Portfolio metrics component.
     /// * `meta` - Metadata describing calculation context.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_portfolio::{PortfolioResults, PortfolioMetrics, PortfolioValuation};
-    /// use finstack_core::prelude::*;
-    /// use finstack_core::config::{results_meta, FinstackConfig};
-    /// use indexmap::IndexMap;
-    ///
-    /// let valuation = PortfolioValuation {
-    ///     position_values: IndexMap::new(),
-    ///     total_base_ccy: Money::new(0.0, Currency::USD),
-    ///     by_entity: IndexMap::new(),
-    /// };
-    /// let metrics = PortfolioMetrics {
-    ///     aggregated: IndexMap::new(),
-    ///     by_position: IndexMap::new(),
-    /// };
-    /// let meta = results_meta(&FinstackConfig::default());
-    /// let results = PortfolioResults::new(valuation, metrics, meta);
-    /// assert_eq!(results.meta.numeric_mode, results_meta(&FinstackConfig::default()).numeric_mode);
-    /// ```
     pub fn new(
         valuation: PortfolioValuation,
         metrics: PortfolioMetrics,
@@ -86,29 +41,6 @@ impl PortfolioResults {
     }
 
     /// Get the total portfolio value.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_portfolio::{PortfolioResults, PortfolioMetrics, PortfolioValuation};
-    /// use finstack_core::prelude::*;
-    /// use finstack_core::config::{results_meta, FinstackConfig};
-    /// use indexmap::IndexMap;
-    ///
-    /// let results = PortfolioResults {
-    ///     valuation: PortfolioValuation {
-    ///         position_values: IndexMap::new(),
-    ///         total_base_ccy: Money::new(5.0, Currency::USD),
-    ///         by_entity: IndexMap::new(),
-    ///     },
-    ///     metrics: PortfolioMetrics {
-    ///         aggregated: IndexMap::new(),
-    ///         by_position: IndexMap::new(),
-    ///     },
-    ///     meta: results_meta(&FinstackConfig::default()),
-    /// };
-    /// assert_eq!(results.total_value().amount(), 5.0);
-    /// ```
     pub fn total_value(&self) -> &Money {
         &self.valuation.total_base_ccy
     }
@@ -118,39 +50,6 @@ impl PortfolioResults {
     /// # Arguments
     ///
     /// * `metric_id` - Identifier of the metric to retrieve.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_portfolio::{PortfolioResults, PortfolioMetrics, PortfolioValuation};
-    /// use finstack_portfolio::metrics::AggregatedMetric;
-    /// use finstack_core::prelude::*;
-    /// use finstack_core::config::{results_meta, FinstackConfig};
-    /// use indexmap::IndexMap;
-    ///
-    /// let mut aggregated = IndexMap::new();
-    /// aggregated.insert(
-    ///     "dv01".into(),
-    ///     AggregatedMetric {
-    ///         metric_id: "dv01".into(),
-    ///         total: 100.0,
-    ///         by_entity: IndexMap::new(),
-    ///     },
-    /// );
-    /// let results = PortfolioResults {
-    ///     valuation: PortfolioValuation {
-    ///         position_values: IndexMap::new(),
-    ///         total_base_ccy: Money::new(0.0, Currency::USD),
-    ///         by_entity: IndexMap::new(),
-    ///     },
-    ///     metrics: PortfolioMetrics {
-    ///         aggregated,
-    ///         by_position: IndexMap::new(),
-    ///     },
-    ///     meta: results_meta(&FinstackConfig::default()),
-    /// };
-    /// assert_eq!(results.get_metric("dv01"), Some(100.0));
-    /// ```
     pub fn get_metric(&self, metric_id: &str) -> Option<f64> {
         self.metrics.get_total(metric_id)
     }

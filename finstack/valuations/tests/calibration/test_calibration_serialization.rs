@@ -308,7 +308,7 @@ fn test_calibration_report_serialization() {
         convergence_reason: "Tolerance met".to_string(),
         metadata,
         results_meta: finstack_core::config::results_meta(
-            &finstack_core::config::FinstackConfig::default()
+            &finstack_core::config::FinstackConfig::default(),
         ),
         explanation: None,
     };

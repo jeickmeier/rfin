@@ -64,11 +64,11 @@ fn create_cds_index_single_curve(tenor_years: i32) -> CDSIndex {
 
 fn create_cds_index_constituents(tenor_years: i32, num_names: usize) -> CDSIndex {
     let mut index = create_cds_index_single_curve(tenor_years);
-    
+
     // Create equal-weight constituents
     let weight = 1.0 / (num_names as f64);
     let mut constituents = Vec::with_capacity(num_names);
-    
+
     for i in 0..num_names {
         constituents.push(CDSIndexConstituent {
             credit: CreditParams {
@@ -79,7 +79,7 @@ fn create_cds_index_constituents(tenor_years: i32, num_names: usize) -> CDSIndex
             weight,
         });
     }
-    
+
     index.constituents = constituents;
     index.pricing = IndexPricing::Constituents;
     index
@@ -153,9 +153,7 @@ fn bench_cds_index_pv_single(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
             |b, _| {
-                b.iter(|| {
-                    index.value(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| index.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -170,14 +168,12 @@ fn bench_cds_index_pv_constituents(c: &mut Criterion) {
     for num_names in [10, 25, 50, 125].iter() {
         let index = create_cds_index_constituents(tenor, *num_names);
         let market = create_market_constituents(*num_names);
-        
+
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}names", num_names)),
             num_names,
             |b, _| {
-                b.iter(|| {
-                    index.value(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| index.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -195,9 +191,7 @@ fn bench_cds_index_par_spread(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
             |b, _| {
-                b.iter(|| {
-                    index.par_spread(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| index.par_spread(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -215,9 +209,7 @@ fn bench_cds_index_cs01(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
             |b, _| {
-                b.iter(|| {
-                    index.cs01(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| index.cs01(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -235,9 +227,7 @@ fn bench_cds_index_risky_pv01(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
             |b, _| {
-                b.iter(|| {
-                    index.risky_pv01(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| index.risky_pv01(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -249,11 +239,7 @@ fn bench_cds_index_metrics(c: &mut Criterion) {
     let market = create_market_single_curve();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-    let metrics = vec![
-        MetricId::ParSpread,
-        MetricId::Cs01,
-        MetricId::RiskyPv01,
-    ];
+    let metrics = vec![MetricId::ParSpread, MetricId::Cs01, MetricId::RiskyPv01];
 
     for tenor in [3, 5, 10].iter() {
         let index = create_cds_index_single_curve(*tenor);
@@ -284,4 +270,3 @@ criterion_group!(
     bench_cds_index_metrics
 );
 criterion_main!(benches);
-

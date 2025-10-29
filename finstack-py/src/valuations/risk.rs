@@ -66,14 +66,15 @@ pub fn krd_dv01_ladder(
     let bond_inst = bond_handle.instrument;
 
     // Price bond at base case
-    let base_pv = bond_inst.value(&market.inner, as_of_date)
+    let base_pv = bond_inst
+        .value(&market.inner, as_of_date)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
     // Get discount curve - use first discount curve in market (simplified)
     let mut disc_iter = market.inner.curves_of_type("Discount");
     let (_, disc_storage) = disc_iter.next().ok_or_else(|| {
         PyErr::new::<pyo3::exceptions::PyValueError, _>(
-            "No discount curves available in market context"
+            "No discount curves available in market context",
         )
     })?;
     let disc = disc_storage.discount().ok_or_else(|| {
@@ -96,7 +97,8 @@ pub fn krd_dv01_ladder(
         let temp_market = market.inner.clone().insert_discount(bumped);
 
         // Revalue with bumped curve
-        let pv_bumped = bond_inst.value(&temp_market, as_of_date)
+        let pv_bumped = bond_inst
+            .value(&temp_market, as_of_date)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
         // DV01 = (PV_bumped - PV_base) / 10000
@@ -148,14 +150,15 @@ pub fn cs01_ladder(
     let bond_inst = bond_handle.instrument;
 
     // Price bond at base case
-    let base_pv = bond_inst.value(&market.inner, as_of_date)
+    let base_pv = bond_inst
+        .value(&market.inner, as_of_date)
         .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
     // Get discount curve (CS01 uses discount curve as proxy for credit spread)
     let mut disc_iter = market.inner.curves_of_type("Discount");
     let (_, disc_storage) = disc_iter.next().ok_or_else(|| {
         PyErr::new::<pyo3::exceptions::PyValueError, _>(
-            "No discount curves available in market context"
+            "No discount curves available in market context",
         )
     })?;
     let disc = disc_storage.discount().ok_or_else(|| {
@@ -178,7 +181,8 @@ pub fn cs01_ladder(
         let temp_market = market.inner.clone().insert_discount(bumped);
 
         // Revalue
-        let pv_bumped = bond_inst.value(&temp_market, as_of_date)
+        let pv_bumped = bond_inst
+            .value(&temp_market, as_of_date)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
         // CS01 = (PV_bumped - PV_base) / 10000
@@ -212,4 +216,3 @@ pub(crate) fn register<'py>(
     parent.add_submodule(&module)?;
     Ok(exports)
 }
-

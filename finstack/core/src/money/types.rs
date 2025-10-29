@@ -37,18 +37,18 @@ fn format_with_separators(n: i64) -> String {
     let s = n.abs().to_string();
     let mut result = String::new();
     let chars: Vec<char> = s.chars().collect();
-    
+
     for (i, c) in chars.iter().rev().enumerate() {
         if i > 0 && i % 3 == 0 {
             result.insert(0, ',');
         }
         result.insert(0, *c);
     }
-    
+
     if n < 0 {
         result.insert(0, '-');
     }
-    
+
     result
 }
 
@@ -100,7 +100,11 @@ impl Money {
     /// ```
     pub fn format(&self, decimals: usize, show_currency: bool) -> String {
         use super::rounding::round_decimal;
-        let rounded = round_decimal(self.amount, decimals as i32, crate::config::RoundingMode::Bankers);
+        let rounded = round_decimal(
+            self.amount,
+            decimals as i32,
+            crate::config::RoundingMode::Bankers,
+        );
         let value = format!("{:.prec$}", rounded, prec = decimals);
         if show_currency {
             format!("{} {}", value, self.currency())
@@ -124,16 +128,26 @@ impl Money {
     /// ```
     pub fn format_with_separators(&self, decimals: usize) -> String {
         use super::rounding::round_decimal;
-        let rounded = round_decimal(self.amount, decimals as i32, crate::config::RoundingMode::Bankers);
+        let rounded = round_decimal(
+            self.amount,
+            decimals as i32,
+            crate::config::RoundingMode::Bankers,
+        );
         let amt = amount_from_repr(rounded);
         let int_part = amt.trunc() as i64;
         let frac_part = ((amt - amt.trunc()) * 10_f64.powi(decimals as i32)).round() as i64;
-        
+
         // Format integer part with thousands separators
         let int_str = format_with_separators(int_part);
-        
+
         if decimals > 0 {
-            format!("{}.{:0width$} {}", int_str, frac_part, self.currency(), width = decimals)
+            format!(
+                "{}.{:0width$} {}",
+                int_str,
+                frac_part,
+                self.currency(),
+                width = decimals
+            )
         } else {
             format!("{} {}", int_str, self.currency())
         }
@@ -369,12 +383,7 @@ impl Money {
         use super::rounding::round_decimal;
         let dp = cfg.output_scale(self.currency) as usize;
         let rounded = round_decimal(self.amount, dp as i32, cfg.rounding.mode);
-        format!(
-            "{} {val:.prec$}",
-            self.currency,
-            val = rounded,
-            prec = dp
-        )
+        format!("{} {val:.prec$}", self.currency, val = rounded, prec = dp)
     }
 }
 

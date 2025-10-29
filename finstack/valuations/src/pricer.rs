@@ -242,8 +242,12 @@ impl std::str::FromStr for ModelKey {
             "hull_white_1f" | "hullwhite1f" | "hw1f" => Ok(ModelKey::HullWhite1F),
             "hazard_rate" | "hazard" => Ok(ModelKey::HazardRate),
             "monte_carlo_gbm" | "mc_gbm" | "montecarlo_gbm" => Ok(ModelKey::MonteCarloGBM),
-            "monte_carlo_heston" | "mc_heston" | "montecarlo_heston" => Ok(ModelKey::MonteCarloHeston),
-            "monte_carlo_hull_white_1f" | "mc_hw1f" | "montecarlo_hw1f" => Ok(ModelKey::MonteCarloHullWhite1F),
+            "monte_carlo_heston" | "mc_heston" | "montecarlo_heston" => {
+                Ok(ModelKey::MonteCarloHeston)
+            }
+            "monte_carlo_hull_white_1f" | "mc_hw1f" | "montecarlo_hw1f" => {
+                Ok(ModelKey::MonteCarloHullWhite1F)
+            }
             other => Err(format!("Unknown model key: {}", other)),
         }
     }
@@ -628,7 +632,9 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     // Revolving Credit
     registry.register_pricer(
         PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::Discounting),
-        Box::new(crate::instruments::revolving_credit::pricer::RevolvingCreditDiscountingPricer::new()),
+        Box::new(
+            crate::instruments::revolving_credit::pricer::RevolvingCreditDiscountingPricer::new(),
+        ),
     );
     #[cfg(feature = "mc")]
     registry.register_pricer(

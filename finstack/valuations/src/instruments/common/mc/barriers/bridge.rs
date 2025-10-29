@@ -33,13 +33,7 @@
 /// ```
 ///
 /// if both S_t and S_{t+Δt} are on the same side of B.
-pub fn bridge_hit_probability(
-    s_t: f64,
-    s_t_dt: f64,
-    barrier: f64,
-    sigma: f64,
-    dt: f64,
-) -> f64 {
+pub fn bridge_hit_probability(s_t: f64, s_t_dt: f64, barrier: f64, sigma: f64, dt: f64) -> f64 {
     if dt <= 0.0 || sigma <= 0.0 {
         return 0.0;
     }
@@ -176,21 +170,61 @@ mod tests {
     #[test]
     fn test_barrier_check_discrete_hit_up() {
         // Discrete hit for up barrier
-        assert!(check_barrier_hit(95.0, 105.0, 100.0, BarrierDirection::Up, 0.2, 0.1, 0.5));
-        assert!(check_barrier_hit(105.0, 110.0, 100.0, BarrierDirection::Up, 0.2, 0.1, 0.5));
+        assert!(check_barrier_hit(
+            95.0,
+            105.0,
+            100.0,
+            BarrierDirection::Up,
+            0.2,
+            0.1,
+            0.5
+        ));
+        assert!(check_barrier_hit(
+            105.0,
+            110.0,
+            100.0,
+            BarrierDirection::Up,
+            0.2,
+            0.1,
+            0.5
+        ));
     }
 
     #[test]
     fn test_barrier_check_no_hit_up() {
         // Well below barrier with low random number
-        assert!(!check_barrier_hit(80.0, 85.0, 100.0, BarrierDirection::Up, 0.2, 0.1, 0.0));
+        assert!(!check_barrier_hit(
+            80.0,
+            85.0,
+            100.0,
+            BarrierDirection::Up,
+            0.2,
+            0.1,
+            0.0
+        ));
     }
 
     #[test]
     fn test_barrier_check_discrete_hit_down() {
         // Discrete hit for down barrier
-        assert!(check_barrier_hit(105.0, 95.0, 100.0, BarrierDirection::Down, 0.2, 0.1, 0.5));
-        assert!(check_barrier_hit(95.0, 90.0, 100.0, BarrierDirection::Down, 0.2, 0.1, 0.5));
+        assert!(check_barrier_hit(
+            105.0,
+            95.0,
+            100.0,
+            BarrierDirection::Down,
+            0.2,
+            0.1,
+            0.5
+        ));
+        assert!(check_barrier_hit(
+            95.0,
+            90.0,
+            100.0,
+            BarrierDirection::Down,
+            0.2,
+            0.1,
+            0.5
+        ));
     }
 
     #[test]
@@ -198,7 +232,7 @@ mod tests {
         // Up and down should be symmetric
         let p_up = bridge_hit_probability(110.0, 120.0, 100.0, 0.2, 0.1);
         let p_down = bridge_hit_probability(90.0, 80.0, 100.0, 0.2, 0.1);
-        
+
         // Should be similar due to symmetry
         assert!((p_up - p_down).abs() < 0.1);
     }

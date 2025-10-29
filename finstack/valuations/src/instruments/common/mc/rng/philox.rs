@@ -212,8 +212,8 @@ mod tests {
 
         // Check basic statistical properties
         let mean: f64 = normals.iter().sum::<f64>() / normals.len() as f64;
-        let variance: f64 = normals.iter().map(|&x| (x - mean).powi(2)).sum::<f64>()
-            / (normals.len() - 1) as f64;
+        let variance: f64 =
+            normals.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (normals.len() - 1) as f64;
 
         // Mean should be close to 0, variance close to 1
         assert!(mean.abs() < 0.1);
@@ -231,4 +231,3 @@ mod tests {
         }
     }
 }
-

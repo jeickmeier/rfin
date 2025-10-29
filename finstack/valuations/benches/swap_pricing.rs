@@ -8,7 +8,7 @@
 //!
 //! Market Standards Review (Week 5)
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -23,7 +23,7 @@ use time::Month;
 fn create_swap(tenor_years: i32) -> InterestRateSwap {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 1).unwrap();
-    
+
     InterestRateSwap::new(
         format!("IRS-{}Y", tenor_years).into(),
         Money::new(10_000_000.0, Currency::USD),
@@ -36,7 +36,7 @@ fn create_swap(tenor_years: i32) -> InterestRateSwap {
 
 fn create_market() -> MarketContext {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base)
         .knots([
@@ -50,7 +50,7 @@ fn create_market() -> MarketContext {
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    
+
     let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(base)
         .knots([
@@ -64,7 +64,7 @@ fn create_market() -> MarketContext {
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
-    
+
     MarketContext::new()
         .insert_discount(disc)
         .insert_forward(fwd)
@@ -74,16 +74,14 @@ fn bench_swap_pv(c: &mut Criterion) {
     let mut group = c.benchmark_group("swap_pv");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for tenor in [2, 5, 10, 30].iter() {
         let swap = create_swap(*tenor);
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Y", tenor)),
             tenor,
             |b, _| {
-                b.iter(|| {
-                    swap.value(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| swap.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -94,7 +92,7 @@ fn bench_swap_dv01(c: &mut Criterion) {
     let mut group = c.benchmark_group("swap_dv01");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for tenor in [2, 5, 10, 30].iter() {
         let swap = create_swap(*tenor);
         group.bench_with_input(
@@ -118,7 +116,7 @@ fn bench_swap_par_rate(c: &mut Criterion) {
     let mut group = c.benchmark_group("swap_par_rate");
     let market = create_market();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     for tenor in [2, 5, 10, 30].iter() {
         let swap = create_swap(*tenor);
         group.bench_with_input(
@@ -140,4 +138,3 @@ fn bench_swap_par_rate(c: &mut Criterion) {
 
 criterion_group!(benches, bench_swap_pv, bench_swap_dv01, bench_swap_par_rate);
 criterion_main!(benches);
-

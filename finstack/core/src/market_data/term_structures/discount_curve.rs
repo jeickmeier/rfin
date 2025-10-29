@@ -307,8 +307,8 @@ impl DiscountCurve {
             points: Vec::new(),
             style: InterpStyle::Linear,
             extrapolation: ExtrapolationPolicy::default(),
-            require_monotonic: true,  // Enforced by default for no-arbitrage
-            min_forward_rate: None,    // No floor by default
+            require_monotonic: true, // Enforced by default for no-arbitrage
+            min_forward_rate: None,  // No floor by default
             allow_non_monotonic: false, // Strict validation by default
         }
     }
@@ -478,8 +478,8 @@ impl DiscountCurve {
                 interp_style: self.style,
                 extrapolation: self.extrapolation,
             },
-            require_monotonic: true, // Always true in new version
-            min_forward_rate: None,  // Can't recover from existing curves
+            require_monotonic: true,    // Always true in new version
+            min_forward_rate: None,     // Can't recover from existing curves
             allow_non_monotonic: false, // Safe default
         }
     }
@@ -536,9 +536,9 @@ pub struct DiscountCurveBuilder {
     points: Vec<(f64, f64)>, // (t, df)
     style: InterpStyle,
     extrapolation: ExtrapolationPolicy,
-    require_monotonic: bool, // Enforced by default for no-arbitrage
+    require_monotonic: bool,       // Enforced by default for no-arbitrage
     min_forward_rate: Option<f64>, // Minimum allowed forward rate (e.g., -50bp = -0.005)
-    allow_non_monotonic: bool, // Override to disable monotonicity checks (use with caution)
+    allow_non_monotonic: bool,     // Override to disable monotonicity checks (use with caution)
 }
 
 impl DiscountCurveBuilder {

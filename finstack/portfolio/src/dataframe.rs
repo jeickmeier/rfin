@@ -21,18 +21,6 @@ use finstack_core::prelude::*;
 /// # Returns
 ///
 /// A [`Result`] wrapping the generated [`polars::prelude::DataFrame`].
-///
-/// # Examples
-///
-/// ```no_run
-/// use finstack_portfolio::dataframe::positions_to_dataframe;
-///
-/// # fn export(valuation: &finstack_portfolio::PortfolioValuation) -> finstack_portfolio::Result<()> {
-/// let df = positions_to_dataframe(valuation)?;
-/// # let _ = df;
-/// # Ok(())
-/// # }
-/// ```
 pub fn positions_to_dataframe(
     valuation: &PortfolioValuation,
 ) -> Result<polars::prelude::DataFrame> {
@@ -76,18 +64,6 @@ pub fn positions_to_dataframe(
 /// # Returns
 ///
 /// A [`Result`] containing the [`polars::prelude::DataFrame`].
-///
-/// # Examples
-///
-/// ```no_run
-/// use finstack_portfolio::dataframe::entities_to_dataframe;
-///
-/// # fn export(valuation: &finstack_portfolio::PortfolioValuation) -> finstack_portfolio::Result<()> {
-/// let df = entities_to_dataframe(valuation)?;
-/// # let _ = df;
-/// # Ok(())
-/// # }
-/// ```
 pub fn entities_to_dataframe(valuation: &PortfolioValuation) -> Result<polars::prelude::DataFrame> {
     let mut entity_ids: Vec<String> = Vec::new();
     let mut total_values: Vec<f64> = Vec::new();
@@ -120,18 +96,6 @@ pub fn entities_to_dataframe(valuation: &PortfolioValuation) -> Result<polars::p
 /// # Returns
 ///
 /// A [`Result`] containing the [`polars::prelude::DataFrame`].
-///
-/// # Examples
-///
-/// ```no_run
-/// use finstack_portfolio::dataframe::metrics_to_dataframe;
-///
-/// # fn export(metrics: &finstack_portfolio::PortfolioMetrics) -> finstack_portfolio::Result<()> {
-/// let df = metrics_to_dataframe(metrics)?;
-/// # let _ = df;
-/// # Ok(())
-/// # }
-/// ```
 pub fn metrics_to_dataframe(metrics: &PortfolioMetrics) -> Result<polars::prelude::DataFrame> {
     let mut metric_ids: Vec<String> = Vec::new();
     let mut position_ids: Vec<String> = Vec::new();
@@ -166,18 +130,6 @@ pub fn metrics_to_dataframe(metrics: &PortfolioMetrics) -> Result<polars::prelud
 /// # Returns
 ///
 /// A [`Result`] containing the [`polars::prelude::DataFrame`].
-///
-/// # Examples
-///
-/// ```no_run
-/// use finstack_portfolio::dataframe::aggregated_metrics_to_dataframe;
-///
-/// # fn export(metrics: &finstack_portfolio::PortfolioMetrics) -> finstack_portfolio::Result<()> {
-/// let df = aggregated_metrics_to_dataframe(metrics)?;
-/// # let _ = df;
-/// # Ok(())
-/// # }
-/// ```
 pub fn aggregated_metrics_to_dataframe(
     metrics: &PortfolioMetrics,
 ) -> Result<polars::prelude::DataFrame> {

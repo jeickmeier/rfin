@@ -7,12 +7,7 @@ use finstack_core::{Error, Result};
 /// The par spread is the spread that would make the basis swap have zero net present value,
 /// calculated by solving for the spread that equates the present values of both legs.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_valuations::instruments::basis_swap::metrics::ParSpreadCalculator;
-///
-/// let calc = ParSpreadCalculator;
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {

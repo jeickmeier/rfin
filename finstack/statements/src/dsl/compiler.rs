@@ -8,18 +8,6 @@ use finstack_core::expr::{BinOp as CoreBinOp, Expr, Function, UnaryOp as CoreUna
 ///
 /// Converts the statements DSL syntax into the shared expression engine
 /// representation used by the evaluator.
-///
-/// # Example
-///
-/// ```rust
-/// use finstack_statements::dsl::{parse_formula, compile};
-///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let ast = parse_formula("revenue - cogs")?;
-/// let expr = compile(&ast)?;
-/// # Ok(())
-/// # }
-/// ```
 pub fn compile(ast: &StmtExpr) -> Result<Expr> {
     match ast {
         StmtExpr::Literal(val) => Ok(Expr::literal(*val)),

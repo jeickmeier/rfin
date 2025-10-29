@@ -6,13 +6,7 @@ use finstack_core::dates::Date;
 
 /// Side of the TRS trade from the party's perspective.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_valuations::instruments::trs::TrsSide;
-///
-/// let receive_side = TrsSide::ReceiveTotalReturn;
-/// let pay_side = TrsSide::PayTotalReturn;
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TrsSide {

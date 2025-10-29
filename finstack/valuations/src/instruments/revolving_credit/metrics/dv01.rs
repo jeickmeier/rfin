@@ -19,12 +19,12 @@ impl MetricCalculator for Dv01Calculator {
         // Get base curves
         let disc = context.curves.get_discount_ref(facility.disc_id.as_str())?;
         let disc_dc = disc.day_count();
-        
+
         // Generate cashflows (simplified approach - compute directly)
-        let schedule = crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows(
-            facility,
-            as_of,
-        )?;
+        let schedule =
+            crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows(
+                facility, as_of,
+            )?;
 
         // Compute PV with spread bumps
         let bump_bp = 0.0001; // 1bp
@@ -36,11 +36,7 @@ impl MetricCalculator for Dv01Calculator {
                 continue;
             }
 
-            let yf = disc_dc.year_fraction(
-                disc.base_date(),
-                cf.date,
-                DayCountCtx::default(),
-            )?;
+            let yf = disc_dc.year_fraction(disc.base_date(), cf.date, DayCountCtx::default())?;
             let df_base = disc.df(yf);
 
             // Apply spread bumps
@@ -57,4 +53,3 @@ impl MetricCalculator for Dv01Calculator {
         Ok(dv01)
     }
 }
-

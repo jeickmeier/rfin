@@ -192,7 +192,7 @@ fn test_negative_forward_rates_rejected_with_floor() {
     // This should succeed since forward is negative but not below -50bp
     // Actually, let me verify this by calculating: fwd = -ln(0.949/0.95) ≈ 0.1% which is positive
     // The forward rate check only matters if we have truly negative forwards
-    
+
     // For a curve to have forward rate below -50bp with monotonic DFs, we need very specific values
     // Let's just verify the validation exists by checking a valid curve passes
     assert!(
@@ -206,12 +206,7 @@ fn test_negative_forward_rates_rejected_with_floor() {
 fn test_enforce_no_arbitrage_enables_all_checks() {
     let result = DiscountCurve::builder("NO-ARB-CHECK")
         .base_date(sample_base_date())
-        .knots([
-            (0.0, 1.0),
-            (1.0, 0.98),
-            (2.0, 0.95),
-            (5.0, 0.85),
-        ])
+        .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95), (5.0, 0.85)])
         .enforce_no_arbitrage()
         .build();
 
@@ -227,11 +222,7 @@ fn test_custom_forward_rate_floor() {
     // Test custom forward rate floor at -100bp
     let curve = DiscountCurve::builder("CUSTOM-FLOOR")
         .base_date(sample_base_date())
-        .knots([
-            (0.0, 1.0),
-            (1.0, 0.98),
-            (5.0, 0.85),
-        ])
+        .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
         .with_min_forward_rate(-0.01) // -100bp floor
         .build();
 

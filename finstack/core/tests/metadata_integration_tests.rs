@@ -29,8 +29,7 @@ fn test_results_meta_serialization() {
     assert!(json.contains("rounding"));
 
     // Roundtrip
-    let deserialized: ResultsMeta =
-        serde_json::from_str(&json).expect("Failed to deserialize");
+    let deserialized: ResultsMeta = serde_json::from_str(&json).expect("Failed to deserialize");
     assert_eq!(deserialized.numeric_mode, NumericMode::F64);
 }
 
@@ -61,8 +60,7 @@ fn test_results_meta_with_fx_policy() {
     let json = serde_json::to_string(&meta).expect("Failed to serialize");
     assert!(json.contains("SPOT_RATE"));
 
-    let deserialized: ResultsMeta =
-        serde_json::from_str(&json).expect("Failed to deserialize");
+    let deserialized: ResultsMeta = serde_json::from_str(&json).expect("Failed to deserialize");
     assert_eq!(
         deserialized.fx_policy_applied,
         Some("SPOT_RATE".to_string())
@@ -115,8 +113,7 @@ mod property_tests {
     fn property_serialization_roundtrip_preserves_data() {
         let original = results_meta(&FinstackConfig::default());
         let json = serde_json::to_string(&original).expect("Failed to serialize");
-        let deserialized: ResultsMeta =
-            serde_json::from_str(&json).expect("Failed to deserialize");
+        let deserialized: ResultsMeta = serde_json::from_str(&json).expect("Failed to deserialize");
 
         assert_eq!(original.numeric_mode, deserialized.numeric_mode);
         assert_eq!(original.fx_policy_applied, deserialized.fx_policy_applied);
@@ -125,4 +122,3 @@ mod property_tests {
         assert_eq!(original.version, deserialized.version);
     }
 }
-

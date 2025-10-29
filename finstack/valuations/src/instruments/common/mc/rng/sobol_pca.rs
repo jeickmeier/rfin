@@ -151,11 +151,7 @@ mod tests {
     #[test]
     fn test_pca_identity_matrix() {
         // Identity matrix: eigenvalues all 1, any order is optimal
-        let correlation = vec![
-            1.0, 0.0, 0.0, 
-            0.0, 1.0, 0.0, 
-            0.0, 0.0, 1.0,
-        ];
+        let correlation = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
 
         let (eigenvalues, _, _) = pca_ordering(&correlation, 3);
 
@@ -172,11 +168,7 @@ mod tests {
     #[test]
     fn test_pca_high_correlation() {
         // High correlation: effective dimension should be low
-        let correlation = vec![
-            1.0, 0.9, 0.9,
-            0.9, 1.0, 0.9,
-            0.9, 0.9, 1.0,
-        ];
+        let correlation = vec![1.0, 0.9, 0.9, 0.9, 1.0, 0.9, 0.9, 0.9, 1.0];
 
         let (eigenvalues, _, _) = pca_ordering(&correlation, 3);
 
@@ -209,10 +201,7 @@ mod tests {
     #[test]
     fn test_pca_transformation() {
         // Simple 2D test
-        let correlation = vec![
-            1.0, 0.5,
-            0.5, 1.0,
-        ];
+        let correlation = vec![1.0, 0.5, 0.5, 1.0];
 
         let (_eigenvalues, eigenvectors, permutation) = pca_ordering(&correlation, 2);
 
@@ -228,4 +217,3 @@ mod tests {
         assert!(z_assets[1].is_finite());
     }
 }
-

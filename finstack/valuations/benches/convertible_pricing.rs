@@ -113,7 +113,7 @@ fn create_standard_convertible() -> ConvertibleBond {
 fn create_callable_convertible() -> ConvertibleBond {
     let mut bond = create_standard_convertible();
     let mut call_put = CallPutSchedule::default();
-    
+
     call_put.calls.push(CallPut {
         date: maturity_3y(),
         price_pct_of_par: 105.0,
@@ -207,19 +207,15 @@ fn bench_npv_by_moneyness(c: &mut Criterion) {
 
     for (label, spot) in [("OTM", SPOT_OTM), ("ATM", SPOT_ATM), ("ITM", SPOT_PRICE)].iter() {
         let market = create_market_context(*spot, VOL_STANDARD, DIV_YIELD);
-        group.bench_with_input(
-            BenchmarkId::from_parameter(label),
-            label,
-            |b, _| {
-                b.iter(|| {
-                    price_convertible_bond(
-                        black_box(&bond),
-                        black_box(&market),
-                        black_box(ConvertibleTreeType::Binomial(50)),
-                    )
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(label), label, |b, _| {
+            b.iter(|| {
+                price_convertible_bond(
+                    black_box(&bond),
+                    black_box(&market),
+                    black_box(ConvertibleTreeType::Binomial(50)),
+                )
+            });
+        });
     }
     group.finish();
 }
@@ -281,19 +277,15 @@ fn bench_npv_volatility(c: &mut Criterion) {
 
     for (label, vol) in [("low", VOL_LOW), ("std", VOL_STANDARD), ("high", VOL_HIGH)].iter() {
         let market = create_market_context(SPOT_PRICE, *vol, DIV_YIELD);
-        group.bench_with_input(
-            BenchmarkId::from_parameter(label),
-            label,
-            |b, _| {
-                b.iter(|| {
-                    price_convertible_bond(
-                        black_box(&bond),
-                        black_box(&market),
-                        black_box(ConvertibleTreeType::Binomial(50)),
-                    )
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(label), label, |b, _| {
+            b.iter(|| {
+                price_convertible_bond(
+                    black_box(&bond),
+                    black_box(&market),
+                    black_box(ConvertibleTreeType::Binomial(50)),
+                )
+            });
+        });
     }
     group.finish();
 }
@@ -332,20 +324,16 @@ fn bench_greeks_by_moneyness(c: &mut Criterion) {
 
     for (label, spot) in [("OTM", SPOT_OTM), ("ATM", SPOT_ATM), ("ITM", SPOT_PRICE)].iter() {
         let market = create_market_context(*spot, VOL_STANDARD, DIV_YIELD);
-        group.bench_with_input(
-            BenchmarkId::from_parameter(label),
-            label,
-            |b, _| {
-                b.iter(|| {
-                    calculate_convertible_greeks(
-                        black_box(&bond),
-                        black_box(&market),
-                        black_box(ConvertibleTreeType::Binomial(50)),
-                        black_box(Some(0.01)),
-                    )
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(label), label, |b, _| {
+            b.iter(|| {
+                calculate_convertible_greeks(
+                    black_box(&bond),
+                    black_box(&market),
+                    black_box(ConvertibleTreeType::Binomial(50)),
+                    black_box(Some(0.01)),
+                )
+            });
+        });
     }
     group.finish();
 }
@@ -370,11 +358,7 @@ fn bench_metrics_suite(c: &mut Criterion) {
 
     group.bench_function("full_suite", |b| {
         b.iter(|| {
-            bond.price_with_metrics(
-                black_box(&market),
-                black_box(as_of),
-                black_box(&metrics),
-            )
+            bond.price_with_metrics(black_box(&market), black_box(as_of), black_box(&metrics))
         });
     });
 
@@ -391,15 +375,9 @@ fn bench_parity_calculation(c: &mut Criterion) {
 
     for (label, spot) in [("OTM", SPOT_OTM), ("ATM", SPOT_ATM), ("ITM", SPOT_PRICE)].iter() {
         let market = create_market_context(*spot, VOL_STANDARD, DIV_YIELD);
-        group.bench_with_input(
-            BenchmarkId::from_parameter(label),
-            label,
-            |b, _| {
-                b.iter(|| {
-                    bond.parity(black_box(&market))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(label), label, |b, _| {
+            b.iter(|| bond.parity(black_box(&market)));
+        });
     }
     group.finish();
 }
@@ -446,4 +424,3 @@ criterion_group!(
     bench_tree_convergence
 );
 criterion_main!(benches);
-

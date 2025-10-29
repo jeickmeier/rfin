@@ -146,8 +146,8 @@ impl Discretization<HestonProcess> for QeHeston {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::process::heston::HestonParams;
+    use super::*;
 
     #[test]
     fn test_qe_heston_variance_positive() {
@@ -156,7 +156,8 @@ mod tests {
 
         // Test with various shocks
         for z in [-3.0, -1.0, 0.0, 1.0, 3.0] {
-            let v_next = qe.step_variance(0.04, params.kappa, params.theta, params.sigma_v, 0.01, z);
+            let v_next =
+                qe.step_variance(0.04, params.kappa, params.theta, params.sigma_v, 0.01, z);
             assert!(v_next >= 0.0, "Variance became negative with z={}", z);
         }
     }

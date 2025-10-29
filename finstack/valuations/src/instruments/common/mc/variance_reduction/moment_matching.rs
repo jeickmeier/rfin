@@ -71,11 +71,7 @@ mod tests {
         match_standard_normal_moments(&mut samples);
 
         let mean = samples.iter().sum::<f64>() / samples.len() as f64;
-        let var = samples
-            .iter()
-            .map(|&x| (x - mean).powi(2))
-            .sum::<f64>()
-            / samples.len() as f64;
+        let var = samples.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / samples.len() as f64;
 
         assert!(mean.abs() < 1e-10);
         assert!((var - 1.0).abs() < 1e-10);
@@ -85,9 +81,9 @@ mod tests {
     fn test_moment_matching_preserves_length() {
         let mut samples = vec![1.0, 2.0, 3.0, 4.0];
         let original_len = samples.len();
-        
+
         match_standard_normal_moments(&mut samples);
-        
+
         assert_eq!(samples.len(), original_len);
     }
 

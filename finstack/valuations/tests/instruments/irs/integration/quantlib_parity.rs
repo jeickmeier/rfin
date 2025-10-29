@@ -124,6 +124,7 @@ fn create_quantlib_swap(
 // QuantLib reference: swaps.cpp, testFairRate()
 // A newly initiated swap at the prevailing market rate should have zero NPV
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_at_market_swap_zero_npv() {
     let as_of = date!(2020 - 01 - 01);
@@ -160,6 +161,7 @@ fn quantlib_parity_at_market_swap_zero_npv() {
 // QuantLib reference: swaps.cpp, testOffMarketSwap()
 // A swap with fixed rate != market rate has non-zero NPV
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_off_market_swap() {
     let as_of = date!(2020 - 01 - 01);
@@ -198,6 +200,7 @@ fn quantlib_parity_off_market_swap() {
 // QuantLib reference: swaps.cpp, testReceiveFixed()
 // Receive fixed swap has opposite NPV to pay fixed
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_receive_fixed_swap() {
     let as_of = date!(2020 - 01 - 01);
@@ -247,6 +250,7 @@ fn quantlib_parity_receive_fixed_swap() {
 // QuantLib reference: swaps.cpp, testParRate()
 // Par rate is the fixed rate that makes NPV = 0
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_par_rate() {
     let as_of = date!(2020 - 01 - 01);
@@ -289,6 +293,7 @@ fn quantlib_parity_par_rate() {
 // QuantLib reference: swaps.cpp - annuity / BPS calculations
 // Annuity is the sum of discounted year fractions on the fixed leg
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_annuity() {
     let as_of = date!(2020 - 01 - 01);
@@ -332,6 +337,7 @@ fn quantlib_parity_annuity() {
 // QuantLib reference: swaps.cpp - fixed leg valuation
 // Present value of the fixed leg cash flows
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_fixed_leg_pv() {
     let as_of = date!(2020 - 01 - 01);
@@ -375,6 +381,7 @@ fn quantlib_parity_fixed_leg_pv() {
 // QuantLib reference: swaps.cpp - floating leg valuation
 // Present value of the floating leg cash flows
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_floating_leg_pv() {
     let as_of = date!(2020 - 01 - 01);
@@ -418,6 +425,7 @@ fn quantlib_parity_floating_leg_pv() {
 // QuantLib reference: swaps.cpp - seasoned swap valuation
 // Value a swap that has already started and has some payments made
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_seasoned_swap() {
     let start_date = date!(2018 - 01 - 01);
@@ -457,6 +465,7 @@ fn quantlib_parity_seasoned_swap() {
 // QuantLib reference: swaps.cpp - forward starting swap
 // Swap that starts in the future
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_forward_starting_swap() {
     let as_of = date!(2020 - 01 - 01);
@@ -494,6 +503,7 @@ fn quantlib_parity_forward_starting_swap() {
 // QuantLib reference: swaps.cpp - short maturity test
 // Short maturity swap
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_short_tenor_swap() {
     let as_of = date!(2020 - 01 - 01);
@@ -530,6 +540,7 @@ fn quantlib_parity_short_tenor_swap() {
 // QuantLib reference: swaps.cpp - long maturity test
 // Long maturity swap
 
+#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_long_tenor_swap() {
     let as_of = date!(2020 - 01 - 01);

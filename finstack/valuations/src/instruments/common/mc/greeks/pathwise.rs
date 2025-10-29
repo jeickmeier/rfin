@@ -101,7 +101,7 @@ pub fn pathwise_vega(
             let w = wiener_increments[i];
             // ∂S_T/∂σ = S_T * (W_T - σT) / σ
             let ds_dsigma = s_t * (w / sqrt_t - volatility * sqrt_t) / volatility;
-            
+
             let vega_contribution = discount_factor * ds_dsigma;
             stats.update(vega_contribution);
         } else {
@@ -153,7 +153,7 @@ mod tests {
     fn test_vega_positive() {
         let terminal_spots = vec![110.0, 105.0, 115.0];
         let wiener_increments = vec![0.5, 0.3, 0.7];
-        
+
         let (vega, _) = pathwise_vega(
             &terminal_spots,
             100.0,

@@ -179,13 +179,13 @@ pub fn adjust_with_limit<C: HolidayCalendar + ?Sized>(
                 return Ok(date);
             }
             let original_month = date.month();
-            let forward = seek_business_day(date, 1, max_days, cal).ok_or(
-                Error::Input(InputError::AdjustmentFailed {
+            let forward = seek_business_day(date, 1, max_days, cal).ok_or(Error::Input(
+                InputError::AdjustmentFailed {
                     date,
                     convention: BusinessDayConvention::ModifiedFollowing,
                     max_days,
-                }),
-            )?;
+                },
+            ))?;
             if forward.month() == original_month {
                 Ok(forward)
             } else {
@@ -215,13 +215,13 @@ pub fn adjust_with_limit<C: HolidayCalendar + ?Sized>(
                 return Ok(date);
             }
             let original_month = date.month();
-            let back = seek_business_day(date, -1, max_days, cal).ok_or(
-                Error::Input(InputError::AdjustmentFailed {
+            let back = seek_business_day(date, -1, max_days, cal).ok_or(Error::Input(
+                InputError::AdjustmentFailed {
                     date,
                     convention: BusinessDayConvention::ModifiedPreceding,
                     max_days,
-                }),
-            )?;
+                },
+            ))?;
             if back.month() == original_month {
                 Ok(back)
             } else {

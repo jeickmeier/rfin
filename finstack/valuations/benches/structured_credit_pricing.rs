@@ -168,9 +168,7 @@ fn bench_npv_by_deal_type(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{:?}", deal_type)),
             deal_type,
             |b, _| {
-                b.iter(|| {
-                    deal.value(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| deal.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -192,9 +190,7 @@ fn bench_cashflow_generation(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}assets", num_assets)),
             num_assets,
             |b, _| {
-                b.iter(|| {
-                    deal.build_schedule(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| deal.build_schedule(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -235,18 +231,11 @@ fn bench_duration_metrics(c: &mut Criterion) {
     let as_of = test_date();
     let deal = create_deal(DealType::CLO, 25);
 
-    let metrics = vec![
-        MetricId::DurationMod,
-        MetricId::SpreadDuration,
-    ];
+    let metrics = vec![MetricId::DurationMod, MetricId::SpreadDuration];
 
     group.bench_function("duration_suite", |b| {
         b.iter(|| {
-            deal.price_with_metrics(
-                black_box(&market),
-                black_box(as_of),
-                black_box(&metrics),
-            )
+            deal.price_with_metrics(black_box(&market), black_box(as_of), black_box(&metrics))
         });
     });
     group.finish();
@@ -415,9 +404,7 @@ fn bench_scaling_with_pool_size(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}assets", num_assets)),
             num_assets,
             |b, _| {
-                b.iter(|| {
-                    deal.value(black_box(&market), black_box(as_of))
-                });
+                b.iter(|| deal.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -438,4 +425,3 @@ criterion_group!(
     bench_scaling_with_pool_size
 );
 criterion_main!(benches);
-

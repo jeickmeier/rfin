@@ -105,7 +105,7 @@ fn quantity_scaling_and_entity_totals() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .start(as_of)
         .end(end_date)
-        .quote_rate(0.05)  // Add a 5% rate so deposit has non-zero PV
+        .quote_rate(0.05) // Add a 5% rate so deposit has non-zero PV
         .day_count(finstack_core::dates::DayCount::Act360)
         .disc_id("USD".into())
         .build()
@@ -135,7 +135,10 @@ fn quantity_scaling_and_entity_totals() {
 
     let pv = valuation.get_position_value("POS_SHORT").unwrap();
     // With a negative quantity and positive instrument PV, the position value should be negative
-    assert!(pv.value_native.amount().is_sign_negative(), 
-            "Expected negative position value, got: {}", pv.value_native.amount());
+    assert!(
+        pv.value_native.amount().is_sign_negative(),
+        "Expected negative position value, got: {}",
+        pv.value_native.amount()
+    );
     assert!(valuation.get_entity_value(&"E1".to_string()).is_some());
 }

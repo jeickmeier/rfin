@@ -7,13 +7,7 @@ use finstack_core::{Error, Result};
 /// This calculator computes the present value of either the primary or reference
 /// leg of a basis swap, including the spread and forward rate components.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_valuations::instruments::basis_swap::metrics::PvCalculator;
-///
-/// let primary_calc = PvCalculator::primary();
-/// let reference_calc = PvCalculator::reference();
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct PvCalculator {
     /// Whether this calculator is for the primary leg (true) or reference leg (false).
     pub is_primary: bool,

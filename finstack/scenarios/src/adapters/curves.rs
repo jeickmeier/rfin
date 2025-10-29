@@ -310,7 +310,10 @@ pub fn apply_curve_node_shock(
                     }
                     TenorMatchMode::Interpolate => {
                         // Distribute bump to bracket pillars via linear weights
-                        let pos = knots.iter().position(|&t| t >= tenor_years).unwrap_or(knots.len() - 1);
+                        let pos = knots
+                            .iter()
+                            .position(|&t| t >= tenor_years)
+                            .unwrap_or(knots.len() - 1);
                         if pos == 0 {
                             forwards[0] += add;
                         } else {
@@ -332,14 +335,15 @@ pub fn apply_curve_node_shock(
 
             // Rebuild forward curve with adjusted forwards
             let bumped_points: Vec<(f64, f64)> = knots.into_iter().zip(forwards).collect();
-            let rebuilt = finstack_core::market_data::term_structures::forward_curve::ForwardCurve::builder(
-                base_curve.id().as_str(),
-                base_curve.tenor(),
-            )
-            .base_date(base_curve.base_date())
-            .knots(bumped_points)
-            .build()
-            .map_err(|e| Error::Internal(format!("Failed to rebuild forward curve: {}", e)))?;
+            let rebuilt =
+                finstack_core::market_data::term_structures::forward_curve::ForwardCurve::builder(
+                    base_curve.id().as_str(),
+                    base_curve.tenor(),
+                )
+                .base_date(base_curve.base_date())
+                .knots(bumped_points)
+                .build()
+                .map_err(|e| Error::Internal(format!("Failed to rebuild forward curve: {}", e)))?;
 
             market.insert_forward_mut(std::sync::Arc::new(rebuilt));
         }
@@ -388,7 +392,10 @@ pub fn apply_curve_node_shock(
                     }
                     TenorMatchMode::Interpolate => {
                         // Distribute multiplicative factor to bracket pillars via linear weights
-                        let pos = knots.iter().position(|&t| t >= tenor_years).unwrap_or(knots.len() - 1);
+                        let pos = knots
+                            .iter()
+                            .position(|&t| t >= tenor_years)
+                            .unwrap_or(knots.len() - 1);
                         if pos == 0 {
                             cpi_levels[0] *= factor;
                         } else {
@@ -410,13 +417,16 @@ pub fn apply_curve_node_shock(
 
             // Rebuild inflation curve with adjusted CPI levels
             let bumped_points: Vec<(f64, f64)> = knots.into_iter().zip(cpi_levels).collect();
-            let rebuilt = finstack_core::market_data::term_structures::inflation::InflationCurve::builder(
-                base_curve.id().as_str(),
-            )
-            .base_cpi(base_curve.base_cpi())
-            .knots(bumped_points)
-            .build()
-            .map_err(|e| Error::Internal(format!("Failed to rebuild inflation curve: {}", e)))?;
+            let rebuilt =
+                finstack_core::market_data::term_structures::inflation::InflationCurve::builder(
+                    base_curve.id().as_str(),
+                )
+                .base_cpi(base_curve.base_cpi())
+                .knots(bumped_points)
+                .build()
+                .map_err(|e| {
+                    Error::Internal(format!("Failed to rebuild inflation curve: {}", e))
+                })?;
 
             market.insert_inflation_mut(std::sync::Arc::new(rebuilt));
         }

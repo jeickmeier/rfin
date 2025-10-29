@@ -57,11 +57,11 @@ pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> Decimal {
 #[inline]
 pub(crate) fn round_decimal(x: Decimal, dp: i32, mode: RoundingMode) -> Decimal {
     use rust_decimal::RoundingStrategy;
-    
+
     if dp < 0 {
         return x;
     }
-    
+
     let strategy = match mode {
         RoundingMode::Bankers => RoundingStrategy::MidpointNearestEven,
         RoundingMode::AwayFromZero => RoundingStrategy::MidpointAwayFromZero,
@@ -69,6 +69,6 @@ pub(crate) fn round_decimal(x: Decimal, dp: i32, mode: RoundingMode) -> Decimal 
         RoundingMode::Floor => RoundingStrategy::ToNegativeInfinity,
         RoundingMode::Ceil => RoundingStrategy::ToPositiveInfinity,
     };
-    
+
     x.round_dp_with_strategy(dp as u32, strategy)
 }

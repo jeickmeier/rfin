@@ -41,14 +41,14 @@ impl CirParams {
         assert!(kappa > 0.0, "Mean reversion speed must be positive");
         assert!(theta >= 0.0, "Long-term mean must be non-negative");
         assert!(sigma > 0.0, "Volatility must be positive");
-        
+
         Self {
             kappa,
             theta,
             sigma,
         }
     }
-    
+
     /// Check if Feller condition is satisfied.
     ///
     /// Feller condition: 2κθ ≥ σ²
@@ -56,7 +56,7 @@ impl CirParams {
     pub fn satisfies_feller(&self) -> bool {
         2.0 * self.kappa * self.theta >= self.sigma * self.sigma
     }
-    
+
     /// Get the critical ψ threshold for QE scheme.
     ///
     /// This is a typical value used in the QE discretization to decide
@@ -91,12 +91,12 @@ impl CirProcess {
     pub fn new(params: CirParams) -> Self {
         Self { params }
     }
-    
+
     /// Create with explicit parameters.
     pub fn with_params(kappa: f64, theta: f64, sigma: f64) -> Self {
         Self::new(CirParams::new(kappa, theta, sigma))
     }
-    
+
     /// Get parameters.
     pub fn params(&self) -> &CirParams {
         &self.params
@@ -107,22 +107,22 @@ impl StochasticProcess for CirProcess {
     fn dim(&self) -> usize {
         1
     }
-    
+
     fn num_factors(&self) -> usize {
         1
     }
-    
+
     fn drift(&self, _t: f64, x: &[f64], out: &mut [f64]) {
         // μ(v) = κ(θ - v)
         out[0] = self.params.kappa * (self.params.theta - x[0]);
     }
-    
+
     fn diffusion(&self, _t: f64, x: &[f64], out: &mut [f64]) {
         // σ(v) = σ√v (ensure non-negative under sqrt)
         let v = x[0].max(0.0);
         out[0] = self.params.sigma * v.sqrt();
     }
-    
+
     fn is_diagonal(&self) -> bool {
         true
     }
@@ -164,20 +164,23 @@ impl CirPlusPlusProcess {
             shift_times.len(),
             "Shift curve and times must have same length"
         );
-        assert!(!shift_times.is_empty(), "Must have at least one shift value");
-        
+        assert!(
+            !shift_times.is_empty(),
+            "Must have at least one shift value"
+        );
+
         Self {
             cir,
             shift_curve,
             shift_times,
         }
     }
-    
+
     /// Create with constant shift.
     pub fn with_constant_shift(cir: CirProcess, shift: f64) -> Self {
         Self::new(cir, vec![shift], vec![0.0])
     }
-    
+
     /// Get φ(t) at a given time.
     pub fn shift_at_time(&self, t: f64) -> f64 {
         // Piecewise-constant interpolation
@@ -186,15 +189,15 @@ impl CirPlusPlusProcess {
                 return self.shift_curve[i];
             }
         }
-        
+
         self.shift_curve[0]
     }
-    
+
     /// Get actual short rate r_t = x_t + φ(t).
     pub fn actual_rate(&self, x: f64, t: f64) -> f64 {
         x + self.shift_at_time(t)
     }
-    
+
     /// Get base CIR process.
     pub fn cir(&self) -> &CirProcess {
         &self.cir
@@ -205,21 +208,21 @@ impl StochasticProcess for CirPlusPlusProcess {
     fn dim(&self) -> usize {
         1
     }
-    
+
     fn num_factors(&self) -> usize {
         1
     }
-    
+
     fn drift(&self, t: f64, x: &[f64], out: &mut [f64]) {
         // The state x follows base CIR dynamics (shift doesn't affect SDE)
         self.cir.drift(t, x, out);
     }
-    
+
     fn diffusion(&self, t: f64, x: &[f64], out: &mut [f64]) {
         // Diffusion is same as base CIR
         self.cir.diffusion(t, x, out);
     }
-    
+
     fn is_diagonal(&self) -> bool {
         true
     }
@@ -228,82 +231,81 @@ impl StochasticProcess for CirPlusPlusProcess {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_cir_params_feller_condition() {
         // Satisfies Feller: 2κθ ≥ σ²
         let params1 = CirParams::new(0.5, 0.04, 0.1);
         assert!(params1.satisfies_feller());
         // 2 * 0.5 * 0.04 = 0.04 >= 0.01 ✓
-        
+
         // Violates Feller
         let params2 = CirParams::new(0.1, 0.01, 0.2);
         assert!(!params2.satisfies_feller());
         // 2 * 0.1 * 0.01 = 0.002 < 0.04 ✗
     }
-    
+
     #[test]
     fn test_cir_drift() {
         let params = CirParams::new(0.3, 0.04, 0.1);
         let process = CirProcess::new(params);
-        
+
         // Above mean
         let x = vec![0.05];
         let mut drift = vec![0.0];
         process.drift(0.0, &x, &mut drift);
         assert!(drift[0] < 0.0); // Pull down
         assert_eq!(drift[0], 0.3 * (0.04 - 0.05));
-        
+
         // Below mean
         let x2 = vec![0.03];
         process.drift(0.0, &x2, &mut drift);
         assert!(drift[0] > 0.0); // Pull up
         assert_eq!(drift[0], 0.3 * (0.04 - 0.03));
     }
-    
+
     #[test]
     fn test_cir_diffusion() {
         let params = CirParams::new(0.3, 0.04, 0.1);
         let process = CirProcess::new(params);
-        
+
         let x = vec![0.04];
         let mut diffusion = vec![0.0];
         process.diffusion(0.0, &x, &mut diffusion);
-        
+
         // σ√v = 0.1 * √0.04 = 0.1 * 0.2 = 0.02
         assert_eq!(diffusion[0], 0.1 * 0.04_f64.sqrt());
     }
-    
+
     #[test]
     fn test_cir_plus_plus_shift() {
         let cir = CirProcess::with_params(0.1, 0.03, 0.05);
         let shift_curve = vec![0.01, 0.02];
         let shift_times = vec![0.0, 1.0];
-        
+
         let cir_pp = CirPlusPlusProcess::new(cir, shift_curve, shift_times);
-        
+
         assert_eq!(cir_pp.shift_at_time(0.0), 0.01);
         assert_eq!(cir_pp.shift_at_time(0.5), 0.01);
         assert_eq!(cir_pp.shift_at_time(1.0), 0.02);
         assert_eq!(cir_pp.shift_at_time(2.0), 0.02);
-        
+
         // Actual rate
         assert_eq!(cir_pp.actual_rate(0.03, 0.0), 0.04); // x + φ(0)
         assert_eq!(cir_pp.actual_rate(0.03, 1.5), 0.05); // x + φ(1.5)
     }
-    
+
     #[test]
     fn test_cir_plus_plus_dynamics() {
         let cir = CirProcess::with_params(0.1, 0.03, 0.05);
         let cir_pp = CirPlusPlusProcess::with_constant_shift(cir, 0.02);
-        
+
         // The state x follows base CIR dynamics
         let x = vec![0.04];
         let mut drift = vec![0.0];
         cir_pp.drift(0.0, &x, &mut drift);
-        
+
         // Drift should be same as base CIR
         assert_eq!(drift[0], 0.1 * (0.03 - 0.04));
     }
 }
-

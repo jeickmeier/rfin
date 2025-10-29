@@ -154,13 +154,13 @@ mod tests {
     #[test]
     fn test_heston_params() {
         let params = HestonParams::new(
-            0.05,  // r
-            0.02,  // q
-            2.0,   // kappa
-            0.04,  // theta
-            0.3,   // sigma_v
-            -0.5,  // rho
-            0.04,  // v0
+            0.05, // r
+            0.02, // q
+            2.0,  // kappa
+            0.04, // theta
+            0.3,  // sigma_v
+            -0.5, // rho
+            0.04, // v0
         );
 
         assert_eq!(params.kappa, 2.0);

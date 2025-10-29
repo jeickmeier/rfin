@@ -145,7 +145,7 @@ mod tests {
         let (coll_exp, new_coll) = apply_collateral(50.0, 0.0, &agreement);
 
         assert_eq!(coll_exp, 50.0); // Full exposure (no collateral)
-        assert_eq!(new_coll, 0.0);  // No collateral posted
+        assert_eq!(new_coll, 0.0); // No collateral posted
     }
 
     #[test]
@@ -182,7 +182,7 @@ mod tests {
         let (coll_exp, new_coll) = apply_collateral(0.0, 0.0, &agreement);
 
         assert_eq!(new_coll, 20.0); // IA posted
-        // Exposure is negative (we're over-collateralized)
+                                    // Exposure is negative (we're over-collateralized)
         assert_eq!(coll_exp, 0.0); // Can't be negative
     }
 
@@ -210,4 +210,3 @@ mod tests {
         assert_eq!(coll_exp, 0.0);
     }
 }
-

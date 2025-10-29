@@ -14,4 +14,3 @@ pub mod importance_sampling;
 
 pub use antithetic::*;
 pub use control_variate::*;
-

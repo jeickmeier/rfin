@@ -139,20 +139,22 @@ where
     )?;
 
     // Second derivative
-    let gamma = (result_up.mean.amount() - 2.0 * result_base.mean.amount() + result_down.mean.amount()) / (h * h);
+    let gamma = (result_up.mean.amount() - 2.0 * result_base.mean.amount()
+        + result_down.mean.amount())
+        / (h * h);
 
     Ok(gamma)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::discretization::exact::ExactGbm;
     use super::super::super::engine::McEngineConfig;
     use super::super::super::payoff::vanilla::EuropeanCall;
     use super::super::super::process::gbm::{GbmParams, GbmProcess};
     use super::super::super::rng::philox::PhiloxRng;
     use super::super::super::time_grid::TimeGrid;
+    use super::*;
 
     #[test]
     fn test_finite_diff_delta_atm() {

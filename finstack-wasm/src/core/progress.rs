@@ -46,4 +46,3 @@ mod tests {
         assert!(!reporter.is_enabled());
     }
 }
-

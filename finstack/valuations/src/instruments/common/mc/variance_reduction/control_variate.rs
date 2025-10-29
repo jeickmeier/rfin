@@ -40,13 +40,14 @@ pub fn black_scholes_call(
     }
 
     let sqrt_t = time_to_maturity.sqrt();
-    let d1 = ((spot / strike).ln() + (rate - dividend_yield + 0.5 * volatility * volatility) * time_to_maturity)
+    let d1 = ((spot / strike).ln()
+        + (rate - dividend_yield + 0.5 * volatility * volatility) * time_to_maturity)
         / (volatility * sqrt_t);
     let d2 = d1 - volatility * sqrt_t;
 
     let discount_factor = (-rate * time_to_maturity).exp();
 
-    spot * (-dividend_yield * time_to_maturity).exp() * norm_cdf(d1) 
+    spot * (-dividend_yield * time_to_maturity).exp() * norm_cdf(d1)
         - strike * discount_factor * norm_cdf(d2)
 }
 
@@ -64,13 +65,14 @@ pub fn black_scholes_put(
     }
 
     let sqrt_t = time_to_maturity.sqrt();
-    let d1 = ((spot / strike).ln() + (rate - dividend_yield + 0.5 * volatility * volatility) * time_to_maturity)
+    let d1 = ((spot / strike).ln()
+        + (rate - dividend_yield + 0.5 * volatility * volatility) * time_to_maturity)
         / (volatility * sqrt_t);
     let d2 = d1 - volatility * sqrt_t;
 
     let discount_factor = (-rate * time_to_maturity).exp();
 
-    strike * discount_factor * norm_cdf(-d2) 
+    strike * discount_factor * norm_cdf(-d2)
         - spot * (-dividend_yield * time_to_maturity).exp() * norm_cdf(-d1)
 }
 
@@ -149,7 +151,7 @@ mod tests {
     fn test_black_scholes_call() {
         // ATM call: S=100, K=100, T=1, r=5%, q=2%, σ=20%
         let price = black_scholes_call(100.0, 100.0, 1.0, 0.05, 0.02, 0.2);
-        
+
         // Should be around 8-9 for these parameters
         assert!(price > 7.0 && price < 10.0);
     }
@@ -158,7 +160,7 @@ mod tests {
     fn test_black_scholes_put() {
         // ATM put: S=100, K=100, T=1, r=5%, q=2%, σ=20%
         let price = black_scholes_put(100.0, 100.0, 1.0, 0.05, 0.02, 0.2);
-        
+
         // Should be positive
         assert!(price > 5.0 && price < 8.0);
     }
@@ -179,7 +181,12 @@ mod tests {
         let lhs = call - put;
         let rhs = s * (-q * t).exp() - k * (-r * t).exp();
 
-        assert!((lhs - rhs).abs() < 1e-8, "Put-call parity failed: {} vs {}", lhs, rhs);
+        assert!(
+            (lhs - rhs).abs() < 1e-8,
+            "Put-call parity failed: {} vs {}",
+            lhs,
+            rhs
+        );
     }
 
     #[test]
@@ -218,7 +225,7 @@ mod tests {
 
         // Adjusted mean should be different from raw MC mean
         assert!((result.mean - mc_mean).abs() > 0.0);
-        
+
         // Should have valid stderr
         assert!(result.stderr > 0.0);
     }
@@ -229,7 +236,7 @@ mod tests {
         let y = vec![2.0, 4.0, 6.0, 8.0, 10.0];
 
         let cov = covariance(&x, &y);
-        
+
         // Perfect positive correlation: y = 2x
         // Var(x) = 2.5, Var(y) = 10, Cov(x,y) = 5
         assert!(cov > 0.0);

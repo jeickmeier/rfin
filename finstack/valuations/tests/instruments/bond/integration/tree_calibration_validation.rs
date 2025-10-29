@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Tree Calibration Validation Tests
 //!
 //! These tests validate that the short-rate tree used for callable bond pricing

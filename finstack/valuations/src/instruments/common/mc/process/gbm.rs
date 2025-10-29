@@ -132,11 +132,7 @@ impl MultiGbmProcess {
     pub fn new(params: Vec<GbmParams>, correlation: Option<Vec<f64>>) -> Self {
         if let Some(ref corr) = correlation {
             let n = params.len();
-            assert_eq!(
-                corr.len(),
-                n * n,
-                "Correlation matrix must be n x n"
-            );
+            assert_eq!(corr.len(), n * n, "Correlation matrix must be n x n");
         }
         Self {
             params,
@@ -241,4 +237,3 @@ mod tests {
         assert!(multi_gbm.correlation().is_some());
     }
 }
-

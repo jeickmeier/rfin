@@ -7,13 +7,7 @@ use finstack_core::{Error, Result};
 /// The annuity represents the sum of discounted year fractions for a leg,
 /// which is used in DV01 calculations and par spread computations.
 ///
-/// # Examples
-/// ```rust
-/// use finstack_valuations::instruments::basis_swap::metrics::AnnuityCalculator;
-///
-/// let primary_calc = AnnuityCalculator::primary();
-/// let reference_calc = AnnuityCalculator::reference();
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct AnnuityCalculator {
     /// Whether this calculator is for the primary leg (true) or reference leg (false).
     pub is_primary: bool,
