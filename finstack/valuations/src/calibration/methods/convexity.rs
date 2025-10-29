@@ -157,7 +157,6 @@ impl ConvexityParameters {
 mod tests {
     use super::*;
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_basic_convexity_adjustment() {
         // 1-year future on 3-month rate with 1% volatility
@@ -165,7 +164,6 @@ mod tests {
         assert!((adj - 0.0000625).abs() < 1e-8); // 0.625 bp
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_volatility_estimation() {
         let vol_3m = estimate_rate_volatility(0.25, 1.0);
@@ -175,7 +173,6 @@ mod tests {
         assert!((vol_6m - 0.00975).abs() < 1e-3); // ~97.5bp
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_currency_specific_parameters() {
         let usd_params = ConvexityParameters::usd_sofr();
@@ -183,7 +180,6 @@ mod tests {
         assert!(adj > 0.0 && adj < 0.001); // Reasonable range
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_ho_lee_model() {
         // With zero mean reversion, should match simple model

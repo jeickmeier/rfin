@@ -186,7 +186,6 @@ impl SwaptionMarketConvention {
 mod tests {
     use super::*;
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_usd_conventions() {
         let conv = SwaptionMarketConvention::usd();
@@ -195,7 +194,6 @@ mod tests {
         assert_eq!(conv.float_freq, Frequency::quarterly());
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_eur_conventions() {
         let conv = SwaptionMarketConvention::eur();
@@ -204,7 +202,6 @@ mod tests {
         assert_eq!(conv.float_freq, Frequency::semi_annual());
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_from_currency() {
         let usd_conv = SwaptionMarketConvention::from_currency(Currency::USD);
@@ -217,7 +214,6 @@ mod tests {
         assert_eq!(gbp_conv.day_count, DayCount::Act365F);
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_builder_pattern() {
         let custom_conv = SwaptionMarketConvention::usd()
