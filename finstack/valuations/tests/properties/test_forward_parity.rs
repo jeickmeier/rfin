@@ -36,7 +36,6 @@ proptest! {
     // are tested in prop_discount_factor_monotonicity and prop_zero_rate_from_discount_factor.
 
     #[test]
-    #[ignore = "Property test: 100 iterations"]
     fn prop_discount_factor_monotonicity(
         rate in 0.01..0.10,
         t1 in 0.5..2.0,
@@ -64,7 +63,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "Property test: 100 iterations"]
     fn prop_zero_rate_from_discount_factor(
         rate in 0.01..0.10,
         time in 0.5..10.0,

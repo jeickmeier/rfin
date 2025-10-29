@@ -63,7 +63,6 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(100))]
 
     #[test]
-    #[ignore = "Property test: 100 iterations"]
     fn prop_call_lower_bound(
         spot in 50.0..150.0,
         strike in 50.0..150.0,
@@ -109,7 +108,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "Property test: 100 iterations"]
     fn prop_put_lower_bound(
         spot in 50.0..150.0,
         strike in 50.0..150.0,
@@ -155,7 +153,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "Property test: 100 iterations"]
     fn prop_call_upper_bound(
         spot in 50.0..150.0,
         strike in 50.0..150.0,
@@ -186,7 +183,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "Property test: 100 iterations"]
     fn prop_put_upper_bound(
         strike in 50.0..150.0,
         vol in 0.10..0.50,
@@ -220,7 +216,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "Property test: 100 iterations"]
     fn prop_option_monotonicity_in_vol(
         spot in 80.0..120.0,
         strike in 80.0..120.0,

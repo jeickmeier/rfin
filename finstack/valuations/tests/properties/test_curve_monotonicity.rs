@@ -36,7 +36,6 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(50))]
 
     #[test]
-    #[ignore = "Property test: 50 iterations"]
     fn prop_discount_factors_decrease(
         knots in valid_discount_factors(),
     ) {
@@ -69,7 +68,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "Property test: 50 iterations"]
     fn prop_invalid_curves_rejected(
         valid_knots in valid_discount_factors(),
         bad_index in 1usize..5,
@@ -97,7 +95,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "Property test: 50 iterations"]
     fn prop_zero_rates_positive_for_normal_curves(
         knots in valid_discount_factors(),
     ) {

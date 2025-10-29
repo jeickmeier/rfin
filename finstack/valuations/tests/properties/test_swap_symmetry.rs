@@ -50,7 +50,6 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(100))]
 
     #[test]
-    #[ignore = "Property test: 100 iterations"]
     fn prop_swap_dv01_symmetry(
         notional in 1_000_000.0..100_000_000.0,
         fixed_rate in 0.01..0.10,
@@ -98,7 +97,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "Property test: 100 iterations"]
     fn prop_swap_pv_symmetry_at_par_rate(
         notional in 1_000_000.0..100_000_000.0,
         tenor_years in 1..=10,
@@ -160,7 +158,6 @@ proptest! {
     }
 
     #[test]
-    #[ignore = "Property test: 100 iterations"]
     fn prop_swap_annuity_positive(
         notional in 1_000_000.0..100_000_000.0,
         fixed_rate in 0.01..0.10,
