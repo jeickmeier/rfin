@@ -730,6 +730,7 @@ mod tests {
     use finstack_core::dates::{DayCount, Frequency};
     use time::Month;
 
+    #[allow(dead_code)]
     fn create_test_quotes() -> Vec<MarketQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 
@@ -774,8 +775,8 @@ mod tests {
         ]
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
+    #[cfg(feature = "slow")]
     fn test_simple_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
         let calibration =

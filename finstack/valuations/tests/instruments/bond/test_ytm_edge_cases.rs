@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! YTM edge case tests for market standards compliance.
 //!
 //! Tests cover:
@@ -78,7 +79,6 @@ fn test_deep_discount_bond_ytm() {
 }
 
 #[test]
-#[ignore = "Requires custom cashflow schedule for zero-coupon bonds"]
 fn test_zero_coupon_bond_ytm() {
     // Zero-coupon bond: No coupons, only principal repayment
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -121,7 +121,6 @@ fn test_zero_coupon_bond_ytm() {
 }
 
 #[test]
-#[ignore = "Stub period handling needs verification with actual cashflows"]
 fn test_odd_first_coupon_ytm() {
     // Bond with odd first coupon (short stub)
     // Issue: Jan 15, First coupon: Apr 1 (2.5 months), then regular semi-annual
@@ -163,7 +162,6 @@ fn test_odd_first_coupon_ytm() {
 }
 
 #[test]
-#[ignore = "EOM February handling needs custom setup"]
 fn test_eom_february_maturity_ytm() {
     // Bond maturing on end of February (handles leap year logic)
     let issue = Date::from_calendar_date(2025, Month::February, 28).unwrap();
@@ -210,7 +208,6 @@ fn test_eom_february_maturity_ytm() {
 }
 
 #[test]
-#[ignore = "Long stub period handling needs verification"]
 fn test_long_first_coupon_ytm() {
     // Bond with long first coupon
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();

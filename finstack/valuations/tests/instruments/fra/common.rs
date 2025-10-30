@@ -52,6 +52,7 @@ pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> 
 }
 
 /// Creates an upward sloping forward curve (normal term structure)
+#[allow(dead_code)]
 pub fn build_upward_forward_curve(base_date: Date, curve_id: &str) -> ForwardCurve {
     ForwardCurve::builder(curve_id, 0.25)
         .base_date(base_date)
@@ -68,6 +69,7 @@ pub fn build_upward_forward_curve(base_date: Date, curve_id: &str) -> ForwardCur
 }
 
 /// Creates an inverted forward curve (stressed scenario)
+#[allow(dead_code)]
 pub fn build_inverted_forward_curve(base_date: Date, curve_id: &str) -> ForwardCurve {
     ForwardCurve::builder(curve_id, 0.25)
         .base_date(base_date)

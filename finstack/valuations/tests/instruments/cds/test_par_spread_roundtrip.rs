@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! CDS par spread round-trip tests.
 //!
 //! Validates that:
@@ -38,7 +39,6 @@ fn create_discount_curve(base_date: Date) -> DiscountCurve {
 }
 
 #[test]
-#[ignore = "CDS calibration round-trip test - requires hazard curve ID matching"]
 fn test_cds_par_spread_roundtrip_1y() {
     let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
@@ -97,7 +97,6 @@ fn test_cds_par_spread_roundtrip_1y() {
 }
 
 #[test]
-#[ignore = "CDS multi-tenor calibration test - requires curve ID matching"]
 fn test_cds_par_spread_roundtrip_multi_tenor() {
     let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     
@@ -165,7 +164,6 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
 }
 
 #[test]
-#[ignore = "CDS par spread consistency test - documents expected behavior"]
 fn test_cds_par_spread_calculation_consistency() {
     // Test that calculating par spread from a hazard curve, then repricing
     // with that spread, gives NPV ≈ 0

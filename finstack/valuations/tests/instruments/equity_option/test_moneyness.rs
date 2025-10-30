@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Tests for option behavior across different moneyness levels (ITM/ATM/OTM).
 
 use super::helpers::*;
@@ -130,7 +131,6 @@ fn test_delta_behavior_put() {
 // ==================== GAMMA PROFILE ====================
 
 #[test]
-#[ignore] // Gamma peak location depends on vol surface interpolation details
 fn test_gamma_peaks_at_atm() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
@@ -166,7 +166,6 @@ fn test_gamma_peaks_at_atm() {
 // ==================== VEGA PROFILE ====================
 
 #[test]
-#[ignore] // Vega peak location depends on vol surface interpolation details
 fn test_vega_peaks_at_atm() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);

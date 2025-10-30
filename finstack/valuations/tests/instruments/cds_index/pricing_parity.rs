@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! CDS Index pricing parity tests between single-curve and constituents modes.
 //!
 //! Market Standard: When all constituents have identical credit quality,
@@ -15,7 +16,6 @@ use finstack_valuations::instruments::cds_index::IndexPricing;
 use finstack_valuations::instruments::common::traits::Instrument;
 use time::macros::date;
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_npv_parity_equal_hazards() {
     // Market Standard: Single curve vs constituents pricing with equal hazards
@@ -43,7 +43,6 @@ fn test_npv_parity_equal_hazards() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_par_spread_parity_equal_hazards() {
     // Test: Par spread consistency across modes
@@ -63,7 +62,6 @@ fn test_par_spread_parity_equal_hazards() {
     assert_relative_eq(par_single, par_constituents, 0.05, "Par spread parity");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_risky_pv01_parity_equal_hazards() {
     // Test: Risky PV01 consistency across modes
@@ -83,7 +81,6 @@ fn test_risky_pv01_parity_equal_hazards() {
     assert_relative_eq(rpv01_single, rpv01_constituents, 0.05, "Risky PV01 parity");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_cs01_parity_equal_hazards() {
     // Test: CS01 consistency across modes
@@ -103,7 +100,6 @@ fn test_cs01_parity_equal_hazards() {
     assert_relative_eq(cs01_single, cs01_constituents, 0.15, "CS01 parity");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_protection_leg_parity_equal_hazards() {
     // Test: Protection leg PV consistency
@@ -127,7 +123,6 @@ fn test_protection_leg_parity_equal_hazards() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_premium_leg_parity_equal_hazards() {
     // Test: Premium leg PV consistency
@@ -151,7 +146,6 @@ fn test_premium_leg_parity_equal_hazards() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_mode_switching_preserves_basics() {
     // Test: Switching pricing mode maintains core fields
@@ -174,7 +168,6 @@ fn test_mode_switching_preserves_basics() {
     assert_eq!(idx.pricing, IndexPricing::Constituents);
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_parity_with_different_constituent_counts() {
     // Test: Parity holds across different constituent counts
@@ -198,7 +191,6 @@ fn test_parity_with_different_constituent_counts() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_parity_across_maturities() {
     // Test: Parity holds across different maturities
@@ -227,7 +219,6 @@ fn test_parity_across_maturities() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_parity_with_different_notionals() {
     // Test: Relative parity holds across notional sizes
@@ -250,7 +241,6 @@ fn test_parity_with_different_notionals() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_mode_independence_of_par_spread() {
     // Test: Par spread (a ratio) should be nearly identical across modes
@@ -270,7 +260,6 @@ fn test_mode_independence_of_par_spread() {
     assert_relative_eq(par_single, par_const, 0.03, "Par spread mode independence");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_consistent_sign_conventions_across_modes() {
     // Test: Sign conventions consistent between modes

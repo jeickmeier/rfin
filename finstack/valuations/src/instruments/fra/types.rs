@@ -212,17 +212,23 @@ impl CashflowProvider for ForwardRateAgreement {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "slow")]
     use super::*;
-    use crate::instruments::common::traits::Instrument;
+    #[cfg(feature = "slow")]
     use finstack_core::currency::Currency;
+    #[cfg(feature = "slow")]
     use finstack_core::dates::Date;
+    #[cfg(feature = "slow")]
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    #[cfg(feature = "slow")]
     use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    #[cfg(feature = "slow")]
     use finstack_core::math::interp::InterpStyle;
+    #[cfg(feature = "slow")]
     use time::Month;
 
     #[test]
-    #[ignore = "Integration test depends on context wiring; left as regression guard"]
+    #[cfg(feature = "slow")]
     fn fra_par_pv_near_zero_with_settlement_adjustment() {
         // Build simple flat curves: 5% forward, discount with reasonable decay
         let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();

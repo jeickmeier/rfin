@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Market standard test: Put-Call Parity for FX options.
 //!
 //! Validates that the Garman-Kohlhagen model satisfies put-call parity:
@@ -10,7 +11,6 @@ use super::helpers::*;
 use finstack_valuations::instruments::fx_option::FxOptionCalculator;
 use time::macros::date;
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_atm() {
     // Arrange: ATM call and put
@@ -38,7 +38,6 @@ fn test_put_call_parity_atm() {
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold ATM");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_itm() {
     // Arrange: ITM call (OTM put)
@@ -65,7 +64,6 @@ fn test_put_call_parity_itm() {
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold ITM");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_otm() {
     // Arrange: OTM call (ITM put)
@@ -92,7 +90,6 @@ fn test_put_call_parity_otm() {
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold OTM");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_high_vol() {
     // Arrange: High volatility environment
@@ -125,7 +122,6 @@ fn test_put_call_parity_high_vol() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_steep_carry() {
     // Arrange: Steep interest rate differential
@@ -158,7 +154,6 @@ fn test_put_call_parity_steep_carry() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_short_dated() {
     // Arrange: 1M option
@@ -191,7 +186,6 @@ fn test_put_call_parity_short_dated() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_long_dated() {
     // Arrange: 5Y option
@@ -224,7 +218,6 @@ fn test_put_call_parity_long_dated() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_different_notionals() {
     // Arrange: Various notional sizes

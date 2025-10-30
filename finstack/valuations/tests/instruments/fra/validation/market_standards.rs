@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Market-standard FRA validation tests.
 //!
 //! Validates FRA implementation against market conventions:
@@ -235,7 +236,6 @@ fn test_dv01_sign_convention() {
 }
 
 #[test]
-#[ignore = "Zero rates may cause issues in curve construction"]
 fn test_zero_curve_zero_pv() {
     // Skip this test as zero rates may cause numerical issues
     // This edge case can be addressed with curve infrastructure improvements

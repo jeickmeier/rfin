@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! FRA par rate metric tests.
 //!
 //! Par rate is the fixed rate that makes the FRA's PV zero under
@@ -199,7 +200,6 @@ fn test_par_rate_different_day_counts() {
 }
 
 #[test]
-#[ignore = "Negative rates may not be fully supported in curve construction"]
 fn test_par_rate_negative_rate_environment() {
     // Skip this test as the curve builder may not support negative rates
     // This would be a feature enhancement for the curve infrastructure

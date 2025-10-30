@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! QuantLib parity tests for CDS Option pricing and Greeks.
 //!
 //! These tests validate that our CDS Option implementation follows the same
@@ -55,7 +56,6 @@ use time::macros::date;
 // Test 1: Black-76 Model Properties (QuantLib testBlack76)
 // ============================================================================
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_black76_positive_value() {
     // QuantLib property: options have positive value before expiry
@@ -90,7 +90,6 @@ fn test_quantlib_black76_positive_value() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_black76_atf_call_put_parity() {
     // QuantLib property: at-the-forward, call ≈ put
@@ -135,7 +134,6 @@ fn test_quantlib_black76_atf_call_put_parity() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_black76_strike_monotonicity() {
     // QuantLib property: ∂C/∂K < 0, ∂P/∂K > 0
@@ -181,7 +179,6 @@ fn test_quantlib_black76_strike_monotonicity() {
 // Test 2: Greeks Properties (QuantLib testGreeks)
 // ============================================================================
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_greeks_delta_signs() {
     // QuantLib property: call delta > 0, put delta < 0
@@ -211,7 +208,6 @@ fn test_quantlib_greeks_delta_signs() {
     assert!(put_delta < 0.0, "Put delta should be negative");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_greeks_gamma_positive() {
     // QuantLib property: gamma > 0 for all options
@@ -236,7 +232,6 @@ fn test_quantlib_greeks_gamma_positive() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_greeks_vega_positive() {
     // QuantLib property: vega > 0 for all options
@@ -257,7 +252,6 @@ fn test_quantlib_greeks_vega_positive() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_greeks_gamma_vega_peak_atm() {
     // QuantLib property: gamma and vega peak at ATM
@@ -306,7 +300,6 @@ fn test_quantlib_greeks_gamma_vega_peak_atm() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_greeks_finite() {
     // QuantLib property: all greeks are finite
@@ -344,7 +337,6 @@ fn test_quantlib_greeks_finite() {
 // Test 3: Implied Volatility (QuantLib testImpliedVolatility)
 // ============================================================================
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_iv_round_trip_atm() {
     // QuantLib property: perfect IV round-trip at ATM
@@ -369,7 +361,6 @@ fn test_quantlib_iv_round_trip_atm() {
     assert_approx_eq(solved_iv, target_vol, 1e-6, "IV round-trip ATM");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_iv_round_trip_moneyness() {
     // QuantLib property: IV round-trip across moneyness spectrum
@@ -407,7 +398,6 @@ fn test_quantlib_iv_round_trip_moneyness() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_iv_convergence_from_different_guesses() {
     // QuantLib property: IV solver converges to same answer from different initial guesses
@@ -450,7 +440,6 @@ fn test_quantlib_iv_convergence_from_different_guesses() {
 // Test 4: Forward Spread (QuantLib testForwardSpread)
 // ============================================================================
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_forward_spread_positive() {
     // QuantLib property: forward spread should be positive for normal credits
@@ -465,7 +454,6 @@ fn test_quantlib_forward_spread_positive() {
     assert_in_range(forward, 50.0, 500.0, "Forward spread reasonableness");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_forward_spread_atf_parity() {
     // QuantLib property: ATF call ≈ ATF put (forward parity)
@@ -507,7 +495,6 @@ fn test_quantlib_forward_spread_atf_parity() {
 // Test 5: Index Options (QuantLib testIndexOptions)
 // ============================================================================
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_index_factor_linear_scaling() {
     // QuantLib property: PV scales linearly with index factor
@@ -547,7 +534,6 @@ fn test_quantlib_index_factor_linear_scaling() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_index_forward_adjustment_direction() {
     // QuantLib property: positive adjustment increases call value, decreases put value
@@ -617,7 +603,6 @@ fn test_quantlib_index_forward_adjustment_direction() {
 // Test 6: No-Arbitrage Bounds (QuantLib convexity tests)
 // ============================================================================
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_butterfly_no_arbitrage() {
     // QuantLib property: C(K1) + C(K3) >= 2*C(K2) for K1 < K2 < K3
@@ -672,7 +657,6 @@ fn test_quantlib_butterfly_no_arbitrage() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_digital_spread_positive() {
     // QuantLib property: (C(K1) - C(K2))/(K2 - K1) >= 0 for K1 < K2
@@ -717,7 +701,6 @@ fn test_quantlib_digital_spread_positive() {
 // Summary: Comprehensive Parity Check
 // ============================================================================
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_comprehensive_properties() {
     // Comprehensive test covering all major QuantLib properties

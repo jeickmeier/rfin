@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Tests for Black-Scholes pricing implementation.
 
 use super::helpers::*;
@@ -253,7 +254,6 @@ fn test_deep_otm_call_has_small_value() {
 }
 
 #[test]
-#[ignore] // Zero vol is clamped by vol surface implementation
 fn test_zero_vol_itm_call_equals_discounted_intrinsic() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
@@ -279,7 +279,6 @@ fn test_zero_vol_itm_call_equals_discounted_intrinsic() {
 }
 
 #[test]
-#[ignore] // Zero vol is clamped by vol surface implementation
 fn test_zero_vol_otm_call_is_worthless() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);

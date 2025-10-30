@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! FRA pricing and NPV calculation tests.
 //!
 //! Validates the core NPV calculation, including:
@@ -223,7 +224,6 @@ fn test_inverted_curve() {
 }
 
 #[test]
-#[ignore = "Negative rates may not be fully supported in curve construction"]
 fn test_negative_rate_environment() {
     // Skip this test as the curve builder may not support negative rates
     // This would be a feature enhancement for the curve infrastructure

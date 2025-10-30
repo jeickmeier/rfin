@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Tests for put-call parity relationships.
 //!
 //! Put-call parity for European options:
@@ -16,7 +17,6 @@ use super::helpers::*;
 use finstack_valuations::instruments::common::traits::Instrument;
 use time::macros::date;
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_atm() {
     let as_of = date!(2024 - 01 - 01);
@@ -50,7 +50,6 @@ fn test_put_call_parity_atm() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_itm_call() {
     let as_of = date!(2024 - 01 - 01);
@@ -78,7 +77,6 @@ fn test_put_call_parity_itm_call() {
     assert_approx_eq_tol(actual_diff, expected_diff, 10.0, "Put-call parity ITM call");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_otm_call() {
     let as_of = date!(2024 - 01 - 01);
@@ -106,7 +104,6 @@ fn test_put_call_parity_otm_call() {
     assert_approx_eq_tol(actual_diff, expected_diff, 10.0, "Put-call parity OTM call");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_short_dated() {
     let as_of = date!(2024 - 01 - 01);
@@ -139,7 +136,6 @@ fn test_put_call_parity_short_dated() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_long_dated() {
     let as_of = date!(2024 - 01 - 01);
@@ -172,7 +168,6 @@ fn test_put_call_parity_long_dated() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_with_high_dividends() {
     let as_of = date!(2024 - 01 - 01);
@@ -205,7 +200,6 @@ fn test_put_call_parity_with_high_dividends() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_zero_rates() {
     let as_of = date!(2024 - 01 - 01);
@@ -236,7 +230,6 @@ fn test_put_call_parity_zero_rates() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_across_volatilities() {
     let as_of = date!(2024 - 01 - 01);
@@ -272,7 +265,6 @@ fn test_put_call_parity_across_volatilities() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_put_call_parity_across_spot_levels() {
     let as_of = date!(2024 - 01 - 01);

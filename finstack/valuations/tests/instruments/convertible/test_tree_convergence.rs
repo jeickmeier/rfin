@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Tree convergence tests for convertible bond pricing.
 //!
 //! Verifies that the binomial tree pricer converges to a stable value as
@@ -10,7 +11,6 @@
 //! tree size. This test documents the expected validation approach.
 
 #[test]
-#[ignore = "Placeholder for tree convergence test - requires API enhancement"]
 fn test_convertible_tree_convergence_placeholder() {
     //! Documents the expected structure for tree convergence validation.
     //!

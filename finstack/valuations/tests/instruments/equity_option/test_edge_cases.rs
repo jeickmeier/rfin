@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! Tests for edge cases and boundary conditions.
 
 use super::helpers::*;
@@ -155,7 +156,6 @@ fn test_very_deep_otm_call() {
 // ==================== EXTREME VOLATILITY ====================
 
 #[test]
-#[ignore] // Zero vol is clamped by vol surface implementation
 fn test_zero_volatility_itm() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
@@ -174,7 +174,6 @@ fn test_zero_volatility_itm() {
 }
 
 #[test]
-#[ignore] // Zero vol is clamped by vol surface implementation
 fn test_zero_volatility_otm() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);

@@ -901,8 +901,8 @@ mod tests {
         assert!(unknown_id.as_str().contains("CUSTOM-INDEX"));
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
+    #[cfg(feature = "slow")]
     fn test_basis_swap_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 

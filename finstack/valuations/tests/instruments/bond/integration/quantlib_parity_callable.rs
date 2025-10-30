@@ -43,7 +43,6 @@ fn create_market(base_date: time::Date, rate: f64) -> MarketContext {
 // QuantLib reference: callablebonds.cpp, testObservability()
 // Basic principle: Callable bond value = Straight bond value - Call option value
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_callable_less_than_straight() {
     let as_of = date!(2020 - 01 - 01);
@@ -107,7 +106,6 @@ fn quantlib_parity_callable_less_than_straight() {
 // QuantLib reference: callablebonds.cpp, testPutCallParity()
 // Basic principle: Putable bond value = Straight bond value + Put option value
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_putable_more_than_straight() {
     let as_of = date!(2020 - 01 - 01);
@@ -171,7 +169,6 @@ fn quantlib_parity_putable_more_than_straight() {
 // QuantLib reference: callablebonds.cpp, testRatesSensitivity()
 // Lower rates make call options more valuable (more likely to be exercised)
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_call_value_rate_sensitivity() {
     let as_of = date!(2020 - 01 - 01);
@@ -231,7 +228,6 @@ fn quantlib_parity_call_value_rate_sensitivity() {
 // QuantLib reference: callablebonds.cpp, testRatesSensitivity()
 // Higher rates make put options more valuable (more likely to be exercised)
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_put_value_rate_sensitivity() {
     let as_of = date!(2020 - 01 - 01);
@@ -291,7 +287,6 @@ fn quantlib_parity_put_value_rate_sensitivity() {
 // QuantLib reference: callablebonds.cpp, testMultipleCallDates()
 // Bond with multiple call opportunities
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_multiple_call_dates() {
     let as_of = date!(2020 - 01 - 01);
@@ -358,7 +353,6 @@ fn quantlib_parity_multiple_call_dates() {
 // QuantLib reference: callablebonds.cpp, testNearCallDate()
 // As we approach call date, callable bond value converges to call price
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_callable_near_call_date() {
     let issue_date = date!(2015 - 01 - 01);
@@ -409,7 +403,6 @@ fn quantlib_parity_callable_near_call_date() {
 // QuantLib reference: callablebonds.cpp, testPutFloor()
 // Put option provides a floor on bond value even if rates rise significantly
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_putable_provides_floor() {
     let as_of = date!(2020 - 01 - 01);
@@ -457,7 +450,6 @@ fn quantlib_parity_putable_provides_floor() {
 // QuantLib reference: callablebonds.cpp, testMakeWhole()
 // Make-whole call provision (can call at any time but at premium)
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_make_whole_call() {
     let as_of = date!(2020 - 01 - 01);
@@ -517,7 +509,6 @@ fn quantlib_parity_make_whole_call() {
 // QuantLib reference: callablebonds.cpp, testBermudanCallability()
 // Bond callable on multiple specific dates (not continuously)
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_bermudan_callable() {
     let as_of = date!(2020 - 01 - 01);
@@ -577,7 +568,6 @@ fn quantlib_parity_bermudan_callable() {
 // QuantLib reference: callablebonds.cpp, testCallPutCombination()
 // Bond with both call and put schedules
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_callable_and_putable() {
     let as_of = date!(2020 - 01 - 01);
@@ -638,7 +628,6 @@ fn quantlib_parity_callable_and_putable() {
 // QuantLib reference: callablebonds.cpp, testCallProtection()
 // Bond not callable for initial period (call protection)
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_call_protection_period() {
     let as_of = date!(2020 - 01 - 01);
@@ -701,7 +690,6 @@ fn quantlib_parity_call_protection_period() {
 // QuantLib reference: callablebonds.cpp, testOTMCall()
 // When call price is above market value, call has little value
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_otm_call_option() {
     let as_of = date!(2020 - 01 - 01);
@@ -757,7 +745,6 @@ fn quantlib_parity_otm_call_option() {
 // QuantLib reference: callablebonds.cpp, testITMPut()
 // When put price is above market value, put has significant value
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_itm_put_option() {
     let as_of = date!(2020 - 01 - 01);
@@ -812,7 +799,6 @@ fn quantlib_parity_itm_put_option() {
 // QuantLib reference: callablebonds.cpp, testTreePricing()
 // Verify that tree pricing converges to discounting for non-callable bonds
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_tree_pricing_convergence() {
     let as_of = date!(2020 - 01 - 01);
@@ -865,7 +851,6 @@ fn quantlib_parity_tree_pricing_convergence() {
 // QuantLib reference: callablebonds.cpp, testOAS()
 // Calculate Option-Adjusted Spread for bonds with embedded options
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_oas_calculation() {
     let as_of = date!(2020 - 01 - 01);
@@ -918,7 +903,6 @@ fn quantlib_parity_oas_calculation() {
 // QuantLib reference: callablebonds.cpp, testOASSensitivity()
 // Verify OAS increases as market price decreases (inverse relationship)
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_oas_price_sensitivity() {
     let as_of = date!(2020 - 01 - 01);
@@ -975,7 +959,6 @@ fn quantlib_parity_oas_price_sensitivity() {
 // QuantLib reference: callablebonds.cpp, testEffectiveDuration()
 // Effective duration accounts for embedded options via tree pricing
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_effective_duration() {
     let as_of = date!(2020 - 01 - 01);
@@ -1054,7 +1037,6 @@ fn quantlib_parity_effective_duration() {
 // QuantLib reference: callablebonds.cpp, testNegativeConvexity()
 // Callable bonds exhibit negative convexity when call is in-the-money
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_negative_convexity() {
     let as_of = date!(2020 - 01 - 01);
@@ -1144,7 +1126,6 @@ fn quantlib_parity_negative_convexity() {
 // QuantLib reference: callablebonds.cpp, testTreeSteps()
 // Verify pricing converges as tree steps increase
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn quantlib_parity_tree_step_convergence() {
     let as_of = date!(2020 - 01 - 01);

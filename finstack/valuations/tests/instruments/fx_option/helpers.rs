@@ -68,6 +68,7 @@ impl MarketParams {
     }
 
     /// Steep rate differential (carry).
+    #[allow(dead_code)]
     pub fn steep_carry() -> Self {
         Self {
             r_domestic: 0.05,

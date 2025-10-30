@@ -1,3 +1,4 @@
+#![cfg(feature = "slow")]
 //! QuantLib parity tests for Credit Default Swap (CDS) pricing.
 //!
 //! These tests validate that our CDS implementation matches QuantLib's pricing
@@ -79,7 +80,6 @@ fn build_flat_hazard_curve(
         .unwrap()
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_flat_hazard_par_spread() {
     // QuantLib test: testFairSpread
@@ -132,7 +132,6 @@ fn test_quantlib_flat_hazard_par_spread() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_fair_upfront_at_par() {
     // QuantLib test: testFairUpfront
@@ -181,7 +180,6 @@ fn test_quantlib_fair_upfront_at_par() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_protection_equivalence() {
     // QuantLib test: testCachedValue
@@ -238,7 +236,6 @@ fn test_quantlib_protection_equivalence() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_isda_conventions() {
     // QuantLib test: testImpliedHazardRate and testDefaultProbability
@@ -304,7 +301,6 @@ fn test_quantlib_isda_conventions() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_risky_annuity_calculation() {
     // QuantLib test: testCouponLegNPV
@@ -368,7 +364,6 @@ fn test_quantlib_risky_annuity_calculation() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_recovery_rate_impact() {
     // QuantLib test: testRecoveryRate
@@ -439,7 +434,6 @@ fn test_quantlib_recovery_rate_impact() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_spread_sensitivity() {
     // QuantLib test: testSpreadSensitivity
@@ -495,7 +489,6 @@ fn test_quantlib_spread_sensitivity() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_hazard_rate_sensitivity() {
     // QuantLib test: testHazardRateSensitivity
@@ -552,7 +545,6 @@ fn test_quantlib_hazard_rate_sensitivity() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_accrual_on_default() {
     // QuantLib test: testAccrualRebate
@@ -624,7 +616,6 @@ fn test_quantlib_accrual_on_default() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_settlement_delay() {
     // QuantLib test: testSettlementDelay
@@ -696,7 +687,6 @@ fn test_quantlib_settlement_delay() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_multiple_tenors() {
     // QuantLib test: testCachedMarketValue
@@ -765,7 +755,6 @@ fn test_quantlib_multiple_tenors() {
     }
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_expected_loss() {
     // QuantLib test: testExpectedLoss (implicit)
@@ -819,7 +808,6 @@ fn test_quantlib_expected_loss() {
     );
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_jump_to_default() {
     // QuantLib test: testJumpToDefault (implicit in other tests)
@@ -869,7 +857,6 @@ fn test_quantlib_jump_to_default() {
     assert!(jtd > 0.0, "JTD should be positive for protection buyer");
 }
 
-#[ignore = "QuantLib parity: comprehensive validation"]
 #[test]
 fn test_quantlib_integration_methods_consistency() {
     // QuantLib uses different integration methods
