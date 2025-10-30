@@ -518,122 +518,121 @@ impl InterestRateSwap {
     /// PV = sign × (PV_fixed − PV_float) with sign determined by `PayReceive`.
     pub fn npv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         let disc = context.get_discount_ref(self.fixed.disc_id.as_ref())?;
-        // Attempt to resolve a forward curve for the float leg. If absent and the float leg
-        // references the same discounting curve (OIS case), fall back to an efficient
-        // discount-only computation for the floating leg.
+        // For OIS swaps (same discount curve for both legs), use discount-only pricing
+        // even if a forward curve is provided. This ensures correct compounding for
+        // daily frequency OIS swaps. The discount-only method properly handles
+        // compounded OIS rates: PV_float = N × (DF_start - DF_end).
         let pv_fixed = self.pv_fixed_leg(disc, as_of)?;
-        let pv_float = match context.get_forward_ref(self.float.fwd_id.as_ref()) {
-            Ok(fwd) => self.pv_float_leg(disc, fwd, as_of)?,
-            Err(_) => {
-                // OIS fallback: forward curve not found. If the float leg uses the same
-                // discount curve as the fixed leg, we can value the floating leg using
-                // discount factors only: PV_float = N × (P(0, T_start) - P(0, T_end))
-                // plus the spread annuity when spread is non-zero.
-                if self.float.disc_id == self.fixed.disc_id {
-                    // Discount from as_of for correct theta
-                    let disc_dc = disc.day_count();
-                    let t_as_of = disc_dc
-                        .year_fraction(
-                            disc.base_date(),
-                            as_of,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
-                    let df_as_of = disc.df(t_as_of);
+        let pv_float = if self.float.disc_id == self.fixed.disc_id {
+            // OIS swap: use discount-only method for accurate pricing
+            // This handles daily compounded OIS rates correctly
+            // Discount from as_of for correct theta
+            let disc_dc = disc.day_count();
+            let t_as_of = disc_dc
+                .year_fraction(
+                    disc.base_date(),
+                    as_of,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
+            let df_as_of = disc.df(t_as_of);
 
-                    let t_start = disc_dc
-                        .year_fraction(
-                            disc.base_date(),
-                            self.float.start,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
-                    let t_end = disc_dc
-                        .year_fraction(
-                            disc.base_date(),
-                            self.float.end,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
+            let t_start = disc_dc
+                .year_fraction(
+                    disc.base_date(),
+                    self.float.start,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
+            let t_end = disc_dc
+                .year_fraction(
+                    disc.base_date(),
+                    self.float.end,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
 
-                    let df_start_abs = disc.df(t_start);
-                    let df_end_abs = disc.df(t_end);
-                    let df_start = if df_as_of != 0.0 {
-                        df_start_abs / df_as_of
-                    } else {
-                        1.0
-                    };
-                    let df_end = if df_as_of != 0.0 {
-                        df_end_abs / df_as_of
-                    } else {
-                        1.0
-                    };
-                    let mut pv = self.notional.amount() * (df_start - df_end);
+            let df_start_abs = disc.df(t_start);
+            let df_end_abs = disc.df(t_end);
+            let df_start = if df_as_of != 0.0 {
+                df_start_abs / df_as_of
+            } else {
+                1.0
+            };
+            let df_end = if df_as_of != 0.0 {
+                df_end_abs / df_as_of
+            } else {
+                1.0
+            };
+            let mut pv = self.notional.amount() * (df_start - df_end);
 
-                    // Add spread contribution if any: N × sum_i( spread × alpha_i × DF(T_i) )
-                    if self.float.spread_bp != 0.0 {
-                        // Build coupon schedule using the float leg payment frequency and conventions
-                        let builder = finstack_core::dates::ScheduleBuilder::new(
-                            self.float.start,
-                            self.float.end,
-                        )
-                        .frequency(self.float.freq)
-                        .stub_rule(self.float.stub);
-                        let sched_dates: Vec<_> = {
-                            let sched = if let Some(id) = &self.float.calendar_id {
-                                if let Some(cal) = calendar_by_id(id) {
-                                    builder.adjust_with(self.float.bdc, cal).build()?
-                                } else {
-                                    builder.build()?
-                                }
-                            } else {
-                                builder.build()?
-                            };
-                            sched.into_iter().collect()
-                        };
-
-                        if sched_dates.len() >= 2 {
-                            let mut prev = sched_dates[0];
-                            let mut annuity = 0.0;
-                            for &d in &sched_dates[1..] {
-                                // Only include future cashflows
-                                if d <= as_of {
-                                    prev = d;
-                                    continue;
-                                }
-
-                                let alpha = self
-                                    .float
-                                    .dc
-                                    .year_fraction(
-                                        prev,
-                                        d,
-                                        finstack_core::dates::DayCountCtx::default(),
-                                    )
-                                    .unwrap_or(0.0);
-                                let t_d = disc_dc
-                                    .year_fraction(
-                                        disc.base_date(),
-                                        d,
-                                        finstack_core::dates::DayCountCtx::default(),
-                                    )
-                                    .unwrap_or(0.0);
-                                let df_d_abs = disc.df(t_d);
-                                let df = if df_as_of != 0.0 {
-                                    df_d_abs / df_as_of
-                                } else {
-                                    1.0
-                                };
-                                annuity += alpha * df;
-                                prev = d;
-                            }
-                            pv += self.notional.amount() * (self.float.spread_bp * 1e-4) * annuity;
+            // Add spread contribution if any: N × sum_i( spread × alpha_i × DF(T_i) )
+            if self.float.spread_bp != 0.0 {
+                // Build coupon schedule using the float leg payment frequency and conventions
+                let builder = finstack_core::dates::ScheduleBuilder::new(
+                    self.float.start,
+                    self.float.end,
+                )
+                .frequency(self.float.freq)
+                .stub_rule(self.float.stub);
+                let sched_dates: Vec<_> = {
+                    let sched = if let Some(id) = &self.float.calendar_id {
+                        if let Some(cal) = calendar_by_id(id) {
+                            builder.adjust_with(self.float.bdc, cal).build()?
+                        } else {
+                            builder.build()?
                         }
+                    } else {
+                        builder.build()?
+                    };
+                    sched.into_iter().collect()
+                };
+
+                if sched_dates.len() >= 2 {
+                    let mut prev = sched_dates[0];
+                    let mut annuity = 0.0;
+                    for &d in &sched_dates[1..] {
+                        // Only include future cashflows
+                        if d <= as_of {
+                            prev = d;
+                            continue;
+                        }
+
+                        let alpha = self
+                            .float
+                            .dc
+                            .year_fraction(
+                                prev,
+                                d,
+                                finstack_core::dates::DayCountCtx::default(),
+                            )
+                            .unwrap_or(0.0);
+                        let t_d = disc_dc
+                            .year_fraction(
+                                disc.base_date(),
+                                d,
+                                finstack_core::dates::DayCountCtx::default(),
+                            )
+                            .unwrap_or(0.0);
+                        let df_d_abs = disc.df(t_d);
+                        let df = if df_as_of != 0.0 {
+                            df_d_abs / df_as_of
+                        } else {
+                            1.0
+                        };
+                        annuity += alpha * df;
+                        prev = d;
                     }
-                    Money::new(pv, self.notional.currency())
-                } else {
-                    // Not OIS and forward curve missing: return the error to guide callers
-                    // to provide a forward curve.
+                    pv += self.notional.amount() * (self.float.spread_bp * 1e-4) * annuity;
+                }
+            }
+            Money::new(pv, self.notional.currency())
+        } else {
+            // Non-OIS swap: requires forward curve for float leg pricing
+            match context.get_forward_ref(self.float.fwd_id.as_ref()) {
+                Ok(fwd) => self.pv_float_leg(disc, fwd, as_of)?,
+                Err(_) => {
+                    // Forward curve missing: return error to guide callers
                     return Err(context
                         .get_forward_ref(self.float.fwd_id.as_ref())
                         .err()

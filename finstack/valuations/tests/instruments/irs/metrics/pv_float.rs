@@ -11,7 +11,20 @@ use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
 fn build_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketContext {
-    let disc_curve = DiscountCurve::builder("USD_OIS")
+    let disc_curve_ois = DiscountCurve::builder("USD_OIS")
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([
+            (0.0, 1.0),
+            (1.0, (-disc_rate).exp()),
+            (5.0, (-disc_rate * 5.0).exp()),
+            (10.0, (-disc_rate * 10.0).exp()),
+        ])
+        .build()
+        .unwrap();
+    
+    // Add a separate discount curve for LIBOR-based instruments
+    let disc_curve_libor = DiscountCurve::builder("USD_LIBOR_DISC")
         .base_date(base_date)
         .day_count(DayCount::Act360)
         .knots([
@@ -31,7 +44,8 @@ fn build_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketContext
         .unwrap();
 
     MarketContext::new()
-        .insert_discount(disc_curve)
+        .insert_discount(disc_curve_ois)
+        .insert_discount(disc_curve_libor)
         .insert_forward(fwd_curve)
 }
 
@@ -54,7 +68,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
             end,
         },
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-            disc_id: "USD_OIS".into(),
+            disc_id: "USD_LIBOR_DISC".into(),  // Use different discount curve for non-OIS swap
             fwd_id: "USD_LIBOR_3M".into(),
             spread_bp: 0.0,
             freq: Frequency::quarterly(),

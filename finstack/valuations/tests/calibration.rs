@@ -11,3 +11,6 @@ mod test_simple_calibration_builder;
 
 #[path = "calibration/test_swaption_vol_calibration.rs"]
 mod test_swaption_vol_calibration;
+
+#[path = "calibration/test_calibration_repricing.rs"]
+mod test_calibration_repricing;
