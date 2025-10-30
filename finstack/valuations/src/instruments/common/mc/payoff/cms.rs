@@ -279,8 +279,10 @@ mod tests {
         let accruals = vec![0.25, 0.25, 0.25, 0.25];
         let dfs = vec![0.99, 0.98, 0.97, 0.96];
         
+        // Swap schedule needs accruals matching payment dates length
         let payment_dates = vec![1.0, 1.25, 1.5, 1.75, 2.0];
-        let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, accruals.clone());
+        let schedule_accruals = vec![0.25, 0.25, 0.25, 0.25, 0.25];
+        let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, schedule_accruals);
         
         let hw_params = HullWhite1FParams::new(0.1, 0.01, 0.03);
         
@@ -305,8 +307,10 @@ mod tests {
         let fixing_dates = vec![0.25];
         let accruals = vec![0.25];
         let dfs = vec![0.99];
+        // Swap schedule needs accruals matching payment dates length
         let payment_dates = vec![1.0, 1.25];
-        let schedule = SwapSchedule::new(1.0, 1.25, payment_dates, accruals.clone());
+        let schedule_accruals = vec![0.25, 0.25];
+        let schedule = SwapSchedule::new(1.0, 1.25, payment_dates, schedule_accruals);
         let hw_params = HullWhite1FParams::new(0.1, 0.01, 0.03);
 
         let mut cap = CmsCapPayoff::new(

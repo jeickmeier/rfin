@@ -239,7 +239,9 @@ mod tests {
         
         // Should be positive (convexity adjustment increases CMS rate)
         assert!(adj > 0.0);
-        assert!(adj < 0.1); // Should be reasonable size
+        // With 20% vol, 1Y tenor, 10Y swap: 0.5 * 0.04 * 10 / 1.3 ≈ 0.154
+        assert!(adj < 0.2); // Should be reasonable size
+        assert!((adj - 0.15384615384615388).abs() < 1e-6); // Check exact value
     }
 }
 

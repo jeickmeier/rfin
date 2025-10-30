@@ -180,9 +180,9 @@ mod tests {
 
         let return_val = cliquet.compute_return();
         // Period 1: min(max(110/100 - 1, 0), 0.10) = min(0.10, 0.10) = 0.10
-        // Period 2: min(max(115/110 - 1, 0), 0.10) = min(0.045, 0.10) = 0.045
-        // Total: 0.10 + 0.045 = 0.145
-        assert!((return_val - 0.145).abs() < 1e-10);
+        // Period 2: min(max(115/110 - 1, 0), 0.10) = min(0.0454545..., 0.10) = 0.0454545...
+        // Total: 0.10 + 0.0454545... = 0.1454545...
+        assert!((return_val - 0.14545454545454542).abs() < 1e-10);
     }
 
     #[test]
