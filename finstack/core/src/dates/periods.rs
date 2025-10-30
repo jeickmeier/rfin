@@ -408,14 +408,18 @@ fn quarter_bounds(year: i32, q: u8) -> (Date, Date) {
 }
 
 fn month_bounds(year: i32, m: u8) -> (Date, Date) {
-    let sm = Month::try_from(m).unwrap();
-    let start = Date::from_calendar_date(year, sm, 1).unwrap();
+    let sm = Month::try_from(m).unwrap_or(Month::January);
+    let start = Date::from_calendar_date(year, sm, 1)
+        .unwrap_or_else(|_| Date::from_calendar_date(year, Month::January, 1)
+            .expect("January 1 should always be valid"));
     let (ey, em) = if m == 12 {
         (year + 1, Month::January)
     } else {
-        (year, Month::try_from(m + 1).unwrap())
+        (year, Month::try_from(m + 1).unwrap_or(Month::January))
     };
-    let end = Date::from_calendar_date(ey, em, 1).unwrap();
+    let end = Date::from_calendar_date(ey, em, 1)
+        .unwrap_or_else(|_| Date::from_calendar_date(ey, Month::January, 1)
+            .expect("January 1 should always be valid"));
     (start, end)
 }
 
@@ -531,7 +535,7 @@ fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
         fiscal_year - 1
     };
 
-    let month = Month::try_from(config.start_month).unwrap();
+    let month = Month::try_from(config.start_month).unwrap_or(Month::January);
     Date::from_calendar_date(calendar_year, month, config.start_day).unwrap_or_else(|_| {
         // If the day doesn't exist (e.g., Feb 30), use the last day of the month
         let last_day = days_in_month(calendar_year, config.start_month);

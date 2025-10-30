@@ -134,7 +134,7 @@ impl HazardCurveCalibrator {
             ));
         }
 
-        cds_quotes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        cds_quotes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
         // Sequentially solve hazards per tenor to match market PV≈0
         let mut hazard_knots: Vec<(f64, f64)> = Vec::new();

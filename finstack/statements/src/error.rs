@@ -70,6 +70,14 @@ pub enum Error {
     /// I/O error
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
+
+    /// Builder construction error
+    #[error("Builder error: {0}")]
+    BuilderError(String),
+
+    /// Index/collection access error
+    #[error("Index error: {0}")]
+    IndexError(String),
 }
 
 // Helper function to format circular dependency path
@@ -139,5 +147,15 @@ impl Error {
     /// Create a capital structure error
     pub fn capital_structure(msg: impl Into<String>) -> Self {
         Self::CapitalStructure(msg.into())
+    }
+
+    /// Create a builder error
+    pub fn builder_error(msg: impl Into<String>) -> Self {
+        Self::BuilderError(msg.into())
+    }
+
+    /// Create an index error
+    pub fn index_error(msg: impl Into<String>) -> Self {
+        Self::IndexError(msg.into())
     }
 }

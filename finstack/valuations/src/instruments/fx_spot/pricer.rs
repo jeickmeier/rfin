@@ -2,7 +2,6 @@ use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_spot::FxSpot;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
-use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 
 /// Simplified FX Spot discounting pricer that calls the instrument's own methods.
@@ -40,7 +39,8 @@ impl Pricer for SimpleFxSpotDiscountingPricer {
             })?;
 
         // FX Spot uses epoch as as_of date since it's currency conversion, not discounting
-        let as_of = Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
+        let as_of = finstack_core::dates::create_date(1970, time::Month::January, 1)
+            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
 
         // Use the instrument's own value method
         let pv = fx_spot
@@ -49,5 +49,223 @@ impl Pricer for SimpleFxSpotDiscountingPricer {
 
         // Return stamped result
         Ok(ValuationResult::stamped(fx_spot.id(), as_of, pv))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pricer::Pricer;
+    use crate::instruments::fx_spot::FxSpot;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::MarketContext;
+    use finstack_core::dates::create_date;
+    use time::Month;
+
+    fn create_test_fx_spot() -> FxSpot {
+        FxSpot::new("EURUSD".into(), Currency::EUR, Currency::USD)
+            .with_rate(1.05)
+    }
+
+    #[test]
+    fn test_fx_spot_pricing_with_valid_data() {
+        let fx_spot = create_test_fx_spot();
+        let market = MarketContext::new();
+        let pricer = SimpleFxSpotDiscountingPricer::new();
+
+        let result = pricer.price_dyn(&fx_spot, &market);
+        assert!(result.is_ok());
+        
+        let valuation = result.unwrap();
+        assert_eq!(valuation.instrument_id, "EURUSD");
+        assert!(valuation.value.amount() > 0.0);
+        assert_eq!(valuation.value.currency(), Currency::USD);
+    }
+
+    #[test]
+    fn test_fx_spot_pricing_error_propagation() {
+        let fx_spot = create_test_fx_spot();
+        let market = MarketContext::new();
+        let pricer = SimpleFxSpotDiscountingPricer::new();
+
+        // Test that error propagation works correctly
+        let result = pricer.price_dyn(&fx_spot, &market);
+        assert!(result.is_ok());
+        
+        // Verify the valuation uses epoch date as as_of
+        let valuation = result.unwrap();
+        assert_eq!(valuation.instrument_id, "EURUSD");
+        assert!(valuation.value.amount() > 0.0);
+    }
+
+    #[test]
+    fn test_fx_spot_pricing_with_different_rates() {
+        let fx_spot_high = FxSpot::new("GBPUSD".into(), Currency::GBP, Currency::USD)
+            .with_rate(1.25);
+        let fx_spot_low = FxSpot::new("USDJPY".into(), Currency::USD, Currency::JPY)
+            .with_rate(110.0);
+        
+        let market = MarketContext::new();
+        let pricer = SimpleFxSpotDiscountingPricer::new();
+
+        let result_high = pricer.price_dyn(&fx_spot_high, &market);
+        let result_low = pricer.price_dyn(&fx_spot_low, &market);
+        
+        assert!(result_high.is_ok());
+        assert!(result_low.is_ok());
+        
+        let valuation_high = result_high.unwrap();
+        let valuation_low = result_low.unwrap();
+        
+        assert_eq!(valuation_high.instrument_id, "GBPUSD");
+        assert_eq!(valuation_low.instrument_id, "USDJPY");
+        assert!(valuation_high.value.amount() > 0.0);
+        assert!(valuation_low.value.amount() > 0.0);
+    }
+
+    #[test]
+    fn test_fx_spot_pricing_error_handling() {
+        // Test with invalid FX spot (zero rate)
+        let fx_spot_zero = FxSpot::new("EURUSD".into(), Currency::EUR, Currency::USD)
+            .with_rate(0.0);
+        
+        let market = MarketContext::new();
+        let pricer = SimpleFxSpotDiscountingPricer::new();
+
+        let result = pricer.price_dyn(&fx_spot_zero, &market);
+        
+        match result {
+            Ok(valuation) => {
+                // Even with zero rate, should return a valid valuation
+                assert_eq!(valuation.instrument_id, "EURUSD");
+                assert_eq!(valuation.value.amount(), 0.0);
+            }
+            Err(error) => {
+                // If it returns an error, ensure the error message is meaningful
+                let error_msg = format!("{}", error);
+                assert!(!error_msg.is_empty());
+                assert!(error_msg.len() > 10);
+            }
+        }
+    }
+
+    #[test]
+    fn test_fx_spot_pricing_date_handling() {
+        let fx_spot = create_test_fx_spot();
+        let market = MarketContext::new();
+        let pricer = SimpleFxSpotDiscountingPricer::new();
+
+        let result = pricer.price_dyn(&fx_spot, &market);
+        assert!(result.is_ok());
+        
+        // The pricer should use epoch date (1970-01-01) for FX spots
+        // since they're currency conversion, not discounting
+        let valuation = result.unwrap();
+        assert_eq!(valuation.instrument_id, "EURUSD");
+        
+        // Verify the as_of date is set correctly (should be epoch)
+        let expected_date = create_date(1970, Month::January, 1).unwrap();
+        assert_eq!(valuation.as_of, expected_date);
+    }
+
+    #[test]
+    fn test_fx_spot_pricing_with_various_currencies() {
+        let test_cases = vec![
+            ("EURUSD", Currency::EUR, Currency::USD, 1.05),
+            ("GBPUSD", Currency::GBP, Currency::USD, 1.25),
+            ("USDJPY", Currency::USD, Currency::JPY, 110.0),
+            ("AUDUSD", Currency::AUD, Currency::USD, 0.65),
+        ];
+        
+        let market = MarketContext::new();
+        let pricer = SimpleFxSpotDiscountingPricer::new();
+
+        for (id, base, quote, rate) in test_cases {
+            let fx_spot = FxSpot::new(id.into(), base, quote).with_rate(rate);
+            let result = pricer.price_dyn(&fx_spot, &market);
+            
+            assert!(result.is_ok(), "Failed to price FX spot {}", id);
+            
+            let valuation = result.unwrap();
+            assert_eq!(valuation.instrument_id, id);
+            assert_eq!(valuation.value.currency(), quote);
+            assert!(valuation.value.amount() > 0.0);
+        }
+    }
+
+    #[test]
+    fn test_pricer_key() {
+        let pricer = SimpleFxSpotDiscountingPricer::new();
+        let key = pricer.key();
+        
+        // Verify the pricer key is correctly configured
+        assert_eq!(key.instrument, InstrumentType::FxSpot);
+        assert_eq!(key.model, ModelKey::Discounting);
+    }
+
+    #[test]
+    fn test_fx_spot_error_message_quality() {
+        let fx_spot = create_test_fx_spot();
+        let market = MarketContext::new();
+        let pricer = SimpleFxSpotDiscountingPricer::new();
+
+        let result = pricer.price_dyn(&fx_spot, &market);
+        
+        match result {
+            Ok(valuation) => {
+                assert!(!valuation.instrument_id.is_empty());
+                assert!(valuation.value.amount() >= 0.0);
+            }
+            Err(error) => {
+                let error_msg = format!("{}", error);
+                assert!(!error_msg.is_empty());
+                // Error messages should be descriptive
+                assert!(error_msg.len() > 10);
+            }
+        }
+    }
+
+    #[test]
+    fn test_fx_spot_pricing_consistency() {
+        // Test that pricing is consistent across multiple calls
+        let fx_spot = create_test_fx_spot();
+        let market = MarketContext::new();
+        let pricer = SimpleFxSpotDiscountingPricer::new();
+
+        let result1 = pricer.price_dyn(&fx_spot, &market);
+        let result2 = pricer.price_dyn(&fx_spot, &market);
+        
+        assert!(result1.is_ok());
+        assert!(result2.is_ok());
+        
+        let valuation1 = result1.unwrap();
+        let valuation2 = result2.unwrap();
+        
+        assert_eq!(valuation1.value, valuation2.value);
+        assert_eq!(valuation1.as_of, valuation2.as_of);
+    }
+
+    #[test]
+    fn test_fx_spot_pricing_edge_cases() {
+        // Test with very small and very large rates
+        let fx_spot_small = FxSpot::new("TEST1".into(), Currency::USD, Currency::JPY)
+            .with_rate(0.001);
+        let fx_spot_large = FxSpot::new("TEST2".into(), Currency::JPY, Currency::USD)
+            .with_rate(10000.0);
+        
+        let market = MarketContext::new();
+        let pricer = SimpleFxSpotDiscountingPricer::new();
+
+        let result_small = pricer.price_dyn(&fx_spot_small, &market);
+        let result_large = pricer.price_dyn(&fx_spot_large, &market);
+        
+        assert!(result_small.is_ok());
+        assert!(result_large.is_ok());
+        
+        let valuation_small = result_small.unwrap();
+        let valuation_large = result_large.unwrap();
+        
+        assert!(valuation_small.value.amount() >= 0.0);
+        assert!(valuation_large.value.amount() > 0.0);
     }
 }

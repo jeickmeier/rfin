@@ -49,4 +49,62 @@ pub enum PortfolioError {
     /// Core error
     #[error(transparent)]
     Core(#[from] finstack_core::Error),
+
+    /// Invalid input data
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
+    /// Builder construction error
+    #[error("Builder error: {0}")]
+    BuilderError(String),
+
+    /// Index/collection access error
+    #[error("Index error: {0}")]
+    IndexError(String),
+}
+
+impl PortfolioError {
+    /// Create a validation error with context
+    pub fn validation(msg: impl Into<String>) -> Self {
+        Self::ValidationFailed(msg.into())
+    }
+
+    /// Create a valuation error with context
+    pub fn valuation(position_id: impl Into<PositionId>, msg: impl Into<String>) -> Self {
+        Self::ValuationError {
+            position_id: position_id.into(),
+            message: msg.into(),
+        }
+    }
+
+    /// Create an FX conversion error
+    pub fn fx_conversion(from: Currency, to: Currency) -> Self {
+        Self::FxConversionFailed { from, to }
+    }
+
+    /// Create a missing market data error
+    pub fn missing_market_data(msg: impl Into<String>) -> Self {
+        Self::MissingMarketData(msg.into())
+    }
+
+    /// Create an invalid input error
+    pub fn invalid_input(msg: impl Into<String>) -> Self {
+        Self::InvalidInput(msg.into())
+    }
+
+    /// Create a builder error
+    pub fn builder_error(msg: impl Into<String>) -> Self {
+        Self::BuilderError(msg.into())
+    }
+
+    /// Create an index error
+    pub fn index_error(msg: impl Into<String>) -> Self {
+        Self::IndexError(msg.into())
+    }
+
+    /// Create a scenario error
+    #[cfg(feature = "scenarios")]
+    pub fn scenario_error(msg: impl Into<String>) -> Self {
+        Self::ScenarioError(msg.into())
+    }
 }

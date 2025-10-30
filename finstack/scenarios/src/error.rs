@@ -97,4 +97,92 @@ pub enum Error {
     /// Instrument not found.
     #[error("Instrument not found: {0}")]
     InstrumentNotFound(String),
+
+    /// Invalid input data
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
+    /// Builder construction error
+    #[error("Builder error: {0}")]
+    BuilderError(String),
+
+    /// Index/collection access error
+    #[error("Index error: {0}")]
+    IndexError(String),
+}
+
+impl Error {
+    /// Create a market data not found error
+    pub fn market_data_not_found(id: impl Into<String>) -> Self {
+        Self::MarketDataNotFound { id: id.into() }
+    }
+
+    /// Create a node not found error
+    pub fn node_not_found(node_id: impl Into<String>) -> Self {
+        Self::NodeNotFound { node_id: node_id.into() }
+    }
+
+    /// Create a curve type mismatch error
+    pub fn curve_type_mismatch(expected: impl Into<String>, actual: impl Into<String>) -> Self {
+        Self::CurveTypeMismatch {
+            expected: expected.into(),
+            actual: actual.into(),
+        }
+    }
+
+    /// Create an unsupported operation error
+    pub fn unsupported_operation(operation: impl Into<String>, target: impl Into<String>) -> Self {
+        Self::UnsupportedOperation {
+            operation: operation.into(),
+            target: target.into(),
+        }
+    }
+
+    /// Create a validation error
+    pub fn validation(msg: impl Into<String>) -> Self {
+        Self::Validation(msg.into())
+    }
+
+    /// Create an internal error
+    pub fn internal(msg: impl Into<String>) -> Self {
+        Self::Internal(msg.into())
+    }
+
+    /// Create an invalid tenor error
+    pub fn invalid_tenor(tenor: impl Into<String>) -> Self {
+        Self::InvalidTenor(tenor.into())
+    }
+
+    /// Create a tenor not found error
+    pub fn tenor_not_found(tenor: impl Into<String>, curve_id: impl Into<String>) -> Self {
+        Self::TenorNotFound {
+            tenor: tenor.into(),
+            curve_id: curve_id.into(),
+        }
+    }
+
+    /// Create an invalid period error
+    pub fn invalid_period(period: impl Into<String>) -> Self {
+        Self::InvalidPeriod(period.into())
+    }
+
+    /// Create an instrument not found error
+    pub fn instrument_not_found(instrument: impl Into<String>) -> Self {
+        Self::InstrumentNotFound(instrument.into())
+    }
+
+    /// Create an invalid input error
+    pub fn invalid_input(msg: impl Into<String>) -> Self {
+        Self::InvalidInput(msg.into())
+    }
+
+    /// Create a builder error
+    pub fn builder_error(msg: impl Into<String>) -> Self {
+        Self::BuilderError(msg.into())
+    }
+
+    /// Create an index error
+    pub fn index_error(msg: impl Into<String>) -> Self {
+        Self::IndexError(msg.into())
+    }
 }

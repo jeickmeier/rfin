@@ -12,7 +12,7 @@
 //! use finstack_valuations::pricer::{create_standard_registry, ModelKey};
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
-//! use finstack_core::dates::Date;
+//! use finstack_core::dates::{Date, create_date};
 //! use time::Month;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -20,8 +20,8 @@
 //! let registry = create_standard_registry();
 //!
 //! // Create a bond
-//! let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-//! let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+//! let issue = create_date(2025, Month::January, 15)?;
+//! let maturity = create_date(2026, Month::January, 15)?;
 //! let bond = Bond::fixed(
 //!     "BOND-001",
 //!     Money::new(1_000_000.0, Currency::USD),

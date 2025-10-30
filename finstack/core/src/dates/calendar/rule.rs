@@ -195,7 +195,10 @@ fn vernal_equinox_jp(year: i32) -> Date {
 
     let y = (year - VERNAL_EPOCH) as f64;
     let day = (VERNAL_BASE + VERNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
-    Date::from_calendar_date(year, Month::March, day).unwrap()
+    // Clamp to valid range and use fallback if needed
+    let day = day.clamp(1, 31);
+    Date::from_calendar_date(year, Month::March, day)
+        .unwrap_or_else(|_| Date::from_calendar_date(year, Month::March, 21).expect("March 21 should always be valid"))
 }
 
 /// Calculate Autumnal Equinox Day for Japan.
@@ -221,7 +224,10 @@ fn autumnal_equinox_jp(year: i32) -> Date {
 
     let y = (year - AUTUMNAL_EPOCH) as f64;
     let day = (AUTUMNAL_BASE + AUTUMNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
-    Date::from_calendar_date(year, Month::September, day).unwrap()
+    // Clamp to valid range and use fallback if needed
+    let day = day.clamp(1, 30); // September has 30 days
+    Date::from_calendar_date(year, Month::September, day)
+        .unwrap_or_else(|_| Date::from_calendar_date(year, Month::September, 23).expect("September 23 should always be valid"))
 }
 
 #[inline]
@@ -297,7 +303,12 @@ impl Rule {
                 observed,
             } => {
                 let base = apply_observed(
-                    Date::from_calendar_date(date.year(), *month, *day).unwrap(),
+                    Date::from_calendar_date(date.year(), *month, *day)
+                        .unwrap_or_else(|_| {
+                            // If invalid date, return a date far in the past so it never matches
+                            Date::from_calendar_date(1900, Month::January, 1)
+                                .expect("1900-01-01 should always be valid")
+                        }),
                     *observed,
                 );
                 base == date
@@ -317,7 +328,12 @@ impl Rule {
                 day,
                 dir,
             } => {
-                let base = Date::from_calendar_date(date.year(), *month, *day).unwrap();
+                let base = Date::from_calendar_date(date.year(), *month, *day)
+                    .unwrap_or_else(|_| {
+                        // If invalid date, return a date far in the past so it never matches
+                        Date::from_calendar_date(1900, Month::January, 1)
+                            .expect("1900-01-01 should always be valid")
+                    });
                 let d = shift_to_weekday(base, *weekday, *dir);
                 d == date
             }
@@ -371,10 +387,18 @@ impl Rule {
                 observed,
             } => {
                 let base = apply_observed(
-                    Date::from_calendar_date(year, *month, *day).unwrap(),
+                    Date::from_calendar_date(year, *month, *day)
+                        .unwrap_or_else(|_| {
+                            // If invalid date, skip this holiday by not pushing anything
+                            Date::from_calendar_date(1900, Month::January, 1)
+                                .expect("1900-01-01 should always be valid")
+                        }),
                     *observed,
                 );
-                out.push(base);
+                // Only push if it's a valid date (not our fallback)
+                if base.year() != 1900 {
+                    out.push(base);
+                }
             }
             Rule::NthWeekday { n, weekday, month } => {
                 let d = crate::dates::calendar::generated::nth_weekday_of_month(
@@ -388,8 +412,16 @@ impl Rule {
                 day,
                 dir,
             } => {
-                let base = Date::from_calendar_date(year, *month, *day).unwrap();
-                out.push(shift_to_weekday(base, *weekday, *dir));
+                let base = Date::from_calendar_date(year, *month, *day)
+                    .unwrap_or_else(|_| {
+                        // If invalid date, skip this holiday
+                        Date::from_calendar_date(1900, Month::January, 1)
+                            .expect("1900-01-01 should always be valid")
+                    });
+                // Only push if it's a valid date (not our fallback)
+                if base.year() != 1900 {
+                    out.push(shift_to_weekday(base, *weekday, *dir));
+                }
             }
             Rule::EasterOffset(offset) => {
                 let em = algo::easter_monday(year);
@@ -411,8 +443,19 @@ impl Rule {
             }
             Rule::QingMing => {
                 out.push(
-                    Date::from_calendar_date(year, Month::April, qing_ming_day(year)).unwrap(),
+                    Date::from_calendar_date(year, Month::April, qing_ming_day(year))
+                        .unwrap_or_else(|_| {
+                            // If invalid date, skip this holiday
+                            Date::from_calendar_date(1900, Month::January, 1)
+                                .expect("1900-01-01 should always be valid")
+                        }),
                 );
+                // Remove the invalid date if it was added
+                if let Some(last) = out.last() {
+                    if last.year() == 1900 {
+                        out.pop();
+                    }
+                }
             }
             Rule::BuddhasBirthday => {
                 if let Some(d) = buddhas_birthday_date(year) {

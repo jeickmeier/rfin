@@ -119,7 +119,7 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
                 
                 // Create temporary HW1F process for stepping
                 // We need to call the exact discretization
-                let _hw_disc = self.hw_disc.as_ref().unwrap();
+                let _hw_disc = self.hw_disc.as_ref().expect("HW discretization must be present for floating rate specification");
                 
                 // For HW1F, we need to compute:
                 // r_{t+dt} = r_t e^{-κdt} + θ(1 - e^{-κdt}) + σ√[(1-e^{-2κdt})/(2κ)] Z

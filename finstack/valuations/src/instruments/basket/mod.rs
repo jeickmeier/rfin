@@ -24,7 +24,8 @@
 //!     .discount_curve_id("USD-OIS".into())
 //!     .expense_ratio(0.0025) // 25 basis points
 //!     .constituents(vec![]) // Add constituents as needed
-//!     .build().unwrap();
+//!     .build()
+//!     .map_err(|e| format!("Failed to build basket: {}", e))?;
 //! ```
 //!
 //! ## Basket with Market Data Constituents
@@ -48,7 +49,8 @@
 //!     .currency(Currency::USD)
 //!     .discount_curve_id("USD-OIS".into())
 //!     .constituents(vec![constituent])
-//!     .build().unwrap();
+//!     .build()
+//!     .map_err(|e| format!("Failed to build basket: {}", e))?;
 //! ```
 
 pub mod metrics;

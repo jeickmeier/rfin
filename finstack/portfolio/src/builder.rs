@@ -5,6 +5,32 @@
 //! [`Portfolio`] to ensure it is internally consistent.
 //! Typical usage starts by creating a builder with [`PortfolioBuilder::new`], chaining
 //! configuration methods, and finalizing with [`PortfolioBuilder::build`].
+//!
+//! # Error Handling Best Practices
+//!
+//! All builder methods should return `Result<T, Error>` instead of using `unwrap()`.
+//! This allows callers to handle errors appropriately:
+//!
+//! ```rust
+//! use finstack_portfolio::builder::PortfolioBuilder;
+//! use finstack_core::prelude::*;
+//!
+//! let portfolio = PortfolioBuilder::new("test_portfolio")
+//!     .base_ccy(Currency::USD)
+//!     .as_of(date!(2024-01-01))
+//!     .build()
+//!     .map_err(|e| format!("Failed to build portfolio: {}", e))?;
+//!
+//! // Or for more granular error handling:
+//! let portfolio = match PortfolioBuilder::new("test_portfolio")
+//!     .base_ccy(Currency::USD)
+//!     .as_of(date!(2024-01-01))
+//!     .build()
+//! {
+//!     Ok(p) => p,
+//!     Err(e) => return Err(format!("Portfolio construction failed: {}", e)),
+//! };
+//! ```
 
 use crate::error::Result;
 use crate::portfolio::Portfolio;

@@ -34,6 +34,15 @@ pub(crate) fn portfolio_to_py(err: PortfolioError) -> PyErr {
         PortfolioError::MissingMarketData(msg) => {
             PyRuntimeError::new_err(format!("Missing market data: {}", msg))
         }
+        PortfolioError::InvalidInput(msg) => {
+            PyValueError::new_err(format!("Invalid input: {}", msg))
+        }
+        PortfolioError::BuilderError(msg) => {
+            PyValueError::new_err(format!("Builder error: {}", msg))
+        }
+        PortfolioError::IndexError(msg) => {
+            PyValueError::new_err(format!("Index error: {}", msg))
+        }
         PortfolioError::Core(err) => PyRuntimeError::new_err(format!("Core error: {}", err)),
     }
 }

@@ -274,7 +274,7 @@ impl Bond {
             return Err(finstack_core::error::InputError::TooFewPoints.into());
         }
         let issue = dates[0];
-        let maturity = *dates.last().unwrap();
+        let maturity = dates.last().copied().ok_or(finstack_core::error::InputError::TooFewPoints)?;
 
         // Default frequency and coupon (these won't be used with custom cashflows)
         let freq = finstack_core::dates::Frequency::semi_annual();

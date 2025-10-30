@@ -167,7 +167,7 @@ impl BaseCorrelationCalibrator {
         }
 
         // Sort by detachment point for sequential bootstrapping
-        tranche_quotes.sort_by(|a, b| a.1.partial_cmp(b.1).unwrap());
+        tranche_quotes.sort_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal));
 
         // Validate tranche quotes
         for (attach, detach, _, _, _) in &tranche_quotes {

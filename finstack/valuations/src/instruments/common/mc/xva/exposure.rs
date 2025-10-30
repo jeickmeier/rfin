@@ -86,7 +86,7 @@ pub fn calculate_exposure_profile(path_values: &[Vec<f64>], times: Vec<f64>) -> 
         profile.ene[t] = negative_exposures.iter().sum::<f64>() / num_paths as f64;
 
         // PFE: percentiles of positive exposure
-        values_at_t.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        values_at_t.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         // 95th percentile
         let idx_95 = (num_paths as f64 * 0.95) as usize;

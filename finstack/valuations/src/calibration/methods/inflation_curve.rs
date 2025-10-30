@@ -159,7 +159,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             return Ok((curve, report));
         }
 
-        quotes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        quotes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
         if self.config.verbose {
             tracing::debug!(
                 curve_id = %self.curve_id.as_str(),
@@ -241,7 +241,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     // Build temporary inflation curve with current knots + guessed point
                     let mut temp_knots = knots_clone.clone();
                     temp_knots.push((t, cpi_guess));
-                    temp_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                    temp_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
                     let temp_curve = match InflationCurve::builder(CALIB_INDEX_ID)
                         .base_cpi(temp_knots.first().map(|&(_, v)| v).unwrap_or(0.0))
@@ -317,7 +317,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             if final_knots.len() == 1 {
                 final_knots.push((1e-9, self.base_cpi));
             }
-            final_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            final_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
             if self.config.verbose {
                 tracing::debug!(

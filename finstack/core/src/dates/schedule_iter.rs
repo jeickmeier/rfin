@@ -7,15 +7,15 @@
 //! --------
 //! Plain monthly schedule:
 //! ```
-//! use finstack_core::dates::{ScheduleBuilder, Frequency, Date};
+//! use finstack_core::dates::{ScheduleBuilder, Frequency, Date, create_date};
 //! use time::Month;
 //!
-//! let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-//! let end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+//! let start = create_date(2025, Month::January, 15)?;
+//! let end = create_date(2025, Month::April, 15)?;
 //! let sched = ScheduleBuilder::new(start, end)
 //!     .frequency(Frequency::monthly())
 //!     .build()
-//!     .unwrap();
+//!     ?;
 //! let dates: Vec<_> = sched.into_iter().collect();
 //! assert_eq!(dates.len(), 4);
 //! ```
@@ -23,15 +23,15 @@
 //! CDS IMM schedule (quarterly on 20-Mar/Jun/Sep/Dec), start auto-adjusts to next
 //! roll if needed:
 //! ```
-//! use finstack_core::dates::{ScheduleBuilder, Date};
+//! use finstack_core::dates::{ScheduleBuilder, Date, create_date};
 //! use time::Month;
 //!
-//! let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-//! let end = Date::from_calendar_date(2025, Month::December, 20).unwrap();
+//! let start = create_date(2025, Month::January, 15)?;
+//! let end = create_date(2025, Month::December, 20)?;
 //! let sched = ScheduleBuilder::new(start, end)
 //!     .cds_imm()
 //!     .build()
-//!     .unwrap();
+//!     ?;
 //! let dates: Vec<_> = sched.into_iter().collect();
 //! assert_eq!(dates.len(), 4);
 //! ```
@@ -120,11 +120,19 @@ impl Frequency {
     /// ```
     /// use finstack_core::dates::Frequency;
     ///
+    /// // Valid frequencies
     /// assert_eq!(Frequency::from_payments_per_year(4).unwrap(), Frequency::quarterly());
     /// assert_eq!(Frequency::from_payments_per_year(2).unwrap(), Frequency::semi_annual());
     /// assert_eq!(Frequency::from_payments_per_year(12).unwrap(), Frequency::monthly());
+    ///
+    /// // Error handling for invalid inputs
     /// assert!(Frequency::from_payments_per_year(0).is_err());
     /// assert!(Frequency::from_payments_per_year(5).is_err()); // Doesn't divide 12
+    ///
+    /// // Proper error handling in production code
+    /// let freq = Frequency::from_payments_per_year(4)
+    ///     .map_err(|e| format!("Invalid payment frequency: {}", e))?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub fn from_payments_per_year(payments: u32) -> std::result::Result<Self, String> {
         if payments == 0 {

@@ -81,7 +81,8 @@ impl VolSurfaceCalibrator {
             config: CalibrationConfig::default(),
             target_expiries,
             target_strikes,
-            base_date: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
+            base_date: Date::from_calendar_date(1970, time::Month::January, 1)
+                .expect("Epoch date (1970-01-01) should always be valid"),
             time_dc: DayCount::Act365F,
             base_currency: Currency::USD,
             surface_interp: SurfaceInterp::Bilinear,
@@ -324,7 +325,7 @@ impl VolSurfaceCalibrator {
     ) -> Result<SABRParameters> {
         // Find bracketing expiries
         let mut expiries: Vec<f64> = sabr_params.keys().map(|k| k.into_inner()).collect();
-        expiries.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        expiries.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         if expiries.is_empty() {
             return Err(finstack_core::Error::Calibration {
@@ -333,17 +334,17 @@ impl VolSurfaceCalibrator {
             });
         }
 
-        // If exact match, return it
-        if let Some(params) = sabr_params.get(&target_expiry.into()) {
-            return Ok(params.clone());
-        }
-
-        // Flat extrapolation outside the range
         if target_expiry <= expiries[0] {
             return Ok(sabr_params[&expiries[0].into()].clone());
         }
-        if target_expiry >= *expiries.last().unwrap() {
-            return Ok(sabr_params[&(*expiries.last().unwrap()).into()].clone());
+        let last_expiry = *expiries.last().ok_or_else(|| {
+            finstack_core::Error::Calibration {
+                message: "SABR expiries vector became empty after validation".to_string(),
+                category: "vol_surface_interpolation".to_string(),
+            }
+        })?;
+        if target_expiry >= last_expiry {
+            return Ok(sabr_params[&last_expiry.into()].clone());
         }
 
         // Linear interpolation between bracketing points

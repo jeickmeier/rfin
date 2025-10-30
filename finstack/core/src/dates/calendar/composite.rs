@@ -15,10 +15,9 @@
 //!
 //! # Examples
 //! ```
-//! use finstack_core::dates::{CompositeCalendar, HolidayCalendar};
+//! use finstack_core::dates::{CompositeCalendar, HolidayCalendar, create_date};
 //! use finstack_core::dates::calendar::{TARGET2, GBLO};
 //! use finstack_core::dates::calendar::composite::CompositeMode;
-//! use time::Date;
 //!
 //! let t2 = TARGET2;
 //! let gb = GBLO;
@@ -26,12 +25,12 @@
 //!
 //! // Union (default) – treat the day as a holiday if *either* market is closed.
 //! let cal_union = CompositeCalendar::new(&calendars);
-//! let jan1_2025 = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+//! let jan1_2025 = create_date(2025, time::Month::January, 1)?;
 //! assert!(cal_union.is_holiday(jan1_2025));
 //!
 //! // Intersection – holiday only if *both* markets are closed.
 //! let cal_inter = CompositeCalendar::with_mode(&calendars, CompositeMode::Intersection);
-//! let may26_2025 = Date::from_calendar_date(2025, time::Month::May, 26).unwrap();
+//! let may26_2025 = create_date(2025, time::Month::May, 26)?;
 //! assert!(cal_union.is_holiday(may26_2025)); // U.K. spring bank holiday
 //! assert!(!cal_inter.is_holiday(may26_2025));
 //! ```

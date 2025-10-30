@@ -61,7 +61,11 @@ impl MetricCalculator for YtmCalculator {
             context.discount_curve_id = Some(disc_id);
             context.day_count = Some(dc);
         }
-        let flows = context.cashflows.as_ref().unwrap();
+        let flows = context.cashflows.as_ref().ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "cashflows".to_string(),
+            })
+        })?;
 
         // Solve for YTM using shared solver with Street compounding (default)
         let ytm = crate::instruments::bond::pricing::ytm_solver::solve_ytm(

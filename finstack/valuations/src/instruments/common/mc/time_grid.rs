@@ -143,7 +143,7 @@ impl TimeGrid {
 
         // Check for minimum dt to prevent numerical issues
         const MIN_DT: f64 = 1e-10;
-        if let Some(&min_dt) = dts.iter().min_by(|a, b| a.partial_cmp(b).unwrap()) {
+        if let Some(&min_dt) = dts.iter().min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)) {
             if min_dt < MIN_DT {
                 return Err(finstack_core::error::InputError::Invalid.into());
             }

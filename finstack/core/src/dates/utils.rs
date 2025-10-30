@@ -18,12 +18,14 @@ pub fn add_months(date: Date, months: i32) -> Date {
     let new_year = total_months.div_euclid(12);
     let new_month_index = total_months.rem_euclid(12);
     let new_month_u8 = (new_month_index + 1) as u8;
-    let new_month = Month::try_from(new_month_u8).unwrap();
+    let new_month = Month::try_from(new_month_u8).unwrap_or(Month::January);
 
     let day = date.day();
     let max_day = days_in_month(new_year, new_month_u8);
     let new_day = day.min(max_day);
-    Date::from_calendar_date(new_year, new_month, new_day).unwrap()
+    Date::from_calendar_date(new_year, new_month, new_day)
+        .unwrap_or_else(|_| Date::from_calendar_date(new_year, Month::January, 1)
+            .expect("January 1 should always be valid"))
 }
 
 /// Get the number of days in a month for a given `year` and 1-12 `month`.

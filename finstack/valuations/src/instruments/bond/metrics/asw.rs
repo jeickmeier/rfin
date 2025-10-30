@@ -283,7 +283,11 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             context.discount_curve_id = Some(disc_id_capture);
             context.day_count = Some(dc_capture);
         }
-        let _flows = context.cashflows.as_ref().unwrap();
+        let _flows = context.cashflows.as_ref().ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "cashflows".to_string(),
+            })
+        })?;
         let _pv_coupon_only = if let Some(custom) =
             &context.instrument_as::<Bond>()?.custom_cashflows
         {

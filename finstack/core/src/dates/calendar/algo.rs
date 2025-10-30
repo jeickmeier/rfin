@@ -32,7 +32,8 @@ pub(crate) fn easter_monday(year: i32) -> Date {
     } else {
         Month::April
     };
-    let easter_sunday = Date::from_calendar_date(year, month, day as u8).unwrap();
+    let easter_sunday = Date::from_calendar_date(year, month, day as u8)
+        .expect("Easter date calculation should always produce a valid date");
     easter_sunday + Duration::days(1) // Easter Monday = Sunday + 1
 }
 

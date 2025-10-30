@@ -17,19 +17,36 @@ pub struct PeriodSchedule {
     pub first_or_last: hashbrown::HashSet<Date>,
 }
 
+/// Error type for schedule building operations.
+#[derive(Debug, thiserror::Error)]
+pub enum ScheduleError {
+    /// Core date/time error
+    #[error("Schedule building error: {0}")]
+    Core(#[from] finstack_core::Error),
+}
+
+impl From<ScheduleError> for finstack_core::Error {
+    fn from(err: ScheduleError) -> Self {
+        match err {
+            ScheduleError::Core(core_err) => core_err,
+        }
+    }
+}
+
 /// Build a schedule between start/end with standard adjustments and stub rule.
 ///
 /// Example
 /// -------
 /// ```rust
-/// use finstack_core::dates::{Date, Frequency, BusinessDayConvention, StubKind};
+/// use finstack_core::dates::{Date, Frequency, BusinessDayConvention, StubKind, create_date};
 /// use finstack_valuations::cashflow::builder::schedule_utils::build_dates;
 /// use time::Month;
 ///
-/// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-/// let end = Date::from_calendar_date(2025, Month::July, 15).unwrap();
+/// let start = create_date(2025, Month::January, 15)?;
+/// let end = create_date(2025, Month::July, 15)?;
 /// let sched = build_dates(start, end, Frequency::quarterly(), StubKind::None, BusinessDayConvention::Following, None);
 /// assert!(sched.dates.len() >= 2);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 pub fn build_dates(
     start: Date,
@@ -48,14 +65,14 @@ pub fn build_dates(
             builder
                 .adjust_with(bdc, cal)
                 .build()
-                .unwrap()
+                .expect("Failed to build schedule with calendar adjustment")
                 .into_iter()
                 .collect()
         } else {
-            builder.build().unwrap().into_iter().collect()
+            builder.build().expect("Failed to build schedule").into_iter().collect()
         }
     } else {
-        builder.build().unwrap().into_iter().collect()
+        builder.build().expect("Failed to build schedule").into_iter().collect()
     };
 
     let mut prev = hashbrown::HashMap::with_capacity(dates.len());
@@ -67,12 +84,13 @@ pub fn build_dates(
         }
     }
 
-    let mut first_or_last: hashbrown::HashSet<Date> = hashbrown::HashSet::new();
-    if dates.len() >= 2 {
-        first_or_last.insert(dates[1]);
-        if let Some(&last) = dates.last() {
-            first_or_last.insert(last);
-        }
+    // Mark first and last dates
+    let mut first_or_last = hashbrown::HashSet::new();
+    if let Some(&first) = dates.first() {
+        first_or_last.insert(first);
+    }
+    if let Some(&last) = dates.last() {
+        first_or_last.insert(last);
     }
 
     PeriodSchedule {

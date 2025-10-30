@@ -26,7 +26,8 @@
 //!      calendar_id: None,
 //!      stub: StubKind::None,
 //!  });
-//! let schedule = b.build().unwrap();
+//! let schedule = b.build()
+//!     .map_err(|e| format!("Failed to build cashflow schedule: {}", e))?;
 //! assert!(!schedule.flows.is_empty());
 //! ```
 
@@ -446,7 +447,11 @@ fn derive_amortization_setup(
 
     let (linear_delta, percent_per) = match &notional.amort {
         AmortizationSpec::LinearTo { final_notional } => {
-            let base = amort_base_schedule.as_ref().unwrap();
+            let base = amort_base_schedule.as_ref().ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "amortization_base_schedule".to_string(),
+                })
+            })?;
             let steps = (base.len() - 1) as f64;
             (
                 Some(((notional.initial.amount() - final_notional.amount()) / steps).max(0.0)),

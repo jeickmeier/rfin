@@ -39,6 +39,16 @@ pub enum InputError {
     /// The provided date range is inverted – the start date is after the end date.
     #[error("Invalid date range: start must be before end")]
     InvalidDateRange,
+    /// Invalid calendar date creation (e.g., February 30th).
+    #[error("Invalid calendar date: {year}-{month:02}-{day:02}")]
+    InvalidDate {
+        /// Year component
+        year: i32,
+        /// Month component (1-12)
+        month: u8,
+        /// Day component (1-31)
+        day: u8,
+    },
     /// No business day found within maximum allowed adjustment period.
     #[error("Business day adjustment failed: no business day found within {max_days} days from {date} using {convention:?} convention")]
     AdjustmentFailed {

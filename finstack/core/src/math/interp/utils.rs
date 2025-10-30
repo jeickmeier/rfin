@@ -17,7 +17,7 @@ pub fn validate_knots(knots: &[f64]) -> crate::Result<()> {
 #[inline(always)]
 pub fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
     debug_assert!(!xs.is_empty(), "knots slice cannot be empty");
-    if x < xs[0] || x > *xs.last().unwrap() {
+    if x < xs[0] || x > *xs.last().expect("xs should not be empty (checked by debug_assert)") {
         return Err(Error::InterpOutOfBounds);
     }
     let idx = xs.partition_point(|k| *k < x);

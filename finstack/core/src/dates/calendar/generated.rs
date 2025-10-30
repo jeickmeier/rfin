@@ -24,7 +24,8 @@ pub type YearBits = [u64; BITSET_WORDS];
 #[inline]
 #[allow(missing_docs)]
 pub fn day_of_year_0_based(date: Date) -> u16 {
-    let jan1 = Date::from_calendar_date(date.year(), Month::January, 1).unwrap();
+    let jan1 = Date::from_calendar_date(date.year(), Month::January, 1)
+        .expect("January 1 should always be a valid date");
     (date - jan1).whole_days() as u16
 }
 
@@ -43,7 +44,8 @@ pub fn bit_test(bits: &YearBits, idx: u16) -> bool {
 #[inline]
 pub fn nth_weekday_of_month(year: i32, month: Month, weekday: Weekday, n: i8) -> Date {
     if n > 0 {
-        let mut d = Date::from_calendar_date(year, month, 1).unwrap();
+        let mut d = Date::from_calendar_date(year, month, 1)
+            .expect("First day of month should always be valid");
         while d.weekday() != weekday {
             d += Duration::days(1);
         }
@@ -52,9 +54,10 @@ pub fn nth_weekday_of_month(year: i32, month: Month, weekday: Weekday, n: i8) ->
         let (ny, nm) = if month == Month::December {
             (year + 1, Month::January)
         } else {
-            (year, Month::try_from(month as u8 + 1).unwrap())
+            (year, Month::try_from(month as u8 + 1).unwrap_or(Month::January))
         };
-        let mut d = Date::from_calendar_date(ny, nm, 1).unwrap() - Duration::days(1);
+        let mut d = Date::from_calendar_date(ny, nm, 1)
+            .expect("First day of month should always be valid") - Duration::days(1);
         while d.weekday() != weekday {
             d -= Duration::days(1);
         }
