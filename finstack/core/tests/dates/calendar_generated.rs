@@ -233,4 +233,3 @@ fn day_of_year_consistency_across_leap_and_regular() {
     assert_eq!(day_of_year_0_based(feb1_2024), 31);
     assert_eq!(day_of_year_0_based(mar1_2024), 60); // 31 + 29
 }
-

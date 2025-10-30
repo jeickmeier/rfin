@@ -148,6 +148,12 @@ impl BarrierCall {
 }
 
 impl Payoff for BarrierCall {
+    /// Process a path event (barrier monitoring).
+    ///
+    /// Monitors the spot price at each time step to check for barrier crossings.
+    /// If spot is not available in the path state, defaults to 0.0. This default
+    /// may cause incorrect barrier detection in some scenarios, so spot should
+    /// always be available for barrier options.
     fn on_event(&mut self, state: &PathState) {
         let current_spot = state.spot().unwrap_or(0.0);
 

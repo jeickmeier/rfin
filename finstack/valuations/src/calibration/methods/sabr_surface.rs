@@ -204,7 +204,7 @@ impl VolSurfaceCalibrator {
                 Ok(params) => {
                     // Validate calibrated parameters meet market standards
                     validate_sabr_params(&params)?;
-                    
+
                     sabr_params_by_expiry.insert(time_to_expiry.into(), params.clone());
 
                     // Calculate residuals for this expiry
@@ -446,10 +446,11 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
                     Ok(c) => {
                         tracing::debug!(
                             "Vol surface calibration for {} using inferred discount curve: {}",
-                            self.surface_id, inferred
+                            self.surface_id,
+                            inferred
                         );
                         c
-                    },
+                    }
                     Err(_) => {
                         // Fallback to first discount curve available in the context
                         let mut iter = base_context.curves_of_type("Discount");

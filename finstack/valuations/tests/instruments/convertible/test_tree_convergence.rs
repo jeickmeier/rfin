@@ -38,7 +38,7 @@ fn test_convertible_tree_convergence_placeholder() {
     //! // Price should be stable (within 0.1% at N=1000)
     //! assert!((price_1000 - price_500).abs() / price_1000 < 0.001);
     //! ```
-    
+
     // This test documents the requirement for future implementation
     // No assertion needed - it's a documentation placeholder
 }

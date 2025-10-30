@@ -23,12 +23,12 @@ fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> Disc
             (5.0, (-rate * 5.0).exp()),
             (10.0, (-rate * 10.0).exp()),
         ]);
-    
+
     // For zero or negative rates, DFs may be flat or increasing
     if rate.abs() < 1e-10 || rate < 0.0 {
         builder = builder.allow_non_monotonic();
     }
-    
+
     builder.build().unwrap()
 }
 

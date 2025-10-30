@@ -53,7 +53,8 @@ fn heston_characteristic_function(
     // Breaking down (κ - iρσ_v u)² = κ² - 2iκρσ_v u - (ρσ_v u)²
     // Real part: σ_v²ρ²u² + κ² - (ρσ_v u)²
     // Imag part: -σ_v²u - 2κρσ_v u
-    let d_squared_real = sigma_v * sigma_v * (rho * rho * u * u) + kappa * kappa - (i_rho_sigma_u * i_rho_sigma_u);
+    let d_squared_real =
+        sigma_v * sigma_v * (rho * rho * u * u) + kappa * kappa - (i_rho_sigma_u * i_rho_sigma_u);
     let d_squared_imag = -sigma_v * sigma_v * u - 2.0 * kappa * i_rho_sigma_u;
 
     // d = sqrt(d_squared)

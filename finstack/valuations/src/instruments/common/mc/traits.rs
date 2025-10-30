@@ -179,6 +179,16 @@ pub trait StochasticProcess: Send + Sync {
     fn diffusion(&self, t: f64, x: &[f64], out: &mut [f64]);
 
     /// Check if diffusion is diagonal (most common case).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::mc::traits::StochasticProcess;
+    /// use finstack_valuations::instruments::common::mc::process::gbm::GbmProcess;
+    ///
+    /// let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+    /// assert!(gbm.is_diagonal());  // GBM has diagonal diffusion
+    /// ```
     fn is_diagonal(&self) -> bool {
         true
     }
@@ -211,6 +221,19 @@ pub trait Discretization<P: StochasticProcess + ?Sized>: Send + Sync {
     fn step(&self, process: &P, t: f64, dt: f64, x: &mut [f64], z: &[f64], work: &mut [f64]);
 
     /// Workspace size required for intermediate calculations.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::mc::traits::{Discretization, StochasticProcess};
+    /// use finstack_valuations::instruments::common::mc::process::gbm::GbmProcess;
+    /// use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
+    ///
+    /// let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
+    /// let disc = ExactGbm::new();
+    /// let work_size = disc.work_size(&gbm);
+    /// assert_eq!(work_size, 0);  // ExactGbm requires no workspace
+    /// ```
     fn work_size(&self, process: &P) -> usize {
         process.dim()
     }
@@ -271,6 +294,32 @@ pub trait Payoff: Send + Sync + Clone {
     ///
     /// Default implementation returns 1.0 (no discounting).
     /// Override if payoff computes its own discount factor.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::mc::traits::{Payoff, PathState};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    ///
+    /// #[derive(Clone)]
+    /// struct ExamplePayoff;
+    /// impl Payoff for ExamplePayoff {
+    ///     fn on_event(&mut self, _state: &PathState) {}
+    ///     fn value(&self, currency: Currency) -> Money {
+    ///         Money::new(100.0, currency)
+    ///     }
+    ///     fn reset(&mut self) {}
+    ///     
+    ///     // Override to apply custom discount factor
+    ///     fn discount_factor(&self) -> f64 {
+    ///         0.95  // Apply 5% discount
+    ///     }
+    /// }
+    ///
+    /// let payoff = ExamplePayoff;
+    /// assert_eq!(payoff.discount_factor(), 0.95);
+    /// ```
     fn discount_factor(&self) -> f64 {
         1.0
     }

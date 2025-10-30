@@ -226,7 +226,7 @@ impl HazardCurveCalibrator {
                 .unwrap_or(*market_spread_bp / 10000.0 / (1.0 - self.recovery_rate));
 
             let solved = solver.solve(objective, initial_guess)?;
-            
+
             // Validate hazard rate is positive (market standards requirement)
             if solved <= 0.0 {
                 return Err(finstack_core::Error::Calibration {
@@ -238,7 +238,7 @@ impl HazardCurveCalibrator {
                     category: "hazard_curve_negative_rate".to_string(),
                 });
             }
-            
+
             hazard_knots.push((tenor_years, solved));
             par_knots.push((tenor_years, *market_spread_bp));
 

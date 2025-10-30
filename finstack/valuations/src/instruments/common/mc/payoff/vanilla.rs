@@ -46,6 +46,11 @@ impl EuropeanCall {
 }
 
 impl Payoff for EuropeanCall {
+    /// Process a path event at maturity.
+    ///
+    /// Captures the terminal spot price at maturity. If spot is not available
+    /// in the path state, defaults to 0.0, which will result in a zero payoff
+    /// value (since max(0 - K, 0) = 0).
     fn on_event(&mut self, state: &PathState) {
         if state.step == self.maturity_step {
             self.terminal_spot = state.spot().unwrap_or(0.0);
@@ -96,6 +101,11 @@ impl EuropeanPut {
 }
 
 impl Payoff for EuropeanPut {
+    /// Process a path event at maturity.
+    ///
+    /// Captures the terminal spot price at maturity. If spot is not available
+    /// in the path state, defaults to 0.0, which will result in the maximum
+    /// payoff value (since max(K - 0, 0) = K for puts).
     fn on_event(&mut self, state: &PathState) {
         if state.step == self.maturity_step {
             self.terminal_spot = state.spot().unwrap_or(0.0);
@@ -165,6 +175,12 @@ impl Digital {
 }
 
 impl Payoff for Digital {
+    /// Process a path event at maturity.
+    ///
+    /// Captures the terminal spot price at maturity. If spot is not available
+    /// in the path state, defaults to 0.0. For digital options, this default
+    /// means: digital calls pay if 0.0 >= K (only if K <= 0), and digital puts
+    /// pay if 0.0 < K (always, if K > 0).
     fn on_event(&mut self, state: &PathState) {
         if state.step == self.maturity_step {
             self.terminal_spot = state.spot().unwrap_or(0.0);
@@ -237,6 +253,11 @@ impl Forward {
 }
 
 impl Payoff for Forward {
+    /// Process a path event at maturity.
+    ///
+    /// Captures the terminal spot price at maturity. If spot is not available
+    /// in the path state, defaults to 0.0, which will result in a payoff of
+    /// (F - 0) × N for long positions or (0 - F) × N for short positions.
     fn on_event(&mut self, state: &PathState) {
         if state.step == self.maturity_step {
             self.terminal_spot = state.spot().unwrap_or(0.0);

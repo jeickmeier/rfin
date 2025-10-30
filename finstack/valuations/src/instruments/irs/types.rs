@@ -569,12 +569,10 @@ impl InterestRateSwap {
             // Add spread contribution if any: N × sum_i( spread × alpha_i × DF(T_i) )
             if self.float.spread_bp != 0.0 {
                 // Build coupon schedule using the float leg payment frequency and conventions
-                let builder = finstack_core::dates::ScheduleBuilder::new(
-                    self.float.start,
-                    self.float.end,
-                )
-                .frequency(self.float.freq)
-                .stub_rule(self.float.stub);
+                let builder =
+                    finstack_core::dates::ScheduleBuilder::new(self.float.start, self.float.end)
+                        .frequency(self.float.freq)
+                        .stub_rule(self.float.stub);
                 let sched_dates: Vec<_> = {
                     let sched = if let Some(id) = &self.float.calendar_id {
                         if let Some(cal) = calendar_by_id(id) {
@@ -601,11 +599,7 @@ impl InterestRateSwap {
                         let alpha = self
                             .float
                             .dc
-                            .year_fraction(
-                                prev,
-                                d,
-                                finstack_core::dates::DayCountCtx::default(),
-                            )
+                            .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
                             .unwrap_or(0.0);
                         let t_d = disc_dc
                             .year_fraction(

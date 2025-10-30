@@ -7,8 +7,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::revolving_credit::{
-    BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
-    StochasticUtilizationSpec, UtilizationProcess,
+    BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees, StochasticUtilizationSpec,
+    UtilizationProcess,
 };
 use time::macros::date;
 
@@ -47,17 +47,17 @@ fn test_mc_pricer_stochastic_utilization() {
         .fees(RevolvingCreditFees {
             upfront_fee: None,
             commitment_fee_bp: 25.0, // 25 bps on undrawn
-            usage_fee_bp: 10.0,       // 10 bps on drawn
-            facility_fee_bp: 5.0,     // 5 bps on total commitment
+            usage_fee_bp: 10.0,      // 10 bps on drawn
+            facility_fee_bp: 5.0,    // 5 bps on total commitment
         })
         .draw_repay_spec(DrawRepaySpec::Stochastic(StochasticUtilizationSpec {
             utilization_process: UtilizationProcess::MeanReverting {
-                target_rate: 0.6,  // Mean-revert to 60% utilization
-                speed: 0.5,        // Moderate mean reversion
-                volatility: 0.15,  // 15% volatility
+                target_rate: 0.6, // Mean-revert to 60% utilization
+                speed: 0.5,       // Moderate mean reversion
+                volatility: 0.15, // 15% volatility
             },
-            num_paths: 10000,      // 10k paths for reasonable convergence
-            seed: Some(42),        // Fixed seed for reproducibility
+            num_paths: 10000, // 10k paths for reasonable convergence
+            seed: Some(42),   // Fixed seed for reproducibility
         }))
         .disc_id("USD-OIS".into())
         .build()
@@ -219,9 +219,9 @@ fn test_mc_utilization_mean_reversion() {
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Stochastic(StochasticUtilizationSpec {
             utilization_process: UtilizationProcess::MeanReverting {
-                target_rate: 0.8,  // Should drift toward 80%
-                speed: 1.0,        // Fast mean reversion
-                volatility: 0.05,  // Low volatility
+                target_rate: 0.8, // Should drift toward 80%
+                speed: 1.0,       // Fast mean reversion
+                volatility: 0.05, // Low volatility
             },
             num_paths: 5000,
             seed: Some(54321),
@@ -252,7 +252,7 @@ fn test_mc_utilization_mean_reversion() {
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Stochastic(StochasticUtilizationSpec {
             utilization_process: UtilizationProcess::MeanReverting {
-                target_rate: 0.8,  // Already at target
+                target_rate: 0.8, // Already at target
                 speed: 1.0,
                 volatility: 0.05,
             },
@@ -272,4 +272,3 @@ fn test_mc_utilization_mean_reversion() {
         "Lower initial utilization should result in lower PV"
     );
 }
-

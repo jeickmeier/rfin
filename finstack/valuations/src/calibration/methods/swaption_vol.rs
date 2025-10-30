@@ -77,7 +77,7 @@ pub struct SwaptionVolCalibrator {
 
 impl SwaptionVolCalibrator {
     /// Get market-standard SABR beta by currency for lognormal convention.
-    /// 
+    ///
     /// Market practice for interest rate swaptions typically uses:
     /// - USD/EUR: β ≈ 0.5 (captures empirical smile dynamics)
     /// - Other G10: β ≈ 0.5
@@ -137,7 +137,7 @@ impl SwaptionVolCalibrator {
         self.config = config;
         self
     }
-    
+
     /// Override the default SABR beta parameter.
     /// By default, beta is currency-aware: 0.5 for USD/EUR rates, 0.0 for normal vols.
     pub fn with_sabr_beta(mut self, beta: f64) -> Self {
@@ -191,7 +191,7 @@ impl SwaptionVolCalibrator {
         // Multi-curve mode: use forward curve for floating leg if configured
         if let Some(ref forward_id) = self.forward_id {
             let fwd = context.get_forward_ref(forward_id)?;
-            
+
             // Build floating leg schedule
             let float_sched = crate::cashflow::builder::build_dates(
                 swap_start,
@@ -201,17 +201,17 @@ impl SwaptionVolCalibrator {
                 BusinessDayConvention::Following,
                 None,
             );
-            
+
             if float_sched.dates.len() < 2 {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::Invalid,
                 ));
             }
-            
+
             // Calculate floating leg PV using forward curve
             let mut float_pv = 0.0;
             let mut prev = float_sched.dates[0];
-            
+
             for &pay_date in &float_sched.dates[1..] {
                 // Accrual fraction for this period
                 let accrual = self.market_conventions.day_count.year_fraction(
@@ -219,30 +219,30 @@ impl SwaptionVolCalibrator {
                     pay_date,
                     DayCountCtx::default(),
                 )?;
-                
+
                 // Time to payment
                 let t_pay = self.market_conventions.day_count.year_fraction(
                     self.base_date,
                     pay_date,
                     DayCountCtx::default(),
                 )?;
-                
+
                 // Time to period start
                 let t_prev = self.market_conventions.day_count.year_fraction(
                     self.base_date,
                     prev,
                     DayCountCtx::default(),
                 )?;
-                
+
                 // Forward rate for this period (using the forward curve)
                 let forward_rate = fwd.rate_period(t_prev, t_pay);
-                
+
                 // Payment = forward_rate * accrual * discount_factor
                 float_pv += forward_rate * accrual * disc.df(t_pay);
-                
+
                 prev = pay_date;
             }
-            
+
             // Par rate = floating leg PV / annuity (PV01)
             Ok(float_pv / pv01)
         } else {

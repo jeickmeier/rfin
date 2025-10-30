@@ -2,65 +2,15 @@
 //!
 //! Provides transforms from uniform to other distributions,
 //! including Box-Muller for normal random variables.
+//!
+//! Note: Box-Muller transforms are now in `finstack_core::math::random`
+//! and re-exported here for backward compatibility.
 
-use std::f64::consts::PI;
+// Re-export Box-Muller transforms from core/math (pure math, belongs in core)
+pub use finstack_core::math::random::{box_muller_polar, box_muller_transform};
 
 // Re-export inverse normal CDF from core/math (better tail handling)
 pub use finstack_core::math::special_functions::standard_normal_inv_cdf as inverse_normal_cdf;
-
-/// Box-Muller transform: U(0,1)² → N(0,1)².
-///
-/// Generates two independent standard normal random variables
-/// from two independent uniform random variables.
-///
-/// # Arguments
-///
-/// * `u1` - First uniform random variable in (0, 1)
-/// * `u2` - Second uniform random variable in (0, 1)
-///
-/// # Returns
-///
-/// Tuple of two independent N(0,1) random variables.
-///
-/// # Algorithm
-///
-/// ```text
-/// z1 = √(-2 ln u1) cos(2π u2)
-/// z2 = √(-2 ln u1) sin(2π u2)
-/// ```
-#[inline]
-pub fn box_muller_transform(u1: f64, u2: f64) -> (f64, f64) {
-    let r = (-2.0 * u1.ln()).sqrt();
-    let theta = 2.0 * PI * u2;
-    let z1 = r * theta.cos();
-    let z2 = r * theta.sin();
-    (z1, z2)
-}
-
-/// Polar form of Box-Muller (rejection-based, typically faster).
-///
-/// # Arguments
-///
-/// * `gen_u01` - Function that generates U(0,1) random variables
-///
-/// # Returns
-///
-/// Tuple of two independent N(0,1) random variables.
-pub fn box_muller_polar<F>(mut gen_u01: F) -> (f64, f64)
-where
-    F: FnMut() -> f64,
-{
-    loop {
-        let u1 = 2.0 * gen_u01() - 1.0;
-        let u2 = 2.0 * gen_u01() - 1.0;
-        let s = u1 * u1 + u2 * u2;
-
-        if s > 0.0 && s < 1.0 {
-            let factor = (-2.0 * s.ln() / s).sqrt();
-            return (u1 * factor, u2 * factor);
-        }
-    }
-}
 
 /// Moment matching: adjust samples to have exact mean and variance.
 ///
@@ -100,31 +50,8 @@ pub fn moment_match(samples: &mut [f64], target_mean: f64, target_std: f64) {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_box_muller() {
-        use finstack_core::math::RandomNumberGenerator;
-        let (z1, z2) = box_muller_transform(0.5, 0.5);
-        assert!(z1.is_finite());
-        assert!(z2.is_finite());
-
-        // Test with many samples
-        let mut rng = finstack_core::math::random::SimpleRng::new(42);
-        let mut samples = Vec::new();
-        for _ in 0..500 {
-            let u1 = rng.uniform();
-            let u2 = rng.uniform();
-            let (z1, z2) = box_muller_transform(u1, u2);
-            samples.push(z1);
-            samples.push(z2);
-        }
-
-        let mean = samples.iter().sum::<f64>() / samples.len() as f64;
-        let var =
-            samples.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (samples.len() - 1) as f64;
-
-        assert!(mean.abs() < 0.1);
-        assert!((var - 1.0).abs() < 0.2);
-    }
+    // Box-Muller tests moved to core/math/random.rs
+    // Tests are kept there since Box-Muller is now part of core
 
     #[test]
     fn test_inverse_normal_cdf() {
@@ -214,14 +141,5 @@ mod tests {
         assert!((var - 1.0).abs() < 1e-10);
     }
 
-    #[test]
-    fn test_box_muller_polar() {
-        use finstack_core::math::RandomNumberGenerator;
-        let mut rng = finstack_core::math::random::SimpleRng::new(42);
-        let gen_u01 = || rng.uniform();
-
-        let (z1, z2) = box_muller_polar(gen_u01);
-        assert!(z1.is_finite());
-        assert!(z2.is_finite());
-    }
+    // Box-Muller polar test moved to core/math/random.rs
 }

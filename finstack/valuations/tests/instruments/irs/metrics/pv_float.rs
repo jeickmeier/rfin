@@ -22,7 +22,7 @@ fn build_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketContext
         ])
         .build()
         .unwrap();
-    
+
     // Add a separate discount curve for LIBOR-based instruments
     let disc_curve_libor = DiscountCurve::builder("USD_LIBOR_DISC")
         .base_date(base_date)
@@ -68,7 +68,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
             end,
         },
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-            disc_id: "USD_LIBOR_DISC".into(),  // Use different discount curve for non-OIS swap
+            disc_id: "USD_LIBOR_DISC".into(), // Use different discount curve for non-OIS swap
             fwd_id: "USD_LIBOR_3M".into(),
             spread_bp: 0.0,
             freq: Frequency::quarterly(),

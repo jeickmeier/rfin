@@ -3,6 +3,8 @@
 //! Implements Welford's algorithm for numerically stable mean/variance
 //! computation and confidence interval calculation.
 
+use finstack_core::math::special_functions::standard_normal_inv_cdf;
+
 /// Online statistics accumulator using Welford's algorithm.
 ///
 /// This provides numerically stable computation of mean and variance
@@ -105,7 +107,7 @@ impl OnlineStats {
     /// let (lower, upper) = stats.confidence_interval(0.05); // 95% CI
     /// ```
     pub fn confidence_interval(&self, alpha: f64) -> (f64, f64) {
-        let z = normal_quantile(1.0 - alpha / 2.0);
+        let z = standard_normal_inv_cdf(1.0 - alpha / 2.0);
         let margin = z * self.stderr();
         (self.mean - margin, self.mean + margin)
     }
@@ -134,49 +136,6 @@ impl OnlineStats {
     }
 }
 
-/// Approximate inverse standard normal CDF for confidence intervals.
-///
-/// Uses Abramowitz & Stegun approximation (accurate to ~0.45% relative error).
-///
-/// # Arguments
-///
-/// * `p` - Probability in (0, 1)
-///
-/// # Returns
-///
-/// z such that Φ(z) = p, where Φ is standard normal CDF.
-fn normal_quantile(p: f64) -> f64 {
-    if p <= 0.0 || p >= 1.0 {
-        return if p <= 0.0 {
-            f64::NEG_INFINITY
-        } else {
-            f64::INFINITY
-        };
-    }
-
-    // For p > 0.5, use symmetry: Φ^(-1)(p) = -Φ^(-1)(1-p)
-    let sign = if p < 0.5 { -1.0 } else { 1.0 };
-    let p_adj = if p < 0.5 { p } else { 1.0 - p };
-
-    // Abramowitz & Stegun 26.2.23
-    // Approximation for small p (lower tail)
-    let t = (-2.0 * p_adj.ln()).sqrt();
-
-    // Coefficients
-    const C0: f64 = 2.515517;
-    const C1: f64 = 0.802853;
-    const C2: f64 = 0.010328;
-    const D1: f64 = 1.432788;
-    const D2: f64 = 0.189269;
-    const D3: f64 = 0.001308;
-
-    let numerator = C0 + C1 * t + C2 * t * t;
-    let denominator = 1.0 + D1 * t + D2 * t * t + D3 * t * t * t;
-    let z = t - numerator / denominator;
-
-    sign * z
-}
-
 /// Compute relative error bound for target confidence.
 ///
 /// Returns the number of samples required to achieve a target
@@ -192,7 +151,7 @@ fn normal_quantile(p: f64) -> f64 {
 ///
 /// Minimum number of samples required.
 pub fn required_samples(cv: f64, target_rel_error: f64, alpha: f64) -> usize {
-    let z = normal_quantile(1.0 - alpha / 2.0);
+    let z = standard_normal_inv_cdf(1.0 - alpha / 2.0);
     let n = (z * cv / target_rel_error).powi(2);
     n.ceil() as usize
 }
@@ -243,17 +202,18 @@ mod tests {
     }
 
     #[test]
-    fn test_normal_quantile() {
+    fn test_standard_normal_inv_cdf() {
+        // Test that we're using the core implementation correctly
         // Test known values
-        let z_95 = normal_quantile(0.975); // 95% two-tailed
+        let z_95 = standard_normal_inv_cdf(0.975); // 95% two-tailed
         assert!((z_95 - 1.96).abs() < 0.01); // Should be ~1.96
 
-        let z_99 = normal_quantile(0.995); // 99% two-tailed
+        let z_99 = standard_normal_inv_cdf(0.995); // 99% two-tailed
         assert!((z_99 - 2.576).abs() < 0.01); // Should be ~2.576
 
         // Test symmetry
-        assert!((normal_quantile(0.5)).abs() < 0.01); // Should be ~0
-        assert!((normal_quantile(0.25) + normal_quantile(0.75)).abs() < 0.01);
+        assert!((standard_normal_inv_cdf(0.5)).abs() < 0.01); // Should be ~0
+        assert!((standard_normal_inv_cdf(0.25) + standard_normal_inv_cdf(0.75)).abs() < 0.01);
     }
 
     #[test]

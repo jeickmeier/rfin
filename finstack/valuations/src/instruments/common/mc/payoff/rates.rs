@@ -110,6 +110,8 @@ impl Payoff for CapPayoff {
             // Use small tolerance for time matching
             if (state.time - target_time).abs() < 1e-6 {
                 // Get short rate from path state
+                // Defaults to 0.0 if short_rate is not available, which results in
+                // zero forward rate and zero caplet payoff for that fixing period.
                 let short_rate = state.get("short_rate").unwrap_or(0.0);
 
                 // Compute forward rate
@@ -191,6 +193,11 @@ impl FloorPayoff {
 }
 
 impl Payoff for FloorPayoff {
+    /// Process a path event at fixing dates.
+    ///
+    /// Extracts short rate from path state at each fixing date. Defaults to 0.0
+    /// if short_rate is not available, which results in zero forward rate and
+    /// zero floorlet payoff for that fixing period.
     fn on_event(&mut self, state: &PathState) {
         if self.next_fixing_idx < self.fixing_dates.len() {
             let target_time = self.fixing_dates[self.next_fixing_idx];

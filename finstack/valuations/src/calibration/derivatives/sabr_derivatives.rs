@@ -28,7 +28,7 @@ pub struct SABRMarketData {
 ///
 /// This implementation provides exact gradients of the least-squares
 /// objective function with respect to SABR parameters (alpha, nu, rho).
-/// 
+///
 /// Can optionally use finite-difference gradients for higher accuracy
 /// at the expense of performance.
 pub struct SABRCalibrationDerivatives {
@@ -40,12 +40,12 @@ pub struct SABRCalibrationDerivatives {
 impl SABRCalibrationDerivatives {
     /// Create a new SABR derivatives provider with analytical gradients (default).
     pub fn new(market_data: SABRMarketData) -> Self {
-        Self { 
+        Self {
             market_data,
             use_fd: false,
         }
     }
-    
+
     /// Create a new SABR derivatives provider with finite-difference gradients.
     /// More accurate but slower than analytical approximations.
     pub fn new_with_fd(market_data: SABRMarketData) -> Self {
@@ -128,19 +128,20 @@ impl SABRCalibrationDerivatives {
     /// Compute SABR volatility only (for finite differences).
     fn sabr_vol_fd(&self, strike: f64, alpha: f64, nu: f64, rho: f64) -> f64 {
         use crate::instruments::common::models::{SABRModel, SABRParameters};
-        
+
         // Create SABR parameters
         let params = match SABRParameters::new(alpha, self.market_data.beta, nu, rho) {
             Ok(p) => p,
             Err(_) => return 0.0, // Return 0 for invalid parameters
         };
-        
+
         let sabr = SABRModel::new(params);
         sabr.implied_volatility(
             self.market_data.forward,
             strike,
             self.market_data.time_to_expiry,
-        ).unwrap_or(0.0)
+        )
+        .unwrap_or(0.0)
     }
 
     /// Compute ATM volatility and derivatives.

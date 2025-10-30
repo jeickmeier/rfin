@@ -9,12 +9,12 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::calibration::methods::discount::DiscountCurveCalibrator;
 use finstack_valuations::calibration::methods::forward_curve::ForwardCurveCalibrator;
-use finstack_valuations::calibration::{Calibrator, CalibrationConfig, RatesQuote};
+use finstack_valuations::calibration::{CalibrationConfig, Calibrator, RatesQuote};
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::deposit::Deposit;
 use finstack_valuations::instruments::fra::ForwardRateAgreement;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
-use finstack_valuations::metrics::{MetricId, MetricCalculator};
+use finstack_valuations::metrics::{MetricCalculator, MetricId};
 use time::Month;
 
 const NOTIONAL: f64 = 1_000_000.0; // $1M notional
@@ -23,7 +23,7 @@ const TOLERANCE_BP: f64 = 0.1; // 0.1bp tolerance
 /// Calculate DV01 for a swap using the metrics system.
 fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date) -> f64 {
     use finstack_valuations::metrics::MetricContext;
-    
+
     let base_pv = swap.value(ctx, as_of).unwrap();
     let mut metric_ctx = MetricContext::new(
         std::sync::Arc::new(swap.clone()),
@@ -31,13 +31,13 @@ fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date
         as_of,
         base_pv,
     );
-    
+
     // Calculate annuity first (dependency of DV01)
     use finstack_valuations::instruments::irs::metrics::annuity::AnnuityCalculator;
     let annuity_calc = AnnuityCalculator;
     let annuity = annuity_calc.calculate(&mut metric_ctx).unwrap();
     metric_ctx.computed.insert(MetricId::Annuity, annuity);
-    
+
     // Now calculate DV01
     use finstack_valuations::instruments::irs::metrics::dv01::Dv01Calculator;
     let dv01_calc = Dv01Calculator;
@@ -52,16 +52,16 @@ fn swap_tolerance_from_dv01(dv01: f64) -> f64 {
 #[test]
 fn test_discount_curve_swap_repricing_0_1bp() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     // Use tighter tolerance for calibration
     let config = CalibrationConfig {
         tolerance: 1e-12,
         max_iterations: 200,
         ..Default::default()
     };
-    
-    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-        .with_config(config);
+
+    let calibrator =
+        DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
 
     // Quotes: deposits + swaps of various tenors
     let quotes = vec![
@@ -108,9 +108,9 @@ fn test_discount_curve_swap_repricing_0_1bp() {
     let (curve, report) = calibrator
         .calibrate(&quotes, &base_context)
         .expect("Swap calibration should succeed");
-    
+
     assert!(report.success, "Calibration should succeed: {:?}", report);
-    
+
     // Derive forward curve for repricing
     let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();
     let ctx = base_context.insert_discount(curve).insert_forward(fwd);
@@ -163,10 +163,10 @@ fn test_discount_curve_swap_repricing_0_1bp() {
             let pv = swap.value(&ctx, base_date).unwrap();
             let dv01 = calculate_swap_dv01(&swap, &ctx, base_date);
             let tolerance = swap_tolerance_from_dv01(dv01);
-            
+
             // Ensure minimum tolerance of $1 for very small DV01s
             let final_tolerance = tolerance.max(1.0);
-            
+
             assert!(
                 pv.amount().abs() <= final_tolerance,
                 "Swap at {} should reprice within 0.1bp tolerance. PV: ${:.2}, DV01: ${:.2}, Tolerance: ${:.2}",
@@ -182,15 +182,15 @@ fn test_discount_curve_swap_repricing_0_1bp() {
 #[test]
 fn test_discount_curve_deposit_repricing() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let config = CalibrationConfig {
         tolerance: 1e-12,
         max_iterations: 200,
         ..Default::default()
     };
-    
-    let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-        .with_config(config);
+
+    let calibrator =
+        DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
 
     let deposit_quotes = vec![
         RatesQuote::Deposit {
@@ -214,11 +214,11 @@ fn test_discount_curve_deposit_repricing() {
     let (curve, report) = calibrator
         .calibrate(&deposit_quotes, &base_context)
         .expect("Deposit calibration should succeed");
-    
+
     assert!(report.success);
-    
+
     let ctx = base_context.insert_discount(curve);
-    
+
     // Deposits should reprice to par (PV ≈ 0) within tight tolerance
     for quote in &deposit_quotes {
         if let RatesQuote::Deposit {
@@ -238,7 +238,7 @@ fn test_discount_curve_deposit_repricing() {
                 attributes: Default::default(),
             };
             let pv = dep.value(&ctx, base_date).unwrap();
-            
+
             // For deposits, use absolute tolerance: $1 per $1M notional (0.1bp ≈ $1 for short deposits)
             assert!(
                 pv.amount().abs() <= 1.0,
@@ -253,16 +253,16 @@ fn test_discount_curve_deposit_repricing() {
 #[test]
 fn test_forward_curve_fra_repricing_0_1bp() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     // First calibrate discount curve
     let disc_config = CalibrationConfig {
         tolerance: 1e-12,
         max_iterations: 200,
         ..Default::default()
     };
-    
-    let disc_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-        .with_config(disc_config);
+
+    let disc_calibrator =
+        DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(disc_config);
 
     let disc_quotes = vec![
         RatesQuote::Deposit {
@@ -290,15 +290,10 @@ fn test_forward_curve_fra_repricing_0_1bp() {
         max_iterations: 200,
         ..Default::default()
     };
-    
-    let fwd_calibrator = ForwardCurveCalibrator::new(
-        "USD-SOFR-3M",
-        0.25,
-        base_date,
-        Currency::USD,
-        "USD-OIS",
-    )
-    .with_config(fwd_config);
+
+    let fwd_calibrator =
+        ForwardCurveCalibrator::new("USD-SOFR-3M", 0.25, base_date, Currency::USD, "USD-OIS")
+            .with_config(fwd_config);
 
     let fra_quotes = vec![
         RatesQuote::FRA {
@@ -318,9 +313,9 @@ fn test_forward_curve_fra_repricing_0_1bp() {
     let (fwd_curve, report) = fwd_calibrator
         .calibrate(&fra_quotes, &ctx_with_disc)
         .expect("Forward calibration should succeed");
-    
+
     assert!(report.success);
-    
+
     let ctx = ctx_with_disc.insert_forward(fwd_curve);
 
     // Reprice FRAs and verify within tolerance
@@ -354,7 +349,7 @@ fn test_forward_curve_fra_repricing_0_1bp() {
                 .unwrap();
 
             let pv = fra.value(&ctx, base_date).unwrap();
-            
+
             // Note: FRA calibration with forward curves has inherent limitations.
             // Multi-curve frameworks calibrate forward and discount curves separately,
             // allowing better fit to FRA quotes. Here we use a relaxed tolerance.
@@ -373,4 +368,3 @@ fn test_forward_curve_fra_repricing_0_1bp() {
         }
     }
 }
-

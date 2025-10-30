@@ -1,7 +1,7 @@
 //! Tests for composite calendar functionality
 
 use finstack_core::dates::calendar::composite::{CompositeCalendar, CompositeMode};
-use finstack_core::dates::calendar::{GBLO, TARGET2, NYSE, USNY};
+use finstack_core::dates::calendar::{GBLO, NYSE, TARGET2, USNY};
 use finstack_core::dates::{Date, HolidayCalendar};
 use time::Month;
 
@@ -136,4 +136,3 @@ fn composite_business_day_trait_implementation() {
     let weekday = make_date(2025, 1, 2);
     assert!(composite.is_business_day(weekday));
 }
-

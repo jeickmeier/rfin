@@ -225,7 +225,11 @@ fn test_dv01_calculation() {
     // DV01 for FX swap at inception with model-implied rates is very small
     // because the swap is close to fair value (PV ≈ 0)
     // The sign and magnitude depend on the specific market setup
-    assert!(dv01.abs() < 100.0, "DV01 magnitude should be reasonable, got: {}", dv01);
+    assert!(
+        dv01.abs() < 100.0,
+        "DV01 magnitude should be reasonable, got: {}",
+        dv01
+    );
     assert!(dv01.is_finite(), "DV01 should be finite");
 }
 

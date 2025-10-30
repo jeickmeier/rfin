@@ -16,7 +16,7 @@ fn rule_fixed_no_observation() {
     assert!(rule.applies(make_date(2025, 7, 4)));
     assert!(rule.applies(make_date(2024, 7, 4)));
     assert!(rule.applies(make_date(2026, 7, 4)));
-    
+
     // Should not match other dates
     assert!(!rule.applies(make_date(2025, 7, 5)));
     assert!(!rule.applies(make_date(2025, 7, 3)));
@@ -330,4 +330,3 @@ fn rule_autumnal_equinox_jp() {
         assert!(date.day() >= 22 && date.day() <= 24);
     }
 }
-

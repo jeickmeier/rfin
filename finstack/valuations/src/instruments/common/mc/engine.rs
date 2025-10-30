@@ -323,7 +323,7 @@ impl McEngine {
             .collect();
 
         // Process chunks in parallel
-        let chunk_stats: Vec<OnlineStats> = chunks
+        let chunk_results: Vec<Result<OnlineStats>> = chunks
             .par_iter()
             .map(|range| {
                 let mut stats = OnlineStats::new();
@@ -341,26 +341,29 @@ impl McEngine {
                     // Clone payoff for this path
                     let mut payoff_clone = payoff.clone();
 
-                    let payoff_value = self
-                        .simulate_path(
-                            &mut path_rng,
-                            process,
-                            disc,
-                            initial_state,
-                            &mut payoff_clone,
-                            &mut state,
-                            &mut z,
-                            &mut work,
-                        )
-                        .expect("Path simulation failed");
+                    // Use ? operator to propagate errors instead of panicking
+                    let payoff_value = self.simulate_path(
+                        &mut path_rng,
+                        process,
+                        disc,
+                        initial_state,
+                        &mut payoff_clone,
+                        &mut state,
+                        &mut z,
+                        &mut work,
+                    )?;
 
                     let discounted_value = payoff_value * discount_factor;
                     stats.update(discounted_value);
                 }
 
-                stats
+                Ok(stats)
             })
             .collect();
+
+        // Collect and handle errors (fail-fast on first error)
+        let chunk_stats: Vec<OnlineStats> =
+            chunk_results.into_iter().collect::<Result<Vec<_>>>()?;
 
         // Deterministically reduce chunk statistics
         let mut combined = OnlineStats::new();
@@ -567,5 +570,113 @@ mod tests {
 
         assert_eq!(result.mean.amount(), 100.0);
         assert_eq!(result.num_paths, 100);
+    }
+
+    #[test]
+    #[cfg(feature = "parallel")]
+    fn test_parallel_execution_error_propagation() {
+        // Test that parallel execution properly propagates errors instead of panicking.
+        // The key change is that we replaced .expect() with ? operator, which ensures
+        // errors are propagated via Result rather than panicking.
+        //
+        // This test verifies that:
+        // 1. Parallel execution works correctly for valid inputs
+        // 2. Error handling mechanism is in place (verified by compilation - ? operator
+        //    requires Result return type)
+
+        let engine = McEngine::builder()
+            .num_paths(100)
+            .uniform_grid(1.0, 10)
+            .parallel(true)
+            .chunk_size(50)
+            .build()
+            .unwrap();
+
+        let rng = DummyRng;
+        let process = DummyProcess;
+        let disc = DummyDisc;
+        let initial_state = vec![100.0];
+        let payoff = DummyPayoff;
+
+        // Valid input should work
+        let result = engine.price(
+            &rng,
+            &process,
+            &disc,
+            &initial_state,
+            &payoff,
+            Currency::USD,
+            1.0,
+        );
+
+        assert!(result.is_ok());
+        let estimate = result.unwrap();
+        assert_eq!(estimate.num_paths, 100);
+
+        // Note: Testing actual error scenarios would require extensive mocking
+        // of simulate_path. The important change is that errors are now propagated
+        // via Result instead of panicking (verified by ? operator usage).
+    }
+
+    #[test]
+    fn test_serial_vs_parallel_consistency() {
+        // Test that serial and parallel paths produce consistent results
+        let engine_serial = McEngine::builder()
+            .num_paths(1000)
+            .uniform_grid(1.0, 10)
+            .seed(42)
+            .parallel(false)
+            .build()
+            .unwrap();
+
+        #[cfg(feature = "parallel")]
+        let engine_parallel = McEngine::builder()
+            .num_paths(1000)
+            .uniform_grid(1.0, 10)
+            .seed(42)
+            .parallel(true)
+            .chunk_size(200)
+            .build()
+            .unwrap();
+
+        let rng_serial = DummyRng;
+        #[cfg(feature = "parallel")]
+        let rng_parallel = DummyRng;
+        let process = DummyProcess;
+        let disc = DummyDisc;
+        let initial_state = vec![100.0];
+        let payoff = DummyPayoff;
+
+        let serial_result = engine_serial
+            .price(
+                &rng_serial,
+                &process,
+                &disc,
+                &initial_state,
+                &payoff,
+                Currency::USD,
+                1.0,
+            )
+            .unwrap();
+
+        #[cfg(feature = "parallel")]
+        let parallel_result = engine_parallel
+            .price(
+                &rng_parallel,
+                &process,
+                &disc,
+                &initial_state,
+                &payoff,
+                Currency::USD,
+                1.0,
+            )
+            .unwrap();
+
+        // Both should succeed and produce same results (deterministic RNG)
+        assert_eq!(serial_result.num_paths, 1000);
+        #[cfg(feature = "parallel")]
+        assert_eq!(parallel_result.num_paths, 1000);
+        #[cfg(feature = "parallel")]
+        assert_eq!(serial_result.mean.amount(), parallel_result.mean.amount());
     }
 }

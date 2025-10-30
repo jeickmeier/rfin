@@ -65,16 +65,68 @@ impl RandomNumberGenerator for SimpleRng {
         let u1 = self.uniform();
         let u2 = self.uniform();
 
-        let mag = std_dev * (-2.0 * u1.ln()).sqrt();
-        let z0 = mag * (2.0 * std::f64::consts::PI * u2).cos();
-        let z1 = mag * (2.0 * std::f64::consts::PI * u2).sin();
-
+        let (z0, z1) = box_muller_transform(u1, u2);
         self.cached_normal = Some(z1);
-        mean + z0
+        mean + std_dev * z0
     }
 
     fn bernoulli(&mut self, p: f64) -> bool {
         self.uniform() < p
+    }
+}
+
+/// Box-Muller transform: U(0,1)² → N(0,1)².
+///
+/// Generates two independent standard normal random variables
+/// from two independent uniform random variables.
+///
+/// # Arguments
+///
+/// * `u1` - First uniform random variable in (0, 1)
+/// * `u2` - Second uniform random variable in (0, 1)
+///
+/// # Returns
+///
+/// Tuple of two independent N(0,1) random variables.
+///
+/// # Algorithm
+///
+/// ```text
+/// z1 = √(-2 ln u1) cos(2π u2)
+/// z2 = √(-2 ln u1) sin(2π u2)
+/// ```
+#[inline]
+pub fn box_muller_transform(u1: f64, u2: f64) -> (f64, f64) {
+    use std::f64::consts::PI;
+    let r = (-2.0 * u1.ln()).sqrt();
+    let theta = 2.0 * PI * u2;
+    let z1 = r * theta.cos();
+    let z2 = r * theta.sin();
+    (z1, z2)
+}
+
+/// Polar form of Box-Muller (rejection-based, typically faster).
+///
+/// # Arguments
+///
+/// * `gen_u01` - Function that generates U(0,1) random variables
+///
+/// # Returns
+///
+/// Tuple of two independent N(0,1) random variables.
+pub fn box_muller_polar<F>(mut gen_u01: F) -> (f64, f64)
+where
+    F: FnMut() -> f64,
+{
+    loop {
+        let u1 = 2.0 * gen_u01() - 1.0;
+        let u2 = 2.0 * gen_u01() - 1.0;
+        let s = u1 * u1 + u2 * u2;
+
+        if s > 0.0 && s < 1.0 {
+            let factor = (-2.0 * s.ln() / s).sqrt();
+            return (u1 * factor, u2 * factor);
+        }
     }
 }
 
@@ -135,5 +187,40 @@ mod tests {
 
         // Should be roughly 30% successes (allow wide tolerance for small sample)
         assert!(successes > 200 && successes < 400);
+    }
+
+    #[test]
+    fn test_box_muller_transform() {
+        let (z1, z2) = box_muller_transform(0.5, 0.5);
+        assert!(z1.is_finite());
+        assert!(z2.is_finite());
+
+        // Test with many samples
+        let mut rng = SimpleRng::new(42);
+        let mut samples = Vec::new();
+        for _ in 0..500 {
+            let u1 = rng.uniform();
+            let u2 = rng.uniform();
+            let (z1, z2) = box_muller_transform(u1, u2);
+            samples.push(z1);
+            samples.push(z2);
+        }
+
+        let mean = samples.iter().sum::<f64>() / samples.len() as f64;
+        let var =
+            samples.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / (samples.len() - 1) as f64;
+
+        assert!(mean.abs() < 0.1);
+        assert!((var - 1.0).abs() < 0.2);
+    }
+
+    #[test]
+    fn test_box_muller_polar() {
+        let mut rng = SimpleRng::new(42);
+        let gen_u01 = || rng.uniform();
+
+        let (z1, z2) = box_muller_polar(gen_u01);
+        assert!(z1.is_finite());
+        assert!(z2.is_finite());
     }
 }

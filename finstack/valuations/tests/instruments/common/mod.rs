@@ -10,6 +10,8 @@
 pub mod helpers;
 pub mod metrics;
 // pub mod models; // Disabled - tests private APIs
+#[cfg(feature = "mc")]
+pub mod mc;
 pub mod parameters;
 pub mod test_discountable;
 pub mod test_helpers;

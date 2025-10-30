@@ -55,7 +55,6 @@ pub mod barriers;
 pub mod discretization;
 pub mod engine;
 pub mod greeks;
-pub mod multi_curve;
 pub mod payoff;
 pub mod pricer;
 pub mod process;

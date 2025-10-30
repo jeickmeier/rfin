@@ -18,17 +18,17 @@ pub fn flat_discount(id: &str, base: Date, rate: f64) -> DiscountCurve {
         (10.0, (-rate * 10.0).exp()),
         (30.0, (-rate * 30.0).exp()),
     ];
-    
+
     let mut builder = DiscountCurve::builder(id)
         .base_date(base)
         .day_count(DayCount::Act365F)
         .knots(knots);
-    
+
     // For zero or negative rates, DFs may be flat or increasing
     if rate.abs() < 1e-10 || rate < 0.0 {
         builder = builder.allow_non_monotonic();
     }
-    
+
     builder.build().unwrap()
 }
 

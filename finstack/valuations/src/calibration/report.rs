@@ -65,9 +65,8 @@ impl CalibrationReport {
         };
 
         // Create default results metadata with stamping
-        let results_meta = finstack_core::config::results_meta(
-            &finstack_core::config::FinstackConfig::default()
-        );
+        let results_meta =
+            finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
 
         Self {
             success,
@@ -121,9 +120,8 @@ impl CalibrationReport {
 
 impl Default for CalibrationReport {
     fn default() -> Self {
-        let results_meta = finstack_core::config::results_meta(
-            &finstack_core::config::FinstackConfig::default()
-        );
+        let results_meta =
+            finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
 
         Self {
             success: false,

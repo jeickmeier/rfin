@@ -23,16 +23,11 @@ use time::Month;
 fn create_test_market(base_date: Date) -> MarketContext {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
-        .knots([
-            (0.0, 1.0),
-            (1.0, 0.90),
-            (5.0, 0.70),
-            (10.0, 0.50),
-        ])
+        .knots([(0.0, 1.0), (1.0, 0.90), (5.0, 0.70), (10.0, 0.50)])
         .set_interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()
         .unwrap();
-    
+
     MarketContext::new().insert_discount(curve)
 }
 
@@ -42,7 +37,7 @@ fn test_deep_discount_bond_ytm() {
     // Expected YTM > 20%
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2035, Month::January, 1).unwrap();
-    
+
     let mut bond = Bond::fixed(
         "DEEP-DISCOUNT",
         Money::new(1_000.0, Currency::USD),
@@ -51,26 +46,26 @@ fn test_deep_discount_bond_ytm() {
         maturity,
         "USD-OIS",
     );
-    
+
     let market = create_test_market(issue);
-    
+
     // Set quoted price at deep discount
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(50.0); // 50 cents on dollar
     let bond_with_quote = bond;
-    
+
     let result = bond_with_quote
         .price_with_metrics(&market, issue, &[MetricId::Ytm])
         .unwrap();
-    
+
     let ytm = result.measures[MetricId::Ytm.as_str()];
-    
+
     // Deep discount → high YTM
     assert!(
         ytm > 0.10, // Should be > 10% (relaxed for test robustness)
         "Deep discount bond should have high YTM, got: {:.2}%",
         ytm * 100.0
     );
-    
+
     assert!(
         ytm < 0.50, // Sanity check < 50%
         "YTM unreasonably high: {:.2}%",
@@ -83,7 +78,7 @@ fn test_zero_coupon_bond_ytm() {
     // Zero-coupon bond: No coupons, only principal repayment
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-    
+
     let mut bond = Bond::builder()
         .id("ZERO-COUPON".into())
         .notional(Money::new(1_000.0, Currency::USD))
@@ -97,26 +92,27 @@ fn test_zero_coupon_bond_ytm() {
         .disc_id("USD-OIS".into())
         .build()
         .unwrap();
-    
+
     let market = create_test_market(issue);
-    
+
     // Price at 80 cents on dollar
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(80.0);
     let bond_with_quote = bond;
-    
+
     let result = bond_with_quote
         .price_with_metrics(&market, issue, &[MetricId::Ytm])
         .unwrap();
-    
+
     let ytm = result.measures[MetricId::Ytm.as_str()];
-    
+
     // For 5-year zero priced at 80: YTM = (100/80)^(1/5) - 1 ≈ 4.56%
     let expected_ytm = (1000.0 / 800.0_f64).powf(1.0 / 5.0) - 1.0;
-    
+
     assert!(
         (ytm - expected_ytm).abs() < 0.005, // Within 50bp
         "Zero-coupon YTM {:.4} should be close to {:.4}",
-        ytm, expected_ytm
+        ytm,
+        expected_ytm
     );
 }
 
@@ -126,7 +122,7 @@ fn test_odd_first_coupon_ytm() {
     // Issue: Jan 15, First coupon: Apr 1 (2.5 months), then regular semi-annual
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-    
+
     let mut bond = Bond::builder()
         .id("ODD-FIRST".into())
         .notional(Money::new(1_000.0, Currency::USD))
@@ -140,19 +136,19 @@ fn test_odd_first_coupon_ytm() {
         .disc_id("USD-OIS".into())
         .build()
         .unwrap();
-    
+
     let market = create_test_market(issue);
-    
+
     // Price at par
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);
     let bond_with_quote = bond;
-    
+
     let result = bond_with_quote
         .price_with_metrics(&market, issue, &[MetricId::Ytm])
         .unwrap();
-    
+
     let ytm = result.measures[MetricId::Ytm.as_str()];
-    
+
     // At par, YTM should equal coupon rate
     assert!(
         (ytm - 0.05).abs() < 0.01,
@@ -166,7 +162,7 @@ fn test_eom_february_maturity_ytm() {
     // Bond maturing on end of February (handles leap year logic)
     let issue = Date::from_calendar_date(2025, Month::February, 28).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::February, 28).unwrap(); // Non-leap year
-    
+
     let mut bond = Bond::builder()
         .id("EOM-FEB".into())
         .notional(Money::new(1_000.0, Currency::USD))
@@ -180,31 +176,27 @@ fn test_eom_february_maturity_ytm() {
         .disc_id("USD-OIS".into())
         .build()
         .unwrap();
-    
+
     let market = create_test_market(issue);
-    
+
     // Price slightly above par
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(102.0);
     let bond_with_quote = bond;
-    
+
     let result = bond_with_quote
         .price_with_metrics(&market, issue, &[MetricId::Ytm])
         .unwrap();
-    
+
     let ytm = result.measures[MetricId::Ytm.as_str()];
-    
+
     // Above par → YTM < coupon
     assert!(
         ytm < 0.04,
         "Premium bond should have YTM < coupon: got {:.4}",
         ytm
     );
-    
-    assert!(
-        ytm > 0.02,
-        "YTM should be reasonable: got {:.4}",
-        ytm
-    );
+
+    assert!(ytm > 0.02, "YTM should be reasonable: got {:.4}", ytm);
 }
 
 #[test]
@@ -212,7 +204,7 @@ fn test_long_first_coupon_ytm() {
     // Bond with long first coupon
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::July, 1).unwrap();
-    
+
     let mut bond = Bond::builder()
         .id("LONG-FIRST".into())
         .notional(Money::new(1_000.0, Currency::USD))
@@ -226,18 +218,18 @@ fn test_long_first_coupon_ytm() {
         .disc_id("USD-OIS".into())
         .build()
         .unwrap();
-    
+
     let market = create_test_market(issue);
-    
+
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(98.0); // Slight discount
     let bond_with_quote = bond;
-    
+
     let result = bond_with_quote
         .price_with_metrics(&market, issue, &[MetricId::Ytm])
         .unwrap();
-    
+
     let ytm = result.measures[MetricId::Ytm.as_str()];
-    
+
     // Discount → YTM > coupon
     assert!(
         ytm > 0.06,
@@ -251,7 +243,7 @@ fn test_premium_bond_ytm_solver_convergence() {
     // Test YTM solver with premium bond (price > par)
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2028, Month::January, 1).unwrap();
-    
+
     let mut bond = Bond::fixed(
         "PREMIUM",
         Money::new(1_000.0, Currency::USD),
@@ -260,26 +252,26 @@ fn test_premium_bond_ytm_solver_convergence() {
         maturity,
         "USD-OIS",
     );
-    
+
     let market = create_test_market(issue);
-    
+
     // Price at premium
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(115.0); // 115 cents on dollar
     let bond_with_quote = bond;
-    
+
     let result = bond_with_quote
         .price_with_metrics(&market, issue, &[MetricId::Ytm])
         .unwrap();
-    
+
     let ytm = result.measures[MetricId::Ytm.as_str()];
-    
+
     // Premium bond → YTM < coupon
     assert!(
         ytm < 0.08,
         "Premium bond should have YTM < coupon: got {:.4}",
         ytm
     );
-    
+
     // Should still be positive and reasonable
     assert!(
         ytm > 0.0 && ytm < 0.15,
@@ -293,7 +285,7 @@ fn test_ytm_price_roundtrip() {
     // Test that price → YTM → price roundtrips correctly
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-    
+
     let mut bond = Bond::fixed(
         "ROUNDTRIP",
         Money::new(1_000.0, Currency::USD),
@@ -302,37 +294,37 @@ fn test_ytm_price_roundtrip() {
         maturity,
         "USD-OIS",
     );
-    
+
     let market = create_test_market(issue);
-    
+
     let original_price = 95.0; // Discount price
-    
+
     // Step 1: Calculate YTM from price
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(original_price);
-    
+
     let result1 = bond
         .price_with_metrics(&market, issue, &[MetricId::Ytm, MetricId::CleanPrice])
         .unwrap();
-    
+
     let ytm = result1.measures[MetricId::Ytm.as_str()];
-    
+
     // Step 2: Calculate price without quote (use market curve)
     // Reset pricing overrides
     bond.pricing_overrides = PricingOverrides::default();
-    
+
     let result2 = bond
         .price_with_metrics(&market, issue, &[MetricId::DirtyPrice])
         .unwrap();
-    
+
     let calculated_dirty = result2.measures[MetricId::DirtyPrice.as_str()];
-    
+
     // Verify YTM is reasonable
     assert!(
         ytm > 0.05 && ytm < 0.10,
         "Discount bond YTM should be > coupon: got {:.4}",
         ytm
     );
-    
+
     // Verify dirty price is reasonable (allow wider range since it's from curve, not quote)
     assert!(
         calculated_dirty.is_finite(),
@@ -346,7 +338,7 @@ fn test_very_long_maturity_bond() {
     // 30-year bond
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2055, Month::January, 1).unwrap();
-    
+
     let mut bond = Bond::fixed(
         "LONG-30Y",
         Money::new(1_000.0, Currency::USD),
@@ -355,26 +347,26 @@ fn test_very_long_maturity_bond() {
         maturity,
         "USD-OIS",
     );
-    
+
     let market = create_test_market(issue);
-    
+
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(90.0);
     let bond_with_quote = bond;
-    
+
     let result = bond_with_quote
         .price_with_metrics(&market, issue, &[MetricId::Ytm, MetricId::DurationMod])
         .unwrap();
-    
+
     let ytm = result.measures[MetricId::Ytm.as_str()];
     let duration = result.measures[MetricId::DurationMod.as_str()];
-    
+
     // Long maturity discount bond should have high YTM
     assert!(
         ytm > 0.04,
         "30Y discount bond YTM should be > coupon: got {:.4}",
         ytm
     );
-    
+
     // Duration should be substantial for 30Y bond
     assert!(
         duration > 10.0 && duration < 25.0,
@@ -389,7 +381,7 @@ fn test_near_maturity_bond_ytm() {
     let issue = Date::from_calendar_date(2024, Month::December, 1).unwrap();
     let maturity = Date::from_calendar_date(2025, Month::February, 1).unwrap();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     let mut bond = Bond::fixed(
         "NEAR-MATURITY",
         Money::new(1_000.0, Currency::USD),
@@ -398,18 +390,18 @@ fn test_near_maturity_bond_ytm() {
         maturity,
         "USD-OIS",
     );
-    
+
     let market = create_test_market(as_of);
-    
+
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(99.5);
     let bond_with_quote = bond;
-    
+
     let result = bond_with_quote
         .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::AccruedInterest])
         .unwrap();
-    
+
     let ytm = result.measures[MetricId::Ytm.as_str()];
-    
+
     // Near maturity, YTM should still be reasonable
     assert!(
         ytm.is_finite() && ytm > -0.05 && ytm < 0.20,
@@ -417,4 +409,3 @@ fn test_near_maturity_bond_ytm() {
         ytm
     );
 }
-

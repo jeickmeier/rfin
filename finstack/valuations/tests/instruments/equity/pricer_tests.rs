@@ -24,13 +24,13 @@ fn build_flat_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve
             (1.0, (-rate).exp()),
             (2.0, (-rate * 2.0).exp()),
         ]);
-    
+
     // For zero or negative rates, the curve may be flat or increasing
     // which requires allow_non_monotonic()
     if rate.abs() < 1e-10 || rate < 0.0 {
         builder = builder.allow_non_monotonic();
     }
-    
+
     builder.build().expect("Failed to build discount curve")
 }
 

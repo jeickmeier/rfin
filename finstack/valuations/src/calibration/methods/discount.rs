@@ -118,7 +118,9 @@ impl DiscountCurveCalibrator {
 
         // Report initial progress
         let total_quotes = sorted_quotes.len();
-        self.config.progress.report(0, total_quotes, "Starting calibration");
+        self.config
+            .progress
+            .report(0, total_quotes, "Starting calibration");
 
         for (idx, quote) in sorted_quotes.iter().enumerate() {
             let maturity_date = self.get_maturity(quote);
@@ -485,7 +487,9 @@ impl DiscountCurveCalibrator {
         }
 
         // Report completion
-        self.config.progress.report_force(total_quotes, total_quotes, "Calibration complete");
+        self.config
+            .progress
+            .report_force(total_quotes, total_quotes, "Calibration complete");
 
         Ok((curve, report))
     }
@@ -813,19 +817,19 @@ impl DiscountCurveCalibrator {
     }
 
     /// Validate quote sequence for no-arbitrage and completeness.
-    /// 
+    ///
     /// ## Multi-Curve Framework Guidance
-    /// 
+    ///
     /// **Appropriate for discount curve calibration:**
     /// - OIS swaps (e.g., SOFR, ESTR, SONIA): overnight compounded, collateral-aligned
     /// - Deposits: short-end risk-free rates
-    /// 
+    ///
     /// **Not recommended for discount curves (use dedicated forward curve calibration):**
     /// - FRAs: reference LIBOR/term rates, require forward curve for pricing
     /// - Futures: reference term rates, convexity-adjusted
     /// - Tenor swaps (3M, 6M LIBOR-based): require forward curves per tenor
     /// - Basis swaps: used for cross-tenor calibration, not discount
-    /// 
+    ///
     /// This validator warns (not errors) when forward-dependent instruments are used,
     /// allowing flexibility while alerting to potential misuse. In strict mode (future),
     /// this could be configured to error instead.
@@ -1174,8 +1178,8 @@ mod tests {
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let config = CalibrationConfig::conservative();
-        let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-            .with_config(config);
+        let calibrator =
+            DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
 
         // Build quotes: deposits + one FRA
         let quotes = vec![
@@ -1202,7 +1206,7 @@ mod tests {
         let (curve, report) = calibrator
             .calibrate(&quotes, &base_context)
             .expect("FRA calibration should succeed");
-            
+
         // Check calibration report
         assert!(report.success, "Calibration should succeed: {:?}", report);
         assert!(
@@ -1233,26 +1237,30 @@ mod tests {
             .unwrap();
 
         let pv = fra.value(&ctx, base_date).unwrap();
-        
+
         // Debug: check if curves are consistent
         let fwd_rate = ctx.get_forward_ref("USD-SOFR").unwrap().rate_period(
-            fra.day_count.year_fraction(
-                base_date,
-                fra.start_date,
-                finstack_core::dates::DayCountCtx::default()
-            ).unwrap(),
-            fra.day_count.year_fraction(
-                base_date,
-                fra.end_date,
-                finstack_core::dates::DayCountCtx::default()
-            ).unwrap()
+            fra.day_count
+                .year_fraction(
+                    base_date,
+                    fra.start_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap(),
+            fra.day_count
+                .year_fraction(
+                    base_date,
+                    fra.end_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap(),
         );
-        
+
         // Note: FRA calibration in single-curve framework with sequential bootstrap has limitations.
         // The forward rate depends on both start and end discount factors, but the start factor
         // is already fixed by the preceding deposit. This limits our ability to match the FRA quote exactly.
         // For production use, consider multi-curve framework or global optimization.
-        // 
+        //
         // Tolerance: $300 per $1M notional (roughly 3bp for 90-day FRA)
         let tolerance = 300.0;
         assert!(
@@ -1265,21 +1273,20 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_swap_repricing_under_bootstrap() {
         use crate::instruments::irs::{InterestRateSwap, PayReceive};
         use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         // Use conservative config for tighter convergence (1e-12 tolerance, 200 iterations)
         let mut config = CalibrationConfig::conservative();
         config.tolerance = 1e-12;
         config.max_iterations = 200;
-        
-        let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-            .with_config(config);
+
+        let calibrator =
+            DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD).with_config(config);
 
         // Quotes: deposits + one 1Y swap par rate
         let quotes = vec![
@@ -1309,9 +1316,9 @@ mod tests {
         let (curve, report) = calibrator
             .calibrate(&quotes, &base_context)
             .expect("Swap calibration should succeed");
-        
+
         assert!(report.success, "Calibration should succeed: {:?}", report);
-        
+
         // Verify calibration residuals are tight (price_instrument returns PV/notional, so 1e-4 = $100 per $1M)
         // For 0.1bp tolerance on a swap with DV01=$96.64, we need residual < $9.66/$1M = 9.66e-6
         assert!(
@@ -1360,7 +1367,7 @@ mod tests {
             .unwrap();
 
         let pv = irs.value(&ctx, base_date).unwrap();
-        
+
         // Calculate DV01 and check repricing within 0.1bp tolerance
         let mut metric_ctx = MetricContext::new(
             std::sync::Arc::new(irs.clone()),
@@ -1368,21 +1375,21 @@ mod tests {
             base_date,
             pv,
         );
-        
+
         // Calculate annuity first (dependency of DV01)
         use crate::instruments::irs::metrics::annuity::AnnuityCalculator;
         let annuity_calc = AnnuityCalculator;
         let annuity = annuity_calc.calculate(&mut metric_ctx).unwrap();
         metric_ctx.computed.insert(MetricId::Annuity, annuity);
-        
+
         // Calculate DV01
         use crate::instruments::irs::metrics::dv01::Dv01Calculator;
         let dv01_calc = Dv01Calculator;
         let dv01 = dv01_calc.calculate(&mut metric_ctx).unwrap();
-        
+
         // Tolerance: 0.1bp * |DV01|, minimum $1
         let tolerance = (0.1 * dv01.abs()).max(1.0);
-        
+
         assert!(
             pv.amount().abs() <= tolerance,
             "Swap PV too large: ${:.2} (DV01: ${:.2}, tolerance: ${:.2})",

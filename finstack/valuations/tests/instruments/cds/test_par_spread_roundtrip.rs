@@ -43,7 +43,7 @@ fn test_cds_par_spread_roundtrip_1y() {
     let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
     let par_spread_bp = 100.0; // 100bp
-    
+
     // Create CDS quote
     let quotes = vec![CreditQuote::CDS {
         entity: "ROUNDTRIP-TEST".to_string(),
@@ -52,7 +52,7 @@ fn test_cds_par_spread_roundtrip_1y() {
         recovery_rate: 0.40,
         currency: Currency::USD,
     }];
-    
+
     // Bootstrap hazard curve
     let calibrator = HazardCurveCalibrator::new(
         "ROUNDTRIP-TEST",
@@ -62,12 +62,12 @@ fn test_cds_par_spread_roundtrip_1y() {
         Currency::USD,
         "USD-OIS",
     );
-    
+
     let disc = create_discount_curve(base);
     let market_calib = MarketContext::new().insert_discount(disc);
-    
+
     let (hazard_curve, _report) = calibrator.calibrate(&quotes, &market_calib).unwrap();
-    
+
     // Create CDS at the quoted spread
     let cds = CreditDefaultSwap::buy_protection(
         "ROUNDTRIP-CDS",
@@ -78,35 +78,45 @@ fn test_cds_par_spread_roundtrip_1y() {
         "USD-OIS",
         "ROUNDTRIP-TEST-HAZARD",
     );
-    
+
     // Price the CDS with calibrated hazard curve
     let market_price = MarketContext::new()
         .insert_discount(create_discount_curve(base))
         .insert_hazard(hazard_curve);
-    
+
     let npv = cds.value(&market_price, base).unwrap();
-    
+
     // Property: NPV should be ≈ 0 at par spread (within 1bp of notional)
     let tolerance = 10_000_000.0 * 0.0001; // 1bp of $10M = $1,000
-    
+
     assert!(
         npv.amount().abs() < tolerance,
         "CDS repriced at par spread should have NPV ≈ 0, got: {:.2} (tolerance: {:.2})",
-        npv.amount(), tolerance
+        npv.amount(),
+        tolerance
     );
 }
 
 #[test]
 fn test_cds_par_spread_roundtrip_multi_tenor() {
     let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-    
+
     // Multiple tenors
     let tenors_and_spreads = vec![
-        (Date::from_calendar_date(2026, Month::January, 15).unwrap(), 80.0),  // 1Y, 80bp
-        (Date::from_calendar_date(2028, Month::January, 15).unwrap(), 120.0), // 3Y, 120bp
-        (Date::from_calendar_date(2030, Month::January, 15).unwrap(), 150.0), // 5Y, 150bp
+        (
+            Date::from_calendar_date(2026, Month::January, 15).unwrap(),
+            80.0,
+        ), // 1Y, 80bp
+        (
+            Date::from_calendar_date(2028, Month::January, 15).unwrap(),
+            120.0,
+        ), // 3Y, 120bp
+        (
+            Date::from_calendar_date(2030, Month::January, 15).unwrap(),
+            150.0,
+        ), // 5Y, 150bp
     ];
-    
+
     // Create quotes
     let quotes: Vec<CreditQuote> = tenors_and_spreads
         .iter()
@@ -118,7 +128,7 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
             currency: Currency::USD,
         })
         .collect();
-    
+
     // Bootstrap hazard curve
     let calibrator = HazardCurveCalibrator::new(
         "MULTI-TENOR-TEST",
@@ -128,17 +138,17 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
         Currency::USD,
         "USD-OIS",
     );
-    
+
     let disc = create_discount_curve(base);
     let market_calib = MarketContext::new().insert_discount(disc);
-    
+
     let (hazard_curve, _report) = calibrator.calibrate(&quotes, &market_calib).unwrap();
-    
+
     // Reprice each CDS at its quoted spread
     let market_price = MarketContext::new()
         .insert_discount(create_discount_curve(base))
         .insert_hazard(hazard_curve);
-    
+
     for (maturity, par_spread_bp) in &tenors_and_spreads {
         let cds = CreditDefaultSwap::buy_protection(
             format!("ROUNDTRIP-CDS-{}", maturity),
@@ -149,16 +159,18 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
             "USD-OIS",
             "MULTI-TENOR-TEST-HAZARD",
         );
-        
+
         let npv = cds.value(&market_price, base).unwrap();
-        
+
         // Each CDS should have NPV ≈ 0 at its par spread
         let tolerance = 10_000_000.0 * 0.0001; // 1bp of notional
-        
+
         assert!(
             npv.amount().abs() < tolerance,
             "CDS maturity {} repriced at par spread {:.0}bp should have NPV ≈ 0, got: {:.2}",
-            maturity, par_spread_bp, npv.amount()
+            maturity,
+            par_spread_bp,
+            npv.amount()
         );
     }
 }
@@ -169,7 +181,7 @@ fn test_cds_par_spread_calculation_consistency() {
     // with that spread, gives NPV ≈ 0
     let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
-    
+
     let quotes = vec![CreditQuote::CDS {
         entity: "PAR-CONSISTENCY-TEST".to_string(),
         maturity,
@@ -177,7 +189,7 @@ fn test_cds_par_spread_calculation_consistency() {
         recovery_rate: 0.40,
         currency: Currency::USD,
     }];
-    
+
     let calibrator = HazardCurveCalibrator::new(
         "PAR-CONSISTENCY-TEST",
         Seniority::Senior,
@@ -186,17 +198,17 @@ fn test_cds_par_spread_calculation_consistency() {
         Currency::USD,
         "USD-OIS",
     );
-    
+
     let disc = create_discount_curve(base);
     let market_calib = MarketContext::new().insert_discount(disc);
-    
+
     let (hazard_curve, _report) = calibrator.calibrate(&quotes, &market_calib).unwrap();
-    
+
     // Create market with calibrated hazard curve
     let market_price = MarketContext::new()
         .insert_discount(create_discount_curve(base))
         .insert_hazard(hazard_curve);
-    
+
     // Create CDS with arbitrary spread
     let cds_test = CreditDefaultSwap::buy_protection(
         "TEST-CDS",
@@ -207,14 +219,19 @@ fn test_cds_par_spread_calculation_consistency() {
         "USD-OIS",
         "PAR-CONSISTENCY-TEST-HAZARD",
     );
-    
+
     // Calculate par spread metric
     let result = cds_test
-        .price_with_metrics(&market_price, base, &[finstack_valuations::metrics::MetricId::ParSpread])
+        .price_with_metrics(
+            &market_price,
+            base,
+            &[finstack_valuations::metrics::MetricId::ParSpread],
+        )
         .unwrap();
-    
-    let calculated_par_spread = result.measures[finstack_valuations::metrics::MetricId::ParSpread.as_str()];
-    
+
+    let calculated_par_spread =
+        result.measures[finstack_valuations::metrics::MetricId::ParSpread.as_str()];
+
     // Calculated par spread should be close to the original 200bp used for calibration
     assert!(
         (calculated_par_spread - 200.0).abs() < 1.0, // Within 1bp
@@ -222,4 +239,3 @@ fn test_cds_par_spread_calculation_consistency() {
         calculated_par_spread
     );
 }
-

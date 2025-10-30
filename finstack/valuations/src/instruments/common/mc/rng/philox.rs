@@ -8,7 +8,7 @@
 //! Reference: Salmon, Moraes, Dror, Shaw (2011) - "Parallel Random Numbers: As Easy as 1, 2, 3"
 
 use super::super::traits::RandomStream;
-use super::transforms::box_muller_transform;
+use finstack_core::math::random::box_muller_transform;
 
 /// Philox 4x32-10 random number generator.
 ///

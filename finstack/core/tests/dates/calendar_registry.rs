@@ -2,7 +2,7 @@
 
 use finstack_core::dates::calendar::composite::CompositeMode;
 use finstack_core::dates::calendar::registry::{CalendarId, CalendarRegistry};
-use finstack_core::dates::calendar::{GBLO, TARGET2, NYSE};
+use finstack_core::dates::calendar::{GBLO, NYSE, TARGET2};
 use finstack_core::dates::{Date, HolidayCalendar};
 use time::Month;
 
@@ -173,4 +173,3 @@ fn resolve_many_preserves_order() {
     assert_eq!(meta1.id, "target2");
     assert_eq!(meta2.id, "nyse");
 }
-

@@ -566,7 +566,7 @@ impl SurfaceValidator for VolSurface {
         // Check convexity of total variance in strike dimension.
         // Proper butterfly arbitrage check requires that total variance (σ²T) is convex in strike,
         // which prevents risk-free arbitrage via butterfly spreads.
-        // 
+        //
         // For a more robust production implementation, consider:
         // - SVI parameterization (Gatheral) with explicit no-arbitrage constraints
         // - Monotone convex interpolation methods
@@ -605,7 +605,11 @@ impl SurfaceValidator for VolSurface {
                         "Potential butterfly arbitrage at T={:.2}, K={:.2} in {}: \
                         total_var={:.6} vs interpolated={:.6} (ratio {:.2}). \
                         Consider SVI or monotone convex fitting.",
-                        expiry, k2, self.id().as_str(), w2, w2_interpolated,
+                        expiry,
+                        k2,
+                        self.id().as_str(),
+                        w2,
+                        w2_interpolated,
                         w2 / w2_interpolated
                     );
                 }

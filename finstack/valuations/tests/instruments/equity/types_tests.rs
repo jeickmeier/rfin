@@ -16,12 +16,12 @@ fn build_flat_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve
         .base_date(base_date)
         .day_count(DayCount::Act365F)
         .knots([(0.0, 1.0), (0.5, (-rate * 0.5).exp()), (1.0, (-rate).exp())]);
-    
+
     // For zero or negative rates, the curve may be flat or increasing
     if rate.abs() < 1e-10 || rate < 0.0 {
         builder = builder.allow_non_monotonic();
     }
-    
+
     builder.build().expect("Failed to build discount curve")
 }
 

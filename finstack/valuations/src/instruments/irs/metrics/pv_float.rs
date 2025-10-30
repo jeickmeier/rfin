@@ -19,7 +19,7 @@ impl MetricCalculator for FloatLegPvCalculator {
         let disc = context.curves.get_discount(&irs.float.disc_id)?;
         let base = disc.base_date();
         let disc_dc = disc.day_count();
-        
+
         // For OIS swaps (same discount curve for both legs), use discount-only pricing
         // to be consistent with the main IRS pricer
         if irs.float.disc_id == irs.fixed.disc_id {
@@ -30,10 +30,18 @@ impl MetricCalculator for FloatLegPvCalculator {
             let df_as_of = disc.df(t_as_of);
 
             let t_start = disc_dc
-                .year_fraction(base, irs.float.start, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(
+                    base,
+                    irs.float.start,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
                 .unwrap_or(0.0);
             let t_end = disc_dc
-                .year_fraction(base, irs.float.end, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(
+                    base,
+                    irs.float.end,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
                 .unwrap_or(0.0);
 
             let df_start_abs = disc.df(t_start);
@@ -48,9 +56,9 @@ impl MetricCalculator for FloatLegPvCalculator {
             } else {
                 1.0
             };
-            
+
             let mut pv = irs.notional.amount() * (df_start - df_end);
-            
+
             // Add spread contribution if any
             if irs.float.spread_bp != 0.0 {
                 let sched = crate::cashflow::builder::build_dates(
@@ -62,7 +70,7 @@ impl MetricCalculator for FloatLegPvCalculator {
                     irs.float.calendar_id.as_deref(),
                 );
                 let dates: Vec<Date> = sched.dates;
-                
+
                 if dates.len() >= 2 {
                     let mut prev = dates[0];
                     let mut spread_pv = 0.0;
@@ -71,8 +79,10 @@ impl MetricCalculator for FloatLegPvCalculator {
                             prev = d;
                             continue;
                         }
-                        
-                        let alpha = irs.float.dc
+
+                        let alpha = irs
+                            .float
+                            .dc
                             .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
                             .unwrap_or(0.0);
                         let t_d = disc_dc
@@ -90,10 +100,10 @@ impl MetricCalculator for FloatLegPvCalculator {
                     pv += irs.notional.amount() * (irs.float.spread_bp * 1e-4) * spread_pv;
                 }
             }
-            
+
             return Ok(pv);
         }
-        
+
         // Non-OIS swap: use forward curve for pricing
         let fwd = context.curves.get_forward(&irs.float.fwd_id)?;
 
