@@ -71,6 +71,10 @@ pub mod state_keys {
     pub const TIME: &str = "time";
     /// Step index
     pub const STEP: &str = "step";
+    /// FX rate (for multi-asset/quanto products)
+    pub const FX_RATE: &str = "fx_rate";
+    /// Equity spot (for multi-asset, when SPOT refers to FX)
+    pub const EQUITY_SPOT: &str = "equity_spot";
 }
 
 /// State information for a point along a Monte Carlo path.

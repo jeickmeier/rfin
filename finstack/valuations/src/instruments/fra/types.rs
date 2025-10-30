@@ -215,6 +215,8 @@ mod tests {
     #[cfg(feature = "slow")]
     use super::*;
     #[cfg(feature = "slow")]
+    use crate::instruments::common::traits::Instrument;
+    #[cfg(feature = "slow")]
     use finstack_core::currency::Currency;
     #[cfg(feature = "slow")]
     use finstack_core::dates::Date;

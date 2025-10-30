@@ -3,8 +3,10 @@
 //! These schemes produce numerically exact transitions (up to floating-point precision)
 //! without discretization error.
 
-use super::super::process::gbm::GbmProcess;
+use super::super::process::correlation::{apply_correlation, cholesky_decomposition};
+use super::super::process::gbm::{GbmProcess, MultiGbmProcess};
 use super::super::traits::{Discretization, StochasticProcess};
+use finstack_core::math::linalg::CholeskyError;
 
 /// Exact discretization for Geometric Brownian Motion.
 ///
@@ -98,9 +100,112 @@ where
     }
 }
 
+/// Exact discretization for multi-factor GBM with correlation.
+///
+/// Handles correlated Brownian motions by applying Cholesky decomposition
+/// to transform independent shocks into correlated ones before applying
+/// the exact GBM formula.
+///
+/// # Algorithm
+///
+/// 1. Generate independent shocks Z ~ N(0,1) for each asset
+/// 2. Apply Cholesky factor: Z_corr = L * Z_indep
+/// 3. Apply exact GBM formula: S_i(t+dt) = S_i(t) exp((μ_i - ½σ_i²)dt + σ_i√dt Z_corr_i)
+#[derive(Clone, Debug)]
+pub struct ExactMultiGbmCorrelated {
+    /// Precomputed Cholesky factor of correlation matrix (row-major, lower triangular)
+    cholesky_factor: Vec<f64>,
+    /// Dimension (number of assets)
+    dim: usize,
+}
+
+impl ExactMultiGbmCorrelated {
+    /// Create a new exact multi-GBM discretization with correlation.
+    ///
+    /// # Arguments
+    ///
+    /// * `correlation_matrix` - Correlation matrix (n x n, row-major, must be positive semi-definite)
+    /// * `dim` - Number of assets
+    ///
+    /// # Panics
+    ///
+    /// Returns error if correlation matrix is not positive semi-definite or has wrong size.
+    pub fn new(correlation_matrix: &[f64], dim: usize) -> finstack_core::Result<Self> {
+        let cholesky_factor = cholesky_decomposition(correlation_matrix, dim)
+            .map_err(|e| match e {
+                CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
+                    finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
+                }
+                CholeskyError::DimensionMismatch { .. } => {
+                    finstack_core::Error::Input(finstack_core::error::InputError::DimensionMismatch)
+                }
+                _ => finstack_core::Error::Input(finstack_core::error::InputError::Invalid),
+            })?;
+        Ok(Self {
+            cholesky_factor,
+            dim,
+        })
+    }
+
+    /// Create from a MultiGbmProcess (convenience method).
+    ///
+    /// Returns `None` if the process has no correlation (use `ExactMultiGbm` instead).
+    pub fn from_process(process: &MultiGbmProcess) -> finstack_core::Result<Option<Self>> {
+        if let Some(corr) = process.correlation() {
+            Ok(Some(Self::new(corr, process.dim())?))
+        } else {
+            Ok(None)
+        }
+    }
+}
+
+impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
+    fn step(
+        &self,
+        process: &MultiGbmProcess,
+        _t: f64,
+        dt: f64,
+        x: &mut [f64],
+        z: &[f64],
+        work: &mut [f64],
+    ) {
+        let dim = process.dim();
+        assert_eq!(dim, self.dim, "Process dimension must match discretization");
+
+        // Split work buffer: [drift_vec | diff_vec | z_corr]
+        let (drift_vec, rest) = work.split_at_mut(dim);
+        let (diff_vec, z_corr) = rest.split_at_mut(dim);
+
+        // Get drift and diffusion coefficients
+        process.drift(_t, x, drift_vec);
+        process.diffusion(_t, x, diff_vec);
+
+        // Apply Cholesky decomposition to get correlated shocks
+        // z_corr = L * z_indep where L is lower triangular Cholesky factor
+        apply_correlation(&self.cholesky_factor, z, z_corr);
+
+        // Apply exact GBM formula for each component using correlated shocks
+        // S_i(t+dt) = S_i(t) exp((μ_i - ½σ_i²)dt + σ_i√dt Z_corr_i)
+        for i in 0..dim {
+            let mu = drift_vec[i] / x[i]; // Convert absolute drift to rate
+            let sigma = diff_vec[i] / x[i]; // Convert absolute vol to rate
+
+            let drift_term = (mu - 0.5 * sigma * sigma) * dt;
+            let diffusion_term = sigma * dt.sqrt() * z_corr[i];
+
+            x[i] *= (drift_term + diffusion_term).exp();
+        }
+    }
+
+    fn work_size(&self, process: &MultiGbmProcess) -> usize {
+        // drift + diffusion + correlated shocks
+        3 * process.dim()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::super::super::process::gbm::{GbmParams, GbmProcess};
+    use super::super::super::process::gbm::{GbmParams, GbmProcess, MultiGbmProcess};
     use super::*;
 
     #[test]
@@ -168,5 +273,100 @@ mod tests {
         let disc = ExactGbm::new();
 
         assert_eq!(disc.work_size(&process), 0);
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_correlated_creation() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
+        let corr = vec![1.0, 0.5, 0.5, 1.0];
+        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
+
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).unwrap();
+        assert_eq!(disc.dim, 2);
+        assert_eq!(disc.cholesky_factor.len(), 4);
+
+        // Test from_process convenience method
+        let disc_from_process = ExactMultiGbmCorrelated::from_process(&multi_gbm).unwrap();
+        assert!(disc_from_process.is_some());
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_correlated_step() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
+        let corr = vec![1.0, 0.5, 0.5, 1.0];
+        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
+
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).unwrap();
+
+        let mut x = vec![100.0, 200.0];
+        let z = vec![0.0, 0.0]; // No shock - should get drift-only evolution
+        let mut work = vec![0.0; disc.work_size(&multi_gbm)];
+
+        disc.step(&multi_gbm, 0.0, 1.0, &mut x, &z, &mut work);
+
+        // With z=0, should get drift-only evolution
+        // S_1(1) = 100 * exp((0.05 - 0.02 - 0.5*0.2²)*1.0) = 100 * exp(0.01)
+        // S_2(1) = 200 * exp((0.05 - 0.03 - 0.5*0.3²)*1.0) = 200 * exp(0.005)
+        let expected_1 = 100.0 * 0.01_f64.exp();
+        let expected_2 = 200.0 * 0.005_f64.exp();
+        assert!((x[0] - expected_1).abs() < 1e-10);
+        assert!((x[1] - expected_2).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_correlated_with_shocks() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
+        let corr = vec![1.0, 0.5, 0.5, 1.0];
+        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
+
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).unwrap();
+
+        let mut x = vec![100.0, 200.0];
+        let z = vec![1.0, 0.0]; // +1 std dev shock for first asset
+        let mut work = vec![0.0; disc.work_size(&multi_gbm)];
+
+        disc.step(&multi_gbm, 0.0, 1.0, &mut x, &z, &mut work);
+
+        // With correlation, the second asset should also move (positive correlation)
+        // Both assets should increase due to correlated positive shock
+        assert!(x[0] > 100.0);
+        assert!(x[1] > 200.0); // Positive correlation means second asset also increases
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_correlated_work_size() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        let corr = vec![1.0, 0.5, 0.5, 1.0];
+        let multi_gbm = MultiGbmProcess::new(params, Some(corr.clone()));
+
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).unwrap();
+        assert_eq!(disc.work_size(&multi_gbm), 6); // 3 * 2 = 6 (drift + diffusion + z_corr)
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_correlated_from_process_no_correlation() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        let multi_gbm = MultiGbmProcess::new(params, None); // No correlation
+
+        let disc_from_process = ExactMultiGbmCorrelated::from_process(&multi_gbm).unwrap();
+        assert!(disc_from_process.is_none()); // Should return None for uncorrelated process
     }
 }

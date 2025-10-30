@@ -8,4 +8,10 @@ pub mod path_dependent;
 #[cfg(feature = "mc")]
 pub mod lsmc;
 
+#[cfg(feature = "mc")]
+pub mod swaption_lsmc;
+
+#[cfg(feature = "mc")]
+pub mod swap_rate_utils;
+
 pub use european::*;

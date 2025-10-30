@@ -23,7 +23,10 @@ pub mod qe_cir;
 #[cfg(feature = "mc")]
 pub mod jump_euler;
 
-pub use exact::*;
+#[cfg(feature = "mc")]
+pub mod schwartz_smith;
+
+pub use exact::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
 pub use exact_gbm_div::ExactGbmWithDividends;
 
 #[cfg(feature = "mc")]
@@ -40,3 +43,6 @@ pub use qe_cir::QeCir;
 
 #[cfg(feature = "mc")]
 pub use jump_euler::JumpEuler;
+
+#[cfg(feature = "mc")]
+pub use schwartz_smith::ExactSchwartzSmith;

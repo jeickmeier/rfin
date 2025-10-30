@@ -170,7 +170,7 @@ mod tests {
             // All samples should be in [0, 1)
             for (i, &sample) in samples.iter().enumerate() {
                 prop_assert!(
-                    sample >= 0.0 && sample < 1.0,
+                    (0.0..1.0).contains(&sample),
                     "Sample {} out of range [0, 1): {}",
                     i, sample
                 );

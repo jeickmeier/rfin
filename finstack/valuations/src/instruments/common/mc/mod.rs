@@ -96,11 +96,13 @@ pub mod prelude {
     pub use super::process::jump_diffusion::{MertonJumpParams, MertonJumpProcess};
     #[cfg(feature = "mc")]
     pub use super::process::ou::{HullWhite1FParams, HullWhite1FProcess, VasicekProcess};
+    #[cfg(feature = "mc")]
+    pub use super::process::schwartz_smith::{SchwartzSmithParams, SchwartzSmithProcess};
 
     // Discretization
     #[cfg(feature = "mc")]
     pub use super::discretization::euler::{EulerMaruyama, LogEuler};
-    pub use super::discretization::exact::{ExactGbm, ExactMultiGbm};
+    pub use super::discretization::exact::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
     #[cfg(feature = "mc")]
     pub use super::discretization::exact_hw1f::ExactHullWhite1F;
     #[cfg(feature = "mc")]
@@ -111,6 +113,8 @@ pub mod prelude {
     pub use super::discretization::qe_cir::QeCir;
     #[cfg(feature = "mc")]
     pub use super::discretization::qe_heston::QeHeston;
+    #[cfg(feature = "mc")]
+    pub use super::discretization::schwartz_smith::ExactSchwartzSmith;
 
     // Payoffs
     #[cfg(feature = "mc")]
@@ -127,6 +131,20 @@ pub mod prelude {
     pub use super::payoff::lookback::{FloatingStrikeLookbackCall, LookbackCall, LookbackPut};
     #[cfg(feature = "mc")]
     pub use super::payoff::rates::{cap_floor_parity_swap_value, CapPayoff, FloorPayoff};
+    #[cfg(feature = "mc")]
+    pub use super::payoff::swaption::{BermudanSwaptionPayoff, SwapSchedule, SwaptionType};
+    #[cfg(feature = "mc")]
+    pub use super::payoff::quanto::{QuantoCallPayoff, QuantoPutPayoff};
+    #[cfg(feature = "mc")]
+    pub use super::payoff::autocallable::{AutocallablePayoff, FinalPayoffType};
+    #[cfg(feature = "mc")]
+    pub use super::payoff::cms::{CmsCapPayoff, CmsFloorPayoff};
+    #[cfg(feature = "mc")]
+    pub use super::payoff::cliquet::CliquetCallPayoff;
+    #[cfg(feature = "mc")]
+    pub use super::payoff::range_accrual::RangeAccrualPayoff;
+    #[cfg(feature = "mc")]
+    pub use super::payoff::fx_barrier::FxBarrierCall;
     pub use super::payoff::vanilla::{Digital, EuropeanCall, EuropeanPut, Forward};
 
     // Pricers
@@ -137,6 +155,10 @@ pub mod prelude {
     };
     #[cfg(feature = "mc")]
     pub use super::pricer::path_dependent::{PathDependentPricer, PathDependentPricerConfig};
+    #[cfg(feature = "mc")]
+    pub use super::pricer::swaption_lsmc::SwaptionLsmcPricer;
+    #[cfg(feature = "mc")]
+    pub use super::pricer::swap_rate_utils::{ForwardSwapRate, HullWhiteBondPrice};
 
     // Variance reduction
     pub use super::variance_reduction::antithetic::AntitheticConfig;

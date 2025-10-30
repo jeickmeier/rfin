@@ -101,7 +101,7 @@ pub fn box_muller_transform(u1: f64, u2: f64) -> (f64, f64) {
     // Clamp u1 away from 0 and 1 to prevent -inf or inf in log
     // This prevents NaN/inf propagation in Monte Carlo paths
     const EPS: f64 = 1e-300;
-    let u1_safe = u1.max(EPS).min(1.0 - EPS);
+    let u1_safe = u1.clamp(EPS, 1.0 - EPS);
     let r = (-2.0 * u1_safe.ln()).sqrt();
     let theta = 2.0 * PI * u2;
     let z1 = r * theta.cos();

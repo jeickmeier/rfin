@@ -13,6 +13,9 @@ pub mod heston;
 pub mod ou;
 
 #[cfg(feature = "mc")]
+pub mod schwartz_smith;
+
+#[cfg(feature = "mc")]
 pub mod cir;
 
 #[cfg(feature = "mc")]

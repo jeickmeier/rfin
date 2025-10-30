@@ -24,7 +24,8 @@ impl RevolvingCreditDiscountingPricer {
         Self
     }
 
-    /// Price a revolving credit facility using deterministic cashflows.
+    /// Price a revolving credit facility using deterministic cashflows. 
+    /// TODO: This is a placeholder for the actual mc pricing logic
     pub fn price_deterministic(
         facility: &RevolvingCredit,
         market: &MarketContext,
