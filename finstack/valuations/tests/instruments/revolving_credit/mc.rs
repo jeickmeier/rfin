@@ -58,6 +58,7 @@ fn test_mc_pricer_stochastic_utilization() {
             },
             num_paths: 10000, // 10k paths for reasonable convergence
             seed: Some(42),   // Fixed seed for reproducibility
+            mc_config: None,
         }))
         .disc_id("USD-OIS".into())
         .build()
@@ -118,6 +119,7 @@ fn test_mc_pricer_deterministic_reproducibility() {
             },
             num_paths: 1000,
             seed: Some(12345),
+            mc_config: None,
         }))
         .disc_id("USD-OIS".into())
         .build()
@@ -176,6 +178,7 @@ fn test_mc_pricer_convergence() {
                 },
                 num_paths,
                 seed: Some(99999),
+                mc_config: None,
             }))
             .disc_id("USD-OIS".into())
             .build()
@@ -225,6 +228,7 @@ fn test_mc_utilization_mean_reversion() {
             },
             num_paths: 5000,
             seed: Some(54321),
+            mc_config: None,
         }))
         .disc_id("USD-OIS".into())
         .build()
@@ -258,6 +262,7 @@ fn test_mc_utilization_mean_reversion() {
             },
             num_paths: 5000,
             seed: Some(54321),
+            mc_config: None,
         }))
         .disc_id("USD-OIS".into())
         .build()

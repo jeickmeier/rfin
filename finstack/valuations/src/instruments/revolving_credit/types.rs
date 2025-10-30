@@ -147,6 +147,81 @@ pub struct StochasticUtilizationSpec {
 
     /// Random seed for reproducibility (None for non-deterministic).
     pub seed: Option<u64>,
+
+    /// Advanced Monte Carlo configuration (optional).
+    ///
+    /// When present, enables multi-factor modeling with credit spread
+    /// and interest rate dynamics, correlation, and default modeling.
+    #[cfg(feature = "mc")]
+    pub mc_config: Option<McConfig>,
+}
+
+/// Advanced Monte Carlo configuration for revolving credit facilities.
+///
+/// Enables multi-factor modeling with credit risk, interest rate dynamics,
+/// correlation between factors, and default modeling.
+#[cfg(feature = "mc")]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct McConfig {
+    /// Correlation matrix (3x3) between [utilization, rate, credit].
+    ///
+    /// Must be symmetric, positive definite, with ones on diagonal.
+    /// If None, factors are assumed independent.
+    pub correlation_matrix: Option<[[f64; 3]; 3]>,
+
+    /// Recovery rate on default (e.g., 0.4 for 40% recovery).
+    pub recovery_rate: f64,
+
+    /// Credit spread process specification.
+    pub credit_spread_process: CreditSpreadProcessSpec,
+
+    /// Interest rate process specification (for floating rates).
+    ///
+    /// If None, assumes fixed rate (no stochastic dynamics).
+    pub interest_rate_process: Option<InterestRateProcessSpec>,
+}
+
+/// Credit spread process specification.
+#[cfg(feature = "mc")]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum CreditSpreadProcessSpec {
+    /// CIR process for stochastic credit spread/hazard rate.
+    ///
+    /// Models credit spread as: dλ_t = κ(θ - λ_t)dt + σ√λ_t dW_t
+    Cir {
+        /// Mean reversion speed (κ)
+        kappa: f64,
+        /// Long-term mean (θ)
+        theta: f64,
+        /// Volatility (σ)
+        sigma: f64,
+        /// Initial credit spread
+        initial: f64,
+    },
+    /// Constant credit spread (no dynamics).
+    Constant(f64),
+}
+
+/// Interest rate process specification (for floating rates).
+#[cfg(feature = "mc")]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum InterestRateProcessSpec {
+    /// Hull-White 1-factor model for short rate.
+    ///
+    /// Models short rate as: dr_t = κ[θ(t) - r_t]dt + σ dW_t
+    HullWhite1F {
+        /// Mean reversion speed (κ)
+        kappa: f64,
+        /// Volatility (σ)
+        sigma: f64,
+        /// Initial short rate
+        initial: f64,
+        /// Constant mean reversion level (θ)
+        theta: f64,
+    },
 }
 
 /// Utilization process for stochastic draws/repayments.

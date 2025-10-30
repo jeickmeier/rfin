@@ -26,6 +26,9 @@ pub mod jump_euler;
 #[cfg(feature = "mc")]
 pub mod schwartz_smith;
 
+#[cfg(feature = "mc")]
+pub mod revolving_credit;
+
 pub use exact::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
 pub use exact_gbm_div::ExactGbmWithDividends;
 

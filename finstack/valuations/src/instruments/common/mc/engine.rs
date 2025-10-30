@@ -430,6 +430,11 @@ impl McEngine {
         for (i, &val) in state.iter().enumerate() {
             if i == 0 {
                 path_state.set(super::traits::state_keys::SPOT, val);
+            } else if i == 1 {
+                path_state.set(super::traits::state_keys::VARIANCE, val);
+                path_state.set(super::traits::state_keys::SHORT_RATE, val);
+            } else if i == 2 {
+                path_state.set("credit_spread", val);
             }
         }
         payoff.on_event(&path_state);
@@ -453,6 +458,11 @@ impl McEngine {
                     path_state.set(super::traits::state_keys::SPOT, val);
                 } else if i == 1 {
                     path_state.set(super::traits::state_keys::VARIANCE, val);
+                    // Also set as SHORT_RATE for multi-factor models (e.g., revolving credit)
+                    path_state.set(super::traits::state_keys::SHORT_RATE, val);
+                } else if i == 2 {
+                    // Third factor (e.g., credit spread)
+                    path_state.set("credit_spread", val);
                 }
             }
 

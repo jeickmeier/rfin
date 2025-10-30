@@ -24,6 +24,9 @@ pub mod jump_diffusion;
 #[cfg(feature = "mc")]
 pub mod bates;
 
+#[cfg(feature = "mc")]
+pub mod revolving_credit;
+
 pub use correlation::*;
 pub use gbm::*;
 pub use gbm_dividends::*;

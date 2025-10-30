@@ -69,6 +69,12 @@ pub struct AutocallablePayoff {
 }
 
 impl AutocallablePayoff {
+    /// Get the final spot value (for testing/debugging).
+    #[cfg(test)]
+    pub fn final_spot(&self) -> f64 {
+        self.final_spot
+    }
+
     /// Create a new autocallable payoff.
     ///
     /// # Arguments
@@ -128,13 +134,14 @@ impl AutocallablePayoff {
             autocalled_at: None,
             min_spot_observed: f64::INFINITY,
             max_spot_observed: f64::NEG_INFINITY,
-            final_spot: 0.0,
+            final_spot: 0.0, // Will be set when at maturity
         }
     }
 }
 
 impl Payoff for AutocallablePayoff {
     fn on_event(&mut self, state: &PathState) {
+        // Get spot value from state
         let spot = state.spot().unwrap_or(0.0);
 
         // Track min/max for barrier checks
@@ -145,8 +152,10 @@ impl Payoff for AutocallablePayoff {
         if self.autocalled_at.is_none() {
             for (idx, &obs_date) in self.observation_dates.iter().enumerate() {
                 // Check if we're at or past this observation date and barrier is hit
+                // Barriers are ratios relative to initial spot, so multiply by initial_spot
                 let is_at_obs_date = state.time >= obs_date || (state.time - obs_date).abs() < 1e-6;
-                if is_at_obs_date && spot >= self.autocall_barriers[idx] {
+                let barrier_level = self.initial_spot * self.autocall_barriers[idx];
+                if is_at_obs_date && spot >= barrier_level {
                     self.autocalled_at = Some(idx);
                     break;
                 }
@@ -156,9 +165,19 @@ impl Payoff for AutocallablePayoff {
         // Store final spot at maturity
         // Assume maturity is the last observation date (or can be set separately)
         if let Some(&last_date) = self.observation_dates.last() {
-            if state.time >= last_date {
+            // Update final spot if we're at or past the last observation date
+            // Check if we're at the observation date (within epsilon for floating point)
+            let is_at_maturity = (state.time - last_date).abs() < 1e-10 || state.time >= last_date;
+            if is_at_maturity {
+                // Always update final_spot if we're at maturity
+                // This ensures we capture the spot at the exact maturity time
+                // Note: spot could be 0.0 if state.spot() returns None, which is fine
+                // But we should always set it to capture the actual spot value
                 self.final_spot = spot;
             }
+        } else {
+            // If no observation dates, use current spot as final
+            self.final_spot = spot;
         }
     }
 
@@ -173,8 +192,10 @@ impl Payoff for AutocallablePayoff {
         // Final payoff (not autocalled)
         let final_payoff = match self.final_payoff_type {
             FinalPayoffType::CapitalProtection { floor } => {
+                // Use final_spot directly (defaults to 0.0 if never set, which will hit the floor)
                 let return_ratio = (self.final_spot / self.initial_spot).min(self.cap_level);
-                floor.max(self.participation_rate * return_ratio)
+                let participation_term = self.participation_rate * return_ratio;
+                floor.max(participation_term)
             }
             FinalPayoffType::Participation { rate } => {
                 1.0 + rate * ((self.final_spot / self.initial_spot - 1.0).max(0.0))
@@ -196,7 +217,7 @@ impl Payoff for AutocallablePayoff {
         self.autocalled_at = None;
         self.min_spot_observed = f64::INFINITY;
         self.max_spot_observed = f64::NEG_INFINITY;
-        self.final_spot = 0.0;
+        self.final_spot = 0.0; // Reset to default
     }
 }
 
@@ -283,12 +304,19 @@ mod tests {
         // Not autocalled, final spot is below initial
         let mut state = PathState::new(100, 1.0);
         state.set(state_keys::SPOT, 80.0); // Below initial
+        
+        // Verify spot is set correctly
+        assert_eq!(state.spot(), Some(80.0), "Spot should be set to 80.0");
 
         payoff.on_event(&state);
 
         let value = payoff.value(Currency::USD);
+        
         // Capital protection: max(0.9, 1.0 * 0.8) = 0.9
-        assert!((value.amount() - 90_000.0).abs() < 1e-6);
+        // Expected: 90_000.0 (0.9 * 100_000.0)
+        assert!((value.amount() - 90_000.0).abs() < 1e-6, 
+                "Expected 90_000.0 but got {}. final_spot={}", 
+                value.amount(), payoff.final_spot());
     }
 
     #[test]

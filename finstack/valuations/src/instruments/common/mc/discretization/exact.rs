@@ -314,9 +314,9 @@ mod tests {
 
         // With z=0, should get drift-only evolution
         // S_1(1) = 100 * exp((0.05 - 0.02 - 0.5*0.2²)*1.0) = 100 * exp(0.01)
-        // S_2(1) = 200 * exp((0.05 - 0.03 - 0.5*0.3²)*1.0) = 200 * exp(0.005)
+        // S_2(1) = 200 * exp((0.05 - 0.03 - 0.5*0.3²)*1.0) = 200 * exp(-0.025)
         let expected_1 = 100.0 * 0.01_f64.exp();
-        let expected_2 = 200.0 * 0.005_f64.exp();
+        let expected_2 = 200.0 * (-0.025_f64).exp();
         assert!((x[0] - expected_1).abs() < 1e-10);
         assert!((x[1] - expected_2).abs() < 1e-10);
     }
