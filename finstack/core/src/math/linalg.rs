@@ -19,7 +19,42 @@
 //! apply_correlation(&chol, &z, &mut z_corr);
 //! ```
 
-use crate::Result;
+use crate::{error, Result};
+use thiserror::Error;
+
+/// Error type for Cholesky decomposition failures.
+#[derive(Debug, Clone, PartialEq, Error)]
+#[non_exhaustive]
+pub enum CholeskyError {
+    /// Matrix is not positive semi-definite (diagonal element became negative).
+    #[error("Matrix is not positive semi-definite: diagonal element {diag} is negative (position [{row}, {row}])")]
+    NotPositiveDefinite {
+        /// The negative diagonal value
+        diag: f64,
+        /// The row/column index where failure occurred
+        row: usize,
+    },
+    /// Matrix is numerically singular (division by near-zero element).
+    #[error("Matrix is numerically singular: division by {value} (threshold {threshold}) at position [{row}, {col}])")]
+    Singular {
+        /// The near-zero value that caused the failure
+        value: f64,
+        /// The row index
+        row: usize,
+        /// The column index
+        col: usize,
+        /// The threshold used (1e-10)
+        threshold: f64,
+    },
+    /// Matrix dimension mismatch.
+    #[error("Matrix dimension mismatch: expected {expected}x{expected}, got {actual} elements")]
+    DimensionMismatch {
+        /// Expected dimension
+        expected: usize,
+        /// Actual number of elements
+        actual: usize,
+    },
+}
 
 /// Cholesky decomposition of a correlation/covariance matrix.
 ///
@@ -35,6 +70,13 @@ use crate::Result;
 ///
 /// Lower triangular Cholesky factor L (n x n, row-major)
 ///
+/// # Errors
+///
+/// Returns `CholeskyError` if:
+/// - Matrix is not positive semi-definite (diagonal becomes negative)
+/// - Matrix is numerically singular (division by near-zero)
+/// - Matrix dimensions don't match
+///
 /// # Example
 ///
 /// ```
@@ -45,10 +87,16 @@ use crate::Result;
 /// let chol = cholesky_decomposition(&corr, 2).unwrap();
 /// // chol = [[1.0, 0.0], [0.5, 0.866...]]
 /// ```
-pub fn cholesky_decomposition(matrix: &[f64], n: usize) -> Result<Vec<f64>> {
-    assert_eq!(matrix.len(), n * n, "Matrix must be n x n");
+pub fn cholesky_decomposition(matrix: &[f64], n: usize) -> std::result::Result<Vec<f64>, CholeskyError> {
+    if matrix.len() != n * n {
+        return Err(CholeskyError::DimensionMismatch {
+            expected: n,
+            actual: matrix.len(),
+        });
+    }
 
     let mut l = vec![0.0; n * n];
+    const SINGULAR_THRESHOLD: f64 = 1e-10;
 
     for i in 0..n {
         for j in 0..=i {
@@ -60,12 +108,29 @@ pub fn cholesky_decomposition(matrix: &[f64], n: usize) -> Result<Vec<f64>> {
             if i == j {
                 let diag = matrix[i * n + i] - sum;
                 if diag < 0.0 {
-                    return Err(crate::Error::Internal);
+                    return Err(CholeskyError::NotPositiveDefinite {
+                        diag,
+                        row: i,
+                    });
                 }
                 l[i * n + j] = diag.sqrt();
+                // Check if diagonal is too small (singular)
+                if l[i * n + j].abs() < SINGULAR_THRESHOLD {
+                    return Err(CholeskyError::Singular {
+                        value: l[i * n + j],
+                        row: i,
+                        col: j,
+                        threshold: SINGULAR_THRESHOLD,
+                    });
+                }
             } else {
-                if l[j * n + j].abs() < 1e-10 {
-                    return Err(crate::Error::Internal);
+                if l[j * n + j].abs() < SINGULAR_THRESHOLD {
+                    return Err(CholeskyError::Singular {
+                        value: l[j * n + j],
+                        row: i,
+                        col: j,
+                        threshold: SINGULAR_THRESHOLD,
+                    });
                 }
                 l[i * n + j] = (matrix[i * n + j] - sum) / l[j * n + j];
             }
@@ -200,9 +265,16 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<()> {
     }
 
     // Check positive semi-definite via Cholesky
-    cholesky_decomposition(matrix, n)?;
-
-    Ok(())
+    match cholesky_decomposition(matrix, n) {
+        Ok(_) => Ok(()),
+        Err(CholeskyError::NotPositiveDefinite { .. }) => {
+            Err(error::InputError::Invalid.into())
+        }
+        Err(CholeskyError::Singular { .. }) => Err(error::InputError::Invalid.into()),
+        Err(CholeskyError::DimensionMismatch { .. }) => {
+            Err(error::InputError::DimensionMismatch.into())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -283,6 +355,40 @@ mod tests {
         // Not positive definite - use a matrix that fails Cholesky properly
         // Matrix with correlation slightly > 1 (clearly not valid)
         let non_pd = vec![1.0, 1.01, 1.01, 1.0];
-        assert!(cholesky_decomposition(&non_pd, 2).is_err());
+        let result = cholesky_decomposition(&non_pd, 2);
+        assert!(result.is_err());
+        // Verify we get descriptive error
+        match result.unwrap_err() {
+            CholeskyError::NotPositiveDefinite { diag, row } => {
+                assert!(diag < 0.0);
+                assert!(row < 2);
+            }
+            _ => panic!("Expected NotPositiveDefinite error"),
+        }
+    }
+
+    #[test]
+    fn test_cholesky_descriptive_errors() {
+        // Test dimension mismatch
+        let small = vec![1.0, 0.5, 0.5, 1.0];
+        match cholesky_decomposition(&small, 3) {
+            Err(CholeskyError::DimensionMismatch { expected, actual }) => {
+                assert_eq!(expected, 3);
+                assert_eq!(actual, 4);
+            }
+            _ => panic!("Expected DimensionMismatch error"),
+        }
+
+        // Test near-singular matrix (correlation ≈ 1)
+        let near_singular = vec![1.0, 0.9999, 0.9999, 1.0];
+        // This might succeed or fail depending on numerical precision
+        let result = cholesky_decomposition(&near_singular, 2);
+        // Either way, we should get a descriptive error if it fails
+        if let Err(e) = result {
+            match e {
+                CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {}
+                _ => panic!("Unexpected error type"),
+            }
+        }
     }
 }

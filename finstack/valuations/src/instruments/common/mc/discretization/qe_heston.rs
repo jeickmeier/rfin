@@ -59,7 +59,17 @@ impl QeHeston {
             + theta * sigma_v * sigma_v * (1.0 - exp_kappa_dt).powi(2) / (2.0 * kappa);
 
         // Compute ψ = s²/m²
-        let psi = if m > 1e-10 { s2 / (m * m) } else { 0.0 };
+        // Add safeguards for extreme cases to prevent numerical instability
+        let psi = if m > 1e-8 {
+            let ratio = s2 / (m * m);
+            // Clamp to prevent overflow in Case A branch and ensure we stay within QE scheme bounds
+            // ψ_c is typically 1.5, so cap at reasonable value to prevent extreme calculations
+            ratio.min(10.0)
+        } else {
+            // Very small mean: force Case B (exponential) directly
+            // This avoids division by tiny m values which can amplify errors
+            self.psi_c + 1.0
+        };
 
         if psi <= self.psi_c {
             // Case A: Power/gamma approximation

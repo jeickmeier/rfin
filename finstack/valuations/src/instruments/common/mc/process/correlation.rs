@@ -5,7 +5,7 @@
 
 // Re-export from core/math/linalg
 pub use finstack_core::math::linalg::{
-    apply_correlation, build_correlation_matrix, cholesky_decomposition,
+    apply_correlation, build_correlation_matrix, cholesky_decomposition, CholeskyError,
     validate_correlation_matrix,
 };
 
@@ -25,5 +25,20 @@ mod tests {
         let mut z_corr = vec![0.0; 2];
         apply_correlation(&chol, &z, &mut z_corr);
         assert!((z_corr[0] - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_cholesky_error_handling() {
+        use finstack_core::math::linalg::CholeskyError;
+        
+        // Test that we get descriptive errors
+        let invalid = vec![1.0, 1.01, 1.01, 1.0];
+        match cholesky_decomposition(&invalid, 2) {
+            Err(CholeskyError::NotPositiveDefinite { diag, row }) => {
+                assert!(diag < 0.0);
+                assert!(row < 2);
+            }
+            _ => panic!("Expected NotPositiveDefinite error"),
+        }
     }
 }

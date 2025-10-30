@@ -123,10 +123,15 @@ impl TimeGrid {
             return Err(finstack_core::error::InputError::Invalid.into());
         }
 
-        // Validate monotonicity
+        // Validate monotonicity and check for duplicate/near-duplicate times
+        const MIN_DT_THRESHOLD: f64 = 1e-12;
         for i in 1..times.len() {
             if times[i] <= times[i - 1] {
                 return Err(finstack_core::error::InputError::NonMonotonicKnots.into());
+            }
+            // Check for duplicate or near-duplicate time points
+            if (times[i] - times[i - 1]).abs() < MIN_DT_THRESHOLD {
+                return Err(finstack_core::error::InputError::Invalid.into());
             }
         }
 
@@ -134,6 +139,14 @@ impl TimeGrid {
         let mut dts = Vec::with_capacity(times.len() - 1);
         for i in 0..times.len() - 1 {
             dts.push(times[i + 1] - times[i]);
+        }
+
+        // Check for minimum dt to prevent numerical issues
+        const MIN_DT: f64 = 1e-10;
+        if let Some(&min_dt) = dts.iter().min_by(|a, b| a.partial_cmp(b).unwrap()) {
+            if min_dt < MIN_DT {
+                return Err(finstack_core::error::InputError::Invalid.into());
+            }
         }
 
         Ok(Self { times, dts })

@@ -86,16 +86,35 @@ impl BasisFunctions for PolynomialBasis {
 }
 
 /// Laguerre basis functions (better for options).
+///
+/// Uses Laguerre polynomials normalized by strike price for proper scaling
+/// across different strike levels.
 #[derive(Clone, Debug)]
 pub struct LaguerreBasis {
     degree: usize,
+    strike: f64,
 }
 
 impl LaguerreBasis {
-    /// Create Laguerre basis of given degree.
-    pub fn new(degree: usize) -> Self {
+    /// Create Laguerre basis of given degree with strike normalization.
+    ///
+    /// # Arguments
+    ///
+    /// * `degree` - Polynomial degree (1-4)
+    /// * `strike` - Strike price for normalization (must be > 0)
+    ///
+    /// # Panics
+    ///
+    /// Panics if `degree` is not in [1, 4] or `strike <= 0`.
+    pub fn new(degree: usize, strike: f64) -> Self {
         assert!(degree > 0 && degree <= 4, "Degree must be 1-4");
-        Self { degree }
+        assert!(strike > 0.0, "Strike must be positive");
+        Self { degree, strike }
+    }
+
+    /// Get the strike price used for normalization.
+    pub fn strike(&self) -> f64 {
+        self.strike
     }
 }
 
@@ -106,8 +125,8 @@ impl BasisFunctions for LaguerreBasis {
 
     fn evaluate(&self, spot: f64, out: &mut [f64]) {
         // Laguerre polynomials: L_0(x)=1, L_1(x)=1-x, L_2(x)=1-2x+x²/2, ...
-        // Applied to x = S/K (normalized spot)
-        let x = spot / 100.0; // Normalize (assumes typical strike ~100)
+        // Applied to x = S/K (normalized spot by strike)
+        let x = spot / self.strike;
 
         out[0] = 1.0;
         if self.degree >= 1 {
@@ -118,6 +137,9 @@ impl BasisFunctions for LaguerreBasis {
         }
         if self.degree >= 3 {
             out[3] = 1.0 - 3.0 * x + 3.0 * x * x / 2.0 - x * x * x / 6.0;
+        }
+        if self.degree >= 4 {
+            out[4] = 1.0 - 4.0 * x + 3.0 * x * x - 2.0 * x * x * x / 3.0 + x * x * x * x / 24.0;
         }
     }
 }
@@ -378,8 +400,7 @@ impl LsmcPricer {
             }
         }
 
-        // Solve normal equations: (X'X) β = X'y
-        // Using simple normal equations (could use QR for better stability)
+        // Solve least squares using SVD (numerically stable for ill-conditioned systems)
         let coeffs = solve_least_squares(&design, y, n, k)?;
 
         // Predict continuation values
@@ -397,22 +418,24 @@ impl LsmcPricer {
     }
 }
 
-/// Solve least squares problem using QR decomposition.
+/// Solve least squares problem using SVD (Singular Value Decomposition).
 ///
 /// Solves: min || Xβ - y ||²
 ///
 /// where X is n x k design matrix (row-major).
 ///
-/// Uses nalgebra's QR decomposition which is numerically more stable
-/// than normal equations (Cholesky) for ill-conditioned systems.
+/// Uses nalgebra's SVD decomposition which is numerically more stable
+/// than normal equations (Cholesky) or QR for ill-conditioned systems.
 ///
 /// # Numerical Stability
 ///
-/// QR decomposition avoids forming X'X which can square the condition number:
-/// - cond(X'X) ≈ cond(X)²
-/// - QR operates directly on X with cond(R) ≈ cond(X)
+/// SVD is the most robust method for least squares:
+/// - Avoids forming X'X which squares the condition number: cond(X'X) ≈ cond(X)²
+/// - Handles rank-deficient matrices gracefully
+/// - Uses threshold-based pseudo-inverse for numerical stability
 ///
-/// This is critical for LSMC with high-degree polynomials or extreme spot ranges.
+/// This is critical for LSMC with high-degree polynomials or extreme spot ranges
+/// where regression matrices can be ill-conditioned.
 fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Result<Vec<f64>> {
     use nalgebra::{DMatrix, DVector};
 
@@ -469,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_laguerre_basis() {
-        let basis = LaguerreBasis::new(2);
+        let basis = LaguerreBasis::new(2, 100.0);
         let mut out = vec![0.0; 3];
 
         basis.evaluate(100.0, &mut out);
@@ -477,6 +500,27 @@ mod tests {
         assert_eq!(out[0], 1.0);
         // L_1(1) = 1 - 1 = 0
         assert_eq!(out[1], 0.0);
+    }
+
+    #[test]
+    fn test_laguerre_basis_non_standard_strikes() {
+        // Test that normalization works for non-standard strikes
+        let basis_low = LaguerreBasis::new(2, 1.0);
+        let basis_high = LaguerreBasis::new(2, 1000.0);
+        let mut out_low = vec![0.0; 3];
+        let mut out_high = vec![0.0; 3];
+
+        // Both should normalize to x=1.0 when spot equals strike
+        basis_low.evaluate(1.0, &mut out_low);
+        basis_high.evaluate(1000.0, &mut out_high);
+
+        // L_1(1) = 0 for both
+        assert_eq!(out_low[1], 0.0);
+        assert_eq!(out_high[1], 0.0);
+
+        // Verify strike accessor
+        assert_eq!(basis_low.strike(), 1.0);
+        assert_eq!(basis_high.strike(), 1000.0);
     }
 
     #[test]

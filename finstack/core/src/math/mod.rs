@@ -44,7 +44,7 @@ pub use interp::{
     CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
 };
 pub use linalg::{
-    apply_correlation, build_correlation_matrix, cholesky_decomposition,
+    apply_correlation, build_correlation_matrix, cholesky_decomposition, CholeskyError,
     validate_correlation_matrix,
 };
 pub use random::{box_muller_polar, box_muller_transform, RandomNumberGenerator, SimpleRng};
