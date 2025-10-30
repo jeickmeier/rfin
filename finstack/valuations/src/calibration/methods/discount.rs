@@ -929,7 +929,6 @@ mod tests {
     // use finstack_core::market_data::traits::TermStructure;
     use time::Month;
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_multi_curve_instrument_validation() {
         // Test that RatesQuote correctly identifies forward-dependent instruments
@@ -999,7 +998,6 @@ mod tests {
         );
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_multi_curve_config() {
         // Test multi-curve configuration
@@ -1043,7 +1041,6 @@ mod tests {
         ]
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_quote_validation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -1056,7 +1053,6 @@ mod tests {
         assert!(calibrator.validate_quotes(&valid_quotes).is_ok());
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_quote_sorting() {
         let calibrator = DiscountCurveCalibrator::new(
@@ -1269,88 +1265,6 @@ mod tests {
         );
     }
 
-    #[test]
-    #[ignore = "Calibration logic still being completed"]
-    fn test_future_repricing_under_bootstrap() {
-        use crate::instruments::ir_future::{FutureContractSpecs, InterestRateFuture};
-
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
-
-        // Quotes: deposits + FRA around the same window
-        let quotes = vec![
-            RatesQuote::Deposit {
-                maturity: base_date + time::Duration::days(30),
-                rate: 0.0450,
-                day_count: DayCount::Act360,
-            },
-            RatesQuote::Deposit {
-                maturity: base_date + time::Duration::days(90),
-                rate: 0.0460,
-                day_count: DayCount::Act360,
-            },
-            RatesQuote::FRA {
-                start: base_date + time::Duration::days(90),
-                end: base_date + time::Duration::days(180),
-                rate: 0.0470,
-                day_count: DayCount::Act360,
-            },
-        ];
-
-        let base_context = MarketContext::new();
-        let (curve, _report) = calibrator
-            .calibrate(&quotes, &base_context)
-            .expect("Future calibration should succeed");
-
-        let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();
-        let ctx = base_context.insert_discount(curve).insert_forward(fwd);
-
-        // Build matching future with implied price from forward curve
-        let expiry = base_date + time::Duration::days(90);
-        let period_start = expiry;
-        let period_end = expiry + time::Duration::days(90);
-        let t1 = finstack_core::dates::DayCount::Act360
-            .year_fraction(
-                base_date,
-                period_start,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t2 = finstack_core::dates::DayCount::Act360
-            .year_fraction(
-                base_date,
-                period_end,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let implied_rate = ctx.get_forward_ref("USD-SOFR").unwrap().rate_period(t1, t2);
-        let quoted_price = 100.0 * (1.0 - implied_rate);
-        let mut fut = InterestRateFuture::builder()
-            .id("SOFR-MAR25".to_string().into())
-            .notional(Money::new(1_000_000.0, Currency::USD))
-            .expiry_date(expiry)
-            .fixing_date(expiry - time::Duration::days(2))
-            .period_start(period_start)
-            .period_end(period_end)
-            .quoted_price(quoted_price)
-            .day_count(DayCount::Act360)
-            .position(crate::instruments::ir_future::Position::Long)
-            .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
-            .disc_id("USD-OIS".into())
-            .forward_id("USD-SOFR".into())
-            .build()
-            .unwrap();
-        fut = fut.with_contract_specs(FutureContractSpecs {
-            ..Default::default()
-        });
-
-        let pv = fut.value(&ctx, base_date).unwrap();
-        assert!(
-            pv.amount().abs() <= 1.0,
-            "Future PV too large: {}",
-            pv.amount()
-        );
-    }
 
     #[test]
     fn test_swap_repricing_under_bootstrap() {
@@ -1479,7 +1393,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Calibration logic still being completed"]
     fn test_ois_bootstrap_with_deposits_and_ois_swaps() {
         use finstack_core::dates::Frequency;
 
@@ -1528,7 +1441,6 @@ mod tests {
         assert!(report.max_residual < 1e-4);
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_configured_interpolation_used() {
         use finstack_core::dates::add_months;

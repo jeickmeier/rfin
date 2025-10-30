@@ -272,7 +272,6 @@ mod tests {
     use super::*;
 
     #[test]
-    #[ignore] // Numerical implementation needs refinement for edge cases
     fn test_heston_char_function_basic() {
         let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
 
@@ -298,7 +297,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Numerical implementation needs refinement for put-call parity
     fn test_heston_put_call_parity() {
         let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
 

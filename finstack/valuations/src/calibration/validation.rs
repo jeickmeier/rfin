@@ -688,7 +688,6 @@ mod tests {
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_discount_curve_validation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -728,7 +727,6 @@ mod tests {
         assert!(invalid_curve.validate_monotonicity().is_err());
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_hazard_curve_validation() {
         use finstack_core::market_data::term_structures::hazard_curve::Seniority;
@@ -750,7 +748,6 @@ mod tests {
         assert!(valid_curve.validate_monotonicity().is_ok());
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_forward_curve_validation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -793,7 +790,6 @@ mod tests {
         }
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_base_correlation_validation() {
         // Valid base correlation curve - monotonically increasing

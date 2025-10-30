@@ -739,7 +739,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Relies on solver/objective wiring; behavior validated elsewhere"]
     fn forward_curve_respects_time_daycount_setting() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let discount_curve = create_test_discount_curve();
@@ -795,7 +794,6 @@ mod tests {
         ]
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_forward_curve_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -828,7 +826,6 @@ mod tests {
         assert!(report.max_residual < 1e-6);
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_tenor_matching() {
         let calibrator = ForwardCurveCalibrator::new(
@@ -844,7 +841,6 @@ mod tests {
         assert!(!calibrator.matches_tenor("USD-SOFR-6M", &Frequency::semi_annual()));
     }
 
-    #[ignore = "Calibration test: comprehensive validation"]
     #[test]
     fn test_forward_curve_id_resolution() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();

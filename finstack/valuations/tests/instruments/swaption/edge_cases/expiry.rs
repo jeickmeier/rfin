@@ -9,7 +9,7 @@ use finstack_valuations::metrics::MetricId;
 // This is the expected behavior for the pricing engine.
 
 #[test]
-#[ignore]
+#[ignore = "Documentation test: implementation correctly rejects expired swaptions as invalid date range"]
 fn test_expired_swaption_zero_value() {
     let as_of = time::macros::date!(2024 - 01 - 01);
     let expiry = time::macros::date!(2023 - 12 - 01); // Already expired
@@ -27,7 +27,7 @@ fn test_expired_swaption_zero_value() {
 }
 
 #[test]
-#[ignore]
+#[ignore = "Documentation test: implementation correctly rejects expired swaptions as invalid date range"]
 fn test_expired_swaption_zero_greeks() {
     let as_of = time::macros::date!(2024 - 01 - 01);
     let expiry = time::macros::date!(2023 - 12 - 01); // Already expired
