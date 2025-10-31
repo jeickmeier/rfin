@@ -14,6 +14,7 @@ mod delta;
 mod dv01;
 mod gamma;
 mod implied_vol;
+mod recovery01;
 mod rho;
 // risk_bucketed_dv01 - now using generic implementation
 mod theta;
@@ -23,6 +24,16 @@ use crate::metrics::MetricRegistry;
 
 /// Register all CDS Option metrics with the registry
 pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
+    use crate::metrics::MetricId;
+    use std::sync::Arc;
+
+    // Recovery01 (custom metric - recovery rate sensitivity)
+    registry.register_metric(
+        MetricId::custom("recovery01"),
+        Arc::new(recovery01::Recovery01Calculator),
+        &["CdsOption"],
+    );
+
     crate::register_metrics! {
         registry: registry,
         instrument: "CdsOption",

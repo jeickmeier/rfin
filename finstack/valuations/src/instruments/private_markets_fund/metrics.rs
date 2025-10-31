@@ -218,8 +218,32 @@ pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_c
         .map_err(|_| finstack_core::error::InputError::Invalid.into())
 }
 
+mod carry01;
+mod hurdle01;
+mod nav01;
+
 /// Register all private markets fund metrics.
 pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
+    use crate::metrics::MetricId;
+    use std::sync::Arc;
+
+    // Private markets fund-specific risk metrics (custom metrics)
+    registry.register_metric(
+        MetricId::custom("nav01"),
+        Arc::new(nav01::Nav01Calculator),
+        &["PrivateMarketsFund"],
+    );
+    registry.register_metric(
+        MetricId::custom("carry01"),
+        Arc::new(carry01::Carry01Calculator),
+        &["PrivateMarketsFund"],
+    );
+    registry.register_metric(
+        MetricId::custom("hurdle01"),
+        Arc::new(hurdle01::Hurdle01Calculator),
+        &["PrivateMarketsFund"],
+    );
+
     crate::register_metrics! {
         registry: registry,
         instrument: "PrivateMarketsFund",

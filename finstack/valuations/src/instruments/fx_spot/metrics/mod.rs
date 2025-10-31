@@ -13,6 +13,7 @@
 
 pub mod base_amount;
 pub mod dv01;
+pub mod fx_delta;
 pub mod inverse_rate;
 pub mod quote_amount;
 pub mod spot_rate;
@@ -21,6 +22,16 @@ use crate::metrics::MetricRegistry;
 
 /// Register all FX Spot metrics with the registry
 pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
+    use crate::metrics::MetricId;
+    use std::sync::Arc;
+
+    // FX Delta (custom metric - FX spot sensitivity per 1%)
+    registry.register_metric(
+        MetricId::custom("fx_delta"),
+        Arc::new(fx_delta::FxDeltaCalculator),
+        &["FxSpot"],
+    );
+
     crate::register_metrics! {
         registry: registry,
         instrument: "FxSpot",

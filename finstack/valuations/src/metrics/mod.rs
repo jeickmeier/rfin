@@ -21,9 +21,18 @@
 //! - **`MetricContext`**: Context containing instrument, market data, and cached results
 //! - **`MetricRegistry`**: Registry for managing calculators and dependencies
 //! - **Risk metrics**: Specialized calculators for DV01, bucketed risk, and time decay
+//!
+//! # Documentation
+//!
+//! Comprehensive documentation on all metrics, including formulas, conventions, and units,
+//! is available in `METRICS.md` in this directory.
 
 /// bucketed module.
 pub mod bucketed;
+/// bucketed_cs01 module.
+pub mod bucketed_cs01;
+/// bucketed_vega module.
+pub mod bucketed_vega;
 /// helpers module.
 pub mod helpers;
 /// ids module.
@@ -39,6 +48,13 @@ pub use bucketed::{
     compute_key_rate_dv01_series, compute_key_rate_dv01_series_with_context,
     compute_key_rate_series_for_id, compute_key_rate_series_with_context_for_id,
     standard_ir_dv01_buckets,
+};
+pub use bucketed_cs01::{
+    compute_key_rate_cs01_series, compute_key_rate_cs01_series_with_context,
+    standard_credit_cs01_buckets,
+};
+pub use bucketed_vega::{
+    compute_bucketed_vega_matrix, standard_equity_expiry_buckets, standard_strike_ratios, VOL_BUMP_PCT,
 };
 pub use helpers::dv01_from_modified_duration;
 pub use ids::MetricId;
@@ -88,5 +104,15 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::trs::metrics::register_trs_metrics(&mut registry);
     crate::instruments::variance_swap::metrics::register_variance_swap_metrics(&mut registry);
     crate::instruments::private_markets_fund::register_private_markets_fund_metrics(&mut registry);
+    // Exotic options
+    crate::instruments::asian_option::metrics::register_asian_option_metrics(&mut registry);
+    crate::instruments::autocallable::metrics::register_autocallable_metrics(&mut registry);
+    crate::instruments::barrier_option::metrics::register_barrier_option_metrics(&mut registry);
+    crate::instruments::cliquet_option::metrics::register_cliquet_option_metrics(&mut registry);
+    crate::instruments::cms_option::metrics::register_cms_option_metrics(&mut registry);
+    crate::instruments::fx_barrier_option::metrics::register_fx_barrier_option_metrics(&mut registry);
+    crate::instruments::lookback_option::metrics::register_lookback_option_metrics(&mut registry);
+    crate::instruments::quanto_option::metrics::register_quanto_option_metrics(&mut registry);
+    crate::instruments::range_accrual::metrics::register_range_accrual_metrics(&mut registry);
     registry
 }

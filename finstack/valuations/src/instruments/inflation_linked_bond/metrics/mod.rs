@@ -6,6 +6,7 @@
 mod breakeven_inflation;
 mod dv01;
 mod index_ratio;
+mod inflation01;
 mod real_duration;
 mod real_yield;
 mod theta;
@@ -13,15 +14,25 @@ mod theta;
 
 pub use breakeven_inflation::BreakevenInflationCalculator;
 pub use index_ratio::IndexRatioCalculator;
+pub use inflation01::Inflation01Calculator;
 pub use real_duration::RealDurationCalculator;
 pub use real_yield::RealYieldCalculator;
 pub use theta::ThetaCalculator;
 // BucketedDv01Calculator now using generic implementation
 
 use crate::metrics::MetricRegistry;
+use crate::metrics::MetricId;
+use std::sync::Arc;
 
 /// Register all ILB metrics with the registry
 pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
+    // Custom metric: Inflation01 (inflation curve sensitivity per 1bp)
+    registry.register_metric(
+        MetricId::custom("inflation01"),
+        Arc::new(Inflation01Calculator),
+        &["InflationLinkedBond"],
+    );
+
     crate::register_metrics! {
         registry: registry,
         instrument: "InflationLinkedBond",

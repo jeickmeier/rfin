@@ -60,6 +60,8 @@ pub mod pricer;
 pub mod process;
 pub mod results;
 pub mod rng;
+#[cfg(feature = "mc")]
+pub mod seed;
 pub mod stats;
 pub mod time_grid;
 pub mod traits;

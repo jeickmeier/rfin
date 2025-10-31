@@ -32,6 +32,7 @@ use std::sync::Arc;
 
 #[allow(unused_imports)] // Used in doc examples
 use crate::currency::Currency;
+use crate::dates::Date;
 use crate::money::fx::FxMatrix;
 use crate::types::CurveId;
 use crate::Result;
@@ -669,6 +670,66 @@ impl MarketContext {
     pub fn insert_fx_mut(&mut self, fx: Arc<FxMatrix>) -> &mut Self {
         self.fx = Some(fx);
         self
+    }
+
+    /// Bump FX spot rate for a currency pair and return a new context.
+    ///
+    /// Creates a new MarketContext with an FX matrix that has the specified
+    /// currency pair rate bumped by the given percentage. All other market data
+    /// is cloned unchanged.
+    ///
+    /// # Parameters
+    /// - `from`: Base currency
+    /// - `to`: Quote currency
+    /// - `bump_pct`: Relative bump size (e.g., 0.01 for 1% increase)
+    /// - `on`: Date for rate lookup (typically as_of date from valuation context)
+    ///
+    /// # Returns
+    /// New MarketContext with bumped FX rate
+    ///
+    /// # Errors
+    /// Returns error if FX matrix is missing or rate lookup fails
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use finstack_core::market_data::context::MarketContext;
+    /// # use finstack_core::money::fx::{FxMatrix, FxProvider, FxConversionPolicy};
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::dates::Date;
+    /// # use std::sync::Arc;
+    /// # use time::Month;
+    /// # struct StaticFx;
+    /// # impl FxProvider for StaticFx {
+    /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy)
+    /// #         -> finstack_core::Result<f64> { Ok(1.1) }
+    /// # }
+    /// # let fx = FxMatrix::new(Arc::new(StaticFx));
+    /// # let ctx = MarketContext::new().insert_fx(fx);
+    /// # let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+    /// let bumped_ctx = ctx.bump_fx_spot(Currency::EUR, Currency::USD, 0.01, date)?;
+    /// // EUR/USD rate is now 1.1 * 1.01 = 1.111
+    /// ```
+    pub fn bump_fx_spot(
+        &self,
+        from: Currency,
+        to: Currency,
+        bump_pct: f64,
+        on: Date,
+    ) -> Result<Self> {
+        let fx_matrix = self.fx.as_ref().ok_or_else(|| {
+            crate::error::InputError::NotFound {
+                id: "FX matrix".to_string(),
+            }
+        })?;
+
+        // Create new FX matrix with bumped rate
+        let new_fx_matrix = fx_matrix.with_bumped_rate(from, to, bump_pct, on)?;
+
+        // Create new context with bumped FX
+        let mut new_context = self.clone();
+        new_context.fx = Some(Arc::new(new_fx_matrix));
+
+        Ok(new_context)
     }
 
     /// Map collateral CSA code to a discount curve identifier.

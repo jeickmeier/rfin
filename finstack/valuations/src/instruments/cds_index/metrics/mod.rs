@@ -21,6 +21,7 @@ mod jump_to_default;
 mod par_spread;
 mod pv_premium;
 mod pv_protection;
+mod recovery01;
 // risk_bucketed_dv01 - now using generic implementation
 mod risky_pv01;
 mod theta;
@@ -40,6 +41,13 @@ pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
         &["CDSIndex"],
     );
     registry.register_metric(MetricId::custom("pv01"), risky_pv01_calc, &["CDSIndex"]);
+
+    // Recovery01 (custom metric - recovery rate sensitivity)
+    registry.register_metric(
+        MetricId::custom("recovery01"),
+        Arc::new(recovery01::Recovery01Calculator),
+        &["CDSIndex"],
+    );
 
     // Standard metrics using macro
     crate::register_metrics! {

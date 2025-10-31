@@ -17,10 +17,12 @@
 
 pub mod accrued_interest;
 pub mod collateral_coverage;
+pub mod collateral_price01;
 pub mod collateral_value;
 pub mod dv01;
 pub mod effective_rate;
 pub mod funding_risk;
+pub mod haircut01;
 pub mod implied_collateral_return;
 pub mod repo_interest;
 pub mod required_collateral;
@@ -43,6 +45,18 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
         &["Repo"],
     );
     registry.register_metric(MetricId::Accrued, accrued_calc, &["Repo"]);
+
+    // Repo-specific risk metrics (custom metrics)
+    registry.register_metric(
+        MetricId::custom("haircut01"),
+        Arc::new(haircut01::Haircut01Calculator),
+        &["Repo"],
+    );
+    registry.register_metric(
+        MetricId::custom("collateral_price01"),
+        Arc::new(collateral_price01::CollateralPrice01Calculator),
+        &["Repo"],
+    );
 
     // Standard metrics using macro
     crate::register_metrics! {

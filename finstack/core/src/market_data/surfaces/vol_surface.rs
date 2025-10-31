@@ -201,6 +201,90 @@ impl VolSurface {
             &state.vols_row_major,
         )
     }
+
+    /// Create a new volatility surface with a single point bumped.
+    ///
+    /// Bumps the volatility at the specified (expiry, strike) point by a relative amount.
+    /// Uses bilinear interpolation to find the grid cell containing the point and bumps
+    /// the nearest grid point. This is useful for bucketed Vega calculations.
+    ///
+    /// # Arguments
+    /// * `expiry` - Expiry time in years
+    /// * `strike` - Strike price
+    /// * `bump_pct` - Relative bump size (e.g., 0.01 for 1% increase)
+    ///
+    /// # Returns
+    /// New VolSurface with bumped volatility at the specified point
+    ///
+    /// # Errors
+    /// Returns error if expiry or strike is out of bounds (even after clamping)
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    ///
+    /// let surface = VolSurface::builder("EQ-VOL")
+    ///     .expiries(&[1.0, 2.0])
+    ///     .strikes(&[90.0, 100.0, 110.0])
+    ///     .row(&[0.2, 0.21, 0.22])
+    ///     .row(&[0.19, 0.2, 0.21])
+    ///     .build()
+    ///     .unwrap();
+    ///
+    /// // Bump vol at (1.5 years, 100.0 strike) by 1%
+    /// let bumped = surface.bump_point(1.5, 100.0, 0.01)?;
+    /// assert!(bumped.value(1.5, 100.0) > surface.value(1.5, 100.0));
+    /// ```
+    pub fn bump_point(&self, expiry: f64, strike: f64, bump_pct: f64) -> crate::Result<Self> {
+        // Clamp to grid bounds
+        let clamped_expiry = expiry
+            .max(self.expiries[0])
+            .min(*self.expiries.last().expect("VolSurface should have expiries"));
+        let clamped_strike = strike
+            .max(self.strikes[0])
+            .min(*self.strikes.last().expect("VolSurface should have strikes"));
+
+        // Find the closest grid indices
+        let expiry_idx = find_closest_grid_index(self.expiries.as_ref(), clamped_expiry);
+        let strike_idx = find_closest_grid_index(self.strikes.as_ref(), clamped_strike);
+
+        // Get current vol at that grid point
+        let current_vol = self.vols[[expiry_idx, strike_idx]];
+        let bumped_vol = current_vol * (1.0 + bump_pct).max(0.0);
+
+        // Clone the vols array and update the bumped point
+        let mut bumped_vols = self.vols.clone();
+        bumped_vols[[expiry_idx, strike_idx]] = bumped_vol;
+
+        // Convert to row-major vec for from_grid
+        let flat_vols: Vec<f64> = bumped_vols.iter().copied().collect();
+
+        // Rebuild surface with same ID and grid
+        Self::from_grid(self.id.as_str(), &self.expiries, &self.strikes, &flat_vols)
+    }
+}
+
+/// Helper to find the closest grid index for a target value.
+fn find_closest_grid_index(arr: &[f64], target: f64) -> usize {
+    if target <= arr[0] {
+        return 0;
+    }
+    if target >= arr[arr.len() - 1] {
+        return arr.len() - 1;
+    }
+
+    // Binary search for the segment
+    for i in 0..arr.len() - 1 {
+        if target >= arr[i] && target <= arr[i + 1] {
+            // Return the closer of the two
+            if (target - arr[i]).abs() < (target - arr[i + 1]).abs() {
+                return i;
+            } else {
+                return i + 1;
+            }
+        }
+    }
+    arr.len() - 1
 }
 
 // Minimal trait implementation for polymorphism where needed

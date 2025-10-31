@@ -3,6 +3,7 @@
 mod annuity;
 mod bucketed;
 mod delta;
+mod dividend_risk;
 mod ir01;
 mod par_spread;
 mod theta;
@@ -26,6 +27,16 @@ use crate::metrics::MetricRegistry;
 /// # Arguments
 /// * `registry` — Metric registry to add TRS metrics to
 pub fn register_trs_metrics(registry: &mut MetricRegistry) {
+    use crate::metrics::MetricId;
+    use std::sync::Arc;
+
+    // Custom metric: Dividend risk (dividend yield sensitivity per 1bp)
+    registry.register_metric(
+        MetricId::custom("dividend01"),
+        Arc::new(dividend_risk::DividendRiskCalculator),
+        &["TRS"],
+    );
+
     crate::register_metrics! {
         registry: registry,
         instrument: "TRS",

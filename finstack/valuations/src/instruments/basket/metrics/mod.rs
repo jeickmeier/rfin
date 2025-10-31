@@ -13,16 +13,34 @@
 
 mod asset_exposure;
 mod constituent_count;
+mod constituent_delta;
 mod expense_ratio;
+mod weight_risk;
 
 use crate::metrics::MetricRegistry;
+use crate::metrics::MetricId;
+use std::sync::Arc;
 
 pub use asset_exposure::AssetExposureCalculator;
 pub use constituent_count::ConstituentCountCalculator;
+pub use constituent_delta::ConstituentDeltaCalculator;
 pub use expense_ratio::ExpenseRatioCalculator;
+pub use weight_risk::WeightRiskCalculator;
 
 /// Register all Basket metrics with the registry
 pub fn register_basket_metrics(registry: &mut MetricRegistry) {
+    // Custom metrics for basket-specific risks
+    registry.register_metric(
+        MetricId::custom("constituent_delta"),
+        Arc::new(ConstituentDeltaCalculator),
+        &["Basket"],
+    );
+    registry.register_metric(
+        MetricId::custom("weight_risk"),
+        Arc::new(WeightRiskCalculator),
+        &["Basket"],
+    );
+
     crate::register_metrics! {
         registry: registry,
         instrument: "Basket",

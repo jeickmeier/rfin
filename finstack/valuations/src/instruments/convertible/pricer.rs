@@ -17,6 +17,16 @@
 //!   at risk-free, to better reflect credit risk in the lattice framework.
 //! - Optional credit-spread factor (or curve) integration to align with market
 //!   practice when valuing credit-sensitive convertibles.
+//!
+//! # Known Limitations
+//!
+//! TODO: Add credit-equity correlation infrastructure for ConvertibleBond pricing.
+//! Currently uses single-factor equity model without credit-equity correlation.
+//! Future work requires:
+//! - Two-factor model (equity + credit) in tree framework
+//! - Correlation parameter in pricing inputs
+//! - Tree pricing framework updates to handle correlated factors
+//! - Greeks calculation for correlation risk
 
 use finstack_core::error::InputError;
 use finstack_core::market_data::context::MarketContext;

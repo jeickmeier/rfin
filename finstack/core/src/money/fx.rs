@@ -606,6 +606,51 @@ impl FxMatrix {
         self.set_quotes(&state.quotes);
     }
 
+    /// Create a new FX matrix with a bumped rate for a specific currency pair.
+    ///
+    /// This is useful for finite difference greek calculations where we need
+    /// to bump FX spot while preserving all other market data. Creates a
+    /// wrapper provider that overrides the specified rate.
+    ///
+    /// # Parameters
+    /// - `from`: Base currency
+    /// - `to`: Quote currency
+    /// - `bump_pct`: Relative bump size (e.g., 0.01 for 1% increase)
+    /// - `on`: Date for rate lookup (typically as_of date from valuation context)
+    ///
+    /// # Returns
+    /// New FxMatrix with bumped rate
+    ///
+    /// # Errors
+    /// Returns error if rate lookup fails
+    pub fn with_bumped_rate(
+        &self,
+        from: Currency,
+        to: Currency,
+        bump_pct: f64,
+        on: Date,
+    ) -> crate::Result<Self> {
+        // Get current rate
+        let query = FxQuery::new(from, to, on);
+        let current_rate = self.rate(query)?.rate;
+
+        // Calculate bumped rate
+        let bumped_rate = current_rate * (1.0 + bump_pct);
+
+        // Create bumped provider
+        use providers::BumpedFxProvider;
+        use std::sync::Arc;
+        let bumped_provider = Arc::new(BumpedFxProvider::new(
+            self.provider.clone(),
+            from,
+            to,
+            bumped_rate,
+        ));
+
+        // Create new FX matrix with same config
+        Ok(Self::with_config(bumped_provider, self.config.clone()))
+    }
+
     // Private helper methods
 
     /// Attempt to triangulate FX rate via pivot currency

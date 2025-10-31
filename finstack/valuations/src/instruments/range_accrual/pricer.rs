@@ -103,7 +103,29 @@ impl RangeAccrualMcPricer {
             inst.notional.currency(),
         );
 
-        let pricer = PathDependentPricer::new(self.config.clone());
+        // Derive deterministic seed from instrument ID and scenario
+        #[cfg(feature = "mc")]
+        use crate::instruments::common::mc::seed;
+        
+        let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
+            #[cfg(feature = "mc")]
+            {
+                seed::derive_seed(&inst.id, scenario)
+            }
+            #[cfg(not(feature = "mc"))]
+            42
+        } else {
+            #[cfg(feature = "mc")]
+            {
+                seed::derive_seed(&inst.id, "base")
+            }
+            #[cfg(not(feature = "mc"))]
+            self.config.seed
+        };
+        
+        let mut config = self.config.clone();
+        config.seed = seed;
+        let pricer = PathDependentPricer::new(config);
         let result = pricer.price(
             &process,
             initial_spot,

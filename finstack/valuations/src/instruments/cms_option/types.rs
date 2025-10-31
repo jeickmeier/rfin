@@ -82,3 +82,9 @@ impl crate::instruments::common::traits::Instrument for CmsOption {
         )
     }
 }
+
+impl crate::instruments::common::pricing::HasDiscountCurve for CmsOption {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.disc_id
+    }
+}

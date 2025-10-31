@@ -11,7 +11,9 @@ mod implied_vol;
 mod rho;
 mod risk_bucketed_dv01;
 mod theta;
+mod vanna;
 mod vega;
+mod volga;
 
 use crate::metrics::MetricRegistry;
 
@@ -44,6 +46,8 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
             (Theta, theta::ThetaCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (BucketedDv01, risk_bucketed_dv01::BucketedDv01Calculator),
+            (Vanna, vanna::VannaCalculator),
+            (Volga, volga::VolgaCalculator),
         ]
     }
 }

@@ -21,6 +21,31 @@ pub use risk::*;
 
 /// Register all structured credit metrics
 pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricRegistry) {
+    use crate::metrics::MetricId;
+    use std::sync::Arc;
+
+    // Model-specific risk metrics (custom metrics)
+    registry.register_metric(
+        MetricId::custom("recovery01"),
+        Arc::new(risk::recovery01::Recovery01Calculator),
+        &["StructuredCredit"],
+    );
+    registry.register_metric(
+        MetricId::custom("prepayment01"),
+        Arc::new(risk::prepayment01::Prepayment01Calculator),
+        &["StructuredCredit"],
+    );
+    registry.register_metric(
+        MetricId::custom("default01"),
+        Arc::new(risk::default01::Default01Calculator),
+        &["StructuredCredit"],
+    );
+    registry.register_metric(
+        MetricId::custom("severity01"),
+        Arc::new(risk::severity01::Severity01Calculator),
+        &["StructuredCredit"],
+    );
+
     crate::register_metrics! {
         registry: registry,
         instrument: "StructuredCredit",

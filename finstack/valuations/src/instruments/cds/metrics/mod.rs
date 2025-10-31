@@ -21,6 +21,7 @@ mod jump_to_default;
 mod par_spread;
 mod pv_premium;
 mod pv_protection;
+mod recovery01;
 // risk_bucketed_dv01 and theta now using generic implementations
 mod risky_pv01;
 
@@ -35,6 +36,13 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
     let risky_pv01_calc: Arc<dyn MetricCalculator> = Arc::new(risky_pv01::RiskyPv01Calculator);
     registry.register_metric(MetricId::RiskyPv01, Arc::clone(&risky_pv01_calc), &["CDS"]);
     registry.register_metric(MetricId::custom("pv01"), risky_pv01_calc, &["CDS"]);
+
+    // Recovery01 (custom metric - recovery rate sensitivity)
+    registry.register_metric(
+        MetricId::custom("recovery01"),
+        Arc::new(recovery01::Recovery01Calculator),
+        &["CDS"],
+    );
 
     // Standard metrics using macro
     crate::register_metrics! {

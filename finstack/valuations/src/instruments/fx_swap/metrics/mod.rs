@@ -13,6 +13,7 @@ mod carry_pv;
 mod dv01;
 mod forward_points;
 mod fx01;
+mod fx_delta;
 mod ir01_domestic;
 mod ir01_foreign;
 // risk_bucketed_dv01 and theta now using generic implementations
@@ -37,6 +38,11 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
             &["FxSwap"],
         )
         .register_metric(MetricId::custom("fx01"), Arc::new(fx01::FX01), &["FxSwap"])
+        .register_metric(
+            MetricId::custom("fx_delta"),
+            Arc::new(fx_delta::FxDeltaCalculator),
+            &["FxSwap"],
+        )
         .register_metric(
             MetricId::custom("ir01_domestic"),
             Arc::new(ir01_domestic::DomesticIR01),

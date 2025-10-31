@@ -9,7 +9,10 @@
 //! - Conversion premium
 //! - Greeks: Delta, Gamma, Vega, Rho, Theta
 
+mod conversion01;
 mod conversion_premium;
+mod cs01;
+mod dividend_risk;
 mod greeks;
 mod parity;
 // risk_bucketed_dv01 and theta now using generic implementations
@@ -32,6 +35,16 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
         Arc::new(conversion_premium::ConversionPremiumCalculator),
         &["ConvertibleBond"],
     );
+    registry.register_metric(
+        MetricId::custom("dividend01"),
+        Arc::new(dividend_risk::DividendRiskCalculator),
+        &["ConvertibleBond"],
+    );
+    registry.register_metric(
+        MetricId::custom("conversion01"),
+        Arc::new(conversion01::Conversion01Calculator),
+        &["ConvertibleBond"],
+    );
 
     // Standard metrics using macro
     crate::register_metrics! {
@@ -42,6 +55,7 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
             (Gamma, greeks::GammaCalculator),
             (Vega, greeks::VegaCalculator),
             (Rho, greeks::RhoCalculator),
+            (Cs01, cs01::Cs01Calculator),
             (Theta, crate::instruments::common::metrics::GenericTheta::<
                 crate::instruments::ConvertibleBond,
             >::default()),

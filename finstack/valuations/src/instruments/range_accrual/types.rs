@@ -83,3 +83,9 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
         )
     }
 }
+
+impl crate::instruments::common::pricing::HasDiscountCurve for RangeAccrual {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.disc_id
+    }
+}

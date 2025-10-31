@@ -9,6 +9,7 @@ use crate::dates::Date;
 use crate::error::InputError;
 use parking_lot::RwLock;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Simple FX provider backed by an in-memory quote store.
 ///
@@ -171,6 +172,65 @@ impl FxProvider for SimpleFxProvider {
     }
 }
 
+/// Wrapper provider that overrides a specific FX rate while delegating others.
+///
+/// This is useful for bumping FX rates in scenario analysis without
+/// losing the rest of the FX matrix state.
+pub struct BumpedFxProvider {
+    /// Original provider to delegate to
+    original: Arc<dyn FxProvider>,
+    /// Override rate for specific pair
+    override_from: Currency,
+    /// Override rate for specific pair
+    override_to: Currency,
+    /// Override rate value
+    override_rate: f64,
+}
+
+impl BumpedFxProvider {
+    /// Create a new bumped provider that overrides one rate.
+    ///
+    /// # Parameters
+    /// - `original`: Original FX provider to delegate to
+    /// - `from`: Currency to override
+    /// - `to`: Currency to override
+    /// - `bumped_rate`: New rate for the overridden pair
+    pub fn new(
+        original: Arc<dyn FxProvider>,
+        from: Currency,
+        to: Currency,
+        bumped_rate: f64,
+    ) -> Self {
+        Self {
+            original,
+            override_from: from,
+            override_to: to,
+            override_rate: bumped_rate,
+        }
+    }
+}
+
+impl FxProvider for BumpedFxProvider {
+    fn rate(
+        &self,
+        from: Currency,
+        to: Currency,
+        on: Date,
+        policy: FxConversionPolicy,
+    ) -> crate::Result<f64> {
+        // Check if this is the overridden pair (or its reciprocal)
+        if from == self.override_from && to == self.override_to {
+            return Ok(self.override_rate);
+        }
+        if from == self.override_to && to == self.override_from && self.override_rate != 0.0 {
+            return Ok(1.0 / self.override_rate);
+        }
+        
+        // Delegate to original provider for all other pairs
+        self.original.rate(from, to, on, policy)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -260,6 +320,38 @@ mod tests {
         assert_eq!(eur_usd, 1.1);
 
         let gbp_usd = provider
+            .rate(
+                Currency::GBP,
+                Currency::USD,
+                test_date(),
+                FxConversionPolicy::CashflowDate,
+            )
+            .unwrap();
+        assert_eq!(gbp_usd, 1.25);
+    }
+
+    #[test]
+    fn bumped_provider_overrides_rate() {
+        let original = Arc::new(SimpleFxProvider::new());
+        original.set_quote(Currency::EUR, Currency::USD, 1.1);
+        original.set_quote(Currency::GBP, Currency::USD, 1.25);
+
+        // Create bumped provider that overrides EUR/USD
+        let bumped = BumpedFxProvider::new(original.clone(), Currency::EUR, Currency::USD, 1.2);
+
+        // Overridden rate should return bumped value
+        let eur_usd = bumped
+            .rate(
+                Currency::EUR,
+                Currency::USD,
+                test_date(),
+                FxConversionPolicy::CashflowDate,
+            )
+            .unwrap();
+        assert_eq!(eur_usd, 1.2);
+
+        // Other rates should delegate to original
+        let gbp_usd = bumped
             .rate(
                 Currency::GBP,
                 Currency::USD,
