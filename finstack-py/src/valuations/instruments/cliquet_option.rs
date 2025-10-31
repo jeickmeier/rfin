@@ -145,14 +145,10 @@ impl PyCliquetOption {
 }
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "cliquet_option")?;
-    module.add_class::<PyCliquetOption>()?;
-    let exports = ["CliquetOption"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.add_class::<PyCliquetOption>()?;
+    Ok(vec!["CliquetOption"])
 }
 

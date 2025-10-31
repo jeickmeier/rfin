@@ -1,24 +1,37 @@
 //! Range accrual Monte Carlo pricer.
 
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::payoff::range_accrual::RangeAccrualPayoff;
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+#[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
+#[cfg(feature = "mc")]
 use crate::instruments::range_accrual::types::RangeAccrual;
+#[cfg(feature = "mc")]
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
+#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountCtx};
+#[cfg(feature = "mc")]
 use finstack_core::market_data::MarketContext;
+#[cfg(feature = "mc")]
 use finstack_core::money::Money;
+#[cfg(feature = "mc")]
 use finstack_core::Result;
 
 /// Range accrual Monte Carlo pricer.
+#[cfg(feature = "mc")]
 pub struct RangeAccrualMcPricer {
     config: PathDependentPricerConfig,
 }
 
+#[cfg(feature = "mc")]
 impl RangeAccrualMcPricer {
     /// Create a new range accrual MC pricer with default config.
     pub fn new() -> Self {
@@ -140,12 +153,14 @@ impl RangeAccrualMcPricer {
     }
 }
 
+#[cfg(feature = "mc")]
 impl Default for RangeAccrualMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "mc")]
 impl Pricer for RangeAccrualMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::RangeAccrual, ModelKey::MonteCarloGBM)
@@ -173,6 +188,7 @@ impl Pricer for RangeAccrualMcPricer {
 }
 
 /// Present value using Monte Carlo.
+#[cfg(feature = "mc")]
 pub fn npv(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = RangeAccrualMcPricer::new();
     pricer.price_internal(inst, curves, as_of)

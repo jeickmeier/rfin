@@ -12,7 +12,9 @@
 //! - σ = volatility
 //! - W_t = Brownian motion
 
+use super::super::path_data::ProcessParams;
 use super::super::traits::StochasticProcess;
+use super::metadata::ProcessMetadata;
 
 /// Geometric Brownian Motion parameters.
 #[derive(Clone, Debug)]
@@ -103,6 +105,16 @@ impl StochasticProcess for GbmProcess {
     }
 }
 
+impl ProcessMetadata for GbmProcess {
+    fn metadata(&self) -> ProcessParams {
+        let mut params = ProcessParams::new("GBM");
+        params.add_param("r", self.params.r);
+        params.add_param("q", self.params.q);
+        params.add_param("sigma", self.params.sigma);
+        params.with_factors(vec!["spot".to_string()])
+    }
+}
+
 /// Multi-factor GBM (for correlated assets).
 ///
 /// State: [S_1, S_2, ..., S_n]
@@ -179,6 +191,32 @@ impl StochasticProcess for MultiGbmProcess {
 
     fn is_diagonal(&self) -> bool {
         self.correlation.is_none()
+    }
+}
+
+impl ProcessMetadata for MultiGbmProcess {
+    fn metadata(&self) -> ProcessParams {
+        let mut params = ProcessParams::new("MultiGBM");
+        
+        // Add per-asset parameters
+        for (i, asset_params) in self.params.iter().enumerate() {
+            params.add_param(format!("r_{}", i), asset_params.r);
+            params.add_param(format!("q_{}", i), asset_params.q);
+            params.add_param(format!("sigma_{}", i), asset_params.sigma);
+        }
+        
+        // Add correlation matrix if present
+        let params = if let Some(ref corr) = self.correlation {
+            params.with_correlation(corr.clone())
+        } else {
+            params
+        };
+        
+        // Add factor names
+        let factor_names: Vec<String> = (0..self.params.len())
+            .map(|i| format!("spot_{}", i))
+            .collect();
+        params.with_factors(factor_names)
     }
 }
 

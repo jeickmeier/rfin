@@ -153,14 +153,10 @@ impl PyRangeAccrual {
 }
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "range_accrual")?;
-    module.add_class::<PyRangeAccrual>()?;
-    let exports = ["RangeAccrual"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.add_class::<PyRangeAccrual>()?;
+    Ok(vec!["RangeAccrual"])
 }
 

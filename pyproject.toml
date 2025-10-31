@@ -23,7 +23,13 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-dependencies = []
+dependencies = [
+    "matplotlib>=3.10.7",
+    "numpy>=1.24.4",
+    "pandas>=2.3.2",
+    "polars>=1.8.2",
+    "pyarrow>=22.0.0",
+]
 
 [project.optional-dependencies]
 analytics = [

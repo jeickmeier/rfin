@@ -1,22 +1,35 @@
 //! Quanto option Monte Carlo pricer.
 
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::payoff::quanto::{QuantoCallPayoff, QuantoPutPayoff};
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+#[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
+#[cfg(feature = "mc")]
 use crate::instruments::quanto_option::types::QuantoOption;
+#[cfg(feature = "mc")]
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
+#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountCtx};
+#[cfg(feature = "mc")]
 use finstack_core::market_data::MarketContext;
+#[cfg(feature = "mc")]
 use finstack_core::money::Money;
+#[cfg(feature = "mc")]
 use finstack_core::Result;
 
 /// Quanto option Monte Carlo pricer.
+#[cfg(feature = "mc")]
 pub struct QuantoOptionMcPricer {
     config: EuropeanPricerConfig,
 }
 
+#[cfg(feature = "mc")]
 impl QuantoOptionMcPricer {
     /// Create a new quanto option MC pricer with default config.
     pub fn new() -> Self {
@@ -150,12 +163,14 @@ impl QuantoOptionMcPricer {
     }
 }
 
+#[cfg(feature = "mc")]
 impl Default for QuantoOptionMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "mc")]
 impl Pricer for QuantoOptionMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::QuantoOption, ModelKey::MonteCarloGBM)
@@ -183,6 +198,7 @@ impl Pricer for QuantoOptionMcPricer {
 }
 
 /// Present value using Monte Carlo.
+#[cfg(feature = "mc")]
 pub fn npv(inst: &QuantoOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = QuantoOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)

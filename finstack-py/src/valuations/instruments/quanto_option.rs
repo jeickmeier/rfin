@@ -183,14 +183,10 @@ impl PyQuantoOption {
 }
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "quanto_option")?;
-    module.add_class::<PyQuantoOption>()?;
-    let exports = ["QuantoOption"];
-    module.setattr("__all__", pyo3::types::PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.add_class::<PyQuantoOption>()?;
+    Ok(vec!["QuantoOption"])
 }
 

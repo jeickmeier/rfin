@@ -17,7 +17,9 @@
 //!
 //! Reference: Heston (1993) - "A Closed-Form Solution for Options with Stochastic Volatility"
 
+use super::super::path_data::ProcessParams;
 use super::super::traits::StochasticProcess;
+use super::metadata::ProcessMetadata;
 
 /// Heston model parameters.
 #[derive(Clone, Debug)]
@@ -144,6 +146,29 @@ impl StochasticProcess for HestonProcess {
     fn is_diagonal(&self) -> bool {
         // Heston has correlation, so not diagonal
         false
+    }
+}
+
+impl ProcessMetadata for HestonProcess {
+    fn metadata(&self) -> ProcessParams {
+        let mut params = ProcessParams::new("Heston");
+        params.add_param("r", self.params.r);
+        params.add_param("q", self.params.q);
+        params.add_param("kappa", self.params.kappa);
+        params.add_param("theta", self.params.theta);
+        params.add_param("sigma_v", self.params.sigma_v);
+        params.add_param("rho", self.params.rho);
+        params.add_param("v0", self.params.v0);
+        
+        // Create 2x2 correlation matrix for [S, v]
+        let correlation = vec![
+            1.0, self.params.rho,
+            self.params.rho, 1.0,
+        ];
+        
+        params
+            .with_correlation(correlation)
+            .with_factors(vec!["spot".to_string(), "variance".to_string()])
     }
 }
 

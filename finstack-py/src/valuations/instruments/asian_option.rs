@@ -331,15 +331,11 @@ impl PyAsianOption {
 }
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "asian_option")?;
-    module.add_class::<PyAveragingMethod>()?;
-    module.add_class::<PyAsianOption>()?;
-    let exports = ["AveragingMethod", "AsianOption"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.add_class::<PyAveragingMethod>()?;
+    parent.add_class::<PyAsianOption>()?;
+    Ok(vec!["AveragingMethod", "AsianOption"])
 }
 

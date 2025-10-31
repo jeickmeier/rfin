@@ -162,14 +162,10 @@ impl PyCmsOption {
 }
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "cms_option")?;
-    module.add_class::<PyCmsOption>()?;
-    let exports = ["CmsOption"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.add_class::<PyCmsOption>()?;
+    Ok(vec!["CmsOption"])
 }
 

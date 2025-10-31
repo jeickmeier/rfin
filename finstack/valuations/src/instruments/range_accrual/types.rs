@@ -28,6 +28,7 @@ pub struct RangeAccrual {
 
 impl RangeAccrual {
     /// Calculate the net present value of this range accrual.
+    #[cfg(feature = "mc")]
     pub fn npv(
         &self,
         curves: &finstack_core::market_data::MarketContext,
@@ -68,7 +69,15 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
         market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(market, as_of)
+        #[cfg(feature = "mc")]
+        {
+            self.npv(market, as_of)
+        }
+        #[cfg(not(feature = "mc"))]
+        {
+            let _ = (market, as_of);
+            Err(finstack_core::Error::Validation("MC feature required for RangeAccrual pricing".to_string()))
+        }
     }
 
     fn price_with_metrics(

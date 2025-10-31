@@ -10,13 +10,20 @@ use crate::instruments::common::mc::pricer::path_dependent::{
 };
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
-use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
-use crate::results::ValuationResult;
+#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountCtx};
+#[cfg(feature = "mc")]
 use finstack_core::market_data::MarketContext;
+#[cfg(feature = "mc")]
 use finstack_core::money::Money;
+#[cfg(feature = "mc")]
 use finstack_core::Result;
+#[cfg(feature = "mc")]
+use crate::instruments::common::traits::Instrument;
+#[cfg(feature = "mc")]
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+#[cfg(feature = "mc")]
+use crate::results::ValuationResult;
 
 /// Asian option Monte Carlo pricer.
 #[cfg(feature = "mc")]

@@ -5,7 +5,7 @@ use finstack_valuations::instruments::barrier_option::{BarrierOption, BarrierTyp
 use finstack_valuations::instruments::OptionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList, PyModule, PyType};
+use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 
 /// Barrier type for barrier options.
@@ -265,15 +265,11 @@ impl PyBarrierOption {
 }
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "barrier_option")?;
-    module.add_class::<PyBarrierType>()?;
-    module.add_class::<PyBarrierOption>()?;
-    let exports = ["BarrierType", "BarrierOption"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.add_class::<PyBarrierType>()?;
+    parent.add_class::<PyBarrierOption>()?;
+    Ok(vec!["BarrierType", "BarrierOption"])
 }
 

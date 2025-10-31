@@ -231,14 +231,10 @@ impl PyAutocallable {
 }
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "autocallable")?;
-    module.add_class::<PyAutocallable>()?;
-    let exports = ["Autocallable"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.add_class::<PyAutocallable>()?;
+    Ok(vec!["Autocallable"])
 }
 

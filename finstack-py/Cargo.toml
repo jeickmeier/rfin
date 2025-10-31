@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 finstack-core = { path = "../finstack/core" }
-finstack-valuations = { path = "../finstack/valuations" }
+finstack-valuations = { path = "../finstack/valuations", features = ["mc"] }
 finstack-statements = { path = "../finstack/statements", features = ["dataframes"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio", features = ["scenarios"] }

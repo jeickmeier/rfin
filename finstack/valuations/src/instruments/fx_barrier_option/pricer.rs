@@ -1,26 +1,41 @@
 //! FX barrier option Monte Carlo pricer.
 
+#[cfg(feature = "mc")]
 use crate::instruments::barrier_option::types::BarrierType;
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::payoff::barrier::BarrierType as McBarrierType;
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::payoff::fx_barrier::FxBarrierCall;
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+#[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
+#[cfg(feature = "mc")]
 use crate::instruments::fx_barrier_option::types::FxBarrierOption;
+#[cfg(feature = "mc")]
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
+#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountCtx};
+#[cfg(feature = "mc")]
 use finstack_core::market_data::MarketContext;
+#[cfg(feature = "mc")]
 use finstack_core::money::Money;
+#[cfg(feature = "mc")]
 use finstack_core::Result;
 
 /// FX barrier option Monte Carlo pricer.
+#[cfg(feature = "mc")]
 pub struct FxBarrierOptionMcPricer {
     config: PathDependentPricerConfig,
 }
 
+#[cfg(feature = "mc")]
 impl FxBarrierOptionMcPricer {
     /// Create a new FX barrier option MC pricer with default config.
     pub fn new() -> Self {
@@ -148,12 +163,14 @@ impl FxBarrierOptionMcPricer {
     }
 }
 
+#[cfg(feature = "mc")]
 impl Default for FxBarrierOptionMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "mc")]
 impl Pricer for FxBarrierOptionMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::FxBarrierOption, ModelKey::MonteCarloGBM)
@@ -181,6 +198,7 @@ impl Pricer for FxBarrierOptionMcPricer {
 }
 
 /// Present value using Monte Carlo.
+#[cfg(feature = "mc")]
 pub fn npv(inst: &FxBarrierOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = FxBarrierOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)

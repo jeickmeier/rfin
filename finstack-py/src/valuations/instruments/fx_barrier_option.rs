@@ -201,14 +201,10 @@ impl PyFxBarrierOption {
 }
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "fx_barrier_option")?;
-    module.add_class::<PyFxBarrierOption>()?;
-    let exports = ["FxBarrierOption"];
-    module.setattr("__all__", pyo3::types::PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.add_class::<PyFxBarrierOption>()?;
+    Ok(vec!["FxBarrierOption"])
 }
 

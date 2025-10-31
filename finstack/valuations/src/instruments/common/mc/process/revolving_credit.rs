@@ -19,8 +19,10 @@
 //!
 //! Where W_1, W_2, W_3 are correlated Brownian motions.
 
+use super::super::path_data::ProcessParams;
 use super::super::traits::StochasticProcess;
 use super::cir::CirParams;
+use super::metadata::ProcessMetadata;
 use super::ou::HullWhite1FParams;
 
 /// Parameters for utilization process (mean-reverting OU).
@@ -225,6 +227,55 @@ impl StochasticProcess for RevolvingCreditProcess {
         // When correlation is used, diffusion is not diagonal
         // Otherwise, it's diagonal (independent factors)
         self.params.correlation.is_none()
+    }
+}
+
+impl ProcessMetadata for RevolvingCreditProcess {
+    fn metadata(&self) -> ProcessParams {
+        let mut params = ProcessParams::new("RevolvingCredit");
+        
+        // Utilization parameters
+        params.add_param("util_kappa", self.params.utilization.kappa);
+        params.add_param("util_theta", self.params.utilization.theta);
+        params.add_param("util_sigma", self.params.utilization.sigma);
+        
+        // Interest rate parameters
+        match &self.params.interest_rate {
+            InterestRateSpec::Fixed { rate } => {
+                params.add_param("rate_type", 0.0); // 0.0 = fixed
+                params.add_param("rate_fixed", *rate);
+            }
+            InterestRateSpec::Floating { params: hw_params, initial } => {
+                params.add_param("rate_type", 1.0); // 1.0 = floating
+                params.add_param("rate_kappa", hw_params.kappa);
+                params.add_param("rate_sigma", hw_params.sigma);
+                params.add_param("rate_initial", *initial);
+            }
+        }
+        
+        // Credit spread parameters
+        params.add_param("spread_kappa", self.params.credit_spread.cir.kappa);
+        params.add_param("spread_theta", self.params.credit_spread.cir.theta);
+        params.add_param("spread_sigma", self.params.credit_spread.cir.sigma);
+        params.add_param("spread_initial", self.params.credit_spread.initial);
+        
+        // Add correlation matrix if present (3x3 matrix)
+        let params = if let Some(ref corr_matrix) = self.params.correlation {
+            let correlation = vec![
+                corr_matrix[0][0], corr_matrix[0][1], corr_matrix[0][2],
+                corr_matrix[1][0], corr_matrix[1][1], corr_matrix[1][2],
+                corr_matrix[2][0], corr_matrix[2][1], corr_matrix[2][2],
+            ];
+            params.with_correlation(correlation)
+        } else {
+            params
+        };
+        
+        params.with_factors(vec![
+            "utilization".to_string(),
+            "short_rate".to_string(),
+            "credit_spread".to_string(),
+        ])
     }
 }
 

@@ -312,14 +312,10 @@ fn parse_frequency(freq_str: Option<&str>) -> PyResult<finstack_core::dates::Fre
 }
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "revolving_credit")?;
-    module.add_class::<PyRevolvingCredit>()?;
-    let exports = ["RevolvingCredit"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.add_class::<PyRevolvingCredit>()?;
+    Ok(vec!["RevolvingCredit"])
 }
 

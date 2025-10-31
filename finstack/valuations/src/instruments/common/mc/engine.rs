@@ -6,16 +6,104 @@
 //! - Online statistics via Welford's algorithm
 //! - Variance reduction integration
 //! - Auto-stopping on target confidence interval
+//! - Optional path capture for visualization and diagnostics
 
-use super::results::{Estimate, MoneyEstimate};
+use super::path_data::{PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath};
+use super::results::{Estimate, MoneyEstimate, MonteCarloResult};
 use super::stats::OnlineStats;
 use super::time_grid::TimeGrid;
 use super::traits::{Discretization, PathState, Payoff, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
+use std::sync::Mutex;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
+
+/// Path capture mode for Monte Carlo simulation.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PathCaptureMode {
+    /// Capture all paths
+    All,
+    /// Capture a random sample of paths
+    Sample { count: usize, seed: u64 },
+}
+
+/// Configuration for path capture during Monte Carlo simulation.
+#[derive(Clone, Debug)]
+pub struct PathCaptureConfig {
+    /// Whether path capture is enabled
+    pub enabled: bool,
+    /// Capture mode (all paths or sample)
+    pub capture_mode: PathCaptureMode,
+    /// Whether to capture payoff values at each timestep
+    pub capture_payoffs: bool,
+}
+
+impl PathCaptureConfig {
+    /// Create a new path capture config (disabled by default).
+    pub fn new() -> Self {
+        Self {
+            enabled: false,
+            capture_mode: PathCaptureMode::All,
+            capture_payoffs: false,
+        }
+    }
+
+    /// Enable path capture for all paths.
+    pub fn all() -> Self {
+        Self {
+            enabled: true,
+            capture_mode: PathCaptureMode::All,
+            capture_payoffs: false,
+        }
+    }
+
+    /// Enable path capture for a sample of paths.
+    pub fn sample(count: usize, seed: u64) -> Self {
+        Self {
+            enabled: true,
+            capture_mode: PathCaptureMode::Sample { count, seed },
+            capture_payoffs: false,
+        }
+    }
+
+    /// Enable payoff capture at each timestep.
+    pub fn with_payoffs(mut self) -> Self {
+        self.capture_payoffs = true;
+        self
+    }
+
+    /// Disable path capture.
+    pub fn disabled() -> Self {
+        Self::new()
+    }
+
+    /// Check if a path should be captured based on path_id.
+    pub fn should_capture(&self, path_id: usize, num_paths: usize) -> bool {
+        if !self.enabled {
+            return false;
+        }
+
+        match self.capture_mode {
+            PathCaptureMode::All => true,
+            PathCaptureMode::Sample { count, seed } => {
+                // Use simple hash-based sampling for determinism
+                // This ensures same paths are selected across runs
+                let hash = (path_id as u64).wrapping_mul(seed).wrapping_add(seed);
+                let sample_prob = count as f64 / num_paths as f64;
+                let threshold = (u64::MAX as f64 * sample_prob) as u64;
+                hash < threshold
+            }
+        }
+    }
+}
+
+impl Default for PathCaptureConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// Monte Carlo engine configuration.
 #[derive(Clone, Debug)]
@@ -32,6 +120,8 @@ pub struct McEngineConfig {
     pub use_parallel: bool,
     /// Chunk size for parallel execution
     pub chunk_size: usize,
+    /// Path capture configuration
+    pub path_capture: PathCaptureConfig,
 }
 
 impl McEngineConfig {
@@ -44,6 +134,7 @@ impl McEngineConfig {
             target_ci_half_width: None,
             use_parallel: cfg!(feature = "parallel"),
             chunk_size: 1000,
+            path_capture: PathCaptureConfig::default(),
         }
     }
 
@@ -70,6 +161,24 @@ impl McEngineConfig {
         self.chunk_size = size;
         self
     }
+
+    /// Set path capture configuration.
+    pub fn with_path_capture(mut self, config: PathCaptureConfig) -> Self {
+        self.path_capture = config;
+        self
+    }
+
+    /// Enable path capture for all paths.
+    pub fn capture_all_paths(mut self) -> Self {
+        self.path_capture = PathCaptureConfig::all();
+        self
+    }
+
+    /// Enable path capture for a sample.
+    pub fn capture_sample_paths(mut self, count: usize, seed: u64) -> Self {
+        self.path_capture = PathCaptureConfig::sample(count, seed);
+        self
+    }
 }
 
 /// Monte Carlo engine builder.
@@ -80,6 +189,7 @@ pub struct McEngineBuilder {
     target_ci: Option<f64>,
     parallel: bool,
     chunk_size: usize,
+    path_capture: PathCaptureConfig,
 }
 
 impl McEngineBuilder {
@@ -92,6 +202,7 @@ impl McEngineBuilder {
             target_ci: None,
             parallel: cfg!(feature = "parallel"),
             chunk_size: 1000,
+            path_capture: PathCaptureConfig::default(),
         }
     }
 
@@ -137,6 +248,24 @@ impl McEngineBuilder {
         self
     }
 
+    /// Set path capture configuration.
+    pub fn path_capture(mut self, config: PathCaptureConfig) -> Self {
+        self.path_capture = config;
+        self
+    }
+
+    /// Enable path capture for all paths.
+    pub fn capture_all_paths(mut self) -> Self {
+        self.path_capture = PathCaptureConfig::all();
+        self
+    }
+
+    /// Enable path capture for a sample.
+    pub fn capture_sample_paths(mut self, count: usize, seed: u64) -> Self {
+        self.path_capture = PathCaptureConfig::sample(count, seed);
+        self
+    }
+
     /// Build the engine.
     pub fn build(self) -> Result<McEngine> {
         let time_grid = self
@@ -150,6 +279,7 @@ impl McEngineBuilder {
             target_ci_half_width: self.target_ci,
             use_parallel: self.parallel,
             chunk_size: self.chunk_size,
+            path_capture: self.path_capture,
         };
 
         Ok(McEngine { config })
@@ -231,6 +361,64 @@ impl McEngine {
         };
 
         Ok(MoneyEstimate::from_estimate(estimate, currency))
+    }
+
+    /// Price with path capture support.
+    ///
+    /// This method is identical to `price` but returns a `MonteCarloResult` which
+    /// includes optional captured paths based on the engine configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `process_params` - Process parameters metadata for path dataset
+    ///
+    /// For other arguments, see `price`.
+    pub fn price_with_capture<R, P, D, F>(
+        &self,
+        rng: &R,
+        process: &P,
+        disc: &D,
+        initial_state: &[f64],
+        payoff: &F,
+        currency: Currency,
+        discount_factor: f64,
+        process_params: ProcessParams,
+    ) -> Result<MonteCarloResult>
+    where
+        R: RandomStream,
+        P: StochasticProcess,
+        D: Discretization<P>,
+        F: Payoff,
+    {
+        let (estimate, paths) = if self.config.use_parallel {
+            self.price_parallel_with_capture(
+                rng,
+                process,
+                disc,
+                initial_state,
+                payoff,
+                discount_factor,
+                process_params,
+            )?
+        } else {
+            self.price_serial_with_capture(
+                rng,
+                process,
+                disc,
+                initial_state,
+                payoff,
+                discount_factor,
+                process_params,
+            )?
+        };
+
+        let money_estimate = MoneyEstimate::from_estimate(estimate, currency);
+        
+        if let Some(paths) = paths {
+            Ok(MonteCarloResult::with_paths(money_estimate, paths))
+        } else {
+            Ok(MonteCarloResult::new(money_estimate))
+        }
     }
 
     /// Serial pricing implementation.
@@ -401,6 +589,296 @@ impl McEngine {
         self.price_serial(rng, process, disc, initial_state, payoff, discount_factor)
     }
 
+    /// Serial pricing with path capture.
+    fn price_serial_with_capture<R, P, D, F>(
+        &self,
+        rng: &R,
+        process: &P,
+        disc: &D,
+        initial_state: &[f64],
+        payoff: &F,
+        discount_factor: f64,
+        process_params: ProcessParams,
+    ) -> Result<(Estimate, Option<PathDataset>)>
+    where
+        R: RandomStream,
+        P: StochasticProcess,
+        D: Discretization<P>,
+        F: Payoff,
+    {
+        let mut stats = OnlineStats::new();
+        let dim = process.dim();
+        let num_factors = process.num_factors();
+        let work_size = disc.work_size(process);
+
+        // Pre-allocate buffers (reused across paths)
+        let mut state = vec![0.0; dim];
+        let mut z = vec![0.0; num_factors];
+        let mut work = vec![0.0; work_size];
+
+        // Path capture setup
+        let capture_enabled = self.config.path_capture.enabled;
+        let sampling_method = match &self.config.path_capture.capture_mode {
+            PathCaptureMode::All => PathSamplingMethod::All,
+            PathCaptureMode::Sample { count, seed } => {
+                PathSamplingMethod::RandomSample {
+                    count: *count,
+                    seed: *seed,
+                }
+            }
+        };
+
+        let mut paths = if capture_enabled {
+            Some(PathDataset::new(
+                self.config.num_paths,
+                sampling_method,
+                process_params,
+            ))
+        } else {
+            None
+        };
+
+        for path_id in 0..self.config.num_paths {
+            // Create independent RNG stream for this path
+            let mut path_rng = rng.split(path_id as u64);
+
+            // Clone payoff for this path
+            let mut payoff_clone = payoff.clone();
+
+            // Determine if we should capture this path
+            let should_capture = capture_enabled
+                && self
+                    .config
+                    .path_capture
+                    .should_capture(path_id, self.config.num_paths);
+
+            // Simulate path with optional capture
+            let (payoff_value, captured_path) = if should_capture {
+                self.simulate_path_with_capture(
+                    &mut path_rng,
+                    process,
+                    disc,
+                    initial_state,
+                    &mut payoff_clone,
+                    &mut state,
+                    &mut z,
+                    &mut work,
+                    path_id,
+                    discount_factor,
+                )?
+            } else {
+                let val = self.simulate_path(
+                    &mut path_rng,
+                    process,
+                    disc,
+                    initial_state,
+                    &mut payoff_clone,
+                    &mut state,
+                    &mut z,
+                    &mut work,
+                )?;
+                (val, None)
+            };
+
+            // Accumulate statistics
+            let discounted_value = payoff_value * discount_factor;
+            stats.update(discounted_value);
+
+            // Store captured path
+            if let (Some(ref mut dataset), Some(path)) = (&mut paths, captured_path) {
+                dataset.add_path(path);
+            }
+
+            // Check auto-stop condition
+            if let Some(target) = self.config.target_ci_half_width {
+                if stats.count() > 100 && stats.ci_half_width() < target {
+                    break;
+                }
+            }
+        }
+
+        let estimate =
+            Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count())
+                .with_std_dev(stats.std_dev());
+
+        Ok((estimate, paths))
+    }
+
+    /// Parallel pricing with path capture.
+    #[cfg(feature = "parallel")]
+    fn price_parallel_with_capture<R, P, D, F>(
+        &self,
+        rng: &R,
+        process: &P,
+        disc: &D,
+        initial_state: &[f64],
+        payoff: &F,
+        discount_factor: f64,
+        process_params: ProcessParams,
+    ) -> Result<(Estimate, Option<PathDataset>)>
+    where
+        R: RandomStream,
+        P: StochasticProcess,
+        D: Discretization<P>,
+        F: Payoff,
+    {
+        // For parallel execution with path capture, we need thread-safe collection
+        let capture_enabled = self.config.path_capture.enabled;
+        let sampling_method = match &self.config.path_capture.capture_mode {
+            PathCaptureMode::All => PathSamplingMethod::All,
+            PathCaptureMode::Sample { count, seed } => {
+                PathSamplingMethod::RandomSample {
+                    count: *count,
+                    seed: *seed,
+                }
+            }
+        };
+
+        let captured_paths: Mutex<Vec<SimulatedPath>> = Mutex::new(Vec::new());
+
+        // Split paths into chunks for parallel processing
+        let chunks: Vec<_> = (0..self.config.num_paths)
+            .step_by(self.config.chunk_size)
+            .map(|start| {
+                let end = (start + self.config.chunk_size).min(self.config.num_paths);
+                start..end
+            })
+            .collect();
+
+        // Process chunks in parallel
+        let chunk_results: Vec<Result<OnlineStats>> = chunks
+            .par_iter()
+            .map(|range| {
+                let mut stats = OnlineStats::new();
+                let dim = process.dim();
+                let num_factors = process.num_factors();
+                let work_size = disc.work_size(process);
+
+                let mut state = vec![0.0; dim];
+                let mut z = vec![0.0; num_factors];
+                let mut work = vec![0.0; work_size];
+                let mut chunk_paths = Vec::new();
+
+                for path_id in range.clone() {
+                    let mut path_rng = rng.split(path_id as u64);
+                    let mut payoff_clone = payoff.clone();
+
+                    let should_capture = capture_enabled
+                        && self
+                            .config
+                            .path_capture
+                            .should_capture(path_id, self.config.num_paths);
+
+                    let (payoff_value, captured_path) = if should_capture {
+                        self.simulate_path_with_capture(
+                            &mut path_rng,
+                            process,
+                            disc,
+                            initial_state,
+                            &mut payoff_clone,
+                            &mut state,
+                            &mut z,
+                            &mut work,
+                            path_id,
+                            discount_factor,
+                        )?
+                    } else {
+                        let val = self.simulate_path(
+                            &mut path_rng,
+                            process,
+                            disc,
+                            initial_state,
+                            &mut payoff_clone,
+                            &mut state,
+                            &mut z,
+                            &mut work,
+                        )?;
+                        (val, None)
+                    };
+
+                    let discounted_value = payoff_value * discount_factor;
+                    stats.update(discounted_value);
+
+                    if let Some(path) = captured_path {
+                        chunk_paths.push(path);
+                    }
+                }
+
+                // Store paths from this chunk
+                if !chunk_paths.is_empty() {
+                    captured_paths.lock().unwrap().extend(chunk_paths);
+                }
+
+                Ok(stats)
+            })
+            .collect();
+
+        // Collect and handle errors
+        let chunk_stats: Vec<OnlineStats> =
+            chunk_results.into_iter().collect::<Result<Vec<_>>>()?;
+
+        // Deterministically reduce chunk statistics
+        let mut combined = OnlineStats::new();
+        for chunk_stat in chunk_stats {
+            combined.merge(&chunk_stat);
+        }
+
+        let estimate = Estimate::new(
+            combined.mean(),
+            combined.stderr(),
+            combined.ci_95(),
+            combined.count(),
+        )
+        .with_std_dev(combined.std_dev());
+
+        let paths = if capture_enabled {
+            let mut dataset = PathDataset::new(
+                self.config.num_paths,
+                sampling_method,
+                process_params,
+            );
+            let collected_paths = captured_paths.into_inner().unwrap();
+            for path in collected_paths {
+                dataset.add_path(path);
+            }
+            Some(dataset)
+        } else {
+            None
+        };
+
+        Ok((estimate, paths))
+    }
+
+    /// Parallel pricing with path capture (fallback).
+    #[cfg(not(feature = "parallel"))]
+    fn price_parallel_with_capture<R, P, D, F>(
+        &self,
+        rng: &R,
+        process: &P,
+        disc: &D,
+        initial_state: &[f64],
+        payoff: &F,
+        discount_factor: f64,
+        process_params: ProcessParams,
+    ) -> Result<(Estimate, Option<PathDataset>)>
+    where
+        R: RandomStream,
+        P: StochasticProcess,
+        D: Discretization<P>,
+        F: Payoff,
+    {
+        // Fall back to serial
+        self.price_serial_with_capture(
+            rng,
+            process,
+            disc,
+            initial_state,
+            payoff,
+            discount_factor,
+            process_params,
+        )
+    }
+
     /// Simulate a single Monte Carlo path.
     fn simulate_path<R, P, D, F>(
         &self,
@@ -473,6 +951,126 @@ impl McEngine {
         // Extract payoff value (currency will be added by caller)
         let payoff_money = payoff.value(Currency::USD); // Temporary currency
         Ok(payoff_money.amount())
+    }
+
+    /// Simulate a single Monte Carlo path with full capture.
+    ///
+    /// Returns the payoff value and optionally the captured path data.
+    fn simulate_path_with_capture<R, P, D, F>(
+        &self,
+        rng: &mut R,
+        process: &P,
+        disc: &D,
+        initial_state: &[f64],
+        payoff: &mut F,
+        state: &mut [f64],
+        z: &mut [f64],
+        work: &mut [f64],
+        path_id: usize,
+        discount_factor: f64,
+    ) -> Result<(f64, Option<SimulatedPath>)>
+    where
+        R: RandomStream,
+        P: StochasticProcess,
+        D: Discretization<P>,
+        F: Payoff,
+    {
+        // Reset payoff for new path
+        payoff.reset();
+
+        // Initialize state
+        state.copy_from_slice(initial_state);
+
+        // Initialize simulated path
+        let num_steps = self.config.time_grid.num_steps() + 1; // +1 for initial point
+        let mut simulated_path = SimulatedPath::with_capacity(path_id, num_steps);
+
+        // Capture initial point
+        let mut initial_point = PathPoint::new(0, 0.0);
+        for (i, &val) in state.iter().enumerate() {
+            let key = match i {
+                0 => super::traits::state_keys::SPOT,
+                1 => super::traits::state_keys::VARIANCE,
+                2 => "credit_spread",
+                _ => continue,
+            };
+            initial_point.add_var(key.to_string(), val);
+        }
+        if self.config.path_capture.capture_payoffs {
+            // Initial payoff is typically zero, but capture it for completeness
+            initial_point.set_payoff(0.0);
+        }
+        simulated_path.add_point(initial_point);
+
+        // Create initial path state for payoff
+        let mut path_state = PathState::new(0, 0.0);
+        for (i, &val) in state.iter().enumerate() {
+            if i == 0 {
+                path_state.set(super::traits::state_keys::SPOT, val);
+            } else if i == 1 {
+                path_state.set(super::traits::state_keys::VARIANCE, val);
+                path_state.set(super::traits::state_keys::SHORT_RATE, val);
+            } else if i == 2 {
+                path_state.set("credit_spread", val);
+            }
+        }
+        payoff.on_event(&path_state);
+
+        // Simulate path through time steps
+        for step in 0..self.config.time_grid.num_steps() {
+            let t = self.config.time_grid.time(step);
+            let dt = self.config.time_grid.dt(step);
+
+            // Generate random shocks
+            rng.fill_std_normals(z);
+
+            // Advance state
+            disc.step(process, t, dt, state, z, work);
+
+            // Update path state
+            path_state.step = step + 1;
+            path_state.time = t + dt;
+            for (i, &val) in state.iter().enumerate() {
+                if i == 0 {
+                    path_state.set(super::traits::state_keys::SPOT, val);
+                } else if i == 1 {
+                    path_state.set(super::traits::state_keys::VARIANCE, val);
+                    path_state.set(super::traits::state_keys::SHORT_RATE, val);
+                } else if i == 2 {
+                    path_state.set("credit_spread", val);
+                }
+            }
+
+            // Process payoff event
+            payoff.on_event(&path_state);
+
+            // Capture this point
+            let mut point = PathPoint::new(step + 1, t + dt);
+            for (i, &val) in state.iter().enumerate() {
+                let key = match i {
+                    0 => super::traits::state_keys::SPOT,
+                    1 => super::traits::state_keys::VARIANCE,
+                    2 => "credit_spread",
+                    _ => continue,
+                };
+                point.add_var(key.to_string(), val);
+            }
+            if self.config.path_capture.capture_payoffs {
+                // Capture intermediate payoff value (undiscounted)
+                let payoff_money = payoff.value(Currency::USD);
+                point.set_payoff(payoff_money.amount());
+            }
+            simulated_path.add_point(point);
+        }
+
+        // Extract final payoff value
+        let payoff_money = payoff.value(Currency::USD);
+        let payoff_value = payoff_money.amount();
+        
+        // Set final discounted value
+        simulated_path.set_final_value(payoff_value * discount_factor);
+
+        Ok((payoff_value, Some(simulated_path)))
     }
 }
 

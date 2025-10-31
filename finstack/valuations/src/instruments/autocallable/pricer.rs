@@ -1,26 +1,39 @@
 //! Autocallable Monte Carlo pricer.
 
+#[cfg(feature = "mc")]
 use crate::instruments::autocallable::types::{Autocallable, FinalPayoffType};
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::payoff::autocallable::{
     AutocallablePayoff, FinalPayoffType as McFinalPayoffType,
 };
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+#[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
+#[cfg(feature = "mc")]
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
+#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountCtx};
+#[cfg(feature = "mc")]
 use finstack_core::market_data::MarketContext;
+#[cfg(feature = "mc")]
 use finstack_core::money::Money;
+#[cfg(feature = "mc")]
 use finstack_core::Result;
 
 /// Autocallable Monte Carlo pricer.
+#[cfg(feature = "mc")]
 pub struct AutocallableMcPricer {
     config: PathDependentPricerConfig,
 }
 
+#[cfg(feature = "mc")]
 impl AutocallableMcPricer {
     /// Create a new autocallable MC pricer with default config.
     pub fn new() -> Self {
@@ -163,12 +176,14 @@ impl AutocallableMcPricer {
     }
 }
 
+#[cfg(feature = "mc")]
 impl Default for AutocallableMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "mc")]
 impl Pricer for AutocallableMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::Autocallable, ModelKey::MonteCarloGBM)
@@ -196,6 +211,7 @@ impl Pricer for AutocallableMcPricer {
 }
 
 /// Present value using Monte Carlo.
+#[cfg(feature = "mc")]
 pub fn npv(inst: &Autocallable, curves: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = AutocallableMcPricer::new();
     pricer.price_internal(inst, curves, as_of)

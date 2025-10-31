@@ -110,6 +110,7 @@ impl EuropeanPricer {
             target_ci_half_width: None,
             use_parallel: self.config.use_parallel,
             chunk_size: 1000,
+            path_capture: crate::instruments::common::mc::engine::PathCaptureConfig::default(),
         };
         let engine = McEngine::new(engine_config);
 

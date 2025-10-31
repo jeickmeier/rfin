@@ -166,6 +166,7 @@ mod tests {
             target_ci_half_width: None,
             use_parallel: false,
             chunk_size: 1000,
+            path_capture: crate::instruments::common::mc::engine::PathCaptureConfig::default(),
         });
 
         let rng = PhiloxRng::new(42);
@@ -200,6 +201,7 @@ mod tests {
             target_ci_half_width: None,
             use_parallel: false,
             chunk_size: 1000,
+            path_capture: crate::instruments::common::mc::engine::PathCaptureConfig::default(),
         });
 
         let rng = PhiloxRng::new(42);

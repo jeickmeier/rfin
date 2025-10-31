@@ -5,6 +5,7 @@
 pub mod correlation;
 pub mod gbm;
 pub mod gbm_dividends;
+pub mod metadata;
 
 #[cfg(feature = "mc")]
 pub mod heston;
@@ -30,3 +31,4 @@ pub mod revolving_credit;
 pub use correlation::*;
 pub use gbm::*;
 pub use gbm_dividends::*;
+pub use metadata::*;

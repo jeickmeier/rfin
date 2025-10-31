@@ -1,25 +1,39 @@
 //! Barrier option Monte Carlo pricer.
 
+#[cfg(feature = "mc")]
 use crate::instruments::barrier_option::types::{BarrierOption, BarrierType};
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::payoff::barrier::BarrierCall;
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::payoff::barrier::BarrierType as McBarrierType;
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+#[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
+#[cfg(feature = "mc")]
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+#[cfg(feature = "mc")]
 use crate::results::ValuationResult;
+#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountCtx};
+#[cfg(feature = "mc")]
 use finstack_core::market_data::MarketContext;
+#[cfg(feature = "mc")]
 use finstack_core::money::Money;
+#[cfg(feature = "mc")]
 use finstack_core::Result;
 
 /// Barrier option Monte Carlo pricer.
+#[cfg(feature = "mc")]
 pub struct BarrierOptionMcPricer {
     config: PathDependentPricerConfig,
 }
 
+#[cfg(feature = "mc")]
 impl BarrierOptionMcPricer {
     /// Create a new barrier option MC pricer with default config.
     pub fn new() -> Self {
@@ -166,12 +180,14 @@ impl BarrierOptionMcPricer {
     }
 }
 
+#[cfg(feature = "mc")]
 impl Default for BarrierOptionMcPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "mc")]
 impl Pricer for BarrierOptionMcPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::BarrierOption, ModelKey::MonteCarloGBM)
@@ -199,6 +215,7 @@ impl Pricer for BarrierOptionMcPricer {
 }
 
 /// Present value using Monte Carlo.
+#[cfg(feature = "mc")]
 pub fn npv(inst: &BarrierOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = BarrierOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)

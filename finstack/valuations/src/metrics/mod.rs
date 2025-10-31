@@ -105,14 +105,17 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::variance_swap::metrics::register_variance_swap_metrics(&mut registry);
     crate::instruments::private_markets_fund::register_private_markets_fund_metrics(&mut registry);
     // Exotic options
-    crate::instruments::asian_option::metrics::register_asian_option_metrics(&mut registry);
-    crate::instruments::autocallable::metrics::register_autocallable_metrics(&mut registry);
-    crate::instruments::barrier_option::metrics::register_barrier_option_metrics(&mut registry);
-    crate::instruments::cliquet_option::metrics::register_cliquet_option_metrics(&mut registry);
+    #[cfg(feature = "mc")]
+    {
+        crate::instruments::asian_option::metrics::register_asian_option_metrics(&mut registry);
+        crate::instruments::autocallable::metrics::register_autocallable_metrics(&mut registry);
+        crate::instruments::barrier_option::metrics::register_barrier_option_metrics(&mut registry);
+        crate::instruments::cliquet_option::metrics::register_cliquet_option_metrics(&mut registry);
+        crate::instruments::fx_barrier_option::metrics::register_fx_barrier_option_metrics(&mut registry);
+        crate::instruments::lookback_option::metrics::register_lookback_option_metrics(&mut registry);
+        crate::instruments::quanto_option::metrics::register_quanto_option_metrics(&mut registry);
+        crate::instruments::range_accrual::metrics::register_range_accrual_metrics(&mut registry);
+    }
     crate::instruments::cms_option::metrics::register_cms_option_metrics(&mut registry);
-    crate::instruments::fx_barrier_option::metrics::register_fx_barrier_option_metrics(&mut registry);
-    crate::instruments::lookback_option::metrics::register_lookback_option_metrics(&mut registry);
-    crate::instruments::quanto_option::metrics::register_quanto_option_metrics(&mut registry);
-    crate::instruments::range_accrual::metrics::register_range_accrual_metrics(&mut registry);
     registry
 }

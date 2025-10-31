@@ -5,7 +5,7 @@ use finstack_valuations::instruments::lookback_option::{LookbackOption, Lookback
 use finstack_valuations::instruments::OptionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList, PyModule, PyType};
+use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 
 /// Lookback option type.
@@ -238,15 +238,11 @@ impl PyLookbackOption {
 }
 
 pub(crate) fn register<'py>(
-    py: Python<'py>,
+    _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "lookback_option")?;
-    module.add_class::<PyLookbackType>()?;
-    module.add_class::<PyLookbackOption>()?;
-    let exports = ["LookbackType", "LookbackOption"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-    parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.add_class::<PyLookbackType>()?;
+    parent.add_class::<PyLookbackOption>()?;
+    Ok(vec!["LookbackType", "LookbackOption"])
 }
 

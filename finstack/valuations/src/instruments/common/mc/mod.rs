@@ -55,6 +55,7 @@ pub mod barriers;
 pub mod discretization;
 pub mod engine;
 pub mod greeks;
+pub mod path_data;
 pub mod payoff;
 pub mod pricer;
 pub mod process;
@@ -71,11 +72,19 @@ pub mod xva;
 #[cfg(feature = "mc")]
 pub mod mlmc;
 
+#[cfg(test)]
+mod path_capture_tests;
+
 /// Prelude for convenient imports
 pub mod prelude {
     // Engine and configuration
-    pub use super::engine::{McEngine, McEngineBuilder, McEngineConfig};
-    pub use super::results::{Estimate, MoneyEstimate};
+    pub use super::engine::{
+        McEngine, McEngineBuilder, McEngineConfig, PathCaptureConfig, PathCaptureMode,
+    };
+    pub use super::path_data::{
+        PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
+    };
+    pub use super::results::{Estimate, MoneyEstimate, MonteCarloResult};
     pub use super::stats::OnlineStats;
     pub use super::time_grid::TimeGrid;
     pub use super::traits::{Discretization, PathState, Payoff, RandomStream, StochasticProcess};

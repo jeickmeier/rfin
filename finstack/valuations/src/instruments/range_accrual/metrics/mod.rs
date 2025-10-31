@@ -4,16 +4,24 @@
 //! finite difference methods. Delta and Gamma use generic FD calculators.
 //! Includes bucketed DV01 for detailed interest rate risk analysis.
 
+#[cfg(feature = "mc")]
 mod dv01;
+#[cfg(feature = "mc")]
 mod rho;
+#[cfg(feature = "mc")]
 mod vanna;
+#[cfg(feature = "mc")]
 mod vega;
+#[cfg(feature = "mc")]
 mod volga;
 
+#[cfg(feature = "mc")]
 use crate::metrics::{MetricId, MetricRegistry};
+#[cfg(feature = "mc")]
 use std::sync::Arc;
 
 /// Register range accrual metrics with the registry.
+#[cfg(feature = "mc")]
 pub fn register_range_accrual_metrics(registry: &mut MetricRegistry) {
     use crate::instruments::common::metrics::{GenericFdDelta, GenericFdGamma};
 
@@ -31,21 +39,24 @@ pub fn register_range_accrual_metrics(registry: &mut MetricRegistry) {
     );
 
     // Other metrics use custom implementations
-    crate::register_metrics! {
-        registry: registry,
-        instrument: "RangeAccrual",
-        metrics: [
-            (Vega, vega::VegaCalculator),
-            (Rho, rho::RhoCalculator),
-            (Dv01, dv01::Dv01Calculator),
-            (Vanna, vanna::VannaCalculator),
-            (Volga, volga::VolgaCalculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
-                crate::instruments::RangeAccrual,
-            >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
-                crate::instruments::RangeAccrual,
-            >::default()),
-        ]
+    #[cfg(feature = "mc")]
+    {
+        crate::register_metrics! {
+            registry: registry,
+            instrument: "RangeAccrual",
+            metrics: [
+                (Vega, vega::VegaCalculator),
+                (Rho, rho::RhoCalculator),
+                (Dv01, dv01::Dv01Calculator),
+                (Vanna, vanna::VannaCalculator),
+                (Volga, volga::VolgaCalculator),
+                (Theta, crate::instruments::common::metrics::GenericTheta::<
+                    crate::instruments::RangeAccrual,
+                >::default()),
+                (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+                    crate::instruments::RangeAccrual,
+                >::default()),
+            ]
+        }
     }
 }

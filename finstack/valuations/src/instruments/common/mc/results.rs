@@ -3,6 +3,7 @@
 //! Provides structured results with mean, standard error, confidence intervals,
 //! and metadata for Monte Carlo simulations.
 
+use super::path_data::PathDataset;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use serde::{Deserialize, Serialize};
@@ -177,6 +178,76 @@ impl Default for ConvergenceDiagnostics {
     }
 }
 
+/// Monte Carlo result with optional path data.
+///
+/// This structure wraps the statistical estimate along with optionally captured
+/// paths for visualization and debugging.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MonteCarloResult {
+    /// Statistical estimate (mean, stderr, CI)
+    pub estimate: MoneyEstimate,
+    /// Optional captured paths
+    pub paths: Option<PathDataset>,
+}
+
+impl MonteCarloResult {
+    /// Create a new Monte Carlo result without paths.
+    pub fn new(estimate: MoneyEstimate) -> Self {
+        Self {
+            estimate,
+            paths: None,
+        }
+    }
+
+    /// Create a Monte Carlo result with paths.
+    pub fn with_paths(estimate: MoneyEstimate, paths: PathDataset) -> Self {
+        Self {
+            estimate,
+            paths: Some(paths),
+        }
+    }
+
+    /// Check if paths were captured.
+    pub fn has_paths(&self) -> bool {
+        self.paths.is_some()
+    }
+
+    /// Get the number of captured paths.
+    pub fn num_captured_paths(&self) -> usize {
+        self.paths.as_ref().map(|p| p.num_captured()).unwrap_or(0)
+    }
+
+    /// Get a reference to the estimate.
+    pub fn estimate(&self) -> &MoneyEstimate {
+        &self.estimate
+    }
+
+    /// Get a reference to the paths (if available).
+    pub fn paths(&self) -> Option<&PathDataset> {
+        self.paths.as_ref()
+    }
+
+    /// Consume self and return the estimate and paths separately.
+    pub fn into_parts(self) -> (MoneyEstimate, Option<PathDataset>) {
+        (self.estimate, self.paths)
+    }
+}
+
+impl std::fmt::Display for MonteCarloResult {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.estimate)?;
+        if let Some(ref paths) = self.paths {
+            write!(
+                f,
+                " [captured {}/{} paths]",
+                paths.num_captured(),
+                paths.num_paths_total
+            )?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -211,5 +282,16 @@ mod tests {
         let s = format!("{}", est);
         assert!(s.contains("100."));
         assert!(s.contains("n=10000"));
+    }
+
+    #[test]
+    fn test_monte_carlo_result() {
+        let est = Estimate::new(100.0, 1.0, (98.0, 102.0), 10000);
+        let money_est = MoneyEstimate::from_estimate(est, Currency::USD);
+        
+        let result = MonteCarloResult::new(money_est.clone());
+        assert!(!result.has_paths());
+        assert_eq!(result.num_captured_paths(), 0);
+        assert_eq!(result.estimate().mean.amount(), 100.0);
     }
 }
