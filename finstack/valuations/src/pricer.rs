@@ -71,6 +71,24 @@ pub enum InstrumentType {
     PrivateMarketsFund = 30,
     /// Revolving Credit variant.
     RevolvingCredit = 31,
+    /// Asian Option variant.
+    AsianOption = 32,
+    /// Barrier Option variant.
+    BarrierOption = 33,
+    /// Lookback Option variant.
+    LookbackOption = 34,
+    /// Quanto Option variant.
+    QuantoOption = 35,
+    /// Autocallable variant.
+    Autocallable = 36,
+    /// CMS Option variant.
+    CmsOption = 37,
+    /// Cliquet Option variant.
+    CliquetOption = 38,
+    /// Range Accrual variant.
+    RangeAccrual = 39,
+    /// FX Barrier Option variant.
+    FxBarrierOption = 40,
 }
 
 impl InstrumentType {
@@ -108,6 +126,15 @@ impl InstrumentType {
             InstrumentType::StructuredCredit => "StructuredCredit",
             InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
             InstrumentType::RevolvingCredit => "RevolvingCredit",
+            InstrumentType::AsianOption => "AsianOption",
+            InstrumentType::BarrierOption => "BarrierOption",
+            InstrumentType::LookbackOption => "LookbackOption",
+            InstrumentType::QuantoOption => "QuantoOption",
+            InstrumentType::Autocallable => "Autocallable",
+            InstrumentType::CmsOption => "CmsOption",
+            InstrumentType::CliquetOption => "CliquetOption",
+            InstrumentType::RangeAccrual => "RangeAccrual",
+            InstrumentType::FxBarrierOption => "FxBarrierOption",
         }
     }
 }
@@ -143,6 +170,15 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::StructuredCredit => "structured_credit",
             InstrumentType::PrivateMarketsFund => "private_markets_fund",
             InstrumentType::RevolvingCredit => "revolving_credit",
+            InstrumentType::AsianOption => "asian_option",
+            InstrumentType::BarrierOption => "barrier_option",
+            InstrumentType::LookbackOption => "lookback_option",
+            InstrumentType::QuantoOption => "quanto_option",
+            InstrumentType::Autocallable => "autocallable",
+            InstrumentType::CmsOption => "cms_option",
+            InstrumentType::CliquetOption => "cliquet_option",
+            InstrumentType::RangeAccrual => "range_accrual",
+            InstrumentType::FxBarrierOption => "fx_barrier_option",
         };
         write!(f, "{}", label)
     }
@@ -187,6 +223,15 @@ impl std::str::FromStr for InstrumentType {
             }
             "private_markets_fund" | "pmf" => Ok(InstrumentType::PrivateMarketsFund),
             "revolving_credit" | "revolver" | "rc" => Ok(InstrumentType::RevolvingCredit),
+            "asian_option" | "asian" => Ok(InstrumentType::AsianOption),
+            "barrier_option" | "barrier" => Ok(InstrumentType::BarrierOption),
+            "lookback_option" | "lookback" => Ok(InstrumentType::LookbackOption),
+            "quanto_option" | "quanto" => Ok(InstrumentType::QuantoOption),
+            "autocallable" | "auto_callable" => Ok(InstrumentType::Autocallable),
+            "cms_option" | "cms" => Ok(InstrumentType::CmsOption),
+            "cliquet_option" | "cliquet" => Ok(InstrumentType::CliquetOption),
+            "range_accrual" | "range_accrual_note" => Ok(InstrumentType::RangeAccrual),
+            "fx_barrier_option" | "fx_barrier" => Ok(InstrumentType::FxBarrierOption),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }
@@ -669,6 +714,76 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     registry.register_pricer(
         PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::MonteCarloGBM),
         Box::new(crate::instruments::revolving_credit::pricer::RevolvingCreditMcPricer::new()),
+    );
+
+    // Asian Option
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::AsianOption, ModelKey::MonteCarloGBM),
+        Box::new(crate::instruments::asian_option::pricer::AsianOptionMcPricer::default()),
+    );
+
+    // Barrier Option
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::BarrierOption, ModelKey::MonteCarloGBM),
+        Box::new(crate::instruments::barrier_option::pricer::BarrierOptionMcPricer::default()),
+    );
+
+    // Lookback Option
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::LookbackOption, ModelKey::MonteCarloGBM),
+        Box::new(crate::instruments::lookback_option::pricer::LookbackOptionMcPricer::default()),
+    );
+
+    // Quanto Option
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::QuantoOption, ModelKey::MonteCarloGBM),
+        Box::new(crate::instruments::quanto_option::pricer::QuantoOptionMcPricer::default()),
+    );
+
+    // Autocallable
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Autocallable, ModelKey::MonteCarloGBM),
+        Box::new(crate::instruments::autocallable::pricer::AutocallableMcPricer::default()),
+    );
+
+    // CMS Option
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CmsOption, ModelKey::MonteCarloHullWhite1F),
+        Box::new(crate::instruments::cms_option::pricer::CmsOptionMcPricer::new()),
+    );
+
+    // Cliquet Option
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CliquetOption, ModelKey::MonteCarloGBM),
+        Box::new(crate::instruments::cliquet_option::pricer::CliquetOptionMcPricer::default()),
+    );
+
+    // Range Accrual
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::RangeAccrual, ModelKey::MonteCarloGBM),
+        Box::new(crate::instruments::range_accrual::pricer::RangeAccrualMcPricer::default()),
+    );
+
+    // FX Barrier Option
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::FxBarrierOption, ModelKey::MonteCarloGBM),
+        Box::new(crate::instruments::fx_barrier_option::pricer::FxBarrierOptionMcPricer::default()),
+    );
+
+    // Swaption LSMC (Bermudan exercise)
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Swaption, ModelKey::MonteCarloGBM),
+        Box::new(crate::instruments::swaption::pricer::SwaptionLsmcPricer::default()),
     );
 }
 

@@ -53,8 +53,6 @@ mod tests {
     use crate::instruments::fx_spot::FxSpot;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::MarketContext;
-    use finstack_core::dates::create_date;
-    use time::Month;
 
     fn create_test_fx_spot() -> FxSpot {
         FxSpot::new("EURUSD".into(), Currency::EUR, Currency::USD)
@@ -157,14 +155,12 @@ mod tests {
         let result = pricer.price_dyn(&fx_spot, &market, as_of);
         assert!(result.is_ok());
         
-        // The pricer should use epoch date (1970-01-01) for FX spots
-        // since they're currency conversion, not discounting
+        // The pricer should stamp the result with the provided as_of date
         let valuation = result.unwrap();
         assert_eq!(valuation.instrument_id, "EURUSD");
         
-        // Verify the as_of date is set correctly (should be epoch)
-        let expected_date = create_date(1970, Month::January, 1).unwrap();
-        assert_eq!(valuation.as_of, expected_date);
+        // Verify the as_of date is set correctly (should match the input)
+        assert_eq!(valuation.as_of, as_of);
     }
 
     #[test]
