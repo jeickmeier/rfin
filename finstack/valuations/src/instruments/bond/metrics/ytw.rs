@@ -25,10 +25,10 @@ impl MetricCalculator for YtwCalculator {
             context.discount_curve_id = Some(disc_id);
             context.day_count = Some(dc);
             context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                id: "cashflows".to_string(),
-            })
-        })?
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "cashflows".to_string(),
+                })
+            })?
         };
 
         // Build candidate exercise dates

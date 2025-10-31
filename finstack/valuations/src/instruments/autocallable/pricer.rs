@@ -13,8 +13,8 @@ use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, P
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::MarketContext;
-use finstack_core::Result;
 use finstack_core::money::Money;
+use finstack_core::Result;
 
 /// Autocallable Monte Carlo pricer.
 pub struct AutocallableMcPricer {
@@ -53,7 +53,11 @@ impl AutocallableMcPricer {
         };
 
         // Get time to final observation date
-        let final_date = inst.observation_dates.last().copied().unwrap_or(inst.observation_dates[0]);
+        let final_date = inst
+            .observation_dates
+            .last()
+            .copied()
+            .unwrap_or(inst.observation_dates[0]);
         let t = inst
             .day_count
             .year_fraction(as_of, final_date, DayCountCtx::default())?;
@@ -70,7 +74,11 @@ impl AutocallableMcPricer {
         )?;
         let df_as_of = disc_curve.df(t_as_of);
         let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 { df_maturity / df_as_of } else { 1.0 };
+        let discount_factor = if df_as_of > 0.0 {
+            df_maturity / df_as_of
+        } else {
+            1.0
+        };
 
         let q = if let Some(div_id) = &inst.div_yield_id {
             match curves.price(div_id.as_str()) {
@@ -153,7 +161,9 @@ impl Pricer for AutocallableMcPricer {
         let autocallable = instrument
             .as_any()
             .downcast_ref::<Autocallable>()
-            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::Autocallable, instrument.key()))?;
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::Autocallable, instrument.key())
+            })?;
 
         let pv = self
             .price_internal(autocallable, market, as_of)
@@ -168,4 +178,3 @@ pub fn npv(inst: &Autocallable, curves: &MarketContext, as_of: Date) -> Result<M
     let pricer = AutocallableMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }
-

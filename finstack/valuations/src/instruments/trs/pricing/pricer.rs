@@ -48,7 +48,9 @@ impl Pricer for SimpleTrsDiscountingPricer {
             return fi_pricer.price_dyn(fi_trs, market, as_of);
         }
 
-        Err(PricingError::type_mismatch(InstrumentType::TRS, instrument.key(),
+        Err(PricingError::type_mismatch(
+            InstrumentType::TRS,
+            instrument.key(),
         ))
     }
 }

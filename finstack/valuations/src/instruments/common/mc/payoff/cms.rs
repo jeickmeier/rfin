@@ -3,10 +3,10 @@
 //! CMS products reference swap rates rather than LIBOR/SOFR, requiring
 //! simulation of swap rates via Hull-White or other short rate models.
 
+use super::super::pricer::swap_rate_utils::ForwardSwapRate;
+use super::super::process::ou::HullWhite1FParams;
 use super::super::traits::{PathState, Payoff};
 use super::swaption::SwapSchedule;
-use super::super::process::ou::HullWhite1FParams;
-use super::super::pricer::swap_rate_utils::ForwardSwapRate;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -97,11 +97,7 @@ impl CmsCapPayoff {
     /// and forward swap rate due to volatility.
     ///
     /// Delegates to `ForwardSwapRate::convexity_adjustment`.
-    pub fn compute_convexity_adjustment(
-        volatility: f64,
-        tenor: f64,
-        swap_tenor: f64,
-    ) -> f64 {
+    pub fn compute_convexity_adjustment(volatility: f64, tenor: f64, swap_tenor: f64) -> f64 {
         ForwardSwapRate::convexity_adjustment(volatility, tenor, swap_tenor)
     }
 }
@@ -110,7 +106,7 @@ impl Payoff for CmsCapPayoff {
     fn on_event(&mut self, state: &PathState) {
         if self.next_fixing_idx < self.fixing_dates.len() {
             let target_time = self.fixing_dates[self.next_fixing_idx];
-            
+
             // Check if we're at a fixing date
             if (state.time - target_time).abs() < 1e-6 || state.time >= target_time {
                 // Get short rate from state
@@ -124,7 +120,7 @@ impl Payoff for CmsCapPayoff {
                 // Simple discount curve: DF(t) = exp(-r * t) for now
                 // In production, use proper discount curve function
                 let discount_fn = |t: f64| (-short_rate * t).exp();
-                
+
                 let cms_rate = ForwardSwapRate::compute(
                     &self.hw_params,
                     short_rate,
@@ -228,7 +224,7 @@ impl Payoff for CmsFloorPayoff {
     fn on_event(&mut self, state: &PathState) {
         if self.next_fixing_idx < self.fixing_dates.len() {
             let target_time = self.fixing_dates[self.next_fixing_idx];
-            
+
             if (state.time - target_time).abs() < 1e-6 || state.time >= target_time {
                 let short_rate = state
                     .vars
@@ -237,7 +233,7 @@ impl Payoff for CmsFloorPayoff {
                     .unwrap_or(0.0);
 
                 let discount_fn = |t: f64| (-short_rate * t).exp();
-                
+
                 let cms_rate = ForwardSwapRate::compute(
                     &self.hw_params,
                     short_rate,
@@ -270,25 +266,25 @@ impl Payoff for CmsFloorPayoff {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::super::process::ou::HullWhite1FParams;
+    use super::*;
 
     #[test]
     fn test_cms_cap_creation() {
         let fixing_dates = vec![0.25, 0.5, 0.75, 1.0];
         let accruals = vec![0.25, 0.25, 0.25, 0.25];
         let dfs = vec![0.99, 0.98, 0.97, 0.96];
-        
+
         // Swap schedule needs accruals matching payment dates length
         let payment_dates = vec![1.0, 1.25, 1.5, 1.75, 2.0];
         let schedule_accruals = vec![0.25, 0.25, 0.25, 0.25, 0.25];
         let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, schedule_accruals);
-        
+
         let hw_params = HullWhite1FParams::new(0.1, 0.01, 0.03);
-        
+
         let cap = CmsCapPayoff::new(
-            0.04,  // Strike
-            10.0,  // 10Y CMS
+            0.04, // Strike
+            10.0, // 10Y CMS
             fixing_dates,
             accruals,
             dfs,
@@ -334,4 +330,3 @@ mod tests {
         assert_eq!(cap.next_fixing_idx, 0);
     }
 }
-

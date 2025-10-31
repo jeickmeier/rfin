@@ -44,7 +44,9 @@ impl Pricer for SimpleCapFloorBlackPricer {
         let cap_floor = instrument
             .as_any()
             .downcast_ref::<InterestRateOption>()
-            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::CapFloor, instrument.key()))?;
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::CapFloor, instrument.key())
+            })?;
 
         // Use the provided as_of date for consistency
         // Compute present value using the instrument's npv method

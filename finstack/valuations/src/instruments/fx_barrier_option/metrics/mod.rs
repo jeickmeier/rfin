@@ -6,4 +6,3 @@ use crate::metrics::MetricRegistry;
 pub fn register_fx_barrier_option_metrics(_registry: &mut MetricRegistry) {
     // Placeholder for future metrics registration
 }
-

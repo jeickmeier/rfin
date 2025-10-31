@@ -24,7 +24,6 @@ use finstack_core::prelude::*;
 use finstack_core::{Error, Result};
 use std::collections::HashMap;
 
-use crate::instruments::common::traits::Instrument;
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::instruments::common::models::tree_framework::map_date_to_step;
 use crate::instruments::common::models::{
@@ -32,6 +31,7 @@ use crate::instruments::common::models::{
     TrinomialTree,
 };
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::convertible::{ConversionPolicy, ConvertibleBond};
 
 /// Tree model type selection for convertible bond pricing
@@ -636,8 +636,12 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
         let convertible = instrument
             .as_any()
             .downcast_ref::<crate::instruments::convertible::ConvertibleBond>()
-            .ok_or_else(|| crate::pricer::PricingError::type_mismatch(crate::pricer::InstrumentType::Convertible, instrument.key(),
-            ))?;
+            .ok_or_else(|| {
+                crate::pricer::PricingError::type_mismatch(
+                    crate::pricer::InstrumentType::Convertible,
+                    instrument.key(),
+                )
+            })?;
 
         // Get as_of date from discount curve
         let disc = market

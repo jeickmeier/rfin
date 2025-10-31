@@ -196,7 +196,9 @@ fn test_eom_february_maturity_ytm() {
     let mut bond = match bond_result {
         Ok(bond) => bond,
         Err(_) => {
-            println!("Skipping test_eom_february_maturity_ytm: bond construction failed validation");
+            println!(
+                "Skipping test_eom_february_maturity_ytm: bond construction failed validation"
+            );
             return;
         }
     };

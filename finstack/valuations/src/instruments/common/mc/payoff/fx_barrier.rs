@@ -3,8 +3,8 @@
 //! Extends the barrier framework for FX options, including quanto barriers
 //! where the barrier and/or payoff are in different currencies.
 
-use super::barrier::{BarrierCall, BarrierType};
 use super::super::traits::{PathState, Payoff};
+use super::barrier::{BarrierCall, BarrierType};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -208,4 +208,3 @@ mod tests {
         assert_eq!(fx_barrier.quanto_adjustment, quanto_adj);
     }
 }
-

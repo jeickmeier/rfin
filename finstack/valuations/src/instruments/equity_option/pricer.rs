@@ -349,7 +349,12 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
         let equity_option = instrument
             .as_any()
             .downcast_ref::<crate::instruments::equity_option::EquityOption>()
-            .ok_or_else(|| crate::pricer::PricingError::type_mismatch(crate::pricer::InstrumentType::EquityOption, instrument.key()))?;
+            .ok_or_else(|| {
+                crate::pricer::PricingError::type_mismatch(
+                    crate::pricer::InstrumentType::EquityOption,
+                    instrument.key(),
+                )
+            })?;
 
         // Use the provided as_of date for consistency
         // Compute present value using the engine

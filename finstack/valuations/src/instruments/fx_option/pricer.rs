@@ -44,7 +44,9 @@ impl Pricer for SimpleFxOptionBlackPricer {
         let fx_option = instrument
             .as_any()
             .downcast_ref::<FxOption>()
-            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::FxOption, instrument.key()))?;
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::FxOption, instrument.key())
+            })?;
 
         // Use the provided as_of date for consistency
         // Use instrument's value method

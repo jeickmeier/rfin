@@ -6,8 +6,8 @@ use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, P
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
-use finstack_core::Result;
 use finstack_core::money::Money;
+use finstack_core::Result;
 
 /// CMS option Monte Carlo pricer.
 pub struct CmsOptionMcPricer;
@@ -58,7 +58,9 @@ impl Pricer for CmsOptionMcPricer {
         let cms = instrument
             .as_any()
             .downcast_ref::<CmsOption>()
-            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::CmsOption, instrument.key()))?;
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::CmsOption, instrument.key())
+            })?;
 
         let pv = self
             .price_internal(cms, market, as_of)
@@ -73,4 +75,3 @@ pub fn npv(inst: &CmsOption, curves: &MarketContext, as_of: Date) -> Result<Mone
     let pricer = CmsOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }
-

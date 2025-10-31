@@ -44,7 +44,9 @@ impl Pricer for SimpleSwaptionBlackPricer {
         let swaption = instrument
             .as_any()
             .downcast_ref::<Swaption>()
-            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::Swaption, instrument.key()))?;
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::Swaption, instrument.key())
+            })?;
 
         // Use the provided as_of date for consistency
         // Compute present value using the instrument's value method
@@ -107,7 +109,9 @@ impl Pricer for SwaptionLsmcPricer {
         let swaption = instrument
             .as_any()
             .downcast_ref::<Swaption>()
-            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::Swaption, instrument.key()))?;
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::Swaption, instrument.key())
+            })?;
 
         // For now, delegate to existing pricer
         // TODO: Implement full LSMC pricing with Bermudan exercise

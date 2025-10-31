@@ -140,13 +140,8 @@ impl ForwardSwapRate {
             1.0
         };
 
-        let p_end = HullWhiteBondPrice::bond_price(
-            params,
-            r_t,
-            t,
-            schedule.end_date,
-            &discount_curve_fn,
-        );
+        let p_end =
+            HullWhiteBondPrice::bond_price(params, r_t, t, schedule.end_date, &discount_curve_fn);
 
         // Compute annuity: A(t) = Σ τ_i * P(t, T_i)
         let mut annuity = 0.0;
@@ -186,11 +181,7 @@ impl ForwardSwapRate {
     /// # Returns
     ///
     /// Convexity adjustment to add to forward swap rate
-    pub fn convexity_adjustment(
-        volatility: f64,
-        tenor: f64,
-        swap_tenor: f64,
-    ) -> f64 {
+    pub fn convexity_adjustment(volatility: f64, tenor: f64, swap_tenor: f64) -> f64 {
         // Simplified convexity adjustment
         // More sophisticated: use full volatility smile and correlation
         0.5 * volatility * volatility * tenor * swap_tenor / (1.0 + 0.03 * swap_tenor)
@@ -207,7 +198,7 @@ mod tests {
         let t = 0.0;
         let t_maturity = 1.0;
         let b = HullWhiteBondPrice::b_factor(kappa, t, t_maturity);
-        
+
         // B(0,1) with κ=0.1 should be approximately (1 - exp(-0.1)) / 0.1 ≈ 0.9516
         let expected = (1.0 - (-0.1_f64).exp()) / 0.1;
         assert!((b - expected).abs() < 1e-10);
@@ -218,16 +209,16 @@ mod tests {
         let params = HullWhite1FParams::new(0.1, 0.01, 0.03);
         let r_t = 0.03;
         let t = 0.0;
-        
+
         let payment_dates = vec![1.0, 1.25, 1.5, 1.75, 2.0];
         let accruals = vec![0.25, 0.25, 0.25, 0.25, 0.25];
         let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, accruals);
-        
+
         // Simple discount curve: DF(t) = exp(-0.03 * t)
         let discount_fn = |t: f64| (-0.03 * t).exp();
-        
+
         let swap_rate = ForwardSwapRate::compute(&params, r_t, t, &schedule, discount_fn);
-        
+
         // Swap rate should be positive and reasonable
         assert!(swap_rate > 0.0);
         assert!(swap_rate < 1.0);
@@ -236,7 +227,7 @@ mod tests {
     #[test]
     fn test_convexity_adjustment() {
         let adj = ForwardSwapRate::convexity_adjustment(0.20, 1.0, 10.0);
-        
+
         // Should be positive (convexity adjustment increases CMS rate)
         assert!(adj > 0.0);
         // With 20% vol, 1Y tenor, 10Y swap: 0.5 * 0.04 * 10 / 1.3 ≈ 0.154
@@ -244,4 +235,3 @@ mod tests {
         assert!((adj - 0.15384615384615388).abs() < 1e-6); // Check exact value
     }
 }
-

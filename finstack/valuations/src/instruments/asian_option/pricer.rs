@@ -3,11 +3,11 @@
 #[cfg(feature = "mc")]
 use crate::instruments::asian_option::types::{AsianOption, AveragingMethod};
 #[cfg(feature = "mc")]
+use crate::instruments::common::mc::payoff::asian::{AsianCall, AsianPut};
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
-use crate::instruments::common::mc::payoff::asian::{AsianCall, AsianPut};
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 use crate::instruments::common::traits::Instrument;
@@ -46,7 +46,9 @@ impl AsianOptionMcPricer {
         as_of: Date,
     ) -> Result<Money> {
         // Get time to maturity
-        let t = inst.day_count.year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+        let t = inst
+            .day_count
+            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
         if t <= 0.0 {
             // Expired: return intrinsic value
             let spot_scalar = curves.price(&inst.spot_id)?;
@@ -74,7 +76,11 @@ impl AsianOptionMcPricer {
         )?;
         let df_as_of = disc_curve.df(t_as_of);
         let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 { df_maturity / df_as_of } else { 1.0 };
+        let discount_factor = if df_as_of > 0.0 {
+            df_maturity / df_as_of
+        } else {
+            1.0
+        };
 
         // Get spot
         let spot_scalar = curves.price(&inst.spot_id)?;
@@ -109,9 +115,9 @@ impl AsianOptionMcPricer {
         let num_steps = (t * 252.0) as usize; // Daily steps
         let mut fixing_steps = Vec::new();
         for &fixing_date in &inst.fixing_dates {
-            let fixing_t = inst
-                .day_count
-                .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+            let fixing_t =
+                inst.day_count
+                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
             if fixing_t > 0.0 && fixing_t <= t {
                 let step = (fixing_t / t * num_steps as f64) as usize;
                 fixing_steps.push(step.min(num_steps - 1));
@@ -138,12 +144,8 @@ impl AsianOptionMcPricer {
         let pricer = PathDependentPricer::new(self.config.clone());
         let result = match inst.option_type {
             crate::instruments::OptionType::Call => {
-                let payoff = AsianCall::new(
-                    inst.strike.amount(),
-                    inst.notional,
-                    averaging,
-                    fixing_steps,
-                );
+                let payoff =
+                    AsianCall::new(inst.strike.amount(), inst.notional, averaging, fixing_steps);
                 pricer.price(
                     &process,
                     spot,
@@ -155,12 +157,8 @@ impl AsianOptionMcPricer {
                 )?
             }
             crate::instruments::OptionType::Put => {
-                let payoff = AsianPut::new(
-                    inst.strike.amount(),
-                    inst.notional,
-                    averaging,
-                    fixing_steps,
-                );
+                let payoff =
+                    AsianPut::new(inst.strike.amount(), inst.notional, averaging, fixing_steps);
                 pricer.price(
                     &process,
                     spot,
@@ -217,4 +215,3 @@ pub fn npv(inst: &AsianOption, curves: &MarketContext, as_of: Date) -> Result<Mo
     let pricer = AsianOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }
-

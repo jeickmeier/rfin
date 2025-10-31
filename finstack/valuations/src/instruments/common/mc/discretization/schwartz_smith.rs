@@ -34,21 +34,20 @@ impl ExactSchwartzSmith {
     pub fn new(rho: f64) -> finstack_core::Result<Self> {
         // Build 2x2 correlation matrix: [[1.0, rho], [rho, 1.0]]
         let corr_matrix = vec![1.0, rho, rho, 1.0];
-        let chol = cholesky_decomposition(&corr_matrix, 2)
-            .map_err(|e| match e {
-                CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
-                    finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
-                }
-                CholeskyError::DimensionMismatch { .. } => {
-                    finstack_core::Error::Input(finstack_core::error::InputError::DimensionMismatch)
-                }
-                _ => finstack_core::Error::Input(finstack_core::error::InputError::Invalid),
-            })?;
-        
+        let chol = cholesky_decomposition(&corr_matrix, 2).map_err(|e| match e {
+            CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
+                finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
+            }
+            CholeskyError::DimensionMismatch { .. } => {
+                finstack_core::Error::Input(finstack_core::error::InputError::DimensionMismatch)
+            }
+            _ => finstack_core::Error::Input(finstack_core::error::InputError::Invalid),
+        })?;
+
         // Store as array for efficiency
         let mut chol_array = [0.0; 4];
         chol_array.copy_from_slice(&chol);
-        
+
         Ok(Self {
             cholesky_factor: chol_array,
         })
@@ -86,14 +85,14 @@ impl Discretization<SchwartzSmithProcess> for ExactSchwartzSmith {
         // X_{t+Δt} = X_t e^{-κ_X Δt} + σ_X √[(1-e^{-2κ_X Δt})/(2κ_X)] Z_X
         let exp_kappa_dt = (-kappa_x * dt).exp();
         let x_mean = x[0] * exp_kappa_dt;
-        
+
         let x_std = if (kappa_x * dt).abs() < 1e-8 {
             // Taylor expansion for small κ_X Δt
             sigma_x * dt.sqrt() * (1.0 - kappa_x * dt / 3.0)
         } else {
             sigma_x * ((1.0 - (-2.0 * kappa_x * dt).exp()) / (2.0 * kappa_x)).sqrt()
         };
-        
+
         x[0] = x_mean + x_std * z_corr[0];
 
         // Exact solution for Y (arithmetic Brownian motion)
@@ -115,7 +114,7 @@ mod tests {
     fn test_exact_schwartz_smith_creation() {
         let _params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5);
         let disc = ExactSchwartzSmith::new(-0.5).unwrap();
-        
+
         assert_eq!(disc.cholesky_factor.len(), 4);
     }
 
@@ -154,4 +153,3 @@ mod tests {
         assert!(spot > 90.0 && spot < 92.0);
     }
 }
-

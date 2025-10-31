@@ -87,7 +87,10 @@ pub enum CholeskyError {
 /// let chol = cholesky_decomposition(&corr, 2).unwrap();
 /// // chol = [[1.0, 0.0], [0.5, 0.866...]]
 /// ```
-pub fn cholesky_decomposition(matrix: &[f64], n: usize) -> std::result::Result<Vec<f64>, CholeskyError> {
+pub fn cholesky_decomposition(
+    matrix: &[f64],
+    n: usize,
+) -> std::result::Result<Vec<f64>, CholeskyError> {
     if matrix.len() != n * n {
         return Err(CholeskyError::DimensionMismatch {
             expected: n,
@@ -108,10 +111,7 @@ pub fn cholesky_decomposition(matrix: &[f64], n: usize) -> std::result::Result<V
             if i == j {
                 let diag = matrix[i * n + i] - sum;
                 if diag < 0.0 {
-                    return Err(CholeskyError::NotPositiveDefinite {
-                        diag,
-                        row: i,
-                    });
+                    return Err(CholeskyError::NotPositiveDefinite { diag, row: i });
                 }
                 l[i * n + j] = diag.sqrt();
                 // Check if diagonal is too small (singular)
@@ -267,9 +267,7 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<()> {
     // Check positive semi-definite via Cholesky
     match cholesky_decomposition(matrix, n) {
         Ok(_) => Ok(()),
-        Err(CholeskyError::NotPositiveDefinite { .. }) => {
-            Err(error::InputError::Invalid.into())
-        }
+        Err(CholeskyError::NotPositiveDefinite { .. }) => Err(error::InputError::Invalid.into()),
         Err(CholeskyError::Singular { .. }) => Err(error::InputError::Invalid.into()),
         Err(CholeskyError::DimensionMismatch { .. }) => {
             Err(error::InputError::DimensionMismatch.into())

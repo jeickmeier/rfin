@@ -131,8 +131,8 @@ impl ExactMultiGbmCorrelated {
     ///
     /// Returns error if correlation matrix is not positive semi-definite or has wrong size.
     pub fn new(correlation_matrix: &[f64], dim: usize) -> finstack_core::Result<Self> {
-        let cholesky_factor = cholesky_decomposition(correlation_matrix, dim)
-            .map_err(|e| match e {
+        let cholesky_factor =
+            cholesky_decomposition(correlation_matrix, dim).map_err(|e| match e {
                 CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
                     finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
                 }

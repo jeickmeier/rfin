@@ -465,8 +465,12 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
         let cds_option = instrument
             .as_any()
             .downcast_ref::<crate::instruments::cds_option::CdsOption>()
-            .ok_or_else(|| crate::pricer::PricingError::type_mismatch(crate::pricer::InstrumentType::CDSOption, instrument.key(),
-            ))?;
+            .ok_or_else(|| {
+                crate::pricer::PricingError::type_mismatch(
+                    crate::pricer::InstrumentType::CDSOption,
+                    instrument.key(),
+                )
+            })?;
 
         // Get as_of date from discount curve
         let disc = market

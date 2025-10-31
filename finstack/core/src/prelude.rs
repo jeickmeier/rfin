@@ -28,9 +28,9 @@
 // Core re-exports (keep list focused on ergonomic entry points)
 pub use crate::currency::Currency;
 pub use crate::dates::{
-    adjust, available_calendars, build_periods, create_date, next_cds_date, next_imm, third_wednesday,
-    BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar, OffsetDateTime,
-    OffsetDateTimeExt, Period, PeriodId, PeriodKey, ScheduleBuilder, StubKind,
+    adjust, available_calendars, build_periods, create_date, next_cds_date, next_imm,
+    third_wednesday, BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar,
+    OffsetDateTime, OffsetDateTimeExt, Period, PeriodId, PeriodKey, ScheduleBuilder, StubKind,
 };
 pub use crate::error::{Error, InputError};
 pub use crate::types::{

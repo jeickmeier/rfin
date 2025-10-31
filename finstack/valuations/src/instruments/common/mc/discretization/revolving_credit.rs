@@ -44,17 +44,15 @@ impl RevolvingCreditDiscretization {
         let cholesky_factor = if let Some(corr) = correlation {
             // Convert 3x3 array to row-major vector
             let corr_vec: Vec<f64> = corr.iter().flat_map(|row| row.iter().copied()).collect();
-            Some(
-                cholesky_decomposition(&corr_vec, 3).map_err(|e| match e {
-                    CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
-                        finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
-                    }
-                    CholeskyError::DimensionMismatch { .. } => {
-                        finstack_core::Error::Input(finstack_core::error::InputError::DimensionMismatch)
-                    }
-                    _ => finstack_core::Error::Input(finstack_core::error::InputError::Invalid),
-                })?,
-            )
+            Some(cholesky_decomposition(&corr_vec, 3).map_err(|e| match e {
+                CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
+                    finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
+                }
+                CholeskyError::DimensionMismatch { .. } => {
+                    finstack_core::Error::Input(finstack_core::error::InputError::DimensionMismatch)
+                }
+                _ => finstack_core::Error::Input(finstack_core::error::InputError::Invalid),
+            })?)
         } else {
             None
         };
@@ -116,26 +114,29 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
                 let mut rate_state = [x[1]];
                 let rate_shock = [z_corr[1]];
                 let _rate_work = [0.0];
-                
+
                 // Create temporary HW1F process for stepping
                 // We need to call the exact discretization
-                let _hw_disc = self.hw_disc.as_ref().expect("HW discretization must be present for floating rate specification");
-                
+                let _hw_disc = self
+                    .hw_disc
+                    .as_ref()
+                    .expect("HW discretization must be present for floating rate specification");
+
                 // For HW1F, we need to compute:
                 // r_{t+dt} = r_t e^{-κdt} + θ(1 - e^{-κdt}) + σ√[(1-e^{-2κdt})/(2κ)] Z
                 let kappa = params.kappa;
                 let sigma = params.sigma;
                 let theta = params.theta_at_time(t);
-                
+
                 let exp_kappa_dt = (-kappa * dt).exp();
                 let mean = rate_state[0] * exp_kappa_dt + theta * (1.0 - exp_kappa_dt);
-                
+
                 let std_dev = if (kappa * dt).abs() < 1e-8 {
                     sigma * dt.sqrt() * (1.0 - kappa * dt / 3.0)
                 } else {
                     sigma * ((1.0 - (-2.0 * kappa * dt).exp()) / (2.0 * kappa)).sqrt()
                 };
-                
+
                 rate_state[0] = mean + std_dev * rate_shock[0];
                 x[1] = rate_state[0];
             }
@@ -147,20 +148,22 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
         let credit_state = [x[2].max(0.0)];
         let credit_shock = [z_corr[2]];
         let _credit_work = [0.0];
-        
+
         // Get CIR parameters
         let cir_params = &process.params().credit_spread.cir;
-        
+
         // Apply QE scheme directly
         let v_t = credit_state[0];
         let exp_kappa_dt = (-cir_params.kappa * dt).exp();
         let m = cir_params.theta + (v_t - cir_params.theta) * exp_kappa_dt;
-        let s2 = v_t * cir_params.sigma * cir_params.sigma * exp_kappa_dt * (1.0 - exp_kappa_dt) / cir_params.kappa
-            + cir_params.theta * cir_params.sigma * cir_params.sigma * (1.0 - exp_kappa_dt).powi(2) / (2.0 * cir_params.kappa);
-        
+        let s2 = v_t * cir_params.sigma * cir_params.sigma * exp_kappa_dt * (1.0 - exp_kappa_dt)
+            / cir_params.kappa
+            + cir_params.theta * cir_params.sigma * cir_params.sigma * (1.0 - exp_kappa_dt).powi(2)
+                / (2.0 * cir_params.kappa);
+
         let psi = if m > 1e-10 { s2 / (m * m) } else { 0.0 };
         let psi_c = 1.5;
-        
+
         let v_next = if psi <= psi_c {
             // Case A: Power/gamma approximation
             let b_squared = 2.0 / psi - 1.0 + (2.0 / psi * (2.0 / psi - 1.0)).sqrt();
@@ -170,17 +173,18 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
             // Case B: Exponential/uniform mixture
             let p = (psi - 1.0) / (psi + 1.0);
             let beta = (1.0 - p) / m;
-            
+
             use finstack_core::math::special_functions::norm_cdf;
             let u = norm_cdf(credit_shock[0]);
-            
+
             if u <= p {
                 0.0
             } else {
                 ((1.0 - p) / (u - p)).ln() / beta
-            }.max(0.0)
+            }
+            .max(0.0)
         };
-        
+
         x[2] = v_next;
     }
 
@@ -196,11 +200,11 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::process::revolving_credit::{
-        CreditSpreadParams, InterestRateSpec, RevolvingCreditProcess,
-        RevolvingCreditProcessParams, UtilizationParams,
-    };
     use super::super::super::process::ou::HullWhite1FParams;
+    use super::super::super::process::revolving_credit::{
+        CreditSpreadParams, InterestRateSpec, RevolvingCreditProcess, RevolvingCreditProcessParams,
+        UtilizationParams,
+    };
     use super::*;
 
     #[test]
@@ -211,11 +215,7 @@ mod tests {
 
     #[test]
     fn test_discretization_with_correlation() {
-        let correlation = [
-            [1.0, 0.2, 0.1],
-            [0.2, 1.0, 0.3],
-            [0.1, 0.3, 1.0],
-        ];
+        let correlation = [[1.0, 0.2, 0.1], [0.2, 1.0, 0.3], [0.1, 0.3, 1.0]];
         let disc = RevolvingCreditDiscretization::new(Some(&correlation)).unwrap();
         assert!(disc.cholesky_factor.is_some());
     }
@@ -270,4 +270,3 @@ mod tests {
         assert!(x[1] < 0.04);
     }
 }
-

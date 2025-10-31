@@ -197,8 +197,9 @@ fn vernal_equinox_jp(year: i32) -> Date {
     let day = (VERNAL_BASE + VERNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
     // Clamp to valid range and use fallback if needed
     let day = day.clamp(1, 31);
-    Date::from_calendar_date(year, Month::March, day)
-        .unwrap_or_else(|_| Date::from_calendar_date(year, Month::March, 21).expect("March 21 should always be valid"))
+    Date::from_calendar_date(year, Month::March, day).unwrap_or_else(|_| {
+        Date::from_calendar_date(year, Month::March, 21).expect("March 21 should always be valid")
+    })
 }
 
 /// Calculate Autumnal Equinox Day for Japan.
@@ -226,8 +227,10 @@ fn autumnal_equinox_jp(year: i32) -> Date {
     let day = (AUTUMNAL_BASE + AUTUMNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
     // Clamp to valid range and use fallback if needed
     let day = day.clamp(1, 30); // September has 30 days
-    Date::from_calendar_date(year, Month::September, day)
-        .unwrap_or_else(|_| Date::from_calendar_date(year, Month::September, 23).expect("September 23 should always be valid"))
+    Date::from_calendar_date(year, Month::September, day).unwrap_or_else(|_| {
+        Date::from_calendar_date(year, Month::September, 23)
+            .expect("September 23 should always be valid")
+    })
 }
 
 #[inline]
@@ -303,12 +306,11 @@ impl Rule {
                 observed,
             } => {
                 let base = apply_observed(
-                    Date::from_calendar_date(date.year(), *month, *day)
-                        .unwrap_or_else(|_| {
-                            // If invalid date, return a date far in the past so it never matches
-                            Date::from_calendar_date(1900, Month::January, 1)
-                                .expect("1900-01-01 should always be valid")
-                        }),
+                    Date::from_calendar_date(date.year(), *month, *day).unwrap_or_else(|_| {
+                        // If invalid date, return a date far in the past so it never matches
+                        Date::from_calendar_date(1900, Month::January, 1)
+                            .expect("1900-01-01 should always be valid")
+                    }),
                     *observed,
                 );
                 base == date
@@ -328,8 +330,8 @@ impl Rule {
                 day,
                 dir,
             } => {
-                let base = Date::from_calendar_date(date.year(), *month, *day)
-                    .unwrap_or_else(|_| {
+                let base =
+                    Date::from_calendar_date(date.year(), *month, *day).unwrap_or_else(|_| {
                         // If invalid date, return a date far in the past so it never matches
                         Date::from_calendar_date(1900, Month::January, 1)
                             .expect("1900-01-01 should always be valid")
@@ -387,12 +389,11 @@ impl Rule {
                 observed,
             } => {
                 let base = apply_observed(
-                    Date::from_calendar_date(year, *month, *day)
-                        .unwrap_or_else(|_| {
-                            // If invalid date, skip this holiday by not pushing anything
-                            Date::from_calendar_date(1900, Month::January, 1)
-                                .expect("1900-01-01 should always be valid")
-                        }),
+                    Date::from_calendar_date(year, *month, *day).unwrap_or_else(|_| {
+                        // If invalid date, skip this holiday by not pushing anything
+                        Date::from_calendar_date(1900, Month::January, 1)
+                            .expect("1900-01-01 should always be valid")
+                    }),
                     *observed,
                 );
                 // Only push if it's a valid date (not our fallback)
@@ -412,12 +413,11 @@ impl Rule {
                 day,
                 dir,
             } => {
-                let base = Date::from_calendar_date(year, *month, *day)
-                    .unwrap_or_else(|_| {
-                        // If invalid date, skip this holiday
-                        Date::from_calendar_date(1900, Month::January, 1)
-                            .expect("1900-01-01 should always be valid")
-                    });
+                let base = Date::from_calendar_date(year, *month, *day).unwrap_or_else(|_| {
+                    // If invalid date, skip this holiday
+                    Date::from_calendar_date(1900, Month::January, 1)
+                        .expect("1900-01-01 should always be valid")
+                });
                 // Only push if it's a valid date (not our fallback)
                 if base.year() != 1900 {
                     out.push(shift_to_weekday(base, *weekday, *dir));

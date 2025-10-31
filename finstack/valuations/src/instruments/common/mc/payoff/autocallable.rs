@@ -238,8 +238,8 @@ mod tests {
             coupons,
             0.75, // Final barrier
             FinalPayoffType::CapitalProtection { floor: 0.9 },
-            1.0,  // Participation rate
-            1.2,  // Cap level
+            1.0, // Participation rate
+            1.2, // Cap level
             100_000.0,
             Currency::USD,
             100.0, // Initial spot
@@ -276,7 +276,7 @@ mod tests {
         payoff.on_event(&state);
 
         assert_eq!(payoff.autocalled_at, Some(0));
-        
+
         let value = payoff.value(Currency::USD);
         // Should be coupon (0.08) + principal (1.0) = 1.08 * notional
         assert!((value.amount() - 108_000.0).abs() < 1e-6);
@@ -304,19 +304,22 @@ mod tests {
         // Not autocalled, final spot is below initial
         let mut state = PathState::new(100, 1.0);
         state.set(state_keys::SPOT, 80.0); // Below initial
-        
+
         // Verify spot is set correctly
         assert_eq!(state.spot(), Some(80.0), "Spot should be set to 80.0");
 
         payoff.on_event(&state);
 
         let value = payoff.value(Currency::USD);
-        
+
         // Capital protection: max(0.9, 1.0 * 0.8) = 0.9
         // Expected: 90_000.0 (0.9 * 100_000.0)
-        assert!((value.amount() - 90_000.0).abs() < 1e-6, 
-                "Expected 90_000.0 but got {}. final_spot={}", 
-                value.amount(), payoff.final_spot());
+        assert!(
+            (value.amount() - 90_000.0).abs() < 1e-6,
+            "Expected 90_000.0 but got {}. final_spot={}",
+            value.amount(),
+            payoff.final_spot()
+        );
     }
 
     #[test]
@@ -348,4 +351,3 @@ mod tests {
         assert_eq!(payoff.min_spot_observed, f64::INFINITY);
     }
 }
-

@@ -2,8 +2,8 @@
 
 use crate::instruments::barrier_option::types::BarrierType;
 use crate::instruments::common::traits::Attributes;
-use crate::instruments::PricingOverrides;
 use crate::instruments::OptionType;
+use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -89,4 +89,3 @@ impl crate::instruments::common::traits::Instrument for FxBarrierOption {
         )
     }
 }
-

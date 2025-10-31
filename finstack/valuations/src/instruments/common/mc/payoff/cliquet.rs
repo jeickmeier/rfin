@@ -116,7 +116,7 @@ impl Payoff for CliquetCallPayoff {
     fn on_event(&mut self, state: &PathState) {
         if self.next_reset_idx < self.reset_dates.len() {
             let target_date = self.reset_dates[self.next_reset_idx];
-            
+
             // Check if we're at a reset date
             if (state.time - target_date).abs() < 1e-6 || state.time >= target_date {
                 if let Some(spot) = state.spot() {
@@ -130,7 +130,7 @@ impl Payoff for CliquetCallPayoff {
     fn value(&self, currency: Currency) -> Money {
         // Compute total cliquet return
         let total_return = self.compute_return();
-        
+
         // Payoff = total_return * notional
         Money::new(total_return * self.notional, currency)
     }
@@ -151,8 +151,8 @@ mod tests {
         let reset_dates = vec![0.0, 0.25, 0.5, 0.75, 1.0];
         let cliquet = CliquetCallPayoff::new(
             reset_dates,
-            0.10,  // 10% local cap
-            0.30,  // 30% global cap
+            0.10, // 10% local cap
+            0.30, // 30% global cap
             100_000.0,
             Currency::USD,
             100.0,
@@ -168,8 +168,8 @@ mod tests {
         let reset_dates = vec![0.0, 0.25, 0.5];
         let mut cliquet = CliquetCallPayoff::new(
             reset_dates,
-            0.10,  // 10% local cap
-            0.30,  // 30% global cap
+            0.10, // 10% local cap
+            0.30, // 30% global cap
             1.0,
             Currency::USD,
             100.0,
@@ -190,8 +190,8 @@ mod tests {
         let reset_dates = vec![0.0, 0.25];
         let mut cliquet = CliquetCallPayoff::new(
             reset_dates,
-            0.10,  // 10% local cap
-            0.30,  // 30% global cap
+            0.10, // 10% local cap
+            0.30, // 30% global cap
             1.0,
             Currency::USD,
             100.0,
@@ -210,8 +210,8 @@ mod tests {
         let reset_dates = vec![0.0, 0.25, 0.5, 0.75];
         let mut cliquet = CliquetCallPayoff::new(
             reset_dates,
-            0.10,  // 10% local cap
-            0.30,  // 30% global cap
+            0.10, // 10% local cap
+            0.30, // 30% global cap
             1.0,
             Currency::USD,
             100.0,
@@ -229,14 +229,8 @@ mod tests {
     #[test]
     fn test_cliquet_reset() {
         let reset_dates = vec![0.0, 0.25];
-        let mut cliquet = CliquetCallPayoff::new(
-            reset_dates,
-            0.10,
-            0.30,
-            1.0,
-            Currency::USD,
-            100.0,
-        );
+        let mut cliquet =
+            CliquetCallPayoff::new(reset_dates, 0.10, 0.30, 1.0, Currency::USD, 100.0);
 
         cliquet.reset_spots = vec![110.0];
         cliquet.next_reset_idx = 1;
@@ -248,4 +242,3 @@ mod tests {
         assert_eq!(cliquet.accumulated_return, 0.0);
     }
 }
-

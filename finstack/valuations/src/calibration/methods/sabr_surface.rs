@@ -337,12 +337,12 @@ impl VolSurfaceCalibrator {
         if target_expiry <= expiries[0] {
             return Ok(sabr_params[&expiries[0].into()].clone());
         }
-        let last_expiry = *expiries.last().ok_or_else(|| {
-            finstack_core::Error::Calibration {
+        let last_expiry = *expiries
+            .last()
+            .ok_or_else(|| finstack_core::Error::Calibration {
                 message: "SABR expiries vector became empty after validation".to_string(),
                 category: "vol_surface_interpolation".to_string(),
-            }
-        })?;
+            })?;
         if target_expiry >= last_expiry {
             return Ok(sabr_params[&last_expiry.into()].clone());
         }

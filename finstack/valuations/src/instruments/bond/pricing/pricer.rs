@@ -48,9 +48,10 @@ impl Pricer for SimpleBondOasPricer {
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
-        let bond = instrument.as_any().downcast_ref::<Bond>().ok_or_else(|| {
-            PricingError::type_mismatch(InstrumentType::Bond, instrument.key())
-        })?;
+        let bond = instrument
+            .as_any()
+            .downcast_ref::<Bond>()
+            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::Bond, instrument.key()))?;
 
         // Use the provided as_of date for consistency
         // Base present value

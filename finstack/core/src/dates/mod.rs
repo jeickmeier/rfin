@@ -85,18 +85,18 @@ pub use utils::{
 };
 
 /// Safe date creation helper that returns a Result instead of panicking.
-/// 
+///
 /// This is a safer alternative to `Date::from_calendar_date(...).unwrap()`
 /// that provides proper error handling for invalid dates like February 30th.
-/// 
+///
 /// # Examples
 /// ```rust
 /// use finstack_core::dates::create_date;
 /// use time::Month;
-/// 
+///
 /// // Valid date
 /// let date = create_date(2025, Month::January, 15)?;
-/// 
+///
 /// // Invalid date - returns error instead of panic
 /// let result = create_date(2025, Month::February, 30); // Returns Err
 /// # Ok::<(), finstack_core::Error>(())
@@ -148,7 +148,7 @@ mod tests {
         assert!(create_date(2023, Month::January, 0).is_err());
         assert!(create_date(2023, Month::January, 32).is_err());
         assert!(create_date(2023, Month::April, 31).is_err()); // April has 30 days
-        assert!(create_date(2023, Month::June, 31).is_err());  // June has 30 days
+        assert!(create_date(2023, Month::June, 31).is_err()); // June has 30 days
 
         // Test extreme invalid dates
         assert!(create_date(2023, Month::January, 255).is_err());
@@ -158,7 +158,7 @@ mod tests {
     fn test_create_date_error_message_format() {
         let result = create_date(2023, Month::February, 30);
         assert!(result.is_err());
-        
+
         let error_msg = format!("{}", result.unwrap_err());
         assert!(error_msg.contains("Invalid calendar date"));
         assert!(error_msg.contains("2023-02-30"));
@@ -185,7 +185,7 @@ mod tests {
         // Test reasonable year boundaries
         assert!(create_date(-9999, Month::January, 1).is_ok());
         assert!(create_date(9999, Month::December, 31).is_ok());
-        
+
         // Test year 0 (should be valid in time crate)
         assert!(create_date(0, Month::January, 1).is_ok());
     }
@@ -203,7 +203,7 @@ mod tests {
         for (year, month, day) in valid_cases {
             let direct_result = Date::from_calendar_date(year, month, day);
             let helper_result = create_date(year, month, day);
-            
+
             assert!(direct_result.is_ok());
             assert!(helper_result.is_ok());
             assert_eq!(direct_result.unwrap(), helper_result.unwrap());

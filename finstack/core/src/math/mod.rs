@@ -44,8 +44,8 @@ pub use interp::{
     CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
 };
 pub use linalg::{
-    apply_correlation, build_correlation_matrix, cholesky_decomposition, CholeskyError,
-    validate_correlation_matrix,
+    apply_correlation, build_correlation_matrix, cholesky_decomposition,
+    validate_correlation_matrix, CholeskyError,
 };
 pub use random::{box_muller_polar, box_muller_transform, RandomNumberGenerator, SimpleRng};
 // Raw root finding functions are no longer exported - use trait-based solvers instead

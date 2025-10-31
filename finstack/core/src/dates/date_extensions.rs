@@ -93,23 +93,15 @@ impl DateExt for Date {
 
         // Otherwise, we need to check if the date is before or after the fiscal year start
         let calendar_year = self.year();
-        let start_month = time::Month::try_from(config.start_month)
-            .unwrap_or(time::Month::January);
-        let fiscal_start_this_year = Date::from_calendar_date(
-            calendar_year,
-            start_month,
-            config.start_day,
-        )
-        .unwrap_or_else(|_| {
-            // If the day doesn't exist (e.g., Feb 30), use the last day of the month
-            let last_day = days_in_month(calendar_year, config.start_month);
-            Date::from_calendar_date(
-                calendar_year,
-                start_month,
-                last_day,
-            )
-            .unwrap()
-        });
+        let start_month = time::Month::try_from(config.start_month).unwrap_or(time::Month::January);
+        let fiscal_start_this_year =
+            Date::from_calendar_date(calendar_year, start_month, config.start_day).unwrap_or_else(
+                |_| {
+                    // If the day doesn't exist (e.g., Feb 30), use the last day of the month
+                    let last_day = days_in_month(calendar_year, config.start_month);
+                    Date::from_calendar_date(calendar_year, start_month, last_day).unwrap()
+                },
+            );
 
         if self >= fiscal_start_this_year {
             // Date is on or after fiscal year start, so it belongs to the fiscal year

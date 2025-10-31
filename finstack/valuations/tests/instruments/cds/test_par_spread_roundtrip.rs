@@ -169,7 +169,10 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
         let npv = match cds.value(&market_price, base) {
             Ok(npv) => npv,
             Err(_) => {
-                println!("Skipping multi-tenor test for maturity {}: CDS valuation failed", maturity);
+                println!(
+                    "Skipping multi-tenor test for maturity {}: CDS valuation failed",
+                    maturity
+                );
                 continue;
             }
         };

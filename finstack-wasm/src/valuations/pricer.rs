@@ -52,8 +52,9 @@ fn price_with_optional_metrics(
     metrics: Option<Vec<MetricId>>,
 ) -> Result<JsValuationResult, JsValue> {
     // Use a default date for WASM bindings - this could be enhanced to accept date from JS
-    let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-    
+    let as_of =
+        finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+
     let base = registry
         .price_with_registry(instrument, model_key, market.inner(), as_of)
         .map_err(pricing_error_to_js)?;

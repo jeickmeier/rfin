@@ -1,20 +1,20 @@
 //! Lookback option Monte Carlo pricer.
 
-use crate::instruments::common::mc::pricer::path_dependent::{
-    PathDependentPricer, PathDependentPricerConfig,
-};
 use crate::instruments::common::mc::payoff::lookback::{
     FloatingStrikeLookbackCall, LookbackCall, LookbackPut,
 };
+use crate::instruments::common::mc::pricer::path_dependent::{
+    PathDependentPricer, PathDependentPricerConfig,
+};
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
-use crate::instruments::lookback_option::types::{LookbackOption, LookbackType};
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::lookback_option::types::{LookbackOption, LookbackType};
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::MarketContext;
-use finstack_core::Result;
 use finstack_core::money::Money;
+use finstack_core::Result;
 
 /// Lookback option Monte Carlo pricer.
 pub struct LookbackOptionMcPricer {
@@ -42,7 +42,9 @@ impl LookbackOptionMcPricer {
         if t <= 0.0 {
             return Ok(finstack_core::money::Money::new(
                 0.0,
-                inst.strike.map(|s| s.currency()).unwrap_or(finstack_core::currency::Currency::USD),
+                inst.strike
+                    .map(|s| s.currency())
+                    .unwrap_or(finstack_core::currency::Currency::USD),
             ));
         }
 
@@ -55,7 +57,11 @@ impl LookbackOptionMcPricer {
         )?;
         let df_as_of = disc_curve.df(t_as_of);
         let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 { df_maturity / df_as_of } else { 1.0 };
+        let discount_factor = if df_as_of > 0.0 {
+            df_maturity / df_as_of
+        } else {
+            1.0
+        };
 
         let spot_scalar = curves.price(&inst.spot_id)?;
         let spot = match spot_scalar {
@@ -163,7 +169,9 @@ impl Pricer for LookbackOptionMcPricer {
         let lookback = instrument
             .as_any()
             .downcast_ref::<LookbackOption>()
-            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::LookbackOption, instrument.key()))?;
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::LookbackOption, instrument.key())
+            })?;
 
         let pv = self
             .price_internal(lookback, market, as_of)
@@ -178,4 +186,3 @@ pub fn npv(inst: &LookbackOption, curves: &MarketContext, as_of: Date) -> Result
     let pricer = LookbackOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }
-

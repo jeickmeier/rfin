@@ -97,7 +97,7 @@ impl Payoff for RangeAccrualPayoff {
     fn on_event(&mut self, state: &PathState) {
         if self.next_obs_idx < self.observation_dates.len() {
             let target_date = self.observation_dates[self.next_obs_idx];
-            
+
             // Check if we're at an observation date
             if (state.time - target_date).abs() < 1e-6 || state.time >= target_date {
                 if let Some(spot) = state.spot() {
@@ -118,10 +118,10 @@ impl Payoff for RangeAccrualPayoff {
 
         // Compute accrual fraction: days_in_range / total_days
         let accrual_fraction = self.days_in_range as f64 / self.total_observations as f64;
-        
+
         // Payoff = coupon_rate * accrual_fraction * notional
         let payoff = self.coupon_rate * accrual_fraction * self.notional;
-        
+
         Money::new(payoff, currency)
     }
 
@@ -142,9 +142,9 @@ mod tests {
         let observation_dates = vec![0.25, 0.5, 0.75, 1.0];
         let accrual = RangeAccrualPayoff::new(
             observation_dates,
-            95.0,   // Lower bound
-            105.0,  // Upper bound
-            0.08,   // 8% coupon
+            95.0,  // Lower bound
+            105.0, // Upper bound
+            0.08,  // 8% coupon
             100_000.0,
             Currency::USD,
         );
@@ -265,4 +265,3 @@ mod tests {
         assert_eq!(accrual.next_obs_idx, 0);
     }
 }
-

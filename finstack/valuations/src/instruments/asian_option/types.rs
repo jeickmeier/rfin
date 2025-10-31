@@ -1,8 +1,8 @@
 //! Asian option instrument definition.
 
 use crate::instruments::common::traits::Attributes;
-use crate::instruments::PricingOverrides;
 use crate::instruments::OptionType;
+use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -99,4 +99,3 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
         )
     }
 }
-

@@ -409,17 +409,17 @@ fn quarter_bounds(year: i32, q: u8) -> (Date, Date) {
 
 fn month_bounds(year: i32, m: u8) -> (Date, Date) {
     let sm = Month::try_from(m).unwrap_or(Month::January);
-    let start = Date::from_calendar_date(year, sm, 1)
-        .unwrap_or_else(|_| Date::from_calendar_date(year, Month::January, 1)
-            .expect("January 1 should always be valid"));
+    let start = Date::from_calendar_date(year, sm, 1).unwrap_or_else(|_| {
+        Date::from_calendar_date(year, Month::January, 1).expect("January 1 should always be valid")
+    });
     let (ey, em) = if m == 12 {
         (year + 1, Month::January)
     } else {
         (year, Month::try_from(m + 1).unwrap_or(Month::January))
     };
-    let end = Date::from_calendar_date(ey, em, 1)
-        .unwrap_or_else(|_| Date::from_calendar_date(ey, Month::January, 1)
-            .expect("January 1 should always be valid"));
+    let end = Date::from_calendar_date(ey, em, 1).unwrap_or_else(|_| {
+        Date::from_calendar_date(ey, Month::January, 1).expect("January 1 should always be valid")
+    });
     (start, end)
 }
 

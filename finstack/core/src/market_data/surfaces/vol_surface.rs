@@ -125,13 +125,29 @@ impl VolSurface {
     pub fn value_clamped(&self, mut expiry: f64, mut strike: f64) -> f64 {
         if expiry < self.expiries[0] {
             expiry = self.expiries[0];
-        } else if expiry > *self.expiries.last().expect("VolSurface should have at least one expiry") {
-            expiry = *self.expiries.last().expect("VolSurface should have at least one expiry");
+        } else if expiry
+            > *self
+                .expiries
+                .last()
+                .expect("VolSurface should have at least one expiry")
+        {
+            expiry = *self
+                .expiries
+                .last()
+                .expect("VolSurface should have at least one expiry");
         }
         if strike < self.strikes[0] {
             strike = self.strikes[0];
-        } else if strike > *self.strikes.last().expect("VolSurface should have at least one strike") {
-            strike = *self.strikes.last().expect("VolSurface should have at least one strike");
+        } else if strike
+            > *self
+                .strikes
+                .last()
+                .expect("VolSurface should have at least one strike")
+        {
+            strike = *self
+                .strikes
+                .last()
+                .expect("VolSurface should have at least one strike");
         }
         self.value(expiry, strike)
     }

@@ -40,9 +40,7 @@ pub(crate) fn portfolio_to_py(err: PortfolioError) -> PyErr {
         PortfolioError::BuilderError(msg) => {
             PyValueError::new_err(format!("Builder error: {}", msg))
         }
-        PortfolioError::IndexError(msg) => {
-            PyValueError::new_err(format!("Index error: {}", msg))
-        }
+        PortfolioError::IndexError(msg) => PyValueError::new_err(format!("Index error: {}", msg)),
         PortfolioError::Core(err) => PyRuntimeError::new_err(format!("Core error: {}", err)),
     }
 }

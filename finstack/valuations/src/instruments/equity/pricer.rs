@@ -131,10 +131,12 @@ impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
         let equity = instrument
             .as_any()
             .downcast_ref::<Equity>()
-            .ok_or_else(|| crate::pricer::PricingError::type_mismatch(
-                crate::pricer::InstrumentType::Equity,
-                instrument.key(),
-            ))?;
+            .ok_or_else(|| {
+                crate::pricer::PricingError::type_mismatch(
+                    crate::pricer::InstrumentType::Equity,
+                    instrument.key(),
+                )
+            })?;
 
         // Use the provided as_of date instead of deriving from discount curve
         let pv = EquityPricer
@@ -155,13 +157,12 @@ mod tests {
     use super::*;
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
-    use finstack_core::market_data::{term_structures::DiscountCurve, MarketContext};
     use finstack_core::dates::create_date;
+    use finstack_core::market_data::{term_structures::DiscountCurve, MarketContext};
     use time::Month;
 
     fn create_test_equity() -> Equity {
-        Equity::new("AAPL", "Apple Inc.", Currency::USD)
-            .with_price(150.0)
+        Equity::new("AAPL", "Apple Inc.", Currency::USD).with_price(150.0)
     }
 
     fn create_test_market_context() -> MarketContext {
@@ -171,7 +172,7 @@ mod tests {
             .knots(vec![(0.0, 1.0), (1.0, 0.95), (5.0, 0.85)])
             .build()
             .unwrap();
-        
+
         MarketContext::new().insert_discount(discount_curve)
     }
 
@@ -180,11 +181,12 @@ mod tests {
         let equity = create_test_equity();
         let market = create_test_market_context();
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let as_of =
+            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
         let result = pricer.price_dyn(&equity, &market, as_of);
         assert!(result.is_ok());
-        
+
         let valuation = result.unwrap();
         assert_eq!(valuation.instrument_id, "AAPL");
         assert!(valuation.value.amount() > 0.0);
@@ -195,11 +197,12 @@ mod tests {
         let equity = create_test_equity();
         let empty_market = MarketContext::new(); // No discount curve
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let as_of =
+            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
         let result = pricer.price_dyn(&equity, &empty_market, as_of);
         assert!(result.is_ok()); // Should use epoch fallback date
-        
+
         let valuation = result.unwrap();
         assert_eq!(valuation.instrument_id, "AAPL");
         // Should still price correctly even without discount curve
@@ -210,12 +213,13 @@ mod tests {
     fn test_equity_pricing_type_mismatch_error() {
         let pricer = SimpleEquityDiscountingPricer::new();
         let market = create_test_market_context();
-        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-        
+        let as_of =
+            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+
         // Create a different instrument type (we'll use the equity itself but test type checking)
         // This test verifies the type checking logic works
         let equity = create_test_equity();
-        
+
         // The type check should pass since we're using the correct type
         let result = pricer.price_dyn(&equity, &market, as_of);
         assert!(result.is_ok());
@@ -226,13 +230,14 @@ mod tests {
         let equity = create_test_equity();
         let market = create_test_market_context();
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let as_of =
+            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
         // Test that error propagation works correctly
         // This test verifies that date creation errors are properly handled
         let result = pricer.price_dyn(&equity, &market, as_of);
         assert!(result.is_ok());
-        
+
         // Verify the as_of date is set correctly
         let valuation = result.unwrap();
         assert_eq!(valuation.instrument_id, "AAPL");
@@ -243,11 +248,12 @@ mod tests {
         let equity = create_test_equity();
         let empty_market = MarketContext::new();
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let as_of =
+            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
         let result = pricer.price_dyn(&equity, &empty_market, as_of);
         assert!(result.is_ok());
-        
+
         // The pricer should handle the missing discount curve gracefully
         // by using the epoch date as fallback
         let valuation = result.unwrap();
@@ -259,7 +265,7 @@ mod tests {
     fn test_pricer_key() {
         let pricer = SimpleEquityDiscountingPricer::new();
         let key = pricer.key();
-        
+
         // Verify the pricer key is correctly configured
         assert_eq!(key.instrument, crate::pricer::InstrumentType::Equity);
         assert_eq!(key.model, crate::pricer::ModelKey::Discounting);
@@ -267,16 +273,16 @@ mod tests {
 
     #[test]
     fn test_equity_pricing_with_different_currencies() {
-        let eur_equity = Equity::new("SAP", "SAP SE", Currency::EUR)
-            .with_price(120.0);
-        
+        let eur_equity = Equity::new("SAP", "SAP SE", Currency::EUR).with_price(120.0);
+
         let market = MarketContext::new(); // No discount curve for EUR
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let as_of =
+            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
         let result = pricer.price_dyn(&eur_equity, &market, as_of);
         assert!(result.is_ok());
-        
+
         let valuation = result.unwrap();
         assert_eq!(valuation.instrument_id, "SAP");
         assert_eq!(valuation.value.currency(), Currency::EUR);
@@ -288,11 +294,12 @@ mod tests {
         let equity = create_test_equity();
         let market = create_test_market_context();
         let pricer = SimpleEquityDiscountingPricer::new();
-        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let as_of =
+            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
         // Test that any errors have meaningful messages
         let result = pricer.price_dyn(&equity, &market, as_of);
-        
+
         match result {
             Ok(valuation) => {
                 assert!(!valuation.instrument_id.is_empty());

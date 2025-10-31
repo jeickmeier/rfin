@@ -45,13 +45,7 @@ impl SchwartzSmithParams {
     /// * `mu_y` - Long-term drift
     /// * `sigma_y` - Long-term volatility (must be > 0)
     /// * `rho` - Correlation between X and Y (must be in [-1, 1])
-    pub fn new(
-        kappa_x: f64,
-        sigma_x: f64,
-        mu_y: f64,
-        sigma_y: f64,
-        rho: f64,
-    ) -> Self {
+    pub fn new(kappa_x: f64, sigma_x: f64, mu_y: f64, sigma_y: f64, rho: f64) -> Self {
         assert!(kappa_x > 0.0, "kappa_x must be positive");
         assert!(sigma_x > 0.0, "sigma_x must be positive");
         assert!(sigma_y > 0.0, "sigma_y must be positive");
@@ -192,7 +186,7 @@ mod tests {
 
         let state = process.initial_state();
         let computed_spot = process.spot_from_state(&state);
-        
+
         // S_0 = exp(X_0 + Y_0) = exp(0 + ln(90)) = 90
         assert!((computed_spot - spot_0).abs() < 1e-10);
     }
@@ -234,9 +228,8 @@ mod tests {
 
         let state = [0.0, 4.5]; // X=0, Y=ln(90)≈4.5
         let spot = process.spot_from_state(&state);
-        
+
         // S = exp(0 + 4.5) ≈ 90
         assert!((spot - 90.0).abs() < 1.0); // Allow small tolerance
     }
 }
-

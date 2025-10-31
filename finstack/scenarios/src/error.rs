@@ -119,7 +119,9 @@ impl Error {
 
     /// Create a node not found error
     pub fn node_not_found(node_id: impl Into<String>) -> Self {
-        Self::NodeNotFound { node_id: node_id.into() }
+        Self::NodeNotFound {
+            node_id: node_id.into(),
+        }
     }
 
     /// Create a curve type mismatch error

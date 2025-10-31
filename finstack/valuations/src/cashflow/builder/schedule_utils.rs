@@ -69,10 +69,18 @@ pub fn build_dates(
                 .into_iter()
                 .collect()
         } else {
-            builder.build().expect("Failed to build schedule").into_iter().collect()
+            builder
+                .build()
+                .expect("Failed to build schedule")
+                .into_iter()
+                .collect()
         }
     } else {
-        builder.build().expect("Failed to build schedule").into_iter().collect()
+        builder
+            .build()
+            .expect("Failed to build schedule")
+            .into_iter()
+            .collect()
     };
 
     let mut prev = hashbrown::HashMap::with_capacity(dates.len());

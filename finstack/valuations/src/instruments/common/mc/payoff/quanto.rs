@@ -207,11 +207,11 @@ mod tests {
     #[test]
     fn test_quanto_adjustment_computation() {
         let adj = QuantoCallPayoff::compute_quanto_adjustment(
-            0.03,  // r_foreign
-            0.02,  // q
-            -0.3,  // rho (negative correlation)
-            0.20,  // sigma_equity
-            0.12,  // sigma_fx
+            0.03, // r_foreign
+            0.02, // q
+            -0.3, // rho (negative correlation)
+            0.20, // sigma_equity
+            0.12, // sigma_fx
         );
 
         // adj = 0.03 - 0.02 - (-0.3) * 0.20 * 0.12
@@ -223,17 +223,17 @@ mod tests {
     #[test]
     fn test_quanto_call_payoff() {
         let mut payoff = QuantoCallPayoff::new(
-            4000.0,  // Strike
-            1.0,     // Notional
+            4000.0, // Strike
+            1.0,    // Notional
             Currency::USD,
             Currency::EUR,
-            0.0172,  // Quanto adjustment
+            0.0172, // Quanto adjustment
         );
 
         // Simulate terminal state
         let mut state = PathState::new(100, 1.0);
-        state.set(state_keys::SPOT, 4200.0);  // Equity spot
-        state.set("fx_rate", 1.10);           // EUR/USD = 1.10
+        state.set(state_keys::SPOT, 4200.0); // Equity spot
+        state.set("fx_rate", 1.10); // EUR/USD = 1.10
 
         payoff.on_event(&state);
 
@@ -244,16 +244,10 @@ mod tests {
 
     #[test]
     fn test_quanto_put_payoff() {
-        let mut payoff = QuantoPutPayoff::new(
-            4000.0,
-            1.0,
-            Currency::USD,
-            Currency::EUR,
-            0.0172,
-        );
+        let mut payoff = QuantoPutPayoff::new(4000.0, 1.0, Currency::USD, Currency::EUR, 0.0172);
 
         let mut state = PathState::new(100, 1.0);
-        state.set(state_keys::SPOT, 3800.0);  // Equity below strike
+        state.set(state_keys::SPOT, 3800.0); // Equity below strike
         state.set("fx_rate", 1.10);
 
         payoff.on_event(&state);
@@ -265,13 +259,7 @@ mod tests {
 
     #[test]
     fn test_quanto_reset() {
-        let mut payoff = QuantoCallPayoff::new(
-            4000.0,
-            1.0,
-            Currency::USD,
-            Currency::EUR,
-            0.0172,
-        );
+        let mut payoff = QuantoCallPayoff::new(4000.0, 1.0, Currency::USD, Currency::EUR, 0.0172);
 
         let mut state = PathState::new(100, 1.0);
         state.set(state_keys::SPOT, 4200.0);
@@ -286,4 +274,3 @@ mod tests {
         assert_eq!(payoff.terminal_fx, 0.0);
     }
 }
-

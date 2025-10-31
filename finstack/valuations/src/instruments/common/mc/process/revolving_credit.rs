@@ -38,10 +38,17 @@ impl UtilizationParams {
     /// Create new utilization parameters.
     pub fn new(kappa: f64, theta: f64, sigma: f64) -> Self {
         assert!(kappa > 0.0, "Mean reversion speed must be positive");
-        assert!((0.0..=1.0).contains(&theta), "Target utilization must be in [0, 1]");
+        assert!(
+            (0.0..=1.0).contains(&theta),
+            "Target utilization must be in [0, 1]"
+        );
         assert!(sigma > 0.0, "Volatility must be positive");
 
-        Self { kappa, theta, sigma }
+        Self {
+            kappa,
+            theta,
+            sigma,
+        }
     }
 }
 
@@ -177,8 +184,8 @@ impl StochasticProcess for RevolvingCreditProcess {
         // x[0] = utilization, x[1] = short_rate, x[2] = credit_spread
 
         // Utilization: κ_U (θ_U - U_t)
-        out[0] = self.params.utilization.kappa
-            * (self.params.utilization.theta - x[0].clamp(0.0, 1.0));
+        out[0] =
+            self.params.utilization.kappa * (self.params.utilization.theta - x[0].clamp(0.0, 1.0));
 
         // Short rate: κ_r [θ_r(t) - r_t] for floating, or 0 for fixed
         out[1] = match &self.params.interest_rate {
@@ -334,16 +341,12 @@ mod tests {
         let utilization2 = UtilizationParams::new(0.5, 0.6, 0.1);
         let interest_rate2 = InterestRateSpec::Fixed { rate: 0.05 };
         let credit_spread2 = CreditSpreadParams::new(0.3, 0.02, 0.05, 0.015);
-        let correlation = [
-            [1.0, 0.2, 0.1],
-            [0.2, 1.0, 0.3],
-            [0.1, 0.3, 1.0],
-        ];
+        let correlation = [[1.0, 0.2, 0.1], [0.2, 1.0, 0.3], [0.1, 0.3, 1.0]];
 
-        let params2 = RevolvingCreditProcessParams::new(utilization2, interest_rate2, credit_spread2)
-            .with_correlation(correlation);
+        let params2 =
+            RevolvingCreditProcessParams::new(utilization2, interest_rate2, credit_spread2)
+                .with_correlation(correlation);
         let process_corr = RevolvingCreditProcess::new(params2);
         assert!(!process_corr.is_diagonal());
     }
 }
-

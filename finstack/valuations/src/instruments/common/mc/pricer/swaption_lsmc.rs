@@ -3,7 +3,6 @@
 //! Extends the LSMC framework to price Bermudan swaptions where exercise decisions
 //! depend on forward swap rates computed from Hull-White short rate simulations.
 
-use super::lsmc::{BasisFunctions, LsmcConfig};
 use super::super::discretization::exact_hw1f::ExactHullWhite1F;
 use super::super::payoff::swaption::{BermudanSwaptionPayoff, SwaptionType};
 use super::super::process::ou::HullWhite1FProcess;
@@ -12,6 +11,7 @@ use super::super::rng::philox::PhiloxRng;
 use super::super::stats::OnlineStats;
 use super::super::time_grid::TimeGrid;
 use super::super::traits::{Discretization, RandomStream};
+use super::lsmc::{BasisFunctions, LsmcConfig};
 use super::swap_rate_utils::{ForwardSwapRate, HullWhiteBondPrice};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
@@ -33,10 +33,7 @@ impl SwaptionLsmcPricer {
     /// * `config` - LSMC configuration (num_paths, exercise_dates, etc.)
     /// * `hw_process` - Hull-White 1F process for short rate simulation
     pub fn new(config: LsmcConfig, hw_process: HullWhite1FProcess) -> Self {
-        Self {
-            config,
-            hw_process,
-        }
+        Self { config, hw_process }
     }
 
     /// Price a Bermudan swaption.
@@ -70,11 +67,7 @@ impl SwaptionLsmcPricer {
         F: Fn(f64) -> f64 + Send + Sync,
     {
         // Step 1: Generate short rate paths
-        let paths = self.generate_rate_paths(
-            initial_short_rate,
-            time_to_maturity,
-            num_steps,
-        )?;
+        let paths = self.generate_rate_paths(initial_short_rate, time_to_maturity, num_steps)?;
 
         // Step 2: Convert exercise dates to step indices
         let dt = time_to_maturity / num_steps as f64;
@@ -172,7 +165,8 @@ impl SwaptionLsmcPricer {
 
         // Cashflow and exercise time tracking
         let mut cashflows = vec![0.0; num_paths];
-        let mut exercise_times = vec![payoff.exercise_dates.last().copied().unwrap_or(0.0); num_paths];
+        let mut exercise_times =
+            vec![payoff.exercise_dates.last().copied().unwrap_or(0.0); num_paths];
 
         // Initialize with terminal values (if not exercised, value is zero)
         // For swaptions, terminal value is zero if not exercised
@@ -196,7 +190,7 @@ impl SwaptionLsmcPricer {
 
             for (i, path) in paths.iter().enumerate() {
                 let r_t = path[exercise_step];
-                
+
                 // Compute forward swap rate
                 let swap_rate = ForwardSwapRate::compute(
                     params,
@@ -234,7 +228,8 @@ impl SwaptionLsmcPricer {
                 if immediate_value > 1e-6 {
                     // Discount cashflow to this exercise date
                     let discount_factor = discount_curve_fn(t);
-                    let discounted_cf = cashflows[i] * discount_curve_fn(exercise_times[i]) / discount_factor;
+                    let discounted_cf =
+                        cashflows[i] * discount_curve_fn(exercise_times[i]) / discount_factor;
 
                     regression_x.push(swap_rate);
                     regression_y.push(discounted_cf);
@@ -263,7 +258,9 @@ impl SwaptionLsmcPricer {
                     };
 
                     let mut annuity = 0.0;
-                    for (k, &payment_time_k) in payoff.swap_schedule.payment_dates.iter().enumerate() {
+                    for (k, &payment_time_k) in
+                        payoff.swap_schedule.payment_dates.iter().enumerate()
+                    {
                         if payment_time_k > t {
                             let p_k = HullWhiteBondPrice::bond_price(
                                 params,
@@ -342,12 +339,7 @@ impl SwaptionLsmcPricer {
 /// Solve least squares using normal equations (simplified version).
 ///
 /// For production, use SVD-based solver like in LsmcPricer.
-fn solve_normal_equations(
-    design: &[f64],
-    y: &[f64],
-    n: usize,
-    k: usize,
-) -> Result<Vec<f64>> {
+fn solve_normal_equations(design: &[f64], y: &[f64], n: usize, k: usize) -> Result<Vec<f64>> {
     // X'X * β = X'y
     // Build X'X (k x k)
     let mut xtx = vec![0.0; k * k];
@@ -374,7 +366,7 @@ fn solve_normal_equations(
     // Solve: X'X * β = X'y using Cholesky decomposition
     // For now, use simple Gaussian elimination (can upgrade)
     let mut coeffs = xty;
-    
+
     // Simple Gaussian elimination (LU would be better)
     for col in 0..k {
         // Find pivot
@@ -428,4 +420,3 @@ mod tests {
     // Tests for swap rate utilities are now in swap_rate_utils.rs
     // This module focuses on testing the LSMC swaption pricer itself
 }
-

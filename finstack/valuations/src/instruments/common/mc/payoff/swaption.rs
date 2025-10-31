@@ -52,17 +52,11 @@ impl SwapSchedule {
             accrual_fractions.len(),
             "Payment dates and accrual fractions must have same length"
         );
-        assert!(
-            start_date < end_date,
-            "Start date must be before end date"
-        );
+        assert!(start_date < end_date, "Start date must be before end date");
         // Verify payment dates are sorted and within range
         for (i, &date) in payment_dates.iter().enumerate() {
             if i > 0 {
-                assert!(
-                    payment_dates[i - 1] < date,
-                    "Payment dates must be sorted"
-                );
+                assert!(payment_dates[i - 1] < date, "Payment dates must be sorted");
             }
             assert!(
                 date >= start_date && date <= end_date,
@@ -212,7 +206,7 @@ impl Payoff for BermudanSwaptionPayoff {
         // Check if we're at an exercise date
         if !self.exercised && self.next_exercise_idx < self.exercise_dates.len() {
             let target_date = self.exercise_dates[self.next_exercise_idx];
-            
+
             // Check if current time matches exercise date (within tolerance)
             if (state.time - target_date).abs() < 1e-6 {
                 // Swap value should be computed by pricer before calling on_event
@@ -258,7 +252,7 @@ mod tests {
         let payment_dates = vec![1.0, 1.25, 1.5, 1.75, 2.0];
         let accruals = vec![0.25, 0.25, 0.25, 0.25, 0.25];
         let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, accruals);
-        
+
         assert_eq!(schedule.start_date, 1.0);
         assert_eq!(schedule.end_date, 2.0);
         assert_eq!(schedule.payment_dates.len(), 5);
@@ -269,10 +263,10 @@ mod tests {
         let payment_dates = vec![1.0, 1.25, 1.5];
         let accruals = vec![0.25, 0.25, 0.25];
         let schedule = SwapSchedule::new(1.0, 1.5, payment_dates, accruals);
-        
+
         let discount_factors = vec![0.95, 0.94, 0.93];
         let annuity = schedule.annuity(&discount_factors);
-        
+
         // Annuity = 0.25 * 0.95 + 0.25 * 0.94 + 0.25 * 0.93 = 0.705
         assert!((annuity - 0.705).abs() < 1e-10);
     }
@@ -283,7 +277,7 @@ mod tests {
         let payment_dates = vec![1.0, 1.25, 1.5, 1.75, 2.0];
         let accruals = vec![0.25, 0.25, 0.25, 0.25, 0.25];
         let schedule = SwapSchedule::new(1.0, 2.0, payment_dates, accruals);
-        
+
         let payoff = BermudanSwaptionPayoff::new(
             exercise_dates,
             schedule,
@@ -292,7 +286,7 @@ mod tests {
             10_000_000.0,
             Currency::USD,
         );
-        
+
         assert_eq!(payoff.strike_rate, 0.0325);
         assert_eq!(payoff.exercise_dates.len(), 3);
         assert!(!payoff.exercised);
@@ -304,7 +298,7 @@ mod tests {
         let payment_dates = vec![1.0, 1.25];
         let accruals = vec![0.25, 0.25];
         let schedule = SwapSchedule::new(1.0, 1.25, payment_dates, accruals);
-        
+
         let mut payoff = BermudanSwaptionPayoff::new(
             exercise_dates,
             schedule,
@@ -313,19 +307,18 @@ mod tests {
             1.0,
             Currency::USD,
         );
-        
+
         // Simulate some state
         payoff.current_swap_value = 0.01;
         payoff.exercised = true;
         payoff.exercise_date = Some(1.0);
-        
+
         // Reset
         payoff.reset();
-        
+
         assert_eq!(payoff.current_swap_value, 0.0);
         assert!(!payoff.exercised);
         assert_eq!(payoff.exercise_date, None);
         assert_eq!(payoff.next_exercise_idx, 0);
     }
 }
-

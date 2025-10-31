@@ -241,7 +241,8 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     // Build temporary inflation curve with current knots + guessed point
                     let mut temp_knots = knots_clone.clone();
                     temp_knots.push((t, cpi_guess));
-                    temp_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+                    temp_knots
+                        .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
                     let temp_curve = match InflationCurve::builder(CALIB_INDEX_ID)
                         .base_cpi(temp_knots.first().map(|&(_, v)| v).unwrap_or(0.0))

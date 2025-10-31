@@ -11,8 +11,8 @@ use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, P
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::MarketContext;
-use finstack_core::Result;
 use finstack_core::money::Money;
+use finstack_core::Result;
 
 /// Cliquet option Monte Carlo pricer.
 pub struct CliquetOptionMcPricer {
@@ -57,7 +57,11 @@ impl CliquetOptionMcPricer {
         )?;
         let df_as_of = disc_curve.df(t_as_of);
         let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 { df_maturity / df_as_of } else { 1.0 };
+        let discount_factor = if df_as_of > 0.0 {
+            df_maturity / df_as_of
+        } else {
+            1.0
+        };
 
         let q = if let Some(div_id) = &inst.div_yield_id {
             match curves.price(div_id.as_str()) {
@@ -134,7 +138,9 @@ impl Pricer for CliquetOptionMcPricer {
         let cliquet = instrument
             .as_any()
             .downcast_ref::<CliquetOption>()
-            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::CliquetOption, instrument.key()))?;
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::CliquetOption, instrument.key())
+            })?;
 
         let pv = self
             .price_internal(cliquet, market, as_of)
@@ -149,4 +155,3 @@ pub fn npv(inst: &CliquetOption, curves: &MarketContext, as_of: Date) -> Result<
     let pricer = CliquetOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }
-

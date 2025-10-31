@@ -10,4 +10,3 @@ pub fn register_asian_option_metrics(_registry: &mut MetricRegistry) {
     // Placeholder for future metrics registration
     // For now, PV is handled by the common metrics system
 }
-

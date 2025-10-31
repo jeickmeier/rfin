@@ -54,10 +54,14 @@ pub fn nth_weekday_of_month(year: i32, month: Month, weekday: Weekday, n: i8) ->
         let (ny, nm) = if month == Month::December {
             (year + 1, Month::January)
         } else {
-            (year, Month::try_from(month as u8 + 1).unwrap_or(Month::January))
+            (
+                year,
+                Month::try_from(month as u8 + 1).unwrap_or(Month::January),
+            )
         };
         let mut d = Date::from_calendar_date(ny, nm, 1)
-            .expect("First day of month should always be valid") - Duration::days(1);
+            .expect("First day of month should always be valid")
+            - Duration::days(1);
         while d.weekday() != weekday {
             d -= Duration::days(1);
         }

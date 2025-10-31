@@ -1270,8 +1270,12 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
         let cds_tranche = instrument
             .as_any()
             .downcast_ref::<crate::instruments::cds_tranche::CdsTranche>()
-            .ok_or_else(|| crate::pricer::PricingError::type_mismatch(crate::pricer::InstrumentType::CDSTranche, instrument.key(),
-            ))?;
+            .ok_or_else(|| {
+                crate::pricer::PricingError::type_mismatch(
+                    crate::pricer::InstrumentType::CDSTranche,
+                    instrument.key(),
+                )
+            })?;
 
         // Get as_of date from discount curve
         let disc = market

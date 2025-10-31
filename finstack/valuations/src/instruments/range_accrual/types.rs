@@ -83,4 +83,3 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
         )
     }
 }
-

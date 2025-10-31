@@ -19,10 +19,6 @@ pub mod basket;
 pub mod bond;
 /// cap floor module.
 pub mod cap_floor;
-/// cliquet option module.
-pub mod cliquet_option;
-/// cms option module.
-pub mod cms_option;
 /// cds module.
 pub mod cds;
 /// cds index module.
@@ -31,6 +27,10 @@ pub mod cds_index;
 pub mod cds_option;
 /// cds tranche module.
 pub mod cds_tranche;
+/// cliquet option module.
+pub mod cliquet_option;
+/// cms option module.
+pub mod cms_option;
 /// convertible module.
 pub mod convertible;
 /// deposit module.
@@ -61,12 +61,12 @@ pub mod irs;
 pub mod lookback_option;
 /// pricing overrides module.
 pub mod pricing_overrides;
+/// private markets fund module.
+pub mod private_markets_fund;
 /// quanto option module.
 pub mod quanto_option;
 /// range accrual module.
 pub mod range_accrual;
-/// private markets fund module.
-pub mod private_markets_fund;
 /// repo module.
 pub mod repo;
 /// revolving credit module.
@@ -90,13 +90,13 @@ pub use barrier_option::{BarrierOption, BarrierType};
 pub use basis_swap::BasisSwap;
 pub use basket::Basket;
 pub use bond::Bond;
-pub use cliquet_option::CliquetOption;
-pub use cms_option::CmsOption;
 pub use cap_floor::RateOptionType;
 pub use cds::CreditDefaultSwap;
 pub use cds_index::CDSIndex;
 pub use cds_option::CdsOption;
 pub use cds_tranche::CdsTranche;
+pub use cliquet_option::CliquetOption;
+pub use cms_option::CmsOption;
 pub use convertible::ConvertibleBond;
 pub use deposit::Deposit;
 pub use equity::Equity;
@@ -112,9 +112,9 @@ pub use ir_future::InterestRateFuture;
 pub use irs::InterestRateSwap;
 pub use lookback_option::{LookbackOption, LookbackType};
 pub use pricing_overrides::PricingOverrides;
+pub use private_markets_fund::PrivateMarketsFund;
 pub use quanto_option::QuantoOption;
 pub use range_accrual::RangeAccrual;
-pub use private_markets_fund::PrivateMarketsFund;
 pub use repo::{CollateralSpec, CollateralType, Repo, RepoType};
 pub use revolving_credit::RevolvingCredit;
 pub use structured_credit::StructuredCredit;

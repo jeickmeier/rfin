@@ -5,8 +5,8 @@
 
 // Re-export from core/math/linalg
 pub use finstack_core::math::linalg::{
-    apply_correlation, build_correlation_matrix, cholesky_decomposition, CholeskyError,
-    validate_correlation_matrix,
+    apply_correlation, build_correlation_matrix, cholesky_decomposition,
+    validate_correlation_matrix, CholeskyError,
 };
 
 // Tests are now in core/math/linalg - no need to duplicate here
@@ -30,7 +30,7 @@ mod tests {
     #[test]
     fn test_cholesky_error_handling() {
         use finstack_core::math::linalg::CholeskyError;
-        
+
         // Test that we get descriptive errors
         let invalid = vec![1.0, 1.01, 1.01, 1.0];
         match cholesky_decomposition(&invalid, 2) {

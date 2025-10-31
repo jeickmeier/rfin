@@ -5,4 +5,3 @@ pub mod pricer;
 pub mod types;
 
 pub use types::CmsOption;
-

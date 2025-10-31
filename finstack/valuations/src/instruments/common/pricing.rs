@@ -49,14 +49,10 @@ where
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
-        let typed_instrument =
-            instrument
-                .as_any()
-                .downcast_ref::<I>()
-                .ok_or_else(|| PricingError::type_mismatch(
-                    self.instrument_type,
-                    instrument.key(),
-                ))?;
+        let typed_instrument = instrument
+            .as_any()
+            .downcast_ref::<I>()
+            .ok_or_else(|| PricingError::type_mismatch(self.instrument_type, instrument.key()))?;
 
         // Compute present value using the instrument's unified value method
         let pv = typed_instrument
@@ -120,14 +116,10 @@ where
         as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
-        let typed_instrument =
-            instrument
-                .as_any()
-                .downcast_ref::<I>()
-                .ok_or_else(|| PricingError::type_mismatch(
-                    self.instrument_type,
-                    instrument.key(),
-                ))?;
+        let typed_instrument = instrument
+            .as_any()
+            .downcast_ref::<I>()
+            .ok_or_else(|| PricingError::type_mismatch(self.instrument_type, instrument.key()))?;
 
         // Compute present value using the instrument's unified value method
         let pv = typed_instrument

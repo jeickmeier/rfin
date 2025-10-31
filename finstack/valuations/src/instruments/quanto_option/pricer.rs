@@ -1,16 +1,16 @@
-f//! Quanto option Monte Carlo pricer.
+//! Quanto option Monte Carlo pricer.
 
-use crate::instruments::common::mc::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
 use crate::instruments::common::mc::payoff::quanto::{QuantoCallPayoff, QuantoPutPayoff};
+use crate::instruments::common::mc::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
-use crate::instruments::quanto_option::types::QuantoOption;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::quanto_option::types::QuantoOption;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::MarketContext;
-use finstack_core::Result;
 use finstack_core::money::Money;
+use finstack_core::Result;
 
 /// Quanto option Monte Carlo pricer.
 pub struct QuantoOptionMcPricer {
@@ -51,7 +51,11 @@ impl QuantoOptionMcPricer {
         )?;
         let df_as_of = disc_curve.df(t_as_of);
         let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 { df_maturity / df_as_of } else { 1.0 };
+        let discount_factor = if df_as_of > 0.0 {
+            df_maturity / df_as_of
+        } else {
+            1.0
+        };
 
         // Get foreign rate (could be different curve)
         let r_for = r_dom; // Simplified: assume same for now
@@ -166,7 +170,9 @@ impl Pricer for QuantoOptionMcPricer {
         let quanto = instrument
             .as_any()
             .downcast_ref::<QuantoOption>()
-            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::QuantoOption, instrument.key()))?;
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::QuantoOption, instrument.key())
+            })?;
 
         let pv = self
             .price_internal(quanto, market, as_of)
@@ -181,4 +187,3 @@ pub fn npv(inst: &QuantoOption, curves: &MarketContext, as_of: Date) -> Result<M
     let pricer = QuantoOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }
-
