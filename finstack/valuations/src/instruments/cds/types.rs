@@ -356,23 +356,23 @@ impl CreditDefaultSwap {
     }
 
     /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
-    pub fn cs01(&self, curves: &MarketContext) -> finstack_core::Result<f64> {
+    pub fn cs01(&self, market: &MarketContext) -> finstack_core::Result<f64> {
         let pricer = CDSPricer::new();
         pricer.cs01(
             self,
-            curves,
-            curves.get_discount_ref(&self.premium.disc_id)?.base_date(),
+            market,
+            market.get_discount_ref(&self.premium.disc_id)?.base_date(),
         )
     }
 
     /// Calculate the net present value of this CDS
     pub fn npv(
         &self,
-        curves: &MarketContext,
+        market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.get_discount_ref(&self.premium.disc_id)?;
-        let surv = curves.get_hazard_ref(&self.protection.credit_id)?;
+        let disc = market.get_discount_ref(&self.premium.disc_id)?;
+        let surv = market.get_hazard_ref(&self.protection.credit_id)?;
         let pricer = CDSPricer::new();
 
         // Calculate NPV as protection leg PV - premium leg PV (from buyer's perspective)
@@ -422,21 +422,21 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        self.npv(market, as_of)
     }
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
+        let base_value = self.value(market, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
-            self, curves, as_of, base_value, metrics,
+            self, market, as_of, base_value, metrics,
         )
     }
 }

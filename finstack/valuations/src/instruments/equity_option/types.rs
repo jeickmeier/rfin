@@ -365,21 +365,21 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        self.npv(market, as_of)
     }
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
+        let base_value = self.value(market, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
-            self, curves, as_of, base_value, metrics,
+            self, market, as_of, base_value, metrics,
         )
     }
 }

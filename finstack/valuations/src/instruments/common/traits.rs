@@ -110,14 +110,29 @@ pub trait Instrument: Send + Sync {
     // === Pricing Methods ===
 
     /// Compute only the base present value (fast, no metrics).
-    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money>;
+    ///
+    /// # Parameters
+    /// - `market`: Market data context containing curves, rates, and other market data
+    /// - `as_of`: Valuation date
+    ///
+    /// # Returns
+    /// Present value in the instrument's native currency
+    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money>;
 
     /// Compute value with a specific set of metrics.
     ///
     /// Implementations should build on `value()` and compute only the requested metrics.
+    ///
+    /// # Parameters
+    /// - `market`: Market data context containing curves, rates, and other market data
+    /// - `as_of`: Valuation date
+    /// - `metrics`: List of metrics to compute
+    ///
+    /// # Returns
+    /// Valuation result with present value and requested metrics
     fn price_with_metrics(
         &self,
-        curves: &MarketContext,
+        market: &MarketContext,
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult>;

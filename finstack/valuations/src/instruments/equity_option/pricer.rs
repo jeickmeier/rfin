@@ -341,6 +341,7 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
         &self,
         instrument: &dyn crate::instruments::common::traits::Instrument,
         market: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         use crate::instruments::common::traits::Instrument;
 
@@ -348,20 +349,12 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
         let equity_option = instrument
             .as_any()
             .downcast_ref::<crate::instruments::equity_option::EquityOption>()
-            .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
-                expected: crate::pricer::InstrumentType::EquityOption,
-                got: instrument.key(),
-            })?;
+            .ok_or_else(|| crate::pricer::PricingError::type_mismatch(crate::pricer::InstrumentType::EquityOption, instrument.key()))?;
 
-        // Get as_of date from discount curve
-        let disc = market
-            .get_discount_ref(&equity_option.disc_id)
-            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
-        let as_of = disc.base_date();
-
+        // Use the provided as_of date for consistency
         // Compute present value using the engine
         let pv = npv(equity_option, market, as_of)
-            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
         Ok(crate::results::ValuationResult::stamped(

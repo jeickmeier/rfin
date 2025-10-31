@@ -87,19 +87,18 @@ impl Pricer for RevolvingCreditDiscountingPricer {
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
+        _as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
         let facility = instrument
             .as_any()
             .downcast_ref::<RevolvingCredit>()
-            .ok_or_else(|| PricingError::TypeMismatch {
-                expected: InstrumentType::RevolvingCredit,
-                got: instrument.key(),
-            })?;
+            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::RevolvingCredit, instrument.key(),
+            ))?;
 
         // Validate that we have a deterministic spec
         if !facility.is_deterministic() {
-            return Err(PricingError::ModelFailure(
+            return Err(PricingError::model_failure(
                 "RevolvingCreditDiscountingPricer requires deterministic cashflows".to_string(),
             ));
         }
@@ -107,12 +106,12 @@ impl Pricer for RevolvingCreditDiscountingPricer {
         // Extract valuation date from discount curve
         let disc = market
             .get_discount_ref(facility.disc_id.as_str())
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 
         // Price the facility
         let pv = Self::price_deterministic(facility, market, as_of)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(facility.id(), as_of, pv))
@@ -518,19 +517,18 @@ impl Pricer for RevolvingCreditMcPricer {
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
+        _as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
         let facility = instrument
             .as_any()
             .downcast_ref::<RevolvingCredit>()
-            .ok_or_else(|| PricingError::TypeMismatch {
-                expected: InstrumentType::RevolvingCredit,
-                got: instrument.key(),
-            })?;
+            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::RevolvingCredit, instrument.key(),
+            ))?;
 
         // Validate that we have a stochastic spec
         if !facility.is_stochastic() {
-            return Err(PricingError::ModelFailure(
+            return Err(PricingError::model_failure(
                 "RevolvingCreditMcPricer requires stochastic specification".to_string(),
             ));
         }
@@ -538,12 +536,12 @@ impl Pricer for RevolvingCreditMcPricer {
         // Extract valuation date from discount curve
         let disc = market
             .get_discount_ref(facility.disc_id.as_str())
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 
         // Price the facility using MC
         let pv = Self::price_stochastic(facility, market, as_of)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(facility.id(), as_of, pv))

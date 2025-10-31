@@ -13,6 +13,7 @@ use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
 use crate::instruments::cds_option::CdsOption;
 use crate::instruments::common::models::{d1, d2, norm_cdf, norm_pdf};
 use crate::instruments::common::parameters::OptionType;
+use crate::instruments::common::traits::Instrument;
 use finstack_core::market_data::term_structures::ParInterp;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};
@@ -454,8 +455,9 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
-        market: &finstack_core::market_data::MarketContext,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        _as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         use crate::instruments::common::traits::Instrument;
 
@@ -463,21 +465,19 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
         let cds_option = instrument
             .as_any()
             .downcast_ref::<crate::instruments::cds_option::CdsOption>()
-            .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
-                expected: crate::pricer::InstrumentType::CDSOption,
-                got: instrument.key(),
-            })?;
+            .ok_or_else(|| crate::pricer::PricingError::type_mismatch(crate::pricer::InstrumentType::CDSOption, instrument.key(),
+            ))?;
 
         // Get as_of date from discount curve
         let disc = market
             .get_discount_ref(&cds_option.disc_id)
-            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 
         // Compute present value using the engine
         let pv = CdsOptionPricer::default()
             .npv(cds_option, market, as_of)
-            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
         Ok(crate::results::ValuationResult::stamped(

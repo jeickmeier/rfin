@@ -466,7 +466,8 @@ fn test_registry_price_with_unknown_pricer() {
     );
 
     // Try to price with an unregistered model
-    let result = registry.price_with_registry(&bond, ModelKey::HazardRate, &market);
+    let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let result = registry.price_with_registry(&bond, ModelKey::HazardRate, &market, as_of);
 
     assert!(result.is_err());
     match result.unwrap_err() {

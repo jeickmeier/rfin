@@ -38,6 +38,7 @@
 
 use crate::cashflow::builder::build_dates;
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
+use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::next_cds_date;
 use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::traits::Discounting;
@@ -1259,8 +1260,9 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
-        market: &finstack_core::market_data::MarketContext,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        _as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         use crate::instruments::common::traits::Instrument;
 
@@ -1268,21 +1270,19 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
         let cds_tranche = instrument
             .as_any()
             .downcast_ref::<crate::instruments::cds_tranche::CdsTranche>()
-            .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
-                expected: crate::pricer::InstrumentType::CDSTranche,
-                got: instrument.key(),
-            })?;
+            .ok_or_else(|| crate::pricer::PricingError::type_mismatch(crate::pricer::InstrumentType::CDSTranche, instrument.key(),
+            ))?;
 
         // Get as_of date from discount curve
         let disc = market
             .get_discount_ref(&cds_tranche.disc_id)
-            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 
         // Compute present value using the engine
         let pv = CDSTranchePricer::new()
             .price_tranche(cds_tranche, market, as_of)
-            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
         Ok(crate::results::ValuationResult::stamped(

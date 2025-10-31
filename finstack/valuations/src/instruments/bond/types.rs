@@ -384,14 +384,14 @@ impl Bond {
     /// embedded optionality via backward induction.
     ///
     /// # Arguments
-    /// * `curves` - Market context with discount curve (and optionally hazard curve)
+    /// * `market` - Market context with discount curve (and optionally hazard curve)
     /// * `as_of` - Valuation date
     ///
     /// # Returns
     /// Option-adjusted present value of the bond
     fn value_with_tree(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::bond::pricing::tree_pricer::BondValuator;
@@ -414,7 +414,7 @@ impl Bond {
         }
 
         // Get discount curve and calibrate tree
-        let discount_curve = curves.get_discount_ref(&self.disc_id)?;
+        let discount_curve = market.get_discount_ref(&self.disc_id)?;
 
         // Tree configuration - use 100 steps and 1% volatility as defaults
         // These can be overridden via attributes if needed for specific calibration
@@ -430,14 +430,14 @@ impl Bond {
         tree.calibrate(discount_curve, time_to_maturity)?;
 
         // Create bond valuator with call/put schedule mapped to tree steps
-        let valuator = BondValuator::new(self.clone(), curves, time_to_maturity, tree_steps)?;
+        let valuator = BondValuator::new(self.clone(), market, time_to_maturity, tree_steps)?;
 
         // Set up initial state variables (no OAS for vanilla pricing)
         let mut vars = StateVariables::new();
         vars.insert(short_rate_keys::OAS, 0.0);
 
         // Price via tree with backward induction applying call/put constraints
-        let price_amount = tree.price(vars, time_to_maturity, curves, &valuator)?;
+        let price_amount = tree.price(vars, time_to_maturity, market, &valuator)?;
 
         Ok(Money::new(price_amount, self.notional.currency()))
     }
@@ -495,13 +495,13 @@ impl crate::instruments::common::traits::Instrument for Bond {
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
+        let base_value = self.value(market, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
-            self, curves, as_of, base_value, metrics,
+            self, market, as_of, base_value, metrics,
         )
     }
 }

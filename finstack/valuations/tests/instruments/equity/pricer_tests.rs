@@ -193,8 +193,9 @@ fn test_simple_equity_pricer_price_dyn() {
 
     let pricer = SimpleEquityDiscountingPricer::new();
     let instrument: &dyn Instrument = &equity;
+    let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
-    let result = pricer.price_dyn(instrument, &market).unwrap();
+    let result = pricer.price_dyn(instrument, &market, as_of).unwrap();
 
     // Should return PV
     assert_eq!(result.value.amount(), 15_000.0);
@@ -221,9 +222,10 @@ fn test_simple_equity_pricer_type_mismatch() {
     let market = MarketContext::new();
     let pricer = SimpleEquityDiscountingPricer::new();
     let instrument: &dyn Instrument = &bond;
+    let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
     // Should fail with type mismatch
-    let result = pricer.price_dyn(instrument, &market);
+    let result = pricer.price_dyn(instrument, &market, as_of);
     assert!(result.is_err());
 }
 

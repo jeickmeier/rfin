@@ -79,8 +79,11 @@ impl PyPricerRegistry {
             instrument: inst, ..
         } = extract_instrument(&instrument)?;
         let ModelKeyArg(model_key) = model.extract()?;
+        // Use a default date for Python bindings - this could be enhanced to accept date from Python
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        
         self.inner
-            .price_with_registry(inst.as_ref(), model_key, &market.inner)
+            .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of)
             .map(PyValuationResult::new)
             .map_err(pricing_error_to_py)
     }
@@ -125,10 +128,13 @@ impl PyPricerRegistry {
             metric_ids.push(id);
         }
 
+        // Use a default date for Python bindings - this could be enhanced to accept date from Python
+        let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        
         // Base price via registry to derive as_of deterministically per pricer
         let base = self
             .inner
-            .price_with_registry(inst.as_ref(), model_key, &market.inner)
+            .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of)
             .map_err(pricing_error_to_py)?;
 
         // Compute requested metrics using helper

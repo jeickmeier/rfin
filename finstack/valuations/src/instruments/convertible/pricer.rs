@@ -24,6 +24,7 @@ use finstack_core::prelude::*;
 use finstack_core::{Error, Result};
 use std::collections::HashMap;
 
+use crate::instruments::common::traits::Instrument;
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::instruments::common::models::tree_framework::map_date_to_step;
 use crate::instruments::common::models::{
@@ -625,8 +626,9 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
-        market: &finstack_core::market_data::MarketContext,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        _as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         use crate::instruments::common::traits::Instrument;
 
@@ -634,20 +636,18 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
         let convertible = instrument
             .as_any()
             .downcast_ref::<crate::instruments::convertible::ConvertibleBond>()
-            .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
-                expected: crate::pricer::InstrumentType::Convertible,
-                got: instrument.key(),
-            })?;
+            .ok_or_else(|| crate::pricer::PricingError::type_mismatch(crate::pricer::InstrumentType::Convertible, instrument.key(),
+            ))?;
 
         // Get as_of date from discount curve
         let disc = market
             .get_discount_ref(convertible.disc_id.as_str())
-            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 
         // Compute present value using the engine with binomial tree
         let pv = price_convertible_bond(convertible, market, ConvertibleTreeType::Binomial(100))
-            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
         Ok(crate::results::ValuationResult::stamped(

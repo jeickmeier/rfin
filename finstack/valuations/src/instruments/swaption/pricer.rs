@@ -38,26 +38,19 @@ impl Pricer for SimpleSwaptionBlackPricer {
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
         let swaption = instrument
             .as_any()
             .downcast_ref::<Swaption>()
-            .ok_or_else(|| PricingError::TypeMismatch {
-                expected: InstrumentType::Swaption,
-                got: instrument.key(),
-            })?;
+            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::Swaption, instrument.key()))?;
 
-        // Get as_of date from discount curve
-        let disc = market
-            .get_discount_ref(&swaption.disc_id)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
-        let as_of = disc.base_date();
-
+        // Use the provided as_of date for consistency
         // Compute present value using the instrument's value method
         let pv = swaption
             .value(market, as_of)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(swaption.id(), as_of, pv))

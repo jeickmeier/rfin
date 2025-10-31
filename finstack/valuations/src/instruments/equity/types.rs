@@ -143,11 +143,11 @@ impl Equity {
     fn money_from_scalar(
         &self,
         scalar: &MarketScalar,
-        curves: &MarketContext,
+        market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         match scalar {
-            MarketScalar::Price(m) => self.convert_price_to_currency(*m, curves, as_of),
+            MarketScalar::Price(m) => self.convert_price_to_currency(*m, market, as_of),
             MarketScalar::Unitless(v) => Ok(Money::new(*v, self.currency)),
         }
     }
@@ -155,14 +155,14 @@ impl Equity {
     fn convert_price_to_currency(
         &self,
         price: Money,
-        curves: &MarketContext,
+        market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         if price.currency() == self.currency {
             return Ok(price);
         }
 
-        let matrix = curves.fx.as_ref().ok_or_else(|| {
+        let matrix = market.fx.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             })
@@ -293,14 +293,14 @@ impl Equity {
     /// Calculate forward price per share using continuous-compound approximation
     pub fn forward_price_per_share(
         &self,
-        curves: &MarketContext,
+        market: &MarketContext,
         as_of: finstack_core::dates::Date,
         t: f64,
     ) -> finstack_core::Result<Money> {
-        let s0 = self.price_per_share(curves, as_of)?;
-        let dy = self.dividend_yield(curves)?;
+        let s0 = self.price_per_share(market, as_of)?;
+        let dy = self.dividend_yield(market)?;
         let discount_id = format!("{}-OIS", self.currency);
-        let disc = curves.get_discount_ref(&discount_id)?;
+        let disc = market.get_discount_ref(&discount_id)?;
         let r = disc.zero(t);
         let fwd = s0.amount() * ((r - dy) * t).exp();
         Ok(Money::new(fwd, self.currency))
@@ -348,21 +348,21 @@ impl crate::instruments::common::traits::Instrument for Equity {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        self.npv(market, as_of)
     }
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
+        let base_value = self.value(market, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
-            self, curves, as_of, base_value, metrics,
+            self, market, as_of, base_value, metrics,
         )
     }
 }

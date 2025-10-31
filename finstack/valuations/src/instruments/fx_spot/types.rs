@@ -128,13 +128,13 @@ impl FxSpot {
     /// If an explicit `spot_rate` is set on the instrument, that is used directly
     /// to compute `quote_amount = base_notional.amount() * spot_rate`.
     /// Otherwise, the rate is obtained from the `MarketContext`'s `FxMatrix`.
-    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         if let Some(rate) = self.spot_rate {
             let quote_amount = self.effective_notional().amount() * rate;
             return Ok(Money::new(quote_amount, self.quote));
         }
 
-        let matrix = curves.fx.as_ref().ok_or_else(|| {
+        let matrix = market.fx.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                 id: "fx_matrix".to_string(),
             })
@@ -250,21 +250,21 @@ impl crate::instruments::common::traits::Instrument for FxSpot {
 
     fn value(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        self.npv(market, as_of)
     }
 
     fn price_with_metrics(
         &self,
-        curves: &finstack_core::market_data::MarketContext,
+        market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
+        let base_value = self.value(market, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
-            self, curves, as_of, base_value, metrics,
+            self, market, as_of, base_value, metrics,
         )
     }
 }

@@ -21,9 +21,10 @@ fn test_pricer_price_dyn() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
     let pricer = SimpleFxSpotDiscountingPricer::new();
     let market = MarketContext::new();
+    let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
     let instrument: &dyn Instrument = &fx;
-    let result = pricer.price_dyn(instrument, &market).unwrap();
+    let result = pricer.price_dyn(instrument, &market, as_of).unwrap();
 
     assert_eq!(result.instrument_id, "EURUSD");
     assert_approx_eq(result.value.amount(), 1_200_000.0, EPSILON, "PV");
@@ -50,8 +51,9 @@ fn test_pricer_with_various_instruments() {
         ),
     ];
 
+    let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
     for inst in instruments {
-        let result = pricer.price_dyn(inst.as_ref(), &market);
+        let result = pricer.price_dyn(inst.as_ref(), &market, as_of);
         assert!(result.is_ok(), "Pricer should price all FX instruments");
     }
 }
@@ -80,9 +82,10 @@ fn test_pricer_consistent_with_instrument_value() {
     let fx = eurusd_with_notional(2_500_000.0, 1.22);
     let pricer = SimpleFxSpotDiscountingPricer::new();
     let market = MarketContext::new();
+    let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
     // Price via pricer
-    let pricer_result = pricer.price_dyn(&fx, &market).unwrap();
+    let pricer_result = pricer.price_dyn(&fx, &market, as_of).unwrap();
 
     // Price via instrument
     let instrument_value = fx.value(&market, test_date()).unwrap();
@@ -102,8 +105,9 @@ fn test_pricer_with_fx_matrix() {
         .unwrap();
     let pricer = SimpleFxSpotDiscountingPricer::new();
     let market = market_with_fx_matrix(); // EUR/USD = 1.20
+    let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
-    let result = pricer.price_dyn(&fx, &market).unwrap();
+    let result = pricer.price_dyn(&fx, &market, as_of).unwrap();
 
     assert_approx_eq(
         result.value.amount(),
@@ -118,8 +122,9 @@ fn test_pricer_valuation_result_structure() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
     let pricer = SimpleFxSpotDiscountingPricer::new();
     let market = MarketContext::new();
+    let as_of = finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
 
-    let result = pricer.price_dyn(&fx, &market).unwrap();
+    let result = pricer.price_dyn(&fx, &market, as_of).unwrap();
 
     assert_eq!(result.instrument_id, "EURUSD");
     assert_eq!(result.value.currency(), Currency::USD);

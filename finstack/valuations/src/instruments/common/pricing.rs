@@ -46,28 +46,22 @@ where
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
         let typed_instrument =
             instrument
                 .as_any()
                 .downcast_ref::<I>()
-                .ok_or_else(|| PricingError::TypeMismatch {
-                    expected: self.instrument_type,
-                    got: instrument.key(),
-                })?;
-
-        // Derive as_of from the instrument's configured discount curve
-        // This eliminates hidden USD/EUR fallbacks and ensures currency safety
-        let disc = market
-            .get_discount_ref(typed_instrument.discount_curve_id().as_str())
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
-        let as_of = disc.base_date();
+                .ok_or_else(|| PricingError::type_mismatch(
+                    self.instrument_type,
+                    instrument.key(),
+                ))?;
 
         // Compute present value using the instrument's unified value method
         let pv = typed_instrument
             .value(market, as_of)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(typed_instrument.id(), as_of, pv))
@@ -123,27 +117,22 @@ where
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
         let typed_instrument =
             instrument
                 .as_any()
                 .downcast_ref::<I>()
-                .ok_or_else(|| PricingError::TypeMismatch {
-                    expected: self.instrument_type,
-                    got: instrument.key(),
-                })?;
-
-        // Extract valuation date from the instrument's discount curve
-        let disc = market
-            .get_discount_ref(typed_instrument.discount_curve_id().as_str())
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
-        let as_of = disc.base_date();
+                .ok_or_else(|| PricingError::type_mismatch(
+                    self.instrument_type,
+                    instrument.key(),
+                ))?;
 
         // Compute present value using the instrument's unified value method
         let pv = typed_instrument
             .value(market, as_of)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(typed_instrument.id(), as_of, pv))

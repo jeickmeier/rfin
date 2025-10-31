@@ -34,22 +34,21 @@ impl Pricer for SimpleTrsDiscountingPricer {
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> Result<crate::results::ValuationResult, PricingError> {
         // Handle Equity TRS
         if let Some(equity_trs) = instrument.as_any().downcast_ref::<EquityTotalReturnSwap>() {
             let equity_pricer = SimpleEquityTrsDiscountingPricer::new(InstrumentType::TRS);
-            return equity_pricer.price_dyn(equity_trs, market);
+            return equity_pricer.price_dyn(equity_trs, market, as_of);
         }
 
         // Handle FI Index TRS
         if let Some(fi_trs) = instrument.as_any().downcast_ref::<FIIndexTotalReturnSwap>() {
             let fi_pricer = SimpleFIIndexTrsDiscountingPricer::new(InstrumentType::TRS);
-            return fi_pricer.price_dyn(fi_trs, market);
+            return fi_pricer.price_dyn(fi_trs, market, as_of);
         }
 
-        Err(PricingError::TypeMismatch {
-            expected: InstrumentType::TRS,
-            got: instrument.key(),
-        })
+        Err(PricingError::type_mismatch(InstrumentType::TRS, instrument.key(),
+        ))
     }
 }

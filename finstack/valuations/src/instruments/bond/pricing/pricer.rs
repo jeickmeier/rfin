@@ -45,35 +45,28 @@ impl Pricer for SimpleBondOasPricer {
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
+        as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
         let bond = instrument.as_any().downcast_ref::<Bond>().ok_or_else(|| {
-            PricingError::TypeMismatch {
-                expected: InstrumentType::Bond,
-                got: instrument.key(),
-            }
+            PricingError::type_mismatch(InstrumentType::Bond, instrument.key())
         })?;
 
-        // Get as_of date
-        let disc = market
-            .get_discount_ref(&bond.disc_id)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
-        let as_of = disc.base_date();
-
+        // Use the provided as_of date for consistency
         // Base present value
         let pv = bond
             .value(market, as_of)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         // OAS calculation requires quoted clean price
         let clean_pct = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
-            PricingError::ModelFailure("OAS requires quoted clean price".to_string())
+            PricingError::model_failure("OAS requires quoted clean price".to_string())
         })?;
 
         // Calculate OAS using tree pricer
         let oas_bp = TreePricer::new()
             .calculate_oas(bond, market, as_of, clean_pct)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         // Create result with OAS measure
         let mut measures = IndexMap::new();

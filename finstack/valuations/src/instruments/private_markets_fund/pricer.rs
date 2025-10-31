@@ -28,6 +28,7 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
         &self,
         instrument: &dyn Instrument,
         market: &MarketContext,
+        _as_of: finstack_core::dates::Date,
     ) -> Result<ValuationResult, PricingError> {
         let fund =
             expect_inst::<PrivateMarketsFund>(instrument, InstrumentType::PrivateMarketsFund)?;
@@ -35,7 +36,7 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
         let as_of = if let Some(ref disc_id) = fund.disc_id {
             let disc = market
                 .get_discount_ref(disc_id.as_str())
-                .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+                .map_err(|e| PricingError::model_failure(e.to_string()))?;
             disc.base_date()
         } else {
             fund.events
@@ -43,7 +44,7 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
                 .map(|evt| evt.date)
                 .max()
                 .ok_or_else(|| {
-                    PricingError::ModelFailure(
+                    PricingError::model_failure(
                         "Private markets fund requires at least one event to derive valuation date"
                             .to_string(),
                     )
@@ -52,7 +53,7 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
 
         let pv = fund
             .value(market, as_of)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         Ok(ValuationResult::stamped(fund.id(), as_of, pv))
     }

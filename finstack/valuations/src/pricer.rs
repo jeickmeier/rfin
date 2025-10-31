@@ -272,6 +272,9 @@ impl PricerKey {
 
 // ========================= ERRORS =========================
 
+/// Standardized result type for pricing operations
+pub type PricingResult<T> = std::result::Result<T, PricingError>;
+
 /// Pricing-specific errors returned by pricer implementations.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -292,11 +295,41 @@ pub enum PricingError {
     /// Pricing model computation failed.
     #[error("Model failure: {0}")]
     ModelFailure(String),
+
+    /// Invalid input parameters provided.
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
+    /// Missing market data required for pricing.
+    #[error("Missing market data: {0}")]
+    MissingMarketData(String),
 }
 
 impl From<finstack_core::Error> for PricingError {
     fn from(err: finstack_core::Error) -> Self {
         PricingError::ModelFailure(err.to_string())
+    }
+}
+
+impl PricingError {
+    /// Create a type mismatch error with context
+    pub fn type_mismatch(expected: InstrumentType, got: InstrumentType) -> Self {
+        Self::TypeMismatch { expected, got }
+    }
+
+    /// Create a model failure error with context
+    pub fn model_failure(msg: impl Into<String>) -> Self {
+        Self::ModelFailure(msg.into())
+    }
+
+    /// Create an invalid input error with context
+    pub fn invalid_input(msg: impl Into<String>) -> Self {
+        Self::InvalidInput(msg.into())
+    }
+
+    /// Create a missing market data error with context
+    pub fn missing_market_data(msg: impl Into<String>) -> Self {
+        Self::MissingMarketData(msg.into())
     }
 }
 
@@ -309,22 +342,16 @@ impl From<finstack_core::Error> for PricingError {
 pub fn expect_inst<T: Priceable + 'static>(
     inst: &dyn Priceable,
     expected: InstrumentType,
-) -> std::result::Result<&T, PricingError> {
+) -> PricingResult<&T> {
     // First check the enum-based type
     if inst.key() != expected {
-        return Err(PricingError::TypeMismatch {
-            expected,
-            got: inst.key(),
-        });
+        return Err(PricingError::type_mismatch(expected, inst.key()));
     }
 
     // Then perform actual downcast
     inst.as_any()
         .downcast_ref::<T>()
-        .ok_or_else(|| PricingError::TypeMismatch {
-            expected,
-            got: inst.key(),
-        })
+        .ok_or_else(|| PricingError::type_mismatch(expected, inst.key()))
 }
 
 /// Trait for instrument pricers.
@@ -340,7 +367,8 @@ pub trait Pricer: Send + Sync {
         &self,
         instrument: &dyn Priceable,
         market: &Market,
-    ) -> std::result::Result<crate::results::ValuationResult, PricingError>;
+        as_of: finstack_core::dates::Date,
+    ) -> PricingResult<crate::results::ValuationResult>;
 }
 
 // ========================= REGISTRY =========================
@@ -376,10 +404,11 @@ impl PricerRegistry {
         instrument: &dyn Priceable,
         model: ModelKey,
         market: &Market,
-    ) -> std::result::Result<crate::results::ValuationResult, PricingError> {
+        as_of: finstack_core::dates::Date,
+    ) -> PricingResult<crate::results::ValuationResult> {
         let key = PricerKey::new(instrument.key(), model);
         if let Some(pricer) = self.get_pricer(key) {
-            pricer.price_dyn(instrument, market)
+            pricer.price_dyn(instrument, market, as_of)
         } else {
             Err(PricingError::UnknownPricer(key))
         }
@@ -650,6 +679,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
 /// debugging capabilities compared to the previous auto-registration system.
 ///
 /// All 40+ instrument pricers are registered in the `register_all_pricers` function.
+/// Note: All pricers now use standardized parameter ordering: (instrument, market, as_of).
 pub fn create_standard_registry() -> PricerRegistry {
     let mut registry = PricerRegistry::new();
     register_all_pricers(&mut registry);
