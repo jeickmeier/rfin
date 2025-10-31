@@ -52,6 +52,7 @@ debug = 2
 
 [profile.test]
 # Standard test profile
+# Reduced debug level for faster compilation (line info only, no full debug symbols)
 incremental = true
 opt-level = 0
-debug = 2
+debug = 1
