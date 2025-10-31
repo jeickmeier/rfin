@@ -17,7 +17,8 @@ fn test_upfront_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::custom("upfront")]);
+    let result =
+        tranche.price_with_metrics(&market, as_of, &[MetricId::custom("upfront")]);
 
     // Assert
     assert!(result.is_ok(), "Upfront calculation should succeed");
@@ -37,7 +38,7 @@ fn test_spread_dv01_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::custom("spread_dv01")]);
+    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::SpreadDv01]);
 
     // Assert
     assert!(result.is_ok(), "Spread DV01 calculation should succeed");
@@ -62,7 +63,7 @@ fn test_correlation_delta_metric_via_price_with_metrics() {
 
     // Act
     let result =
-        tranche.price_with_metrics(&market, as_of, &[MetricId::custom("correlation_delta")]);
+        tranche.price_with_metrics(&market, as_of, &[MetricId::Correlation01]);
 
     // Assert
     assert!(
@@ -72,8 +73,8 @@ fn test_correlation_delta_metric_via_price_with_metrics() {
     let valuation = result.unwrap();
     let corr_delta = *valuation
         .measures
-        .get("correlation_delta")
-        .expect("correlation_delta should be in measures");
+        .get("correlation01")
+        .expect("correlation01 should be in measures");
     assert!(corr_delta.is_finite(), "Correlation delta should be finite");
 }
 
@@ -266,8 +267,8 @@ fn test_all_standard_metrics_calculable() {
 
     let all_metrics = vec![
         MetricId::custom("upfront"),
-        MetricId::custom("spread_dv01"),
-        MetricId::custom("correlation_delta"),
+        MetricId::SpreadDv01,
+        MetricId::Correlation01,
         MetricId::Cs01,
         MetricId::ParSpread,
         MetricId::ExpectedLoss,

@@ -1,18 +1,18 @@
-//! Correlation risk calculator for quanto options.
+//! Correlation sensitivity calculator for quanto options.
 //!
 //! Computes correlation sensitivity using finite differences:
 //! bump correlation between equity and FX, reprice, and compute (PV_corr_up - PV_base) / bump_size.
-//! Correlation risk is per 1% correlation move.
+//! Correlation01 is per 1% correlation move.
 
 use crate::instruments::quanto_option::QuantoOption;
 use crate::instruments::common::metrics::finite_difference::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
-/// Correlation risk calculator for quanto options.
-pub struct CorrelationRiskCalculator;
+/// Correlation01 calculator for quanto options.
+pub struct Correlation01Calculator;
 
-impl MetricCalculator for CorrelationRiskCalculator {
+impl MetricCalculator for Correlation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &QuantoOption = context.instrument_as()?;
         let as_of = context.as_of;
@@ -37,10 +37,10 @@ impl MetricCalculator for CorrelationRiskCalculator {
         // Reprice with bumped correlation
         let pv_bumped = option_bumped.npv(&context.curves, as_of)?.amount();
 
-        // Correlation risk = (PV_bumped - PV_base) / bump_size
-        let correlation_risk = (pv_bumped - base_pv) / bump;
+        // Correlation01 = (PV_bumped - PV_base) / bump_size
+        let correlation01 = (pv_bumped - base_pv) / bump;
 
-        Ok(correlation_risk)
+        Ok(correlation01)
     }
 }
 

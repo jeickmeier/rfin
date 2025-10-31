@@ -77,23 +77,23 @@ fn test_ir01_domestic_sign() {
     let swap = create_standard_fx_swap("IR01_DOM", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("ir01_domestic")])
+        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01Domestic])
         .unwrap();
 
-    let ir01_domestic = *result.measures.get("ir01_domestic").unwrap();
+    let dv01_domestic = *result.measures.get("dv01_domestic").unwrap();
 
     // Increase in domestic rates decreases domestic DFs, increases forward rate,
     // increases far leg domestic cashflow. For a typical swap, IR01 domestic > 0
     assert!(
-        ir01_domestic > 0.0,
-        "Domestic IR01 should be positive, got: {}",
-        ir01_domestic
+        dv01_domestic > 0.0,
+        "Domestic DV01 should be positive, got: {}",
+        dv01_domestic
     );
 
     // Magnitude check: should be non-zero for 1M notional, 1Y tenor
     assert!(
-        ir01_domestic.abs() > 1e-10,
-        "Domestic IR01 should be non-zero"
+        dv01_domestic.abs() > 1e-10,
+        "Domestic DV01 should be non-zero"
     );
 }
 
@@ -106,23 +106,23 @@ fn test_ir01_foreign_sign() {
     let swap = create_standard_fx_swap("IR01_FOR", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("ir01_foreign")])
+        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01Foreign])
         .unwrap();
 
-    let ir01_foreign = *result.measures.get("ir01_foreign").unwrap();
+    let dv01_foreign = *result.measures.get("dv01_foreign").unwrap();
 
     // Increase in foreign rates decreases foreign DFs, decreases forward rate,
     // and decreases value of foreign leg. IR01 foreign < 0
     assert!(
-        ir01_foreign < 0.0,
-        "Foreign IR01 should be negative, got: {}",
-        ir01_foreign
+        dv01_foreign < 0.0,
+        "Foreign DV01 should be negative, got: {}",
+        dv01_foreign
     );
 
     // Magnitude check
     assert!(
-        ir01_foreign.abs() > 1e-10,
-        "Foreign IR01 should be non-zero"
+        dv01_foreign.abs() > 1e-10,
+        "Foreign DV01 should be non-zero"
     );
 }
 
@@ -139,20 +139,20 @@ fn test_ir01_sensitivity_scales_with_tenor() {
         create_standard_fx_swap("IR01_1Y", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result_1m = swap_1m
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("ir01_domestic")])
+        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01Domestic])
         .unwrap();
 
     let result_1y = swap_1y
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("ir01_domestic")])
+        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01Domestic])
         .unwrap();
 
-    let ir01_1m = result_1m.measures.get("ir01_domestic").unwrap().abs();
-    let ir01_1y = result_1y.measures.get("ir01_domestic").unwrap().abs();
+    let dv01_1m = result_1m.measures.get("dv01_domestic").unwrap().abs();
+    let dv01_1y = result_1y.measures.get("dv01_domestic").unwrap().abs();
 
     // Both should be non-zero
-    // Note: For FX swaps, IR01 may not scale linearly with tenor due to the swap structure
-    assert!(ir01_1m > 1e-10, "1M IR01 should be non-zero");
-    assert!(ir01_1y > 1e-10, "1Y IR01 should be non-zero");
+    // Note: For FX swaps, DV01 may not scale linearly with tenor due to the swap structure
+    assert!(dv01_1m > 1e-10, "1M DV01 should be non-zero");
+    assert!(dv01_1y > 1e-10, "1Y DV01 should be non-zero");
 }
 
 #[test]
@@ -164,7 +164,7 @@ fn test_fx01_calculation() {
     let swap = create_standard_fx_swap("FX01", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("fx01")])
+        .price_with_metrics(&market, dates.as_of, &[MetricId::Fx01])
         .unwrap();
 
     let fx01 = *result.measures.get("fx01").unwrap();
@@ -190,11 +190,11 @@ fn test_fx01_scales_with_notional() {
         create_standard_fx_swap("FX01_5M", dates.near_date, dates.far_date_1y, 5_000_000.0);
 
     let result_1m = swap_1m
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("fx01")])
+        .price_with_metrics(&market, dates.as_of, &[MetricId::Fx01])
         .unwrap();
 
     let result_5m = swap_5m
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("fx01")])
+        .price_with_metrics(&market, dates.as_of, &[MetricId::Fx01])
         .unwrap();
 
     let fx01_1m = *result_1m.measures.get("fx01").unwrap();
@@ -336,9 +336,9 @@ fn test_multiple_metrics_together() {
             dates.as_of,
             &[
                 MetricId::custom("forward_points"),
-                MetricId::custom("fx01"),
-                MetricId::custom("ir01_domestic"),
-                MetricId::custom("ir01_foreign"),
+                MetricId::Fx01,
+                MetricId::Dv01Domestic,
+                MetricId::Dv01Foreign,
                 MetricId::Dv01,
                 MetricId::Theta,
             ],
@@ -348,8 +348,8 @@ fn test_multiple_metrics_together() {
     // All metrics should be present
     assert!(result.measures.contains_key("forward_points"));
     assert!(result.measures.contains_key("fx01"));
-    assert!(result.measures.contains_key("ir01_domestic"));
-    assert!(result.measures.contains_key("ir01_foreign"));
+    assert!(result.measures.contains_key("dv01_domestic"));
+    assert!(result.measures.contains_key("dv01_foreign"));
     assert!(result.measures.contains_key("dv01"));
     assert!(result.measures.contains_key("theta"));
 }

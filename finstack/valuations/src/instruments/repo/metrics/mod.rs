@@ -48,12 +48,12 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
 
     // Repo-specific risk metrics (custom metrics)
     registry.register_metric(
-        MetricId::custom("haircut01"),
+        MetricId::CollateralHaircut01,
         Arc::new(haircut01::Haircut01Calculator),
         &["Repo"],
     );
     registry.register_metric(
-        MetricId::custom("collateral_price01"),
+        MetricId::CollateralPrice01,
         Arc::new(collateral_price01::CollateralPrice01Calculator),
         &["Repo"],
     );

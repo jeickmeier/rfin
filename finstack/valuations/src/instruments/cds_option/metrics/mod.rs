@@ -29,7 +29,7 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
 
     // Recovery01 (custom metric - recovery rate sensitivity)
     registry.register_metric(
-        MetricId::custom("recovery01"),
+        MetricId::Recovery01,
         Arc::new(recovery01::Recovery01Calculator),
         &["CdsOption"],
     );

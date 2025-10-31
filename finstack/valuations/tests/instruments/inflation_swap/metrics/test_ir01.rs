@@ -1,4 +1,4 @@
-//! IR01 (nominal interest rate sensitivity) metric tests for InflationSwap.
+//! DV01 (nominal interest rate sensitivity) metric tests for InflationSwap.
 
 use crate::inflation_swap::fixtures::*;
 use finstack_core::dates::{Date, DayCount};
@@ -30,13 +30,13 @@ fn test_ir01_finite_difference_validation() {
         .build()
         .unwrap();
 
-    // Get analytic IR01
+    // Get analytic DV01
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Ir01])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
         .unwrap();
-    let ir01_analytic = *result.measures.get("ir01").unwrap();
+    let dv01_analytic = *result.measures.get("dv01").unwrap();
 
-    // Compute finite difference IR01
+    // Compute finite difference DV01
     let pv0 = swap.value(&ctx, as_of).unwrap().amount();
 
     // Bump discount curve by 1bp
@@ -59,22 +59,22 @@ fn test_ir01_finite_difference_validation() {
     let ctx_bumped = ctx.clone().insert_discount(bumped_disc);
     let pv1 = swap.value(&ctx_bumped, as_of).unwrap().amount();
 
-    let ir01_fd = pv1 - pv0;
+    let dv01_fd = pv1 - pv0;
 
     // Check sign consistency
     assert_eq!(
-        ir01_analytic.signum(),
-        ir01_fd.signum(),
-        "IR01 sign should match FD: analytic={}, FD={}",
-        ir01_analytic,
-        ir01_fd
+        dv01_analytic.signum(),
+        dv01_fd.signum(),
+        "DV01 sign should match FD: analytic={}, FD={}",
+        dv01_analytic,
+        dv01_fd
     );
 
     // Check magnitude within tolerance
-    let rel_diff = (ir01_analytic - ir01_fd).abs() / ir01_fd.abs().max(1.0);
+    let rel_diff = (dv01_analytic - dv01_fd).abs() / dv01_fd.abs().max(1.0);
     assert!(
         rel_diff < greek_tolerance(),
-        "IR01 relative difference too large: {}",
+        "DV01 relative difference too large: {}",
         rel_diff
     );
 }
@@ -84,7 +84,7 @@ fn test_ir01_scales_with_maturity() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let ctx = standard_market(as_of, 0.02, 0.04);
 
-    let mut ir01s = Vec::new();
+    let mut dv01s = Vec::new();
     for years in &[1, 2, 5, 10] {
         let maturity = Date::from_calendar_date(2025 + years, Month::January, 1).unwrap();
         let swap = InflationSwapBuilder::new()
@@ -102,18 +102,18 @@ fn test_ir01_scales_with_maturity() {
             .unwrap();
 
         let result = swap
-            .price_with_metrics(&ctx, as_of, &[MetricId::Ir01])
+            .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
             .unwrap();
 
-        let ir01 = result.measures.get("ir01").unwrap().abs();
-        ir01s.push(ir01);
+        let dv01 = result.measures.get("dv01").unwrap().abs();
+        dv01s.push(dv01);
     }
 
-    // IR01 magnitude should generally increase with maturity
-    for i in 1..ir01s.len() {
+    // DV01 magnitude should generally increase with maturity
+    for i in 1..dv01s.len() {
         assert!(
-            ir01s[i] > ir01s[i - 1],
-            "IR01 should increase with maturity"
+            dv01s[i] > dv01s[i - 1],
+            "DV01 should increase with maturity"
         );
     }
 }
@@ -140,13 +140,13 @@ fn test_ir01_sign_pay_fixed() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Ir01])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
         .unwrap();
 
-    let ir01 = *result.measures.get("ir01").unwrap();
+    let dv01 = *result.measures.get("dv01").unwrap();
 
-    // IR01 should be finite
-    assert!(ir01.is_finite(), "IR01 should be finite");
+    // DV01 should be finite
+    assert!(dv01.is_finite(), "DV01 should be finite");
 }
 
 #[test]
@@ -171,13 +171,13 @@ fn test_ir01_sign_receive_fixed() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Ir01])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
         .unwrap();
 
-    let ir01 = *result.measures.get("ir01").unwrap();
+    let dv01 = *result.measures.get("dv01").unwrap();
 
-    // IR01 should be finite
-    assert!(ir01.is_finite(), "IR01 should be finite");
+    // DV01 should be finite
+    assert!(dv01.is_finite(), "DV01 should be finite");
 }
 
 #[test]
@@ -202,15 +202,15 @@ fn test_ir01_zero_for_matured_swap() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Ir01])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
         .unwrap();
 
-    let ir01 = result.measures.get("ir01").unwrap().abs();
+    let dv01 = result.measures.get("dv01").unwrap().abs();
 
-    // Matured swap should have near-zero IR01
+    // Matured swap should have near-zero DV01
     assert!(
-        ir01 < 1.0,
-        "Matured swap should have negligible IR01: {}",
-        ir01
+        dv01 < 1.0,
+        "Matured swap should have negligible DV01: {}",
+        dv01
     );
 }

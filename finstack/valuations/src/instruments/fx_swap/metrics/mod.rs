@@ -7,7 +7,7 @@
 //! Exposed metrics:
 //! - Forward points (far rate - near rate)
 //! - FX01 (sensitivity to 1bp spot bump)
-//! - IR01 (domestic) and IR01 (foreign)
+//! - DV01 (domestic) and DV01 (foreign)
 
 mod carry_pv;
 mod dv01;
@@ -37,19 +37,19 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
             Arc::new(forward_points::ForwardPoints),
             &["FxSwap"],
         )
-        .register_metric(MetricId::custom("fx01"), Arc::new(fx01::FX01), &["FxSwap"])
+        .register_metric(MetricId::Fx01, Arc::new(fx01::FX01), &["FxSwap"])
         .register_metric(
             MetricId::custom("fx_delta"),
             Arc::new(fx_delta::FxDeltaCalculator),
             &["FxSwap"],
         )
         .register_metric(
-            MetricId::custom("ir01_domestic"),
+            MetricId::Dv01Domestic,
             Arc::new(ir01_domestic::DomesticIR01),
             &["FxSwap"],
         )
         .register_metric(
-            MetricId::custom("ir01_foreign"),
+            MetricId::Dv01Foreign,
             Arc::new(ir01_foreign::ForeignIR01),
             &["FxSwap"],
         );

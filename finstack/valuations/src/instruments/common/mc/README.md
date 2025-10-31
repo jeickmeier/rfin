@@ -123,14 +123,12 @@ let heston = HestonProcess::with_params(
 let disc = QeHeston::new();
 let time_grid = TimeGrid::uniform(1.0, 252)?;
 
-let engine = McEngine::new(McEngineConfig {
-    num_paths: 100_000,
-    seed: 42,
-    time_grid,
-    target_ci_half_width: None,
-    use_parallel: true,
-    chunk_size: 1000,
-});
+let engine = McEngine::builder()
+    .num_paths(100_000)  // default is 100,000
+    .seed(42)
+    .time_grid(time_grid)
+    .parallel(true)
+    .build()?;
 
 let call = EuropeanCall::new(100.0, 1.0, 252);
 let rng = PhiloxRng::new(42);

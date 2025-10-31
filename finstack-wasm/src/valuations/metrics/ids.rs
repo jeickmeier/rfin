@@ -189,17 +189,6 @@ impl JsMetricId {
         JsMetricId::from_inner(MetricId::Cs01)
     }
 
-    /// Hazard curve sensitivity.
-    #[wasm_bindgen(js_name = HazardCS01)]
-    pub fn hazard_cs01() -> JsMetricId {
-        JsMetricId::from_inner(MetricId::HazardCs01)
-    }
-
-    /// IR01 (parallel yield curve shift sensitivity).
-    #[wasm_bindgen(js_name = IR01)]
-    pub fn ir01() -> JsMetricId {
-        JsMetricId::from_inner(MetricId::Ir01)
-    }
 
     /// Bucketed DV01 (key-rate durations).
     #[wasm_bindgen(js_name = BucketedDV01)]

@@ -229,17 +229,17 @@ pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
 
     // Private markets fund-specific risk metrics (custom metrics)
     registry.register_metric(
-        MetricId::custom("nav01"),
+        MetricId::Nav01,
         Arc::new(nav01::Nav01Calculator),
         &["PrivateMarketsFund"],
     );
     registry.register_metric(
-        MetricId::custom("carry01"),
+        MetricId::Carry01,
         Arc::new(carry01::Carry01Calculator),
         &["PrivateMarketsFund"],
     );
     registry.register_metric(
-        MetricId::custom("hurdle01"),
+        MetricId::Hurdle01,
         Arc::new(hurdle01::Hurdle01Calculator),
         &["PrivateMarketsFund"],
     );

@@ -9,7 +9,8 @@
 //! - **Bond metrics**: Yield, duration, convexity, pricing, credit spreads
 //! - **IRS metrics**: DV01, annuity factors, par rates, present values
 //! - **Deposit metrics**: Discount factors, par rates, year fractions
-//! - **Risk metrics**: Bucketed DV01, time decay (theta)
+//! - **Risk metrics**: DV01 (standard for all parallel rate sensitivity), CS01, BucketedDV01, BucketedCS01, Theta, and all standardized "01" sensitivity metrics
+//! - **Standardized sensitivity metrics**: Dividend01, Inflation01, Prepayment01, Default01, Severity01, Conversion01, CollateralHaircut01, CollateralPrice01, Nav01, Carry01, Hurdle01, Dv01Domestic, Dv01Foreign, Fx01, Npv01, SpreadDv01, Correlation01, FxVega, ConvexityAdjustmentRisk
 //! - **Custom metrics**: User-defined metrics with dynamic identifiers
 
 use std::fmt;
@@ -246,18 +247,52 @@ define_metrics! {
     VarianceTimeToMaturity => "variance_time_to_maturity",
 
     // Risk metrics
-    /// Credit spread sensitivity (CS01) - Parallel shift in credit spread
+    /// Credit spread sensitivity (CS01) - Parallel shift in credit spread (quote spreads only)
     Cs01 => "cs01",
-    /// Hazard curve sensitivity (CS01) - Parallel additive hazard rate bump
-    HazardCs01 => "hazard_cs01",
-    /// IR01 - Parallel shift in yield curve
-    Ir01 => "ir01",
     /// Bucketed DV01 risk - Pointwise sensitivity to yield curve
     BucketedDv01 => "bucketed_dv01",
     /// Bucketed Credit Spread Risk - Pointwise sensitivity to credit spread
     BucketedCs01 => "bucketed_cs01",
     /// Time decay (theta) - 1D Day Time decay P&L
     Theta => "theta",
+    /// Dividend yield sensitivity per basis point
+    Dividend01 => "dividend01",
+    /// Inflation curve sensitivity per basis point
+    Inflation01 => "inflation01",
+    /// Prepayment rate sensitivity per basis point
+    Prepayment01 => "prepayment01",
+    /// Default rate sensitivity per basis point
+    Default01 => "default01",
+    /// Loss severity sensitivity per 1% change
+    Severity01 => "severity01",
+    /// Conversion ratio/price sensitivity per 1% change
+    Conversion01 => "conversion01",
+    /// Collateral haircut sensitivity per basis point
+    CollateralHaircut01 => "collateral_haircut01",
+    /// Collateral price sensitivity per 1% change
+    CollateralPrice01 => "collateral_price01",
+    /// NAV sensitivity per 1% change (private markets funds)
+    Nav01 => "nav01",
+    /// GP carry sensitivity per basis point (private markets funds)
+    Carry01 => "carry01",
+    /// Hurdle rate sensitivity per basis point (private markets funds)
+    Hurdle01 => "hurdle01",
+    /// DV01 for domestic currency (FX Swap)
+    Dv01Domestic => "dv01_domestic",
+    /// DV01 for foreign currency (FX Swap)
+    Dv01Foreign => "dv01_foreign",
+    /// FX spot rate sensitivity per basis point
+    Fx01 => "fx01",
+    /// NPV sensitivity per basis point (inflation swaps)
+    Npv01 => "npv01",
+    /// Running coupon sensitivity per basis point (CDS Tranche)
+    SpreadDv01 => "spread_dv01",
+    /// Correlation sensitivity per 1% change (unified for all correlation risks)
+    Correlation01 => "correlation01",
+    /// FX volatility sensitivity per 1% change (quanto options)
+    FxVega => "fx_vega",
+    /// Convexity adjustment risk (CMS options)
+    ConvexityAdjustmentRisk => "convexity_adjustment_risk",
 
     // TRS metrics
     /// Financing annuity for TRS

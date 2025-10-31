@@ -275,14 +275,14 @@ fn test_equity_trs_ir01_positive() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::Ir01])
+        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
         .unwrap();
 
     // Assert
-    let ir01 = *result.measures.get("ir01").unwrap();
+    let dv01 = *result.measures.get("dv01").unwrap();
     // Receiving TR => pay financing => negative DV01 typically
-    // But IR01 sign convention may vary; just check finite
-    assert!(ir01.is_finite(), "IR01 should be finite");
+    // Just check finite
+    assert!(dv01.is_finite(), "DV01 should be finite");
 }
 
 #[test]
@@ -296,12 +296,12 @@ fn test_fi_index_trs_ir01_positive() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::Ir01])
+        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
         .unwrap();
 
     // Assert
-    let ir01 = *result.measures.get("ir01").unwrap();
-    assert!(ir01.is_finite(), "IR01 should be finite");
+    let dv01 = *result.measures.get("dv01").unwrap();
+    assert!(dv01.is_finite(), "DV01 should be finite");
 }
 
 #[test]
@@ -320,18 +320,18 @@ fn test_ir01_scales_with_notional() {
 
     // Act
     let result_5m = trs_5m
-        .price_with_metrics(&market, as_of, &[MetricId::Ir01])
+        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
         .unwrap();
     let result_25m = trs_25m
-        .price_with_metrics(&market, as_of, &[MetricId::Ir01])
+        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
         .unwrap();
 
     // Assert
-    let ir01_5m = *result_5m.measures.get("ir01").unwrap();
-    let ir01_25m = *result_25m.measures.get("ir01").unwrap();
+    let dv01_5m = *result_5m.measures.get("dv01").unwrap();
+    let dv01_25m = *result_25m.measures.get("dv01").unwrap();
 
     assert_approx_eq(
-        ir01_25m / ir01_5m,
+        dv01_25m / dv01_5m,
         5.0,
         0.02, // 2% tolerance
         "IR01 should scale linearly with notional",
@@ -554,7 +554,7 @@ fn test_equity_trs_all_metrics_together() {
             &[
                 MetricId::ParSpread,
                 MetricId::FinancingAnnuity,
-                MetricId::Ir01,
+                MetricId::Dv01,
                 MetricId::IndexDelta,
                 MetricId::Theta,
                 MetricId::BucketedDv01,
@@ -569,7 +569,7 @@ fn test_equity_trs_all_metrics_together() {
         .get("financing_annuity")
         .unwrap()
         .is_finite());
-    assert!(result.measures.get("ir01").unwrap().is_finite());
+    assert!(result.measures.get("dv01").unwrap().is_finite());
     assert!(result.measures.get("index_delta").unwrap().is_finite());
     assert!(result.measures.get("theta").unwrap().is_finite());
     assert!(result.measures.get("bucketed_dv01").unwrap().is_finite());
@@ -590,7 +590,7 @@ fn test_fi_index_trs_all_metrics_together() {
             &[
                 MetricId::ParSpread,
                 MetricId::FinancingAnnuity,
-                MetricId::Ir01,
+                MetricId::Dv01,
                 MetricId::IndexDelta,
                 MetricId::Theta,
                 MetricId::BucketedDv01,
@@ -605,7 +605,7 @@ fn test_fi_index_trs_all_metrics_together() {
         .get("financing_annuity")
         .unwrap()
         .is_finite());
-    assert!(result.measures.get("ir01").unwrap().is_finite());
+    assert!(result.measures.get("dv01").unwrap().is_finite());
     assert!(result.measures.get("index_delta").unwrap().is_finite());
     assert!(result.measures.get("theta").unwrap().is_finite());
     assert!(result.measures.get("bucketed_dv01").unwrap().is_finite());

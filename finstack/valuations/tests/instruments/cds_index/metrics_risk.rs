@@ -80,15 +80,12 @@ fn test_hazard_cs01_calculation() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::HazardCs01])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Cs01])
         .unwrap();
 
-    // Hazard CS01 may be present or may return zero if not fully implemented
-    if let Some(hcs01) = result.measures.get("hazard_cs01") {
-        // If present, should be non-negative and finite
-        assert!(hcs01.is_finite(), "Hazard CS01 should be finite");
-        // Note: May be zero if implementation uses different calculation path
-    }
+    // CS01 should be present
+    let cs01 = result.measures.get("cs01").expect("CS01 should be present");
+    assert!(cs01.is_finite(), "CS01 should be finite");
 }
 
 #[test]
@@ -347,7 +344,6 @@ fn test_all_risk_metrics_together() {
         MetricId::RiskyPv01,
         MetricId::Cs01,
         MetricId::Dv01,
-        MetricId::HazardCs01,
     ];
 
     let result = idx.price_with_metrics(&ctx, as_of, &metrics).unwrap();
@@ -355,7 +351,6 @@ fn test_all_risk_metrics_together() {
     assert!(result.measures.contains_key("risky_pv01"));
     assert!(result.measures.contains_key("cs01"));
     assert!(result.measures.contains_key("dv01"));
-    assert!(result.measures.contains_key("hazard_cs01"));
 }
 
 #[test]
@@ -409,7 +404,6 @@ fn test_risk_metrics_finite() {
         MetricId::RiskyPv01,
         MetricId::Cs01,
         MetricId::Dv01,
-        MetricId::HazardCs01,
     ];
 
     let result = idx.price_with_metrics(&ctx, as_of, &metrics).unwrap();

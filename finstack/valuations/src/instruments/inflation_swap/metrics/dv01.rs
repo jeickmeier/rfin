@@ -1,36 +1,41 @@
-//! Inflation Swap DV01 metric calculator.
-//!
-//! Provides DV01 calculation for Inflation Swap instruments:
-//! DV01 ≈ Notional × Time to Maturity × 1bp
+//! DV01 (nominal interest rate sensitivity) metric for `InflationSwap`.
 
-use crate::constants::ONE_BASIS_POINT;
-use crate::instruments::InflationSwap;
+use crate::instruments::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::Result;
+use finstack_core::prelude::*;
 
-/// DV01 calculator for Inflation Swap instruments.
+/// Calculates DV01 (1bp nominal interest rate sensitivity) for inflation swaps.
 pub struct InflationSwapDv01Calculator;
 
 impl MetricCalculator for InflationSwapDv01Calculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let swap: &InflationSwap = context.instrument_as()?;
-        let as_of = context.as_of;
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let s: &InflationSwap = context.instrument_as()?;
 
-        if as_of >= swap.maturity {
-            return Ok(0.0);
-        }
+        let disc = context.curves.get_discount_ref(s.disc_id.as_str())?;
+        let base = disc.base_date();
 
-        // Simple DV01 approximation: Notional × Time to Maturity × 1bp
-        let time_to_maturity = swap
-            .dc
+        let t_maturity = DayCount::Act365F
             .year_fraction(
-                as_of,
-                swap.maturity,
+                base,
+                s.maturity,
                 finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
+            )
+            .unwrap_or(0.0);
 
-        let dv01 = swap.notional.amount() * time_to_maturity * ONE_BASIS_POINT;
+        // Use net PV for sensitivity sign correctness, matching instrument pv body
+        let pv_fixed = s.pv_fixed_leg(&context.curves, context.as_of)?;
+        let pv_inflation = s.pv_inflation_leg(&context.curves, context.as_of)?;
+        let pv_net = match s.side {
+            crate::instruments::inflation_swap::PayReceiveInflation::ReceiveFixed => {
+                (pv_fixed - pv_inflation)?.amount()
+            }
+            crate::instruments::inflation_swap::PayReceiveInflation::PayFixed => {
+                (pv_inflation - pv_fixed)?.amount()
+            }
+        };
+
+        let duration = t_maturity; // zero-coupon approximation
+        let dv01 = -duration * pv_net * 0.0001;
 
         Ok(dv01)
     }

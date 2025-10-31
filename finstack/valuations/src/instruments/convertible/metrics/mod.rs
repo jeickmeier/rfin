@@ -36,12 +36,12 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
         &["ConvertibleBond"],
     );
     registry.register_metric(
-        MetricId::custom("dividend01"),
+        MetricId::Dividend01,
         Arc::new(dividend_risk::DividendRiskCalculator),
         &["ConvertibleBond"],
     );
     registry.register_metric(
-        MetricId::custom("conversion01"),
+        MetricId::Conversion01,
         Arc::new(conversion01::Conversion01Calculator),
         &["ConvertibleBond"],
     );

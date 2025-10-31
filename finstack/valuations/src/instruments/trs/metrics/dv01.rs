@@ -2,13 +2,13 @@ use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Error, Result};
 
-/// Calculates IR01 (interest rate sensitivity) for a TRS.
+/// Calculates DV01 (interest rate sensitivity) for a TRS.
 ///
-/// IR01 measures the change in present value for a 1 basis point parallel shift in interest rates.
+/// DV01 measures the change in present value for a 1 basis point parallel shift in interest rates.
 /// This implementation approximates the sensitivity using the financing annuity as a proxy.
-pub struct TrsIR01Calculator;
+pub struct TrsDv01Calculator;
 
-impl MetricCalculator for TrsIR01Calculator {
+impl MetricCalculator for TrsDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Compute annuity as a proxy for sensitivity
         let bump_size = 0.0001; // 1bp

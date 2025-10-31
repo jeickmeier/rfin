@@ -86,7 +86,7 @@ impl McEngineBuilder {
     /// Create a new builder.
     pub fn new() -> Self {
         Self {
-            num_paths: 10000,
+            num_paths: 100_000,
             seed: 42,
             time_grid: None,
             target_ci: None,

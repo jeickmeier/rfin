@@ -38,7 +38,7 @@ pub fn register_cms_option_metrics(registry: &mut MetricRegistry) {
 
     // Convexity adjustment risk (custom metric)
     registry.register_metric(
-        MetricId::custom("convexity_adjustment_risk"),
+        MetricId::ConvexityAdjustmentRisk,
         Arc::new(convexity_adjustment_risk::ConvexityAdjustmentRiskCalculator),
         &["CmsOption"],
     );

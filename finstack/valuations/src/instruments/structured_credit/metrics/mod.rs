@@ -26,22 +26,22 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
 
     // Model-specific risk metrics (custom metrics)
     registry.register_metric(
-        MetricId::custom("recovery01"),
+        MetricId::Recovery01,
         Arc::new(risk::recovery01::Recovery01Calculator),
         &["StructuredCredit"],
     );
     registry.register_metric(
-        MetricId::custom("prepayment01"),
+        MetricId::Prepayment01,
         Arc::new(risk::prepayment01::Prepayment01Calculator),
         &["StructuredCredit"],
     );
     registry.register_metric(
-        MetricId::custom("default01"),
+        MetricId::Default01,
         Arc::new(risk::default01::Default01Calculator),
         &["StructuredCredit"],
     );
     registry.register_metric(
-        MetricId::custom("severity01"),
+        MetricId::Severity01,
         Arc::new(risk::severity01::Severity01Calculator),
         &["StructuredCredit"],
     );

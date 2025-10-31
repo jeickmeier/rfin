@@ -4,7 +4,7 @@ mod annuity;
 mod bucketed;
 mod delta;
 mod dividend_risk;
-mod ir01;
+mod dv01;
 mod par_spread;
 mod theta;
 // risk_bucketed_dv01 - now using generic implementation
@@ -12,7 +12,7 @@ mod theta;
 pub use annuity::FinancingAnnuityCalculator;
 pub use bucketed::TrsBucketedDv01Calculator;
 pub use delta::IndexDeltaCalculator;
-pub use ir01::TrsIR01Calculator;
+pub use dv01::TrsDv01Calculator;
 pub use par_spread::ParSpreadCalculator;
 // BucketedDv01Calculator now using generic implementation
 
@@ -32,7 +32,7 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
 
     // Custom metric: Dividend risk (dividend yield sensitivity per 1bp)
     registry.register_metric(
-        MetricId::custom("dividend01"),
+        MetricId::Dividend01,
         Arc::new(dividend_risk::DividendRiskCalculator),
         &["TRS"],
     );
@@ -43,7 +43,7 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (ParSpread, ParSpreadCalculator),
             (FinancingAnnuity, FinancingAnnuityCalculator),
-            (Ir01, TrsIR01Calculator),
+            (Dv01, TrsDv01Calculator),
             (IndexDelta, IndexDeltaCalculator),
             (Theta, theta::EquityTrsThetaCalculator),
             (BucketedDv01, TrsBucketedDv01Calculator),

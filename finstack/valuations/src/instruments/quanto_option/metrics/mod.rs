@@ -3,7 +3,7 @@
 //! Provides full greek coverage for quanto options including FX-specific
 //! sensitivities (FX delta, FX vega) and correlation risk.
 
-mod correlation_risk;
+mod correlation01;
 mod delta;
 mod dv01;
 mod fx_delta;
@@ -45,14 +45,14 @@ pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
     );
 
     registry.register_metric(
-        MetricId::custom("fx_vega"),
+        MetricId::FxVega,
         Arc::new(fx_vega::FxVegaCalculator),
         &["QuantoOption"],
     );
 
     registry.register_metric(
-        MetricId::custom("correlation_risk"),
-        Arc::new(correlation_risk::CorrelationRiskCalculator),
+        MetricId::Correlation01,
+        Arc::new(correlation01::Correlation01Calculator),
         &["QuantoOption"],
     );
 }

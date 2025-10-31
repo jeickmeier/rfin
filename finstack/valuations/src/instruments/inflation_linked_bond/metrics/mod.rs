@@ -28,7 +28,7 @@ use std::sync::Arc;
 pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
     // Custom metric: Inflation01 (inflation curve sensitivity per 1bp)
     registry.register_metric(
-        MetricId::custom("inflation01"),
+        MetricId::Inflation01,
         Arc::new(Inflation01Calculator),
         &["InflationLinkedBond"],
     );

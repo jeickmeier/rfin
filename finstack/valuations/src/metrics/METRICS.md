@@ -6,13 +6,61 @@ Comprehensive documentation on metric definitions, formulas, conventions, units,
 
 - **Standard Greeks**: Delta, Gamma, Vega, Theta, Rho
 - **Higher-Order Greeks**: Vanna, Volga, Charm, Color, Speed
-- **Interest Rate Risk**: DV01, BucketedDV01, IR01
-- **Credit Risk**: CS01, BucketedCS01, Recovery01
+- **Interest Rate Risk**: DV01, BucketedDV01, Dv01Domestic, Dv01Foreign
+- **Credit Risk**: CS01, BucketedCS01, Recovery01, SpreadDv01
 - **Volatility Risk**: Vega, BucketedVega
 - **Dividend Risk**: Dividend01
-- **FX Risk**: FX Delta, FX Vega
+- **FX Risk**: FX Delta, FX Vega, FX01
 - **Inflation Risk**: Inflation01
-- **Model-Specific Risks**: Prepayment01, Default01, Severity01, Conversion01, etc.
+- **Model-Specific Risks**: Prepayment01, Default01, Severity01, Conversion01, Correlation01, etc.
+
+## Instrument-Metric Matrix
+
+The following table shows which metrics are implemented for each instrument type. A checkmark (✓) indicates the metric is available.
+
+| Instrument | Delta | Gamma | Vega | Theta | Rho | Vanna | Volga | Charm | Color | Speed | DV01 | BucketedDV01 | CS01 | BucketedCS01 | Recovery01 | Dividend01 | Inflation01 | Prepayment01 | Default01 | Severity01 | Conversion01 | Correlation01 | FX Delta | FX Vega | FX01 | Dv01Domestic | Dv01Foreign | SpreadDv01 | FxVega | ConvexityAdjustmentRisk | Other |
+|------------|-------|-------|------|-------|-----|-------|-------|-------|-------|-------|------|--------------|------|--------------|------------|------------|-------------|--------------|-----------|-----------|--------------|----------------|----------|---------|------|--------------|-------------|-------------|--------|------------------------|-------|
+| Bond | | | | ✓ | | | | | | | ✓ | ✓ | ✓ | | | | | | | | | | | | | | | | | | Accrued, DirtyPrice, CleanPrice, Ytm, Ytw, DurationMac, DurationMod, Convexity, Oas, ZSpread, ISpread, DiscountMargin, ASWPar, ASWMarket, ASWParFwd, ASWMarketFwd, Pv01 |
+| IRS | | | | ✓ | | | | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | Annuity, ParRate, PvFixed, PvFloat |
+| Deposit | | | | ✓ | | | | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | Yf, DfStart, DfEnd, DepositParRate, DfEndFromQuote, QuoteRate |
+| FRA | | | | | | | | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | ParRate |
+| InterestRateFuture | | | | ✓ | | | | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | | | |
+| Equity | | | | ✓ | | | | | | | ✓ | | | | | | | | | | | | | | | | | | | | | EquityPricePerShare, EquityShares, EquityDividendYield, EquityForwardPrice |
+| EquityOption | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | | | ✓ | | | | | | | | | | | | | | | ImpliedVol |
+| FX Spot | | | | ✓ | | | | | | | ✓ | | | | | | | | | | | | ✓ | | | | | | | | | SpotRate, BaseAmount, QuoteAmount, InverseRate |
+| FX Swap | | | | ✓ | | | | | | | ✓ | ✓ | | | | | | | | | | | ✓ | | | | | ✓ | ✓ | | | | ForwardPoints, CarryPv |
+| FX Option | ✓ | ✓ | ✓ | ✓ | | ✓ | ✓ | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | ImpliedVol, RhoDomestic, RhoForeign |
+| InflationLinkedBond | | | | ✓ | | | | | | | ✓ | ✓ | | | | | ✓ | | | | | | | | | | | | | | | | RealYield, IndexRatio, RealDuration, BreakevenInflation |
+| InflationSwap | | | | ✓ | | | | | | | ✓ | ✓ | | | | | ✓ | | | | | | | | | | | | | | | | | ParRate, Breakeven, FixedLegPv, InflationLegPv, Npv01 |
+| CDS | | | | ✓ | | | | | | | ✓ | ✓ | ✓ | | ✓ | | | | | | | | | | | | | | | | | | ParSpread, RiskyPv01, Pv01, ProtectionLegPv, PremiumLegPv, ExpectedLoss, JumpToDefault |
+| CDSIndex | | | | ✓ | | | | | | | ✓ | ✓ | ✓ | | ✓ | | | | | | | | | | | | | | | | | | | ParSpread, RiskyPv01, Pv01, ProtectionLegPv, PremiumLegPv, ExpectedLoss, JumpToDefault |
+| CDSTranche | | | | ✓ | | | | | | | ✓ | ✓ | ✓ | | ✓ | | | | | | | ✓ | | | | | | | | | | | | ParSpread, ExpectedLoss, JumpToDefault, SpreadDv01, Upfront |
+| CDSOption | ✓ | ✓ | ✓ | ✓ | ✓ | | | | | | ✓ | ✓ | ✓ | | ✓ | | | | | | | | | | | | | | | | | | | ImpliedVol |
+| Swaption | ✓ | ✓ | ✓ | ✓ | ✓ | | | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | | | | ImpliedVol |
+| InterestRateOption | ✓ | ✓ | ✓ | ✓ | ✓ | | | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | | | | ImpliedVol, ForwardPv01 |
+| ConvertibleBond | ✓ | ✓ | ✓ | ✓ | ✓ | | | | | | | ✓ | ✓ | | | ✓ | | | | | ✓ | | | | | | | | | | | | Parity, ConversionPremium |
+| TRS | ✓ | | | ✓ | | | | | | | ✓ | ✓ | ✓ | | | ✓ | | | | | | | | | | | | | | | | | | | ParSpread, FinancingAnnuity, IndexDelta |
+| BasisSwap | | | | ✓ | | | | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | | | | | | | AnnuityPrimary, AnnuityReference, Dv01Primary, Dv01Reference, PvPrimary, PvReference, BasisParSpread |
+| StructuredCredit | | | | ✓ | | | | | | | ✓ | | ✓ | | ✓ | ✓ | ✓ | ✓ | ✓ | | | | | | | | | | | | | | Accrued, DirtyPrice, CleanPrice, WAL, DurationMac, DurationMod, Ytm, ZSpread, SpreadDuration, WAM, CPR, CDR |
+| Repo | | | | ✓ | | | | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | | | | | | CollateralValue, RequiredCollateral, CollateralCoverage, RepoInterest, FundingRisk, EffectiveRate, TimeToMaturity, ImpliedCollateralReturn, Accrued, CollateralHaircut01, CollateralPrice01 |
+| RevolvingCredit | | | | ✓ | | | | | | | ✓ | ✓ | ✓ | | | | | | | | | | | | | | | | | | | | | | UtilizationRate, AvailableCapacity, WeightedAverageCost |
+| PrivateMarketsFund | | | | ✓ | | | | | | | | | | | | | ✓ | ✓ | ✓ | | | | | | | | | | | | | | | | LpIrr, GpIrr, MoicLp, DpiLp, TvpiLp, CarryAccrued, Nav01, Carry01, Hurdle01 |
+| VarianceSwap | | | | ✓ | | | | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | | | | | | VarianceVega, ExpectedVariance, RealizedVariance, VarianceNotional, VarianceStrikeVol, VarianceTimeToMaturity |
+| Basket | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | ConstituentCount, ExpenseRatio, ConstituentDelta, WeightRisk |
+| QuantoOption | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | | ✓ | | | | | | | | | | ✓ | | ✓ | ✓ | | | | | | | | | | |
+| AsianOption | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | | ✓ | | | | | | | | | | | | | | | | | | | | | | |
+| BarrierOption | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | | ✓ | | | | | | | | | | | | | | | | | | | | | | |
+| BarrierFxOption | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | | ✓ | | | | | | | | | | | | | | | | | | | | | | |
+| LookbackOption | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | | ✓ | | | | | | | | | | | | | | | | | | | | | | |
+| CliquetOption | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | | ✓ | | | | | | | | | | | | | | | | | | | | | | |
+| Autocallable | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | | ✓ | | | | | | | | | | | | | | | | | | | | | | |
+| RangeAccrual | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | | |
+| CmsOption | ✓ | | ✓ | ✓ | ✓ | ✓ | ✓ | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | ✓ | |
+
+**Legend:**
+- ✓ = Metric is implemented
+- Blank = Metric is not implemented
+- Other = Instrument-specific metrics not shown in standard columns
 
 ## Standard Greeks
 
@@ -145,11 +193,27 @@ Comprehensive documentation on metric definitions, formulas, conventions, units,
 - **Implementation**: Each bucket bumps one key rate while others held constant
 - **Output**: Bucketed series stored in `MetricContext`
 
+### Dv01Domestic / Dv01Foreign
+
+**Domestic and foreign currency interest rate sensitivity (FX Swap only)**
+
+**Formula**: `Dv01Domestic = (PV(domestic_curve + 1bp) - PV(base)) / 0.0001`  
+**Formula**: `Dv01Foreign = (PV(foreign_curve + 1bp) - PV(base)) / 0.0001`
+
+- **Units**: Price units per basis point
+- **Sign Convention**: Negative for typical positions (price falls as rates rise)
+- **Bump Size**: 1 basis point (0.0001)
+- **Applies To**: FxSwap
+- **Note**: FX Swaps require separate DV01 metrics for domestic and foreign currencies due to dual-currency exposure.
+- **Standard MetricId**: `MetricId::Dv01Domestic`, `MetricId::Dv01Foreign`
+
+**Note**: DV01 is the standard metric for all parallel interest rate sensitivity across all instrument types. Instruments that previously used IR01 now use DV01 for consistency.
+
 ## Credit Risk Metrics
 
 ### CS01
 
-**Credit spread sensitivity per basis point**
+**Credit spread sensitivity per basis point (quote spreads only)**
 
 **Formula**: `CS01 = (PV(spread + 1bp) - PV(spread - 1bp)) / (2 * 0.0001)`
 
@@ -157,19 +221,19 @@ Comprehensive documentation on metric definitions, formulas, conventions, units,
 - **Sign Convention**: Negative (price decreases as spreads widen)
 - **Bump Size**: 1 basis point (0.0001)
 - **Defined in**: `finite_difference::bump_sizes::CREDIT_SPREAD_BP`
+- **Important**: CS01 bumps **quote spreads** (not derived hazard rates). This ensures consistency with market quoting conventions.
+- **Note**: The `HazardCs01` metric has been removed. All credit spread sensitivity should use CS01 which bumps quote spreads.
 
 ### BucketedCS01
 
 **Key-rate credit spread sensitivity**
 
-**Formula**: `BucketedCS01[t] = (PV(hazard curve with bumped knot t) - PV(base)) / bump_size`
+**Formula**: `BucketedCS01[t] = (PV(spread curve with bumped knot t) - PV(base)) / bump_size`
 
 - **Units**: Price units per basis point for each bucket
 - **Buckets**: [3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y]
 - **Defined in**: `bucketed_cs01::standard_credit_cs01_buckets()`
-- **Bump Modes**:
-  - **Hazard rate bump**: Adds 1bp to hazard rate at each bucket
-  - **Spread bump**: Converts spread to hazard rate, bumps, converts back
+- **Implementation**: Bumps quote spreads at each key rate point (not derived hazard rates)
 
 ### Recovery01
 
@@ -181,6 +245,20 @@ Comprehensive documentation on metric definitions, formulas, conventions, units,
 - **Sign Convention**: Positive (higher recovery increases value)
 - **Bump Size**: 1% (0.01)
 - **Applies To**: CDS, CDSTranche, CDSIndex, CdsOption, StructuredCredit
+- **Standard MetricId**: `MetricId::Recovery01`
+
+### SpreadDv01
+
+**Running coupon sensitivity per basis point (CDS Tranche only)**
+
+**Formula**: `SpreadDv01 = PV(running_coupon + 1bp) - PV(base)`
+
+- **Units**: Price units per basis point
+- **Sign Convention**: Negative (higher coupon decreases value)
+- **Bump Size**: 1 basis point (0.0001)
+- **Applies To**: CDSTranche
+- **Note**: This is **distinct from CS01**. SpreadDv01 measures sensitivity to the contractual running coupon, while CS01 measures sensitivity to underlying index credit spreads.
+- **Standard MetricId**: `MetricId::SpreadDv01`
 
 ## Volatility Risk Metrics
 
@@ -213,6 +291,7 @@ See Standard Greeks section above.
 - **Sign Convention**: Negative for long equity positions (dividends reduce option value)
 - **Bump Size**: 1 basis point (0.0001)
 - **Applies To**: EquityOption, ConvertibleBond, EquityTotalReturnSwap
+- **Standard MetricId**: `MetricId::Dividend01`
 
 ## FX Risk Metrics
 
@@ -231,7 +310,25 @@ See Standard Greeks section above.
 
 **FX volatility sensitivity (for quanto products)**
 
+**Formula**: `FX Vega = (PV(fx_vol + 1%) - PV(fx_vol - 1%)) / (2 * 0.01)`
+
+- **Units**: Price units per 1% FX volatility change
+- **Sign Convention**: Positive for long quanto option positions
+- **Bump Size**: 1% absolute volatility (0.01)
 - **Applies To**: QuantoOption
+- **Standard MetricId**: `MetricId::FxVega`
+
+### FX01
+
+**FX spot rate sensitivity per basis point**
+
+**Formula**: `FX01 = (PV(fx_rate + 1bp) - PV(fx_rate - 1bp)) / (2 * 0.0001)`
+
+- **Units**: Price units per basis point FX rate change
+- **Sign Convention**: Positive for long FX exposure
+- **Bump Size**: 1 basis point (0.0001)
+- **Applies To**: FxSwap
+- **Standard MetricId**: `MetricId::Fx01`
 
 ## Inflation Risk Metrics
 
@@ -246,6 +343,7 @@ See Standard Greeks section above.
 - **Bump Size**: 1 basis point (0.0001)
 - **Applies To**: InflationLinkedBond, InflationSwap
 - **Implementation**: Bumps inflation curve using `BumpSpec::inflation_shift_pct()`
+- **Standard MetricId**: `MetricId::Inflation01`
 
 ## Model-Specific Risk Metrics
 
@@ -259,6 +357,7 @@ See Standard Greeks section above.
 - **Bump Size**: 1 basis point CPR (0.0001)
 - **Applies To**: StructuredCredit (ABS, RMBS, CMBS, CLO)
 - **Implementation**: Handles PSA multiplier, ConstantCpr, ConstantSmm, AssetDefault specs
+- **Standard MetricId**: `MetricId::Prepayment01`
 
 ### Default01
 
@@ -270,6 +369,7 @@ See Standard Greeks section above.
 - **Bump Size**: 1 basis point CDR (0.0001)
 - **Applies To**: StructuredCredit
 - **Implementation**: Handles SDA multiplier, ConstantCdr, ConstantMdr, AssetDefault specs
+- **Standard MetricId**: `MetricId::Default01`
 
 ### Severity01
 
@@ -281,6 +381,7 @@ See Standard Greeks section above.
 - **Relationship**: Loss Severity = 1 - Recovery Rate (LGD)
 - **Note**: Severity01 ≈ -Recovery01 for constant recovery models
 - **Bump Size**: 1% (0.01)
+- **Standard MetricId**: `MetricId::Severity01`
 
 ### Conversion01
 
@@ -292,6 +393,20 @@ See Standard Greeks section above.
 - **Bump Size**: 1% (0.01)
 - **Applies To**: ConvertibleBond
 - **Implementation**: Bumps conversion ratio or inversely bumps conversion price
+- **Standard MetricId**: `MetricId::Conversion01`
+
+### Correlation01
+
+**Correlation sensitivity per 1% change (unified metric)**
+
+**Formula**: `Correlation01 = (PV(correlation + 1%) - PV(base)) / 0.01`
+
+- **Units**: Price units per 1% correlation change
+- **Sign Convention**: Depends on instrument structure
+- **Bump Size**: 1% (0.01)
+- **Applies To**: CDSTranche (base correlation sensitivity), QuantoOption (equity-FX correlation sensitivity)
+- **Note**: This is a unified metric name for all correlation sensitivities. For CDS Tranches, it measures sensitivity to base correlation. For Quanto Options, it measures sensitivity to equity-FX correlation.
+- **Standard MetricId**: `MetricId::Correlation01`
 
 ## Instrument-Specific Risk Metrics
 

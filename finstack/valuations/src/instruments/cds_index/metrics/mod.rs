@@ -16,7 +16,6 @@
 mod cs01;
 mod dv01;
 mod expected_loss;
-mod hazard_cs01;
 mod jump_to_default;
 mod par_spread;
 mod pv_premium;
@@ -44,7 +43,7 @@ pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
 
     // Recovery01 (custom metric - recovery rate sensitivity)
     registry.register_metric(
-        MetricId::custom("recovery01"),
+        MetricId::Recovery01,
         Arc::new(recovery01::Recovery01Calculator),
         &["CDSIndex"],
     );
@@ -58,7 +57,6 @@ pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
             (Cs01, cs01::Cs01Calculator),
             (ProtectionLegPv, pv_protection::ProtectionLegPvCalculator),
             (PremiumLegPv, pv_premium::PremiumLegPvCalculator),
-            (HazardCs01, hazard_cs01::HazardCs01Calculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
             (Dv01, dv01::CdsIndexDv01Calculator),

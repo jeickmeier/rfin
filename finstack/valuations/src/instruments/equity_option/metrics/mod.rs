@@ -27,7 +27,7 @@ pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
 
     // Custom metric: Dividend risk (dividend yield sensitivity per 1bp)
     registry.register_metric(
-        MetricId::custom("dividend01"),
+        MetricId::Dividend01,
         Arc::new(dividend_risk::DividendRiskCalculator),
         &["EquityOption"],
     );

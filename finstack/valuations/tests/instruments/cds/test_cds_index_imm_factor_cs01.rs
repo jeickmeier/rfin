@@ -141,8 +141,8 @@ fn hazard_cs01_matches_bump_difference() {
     let pv = idx.value(&ctx, as_of).unwrap();
     let mut mctx = MetricContext::new(Arc::new(idx.clone()), Arc::new(ctx.clone()), as_of, pv);
     let reg = standard_registry();
-    let res = reg.compute(&[MetricId::HazardCs01], &mut mctx).unwrap();
-    let cs01 = *res.get(&MetricId::HazardCs01).unwrap();
+    let res = reg.compute(&[MetricId::Cs01], &mut mctx).unwrap();
+    let cs01 = *res.get(&MetricId::Cs01).unwrap();
 
     // Manual bump using MarketContext::bump
     let mut bumps = hashbrown::HashMap::new();

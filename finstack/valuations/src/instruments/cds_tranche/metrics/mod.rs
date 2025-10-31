@@ -10,9 +10,9 @@
 //! - Expected loss (currency units)
 //! - Jump-to-default (currency units)
 //! - CS01 (approximate parallel spread shift)
-//! - Correlation delta (per unit correlation change)
+//! - Correlation01 (per 1% correlation change)
 
-mod correlation_delta;
+mod correlation01;
 mod cs01;
 mod dv01;
 mod expected_loss;
@@ -39,17 +39,17 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
             &["CDSTranche"],
         )
         .register_metric(
-            MetricId::custom("spread_dv01"),
+            MetricId::SpreadDv01,
             Arc::new(spread_dv01::SpreadDv01Calculator),
             &["CDSTranche"],
         )
         .register_metric(
-            MetricId::custom("correlation_delta"),
-            Arc::new(correlation_delta::CorrelationDeltaCalculator),
+            MetricId::Correlation01,
+            Arc::new(correlation01::Correlation01Calculator),
             &["CDSTranche"],
         )
         .register_metric(
-            MetricId::custom("recovery01"),
+            MetricId::Recovery01,
             Arc::new(recovery01::Recovery01Calculator),
             &["CDSTranche"],
         );

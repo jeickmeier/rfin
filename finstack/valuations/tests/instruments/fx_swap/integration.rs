@@ -29,9 +29,9 @@ fn test_full_metrics_suite() {
             dates.as_of,
             &[
                 MetricId::custom("forward_points"),
-                MetricId::custom("fx01"),
-                MetricId::custom("ir01_domestic"),
-                MetricId::custom("ir01_foreign"),
+                MetricId::Fx01,
+                MetricId::Dv01Domestic,
+                MetricId::Dv01Foreign,
                 MetricId::custom("carry_pv"),
                 MetricId::Dv01,
                 MetricId::Theta,
@@ -46,14 +46,14 @@ fn test_full_metrics_suite() {
     // Sanity checks on values
     let fwd_pts = *result.measures.get("forward_points").unwrap();
     let fx01 = *result.measures.get("fx01").unwrap();
-    let ir01_dom = *result.measures.get("ir01_domestic").unwrap();
-    let ir01_for = *result.measures.get("ir01_foreign").unwrap();
+    let dv01_dom = *result.measures.get("dv01_domestic").unwrap();
+    let dv01_for = *result.measures.get("dv01_foreign").unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
 
     assert!(fwd_pts > 0.0, "Forward points should be positive");
     assert!(fx01 != 0.0, "FX01 should be non-zero");
-    assert!(ir01_dom > 0.0, "Domestic IR01 should be positive");
-    assert!(ir01_for < 0.0, "Foreign IR01 should be negative");
+    assert!(dv01_dom > 0.0, "Domestic DV01 should be positive");
+    assert!(dv01_for < 0.0, "Foreign DV01 should be negative");
     // DV01 for FX swap at inception with model-implied rates is very small
     assert!(dv01.is_finite(), "DV01 should be finite");
 }
@@ -185,11 +185,11 @@ fn test_hedge_ratio_calculation() {
     let swap2 = create_standard_fx_swap("HEDGE_2", dates.near_date, dates.far_date_1y, 2_000_000.0);
 
     let result1 = swap1
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("fx01")])
+        .price_with_metrics(&market, dates.as_of, &[MetricId::Fx01])
         .unwrap();
 
     let result2 = swap2
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("fx01")])
+        .price_with_metrics(&market, dates.as_of, &[MetricId::Fx01])
         .unwrap();
 
     let fx01_1 = *result1.measures.get("fx01").unwrap();
@@ -241,22 +241,22 @@ fn test_metric_consistency() {
             &market,
             dates.as_of,
             &[
-                MetricId::custom("ir01_domestic"),
-                MetricId::custom("ir01_foreign"),
-                MetricId::custom("fx01"),
+                MetricId::Dv01Domestic,
+                MetricId::Dv01Foreign,
+                MetricId::Fx01,
                 MetricId::Dv01,
             ],
         )
         .unwrap();
 
-    let ir01_dom = result.measures.get("ir01_domestic").unwrap().abs();
-    let ir01_for = result.measures.get("ir01_foreign").unwrap().abs();
+    let dv01_dom = result.measures.get("dv01_domestic").unwrap().abs();
+    let dv01_for = result.measures.get("dv01_foreign").unwrap().abs();
     let fx01 = result.measures.get("fx01").unwrap().abs();
     let dv01 = *result.measures.get("dv01").unwrap();
 
     // All sensitivities should be non-zero and finite
-    assert!(ir01_dom > 1e-10, "IR01 domestic should be non-zero");
-    assert!(ir01_for > 1e-10, "IR01 foreign should be non-zero");
+    assert!(dv01_dom > 1e-10, "DV01 domestic should be non-zero");
+    assert!(dv01_for > 1e-10, "DV01 foreign should be non-zero");
     assert!(fx01 > 1e-10, "FX01 should be non-zero");
     // DV01 for FX swap at inception with model-implied rates is very small
     assert!(dv01.is_finite(), "DV01 should be finite");

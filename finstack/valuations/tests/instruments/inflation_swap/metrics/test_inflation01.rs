@@ -32,7 +32,7 @@ fn test_inflation01_finite_difference_validation() {
 
     // Get analytic inflation01
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::custom("inflation01")])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Inflation01])
         .unwrap();
     let infl01_analytic = *result.measures.get("inflation01").unwrap();
 
@@ -91,7 +91,7 @@ fn test_inflation01_sign_pay_fixed() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::custom("inflation01")])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Inflation01])
         .unwrap();
 
     let infl01 = *result.measures.get("inflation01").unwrap();
@@ -128,7 +128,7 @@ fn test_inflation01_sign_receive_fixed() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::custom("inflation01")])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Inflation01])
         .unwrap();
 
     let infl01 = *result.measures.get("inflation01").unwrap();
@@ -164,7 +164,7 @@ fn test_inflation01_scales_with_maturity() {
             .unwrap();
 
         let result = swap
-            .price_with_metrics(&ctx, as_of, &[MetricId::custom("inflation01")])
+            .price_with_metrics(&ctx, as_of, &[MetricId::Inflation01])
             .unwrap();
 
         let infl01 = result.measures.get("inflation01").unwrap().abs();
@@ -216,10 +216,10 @@ fn test_inflation01_scales_with_notional() {
         .unwrap();
 
     let result1 = swap1
-        .price_with_metrics(&ctx, as_of, &[MetricId::custom("inflation01")])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Inflation01])
         .unwrap();
     let result2 = swap2
-        .price_with_metrics(&ctx, as_of, &[MetricId::custom("inflation01")])
+        .price_with_metrics(&ctx, as_of, &[MetricId::Inflation01])
         .unwrap();
 
     let infl01_1 = result1.measures.get("inflation01").unwrap().abs();
