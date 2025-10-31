@@ -1,3 +1,6 @@
+mod asian_option;
+mod autocallable;
+mod barrier_option;
 mod basis_swap;
 mod basket;
 mod bond;
@@ -6,24 +9,34 @@ mod cds;
 mod cds_index;
 mod cds_option;
 mod cds_tranche;
+mod cliquet_option;
+mod cms_option;
 mod convertible;
 mod deposit;
 mod equity;
 mod equity_option;
 mod fra;
 mod fx;
+mod fx_barrier_option;
 mod inflation_linked_bond;
 mod inflation_swap;
 mod ir_future;
 mod irs;
+mod lookback_option;
 mod private_markets_fund;
+mod quanto_option;
+mod range_accrual;
 mod repo;
+mod revolving_credit;
 mod structured_credit;
 mod swaption;
 mod trs;
 mod variance_swap;
 
 // Re-export only used wrappers to avoid unused import lints during clippy
+use asian_option::PyAsianOption;
+use autocallable::PyAutocallable;
+use barrier_option::PyBarrierOption;
 use basis_swap::PyBasisSwap;
 use basket::PyBasket;
 use bond::PyBond;
@@ -32,18 +45,25 @@ use cds::PyCreditDefaultSwap;
 use cds_index::PyCdsIndex;
 use cds_option::PyCdsOption;
 use cds_tranche::PyCdsTranche;
+use cliquet_option::PyCliquetOption;
+use cms_option::PyCmsOption;
 use convertible::PyConvertibleBond;
 use deposit::PyDeposit;
 use equity::PyEquity;
 use equity_option::PyEquityOption;
 use fra::PyForwardRateAgreement;
 use fx::{PyFxOption, PyFxSpot, PyFxSwap};
+use fx_barrier_option::PyFxBarrierOption;
 use inflation_linked_bond::PyInflationLinkedBond;
 use inflation_swap::PyInflationSwap;
 use ir_future::PyInterestRateFuture;
 use irs::PyInterestRateSwap;
+use lookback_option::PyLookbackOption;
 use private_markets_fund::PyPrivateMarketsFund;
+use quanto_option::PyQuantoOption;
+use range_accrual::PyRangeAccrual;
 use repo::PyRepo;
+use revolving_credit::PyRevolvingCredit;
 use structured_credit::PyStructuredCredit;
 use swaption::PySwaption;
 use trs::{PyEquityTotalReturnSwap, PyFiIndexTotalReturnSwap};
@@ -228,6 +248,66 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
             instrument_type: InstrumentType::Basket,
         });
     }
+    if let Ok(obj) = value.extract::<PyRef<PyAsianOption>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::AsianOption,
+        });
+    }
+    if let Ok(obj) = value.extract::<PyRef<PyAutocallable>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::Autocallable,
+        });
+    }
+    if let Ok(obj) = value.extract::<PyRef<PyBarrierOption>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::BarrierOption,
+        });
+    }
+    if let Ok(obj) = value.extract::<PyRef<PyCliquetOption>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::CliquetOption,
+        });
+    }
+    if let Ok(obj) = value.extract::<PyRef<PyCmsOption>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::CmsOption,
+        });
+    }
+    if let Ok(obj) = value.extract::<PyRef<PyFxBarrierOption>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::FxBarrierOption,
+        });
+    }
+    if let Ok(obj) = value.extract::<PyRef<PyLookbackOption>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::LookbackOption,
+        });
+    }
+    if let Ok(obj) = value.extract::<PyRef<PyQuantoOption>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::QuantoOption,
+        });
+    }
+    if let Ok(obj) = value.extract::<PyRef<PyRangeAccrual>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::RangeAccrual,
+        });
+    }
+    if let Ok(obj) = value.extract::<PyRef<PyRevolvingCredit>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::RevolvingCredit,
+        });
+    }
     Err(PyTypeError::new_err(
         "Unsupported instrument type; construct instruments from finstack.valuations",
     ))
@@ -316,6 +396,36 @@ pub(crate) fn register<'py>(
 
     let pmf_exports = private_markets_fund::register(py, &module)?;
     exports.extend(pmf_exports.iter().copied());
+
+    let asian_option_exports = asian_option::register(py, &module)?;
+    exports.extend(asian_option_exports.iter().copied());
+
+    let autocallable_exports = autocallable::register(py, &module)?;
+    exports.extend(autocallable_exports.iter().copied());
+
+    let barrier_option_exports = barrier_option::register(py, &module)?;
+    exports.extend(barrier_option_exports.iter().copied());
+
+    let cliquet_option_exports = cliquet_option::register(py, &module)?;
+    exports.extend(cliquet_option_exports.iter().copied());
+
+    let cms_option_exports = cms_option::register(py, &module)?;
+    exports.extend(cms_option_exports.iter().copied());
+
+    let fx_barrier_option_exports = fx_barrier_option::register(py, &module)?;
+    exports.extend(fx_barrier_option_exports.iter().copied());
+
+    let lookback_option_exports = lookback_option::register(py, &module)?;
+    exports.extend(lookback_option_exports.iter().copied());
+
+    let quanto_option_exports = quanto_option::register(py, &module)?;
+    exports.extend(quanto_option_exports.iter().copied());
+
+    let range_accrual_exports = range_accrual::register(py, &module)?;
+    exports.extend(range_accrual_exports.iter().copied());
+
+    let revolving_credit_exports = revolving_credit::register(py, &module)?;
+    exports.extend(revolving_credit_exports.iter().copied());
 
     exports.sort_unstable();
     exports.dedup();

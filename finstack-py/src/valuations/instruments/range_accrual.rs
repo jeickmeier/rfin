@@ -1,0 +1,166 @@
+use crate::core::money::{extract_money, PyMoney};
+use crate::core::utils::{date_to_py, py_to_date};
+use crate::valuations::common::{extract_curve_id, extract_instrument_id};
+use finstack_valuations::instruments::range_accrual::RangeAccrual;
+use pyo3::prelude::*;
+use pyo3::types::{PyAny, PyList, PyModule, PyType};
+use pyo3::Bound;
+
+/// Range accrual instrument.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "RangeAccrual",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyRangeAccrual {
+    pub(crate) inner: RangeAccrual,
+}
+
+impl PyRangeAccrual {
+    pub(crate) fn new(inner: RangeAccrual) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyRangeAccrual {
+    #[classmethod]
+    #[pyo3(
+        text_signature = "(cls, instrument_id, ticker, observation_dates, lower_bound, upper_bound, coupon_rate, notional, discount_curve, spot_id, vol_surface, *, dividend_yield_id=None)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    /// Create a range accrual instrument.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier.
+    ///     ticker: Equity ticker symbol.
+    ///     observation_dates: List of observation dates.
+    ///     lower_bound: Lower bound for range.
+    ///     upper_bound: Upper bound for range.
+    ///     coupon_rate: Coupon rate in decimal form.
+    ///     notional: Contract notional as :class:`finstack.core.money.Money`.
+    ///     discount_curve: Discount curve identifier.
+    ///     spot_id: Spot price identifier.
+    ///     vol_surface: Volatility surface identifier.
+    ///     dividend_yield_id: Optional dividend yield identifier.
+    ///
+    /// Returns:
+    ///     RangeAccrual: Configured range accrual instrument.
+    fn builder(
+        _cls: &Bound<'_, PyType>,
+        instrument_id: Bound<'_, PyAny>,
+        ticker: &str,
+        observation_dates: Bound<'_, PyList>,
+        lower_bound: f64,
+        upper_bound: f64,
+        coupon_rate: f64,
+        notional: Bound<'_, PyAny>,
+        discount_curve: Bound<'_, PyAny>,
+        spot_id: &str,
+        vol_surface: Bound<'_, PyAny>,
+        dividend_yield_id: Option<&str>,
+    ) -> PyResult<Self> {
+        use finstack_core::dates::DayCount;
+
+        let id = extract_instrument_id(&instrument_id)?;
+        let notional_money = extract_money(&notional)?;
+        let disc_id = extract_curve_id(&discount_curve)?;
+        let vol_id = extract_curve_id(&vol_surface)?;
+
+        // Parse observation dates
+        let mut obs_dates = Vec::new();
+        for item in observation_dates.iter() {
+            obs_dates.push(py_to_date(&item)?);
+        }
+
+        let mut builder = RangeAccrual::builder();
+        builder = builder.id(id);
+        builder = builder.underlying_ticker(ticker.to_string());
+        builder = builder.observation_dates(obs_dates);
+        builder = builder.lower_bound(lower_bound);
+        builder = builder.upper_bound(upper_bound);
+        builder = builder.coupon_rate(coupon_rate);
+        builder = builder.notional(notional_money);
+        builder = builder.day_count(DayCount::Act365F);
+        builder = builder.disc_id(disc_id);
+        builder = builder.spot_id(spot_id.to_string());
+        builder = builder.vol_id(vol_id);
+        if let Some(div) = dividend_yield_id {
+            builder = builder.div_yield_id(div.to_string());
+        }
+        let range_accrual = builder.build().map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to build RangeAccrual: {e}"))
+        })?;
+        Ok(Self::new(range_accrual))
+    }
+
+    /// Instrument identifier.
+    #[getter]
+    fn instrument_id(&self) -> &str {
+        self.inner.id.as_str()
+    }
+
+    /// Underlying ticker symbol.
+    #[getter]
+    fn ticker(&self) -> &str {
+        &self.inner.underlying_ticker
+    }
+
+    /// Lower bound.
+    #[getter]
+    fn lower_bound(&self) -> f64 {
+        self.inner.lower_bound
+    }
+
+    /// Upper bound.
+    #[getter]
+    fn upper_bound(&self) -> f64 {
+        self.inner.upper_bound
+    }
+
+    /// Coupon rate.
+    #[getter]
+    fn coupon_rate(&self) -> f64 {
+        self.inner.coupon_rate
+    }
+
+    /// Notional amount.
+    #[getter]
+    fn notional(&self) -> PyMoney {
+        PyMoney::new(self.inner.notional)
+    }
+
+    /// Observation dates.
+    #[getter]
+    fn observation_dates(&self, py: Python<'_>) -> PyResult<PyObject> {
+        let dates = PyList::empty(py);
+        for d in &self.inner.observation_dates {
+            dates.append(date_to_py(py, *d)?)?;
+        }
+        Ok(dates.into())
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "RangeAccrual(id='{}', ticker='{}', lower_bound={}, upper_bound={})",
+            self.inner.id.as_str(),
+            self.inner.underlying_ticker,
+            self.inner.lower_bound,
+            self.inner.upper_bound
+        )
+    }
+}
+
+pub(crate) fn register<'py>(
+    py: Python<'py>,
+    parent: &Bound<'py, PyModule>,
+) -> PyResult<Vec<&'static str>> {
+    let module = PyModule::new(py, "range_accrual")?;
+    module.add_class::<PyRangeAccrual>()?;
+    let exports = ["RangeAccrual"];
+    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    parent.add_submodule(&module)?;
+    Ok(exports.to_vec())
+}
+

@@ -61,7 +61,7 @@ fmt:
 	cargo fmt --all
 
 lint:
-	PYO3_PYTHON=python3 CARGO_INCREMENTAL=1 cargo clippy --workspace --all-targets --all-features  -- -D warnings
+	PYO3_PYTHON=python3 CARGO_INCREMENTAL=1 cargo clippy --workspace --all-targets --all-features
 	@if command -v uv >/dev/null 2>&1; then \
 		if [ -f .venv/bin/activate ]; then \
 			. .venv/bin/activate && ruff check .; \

@@ -86,6 +86,26 @@ impl PyInstrumentType {
     const STRUCTURED_CREDIT: Self = Self::new(InstrumentType::StructuredCredit);
     #[classattr]
     const PRIVATE_MARKETS_FUND: Self = Self::new(InstrumentType::PrivateMarketsFund);
+    #[classattr]
+    const ASIAN_OPTION: Self = Self::new(InstrumentType::AsianOption);
+    #[classattr]
+    const AUTOCALLABLE: Self = Self::new(InstrumentType::Autocallable);
+    #[classattr]
+    const BARRIER_OPTION: Self = Self::new(InstrumentType::BarrierOption);
+    #[classattr]
+    const CLIQUET_OPTION: Self = Self::new(InstrumentType::CliquetOption);
+    #[classattr]
+    const CMS_OPTION: Self = Self::new(InstrumentType::CmsOption);
+    #[classattr]
+    const FX_BARRIER_OPTION: Self = Self::new(InstrumentType::FxBarrierOption);
+    #[classattr]
+    const LOOKBACK_OPTION: Self = Self::new(InstrumentType::LookbackOption);
+    #[classattr]
+    const QUANTO_OPTION: Self = Self::new(InstrumentType::QuantoOption);
+    #[classattr]
+    const RANGE_ACCRUAL: Self = Self::new(InstrumentType::RangeAccrual);
+    #[classattr]
+    const REVOLVING_CREDIT: Self = Self::new(InstrumentType::RevolvingCredit);
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
