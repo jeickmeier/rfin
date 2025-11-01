@@ -108,60 +108,21 @@
 //! ```
 
 use finstack_core::math::special_functions::{norm_cdf, norm_pdf};
+// Reuse shared Black/BSM helpers to avoid duplication; wrap to preserve local signature ordering
+use crate::instruments::common::models::volatility::black::{d1 as d1_shared, d2 as d2_shared};
 
 /// Compute d₁ parameter for Black-Scholes-Merton formula.
 ///
-/// This is a helper function used in all Black-Scholes calculations.
-///
-/// # Formula
-///
-/// ```text
-/// d₁ = [ln(S/K) + (r - q + σ²/2)T] / (σ√T)
-/// ```
-///
-/// # Arguments
-///
-/// * `spot` - Current spot price S
-/// * `strike` - Strike price K
-/// * `time` - Time to expiration T (in years)
-/// * `rate` - Risk-free rate r (continuously compounded)
-/// * `div_yield` - Dividend yield q (continuously compounded)
-/// * `vol` - Volatility σ (annualized)
-///
-/// # Returns
-///
-/// The d₁ parameter value. Returns 0.0 for edge cases (T≤0 or σ≤0).
+/// Wrapper around shared helpers to preserve (spot, strike, time, rate, div_yield, vol)
+/// argument order expected by callers in this module.
 fn bs_d1(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
-    if time <= 0.0 || vol <= 0.0 {
-        return 0.0;
-    }
-    ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * time.sqrt())
+    // shared signature: d1(spot, strike, r, sigma, t, q)
+    d1_shared(spot, strike, rate, vol, time, div_yield)
 }
 
 /// Compute d₂ parameter for Black-Scholes-Merton formula.
-///
-/// This is a helper function used in all Black-Scholes calculations.
-///
-/// # Formula
-///
-/// ```text
-/// d₂ = d₁ - σ√T
-/// ```
-///
-/// # Arguments
-///
-/// * `spot` - Current spot price S
-/// * `strike` - Strike price K  
-/// * `time` - Time to expiration T (in years)
-/// * `rate` - Risk-free rate r (continuously compounded)
-/// * `div_yield` - Dividend yield q (continuously compounded)
-/// * `vol` - Volatility σ (annualized)
-///
-/// # Returns
-///
-/// The d₂ parameter value. Returns -σ√T for edge cases (T≤0).
 fn bs_d2(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
-    bs_d1(spot, strike, time, rate, div_yield, vol) - vol * time.sqrt()
+    d2_shared(spot, strike, rate, vol, time, div_yield)
 }
 
 /// Black-Scholes call option delta.

@@ -2,7 +2,7 @@
 
 use crate::core::money::JsMoney;
 use crate::valuations::mc_paths::JsPathDataset;
-use finstack_valuations::instruments::common::mc::results::MonteCarloResult;
+use finstack_valuations::instruments::common::models::monte_carlo::results::MonteCarloResult;
 use wasm_bindgen::prelude::*;
 
 /// Monte Carlo result with optional path data.

@@ -6,11 +6,8 @@
 //! - `RandomStream`: RNG abstraction with splittable streams
 //! - `StochasticProcess`: SDE specification (drift, diffusion)
 //! - `Discretization`: Time-stepping schemes
-//! - `Payoff`: Payoff computation with currency safety
 //! - `PathState`: State information at a point along a path
 
-use finstack_core::currency::Currency;
-use finstack_core::money::Money;
 use std::collections::HashMap;
 
 /// Random stream trait for generating random numbers.
@@ -243,108 +240,7 @@ pub trait Discretization<P: StochasticProcess + ?Sized>: Send + Sync {
     }
 }
 
-/// Payoff computation with currency safety.
-///
-/// Payoffs accumulate path information via `on_event` calls and
-/// return a final `Money` value. This ensures all results carry
-/// explicit currency information.
-///
-/// # Lifecycle
-///
-/// For each Monte Carlo path:
-/// 1. Call `reset()` to initialize
-/// 2. Call `on_event()` at each time step or event
-/// 3. Call `value()` to get final discounted payoff
-///
-/// # Example: European Call
-///
-/// ```rust,ignore
-/// impl Payoff for EuropeanCall {
-///     fn on_event(&mut self, state: &PathState) {
-///         if state.step == self.maturity_step {
-///             self.terminal_spot = state.spot().unwrap_or(0.0);
-///         }
-///     }
-///
-///     fn value(&self, currency: Currency) -> Money {
-///         let intrinsic = (self.terminal_spot - self.strike).max(0.0);
-///         Money::new(intrinsic * self.notional, currency)
-///     }
-///
-///     fn reset(&mut self) {
-///         self.terminal_spot = 0.0;
-///     }
-/// }
-/// ```
-pub trait Payoff: Send + Sync + Clone {
-    /// Process a path event (fixing, barrier check, etc.).
-    ///
-    /// This method is called at each relevant time step or event point
-    /// along the Monte Carlo path.
-    fn on_event(&mut self, state: &PathState);
-
-    /// Compute final payoff value in the specified currency.
-    ///
-    /// This should return the undiscounted payoff; discounting is
-    /// applied by the engine.
-    fn value(&self, currency: Currency) -> Money;
-
-    /// Reset payoff state for next path.
-    ///
-    /// This is called before starting a new Monte Carlo path.
-    fn reset(&mut self);
-
-    /// Optional: discount factor to apply.
-    ///
-    /// Default implementation returns 1.0 (no discounting).
-    /// Override if payoff computes its own discount factor.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_valuations::instruments::common::mc::traits::{Payoff, PathState};
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::money::Money;
-    ///
-    /// #[derive(Clone)]
-    /// struct ExamplePayoff;
-    /// impl Payoff for ExamplePayoff {
-    ///     fn on_event(&mut self, _state: &PathState) {}
-    ///     fn value(&self, currency: Currency) -> Money {
-    ///         Money::new(100.0, currency)
-    ///     }
-    ///     fn reset(&mut self) {}
-    ///     
-    ///     // Override to apply custom discount factor
-    ///     fn discount_factor(&self) -> f64 {
-    ///         0.95  // Apply 5% discount
-    ///     }
-    /// }
-    ///
-    /// let payoff = ExamplePayoff;
-    /// assert_eq!(payoff.discount_factor(), 0.95);
-    /// ```
-    fn discount_factor(&self) -> f64 {
-        1.0
-    }
-}
-
-/// Path observer for collecting statistics along paths.
-///
-/// This trait enables extracting intermediate path information
-/// beyond just the final payoff (useful for debugging, Greeks, etc.).
-pub trait PathObserver: Send + Sync {
-    /// Observe a path state.
-    fn observe(&mut self, state: &PathState);
-
-    /// Reset observer for next path.
-    fn reset(&mut self);
-
-    /// Extract collected data (format depends on observer).
-    fn data(&self) -> Vec<f64> {
-        Vec::new()
-    }
-}
+// Payoff and PathObserver are moved to `instruments::common::models::monte_carlo::traits`.
 
 #[cfg(test)]
 mod tests {

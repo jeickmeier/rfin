@@ -1,8 +1,12 @@
 //! Rho calculator for autocallable structured products.
 //!
-//! Computes rho (interest rate sensitivity) using finite differences:
-//! bump discount curve, reprice, and compute (PV_rate_up - PV_base) / bump_size.
-//! Rho is per 1% rate move.
+//! Computes rho (interest rate sensitivity) via finite differences:
+//! bump discount curve by +1bp, reprice, and return PV_change.
+//!
+//! Units & sign:
+//! - Rho is per +1bp parallel discount move
+//! - Rho = PV(rate + 1bp) − PV(base)
+//! - Positive Rho means the instrument gains value when rates go up
 
 use crate::instruments::autocallable::Autocallable;
 use crate::instruments::common::metrics::finite_difference::bump_discount_curve_parallel;
@@ -32,16 +36,16 @@ impl MetricCalculator for RhoCalculator {
             return Ok(0.0);
         }
 
-        // Bump discount curve by 1% (100bp)
-        let bump_bp = 0.01;
+        // Bump discount curve by 1bp (0.0001)
+        let bump_bp = 0.0001;
         let curves_bumped =
             bump_discount_curve_parallel(&context.curves, instrument.disc_id.as_str(), bump_bp)?;
 
         // Reprice with bumped curve
         let pv_bumped = instrument.npv(&curves_bumped, as_of)?.amount();
 
-        // Rho = (PV_bumped - PV_base) / bump_size
-        let rho = (pv_bumped - base_pv) / bump_bp;
+        // Rho = PV(rate + 1bp) − PV(base)
+        let rho = pv_bumped - base_pv;
 
         Ok(rho)
     }

@@ -6,6 +6,8 @@ pub mod correlation;
 pub mod gbm;
 pub mod gbm_dividends;
 pub mod metadata;
+pub mod brownian;
+pub mod multi_ou;
 
 #[cfg(feature = "mc")]
 pub mod heston;
@@ -25,10 +27,11 @@ pub mod jump_diffusion;
 #[cfg(feature = "mc")]
 pub mod bates;
 
-#[cfg(feature = "mc")]
-pub mod revolving_credit;
+// Revolving credit process moved to models::monte_carlo::process
 
 pub use correlation::*;
 pub use gbm::*;
 pub use gbm_dividends::*;
 pub use metadata::*;
+pub use brownian::*;
+pub use multi_ou::*;

@@ -270,12 +270,12 @@ fn test_bond_dv01_market_standard() {
     let dv01 = *result.measures.get("dv01").unwrap();
     let price = result.value.amount();
 
-    // DV01 should equal Price × ModDur × 1bp
-    let expected_dv01 = price * mod_duration * 0.0001;
+    // Signed convention: DV01 = − Price × ModDur × 1bp
+    let expected_dv01 = -(price * mod_duration * 0.0001);
 
     assert!(
         (dv01 - expected_dv01).abs() < 0.001,
-        "DV01={:.4} vs expected {:.4} (Price={:.2} × ModDur={:.3} × 0.0001)",
+        "DV01={:.4} vs expected {:.4} (− Price={:.2} × ModDur={:.3} × 0.0001)",
         dv01,
         expected_dv01,
         price,

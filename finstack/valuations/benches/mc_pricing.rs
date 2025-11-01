@@ -13,16 +13,20 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use finstack_core::currency::Currency;
 use finstack_valuations::instruments::common::mc::discretization::qe_heston::QeHeston;
-use finstack_valuations::instruments::common::mc::payoff::asian::{AsianCall, AveragingMethod};
-use finstack_valuations::instruments::common::mc::payoff::barrier::{BarrierCall, BarrierType};
-use finstack_valuations::instruments::common::mc::payoff::vanilla::EuropeanCall;
-use finstack_valuations::instruments::common::mc::pricer::european::{
+use finstack_valuations::instruments::common::models::monte_carlo::payoff::asian::{
+    AsianCall, AveragingMethod,
+};
+use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::{
+    BarrierCall, BarrierType,
+};
+use finstack_valuations::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
+use finstack_valuations::instruments::common::models::monte_carlo::pricer::european::{
     EuropeanPricer, EuropeanPricerConfig,
 };
-use finstack_valuations::instruments::common::mc::pricer::lsmc::{
+use finstack_valuations::instruments::common::models::monte_carlo::pricer::lsmc::{
     AmericanPut, LsmcConfig, LsmcPricer, PolynomialBasis,
 };
-use finstack_valuations::instruments::common::mc::pricer::path_dependent::{
+use finstack_valuations::instruments::common::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 use finstack_valuations::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
@@ -139,7 +143,9 @@ fn bench_barrier_options(c: &mut Criterion) {
 fn bench_heston(c: &mut Criterion) {
     let mut group = c.benchmark_group("mc_heston");
 
-    use finstack_valuations::instruments::common::mc::engine::{McEngine, McEngineConfig};
+    use finstack_valuations::instruments::common::models::monte_carlo::engine::{
+        McEngine, McEngineConfig,
+    };
     use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
     use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
 
@@ -152,8 +158,8 @@ fn bench_heston(c: &mut Criterion) {
             target_ci_half_width: None,
             use_parallel: false,
             chunk_size: 1000,
-            path_capture:
-                finstack_valuations::instruments::common::mc::engine::PathCaptureConfig::default(),
+            path_capture: finstack_valuations::instruments::common::models::monte_carlo::engine::
+                PathCaptureConfig::default(),
         });
 
         let heston = HestonProcess::with_params(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);

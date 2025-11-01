@@ -2,7 +2,7 @@
 
 use crate::core::money::PyMoney;
 use crate::valuations::mc_paths::PyPathDataset;
-use finstack_valuations::instruments::common::mc::results::MonteCarloResult;
+use finstack_valuations::instruments::common::models::monte_carlo::results::MonteCarloResult;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;

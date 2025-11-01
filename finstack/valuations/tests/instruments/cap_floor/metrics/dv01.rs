@@ -73,7 +73,7 @@ fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOptio
 }
 
 #[test]
-fn test_cap_dv01_positive() {
+fn test_cap_dv01_signed_negative() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
@@ -94,13 +94,13 @@ fn test_cap_dv01_positive() {
 
     let dv01 = *result.measures.get("dv01").unwrap();
 
-    // DV01 should be positive and reasonable
-    assert!(dv01 > 0.0, "Cap DV01 should be positive: {}", dv01);
-    assert!(dv01 < 10_000.0, "Cap DV01 should be reasonable: {}", dv01);
+    // Signed convention (discount bump): caps lose value as discount rates rise ⇒ DV01 < 0
+    assert!(dv01 < 0.0, "Cap DV01 should be negative: {}", dv01);
+    assert!(dv01.abs() < 10_000.0, "Cap DV01 magnitude should be reasonable: {}", dv01);
 }
 
 #[test]
-fn test_floor_dv01_positive() {
+fn test_floor_dv01_signed_negative() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
@@ -140,7 +140,8 @@ fn test_floor_dv01_positive() {
 
     let dv01 = *result.measures.get("dv01").unwrap();
 
-    assert!(dv01 > 0.0, "Floor DV01 should be positive: {}", dv01);
+    // Signed convention (discount bump): floors lose value as discount rates rise ⇒ DV01 < 0
+    assert!(dv01 < 0.0, "Floor DV01 should be negative: {}", dv01);
 }
 
 #[test]
@@ -173,10 +174,10 @@ fn test_dv01_scales_with_maturity() {
         .get("dv01")
         .unwrap();
 
-    // Longer maturity should have higher DV01
+    // Longer maturity should have larger magnitude DV01 (more sensitive)
     assert!(
-        long_dv01 > short_dv01,
-        "10Y DV01 ({}) should be > 1Y DV01 ({})",
+        long_dv01.abs() > short_dv01.abs(),
+        "|10Y DV01| ({}) should be > |1Y DV01| ({})",
         long_dv01,
         short_dv01
     );

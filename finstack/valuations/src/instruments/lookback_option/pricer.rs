@@ -12,11 +12,11 @@ use finstack_core::Result;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::payoff::lookback::{
+use crate::instruments::common::models::monte_carlo::payoff::lookback::{
     FloatingStrikeLookbackCall, LookbackCall, LookbackPut,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::pricer::path_dependent::{
+use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 #[cfg(feature = "mc")]
@@ -107,7 +107,7 @@ impl LookbackOptionMcPricer {
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
-        use crate::instruments::common::mc::seed;
+        use crate::instruments::common::models::monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]

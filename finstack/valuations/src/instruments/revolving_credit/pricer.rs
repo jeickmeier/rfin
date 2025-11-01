@@ -326,12 +326,12 @@ impl RevolvingCreditMcPricer {
         use super::types::{
             BaseRateSpec, CreditSpreadProcessSpec, InterestRateProcessSpec, UtilizationProcess,
         };
-        use crate::instruments::common::mc::discretization::revolving_credit::RevolvingCreditDiscretization;
-        use crate::instruments::common::mc::engine::McEngineBuilder;
-        use crate::instruments::common::mc::payoff::revolving_credit::{
+        use crate::instruments::common::models::monte_carlo::discretization::revolving_credit::RevolvingCreditDiscretization;
+        use crate::instruments::common::models::monte_carlo::engine::McEngineBuilder;
+        use crate::instruments::common::models::monte_carlo::payoff::revolving_credit::{
             FeeStructure, RevolvingCreditPayoff,
         };
-        use crate::instruments::common::mc::process::revolving_credit::{
+        use crate::instruments::common::models::monte_carlo::process::revolving_credit::{
             CreditSpreadParams, InterestRateSpec, RevolvingCreditProcess,
             RevolvingCreditProcessParams, UtilizationParams,
         };

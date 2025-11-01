@@ -205,44 +205,31 @@
 // Allow some clippy lints for MC module (many parameters are necessary for flexibility)
 #![allow(clippy::too_many_arguments)]
 
-pub mod analytical;
-pub mod barriers;
 pub mod discretization;
-pub mod engine;
-pub mod greeks;
-pub mod path_data;
-pub mod payoff;
-pub mod pricer;
+pub mod estimate;
+pub mod paths;
 pub mod process;
-pub mod results;
 pub mod rng;
-#[cfg(feature = "mc")]
-pub mod seed;
-pub mod stats;
+pub mod online_stats;
 pub mod time_grid;
 pub mod traits;
-pub mod variance_reduction;
-pub mod xva;
 
-#[cfg(feature = "mc")]
-pub mod mlmc;
-
-#[cfg(test)]
-mod path_capture_tests;
+// Backwards-compatible aliases (to be removed in a later release)
+pub use estimate as results;
+pub use online_stats as stats;
+pub use paths as path_data;
+// Pricing-specific modules moved to instruments::common::models::monte_carlo
 
 /// Prelude for convenient imports
 pub mod prelude {
-    // Engine and configuration
-    pub use super::engine::{
-        McEngine, McEngineBuilder, McEngineConfig, PathCaptureConfig, PathCaptureMode,
-    };
-    pub use super::path_data::{
+    // Generic path data
+    pub use super::paths::{
         PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
     };
-    pub use super::results::{Estimate, MoneyEstimate, MonteCarloResult};
-    pub use super::stats::OnlineStats;
+    pub use super::estimate::Estimate;
+    pub use super::online_stats::OnlineStats;
     pub use super::time_grid::TimeGrid;
-    pub use super::traits::{Discretization, PathState, Payoff, RandomStream, StochasticProcess};
+    pub use super::traits::{Discretization, PathState, RandomStream, StochasticProcess};
 
     // RNG
     pub use super::rng::philox::PhiloxRng;
@@ -255,6 +242,7 @@ pub mod prelude {
     #[cfg(feature = "mc")]
     pub use super::process::cir::{CirParams, CirPlusPlusProcess, CirProcess};
     pub use super::process::correlation::{apply_correlation, cholesky_decomposition};
+    pub use super::process::brownian::{BrownianParams, BrownianProcess, MultiBrownianProcess};
     pub use super::process::gbm::{GbmParams, GbmProcess, MultiGbmProcess};
     #[cfg(feature = "mc")]
     pub use super::process::heston::{HestonParams, HestonProcess};
@@ -262,6 +250,7 @@ pub mod prelude {
     pub use super::process::jump_diffusion::{MertonJumpParams, MertonJumpProcess};
     #[cfg(feature = "mc")]
     pub use super::process::ou::{HullWhite1FParams, HullWhite1FProcess, VasicekProcess};
+    pub use super::process::multi_ou::{MultiOuParams, MultiOuProcess};
     #[cfg(feature = "mc")]
     pub use super::process::schwartz_smith::{SchwartzSmithParams, SchwartzSmithProcess};
 
@@ -282,55 +271,5 @@ pub mod prelude {
     #[cfg(feature = "mc")]
     pub use super::discretization::schwartz_smith::ExactSchwartzSmith;
 
-    // Payoffs
-    #[cfg(feature = "mc")]
-    pub use super::payoff::asian::{
-        geometric_asian_call_closed_form, AsianCall, AsianPut, AveragingMethod,
-    };
-    #[cfg(feature = "mc")]
-    pub use super::payoff::autocallable::{AutocallablePayoff, FinalPayoffType};
-    #[cfg(feature = "mc")]
-    pub use super::payoff::barrier::{BarrierCall, BarrierType};
-    #[cfg(feature = "mc")]
-    pub use super::payoff::basket::{
-        margrabe_exchange_option, BasketCall, BasketPut, BasketType, ExchangeOption,
-    };
-    #[cfg(feature = "mc")]
-    pub use super::payoff::cliquet::CliquetCallPayoff;
-    #[cfg(feature = "mc")]
-    pub use super::payoff::cms::{CmsCapPayoff, CmsFloorPayoff};
-    #[cfg(feature = "mc")]
-    pub use super::payoff::fx_barrier::FxBarrierCall;
-    #[cfg(feature = "mc")]
-    pub use super::payoff::lookback::{FloatingStrikeLookbackCall, LookbackCall, LookbackPut};
-    #[cfg(feature = "mc")]
-    pub use super::payoff::quanto::{QuantoCallPayoff, QuantoPutPayoff};
-    #[cfg(feature = "mc")]
-    pub use super::payoff::range_accrual::RangeAccrualPayoff;
-    #[cfg(feature = "mc")]
-    pub use super::payoff::rates::{cap_floor_parity_swap_value, CapPayoff, FloorPayoff};
-    #[cfg(feature = "mc")]
-    pub use super::payoff::swaption::{BermudanSwaptionPayoff, SwapSchedule, SwaptionType};
-    pub use super::payoff::vanilla::{Digital, EuropeanCall, EuropeanPut, Forward};
-
-    // Pricers
-    pub use super::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
-    #[cfg(feature = "mc")]
-    pub use super::pricer::lsmc::{
-        AmericanCall, AmericanPut, LaguerreBasis, LsmcConfig, LsmcPricer, PolynomialBasis,
-    };
-    #[cfg(feature = "mc")]
-    pub use super::pricer::path_dependent::{PathDependentPricer, PathDependentPricerConfig};
-    #[cfg(feature = "mc")]
-    pub use super::pricer::swap_rate_utils::{ForwardSwapRate, HullWhiteBondPrice};
-    #[cfg(feature = "mc")]
-    pub use super::pricer::swaption_lsmc::SwaptionLsmcPricer;
-
-    // Variance reduction
-    pub use super::variance_reduction::antithetic::AntitheticConfig;
-    pub use super::variance_reduction::control_variate::{black_scholes_call, black_scholes_put};
-
-    // MLMC
-    #[cfg(feature = "mc")]
-    pub use super::mlmc::{optimal_allocation, MlmcConfig, MlmcEngine, MlmcEstimate, MlmcLevel};
+    // Pricing-specific exports moved under models::monte_carlo
 }

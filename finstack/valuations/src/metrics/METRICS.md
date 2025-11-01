@@ -110,11 +110,11 @@ The following table shows which metrics are implemented for each instrument type
 
 **Price sensitivity to interest rate change**
 
-**Formula**: `Rho = (PV(rate + 1%) - PV(rate - 1%)) / (2 * 0.01)`
+**Formula**: `Rho = PV(rate + 1bp) - PV(base)`
 
-- **Units**: Per 1% interest rate change (price units / 0.01)
-- **Sign Convention**: Positive for long calls, negative for puts/bonds
-- **Bump Size**: 1% (0.01) absolute rate change
+- **Units**: Price units per basis point (bp)
+- **Sign Convention**: Positive when value increases as rates rise
+- **Bump Size**: 1 basis point (0.0001)
 
 ## Higher-Order Greeks
 
@@ -174,10 +174,10 @@ The following table shows which metrics are implemented for each instrument type
 
 **Dollar value of a 1 basis point rate change**
 
-**Formula**: `DV01 = (PV(rate + 1bp) - PV(rate - 1bp)) / (2 * 0.0001)`
+**Formula**: `DV01 = PV(rate + 1bp) - PV(base)`
 
-- **Units**: Price units per basis point (price units / 0.0001)
-- **Sign Convention**: Negative for bonds (price falls as rates rise)
+- **Units**: Price units per basis point (bp)
+- **Sign Convention**: Positive when value increases as rates rise (typical fixed‑rate bonds have DV01 < 0)
 - **Bump Size**: 1 basis point (0.0001)
 - **Defined in**: `finite_difference::bump_sizes::INTEREST_RATE_BP`
 
@@ -533,7 +533,7 @@ Finite difference calculations benefit from caching:
 | Delta | Unitless | 1% spot |
 | Gamma | 1/spot | 1% spot |
 | Vega | Price / 1% vol | 1% absolute |
-| Rho | Price / 1% rate | 1% absolute |
+| Rho | Price / bp | 1 bp |
 | Theta | Price / day | 1 day (default) |
 | Dividend01 | Price / bp | 1 bp yield |
 | Inflation01 | Price / bp | 1 bp inflation |
@@ -551,7 +551,7 @@ Finite difference calculations benefit from caching:
 | Long Put Delta | Negative | Value decreases with spot |
 | Long Vega | Positive | Value increases with vol |
 | Long Theta | Negative | Time decay |
-| Bond DV01 | Negative | Price falls as rates rise |
+| DV01 | Instrument‑dependent | Positive means gains when rates rise (e.g., bonds typically negative) |
 | CS01 | Negative | Price falls as spreads widen |
 | Recovery01 | Positive | Higher recovery increases value |
 

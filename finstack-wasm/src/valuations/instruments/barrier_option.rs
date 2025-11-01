@@ -7,7 +7,7 @@ use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::barrier_option::{
     BarrierOption, BarrierType as BarrierOptionType,
 };
-use finstack_valuations::instruments::common::mc::payoff::barrier::BarrierType as McBarrierType;
+use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::BarrierType as McBarrierType;
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;

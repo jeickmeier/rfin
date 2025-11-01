@@ -1,14 +1,18 @@
 //! Rho calculator for interest rate options.
 //!
 //! Computes rho via a discount-curve bump-and-reprice using the shared
-//! MarketContext bump API. Returns sensitivity per 1% (i.e., 100bp).
+//! MarketContext bump API. Returns sensitivity per 1bp.
+//!
+//! Units & sign:
+//! - Rho = PV(rate + 1bp) − PV(base)
+//! - Positive Rho means the instrument gains value when rates go up
 
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::Result;
 
-/// Rho calculator (per 1%)
+/// Rho calculator (per 1bp)
 pub struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
@@ -18,7 +22,7 @@ impl MetricCalculator for RhoCalculator {
         // Base PV
         let base = context.base_value.amount();
 
-        // Build bumps map: parallel 1bp on the discount curve only, then scale to 1%
+        // Build bumps map: parallel +1bp on the discount curve only
         let mut bumps = hashbrown::HashMap::new();
         bumps.insert(
             option.disc_id.to_owned(),
@@ -30,8 +34,9 @@ impl MetricCalculator for RhoCalculator {
         // Reprice with bumped discount curve (vol held constant)
         let bumped = option.npv(&bumped_ctx, context.as_of)?;
 
-        let dv01 = bumped.amount() - base; // per 1bp
-        Ok(dv01 * 100.0) // per 1%
+        // Rho per 1bp
+        let rho = bumped.amount() - base;
+        Ok(rho)
     }
 
     fn dependencies(&self) -> &[MetricId] {

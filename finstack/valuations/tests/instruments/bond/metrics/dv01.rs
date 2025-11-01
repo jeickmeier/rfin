@@ -8,7 +8,7 @@ use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
 #[test]
-fn test_dv01_positive() {
+fn test_dv01_signed_negative_for_bond() {
     let as_of = date!(2025 - 01 - 01);
     let bond = Bond::fixed(
         "DV01_1",
@@ -30,5 +30,6 @@ fn test_dv01_positive() {
         .price_with_metrics(&market, as_of, &[MetricId::Dv01])
         .unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
-    assert!(dv01 > 0.0 && dv01 < 1.0); // Reasonable range for 5Y bond
+    // Signed convention: bonds lose value when rates rise ⇒ DV01 < 0
+    assert!(dv01 < 0.0 && dv01 > -1.0); // Reasonable magnitude for 5Y bond
 }

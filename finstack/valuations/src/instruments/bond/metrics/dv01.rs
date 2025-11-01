@@ -11,11 +11,11 @@
 //! - Modified Duration = Macaulay Duration / (1 + YTM/m)
 //! - 0.0001 = One basis point (1bp = 0.01%)
 //!
-//! # Sign Convention
+//! # Units & Sign
 //!
-//! Positive for long positions: when rates rise by 1bp, bond prices fall,
-//! resulting in a negative P&L for a long position. The DV01 magnitude
-//! indicates the dollar loss per 1bp rate increase.
+//! - DV01 is per +1bp parallel discount move.
+//! - Signed convention: `DV01 = PV(rate + 1bp) − PV(base)`.
+//! - For typical fixed‑rate bonds, DV01 < 0 (rates up → price down).
 
 use crate::instruments::bond::Bond;
 use crate::metrics::dv01_from_modified_duration;
@@ -45,7 +45,7 @@ impl MetricCalculator for BondDv01Calculator {
             .copied()
             .unwrap_or(0.0);
 
-        // Market standard: DV01 = Price × Modified Duration × 1bp
+        // Signed: DV01 = − Price × Modified Duration × 1bp
         // Use base_value (dirty price) from context
         let price = context.base_value.amount();
         let dv01 = dv01_from_modified_duration(price, modified_duration);

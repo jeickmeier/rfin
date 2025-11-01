@@ -3,7 +3,10 @@
 //! Provides DV01 calculation for Cap/Floor instruments using bump-and-reprice methodology.
 //! Bumps the discount curve by +1bp and measures the impact on option value.
 //!
-//! Sign convention: DV01 = base_pv - bumped_pv (positive when rates rise causes value to fall).
+//! Units & sign:
+//! - DV01 is per +1bp parallel discount move
+//! - DV01 = PV(rate + 1bp) − PV(base)
+//! - Positive DV01 means the instrument gains value when rates go up
 
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::instruments::common::traits::Instrument;
@@ -35,8 +38,8 @@ impl MetricCalculator for CapFloorDv01Calculator {
         // Reprice with bumped curve
         let bumped_pv = option.value(&bumped_context, as_of)?;
 
-        // DV01 = base_pv - bumped_pv
-        let dv01 = base_pv.checked_sub(bumped_pv)?;
+        // DV01 = PV(rate + 1bp) − PV(base)
+        let dv01 = bumped_pv.checked_sub(base_pv)?;
 
         Ok(dv01.amount())
     }

@@ -3,7 +3,7 @@
 //! Implements exact, Euler, Milstein, and specialized schemes.
 
 pub mod exact;
-pub mod exact_gbm_div;
+pub mod exact_gbm_dividends;
 
 #[cfg(feature = "mc")]
 pub mod exact_hw1f;
@@ -26,11 +26,12 @@ pub mod jump_euler;
 #[cfg(feature = "mc")]
 pub mod schwartz_smith;
 
-#[cfg(feature = "mc")]
-pub mod revolving_credit;
 
 pub use exact::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
-pub use exact_gbm_div::ExactGbmWithDividends;
+pub use exact_gbm_dividends::ExactGbmWithDividends;
+
+// Backwards-compatible alias
+pub use exact_gbm_dividends as exact_gbm_div;
 
 #[cfg(feature = "mc")]
 pub use exact_hw1f::ExactHullWhite1F;

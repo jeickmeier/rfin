@@ -116,7 +116,7 @@
 //! println!("Feller satisfied: {}", feller >= sigma_v_sq);
 //! ```
 
-use super::super::path_data::ProcessParams;
+use super::super::paths::ProcessParams;
 use super::super::traits::StochasticProcess;
 use super::metadata::ProcessMetadata;
 

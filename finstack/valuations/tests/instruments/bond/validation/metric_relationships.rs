@@ -81,8 +81,8 @@ fn test_dv01_duration_price_relationship() {
     let dv01 = *result.measures.get("dv01").unwrap();
     let price = result.value.amount();
 
-    // DV01 = Price × ModDur × 0.0001
-    let expected_dv01 = price * mod_dur * 0.0001;
+    // Signed: DV01 = − Price × ModDur × 0.0001
+    let expected_dv01 = -(price * mod_dur * 0.0001);
 
     assert!((dv01 - expected_dv01).abs() < 0.001);
 }

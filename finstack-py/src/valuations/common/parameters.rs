@@ -1,6 +1,6 @@
 //! Python bindings for common parameter types (OptionType, ExerciseStyle, etc.)
 
-use finstack_valuations::instruments::common::mc::payoff::barrier::BarrierType;
+use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::BarrierType;
 use finstack_valuations::instruments::common::parameters::{
     legs::PayReceive,
     market::{ExerciseStyle, OptionType, SettlementType},

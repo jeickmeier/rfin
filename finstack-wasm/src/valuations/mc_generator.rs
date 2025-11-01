@@ -3,7 +3,7 @@
 use crate::core::error::js_error;
 use crate::valuations::mc_paths::JsPathDataset;
 use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
-use finstack_valuations::instruments::common::mc::engine::{
+use finstack_valuations::instruments::common::models::monte_carlo::engine::{
     McEngineConfig, PathCaptureConfig, PathCaptureMode,
 };
 use finstack_valuations::instruments::common::mc::path_data::{

@@ -77,7 +77,7 @@
 //! // let paths = engine.generate_paths(&gbm, spot, time_grid)?;
 //! ```
 
-use super::super::path_data::ProcessParams;
+use super::super::paths::ProcessParams;
 use super::super::traits::StochasticProcess;
 use super::metadata::ProcessMetadata;
 

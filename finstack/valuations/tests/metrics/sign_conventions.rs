@@ -181,9 +181,9 @@ fn test_theta_negative_for_long_positions() {
 }
 
 #[test]
-fn test_bond_dv01_positive_magnitude() {
-    // Bond DV01 is reported as positive magnitude (dollar loss per 1bp rate increase)
-    // Even though prices fall as rates rise, DV01 represents the magnitude of the loss
+fn test_bond_dv01_negative() {
+    // Bond DV01 should be negative under the convention: DV01 = PV(bumped +1bp) - PV(base)
+    // When rates rise by 1bp, bond prices fall, so dv01 < 0 for a long position
     let as_of = date!(2025 - 01 - 01);
     let bond = Bond::fixed(
         "DV01_TEST",
@@ -209,13 +209,7 @@ fn test_bond_dv01_positive_magnitude() {
     let results = registry.compute(&[MetricId::Dv01], &mut context).unwrap();
     let dv01 = *results.get(&MetricId::Dv01).unwrap();
 
-    // DV01 should be positive (magnitude of dollar loss per 1bp rate increase)
-    // The directional effect (price falls) is implicit in the interpretation
-    assert!(
-        dv01 > 0.0,
-        "Bond DV01 should be positive (magnitude), got {}",
-        dv01
-    );
+    assert!(dv01 < 0.0, "Bond DV01 should be negative, got {}", dv01);
 }
 
 #[test]

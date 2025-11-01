@@ -1,4 +1,4 @@
-//! Rho calculator for swaptions (per 1%).
+//! Rho calculator for swaptions (per 1bp).
 //!
 //! Computes sensitivity to a parallel rate shift on the discount curve. Uses
 //! the configured model (SABR or Black) consistently with instrument pricing.
@@ -7,7 +7,7 @@ use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
 
-/// Rho calculator for swaptions (per 1%)
+/// Rho calculator for swaptions (per 1bp)
 pub struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
@@ -40,10 +40,9 @@ impl MetricCalculator for RhoCalculator {
                 .amount()
         };
 
-        // Rho per 1% = (PV_bumped_1bp - PV_base) * 100
-        // This gives sensitivity to a 100bp (1%) parallel shift
+        // Rho per 1bp = PV(rate + 1bp) − PV(base)
         let rho_1bp = bumped_price - base_price;
-        Ok(rho_1bp * super::config::RHO_PCT_PER_BP)
+        Ok(rho_1bp)
     }
 
     fn dependencies(&self) -> &[MetricId] {

@@ -30,7 +30,7 @@ fn test_rho_parallel_bump_validation() {
     let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
     let market = create_flat_market(as_of, 0.05, 0.30);
 
-    // Analytical rho (per 1%)
+    // Analytical rho (per 1bp)
     let result = swaption
         .price_with_metrics(&market, as_of, &[MetricId::Rho])
         .unwrap();
@@ -38,8 +38,8 @@ fn test_rho_parallel_bump_validation() {
 
     // Rho should be finite and reasonable for ATM swaption
     assert!(rho_analytical.is_finite(), "Rho should be finite");
-    // Rho for 1M notional 1Y into 5Y should be in a reasonable range
-    assert_reasonable(rho_analytical.abs(), 1000.0, 100_000.0, "Rho magnitude");
+    // Rho for 1M notional 1Y into 5Y should be in a reasonable per‑bp range
+    assert_reasonable(rho_analytical.abs(), 10.0, 1_000.0, "Rho magnitude");
 }
 
 #[test]

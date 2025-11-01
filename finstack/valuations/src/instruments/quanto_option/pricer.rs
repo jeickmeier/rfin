@@ -12,9 +12,9 @@ use finstack_core::Result;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::payoff::quanto::{QuantoCallPayoff, QuantoPutPayoff};
+use crate::instruments::common::models::monte_carlo::payoff::quanto::{QuantoCallPayoff, QuantoPutPayoff};
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
+use crate::instruments::common::models::monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 

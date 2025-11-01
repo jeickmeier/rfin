@@ -33,9 +33,8 @@ fn test_dv01_vs_rho_relationship() {
     let dv01 = *result.measures.get("dv01").unwrap();
     let rho = *result.measures.get("rho").unwrap();
 
-    // DV01 is change for 1bp, Rho is change for 1% (100bp)
-    // So Rho ≈ 100 * DV01
-    assert_approx_eq(rho, dv01 * 100.0, 0.01, "Rho vs DV01 relationship");
+    // Both DV01 and Rho are per 1bp in our convention
+    assert_approx_eq(rho, dv01, 0.01, "Rho vs DV01 relationship");
 }
 
 #[test]

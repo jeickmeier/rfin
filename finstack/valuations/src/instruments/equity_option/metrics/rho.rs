@@ -2,6 +2,11 @@
 //!
 //! Computes rho using analytical Black–Scholes formula.
 //!
+//! Units & sign:
+//! - Rho is exposed per +1bp (converted from analytical per‑percent greek)
+//! - Rho = PV(rate + 1bp) − PV(base)
+//! - Positive Rho means the instrument gains value when rates go up
+//!
 //! # Market Standard Formula
 //!
 //! **Call Rho:** ρ = (K × T × e^(-rT) × N(d₂)) / 100
@@ -15,7 +20,7 @@
 //! - N(·) = cumulative standard normal distribution
 //! - d₂ = d₁ - σ√T
 //!
-//! Result is per 1% (0.01) interest rate move and scaled by contract size.
+//! Result from the analytical formula is per 1% (0.01) move; we convert to per 1bp.
 //!
 //! # Note
 //!
@@ -33,7 +38,8 @@ pub struct RhoCalculator;
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &EquityOption = context.instrument_as()?;
-        option.rho(&context.curves, context.as_of)
+        // Convert analytical per‑percent rho to per‑bp
+        Ok(option.rho(&context.curves, context.as_of)? / 100.0)
     }
 
     fn dependencies(&self) -> &[MetricId] {
