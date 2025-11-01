@@ -15,4 +15,3 @@ impl HasPricingOverrides for RangeAccrual {
         &mut self.pricing_overrides
     }
 }
-

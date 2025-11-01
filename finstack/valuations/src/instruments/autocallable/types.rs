@@ -91,7 +91,9 @@ impl crate::instruments::common::traits::Instrument for Autocallable {
         #[cfg(not(feature = "mc"))]
         {
             let _ = (market, as_of);
-            Err(finstack_core::Error::Validation("MC feature required for Autocallable pricing".to_string()))
+            Err(finstack_core::Error::Validation(
+                "MC feature required for Autocallable pricing".to_string(),
+            ))
         }
     }
 

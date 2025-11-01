@@ -93,7 +93,9 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
         {
             #[allow(unused_variables)]
             let _ = (market, as_of);
-            Err(finstack_core::Error::Validation("MC feature required for AsianOption pricing".to_string()))
+            Err(finstack_core::Error::Validation(
+                "MC feature required for AsianOption pricing".to_string(),
+            ))
         }
     }
 

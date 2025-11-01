@@ -59,17 +59,17 @@ where
                 let day_count = get_instrument_day_count(instrument.as_any());
                 let expiry = get_instrument_expiry_for_adaptive(instrument.as_any());
                 let vol_id = get_instrument_vol_id(instrument.as_any());
-                
+
                 let time_to_expiry = if let (Some(dc), Some(exp)) = (day_count, expiry) {
-                    dc.year_fraction(as_of, exp, finstack_core::dates::DayCountCtx::default()).ok().unwrap_or(0.0)
+                    dc.year_fraction(as_of, exp, finstack_core::dates::DayCountCtx::default())
+                        .ok()
+                        .unwrap_or(0.0)
                 } else {
                     0.0
                 };
-                
+
                 let atm_vol = vol_id
-                    .and_then(|vol_id| {
-                        context.curves.surface_ref(vol_id.as_str()).ok()
-                    })
+                    .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
                     .and_then(|vol_surface| {
                         if time_to_expiry > 0.0 {
                             Some(vol_surface.value_clamped(time_to_expiry, current_spot))
@@ -93,7 +93,7 @@ where
         // This ensures MC-priced instruments produce identical results for up/down bumps
         let mut instrument_up = instrument.clone();
         let mut instrument_down = instrument.clone();
-        
+
         // Set different seed scenarios for up and down bumps to ensure deterministic greeks
         instrument_up.pricing_overrides_mut().mc_seed_scenario = Some("delta_up".to_string());
         instrument_down.pricing_overrides_mut().mc_seed_scenario = Some("delta_down".to_string());
@@ -152,17 +152,17 @@ where
                 let day_count = get_instrument_day_count(instrument.as_any());
                 let expiry = get_instrument_expiry_for_adaptive(instrument.as_any());
                 let vol_id = get_instrument_vol_id(instrument.as_any());
-                
+
                 let time_to_expiry = if let (Some(dc), Some(exp)) = (day_count, expiry) {
-                    dc.year_fraction(as_of, exp, finstack_core::dates::DayCountCtx::default()).ok().unwrap_or(0.0)
+                    dc.year_fraction(as_of, exp, finstack_core::dates::DayCountCtx::default())
+                        .ok()
+                        .unwrap_or(0.0)
                 } else {
                     0.0
                 };
-                
+
                 let atm_vol = vol_id
-                    .and_then(|vol_id| {
-                        context.curves.surface_ref(vol_id.as_str()).ok()
-                    })
+                    .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
                     .and_then(|vol_surface| {
                         if time_to_expiry > 0.0 {
                             Some(vol_surface.value_clamped(time_to_expiry, current_spot))
@@ -186,29 +186,54 @@ where
         let mut instrument_up = instrument.clone();
         instrument_up.pricing_overrides_mut().mc_seed_scenario = Some("gamma_up_up".to_string());
         let curves_up = bump_scalar_price(&context.curves, instrument.spot_id(), bump_pct)?;
-        
+
         // Delta at spot_up: need two more bumps
         let mut instrument_up_up = instrument_up.clone();
         instrument_up_up.pricing_overrides_mut().mc_seed_scenario = Some("gamma_up_up".to_string());
         let mut instrument_up_down = instrument_up.clone();
-        instrument_up_down.pricing_overrides_mut().mc_seed_scenario = Some("gamma_up_down".to_string());
-        
-        let pv_up_up = instrument_up_up.value(&bump_scalar_price(&curves_up, instrument.spot_id(), bump_pct)?, as_of)?.amount();
-        let pv_up_down = instrument_up_down.value(&bump_scalar_price(&curves_up, instrument.spot_id(), -bump_pct)?, as_of)?.amount();
+        instrument_up_down.pricing_overrides_mut().mc_seed_scenario =
+            Some("gamma_up_down".to_string());
+
+        let pv_up_up = instrument_up_up
+            .value(
+                &bump_scalar_price(&curves_up, instrument.spot_id(), bump_pct)?,
+                as_of,
+            )?
+            .amount();
+        let pv_up_down = instrument_up_down
+            .value(
+                &bump_scalar_price(&curves_up, instrument.spot_id(), -bump_pct)?,
+                as_of,
+            )?
+            .amount();
         let delta_up = (pv_up_up - pv_up_down) / (2.0 * bump_size);
 
         // Compute delta at spot - bump
         let mut instrument_down = instrument.clone();
-        instrument_down.pricing_overrides_mut().mc_seed_scenario = Some("gamma_down_base".to_string());
+        instrument_down.pricing_overrides_mut().mc_seed_scenario =
+            Some("gamma_down_base".to_string());
         let curves_down = bump_scalar_price(&context.curves, instrument.spot_id(), -bump_pct)?;
-        
+
         let mut instrument_down_up = instrument_down.clone();
-        instrument_down_up.pricing_overrides_mut().mc_seed_scenario = Some("gamma_down_up".to_string());
+        instrument_down_up.pricing_overrides_mut().mc_seed_scenario =
+            Some("gamma_down_up".to_string());
         let mut instrument_down_down = instrument_down.clone();
-        instrument_down_down.pricing_overrides_mut().mc_seed_scenario = Some("gamma_down_down".to_string());
-        
-        let pv_down_up = instrument_down_up.value(&bump_scalar_price(&curves_down, instrument.spot_id(), bump_pct)?, as_of)?.amount();
-        let pv_down_down = instrument_down_down.value(&bump_scalar_price(&curves_down, instrument.spot_id(), -bump_pct)?, as_of)?.amount();
+        instrument_down_down
+            .pricing_overrides_mut()
+            .mc_seed_scenario = Some("gamma_down_down".to_string());
+
+        let pv_down_up = instrument_down_up
+            .value(
+                &bump_scalar_price(&curves_down, instrument.spot_id(), bump_pct)?,
+                as_of,
+            )?
+            .amount();
+        let pv_down_down = instrument_down_down
+            .value(
+                &bump_scalar_price(&curves_down, instrument.spot_id(), -bump_pct)?,
+                as_of,
+            )?
+            .amount();
         let delta_down = (pv_down_up - pv_down_down) / (2.0 * bump_size);
 
         // Gamma = (Delta_up - Delta_down) / (2 * bump_size)
@@ -222,4 +247,3 @@ where
 // bumping is complex and requires instrument-specific handling (to_state(),
 // from_grid(), etc.). Each instrument should implement its own vega calculator
 // following the pattern seen in asian_option/metrics/vega.rs
-

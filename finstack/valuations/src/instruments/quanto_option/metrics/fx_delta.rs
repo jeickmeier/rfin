@@ -9,8 +9,8 @@
 //! settled in another currency. FX delta measures sensitivity to changes
 //! in the FX exchange rate between these currencies.
 
-use crate::instruments::quanto_option::QuantoOption;
 use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -23,9 +23,11 @@ impl MetricCalculator for FxDeltaCalculator {
         let as_of = context.as_of;
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -51,7 +53,8 @@ impl MetricCalculator for FxDeltaCalculator {
         let pv_up = option.npv(&curves_up, as_of)?.amount();
 
         // Bump FX rate down
-        let curves_down = bump_scalar_price(context.curves.as_ref(), fx_rate_id, -bump_sizes::SPOT)?;
+        let curves_down =
+            bump_scalar_price(context.curves.as_ref(), fx_rate_id, -bump_sizes::SPOT)?;
         let pv_down = option.npv(&curves_down, as_of)?.amount();
 
         // Central difference: fx_delta = (PV_up - PV_down) / (2 * h)
@@ -60,4 +63,3 @@ impl MetricCalculator for FxDeltaCalculator {
         Ok(fx_delta)
     }
 }
-

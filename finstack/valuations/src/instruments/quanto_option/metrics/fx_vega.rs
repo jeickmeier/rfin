@@ -9,8 +9,8 @@
 //! Only computed if fx_vol_id is provided. Returns 0 if FX volatility
 //! surface is not available.
 
-use crate::instruments::quanto_option::QuantoOption;
 use crate::instruments::common::metrics::finite_difference::bump_sizes;
+use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -24,9 +24,11 @@ impl MetricCalculator for FxVegaCalculator {
         let base_pv = context.base_value.amount();
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -43,7 +45,7 @@ impl MetricCalculator for FxVegaCalculator {
         // Bump FX volatility surface by scaling all values
         let mut curves_bumped = context.curves.as_ref().clone();
         let scale_factor = 1.0 + bump_sizes::VOLATILITY;
-        
+
         // Get surface state for rebuilding
         let state = fx_vol_surface.to_state();
         let bumped_vols: Vec<f64> = state
@@ -51,21 +53,20 @@ impl MetricCalculator for FxVegaCalculator {
             .iter()
             .map(|v| v * scale_factor)
             .collect();
-        
+
         use finstack_core::market_data::surfaces::vol_surface::VolSurface;
         use finstack_core::types::CurveId;
         use std::sync::Arc;
-        
+
         let bumped_surface = VolSurface::from_grid(
             fx_vol_id.as_str(),
             &state.expiries,
             &state.strikes,
             &bumped_vols,
         )?;
-        curves_bumped.surfaces.insert(
-            CurveId::from(fx_vol_id.as_str()),
-            Arc::new(bumped_surface),
-        );
+        curves_bumped
+            .surfaces
+            .insert(CurveId::from(fx_vol_id.as_str()), Arc::new(bumped_surface));
 
         // Reprice with bumped FX vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
@@ -76,4 +77,3 @@ impl MetricCalculator for FxVegaCalculator {
         Ok(fx_vega)
     }
 }
-

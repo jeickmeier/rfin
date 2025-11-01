@@ -142,7 +142,7 @@ impl AutocallableMcPricer {
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
         use crate::instruments::common::mc::seed;
-        
+
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
             {
@@ -158,7 +158,7 @@ impl AutocallableMcPricer {
             #[cfg(not(feature = "mc"))]
             self.config.seed
         };
-        
+
         let mut config = self.config.clone();
         config.seed = seed;
         let pricer = PathDependentPricer::new(config);

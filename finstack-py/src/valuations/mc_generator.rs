@@ -28,7 +28,10 @@ use pyo3::Bound;
 /// - Process validation
 /// - Understanding stochastic dynamics
 /// - Educational purposes
-#[pyclass(module = "finstack.valuations.mc_generator", name = "MonteCarloPathGenerator")]
+#[pyclass(
+    module = "finstack.valuations.mc_generator",
+    name = "MonteCarloPathGenerator"
+)]
 pub struct PyMonteCarloPathGenerator;
 
 #[pymethods]
@@ -72,17 +75,15 @@ impl PyMonteCarloPathGenerator {
         let gbm = GbmProcess::with_params(r, q, sigma);
 
         // Create time grid
-        let time_grid =
-            TimeGrid::uniform(time_to_maturity, num_steps).map_err(core_to_py)?;
+        let time_grid = TimeGrid::uniform(time_to_maturity, num_steps).map_err(core_to_py)?;
 
         // Configure path capture
         let path_capture = match capture_mode {
             "all" => PathCaptureConfig::all(),
             "sample" => {
-                let count =
-                    sample_count.ok_or_else(|| PyValueError::new_err(
-                        "sample_count required when capture_mode='sample'"
-                    ))?;
+                let count = sample_count.ok_or_else(|| {
+                    PyValueError::new_err("sample_count required when capture_mode='sample'")
+                })?;
                 PathCaptureConfig::sample(count, seed + 1)
             }
             _ => {
@@ -104,13 +105,12 @@ impl PyMonteCarloPathGenerator {
             path_capture,
         };
 
-        // Generate paths
-        let paths = self.generate_paths_internal(
-            &gbm,
-            &ExactGbm::new(),
-            &[initial_spot],
-            &config,
-        )?;
+        // Generate paths (release GIL for compute-heavy path generation)
+        let paths = Python::with_gil(|py| {
+            py.allow_threads(|| {
+                self.generate_paths_internal(&gbm, &ExactGbm::new(), &[initial_spot], &config)
+            })
+        })?;
 
         Ok(PyPathDataset { inner: paths })
     }
@@ -164,9 +164,9 @@ impl PyMonteCarloPathGenerator {
             .ok_or_else(|| PyValueError::new_err("Missing parameter 'sigma'"))?
             .extract::<f64>()?;
 
-        let initial_spot = *initial_state.first().ok_or_else(|| {
-            PyValueError::new_err("initial_state must have at least one element")
-        })?;
+        let initial_spot = *initial_state
+            .first()
+            .ok_or_else(|| PyValueError::new_err("initial_state must have at least one element"))?;
 
         self.generate_gbm_paths(
             initial_spot,
@@ -279,8 +279,7 @@ impl PyMonteCarloPathGenerator {
             }
 
             // Final value is just the terminal spot for visualization
-            simulated_path
-                .set_final_value(*state.first().unwrap_or(&0.0));
+            simulated_path.set_final_value(*state.first().unwrap_or(&0.0));
 
             dataset.add_path(simulated_path);
         }
@@ -310,4 +309,3 @@ pub(crate) fn register<'py>(
 
     Ok(exports)
 }
-

@@ -41,10 +41,8 @@ pub fn py_npv(
     base_date: Option<Bound<'_, PyAny>>,
     day_count: Option<&str>,
 ) -> PyResult<f64> {
-
     // Convert Python dates to Rust dates
-    let mut flows: Vec<(finstack_core::dates::Date, f64)> =
-        Vec::with_capacity(cash_flows.len());
+    let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
 
     for (date, amount) in cash_flows {
         let rust_date = py_to_date(&date)?;
@@ -110,4 +108,3 @@ pub(crate) fn register<'py>(
     module.add_function(wrap_pyfunction!(py_irr_periodic, module)?)?;
     Ok(vec!["npv", "irr_periodic"])
 }
-

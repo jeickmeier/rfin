@@ -16,4 +16,3 @@ pub trait HasEquityUnderlying {
     /// the spot price in the `MarketContext`.
     fn spot_id(&self) -> &str;
 }
-

@@ -1,5 +1,6 @@
 use crate::core::error::core_to_py;
 use crate::core::market_data::PyMarketContext;
+use crate::core::utils::py_to_date;
 use crate::valuations::common::{pricing_error_to_py, ModelKeyArg, PyPricerKey};
 use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
 use crate::valuations::metrics::MetricIdArg;
@@ -13,6 +14,17 @@ use finstack_valuations::pricer::{create_standard_registry, PricerRegistry};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
+
+/// Default pricing date used when no explicit `as_of` parameter is provided.
+/// 
+/// This is a placeholder value that ensures deterministic pricing when the caller
+/// doesn't specify a valuation date. In production use, callers should provide
+/// an explicit `as_of` date that matches their market data.
+fn default_pricing_date() -> finstack_core::dates::Date {
+    // SAFETY: Hard-coded values are known to be valid; this will never panic
+    finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+        .expect("Default pricing date (2024-01-01) is a valid calendar date")
+}
 
 /// Registry dispatching (instrument, model) pairs to pricing engines.
 ///
@@ -49,13 +61,14 @@ impl PyPricerRegistry {
         Self::new(PricerRegistry::new())
     }
 
-    #[pyo3(text_signature = "(self, instrument, model, market)")]
+    #[pyo3(signature = (instrument, model, market, as_of=None), text_signature = "(self, instrument, model, market, as_of=None)")]
     /// Price an instrument given a model key and market data.
     ///
     /// Args:
     ///     instrument: Instrument instance created from ``finstack.valuations.instruments``.
     ///     model: Pricing model key or its snake-case label.
     ///     market: Market context supplying curves, spreads, and FX data.
+    ///     as_of: Optional valuation date (datetime.date). If not provided, uses 2024-01-01 as default.
     ///
     /// Returns:
     ///     ValuationResult: Envelope containing PV, measures, and metadata.
@@ -69,27 +82,37 @@ impl PyPricerRegistry {
     ///     >>> result = registry.price(bond, "discounting", market)
     ///     >>> result.present_value.amount
     ///     123.45
+    ///     >>> # With explicit as_of date
+    ///     >>> from datetime import date
+    ///     >>> result = registry.price(bond, "discounting", market, as_of=date(2024, 6, 15))
     fn price(
         &self,
+        py: Python<'_>,
         instrument: Bound<'_, PyAny>,
         model: Bound<'_, PyAny>,
         market: &PyMarketContext,
+        as_of: Option<Bound<'_, PyAny>>,
     ) -> PyResult<PyValuationResult> {
         let InstrumentHandle {
             instrument: inst, ..
         } = extract_instrument(&instrument)?;
         let ModelKeyArg(model_key) = model.extract()?;
-        // Use a default date for Python bindings - this could be enhanced to accept date from Python
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        
+        let as_of_date = match as_of {
+            Some(date) => py_to_date(&date)?,
+            None => default_pricing_date(),
+        };
 
-        self.inner
-            .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of)
-            .map(PyValuationResult::new)
-            .map_err(pricing_error_to_py)
+        // Release GIL for compute-heavy Rust pricing operation
+        py.allow_threads(|| {
+            self.inner
+                .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of_date)
+                .map(PyValuationResult::new)
+                .map_err(pricing_error_to_py)
+        })
     }
 
-    #[pyo3(text_signature = "(self, instrument, model, market, metrics)")]
+    #[pyo3(signature = (instrument, model, market, metrics, as_of=None), text_signature = "(self, instrument, model, market, metrics, as_of=None)")]
     /// Price an instrument and compute the requested metrics.
     ///
     /// Args:
@@ -97,6 +120,7 @@ impl PyPricerRegistry {
     ///     model: Pricing model key or name.
     ///     market: Market context with the necessary curve data.
     ///     metrics: Iterable of metric identifiers or names to evaluate.
+    ///     as_of: Optional valuation date (datetime.date). If not provided, uses 2024-01-01 as default.
     ///
     /// Returns:
     ///     ValuationResult: Pricing result enriched with computed metrics.
@@ -112,10 +136,12 @@ impl PyPricerRegistry {
     ///     -415.2
     fn price_with_metrics(
         &self,
+        py: Python<'_>,
         instrument: Bound<'_, PyAny>,
         model: Bound<'_, PyAny>,
         market: &PyMarketContext,
         metrics: Vec<Bound<'_, PyAny>>,
+        as_of: Option<Bound<'_, PyAny>>,
     ) -> PyResult<PyValuationResult> {
         let InstrumentHandle {
             instrument: inst, ..
@@ -129,27 +155,31 @@ impl PyPricerRegistry {
             metric_ids.push(id);
         }
 
-        // Use a default date for Python bindings - this could be enhanced to accept date from Python
-        let as_of =
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+        let as_of_date = match as_of {
+            Some(date) => py_to_date(&date)?,
+            None => default_pricing_date(),
+        };
 
-        // Base price via registry to derive as_of deterministically per pricer
-        let base = self
-            .inner
-            .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of)
-            .map_err(pricing_error_to_py)?;
+        // Release GIL for compute-heavy pricing and metric calculation
+        py.allow_threads(|| {
+            // Base price via registry to derive as_of deterministically per pricer
+            let base = self
+                .inner
+                .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of_date)
+                .map_err(pricing_error_to_py)?;
 
-        // Compute requested metrics using helper
-        let with_metrics = build_with_metrics_dyn(
-            inst.as_ref(),
-            &market.inner,
-            base.as_of,
-            base.value,
-            &metric_ids,
-        )
-        .map_err(core_to_py)?;
+            // Compute requested metrics using helper
+            let with_metrics = build_with_metrics_dyn(
+                inst.as_ref(),
+                &market.inner,
+                base.as_of,
+                base.value,
+                &metric_ids,
+            )
+            .map_err(core_to_py)?;
 
-        Ok(PyValuationResult::new(with_metrics))
+            Ok(PyValuationResult::new(with_metrics))
+        })
     }
 
     #[pyo3(

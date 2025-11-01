@@ -69,7 +69,9 @@ impl MetricCalculator for WeightRiskCalculator {
             }
 
             // Reprice with bumped weights
-            let pv_bumped = bumped_basket.value(context.curves.as_ref(), as_of)?.amount();
+            let pv_bumped = bumped_basket
+                .value(context.curves.as_ref(), as_of)?
+                .amount();
 
             // Weight risk = (PV_bumped - PV_base) / weight_change
             // Result is per 1bp change in weight
@@ -80,12 +82,8 @@ impl MetricCalculator for WeightRiskCalculator {
         }
 
         // Store as bucketed series
-        context.store_bucketed_series(
-            crate::metrics::MetricId::custom("weight_risk"),
-            series,
-        );
+        context.store_bucketed_series(crate::metrics::MetricId::custom("weight_risk"), series);
 
         Ok(total_risk)
     }
 }
-

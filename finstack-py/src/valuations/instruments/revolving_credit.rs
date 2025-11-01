@@ -88,9 +88,9 @@ impl PyRevolvingCredit {
                     BaseRateSpec::Fixed { rate }
                 }
                 "floating" => {
-                    let index_id_item = dict
-                        .get_item("index_id")?
-                        .ok_or_else(|| PyValueError::new_err("Missing 'index_id' for floating rate"))?;
+                    let index_id_item = dict.get_item("index_id")?.ok_or_else(|| {
+                        PyValueError::new_err("Missing 'index_id' for floating rate")
+                    })?;
                     let index_id_str = index_id_item.extract::<String>()?;
                     let margin_bp = dict
                         .get_item("margin_bp")?
@@ -114,7 +114,7 @@ impl PyRevolvingCredit {
             }
         } else {
             return Err(PyValueError::new_err(
-                "base_rate_spec must be a dict with 'type' key"
+                "base_rate_spec must be a dict with 'type' key",
             ));
         };
 
@@ -145,109 +145,106 @@ impl PyRevolvingCredit {
         };
 
         // Parse draw/repay spec
-        let draw_repay = if let Ok(dict) = draw_repay_spec.downcast::<PyDict>() {
-            if let Ok(Some(deterministic)) = dict.get_item("deterministic") {
-                let events_list = deterministic
-                    .downcast::<PyList>()
-                    .map_err(|_| PyValueError::new_err("deterministic must be a list"))?;
-                let mut events = Vec::new();
-                for item in events_list.iter() {
-                    let event_dict = item.downcast::<PyDict>()?;
-                    let date = py_to_date(
-                        &event_dict
-                            .get_item("date")?
-                            .ok_or_else(|| PyValueError::new_err("Missing 'date' in event"))?,
-                    )?;
-                    let amount = extract_money(
-                        &event_dict
-                            .get_item("amount")?
-                            .ok_or_else(|| PyValueError::new_err("Missing 'amount' in event"))?,
-                    )?;
-                    let is_draw = event_dict
-                        .get_item("is_draw")?
-                        .and_then(|v| v.extract::<bool>().ok())
-                        .unwrap_or(true);
-                    events.push(DrawRepayEvent {
-                        date,
-                        amount,
-                        is_draw,
-                    });
-                }
-                DrawRepaySpec::Deterministic(events)
-            } else if let Ok(Some(stochastic)) = dict.get_item("stochastic") {
-                let stoch_dict = stochastic
-                    .downcast::<PyDict>()
-                    .map_err(|_| PyValueError::new_err("stochastic must be a dict"))?;
-                let process_dict_item = stoch_dict
-                    .get_item("utilization_process")?
-                    .ok_or_else(|| PyValueError::new_err("Missing 'utilization_process'"))?;
-                let process_dict = process_dict_item.downcast::<PyDict>()?;
-                let process_type_val = process_dict
-                    .get_item("type")?
-                    .ok_or_else(|| PyValueError::new_err("Missing 'type' in utilization_process"))?;
-                let process_type = process_type_val.extract::<String>()?;
+        let draw_repay =
+            if let Ok(dict) = draw_repay_spec.downcast::<PyDict>() {
+                if let Ok(Some(deterministic)) = dict.get_item("deterministic") {
+                    let events_list = deterministic
+                        .downcast::<PyList>()
+                        .map_err(|_| PyValueError::new_err("deterministic must be a list"))?;
+                    let mut events = Vec::new();
+                    for item in events_list.iter() {
+                        let event_dict = item.downcast::<PyDict>()?;
+                        let date =
+                            py_to_date(&event_dict.get_item("date")?.ok_or_else(|| {
+                                PyValueError::new_err("Missing 'date' in event")
+                            })?)?;
+                        let amount =
+                            extract_money(&event_dict.get_item("amount")?.ok_or_else(|| {
+                                PyValueError::new_err("Missing 'amount' in event")
+                            })?)?;
+                        let is_draw = event_dict
+                            .get_item("is_draw")?
+                            .and_then(|v| v.extract::<bool>().ok())
+                            .unwrap_or(true);
+                        events.push(DrawRepayEvent {
+                            date,
+                            amount,
+                            is_draw,
+                        });
+                    }
+                    DrawRepaySpec::Deterministic(events)
+                } else if let Ok(Some(stochastic)) = dict.get_item("stochastic") {
+                    let stoch_dict = stochastic
+                        .downcast::<PyDict>()
+                        .map_err(|_| PyValueError::new_err("stochastic must be a dict"))?;
+                    let process_dict_item = stoch_dict
+                        .get_item("utilization_process")?
+                        .ok_or_else(|| PyValueError::new_err("Missing 'utilization_process'"))?;
+                    let process_dict = process_dict_item.downcast::<PyDict>()?;
+                    let process_type_val = process_dict.get_item("type")?.ok_or_else(|| {
+                        PyValueError::new_err("Missing 'type' in utilization_process")
+                    })?;
+                    let process_type = process_type_val.extract::<String>()?;
 
-                let utilization_process = match process_type.to_lowercase().as_str() {
-                    "mean_reverting" | "meanreverting" => {
-                        let target_rate = process_dict
-                            .get_item("target_rate")?
-                            .ok_or_else(|| PyValueError::new_err("Missing 'target_rate'"))?
-                            .extract::<f64>()?;
-                        let speed = process_dict
-                            .get_item("speed")?
-                            .ok_or_else(|| PyValueError::new_err("Missing 'speed'"))?
-                            .extract::<f64>()?;
-                        let volatility = process_dict
-                            .get_item("volatility")?
-                            .ok_or_else(|| PyValueError::new_err("Missing 'volatility'"))?
-                            .extract::<f64>()?;
-                        UtilizationProcess::MeanReverting {
-                            target_rate,
-                            speed,
-                            volatility,
+                    let utilization_process = match process_type.to_lowercase().as_str() {
+                        "mean_reverting" | "meanreverting" => {
+                            let target_rate = process_dict
+                                .get_item("target_rate")?
+                                .ok_or_else(|| PyValueError::new_err("Missing 'target_rate'"))?
+                                .extract::<f64>()?;
+                            let speed = process_dict
+                                .get_item("speed")?
+                                .ok_or_else(|| PyValueError::new_err("Missing 'speed'"))?
+                                .extract::<f64>()?;
+                            let volatility = process_dict
+                                .get_item("volatility")?
+                                .ok_or_else(|| PyValueError::new_err("Missing 'volatility'"))?
+                                .extract::<f64>()?;
+                            UtilizationProcess::MeanReverting {
+                                target_rate,
+                                speed,
+                                volatility,
+                            }
                         }
-                    }
-                    other => {
-                        return Err(PyValueError::new_err(format!(
-                            "Unknown utilization process: {other}"
-                        )))
-                    }
-                };
+                        other => {
+                            return Err(PyValueError::new_err(format!(
+                                "Unknown utilization process: {other}"
+                            )))
+                        }
+                    };
 
-                let num_paths = stoch_dict
-                    .get_item("num_paths")?
-                    .ok_or_else(|| PyValueError::new_err("Missing 'num_paths'"))?
-                    .extract::<usize>()?;
-                let seed = stoch_dict
-                    .get_item("seed")?
-                    .and_then(|v| v.extract::<Option<u64>>().ok())
-                    .flatten();
+                    let num_paths = stoch_dict
+                        .get_item("num_paths")?
+                        .ok_or_else(|| PyValueError::new_err("Missing 'num_paths'"))?
+                        .extract::<usize>()?;
+                    let seed = stoch_dict
+                        .get_item("seed")?
+                        .and_then(|v| v.extract::<Option<u64>>().ok())
+                        .flatten();
 
-                // Construct StochasticUtilizationSpec
-                // When --all-features is used (as in make lint), the mc feature in
-                // finstack-valuations is enabled via transitive dependency features,
-                // so mc_config field exists and must be provided.
-                // Note: This code will only compile when mc feature is enabled in finstack-valuations.
-                #[allow(unused_attributes)]
-                let spec = StochasticUtilizationSpec {
-                    utilization_process,
-                    num_paths,
-                    seed,
-                    // Include mc_config when the field exists (i.e., when mc feature is enabled)
-                    // The field is conditionally compiled in finstack-valuations with #[cfg(feature = "mc")]
-                    mc_config: None,
-                };
-                DrawRepaySpec::Stochastic(spec)
+                    // Construct StochasticUtilizationSpec
+                    // When --all-features is used (as in make lint), the mc feature in
+                    // finstack-valuations is enabled via transitive dependency features,
+                    // so mc_config field exists and must be provided.
+                    // Note: This code will only compile when mc feature is enabled in finstack-valuations.
+                    #[allow(unused_attributes)]
+                    let spec = StochasticUtilizationSpec {
+                        utilization_process,
+                        num_paths,
+                        seed,
+                        // Include mc_config when the field exists (i.e., when mc feature is enabled)
+                        // The field is conditionally compiled in finstack-valuations with #[cfg(feature = "mc")]
+                        mc_config: None,
+                    };
+                    DrawRepaySpec::Stochastic(spec)
+                } else {
+                    return Err(PyValueError::new_err(
+                        "draw_repay_spec must have 'deterministic' or 'stochastic' key",
+                    ));
+                }
             } else {
-                return Err(PyValueError::new_err(
-                    "draw_repay_spec must have 'deterministic' or 'stochastic' key"
-                ));
-            }
-        } else {
-            return Err(PyValueError::new_err(
-                "draw_repay_spec must be a dict"
-            ));
-        };
+                return Err(PyValueError::new_err("draw_repay_spec must be a dict"));
+            };
 
         let mut builder = RevolvingCredit::builder();
         builder = builder.id(id);
@@ -262,7 +259,9 @@ impl PyRevolvingCredit {
         builder = builder.disc_id(disc_id);
         builder = builder.day_count(DayCount::Act365F);
         let rev_credit = builder.build().map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to build RevolvingCredit: {e}"))
+            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "Failed to build RevolvingCredit: {e}"
+            ))
         })?;
         Ok(Self::new(rev_credit))
     }
@@ -318,4 +317,3 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyRevolvingCredit>()?;
     Ok(vec!["RevolvingCredit"])
 }
-

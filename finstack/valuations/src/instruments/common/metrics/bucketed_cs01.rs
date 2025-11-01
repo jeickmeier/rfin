@@ -57,4 +57,3 @@ where
         Ok(total)
     }
 }
-

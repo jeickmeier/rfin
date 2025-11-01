@@ -22,7 +22,11 @@ impl MetricCalculator for VannaCalculator {
         // Check if expired
         let t = option
             .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())
+            .year_fraction(
+                as_of,
+                option.expiry,
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .unwrap_or(0.0);
         if t <= 0.0 {
             return Ok(0.0);
@@ -37,7 +41,7 @@ impl MetricCalculator for VannaCalculator {
                 id: "fx_matrix".to_string(),
             })
         })?;
-        
+
         let spot_query = finstack_core::money::fx::FxQuery::new(pair.0, pair.1, as_of);
         let current_spot = fx_matrix.rate(spot_query)?.rate;
 
@@ -52,10 +56,12 @@ impl MetricCalculator for VannaCalculator {
 
         // Four-point finite difference for cross-derivative
         // Vanna = [Δ(S+ΔS, σ+Δσ) - Δ(S+ΔS, σ-Δσ) - Δ(S-ΔS, σ+Δσ) + Δ(S-ΔS, σ-Δσ)] / (4 * ΔS * Δσ)
-        
+
         // 1. Delta at (S+ΔS, σ+Δσ)
         let curves_up_up = {
-            let fx_bumped = context.curves.bump_fx_spot(pair.0, pair.1, spot_bump_pct, as_of)?;
+            let fx_bumped = context
+                .curves
+                .bump_fx_spot(pair.0, pair.1, spot_bump_pct, as_of)?;
             let vol_bumped = vol_surface.bump_point(t, option.strike, vol_bump_pct)?;
             fx_bumped.insert_surface(vol_bumped)
         };
@@ -63,7 +69,9 @@ impl MetricCalculator for VannaCalculator {
 
         // 2. Delta at (S+ΔS, σ-Δσ)
         let curves_up_down = {
-            let fx_bumped = context.curves.bump_fx_spot(pair.0, pair.1, spot_bump_pct, as_of)?;
+            let fx_bumped = context
+                .curves
+                .bump_fx_spot(pair.0, pair.1, spot_bump_pct, as_of)?;
             let vol_bumped = vol_surface.bump_point(t, option.strike, -vol_bump_pct)?;
             fx_bumped.insert_surface(vol_bumped)
         };
@@ -71,7 +79,9 @@ impl MetricCalculator for VannaCalculator {
 
         // 3. Delta at (S-ΔS, σ+Δσ)
         let curves_down_up = {
-            let fx_bumped = context.curves.bump_fx_spot(pair.0, pair.1, -spot_bump_pct, as_of)?;
+            let fx_bumped = context
+                .curves
+                .bump_fx_spot(pair.0, pair.1, -spot_bump_pct, as_of)?;
             let vol_bumped = vol_surface.bump_point(t, option.strike, vol_bump_pct)?;
             fx_bumped.insert_surface(vol_bumped)
         };
@@ -79,7 +89,9 @@ impl MetricCalculator for VannaCalculator {
 
         // 4. Delta at (S-ΔS, σ-Δσ)
         let curves_down_down = {
-            let fx_bumped = context.curves.bump_fx_spot(pair.0, pair.1, -spot_bump_pct, as_of)?;
+            let fx_bumped = context
+                .curves
+                .bump_fx_spot(pair.0, pair.1, -spot_bump_pct, as_of)?;
             let vol_bumped = vol_surface.bump_point(t, option.strike, -vol_bump_pct)?;
             fx_bumped.insert_surface(vol_bumped)
         };
@@ -92,4 +104,3 @@ impl MetricCalculator for VannaCalculator {
         Ok(vanna)
     }
 }
-

@@ -143,7 +143,7 @@ impl BarrierOptionMcPricer {
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
         use crate::instruments::common::mc::seed;
-        
+
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
             {
@@ -159,11 +159,11 @@ impl BarrierOptionMcPricer {
             #[cfg(not(feature = "mc"))]
             self.config.seed
         };
-        
+
         // Create config with derived seed
         let mut config = self.config.clone();
         config.seed = seed;
-        
+
         // Price using path-dependent pricer
         let pricer = PathDependentPricer::new(config);
         let result = pricer.price(

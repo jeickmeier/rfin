@@ -54,5 +54,3 @@ impl JsCliquetOption {
         JsCliquetOption::from_inner(self.0.clone())
     }
 }
-
-

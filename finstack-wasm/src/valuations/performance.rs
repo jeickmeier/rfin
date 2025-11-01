@@ -98,7 +98,6 @@ pub fn xirr_wasm(cash_flows: Array, guess: Option<f64>) -> Result<f64, JsValue> 
 /// ```
 #[wasm_bindgen(js_name = calculateNpv)]
 pub fn calculate_npv_wasm(cash_flows: Array, discount_rate: f64) -> Result<f64, JsValue> {
-
     // Parse cash flows
     let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::new();
 

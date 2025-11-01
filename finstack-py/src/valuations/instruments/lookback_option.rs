@@ -154,7 +154,7 @@ impl PyLookbackOption {
         let mut builder = LookbackOption::builder()
             .id(id)
             .underlying_ticker(ticker.to_string());
-        
+
         if let Some(s) = strike {
             let strike_money = finstack_core::money::Money::new(s, notional_money.currency());
             builder = builder.strike(strike_money);
@@ -171,7 +171,9 @@ impl PyLookbackOption {
             builder = builder.div_yield_id(div.to_string());
         }
         let option = builder.build().map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to build LookbackOption: {e}"))
+            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "Failed to build LookbackOption: {e}"
+            ))
         })?;
         Ok(Self::new(option))
     }
@@ -245,4 +247,3 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyLookbackOption>()?;
     Ok(vec!["LookbackType", "LookbackOption"])
 }
-

@@ -46,4 +46,3 @@ impl MetricCalculator for Recovery01Calculator {
         Ok(recovery01)
     }
 }
-

@@ -69,4 +69,3 @@ impl MetricCalculator for Conversion01Calculator {
         Ok(conversion01)
     }
 }
-

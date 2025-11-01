@@ -8,7 +8,7 @@
 //!
 //! Following market conventions:
 //! - Spot/Underlying: 1% (0.01)
-//! - Volatility: 1% (0.01) 
+//! - Volatility: 1% (0.01)
 //! - Interest rates: 1bp (0.0001)
 //! - Credit spreads: 1bp (0.0001)
 //! - Correlations: 1% (0.01)
@@ -44,21 +44,21 @@ pub fn bump_scalar_price(
     bump_pct: f64,
 ) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
     use finstack_core::types::CurveId;
-    
+
     let mut bumped = context.clone();
     let current = bumped.price(price_id)?;
-    
+
     let bumped_value = match current {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v * (1.0 + bump_pct))
         }
         finstack_core::market_data::scalars::MarketScalar::Price(m) => {
             finstack_core::market_data::scalars::MarketScalar::Price(
-                finstack_core::money::Money::new(m.amount() * (1.0 + bump_pct), m.currency())
+                finstack_core::money::Money::new(m.amount() * (1.0 + bump_pct), m.currency()),
             )
         }
     };
-    
+
     bumped.prices.insert(CurveId::from(price_id), bumped_value);
     Ok(bumped)
 }
@@ -79,10 +79,10 @@ pub fn bump_discount_curve_parallel(
     curve_id: &str,
     bump_bp: f64,
 ) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
-    use finstack_core::types::CurveId;
     use finstack_core::market_data::bumps::BumpSpec;
+    use finstack_core::types::CurveId;
     use hashbrown::HashMap;
-    
+
     let mut bumps = HashMap::new();
     bumps.insert(CurveId::from(curve_id), BumpSpec::parallel_bp(bump_bp));
     context.bump(bumps)
@@ -118,13 +118,13 @@ pub fn bump_vol_surface_parallel(
     bump_pct: f64,
 ) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
     use finstack_core::market_data::surfaces::vol_surface::VolSurface;
-    
+
     // Get the original surface
     let vol_surface = context.surface_ref(vol_id)?;
-    
+
     // Extract surface state
     let state = vol_surface.to_state();
-    
+
     // Scale all volatilities by (1 + bump_pct)
     let scale_factor = 1.0 + bump_pct;
     let bumped_vols: Vec<f64> = state
@@ -132,18 +132,14 @@ pub fn bump_vol_surface_parallel(
         .iter()
         .map(|v| v * scale_factor)
         .collect();
-    
+
     // Rebuild the surface with bumped volatilities
-    let bumped_surface = VolSurface::from_grid(
-        vol_id,
-        &state.expiries,
-        &state.strikes,
-        &bumped_vols,
-    )?;
-    
+    let bumped_surface =
+        VolSurface::from_grid(vol_id, &state.expiries, &state.strikes, &bumped_vols)?;
+
     // Clone the context and insert the bumped surface
     let bumped_context = context.clone().insert_surface(bumped_surface);
-    
+
     Ok(bumped_context)
 }
 
@@ -179,10 +175,10 @@ pub fn adaptive_spot_bump(
     if let Some(pct) = override_pct {
         return pct;
     }
-    
+
     let base_bump = bump_sizes::SPOT; // 1%
     let vol_scaled = 0.001 * atm_vol * time_to_expiry.sqrt(); // 0.1% * σ * √T
-    
+
     // Use the larger of base bump and vol-scaled bump, but cap at 5%
     base_bump.max(vol_scaled).min(0.05)
 }
@@ -200,14 +196,11 @@ pub fn adaptive_spot_bump(
 ///
 /// # Returns
 /// Adaptive bump size as absolute volatility (e.g., 0.01 for 1% vol)
-pub fn adaptive_vol_bump(
-    current_vol: f64,
-    override_pct: Option<f64>,
-) -> f64 {
+pub fn adaptive_vol_bump(current_vol: f64, override_pct: Option<f64>) -> f64 {
     if let Some(pct) = override_pct {
         return pct;
     }
-    
+
     if current_vol < 0.05 {
         // Low volatility: use fixed 1% absolute bump
         bump_sizes::VOLATILITY.max(0.001)
@@ -244,7 +237,7 @@ pub fn get_bump_overrides(
     if !overrides.adaptive_bumps {
         return (None, None, None);
     }
-    
+
     (
         overrides.spot_bump_pct,
         overrides.vol_bump_pct,

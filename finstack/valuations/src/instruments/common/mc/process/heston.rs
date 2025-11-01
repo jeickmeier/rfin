@@ -159,13 +159,10 @@ impl ProcessMetadata for HestonProcess {
         params.add_param("sigma_v", self.params.sigma_v);
         params.add_param("rho", self.params.rho);
         params.add_param("v0", self.params.v0);
-        
+
         // Create 2x2 correlation matrix for [S, v]
-        let correlation = vec![
-            1.0, self.params.rho,
-            self.params.rho, 1.0,
-        ];
-        
+        let correlation = vec![1.0, self.params.rho, self.params.rho, 1.0];
+
         params
             .with_correlation(correlation)
             .with_factors(vec!["spot".to_string(), "variance".to_string()])

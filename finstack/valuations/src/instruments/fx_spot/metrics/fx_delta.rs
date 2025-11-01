@@ -49,4 +49,3 @@ impl MetricCalculator for FxDeltaCalculator {
         Ok(fx_delta)
     }
 }
-

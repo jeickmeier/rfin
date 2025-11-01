@@ -82,4 +82,3 @@ impl MetricCalculator for Hurdle01Calculator {
         Ok(hurdle01)
     }
 }
-

@@ -79,4 +79,3 @@ impl JsLookbackOption {
         JsLookbackOption::from_inner(self.0.clone())
     }
 }
-

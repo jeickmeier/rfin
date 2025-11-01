@@ -159,4 +159,3 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyRangeAccrual>()?;
     Ok(vec!["RangeAccrual"])
 }
-

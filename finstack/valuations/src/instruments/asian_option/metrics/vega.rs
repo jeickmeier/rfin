@@ -19,9 +19,11 @@ impl MetricCalculator for VegaCalculator {
         let base_pv = context.base_value.amount();
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -29,7 +31,7 @@ impl MetricCalculator for VegaCalculator {
         // Bump volatility surface by scaling all values
         // Use the bump_vol_surface_parallel helper for cleaner implementation
         use crate::instruments::common::metrics::finite_difference::bump_vol_surface_parallel;
-        
+
         let curves_bumped = bump_vol_surface_parallel(
             context.curves.as_ref(),
             option.vol_id.as_str(),
@@ -46,4 +48,3 @@ impl MetricCalculator for VegaCalculator {
         Ok(vega)
     }
 }
-

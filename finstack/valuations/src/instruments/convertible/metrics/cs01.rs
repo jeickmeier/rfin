@@ -13,8 +13,8 @@
 //! it directly captures CS01. If a separate credit curve exists, it should
 //! be used instead.
 
-use crate::instruments::convertible::ConvertibleBond;
 use crate::instruments::common::metrics::finite_difference::bump_discount_curve_parallel;
+use crate::instruments::convertible::ConvertibleBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -36,13 +36,14 @@ impl MetricCalculator for Cs01Calculator {
         // or can be accessed via a separate credit curve if available.
         // For now, we bump the discount curve by 1bp to approximate CS01.
         // In a full implementation, this would bump a separate credit/hazard curve.
-        
+
         // Bump discount curve by 1bp (0.0001) for credit spread sensitivity
         // Note: This assumes the discount curve includes credit spread component
         let bump_bp = 0.0001; // 1bp for credit spread (0.0001)
-        
-        let curves_bumped = bump_discount_curve_parallel(&context.curves, bond.disc_id.as_str(), bump_bp)?;
-        
+
+        let curves_bumped =
+            bump_discount_curve_parallel(&context.curves, bond.disc_id.as_str(), bump_bp)?;
+
         // Reprice with bumped curve
         let pv_bumped = bond.npv(&curves_bumped, as_of)?.amount();
 
@@ -53,4 +54,3 @@ impl MetricCalculator for Cs01Calculator {
         Ok(cs01)
     }
 }
-

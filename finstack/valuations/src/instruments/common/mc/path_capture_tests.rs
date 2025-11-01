@@ -169,4 +169,3 @@ mod tests {
         assert!(result.estimate.mean.amount() > 0.0);
     }
 }
-

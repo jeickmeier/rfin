@@ -20,9 +20,11 @@ impl MetricCalculator for VegaCalculator {
 
         // Check if expired
         let final_date = option.fixing_dates.last().copied().unwrap_or(as_of);
-        let t = option
-            .day_count
-            .year_fraction(as_of, final_date, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            final_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -31,9 +33,11 @@ impl MetricCalculator for VegaCalculator {
         let vol_id = match option.vol_id.as_ref() {
             Some(id) => id,
             None => {
-                return Err(finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "vol_id not provided for CMS option".to_string(),
-                }));
+                return Err(finstack_core::Error::from(
+                    finstack_core::error::InputError::NotFound {
+                        id: "vol_id not provided for CMS option".to_string(),
+                    },
+                ));
             }
         };
 
@@ -42,7 +46,7 @@ impl MetricCalculator for VegaCalculator {
         // Bump volatility surface by scaling all values
         let mut curves_bumped = context.curves.as_ref().clone();
         let scale_factor = 1.0 + bump_sizes::VOLATILITY;
-        
+
         // Get surface state for rebuilding
         let state = vol_surface.to_state();
         let bumped_vols: Vec<f64> = state
@@ -50,21 +54,20 @@ impl MetricCalculator for VegaCalculator {
             .iter()
             .map(|v| v * scale_factor)
             .collect();
-        
+
         use finstack_core::market_data::surfaces::vol_surface::VolSurface;
         use finstack_core::types::CurveId;
         use std::sync::Arc;
-        
+
         let bumped_surface = VolSurface::from_grid(
             vol_id.as_str(),
             &state.expiries,
             &state.strikes,
             &bumped_vols,
         )?;
-        curves_bumped.surfaces.insert(
-            CurveId::from(vol_id.as_str()),
-            Arc::new(bumped_surface),
-        );
+        curves_bumped
+            .surfaces
+            .insert(CurveId::from(vol_id.as_str()), Arc::new(bumped_surface));
 
         // Reprice with bumped vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
@@ -75,4 +78,3 @@ impl MetricCalculator for VegaCalculator {
         Ok(vega)
     }
 }
-

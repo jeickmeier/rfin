@@ -52,10 +52,10 @@ impl MetricCalculator for DividendRiskCalculator {
 
         // Get current dividend yield
         let current_scalar = context.curves.price(&div_yield_id)?;
-        
+
         // Bump dividend yield up and down
         use finstack_core::types::CurveId;
-        
+
         // Bump up
         let mut curves_up = context.curves.as_ref().clone();
         let new_value_up = match current_scalar {
@@ -64,11 +64,13 @@ impl MetricCalculator for DividendRiskCalculator {
             }
             finstack_core::market_data::scalars::MarketScalar::Price(m) => {
                 finstack_core::market_data::scalars::MarketScalar::Price(
-                    finstack_core::money::Money::new(m.amount() + DIVIDEND_BUMP_BP, m.currency())
+                    finstack_core::money::Money::new(m.amount() + DIVIDEND_BUMP_BP, m.currency()),
                 )
             }
         };
-        curves_up.prices.insert(CurveId::from(div_yield_id.clone()), new_value_up);
+        curves_up
+            .prices
+            .insert(CurveId::from(div_yield_id.clone()), new_value_up);
         let pv_up = convertible.npv(&curves_up, as_of)?.amount();
 
         // Bump down
@@ -87,11 +89,13 @@ impl MetricCalculator for DividendRiskCalculator {
             }
             finstack_core::market_data::scalars::MarketScalar::Price(m) => {
                 finstack_core::market_data::scalars::MarketScalar::Price(
-                    finstack_core::money::Money::new(div_down_value, m.currency())
+                    finstack_core::money::Money::new(div_down_value, m.currency()),
                 )
             }
         };
-        curves_down.prices.insert(CurveId::from(div_yield_id), new_value_down);
+        curves_down
+            .prices
+            .insert(CurveId::from(div_yield_id), new_value_down);
         let pv_down = convertible.npv(&curves_down, as_of)?.amount();
 
         // Dividend01 = (PV_up - PV_down) / (2 * bump_size)
@@ -100,4 +104,3 @@ impl MetricCalculator for DividendRiskCalculator {
         Ok(dividend01)
     }
 }
-

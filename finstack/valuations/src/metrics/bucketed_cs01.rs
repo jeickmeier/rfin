@@ -43,11 +43,11 @@ where
         } else {
             format!("{:.0}y", t)
         };
-        
+
         // Bump hazard rate at the specific tenor
         // For key-rate bumping, we bump the segment containing the target time
         let bumped_hazard = with_key_rate_hazard_bump(hazard, t, bump_bp)?;
-        
+
         let pv_bumped = revalue_with_hazard(&bumped_hazard)?;
         // CS01 is PV change per 1bp, so divide by 10,000 to normalize
         let cs01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
@@ -82,10 +82,10 @@ where
         } else {
             format!("{:.0}y", t)
         };
-        
+
         // Bump hazard at key rate
         let bumped_hazard = with_key_rate_hazard_bump(hazard, t, bump_bp)?;
-        
+
         // Create new MarketContext with bumped hazard
         let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
         let pv_bumped = revalue_with_context(&temp_ctx)?;
@@ -110,16 +110,16 @@ fn with_key_rate_hazard_bump(
 ) -> finstack_core::Result<HazardCurve> {
     // Convert bump from bp to hazard rate units (1bp = 0.0001 in decimal)
     let bump_decimal = bump_bp * 1e-4;
-    
+
     // Get knot points
     let knots: Vec<f64> = hazard.knot_points().map(|(t, _)| t).collect();
     let hazard_rates: Vec<f64> = hazard.knot_points().map(|(_, lambda)| lambda).collect();
-    
+
     if knots.len() < 2 {
         // Parallel bump if curve has < 2 knots
         return hazard.with_hazard_shift(bump_decimal);
     }
-    
+
     // Find segment containing t_years
     let mut target_segment = 0usize;
     if t_years <= knots[0] {
@@ -134,28 +134,28 @@ fn with_key_rate_hazard_bump(
             }
         }
     }
-    
+
     // Bump the hazard rate in the target segment
     // For piecewise constant curves, we bump the constant rate in that segment
     let mut bumped_rates = hazard_rates.clone();
     bumped_rates[target_segment] = (bumped_rates[target_segment] + bump_decimal).max(0.0);
-    
+
     // Rebuild hazard curve with bumped rates
     let bumped_points: Vec<(f64, f64)> = knots
         .iter()
         .zip(bumped_rates.iter())
         .map(|(&t, &lambda)| (t, lambda))
         .collect();
-    
+
     // Use builder to recreate curve
-    let mut builder = hazard.to_builder_with_id(hazard.id().clone())
+    let mut builder = hazard
+        .to_builder_with_id(hazard.id().clone())
         .knots(bumped_points);
-    
+
     // Add par spread points if available
     builder = builder.par_spreads(hazard.par_spread_points());
-    
-    builder.build().map_err(|_e| {
-        finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-    })
-}
 
+    builder
+        .build()
+        .map_err(|_e| finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+}

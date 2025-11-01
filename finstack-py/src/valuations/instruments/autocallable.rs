@@ -107,7 +107,9 @@ impl PyAutocallable {
                 "capital_protection" => {
                     let floor = dict
                         .get_item("floor")?
-                        .ok_or_else(|| PyValueError::new_err("Missing 'floor' for capital_protection"))?
+                        .ok_or_else(|| {
+                            PyValueError::new_err("Missing 'floor' for capital_protection")
+                        })?
                         .extract::<f64>()?;
                     FinalPayoffType::CapitalProtection { floor }
                 }
@@ -135,17 +137,17 @@ impl PyAutocallable {
             match py_type.to_lowercase().as_str() {
                 "capital_protection" => {
                     return Err(PyValueError::new_err(
-                        "capital_protection requires dict with 'floor'"
+                        "capital_protection requires dict with 'floor'",
                     ))
                 }
                 "participation" => {
                     return Err(PyValueError::new_err(
-                        "participation requires dict with 'rate'"
+                        "participation requires dict with 'rate'",
                     ))
                 }
                 "knock_in_put" => {
                     return Err(PyValueError::new_err(
-                        "knock_in_put requires dict with 'strike'"
+                        "knock_in_put requires dict with 'strike'",
                     ))
                 }
                 other => {
@@ -156,7 +158,7 @@ impl PyAutocallable {
             }
         } else {
             return Err(PyValueError::new_err(
-                "final_payoff_type must be a dict with 'type' key"
+                "final_payoff_type must be a dict with 'type' key",
             ));
         };
 
@@ -237,4 +239,3 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyAutocallable>()?;
     Ok(vec!["Autocallable"])
 }
-

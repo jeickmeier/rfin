@@ -100,7 +100,7 @@ impl PathCaptureConfig {
                 hash ^= hash >> 13;
                 hash = hash.wrapping_mul(0xc2b2ae35);
                 hash ^= hash >> 16;
-                
+
                 let sample_prob = count as f64 / num_paths as f64;
                 let threshold = (u64::MAX as f64 * sample_prob) as u64;
                 hash < threshold
@@ -423,7 +423,7 @@ impl McEngine {
         };
 
         let money_estimate = MoneyEstimate::from_estimate(estimate, currency);
-        
+
         if let Some(paths) = paths {
             Ok(MonteCarloResult::with_paths(money_estimate, paths))
         } else {
@@ -630,12 +630,10 @@ impl McEngine {
         let capture_enabled = self.config.path_capture.enabled;
         let sampling_method = match &self.config.path_capture.capture_mode {
             PathCaptureMode::All => PathSamplingMethod::All,
-            PathCaptureMode::Sample { count, seed } => {
-                PathSamplingMethod::RandomSample {
-                    count: *count,
-                    seed: *seed,
-                }
-            }
+            PathCaptureMode::Sample { count, seed } => PathSamplingMethod::RandomSample {
+                count: *count,
+                seed: *seed,
+            },
         };
 
         let mut paths = if capture_enabled {
@@ -707,9 +705,8 @@ impl McEngine {
             }
         }
 
-        let estimate =
-            Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count())
-                .with_std_dev(stats.std_dev());
+        let estimate = Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count())
+            .with_std_dev(stats.std_dev());
 
         Ok((estimate, paths))
     }
@@ -736,12 +733,10 @@ impl McEngine {
         let capture_enabled = self.config.path_capture.enabled;
         let sampling_method = match &self.config.path_capture.capture_mode {
             PathCaptureMode::All => PathSamplingMethod::All,
-            PathCaptureMode::Sample { count, seed } => {
-                PathSamplingMethod::RandomSample {
-                    count: *count,
-                    seed: *seed,
-                }
-            }
+            PathCaptureMode::Sample { count, seed } => PathSamplingMethod::RandomSample {
+                count: *count,
+                seed: *seed,
+            },
         };
 
         let captured_paths: Mutex<Vec<SimulatedPath>> = Mutex::new(Vec::new());
@@ -842,11 +837,8 @@ impl McEngine {
         .with_std_dev(combined.std_dev());
 
         let paths = if capture_enabled {
-            let mut dataset = PathDataset::new(
-                self.config.num_paths,
-                sampling_method,
-                process_params,
-            );
+            let mut dataset =
+                PathDataset::new(self.config.num_paths, sampling_method, process_params);
             let collected_paths = captured_paths.into_inner().unwrap();
             for path in collected_paths {
                 dataset.add_path(path);
@@ -1076,7 +1068,7 @@ impl McEngine {
         // Extract final payoff value
         let payoff_money = payoff.value(Currency::USD);
         let payoff_value = payoff_money.amount();
-        
+
         // Set final discounted value
         simulated_path.set_final_value(payoff_value * discount_factor);
 

@@ -340,11 +340,7 @@ fn test_all_risk_metrics_together() {
     let idx = standard_single_curve_index("CDX-ALL-RISK", start, end, 10_000_000.0);
     let ctx = standard_market_context(as_of);
 
-    let metrics = vec![
-        MetricId::RiskyPv01,
-        MetricId::Cs01,
-        MetricId::Dv01,
-    ];
+    let metrics = vec![MetricId::RiskyPv01, MetricId::Cs01, MetricId::Dv01];
 
     let result = idx.price_with_metrics(&ctx, as_of, &metrics).unwrap();
 
@@ -400,11 +396,7 @@ fn test_risk_metrics_finite() {
     let idx = standard_single_curve_index("CDX-FINITE", start, end, 10_000_000.0);
     let ctx = standard_market_context(as_of);
 
-    let metrics = vec![
-        MetricId::RiskyPv01,
-        MetricId::Cs01,
-        MetricId::Dv01,
-    ];
+    let metrics = vec![MetricId::RiskyPv01, MetricId::Cs01, MetricId::Dv01];
 
     let result = idx.price_with_metrics(&ctx, as_of, &metrics).unwrap();
 

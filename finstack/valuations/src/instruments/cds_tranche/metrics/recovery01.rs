@@ -35,7 +35,8 @@ impl MetricCalculator for Recovery01Calculator {
             .base_correlation_curve(original_index.base_correlation_curve.clone())
             .with_issuer_curves(
                 original_index
-                    .issuer_credit_curves.clone()
+                    .issuer_credit_curves
+                    .clone()
                     .unwrap_or_default(),
             )
             .build()?;
@@ -56,7 +57,8 @@ impl MetricCalculator for Recovery01Calculator {
             .base_correlation_curve(original_index.base_correlation_curve.clone())
             .with_issuer_curves(
                 original_index
-                    .issuer_credit_curves.clone()
+                    .issuer_credit_curves
+                    .clone()
                     .unwrap_or_default(),
             )
             .build()?;
@@ -74,4 +76,3 @@ impl MetricCalculator for Recovery01Calculator {
         Ok(recovery01)
     }
 }
-

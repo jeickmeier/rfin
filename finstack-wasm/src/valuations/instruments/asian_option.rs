@@ -233,4 +233,3 @@ fn parse_iso_date(value: &str) -> Result<finstack_core::dates::Date, JsValue> {
     finstack_core::dates::Date::from_calendar_date(year, month_enum, day)
         .map_err(|e| js_error(format!("Invalid date '{value}': {e}")))
 }
-

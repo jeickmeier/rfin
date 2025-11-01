@@ -17,8 +17,8 @@ mod constituent_delta;
 mod expense_ratio;
 mod weight_risk;
 
-use crate::metrics::MetricRegistry;
 use crate::metrics::MetricId;
+use crate::metrics::MetricRegistry;
 use std::sync::Arc;
 
 pub use asset_exposure::AssetExposureCalculator;

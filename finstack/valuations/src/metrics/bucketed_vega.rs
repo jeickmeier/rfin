@@ -24,13 +24,13 @@ pub const VOL_BUMP_PCT: f64 = 0.01;
 /// Example: [1m, 3m, 6m, 1y, 2y, 3y, 5y]
 pub fn standard_equity_expiry_buckets() -> Vec<f64> {
     vec![
-        1.0 / 12.0,   // 1m
-        3.0 / 12.0,   // 3m
-        6.0 / 12.0,   // 6m
-        1.0,          // 1y
-        2.0,          // 2y
-        3.0,          // 3y
-        5.0,          // 5y
+        1.0 / 12.0, // 1m
+        3.0 / 12.0, // 3m
+        6.0 / 12.0, // 6m
+        1.0,        // 1y
+        2.0,        // 2y
+        3.0,        // 3y
+        5.0,        // 5y
     ]
 }
 
@@ -125,10 +125,7 @@ where
             }
         })
         .collect();
-    let col_labels: Vec<String> = strikes_vec
-        .iter()
-        .map(|&k| format!("{:.2}", k))
-        .collect();
+    let col_labels: Vec<String> = strikes_vec.iter().map(|&k| format!("{:.2}", k)).collect();
 
     let _ = context.store_matrix2d(
         MetricId::custom("bucketed_vega"),
@@ -139,4 +136,3 @@ where
 
     Ok(total_vega)
 }
-

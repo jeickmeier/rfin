@@ -1,17 +1,21 @@
 //! Python bindings for common parameter types (OptionType, ExerciseStyle, etc.)
 
-use finstack_valuations::instruments::common::parameters::{
-    market::{ExerciseStyle, OptionType, SettlementType},
-    legs::PayReceive,
-};
 use finstack_valuations::instruments::common::mc::payoff::barrier::BarrierType;
+use finstack_valuations::instruments::common::parameters::{
+    legs::PayReceive,
+    market::{ExerciseStyle, OptionType, SettlementType},
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
 
 /// Option type for pricing (Call or Put).
-#[pyclass(module = "finstack.valuations.common.parameters", name = "OptionType", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.parameters",
+    name = "OptionType",
+    frozen
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyOptionType {
     inner: OptionType,
@@ -76,7 +80,11 @@ impl From<OptionType> for PyOptionType {
 }
 
 /// Exercise style for options (European, American, Bermudan).
-#[pyclass(module = "finstack.valuations.common.parameters", name = "ExerciseStyle", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.parameters",
+    name = "ExerciseStyle",
+    frozen
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyExerciseStyle {
     inner: ExerciseStyle,
@@ -131,7 +139,11 @@ impl From<PyExerciseStyle> for ExerciseStyle {
 }
 
 /// Settlement type for options (Physical or Cash).
-#[pyclass(module = "finstack.valuations.common.parameters", name = "SettlementType", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.parameters",
+    name = "SettlementType",
+    frozen
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PySettlementType {
     inner: SettlementType,
@@ -178,7 +190,11 @@ impl PySettlementType {
 }
 
 /// Pay/Receive direction for instrument legs.
-#[pyclass(module = "finstack.valuations.common.parameters", name = "PayReceive", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.parameters",
+    name = "PayReceive",
+    frozen
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyPayReceive {
     inner: PayReceive,
@@ -241,7 +257,11 @@ impl From<PyPayReceive> for PayReceive {
 }
 
 /// Barrier type for barrier options.
-#[pyclass(module = "finstack.valuations.common.parameters", name = "BarrierType", frozen)]
+#[pyclass(
+    module = "finstack.valuations.common.parameters",
+    name = "BarrierType",
+    frozen
+)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyBarrierType {
     inner: BarrierType,
@@ -327,5 +347,3 @@ pub(crate) fn register<'py>(
 
     Ok(exports)
 }
-
-

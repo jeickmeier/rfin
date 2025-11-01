@@ -1,8 +1,8 @@
 //! Trait implementations for AsianOption
 
+use crate::instruments::asian_option::AsianOption;
 use crate::instruments::common::metrics::has_equity_underlying::HasEquityUnderlying;
 use crate::instruments::common::metrics::has_pricing_overrides::HasPricingOverrides;
-use crate::instruments::asian_option::AsianOption;
 
 impl HasEquityUnderlying for AsianOption {
     fn spot_id(&self) -> &str {
@@ -15,4 +15,3 @@ impl HasPricingOverrides for AsianOption {
         &mut self.pricing_overrides
     }
 }
-

@@ -277,8 +277,11 @@ impl PyEvaluator {
     /// -------
     /// Results
     ///     Evaluation results
-    fn evaluate(&mut self, model: &PyFinancialModelSpec) -> PyResult<PyResults> {
-        let results = self.inner.evaluate(&model.inner).map_err(stmt_to_py)?;
+    fn evaluate(&mut self, py: Python<'_>, model: &PyFinancialModelSpec) -> PyResult<PyResults> {
+        // Release GIL for compute-heavy statement evaluation
+        let results = py.allow_threads(|| {
+            self.inner.evaluate(&model.inner).map_err(stmt_to_py)
+        })?;
         Ok(PyResults::new(results))
     }
 
@@ -305,15 +308,20 @@ impl PyEvaluator {
     ///     Evaluation results
     fn evaluate_with_market_context(
         &mut self,
+        py: Python<'_>,
         model: &PyFinancialModelSpec,
         market_ctx: &PyMarketContext,
         as_of: &Bound<'_, PyAny>,
     ) -> PyResult<PyResults> {
         let as_of_date = py_to_date(as_of)?;
-        let results = self
-            .inner
-            .evaluate_with_market_context(&model.inner, Some(&market_ctx.inner), Some(as_of_date))
-            .map_err(stmt_to_py)?;
+        
+        // Release GIL for compute-heavy statement evaluation with market context
+        let results = py.allow_threads(|| {
+            self.inner
+                .evaluate_with_market_context(&model.inner, Some(&market_ctx.inner), Some(as_of_date))
+                .map_err(stmt_to_py)
+        })?;
+        
         Ok(PyResults::new(results))
     }
 }

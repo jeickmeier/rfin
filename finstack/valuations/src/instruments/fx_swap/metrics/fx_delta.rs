@@ -27,7 +27,11 @@ impl MetricCalculator for FxDeltaCalculator {
         })?;
 
         let current_rate = (**fx_matrix)
-            .rate(FxQuery::new(fx_swap.base_currency, fx_swap.quote_currency, as_of))?
+            .rate(FxQuery::new(
+                fx_swap.base_currency,
+                fx_swap.quote_currency,
+                as_of,
+            ))?
             .rate;
 
         // Bump spot rate by 1%
@@ -61,4 +65,3 @@ impl MetricCalculator for FxDeltaCalculator {
         Ok(fx_delta)
     }
 }
-

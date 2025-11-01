@@ -165,15 +165,24 @@ pub fn map_error(err: CoreError) -> PyErr {
 /// Map input-specific errors to Python exceptions.
 fn map_input_error(err: InputError) -> PyErr {
     match err {
-        InputError::NotFound { id } => {
-            // Check if it looks like a curve ID
-            if id.contains("_") || id.contains("-") {
-                MissingCurveError::new_err(format!("Curve not found: {}", id))
-            } else {
-                ConfigurationError::new_err(format!("Resource not found: {}", id))
+        // Specific curve not found error with suggestions
+        InputError::MissingCurve {
+            requested,
+            suggestions,
+        } => {
+            let mut msg = format!("Curve not found: {}", requested);
+            if !suggestions.is_empty() {
+                msg.push_str(&format!(". Did you mean: {}?", suggestions.join(", ")));
             }
+            MissingCurveError::new_err(msg)
         }
 
+        // Generic not found error (non-curve resources)
+        InputError::NotFound { id } => {
+            ConfigurationError::new_err(format!("Resource not found: {}", id))
+        }
+
+        // Business day adjustment failures
         InputError::AdjustmentFailed {
             date,
             convention,
@@ -183,7 +192,29 @@ fn map_input_error(err: InputError) -> PyErr {
             date, convention, max_days
         )),
 
-        other => ParameterError::new_err(other.to_string()),
+        // Unknown currency
+        InputError::UnknownCurrency => ParameterError::new_err("Unknown currency code"),
+
+        // Invalid date construction
+        InputError::InvalidDate { year, month, day } => {
+            DateError::new_err(format!("Invalid date: {}-{:02}-{:02}", year, month, day))
+        }
+
+        // Invalid date range
+        InputError::InvalidDateRange => DateError::new_err("Invalid date range: start must be before end"),
+
+        // Validation errors
+        InputError::TooFewPoints => ParameterError::new_err("At least two data points are required"),
+        InputError::NonMonotonicKnots => ParameterError::new_err("Times (knots) must be strictly increasing"),
+        InputError::NonPositiveValue => ParameterError::new_err("Values must be positive"),
+        InputError::NegativeValue => ParameterError::new_err("Values must be non-negative"),
+        InputError::DimensionMismatch => ParameterError::new_err("Input dimensions do not match"),
+
+        // Fallback for any remaining input errors
+        InputError::Invalid => ParameterError::new_err("Invalid input data"),
+
+        // Catch-all for non-exhaustive enum (future variants)
+        _ => ParameterError::new_err("Invalid input parameter"),
     }
 }
 

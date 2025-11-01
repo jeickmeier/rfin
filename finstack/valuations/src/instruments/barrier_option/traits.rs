@@ -1,8 +1,8 @@
 //! Trait implementations for BarrierOption
 
+use crate::instruments::barrier_option::BarrierOption;
 use crate::instruments::common::metrics::has_equity_underlying::HasEquityUnderlying;
 use crate::instruments::common::metrics::has_pricing_overrides::HasPricingOverrides;
-use crate::instruments::barrier_option::BarrierOption;
 
 impl HasEquityUnderlying for BarrierOption {
     fn spot_id(&self) -> &str {
@@ -15,4 +15,3 @@ impl HasPricingOverrides for BarrierOption {
         &mut self.pricing_overrides
     }
 }
-

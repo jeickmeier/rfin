@@ -22,4 +22,3 @@ impl MetricCalculator for VannaCalculator {
         Ok(0.0)
     }
 }
-

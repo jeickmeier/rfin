@@ -7,8 +7,8 @@
 //!
 //! Where Delta(σ) is computed by bumping both spot and vol.
 
-use crate::instruments::equity_option::EquityOption;
 use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::instruments::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -21,9 +21,11 @@ impl MetricCalculator for VannaCalculator {
         let as_of = context.as_of;
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -51,11 +53,11 @@ impl MetricCalculator for VannaCalculator {
                 .iter()
                 .map(|v| v * scale_factor)
                 .collect();
-            
+
             use finstack_core::market_data::surfaces::vol_surface::VolSurface;
             use finstack_core::types::CurveId;
             use std::sync::Arc;
-            
+
             let bumped_surface = VolSurface::from_grid(
                 option.vol_id.as_str(),
                 &state.expiries,
@@ -70,9 +72,11 @@ impl MetricCalculator for VannaCalculator {
         };
 
         // Delta at vol_up: (PV(S+h, σ+h) - PV(S-h, σ+h)) / (2h_S)
-        let curves_up_vol_up = bump_scalar_price(&curves_vol_up, &option.spot_id, bump_sizes::SPOT)?;
+        let curves_up_vol_up =
+            bump_scalar_price(&curves_vol_up, &option.spot_id, bump_sizes::SPOT)?;
         let pv_up_vol_up = option.npv(&curves_up_vol_up, as_of)?.amount();
-        let curves_down_vol_up = bump_scalar_price(&curves_vol_up, &option.spot_id, -bump_sizes::SPOT)?;
+        let curves_down_vol_up =
+            bump_scalar_price(&curves_vol_up, &option.spot_id, -bump_sizes::SPOT)?;
         let pv_down_vol_up = option.npv(&curves_down_vol_up, as_of)?.amount();
         let delta_vol_up = (pv_up_vol_up - pv_down_vol_up) / (2.0 * spot_bump);
 
@@ -86,11 +90,11 @@ impl MetricCalculator for VannaCalculator {
                 .iter()
                 .map(|v| v * scale_factor)
                 .collect();
-            
+
             use finstack_core::market_data::surfaces::vol_surface::VolSurface;
             use finstack_core::types::CurveId;
             use std::sync::Arc;
-            
+
             let bumped_surface = VolSurface::from_grid(
                 option.vol_id.as_str(),
                 &state.expiries,
@@ -105,9 +109,11 @@ impl MetricCalculator for VannaCalculator {
         };
 
         // Delta at vol_down: (PV(S+h, σ-h) - PV(S-h, σ-h)) / (2h_S)
-        let curves_up_vol_down = bump_scalar_price(&curves_vol_down, &option.spot_id, bump_sizes::SPOT)?;
+        let curves_up_vol_down =
+            bump_scalar_price(&curves_vol_down, &option.spot_id, bump_sizes::SPOT)?;
         let pv_up_vol_down = option.npv(&curves_up_vol_down, as_of)?.amount();
-        let curves_down_vol_down = bump_scalar_price(&curves_vol_down, &option.spot_id, -bump_sizes::SPOT)?;
+        let curves_down_vol_down =
+            bump_scalar_price(&curves_vol_down, &option.spot_id, -bump_sizes::SPOT)?;
         let pv_down_vol_down = option.npv(&curves_down_vol_down, as_of)?.amount();
         let delta_vol_down = (pv_up_vol_down - pv_down_vol_down) / (2.0 * spot_bump);
 
@@ -119,4 +125,3 @@ impl MetricCalculator for VannaCalculator {
         Ok(vanna)
     }
 }
-

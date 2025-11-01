@@ -152,7 +152,8 @@ fn bench_heston(c: &mut Criterion) {
             target_ci_half_width: None,
             use_parallel: false,
             chunk_size: 1000,
-            path_capture: finstack_valuations::instruments::common::mc::engine::PathCaptureConfig::default(),
+            path_capture:
+                finstack_valuations::instruments::common::mc::engine::PathCaptureConfig::default(),
         });
 
         let heston = HestonProcess::with_params(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);

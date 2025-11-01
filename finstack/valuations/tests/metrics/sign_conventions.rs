@@ -17,16 +17,22 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
+use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::parameters::market::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::bond::Bond;
 use std::sync::Arc;
 use time::macros::date;
 
-fn create_option_market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) -> MarketContext {
+fn create_option_market(
+    as_of: Date,
+    spot: f64,
+    vol: f64,
+    rate: f64,
+    div_yield: f64,
+) -> MarketContext {
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act365F)
@@ -84,7 +90,11 @@ fn test_call_delta_positive() {
     let results = registry.compute(&[MetricId::Delta], &mut context).unwrap();
     let delta = *results.get(&MetricId::Delta).unwrap();
 
-    assert!(delta > 0.0, "Long call delta should be positive, got {}", delta);
+    assert!(
+        delta > 0.0,
+        "Long call delta should be positive, got {}",
+        delta
+    );
 }
 
 #[test]
@@ -117,7 +127,11 @@ fn test_put_delta_negative() {
     let results = registry.compute(&[MetricId::Delta], &mut context).unwrap();
     let delta = *results.get(&MetricId::Delta).unwrap();
 
-    assert!(delta < 0.0, "Long put delta should be negative, got {}", delta);
+    assert!(
+        delta < 0.0,
+        "Long put delta should be negative, got {}",
+        delta
+    );
 }
 
 #[test]
@@ -156,7 +170,11 @@ fn test_theta_negative_for_long_positions() {
         assert!(
             theta <= 0.0,
             "Theta should be non-positive for long {} option, got {}",
-            if matches!(option_type, OptionType::Call) { "call" } else { "put" },
+            if matches!(option_type, OptionType::Call) {
+                "call"
+            } else {
+                "put"
+            },
             theta
         );
     }
@@ -179,10 +197,7 @@ fn test_bond_dv01_positive_magnitude() {
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act365F)
-        .knots([
-            (0.0f64, 1.0f64),
-            (5.0f64, (-0.05f64 * 5.0f64).exp()),
-        ])
+        .knots([(0.0f64, 1.0f64), (5.0f64, (-0.05f64 * 5.0f64).exp())])
         .build()
         .unwrap();
 
@@ -196,7 +211,11 @@ fn test_bond_dv01_positive_magnitude() {
 
     // DV01 should be positive (magnitude of dollar loss per 1bp rate increase)
     // The directional effect (price falls) is implicit in the interpretation
-    assert!(dv01 > 0.0, "Bond DV01 should be positive (magnitude), got {}", dv01);
+    assert!(
+        dv01 > 0.0,
+        "Bond DV01 should be positive (magnitude), got {}",
+        dv01
+    );
 }
 
 #[test]
@@ -235,7 +254,11 @@ fn test_vega_always_positive() {
         assert!(
             vega > 0.0,
             "Vega should be positive for long {} option, got {}",
-            if matches!(option_type, OptionType::Call) { "call" } else { "put" },
+            if matches!(option_type, OptionType::Call) {
+                "call"
+            } else {
+                "put"
+            },
             vega
         );
     }
@@ -277,7 +300,11 @@ fn test_gamma_always_positive() {
         assert!(
             gamma >= 0.0,
             "Gamma should be non-negative for long {} option, got {}",
-            if matches!(option_type, OptionType::Call) { "call" } else { "put" },
+            if matches!(option_type, OptionType::Call) {
+                "call"
+            } else {
+                "put"
+            },
             gamma
         );
     }
@@ -288,7 +315,7 @@ fn test_call_rho_positive() {
     // Call rho should be positive (rate increase benefits calls)
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
-    
+
     let option = EquityOption {
         id: "CALL_RHO_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
@@ -323,7 +350,7 @@ fn test_put_rho_negative() {
     // Put rho should be negative (rate increase hurts puts)
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
-    
+
     let option = EquityOption {
         id: "PUT_RHO_TEST".into(),
         underlying_ticker: "AAPL".to_string(),
@@ -359,10 +386,10 @@ fn test_cds_cs01_positive_magnitude() {
     // Note: The directional effect depends on the CDS side (buy vs sell protection)
     // and whether the CDS is at-market or off-market
     let as_of = date!(2025 - 01 - 01);
-    
-    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+
     use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-    
+    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+
     let cds = CreditDefaultSwap::buy_protection(
         "CS01_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -405,7 +432,7 @@ fn test_cds_cs01_positive_magnitude() {
     let market = MarketContext::new()
         .insert_discount(disc_curve)
         .insert_hazard(hazard_curve);
-    
+
     let registry = standard_registry();
     let pv = cds.value(&market, as_of).unwrap();
     let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
@@ -415,6 +442,9 @@ fn test_cds_cs01_positive_magnitude() {
 
     // CS01 is reported as positive magnitude (absolute value)
     // The implementation uses .abs() to return magnitude
-    assert!(cs01 > 0.0, "CDS CS01 should be positive (magnitude), got {}", cs01);
+    assert!(
+        cs01 > 0.0,
+        "CDS CS01 should be positive (magnitude), got {}",
+        cs01
+    );
 }
-

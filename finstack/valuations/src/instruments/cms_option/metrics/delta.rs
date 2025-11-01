@@ -23,4 +23,3 @@ impl MetricCalculator for DeltaCalculator {
         Ok(0.0)
     }
 }
-

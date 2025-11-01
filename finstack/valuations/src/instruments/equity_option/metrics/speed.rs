@@ -6,8 +6,8 @@
 //!
 //! Where Gamma(S) is computed at current spot, and Gamma(S±h) at bumped spots.
 
-use crate::instruments::equity_option::EquityOption;
 use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::instruments::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -21,9 +21,11 @@ impl MetricCalculator for SpeedCalculator {
         let base_pv = context.base_value.amount();
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -38,7 +40,8 @@ impl MetricCalculator for SpeedCalculator {
         let spot_bump = current_spot * bump_sizes::SPOT;
 
         // Compute gamma at S + h
-        let curves_up_up = bump_scalar_price(&context.curves, &option.spot_id, 2.0 * bump_sizes::SPOT)?;
+        let curves_up_up =
+            bump_scalar_price(&context.curves, &option.spot_id, 2.0 * bump_sizes::SPOT)?;
         let pv_up_up = option.npv(&curves_up_up, as_of)?.amount();
         let curves_up = bump_scalar_price(&context.curves, &option.spot_id, bump_sizes::SPOT)?;
         let pv_up = option.npv(&curves_up, as_of)?.amount();
@@ -47,7 +50,8 @@ impl MetricCalculator for SpeedCalculator {
         // Compute gamma at S - h
         let curves_down = bump_scalar_price(&context.curves, &option.spot_id, -bump_sizes::SPOT)?;
         let pv_down = option.npv(&curves_down, as_of)?.amount();
-        let curves_down_down = bump_scalar_price(&context.curves, &option.spot_id, -2.0 * bump_sizes::SPOT)?;
+        let curves_down_down =
+            bump_scalar_price(&context.curves, &option.spot_id, -2.0 * bump_sizes::SPOT)?;
         let pv_down_down = option.npv(&curves_down_down, as_of)?.amount();
         let gamma_down = (base_pv - 2.0 * pv_down + pv_down_down) / (spot_bump * spot_bump);
 
@@ -57,4 +61,3 @@ impl MetricCalculator for SpeedCalculator {
         Ok(speed)
     }
 }
-

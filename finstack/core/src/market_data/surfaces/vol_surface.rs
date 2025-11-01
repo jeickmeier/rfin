@@ -237,9 +237,12 @@ impl VolSurface {
     /// ```
     pub fn bump_point(&self, expiry: f64, strike: f64, bump_pct: f64) -> crate::Result<Self> {
         // Clamp to grid bounds
-        let clamped_expiry = expiry
-            .max(self.expiries[0])
-            .min(*self.expiries.last().expect("VolSurface should have expiries"));
+        let clamped_expiry = expiry.max(self.expiries[0]).min(
+            *self
+                .expiries
+                .last()
+                .expect("VolSurface should have expiries"),
+        );
         let clamped_strike = strike
             .max(self.strikes[0])
             .min(*self.strikes.last().expect("VolSurface should have strikes"));

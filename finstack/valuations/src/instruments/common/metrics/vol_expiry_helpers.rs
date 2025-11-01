@@ -99,7 +99,9 @@ pub fn get_instrument_expiry_for_adaptive(instrument: &dyn std::any::Any) -> Opt
 ///
 /// Uses Any downcasting to check for common day_count field patterns.
 /// Returns None if the instrument doesn't have a day_count field.
-pub fn get_instrument_day_count(instrument: &dyn std::any::Any) -> Option<finstack_core::dates::DayCount> {
+pub fn get_instrument_day_count(
+    instrument: &dyn std::any::Any,
+) -> Option<finstack_core::dates::DayCount> {
     use crate::instruments::*;
 
     // Try downcasting to each instrument type with day_count
@@ -139,4 +141,3 @@ pub fn get_instrument_day_count(instrument: &dyn std::any::Any) -> Option<finsta
 
     None
 }
-

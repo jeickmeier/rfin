@@ -3,8 +3,8 @@
 //! Computes gamma using finite differences: bump equity spot up and down,
 //! reprice, and compute (PV_up - 2*PV_base + PV_down) / h².
 
-use crate::instruments::quanto_option::QuantoOption;
 use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -18,9 +18,11 @@ impl MetricCalculator for GammaCalculator {
         let base_pv = context.base_value.amount();
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -48,4 +50,3 @@ impl MetricCalculator for GammaCalculator {
         Ok(gamma)
     }
 }
-

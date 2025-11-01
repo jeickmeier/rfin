@@ -15,4 +15,3 @@ impl HasPricingOverrides for LookbackOption {
         &mut self.pricing_overrides
     }
 }
-

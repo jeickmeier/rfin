@@ -149,10 +149,7 @@ impl PyAsianOption {
         }
 
         // Parse averaging method
-        let avg_method = match averaging_method
-            .map(normalize_label)
-            .as_deref()
-        {
+        let avg_method = match averaging_method.map(normalize_label).as_deref() {
             None | Some("arithmetic") => AveragingMethod::Arithmetic,
             Some("geometric") => AveragingMethod::Geometric,
             Some(other) => {
@@ -338,4 +335,3 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyAsianOption>()?;
     Ok(vec!["AveragingMethod", "AsianOption"])
 }
-

@@ -35,14 +35,14 @@ impl MetricCalculator for Inflation01Calculator {
 
         // Check if we have an inflation curve (preferred) or index
         let inflation_curve_id = &bond.inflation_id;
-        
+
         // Use MarketContext::bump() API to bump the inflation curve
         // Bump by 1bp using parallel shift
         let bump_spec = BumpSpec::inflation_shift_pct(INFLATION_BUMP_BP * 100.0); // Convert bp to percent
-        
+
         let mut bumps = HashMap::new();
         bumps.insert(inflation_curve_id.clone(), bump_spec);
-        
+
         let curves_up = context.curves.as_ref().bump(bumps.clone())?;
         let pv_up = bond.value(&curves_up, as_of)?.amount();
 
@@ -50,7 +50,7 @@ impl MetricCalculator for Inflation01Calculator {
         let bump_spec_down = BumpSpec::inflation_shift_pct(-INFLATION_BUMP_BP * 100.0);
         let mut bumps_down = HashMap::new();
         bumps_down.insert(inflation_curve_id.clone(), bump_spec_down);
-        
+
         let curves_down = context.curves.as_ref().bump(bumps_down)?;
         let pv_down = bond.value(&curves_down, as_of)?.amount();
 
@@ -63,4 +63,3 @@ impl MetricCalculator for Inflation01Calculator {
         Ok(inflation01)
     }
 }
-

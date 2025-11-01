@@ -3,8 +3,8 @@
 //! Computes delta (equity spot sensitivity) using finite differences:
 //! bump equity spot price up and down, reprice, and compute (PV_up - PV_down) / (2 * bump_size).
 
-use crate::instruments::quanto_option::QuantoOption;
 use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -17,9 +17,11 @@ impl MetricCalculator for DeltaCalculator {
         let as_of = context.as_of;
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -47,4 +49,3 @@ impl MetricCalculator for DeltaCalculator {
         Ok(delta)
     }
 }
-

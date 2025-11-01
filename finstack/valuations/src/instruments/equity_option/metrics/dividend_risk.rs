@@ -29,9 +29,11 @@ impl MetricCalculator for DividendRiskCalculator {
         let as_of = context.as_of;
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -53,10 +55,10 @@ impl MetricCalculator for DividendRiskCalculator {
 
         // Bump dividend yield up and down (additive bumps)
         use finstack_core::types::CurveId;
-        
+
         // Get current scalar to clone its structure
         let current_scalar = context.curves.price(&div_yield_id)?;
-        
+
         // Bump up
         let mut curves_up = context.curves.as_ref().clone();
         let new_value_up = match current_scalar {
@@ -65,11 +67,13 @@ impl MetricCalculator for DividendRiskCalculator {
             }
             finstack_core::market_data::scalars::MarketScalar::Price(m) => {
                 finstack_core::market_data::scalars::MarketScalar::Price(
-                    finstack_core::money::Money::new(m.amount() + DIVIDEND_BUMP_BP, m.currency())
+                    finstack_core::money::Money::new(m.amount() + DIVIDEND_BUMP_BP, m.currency()),
                 )
             }
         };
-        curves_up.prices.insert(CurveId::from(div_yield_id.clone()), new_value_up);
+        curves_up
+            .prices
+            .insert(CurveId::from(div_yield_id.clone()), new_value_up);
         let pv_up = option.npv(&curves_up, as_of)?.amount();
 
         // Bump down
@@ -88,11 +92,13 @@ impl MetricCalculator for DividendRiskCalculator {
             }
             finstack_core::market_data::scalars::MarketScalar::Price(m) => {
                 finstack_core::market_data::scalars::MarketScalar::Price(
-                    finstack_core::money::Money::new(div_down_value, m.currency())
+                    finstack_core::money::Money::new(div_down_value, m.currency()),
                 )
             }
         };
-        curves_down.prices.insert(CurveId::from(div_yield_id), new_value_down);
+        curves_down
+            .prices
+            .insert(CurveId::from(div_yield_id), new_value_down);
         let pv_down = option.npv(&curves_down, as_of)?.amount();
 
         // Dividend01 = (PV_up - PV_down) / (2 * bump_size)
@@ -102,4 +108,3 @@ impl MetricCalculator for DividendRiskCalculator {
         Ok(dividend01)
     }
 }
-

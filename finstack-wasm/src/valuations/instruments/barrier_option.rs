@@ -1,8 +1,12 @@
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, parameters::JsBarrierType as JsMcBarrierType};
+use crate::valuations::common::{
+    curve_id_from_str, instrument_id_from_str, parameters::JsBarrierType as JsMcBarrierType,
+};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::barrier_option::{BarrierOption, BarrierType as BarrierOptionType};
+use finstack_valuations::instruments::barrier_option::{
+    BarrierOption, BarrierType as BarrierOptionType,
+};
 use finstack_valuations::instruments::common::mc::payoff::barrier::BarrierType as McBarrierType;
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::pricer::InstrumentType;
@@ -83,8 +87,10 @@ impl JsBarrierOption {
         if let Some(div) = dividend_yield_id {
             builder = builder.div_yield_id(div);
         }
-        builder = builder.pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder = builder.attributes(finstack_valuations::instruments::common::traits::Attributes::new());
+        builder = builder
+            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
+        builder =
+            builder.attributes(finstack_valuations::instruments::common::traits::Attributes::new());
 
         builder
             .build()
@@ -190,4 +196,3 @@ impl JsBarrierOption {
         JsBarrierOption::from_inner(self.0.clone())
     }
 }
-

@@ -14,12 +14,12 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
+use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::common::parameters::market::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
-use finstack_valuations::instruments::cds::CreditDefaultSwap;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
-use finstack_valuations::instruments::common::traits::Instrument;
 use std::sync::Arc;
 use time::macros::date;
 
@@ -27,10 +27,7 @@ fn create_option_market(as_of: Date, spot: f64, vol: f64, rate: f64) -> MarketCo
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act365F)
-        .knots([
-            (0.0f64, 1.0f64),
-            (1.0f64, (-rate).exp()),
-        ])
+        .knots([(0.0f64, 1.0f64), (1.0f64, (-rate).exp())])
         .build()
         .unwrap();
 
@@ -74,7 +71,7 @@ fn test_expired_option_returns_zero_theta() {
 
     let market = create_option_market(as_of, 100.0, 0.25, 0.05);
     let registry = standard_registry();
-    
+
     // For expired options, value might fail - handle gracefully
     let pv_result = option.value(&market, as_of);
     if pv_result.is_err() {
@@ -82,7 +79,7 @@ fn test_expired_option_returns_zero_theta() {
         // Just verify that theta would be computed as 0.0 if we could price
         return;
     }
-    
+
     let pv = pv_result.unwrap();
     let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
 
@@ -120,10 +117,7 @@ fn test_zero_recovery_cds() {
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act365F)
-        .knots([
-            (0.0f64, 1.0f64),
-            (5.0f64, (-0.05f64 * 5.0f64).exp()),
-        ])
+        .knots([(0.0f64, 1.0f64), (5.0f64, (-0.05f64 * 5.0f64).exp())])
         .build()
         .unwrap();
 
@@ -145,9 +139,11 @@ fn test_zero_recovery_cds() {
     let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
 
     // Recovery01 should still compute even with zero recovery
-    let results = registry.compute(&[MetricId::custom("recovery01")], &mut context).unwrap();
+    let results = registry
+        .compute(&[MetricId::custom("recovery01")], &mut context)
+        .unwrap();
     let recovery01 = results.get(&MetricId::custom("recovery01"));
-    
+
     // Should either compute a value or return 0.0 (not error)
     if let Some(val) = recovery01 {
         assert!(val.is_finite(), "Recovery01 should be finite, got {}", val);
@@ -229,17 +225,25 @@ fn test_zero_volatility_option() {
 
     // Should not panic, should return finite values or 0.0
     let results = registry.compute(&[MetricId::Delta, MetricId::Vega], &mut context);
-    
+
     if let Ok(metrics) = results {
         let delta = metrics.get(&MetricId::Delta);
         let vega = metrics.get(&MetricId::Vega);
-        
+
         if let Some(&d) = delta {
-            assert!(d.is_finite(), "Delta should be finite even with zero vol, got {}", d);
+            assert!(
+                d.is_finite(),
+                "Delta should be finite even with zero vol, got {}",
+                d
+            );
         }
         if let Some(&v) = vega {
             // Vega might be 0.0 with zero vol, which is reasonable
-            assert!(v.is_finite(), "Vega should be finite even with zero vol, got {}", v);
+            assert!(
+                v.is_finite(),
+                "Vega should be finite even with zero vol, got {}",
+                v
+            );
         }
     }
     // If it errors, that's also acceptable for zero vol case
@@ -272,20 +276,28 @@ fn test_zero_notional_handling() {
     let market = create_option_market(as_of, 100.0, 0.25, 0.05);
     let registry = standard_registry();
     let pv = option.value(&market, as_of).unwrap();
-    
+
     // For zero notional, PV should be zero and greeks should be zero or very small
     if pv.amount().abs() < 1e-10 {
         let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
-        
+
         // Should not panic, greeks might be zero or very small
         let results = registry.compute(&[MetricId::Delta, MetricId::Gamma], &mut context);
         if let Ok(metrics) = results {
             // Delta and Gamma for zero notional should be zero or very small
             if let Some(&delta) = metrics.get(&MetricId::Delta) {
-                assert!(delta.abs() < 1e-6, "Delta should be near zero for zero notional, got {}", delta);
+                assert!(
+                    delta.abs() < 1e-6,
+                    "Delta should be near zero for zero notional, got {}",
+                    delta
+                );
             }
             if let Some(&gamma) = metrics.get(&MetricId::Gamma) {
-                assert!(gamma.abs() < 1e-6, "Gamma should be near zero for zero notional, got {}", gamma);
+                assert!(
+                    gamma.abs() < 1e-6,
+                    "Gamma should be near zero for zero notional, got {}",
+                    gamma
+                );
             }
         }
     }
@@ -377,7 +389,10 @@ fn test_atm_option_gamma_peak() {
 
     // ATM (100.0) should have gamma that's relatively high
     // Find ATM gamma
-    let atm_gamma = gammas.iter().find(|(s, _)| (*s - spot).abs() < 1e-6).map(|(_, g)| g);
+    let atm_gamma = gammas
+        .iter()
+        .find(|(s, _)| (*s - spot).abs() < 1e-6)
+        .map(|(_, g)| g);
     if let Some(&atm_g) = atm_gamma {
         // ATM gamma should be positive and meaningful
         assert!(
@@ -419,8 +434,11 @@ fn test_extreme_volatility_handling() {
     let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
 
     // Should not panic and should return finite values
-    let results = registry.compute(&[MetricId::Delta, MetricId::Vega, MetricId::Gamma], &mut context);
-    
+    let results = registry.compute(
+        &[MetricId::Delta, MetricId::Vega, MetricId::Gamma],
+        &mut context,
+    );
+
     if let Ok(metrics) = results {
         for (metric_id, value) in metrics.iter() {
             assert!(
@@ -468,7 +486,7 @@ fn test_very_short_dated_option() {
         results.is_ok(),
         "Short-dated option greeks should compute successfully"
     );
-    
+
     if let Ok(metrics) = results {
         // Theta for short-dated option should be very negative (high time decay)
         if let Some(&theta) = metrics.get(&MetricId::Theta) {
@@ -480,4 +498,3 @@ fn test_very_short_dated_option() {
         }
     }
 }
-

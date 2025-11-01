@@ -225,7 +225,7 @@ impl FxProvider for BumpedFxProvider {
         if from == self.override_to && to == self.override_from && self.override_rate != 0.0 {
             return Ok(1.0 / self.override_rate);
         }
-        
+
         // Delegate to original provider for all other pairs
         self.original.rate(from, to, on, policy)
     }

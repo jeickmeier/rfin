@@ -716,11 +716,12 @@ impl MarketContext {
         bump_pct: f64,
         on: Date,
     ) -> Result<Self> {
-        let fx_matrix = self.fx.as_ref().ok_or_else(|| {
-            crate::error::InputError::NotFound {
+        let fx_matrix = self
+            .fx
+            .as_ref()
+            .ok_or_else(|| crate::error::InputError::NotFound {
                 id: "FX matrix".to_string(),
-            }
-        })?;
+            })?;
 
         // Create new FX matrix with bumped rate
         let new_fx_matrix = fx_matrix.with_bumped_rate(from, to, bump_pct, on)?;

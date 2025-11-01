@@ -69,16 +69,15 @@ impl JsMonteCarloPathGenerator {
         let gbm = GbmProcess::with_params(r, q, sigma);
 
         // Create time grid
-        let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)
-            .map_err(|e| js_error(e.to_string()))?;
+        let time_grid =
+            TimeGrid::uniform(time_to_maturity, num_steps).map_err(|e| js_error(e.to_string()))?;
 
         // Configure path capture
         let path_capture = match capture_mode {
             "all" => PathCaptureConfig::all(),
             "sample" => {
-                let count = sample_count.ok_or_else(|| {
-                    js_error("sample_count required when capture_mode='sample'")
-                })?;
+                let count = sample_count
+                    .ok_or_else(|| js_error("sample_count required when capture_mode='sample'"))?;
                 PathCaptureConfig::sample(count, seed + 1)
             }
             _ => {
@@ -101,12 +100,8 @@ impl JsMonteCarloPathGenerator {
         };
 
         // Generate paths
-        let paths = self.generate_paths_internal(
-            &gbm,
-            &ExactGbm::new(),
-            &[initial_spot],
-            &config,
-        )?;
+        let paths =
+            self.generate_paths_internal(&gbm, &ExactGbm::new(), &[initial_spot], &config)?;
 
         Ok(JsPathDataset::from_inner(paths))
     }
@@ -208,8 +203,7 @@ impl JsMonteCarloPathGenerator {
             }
 
             // Final value is just the terminal spot for visualization
-            simulated_path
-                .set_final_value(*state.first().unwrap_or(&0.0));
+            simulated_path.set_final_value(*state.first().unwrap_or(&0.0));
 
             dataset.add_path(simulated_path);
         }
@@ -217,4 +211,3 @@ impl JsMonteCarloPathGenerator {
         Ok(dataset)
     }
 }
-

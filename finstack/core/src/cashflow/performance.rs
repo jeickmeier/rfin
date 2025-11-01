@@ -39,7 +39,9 @@ pub fn npv(
     for (date, amount) in cash_flows {
         let years = dc
             .year_fraction(base, *date, DayCountCtx::default())
-            .map_err(|e| crate::Error::Validation(format!("Day count calculation failed: {}", e)))?;
+            .map_err(|e| {
+                crate::Error::Validation(format!("Day count calculation failed: {}", e))
+            })?;
         let discount_factor = (1.0 + discount_rate).powf(years);
         sum += amount / discount_factor;
     }
@@ -158,4 +160,3 @@ mod tests {
         assert!(irr_periodic(&amounts, None).is_err());
     }
 }
-

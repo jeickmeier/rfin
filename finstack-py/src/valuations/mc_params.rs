@@ -105,10 +105,7 @@ pub(crate) fn register<'py>(
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     let module = PyModule::new(py, "mc_params")?;
-    module.setattr(
-        "__doc__",
-        "Monte Carlo process parameters and metadata.",
-    )?;
+    module.setattr("__doc__", "Monte Carlo process parameters and metadata.")?;
 
     module.add_class::<PyProcessParams>()?;
 
@@ -121,4 +118,3 @@ pub(crate) fn register<'py>(
 
     Ok(exports)
 }
-

@@ -94,9 +94,7 @@ impl PyQuantoOption {
 
         let equity_strike_money = finstack_core::money::Money::new(equity_strike, for_currency);
 
-        let fx_vol_curve_id = fx_vol_id
-            .map(|v| extract_curve_id(&v).ok())
-            .flatten();
+        let fx_vol_curve_id = fx_vol_id.map(|v| extract_curve_id(&v).ok()).flatten();
 
         let mut builder = QuantoOption::builder();
         builder = builder.id(id);
@@ -189,4 +187,3 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyQuantoOption>()?;
     Ok(vec!["QuantoOption"])
 }
-

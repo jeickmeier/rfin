@@ -101,17 +101,23 @@ impl JsSimulatedPath {
     }
 
     pub fn point(&self, step: usize) -> Option<JsPathPoint> {
-        self.inner.point(step).map(|p| JsPathPoint::from_inner(p.clone()))
+        self.inner
+            .point(step)
+            .map(|p| JsPathPoint::from_inner(p.clone()))
     }
 
     #[wasm_bindgen(js_name = initialPoint)]
     pub fn initial_point(&self) -> Option<JsPathPoint> {
-        self.inner.initial_point().map(|p| JsPathPoint::from_inner(p.clone()))
+        self.inner
+            .initial_point()
+            .map(|p| JsPathPoint::from_inner(p.clone()))
     }
 
     #[wasm_bindgen(js_name = terminalPoint)]
     pub fn terminal_point(&self) -> Option<JsPathPoint> {
-        self.inner.terminal_point().map(|p| JsPathPoint::from_inner(p.clone()))
+        self.inner
+            .terminal_point()
+            .map(|p| JsPathPoint::from_inner(p.clone()))
     }
 }
 
@@ -146,7 +152,10 @@ impl JsPathDataset {
 
     #[wasm_bindgen(js_name = getPath)]
     pub fn get_path(&self, index: usize) -> Option<JsSimulatedPath> {
-        self.inner.paths.get(index).map(|p| JsSimulatedPath::from_inner(p.clone()))
+        self.inner
+            .paths
+            .get(index)
+            .map(|p| JsSimulatedPath::from_inner(p.clone()))
     }
 
     #[wasm_bindgen(js_name = processParams)]
@@ -176,4 +185,3 @@ impl JsPathDataset {
         Self { inner }
     }
 }
-

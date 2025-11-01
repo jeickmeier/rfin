@@ -8,8 +8,8 @@
 //! Where Delta(t) is computed by bumping spot at current time,
 //! and Delta(t+h) is computed by bumping spot at a later time.
 
-use crate::instruments::equity_option::EquityOption;
 use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::instruments::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -22,9 +22,11 @@ impl MetricCalculator for CharmCalculator {
         let as_of = context.as_of;
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -48,9 +50,11 @@ impl MetricCalculator for CharmCalculator {
 
         // Compute delta at time + 1 day
         let rolled_date = as_of + time::Duration::days(time_bump_days as i64);
-        let curves_up_future = bump_scalar_price(&context.curves, &option.spot_id, bump_sizes::SPOT)?;
+        let curves_up_future =
+            bump_scalar_price(&context.curves, &option.spot_id, bump_sizes::SPOT)?;
         let pv_up_future = option.npv(&curves_up_future, rolled_date)?.amount();
-        let curves_down_future = bump_scalar_price(&context.curves, &option.spot_id, -bump_sizes::SPOT)?;
+        let curves_down_future =
+            bump_scalar_price(&context.curves, &option.spot_id, -bump_sizes::SPOT)?;
         let pv_down_future = option.npv(&curves_down_future, rolled_date)?.amount();
         let delta_t_future = (pv_up_future - pv_down_future) / (2.0 * spot_bump);
 
@@ -62,4 +66,3 @@ impl MetricCalculator for CharmCalculator {
         Ok(charm)
     }
 }
-

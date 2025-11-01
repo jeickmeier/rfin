@@ -17,8 +17,7 @@ fn test_upfront_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result =
-        tranche.price_with_metrics(&market, as_of, &[MetricId::custom("upfront")]);
+    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::custom("upfront")]);
 
     // Assert
     assert!(result.is_ok(), "Upfront calculation should succeed");
@@ -62,8 +61,7 @@ fn test_correlation_delta_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result =
-        tranche.price_with_metrics(&market, as_of, &[MetricId::Correlation01]);
+    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::Correlation01]);
 
     // Assert
     assert!(

@@ -123,7 +123,9 @@ impl PyFxBarrierOption {
         builder = builder.fx_spot_id(fx_spot_id.to_string());
         builder = builder.fx_vol_id(fx_vol_id);
         let option = builder.build().map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to build FxBarrierOption: {e}"))
+            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "Failed to build FxBarrierOption: {e}"
+            ))
         })?;
         Ok(Self::new(option))
     }
@@ -207,4 +209,3 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyFxBarrierOption>()?;
     Ok(vec!["FxBarrierOption"])
 }
-

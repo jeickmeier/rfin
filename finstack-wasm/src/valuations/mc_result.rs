@@ -39,7 +39,10 @@ impl JsMonteCarloResult {
 
     #[wasm_bindgen(getter)]
     pub fn paths(&self) -> Option<JsPathDataset> {
-        self.inner.paths.as_ref().map(|p| JsPathDataset::from_inner(p.clone()))
+        self.inner
+            .paths
+            .as_ref()
+            .map(|p| JsPathDataset::from_inner(p.clone()))
     }
 
     #[wasm_bindgen(js_name = hasPaths)]
@@ -68,4 +71,3 @@ impl JsMonteCarloResult {
         Self { inner }
     }
 }
-

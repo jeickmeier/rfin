@@ -18,16 +18,19 @@ impl MetricCalculator for Dv01Calculator {
         let base_pv = context.base_value.amount();
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
 
         // Bump discount curve by 1bp (0.0001)
         let bump_bp = 0.0001;
-        let curves_bumped = bump_discount_curve_parallel(&context.curves, option.disc_id.as_str(), bump_bp)?;
+        let curves_bumped =
+            bump_discount_curve_parallel(&context.curves, option.disc_id.as_str(), bump_bp)?;
 
         // Reprice with bumped curve
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
@@ -38,4 +41,3 @@ impl MetricCalculator for Dv01Calculator {
         Ok(dv01)
     }
 }
-

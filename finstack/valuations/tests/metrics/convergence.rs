@@ -20,10 +20,10 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use finstack_valuations::instruments::common::parameters::market::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
-use finstack_valuations::instruments::common::traits::Instrument;
 use std::sync::Arc;
 use time::macros::date;
 
@@ -64,14 +64,21 @@ fn test_equity_option_greek(
 ) {
     let registry = standard_registry();
     let pv = option.value(market, as_of).unwrap();
-    
+
     // Compute analytical greek directly
     let analytical_value = analytical_fn(option, market, as_of).unwrap();
-    
-    let mut context = MetricContext::new(Arc::new(option.clone()), Arc::new(market.clone()), as_of, pv);
+
+    let mut context = MetricContext::new(
+        Arc::new(option.clone()),
+        Arc::new(market.clone()),
+        as_of,
+        pv,
+    );
 
     // Compute greek via registry (uses analytical formula for EquityOption)
-    let results = registry.compute(std::slice::from_ref(&metric_id), &mut context).unwrap();
+    let results = registry
+        .compute(std::slice::from_ref(&metric_id), &mut context)
+        .unwrap();
     let registry_value = *results.get(&metric_id).unwrap();
 
     // Should match exactly (both use analytical formulas)
@@ -79,7 +86,10 @@ fn test_equity_option_greek(
     assert!(
         diff < 1e-10,
         "Analytical {:?} from registry ({}) should match direct call ({}), diff: {}",
-        metric_id, registry_value, analytical_value, diff
+        metric_id,
+        registry_value,
+        analytical_value,
+        diff
     );
 }
 
@@ -110,18 +120,28 @@ fn test_equity_option_all_analytical_greeks() {
     let market = create_option_market(as_of, 100.0, 0.25, 0.05);
 
     // Test all analytical greeks
-    test_equity_option_greek(&option, &market, as_of, MetricId::Delta, |opt, mkt, dt| opt.delta(mkt, dt));
-    test_equity_option_greek(&option, &market, as_of, MetricId::Gamma, |opt, mkt, dt| opt.gamma(mkt, dt));
-    test_equity_option_greek(&option, &market, as_of, MetricId::Vega, |opt, mkt, dt| opt.vega(mkt, dt));
-    test_equity_option_greek(&option, &market, as_of, MetricId::Rho, |opt, mkt, dt| opt.rho(mkt, dt));
-    test_equity_option_greek(&option, &market, as_of, MetricId::Theta, |opt, mkt, dt| opt.theta(mkt, dt));
+    test_equity_option_greek(&option, &market, as_of, MetricId::Delta, |opt, mkt, dt| {
+        opt.delta(mkt, dt)
+    });
+    test_equity_option_greek(&option, &market, as_of, MetricId::Gamma, |opt, mkt, dt| {
+        opt.gamma(mkt, dt)
+    });
+    test_equity_option_greek(&option, &market, as_of, MetricId::Vega, |opt, mkt, dt| {
+        opt.vega(mkt, dt)
+    });
+    test_equity_option_greek(&option, &market, as_of, MetricId::Rho, |opt, mkt, dt| {
+        opt.rho(mkt, dt)
+    });
+    test_equity_option_greek(&option, &market, as_of, MetricId::Theta, |opt, mkt, dt| {
+        opt.theta(mkt, dt)
+    });
 }
 
 #[test]
 fn test_bucketed_dv01_sums_to_total() {
     // Bucketed DV01 should approximately sum to total DV01
     let as_of = date!(2025 - 01 - 01);
-    
+
     use finstack_valuations::instruments::bond::Bond;
     let bond = Bond::fixed(
         "BUCKETED_TEST",
@@ -152,19 +172,18 @@ fn test_bucketed_dv01_sums_to_total() {
     let mut context = MetricContext::new(Arc::new(bond), Arc::new(market), as_of, pv);
 
     // Compute both total DV01 and bucketed DV01
-    let results = registry.compute(
-        &[MetricId::Dv01, MetricId::BucketedDv01],
-        &mut context
-    ).unwrap();
+    let results = registry
+        .compute(&[MetricId::Dv01, MetricId::BucketedDv01], &mut context)
+        .unwrap();
 
     let total_dv01 = *results.get(&MetricId::Dv01).unwrap();
-    
+
     // Get bucketed DV01 series
     let bucketed_series = context.computed_series.get(&MetricId::BucketedDv01);
-    
+
     if let Some(series) = bucketed_series {
         let sum_bucketed: f64 = series.iter().map(|(_, v)| v).sum();
-        
+
         // Note: Bucketed DV01 (key-rate duration) and total DV01 (modified duration) are
         // fundamentally different measures:
         // - Bucketed DV01: sensitivity to localized rate changes at specific maturities
@@ -179,7 +198,7 @@ fn test_bucketed_dv01_sums_to_total() {
             "Bucketed DV01 sum should be finite, got {}",
             sum_bucketed
         );
-        
+
         // If the sum is reasonably close (within 50%), that's a bonus, but not required
         let sum_abs = sum_bucketed.abs();
         let total_abs = total_dv01.abs();
@@ -190,7 +209,9 @@ fn test_bucketed_dv01_sums_to_total() {
                 eprintln!(
                     "Note: Bucketed DV01 sum ({}) differs from total DV01 ({}) by {:.1}% - \
                      this is expected as they measure different sensitivities",
-                    sum_abs, total_abs, diff_pct * 100.0
+                    sum_abs,
+                    total_abs,
+                    diff_pct * 100.0
                 );
             }
         }
@@ -201,10 +222,10 @@ fn test_bucketed_dv01_sums_to_total() {
 fn test_bucketed_cs01_sums_to_total() {
     // Bucketed CS01 should approximately sum to total CS01
     let as_of = date!(2025 - 01 - 01);
-    
-    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+
     use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-    
+    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+
     let cds = CreditDefaultSwap::buy_protection(
         "BUCKETED_CS01_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -247,25 +268,29 @@ fn test_bucketed_cs01_sums_to_total() {
     let market = MarketContext::new()
         .insert_discount(disc_curve)
         .insert_hazard(hazard_curve);
-    
+
     let registry = standard_registry();
     let pv = cds.value(&market, as_of).unwrap();
     let mut context = MetricContext::new(Arc::new(cds), Arc::new(market), as_of, pv);
 
     // Compute both total CS01 and bucketed CS01
-    let results = registry.compute(
-        &[MetricId::Cs01, MetricId::custom("bucketed_cs01")],
-        &mut context
-    ).unwrap();
+    let results = registry
+        .compute(
+            &[MetricId::Cs01, MetricId::custom("bucketed_cs01")],
+            &mut context,
+        )
+        .unwrap();
 
     let total_cs01 = *results.get(&MetricId::Cs01).unwrap();
-    
+
     // Get bucketed CS01 series
-    let bucketed_series = context.computed_series.get(&MetricId::custom("bucketed_cs01"));
-    
+    let bucketed_series = context
+        .computed_series
+        .get(&MetricId::custom("bucketed_cs01"));
+
     if let Some(series) = bucketed_series {
         let sum_bucketed: f64 = series.iter().map(|(_, v)| v).sum();
-        
+
         // Sum should approximately equal total (within 10% due to interpolation differences for credit)
         let diff_pct = (sum_bucketed - total_cs01).abs() / total_cs01.abs().max(1e-10);
         assert!(
@@ -308,19 +333,23 @@ fn test_bucketed_vega_sums_to_total() {
     let mut context = MetricContext::new(Arc::new(option), Arc::new(market), as_of, pv);
 
     // Compute both total Vega and bucketed Vega
-    let results = registry.compute(
-        &[MetricId::Vega, MetricId::custom("bucketed_vega")],
-        &mut context
-    ).unwrap();
+    let results = registry
+        .compute(
+            &[MetricId::Vega, MetricId::custom("bucketed_vega")],
+            &mut context,
+        )
+        .unwrap();
 
     let total_vega = *results.get(&MetricId::Vega).unwrap();
-    
+
     // Get bucketed Vega from matrix
-    let bucketed_matrix = context.computed_matrix.get(&MetricId::custom("bucketed_vega"));
-    
+    let bucketed_matrix = context
+        .computed_matrix
+        .get(&MetricId::custom("bucketed_vega"));
+
     if let Some(matrix) = bucketed_matrix {
         let sum_bucketed: f64 = matrix.values.iter().flatten().sum();
-        
+
         // Sum should approximately equal total (within 5% due to interpolation differences)
         let diff_pct = (sum_bucketed - total_vega).abs() / total_vega.abs().max(1e-10);
         assert!(
@@ -332,4 +361,3 @@ fn test_bucketed_vega_sums_to_total() {
         );
     }
 }
-

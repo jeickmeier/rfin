@@ -13,5 +13,3 @@ pub trait ProcessMetadata {
     /// Extract process parameters and metadata.
     fn metadata(&self) -> ProcessParams;
 }
-
-

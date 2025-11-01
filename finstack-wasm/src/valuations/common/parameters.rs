@@ -1,10 +1,10 @@
 //! WASM bindings for common parameter types (OptionType, ExerciseStyle, etc.)
 
-use finstack_valuations::instruments::common::parameters::{
-    market::{ExerciseStyle, OptionType, SettlementType},
-    legs::PayReceive,
-};
 use finstack_valuations::instruments::common::mc::payoff::barrier::BarrierType;
+use finstack_valuations::instruments::common::parameters::{
+    legs::PayReceive,
+    market::{ExerciseStyle, OptionType, SettlementType},
+};
 use wasm_bindgen::prelude::*;
 
 /// Option type for pricing (Call or Put).
@@ -304,4 +304,3 @@ impl From<BarrierType> for JsBarrierType {
         Self::from_inner(value)
     }
 }
-

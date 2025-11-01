@@ -272,4 +272,3 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyBarrierOption>()?;
     Ok(vec!["BarrierType", "BarrierOption"])
 }
-

@@ -197,21 +197,21 @@ impl StochasticProcess for MultiGbmProcess {
 impl ProcessMetadata for MultiGbmProcess {
     fn metadata(&self) -> ProcessParams {
         let mut params = ProcessParams::new("MultiGBM");
-        
+
         // Add per-asset parameters
         for (i, asset_params) in self.params.iter().enumerate() {
             params.add_param(format!("r_{}", i), asset_params.r);
             params.add_param(format!("q_{}", i), asset_params.q);
             params.add_param(format!("sigma_{}", i), asset_params.sigma);
         }
-        
+
         // Add correlation matrix if present
         let params = if let Some(ref corr) = self.correlation {
             params.with_correlation(corr.clone())
         } else {
             params
         };
-        
+
         // Add factor names
         let factor_names: Vec<String> = (0..self.params.len())
             .map(|i| format!("spot_{}", i))

@@ -10,8 +10,8 @@
 //! with separate domestic and foreign discount curves, separate rho metrics
 //! would be implemented.
 
-use crate::instruments::fx_barrier_option::FxBarrierOption;
 use crate::instruments::common::metrics::finite_difference::bump_discount_curve_parallel;
+use crate::instruments::fx_barrier_option::FxBarrierOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -25,16 +25,19 @@ impl MetricCalculator for RhoCalculator {
         let base_pv = context.base_value.amount();
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
 
         // Bump discount curve by 1% (100bp)
         let bump_bp = 0.01;
-        let curves_bumped = bump_discount_curve_parallel(&context.curves, option.disc_id.as_str(), bump_bp)?;
+        let curves_bumped =
+            bump_discount_curve_parallel(&context.curves, option.disc_id.as_str(), bump_bp)?;
 
         // Reprice with bumped curve
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
@@ -45,4 +48,3 @@ impl MetricCalculator for RhoCalculator {
         Ok(rho)
     }
 }
-

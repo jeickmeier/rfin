@@ -46,9 +46,10 @@ impl PyMonteCarloResult {
     /// Get the captured paths dataset (if available).
     #[getter]
     fn paths(&self) -> Option<PyPathDataset> {
-        self.inner.paths.as_ref().map(|p| PyPathDataset {
-            inner: p.clone(),
-        })
+        self.inner
+            .paths
+            .as_ref()
+            .map(|p| PyPathDataset { inner: p.clone() })
     }
 
     /// Check if paths were captured.
@@ -83,9 +84,7 @@ impl PyMonteCarloResult {
         } else {
             format!(
                 "MonteCarloResult(estimate={}, stderr={:.4}, num_paths={})",
-                self.inner.estimate.mean,
-                self.inner.estimate.stderr,
-                self.inner.estimate.num_paths
+                self.inner.estimate.mean, self.inner.estimate.stderr, self.inner.estimate.num_paths
             )
         }
     }
@@ -118,5 +117,3 @@ pub(crate) fn register<'py>(
 
     Ok(exports)
 }
-
-

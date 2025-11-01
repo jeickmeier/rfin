@@ -1,8 +1,8 @@
 //! Trait implementations for Autocallable
 
+use crate::instruments::autocallable::Autocallable;
 use crate::instruments::common::metrics::has_equity_underlying::HasEquityUnderlying;
 use crate::instruments::common::metrics::has_pricing_overrides::HasPricingOverrides;
-use crate::instruments::autocallable::Autocallable;
 
 impl HasEquityUnderlying for Autocallable {
     fn spot_id(&self) -> &str {
@@ -15,4 +15,3 @@ impl HasPricingOverrides for Autocallable {
         &mut self.pricing_overrides
     }
 }
-

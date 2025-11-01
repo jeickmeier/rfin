@@ -17,10 +17,10 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::parameters::market::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::equity_option::EquityOption;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
-use finstack_valuations::instruments::common::traits::Instrument;
 use std::sync::Arc;
 use time::macros::date;
 
@@ -29,7 +29,12 @@ const TOLERANCE: f64 = 0.50; // 50% tolerance for FD approximations (FD can be l
 #[allow(dead_code)]
 const STRICT_TOLERANCE: f64 = 0.10; // 10% tolerance when both metric and FD exist
 
-fn create_test_option(_as_of: Date, expiry: Date, strike: f64, option_type: OptionType) -> EquityOption {
+fn create_test_option(
+    _as_of: Date,
+    expiry: Date,
+    strike: f64,
+    option_type: OptionType,
+) -> EquityOption {
     EquityOption {
         id: "TEST_OPTION".into(),
         underlying_ticker: "AAPL".to_string(),
@@ -49,7 +54,13 @@ fn create_test_option(_as_of: Date, expiry: Date, strike: f64, option_type: Opti
     }
 }
 
-fn create_market_context(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) -> MarketContext {
+fn create_market_context(
+    as_of: Date,
+    spot: f64,
+    vol: f64,
+    rate: f64,
+    div_yield: f64,
+) -> MarketContext {
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act365F)
@@ -90,9 +101,9 @@ fn test_charm_equals_delta_decay() {
 
     let option = create_test_option(as_of, expiry, strike, OptionType::Call);
     let market = create_market_context(as_of, spot, 0.25, 0.05, 0.02);
-    
+
     let registry = standard_registry();
-    
+
     // Compute delta at current time
     let pv = option.value(&market, as_of).unwrap();
     let mut context = MetricContext::new(
@@ -101,7 +112,8 @@ fn test_charm_equals_delta_decay() {
         as_of,
         pv,
     );
-    let delta_at_t = *registry.compute(&[MetricId::Delta], &mut context)
+    let delta_at_t = *registry
+        .compute(&[MetricId::Delta], &mut context)
         .unwrap()
         .get(&MetricId::Delta)
         .unwrap();
@@ -116,7 +128,8 @@ fn test_charm_equals_delta_decay() {
         as_of_plus_dt,
         pv_dt,
     );
-    let delta_at_t_dt = *registry.compute(&[MetricId::Delta], &mut context_dt)
+    let delta_at_t_dt = *registry
+        .compute(&[MetricId::Delta], &mut context_dt)
         .unwrap()
         .get(&MetricId::Delta)
         .unwrap();
@@ -124,7 +137,7 @@ fn test_charm_equals_delta_decay() {
     // Compute Charm via finite difference: Charm ≈ (Δ(t+dt) - Δ(t)) / dt
     let dt_years = dt_days / 365.0;
     let charm_fd = (delta_at_t_dt - delta_at_t) / dt_years;
-    
+
     // Try to get Charm from registry if available
     let mut context_charm = MetricContext::new(
         Arc::new(option.clone()),
@@ -133,7 +146,7 @@ fn test_charm_equals_delta_decay() {
         pv,
     );
     let charm_metric = registry.compute(&[MetricId::Charm], &mut context_charm);
-    
+
     if let Ok(charm_results) = charm_metric {
         if let Some(charm_value) = charm_results.get(&MetricId::Charm) {
             // If Charm metric exists, validate it's finite
@@ -146,7 +159,7 @@ fn test_charm_equals_delta_decay() {
             );
         }
     }
-    
+
     // Verify FD calculation is reasonable (non-zero for ATM/ITM options)
     assert!(charm_fd.is_finite(), "Charm (FD) should be finite");
 }
@@ -161,9 +174,9 @@ fn test_color_equals_gamma_decay() {
 
     let option = create_test_option(as_of, expiry, strike, OptionType::Call);
     let market = create_market_context(as_of, spot, 0.25, 0.05, 0.02);
-    
+
     let registry = standard_registry();
-    
+
     // Compute gamma at current time
     let pv = option.value(&market, as_of).unwrap();
     let mut context = MetricContext::new(
@@ -172,7 +185,8 @@ fn test_color_equals_gamma_decay() {
         as_of,
         pv,
     );
-    let gamma_at_t = *registry.compute(&[MetricId::Gamma], &mut context)
+    let gamma_at_t = *registry
+        .compute(&[MetricId::Gamma], &mut context)
         .unwrap()
         .get(&MetricId::Gamma)
         .unwrap();
@@ -187,7 +201,8 @@ fn test_color_equals_gamma_decay() {
         as_of_plus_dt,
         pv_dt,
     );
-    let gamma_at_t_dt = *registry.compute(&[MetricId::Gamma], &mut context_dt)
+    let gamma_at_t_dt = *registry
+        .compute(&[MetricId::Gamma], &mut context_dt)
         .unwrap()
         .get(&MetricId::Gamma)
         .unwrap();
@@ -195,7 +210,7 @@ fn test_color_equals_gamma_decay() {
     // Compute Color via finite difference: Color ≈ (Γ(t+dt) - Γ(t)) / dt
     let dt_years = dt_days / 365.0;
     let color_fd = (gamma_at_t_dt - gamma_at_t) / dt_years;
-    
+
     // Try to get Color from registry if available
     let mut context_color = MetricContext::new(
         Arc::new(option.clone()),
@@ -204,7 +219,7 @@ fn test_color_equals_gamma_decay() {
         pv,
     );
     let color_metric = registry.compute(&[MetricId::Color], &mut context_color);
-    
+
     if let Ok(color_results) = color_metric {
         if let Some(color_value) = color_results.get(&MetricId::Color) {
             // If Color metric exists, validate it's finite
@@ -217,7 +232,7 @@ fn test_color_equals_gamma_decay() {
             );
         }
     }
-    
+
     // Verify FD calculation is reasonable
     assert!(color_fd.is_finite(), "Color (FD) should be finite");
 }
@@ -232,10 +247,10 @@ fn test_speed_equals_gamma_convexity() {
 
     let option = create_test_option(as_of, expiry, strike, OptionType::Call);
     let market = create_market_context(as_of, spot, 0.25, 0.05, 0.02);
-    
+
     let registry = standard_registry();
     let spot_bump_pct = 0.01; // 1% bump
-    
+
     // Compute gamma at current spot
     let pv = option.value(&market, as_of).unwrap();
     let mut context = MetricContext::new(
@@ -244,15 +259,18 @@ fn test_speed_equals_gamma_convexity() {
         as_of,
         pv,
     );
-    let _gamma_at_s = *registry.compute(&[MetricId::Gamma], &mut context)
+    let _gamma_at_s = *registry
+        .compute(&[MetricId::Gamma], &mut context)
         .unwrap()
         .get(&MetricId::Gamma)
         .unwrap();
 
     // Compute gamma at spot + bump
     let spot_bump = spot * spot_bump_pct;
-    let market_up = market.clone()
-        .insert_price("AAPL", MarketScalar::Price(Money::new(spot + spot_bump, Currency::USD)));
+    let market_up = market.clone().insert_price(
+        "AAPL",
+        MarketScalar::Price(Money::new(spot + spot_bump, Currency::USD)),
+    );
     let pv_up = option.value(&market_up, as_of).unwrap();
     let mut context_up = MetricContext::new(
         Arc::new(option.clone()),
@@ -260,14 +278,17 @@ fn test_speed_equals_gamma_convexity() {
         as_of,
         pv_up,
     );
-    let gamma_at_s_up = *registry.compute(&[MetricId::Gamma], &mut context_up)
+    let gamma_at_s_up = *registry
+        .compute(&[MetricId::Gamma], &mut context_up)
         .unwrap()
         .get(&MetricId::Gamma)
         .unwrap();
 
     // Compute gamma at spot - bump
-    let market_down = market.clone()
-        .insert_price("AAPL", MarketScalar::Price(Money::new(spot - spot_bump, Currency::USD)));
+    let market_down = market.clone().insert_price(
+        "AAPL",
+        MarketScalar::Price(Money::new(spot - spot_bump, Currency::USD)),
+    );
     let pv_down = option.value(&market_down, as_of).unwrap();
     let mut context_down = MetricContext::new(
         Arc::new(option.clone()),
@@ -275,14 +296,15 @@ fn test_speed_equals_gamma_convexity() {
         as_of,
         pv_down,
     );
-    let gamma_at_s_down = *registry.compute(&[MetricId::Gamma], &mut context_down)
+    let gamma_at_s_down = *registry
+        .compute(&[MetricId::Gamma], &mut context_down)
         .unwrap()
         .get(&MetricId::Gamma)
         .unwrap();
 
     // Compute Speed via finite difference: Speed ≈ (Γ(S+ΔS) - Γ(S-ΔS)) / (2 * ΔS)
     let speed_fd = (gamma_at_s_up - gamma_at_s_down) / (2.0 * spot_bump);
-    
+
     // Try to get Speed from registry if available
     let mut context_speed = MetricContext::new(
         Arc::new(option.clone()),
@@ -291,7 +313,7 @@ fn test_speed_equals_gamma_convexity() {
         pv,
     );
     let speed_metric = registry.compute(&[MetricId::Speed], &mut context_speed);
-    
+
     if let Ok(speed_results) = speed_metric {
         if let Some(speed_value) = speed_results.get(&MetricId::Speed) {
             // If Speed metric exists, validate it's finite
@@ -304,7 +326,7 @@ fn test_speed_equals_gamma_convexity() {
             );
         }
     }
-    
+
     // Verify FD calculation is reasonable
     assert!(speed_fd.is_finite(), "Speed (FD) should be finite");
 }
@@ -324,12 +346,8 @@ fn test_gamma_always_non_negative() {
         for option_type in [OptionType::Call, OptionType::Put] {
             let option = create_test_option(as_of, expiry, strike, option_type);
             let pv = option.value(&market, as_of).unwrap();
-            let mut context = MetricContext::new(
-                Arc::new(option),
-                Arc::new(market.clone()),
-                as_of,
-                pv,
-            );
+            let mut context =
+                MetricContext::new(Arc::new(option), Arc::new(market.clone()), as_of, pv);
 
             let results = registry.compute(&[MetricId::Gamma], &mut context).unwrap();
             let gamma = *results.get(&MetricId::Gamma).unwrap();
@@ -337,7 +355,11 @@ fn test_gamma_always_non_negative() {
             assert!(
                 gamma >= 0.0,
                 "Gamma should be non-negative for {} option at strike {}, got {}",
-                if matches!(option_type, OptionType::Call) { "call" } else { "put" },
+                if matches!(option_type, OptionType::Call) {
+                    "call"
+                } else {
+                    "put"
+                },
                 strike,
                 gamma
             );
@@ -360,12 +382,8 @@ fn test_vega_always_non_negative() {
         for option_type in [OptionType::Call, OptionType::Put] {
             let option = create_test_option(as_of, expiry, strike, option_type);
             let pv = option.value(&market, as_of).unwrap();
-            let mut context = MetricContext::new(
-                Arc::new(option),
-                Arc::new(market.clone()),
-                as_of,
-                pv,
-            );
+            let mut context =
+                MetricContext::new(Arc::new(option), Arc::new(market.clone()), as_of, pv);
 
             let results = registry.compute(&[MetricId::Vega], &mut context).unwrap();
             let vega = *results.get(&MetricId::Vega).unwrap();
@@ -373,11 +391,14 @@ fn test_vega_always_non_negative() {
             assert!(
                 vega >= 0.0,
                 "Vega should be non-negative for {} option at strike {}, got {}",
-                if matches!(option_type, OptionType::Call) { "call" } else { "put" },
+                if matches!(option_type, OptionType::Call) {
+                    "call"
+                } else {
+                    "put"
+                },
                 strike,
                 vega
             );
         }
     }
 }
-

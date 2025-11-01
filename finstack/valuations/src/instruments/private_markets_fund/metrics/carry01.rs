@@ -40,9 +40,7 @@ impl MetricCalculator for Carry01Calculator {
                     *gp_share = (*gp_share + CARRY_BUMP).clamp(0.0, 1.0);
                 }
                 Tranche::PromoteTier {
-                    lp_share,
-                    gp_share,
-                    ..
+                    lp_share, gp_share, ..
                 } => {
                     // Adjust GP share and renormalize LP share to sum to 1.0
                     let new_gp = (*gp_share + CARRY_BUMP).clamp(0.0, 1.0);
@@ -68,9 +66,7 @@ impl MetricCalculator for Carry01Calculator {
                     *gp_share = (*gp_share - CARRY_BUMP).clamp(0.0, 1.0);
                 }
                 Tranche::PromoteTier {
-                    lp_share,
-                    gp_share,
-                    ..
+                    lp_share, gp_share, ..
                 } => {
                     let new_gp = (*gp_share - CARRY_BUMP).clamp(0.0, 1.0);
                     let new_lp = (1.0 - new_gp).max(0.0);
@@ -93,4 +89,3 @@ impl MetricCalculator for Carry01Calculator {
         Ok(carry01)
     }
 }
-

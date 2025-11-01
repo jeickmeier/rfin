@@ -31,16 +31,16 @@ mod tests {
     #[allow(unused_imports)]
     use finstack_core::prelude::{Currency, Money};
     #[allow(unused_imports)]
+    use finstack_valuations::instruments::common::parameters::market::OptionType;
+    #[allow(unused_imports)]
+    use finstack_valuations::instruments::common::traits::Instrument;
+    #[allow(unused_imports)]
     use finstack_valuations::instruments::{
         asian_option::{AsianOption, AveragingMethod},
         autocallable::{Autocallable, FinalPayoffType},
         barrier_option::{BarrierOption, BarrierType},
         lookback_option::{LookbackOption, LookbackType},
     };
-    #[allow(unused_imports)]
-    use finstack_valuations::instruments::common::parameters::market::OptionType;
-    #[allow(unused_imports)]
-    use finstack_valuations::instruments::common::traits::Instrument;
     #[allow(unused_imports)]
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     #[allow(unused_imports)]
@@ -97,9 +97,11 @@ mod tests {
                 as_of,
                 pv,
             );
-            
+
             let metric_id_clone = metric_id.clone();
-            let computed = registry.compute(std::slice::from_ref(&metric_id_clone), &mut context).unwrap();
+            let computed = registry
+                .compute(std::slice::from_ref(&metric_id_clone), &mut context)
+                .unwrap();
             let value = *computed.get(&metric_id_clone).unwrap();
             results.push(value);
         }
@@ -120,7 +122,7 @@ mod tests {
     fn test_asian_option_delta_deterministic() {
         let as_of = date!(2024 - 01 - 01);
         let expiry = date!(2025 - 01 - 01);
-        
+
         let option = AsianOption {
             id: "ASIAN_DELTA_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
@@ -153,7 +155,7 @@ mod tests {
     fn test_asian_option_vega_deterministic() {
         let as_of = date!(2024 - 01 - 01);
         let expiry = date!(2025 - 01 - 01);
-        
+
         let option = AsianOption {
             id: "ASIAN_VEGA_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
@@ -186,7 +188,7 @@ mod tests {
     fn test_asian_option_all_greeks_deterministic() {
         let as_of = date!(2024 - 01 - 01);
         let expiry = date!(2025 - 01 - 01);
-        
+
         let option = AsianOption {
             id: "ASIAN_ALL_GREEKS".into(),
             underlying_ticker: "SPOT".to_string(),
@@ -211,7 +213,7 @@ mod tests {
         };
 
         let market = create_mc_market(as_of, 100.0, 0.25, 0.05);
-        
+
         // Test all key greeks
         test_metric_determinism(option.clone(), &market, as_of, MetricId::Delta, 10);
         test_metric_determinism(option.clone(), &market, as_of, MetricId::Gamma, 10);
@@ -225,7 +227,7 @@ mod tests {
     fn test_barrier_option_delta_vega_deterministic() {
         let as_of = date!(2024 - 01 - 01);
         let expiry = date!(2025 - 01 - 01);
-        
+
         let option = BarrierOption {
             id: "BARRIER_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
@@ -255,7 +257,7 @@ mod tests {
     fn test_lookback_option_delta_vega_deterministic() {
         let as_of = date!(2024 - 01 - 01);
         let expiry = date!(2025 - 01 - 01);
-        
+
         let option = LookbackOption {
             id: "LOOKBACK_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
@@ -288,7 +290,7 @@ mod tests {
             date!(2024 - 10 - 01),
             date!(2025 - 01 - 01),
         ];
-        
+
         let option = Autocallable {
             id: "AUTOCALL_TEST".into(),
             underlying_ticker: "SPOT".to_string(),
@@ -314,4 +316,3 @@ mod tests {
         test_metric_determinism(option, &market, as_of, MetricId::Vega, 10);
     }
 }
-

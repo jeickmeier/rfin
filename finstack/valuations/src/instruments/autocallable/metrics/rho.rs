@@ -23,16 +23,19 @@ impl MetricCalculator for RhoCalculator {
             .last()
             .copied()
             .unwrap_or(instrument.observation_dates[0]);
-        let t = instrument
-            .day_count
-            .year_fraction(as_of, final_date, finstack_core::dates::DayCountCtx::default())?;
+        let t = instrument.day_count.year_fraction(
+            as_of,
+            final_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
 
         // Bump discount curve by 1% (100bp)
         let bump_bp = 0.01;
-        let curves_bumped = bump_discount_curve_parallel(&context.curves, instrument.disc_id.as_str(), bump_bp)?;
+        let curves_bumped =
+            bump_discount_curve_parallel(&context.curves, instrument.disc_id.as_str(), bump_bp)?;
 
         // Reprice with bumped curve
         let pv_bumped = instrument.npv(&curves_bumped, as_of)?.amount();
@@ -43,4 +46,3 @@ impl MetricCalculator for RhoCalculator {
         Ok(rho)
     }
 }
-

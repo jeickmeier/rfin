@@ -17,9 +17,11 @@ impl MetricCalculator for VolgaCalculator {
         let base_pv = context.base_value.amount();
 
         let final_date = option.reset_dates.last().copied().unwrap_or(as_of);
-        let t = option
-            .day_count
-            .year_fraction(as_of, final_date, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            final_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -31,12 +33,24 @@ impl MetricCalculator for VolgaCalculator {
             let mut curves = context.curves.as_ref().clone();
             let scale_factor = 1.0 + vol_bump;
             let state = vol_surface.to_state();
-            let bumped_vols: Vec<f64> = state.vols_row_major.iter().map(|v| v * scale_factor).collect();
+            let bumped_vols: Vec<f64> = state
+                .vols_row_major
+                .iter()
+                .map(|v| v * scale_factor)
+                .collect();
             use finstack_core::market_data::surfaces::vol_surface::VolSurface;
             use finstack_core::types::CurveId;
             use std::sync::Arc;
-            let bumped_surface = VolSurface::from_grid(option.vol_id.as_str(), &state.expiries, &state.strikes, &bumped_vols)?;
-            curves.surfaces.insert(CurveId::from(option.vol_id.as_str()), Arc::new(bumped_surface));
+            let bumped_surface = VolSurface::from_grid(
+                option.vol_id.as_str(),
+                &state.expiries,
+                &state.strikes,
+                &bumped_vols,
+            )?;
+            curves.surfaces.insert(
+                CurveId::from(option.vol_id.as_str()),
+                Arc::new(bumped_surface),
+            );
             curves
         };
         let pv_vol_up = option.npv(&curves_vol_up, as_of)?.amount();
@@ -45,12 +59,24 @@ impl MetricCalculator for VolgaCalculator {
             let mut curves = context.curves.as_ref().clone();
             let scale_factor = 1.0 - vol_bump;
             let state = vol_surface.to_state();
-            let bumped_vols: Vec<f64> = state.vols_row_major.iter().map(|v| v * scale_factor).collect();
+            let bumped_vols: Vec<f64> = state
+                .vols_row_major
+                .iter()
+                .map(|v| v * scale_factor)
+                .collect();
             use finstack_core::market_data::surfaces::vol_surface::VolSurface;
             use finstack_core::types::CurveId;
             use std::sync::Arc;
-            let bumped_surface = VolSurface::from_grid(option.vol_id.as_str(), &state.expiries, &state.strikes, &bumped_vols)?;
-            curves.surfaces.insert(CurveId::from(option.vol_id.as_str()), Arc::new(bumped_surface));
+            let bumped_surface = VolSurface::from_grid(
+                option.vol_id.as_str(),
+                &state.expiries,
+                &state.strikes,
+                &bumped_vols,
+            )?;
+            curves.surfaces.insert(
+                CurveId::from(option.vol_id.as_str()),
+                Arc::new(bumped_surface),
+            );
             curves
         };
         let pv_vol_down = option.npv(&curves_vol_down, as_of)?.amount();
@@ -59,4 +85,3 @@ impl MetricCalculator for VolgaCalculator {
         Ok(volga)
     }
 }
-

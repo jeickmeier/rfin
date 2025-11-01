@@ -23,9 +23,11 @@ impl MetricCalculator for VegaCalculator {
             .last()
             .copied()
             .unwrap_or(instrument.observation_dates[0]);
-        let t = instrument
-            .day_count
-            .year_fraction(as_of, final_date, finstack_core::dates::DayCountCtx::default())?;
+        let t = instrument.day_count.year_fraction(
+            as_of,
+            final_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -36,7 +38,7 @@ impl MetricCalculator for VegaCalculator {
         // Bump volatility surface by scaling all values
         let mut curves_bumped = context.curves.as_ref().clone();
         let scale_factor = 1.0 + bump_sizes::VOLATILITY;
-        
+
         // Get surface state for rebuilding
         let state = vol_surface.to_state();
         let bumped_vols: Vec<f64> = state
@@ -44,11 +46,11 @@ impl MetricCalculator for VegaCalculator {
             .iter()
             .map(|v| v * scale_factor)
             .collect();
-        
+
         use finstack_core::market_data::surfaces::vol_surface::VolSurface;
         use finstack_core::types::CurveId;
         use std::sync::Arc;
-        
+
         let bumped_surface = VolSurface::from_grid(
             instrument.vol_id.as_str(),
             &state.expiries,
@@ -69,4 +71,3 @@ impl MetricCalculator for VegaCalculator {
         Ok(vega)
     }
 }
-

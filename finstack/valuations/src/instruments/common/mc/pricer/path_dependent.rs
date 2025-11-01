@@ -147,10 +147,10 @@ impl PathDependentPricer {
             let rng = PhiloxRng::new(self.config.seed);
             let disc = ExactGbm::new();
             let initial_state = vec![initial_spot];
-            
+
             // Get process metadata
             let process_params = process.metadata();
-            
+
             // Price with path capture
             let result = engine.price_with_capture(
                 &rng,
@@ -162,7 +162,7 @@ impl PathDependentPricer {
                 discount_factor,
                 process_params,
             )?;
-            
+
             // Return just the estimate (paths are dropped)
             Ok(result.estimate)
         } else {
@@ -171,7 +171,7 @@ impl PathDependentPricer {
             let rng = PhiloxRng::new(self.config.seed);
             let disc = ExactGbm::new();
             let initial_state = vec![initial_spot];
-            
+
             engine.price(
                 &rng,
                 process,

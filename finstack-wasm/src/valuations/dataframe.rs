@@ -47,24 +47,44 @@ pub fn results_to_rows_wasm(results: Array) -> Result<Array, JsValue> {
     let js_rows = Array::new();
     for row in rows {
         let obj = Object::new();
-        let _ = Reflect::set(&obj, &JsValue::from_str("instrument_id"), &JsValue::from_str(&row.instrument_id));
-        let _ = Reflect::set(&obj, &JsValue::from_str("as_of_date"), &JsValue::from_str(&row.as_of_date));
+        let _ = Reflect::set(
+            &obj,
+            &JsValue::from_str("instrument_id"),
+            &JsValue::from_str(&row.instrument_id),
+        );
+        let _ = Reflect::set(
+            &obj,
+            &JsValue::from_str("as_of_date"),
+            &JsValue::from_str(&row.as_of_date),
+        );
         let _ = Reflect::set(&obj, &JsValue::from_str("pv"), &JsValue::from_f64(row.pv));
-        let _ = Reflect::set(&obj, &JsValue::from_str("currency"), &JsValue::from_str(&row.currency));
-        
+        let _ = Reflect::set(
+            &obj,
+            &JsValue::from_str("currency"),
+            &JsValue::from_str(&row.currency),
+        );
+
         if let Some(dv01) = row.dv01 {
             let _ = Reflect::set(&obj, &JsValue::from_str("dv01"), &JsValue::from_f64(dv01));
         }
         if let Some(convexity) = row.convexity {
-            let _ = Reflect::set(&obj, &JsValue::from_str("convexity"), &JsValue::from_f64(convexity));
+            let _ = Reflect::set(
+                &obj,
+                &JsValue::from_str("convexity"),
+                &JsValue::from_f64(convexity),
+            );
         }
         if let Some(duration) = row.duration {
-            let _ = Reflect::set(&obj, &JsValue::from_str("duration"), &JsValue::from_f64(duration));
+            let _ = Reflect::set(
+                &obj,
+                &JsValue::from_str("duration"),
+                &JsValue::from_f64(duration),
+            );
         }
         if let Some(ytm) = row.ytm {
             let _ = Reflect::set(&obj, &JsValue::from_str("ytm"), &JsValue::from_f64(ytm));
         }
-        
+
         js_rows.push(&obj);
     }
 
@@ -92,4 +112,3 @@ pub fn results_to_json_wasm(results: Array) -> Result<String, JsValue> {
         .map_err(|_| JsValue::from_str("Failed to serialize to JSON"))?;
     Ok(json.as_string().unwrap_or_default())
 }
-

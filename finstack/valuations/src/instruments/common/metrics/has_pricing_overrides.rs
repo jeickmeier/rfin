@@ -13,4 +13,3 @@ pub trait HasPricingOverrides {
     /// Returns mutable access to pricing overrides.
     fn pricing_overrides_mut(&mut self) -> &mut PricingOverrides;
 }
-

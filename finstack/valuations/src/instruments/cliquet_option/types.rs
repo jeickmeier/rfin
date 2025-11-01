@@ -75,7 +75,9 @@ impl crate::instruments::common::traits::Instrument for CliquetOption {
         #[cfg(not(feature = "mc"))]
         {
             let _ = (market, as_of);
-            Err(finstack_core::Error::Validation("MC feature required for CliquetOption pricing".to_string()))
+            Err(finstack_core::Error::Validation(
+                "MC feature required for CliquetOption pricing".to_string(),
+            ))
         }
     }
 

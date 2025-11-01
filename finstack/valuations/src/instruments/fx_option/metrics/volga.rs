@@ -3,8 +3,8 @@
 //! Computes volga (∂²V/∂σ²) using finite differences.
 //! Volga measures how vega changes with volatility.
 
-use crate::instruments::fx_option::FxOption;
 use crate::instruments::common::metrics::finite_difference::bump_sizes;
+use crate::instruments::fx_option::FxOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -18,9 +18,11 @@ impl MetricCalculator for VolgaCalculator {
         let base_pv = context.base_value.amount();
 
         // Check if expired
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -40,11 +42,11 @@ impl MetricCalculator for VolgaCalculator {
                 .iter()
                 .map(|v| v * scale_factor)
                 .collect();
-            
+
             use finstack_core::market_data::surfaces::vol_surface::VolSurface;
             use finstack_core::types::CurveId;
             use std::sync::Arc;
-            
+
             let bumped_surface = VolSurface::from_grid(
                 option.vol_id.as_str(),
                 &state.expiries,
@@ -68,11 +70,11 @@ impl MetricCalculator for VolgaCalculator {
                 .iter()
                 .map(|v| v * scale_factor)
                 .collect();
-            
+
             use finstack_core::market_data::surfaces::vol_surface::VolSurface;
             use finstack_core::types::CurveId;
             use std::sync::Arc;
-            
+
             let bumped_surface = VolSurface::from_grid(
                 option.vol_id.as_str(),
                 &state.expiries,
@@ -93,4 +95,3 @@ impl MetricCalculator for VolgaCalculator {
         Ok(volga)
     }
 }
-

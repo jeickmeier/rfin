@@ -114,23 +114,23 @@ impl PySimulatedPath {
 
     /// Get a specific point by step index.
     fn point(&self, step: usize) -> Option<PyPathPoint> {
-        self.inner.point(step).map(|p| PyPathPoint {
-            inner: p.clone(),
-        })
+        self.inner
+            .point(step)
+            .map(|p| PyPathPoint { inner: p.clone() })
     }
 
     /// Get the initial point.
     fn initial_point(&self) -> Option<PyPathPoint> {
-        self.inner.initial_point().map(|p| PyPathPoint {
-            inner: p.clone(),
-        })
+        self.inner
+            .initial_point()
+            .map(|p| PyPathPoint { inner: p.clone() })
     }
 
     /// Get the terminal point.
     fn terminal_point(&self) -> Option<PyPathPoint> {
-        self.inner.terminal_point().map(|p| PyPathPoint {
-            inner: p.clone(),
-        })
+        self.inner
+            .terminal_point()
+            .map(|p| PyPathPoint { inner: p.clone() })
     }
 
     fn __repr__(&self) -> String {
@@ -162,9 +162,7 @@ impl PyPathDataset {
         self.inner
             .paths
             .iter()
-            .map(|p| PySimulatedPath {
-                inner: p.clone(),
-            })
+            .map(|p| PySimulatedPath { inner: p.clone() })
             .collect()
     }
 
@@ -187,9 +185,9 @@ impl PyPathDataset {
 
     /// Get a specific path by index.
     fn path(&self, index: usize) -> Option<PySimulatedPath> {
-        self.inner.path(index).map(|p| PySimulatedPath {
-            inner: p.clone(),
-        })
+        self.inner
+            .path(index)
+            .map(|p| PySimulatedPath { inner: p.clone() })
     }
 
     /// Check if all paths were captured.
@@ -341,4 +339,3 @@ pub(crate) fn register<'py>(
 
     Ok(exports)
 }
-

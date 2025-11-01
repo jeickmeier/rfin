@@ -47,4 +47,3 @@ impl MetricCalculator for Haircut01Calculator {
         Ok(haircut01)
     }
 }
-

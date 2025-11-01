@@ -54,14 +54,8 @@ impl MetricCalculator for ConstituentDeltaCalculator {
 
             // Bump price up by 1%
             let bumped_price = current_price * (1.0 + PRICE_BUMP_PCT);
-            let delta = bump_and_measure_delta(
-                basket,
-                constituent,
-                bumped_price,
-                context,
-                as_of,
-                base_pv,
-            )?;
+            let delta =
+                bump_and_measure_delta(basket, constituent, bumped_price, context, as_of, base_pv)?;
 
             series.push((label, delta));
             total_delta += delta;
@@ -88,7 +82,9 @@ fn get_constituent_price_value(
             let price = instrument.value(context.curves.as_ref(), context.as_of)?;
             Ok(price.amount())
         }
-        crate::instruments::basket::types::ConstituentReference::MarketData { price_id, .. } => {
+        crate::instruments::basket::types::ConstituentReference::MarketData {
+            price_id, ..
+        } => {
             let scalar = context.curves.price(price_id.as_ref())?;
             match scalar {
                 finstack_core::market_data::scalars::MarketScalar::Price(money) => {
@@ -122,7 +118,9 @@ fn bump_and_measure_delta(
             // might need special handling or the instrument itself should expose delta.
             return Ok(0.0);
         }
-        crate::instruments::basket::types::ConstituentReference::MarketData { price_id, .. } => {
+        crate::instruments::basket::types::ConstituentReference::MarketData {
+            price_id, ..
+        } => {
             // Bump the price scalar
             let current_scalar = bumped_ctx.price(price_id.as_ref())?;
             let new_scalar = match current_scalar {
@@ -135,7 +133,9 @@ fn bump_and_measure_delta(
                     finstack_core::market_data::scalars::MarketScalar::Unitless(bumped_price)
                 }
             };
-            bumped_ctx.prices.insert(CurveId::from(price_id.as_ref()), new_scalar);
+            bumped_ctx
+                .prices
+                .insert(CurveId::from(price_id.as_ref()), new_scalar);
         }
     }
 
@@ -154,4 +154,3 @@ fn bump_and_measure_delta(
 
     Ok(delta)
 }
-

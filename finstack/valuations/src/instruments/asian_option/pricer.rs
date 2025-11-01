@@ -11,6 +11,12 @@ use crate::instruments::common::mc::pricer::path_dependent::{
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
+use crate::instruments::common::traits::Instrument;
+#[cfg(feature = "mc")]
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+#[cfg(feature = "mc")]
+use crate::results::ValuationResult;
+#[cfg(feature = "mc")]
 use finstack_core::dates::{Date, DayCountCtx};
 #[cfg(feature = "mc")]
 use finstack_core::market_data::MarketContext;
@@ -18,12 +24,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 #[cfg(feature = "mc")]
 use finstack_core::Result;
-#[cfg(feature = "mc")]
-use crate::instruments::common::traits::Instrument;
-#[cfg(feature = "mc")]
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
-#[cfg(feature = "mc")]
-use crate::results::ValuationResult;
 
 /// Asian option Monte Carlo pricer.
 #[cfg(feature = "mc")]
@@ -150,7 +150,7 @@ impl AsianOptionMcPricer {
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
         use crate::instruments::common::mc::seed;
-        
+
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
             {
@@ -166,11 +166,11 @@ impl AsianOptionMcPricer {
             #[cfg(not(feature = "mc"))]
             self.config.seed
         };
-        
+
         // Create config with derived seed
         let mut config = self.config.clone();
         config.seed = seed;
-        
+
         // Price using path-dependent pricer
         let pricer = PathDependentPricer::new(config);
         let result = match inst.option_type {

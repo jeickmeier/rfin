@@ -18,8 +18,8 @@ use crate::instruments::common::traits::Instrument;
 use crate::instruments::repo::Repo;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::Result;
 use finstack_core::types::CurveId;
+use finstack_core::Result;
 
 /// Standard collateral price bump: 1% (0.01)
 const COLLATERAL_PRICE_BUMP_PCT: f64 = 0.01;
@@ -44,36 +44,30 @@ impl MetricCalculator for CollateralPrice01Calculator {
         let bumped_price_up = current_price * (1.0 + COLLATERAL_PRICE_BUMP_PCT);
         let mut ctx_up = context.curves.as_ref().clone();
         let new_scalar_up = match current_scalar {
-            MarketScalar::Price(m) => {
-                MarketScalar::Price(finstack_core::money::Money::new(
-                    bumped_price_up,
-                    m.currency(),
-                ))
-            }
+            MarketScalar::Price(m) => MarketScalar::Price(finstack_core::money::Money::new(
+                bumped_price_up,
+                m.currency(),
+            )),
             MarketScalar::Unitless(_) => MarketScalar::Unitless(bumped_price_up),
         };
-        ctx_up.prices.insert(
-            CurveId::from(market_value_id.as_str()),
-            new_scalar_up,
-        );
+        ctx_up
+            .prices
+            .insert(CurveId::from(market_value_id.as_str()), new_scalar_up);
         let pv_up = repo.value(&ctx_up, as_of)?.amount();
 
         // Bump collateral price down by 1%
         let bumped_price_down = current_price * (1.0 - COLLATERAL_PRICE_BUMP_PCT);
         let mut ctx_down = context.curves.as_ref().clone();
         let new_scalar_down = match current_scalar {
-            MarketScalar::Price(m) => {
-                MarketScalar::Price(finstack_core::money::Money::new(
-                    bumped_price_down,
-                    m.currency(),
-                ))
-            }
+            MarketScalar::Price(m) => MarketScalar::Price(finstack_core::money::Money::new(
+                bumped_price_down,
+                m.currency(),
+            )),
             MarketScalar::Unitless(_) => MarketScalar::Unitless(bumped_price_down),
         };
-        ctx_down.prices.insert(
-            CurveId::from(market_value_id.as_str()),
-            new_scalar_down,
-        );
+        ctx_down
+            .prices
+            .insert(CurveId::from(market_value_id.as_str()), new_scalar_down);
         let pv_down = repo.value(&ctx_down, as_of)?.amount();
 
         // CollateralPrice01 = (PV_up - PV_down) / (2 * bump_size)
@@ -88,4 +82,3 @@ impl MetricCalculator for CollateralPrice01Calculator {
         Ok(collateral_price01)
     }
 }
-

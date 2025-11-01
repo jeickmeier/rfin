@@ -151,4 +151,3 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyCliquetOption>()?;
     Ok(vec!["CliquetOption"])
 }
-

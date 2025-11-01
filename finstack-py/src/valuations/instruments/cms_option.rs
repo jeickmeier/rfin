@@ -8,11 +8,7 @@ use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
 
 /// CMS option instrument.
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "CmsOption",
-    frozen
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "CmsOption", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyCmsOption {
     pub(crate) inner: CmsOption,
@@ -168,4 +164,3 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyCmsOption>()?;
     Ok(vec!["CmsOption"])
 }
-

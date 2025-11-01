@@ -151,15 +151,20 @@ impl PyDiscountCurveCalibrator {
     #[pyo3(signature = (quotes, market=None))]
     fn calibrate(
         &self,
+        py: Python<'_>,
         quotes: Vec<Py<PyRatesQuote>>,
         market: Option<PyRef<PyMarketContext>>,
     ) -> PyResult<(PyDiscountCurve, PyCalibrationReport)> {
         let rust_quotes = collect_rates_quotes(quotes)?;
         let base_context = base_context_from_option(market);
-        let (curve, report) = self
-            .inner
-            .calibrate(&rust_quotes, &base_context)
-            .map_err(core_to_py)?;
+        
+        // Release GIL for compute-heavy calibration work
+        let (curve, report) = py.allow_threads(|| {
+            self.inner
+                .calibrate(&rust_quotes, &base_context)
+                .map_err(core_to_py)
+        })?;
+        
         Ok((
             PyDiscountCurve::new_arc(Arc::new(curve)),
             PyCalibrationReport::new(report),
@@ -225,15 +230,20 @@ impl PyForwardCurveCalibrator {
     #[pyo3(signature = (quotes, market))]
     fn calibrate(
         &self,
+        py: Python<'_>,
         quotes: Vec<Py<PyRatesQuote>>,
         market: PyRef<PyMarketContext>,
     ) -> PyResult<(PyForwardCurve, PyCalibrationReport)> {
         let rust_quotes = collect_rates_quotes(quotes)?;
         let base_context = market.inner.clone();
-        let (curve, report) = self
-            .inner
-            .calibrate(&rust_quotes, &base_context)
-            .map_err(core_to_py)?;
+        
+        // Release GIL for compute-heavy calibration work
+        let (curve, report) = py.allow_threads(|| {
+            self.inner
+                .calibrate(&rust_quotes, &base_context)
+                .map_err(core_to_py)
+        })?;
+        
         Ok((
             PyForwardCurve::new_arc(Arc::new(curve)),
             PyCalibrationReport::new(report),
@@ -312,15 +322,20 @@ impl PyHazardCurveCalibrator {
     #[pyo3(signature = (quotes, market))]
     fn calibrate(
         &self,
+        py: Python<'_>,
         quotes: Vec<Py<PyCreditQuote>>,
         market: PyRef<PyMarketContext>,
     ) -> PyResult<(PyHazardCurve, PyCalibrationReport)> {
         let rust_quotes = collect_credit_quotes(quotes)?;
         let context = market.inner.clone();
-        let (curve, report) = self
-            .inner
-            .calibrate(&rust_quotes, &context)
-            .map_err(core_to_py)?;
+        
+        // Release GIL for compute-heavy calibration work
+        let (curve, report) = py.allow_threads(|| {
+            self.inner
+                .calibrate(&rust_quotes, &context)
+                .map_err(core_to_py)
+        })?;
+        
         Ok((
             PyHazardCurve::new_arc(Arc::new(curve)),
             PyCalibrationReport::new(report),
@@ -437,15 +452,20 @@ impl PyInflationCurveCalibrator {
     #[pyo3(signature = (quotes, market=None))]
     fn calibrate(
         &self,
+        py: Python<'_>,
         quotes: Vec<Py<PyInflationQuote>>,
         market: Option<PyRef<PyMarketContext>>,
     ) -> PyResult<(PyInflationCurve, PyCalibrationReport)> {
         let rust_quotes = collect_inflation_quotes(quotes)?;
         let context = base_context_from_option(market);
-        let (curve, report) = self
-            .inner
-            .calibrate(&rust_quotes, &context)
-            .map_err(core_to_py)?;
+        
+        // Release GIL for compute-heavy calibration work
+        let (curve, report) = py.allow_threads(|| {
+            self.inner
+                .calibrate(&rust_quotes, &context)
+                .map_err(core_to_py)
+        })?;
+        
         Ok((
             PyInflationCurve::new_arc(Arc::new(curve)),
             PyCalibrationReport::new(report),
@@ -534,15 +554,20 @@ impl PyVolSurfaceCalibrator {
     #[pyo3(signature = (quotes, market))]
     fn calibrate(
         &self,
+        py: Python<'_>,
         quotes: Vec<Py<PyVolQuote>>,
         market: PyRef<PyMarketContext>,
     ) -> PyResult<(PyVolSurface, PyCalibrationReport)> {
         let rust_quotes = collect_vol_quotes(quotes)?;
         let context = market.inner.clone();
-        let (surface, report) = self
-            .inner
-            .calibrate(&rust_quotes, &context)
-            .map_err(core_to_py)?;
+        
+        // Release GIL for compute-heavy calibration work
+        let (surface, report) = py.allow_threads(|| {
+            self.inner
+                .calibrate(&rust_quotes, &context)
+                .map_err(core_to_py)
+        })?;
+        
         Ok((
             PyVolSurface::new_arc(Arc::new(surface)),
             PyCalibrationReport::new(report),
@@ -717,15 +742,20 @@ impl PyBaseCorrelationCalibrator {
     ///     Quotes are automatically sorted by detachment point for bootstrapping.
     fn calibrate(
         &self,
+        py: Python<'_>,
         quotes: Vec<Py<PyCreditQuote>>,
         market: PyRef<PyMarketContext>,
     ) -> PyResult<(PyBaseCorrelationCurve, PyCalibrationReport)> {
         let rust_quotes = collect_credit_quotes(quotes)?;
         let context = market.inner.clone();
-        let (curve, report) = self
-            .inner
-            .calibrate(&rust_quotes, &context)
-            .map_err(core_to_py)?;
+        
+        // Release GIL for compute-heavy calibration work
+        let (curve, report) = py.allow_threads(|| {
+            self.inner
+                .calibrate(&rust_quotes, &context)
+                .map_err(core_to_py)
+        })?;
+        
         Ok((
             PyBaseCorrelationCurve::new_arc(Arc::new(curve)),
             PyCalibrationReport::new(report),

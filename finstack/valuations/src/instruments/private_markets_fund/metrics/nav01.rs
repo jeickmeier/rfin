@@ -74,4 +74,3 @@ impl MetricCalculator for Nav01Calculator {
         Ok(nav01)
     }
 }
-

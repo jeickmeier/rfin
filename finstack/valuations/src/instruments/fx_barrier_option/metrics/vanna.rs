@@ -3,8 +3,8 @@
 //! Computes vanna (∂²V/∂S∂σ) using finite differences.
 //! Note: FX barrier options exhibit discontinuous vanna near barrier levels.
 
-use crate::instruments::fx_barrier_option::FxBarrierOption;
 use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::instruments::fx_barrier_option::FxBarrierOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -16,9 +16,11 @@ impl MetricCalculator for VannaCalculator {
         let option: &FxBarrierOption = context.instrument_as()?;
         let as_of = context.as_of;
 
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
@@ -38,17 +40,31 @@ impl MetricCalculator for VannaCalculator {
             let mut curves = context.curves.as_ref().clone();
             let scale_factor = 1.0 + vol_bump;
             let state = vol_surface.to_state();
-            let bumped_vols: Vec<f64> = state.vols_row_major.iter().map(|v| v * scale_factor).collect();
+            let bumped_vols: Vec<f64> = state
+                .vols_row_major
+                .iter()
+                .map(|v| v * scale_factor)
+                .collect();
             use finstack_core::market_data::surfaces::vol_surface::VolSurface;
             use finstack_core::types::CurveId;
             use std::sync::Arc;
-            let bumped_surface = VolSurface::from_grid(option.fx_vol_id.as_str(), &state.expiries, &state.strikes, &bumped_vols)?;
-            curves.surfaces.insert(CurveId::from(option.fx_vol_id.as_str()), Arc::new(bumped_surface));
+            let bumped_surface = VolSurface::from_grid(
+                option.fx_vol_id.as_str(),
+                &state.expiries,
+                &state.strikes,
+                &bumped_vols,
+            )?;
+            curves.surfaces.insert(
+                CurveId::from(option.fx_vol_id.as_str()),
+                Arc::new(bumped_surface),
+            );
             curves
         };
-        let curves_up_vol_up = bump_scalar_price(&curves_vol_up, &option.fx_spot_id, bump_sizes::SPOT)?;
+        let curves_up_vol_up =
+            bump_scalar_price(&curves_vol_up, &option.fx_spot_id, bump_sizes::SPOT)?;
         let pv_up_vol_up = option.npv(&curves_up_vol_up, as_of)?.amount();
-        let curves_down_vol_up = bump_scalar_price(&curves_vol_up, &option.fx_spot_id, -bump_sizes::SPOT)?;
+        let curves_down_vol_up =
+            bump_scalar_price(&curves_vol_up, &option.fx_spot_id, -bump_sizes::SPOT)?;
         let pv_down_vol_up = option.npv(&curves_down_vol_up, as_of)?.amount();
         let delta_vol_up = (pv_up_vol_up - pv_down_vol_up) / (2.0 * spot_bump);
 
@@ -57,17 +73,31 @@ impl MetricCalculator for VannaCalculator {
             let mut curves = context.curves.as_ref().clone();
             let scale_factor = 1.0 - vol_bump;
             let state = vol_surface.to_state();
-            let bumped_vols: Vec<f64> = state.vols_row_major.iter().map(|v| v * scale_factor).collect();
+            let bumped_vols: Vec<f64> = state
+                .vols_row_major
+                .iter()
+                .map(|v| v * scale_factor)
+                .collect();
             use finstack_core::market_data::surfaces::vol_surface::VolSurface;
             use finstack_core::types::CurveId;
             use std::sync::Arc;
-            let bumped_surface = VolSurface::from_grid(option.fx_vol_id.as_str(), &state.expiries, &state.strikes, &bumped_vols)?;
-            curves.surfaces.insert(CurveId::from(option.fx_vol_id.as_str()), Arc::new(bumped_surface));
+            let bumped_surface = VolSurface::from_grid(
+                option.fx_vol_id.as_str(),
+                &state.expiries,
+                &state.strikes,
+                &bumped_vols,
+            )?;
+            curves.surfaces.insert(
+                CurveId::from(option.fx_vol_id.as_str()),
+                Arc::new(bumped_surface),
+            );
             curves
         };
-        let curves_up_vol_down = bump_scalar_price(&curves_vol_down, &option.fx_spot_id, bump_sizes::SPOT)?;
+        let curves_up_vol_down =
+            bump_scalar_price(&curves_vol_down, &option.fx_spot_id, bump_sizes::SPOT)?;
         let pv_up_vol_down = option.npv(&curves_up_vol_down, as_of)?.amount();
-        let curves_down_vol_down = bump_scalar_price(&curves_vol_down, &option.fx_spot_id, -bump_sizes::SPOT)?;
+        let curves_down_vol_down =
+            bump_scalar_price(&curves_vol_down, &option.fx_spot_id, -bump_sizes::SPOT)?;
         let pv_down_vol_down = option.npv(&curves_down_vol_down, as_of)?.amount();
         let delta_vol_down = (pv_up_vol_down - pv_down_vol_down) / (2.0 * spot_bump);
 
@@ -75,4 +105,3 @@ impl MetricCalculator for VannaCalculator {
         Ok(vanna)
     }
 }
-

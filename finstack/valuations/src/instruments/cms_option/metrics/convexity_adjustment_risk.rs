@@ -37,4 +37,3 @@ impl MetricCalculator for ConvexityAdjustmentRiskCalculator {
         Ok(0.0)
     }
 }
-

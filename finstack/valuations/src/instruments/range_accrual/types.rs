@@ -76,7 +76,9 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
         #[cfg(not(feature = "mc"))]
         {
             let _ = (market, as_of);
-            Err(finstack_core::Error::Validation("MC feature required for RangeAccrual pricing".to_string()))
+            Err(finstack_core::Error::Validation(
+                "MC feature required for RangeAccrual pricing".to_string(),
+            ))
         }
     }
 

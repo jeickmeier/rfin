@@ -193,7 +193,6 @@ impl JsMetricId {
         JsMetricId::from_inner(MetricId::Cs01)
     }
 
-
     /// Bucketed DV01 (key-rate durations).
     #[wasm_bindgen(js_name = BucketedDV01)]
     pub fn bucketed_dv01() -> JsMetricId {

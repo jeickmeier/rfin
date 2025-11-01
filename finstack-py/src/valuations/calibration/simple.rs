@@ -155,6 +155,7 @@ impl PySimpleCalibration {
     #[pyo3(text_signature = "(self, quotes)")]
     fn calibrate(
         &self,
+        py: Python<'_>,
         quotes: Vec<Py<PyMarketQuote>>,
     ) -> PyResult<(PyMarketContext, PyCalibrationReport)> {
         let rust_quotes = Python::with_gil(|py| -> PyResult<Vec<_>> {
@@ -168,7 +169,12 @@ impl PySimpleCalibration {
         })?;
 
         let calibrator = self.build();
-        let (market, report) = calibrator.calibrate(&rust_quotes).map_err(core_to_py)?;
+        
+        // Release GIL for compute-heavy calibration work
+        let (market, report) = py.allow_threads(|| {
+            calibrator.calibrate(&rust_quotes).map_err(core_to_py)
+        })?;
+        
         Ok((
             PyMarketContext { inner: market },
             PyCalibrationReport::new(report),

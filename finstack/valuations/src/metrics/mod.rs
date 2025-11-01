@@ -54,7 +54,8 @@ pub use bucketed_cs01::{
     standard_credit_cs01_buckets,
 };
 pub use bucketed_vega::{
-    compute_bucketed_vega_matrix, standard_equity_expiry_buckets, standard_strike_ratios, VOL_BUMP_PCT,
+    compute_bucketed_vega_matrix, standard_equity_expiry_buckets, standard_strike_ratios,
+    VOL_BUMP_PCT,
 };
 pub use helpers::dv01_from_modified_duration;
 pub use ids::MetricId;
@@ -111,8 +112,12 @@ pub fn standard_registry() -> MetricRegistry {
         crate::instruments::autocallable::metrics::register_autocallable_metrics(&mut registry);
         crate::instruments::barrier_option::metrics::register_barrier_option_metrics(&mut registry);
         crate::instruments::cliquet_option::metrics::register_cliquet_option_metrics(&mut registry);
-        crate::instruments::fx_barrier_option::metrics::register_fx_barrier_option_metrics(&mut registry);
-        crate::instruments::lookback_option::metrics::register_lookback_option_metrics(&mut registry);
+        crate::instruments::fx_barrier_option::metrics::register_fx_barrier_option_metrics(
+            &mut registry,
+        );
+        crate::instruments::lookback_option::metrics::register_lookback_option_metrics(
+            &mut registry,
+        );
         crate::instruments::quanto_option::metrics::register_quanto_option_metrics(&mut registry);
         crate::instruments::range_accrual::metrics::register_range_accrual_metrics(&mut registry);
     }

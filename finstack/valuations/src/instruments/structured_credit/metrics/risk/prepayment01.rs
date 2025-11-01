@@ -35,16 +35,12 @@ impl MetricCalculator for Prepayment01Calculator {
 
         // Get current prepayment spec and create bumped versions
         let prepayment_up = match &instrument.prepayment_spec {
-            PrepaymentModelSpec::Psa { multiplier } => {
-                PrepaymentModelSpec::Psa {
-                    multiplier: multiplier + PREPAYMENT_BUMP_CPR,
-                }
-            }
-            PrepaymentModelSpec::ConstantCpr { cpr } => {
-                PrepaymentModelSpec::ConstantCpr {
-                    cpr: (cpr + PREPAYMENT_BUMP_CPR).max(0.0),
-                }
-            }
+            PrepaymentModelSpec::Psa { multiplier } => PrepaymentModelSpec::Psa {
+                multiplier: multiplier + PREPAYMENT_BUMP_CPR,
+            },
+            PrepaymentModelSpec::ConstantCpr { cpr } => PrepaymentModelSpec::ConstantCpr {
+                cpr: (cpr + PREPAYMENT_BUMP_CPR).max(0.0),
+            },
             PrepaymentModelSpec::ConstantSmm { smm } => {
                 // Convert SMM to equivalent CPR bump
                 // CPR = 1 - (1 - SMM)^12, so dSMM ≈ dCPR / 12 for small bumps
@@ -80,21 +76,15 @@ impl MetricCalculator for Prepayment01Calculator {
         let pv_up = inst_up.price(context.curves.as_ref(), as_of)?.amount();
 
         let prepayment_down = match &instrument.prepayment_spec {
-            PrepaymentModelSpec::Psa { multiplier } => {
-                PrepaymentModelSpec::Psa {
-                    multiplier: (multiplier - PREPAYMENT_BUMP_CPR).max(0.0),
-                }
-            }
-            PrepaymentModelSpec::ConstantCpr { cpr } => {
-                PrepaymentModelSpec::ConstantCpr {
-                    cpr: (cpr - PREPAYMENT_BUMP_CPR).max(0.0),
-                }
-            }
-            PrepaymentModelSpec::ConstantSmm { smm } => {
-                PrepaymentModelSpec::ConstantSmm {
-                    smm: (smm - PREPAYMENT_BUMP_CPR / 12.0).max(0.0),
-                }
-            }
+            PrepaymentModelSpec::Psa { multiplier } => PrepaymentModelSpec::Psa {
+                multiplier: (multiplier - PREPAYMENT_BUMP_CPR).max(0.0),
+            },
+            PrepaymentModelSpec::ConstantCpr { cpr } => PrepaymentModelSpec::ConstantCpr {
+                cpr: (cpr - PREPAYMENT_BUMP_CPR).max(0.0),
+            },
+            PrepaymentModelSpec::ConstantSmm { smm } => PrepaymentModelSpec::ConstantSmm {
+                smm: (smm - PREPAYMENT_BUMP_CPR / 12.0).max(0.0),
+            },
             _ => unreachable!(), // Already handled above
         };
 
@@ -108,4 +98,3 @@ impl MetricCalculator for Prepayment01Calculator {
         Ok(prepayment01)
     }
 }
-

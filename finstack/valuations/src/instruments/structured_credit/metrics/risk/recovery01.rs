@@ -29,11 +29,9 @@ impl MetricCalculator for Recovery01Calculator {
 
         // Get current recovery spec and create bumped versions
         let recovery_up = match &instrument.recovery_spec {
-            RecoveryModelSpec::Constant { rate } => {
-                RecoveryModelSpec::Constant {
-                    rate: (rate + RECOVERY_BUMP).clamp(0.0, 1.0),
-                }
-            }
+            RecoveryModelSpec::Constant { rate } => RecoveryModelSpec::Constant {
+                rate: (rate + RECOVERY_BUMP).clamp(0.0, 1.0),
+            },
             RecoveryModelSpec::AssetDefault { asset_type: _ } => {
                 // For asset-based recovery, bump the base_recovery_rate in assumptions
                 let mut assumptions_up = instrument.default_assumptions.clone();
@@ -62,11 +60,9 @@ impl MetricCalculator for Recovery01Calculator {
         let pv_up = inst_up.price(context.curves.as_ref(), as_of)?.amount();
 
         let recovery_down = match &instrument.recovery_spec {
-            RecoveryModelSpec::Constant { rate } => {
-                RecoveryModelSpec::Constant {
-                    rate: (rate - RECOVERY_BUMP).clamp(0.0, 1.0),
-                }
-            }
+            RecoveryModelSpec::Constant { rate } => RecoveryModelSpec::Constant {
+                rate: (rate - RECOVERY_BUMP).clamp(0.0, 1.0),
+            },
             _ => unreachable!(), // Already handled above
         };
 
@@ -80,4 +76,3 @@ impl MetricCalculator for Recovery01Calculator {
         Ok(recovery01)
     }
 }
-

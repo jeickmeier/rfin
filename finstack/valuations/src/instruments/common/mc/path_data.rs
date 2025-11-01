@@ -205,9 +205,9 @@ impl ProcessParams {
 
     /// Get the dimension (number of factors) from correlation matrix.
     pub fn dim(&self) -> Option<usize> {
-        self.correlation.as_ref().map(|corr| {
-            (corr.len() as f64).sqrt() as usize
-        })
+        self.correlation
+            .as_ref()
+            .map(|corr| (corr.len() as f64).sqrt() as usize)
     }
 }
 
@@ -274,8 +274,7 @@ impl PathDataset {
 
     /// Check if all paths were captured.
     pub fn is_complete(&self) -> bool {
-        self.sampling_method == PathSamplingMethod::All
-            && self.paths.len() == self.num_paths_total
+        self.sampling_method == PathSamplingMethod::All && self.paths.len() == self.num_paths_total
     }
 
     /// Get the sampling ratio (captured / total).
@@ -416,4 +415,3 @@ mod tests {
         assert!(keys.contains(&"short_rate".to_string()));
     }
 }
-

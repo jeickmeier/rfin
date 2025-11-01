@@ -288,7 +288,7 @@ mod tests {
     fn test_monte_carlo_result() {
         let est = Estimate::new(100.0, 1.0, (98.0, 102.0), 10000);
         let money_est = MoneyEstimate::from_estimate(est, Currency::USD);
-        
+
         let result = MonteCarloResult::new(money_est.clone());
         assert!(!result.has_paths());
         assert_eq!(result.num_captured_paths(), 0);

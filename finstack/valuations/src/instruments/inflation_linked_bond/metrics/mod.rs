@@ -20,8 +20,8 @@ pub use real_yield::RealYieldCalculator;
 pub use theta::ThetaCalculator;
 // BucketedDv01Calculator now using generic implementation
 
-use crate::metrics::MetricRegistry;
 use crate::metrics::MetricId;
+use crate::metrics::MetricRegistry;
 use std::sync::Arc;
 
 /// Register all ILB metrics with the registry

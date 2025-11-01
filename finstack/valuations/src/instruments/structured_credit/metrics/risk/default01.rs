@@ -35,16 +35,12 @@ impl MetricCalculator for Default01Calculator {
 
         // Get current default spec and create bumped versions
         let default_up = match &instrument.default_spec {
-            DefaultModelSpec::Sda { multiplier } => {
-                DefaultModelSpec::Sda {
-                    multiplier: (multiplier + DEFAULT_BUMP_CDR).max(0.0),
-                }
-            }
-            DefaultModelSpec::ConstantCdr { cdr } => {
-                DefaultModelSpec::ConstantCdr {
-                    cdr: (cdr + DEFAULT_BUMP_CDR).max(0.0),
-                }
-            }
+            DefaultModelSpec::Sda { multiplier } => DefaultModelSpec::Sda {
+                multiplier: (multiplier + DEFAULT_BUMP_CDR).max(0.0),
+            },
+            DefaultModelSpec::ConstantCdr { cdr } => DefaultModelSpec::ConstantCdr {
+                cdr: (cdr + DEFAULT_BUMP_CDR).max(0.0),
+            },
             DefaultModelSpec::ConstantMdr { mdr } => {
                 // Convert MDR to equivalent CDR bump
                 // CDR = 1 - (1 - MDR)^12, so dMDR ≈ dCDR / 12 for small bumps
@@ -80,21 +76,15 @@ impl MetricCalculator for Default01Calculator {
         let pv_up = inst_up.price(context.curves.as_ref(), as_of)?.amount();
 
         let default_down = match &instrument.default_spec {
-            DefaultModelSpec::Sda { multiplier } => {
-                DefaultModelSpec::Sda {
-                    multiplier: (multiplier - DEFAULT_BUMP_CDR).max(0.0),
-                }
-            }
-            DefaultModelSpec::ConstantCdr { cdr } => {
-                DefaultModelSpec::ConstantCdr {
-                    cdr: (cdr - DEFAULT_BUMP_CDR).max(0.0),
-                }
-            }
-            DefaultModelSpec::ConstantMdr { mdr } => {
-                DefaultModelSpec::ConstantMdr {
-                    mdr: (mdr - DEFAULT_BUMP_CDR / 12.0).max(0.0),
-                }
-            }
+            DefaultModelSpec::Sda { multiplier } => DefaultModelSpec::Sda {
+                multiplier: (multiplier - DEFAULT_BUMP_CDR).max(0.0),
+            },
+            DefaultModelSpec::ConstantCdr { cdr } => DefaultModelSpec::ConstantCdr {
+                cdr: (cdr - DEFAULT_BUMP_CDR).max(0.0),
+            },
+            DefaultModelSpec::ConstantMdr { mdr } => DefaultModelSpec::ConstantMdr {
+                mdr: (mdr - DEFAULT_BUMP_CDR / 12.0).max(0.0),
+            },
             _ => unreachable!(), // Already handled above
         };
 
@@ -108,4 +98,3 @@ impl MetricCalculator for Default01Calculator {
         Ok(default01)
     }
 }
-

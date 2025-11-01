@@ -80,10 +80,10 @@ pub use valuations::metrics::{JsMetricId as MetricId, JsMetricRegistry as Metric
 pub use valuations::instruments::{
     AsianOption, Autocallable, BarrierOption, BasisSwap, Basket, Bond, CDSIndex, CdsOption,
     CdsTranche, CliquetOption, CmsOption, ConvertibleBond, CreditDefaultSwap, Deposit, Equity,
-    EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement, FxOption,
-    FxBarrierOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap, InterestRateFuture,
-    InterestRateOption, InterestRateSwap, LookbackOption, PrivateMarketsFund, QuantoOption,
-    RangeAccrual, Repo, RevolvingCredit, StructuredCredit, Swaption, VarianceSwap,
+    EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement,
+    FxBarrierOption, FxOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap,
+    InterestRateFuture, InterestRateOption, InterestRateSwap, LookbackOption, PrivateMarketsFund,
+    QuantoOption, RangeAccrual, Repo, RevolvingCredit, StructuredCredit, Swaption, VarianceSwap,
 };
 pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,
@@ -98,12 +98,16 @@ pub use valuations::results::JsResultsMeta as ValuationResultsMeta;
 
 // Monte Carlo path generation
 pub use valuations::mc_generator::JsMonteCarloPathGenerator as MonteCarloPathGenerator;
-pub use valuations::mc_paths::{JsPathDataset as PathDataset, JsPathPoint as PathPoint, JsSimulatedPath as SimulatedPath};
 pub use valuations::mc_params::JsProcessParams as ProcessParams;
+pub use valuations::mc_paths::{
+    JsPathDataset as PathDataset, JsPathPoint as PathPoint, JsSimulatedPath as SimulatedPath,
+};
 pub use valuations::mc_result::JsMonteCarloResult as MonteCarloResult;
 
 // DataFrame conversion
-pub use valuations::dataframe::{results_to_json_wasm as resultsToJson, results_to_rows_wasm as resultsToRows};
+pub use valuations::dataframe::{
+    results_to_json_wasm as resultsToJson, results_to_rows_wasm as resultsToRows,
+};
 
 // Common parameter types
 pub use valuations::common::parameters::{
