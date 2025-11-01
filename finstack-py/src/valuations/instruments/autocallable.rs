@@ -174,6 +174,8 @@ impl PyAutocallable {
         builder = builder.cap_level(cap_level);
         builder = builder.notional(notional_money);
         builder = builder.day_count(DayCount::Act365F);
+        builder = builder
+            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder = builder.disc_id(disc_id);
         builder = builder.spot_id(spot_id.to_string());
         builder = builder.vol_id(vol_id);

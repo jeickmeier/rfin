@@ -1,0 +1,239 @@
+"""
+Quanto Option Example
+
+Demonstrates pricing and analysis of quanto options (currency-protected foreign equity options).
+"""
+
+from datetime import date
+from finstack import Money
+from finstack.core.currency import USD, EUR
+from finstack.core.market_data import MarketContext
+from finstack.core.market_data.scalars import MarketScalar
+from finstack.core.market_data.surfaces import VolSurface
+from finstack.core.market_data.term_structures import DiscountCurve
+from finstack.valuations.instruments import QuantoOption
+from finstack.valuations.pricer import create_standard_registry
+
+
+def create_market_data(val_date: date) -> MarketContext:
+    """Create market data for quanto option pricing."""
+    market = MarketContext()
+
+    # USD discount curve (times in years)
+    usd_disc = DiscountCurve(
+        "USD.SOFR",
+        val_date,
+        [(0.0, 1.0), (0.5, 0.975), (1.0, 0.95)],
+    )
+    market.insert_discount(usd_disc)
+
+    # EUR discount curve (not strictly required by the pricer but added for completeness)
+    eur_disc = DiscountCurve(
+        "EUR.ESTR",
+        val_date,
+        [(0.0, 1.0), (0.5, 0.98), (1.0, 0.96)],
+    )
+    market.insert_discount(eur_disc)
+
+    # Equity volatility surface (expiries in years)
+    eq_vol_surface = VolSurface(
+        "SAP.VOL",
+        expiries=[0.5, 1.0],
+        strikes=[100.0, 120.0, 140.0, 160.0, 180.0],
+        grid=[
+            [0.30, 0.27, 0.25, 0.27, 0.30],  # 6M
+            [0.32, 0.29, 0.27, 0.29, 0.32],  # 1Y
+        ],
+    )
+    market.insert_surface(eq_vol_surface)
+
+    # FX volatility surface (EUR/USD)
+    fx_vol_surface = VolSurface(
+        "EURUSD.VOL",
+        expiries=[0.5, 1.0],
+        strikes=[1.00, 1.05, 1.10, 1.15, 1.20],
+        grid=[
+            [0.08, 0.07, 0.06, 0.07, 0.08],  # 6M
+            [0.09, 0.08, 0.07, 0.08, 0.09],  # 1Y
+        ],
+    )
+    market.insert_surface(fx_vol_surface)
+
+    # Spot and dividend
+    market.insert_price("SAP", MarketScalar.price(Money(140.0, EUR)))
+    market.insert_price("EURUSD", MarketScalar.unitless(1.10))
+    market.insert_price("SAP.DIV", MarketScalar.unitless(0.02))
+
+    return market
+
+
+def example_quanto_call_positive_correlation():
+    """Example: Quanto call with positive equity-FX correlation."""
+    print("\n" + "=" * 80)
+    print("QUANTO CALL - POSITIVE CORRELATION")
+    print("=" * 80)
+    val_date = date(2025, 1, 1)
+    # US investor wants exposure to SAP (German stock) without EUR/USD FX risk
+    # Payoff in USD = max(S_T - K, 0) * fixed_rate (no FX conversion at maturity)
+    option = QuantoOption.builder(
+        instrument_id="QUANTO_001",
+        ticker="SAP",
+        equity_strike=140.0,  # Strike in EUR
+        option_type="call",
+        expiry=date(2025, 12, 31),
+        notional=10000.0,  # Number of shares
+        domestic_currency=USD,  # Settlement currency
+        foreign_currency=EUR,  # Underlying currency
+        correlation=0.3,  # Positive correlation between SAP and EUR/USD
+        discount_curve="USD.SOFR",
+        spot_id="SAP",
+        vol_surface="SAP.VOL",
+        dividend_yield_id="SAP.DIV",
+        fx_rate_id="EURUSD",
+        fx_vol_id="EURUSD.VOL",
+    )
+    
+    print(f"\nInstrument: {option}")
+    print(f"  Ticker: {option.ticker}")
+    print(f"  Equity Strike: {option.equity_strike}")
+    print(f"  Option Type: {option.option_type}")
+    print(f"  Correlation: {option.correlation:.2%}")
+    print(f"  Notional: {option.notional}")
+    print(f"  Expiry: {option.expiry}")
+    
+    # Price the quanto option
+    market = create_market_data(val_date)
+    registry = create_standard_registry()
+    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
+    
+    print(f"\nPricing Results:")
+    print(f"  Present Value: {result.value}")
+    print(f"  Currency: {result.value.currency}")
+    
+    print(f"\n  Explanation:")
+    print(f"    - US investor gets SAP exposure without FX risk")
+    print(f"    - Positive correlation: SAP tends to rise with EUR")
+    print(f"    - Quanto adjusts for correlation via drift modification")
+    print(f"    - Settlement in USD at fixed FX rate")
+    
+    return option, result
+
+
+def example_quanto_put_negative_correlation():
+    """Example: Quanto put with negative equity-FX correlation."""
+    print("\n" + "=" * 80)
+    print("QUANTO PUT - NEGATIVE CORRELATION")
+    print("=" * 80)
+    val_date = date(2025, 1, 1)
+    # Hedging strategy: put on foreign stock with negative FX correlation
+    option = QuantoOption.builder(
+        instrument_id="QUANTO_002",
+        ticker="SAP",
+        equity_strike=150.0,  # Higher strike for put
+        option_type="put",
+        expiry=date(2025, 6, 30),
+        notional=25000.0,
+        domestic_currency=USD,
+        foreign_currency=EUR,
+        correlation=-0.2,  # Negative correlation (SAP falls when EUR strengthens)
+        discount_curve="USD.SOFR",
+        spot_id="SAP",
+        vol_surface="SAP.VOL",
+        dividend_yield_id="SAP.DIV",
+        fx_rate_id="EURUSD",
+        fx_vol_id="EURUSD.VOL",
+    )
+    
+    print(f"\nInstrument: {option}")
+    print(f"  Ticker: {option.ticker}")
+    print(f"  Equity Strike: {option.equity_strike}")
+    print(f"  Option Type: {option.option_type}")
+    print(f"  Correlation: {option.correlation:.2%}")
+    print(f"  Notional: {option.notional}")
+    
+    # Price the quanto option
+    market = create_market_data(val_date)
+    registry = create_standard_registry()
+    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
+    
+    print(f"\nPricing Results:")
+    print(f"  Present Value: {result.value}")
+    print(f"  Currency: {result.value.currency}")
+    
+    print(f"\n  Explanation:")
+    print(f"    - Protective put on SAP with FX hedge")
+    print(f"    - Negative correlation reduces quanto adjustment")
+    print(f"    - Useful when equity and FX move opposite directions")
+    
+    return option, result
+
+
+def example_quanto_call_zero_correlation():
+    """Example: Quanto call with zero equity-FX correlation."""
+    print("\n" + "=" * 80)
+    print("QUANTO CALL - ZERO CORRELATION")
+    print("=" * 80)
+    val_date = date(2025, 1, 1)
+    # Zero correlation case: equity and FX independent
+    option = QuantoOption.builder(
+        instrument_id="QUANTO_003",
+        ticker="SAP",
+        equity_strike=140.0,
+        option_type="call",
+        expiry=date(2026, 1, 1),
+        notional=50000.0,
+        domestic_currency=USD,
+        foreign_currency=EUR,
+        correlation=0.0,  # Zero correlation
+        discount_curve="USD.SOFR",
+        spot_id="SAP",
+        vol_surface="SAP.VOL",
+        dividend_yield_id="SAP.DIV",
+        fx_rate_id="EURUSD",
+        fx_vol_id="EURUSD.VOL",
+    )
+    
+    print(f"\nInstrument: {option}")
+    print(f"  Ticker: {option.ticker}")
+    print(f"  Equity Strike: {option.equity_strike}")
+    print(f"  Correlation: {option.correlation:.2%}")
+    print(f"  Notional: {option.notional}")
+    
+    # Price the quanto option
+    market = create_market_data(val_date)
+    registry = create_standard_registry()
+    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
+    
+    print(f"\nPricing Results:")
+    print(f"  Present Value: {result.value}")
+    print(f"  Currency: {result.value.currency}")
+    
+    print(f"\n  Explanation:")
+    print(f"    - Zero correlation simplifies quanto adjustment")
+    print(f"    - Still eliminates FX risk for domestic investor")
+    print(f"    - Benchmark case for quanto pricing")
+    
+    return option, result
+
+
+def main():
+    """Run all quanto option examples."""
+    print("\n" + "=" * 80)
+    print("QUANTO OPTION EXAMPLES")
+    print("=" * 80)
+    print("\nQuanto options provide exposure to foreign equities")
+    print("while eliminating FX risk by fixing the exchange rate.")
+    print("Correlation between equity and FX affects the quanto adjustment.")
+    
+    example_quanto_call_positive_correlation()
+    example_quanto_put_negative_correlation()
+    example_quanto_call_zero_correlation()
+    
+    print("\n" + "=" * 80)
+    print("Examples completed successfully!")
+    print("=" * 80 + "\n")
+
+
+if __name__ == "__main__":
+    main()
+

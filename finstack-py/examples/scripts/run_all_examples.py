@@ -44,6 +44,13 @@ def find_python_scripts(base_dir: Path) -> List[Path]:
     script_name = Path(__file__).name
     scripts = [s for s in scripts if s.name != script_name]
     
+    # Exclude new instrument examples that are still in development
+    # See NEW_INSTRUMENTS_README.md for details
+    excluded_patterns = [
+
+    ]
+    scripts = [s for s in scripts if s.name not in excluded_patterns]
+    
     return scripts
 
 

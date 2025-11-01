@@ -17,7 +17,7 @@ from finstack.core.dates import (
     ScheduleBuilder,
     get_calendar,
 )
-from finstack.core.market_data import DiscountCurve, MarketContext
+from finstack.core.market_data import DiscountCurve
 
 
 class TestCurrencyConversions:
@@ -68,9 +68,9 @@ class TestDayCountConversions:
             ("act/365f", DayCount.ACT_365F),
             ("ACT/365F", DayCount.ACT_365F),
         ]
-        
+
         # Test by creating a curve with different day count formats
-        for string_format, expected_dc in test_cases:
+        for string_format, _expected_dc in test_cases:
             curve = DiscountCurve(
                 f"TEST_{string_format.replace('/', '_')}",
                 dt.date(2024, 1, 2),
@@ -101,10 +101,10 @@ class TestBusinessDayConventionConversions:
     def test_bdc_from_string_variations(self) -> None:
         """BusinessDayConvention should accept various string formats."""
         from finstack.core.dates import adjust
-        
+
         calendar = get_calendar("usny")
         test_date = dt.date(2024, 1, 1)  # This is a holiday
-        
+
         # Test different string formats
         test_cases = [
             "following",
@@ -114,7 +114,7 @@ class TestBusinessDayConventionConversions:
             "preceding",
             "unadjusted",
         ]
-        
+
         for bdc_string in test_cases:
             # Should not raise error
             result = adjust(test_date, bdc_string, calendar)
@@ -123,9 +123,9 @@ class TestBusinessDayConventionConversions:
     def test_invalid_bdc_raises_error(self) -> None:
         """Invalid business day convention should raise error."""
         from finstack.core.dates import adjust
-        
+
         calendar = get_calendar("usny")
-        
+
         with pytest.raises((ValueError, finstack.ParameterError)):
             adjust(dt.date(2024, 1, 1), "INVALID_BDC", calendar)
 
@@ -148,16 +148,14 @@ class TestFrequencyConversions:
             ("weekly", Frequency.WEEKLY),
             ("daily", Frequency.DAILY),
         ]
-        
-        calendar = get_calendar("usny")
-        
-        for string_format, expected_freq in test_cases:
+
+        for string_format, _expected_freq in test_cases:
             # Test by building a schedule with the frequency
             schedule = ScheduleBuilder.new(
                 dt.date(2024, 1, 15),
                 dt.date(2024, 7, 15)
             ).frequency(string_format).build()
-            
+
             assert schedule is not None
             assert len(list(schedule.dates)) > 0
 
@@ -175,7 +173,7 @@ class TestInterpolationConversions:
             "monotone_convex",
             "flat_fwd",
         ]
-        
+
         for interp_string in test_cases:
             # Test by creating a discount curve with the interpolation
             curve = DiscountCurve(
@@ -205,7 +203,7 @@ class TestDateConversions:
     def test_date_object_accepted(self) -> None:
         """Python date objects should be accepted."""
         from finstack.core.dates import adjust
-        
+
         calendar = get_calendar("usny")
         test_date = dt.date(2024, 6, 15)
         result = adjust(test_date, BusinessDayConvention.FOLLOWING, calendar)
@@ -214,7 +212,7 @@ class TestDateConversions:
     def test_datetime_object_accepted(self) -> None:
         """Python datetime objects should be accepted (date portion used)."""
         from finstack.core.dates import adjust
-        
+
         calendar = get_calendar("usny")
         test_datetime = dt.datetime(2024, 6, 15, 14, 30)
         result = adjust(test_datetime, BusinessDayConvention.FOLLOWING, calendar)
@@ -223,9 +221,9 @@ class TestDateConversions:
     def test_invalid_date_type_raises_error(self) -> None:
         """Non-date objects should raise TypeError."""
         from finstack.core.dates import adjust
-        
+
         calendar = get_calendar("usny")
-        
+
         with pytest.raises(TypeError, match="Expected datetime.date"):
             adjust("2024-06-15", BusinessDayConvention.FOLLOWING, calendar)  # type: ignore
 
@@ -236,11 +234,11 @@ class TestMoneyConversions:
     def test_money_from_amount_and_currency(self) -> None:
         """Money should accept both numeric amount and currency."""
         from finstack.core.money import Money
-        
+
         # With Currency object
         money1 = Money(1000.0, Currency("USD"))
         assert money1 is not None
-        
+
         # With currency string
         money2 = Money(1000.0, "USD")
         assert money2 is not None
@@ -248,7 +246,7 @@ class TestMoneyConversions:
     def test_money_formatting(self) -> None:
         """Money should format correctly."""
         from finstack.core.money import Money
-        
+
         money = Money(1_000_000.50, Currency("USD"))
         formatted = money.format()
         assert "USD" in formatted
@@ -273,18 +271,18 @@ class TestNoneAndOptionalHandling:
     def test_optional_market_context_none(self) -> None:
         """Optional market context should accept None."""
         from finstack.valuations.calibration import DiscountCurveCalibrator, RatesQuote
-        
+
         calibrator = DiscountCurveCalibrator(
             "USD-OIS",
             dt.date(2024, 1, 2),
             Currency("USD")
         )
-        
+
         quotes = [
             RatesQuote.from_deposit(1.0, 0.05, DayCount.ACT_360),
             RatesQuote.from_deposit(2.0, 0.055, DayCount.ACT_360),
         ]
-        
+
         # Calibrate without market context (should use None/empty context)
         curve, report = calibrator.calibrate(quotes, market=None)
         assert curve is not None
@@ -297,7 +295,7 @@ class TestListAndVectorConversions:
     def test_list_of_tuples_for_curve_points(self) -> None:
         """Lists of tuples should convert to Vec<(f64, f64)>."""
         points = [(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (5.0, 0.85)]
-        
+
         curve = DiscountCurve(
             "USD-OIS",
             dt.date(2024, 1, 2),
@@ -309,7 +307,7 @@ class TestListAndVectorConversions:
     def test_list_of_floats_for_grid(self) -> None:
         """Lists of floats should convert properly."""
         from finstack.core.market_data import VolSurface
-        
+
         surface = VolSurface(
             "EQ-FLAT",
             expiries=[1.0, 2.0, 3.0],
@@ -346,7 +344,7 @@ class TestEdgeCases:
     def test_numeric_precision(self) -> None:
         """Numeric conversions should preserve precision where possible."""
         from finstack.core.money import Money
-        
+
         # Test with high precision value
         precise_value = 1234567.89012345
         money = Money(precise_value, Currency("USD"))
