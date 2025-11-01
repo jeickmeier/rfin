@@ -117,7 +117,10 @@ mod tests {
         );
 
         let wasm_trace = WasmExplanationTrace::new(trace);
-        let json_str = wasm_trace.to_json_string().unwrap();
+        // In tests, we can unwrap since test failure is acceptable
+        let json_str = wasm_trace
+            .to_json_string()
+            .expect("JSON serialization should succeed in tests");
         assert!(json_str.contains("\"type\": \"pricing\""));
         assert!(json_str.contains("USD_GOVT"));
     }

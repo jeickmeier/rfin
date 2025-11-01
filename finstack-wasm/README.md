@@ -523,3 +523,70 @@ See `examples/README.md` for detailed documentation.
 ```bash
 wasm-pack test --chrome --firefox --headless
 ```
+
+## Bundle Size Optimization
+
+For production deployments, use the optimized build with wasm-opt:
+
+```bash
+npm run build:optimized
+```
+
+This runs wasm-pack with release optimizations and applies wasm-opt post-processing, typically reducing bundle size by 20-30%.
+
+## Versioning & Breaking Changes
+
+This project follows [Semantic Versioning](https://semver.org/):
+
+- **MAJOR version** (0.x → 1.0, 1.x → 2.0): Breaking changes to public API
+- **MINOR version** (0.1.x → 0.2.0): New features, backward-compatible
+- **PATCH version** (0.1.1 → 0.1.2): Bug fixes, no API changes
+
+See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes and migration guides.
+
+### Deprecation Policy
+
+When we need to deprecate a feature:
+
+1. The old API will be marked with JSDoc `@deprecated` tags
+2. Deprecation will be maintained for at least one MINOR version
+3. Removal will only occur in MAJOR version bumps
+4. Migration guides will be provided in CHANGELOG.md
+
+### MSRV (Minimum Supported Rust Version)
+
+MSRV: **1.90+** (defined at workspace level)
+
+We will clearly communicate MSRV increases in CHANGELOG.md and consider them breaking changes.
+
+## CI/CD
+
+This project uses GitHub Actions for continuous integration:
+
+- **Build verification**: Web and Node.js targets
+- **Tests**: Headless browser tests (Chrome)
+- **Linting**: Clippy and rustfmt
+- **Bundle size tracking**: Fails if bundle exceeds 5MB
+- **Security**: cargo-audit for vulnerability scanning
+- **Examples**: Automated example builds
+
+See [.github/workflows/wasm-ci.yml](../.github/workflows/wasm-ci.yml) for configuration.
+
+## Contributing
+
+Contributions are welcome! Please ensure:
+
+1. All tests pass: `wasm-pack test --chrome --headless`
+2. Code is formatted: `cargo fmt --all`
+3. No clippy warnings: `cargo clippy --target wasm32-unknown-unknown --all-features -- -D warnings`
+4. Bundle size impact is documented for significant changes
+5. Breaking changes are documented in CHANGELOG.md
+
+## License
+
+Licensed under either of:
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](../LICENSE) or http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](../LICENSE) or http://opensource.org/licenses/MIT)
+
+at your option.

@@ -34,6 +34,11 @@ getrandom = { version = "0.2", default-features = false, features = ["js"] }
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 
+# Features
+#
+# - `default`: Enables console panic hook and scenarios support for standard usage
+# - `console_error_panic_hook`: Better panic messages in browser console (recommended for development)
+# - `scenarios`: Portfolio scenario analysis and stress testing (requires finstack-portfolio scenarios)
 [features]
 default = ["console_error_panic_hook", "scenarios"]
 scenarios = ["finstack-portfolio/scenarios"]

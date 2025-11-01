@@ -56,3 +56,11 @@ debug = 2
 incremental = true
 opt-level = 0
 debug = 1
+
+[profile.release]
+# Optimized release profile for WASM bundle size
+# Use with wasm-pack build for production deployments
+opt-level = "z"     # Optimize for size
+lto = true          # Link-time optimization
+codegen-units = 1   # Better optimization (slower compile, smaller output)
+strip = true        # Strip symbols from binary

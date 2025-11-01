@@ -55,8 +55,12 @@ impl JsMetricId {
     /// ```
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> JsMetricId {
-        // parse() never fails - unknown names become Custom metrics
-        JsMetricId::from_inner(name.parse().unwrap())
+        // SAFETY: MetricId::from_str() never fails - unknown names become Custom(name)
+        // Error type is () and all code paths return Ok(_)
+        JsMetricId::from_inner(
+            name.parse()
+                .expect("MetricId::from_str never fails, creates Custom for unknown names"),
+        )
     }
 
     /// Get the string name of the metric.

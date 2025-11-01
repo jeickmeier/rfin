@@ -130,8 +130,11 @@ impl Default for JsMetricRegistry {
 fn parse_metric_id(value: JsValue) -> Result<MetricId, JsValue> {
     // Extract string name
     if let Some(name) = value.as_string() {
-        // parse() never fails - returns Custom for unknown names
-        return Ok(name.parse().unwrap());
+        // SAFETY: MetricId::from_str() never fails - returns Custom(name) for unknown names
+        // Error type is () and all code paths return Ok(_)
+        return Ok(name
+            .parse()
+            .expect("MetricId::from_str never fails, creates Custom for unknown names"));
     }
 
     Err(JsValue::from_str(

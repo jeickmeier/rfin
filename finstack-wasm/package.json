@@ -1,12 +1,14 @@
 {
   "name": "finstack-wasm",
   "version": "0.1.0",
-  "description": "WebAssembly bindings for RustFin financial computation library",
+  "description": "WebAssembly bindings for Finstack - high-performance financial computation library for bonds, derivatives, and portfolio analytics",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
     "build": "wasm-pack build --target web --out-dir pkg",
     "build:node": "wasm-pack build --target nodejs --out-dir pkg-node",
+    "build:optimized": "wasm-pack build --target web --out-dir pkg && npm run optimize",
+    "optimize": "command -v wasm-opt >/dev/null 2>&1 && wasm-opt -Oz -o pkg/finstack_wasm_bg.wasm pkg/finstack_wasm_bg.wasm || echo 'wasm-opt not found, skipping optimization'",
     "test": "wasm-pack test --chrome --firefox --headless",
     "examples:install": "cd examples && npm install",
     "examples:dev": "cd examples && npm run dev",
@@ -16,11 +18,30 @@
     "type": "git",
     "url": "https://github.com/rustfin/rfin"
   },
+  "homepage": "https://github.com/rustfin/rfin#readme",
+  "bugs": {
+    "url": "https://github.com/rustfin/rfin/issues"
+  },
   "keywords": [
     "wasm",
+    "webassembly",
     "finance",
     "rust",
-    "webassembly"
+    "derivatives",
+    "bonds",
+    "pricing",
+    "fixed-income",
+    "rates",
+    "credit",
+    "fx",
+    "equity",
+    "options",
+    "swaps",
+    "portfolio",
+    "risk",
+    "calibration",
+    "monte-carlo",
+    "structured-products"
   ],
   "author": "RustFin Contributors",
   "license": "MIT OR Apache-2.0",

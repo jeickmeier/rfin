@@ -68,7 +68,9 @@ fn price_with_optional_metrics(
         })
         .unwrap_or_else(|| {
             // Fallback to default if no discount curves are available
-            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap()
+            // SAFETY: Hardcoded date (2024-01-01) is always valid
+            finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1)
+                .expect("hardcoded date 2024-01-01 is valid")
         });
 
     let base = registry
