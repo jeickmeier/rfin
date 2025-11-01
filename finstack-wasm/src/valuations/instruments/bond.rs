@@ -300,12 +300,18 @@ impl JsBond {
         forward_curve: &str,
         margin_bp: f64,
         quoted_clean_price: Option<f64>,
-    ) -> JsBond {
+    ) -> Result<JsBond, JsValue> {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
         use finstack_valuations::instruments::bond::BondFloatSpec;
         use finstack_valuations::instruments::common::traits::Attributes;
 
-        let mut bond = Bond::builder()
+        let pricing_overrides = if let Some(price) = quoted_clean_price {
+            PricingOverrides::default().with_clean_price(price)
+        } else {
+            PricingOverrides::default()
+        };
+
+        let bond = Bond::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
             .coupon(0.0)
@@ -316,6 +322,7 @@ impl JsBond {
             .bdc(BusinessDayConvention::Following)
             .stub(StubKind::None)
             .disc_id(curve_id_from_str(discount_curve))
+            .pricing_overrides(pricing_overrides)
             .float_opt(Some(BondFloatSpec {
                 fwd_id: curve_id_from_str(forward_curve),
                 margin_bp,
@@ -324,11 +331,8 @@ impl JsBond {
             }))
             .attributes(Attributes::new())
             .build()
-            .expect("Floating bond construction should not fail");
-        if let Some(price) = quoted_clean_price {
-            bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
-        }
-        JsBond::from_inner(bond)
+            .map_err(|e| js_error(format!("Floating bond construction failed: {}", e)))?;
+        Ok(JsBond::from_inner(bond))
     }
 
     #[wasm_bindgen(js_name = pikToggle)]

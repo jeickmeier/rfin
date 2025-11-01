@@ -69,9 +69,9 @@ export const FxInstrumentsExample: React.FC = () => {
         // Add FX volatility surface for options (flattened grid: row-major order)
         const fxVol = new VolSurface(
           'FX-VOL',
-          [0.25, 0.5, 1.0, 2.0],
-          [1.05, 1.10, 1.15],
-          [0.14, 0.13, 0.12, 0.13, 0.12, 0.11, 0.12, 0.11, 0.10, 0.11, 0.10, 0.095]
+          new Float64Array([0.25, 0.5, 1.0, 2.0]),
+          new Float64Array([1.05, 1.10, 1.15]),
+          new Float64Array([0.14, 0.13, 0.12, 0.13, 0.12, 0.11, 0.12, 0.11, 0.10, 0.11, 0.10, 0.095])
         );
 
         const market = new MarketContext();

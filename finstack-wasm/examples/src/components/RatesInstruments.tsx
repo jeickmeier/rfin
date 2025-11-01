@@ -67,16 +67,16 @@ export const RatesInstrumentsExample: React.FC = () => {
         // Add volatility surfaces for options (flattened grid: row-major order)
         const swaptionVol = new VolSurface(
           'SWAPTION-VOL',
-          [1.0, 2.0, 5.0],
-          [0.02, 0.03, 0.04],
-          [0.30, 0.29, 0.28, 0.28, 0.27, 0.26, 0.26, 0.25, 0.24]
+          new Float64Array([1.0, 2.0, 5.0]),
+          new Float64Array([0.02, 0.03, 0.04]),
+          new Float64Array([0.30, 0.29, 0.28, 0.28, 0.27, 0.26, 0.26, 0.25, 0.24])
         );
 
         const capVol = new VolSurface(
           'IR-CAP-VOL',
-          [0.5, 1.0, 2.0, 5.0],
-          [0.01, 0.02, 0.03, 0.04],
-          [0.38, 0.36, 0.34, 0.32, 0.35, 0.33, 0.31, 0.30, 0.32, 0.31, 0.29, 0.28, 0.28, 0.27, 0.26, 0.25]
+          new Float64Array([0.5, 1.0, 2.0, 5.0]),
+          new Float64Array([0.01, 0.02, 0.03, 0.04]),
+          new Float64Array([0.38, 0.36, 0.34, 0.32, 0.35, 0.33, 0.31, 0.30, 0.32, 0.31, 0.29, 0.28, 0.28, 0.27, 0.26, 0.25])
         );
 
         const market = new MarketContext();

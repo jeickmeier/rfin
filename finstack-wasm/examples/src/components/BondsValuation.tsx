@@ -150,16 +150,22 @@ export const BondsValuationExample: React.FC = () => {
 
         // Floating rate bond
         const floatQuotedPricePct = 100.25;
-        const floatingBond = Bond.floating(
-          'corp_frn_2027',
-          notional,
-          issue,
-          new FsDate(2027, 1, 15),
-          'USD-OIS',
-          'USD-SOFR-3M',
-          150.0, // 150 bps margin
-          floatQuotedPricePct
-        );
+        let floatingBond: Bond;
+        try {
+          floatingBond = Bond.floating(
+            'corp_frn_2027',
+            notional,
+            issue,
+            new FsDate(2027, 1, 15),
+            'USD-OIS',
+            'USD-SOFR-3M',
+            150.0, // 150 bps margin
+            floatQuotedPricePct
+          );
+        } catch (err) {
+          console.error('Floating bond construction error:', err);
+          throw err; // Re-throw to be caught by outer try-catch
+        }
         const floatingRow = evaluateBond(floatingBond, '3Y Floating Rate Note');
         floatingRow.kind = 'Floating Rate';
         floatingRow.couponLabel = 'SOFR 3M';
@@ -294,7 +300,11 @@ export const BondsValuationExample: React.FC = () => {
         ];
 
         if (!cancelled) {
-          setRows([fixedRow, zeroRow, floatingRow, amortRow, callableRow, fixToFloatRow, pikRow]);
+          const allRows = [fixedRow, zeroRow, amortRow, callableRow, fixToFloatRow, pikRow];
+          if (floatingRow) {
+            allRows.splice(2, 0, floatingRow); // Insert floating row at position 2
+          }
+          setRows(allRows);
         }
       } catch (err) {
         if (!cancelled) {

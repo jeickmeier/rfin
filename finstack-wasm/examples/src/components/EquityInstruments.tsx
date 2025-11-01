@@ -53,9 +53,9 @@ export const EquityInstrumentsExample: React.FC = () => {
         // Add equity market data (flattened grid: row-major order)
         const equityVol = new VolSurface(
           'EQUITY-VOL',
-          [0.25, 0.5, 1.0, 2.0],
-          [120.0, 140.0, 160.0, 180.0],
-          [0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23, 0.22, 0.21]
+          new Float64Array([0.25, 0.5, 1.0, 2.0]),
+          new Float64Array([120.0, 140.0, 160.0, 180.0]),
+          new Float64Array([0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23, 0.22, 0.21])
         );
 
         const market = new MarketContext();

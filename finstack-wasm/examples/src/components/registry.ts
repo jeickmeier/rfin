@@ -24,6 +24,10 @@ import { EquityInstrumentsExample } from './EquityInstruments';
 import { InflationInstrumentsExample } from './InflationInstruments';
 import { StructuredProductsExample } from './StructuredProducts';
 import { StructuredCreditExample } from './StructuredCreditExample';
+import { ExoticEquityOptionsExample } from './ExoticEquityOptions';
+import { ExoticFxDerivativesExample } from './ExoticFxDerivatives';
+import { ExoticRatesDerivativesExample } from './ExoticRatesDerivatives';
+import { MonteCarloPathExample } from './MonteCarloPathExample';
 import StatementsModeling from './StatementsModeling';
 import ScenariosExample from './ScenariosExample';
 import PortfolioExample from './PortfolioExample';
@@ -183,6 +187,34 @@ export const EXAMPLES: ExampleDefinition[] = [
     description: 'CLO, ABS, RMBS, and CMBS with tranching, waterfalls, and prepayment models.',
     group: 'Valuations',
     Component: StructuredCreditExample,
+  },
+  {
+    slug: 'exotic-equity-options',
+    title: 'Exotic Equity Options',
+    description: 'Barrier, Asian, Lookback, and Cliquet options with Monte Carlo pricing.',
+    group: 'Valuations',
+    Component: ExoticEquityOptionsExample,
+  },
+  {
+    slug: 'exotic-fx-derivatives',
+    title: 'Exotic FX Derivatives',
+    description: 'FX barrier options and quanto options with multi-currency setup.',
+    group: 'Valuations',
+    Component: ExoticFxDerivativesExample,
+  },
+  {
+    slug: 'exotic-rates-derivatives',
+    title: 'Exotic Rates Derivatives',
+    description: 'CMS options and range accrual notes.',
+    group: 'Valuations',
+    Component: ExoticRatesDerivativesExample,
+  },
+  {
+    slug: 'monte-carlo-paths',
+    title: 'Monte Carlo Path Generation',
+    description: 'Generate and visualize stochastic paths with GBM and other processes.',
+    group: 'Valuations',
+    Component: MonteCarloPathExample,
   },
   {
     slug: 'calibration',

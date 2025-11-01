@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Autocallable,
   Basket,
   FsDate,
   DiscountCurve,
@@ -7,6 +8,7 @@ import {
   MarketScalar,
   Money,
   PrivateMarketsFund,
+  VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
 
@@ -51,6 +53,15 @@ export const StructuredProductsExample: React.FC = () => {
         // Add spot prices for basket constituents
         market.insertPrice('AAPL-SPOT', MarketScalar.price(Money.fromCode(150.0, 'USD')));
         market.insertPrice('MSFT-SPOT', MarketScalar.price(Money.fromCode(380.0, 'USD')));
+
+        // Add volatility surface for autocallables
+        const equityVol = new VolSurface(
+          'EQUITY-VOL',
+          new Float64Array([0.25, 0.5, 1.0, 2.0]),
+          new Float64Array([120.0, 140.0, 160.0, 180.0]),
+          new Float64Array([0.28, 0.26, 0.25, 0.24, 0.27, 0.25, 0.24, 0.23, 0.26, 0.24, 0.23, 0.22, 0.25, 0.23, 0.22, 0.21])
+        );
+        market.insertSurface(equityVol);
 
         const registry = createStandardRegistry();
         const results: InstrumentRow[] = [];
@@ -125,9 +136,55 @@ export const StructuredProductsExample: React.FC = () => {
           complexity: '2 events, waterfall',
         });
 
+        // Autocallable - Simple autocall with barrier
+        const autocallableJson = JSON.stringify({
+          id: 'autocallable_simple',
+          underlying_ticker: 'AAPL',
+          notional: { amount: 1_000_000.0, currency: 'USD' },
+          observation_dates: ['2025-01-02', '2026-01-02'],
+          autocall_barriers: [1.20, 1.20],
+          coupons: [0.08, 0.10],
+          final_barrier: 0.75,
+          final_payoff_type: {
+            CapitalProtection: { floor: 0.9 }
+          },
+          participation_rate: 1.0,
+          cap_level: 2.0,
+          day_count: 'act_365f',
+          disc_id: 'USD-OIS',
+          spot_id: 'AAPL-SPOT',
+          vol_id: 'EQUITY-VOL',
+          div_yield_id: null,
+          pricing_overrides: {
+            quoted_clean_price: null,
+            implied_volatility: null,
+            quoted_spread_bp: null,
+            upfront_payment: null,
+            ytm_bump_bp: null,
+            theta_period: null,
+            mc_seed_scenario: null,
+            adaptive_bumps: false,
+            spot_bump_pct: null,
+            vol_bump_pct: null,
+            rate_bump_bp: null,
+          },
+          attributes: { tags: [], meta: {} },
+        });
+        const autocallable = Autocallable.fromJson(autocallableJson);
+        const autocallableResult = registry.priceAutocallable(autocallable, 'monte_carlo_gbm', market);
+        results.push({
+          name: 'Autocallable Note',
+          type: 'Autocallable',
+          presentValue: autocallableResult.presentValue.amount,
+          complexity: '8% coupon, 120% barrier',
+        });
+
         if (!cancelled) {
           setRows(results);
         }
+
+        // Cleanup
+        equityVol.free();
       } catch (err) {
         if (!cancelled) {
           console.error('Structured products error:', err);
@@ -152,7 +209,7 @@ export const StructuredProductsExample: React.FC = () => {
     <section className="example-section">
       <h2>Structured Products</h2>
       <p>
-        Complex structured instruments including baskets, ABS, CLO, and private markets funds.
+        Complex structured instruments including baskets, ABS, CLO, autocallables, and private markets funds.
         These instruments use JSON-based definitions for flexible modeling of complex structures.
       </p>
 

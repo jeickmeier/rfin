@@ -189,7 +189,7 @@ export default function StatementsModeling() {
       }
 
       // Different growth rates per quarter
-      const curveForecast = ForecastSpec.curve([0.02, 0.03, 0.04]);
+      const curveForecast = ForecastSpec.curve(new Float64Array([0.02, 0.03, 0.04]));
       const builderWithCurveForecast = builderWithExpenses.forecast('expenses', curveForecast);
       if (!builderWithCurveForecast) {
         throw new Error('Failed to add curve forecast');

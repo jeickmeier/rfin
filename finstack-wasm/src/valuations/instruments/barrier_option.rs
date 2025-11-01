@@ -1,43 +1,12 @@
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, parameters::JsBarrierType as JsMcBarrierType};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::barrier_option::{BarrierOption, BarrierType};
+use finstack_valuations::instruments::barrier_option::{BarrierOption, BarrierType as BarrierOptionType};
+use finstack_valuations::instruments::common::mc::payoff::barrier::BarrierType as McBarrierType;
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
-
-/// Barrier type for barrier options.
-#[wasm_bindgen(js_name = BarrierType)]
-#[derive(Clone, Copy, Debug)]
-pub enum JsBarrierType {
-    UpAndOut,
-    UpAndIn,
-    DownAndOut,
-    DownAndIn,
-}
-
-impl From<BarrierType> for JsBarrierType {
-    fn from(barrier_type: BarrierType) -> Self {
-        match barrier_type {
-            BarrierType::UpAndOut => JsBarrierType::UpAndOut,
-            BarrierType::UpAndIn => JsBarrierType::UpAndIn,
-            BarrierType::DownAndOut => JsBarrierType::DownAndOut,
-            BarrierType::DownAndIn => JsBarrierType::DownAndIn,
-        }
-    }
-}
-
-impl From<JsBarrierType> for BarrierType {
-    fn from(barrier_type: JsBarrierType) -> Self {
-        match barrier_type {
-            JsBarrierType::UpAndOut => BarrierType::UpAndOut,
-            JsBarrierType::UpAndIn => BarrierType::UpAndIn,
-            JsBarrierType::DownAndOut => BarrierType::DownAndOut,
-            JsBarrierType::DownAndIn => BarrierType::DownAndIn,
-        }
-    }
-}
 
 #[wasm_bindgen(js_name = BarrierOption)]
 #[derive(Clone, Debug)]
@@ -84,10 +53,10 @@ impl JsBarrierOption {
         };
 
         let barrier_type_enum = match barrier_type.to_lowercase().replace('_', "").as_str() {
-            "upandout" => BarrierType::UpAndOut,
-            "upandin" => BarrierType::UpAndIn,
-            "downandout" => BarrierType::DownAndOut,
-            "downandin" => BarrierType::DownAndIn,
+            "upandout" => BarrierOptionType::UpAndOut,
+            "upandin" => BarrierOptionType::UpAndIn,
+            "downandout" => BarrierOptionType::DownAndOut,
+            "downandin" => BarrierOptionType::DownAndIn,
             other => {
                 return Err(js_error(format!("Unknown barrier type: {other}")));
             }
@@ -95,6 +64,7 @@ impl JsBarrierOption {
 
         let strike_money = finstack_core::money::Money::new(strike, notional.inner().currency());
         let barrier_money = finstack_core::money::Money::new(barrier, notional.inner().currency());
+        let notional_amount = notional.inner().amount();
 
         let mut builder = BarrierOption::builder();
         builder = builder.id(instrument_id_from_str(instrument_id));
@@ -104,7 +74,7 @@ impl JsBarrierOption {
         builder = builder.option_type(opt_type);
         builder = builder.barrier_type(barrier_type_enum);
         builder = builder.expiry(expiry.inner());
-        builder = builder.notional(1.0);
+        builder = builder.notional(notional_amount);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
         builder = builder.disc_id(curve_id_from_str(discount_curve));
@@ -113,6 +83,8 @@ impl JsBarrierOption {
         if let Some(div) = dividend_yield_id {
             builder = builder.div_yield_id(div);
         }
+        builder = builder.pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
+        builder = builder.attributes(finstack_valuations::instruments::common::traits::Attributes::new());
 
         builder
             .build()
@@ -150,8 +122,15 @@ impl JsBarrierOption {
     }
 
     #[wasm_bindgen(getter, js_name = barrierType)]
-    pub fn barrier_type(&self) -> JsBarrierType {
-        self.0.barrier_type.into()
+    pub fn barrier_type(&self) -> JsMcBarrierType {
+        // Convert BarrierOptionType to McBarrierType
+        let mc_type = match self.0.barrier_type {
+            BarrierOptionType::UpAndOut => McBarrierType::UpAndOut,
+            BarrierOptionType::UpAndIn => McBarrierType::UpAndIn,
+            BarrierOptionType::DownAndOut => McBarrierType::DownAndOut,
+            BarrierOptionType::DownAndIn => McBarrierType::DownAndIn,
+        };
+        JsMcBarrierType::from_inner(mc_type)
     }
 
     #[wasm_bindgen(getter)]

@@ -22,8 +22,14 @@ export const CurveKindDemo: React.FC = () => {
     const ctx = new MarketContext();
     const asOf = new FsDate(2025, 1, 1);
 
-    // Build a discount curve
-    const curve = DiscountCurve.flat("USD-SOFR", asOf, 0.045, "USD");
+    // Build a flat discount curve manually
+    const rate = 0.045;
+    const times = new Float64Array([0.0, 30.0]);
+    const dfs = new Float64Array(times.length);
+    for (let i = 0; i < times.length; i++) {
+      dfs[i] = Math.exp(-rate * times[i]);
+    }
+    const curve = new DiscountCurve("USD-SOFR", asOf, times, dfs, "act_365f", "linear", "flat_forward", true);
     ctx.insertDiscount(curve);
 
     lines.push('=== Unified Curve Getter Demo ===\n');
@@ -31,13 +37,13 @@ export const CurveKindDemo: React.FC = () => {
     // Method 1: Generic getCurve with dynamic dispatch
     lines.push('1. Using getCurve() with CurveKind enum:');
     const genericCurve = ctx.getCurve("USD-SOFR", CurveKind.Discount) as any;
-    const df1 = genericCurve.df("2026-01-01");
+    const df1 = genericCurve.df(1.0); // 1 year
     lines.push(`   Discount Factor: ${df1.toFixed(6)}\n`);
 
     // Method 2: Type-safe convenience method (still available!)
     lines.push('2. Using typed convenience method discount():');
     const typedCurve = ctx.discount("USD-SOFR");
-    const df2 = typedCurve.df("2026-01-01");
+    const df2 = typedCurve.df(1.0); // 1 year
     lines.push(`   Discount Factor: ${df2.toFixed(6)}\n`);
 
     // Use case: Iterate over all curve types dynamically
@@ -50,7 +56,7 @@ export const CurveKindDemo: React.FC = () => {
 
     for (const { name, kind, id } of curveTypes) {
       try {
-        const c = ctx.getCurve(id, kind);
+        ctx.getCurve(id, kind);
         lines.push(`   ✓ Found ${name} curve: ${id}`);
       } catch (e) {
         lines.push(`   ✗ Missing ${name} curve: ${id}`);

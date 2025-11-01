@@ -278,6 +278,9 @@ pub const NUMERIC_MODE: NumericMode = NumericMode::F64;
 /// ```
 pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
     // Generate ISO 8601 timestamp
+    #[cfg(target_arch = "wasm32")]
+    let timestamp = Some("wasm-unsupported".to_string()); // Timestamp not available in WASM
+    #[cfg(not(target_arch = "wasm32"))]
     let timestamp = Some(
         time::OffsetDateTime::now_utc()
             .format(&time::format_description::well_known::Iso8601::DEFAULT)

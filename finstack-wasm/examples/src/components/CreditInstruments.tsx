@@ -12,6 +12,7 @@ import {
   MarketContext,
   Money,
   PricingRequest,
+  RevolvingCredit,
   VolSurface,
   createStandardRegistry,
 } from 'finstack-wasm';
@@ -90,9 +91,9 @@ export const CreditInstrumentsExample: React.FC = () => {
         // Add CDS volatility surface for options (flattened grid: row-major order)
         const cdsVol = new VolSurface(
           'CDS-VOL',
-          [0.5, 1.0, 3.0, 5.0],
-          [0.0100, 0.0200, 0.0400],
-          [0.45, 0.40, 0.35, 0.42, 0.38, 0.33, 0.38, 0.35, 0.30, 0.35, 0.32, 0.28]
+          new Float64Array([0.5, 1.0, 3.0, 5.0]),
+          new Float64Array([0.0100, 0.0200, 0.0400]),
+          new Float64Array([0.45, 0.40, 0.35, 0.42, 0.38, 0.33, 0.38, 0.35, 0.30, 0.35, 0.32, 0.28])
         );
 
         const market = new MarketContext();
@@ -209,6 +210,99 @@ export const CreditInstrumentsExample: React.FC = () => {
           presentValue: optionResult.presentValue.amount,
         });
 
+        // Revolving Credit Facility - Deterministic
+        const revolvingCreditDetJson = JSON.stringify({
+          id: 'rc_facility_det',
+          commitment_amount: { amount: 10_000_000.0, currency: 'USD' },
+          drawn_amount: { amount: 5_000_000.0, currency: 'USD' },
+          commitment_date: '2024-01-02',
+          maturity_date: '2026-01-02',
+          base_rate_spec: {
+            Fixed: { rate: 0.05 },
+          },
+          day_count: 'act360',
+          payment_frequency: { Months: 3 },
+          fees: {
+            upfront_fee: { amount: 50_000.0, currency: 'USD' },
+            commitment_fee_bp: 25.0,
+            usage_fee_bp: 10.0,
+            facility_fee_bp: 5.0,
+          },
+          draw_repay_spec: {
+            Deterministic: [
+              {
+                date: '2024-07-01',
+                amount: { amount: 2_000_000.0, currency: 'USD' },
+                is_draw: true,
+              },
+              {
+                date: '2025-01-01',
+                amount: { amount: 1_000_000.0, currency: 'USD' },
+                is_draw: false,
+              },
+            ],
+          },
+          disc_id: 'USD-OIS',
+          attributes: { tags: [], meta: {} },
+        });
+        const revolvingCreditDet = RevolvingCredit.fromJson(revolvingCreditDetJson);
+        const rcDetResult = registry.priceRevolvingCredit(revolvingCreditDet, 'discounting', market);
+        results.push({
+          name: 'Revolving Credit (Deterministic)',
+          type: 'RevolvingCredit',
+          presentValue: rcDetResult.presentValue.amount,
+          keyMetric: {
+            name: 'Utilization',
+            value: (5_000_000 / 10_000_000) * 100, // Initial utilization %
+          },
+        });
+
+        // Revolving Credit Facility - Stochastic (Monte Carlo)
+        const revolvingCreditStochJson = JSON.stringify({
+          id: 'rc_facility_stoch',
+          commitment_amount: { amount: 10_000_000.0, currency: 'USD' },
+          drawn_amount: { amount: 4_000_000.0, currency: 'USD' },
+          commitment_date: '2024-01-02',
+          maturity_date: '2026-01-02',
+          base_rate_spec: {
+            Fixed: { rate: 0.055 },
+          },
+          day_count: 'act360',
+          payment_frequency: { Months: 3 },
+          fees: {
+            upfront_fee: null,
+            commitment_fee_bp: 30.0,
+            usage_fee_bp: 15.0,
+            facility_fee_bp: 10.0,
+          },
+          draw_repay_spec: {
+            Stochastic: {
+              utilization_process: {
+                MeanReverting: {
+                  target_rate: 0.60,  // Target 60% utilization
+                  speed: 2.0,         // Mean reversion speed
+                  volatility: 0.15,    // 15% volatility
+                },
+              },
+              num_paths: 1000,
+              seed: 42,
+            },
+          },
+          disc_id: 'USD-OIS',
+          attributes: { tags: [], meta: {} },
+        });
+        const revolvingCreditStoch = RevolvingCredit.fromJson(revolvingCreditStochJson);
+        const rcStochResult = registry.priceRevolvingCredit(revolvingCreditStoch, 'monte_carlo_gbm', market);
+        results.push({
+          name: 'Revolving Credit (Stochastic MC)',
+          type: 'RevolvingCredit',
+          presentValue: rcStochResult.presentValue.amount,
+          keyMetric: {
+            name: 'Initial Util',
+            value: (4_000_000 / 10_000_000) * 100, // Initial utilization %
+          },
+        });
+
         if (!cancelled) {
           setRows(results);
         }
@@ -236,8 +330,9 @@ export const CreditInstrumentsExample: React.FC = () => {
     <section className="example-section">
       <h2>Credit Derivatives</h2>
       <p>
-        Credit instruments including single-name CDS, CDS indices, tranches, and options on CDS.
-        Uses hazard curves for survival probabilities and base correlation for tranche pricing.
+        Credit instruments including single-name CDS, CDS indices, tranches, options on CDS, and
+        revolving credit facilities. Uses hazard curves for survival probabilities, base correlation
+        for tranche pricing, and supports both deterministic and stochastic utilization for revolving credit.
       </p>
 
       <table>

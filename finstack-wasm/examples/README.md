@@ -171,13 +171,14 @@ Credit instruments with survival probability modeling:
 2. **CDS Index** - Standardized credit indices
 3. **CDS Tranches** - Synthetic CDO tranches with base correlation
 4. **CDS Options** - Options on credit spreads
+5. **Revolving Credit** - Credit facilities with both deterministic draw/repayment schedules (discounting model) and stochastic utilization (Monte Carlo model with mean-reverting process)
 
 ### Equity Instruments (`EquityInstruments.tsx`)
 
 Equity spot and derivatives:
 
 1. **Equity Spot** - Stock positions with pricing
-2. **Equity Options** - European calls and puts with Greeks
+2. **Equity Options** - European calls and puts with Greeks (for exotic options, see `ExoticEquityOptions.tsx`)
 
 ### Inflation Instruments (`InflationInstruments.tsx`)
 
@@ -192,7 +193,53 @@ Complex structured instruments using JSON definitions:
 
 1. **Baskets** - Multi-asset baskets with constituent weighting
 2. **Private Markets Funds** - PE/credit funds with waterfall structures
-3. **ABS, CLO, CMBS, RMBS** - Asset-backed and mortgage securities (available via JSON)
+3. **Autocallables** - Autocallable notes with barrier observations and early redemption
+4. **ABS, CLO, CMBS, RMBS** - Asset-backed and mortgage securities (available via JSON)
+
+### Exotic Equity Options (`ExoticEquityOptions.tsx`)
+
+Advanced equity options priced using Monte Carlo simulation:
+
+1. **Barrier Options** - Up-and-out, down-and-in options with continuous monitoring
+2. **Asian Options** - Options on arithmetic or geometric averages
+3. **Lookback Options** - Fixed and floating strike lookback options
+4. **Cliquet Options** - Options with local/global floors and caps
+
+All exotic options use the `monte_carlo_gbm` pricing model.
+
+### Exotic FX Derivatives (`ExoticFxDerivatives.tsx`)
+
+Exotic foreign exchange derivatives:
+
+1. **FX Barrier Options** - Barrier options on FX rates with multi-currency discounting
+2. **Quanto Options** - Cross-currency equity options (equity in one currency, payment in another)
+
+These instruments require multi-currency market setup with FX matrices and are priced using Monte Carlo simulation.
+
+### Exotic Rates Derivatives (`ExoticRatesDerivatives.tsx`)
+
+Advanced interest rate derivatives:
+
+1. **CMS Options** - Options on constant maturity swap rates (priced using Hull-White model)
+2. **Range Accrual Notes** - Notes with coupons that accrue when reference rate stays within a range
+
+CMS options use `monte_carlo_hull_white_1f` model, while range accruals use `monte_carlo_gbm`.
+
+### Monte Carlo Path Generation (`MonteCarloPathExample.tsx`)
+
+Standalone Monte Carlo path generation and analysis:
+
+1. **Path Generation** - Generate GBM paths with configurable parameters (spot, drift, volatility)
+2. **Sampling Strategies** - Capture all paths or sample a subset for memory efficiency
+3. **Statistical Analysis** - Compute mean, standard deviation, and distribution statistics
+4. **Data Export** - Export paths to CSV or JSON for external analysis
+5. **Process Parameters** - Inspect and display underlying stochastic process parameters
+
+Key features:
+- Flexible capture modes (`all` vs `sample`)
+- Deterministic and reproducible via seed parameter
+- Path-by-path access for detailed analysis
+- Terminal value distribution statistics
 
 ## Key Patterns
 

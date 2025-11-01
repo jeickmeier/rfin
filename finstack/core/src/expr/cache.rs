@@ -39,6 +39,10 @@ struct CacheEntry {
     /// The cached result.
     result: CachedResult,
     /// When this entry was last accessed.
+    /// In WASM, this is a dummy value since Instant::now() is not available.
+    #[cfg(target_arch = "wasm32")]
+    last_access: u64, // Use counter instead of Instant in WASM
+    #[cfg(not(target_arch = "wasm32"))]
     last_access: std::time::Instant,
     /// How many times this entry has been accessed.
     access_count: usize,
@@ -105,7 +109,14 @@ impl ExpressionCache {
     pub fn get(&mut self, node_id: u64) -> Option<CachedResult> {
         if let Some(entry) = self.cache.get_mut(&node_id) {
             // Update access metadata
-            entry.last_access = std::time::Instant::now();
+            #[cfg(target_arch = "wasm32")]
+            {
+                entry.last_access += 1; // Increment counter in WASM
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                entry.last_access = std::time::Instant::now();
+            }
             entry.access_count += 1;
 
             self.stats.hits += 1;
@@ -136,6 +147,9 @@ impl ExpressionCache {
         // Create new entry
         let entry = CacheEntry {
             result,
+            #[cfg(target_arch = "wasm32")]
+            last_access: 0, // Dummy value in WASM (not used for LRU - lru crate uses insertion order)
+            #[cfg(not(target_arch = "wasm32"))]
             last_access: std::time::Instant::now(),
             access_count: 1,
             size,
