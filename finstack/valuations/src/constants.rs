@@ -55,3 +55,30 @@ pub const PERCENT_TO_DECIMAL: f64 = 0.01;
 /// let rate_pct = rate_decimal * DECIMAL_TO_PERCENT; // 5.0%
 /// ```
 pub const DECIMAL_TO_PERCENT: f64 = 100.0;
+
+/// Decimal-friendly helpers for deterministic arithmetic.
+/// These supplement f64 constants without breaking existing callers.
+/// Prefer these in money and aggregation code paths.
+#[inline]
+pub fn one_basis_point_dec() -> rust_decimal::Decimal {
+    // 0.0001
+    rust_decimal::Decimal::new(1, 4)
+}
+
+#[inline]
+pub fn basis_points_per_unit_dec() -> rust_decimal::Decimal {
+    // 10,000
+    rust_decimal::Decimal::new(10_000, 0)
+}
+
+#[inline]
+pub fn percent_to_decimal_dec() -> rust_decimal::Decimal {
+    // 0.01
+    rust_decimal::Decimal::new(1, 2)
+}
+
+#[inline]
+pub fn decimal_to_percent_dec() -> rust_decimal::Decimal {
+    // 100
+    rust_decimal::Decimal::new(100, 0)
+}

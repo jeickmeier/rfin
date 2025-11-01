@@ -19,6 +19,12 @@ pub fn bond_schema() -> Value {
         "title": "Bond",
         "description": "Fixed-rate or floating-rate bond instrument",
         "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "notional": { "type": "number" },
+            "currency": { "type": "string" }
+        },
+        "required": ["id", "notional", "currency"],
         "note": "Full schema generation requires JsonSchema derives - coming in future release"
     })
 }
@@ -34,6 +40,11 @@ pub fn calibration_config_schema() -> Value {
         "title": "CalibrationConfig",
         "description": "Configuration for calibration processes",
         "type": "object",
+        "properties": {
+            "mode": { "type": "string" },
+            "tolerance": { "type": "number" }
+        },
+        "required": ["mode"],
         "note": "Full schema generation requires JsonSchema derives - coming in future release"
     })
 }
@@ -49,6 +60,12 @@ pub fn valuation_result_schema() -> Value {
         "title": "ValuationResult",
         "description": "Valuation result with PV and metrics",
         "type": "object",
+        "properties": {
+            "pv": { "type": "number" },
+            "currency": { "type": "string" },
+            "measures": { "type": "object", "additionalProperties": { "type": "number" } }
+        },
+        "required": ["pv", "currency"],
         "note": "Full schema generation requires JsonSchema derives - coming in future release"
     })
 }
@@ -64,6 +81,12 @@ pub fn calibration_report_schema() -> Value {
         "title": "CalibrationReport",
         "description": "Calibration diagnostic report",
         "type": "object",
+        "properties": {
+            "status": { "type": "string" },
+            "iterations": { "type": "integer" },
+            "messages": { "type": "array", "items": { "type": "string" } }
+        },
+        "required": ["status"],
         "note": "Full schema generation requires JsonSchema derives - coming in future release"
     })
 }

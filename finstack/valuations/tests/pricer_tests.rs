@@ -303,7 +303,7 @@ fn test_instrument_type_as_str() {
     assert_eq!(InstrumentType::Bond.as_str(), "Bond");
     assert_eq!(InstrumentType::IRS.as_str(), "InterestRateSwap");
     assert_eq!(InstrumentType::CapFloor.as_str(), "InterestRateOption");
-    assert_eq!(InstrumentType::CDSOption.as_str(), "CdsOption");
+    assert_eq!(InstrumentType::CDSOption.as_str(), "CDSOption");
     assert_eq!(InstrumentType::Convertible.as_str(), "ConvertibleBond");
     assert_eq!(
         InstrumentType::StructuredCredit.as_str(),

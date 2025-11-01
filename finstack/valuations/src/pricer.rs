@@ -107,7 +107,7 @@ impl InstrumentType {
             InstrumentType::CDS => "CDS",
             InstrumentType::CDSIndex => "CDSIndex",
             InstrumentType::CDSTranche => "CDSTranche",
-            InstrumentType::CDSOption => "CdsOption",
+            InstrumentType::CDSOption => "CDSOption",
             InstrumentType::IRS => "InterestRateSwap",
             InstrumentType::CapFloor => "InterestRateOption",
             InstrumentType::Swaption => "Swaption",
@@ -552,7 +552,8 @@ impl PricerRegistry {
 ///
 /// This function registers all instrument pricers in a single, visible location.
 /// This explicit approach provides better IDE support, easier debugging, and
-/// clearer dependency tracking compared to auto-registration.
+/// clearer dependency tracking compared to auto-registration. Registration here
+/// is explicit and centralized, not implicit or macro-driven.
 fn register_all_pricers(registry: &mut PricerRegistry) {
     // Bond pricers
     registry.register_pricer(
@@ -948,8 +949,8 @@ mod tests {
     }
 
     #[test]
-    fn auto_registration_test() {
-        // Test that ALL pricers are auto-registered correctly
+    fn registration_covers_all_pricers() {
+        // Test that ALL pricers are registered correctly
         let registry = create_standard_registry();
 
         // Bond pricers
@@ -957,13 +958,13 @@ mod tests {
             registry
                 .get_pricer(PricerKey::new(InstrumentType::Bond, ModelKey::Discounting))
                 .is_some(),
-            "Bond Discounting pricer should be auto-registered"
+            "Bond Discounting pricer should be registered"
         );
         assert!(
             registry
                 .get_pricer(PricerKey::new(InstrumentType::Bond, ModelKey::Tree))
                 .is_some(),
-            "Bond OAS pricer should be auto-registered"
+            "Bond OAS pricer should be registered"
         );
 
         // Interest Rate pricers
@@ -971,19 +972,19 @@ mod tests {
             registry
                 .get_pricer(PricerKey::new(InstrumentType::IRS, ModelKey::Discounting))
                 .is_some(),
-            "IRS Discounting pricer should be auto-registered"
+            "IRS Discounting pricer should be registered"
         );
         assert!(
             registry
                 .get_pricer(PricerKey::new(InstrumentType::FRA, ModelKey::Discounting))
                 .is_some(),
-            "FRA Discounting pricer should be auto-registered"
+            "FRA Discounting pricer should be registered"
         );
         assert!(
             registry
                 .get_pricer(PricerKey::new(InstrumentType::CapFloor, ModelKey::Black76))
                 .is_some(),
-            "CapFloor Black76 pricer should be auto-registered"
+            "CapFloor Black76 pricer should be registered"
         );
         assert!(
             registry
@@ -992,13 +993,13 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "CapFloor Discounting pricer should be auto-registered"
+            "CapFloor Discounting pricer should be registered"
         );
         assert!(
             registry
                 .get_pricer(PricerKey::new(InstrumentType::Swaption, ModelKey::Black76))
                 .is_some(),
-            "Swaption Black76 pricer should be auto-registered"
+            "Swaption Black76 pricer should be registered"
         );
         assert!(
             registry
@@ -1007,7 +1008,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "Swaption Discounting pricer should be auto-registered"
+            "Swaption Discounting pricer should be registered"
         );
 
         // Credit pricers
@@ -1015,13 +1016,13 @@ mod tests {
             registry
                 .get_pricer(PricerKey::new(InstrumentType::CDS, ModelKey::HazardRate))
                 .is_some(),
-            "CDS HazardRate pricer should be auto-registered"
+            "CDS HazardRate pricer should be registered"
         );
         assert!(
             registry
                 .get_pricer(PricerKey::new(InstrumentType::CDS, ModelKey::Discounting))
                 .is_some(),
-            "CDS Discounting pricer should be auto-registered"
+            "CDS Discounting pricer should be registered"
         );
         assert!(
             registry
@@ -1030,7 +1031,7 @@ mod tests {
                     ModelKey::HazardRate
                 ))
                 .is_some(),
-            "CDSIndex HazardRate pricer should be auto-registered"
+            "CDSIndex HazardRate pricer should be registered"
         );
         assert!(
             registry
@@ -1039,13 +1040,13 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "CDSIndex Discounting pricer should be auto-registered"
+            "CDSIndex Discounting pricer should be registered"
         );
         assert!(
             registry
                 .get_pricer(PricerKey::new(InstrumentType::CDSOption, ModelKey::Black76))
                 .is_some(),
-            "CDSOption Black76 pricer should be auto-registered"
+            "CDSOption Black76 pricer should be registered"
         );
         assert!(
             registry
@@ -1054,7 +1055,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "CDSOption Discounting pricer should be auto-registered"
+            "CDSOption Discounting pricer should be registered"
         );
         assert!(
             registry
@@ -1063,7 +1064,7 @@ mod tests {
                     ModelKey::HazardRate
                 ))
                 .is_some(),
-            "CDSTranche HazardRate pricer should be auto-registered"
+            "CDSTranche HazardRate pricer should be registered"
         );
         assert!(
             registry
@@ -1072,7 +1073,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "CDSTranche Discounting pricer should be auto-registered"
+            "CDSTranche Discounting pricer should be registered"
         );
 
         // FX pricers
@@ -1083,13 +1084,13 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "FxSpot Discounting pricer should be auto-registered"
+            "FxSpot Discounting pricer should be registered"
         );
         assert!(
             registry
                 .get_pricer(PricerKey::new(InstrumentType::FxOption, ModelKey::Black76))
                 .is_some(),
-            "FxOption Black76 pricer should be auto-registered"
+            "FxOption Black76 pricer should be registered"
         );
         assert!(
             registry
@@ -1098,7 +1099,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "FxOption Discounting pricer should be auto-registered"
+            "FxOption Discounting pricer should be registered"
         );
         assert!(
             registry
@@ -1107,7 +1108,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "FxSwap Discounting pricer should be auto-registered"
+            "FxSwap Discounting pricer should be registered"
         );
 
         // Equity pricers
@@ -1118,7 +1119,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "Equity Discounting pricer should be auto-registered"
+            "Equity Discounting pricer should be registered"
         );
         assert!(
             registry
@@ -1127,7 +1128,7 @@ mod tests {
                     ModelKey::Black76
                 ))
                 .is_some(),
-            "EquityOption Black76 pricer should be auto-registered"
+            "EquityOption Black76 pricer should be registered"
         );
         assert!(
             registry
@@ -1136,7 +1137,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "EquityOption Discounting pricer should be auto-registered"
+            "EquityOption Discounting pricer should be registered"
         );
 
         // Basic pricers
@@ -1147,7 +1148,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "Deposit Discounting pricer should be auto-registered"
+            "Deposit Discounting pricer should be registered"
         );
         assert!(
             registry
@@ -1156,7 +1157,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "InterestRateFuture Discounting pricer should be auto-registered"
+            "InterestRateFuture Discounting pricer should be registered"
         );
         assert!(
             registry
@@ -1165,13 +1166,13 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "BasisSwap Discounting pricer should be auto-registered"
+            "BasisSwap Discounting pricer should be registered"
         );
         assert!(
             registry
                 .get_pricer(PricerKey::new(InstrumentType::Repo, ModelKey::Discounting))
                 .is_some(),
-            "Repo Discounting pricer should be auto-registered"
+            "Repo Discounting pricer should be registered"
         );
 
         // Inflation pricers
@@ -1182,7 +1183,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "InflationSwap Discounting pricer should be auto-registered"
+            "InflationSwap Discounting pricer should be registered"
         );
         assert!(
             registry
@@ -1191,7 +1192,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "InflationLinkedBond Discounting pricer should be auto-registered"
+            "InflationLinkedBond Discounting pricer should be registered"
         );
 
         // Complex pricers
@@ -1202,7 +1203,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "VarianceSwap Discounting pricer should be auto-registered"
+            "VarianceSwap Discounting pricer should be registered"
         );
         assert!(
             registry
@@ -1211,7 +1212,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "Basket Discounting pricer should be auto-registered"
+            "Basket Discounting pricer should be registered"
         );
         assert!(
             registry
@@ -1220,7 +1221,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "Convertible Discounting pricer should be auto-registered"
+            "Convertible Discounting pricer should be registered"
         );
 
         // Structured credit pricer (unified for ABS, CLO, CMBS, RMBS)
@@ -1231,7 +1232,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "StructuredCredit Discounting pricer should be auto-registered"
+            "StructuredCredit Discounting pricer should be registered"
         );
 
         // TRS and Private Markets
@@ -1239,7 +1240,7 @@ mod tests {
             registry
                 .get_pricer(PricerKey::new(InstrumentType::TRS, ModelKey::Discounting))
                 .is_some(),
-            "TRS Discounting pricer should be auto-registered"
+            "TRS Discounting pricer should be registered"
         );
         assert!(
             registry
@@ -1248,7 +1249,7 @@ mod tests {
                     ModelKey::Discounting
                 ))
                 .is_some(),
-            "PrivateMarketsFund Discounting pricer should be auto-registered"
+            "PrivateMarketsFund Discounting pricer should be registered"
         );
     }
 }

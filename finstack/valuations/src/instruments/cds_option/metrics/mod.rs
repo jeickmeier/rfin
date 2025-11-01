@@ -31,12 +31,12 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Recovery01,
         Arc::new(recovery01::Recovery01Calculator),
-        &["CdsOption"],
+        &["CDSOption"],
     );
 
     crate::register_metrics! {
         registry: registry,
-        instrument: "CdsOption",
+        instrument: "CDSOption",
         metrics: [
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
