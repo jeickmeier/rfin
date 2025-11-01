@@ -17,25 +17,39 @@
 
 #[cfg(feature = "mc")]
 mod tests {
-    use finstack_core::currency::Currency;
+    // Imports are only used when `slow` feature is enabled, so allow unused warnings
+    #[allow(unused_imports)]
     use finstack_core::dates::{Date, DayCount};
+    #[allow(unused_imports)]
     use finstack_core::market_data::context::MarketContext;
+    #[allow(unused_imports)]
     use finstack_core::market_data::scalars::MarketScalar;
+    #[allow(unused_imports)]
     use finstack_core::market_data::surfaces::VolSurface;
+    #[allow(unused_imports)]
     use finstack_core::market_data::term_structures::DiscountCurve;
-    use finstack_core::money::Money;
-    use finstack_valuations::instruments::asian_option::AsianOption;
-    use finstack_valuations::instruments::asian_option::types::AveragingMethod;
-    use finstack_valuations::instruments::autocallable::{Autocallable, FinalPayoffType};
-    use finstack_valuations::instruments::barrier_option::{BarrierOption, BarrierType};
-    use finstack_valuations::instruments::lookback_option::{LookbackOption, LookbackType};
+    #[allow(unused_imports)]
+    use finstack_core::prelude::{Currency, Money};
+    #[allow(unused_imports)]
+    use finstack_valuations::instruments::{
+        asian_option::{AsianOption, AveragingMethod},
+        autocallable::{Autocallable, FinalPayoffType},
+        barrier_option::{BarrierOption, BarrierType},
+        lookback_option::{LookbackOption, LookbackType},
+    };
+    #[allow(unused_imports)]
     use finstack_valuations::instruments::common::parameters::market::OptionType;
+    #[allow(unused_imports)]
     use finstack_valuations::instruments::common::traits::Instrument;
+    #[allow(unused_imports)]
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
+    #[allow(unused_imports)]
     use std::sync::Arc;
+    #[allow(unused_imports)]
     use time::macros::date;
 
     /// Helper to create a standard equity market context for MC pricing tests
+    #[allow(dead_code)] // Only used when slow feature is enabled
     fn create_mc_market(as_of: Date, spot: f64, vol: f64, rate: f64) -> MarketContext {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(as_of)
@@ -64,6 +78,7 @@ mod tests {
     }
 
     /// Run a metric calculation multiple times and verify all results are identical
+    #[allow(dead_code)] // Only used when slow feature is enabled
     fn test_metric_determinism<I: Instrument + Clone + 'static>(
         instrument: I,
         market: &MarketContext,

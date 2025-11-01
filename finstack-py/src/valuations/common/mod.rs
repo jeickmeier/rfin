@@ -518,6 +518,8 @@ pub(crate) fn intern_calendar_id(value: &str) -> &'static str {
     Box::leak(value.to_ascii_lowercase().into_boxed_str())
 }
 
+pub(crate) mod parameters;
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -530,6 +532,10 @@ pub(crate) fn register<'py>(
     module.add_class::<PyInstrumentType>()?;
     module.add_class::<PyModelKey>()?;
     module.add_class::<PyPricerKey>()?;
+    
+    // Register parameter types submodule
+    let _param_exports = parameters::register(py, &module)?;
+    
     let exports = ["InstrumentType", "ModelKey", "PricerKey"];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;

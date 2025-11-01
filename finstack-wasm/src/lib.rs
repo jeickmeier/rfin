@@ -78,11 +78,12 @@ pub use valuations::cashflow::{
 pub use valuations::metrics::{JsMetricId as MetricId, JsMetricRegistry as MetricRegistry};
 // Performance functions
 pub use valuations::instruments::{
-    BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, ConvertibleBond, CreditDefaultSwap,
-    Deposit, Equity, EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap,
-    ForwardRateAgreement, FxOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap,
-    InterestRateFuture, InterestRateOption, InterestRateSwap, PrivateMarketsFund, Repo,
-    StructuredCredit, Swaption, VarianceSwap,
+    AsianOption, Autocallable, BarrierOption, BasisSwap, Basket, Bond, CDSIndex, CdsOption,
+    CdsTranche, CliquetOption, CmsOption, ConvertibleBond, CreditDefaultSwap, Deposit, Equity,
+    EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement, FxOption,
+    FxBarrierOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap, InterestRateFuture,
+    InterestRateOption, InterestRateSwap, LookbackOption, PrivateMarketsFund, QuantoOption,
+    RangeAccrual, Repo, RevolvingCredit, StructuredCredit, Swaption, VarianceSwap,
 };
 pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,
@@ -94,6 +95,21 @@ pub use valuations::results::JsValuationResult as ValuationResult;
 // Note: ResultsMeta already exported from statements evaluator
 // Using valuations::results::JsResultsMeta for ValuationResult.meta
 pub use valuations::results::JsResultsMeta as ValuationResultsMeta;
+
+// Monte Carlo path generation
+pub use valuations::mc_generator::JsMonteCarloPathGenerator as MonteCarloPathGenerator;
+pub use valuations::mc_paths::{JsPathDataset as PathDataset, JsPathPoint as PathPoint, JsSimulatedPath as SimulatedPath};
+pub use valuations::mc_params::JsProcessParams as ProcessParams;
+pub use valuations::mc_result::JsMonteCarloResult as MonteCarloResult;
+
+// DataFrame conversion
+pub use valuations::dataframe::{results_to_json_wasm as resultsToJson, results_to_rows_wasm as resultsToRows};
+
+// Common parameter types
+pub use valuations::common::parameters::{
+    JsBarrierType as BarrierType, JsExerciseStyle as ExerciseStyle, JsOptionType as OptionType,
+    JsPayReceive as PayReceive, JsSettlementType as SettlementType,
+};
 
 // Risk analysis functions
 pub use valuations::risk::{cs01_ladder as cs01Ladder, krd_dv01_ladder as krdDv01Ladder};

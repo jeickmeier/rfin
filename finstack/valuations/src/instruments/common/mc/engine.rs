@@ -88,9 +88,19 @@ impl PathCaptureConfig {
         match self.capture_mode {
             PathCaptureMode::All => true,
             PathCaptureMode::Sample { count, seed } => {
-                // Use simple hash-based sampling for determinism
+                // Use hash-based sampling for determinism
                 // This ensures same paths are selected across runs
-                let hash = (path_id as u64).wrapping_mul(seed).wrapping_add(seed);
+                // Use a proper hash function that provides good distribution
+                let mut hash = path_id as u64;
+                hash = hash.wrapping_mul(0x9e3779b97f4a7c15); // Multiplicative hash constant
+                hash ^= seed;
+                hash = hash.wrapping_mul(0x9e3779b97f4a7c15);
+                hash ^= hash >> 16; // Mix bits
+                hash = hash.wrapping_mul(0x85ebca6b);
+                hash ^= hash >> 13;
+                hash = hash.wrapping_mul(0xc2b2ae35);
+                hash ^= hash >> 16;
+                
                 let sample_prob = count as f64 / num_paths as f64;
                 let threshold = (u64::MAX as f64 * sample_prob) as u64;
                 hash < threshold

@@ -1,7 +1,12 @@
 pub mod calibration;
 pub mod cashflow;
 pub mod common;
+pub mod dataframe;
 pub mod instruments;
+pub mod mc_generator;
+pub mod mc_params;
+pub mod mc_paths;
+pub mod mc_result;
 pub mod metrics;
 pub mod performance;
 pub mod pricer;

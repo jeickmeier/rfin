@@ -75,7 +75,7 @@ pub fn xirr_wasm(cash_flows: Array, guess: Option<f64>) -> Result<f64, JsValue> 
         flows.push((core_date, amount));
     }
 
-    // Call the Rust XIRR function
+    // Call the core XIRR function
     finstack_core::cashflow::xirr(&flows, guess)
         .map_err(|e| JsValue::from_str(&format!("XIRR calculation failed: {}", e)))
 }
@@ -98,7 +98,6 @@ pub fn xirr_wasm(cash_flows: Array, guess: Option<f64>) -> Result<f64, JsValue> 
 /// ```
 #[wasm_bindgen(js_name = calculateNpv)]
 pub fn calculate_npv_wasm(cash_flows: Array, discount_rate: f64) -> Result<f64, JsValue> {
-    use finstack_core::dates::{DayCount, DayCountCtx};
 
     // Parse cash flows
     let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::new();
@@ -143,24 +142,9 @@ pub fn calculate_npv_wasm(cash_flows: Array, discount_rate: f64) -> Result<f64, 
         flows.push((core_date, amount));
     }
 
-    if flows.is_empty() {
-        return Ok(0.0);
-    }
-
-    // Calculate NPV using Act/365F day count
-    let first_date = flows[0].0;
-    let dc = DayCount::Act365F;
-    let mut sum = 0.0;
-
-    for (date, amount) in flows {
-        let years = dc
-            .year_fraction(first_date, date, DayCountCtx::default())
-            .map_err(|e| JsValue::from_str(&format!("Day count calculation failed: {}", e)))?;
-        let discount_factor = (1.0 + discount_rate).powf(years);
-        sum += amount / discount_factor;
-    }
-
-    Ok(sum)
+    // Use the core NPV function
+    finstack_core::cashflow::npv_performance(&flows, discount_rate, None, None)
+        .map_err(|e| JsValue::from_str(&format!("NPV calculation failed: {}", e)))
 }
 
 /// Calculate IRR (Internal Rate of Return) for evenly-spaced periodic cash flows.
@@ -183,36 +167,7 @@ pub fn calculate_npv_wasm(cash_flows: Array, discount_rate: f64) -> Result<f64, 
 /// ```
 #[wasm_bindgen(js_name = irrPeriodic)]
 pub fn irr_periodic_wasm(amounts: Vec<f64>, guess: Option<f64>) -> Result<f64, JsValue> {
-    use finstack_core::math::{HybridSolver, Solver};
-
-    if amounts.len() < 2 {
-        return Err(JsValue::from_str("At least 2 cash flows required"));
-    }
-
-    // Check for sign change
-    let has_positive = amounts.iter().any(|&x| x > 0.0);
-    let has_negative = amounts.iter().any(|&x| x < 0.0);
-    if !has_positive || !has_negative {
-        return Err(JsValue::from_str(
-            "Cash flows must have at least one positive and one negative value",
-        ));
-    }
-
-    // NPV function for periodic cash flows
-    let npv = |rate: f64| -> f64 {
-        amounts
-            .iter()
-            .enumerate()
-            .map(|(i, &amount)| amount / (1.0 + rate).powi(i as i32))
-            .sum()
-    };
-
-    let initial_guess = guess.unwrap_or(0.1);
-    let solver = HybridSolver::new()
-        .with_tolerance(1e-6)
-        .with_max_iterations(100);
-
-    solver
-        .solve(npv, initial_guess)
+    // Use the core IRR periodic function
+    finstack_core::cashflow::irr_periodic(&amounts, guess)
         .map_err(|e| JsValue::from_str(&format!("IRR calculation failed: {}", e)))
 }

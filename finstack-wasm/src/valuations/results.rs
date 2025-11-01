@@ -71,6 +71,11 @@ impl JsValuationResult {
     pub(crate) fn inner(&self) -> &ValuationResult {
         &self.inner
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn inner_clone(&self) -> ValuationResult {
+        self.inner.clone()
+    }
 }
 
 #[wasm_bindgen(js_class = ValuationResult)]
