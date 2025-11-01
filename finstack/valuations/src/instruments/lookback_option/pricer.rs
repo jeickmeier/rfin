@@ -96,7 +96,8 @@ impl LookbackOptionMcPricer {
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
-        let num_steps = (t * 252.0) as usize;
+        let steps_per_year = self.config.steps_per_year;
+        let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
         let maturity_step = num_steps - 1;
 
         let currency = inst

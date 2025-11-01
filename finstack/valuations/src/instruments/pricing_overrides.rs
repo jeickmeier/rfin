@@ -5,6 +5,7 @@ use finstack_core::money::Money;
 /// Optional parameters that override model pricing with market quotes.
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct PricingOverrides {
     /// Quoted clean price (for bonds)
     pub quoted_clean_price: Option<f64>,
@@ -15,7 +16,7 @@ pub struct PricingOverrides {
     /// Upfront payment (for CDS, convertibles)
     pub upfront_payment: Option<Money>,
     /// Optional YTM bump size for numerical metrics (e.g., convexity/duration), in decimal (1 bp = 1e-4)
-    pub ytm_bump_bp: Option<f64>,
+    pub ytm_bump_decimal: Option<f64>,
     /// Theta period for time decay calculations (e.g., "1D", "1W", "1M", "3M")
     pub theta_period: Option<String>,
     /// MC seed scenario override for deterministic greek calculations
@@ -78,8 +79,8 @@ impl PricingOverrides {
     }
 
     /// Set custom YTM bump size (decimal). For 1 bp, pass 1e-4.
-    pub fn with_ytm_bump(mut self, bump: f64) -> Self {
-        self.ytm_bump_bp = Some(bump);
+    pub fn with_ytm_bump_decimal(mut self, bump: f64) -> Self {
+        self.ytm_bump_decimal = Some(bump);
         self
     }
 
@@ -129,5 +130,54 @@ impl PricingOverrides {
     pub fn with_rate_bump(mut self, bump_bp: f64) -> Self {
         self.rate_bump_bp = Some(bump_bp);
         self
+    }
+}
+
+// tests moved to end of file to satisfy clippy::items_after_test_module
+
+impl PricingOverrides {
+    /// Validate override values for finiteness and non-negativity; basic `theta_period` sanity.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        use finstack_core::error::InputError;
+        let nonneg = |v: f64| v.is_finite() && v >= 0.0;
+        if let Some(v) = self.quoted_clean_price { if !v.is_finite() { return Err(InputError::Invalid.into()); } }
+        if let Some(v) = self.implied_volatility { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
+        if let Some(v) = self.quoted_spread_bp { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
+        if let Some(v) = self.ytm_bump_decimal { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
+        if let Some(v) = self.spot_bump_pct { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
+        if let Some(v) = self.vol_bump_pct { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
+        if let Some(v) = self.rate_bump_bp { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
+        if let Some(ref s) = self.theta_period {
+            // Minimal sanity: allow forms like "1D", "1W", "1M", "1Y"
+            let ok = s.len() >= 2 && s[..s.len()-1].chars().all(|c| c.is_ascii_digit()) && matches!(s.chars().last(), Some('D'|'W'|'M'|'Y'));
+            if !ok { return Err(InputError::Invalid.into()); }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_accepts_default_and_positive_values() {
+        let po = PricingOverrides::default()
+            .with_clean_price(100.0)
+            .with_ytm_bump_decimal(1e-4)
+            .with_spot_bump(0.01)
+            .with_vol_bump(0.01)
+            .with_rate_bump(1.0);
+        assert!(po.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_negative_values() {
+        let po = PricingOverrides::default().with_vol_bump(-0.01);
+        let err = po.validate().unwrap_err();
+        match err {
+            finstack_core::error::Error::Input(finstack_core::error::InputError::NegativeValue) => {}
+            e => panic!("unexpected error: {e:?}"),
+        }
     }
 }

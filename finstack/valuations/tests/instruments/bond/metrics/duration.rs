@@ -80,7 +80,7 @@ fn test_modified_duration_matches_macaulay_over_yield() {
 
 #[test]
 fn test_convexity_bump_configurable() {
-    // Convexity should honor pricing_overrides.ytm_bump_bp if set
+    // Convexity should honor pricing_overrides.ytm_bump_decimal if set
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_valuations::instruments::PricingOverrides;
 
@@ -109,7 +109,7 @@ fn test_convexity_bump_configurable() {
     let conv_default = *res_default.measures.get("convexity").unwrap();
 
     // Now set a larger bump and expect convexity magnitude to change
-    bond.pricing_overrides = PricingOverrides::default().with_ytm_bump(2e-4); // 2 bp
+    bond.pricing_overrides = PricingOverrides::default().with_ytm_bump_decimal(2e-4); // 2 bp
     let res_bumped = bond
         .price_with_metrics(&market, as_of, &[MetricId::Convexity])
         .unwrap();

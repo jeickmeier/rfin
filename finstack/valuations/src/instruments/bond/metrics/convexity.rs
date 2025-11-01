@@ -33,7 +33,7 @@ impl MetricCalculator for ConvexityCalculator {
         let dy = context
             .pricing_overrides
             .as_ref()
-            .and_then(|po| po.ytm_bump_bp)
+            .and_then(|po| po.ytm_bump_decimal)
             .unwrap_or(1e-4);
 
         // Calculate prices with yield bumps for numerical convexity

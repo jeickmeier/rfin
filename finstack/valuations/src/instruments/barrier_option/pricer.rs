@@ -118,8 +118,9 @@ impl BarrierOptionMcPricer {
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
-        // Create time grid
-        let num_steps = (t * 252.0) as usize; // Daily steps
+        // Create time grid with minimum-capped steps
+        let steps_per_year = self.config.steps_per_year;
+        let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
         let maturity_step = num_steps - 1;
 
         // Create payoff
@@ -173,6 +174,105 @@ impl BarrierOptionMcPricer {
 
         Ok(result.mean)
     }
+
+    /// Price with LRM Greeks (delta, vega) convenience for barrier options.
+    pub fn price_with_lrm_greeks_internal(
+        &self,
+        inst: &BarrierOption,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<finstack_core::money::Money> {
+        // Time to maturity
+        let t = inst
+            .day_count
+            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+        if t <= 0.0 {
+            return Ok(finstack_core::money::Money::new(0.0, inst.strike.currency()));
+        }
+
+        // Discounting inputs
+        let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+        let r = disc_curve.zero(t);
+        let t_as_of = disc_curve
+            .day_count()
+            .year_fraction(disc_curve.base_date(), as_of, DayCountCtx::default())?;
+        let df_as_of = disc_curve.df(t_as_of);
+        let df_maturity = disc_curve.df(t_as_of + t);
+        let discount_factor = if df_as_of > 0.0 { df_maturity / df_as_of } else { 1.0 };
+
+        // Spot and dividend yield
+        let spot_scalar = curves.price(&inst.spot_id)?;
+        let spot = match spot_scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        };
+        let q = if let Some(div_id) = &inst.div_yield_id {
+            match curves.price(div_id.as_str()) {
+                Ok(ms) => match ms {
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                    finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
+                },
+                Err(_) => 0.0,
+            }
+        } else {
+            0.0
+        };
+
+        // Volatility and process
+        let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+        let sigma = vol_surface.value_clamped(t, inst.strike.amount());
+        let gbm_params = GbmParams::new(r, q, sigma);
+        let process = GbmProcess::new(gbm_params);
+
+        // Steps and payoff
+        let steps_per_year = self.config.steps_per_year;
+        let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
+        let maturity_step = num_steps - 1;
+        let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
+        let payoff = BarrierCall::new(
+            inst.strike.amount(),
+            inst.barrier.amount(),
+            mc_barrier_type,
+            inst.notional,
+            maturity_step,
+            sigma,
+            t,
+            inst.use_gobet_miri,
+        );
+
+        // Seed
+        #[cfg(feature = "mc")]
+        use crate::instruments::common::models::monte_carlo::seed;
+        let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
+            #[cfg(feature = "mc")]
+            { seed::derive_seed(&inst.id, scenario) }
+            #[cfg(not(feature = "mc"))]
+            42
+        } else {
+            #[cfg(feature = "mc")]
+            { seed::derive_seed(&inst.id, "base") }
+            #[cfg(not(feature = "mc"))]
+            self.config.seed
+        };
+        let mut cfg = self.config.clone();
+        cfg.seed = seed;
+
+        let pricer = PathDependentPricer::new(cfg);
+        let (est, _greeks) = pricer.price_with_lrm_greeks(
+            &process,
+            spot,
+            t,
+            num_steps,
+            &payoff,
+            inst.strike.currency(),
+            discount_factor,
+            r,
+            q,
+            sigma,
+        )?;
+
+        Ok(est.mean)
+    }
 }
 
 #[cfg(feature = "mc")]
@@ -214,6 +314,17 @@ impl Pricer for BarrierOptionMcPricer {
 pub fn npv(inst: &BarrierOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = BarrierOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
+}
+
+/// Present value with LRM Greeks via Monte Carlo (barrier option).
+#[cfg(feature = "mc")]
+pub fn npv_with_lrm_greeks(
+    inst: &BarrierOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
+    let pricer = BarrierOptionMcPricer::new();
+    pricer.price_with_lrm_greeks_internal(inst, curves, as_of)
 }
 
 // ========================= ANALYTICAL PRICER =========================

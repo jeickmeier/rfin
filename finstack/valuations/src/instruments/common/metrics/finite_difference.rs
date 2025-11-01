@@ -27,6 +27,18 @@ pub mod bump_sizes {
     pub const CORRELATION: f64 = 0.01;
 }
 
+/// Convenience alias: bump a discount curve in parallel basis points.
+///
+/// Wrapper around `bump_discount_curve_parallel` to standardize naming.
+pub fn bump_discount(
+    context: &finstack_core::market_data::MarketContext,
+    curve_id: &finstack_core::types::CurveId,
+    bump_decimal: f64,
+) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
+    // 1bp == 0.0001 (decimal)
+    bump_discount_curve_parallel(context, curve_id, bump_decimal)
+}
+
 /// Helper to bump a scalar price in MarketContext.
 ///
 /// Creates a new MarketContext with the bumped price, leaving other data unchanged.
@@ -70,21 +82,37 @@ pub fn bump_scalar_price(
 /// # Arguments
 /// * `context` - Original market context
 /// * `curve_id` - ID of the discount curve to bump
-/// * `bump_bp` - Bump size in basis points (e.g., 0.0001 for 1bp)
+/// * `bump_decimal` - Bump size in decimal (e.g., 0.0001 for 1bp)
 ///
 /// # Returns
 /// New MarketContext with bumped curve
 pub fn bump_discount_curve_parallel(
     context: &finstack_core::market_data::MarketContext,
-    curve_id: &str,
-    bump_bp: f64,
+    curve_id: &finstack_core::types::CurveId,
+    bump_decimal: f64,
 ) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
     use finstack_core::market_data::bumps::BumpSpec;
-    use finstack_core::types::CurveId;
     use hashbrown::HashMap;
 
     let mut bumps = HashMap::new();
-    bumps.insert(CurveId::from(curve_id), BumpSpec::parallel_bp(bump_bp));
+    bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_decimal));
+    context.bump(bumps)
+}
+
+/// Helper to bump a forward curve with a parallel shift (in basis points).
+///
+/// Creates a new `MarketContext` with the specified forward curve bumped and
+/// replaced under the same ID.
+pub fn bump_forward(
+    context: &finstack_core::market_data::MarketContext,
+    curve_id: &finstack_core::types::CurveId,
+    bump_decimal: f64,
+) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
+    use finstack_core::market_data::bumps::BumpSpec;
+    use hashbrown::HashMap;
+
+    let mut bumps = HashMap::new();
+    bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_decimal));
     context.bump(bumps)
 }
 
@@ -117,30 +145,21 @@ pub fn bump_vol_surface_parallel(
     vol_id: &str,
     bump_pct: f64,
 ) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
-    use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    scale_surface(context, vol_id, 1.0 + bump_pct)
+}
 
-    // Get the original surface
+/// Helper to scale a volatility surface by a constant multiplicative factor.
+///
+/// This is the core utility used by `bump_vol_surface_parallel` and can also be
+/// applied directly when the caller already computed the desired scale.
+pub fn scale_surface(
+    context: &finstack_core::market_data::MarketContext,
+    vol_id: &str,
+    scale: f64,
+) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
     let vol_surface = context.surface_ref(vol_id)?;
-
-    // Extract surface state
-    let state = vol_surface.to_state();
-
-    // Scale all volatilities by (1 + bump_pct)
-    let scale_factor = 1.0 + bump_pct;
-    let bumped_vols: Vec<f64> = state
-        .vols_row_major
-        .iter()
-        .map(|v| v * scale_factor)
-        .collect();
-
-    // Rebuild the surface with bumped volatilities
-    let bumped_surface =
-        VolSurface::from_grid(vol_id, &state.expiries, &state.strikes, &bumped_vols)?;
-
-    // Clone the context and insert the bumped surface
-    let bumped_context = context.clone().insert_surface(bumped_surface);
-
-    Ok(bumped_context)
+    let bumped_surface = vol_surface.scaled(scale);
+    Ok(context.clone().insert_surface(bumped_surface))
 }
 
 // -----------------------------------------------------------------------------
@@ -183,6 +202,69 @@ pub fn adaptive_spot_bump(
     base_bump.max(vol_scaled).min(0.05)
 }
 
+// -----------------------------------------------------------------------------
+// Central finite-difference helpers
+// -----------------------------------------------------------------------------
+
+/// Compute a first derivative using central differences given evaluators for
+/// up/down scenarios and an absolute bump size `h`.
+///
+/// Returns `(f(x+h) - f(x-h)) / (2h)`.
+pub fn central_diff_1d<EFutUp, EFutDown, E>(
+    eval_up: EFutUp,
+    eval_down: EFutDown,
+    h_abs: f64,
+) -> finstack_core::Result<f64>
+where
+    EFutUp: FnOnce() -> finstack_core::Result<E>,
+    EFutDown: FnOnce() -> finstack_core::Result<E>,
+    E: Into<f64>,
+{
+    // Guard against invalid bump size
+    if !h_abs.is_finite() || h_abs <= 0.0 {
+        return Err(finstack_core::error::InputError::NonPositiveValue.into());
+    }
+    let up = eval_up()?.into();
+    let down = eval_down()?.into();
+    Ok((up - down) / (2.0 * h_abs))
+}
+
+/// Compute a mixed partial derivative using central differences for two
+/// variables with absolute bump sizes `h` (first variable) and `k` (second).
+///
+/// Returns `[f(+h,+k) - f(+h,-k) - f(-h,+k) + f(-h,-k)] / (4 h k)`.
+pub fn central_mixed<EEpp, EEpm, EEmp, Eemm, E1, E2, E3, E4>(
+    eval_pp: EEpp,
+    eval_pm: EEpm,
+    eval_mp: EEmp,
+    eval_mm: Eemm,
+    h_abs: f64,
+    k_abs: f64,
+) -> finstack_core::Result<f64>
+where
+    EEpp: FnOnce() -> finstack_core::Result<E1>,
+    EEpm: FnOnce() -> finstack_core::Result<E2>,
+    EEmp: FnOnce() -> finstack_core::Result<E3>,
+    Eemm: FnOnce() -> finstack_core::Result<E4>,
+    E1: Into<f64>,
+    E2: Into<f64>,
+    E3: Into<f64>,
+    E4: Into<f64>,
+{
+    // Guard against invalid bump sizes
+    if !h_abs.is_finite() || h_abs <= 0.0 {
+        return Err(finstack_core::error::InputError::NonPositiveValue.into());
+    }
+    if !k_abs.is_finite() || k_abs <= 0.0 {
+        return Err(finstack_core::error::InputError::NonPositiveValue.into());
+    }
+    let v_pp = eval_pp()?.into();
+    let v_pm = eval_pm()?.into();
+    let v_mp = eval_mp()?.into();
+    let v_mm = eval_mm()?.into();
+    Ok((v_pp - v_pm - v_mp + v_mm) / (4.0 * h_abs * k_abs))
+}
+
 /// Calculate adaptive volatility bump size based on current volatility level.
 ///
 /// Adaptive bumps scale with volatility to maintain relative accuracy:
@@ -222,10 +304,12 @@ pub fn adaptive_vol_bump(current_vol: f64, override_pct: Option<f64>) -> f64 {
 /// * `override_bp` - Optional override from PricingOverrides (takes precedence)
 ///
 /// # Returns
-/// Bump size in basis points (e.g., 1.0 for 1bp = 0.0001)
-pub fn adaptive_rate_bump(override_bp: Option<f64>) -> f64 {
-    override_bp.unwrap_or(bump_sizes::INTEREST_RATE_BP * 10_000.0) // Convert to bp
+/// Bump size in decimal (e.g., 0.0001 for 1bp)
+pub fn adaptive_rate_bump(override_decimal: Option<f64>) -> f64 {
+    override_decimal.unwrap_or(bump_sizes::INTEREST_RATE_BP)
 }
+
+// tests moved to end of file to satisfy clippy::items_after_test_module
 
 /// Get bump sizes from PricingOverrides if adaptive bumps are enabled.
 ///
@@ -243,4 +327,38 @@ pub fn get_bump_overrides(
         overrides.vol_bump_pct,
         overrides.rate_bump_bp,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn adaptive_rate_bump_default_is_one_bp_decimal() {
+        let v = adaptive_rate_bump(None);
+        assert!((v - 0.0001).abs() < 1e-12);
+    }
+
+    #[test]
+    fn central_diff_1d_rejects_nonpositive_or_invalid_h() {
+        let err = central_diff_1d(|| Ok(1.0f64), || Ok(1.0f64), 0.0).unwrap_err();
+        match err {
+            finstack_core::error::Error::Input(finstack_core::error::InputError::NonPositiveValue) => {}
+            e => panic!("unexpected error: {e:?}"),
+        }
+    }
+
+    #[test]
+    fn central_mixed_rejects_nonpositive_or_invalid_hk() {
+        let err_h = central_mixed(|| Ok(0.0f64), || Ok(0.0f64), || Ok(0.0f64), || Ok(0.0f64), 0.0, 1.0).unwrap_err();
+        match err_h {
+            finstack_core::error::Error::Input(finstack_core::error::InputError::NonPositiveValue) => {}
+            e => panic!("unexpected error: {e:?}"),
+        }
+        let err_k = central_mixed(|| Ok(0.0f64), || Ok(0.0f64), || Ok(0.0f64), || Ok(0.0f64), 1.0, 0.0).unwrap_err();
+        match err_k {
+            finstack_core::error::Error::Input(finstack_core::error::InputError::NonPositiveValue) => {}
+            e => panic!("unexpected error: {e:?}"),
+        }
+    }
 }

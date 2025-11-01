@@ -158,7 +158,7 @@ mod tests {
     fn test_bond_with_pricing_overrides() {
         let overrides = PricingOverrides::default()
             .with_clean_price(98.5)
-            .with_ytm_bump(1e-4);
+            .with_ytm_bump_decimal(1e-4);
 
         let bond = Bond::builder()
             .id("BOND_OVERRIDE".into())
@@ -178,7 +178,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(bond.pricing_overrides.quoted_clean_price, Some(98.5));
-        assert_eq!(bond.pricing_overrides.ytm_bump_bp, Some(1e-4));
+        assert_eq!(bond.pricing_overrides.ytm_bump_decimal, Some(1e-4));
     }
 
     #[test]

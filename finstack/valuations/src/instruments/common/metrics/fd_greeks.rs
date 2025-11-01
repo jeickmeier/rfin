@@ -9,7 +9,8 @@
 use std::marker::PhantomData;
 
 use crate::instruments::common::metrics::finite_difference::{
-    adaptive_spot_bump, bump_scalar_price, bump_sizes, get_bump_overrides,
+    adaptive_spot_bump, bump_scalar_price, bump_sizes, central_mixed, get_bump_overrides,
+    scale_surface,
 };
 use crate::instruments::common::metrics::has_equity_underlying::HasEquityUnderlying;
 use crate::instruments::common::metrics::has_pricing_overrides::HasPricingOverrides;
@@ -243,7 +244,207 @@ where
     }
 }
 
-// Note: Vega is not included as a generic calculator because volatility surface
-// bumping is complex and requires instrument-specific handling (to_state(),
-// from_grid(), etc.). Each instrument should implement its own vega calculator
-// following the pattern seen in asian_option/metrics/vega.rs
+/// Generic vega calculator using finite differences on a volatility surface.
+///
+/// Works with any instrument that has an associated volatility surface.
+pub struct GenericFdVega<I> {
+    _phantom: PhantomData<I>,
+}
+
+impl<I> Default for GenericFdVega<I> {
+    fn default() -> Self {
+        Self { _phantom: PhantomData }
+    }
+}
+
+impl<I> MetricCalculator for GenericFdVega<I>
+where
+    I: Instrument + HasEquityUnderlying + HasPricingOverrides + Clone + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        let instrument: &I = context.instrument_as()?;
+        let as_of = context.as_of;
+        let base_pv = context.base_value.amount();
+
+        // Resolve vol surface id
+        let Some(vol_id) = get_instrument_vol_id(instrument.as_any()) else {
+            return Ok(0.0);
+        };
+
+        // Determine bump size (relative scale of vols)
+        let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
+            // Prefer explicit override; otherwise use default 1% vol scale
+            overrides.vol_bump_pct.unwrap_or(bump_sizes::VOLATILITY)
+        } else {
+            bump_sizes::VOLATILITY
+        };
+
+        let mut inst_up = instrument.clone();
+        inst_up.pricing_overrides_mut().mc_seed_scenario = Some("vega_up".to_string());
+
+        let curves_up = scale_surface(&context.curves, vol_id.as_str(), 1.0 + bump_pct)?;
+        let pv_up = inst_up.value(&curves_up, as_of)?.amount();
+
+        // Vega per 1% vol scaling
+        Ok((pv_up - base_pv) / bump_pct)
+    }
+}
+
+/// Generic volga (∂²V/∂σ²) via central differences on a volatility surface.
+pub struct GenericFdVolga<I> {
+    _phantom: PhantomData<I>,
+}
+
+impl<I> Default for GenericFdVolga<I> {
+    fn default() -> Self {
+        Self { _phantom: PhantomData }
+    }
+}
+
+impl<I> MetricCalculator for GenericFdVolga<I>
+where
+    I: Instrument + HasEquityUnderlying + HasPricingOverrides + Clone + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        let instrument: &I = context.instrument_as()?;
+        let as_of = context.as_of;
+        let base_pv = context.base_value.amount();
+
+        let Some(vol_id) = get_instrument_vol_id(instrument.as_any()) else {
+            return Ok(0.0);
+        };
+
+        let bump_pct = if let Some(ref overrides) = context.pricing_overrides {
+            overrides.vol_bump_pct.unwrap_or(bump_sizes::VOLATILITY)
+        } else {
+            bump_sizes::VOLATILITY
+        };
+
+        let mut inst_up = instrument.clone();
+        inst_up.pricing_overrides_mut().mc_seed_scenario = Some("volga_up".to_string());
+        let mut inst_down = instrument.clone();
+        inst_down.pricing_overrides_mut().mc_seed_scenario = Some("volga_down".to_string());
+
+        let curves_up = scale_surface(&context.curves, vol_id.as_str(), 1.0 + bump_pct)?;
+        let curves_down = scale_surface(&context.curves, vol_id.as_str(), 1.0 - bump_pct)?;
+
+        let pv_up = inst_up.value(&curves_up, as_of)?.amount();
+        let pv_down = inst_down.value(&curves_down, as_of)?.amount();
+
+        Ok((pv_up - 2.0 * base_pv + pv_down) / (bump_pct * bump_pct))
+    }
+}
+
+/// Generic vanna (∂²V/∂S∂σ) via central mixed differences on spot and vol.
+pub struct GenericFdVanna<I> {
+    _phantom: PhantomData<I>,
+}
+
+impl<I> Default for GenericFdVanna<I> {
+    fn default() -> Self {
+        Self { _phantom: PhantomData }
+    }
+}
+
+impl<I> MetricCalculator for GenericFdVanna<I>
+where
+    I: Instrument + HasEquityUnderlying + HasPricingOverrides + Clone + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        let instrument: &I = context.instrument_as()?;
+        let as_of = context.as_of;
+
+        // Spot level for bump sizing
+        let spot_scalar = context.curves.price(instrument.spot_id())?;
+        let current_spot = match spot_scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        };
+
+        let Some(vol_id) = get_instrument_vol_id(instrument.as_any()) else {
+            return Ok(0.0);
+        };
+
+        // Time to expiry and ATM vol for absolute denominators
+        let day_count = get_instrument_day_count(instrument.as_any());
+        let expiry = get_instrument_expiry_for_adaptive(instrument.as_any());
+        let t = if let (Some(dc), Some(exp)) = (day_count, expiry) {
+            dc.year_fraction(as_of, exp, finstack_core::dates::DayCountCtx::default())
+                .ok()
+                .unwrap_or(0.0)
+        } else {
+            0.0
+        };
+        let atm_vol = if t > 0.0 {
+            context
+                .curves
+                .surface_ref(vol_id.as_str())
+                .ok()
+                .map(|surf| surf.value_clamped(t, current_spot))
+                .unwrap_or(0.2)
+        } else {
+            0.2
+        };
+
+        // Bump sizes
+        let (spot_bump_pct, vol_bump_pct) = if let Some(ref overrides) = context.pricing_overrides {
+            let (s_override, v_override, _) = get_bump_overrides(overrides);
+            (
+                s_override.unwrap_or(bump_sizes::SPOT),
+                v_override.unwrap_or(bump_sizes::VOLATILITY),
+            )
+        } else {
+            (bump_sizes::SPOT, bump_sizes::VOLATILITY)
+        };
+
+        let h_abs = current_spot * spot_bump_pct; // absolute spot change
+        let k_abs = (atm_vol * vol_bump_pct).abs().max(1e-12); // absolute vol change
+
+        // Prepare evaluators for four combinations
+        let su_vu = {
+            let mut inst = instrument.clone();
+            inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_su_vu".to_string());
+            let curves = scale_surface(
+                &bump_scalar_price(&context.curves, instrument.spot_id(), spot_bump_pct)?,
+                vol_id.as_str(),
+                1.0 + vol_bump_pct,
+            )?;
+            move || inst.value(&curves, as_of).map(|m| m.amount())
+        };
+
+        let su_vd = {
+            let mut inst = instrument.clone();
+            inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_su_vd".to_string());
+            let curves = scale_surface(
+                &bump_scalar_price(&context.curves, instrument.spot_id(), spot_bump_pct)?,
+                vol_id.as_str(),
+                1.0 - vol_bump_pct,
+            )?;
+            move || inst.value(&curves, as_of).map(|m| m.amount())
+        };
+
+        let sd_vu = {
+            let mut inst = instrument.clone();
+            inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_sd_vu".to_string());
+            let curves = scale_surface(
+                &bump_scalar_price(&context.curves, instrument.spot_id(), -spot_bump_pct)?,
+                vol_id.as_str(),
+                1.0 + vol_bump_pct,
+            )?;
+            move || inst.value(&curves, as_of).map(|m| m.amount())
+        };
+
+        let sd_vd = {
+            let mut inst = instrument.clone();
+            inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_sd_vd".to_string());
+            let curves = scale_surface(
+                &bump_scalar_price(&context.curves, instrument.spot_id(), -spot_bump_pct)?,
+                vol_id.as_str(),
+                1.0 - vol_bump_pct,
+            )?;
+            move || inst.value(&curves, as_of).map(|m| m.amount())
+        };
+
+        central_mixed(su_vu, su_vd, sd_vu, sd_vd, h_abs, k_abs)
+    }
+}

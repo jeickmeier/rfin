@@ -283,6 +283,38 @@ impl VolSurface {
         // Rebuild surface with same ID and grid
         Self::from_grid(self.id.as_str(), &self.expiries, &self.strikes, &flat_vols)
     }
+
+    /// Return a new volatility surface scaled uniformly by `scale`.
+    ///
+    /// This creates a copy of the surface with the same identifier and grid,
+    /// multiplying every volatility by `scale`. It avoids the overhead of
+    /// serializing to a row-major buffer and rebuilding via `from_grid`.
+    ///
+    /// For greek bumps that apply a uniform percentage change to the entire
+    /// surface, prefer this method over `to_state()`/`from_grid()`.
+    pub fn scaled(&self, scale: f64) -> Self {
+        // Fast path: return an identical copy when scale == 1.0
+        if (scale - 1.0).abs() < f64::EPSILON {
+            return Self {
+                id: self.id.clone(),
+                expiries: self.expiries.clone(),
+                strikes: self.strikes.clone(),
+                vols: self.vols.clone(),
+            };
+        }
+
+        // Clone the vols array once and multiply in-place
+        let mut scaled_vols = self.vols.clone();
+        // Use ndarray element-wise multiplication
+        scaled_vols.mapv_inplace(|v| v * scale);
+
+        Self {
+            id: self.id.clone(),
+            expiries: self.expiries.clone(),
+            strikes: self.strikes.clone(),
+            vols: scaled_vols,
+        }
+    }
 }
 
 /// Helper to find the closest grid index for a target value.

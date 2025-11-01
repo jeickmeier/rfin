@@ -94,7 +94,8 @@ impl RangeAccrualMcPricer {
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
-        let num_steps = (t * 252.0) as usize;
+        let steps_per_year = self.config.steps_per_year;
+        let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
 
         // Map observation dates to times
         let observation_times: Vec<f64> = inst

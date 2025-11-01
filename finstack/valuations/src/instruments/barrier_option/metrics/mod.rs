@@ -45,11 +45,11 @@ pub fn register_barrier_option_metrics(registry: &mut MetricRegistry) {
             registry: registry,
             instrument: "BarrierOption",
             metrics: [
-                (Vega, vega::VegaCalculator),
+                (Vega, vega::VegaCalculator::default()),
                 (Rho, rho::RhoCalculator),
                 (Dv01, dv01::Dv01Calculator),
                 (Vanna, vanna::VannaCalculator),
-                (Volga, volga::VolgaCalculator),
+                (Volga, volga::VolgaCalculator::default()),
                 (Theta, crate::instruments::common::metrics::GenericTheta::<
                     crate::instruments::BarrierOption,
                 >::default()),

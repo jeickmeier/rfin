@@ -31,32 +31,15 @@ impl MetricCalculator for VegaCalculator {
         // Get current equity volatility for reference
         let vol_surface = context.curves.surface_ref(option.vol_id.as_str())?;
 
-        // Bump equity volatility surface by scaling all values
+        // Bump equity volatility surface by scaling all values (no grid rebuild)
         let mut curves_bumped = context.curves.as_ref().clone();
         let scale_factor = 1.0 + bump_sizes::VOLATILITY;
-
-        // Get surface state for rebuilding
-        let state = vol_surface.to_state();
-        let bumped_vols: Vec<f64> = state
-            .vols_row_major
-            .iter()
-            .map(|v| v * scale_factor)
-            .collect();
-
-        use finstack_core::market_data::surfaces::vol_surface::VolSurface;
         use finstack_core::types::CurveId;
         use std::sync::Arc;
-
-        let bumped_surface = VolSurface::from_grid(
-            option.vol_id.as_str(),
-            &state.expiries,
-            &state.strikes,
-            &bumped_vols,
-        )?;
-        curves_bumped.surfaces.insert(
-            CurveId::from(option.vol_id.as_str()),
-            Arc::new(bumped_surface),
-        );
+        let bumped_surface = vol_surface.scaled(scale_factor);
+        curves_bumped
+            .surfaces
+            .insert(CurveId::from(option.vol_id.as_str()), Arc::new(bumped_surface));
 
         // Reprice with bumped vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();

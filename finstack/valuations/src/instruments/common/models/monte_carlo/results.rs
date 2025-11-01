@@ -64,6 +64,15 @@ pub struct MonteCarloResult {
     pub paths: Option<PathDataset>,
 }
 
+/// Monte Carlo Greeks (subset) computed via simulation-based estimators.
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct MonteCarloGreeks {
+    /// Delta estimate
+    pub delta: Option<f64>,
+    /// Vega estimate
+    pub vega: Option<f64>,
+}
+
 impl MonteCarloResult {
     /// Create a new Monte Carlo result without paths.
     pub fn new(estimate: MoneyEstimate) -> Self {

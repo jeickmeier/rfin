@@ -111,7 +111,8 @@ impl QuantoOptionMcPricer {
         let gbm_params = GbmParams::new(adjusted_drift, q, sigma_equity);
         let process = GbmProcess::new(gbm_params);
 
-        let num_steps = (t * 252.0) as usize;
+        let steps_per_year = 252.0;
+        let num_steps = ((t * steps_per_year).round() as usize).max(8);
 
         let result = match inst.option_type {
             crate::instruments::OptionType::Call => {

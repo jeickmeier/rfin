@@ -34,7 +34,7 @@ impl MetricCalculator for Dv01Calculator {
         // Bump discount curve by 1bp (0.0001)
         let bump_bp = 0.0001;
         let curves_bumped =
-            bump_discount_curve_parallel(&context.curves, instrument.disc_id.as_str(), bump_bp)?;
+            bump_discount_curve_parallel(&context.curves, &instrument.disc_id, bump_bp)?;
 
         // Reprice with bumped curve
         let pv_bumped = instrument.npv(&curves_bumped, as_of)?.amount();
