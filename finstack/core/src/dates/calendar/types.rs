@@ -1,4 +1,9 @@
-//! Clean calendar implementation using a single Calendar struct.
+//! Calendar implementation using rule-based evaluation with bitset optimization.
+//!
+//! The `Calendar` struct provides a clean, efficient implementation supporting:
+//! - Rule-based holiday definition (see [`super::rule::Rule`])
+//! - Precomputed bitsets for fast lookup (1970-2150)
+//! - Fallback to rule evaluation outside bitset range
 
 use super::business_days::{CalendarMetadata, HolidayCalendar};
 use super::generated::{bit_test, day_of_year_0_based, YearBits, BASE_YEAR, END_YEAR};

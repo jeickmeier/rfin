@@ -1,10 +1,86 @@
-//! Phantom-typed identifiers to prevent accidental mixing of different ID types
+//! Phantom-typed identifiers to prevent accidental mixing of different ID types.
 //!
-//! This module provides a generic `Id<T>` type that uses phantom types to ensure
-//! type safety when dealing with different kinds of identifiers. This prevents
-//! common bugs like passing a user ID where an account ID was expected.
+//! This module provides compile-time type safety for string identifiers using
+//! phantom types. The [`Id<T>`] type wraps a string with a type tag, preventing
+//! accidental misuse of identifiers across different domains (e.g., passing a
+//! curve ID where an instrument ID is expected).
 //!
-//! See unit tests and `examples/` for usage.
+//! # Design Philosophy
+//!
+//! - **Zero-cost abstraction**: The phantom type parameter has no runtime overhead
+//! - **Compile-time safety**: Different `Id<T>` types cannot be mixed accidentally
+//! - **Efficient storage**: Uses `Arc<str>` for cheap cloning and minimal memory
+//! - **Ergonomic conversions**: Implements `From<&str>`, `From<String>`, `Display`
+//!
+//! # Common ID Types
+//!
+//! Finstack defines standard ID marker types for financial domains:
+//! - [`CurveId`]: Market data curve identifiers (yield curves, credit curves)
+//! - [`InstrumentId`]: Financial instrument identifiers (bonds, swaps, options)
+//! - [`IndexId`]: Market index identifiers (equity or fixed income indices)
+//! - [`PriceId`]: Price/scalar identifiers for market observables
+//!
+//! # Examples
+//!
+//! ## Basic usage with compile-time safety
+//!
+//! ```rust
+//! use finstack_core::types::{CurveId, InstrumentId};
+//!
+//! let curve = CurveId::from("USD-OIS");
+//! let bond = InstrumentId::from("US912828XG60");
+//!
+//! // These are different types at compile time
+//! assert_eq!(curve.as_str(), "USD-OIS");
+//! assert_eq!(bond.as_str(), "US912828XG60");
+//!
+//! // This would fail to compile (different types):
+//! // let same = curve == bond;  // Compile error!
+//! ```
+//!
+//! ## Using IDs in collections
+//!
+//! ```rust
+//! use finstack_core::types::CurveId;
+//! use hashbrown::HashMap;
+//!
+//! let mut curves = HashMap::new();
+//! curves.insert(CurveId::from("USD-OIS"), 0.045);
+//! curves.insert(CurveId::from("EUR-OIS"), 0.035);
+//!
+//! let usd_rate = curves.get(&CurveId::from("USD-OIS"));
+//! assert_eq!(usd_rate, Some(&0.045));
+//! ```
+//!
+//! ## Creating custom ID types
+//!
+//! ```rust
+//! use finstack_core::types::Id;
+//!
+//! // Define custom marker types for your domain
+//! struct Portfolio;
+//! struct Counterparty;
+//!
+//! type PortfolioId = Id<Portfolio>;
+//! type CounterpartyId = Id<Counterparty>;
+//!
+//! let portfolio = PortfolioId::from("PORT-001");
+//! let counterparty = CounterpartyId::from("CPTY-JP-MORGAN");
+//!
+//! // Type system prevents mixing these
+//! assert_eq!(portfolio.as_str(), "PORT-001");
+//! ```
+//!
+//! # Performance
+//!
+//! The `Id<T>` type uses `Arc<str>` internally, making clones O(1) with atomic
+//! reference counting. String comparison is delegated to the underlying `str`,
+//! and the phantom type marker `PhantomData<T>` has zero size and runtime cost.
+//!
+//! # See Also
+//!
+//! - [`CurveId`], [`InstrumentId`], [`IndexId`], [`PriceId`] - Common ID type aliases
+//! - [`TypeTag`] - Marker trait for phantom type parameters
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -15,22 +91,61 @@ use std::sync::Arc;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Marker trait for types that can be used as ID tags
+/// Marker trait for types that can be used as ID tags.
 ///
-/// This trait is automatically implemented for all types, but serves as
-/// documentation for the phantom type parameter of `Id<T>`.
+/// This trait is automatically implemented for all types via a blanket
+/// implementation, but serves as documentation and bounds for the phantom
+/// type parameter of [`Id<T>`].
+///
+/// # Purpose
+///
+/// The trait exists primarily for documentation and as a constraint on `Id<T>`.
+/// It signals that a type is intended to be used as a phantom type marker
+/// for identifiers.
 pub trait TypeTag {}
 
 // Blanket implementation for all types
 impl<T> TypeTag for T {}
 
-/// A phantom-typed identifier that prevents mixing different kinds of IDs
+/// A phantom-typed identifier that prevents mixing different kinds of IDs.
 ///
 /// This type wraps a string identifier with a phantom type parameter to ensure
 /// type safety at compile time. Different `Id<T>` types with different `T`
-/// cannot be compared or mixed accidentally.
+/// cannot be compared or mixed accidentally, preventing entire classes of bugs.
 ///
-/// See unit tests and `examples/` for usage.
+/// # Type Parameters
+///
+/// * `T` - Phantom type tag implementing [`TypeTag`] that distinguishes this ID
+///   from IDs with different tags
+///
+/// # Invariants
+///
+/// - Storage uses `Arc<str>` for efficient cloning
+/// - The phantom marker has zero size and runtime cost
+/// - Two `Id<T>` values are equal if their string values are equal
+/// - IDs with different type tags (`Id<A>` vs `Id<B>`) cannot be compared
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::types::{CurveId, InstrumentId};
+///
+/// // Create IDs with different type tags
+/// let curve = CurveId::from("USD-SOFR");
+/// let bond = InstrumentId::from("ISIN:US912828XG60");
+///
+/// // Can compare IDs of the same type
+/// assert_eq!(curve, CurveId::from("USD-SOFR"));
+/// assert_ne!(curve, CurveId::from("EUR-ESTR"));
+///
+/// // Cannot compare IDs of different types (compile error):
+/// // let _ = curve == bond;  // Error: mismatched types
+/// ```
+///
+/// # Thread Safety
+///
+/// `Id<T>` is `Send + Sync` as it wraps an `Arc<str>`. Multiple threads can
+/// safely share and clone IDs with minimal synchronization overhead.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
@@ -42,7 +157,22 @@ pub struct Id<T: TypeTag> {
 }
 
 impl<T: TypeTag> Id<T> {
-    /// Create a new ID with the given string value
+    /// Create a new ID with the given string value.
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - Any type convertible to `String` (e.g., `&str`, `String`)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::types::CurveId;
+    ///
+    /// let id1 = CurveId::new("USD-OIS");
+    /// let id2 = CurveId::new(String::from("EUR-OIS"));
+    /// assert_eq!(id1.as_str(), "USD-OIS");
+    /// assert_eq!(id2.as_str(), "EUR-OIS");
+    /// ```
     pub fn new(value: impl Into<String>) -> Self {
         let s: String = value.into();
         Self {

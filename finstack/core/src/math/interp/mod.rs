@@ -1,8 +1,32 @@
-//! Domain-agnostic interpolation framework (moved from market_data::interp).
+//! Interpolation algorithms for yield curves and term structures.
 //!
-//! Provides common interpolation traits, policies, and implementations without
-//! depending on market-data specific modules. Suitable for use across math and
-//! pricing components.
+//! Provides multiple interpolation schemes for constructing smooth, arbitrage-free
+//! curves from discrete market quotes. Implementations are optimized for financial
+//! use cases with focus on monotonicity and positive forward rates.
+//!
+//! # Interpolation Methods
+//!
+//! - [`LinearDf`]: Linear in discount factors (simple but may create arbitrage)
+//! - [`LogLinearDf`]: Linear in log(DF), constant zero rates
+//! - [`FlatFwd`]: Piecewise-constant forward rates (no-arbitrage)
+//! - [`MonotoneConvex`]: Hagan-West smooth, monotone, no-arbitrage
+//! - [`CubicHermite`]: PCHIP shape-preserving cubic
+//!
+//! # Arbitrage Considerations
+//!
+//! Not all methods guarantee positive forward rates:
+//! - **Linear**: May produce negative forwards ❌
+//! - **LogLinear**: Guarantees positive forwards ✅
+//! - **FlatFwd**: Guarantees positive forwards ✅
+//! - **MonotoneConvex**: Guarantees positive forwards ✅
+//! - **CubicHermite**: Shape-preserving but requires monotone input ⚠️
+//!
+//! # References
+//!
+//! - Hagan, P. S., & West, G. (2006). "Interpolation Methods for Curve Construction."
+//!   *Applied Mathematical Finance*, 13(2), 89-129.
+//! - Hagan, P. S., & West, G. (2008). "Methods for Constructing a Yield Curve."
+//!   *Wilmott Magazine*, May 2008.
 
 /// Monotone cubic-Hermite interpolation (PCHIP / Fritsch-Carlson).
 pub mod cubic_hermite;

@@ -1,4 +1,15 @@
-//! Cash-flow primitives and enums shared across the FinStack ecosystem.
+//! Cashflow primitives and classification enums.
+//!
+//! Defines core types for representing individual cashflows, notional amounts,
+//! and amortization schedules. These primitives are used throughout the
+//! valuations crate for building instrument-specific payment schedules.
+//!
+//! # Types
+//!
+//! - [`CashFlow`]: Single dated payment with classification
+//! - [`CFKind`]: Cashflow type enumeration (fixed, floating, principal, etc.)
+//! - [`Notional`]: Principal amount with amortization schedule
+//! - [`AmortizationSpec`]: Schedule for principal reduction
 
 use crate::currency::Currency;
 use crate::dates::Date;

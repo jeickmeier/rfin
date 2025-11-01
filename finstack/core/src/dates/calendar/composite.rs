@@ -1,23 +1,30 @@
-//! Composite holiday calendars combining multiple underlying calendars.
+//! Composite holiday calendars combining multiple market calendars.
 //!
-//! This helper allows treating *multiple* [`HolidayCalendar`] implementations
-//! as a single calendar. By default it uses a strict
-//! **union** of holidays (a day is a holiday if any sub-calendar is a holiday).
-//! Optionally, you can request **intersection** semantics (a day is a holiday
-//! only if all sub-calendars are holidays) via a boolean flag.
+//! Allows combining multiple [`HolidayCalendar`] implementations into a single
+//! logical calendar using union or intersection semantics. Useful for multi-market
+//! instruments or cross-currency derivatives.
 //!
-//! It is entirely allocation-free: a [`CompositeCalendar`] simply holds a
-//! borrowed slice of `&dyn HolidayCalendar` trait objects.  This makes it
-//! zero-sized for the common case where the slice lives on the stack.
+//! # Combination Modes
 //!
-//! The type is deliberately lightweight so it can be used inside `const`
-//! contexts once trait-object support for const fn lands.
+//! - **Union** (default): Holiday if ANY subcalendar is closed
+//!   - Use for: Settlement requires ALL markets open
+//!   - Example: Cross-currency swap settling in both USD and EUR
+//!
+//! - **Intersection**: Holiday only if ALL subcalendars are closed
+//!   - Use for: Settlement when ANY market is open
+//!   - Example: Multi-listed security trading on multiple exchanges
+//!
+//! # Performance
+//!
+//! Allocation-free design using borrowed slice of trait objects. Zero runtime
+//! overhead beyond calling each subcalendar's `is_holiday` method.
 //!
 //! # Examples
 //! ```
 //! use finstack_core::dates::{CompositeCalendar, HolidayCalendar, create_date};
 //! use finstack_core::dates::calendar::{TARGET2, GBLO};
 //! use finstack_core::dates::calendar::composite::CompositeMode;
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!
 //! let t2 = TARGET2;
 //! let gb = GBLO;
@@ -33,6 +40,8 @@
 //! let may26_2025 = create_date(2025, time::Month::May, 26)?;
 //! assert!(cal_union.is_holiday(may26_2025)); // U.K. spring bank holiday
 //! assert!(!cal_inter.is_holiday(may26_2025));
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::dates::calendar::business_days::HolidayCalendar;

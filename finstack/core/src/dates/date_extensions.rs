@@ -1,6 +1,8 @@
-//! Extension traits providing convenience methods on `time::Date` and `time::OffsetDateTime`.
+//! Extension traits for date and datetime convenience methods.
 //!
-//! These helpers are intentionally lightweight and do not allocate.
+//! Provides ergonomic extensions to `time::Date` and `time::OffsetDateTime`
+//! for common financial operations like weekend checking, quarter calculation,
+//! and business day arithmetic. All methods are allocation-free.
 
 #![allow(clippy::wrong_self_convention)]
 

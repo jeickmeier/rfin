@@ -1,4 +1,7 @@
-//! Interpolation traits.
+//! Trait interface for interpolation functions.
+//!
+//! Defines the object-safe trait used by all interpolators, enabling
+//! polymorphic interpolation with static or dynamic dispatch.
 
 use core::fmt::Debug;
 

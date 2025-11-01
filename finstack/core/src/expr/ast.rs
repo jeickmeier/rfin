@@ -1,4 +1,22 @@
-//! AST nodes and function registry for the expression engine.
+//! Abstract Syntax Tree (AST) nodes and function registry for the expression engine.
+//!
+//! This module defines the core AST types used throughout the expression evaluation
+//! system, including expression nodes, operators, and the function registry.
+//!
+//! # Components
+//!
+//! - [`Expr`]: Top-level expression with optional ID for caching
+//! - [`ExprNode`]: Core expression variants (columns, literals, calls, operators)
+//! - [`Function`]: Built-in function registry (lag, diff, rolling operations)
+//! - [`BinOp`], [`UnaryOp`]: Arithmetic, comparison, and logical operators
+//!
+//! # Design
+//!
+//! The AST is designed for:
+//! - **Efficient evaluation**: Minimal allocations during evaluation
+//! - **DAG optimization**: Shared subexpression detection via IDs
+//! - **Serialization**: Full serde support for persistence
+//! - **Type safety**: Strong typing prevents runtime type errors
 
 use core::hash::{Hash, Hasher};
 

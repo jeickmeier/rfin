@@ -1,4 +1,54 @@
-//! Bond instrument module: declares submodules and re-exports types.
+//! Fixed and floating-rate bond instruments with embedded options.
+//!
+//! Provides comprehensive bond modeling including:
+//! - Fixed-rate coupon bonds (bullet and amortizing)
+//! - Floating-rate notes (FRNs) with caps/floors
+//! - Callable and putable bonds (American/Bermudan exercise)
+//! - Zero-coupon bonds
+//! - Custom cashflow schedules
+//!
+//! # Bond Pricing
+//!
+//! Bonds are priced by discounting all future cashflows:
+//!
+//! ```text
+//! PV = Σ CF_i · DF(t_i)
+//! ```
+//!
+//! For bonds with embedded options (calls/puts), tree-based pricing is used
+//! to value the optionality.
+//!
+//! # Regional Market Conventions
+//!
+//! Different bond markets follow distinct conventions:
+//!
+//! - **US Treasuries**: 30/360, Semi-annual, T+1 settlement
+//! - **UK Gilts**: ACT/ACT, Semi-annual, T+1 settlement  
+//! - **Eurozone**: 30E/360 or ACT/ACT, Annual, T+2 settlement
+//! - **Japan**: ACT/365F, Semi-annual, T+3 settlement
+//!
+//! Use `Bond::with_convention()` for standard regional conventions.
+//!
+//! # Key Metrics
+//!
+//! - **Yield to Maturity (YTM)**: Internal rate of return
+//! - **Modified Duration**: Interest rate sensitivity
+//! - **Convexity**: Curvature of price/yield relationship
+//! - **DV01**: Dollar value of 1bp rate change
+//! - **Z-spread**: Spread over benchmark curve
+//! - **Accrued Interest**: Interest accrued since last coupon
+//!
+//! # Examples
+//!
+//! See [`Bond`] for construction examples.
+//!
+//! # See Also
+//!
+//! - [`Bond`] for the main bond struct and factory methods
+//! - [`CallPutSchedule`] for embedded option schedules
+//! - [`BondFloatSpec`] for floating-rate specifications
+//! - [`AmortizationSpec`] for amortizing bonds
+//! - [`metrics`] for bond-specific risk metrics
 
 pub mod cashflow_spec;
 pub mod cashflows;

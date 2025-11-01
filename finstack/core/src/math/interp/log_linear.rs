@@ -2,10 +2,11 @@ use super::InterpFn;
 use crate::{error::InputError, math::interp::ExtrapolationPolicy};
 use std::vec::Vec;
 
-/// Interpolator that performs linear interpolation on the natural logarithm
-/// of discount factors (i.e. piecewise‐constant zero rates).
+/// Log-linear interpolation for discount factors.
 ///
-/// See unit tests and `examples/` for usage.
+/// Performs linear interpolation on ln(DF), equivalent to piecewise-constant
+/// zero rates. Guarantees positive forward rates and is commonly used for
+/// government bond curves and simple yield curve construction.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LogLinearDf {

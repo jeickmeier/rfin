@@ -4,14 +4,23 @@ use super::InterpFn;
 use crate::math::interp::utils::validate_knots;
 use crate::math::interp::ExtrapolationPolicy;
 
-/// Monotone cubic-Hermite discount-factor interpolator (PCHIP / Fritsch-Carlson).
+/// Monotone cubic Hermite interpolation (PCHIP).
 ///
-/// The constructor pre-computes first-derivative slopes that guarantee the
-/// resulting piece-wise cubic is *shape preserving* when the input discount
-/// factors are monotone (strictly decreasing and positive).  Evaluation is
-/// O(log N) thanks to binary search on the knot vector.
+/// Implements the Piecewise Cubic Hermite Interpolating Polynomial with
+/// Fritsch-Carlson slope selection. Preserves monotonicity of input data,
+/// ensuring no spurious oscillations. Requires monotone input discount factors.
 ///
-/// See unit tests and `examples/` for usage.
+/// # Algorithm
+///
+/// Uses weighted harmonic mean for slope selection:
+/// - Ensures C¹ continuity (smooth first derivatives)
+/// - Preserves monotonicity (no overshoots)
+/// - Efficient O(log n) evaluation via binary search
+///
+/// # References
+///
+/// - Fritsch, F. N., & Carlson, R. E. (1980). "Monotone Piecewise Cubic Interpolation."
+///   *SIAM Journal on Numerical Analysis*, 17(2), 238-246.
 #[derive(Debug)]
 pub struct CubicHermite {
     knots: Box<[f64]>, // strictly increasing times

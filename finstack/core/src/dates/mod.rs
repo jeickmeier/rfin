@@ -18,6 +18,7 @@
 //! };
 //! use finstack_core::dates::calendar::TARGET2;
 //! use time::{Duration, Month};
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!
 //! let trade_date = create_date(2024, Month::March, 29)?;
 //! let adjusted = adjust(trade_date, BusinessDayConvention::Following, &TARGET2)?;
@@ -26,12 +27,13 @@
 //! let end = trade_date + Duration::days(365);
 //! let schedule = ScheduleBuilder::new(trade_date, end)
 //!     .frequency(Frequency::quarterly())
-//!     .build()
-//!     ?;
+//!     .build()?;
 //! assert!(schedule.dates.len() >= 4);
 //!
 //! let periods = build_periods("2024Q1..Q4", None)?;
 //! assert_eq!(periods.periods.len(), 4);
+//! # Ok(())
+//! # }
 //! ```
 
 // ----------------------------------------------------------------------------------

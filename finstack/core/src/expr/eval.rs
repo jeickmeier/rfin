@@ -1,4 +1,15 @@
-//! Scalar evaluator with DAG planning and caching.
+//! Scalar expression evaluation with DAG optimization.
+//!
+//! Provides the `CompiledExpr` type that evaluates expression trees using
+//! optimized scalar algorithms. Supports DAG planning for shared sub-expression
+//! elimination and LRU caching for intermediate results.
+//!
+//! # Evaluation Strategy
+//!
+//! - **Simple mode**: Direct recursive evaluation (no planning)
+//! - **DAG mode**: Topological order execution with caching
+//! - **Scratch buffers**: Reused to minimize allocations
+//! - **Deterministic**: Identical results across runs
 
 use super::{
     ast::*,
@@ -9,18 +20,34 @@ use super::{
 use std::sync::Mutex;
 use std::vec::Vec;
 
-/// Options controlling evaluation strategy and caching.
+/// Options controlling expression evaluation strategy and caching.
 ///
-/// Examples:
-/// - Evaluate with a cache budget:
-/// ```no_run
+/// Allows callers to override the execution plan and cache budget for a single
+/// evaluation. Useful for scenario analysis where different cache sizes or
+/// plans may be beneficial.
+///
+/// # Fields
+///
+/// - `plan`: Optional pre-built execution plan (overrides compiled plan)
+/// - `cache_budget_mb`: Optional cache size in megabytes
+///
+/// # Examples
+///
+/// ```rust
 /// use finstack_core::expr::{CompiledExpr, Expr, SimpleContext, EvalOpts};
+///
 /// let ctx = SimpleContext::new(["x"]);
 /// let x = vec![1.0, 2.0, 3.0];
 /// let cols: [&[f64]; 1] = [&x];
 /// let expr = CompiledExpr::new(Expr::column("x"));
-/// let out = expr.eval(&ctx, &cols, EvalOpts { plan: None, cache_budget_mb: Some(16) });
-/// # assert_eq!(out.values, vec![1.0, 2.0, 3.0]);
+///
+/// // Evaluate with custom cache
+/// let opts = EvalOpts {
+///     plan: None,
+///     cache_budget_mb: Some(16),
+/// };
+/// let out = expr.eval(&ctx, &cols, opts);
+/// assert_eq!(out.values, vec![1.0, 2.0, 3.0]);
 /// ```
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -35,8 +62,28 @@ pub struct EvalOpts {
     pub cache_budget_mb: Option<usize>,
 }
 
-/// A compiled expression can evaluate scalars and optionally lower to Polars.
-/// Compiled expression wrapper with DAG planning and caching support.
+/// Compiled expression with optimized evaluation and caching.
+///
+/// Wraps an expression AST with optional DAG planning and result caching for
+/// efficient evaluation of complex formulas. Used extensively in financial
+/// statement models where hundreds of interdependent formulas must be evaluated.
+///
+/// # Components
+///
+/// - **AST**: Expression tree to evaluate
+/// - **Plan**: Optional execution plan (topological order, cache strategy)
+/// - **Cache**: LRU cache for intermediate results
+/// - **Scratch buffers**: Reused temporary storage to minimize allocations
+///
+/// # Evaluation Modes
+///
+/// - **Simple**: Direct recursive evaluation (fast for simple expressions)
+/// - **DAG-optimized**: Shared sub-expression elimination (best for complex graphs)
+/// - **Cached**: LRU caching of intermediate results (best for repeated patterns)
+///
+/// # Thread Safety
+///
+/// Not `Sync` due to mutable scratch buffers. Clone to share across threads.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CompiledExpr {

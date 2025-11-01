@@ -1,10 +1,21 @@
-//! Summation helpers with determinism toggles.
+//! Numerically stable summation algorithms.
 //!
-//! We implement these ourselves rather than using external crates to ensure:
-//! - Deterministic results using our custom summation algorithm
-//! - Feature-flag controlled behaviour (deterministic vs. fast)
-//! - No dependencies on external crates for basic operations
-//! - Consistent numerical behaviour across platforms
+//! Implements compensated summation methods to minimize floating-point
+//! rounding errors when summing large sequences. Critical for maintaining
+//! deterministic results in financial calculations.
+//!
+//! # Algorithms
+//!
+//! - [`kahan_sum`]: Compensated summation with error tracking
+//! - [`pairwise_sum`]: Divide-and-conquer approach for balanced accuracy
+//! - [`stable_sum`]: Determinism-aware dispatch to appropriate method
+//!
+//! # References
+//!
+//! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
+//!   *Communications of the ACM*, 8(1), 40.
+//! - Higham, N. J. (1993). "The Accuracy of Floating Point Summation."
+//!   *SIAM Journal on Scientific Computing*, 14(4), 783-799.
 
 /// Kahan compensated summation – improves numerical stability while preserving a fixed iteration order.
 #[inline]

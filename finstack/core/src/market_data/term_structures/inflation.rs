@@ -1,11 +1,47 @@
-//! Real / breakeven consumer-price index (CPI) curve expressed as index levels.
+//! Inflation curves for CPI/RPI modeling and inflation-linked securities.
 //!
-//! Provides interpolated CPI values and derived annualised inflation rates via
-//! [`crate::market_data::traits::Inflation`].  Accepts any interpolation style
-//! supported by the [`crate::math::interp`] subsystem although
-//! `LogLinear` is the most common choice for exponential CPI growth.
+//! Represents expected future inflation as a term structure of CPI (Consumer
+//! Price Index) levels. Used for pricing inflation-linked bonds (TIPS, linkers),
+//! inflation swaps, and inflation caps/floors.
 //!
-//! ## Example
+//! # Financial Concept
+//!
+//! The inflation curve maps time to expected CPI index levels:
+//! ```text
+//! I(t) = CPI index level at time t
+//! π(t₁, t₂) = [I(t₂) / I(t₁)]^(1/(t₂-t₁)) - 1  (annualized inflation rate)
+//! ```
+//!
+//! # Market Construction
+//!
+//! Inflation curves are bootstrapped from:
+//! - **Zero-coupon inflation swaps** (ZCIS): Market standard for breakeven inflation
+//! - **Inflation-linked bonds**: TIPS (US), Linkers (UK), OATi (France)
+//! - **Year-on-year swaps** (YoY): Annual inflation rate swaps
+//! - **Seasonality adjustments**: Monthly patterns in published CPI
+//!
+//! # Curve Types
+//!
+//! - **Real inflation**: Market expectations from inflation swaps
+//! - **Breakeven inflation**: Implied from TIPS vs nominal bond spreads
+//! - **Seasonal inflation**: Incorporates month-to-month volatility
+//!
+//! # Interpolation
+//!
+//! LogLinear interpolation is standard (constant inflation rate between knots):
+//! ```text
+//! I(t) = I(t₁) * exp(π * (t - t₁))
+//! ```
+//!
+//! # Use Cases
+//!
+//! - **TIPS pricing**: Inflation-adjusted principal and coupons
+//! - **Inflation swap valuation**: Zero-coupon and year-on-year structures
+//! - **Real rate extraction**: Separate nominal rates into real + inflation
+//! - **Pension liability valuation**: Inflation-linked obligations
+//!
+//! # Examples
+//!
 //! ```rust
 //! use finstack_core::market_data::term_structures::inflation::InflationCurve;
 //! # use finstack_core::math::interp::InterpStyle;
@@ -17,6 +53,20 @@
 //!     .unwrap();
 //! assert!(ic.inflation_rate(0.0, 5.0) > 0.0);
 //! ```
+//!
+//! # References
+//!
+//! - **Inflation Markets**:
+//!   - Deacon, M., Derry, A., & Mirfendereski, D. (2004). *Inflation-Indexed Securities:
+//!     Bonds, Swaps and Other Derivatives* (2nd ed.). Wiley Finance.
+//!   - Kerkhof, J. (2005). "Inflation Derivatives Explained." *Journal of Derivatives
+//!     Accounting*, 2(1), 1-19.
+//!
+//! - **Curve Construction**:
+//!   - Hurd, M., & Relleen, J. (2006). "Estimating the Inflation Risk Premium."
+//!     Bank of England Quarterly Bulletin, Q2 2006.
+//!   - Fleckenstein, M., Longstaff, F. A., & Lustig, H. (2017). "Deflation Risk."
+//!     *Review of Financial Studies*, 30(8), 2719-2760.
 
 use super::common::{build_interp, split_points};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
@@ -25,7 +75,26 @@ use crate::{
     types::CurveId,
 };
 
-/// Real or breakeven inflation curve expressed as CPI index levels.
+/// Inflation curve representing CPI/RPI index levels over time.
+///
+/// Stores CPI index levels at knot times and interpolates between them using
+/// the specified interpolation method. LogLinear interpolation (constant
+/// inflation rate) is the market standard.
+///
+/// # Mathematical Representation
+///
+/// ```text
+/// I(t) = CPI index level at time t
+/// π(t₁, t₂) = annualized inflation rate from t₁ to t₂
+///           = [I(t₂) / I(t₁)]^(1/(t₂-t₁)) - 1
+/// ```
+///
+/// # Use Cases
+///
+/// - TIPS (Treasury Inflation-Protected Securities) pricing
+/// - Inflation swap valuation (zero-coupon and year-on-year)
+/// - Real rate curve construction (nominal - breakeven = real)
+/// - Pension liability modeling with inflation indexation
 #[derive(Debug)]
 pub struct InflationCurve {
     id: CurveId,

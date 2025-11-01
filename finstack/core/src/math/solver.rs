@@ -1,14 +1,36 @@
 //! Generic solver interfaces for 1D root finding.
 //!
 //! This module provides unified interfaces for 1D root finding algorithms
-//! used throughout financial computations.
+//! commonly used in financial computations such as implied volatility calculation,
+//! yield-to-maturity solving, and internal rate of return computation.
 //!
-//! The module includes:
-//! - High-level solver trait interfaces for configurable, reusable solvers
-//! - Object-oriented wrappers around core root finding algorithms
-//! - Robust solver implementations with automatic fallback mechanisms
+//! # Algorithms
+//!
+//! - [`NewtonSolver`]: Newton-Raphson method with finite difference derivatives
+//! - [`BrentSolver`]: Brent's method (robust bracketing method)
+//! - [`HybridSolver`]: Automatic fallback from Newton to Brent
+//!
+//! # Mathematical Foundation
+//!
+//! ## Newton-Raphson Method
+//!
+//! Iteratively refines an initial guess using:
+//! ```text
+//! x_{n+1} = x_n - f(x_n) / f'(x_n)
+//! ```
+//!
+//! Convergence is quadratic near the root but requires a good initial guess
+//! and may fail if the derivative is small or the function is non-smooth.
+//!
+//! ## Brent's Method
+//!
+//! Combines bisection, secant method, and inverse quadratic interpolation
+//! to guarantee convergence while achieving superlinear convergence rate.
+//! Requires a bracketing interval [a, b] where f(a) and f(b) have opposite signs.
 //!
 //! # Examples
+//!
+//! ## Newton-Raphson for square root
 //!
 //! ```
 //! use finstack_core::math::solver::{NewtonSolver, Solver};
@@ -18,6 +40,30 @@
 //! let root = solver.solve(f, 1.0).unwrap();
 //! assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
 //! ```
+//!
+//! ## Brent's method for transcendental equation
+//!
+//! ```
+//! use finstack_core::math::solver::{BrentSolver, Solver};
+//!
+//! let solver = BrentSolver::new();
+//! let f = |x: f64| x * x - 2.0;
+//! let root = solver.solve(f, 1.5).unwrap();
+//! assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
+//! ```
+//!
+//! # References
+//!
+//! - **Newton-Raphson**:
+//!   - Press, W. H., et al. (2007). *Numerical Recipes: The Art of Scientific Computing*
+//!     (3rd ed.). Cambridge University Press. Section 9.4.
+//!   - Burden, R. L., & Faires, J. D. (2010). *Numerical Analysis* (9th ed.).
+//!     Brooks/Cole. Section 2.3.
+//!
+//! - **Brent's Method**:
+//!   - Brent, R. P. (1973). *Algorithms for Minimization without Derivatives*.
+//!     Prentice-Hall. Chapter 4.
+//!   - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 9.3.
 
 use crate::Result;
 
@@ -30,6 +76,60 @@ pub trait Solver: Send + Sync {
 }
 
 /// Newton-Raphson solver with automatic derivative estimation.
+///
+/// Implements the classic Newton-Raphson root finding algorithm with finite
+/// difference approximation for the derivative. This provides a balance between
+/// convergence speed and ease of use (no need to provide analytical derivatives).
+///
+/// # Algorithm
+///
+/// The solver iterates using:
+/// ```text
+/// x_{n+1} = x_n - f(x_n) / f'(x_n)
+/// ```
+///
+/// where `f'(x)` is approximated using central differences:
+/// ```text
+/// f'(x) ≈ (f(x + h) - f(x - h)) / (2h)
+/// ```
+///
+/// # Convergence
+///
+/// - **Rate**: Quadratic near the root (number of correct digits roughly doubles each iteration)
+/// - **Requirements**: Good initial guess, smooth function, non-zero derivative
+/// - **Failure modes**: May diverge if initial guess is poor or derivative is near zero
+///
+/// # Use Cases
+///
+/// - Implied volatility calculation (Black-Scholes)
+/// - Yield-to-maturity solving
+/// - Internal rate of return (IRR)
+/// - Duration-matched portfolio optimization
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::solver::{NewtonSolver, Solver};
+///
+/// // Solve for implied volatility (simplified example)
+/// let target_price = 10.5;
+/// let solver = NewtonSolver::new().with_tolerance(1e-6);
+///
+/// let price_error = |vol: f64| {
+///     // In practice, this would call Black-Scholes formula
+///     let price = vol * 100.0; // Simplified
+///     price - target_price
+/// };
+///
+/// let implied_vol = solver.solve(price_error, 0.2).unwrap();
+/// assert!((price_error(implied_vol)).abs() < 1e-6);
+/// ```
+///
+/// # References
+///
+/// - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 9.4.
+/// - Ralston, A., & Rabinowitz, P. (2001). *A First Course in Numerical Analysis*
+///   (2nd ed.). Dover. Chapter 8.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NewtonSolver {
@@ -133,6 +233,64 @@ impl NewtonSolver {
 }
 
 /// Brent's method solver (robust, bracketing required).
+///
+/// Implements Brent's root-finding algorithm, which combines bisection,
+/// secant method, and inverse quadratic interpolation. This provides
+/// guaranteed convergence with superlinear convergence rate.
+///
+/// # Algorithm
+///
+/// Brent's method maintains a bracketing interval [a, b] where f(a) and f(b)
+/// have opposite signs. At each iteration, it chooses between:
+/// 1. **Inverse quadratic interpolation**: Fast when applicable
+/// 2. **Secant method**: Reliable fallback
+/// 3. **Bisection**: Guaranteed progress
+///
+/// The algorithm automatically selects the most appropriate method based on
+/// convergence criteria and numerical stability.
+///
+/// # Convergence
+///
+/// - **Rate**: Superlinear (order ≈ 1.618)
+/// - **Guarantee**: Always converges if initial bracket is valid
+/// - **Robustness**: Handles discontinuous derivatives and poor initial guesses
+///
+/// # Use Cases
+///
+/// Preferred over Newton-Raphson when:
+/// - Function has discontinuous derivatives (e.g., piecewise functions)
+/// - Initial guess quality is uncertain
+/// - Absolute convergence guarantee is required
+/// - Function evaluation is cheap relative to derivative computation
+///
+/// Common applications:
+/// - Bond yield-to-maturity (when price/yield curve is complex)
+/// - Option implied volatility with exotic payoffs
+/// - Credit curve calibration
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::solver::{BrentSolver, Solver};
+///
+/// let solver = BrentSolver::new();
+///
+/// // Solve x^3 - 2x - 5 = 0
+/// let f = |x: f64| x.powi(3) - 2.0 * x - 5.0;
+/// let root = solver.solve(f, 2.0).unwrap();
+///
+/// assert!((f(root)).abs() < 1e-10);
+/// assert!((root - 2.0946).abs() < 1e-4);
+/// ```
+///
+/// # References
+///
+/// - Brent, R. P. (1973). *Algorithms for Minimization without Derivatives*.
+///   Prentice-Hall. Chapter 4.
+/// - Press, W. H., et al. (2007). *Numerical Recipes: The Art of Scientific Computing*
+///   (3rd ed.). Cambridge University Press. Section 9.3.
+/// - Forsythe, G. E., Malcolm, M. A., & Moler, C. B. (1977). *Computer Methods
+///   for Mathematical Computations*. Prentice-Hall.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BrentSolver {

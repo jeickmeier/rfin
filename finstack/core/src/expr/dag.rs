@@ -1,8 +1,9 @@
-//! DAG (Directed Acyclic Graph) planning for expression execution.
+//! DAG planning and execution optimization for expressions.
 //!
-//! This module provides shared sub-expression detection, execution planning,
-//! and optimization for complex expression trees. It builds an execution
-//! DAG that minimizes recomputation and maximizes cache hits.
+//! Detects shared sub-expressions in complex expression trees and builds an
+//! optimized execution plan that evaluates each unique sub-expression only
+//! once. Critical for performance in financial statement models with hundreds
+//! of interdependent formulas.
 
 use super::ast::*;
 use std::collections::{HashMap, HashSet};

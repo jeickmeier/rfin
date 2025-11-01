@@ -1,10 +1,23 @@
-//! Period system: `Period`, `PeriodId`, `PeriodKey`, `PeriodPlan`, and range parser.
+//! Period system for financial statement and time-series modeling.
 //!
-//! Supports quarterly, monthly, weekly, semi-annual and annual identifiers
-//! (e.g., "2025Q1", "2025M03", "2025W05", "2025H2", "2025") and
-//! range expressions like "2025Q1..Q2" (relative end within the same year) or
-//! "2024Q4..2025Q2" (absolute). Tracks actual vs forecast flags per period.
-//! Note: weekly periods are non-ISO, defined as 7-day blocks anchored at Jan-01.
+//! Provides types and parsers for working with financial reporting periods
+//! (quarters, months, years, etc.) commonly used in financial statement models
+//! and forecast scenarios.
+//!
+//! # Features
+//!
+//! - Period identifiers: Q1-Q4, M01-M12, H1-H2, W01-W52, annual
+//! - Range expressions: "2025Q1..Q4", "2024M06..2025M06"
+//! - Fiscal year support with custom month offsets
+//! - Actual vs forecast period tracking
+//!
+//! # Period Formats
+//!
+//! - **Quarterly**: 2025Q1, 2025Q2, 2025Q3, 2025Q4
+//! - **Monthly**: 2025M01 through 2025M12
+//! - **Semi-annual**: 2025H1, 2025H2
+//! - **Weekly**: 2025W01 through 2025W52 (non-ISO, Jan 1 anchor)
+//! - **Annual**: 2025
 
 use crate::dates::utils::{add_months, days_in_month};
 use crate::dates::Date;

@@ -1,8 +1,43 @@
-//! Inflation indices (CPI/RPI) with lagging and optional seasonality.
+//! Inflation index time series with lagging and seasonality support.
 //!
-//! Wraps [`ScalarTimeSeries`] so that consumer-price indices can be queried with
-//! lag policies and monthly seasonality adjustments. Values can be retrieved as
-//! actual index levels or converted to ratios for inflation-linked contracts.
+//! Provides specialized handling for Consumer Price Index (CPI) and Retail Price
+//! Index (RPI) data used in pricing inflation-linked securities. Handles publication
+//! lags, seasonal adjustments, and ratio calculations required by TIPS, linkers,
+//! and inflation derivatives.
+//!
+//! # Financial Context
+//!
+//! Inflation indices (CPI, RPI, HICP) are published monthly by government agencies
+//! with specific conventions:
+//!
+//! ## Publication Lag
+//!
+//! - **US CPI-U**: Published ~2 weeks after month-end, 3-month lag common for TIPS
+//! - **UK RPI**: Published mid-month for previous month, 3-month lag standard
+//! - **Eurozone HICP**: Published end of month, 3-month lag typical
+//!
+//! ## Reference Index Calculation
+//!
+//! TIPS and inflation swaps use lagged interpolated indices:
+//! ```text
+//! Ref_Index(t) = CPI(t - lag)  with daily interpolation
+//!
+//! For 3-month lag on Jan 15, 2025:
+//! Reference date = Oct 15, 2024
+//! Index = interpolate between Oct and Nov published values
+//! ```
+//!
+//! ## Seasonality
+//!
+//! Some indices exhibit monthly patterns (e.g., January sales, summer energy costs).
+//! Optional seasonal factors can adjust historical data for forecasting.
+//!
+//! # Use Cases
+//!
+//! - **TIPS pricing**: Inflation-adjusted principal calculation
+//! - **Inflation swaps**: Zero-coupon and year-on-year index ratios
+//! - **Linkers (UK/Europe)**: RPI/HICP indexed bonds
+//! - **CPI floors/caps**: Payoff based on index levels
 //!
 //! # Examples
 //! ```rust
@@ -35,15 +70,39 @@ use crate::{Error, Result};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Interpolation method for index values between observations
+/// Interpolation method for CPI/RPI values between monthly observations.
+///
+/// Determines how index values are computed for dates between published
+/// monthly levels. Different markets use different conventions.
+///
+/// # Market Conventions
+///
+/// - **US TIPS**: Linear interpolation (daily pro-rata)
+/// - **UK Index-Linked Gilts**: Linear interpolation with 3-month lag
+/// - **Euro inflation bonds**: Varies by issuer (typically linear)
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::scalars::inflation_index::InflationInterpolation;
+///
+/// let linear = InflationInterpolation::Linear; // TIPS standard
+/// let step = InflationInterpolation::Step;     // Conservative approach
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 #[non_exhaustive]
 pub enum InflationInterpolation {
-    /// Last observation carried forward (typical for monthly CPI)
+    /// Last observation carried forward until next publication.
+    ///
+    /// Conservative approach: assumes no intra-month inflation.
     Step,
-    /// Linear interpolation between observed points
+    
+    /// Linear interpolation between monthly observations.
+    ///
+    /// Standard for TIPS and most inflation-linked bonds.
+    /// Assumes constant daily inflation rate within each month.
     Linear,
 }
 
@@ -74,17 +133,53 @@ impl core::str::FromStr for InflationInterpolation {
     }
 }
 
-/// Lag policy for index application
+/// Publication lag for inflation index reference dates.
+///
+/// Inflation indices are published with a delay (typically 2-4 weeks). Securities
+/// using these indices incorporate a lag to ensure the reference index is published
+/// by the settlement date.
+///
+/// # Standard Lags by Market
+///
+/// - **US TIPS**: 3-month lag (reference index from 3 months prior)
+/// - **UK Index-Linked Gilts**: 3-month lag (8-month for older issues)
+/// - **French OATi**: 3-month lag
+/// - **German index-linked**: 3-month lag
+///
+/// # Rationale
+///
+/// The lag ensures:
+/// 1. Reference index is published before settlement
+/// 2. Index value is known at coupon payment date
+/// 3. No estimation or forecasting required for payment calculation
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::scalars::inflation_index::InflationLag;
+///
+/// let tips_lag = InflationLag::Months(3);  // US TIPS standard
+/// let gilt_lag = InflationLag::Months(3);  // UK modern gilts
+/// let no_lag = InflationLag::None;         // Inflation swaps (forecast-based)
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 #[non_exhaustive]
 pub enum InflationLag {
-    /// Lag by specified number of months (e.g., 3-month lag)
+    /// Lag by specified number of months.
+    ///
+    /// Standard: 3 months for TIPS and most inflation-linked bonds.
     Months(u8),
-    /// Lag by specified number of calendar days
+    
+    /// Lag by specified number of calendar days.
+    ///
+    /// Alternative specification for non-standard contracts.
     Days(u16),
-    /// No lag applied
+    
+    /// No lag applied.
+    ///
+    /// Used for inflation swaps where forecast indices are used.
     None,
 }
 
@@ -94,11 +189,79 @@ impl Default for InflationLag {
     }
 }
 
-/// Inflation index provider.
+/// Inflation index time series with lagging and seasonality.
 ///
-/// Stores CPI/RPI observations, applies lagging, and optionally injects
-/// monthly seasonality factors. The underlying [`ScalarTimeSeries`] is kept
-/// private so callers use high-level APIs (`value_on`, `ratio`).
+/// Wraps historical CPI/RPI observations with market-standard conventions for
+/// lag application and interpolation. Used for pricing TIPS, linkers, and
+/// inflation derivatives.
+///
+/// # Components
+///
+/// - **Observations**: Historical index levels by publication date
+/// - **Interpolation**: Daily interpolation between monthly observations
+/// - **Lag**: Publication lag (typically 3 months for TIPS)
+/// - **Seasonality**: Optional monthly adjustment factors
+///
+/// # Interpolation Methods
+///
+/// - **Step**: Last observation carried forward (conservative)
+/// - **Linear**: Daily interpolation between months (TIPS standard)
+///
+/// # Lag Application
+///
+/// Reference index calculation applies lag before interpolation:
+/// ```text
+/// For settlement date T with 3-month lag:
+/// 1. Reference date = T - 3 months
+/// 2. Find bracketing CPI observations
+/// 3. Interpolate linearly between them
+/// ```
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::scalars::inflation_index::{
+///     InflationIndex, InflationInterpolation, InflationLag,
+/// };
+/// use finstack_core::currency::Currency;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// // US CPI-U observations
+/// let observations = vec![
+///     (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 300.5),
+///     (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 302.1),
+///     (Date::from_calendar_date(2024, Month::March, 31).unwrap(), 303.8),
+/// ];
+///
+/// let index = InflationIndex::new("US-CPI-U", observations, Currency::USD)
+///     .unwrap()
+///     .with_interpolation(InflationInterpolation::Linear)
+///     .with_lag(InflationLag::Months(3)); // TIPS standard
+///
+/// // Calculate inflation ratio for TIPS coupon indexation
+/// let base_date = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+/// let settle_date = Date::from_calendar_date(2024, Month::June, 15).unwrap();
+/// let ratio = index.ratio(base_date, settle_date).unwrap();
+/// assert!(ratio >= 1.0); // Inflation adjustment factor
+/// ```
+///
+/// # Thread Safety
+///
+/// Immutable after construction; safe to share via `Arc<InflationIndex>`.
+///
+/// # References
+///
+/// - **TIPS Mechanics**:
+///   - US Treasury (2024). "TIPS In Depth." treasurydirect.gov.
+///   - Deacon, M., Derry, A., & Mirfendereski, D. (2004). *Inflation-Indexed Securities*
+///     (2nd ed.). Wiley Finance. Chapter 2 (Index-linked bond mechanics).
+///
+/// - **Index Lagging**:
+///   - Kerkhof, J. (2005). "Inflation Derivatives Explained." *Journal of Derivatives
+///     Accounting*, 2(1), 1-19.
+///   - Hurd, M., & Relleen, J. (2006). "Estimating the Inflation Risk Premium."
+///     Bank of England Quarterly Bulletin, Q2 2006.
 #[derive(Clone, Debug)]
 pub struct InflationIndex {
     /// Unique identifier for this index (e.g., "US-CPI-U", "UK-RPI")

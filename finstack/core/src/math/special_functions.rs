@@ -1,12 +1,36 @@
-//! Special mathematical functions (error function, normal distribution, etc.).
+//! Special mathematical functions for financial computation.
 //!
-//! This module provides implementations of common special functions used
-//! throughout financial mathematics, with emphasis on numerical stability
-//! and deterministic results. The implementations prioritize accuracy in
-//! the tails and near boundary values, which is critical for base correlation
-//! calibration and copula models.
+//! This module provides numerically stable implementations of special functions
+//! commonly used in financial mathematics, including the error function, normal
+//! distribution functions, and their inverses.
+//!
+//! # Functions
+//!
+//! - [`erf`]: Error function using Abramowitz & Stegun approximation
+//! - [`norm_cdf`]: Standard normal cumulative distribution function (Φ)
+//! - [`norm_pdf`]: Standard normal probability density function (φ)
+//! - [`standard_normal_inv_cdf`]: Inverse standard normal CDF (Φ⁻¹)
+//! - [`standard_normal_cdf`]: Alias for [`norm_cdf`]
+//!
+//! # Numerical Accuracy
+//!
+//! The implementations prioritize:
+//! - **Tail accuracy**: Critical for risk metrics (VaR, CVaR) and copula models
+//! - **Boundary stability**: Proper handling of extreme values (±∞)
+//! - **Determinism**: Identical results across platforms and compilers
+//! - **No heap allocation**: All functions are stack-only for performance
+//!
+//! # Use Cases
+//!
+//! - **Option pricing**: Black-Scholes formula requires Φ(d₁) and Φ(d₂)
+//! - **Implied volatility**: Inverse CDF needed for smile calibration
+//! - **Risk metrics**: VaR calculation uses Φ⁻¹(confidence level)
+//! - **Copula models**: Credit correlation and CDO tranching
+//! - **Monte Carlo**: Box-Muller transform uses Φ⁻¹
 //!
 //! # Examples
+//!
+//! ## Basic usage
 //!
 //! ```
 //! use finstack_core::math::special_functions::{norm_cdf, norm_pdf, standard_normal_inv_cdf};
@@ -14,24 +38,96 @@
 //! // Standard normal CDF at zero should be 0.5
 //! assert!((norm_cdf(0.0) - 0.5).abs() < 1e-6);
 //!
+//! // PDF at zero is 1/√(2π)
+//! let expected = 1.0 / (2.0 * std::f64::consts::PI).sqrt();
+//! assert!((norm_pdf(0.0) - expected).abs() < 1e-6);
+//!
 //! // Round-trip test for inverse CDF
 //! let x = standard_normal_inv_cdf(0.84);
 //! let p_back = norm_cdf(x);
 //! assert!((p_back - 0.84).abs() < 1e-3);
 //! ```
+//!
+//! ## Black-Scholes option pricing
+//!
+//! ```
+//! use finstack_core::math::special_functions::norm_cdf;
+//!
+//! // Simplified Black-Scholes call price
+//! fn black_scholes_call(s: f64, k: f64, r: f64, vol: f64, t: f64) -> f64 {
+//!     let d1 = ((s / k).ln() + (r + 0.5 * vol * vol) * t) / (vol * t.sqrt());
+//!     let d2 = d1 - vol * t.sqrt();
+//!     
+//!     s * norm_cdf(d1) - k * (-r * t).exp() * norm_cdf(d2)
+//! }
+//!
+//! let call_price = black_scholes_call(100.0, 100.0, 0.05, 0.2, 1.0);
+//! assert!(call_price > 0.0);
+//! ```
+//!
+//! # References
+//!
+//! - **Error Function**:
+//!   - Abramowitz, M., & Stegun, I. A. (1964). *Handbook of Mathematical Functions*.
+//!     National Bureau of Standards. Formula 7.1.26 (approximation with max error 1.5e-7).
+//!
+//! - **Normal Distribution**:
+//!   - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1995). *Continuous Univariate
+//!     Distributions, Volume 1* (2nd ed.). Wiley. Chapter 13.
+//!
+//! - **Inverse Normal CDF**:
+//!   - Beasley, J. D., & Springer, S. G. (1977). "Algorithm AS 111: The Percentage
+//!     Points of the Normal Distribution." *Applied Statistics*, 26(1), 118-121.
+//!   - Wichura, M. J. (1988). "Algorithm AS 241: The Percentage Points of the
+//!     Normal Distribution." *Applied Statistics*, 37(3), 477-484.
+//!   - Acklam, P. J. (2010). "An Algorithm for Computing the Inverse Normal
+//!     Cumulative Distribution Function." Available online.
 
 use std::f64::consts::PI;
 
-/// Error function approximation (Abramowitz and Stegun).
+/// Error function approximation using Abramowitz & Stegun formula 7.1.26.
 ///
-/// Provides a fast, accurate approximation to the error function
-/// using polynomial approximation.
+/// Computes the error function using a polynomial approximation with
+/// maximum absolute error of 1.5×10⁻⁷ over the entire real line.
+///
+/// # Definition
+///
+/// ```text
+/// erf(x) = (2/√π) ∫₀ˣ e^(-t²) dt
+/// ```
 ///
 /// # Arguments
-/// * `x` - Input value
+///
+/// * `x` - Input value (any real number)
 ///
 /// # Returns
-/// erf(x) ≈ 2/√π ∫₀ˣ e^(-t²) dt
+///
+/// The error function erf(x) ∈ (-1, 1)
+///
+/// # Accuracy
+///
+/// Maximum absolute error: 1.5×10⁻⁷ (from Abramowitz & Stegun)
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::special_functions::erf;
+///
+/// // erf(0) ≈ 0
+/// assert!(erf(0.0).abs() < 1e-6);
+///
+/// // erf is odd: erf(-x) = -erf(x)
+/// let x = 1.5;
+/// assert!((erf(-x) + erf(x)).abs() < 1e-6);
+///
+/// // erf(∞) → 1
+/// assert!((erf(5.0) - 1.0).abs() < 1e-5);
+/// ```
+///
+/// # References
+///
+/// - Abramowitz, M., & Stegun, I. A. (1964). *Handbook of Mathematical Functions*.
+///   National Bureau of Standards. Formula 7.1.26.
 #[inline]
 pub fn erf(x: f64) -> f64 {
     let a1 = 0.254829592;
@@ -55,17 +151,62 @@ pub fn erf(x: f64) -> f64 {
     sign * y
 }
 
-/// Cumulative standard normal distribution function.
+/// Cumulative standard normal distribution function Φ(x).
 ///
-/// Enhanced implementation with improved numerical stability for extreme values
-/// while maintaining full compatibility for normal ranges. Critical for accurate
-/// copula modeling and base correlation calibration.
+/// Computes the probability that a standard normal random variable is less
+/// than or equal to x. Uses the error function for standard ranges and
+/// asymptotic expansion for extreme tails.
+///
+/// # Definition
+///
+/// ```text
+/// Φ(x) = P(Z ≤ x) where Z ~ N(0,1)
+///      = (1/√(2π)) ∫_{-∞}^x e^(-t²/2) dt
+///      = (1/2)[1 + erf(x/√2)]
+/// ```
 ///
 /// # Arguments
-/// * `x` - Input value
+///
+/// * `x` - Input value (any real number)
 ///
 /// # Returns
-/// Φ(x) = P(Z ≤ x) where Z ~ N(0,1)
+///
+/// Cumulative probability Φ(x) ∈ (0, 1)
+///
+/// # Numerical Stability
+///
+/// - **|x| ≤ 8**: Uses error function (accurate to ~10⁻⁷)
+/// - **x < -8**: Asymptotic expansion for left tail
+/// - **x > 8**: Symmetry relation Φ(x) = 1 - Φ(-x)
+///
+/// Tail handling is critical for:
+/// - Value-at-Risk with high confidence (99.9%)
+/// - Credit correlation in copula models
+/// - Base correlation calibration for CDO tranches
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::special_functions::norm_cdf;
+///
+/// // Φ(0) = 0.5 (median of standard normal)
+/// assert!((norm_cdf(0.0) - 0.5).abs() < 1e-6);
+///
+/// // Φ(-x) = 1 - Φ(x) (symmetry)
+/// let x = 1.96; // 97.5th percentile
+/// assert!((norm_cdf(-x) + norm_cdf(x) - 1.0).abs() < 1e-6);
+///
+/// // 95% confidence interval: [-1.96, 1.96]
+/// assert!((norm_cdf(1.96) - 0.975).abs() < 1e-3);
+/// assert!((norm_cdf(-1.96) - 0.025).abs() < 1e-3);
+/// ```
+///
+/// # References
+///
+/// - Abramowitz, M., & Stegun, I. A. (1964). *Handbook of Mathematical Functions*.
+///   Formula 26.2.17 (asymptotic expansion for tails).
+/// - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1995). *Continuous Univariate
+///   Distributions, Volume 1* (2nd ed.). Chapter 13.
 #[inline]
 pub fn norm_cdf(x: f64) -> f64 {
     // For extreme values only, use enhanced tail handling
@@ -84,13 +225,53 @@ pub fn norm_cdf(x: f64) -> f64 {
     }
 }
 
-/// Standard normal probability density function.
+/// Standard normal probability density function φ(x).
+///
+/// Computes the probability density of the standard normal distribution at x.
+///
+/// # Definition
+///
+/// ```text
+/// φ(x) = (1/√(2π)) e^(-x²/2)
+/// ```
 ///
 /// # Arguments
-/// * `x` - Input value
+///
+/// * `x` - Input value (any real number)
 ///
 /// # Returns
-/// φ(x) = (1/√(2π)) * e^(-x²/2)
+///
+/// Probability density φ(x) ∈ (0, 1/√(2π)]
+/// Maximum value occurs at x = 0: φ(0) = 1/√(2π) ≈ 0.3989
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::special_functions::norm_pdf;
+///
+/// // Maximum at x = 0
+/// let max_density = norm_pdf(0.0);
+/// assert!((max_density - 0.3989).abs() < 1e-4);
+///
+/// // Symmetric: φ(-x) = φ(x)
+/// let x = 1.5;
+/// assert!((norm_pdf(-x) - norm_pdf(x)).abs() < 1e-6);
+///
+/// // Approximately zero in tails (φ(5.0) ≈ 1.49e-6)
+/// assert!(norm_pdf(5.0) < 2e-6);
+/// ```
+///
+/// # Use Cases
+///
+/// - Option Greeks (vega, gamma) in Black-Scholes
+/// - Maximum likelihood estimation
+/// - Kernel density estimation
+/// - Heat kernel in diffusion processes
+///
+/// # References
+///
+/// - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1995). *Continuous Univariate
+///   Distributions, Volume 1* (2nd ed.). Chapter 13.
 #[inline]
 pub fn norm_pdf(x: f64) -> f64 {
     (-0.5 * x * x).exp() / (2.0 * PI).sqrt()

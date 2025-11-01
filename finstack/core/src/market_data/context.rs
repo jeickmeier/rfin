@@ -1,9 +1,15 @@
-//! Lightweight container aggregating market data needed by valuations.
+//! Market data context for aggregating curves, surfaces, and FX rates.
 //!
-//! [`MarketContext`] groups together curves, FX ([`FxMatrix`]), 2-D surfaces
-//! ([`VolSurface`]) and generic prices/scalars so that pricing and risk
-//! components have a single handle to query required inputs. All heavy objects
-//! are stored behind `Arc`, making contexts cheap to clone and share.
+//! [`MarketContext`] is the primary container for market data used in valuations.
+//! It aggregates discount curves, forward curves, hazard curves, volatility
+//! surfaces, FX rates, and market scalars into a single, thread-safe structure.
+//!
+//! # Design
+//!
+//! - **Arc-based storage**: Cheap to clone and share across threads
+//! - **Type-safe retrieval**: Separate methods for each curve type
+//! - **Builder pattern**: Fluent API for constructing contexts
+//! - **Scenario support**: Bump curves for risk sensitivities
 //!
 //! # Examples
 //! ```rust
@@ -698,6 +704,7 @@ impl MarketContext {
     /// # use finstack_core::dates::Date;
     /// # use std::sync::Arc;
     /// # use time::Month;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # struct StaticFx;
     /// # impl FxProvider for StaticFx {
     /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy)
@@ -708,6 +715,8 @@ impl MarketContext {
     /// # let date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
     /// let bumped_ctx = ctx.bump_fx_spot(Currency::EUR, Currency::USD, 0.01, date)?;
     /// // EUR/USD rate is now 1.1 * 1.01 = 1.111
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn bump_fx_spot(
         &self,

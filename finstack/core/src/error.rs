@@ -1,7 +1,111 @@
-//! Domain-level error enumeration returned by most `rfin-core` APIs.
+//! Error types for financial computation and validation failures.
 //!
-//! The variants are **non-exhaustive**; match defensively on `_` to remain
-//! forward-compatible.
+//! This module defines the unified error hierarchy used throughout Finstack's
+//! core library. All errors bubble up through the [`Error`] enum, which wraps
+//! domain-specific failures like input validation, interpolation bounds,
+//! currency mismatches, and calibration failures.
+//!
+//! # Design Philosophy
+//!
+//! - **Actionable errors**: Each variant includes enough context for callers to
+//!   diagnose and potentially recover from failures
+//! - **Non-exhaustive**: Error variants may expand in minor releases; always
+//!   match with a catch-all `_` pattern for forward compatibility
+//! - **Fuzzy suggestions**: Missing curve errors include similar IDs based on
+//!   edit distance to guide users toward corrections
+//! - **Serializable**: All error types support `serde` when the feature is enabled
+//!
+//! # Error Categories
+//!
+//! - **Input validation** ([`InputError`]): User-supplied data fails constraints
+//!   (e.g., non-monotonic knots, invalid dates, missing curves)
+//! - **Currency safety** ([`Error::CurrencyMismatch`]): Attempted cross-currency
+//!   arithmetic without explicit conversion
+//! - **Interpolation** ([`Error::InterpOutOfBounds`]): Query point falls outside
+//!   curve bounds
+//! - **Calibration** ([`Error::Calibration`]): Numerical solver or fitting
+//!   procedure failed to converge
+//! - **Validation** ([`Error::Validation`]): Market data fails no-arbitrage or
+//!   structural checks
+//!
+//! # Examples
+//!
+//! ## Handling common input errors
+//!
+//! ```rust
+//! use finstack_core::error::{Error, InputError};
+//!
+//! fn parse_knots(data: &[(f64, f64)]) -> Result<(), Error> {
+//!     if data.len() < 2 {
+//!         return Err(InputError::TooFewPoints.into());
+//!     }
+//!     
+//!     // Check monotonicity
+//!     for window in data.windows(2) {
+//!         if window[1].0 <= window[0].0 {
+//!             return Err(InputError::NonMonotonicKnots.into());
+//!         }
+//!     }
+//!     
+//!     Ok(())
+//! }
+//!
+//! let invalid_data = vec![(1.0, 0.95), (0.5, 0.90)]; // Non-monotonic
+//! assert!(parse_knots(&invalid_data).is_err());
+//! ```
+//!
+//! ## Currency mismatch detection
+//!
+//! ```rust
+//! use finstack_core::error::Error;
+//! use finstack_core::money::Money;
+//! use finstack_core::currency::Currency;
+//!
+//! let usd = Money::new(100.0, Currency::USD);
+//! let eur = Money::new(85.0, Currency::EUR);
+//!
+//! // Attempting to add different currencies returns CurrencyMismatch
+//! let result = usd + eur;
+//! assert!(result.is_err());
+//!
+//! match result {
+//!     Err(Error::CurrencyMismatch { expected, actual }) => {
+//!         assert_eq!(expected, Currency::USD);
+//!         assert_eq!(actual, Currency::EUR);
+//!     }
+//!     _ => panic!("Expected currency mismatch"),
+//! }
+//! ```
+//!
+//! ## Using error suggestions for missing curves
+//!
+//! ```rust
+//! use finstack_core::error::Error;
+//!
+//! let available = vec![
+//!     "USD_OIS".to_string(),
+//!     "EUR_OIS".to_string(),
+//!     "GBP_GILT".to_string(),
+//! ];
+//!
+//! // Typo in curve name
+//! let err = Error::missing_curve_with_suggestions("USD_OS", &available);
+//! let msg = format!("{}", err);
+//!
+//! // Error message includes suggestions
+//! assert!(msg.contains("USD_OIS") || msg.contains("Did you mean"));
+//! ```
+//!
+//! # See Also
+//!
+//! - [`crate::Result`] - Type alias for `Result<T, Error>`
+//! - [`InputError`] - Specific validation failure modes
+//!
+//! # References
+//!
+//! The fuzzy matching algorithm uses Levenshtein edit distance:
+//! - Levenshtein, V. I. (1966). "Binary codes capable of correcting deletions,
+//!   insertions, and reversals." *Soviet Physics Doklady*, 10(8), 707-710.
 
 use crate::currency::Currency;
 use crate::dates::calendar::business_days::BusinessDayConvention;
@@ -20,6 +124,30 @@ fn format_suggestions(suggestions: &[String]) -> String {
 }
 
 /// Detailed user input validation failures.
+///
+/// This enum captures all validation errors related to user-supplied data,
+/// including structural issues (too few points, non-monotonic sequences),
+/// value constraints (negative/non-positive values), date/calendar problems,
+/// and missing references in market data contexts.
+///
+/// # Variants
+///
+/// Each variant provides specific context about the validation failure to
+/// enable actionable error messages and recovery logic.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::error::InputError;
+///
+/// // Too few data points
+/// let err = InputError::TooFewPoints;
+/// assert_eq!(err.to_string(), "At least two data points are required");
+///
+/// // Non-monotonic sequence
+/// let err = InputError::NonMonotonicKnots;
+/// assert_eq!(err.to_string(), "Times (knots) must be strictly increasing");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
@@ -88,7 +216,44 @@ pub enum InputError {
 ///
 /// All user-facing validation issues bubble up via the [`Input`](Error::Input)
 /// wrapper so callers can pattern-match on [`InputError`] for actionable
-/// feedback.  Internal failures remain grouped under [`Internal`].
+/// feedback. Internal failures remain grouped under [`Internal`].
+///
+/// # Variants
+///
+/// - **Input**: Wraps [`InputError`] for all validation failures
+/// - **InterpOutOfBounds**: Query point outside interpolator domain
+/// - **CurrencyMismatch**: Binary operation on incompatible currencies
+/// - **Calibration**: Numerical fitting or solver convergence failure
+/// - **Validation**: Market data structural checks failed
+/// - **Internal**: Unexpected system-level failures
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::error::{Error, InputError};
+///
+/// // Convert InputError to Error
+/// let input_err: Error = InputError::TooFewPoints.into();
+/// assert!(matches!(input_err, Error::Input(_)));
+///
+/// // Pattern match on error variants
+/// fn handle_error(err: Error) -> String {
+///     match err {
+///         Error::Input(e) => format!("Invalid input: {}", e),
+///         Error::CurrencyMismatch { expected, actual } => {
+///             format!("Cannot mix {} and {}", expected, actual)
+///         }
+///         Error::InterpOutOfBounds => "Query outside curve range".to_string(),
+///         Error::Calibration { message, .. } => format!("Calibration failed: {}", message),
+///         Error::Validation(msg) => format!("Validation error: {}", msg),
+///         Error::Internal => "Internal error".to_string(),
+///         _ => "Unknown error".to_string(), // Non-exhaustive enum
+///     }
+/// }
+///
+/// let msg = handle_error(input_err);
+/// assert!(msg.contains("Invalid input"));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[non_exhaustive]
 pub enum Error {

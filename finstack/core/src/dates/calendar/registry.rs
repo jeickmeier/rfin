@@ -1,8 +1,8 @@
-//! Calendar registry exposing typed resolution.
+//! Calendar registry for resolving calendars by identifier.
 //!
-//! Calendar registry that resolves calendars by identifier (lowercase string)
-//! to the corresponding built-in calendar implementations. It uses the
-//! generated registry from `dates::calendar` for the authoritative list.
+//! Provides a global registry for looking up built-in holiday calendars by
+//! their standard codes (e.g., "target2", "nyse", "gblo"). Supports both
+//! string-based and typed ID resolution.
 
 use crate::dates::calendar::business_days::HolidayCalendar;
 use crate::dates::calendar::calendar_by_id;

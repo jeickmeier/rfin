@@ -1,23 +1,53 @@
-//! Linear algebra utilities for correlation matrices and Cholesky decomposition.
+//! Linear algebra utilities for correlation and covariance matrices.
 //!
-//! This module provides general-purpose linear algebra operations used across
-//! the finstack library, including Monte Carlo simulations, portfolio optimization,
-//! and factor models.
+//! Provides essential matrix operations for financial modeling, particularly
+//! Cholesky decomposition for generating correlated random variables in Monte
+//! Carlo simulations and portfolio risk calculations.
+//!
+//! # Algorithms
+//!
+//! - **Cholesky decomposition**: Factorize Σ = L L^T for positive definite matrices
+//! - **Correlation application**: Transform independent normals to correlated via L
+//! - **Matrix validation**: Check positive-definiteness and correlation properties
+//!
+//! # Use Cases
+//!
+//! - **Monte Carlo**: Generate correlated asset paths
+//! - **Portfolio risk**: Covariance matrix factorization for VaR
+//! - **Factor models**: Decompose returns into systematic factors
+//! - **Copula models**: Correlation structure in credit derivatives
 //!
 //! # Examples
 //!
 //! ```
 //! use finstack_core::math::linalg::{cholesky_decomposition, apply_correlation};
 //!
-//! // Correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
+//! // 2x2 correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
 //! let corr = vec![1.0, 0.5, 0.5, 1.0];
 //! let chol = cholesky_decomposition(&corr, 2).unwrap();
 //!
-//! // Apply correlation to independent shocks
-//! let z = vec![1.0, 0.0];
+//! // Transform independent standard normals to correlated
+//! let z = vec![1.0, 0.0]; // Independent N(0,1) shocks
 //! let mut z_corr = vec![0.0; 2];
 //! apply_correlation(&chol, &z, &mut z_corr);
+//! // z_corr now contains correlated shocks with correlation 0.5
 //! ```
+//!
+//! # References
+//!
+//! - **Cholesky Decomposition**:
+//!   - Golub, G. H., & Van Loan, C. F. (2013). *Matrix Computations* (4th ed.).
+//!     Johns Hopkins University Press. Algorithm 4.2.1.
+//!   - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 2.9.
+//!
+//! - **Correlation Matrices**:
+//!   - Rebonato, R., & Jäckel, P. (2000). "The Most General Methodology to Create
+//!     a Valid Correlation Matrix for Risk Management and Option Pricing Purposes."
+//!     *Journal of Risk*, 2(2), 17-27.
+//!
+//! - **Monte Carlo Applications**:
+//!   - Glasserman, P. (2003). *Monte Carlo Methods in Financial Engineering*.
+//!     Springer. Section 2.4 (Generating multivariate samples).
 
 use crate::{error, Result};
 use thiserror::Error;

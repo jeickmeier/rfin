@@ -1,4 +1,61 @@
-//! Helpers for discounting dated cashflows against market curves.
+//! Present value calculations using market discount curves.
+//!
+//! This module provides functions for discounting cashflows using market-derived
+//! discount curves rather than constant rates. This is the standard approach for
+//! pricing fixed income securities and derivatives.
+//!
+//! # Approach
+//!
+//! Unlike constant-rate discounting (see [`performance`](super::performance)),
+//! this module uses term structures of discount factors from market data:
+//! ```text
+//! PV = Σ CF_i * DF(t_i)
+//!
+//! where DF(t) is the discount factor from the market curve
+//! ```
+//!
+//! # Use Cases
+//!
+//! - **Bond pricing**: Government and corporate bonds
+//! - **Swap valuation**: Interest rate swaps using OIS/LIBOR curves
+//! - **Derivative pricing**: Future cashflows under risk-neutral measure
+//! - **Portfolio valuation**: Mark-to-market of fixed income positions
+//!
+//! # Examples
+//!
+//! ```rust
+//! use finstack_core::cashflow::discounting::npv_static;
+//! use finstack_core::market_data::term_structures::DiscountCurve;
+//! use finstack_core::dates::{Date, DayCount};
+//! use finstack_core::money::Money;
+//! use finstack_core::currency::Currency;
+//! use time::Month;
+//!
+//! // Build a flat discount curve
+//! let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+//! let curve = DiscountCurve::builder("USD-OIS")
+//!     .base_date(base_date)
+//!     .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78)])
+//!     .build()?;
+//!
+//! // Cashflows to discount
+//! let cf1 = (
+//!     Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+//!     Money::new(100.0, Currency::USD)
+//! );
+//! let flows = vec![cf1];
+//!
+//! let pv = npv_static(&curve, base_date, DayCount::Act360, &flows)?;
+//! assert!(pv.amount() < 100.0); // Discounted value < face value
+//! # Ok::<(), finstack_core::Error>(())
+//! ```
+//!
+//! # References
+//!
+//! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives* (10th ed.).
+//!   Pearson. Chapters 4-7 (Interest Rates and Curve Construction).
+//! - Andersen, L., & Piterbarg, V. (2010). *Interest Rate Modeling* (3 vols).
+//!   Atlantic Financial Press. Volume 1, Chapter 3.
 
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::market_data::traits::Discounting;

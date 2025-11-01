@@ -1,8 +1,20 @@
-//! Multi-dimensional optimization and root-finding algorithms.
+//! Multi-dimensional optimization for model calibration.
 //!
-//! This module provides solvers for multi-dimensional problems commonly
-//! encountered in financial calibration, such as SABR parameter fitting
-//! and multi-curve bootstrapping.
+//! Provides robust algorithms for calibrating financial models with multiple
+//! parameters, such as SABR volatility surfaces, Heston stochastic volatility,
+//! and multi-curve bootstrapping problems.
+//!
+//! # Algorithms
+//!
+//! - **Levenberg-Marquardt**: Damped least-squares for sum-of-squares objectives
+//! - **Differential Evolution**: Global optimization with population-based search
+//!
+//! # Use Cases
+//!
+//! - **SABR calibration**: Fit α, β, ρ, ν to market smiles
+//! - **Heston calibration**: Fit stochastic volatility parameters to vanilla options
+//! - **Multi-curve bootstrapping**: Simultaneous curve fitting with constraints
+//! - **Smile interpolation**: Parametric volatility surface construction
 //!
 //! # Examples
 //!
@@ -21,6 +33,25 @@
 //! assert!((result[0] - 2.0).abs() < 1e-6);
 //! assert!((result[1] - 3.0).abs() < 1e-6);
 //! ```
+//!
+//! # References
+//!
+//! - **Levenberg-Marquardt**:
+//!   - Levenberg, K. (1944). "A Method for the Solution of Certain Non-Linear Problems
+//!     in Least Squares." *Quarterly of Applied Mathematics*, 2(2), 164-168.
+//!   - Marquardt, D. W. (1963). "An Algorithm for Least-Squares Estimation of Nonlinear
+//!     Parameters." *Journal of the Society for Industrial and Applied Mathematics*, 11(2), 431-441.
+//!   - Moré, J. J. (1978). "The Levenberg-Marquardt Algorithm: Implementation and Theory."
+//!     *Numerical Analysis*, Lecture Notes in Mathematics, vol 630.
+//!
+//! - **Differential Evolution**:
+//!   - Storn, R., & Price, K. (1997). "Differential Evolution - A Simple and Efficient
+//!     Heuristic for Global Optimization over Continuous Spaces." *Journal of Global
+//!     Optimization*, 11(4), 341-359.
+//!
+//! - **Calibration Applications**:
+//!   - Hagan, P. S., et al. (2002). "Managing Smile Risk." *Wilmott Magazine*, September 2002.
+//!     (SABR calibration techniques)
 
 use crate::error::InputError;
 use crate::math::random::RandomNumberGenerator;
@@ -109,10 +140,44 @@ pub trait MultiSolver: Send + Sync {
 
 /// Levenberg-Marquardt solver for non-linear least squares.
 ///
-/// This algorithm is particularly effective for problems where the objective
-/// is a sum of squares, common in curve fitting and calibration tasks.
-/// It adaptively switches between Gauss-Newton (fast convergence near solution)
-/// and gradient descent (robust far from solution).
+/// Combines Gauss-Newton and gradient descent methods using a damping parameter
+/// λ that adapts based on progress. Particularly effective for sum-of-squares
+/// objectives arising in curve calibration and parameter fitting.
+///
+/// # Algorithm
+///
+/// At each iteration, solves:
+/// ```text
+/// (J^T J + λI) δ = -J^T r
+///
+/// where:
+///   J = Jacobian matrix
+///   r = residual vector
+///   λ = damping parameter (adaptive)
+///   δ = parameter update
+/// ```
+///
+/// - **λ → 0**: Gauss-Newton (fast near solution)
+/// - **λ → ∞**: Gradient descent (robust far from solution)
+///
+/// # Convergence
+///
+/// Typically achieves quadratic convergence near the solution, switching to
+/// linear convergence when far from optimum. More robust than pure Gauss-Newton.
+///
+/// # Use Cases
+///
+/// - SABR volatility surface calibration
+/// - Swaption volatility cube fitting
+/// - Yield curve bootstrapping
+/// - Credit curve calibration
+///
+/// # References
+///
+/// - Levenberg, K. (1944). "A Method for the Solution of Certain Non-Linear Problems
+///   in Least Squares." *Quarterly of Applied Mathematics*, 2(2), 164-168.
+/// - Marquardt, D. W. (1963). "An Algorithm for Least-Squares Estimation of Nonlinear
+///   Parameters." *SIAM Journal*, 11(2), 431-441.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LevenbergMarquardtSolver {

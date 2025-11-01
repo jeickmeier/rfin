@@ -13,81 +13,85 @@ use finstack_core::market_data::MarketContext as Market;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u16)]
-/// Instrument Type enumeration.
+/// Strongly-typed instrument classification for pricer dispatch.
+///
+/// Each variant represents a distinct instrument type with its own pricing
+/// logic and risk characteristics. Used by the pricing registry to route
+/// instruments to appropriate pricer implementations.
 pub enum InstrumentType {
-    /// Bond variant.
+    /// Fixed or floating-rate bond (plain vanilla, callable, amortizing).
     Bond = 1,
-    /// Loan variant.
+    /// Term loan or bilateral lending facility.
     Loan = 2,
-    /// C D S variant.
+    /// Credit Default Swap (single-name credit protection).
     CDS = 3,
-    /// C D S Index variant.
+    /// CDS Index (portfolio credit protection, e.g., CDX, iTraxx).
     CDSIndex = 4,
-    /// C D S Tranche variant.
+    /// CDS Tranche (mezzanine credit exposure via synthetic CDO).
     CDSTranche = 5,
-    /// C D S Option variant.
+    /// Option on Credit Default Swap.
     CDSOption = 6,
-    /// I R S variant.
+    /// Interest Rate Swap (fixed-for-floating exchange).
     IRS = 7,
-    /// Cap Floor variant.
+    /// Interest rate cap or floor (portfolio of caplets/floorlets).
     CapFloor = 8,
-    /// Swaption variant.
+    /// Option on interest rate swap.
     Swaption = 9,
-    /// T R S variant.
+    /// Total Return Swap (equity or fixed income).
     TRS = 10,
-    /// Basis Swap variant.
+    /// Basis swap (floating-for-floating with spread).
     BasisSwap = 11,
-    /// Basket variant.
+    /// Multi-asset basket (worst-of, best-of, or weighted).
     Basket = 12,
-    /// Convertible variant.
+    /// Convertible bond (bond with embedded equity option).
     Convertible = 13,
-    /// Deposit variant.
+    /// Money market deposit (single-period).
     Deposit = 14,
-    /// Equity Option variant.
+    /// Vanilla equity option (call or put on single stock or index).
     EquityOption = 15,
-    /// Fx Option variant.
+    /// FX option (Garman-Kohlhagen model).
     FxOption = 16,
-    /// Fx Spot variant.
+    /// FX spot position (currency pair).
     FxSpot = 17,
-    /// Fx Swap variant.
+    /// FX forward or FX swap.
     FxSwap = 18,
-    /// Inflation Linked Bond variant.
+    /// Inflation-linked bond (TIPS, index-linked gilts).
     InflationLinkedBond = 19,
-    /// Inflation Swap variant.
+    /// Zero-coupon inflation swap.
     InflationSwap = 20,
-    /// Interest Rate Future variant.
+    /// Interest rate futures contract.
     InterestRateFuture = 21,
-    /// Variance Swap variant.
+    /// Variance swap (volatility exposure).
     VarianceSwap = 22,
-    /// Equity variant.
+    /// Equity spot position (shares in single stock or fund).
     Equity = 23,
-    /// Repo variant.
+    /// Repurchase agreement (repo or reverse repo).
     Repo = 24,
-    /// F R A variant.
+    /// Forward Rate Agreement (forward-starting interest rate contract).
     FRA = 25,
-    /// Structured Credit variant.
+    /// Structured credit (ABS, RMBS, CMBS, CLO with tranches and waterfall).
     StructuredCredit = 26,
-    /// Private Markets Fund variant.
+    /// Private markets fund (PE/credit fund with waterfall).
     PrivateMarketsFund = 30,
-    /// Revolving Credit variant.
+    /// Revolving credit facility with drawdown/repayment.
     RevolvingCredit = 31,
-    /// Asian Option variant.
+    /// Asian option (payoff based on average price).
     AsianOption = 32,
-    /// Barrier Option variant.
+    /// Barrier option (knock-in or knock-out on barrier cross).
     BarrierOption = 33,
-    /// Lookback Option variant.
+    /// Lookback option (payoff based on path extremum).
     LookbackOption = 34,
-    /// Quanto Option variant.
+    /// Quanto option (cross-currency option with quanto adjustment).
     QuantoOption = 35,
-    /// Autocallable variant.
+    /// Autocallable structured note (early redemption feature).
     Autocallable = 36,
-    /// CMS Option variant.
+    /// CMS option (constant maturity swap option).
     CmsOption = 37,
-    /// Cliquet Option variant.
+    /// Cliquet option (ratchet option with periodic resets).
     CliquetOption = 38,
-    /// Range Accrual variant.
+    /// Range accrual note (coupon accrues when rate in range).
     RangeAccrual = 39,
-    /// FX Barrier Option variant.
+    /// FX barrier option (FX option with knock-in/out barrier).
     FxBarrierOption = 40,
 }
 
@@ -460,30 +464,72 @@ pub trait Pricer: Send + Sync {
 
 use std::collections::HashMap;
 
-/// Trait-based pricer registry
+/// Registry mapping (instrument type, model) pairs to pricer implementations.
+///
+/// Provides type-safe pricing dispatch without string comparisons or runtime
+/// registration errors. Pricers are registered at compile time and looked up
+/// via strongly-typed keys.
 #[derive(Default)]
-/// Pricer Registry structure.
 pub struct PricerRegistry {
     pricers: HashMap<PricerKey, Box<dyn Pricer>>,
 }
 
 impl PricerRegistry {
-    /// new.
+    /// Create a new empty pricer registry.
+    ///
+    /// For pre-configured registries with all standard pricers, use
+    /// [`create_standard_registry()`].
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// register pricer.
+    /// Register a pricer for a specific (instrument type, model) combination.
+    ///
+    /// If a pricer already exists for this key, it will be replaced.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Pricer key identifying the (instrument type, model) pair
+    /// * `pricer` - Pricer implementation for this combination
     pub fn register_pricer(&mut self, key: PricerKey, pricer: Box<dyn Pricer>) {
         self.pricers.insert(key, pricer);
     }
 
-    /// get pricer.
+    /// Look up a pricer for a specific (instrument type, model) combination.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Pricer key to look up
+    ///
+    /// # Returns
+    ///
+    /// `Some(&dyn Pricer)` if registered, `None` otherwise
     pub fn get_pricer(&self, key: PricerKey) -> Option<&dyn Pricer> {
         self.pricers.get(&key).map(|p| p.as_ref())
     }
 
-    /// price with registry.
+    /// Price an instrument using the registry dispatch system.
+    ///
+    /// Routes the instrument to the appropriate pricer based on its type
+    /// and the requested pricing model.
+    ///
+    /// # Arguments
+    ///
+    /// * `instrument` - Instrument to price (as trait object)
+    /// * `model` - Pricing model to use
+    /// * `market` - Market data context with curves and surfaces
+    /// * `as_of` - Valuation date
+    ///
+    /// # Returns
+    ///
+    /// `ValuationResult` with present value and metadata
+    ///
+    /// # Errors
+    ///
+    /// Returns error if:
+    /// - No pricer registered for this (instrument, model) combination
+    /// - Pricing calculation fails
+    /// - Required market data is missing
     pub fn price_with_registry(
         &self,
         instrument: &dyn Priceable,

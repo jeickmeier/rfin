@@ -1,4 +1,7 @@
-//! Interpolation types, enums, and factory.
+//! Interpolation types and style enumeration.
+//!
+//! Defines the `InterpStyle` enum for selecting interpolation methods and
+//! the internal `Interp` enum for static dispatch in hot paths.
 
 use super::traits::InterpFn;
 use super::{

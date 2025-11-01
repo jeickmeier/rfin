@@ -1,21 +1,120 @@
-//! Heston stochastic volatility model.
+//! Heston stochastic volatility model with QE discretization scheme.
 //!
-//! The Heston model describes equity price dynamics with stochastic volatility:
+//! The Heston model extends Black-Scholes by allowing volatility to follow its own
+//! stochastic process, capturing the empirically observed volatility smile and term structure.
+//! This implementation uses the **Andersen QE (Quadratic Exponential) scheme** for
+//! accurate and efficient simulation.
+//!
+//! # Stochastic Differential Equations
+//!
+//! Under the risk-neutral measure ℚ:
 //!
 //! ```text
-//! dS_t = (r - q) S_t dt + √v_t S_t dW_1(t)
-//! dv_t = κ(θ - v_t) dt + σ_v √v_t dW_2(t)
+//! dS_t = (r - q) S_t dt + √v_t S_t dW₁(t)
+//! dv_t = κ(θ - v_t) dt + σᵥ √v_t dW₂(t)
+//!
+//! dW₁ · dW₂ = ρ dt
 //! ```
 //!
 //! where:
-//! - S = spot price
-//! - v = variance (volatility squared)
-//! - κ = mean reversion speed
-//! - θ = long-term variance
-//! - σ_v = volatility of variance
-//! - ρ = correlation between W_1 and W_2
+//! - **S_t**: Spot price at time t
+//! - **v_t**: Instantaneous variance (volatility squared)
+//! - **κ**: Mean reversion speed for variance (> 0)
+//! - **θ**: Long-term variance level
+//! - **σᵥ**: Volatility of variance ("vol of vol")
+//! - **ρ**: Correlation between asset and variance innovations
+//! - **v₀**: Initial variance level
 //!
-//! Reference: Heston (1993) - "A Closed-Form Solution for Options with Stochastic Volatility"
+//! # Feller Condition
+//!
+//! For positive variance to be guaranteed:
+//!
+//! ```text
+//! 2κθ ≥ σᵥ²
+//! ```
+//!
+//! When violated, variance can reach zero with positive probability.
+//! The QE scheme handles this gracefully by truncating negative variances.
+//!
+//! # QE Discretization Scheme (Andersen 2008)
+//!
+//! The **Quadratic Exponential (QE)** scheme provides superior accuracy and
+//! moment matching compared to simpler Euler schemes:
+//!
+//! 1. Variance process discretized with moment matching
+//! 2. Switch between quadratic and exponential approximations based on ψ critical value
+//! 3. Asset process uses exact conditional simulation given variance path
+//!
+//! **Advantages over Euler**:
+//! - Maintains positive variance naturally
+//! - Better moment matching
+//! - Reduced discretization bias
+//! - Handles high σᵥ robustly
+//!
+//! # References
+//!
+//! ## Primary Sources
+//!
+//! - Heston, S. L. (1993). "A Closed-Form Solution for Options with Stochastic
+//!   Volatility with Applications to Bond and Currency Options."
+//!   *Review of Financial Studies*, 6(2), 327-343.
+//!   (Original Heston model and semi-analytical pricing via FFT)
+//!
+//! - Andersen, L. (2008). "Simple and Efficient Simulation of the Heston
+//!   Stochastic Volatility Model." *Journal of Computational Finance*, 11(3), 1-42.
+//!   (QE discretization scheme - recommended method)
+//!
+//! ## Alternative Discretization Schemes
+//!
+//! - Lord, R., Koekkoek, R., & Van Dijk, D. (2010). "A Comparison of Biased
+//!   Simulation Schemes for Stochastic Volatility Models." *Quantitative Finance*,
+//!   10(2), 177-194.
+//!   (Comprehensive comparison: Euler, Milstein, QE, IJK, Broadie-Kaya)
+//!
+//! - Broadie, M., & Kaya, Ö. (2006). "Exact Simulation of Stochastic Volatility
+//!   and Other Affine Jump Diffusion Processes." *Operations Research*, 54(2), 217-231.
+//!   (Exact scheme, computationally expensive)
+//!
+//! ## Calibration and Applications
+//!
+//! - Bakshi, G., Cao, C., & Chen, Z. (1997). "Empirical Performance of Alternative
+//!   Option Pricing Models." *Journal of Finance*, 52(5), 2003-2049.
+//!
+//! - Gatheral, J. (2006). *The Volatility Surface: A Practitioner's Guide*. Wiley.
+//!   (Practical calibration techniques)
+//!
+//! # Implementation Details
+//!
+//! - Uses **Andersen QE scheme** by default (best accuracy/speed tradeoff)
+//! - Variance truncation at zero to prevent negative values
+//! - Correlated Brownian motions via Cholesky: W₂ = ρW₁ + √(1-ρ²)W₂'
+//! - Exact asset simulation conditional on variance path
+//!
+//! # Examples
+//!
+//! ```rust,ignore
+//! use finstack_valuations::instruments::common::mc::process::heston::{
+//!     HestonProcess, HestonParams
+//! };
+//!
+//! // Typical calibrated parameters for equity index
+//! let params = HestonParams::new(
+//!     0.05,   // r = 5% risk-free rate
+//!     0.02,   // q = 2% dividend yield  
+//!     2.0,    // κ = mean reversion speed
+//!     0.04,   // θ = long-term variance (20% long-term vol)
+//!     0.3,    // σᵥ = vol of vol
+//!     -0.7,   // ρ = correlation (typically negative for equity)
+//!     0.04,   // v₀ = initial variance (20% current vol)
+//! );
+//!
+//! let heston = HestonProcess::new(params);
+//!
+//! // Check Feller condition
+//! let feller = 2.0 * params.kappa * params.theta;
+//! let sigma_v_sq = params.sigma_v * params.sigma_v;
+//! println!("Feller satisfied: {}", feller >= sigma_v_sq);
+//! ```
 
 use super::super::path_data::ProcessParams;
 use super::super::traits::StochasticProcess;

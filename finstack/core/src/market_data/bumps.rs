@@ -1,7 +1,8 @@
-//! Bump functionality for scenario analysis and stress testing
+//! Bump functionality for scenario analysis and stress testing.
 //!
-//! This module provides functionality to apply parallel shocks and bumps
-//! to market data curves, surfaces, and scalars.
+//! Provides types and traits for applying parallel shocks and bumps to market
+//! data. Used for risk metrics (DV01, CS01), scenario analysis, and regulatory
+//! stress tests.
 
 use super::term_structures::{
     base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,

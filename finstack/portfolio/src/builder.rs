@@ -14,22 +14,25 @@
 //! ```rust
 //! use finstack_portfolio::builder::PortfolioBuilder;
 //! use finstack_core::prelude::*;
+//! use time::Month;
 //!
-//! let portfolio = PortfolioBuilder::new("test_portfolio")
-//!     .base_ccy(Currency::USD)
-//!     .as_of(date!(2024-01-01))
-//!     .build()
-//!     .map_err(|e| format!("Failed to build portfolio: {}", e))?;
+//! let valuation_date = Date::from_calendar_date(2024, Month::January, 1).unwrap();
 //!
-//! // Or for more granular error handling:
-//! let portfolio = match PortfolioBuilder::new("test_portfolio")
+//! let result = PortfolioBuilder::new("test_portfolio")
 //!     .base_ccy(Currency::USD)
-//!     .as_of(date!(2024-01-01))
-//!     .build()
-//! {
-//!     Ok(p) => p,
-//!     Err(e) => return Err(format!("Portfolio construction failed: {}", e)),
-//! };
+//!     .as_of(valuation_date)
+//!     .build();
+//!
+//! match result {
+//!     Ok(portfolio) => {
+//!         // Use portfolio
+//!         assert_eq!(portfolio.base_ccy, Currency::USD);
+//!     }
+//!     Err(e) => {
+//!         // Handle error
+//!         eprintln!("Failed to build portfolio: {}", e);
+//!     }
+//! }
 //! ```
 
 use crate::error::Result;

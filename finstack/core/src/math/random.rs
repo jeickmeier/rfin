@@ -1,10 +1,27 @@
-//! Random number generation trait and basic implementations.
+//! Random number generation for Monte Carlo simulations.
 //!
-//! This module provides a clean interface for random number generation
-//! used in Monte Carlo simulations and stochastic algorithms.
+//! Provides trait-based interface for random number generators with deterministic
+//! seed-based RNG for testing and basic simulations. For production Monte Carlo,
+//! implement the trait with more sophisticated generators (PCG, Mersenne Twister).
 //!
-//! For production use with advanced generators (PCG, etc.), implement
-//! the RandomNumberGenerator trait in the consuming crates.
+//! # Components
+//!
+//! - [`RandomNumberGenerator`]: Trait for pluggable RNG implementations
+//! - [`SimpleRng`]: Linear congruential generator for testing
+//! - [`box_muller_transform`], [`box_muller_polar`]: Normal variate generation
+//!
+//! # References
+//!
+//! - **Box-Muller Transform**:
+//!   - Box, G. E. P., & Muller, M. E. (1958). "A Note on the Generation of Random
+//!     Normal Deviates." *The Annals of Mathematical Statistics*, 29(2), 610-611.
+//!
+//! - **Polar Method**:
+//!   - Marsaglia, G., & Bray, T. A. (1964). "A Convenient Method for Generating
+//!     Normal Variables." *SIAM Review*, 6(3), 260-264.
+//!
+//! - **Linear Congruential Generators**:
+//!   - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 7.1.
 
 /// Random number generator trait for statistical sampling.
 ///
@@ -75,10 +92,11 @@ impl RandomNumberGenerator for SimpleRng {
     }
 }
 
-/// Box-Muller transform: U(0,1)² → N(0,1)².
+/// Box-Muller transform for generating normal random variables.
 ///
-/// Generates two independent standard normal random variables
-/// from two independent uniform random variables.
+/// Transforms two independent uniform random variables into two independent
+/// standard normal random variables using the Box-Muller method. This is the
+/// classic algorithm for generating Gaussian samples in Monte Carlo simulations.
 ///
 /// # Arguments
 ///
@@ -87,14 +105,28 @@ impl RandomNumberGenerator for SimpleRng {
 ///
 /// # Returns
 ///
-/// Tuple of two independent N(0,1) random variables.
+/// Tuple of two independent N(0,1) random variables (z₁, z₂).
 ///
 /// # Algorithm
 ///
 /// ```text
-/// z1 = √(-2 ln u1) cos(2π u2)
-/// z2 = √(-2 ln u1) sin(2π u2)
+/// z₁ = √(-2 ln u₁) cos(2π u₂)
+/// z₂ = √(-2 ln u₁) sin(2π u₂)
 /// ```
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::random::box_muller_transform;
+///
+/// let (z1, z2) = box_muller_transform(0.5, 0.5);
+/// // z1 and z2 are independent N(0,1) samples
+/// ```
+///
+/// # References
+///
+/// - Box, G. E. P., & Muller, M. E. (1958). "A Note on the Generation of Random
+///   Normal Deviates." *The Annals of Mathematical Statistics*, 29(2), 610-611.
 #[inline]
 pub fn box_muller_transform(u1: f64, u2: f64) -> (f64, f64) {
     use std::f64::consts::PI;

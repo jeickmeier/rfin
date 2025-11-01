@@ -1,22 +1,147 @@
-//! Analytical pricing formulas for Asian options.
+//! Analytical and semi-analytical pricing formulas for Asian options.
 //!
-//! This module provides closed-form and semi-analytical formulas for Asian options
-//! under the Black-Scholes framework.
+//! Asian options (also called average options) have payoffs based on the average
+//! price of the underlying asset over the option's life, rather than just the
+//! final price. This averaging feature reduces volatility exposure and makes
+//! them popular for currency and commodity hedging.
 //!
-//! # References
+//! # Asian Option Types
 //!
-//! - **Geometric average** (closed-form): Kemna, A. G. Z., & Vorst, A. C. F. (1990),
-//!   "A Pricing Method for Options Based on Average Asset Values"
-//! - **Arithmetic average** (semi-analytical approximation): Turnbull, S. M., & Wakeman, L. M. (1991),
-//!   "A Quick Algorithm for Pricing European Average Options"
-//! - Cross-checks: Levy (1992), Curran (1994)
+//! ## By Averaging Method
+//! - **Geometric average**: Closed-form solution available (Kemna & Vorst 1990)
+//! - **Arithmetic average**: Approximation via moment matching (Turnbull & Wakeman 1991)
 //!
-//! # Notes
+//! ## By Strike Type
+//! - **Fixed strike**: Payoff = max(Average - K, 0) for call
+//! - **Floating strike**: Payoff = max(S_T - Average, 0) for call
 //!
-//! - Geometric average Asian options have exact closed-form solutions
-//! - Arithmetic average Asian options use moment-matching approximation (Turnbull-Wakeman)
-//! - All formulas assume continuous monitoring; for discrete monitoring with n fixings,
-//!   use the adjusted variance formulas provided
+//! # Mathematical Foundation
+//!
+//! ## Geometric Average (Exact Solution)
+//!
+//! For a geometric average Asian option, the logarithm of the average is
+//! normally distributed, allowing closed-form pricing via Black-Scholes
+//! with adjusted parameters:
+//!
+//! ```text
+//! σ_adjusted = σ / √3  (continuous monitoring)
+//! σ_adjusted = σ √[(2n + 1) / (6(n + 1))]  (n discrete fixings)
+//! ```
+//!
+//! ## Arithmetic Average (Approximation)
+//!
+//! Arithmetic averages have no closed-form solution. The **Turnbull-Wakeman**
+//! approximation uses moment matching:
+//! 1. Compute first two moments of the arithmetic average
+//! 2. Approximate the distribution as lognormal
+//! 3. Price using adjusted Black-Scholes
+//!
+//! **Accuracy**: Typically within 1% of Monte Carlo for reasonable parameters.
+//! Less accurate for deep OTM options or very short maturities.
+//!
+//! # Academic References
+//!
+//! ## Primary Sources
+//!
+//! - Kemna, A. G. Z., & Vorst, A. C. F. (1990). "A Pricing Method for Options
+//!   Based on Average Asset Values." *Journal of Banking & Finance*, 14(1), 113-129.
+//!   (Exact closed-form solution for geometric average)
+//!
+//! - Turnbull, S. M., & Wakeman, L. M. (1991). "A Quick Algorithm for Pricing
+//!   European Average Options." *Journal of Financial and Quantitative Analysis*,
+//!   26(3), 377-389.
+//!   (Moment-matching approximation for arithmetic average)
+//!
+//! ## Alternative Methods
+//!
+//! - Levy, E. (1992). "Pricing European Average Rate Currency Options."
+//!   *Journal of International Money and Finance*, 11(5), 474-491.
+//!   (Alternative approximation via geometric conditioning)
+//!
+//! - Curran, M. (1994). "Valuing Asian and Portfolio Options by Conditioning
+//!   on the Geometric Mean Price." *Management Science*, 40(12), 1705-1711.
+//!   (Conditioning approach for improved accuracy)
+//!
+//! - Rogers, L. C. G., & Shi, Z. (1995). "The Value of an Asian Option."
+//!   *Journal of Applied Probability*, 32(4), 1077-1088.
+//!   (Lower bounds via convex duality)
+//!
+//! ## Reference Texts
+//!
+//! - Haug, E. G. (2007). *The Complete Guide to Option Pricing Formulas* (2nd ed.).
+//!   McGraw-Hill. Chapter 3: Average Rate Options.
+//!
+//! - Wilmott, P. (2006). *Paul Wilmott on Quantitative Finance* (2nd ed.).
+//!   Wiley. Volume 2, Chapter 25.
+//!
+//! # Implementation Notes
+//!
+//! - **Geometric average**: Exact Black-Scholes with adjusted volatility
+//! - **Arithmetic average**: Turnbull-Wakeman approximation (moment matching)
+//! - **Discrete fixings**: Variance adjusts based on number of observations
+//! - **Continuous limit**: Set num_fixings to large value (e.g., 365 for daily)
+//! - **Edge cases**: Handled for zero time, extreme strikes, single fixing
+//!
+//! # Comparison with Monte Carlo
+//!
+//! For **arithmetic** Asian options:
+//! - Analytical (Turnbull-Wakeman): Fast, typically 1% accuracy
+//! - Monte Carlo: Slower, exact given enough paths (10k+ recommended)
+//! - Use analytical for quick valuations, MC for validation and Greeks
+//!
+//! For **geometric** Asian options:
+//! - Analytical is exact and should always be used
+//!
+//! # Examples
+//!
+//! ## Geometric Average Asian Call
+//!
+//! ```rust
+//! use finstack_valuations::instruments::common::analytical::asian::geometric_asian_call;
+//!
+//! let spot = 100.0;
+//! let strike = 100.0;
+//! let time = 1.0;
+//! let rate = 0.05;
+//! let div_yield = 0.02;
+//! let vol = 0.20;
+//! let num_fixings = 252;  // Daily fixings
+//!
+//! let price = geometric_asian_call(
+//!     spot, strike, time, rate, div_yield, vol, num_fixings
+//! );
+//!
+//! // Geometric Asian cheaper than vanilla due to averaging
+//! assert!(price > 0.0);
+//! assert!(price < 10.0); // Less than vanilla call
+//! ```
+//!
+//! ## Arithmetic Average Asian Put (Approximation)
+//!
+//! ```rust
+//! use finstack_valuations::instruments::common::analytical::asian::arithmetic_asian_put_tw;
+//!
+//! let spot = 100.0;
+//! let strike = 100.0;
+//! let time = 0.5;        // 6 months
+//! let rate = 0.05;
+//! let div_yield = 0.0;
+//! let vol = 0.25;
+//! let num_fixings = 126;  // ~Daily fixings
+//!
+//! // Turnbull-Wakeman approximation
+//! let price = arithmetic_asian_put_tw(
+//!     spot, strike, time, rate, div_yield, vol, num_fixings
+//! );
+//!
+//! assert!(price > 0.0);
+//! ```
+//!
+//! # See Also
+//!
+//! - [`AsianPriceResult`] for result structure with optional Greeks
+//! - [`AsianGreeks`] for first-order sensitivities
+//! - Monte Carlo pricing for exact arithmetic average pricing
 
 use finstack_core::math::special_functions::norm_cdf;
 

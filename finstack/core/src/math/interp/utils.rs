@@ -1,4 +1,7 @@
-//! Shared helpers for interpolation (pure math, no market_data deps).
+//! Shared validation and search utilities for interpolators.
+//!
+//! Provides common helpers for knot validation, segment location, and
+//! monotonicity checking used across all interpolation implementations.
 
 use crate::{error::InputError, Error};
 

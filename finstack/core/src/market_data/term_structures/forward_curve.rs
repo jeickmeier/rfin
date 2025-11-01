@@ -1,11 +1,46 @@
-//! Forward-rate curve for a fixed-tenor index (e.g. 3-month SOFR).
+//! Forward rate curves for floating-rate indices.
 //!
-//! Stores simple forward rates at knot times and interpolates them with a
-//! chosen [`crate::math::interp::InterpStyle`].  Implements
-//! [`crate::market_data::traits::Forward`] which provides helper methods such
-//! as [`crate::market_data::traits::Forward::rate_period`].
+//! A forward curve represents expected future interest rates for a specific
+//! index (e.g., 3-month SOFR, 6-month EURIBOR). These curves are essential
+//! for pricing floating-rate instruments and calculating forward-looking
+//! cash flows in swaps and floating-rate notes.
 //!
-//! ## Example
+//! # Financial Concept
+//!
+//! The forward rate f(t₁, t₂) is the rate agreed today for borrowing/lending
+//! from time t₁ to t₂:
+//! ```text
+//! f(t₁, t₂) = [DF(t₁) / DF(t₂) - 1] / (t₂ - t₁)
+//!
+//! For a fixed-tenor index (e.g., 3M):
+//! f(t) = forward rate resetting at time t for the index tenor
+//! ```
+//!
+//! # Market Construction
+//!
+//! Forward curves are typically bootstrapped from:
+//! - **Futures**: SOFR futures, Eurodollar futures (liquid up to ~5 years)
+//! - **FRA** (Forward Rate Agreements): OTC quotes for forward rates
+//! - **Swaps**: Float leg expectations from swap rates
+//! - **Basis spreads**: Tenor basis between different index tenors
+//!
+//! # Index Conventions
+//!
+//! Each index has specific conventions:
+//! - **SOFR**: Daily compounded in arrears, Act/360
+//! - **EURIBOR**: Simple rate, Act/360, 2-day spot lag
+//! - **SONIA**: Daily compounded in arrears, Act/365F
+//! - **TIBOR**: Simple rate, Act/365F
+//!
+//! # Use Cases
+//!
+//! - **Floating-rate note pricing**: Project future coupon payments
+//! - **Interest rate swap valuation**: Mark-to-market floating leg
+//! - **Cap/floor pricing**: Forward rates determine intrinsic value
+//! - **Basis swap pricing**: Spread between different index tenors
+//!
+//! # Examples
+//!
 //! ```rust
 //! use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 //! use finstack_core::math::interp::InterpStyle;
@@ -21,6 +56,16 @@
 //!     .unwrap();
 //! assert!(fc.rate(1.0) > 0.0);
 //! ```
+//!
+//! # References
+//!
+//! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives* (10th ed.).
+//!   Chapters 4-6 (Forward rates and curve construction).
+//! - Andersen, L., & Piterbarg, V. (2010). *Interest Rate Modeling*.
+//!   Volume 1, Chapter 3 (Multi-curve framework).
+//! - Ametrano, F. M., & Bianchetti, M. (2013). "Everything You Always Wanted to
+//!   Know About Multiple Interest Rate Curve Bootstrapping but Were Afraid to Ask."
+//!   SSRN Working Paper.
 
 use super::common::{build_interp, split_points};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
@@ -32,7 +77,21 @@ use crate::{
     types::CurveId,
 };
 
-/// Forward-rate curve for an index with fixed tenor (e.g. 3-month SOFR).
+/// Forward rate curve for a floating-rate index with fixed tenor.
+///
+/// Represents expected future interest rates for a specific index (e.g., 3-month
+/// SOFR, 6-month EURIBOR). Stores simple forward rates at knot times and
+/// interpolates between them.
+///
+/// # Index Components
+///
+/// - **Tenor**: Index accrual period (e.g., 0.25 years = 3 months)
+/// - **Reset lag**: Days from fixing date to effective date
+/// - **Day count**: Convention for accrual (usually Act/360 or Act/365F)
+///
+/// # Thread Safety
+///
+/// Immutable after construction; safe to share via `Arc<ForwardCurve>`.
 #[derive(Debug)]
 pub struct ForwardCurve {
     id: CurveId,

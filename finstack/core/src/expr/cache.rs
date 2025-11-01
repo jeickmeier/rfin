@@ -1,7 +1,8 @@
 //! Caching system for expression evaluation results.
 //!
-//! This module provides a multi-level cache for intermediate expression
-//! results to avoid recomputation in complex DAGs with shared sub-expressions.
+//! Provides LRU-based caching for intermediate expression results to avoid
+//! recomputation when evaluating complex DAGs with shared sub-expressions.
+//! Cache size is configurable and memory usage is tracked.
 
 use super::dag::ExecutionPlan;
 use lru::LruCache;

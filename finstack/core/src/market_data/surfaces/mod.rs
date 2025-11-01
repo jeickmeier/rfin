@@ -1,8 +1,12 @@
-//! Two-dimensional market-data surfaces (e.g., implied volatility grids).
+//! Two-dimensional market data surfaces.
 //!
-//! Currently only [`vol_surface::VolSurface`] is exposed, but the structure is
-//! intentionally modular so additional surface types (dividend yield, base
-//! correlation) can be added without reshuffling the public namespace.
+//! Provides 2D interpolation structures for market observables that vary by
+//! two parameters (e.g., volatility by strike and maturity). Currently supports
+//! volatility surfaces with planned expansion for correlation and dividend surfaces.
+//!
+//! # Surface Types
+//!
+//! - [`VolSurface`]: Implied volatility by strike and maturity (bilinear interpolation)
 //!
 //! # Examples
 //! ```rust

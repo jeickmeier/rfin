@@ -1,10 +1,44 @@
-//! Piece-wise constant credit *hazard curve* λ(t).
+//! Credit hazard rate curves for default probability modeling.
 //!
-//! The hazard rate is assumed constant between successive knot times making
-//! survival probabilities analytical and **fast** to compute.  The curve
-//! implements [`crate::market_data::traits::Survival`].
+//! A hazard curve represents the instantaneous probability of default (credit
+//! event) for a corporate or sovereign issuer. These curves are fundamental
+//! for pricing credit default swaps (CDS), corporate bonds, and credit derivatives.
 //!
-//! ## Example
+//! # Financial Concept
+//!
+//! The hazard rate λ(t) represents the instantaneous default intensity:
+//! ```text
+//! Survival probability: S(t) = P(τ > t) = exp(-∫₀ᵗ λ(s)ds)
+//! Default probability: Q(t) = 1 - S(t)
+//!
+//! For piecewise-constant λ:
+//! S(t) = exp(-Σ λᵢ * Δtᵢ)
+//! ```
+//!
+//! # Market Construction
+//!
+//! Hazard curves are typically bootstrapped from:
+//! - **CDS spreads**: Single-name CDS par spreads (market standard)
+//! - **Bond spreads**: Credit spread over risk-free benchmark
+//! - **Loan spreads**: Primary or secondary market loan pricing
+//! - **Recovery assumptions**: Typically 40% for senior unsecured
+//!
+//! # Piecewise-Constant Model
+//!
+//! This implementation assumes constant hazard rates between knots, which:
+//! - Provides analytical survival probabilities (no numerical integration)
+//! - Ensures positive default probabilities (λ ≥ 0)
+//! - Matches ISDA Standard CDS Model convention
+//!
+//! # Use Cases
+//!
+//! - **CDS pricing**: Protection and premium leg valuation
+//! - **Corporate bond pricing**: Credit spread decomposition
+//! - **CVA calculation**: Counterparty credit risk adjustment
+//! - **CDO/CLO pricing**: Constituent credit curves for tranches
+//!
+//! # Examples
+//!
 //! ```rust
 //! use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 //! use finstack_core::dates::Date;
@@ -16,8 +50,25 @@
 //!     .knots([(0.0, 0.01), (10.0, 0.015)])
 //!     .build()
 //!     .unwrap();
-//! assert!(hc.sp(5.0) < 1.0);
+//! assert!(hc.sp(5.0) < 1.0); // Survival probability < 1
 //! ```
+//!
+//! # References
+//!
+//! - **CDS Pricing**:
+//!   - O'Kane, D. (2008). *Modelling Single-name and Multi-name Credit Derivatives*.
+//!     Wiley Finance. Chapters 3-5.
+//!   - ISDA (2009). "ISDA CDS Standard Model." Version 1.8.2.
+//!
+//! - **Hazard Rate Models**:
+//!   - Duffie, D., & Singleton, K. J. (1999). "Modeling Term Structures of Defaultable
+//!     Bonds." *Review of Financial Studies*, 12(4), 687-720.
+//!   - Lando, D. (1998). "On Cox Processes and Credit Risky Securities."
+//!     *Review of Derivatives Research*, 2(2-3), 99-120.
+//!
+//! - **Industry Practice**:
+//!   - Markit (2009). "CDS Curve Bootstrapping Guide."
+//!   - Bloomberg (2013). "Credit Curve Construction and CDS Pricing Guide."
 
 use crate::{
     currency::Currency,
@@ -27,14 +78,33 @@ use crate::{
     types::CurveId,
 };
 
-/// Piecewise‐constant credit hazard curve.
+/// Piecewise-constant credit hazard curve for default probability modeling.
 ///
-/// λ(t) is assumed constant in each interval between knots. The survival
-/// probability is therefore
-/// `S(t) = exp(-∫_0^t λ(u) du)` which for piecewise‐constant λ simplifies
-/// to `exp(-∑ λ_i * Δt_i)`.
+/// Represents the instantaneous default intensity λ(t) for a credit issuer.
+/// Assumes constant hazard rate between knots, providing analytical survival
+/// probabilities without numerical integration.
 ///
-/// Use `to_state()` and `from_state()` for serialization.
+/// # Mathematical Model
+///
+/// ```text
+/// λ(t) = piecewise-constant hazard rate
+/// S(t) = exp(-∫₀ᵗ λ(s)ds) = exp(-Σ λᵢ * Δtᵢ)
+/// Q(t) = 1 - S(t) = cumulative default probability
+/// ```
+///
+/// # Invariants
+///
+/// - All hazard rates λᵢ ≥ 0 (enforced at construction)
+/// - Survival probability S(t) is monotonically decreasing
+/// - Recovery rate ∈ [0, 1] (typically 40% for senior unsecured)
+///
+/// # Serialization
+///
+/// Use `to_state()` and `from_state()` for persistence.
+///
+/// # Thread Safety
+///
+/// Immutable after construction; safe to share via `Arc<HazardCurve>`.
 #[derive(Debug)]
 pub struct HazardCurve {
     id: CurveId,

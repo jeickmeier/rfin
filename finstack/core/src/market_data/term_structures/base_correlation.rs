@@ -1,12 +1,45 @@
-//! Base correlation curve for CDS tranche pricing.
+//! Base correlation curves for CDO and CDS tranche pricing.
 //!
-//! Maps tranche detachment points to the implied base correlation used
-//! in the standardized base correlation pricing model. Base correlation
-//! represents the implied correlation of a tranche with attachment point
-//! of zero (equity tranche) and is used to maintain consistent pricing
-//! across different tranche structures.
+//! Base correlation is a market-standard model for pricing credit index tranches
+//! (CDX, iTraxx). It represents the implied correlation of each tranche with a
+//! notional equity tranche (0% attachment), providing a one-factor framework for
+//! consistent tranche pricing across different attachment/detachment points.
 //!
-//! ## Example
+//! # Financial Concept
+//!
+//! Base correlation maps detachment points to implied correlations:
+//! ```text
+//! For a tranche [K₁, K₂]:
+//! - Price [0, K₂] tranche using base correlation β(K₂)
+//! - Price [0, K₁] tranche using base correlation β(K₁)
+//! - Tranche price = Price[0,K₂] - Price[0,K₁]
+//! ```
+//!
+//! # Why Base Correlation?
+//!
+//! Base correlation solved the "correlation smile" problem where compound
+//! correlation (single correlation for each tranche) produced arbitrage:
+//! - **Monotonic**: Base correlation increases with detachment point
+//! - **No arbitrage**: Ensures consistent pricing across tranches
+//! - **Market standard**: Universally adopted post-2004
+//!
+//! # Market Construction
+//!
+//! Base correlation curves are calibrated from:
+//! - **Tranche spreads**: Market quotes for standardized tranches (0-3%, 3-7%, etc.)
+//! - **Index CDS**: Par spread for the underlying credit index
+//! - **Recovery assumptions**: Typically 40% for senior unsecured
+//! - **Copula model**: Usually one-factor Gaussian copula
+//!
+//! # Use Cases
+//!
+//! - **CDO tranche pricing**: Synthetic CDOs on credit indices
+//! - **Bespoke tranche pricing**: Custom attachment/detachment points
+//! - **Index tranche trading**: CDX/iTraxx tranche strategies
+//! - **Correlation trading**: Long/short different tranches
+//!
+//! # Examples
+//!
 //! ```rust
 //! use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 //!
@@ -16,16 +49,56 @@
 //!     .unwrap();
 //! assert!(curve.correlation(5.0) > 0.25);
 //! ```
+//!
+//! # References
+//!
+//! - **Base Correlation Framework**:
+//!   - McGinty, L., Beinstein, E., Ahluwalia, R., & Watts, M. (2004). "Introducing
+//!     Base Correlations." JPMorgan Credit Derivatives Strategy.
+//!   - O'Kane, D., & Livesey, M. (2004). "Base Correlation Explained." Lehman Brothers
+//!     Quantitative Credit Research Quarterly, Q1 2004.
+//!
+//! - **Copula Models**:
+//!   - Li, D. X. (2000). "On Default Correlation: A Copula Function Approach."
+//!     *Journal of Fixed Income*, 9(4), 43-54.
+//!   - Hull, J., & White, A. (2004). "Valuation of a CDO and an nth to Default CDS
+//!     Without Monte Carlo Simulation." *Journal of Derivatives*, 12(2), 8-23.
+//!
+//! - **Textbooks**:
+//!   - O'Kane, D. (2008). *Modelling Single-name and Multi-name Credit Derivatives*.
+//!     Wiley Finance. Chapters 6-8 (Tranche pricing and base correlation).
 
 use crate::error::InputError;
 use crate::types::CurveId;
 use crate::Result;
 
-/// A curve representing the base correlation for a credit index.
+/// Base correlation curve for CDO/CDS index tranche pricing.
 ///
-/// This curve maps detachment points (in percent) to the corresponding
-/// base correlation value. Uses linear interpolation between points and
-/// flat extrapolation beyond the boundaries.
+/// Maps tranche detachment points (in percent) to implied base correlations
+/// used in one-factor Gaussian copula models. Base correlation is the market
+/// standard for quoting credit index tranches (CDX, iTraxx).
+///
+/// # Model
+///
+/// Base correlation β(K) is defined such that:
+/// ```text
+/// Price of [0, K] tranche = f(β(K), other parameters)
+///
+/// For tranche [K₁, K₂]:
+/// Tranche value = Price[0,K₂](β(K₂)) - Price[0,K₁](β(K₁))
+/// ```
+///
+/// # Interpolation
+///
+/// - Linear interpolation between quoted detachment points
+/// - Flat extrapolation beyond curve boundaries
+/// - Ensures base correlation is monotonically increasing (validated at construction)
+///
+/// # Invariants
+///
+/// - Detachment points are strictly increasing
+/// - Correlations ∈ [0, 1]
+/// - Base correlation typically increases with detachment (equity < mezzanine < senior)
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]

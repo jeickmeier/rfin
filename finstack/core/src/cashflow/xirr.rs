@@ -1,33 +1,170 @@
-//! XIRR (Extended Internal Rate of Return) implementation.
+//! Extended Internal Rate of Return (XIRR) for irregular cashflows.
 //!
-//! Calculates the internal rate of return for a series of cash flows that may occur
-//! at irregular intervals. XIRR is widely used for evaluating investment returns
-//! when cash flows are not evenly spaced in time.
+//! XIRR generalizes the Internal Rate of Return (IRR) to handle cashflows that
+//! occur at irregular dates. This is the industry standard for measuring investment
+//! performance when contributions and withdrawals happen at arbitrary times.
+//!
+//! # Financial Context
+//!
+//! While traditional IRR assumes evenly-spaced periodic cashflows, XIRR uses
+//! actual dates and day count conventions to compute returns for:
+//! - Private equity investments with capital calls and distributions
+//! - Mutual fund portfolios with irregular contributions/withdrawals
+//! - Real estate projects with variable payment schedules
+//! - Venture capital fund performance measurement
+//!
+//! # Mathematical Definition
+//!
+//! XIRR is the annual rate r that solves:
+//! ```text
+//! Σ CF_i / (1 + r)^t_i = 0
+//!
+//! where:
+//!   CF_i = cashflow i
+//!   t_i = years from first cashflow to cashflow i (Act/365F convention)
+//! ```
+//!
+//! # Industry Standard
+//!
+//! XIRR is the standard metric defined by:
+//! - **CFA Institute**: Global Investment Performance Standards (GIPS®)
+//! - **Microsoft Excel**: XIRR function (de facto industry standard)
+//! - **Bloomberg**: IRR calculation for irregular cashflows
+//!
+//! # Implementation
+//!
+//! Uses Act/365F day count convention (matching Excel XIRR) and hybrid
+//! Newton-Brent solver for robust convergence.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use finstack_core::cashflow::xirr;
+//! use finstack_core::dates::Date;
+//! use time::Month;
+//!
+//! // Private equity investment example
+//! let cashflows = vec![
+//!     (Date::from_calendar_date(2023, Month::January, 15).unwrap(), -100_000.0), // Initial
+//!     (Date::from_calendar_date(2023, Month::June, 30).unwrap(), -50_000.0),     // Follow-on
+//!     (Date::from_calendar_date(2024, Month::March, 15).unwrap(), 75_000.0),     // Partial exit
+//!     (Date::from_calendar_date(2024, Month::December, 31).unwrap(), 95_000.0),  // Final exit
+//! ];
+//!
+//! let return_rate = xirr(&cashflows, None)?;
+//! assert!(return_rate > 0.0); // Positive return
+//! # Ok::<(), finstack_core::Error>(())
+//! ```
+//!
+//! # References
+//!
+//! - **XIRR Standard**:
+//!   - Microsoft Excel XIRR function specification (industry de facto standard)
+//!   - CFA Institute (2020). *Global Investment Performance Standards (GIPS®)*.
+//!
+//! - **Time-Weighted vs Money-Weighted Returns**:
+//!   - Dietz, P. O. (1966). "Pension Funds: Measuring Investment Performance."
+//!     *Free Press*.
+//!   - CFA Institute (2019). "Calculating and Using Time-Weighted and Money-Weighted
+//!     Rates of Return." CFA Program Curriculum, Level I.
 
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::error::InputError;
 use crate::math::solver::{HybridSolver, Solver};
 
-/// Calculates XIRR (Extended Internal Rate of Return) for a series of cash flows.
+/// Calculates XIRR (Extended Internal Rate of Return) for irregular cashflows.
 ///
-/// XIRR finds the discount rate that makes the net present value of all cash flows
-/// equal to zero. It's particularly useful for investments with irregular timing.
+/// XIRR finds the annualized discount rate that makes the net present value of
+/// all cashflows equal to zero, accounting for the actual dates of each cashflow.
+/// This is the standard metric for investment performance with irregular timing.
+///
+/// # Mathematical Definition
+///
+/// XIRR is the annual rate r that solves:
+/// ```text
+/// Σ CF_i / (1 + r)^t_i = 0
+///
+/// where:
+///   CF_i = cashflow i (negative for investments, positive for returns)
+///   t_i = year fraction from first cashflow to cashflow i (Act/365F)
+/// ```
 ///
 /// # Arguments
-/// * `cash_flows` - Vector of (date, amount) tuples. Negative amounts represent outflows,
-///   positive amounts represent inflows.
-/// * `guess` - Optional initial guess for the IRR (defaults to 0.1 = 10%)
+///
+/// * `cash_flows` - Vector of (date, amount) tuples in any order
+/// * `guess` - Optional initial guess for IRR (defaults to 0.1 = 10% annual)
 ///
 /// # Returns
-/// The XIRR as a decimal (e.g., 0.15 for 15% annual return)
+///
+/// Annual return as decimal (e.g., 0.15 for 15% per year)
+///
+/// # Day Count Convention
+///
+/// Uses Actual/365 Fixed to match Excel XIRR and industry practice.
+///
+/// # Examples
+///
+/// ## Mutual fund with irregular contributions
+///
+/// ```rust
+/// use finstack_core::cashflow::xirr;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let cashflows = vec![
+///     (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -10_000.0),
+///     (Date::from_calendar_date(2024, Month::April, 15).unwrap(), -5_000.0),
+///     (Date::from_calendar_date(2024, Month::October, 1).unwrap(), -3_000.0),
+///     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 19_500.0),
+/// ];
+///
+/// let annual_return = xirr(&cashflows, None)?;
+/// assert!(annual_return > 0.0);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
+///
+/// ## Private equity fund
+///
+/// ```rust
+/// use finstack_core::cashflow::xirr;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// // Capital calls and distributions
+/// let pe_cashflows = vec![
+///     (Date::from_calendar_date(2020, Month::March, 1).unwrap(), -1_000_000.0),  // Call 1
+///     (Date::from_calendar_date(2020, Month::September, 1).unwrap(), -500_000.0), // Call 2
+///     (Date::from_calendar_date(2022, Month::June, 15).unwrap(), 750_000.0),      // Dist 1
+///     (Date::from_calendar_date(2024, Month::December, 31).unwrap(), 1_200_000.0), // Exit
+/// ];
+///
+/// let fund_irr = xirr(&pe_cashflows, None)?;
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 ///
 /// # Errors
-/// Returns an error if:
-/// - Less than 2 cash flows provided
-/// - No sign change in cash flows (all positive or all negative)
-/// - Cannot converge to a solution within tolerance
 ///
-/// See unit tests and `examples/` for usage.
+/// Returns error if:
+/// - Less than 2 cashflows provided
+/// - All cashflows have the same sign (no investment/return pattern)
+/// - Solver fails to converge (rare; try adjusting initial guess)
+///
+/// # Limitations
+///
+/// - **Reinvestment assumption**: Assumes intermediate cashflows reinvested at XIRR
+/// - **Multiple solutions**: Non-conventional cashflows may have multiple IRRs
+/// - **No solution**: Some cashflow patterns have no real IRR
+///
+/// # References
+///
+/// - **XIRR Standard**:
+///   - Microsoft Excel XIRR function (industry de facto standard)
+///   - CFA Institute (2020). *Global Investment Performance Standards (GIPS®)*.
+///
+/// - **Performance Measurement**:
+///   - Dietz, P. O. (1966). *Pension Funds: Measuring Investment Performance*. Free Press.
+///   - Bacon, C. R. (2008). *Practical Portfolio Performance Measurement and Attribution*
+///     (2nd ed.). Wiley. Chapter 2.
 pub fn xirr(cash_flows: &[(Date, f64)], guess: Option<f64>) -> crate::Result<f64> {
     // Validate inputs
     if cash_flows.len() < 2 {

@@ -55,22 +55,35 @@ impl Default for SeriesInterpolation {
     }
 }
 
-/// A single market scalar which can be unitless or a price in a currency.
+/// Single market observable that doesn't require a full curve.
 ///
-/// Scalars are frequently used for simple quotes (spots, spreads, recovery
-/// assumptions) that do not warrant a full term structure.
+/// Represents point-in-time market data like spot prices, spreads, or unitless
+/// parameters. Stored in [`MarketContext`](crate::market_data::MarketContext)
+/// alongside curves for simple lookups.
+///
+/// # Use Cases
+///
+/// - **Spot prices**: Equity spots, commodity prices, FX spots
+/// - **Recovery rates**: Credit recovery assumptions (unitless)
+/// - **Correlation parameters**: Equity-FX correlation, basis correlations
+/// - **Spreads**: Credit spreads, basis spreads (unitless or monetary)
+/// - **Multipliers**: Beta, vega notionals, adjustment factors
 ///
 /// # Examples
+///
 /// ```rust
 /// use finstack_core::market_data::scalars::MarketScalar;
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
 ///
-/// let unitless = MarketScalar::Unitless(0.75);
-/// let priced = MarketScalar::Price(Money::new(99.5, Currency::USD));
+/// // Equity beta (unitless)
+/// let beta = MarketScalar::Unitless(1.2);
 ///
-/// assert!(matches!(unitless, MarketScalar::Unitless(_)));
-/// if let MarketScalar::Price(m) = priced {
+/// // Spot price (with currency)
+/// let spot = MarketScalar::Price(Money::new(152.75, Currency::USD));
+///
+/// assert!(matches!(beta, MarketScalar::Unitless(_)));
+/// if let MarketScalar::Price(m) = spot {
 ///     assert_eq!(m.currency(), Currency::USD);
 /// }
 /// ```
@@ -84,30 +97,52 @@ pub enum MarketScalar {
     Price(crate::money::Money),
 }
 
-/// Generic date-indexed time series with configurable interpolation.
+/// Date-indexed time series with flexible interpolation.
 ///
-/// Stores observations in a lightweight columnar format optimized for
-/// time-series lookups with step or linear interpolation.
+/// Provides lightweight storage for historical or forecast data with step or
+/// linear interpolation. Unlike full term structures, this is optimized for
+/// sparse, irregularly-spaced observations.
+///
+/// # Storage
+///
+/// Uses columnar format with parallel arrays:
+/// - Dates stored as i32 (days since Unix epoch) for compact size
+/// - Values stored as f64
+/// - Binary search for O(log n) lookup
+///
+/// # Interpolation
+///
+/// - **Step**: Last observation carried forward (LOCF)
+/// - **Linear**: Linear interpolation between observations
+///
+/// # Use Cases
+///
+/// - **Economic indicators**: GDP, unemployment rate, PMI
+/// - **Credit metrics**: Historical credit spreads, CDS levels
+/// - **Commodity fundamentals**: Inventory levels, production data
+/// - **Any sparse time series**: Where full curve infrastructure is overkill
 ///
 /// # Examples
+///
 /// ```rust
 /// use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///
 /// let series = ScalarTimeSeries::new(
-///     "US CPI",
+///     "US-UNEMPLOYMENT",
 ///     vec![
-///         (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 100.0),
-///         (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 101.2),
+///         (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 3.7),
+///         (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 3.9),
 ///     ],
 ///     None,
 /// )
 /// .unwrap()
 /// .with_interpolation(SeriesInterpolation::Linear);
+///
 /// let mid = Date::from_calendar_date(2024, Month::February, 14).unwrap();
 /// let interpolated = series.value_on(mid).unwrap();
-/// assert!(interpolated > 100.0);
+/// assert!(interpolated > 3.7 && interpolated < 3.9);
 /// ```
 #[derive(Clone, Debug)]
 pub struct ScalarTimeSeries {

@@ -1,46 +1,75 @@
-//! IMM (International Money Market) / quarterly date helpers.
+//! IMM (International Money Market) and quarterly roll date helpers.
 //!
-//! Provides small utility functions for working with standard futures & CDS
-//! roll dates used throughout derivative markets:
+//! Provides deterministic, allocation-free utilities for computing standard
+//! futures roll dates, CDS settlement dates, and option expiry dates used
+//! throughout global derivative markets.
 //!
-//! * `third_wednesday(month, year)` – returns the **third Wednesday** of the
-//!   given month in the specified Gregorian calendar year.
-//! * `next_imm(date)` – returns the **next IMM date** (third Wednesday of
-//!   March, June, September or December) *strictly after* the supplied `date`.
-//! * `next_cds_date(date)` – returns the **next CDS IMM date** (20-Mar, 20-Jun,
-//!   20-Sep, 20-Dec) *strictly after* the supplied `date`.
-//! * `imm_option_expiry(month, year)` – returns the **IMM option expiry date**
-//!   (Friday before the third Wednesday) for the given month in the specified year.
-//! * `third_friday(month, year)` – returns the **third Friday** of the
-//!   given month in the specified Gregorian calendar year.
-//! * `next_imm_option_expiry(date)` – returns the **next IMM option expiry date**
-//!   *strictly after* the supplied `date`.
-//! * `next_equity_option_expiry(date)` – returns the **next equity option expiry date**
-//!   (third Friday of any month) *strictly after* the supplied `date`.
+//! # Features
 //!
-//! All helpers allocate no heap memory and are
-//! panic-free for valid Gregorian dates within the supported `time` range.
+//! - **IMM dates**: Third Wednesday of March, June, September, December
+//! - **CDS IMM dates**: 20th of March, June, September, December
+//! - **Option expiry**: Friday before IMM date (futures options)
+//! - **Equity expiry**: Third Friday of every month
+//! - **Zero allocation**: All functions are stack-only
+//! - **Panic-free**: Safe for all valid `time::Date` ranges
 //!
-//! # Examples
-//! ```
-//! use finstack_core::dates::{third_wednesday, next_imm, next_cds_date, imm_option_expiry, third_friday, next_equity_option_expiry};
+//! # Background
+//!
+//! The International Money Market (IMM) dates are standardized quarterly
+//! roll dates used for futures contracts (interest rate futures, currency
+//! futures, equity index futures) and credit default swaps. These dates
+//! ensure coordinated settlement across global derivatives markets.
+//!
+//! ## IMM Dates (Third Wednesday)
+//!
+//! - Used by: CME futures, CBOE index options, many OTC derivatives
+//! - Convention: Third Wednesday of March, June, September, December
+//! - Example: March 19, 2025 is an IMM date
+//!
+//! ## CDS IMM Dates (20th of Quarter Month)
+//!
+//! - Used by: Credit default swaps, credit indices (CDX, iTraxx)
+//! - Convention: 20th of March, June, September, December
+//! - Rationale: Standardized by ISDA Big Bang Protocol (2009)
+//!
+//! ## Option Expiry Dates
+//!
+//! - **IMM option expiry**: Friday before third Wednesday (futures options)
+//! - **Equity option expiry**: Third Friday of every month (equity derivatives)
+//!
+//! # Quick Example
+//!
+//! ```rust
+//! use finstack_core::dates::{third_wednesday, next_imm, next_cds_date};
 //! use time::{Date, Month};
 //!
-//! let d = third_wednesday(Month::March, 2025);
-//! assert_eq!(d, Date::from_calendar_date(2025, Month::March, 19).unwrap());
+//! // IMM date for a specific month
+//! let imm_march = third_wednesday(Month::March, 2025);
+//! assert_eq!(imm_march, Date::from_calendar_date(2025, Month::March, 19).unwrap());
 //!
-//! let imm = next_imm(Date::from_calendar_date(2025, Month::March, 20).unwrap());
-//! assert_eq!(imm, Date::from_calendar_date(2025, Month::June, 18).unwrap());
+//! // Find next IMM date after a given date
+//! let date = Date::from_calendar_date(2025, Month::March, 20).unwrap();
+//! let next = next_imm(date);
+//! assert_eq!(next, Date::from_calendar_date(2025, Month::June, 18).unwrap());
 //!
+//! // CDS settlement date
 //! let cds = next_cds_date(Date::from_calendar_date(2025, Month::March, 10).unwrap());
 //! assert_eq!(cds, Date::from_calendar_date(2025, Month::March, 20).unwrap());
-//!
-//! let option_expiry = imm_option_expiry(Month::March, 2025);
-//! assert_eq!(option_expiry, Date::from_calendar_date(2025, Month::March, 14).unwrap());
-//!
-//! let equity_expiry = third_friday(Month::March, 2025);
-//! assert_eq!(equity_expiry, Date::from_calendar_date(2025, Month::March, 21).unwrap());
 //! ```
+//!
+//! # Standards Reference
+//!
+//! - **IMM dates**: CME Group contract specifications
+//! - **CDS dates**: ISDA Big Bang Protocol (April 2009), ISDA CDS Standard Model
+//! - **Equity options**: CBOE, major equity exchanges worldwide
+//!
+//! # See Also
+//!
+//! - [`ScheduleBuilder::cds_imm`] for building CDS payment schedules
+//! - [`next_imm`] for finding the next quarterly IMM date
+//! - [`next_cds_date`] for CDS settlement date calculation
+//!
+//! [`ScheduleBuilder::cds_imm`]: super::ScheduleBuilder::cds_imm
 
 use crate::dates::calendar::generated::nth_weekday_of_month;
 use time::{Date, Duration, Month, Weekday};

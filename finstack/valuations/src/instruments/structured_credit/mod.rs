@@ -1,21 +1,174 @@
-//! Unified structured credit instrument module.
+//! Structured credit instruments: ABS, RMBS, CMBS, and CLO with waterfall modeling.
 //!
-//! This module consolidates the previously separate ABS, CLO, CMBS, and RMBS
-//! implementations into a single `StructuredCredit` type, eliminating ~1,400 lines
-//! of near-duplicate code.
+//! Provides comprehensive modeling for asset-backed securities with:
+//! - Collateral pool management (prepayment, default, recovery)
+//! - Multi-tranche capital structure with seniority
+//! - Sequential-pay and pro-rata waterfall logic
+//! - Overcollateralization and coverage tests
+//! - Deal-specific metrics (WAL, WARF, WAS, DSCR, LTV)
+//!
+//! This unified implementation consolidates ABS, RMBS, CMBS, and CLO into a single
+//! `StructuredCredit` type with deal-type-specific behaviors, eliminating ~1,400 lines
+//! of duplicate code while maintaining full feature parity.
+//!
+//! # Structured Credit Overview
+//!
+//! Structured credit securities are backed by pools of loans or receivables,
+//! with cashflows distributed to multiple tranches based on seniority and
+//! performance triggers. The fundamental structure:
+//!
+//! **Assets → Pool Cashflows → Waterfall → Tranches**
+//!
+//! # Deal Types
+//!
+//! ## ABS (Asset-Backed Securities)
+//! - **Collateral**: Auto loans, credit cards, student loans, equipment leases
+//! - **Prepayment**: CPR or ABS speed curve
+//! - **Default**: CDR with severity
+//! - **Key metrics**: Charge-off rate, delinquency, excess spread
+//!
+//! ## RMBS (Residential Mortgage-Backed Securities)
+//! - **Collateral**: Residential mortgages
+//! - **Prepayment**: PSA model (Public Securities Association curve)
+//! - **Default**: SDA model (Standard Default Assumption)
+//! - **Key metrics**: FICO score, LTV, WAC, WAM
+//!
+//! ## CMBS (Commercial Mortgage-Backed Securities)
+//! - **Collateral**: Commercial real estate mortgages
+//! - **Prepayment**: Lockout, defeasance, yield maintenance
+//! - **Default**: Property-level modeling
+//! - **Key metrics**: DSCR (debt service coverage), LTV, property type concentration
+//!
+//! ## CLO (Collateralized Loan Obligations)
+//! - **Collateral**: Leveraged loans (typically BB/B rated)
+//! - **Prepayment**: Loan repayment and refinancing
+//! - **Default**: Obligor default with recovery
+//! - **Key metrics**: WARF (weighted average rating factor), WAS (weighted average spread)
+//!
+//! # Waterfall Mechanics
+//!
+//! Cashflows from the collateral pool are distributed via waterfall:
+//!
+//! 1. **Fees**: Servicing, trustee, management fees
+//! 2. **Senior interest**: Most senior tranche gets interest
+//! 3. **Subordinate interest**: Lower tranches get interest (if coverage tests pass)
+//! 4. **Principal**: Sequential-pay (senior first) or pro-rata
+//! 5. **Equity**: Residual to equity tranche
+//!
+//! ## Sequential Pay
+//! Principal pays down tranches in order of seniority until fully redeemed.
+//!
+//! ## Pro Rata
+//! Principal distributed proportionally across tranches.
+//!
+//! ## Coverage Tests
+//! If tests fail, principal may be redirected to senior tranches (turbo):
+//! - **OC test**: Overcollateralization ratio
+//! - **IC test**: Interest coverage ratio
+//!
+//! # Pricing Methodology
+//!
+//! Structured credit pricing requires:
+//!
+//! 1. **Pool cashflow projection**: Apply prepayment/default/recovery models
+//! 2. **Waterfall execution**: Distribute pool cashflows per deal rules
+//! 3. **Tranche valuation**: Discount tranche cashflows at appropriate spread
+//!
+//! ```text
+//! Tranche_PV = Σ Tranche_CF(t) × DF(t, spread)
+//! ```
+//!
+//! # Behavioral Models
+//!
+//! ## Prepayment Models
+//! - **PSA (RMBS)**: Public Securities Association curve (100% PSA = 0.2% → 6% CPR over 30 months)
+//! - **CPR (General)**: Constant prepayment rate
+//! - **ABS speed**: Deal-specific speed curves
+//!
+//! ## Default Models
+//! - **CDR**: Constant default rate
+//! - **SDA (RMBS)**: Standard Default Assumption curve
+//! - **Vintage curves**: Historical cohort performance
+//!
+//! ## Recovery Models
+//! - **Constant severity**: Fixed loss given default (e.g., 40%)
+//! - **Time-varying**: Recovery varies with market conditions
+//! - **Collateral-based**: Recovery from underlying asset value
+//!
+//! # Key Metrics by Deal Type
+//!
+//! **ABS Metrics:**
+//! - Charge-off rate, Delinquency rate, Excess spread, Speed
+//!
+//! **RMBS Metrics:**
+//! - Weighted average FICO, Weighted average LTV, WAC, WAM, CPR, CDR
+//!
+//! **CMBS Metrics:**
+//! - DSCR, LTV, Property type concentration, WAC
+//!
+//! **CLO Metrics:**
+//! - WARF (rating factor), WAS (spread), Obligor concentration, Covenant compliance
+//!
+//! **Common Metrics:**
+//! - WAL (weighted average life), Duration, Convexity, Z-spread, OAS
+//! - DV01, CS01, Prepayment01, Default01, Recovery01, Severity01
+//!
+//! # References
+//!
+//! ## Industry Standards
+//!
+//! - S&P Global Ratings. "CDO Evaluator Applies Correlation and Monte Carlo
+//!   Simulation to Determine Portfolio Quality." Ratings Direct, various editions.
+//!
+//! - Moody's Investors Service. "WARF®: Measuring Portfolio Credit Risk in CLOs."
+//!   Special Comment, December 2009.
+//!
+//! ## Academic References
+//!
+//! - Hu, J. (2007). "Assessing the Credit Risk of CDOs Backed by Structured Finance
+//!   Securities: Rating Analysts' Challenges and Solutions." *Working Paper*, Federal
+//!   Reserve Bank of Chicago.
+//!
+//! - Duffie, D., & Gârleanu, N. (2001). "Risk and Valuation of Collateralized Debt
+//!   Obligations." *Financial Analysts Journal*, 57(1), 41-59.
+//!
+//! - Goodman, L. S., Li, S., Lucas, D. J., Zimmerman, T. A., & Fabozzi, F. J. (2008).
+//!   *Subprime Mortgage Credit Derivatives*. Wiley.
+//!
+//! ## Prepayment and Default Models
+//!
+//! - PSA Standard: Public Securities Association (1985). "PSA Prepayment Model."
+//!
+//! - Schwartz, E. S., & Torous, W. N. (1989). "Prepayment and the Valuation of
+//!   Mortgage-Backed Securities." *Journal of Finance*, 44(2), 375-392.
+//!
+//! # Implementation Notes
+//!
+//! - **Unified type**: Single `StructuredCredit` handles all deal types
+//! - **Deal-specific behavior**: Controlled via `DealType` enum
+//! - **Waterfall engine**: Generic waterfall with configurable rules
+//! - **Performance**: Optimized for repeated scenario analysis
+//! - **Serialization**: Full serde support for deal specifications
 //!
 //! # Module Organization
 //!
-//! - `components/`: All structural and behavioral building blocks
-//!   - Structural: enums, pool, tranches, waterfall, coverage_tests
-//!   - Behavioral: specs (prepayment/default/recovery), market_context
-//!   - Valuation: tranche_valuation, rates
-//! - `metrics/`: Risk and valuation metrics organized by category
-//! - `types.rs`: Main StructuredCredit instrument type
-//! - `pricer.rs`: Pricing and valuation logic
-//! - `config.rs`: Constants and deal configuration
-//! - `utils.rs`: Date utilities, rating factors, reinvestment
-//! - `instrument_trait.rs`: Internal trait for cashflow generation
+//! - [`components`]: Structural elements (pool, tranches, waterfall, coverage tests)
+//! - [`metrics`]: Risk metrics organized by category (pricing, risk, pool, deal-specific)
+//! - [`types`]: Main `StructuredCredit` instrument type
+//! - [`pricer`]: Waterfall execution and valuation
+//! - [`config`]: Deal configuration, fees, and industry constants
+//! - [`utils`]: Rating factors, reinvestment logic, date utilities
+//!
+//! # See Also
+//!
+//! - [`StructuredCredit`] for main instrument struct
+//! - [`DealType`] for ABS/RMBS/CMBS/CLO specification
+//! - [`AssetPool`] for collateral pool modeling
+//! - [`Tranche`] for tranche structure
+//! - [`WaterfallEngine`] for cashflow distribution
+//! - [`PrepaymentModelSpec`] for prepayment behavior
+//! - [`DefaultModelSpec`] for default behavior
+//! - [`RecoveryModelSpec`] for recovery modeling
 
 pub mod components;
 pub mod config;

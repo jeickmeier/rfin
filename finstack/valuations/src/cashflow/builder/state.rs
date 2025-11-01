@@ -12,6 +12,7 @@
 //! use finstack_core::money::Money;
 //! use finstack_valuations::cashflow::builder::{CashFlowSchedule, FixedCouponSpec, CouponType};
 //! use time::Month;
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!
 //! let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 //! let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
@@ -29,6 +30,8 @@
 //! let schedule = b.build()
 //!     .map_err(|e| format!("Failed to build cashflow schedule: {}", e))?;
 //! assert!(!schedule.flows.is_empty());
+//! # Ok(())
+//! # }
 //! ```
 
 use super::schedule::{finalize_flows, CashFlowSchedule};

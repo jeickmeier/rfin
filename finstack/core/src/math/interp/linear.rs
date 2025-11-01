@@ -1,9 +1,11 @@
 use super::InterpFn;
 use crate::{error::InputError, math::interp::ExtrapolationPolicy};
 
-/// Piece-wise linear interpolation on discount factors.
+/// Piecewise linear interpolation on discount factors.
 ///
-/// See unit tests and `examples/` for usage.
+/// Simple linear interpolation between knot points. Fast and straightforward
+/// but may produce negative forward rates (arbitrage) if discount factors
+/// aren't carefully spaced. Prefer LogLinear or MonotoneConvex for yield curves.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LinearDf {

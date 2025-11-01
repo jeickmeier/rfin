@@ -1,8 +1,14 @@
-//! Minimal traits for market data polymorphism
+//! Minimal traits for market data polymorphism.
 //!
-//! After collapsing trait hierarchies, these traits exist only where
-//! true polymorphism is needed. Most functionality is now directly
-//! implemented on concrete types for better API discoverability.
+//! Defines lightweight trait interfaces for discount curves, forward curves,
+//! and survival curves. These traits enable polymorphic pricing code while
+//! keeping most functionality as concrete methods for better discoverability.
+//!
+//! # Design Philosophy
+//!
+//! - **Minimal trait surface**: Only methods needed for polymorphism
+//! - **Concrete types preferred**: Most methods live on concrete curve types
+//! - **Zero-cost abstraction**: Trait objects use dynamic dispatch only when needed
 
 use crate::dates::Date;
 

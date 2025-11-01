@@ -1,26 +1,90 @@
-//! Holiday calendar system with clean implementations.
+//! Holiday calendar system for financial markets.
 //!
-//! ## Overview
+//! Provides deterministic, high-performance holiday calendars for scheduling
+//! cashflows, adjusting payment dates, and validating business days across
+//! global financial markets.
 //!
-//! This module provides a clean, unified holiday calendar system based on:
-//! - JSON-defined calendar rules in `data/calendars/`
-//! - A single `Calendar` struct for all calendars
-//! - Rule-based holiday evaluation with optional bitset optimization
-//! - Composite calendar support for combining multiple calendars
+//! # Features
 //!
-//! ## Supported Date Range
+//! - **100+ market calendars**: Major exchanges, central banks, and settlement systems
+//! - **Rule-based definitions**: JSON-defined rules for transparency and auditability
+//! - **Bitset optimization**: O(1) lookup for years 1970-2150
+//! - **Composite calendars**: Combine multiple calendars for multi-currency schedules
+//! - **Business day adjustments**: Following, Modified Following, Preceding conventions
+//! - **Zero allocation**: Calendar lookups use stack memory only
 //!
-//! Holiday calendars are optimized for years **1970-2150** using generated bitsets.
-//! Years outside this range fall back to runtime rule evaluation.
+//! # Supported Date Range
 //!
-//! ## Semantics
+//! Holiday calendars are optimized for years **1970-2150** using pre-computed
+//! bitsets. Years outside this range fall back to runtime rule evaluation
+//! (slower but still correct).
 //!
-//! - "Holiday" refers to non-working dates as defined by a specific market
-//!   calendar. Many calendars also label weekends as holidays for convenience,
-//!   while some intentionally ignore weekends in `is_holiday`.
-//! - Independent of the above, [`HolidayCalendar::is_business_day`] always treats
-//!   Saturday/Sunday as non-business days and defers to `is_holiday` for market-specific closures.
-//! - Prefer `is_business_day` for scheduling and adjustment logic.
+//! # Key Concepts
+//!
+//! ## Holiday vs. Business Day
+//!
+//! - **Holiday**: Non-working date as defined by a specific market calendar
+//!   (e.g., Christmas, Lunar New Year, bank holidays)
+//! - **Business day**: Any day that is not a weekend (Saturday/Sunday) AND not
+//!   a market-specific holiday
+//!
+//! Many calendars include weekends in their holiday definitions for convenience,
+//! while others intentionally omit them. Regardless, [`HolidayCalendar::is_business_day`]
+//! always treats Saturday/Sunday as non-business days.
+//!
+//! **Guideline**: Use `is_business_day` for scheduling and date adjustments.
+//! Use `is_holiday` only when you need market-specific holiday information.
+//!
+//! # Quick Example
+//!
+//! ```rust
+//! use finstack_core::dates::{adjust, BusinessDayConvention, HolidayCalendar};
+//! use finstack_core::dates::calendar::registry::CalendarRegistry;
+//! use time::{Date, Month};
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!
+//! // Get New York Stock Exchange calendar
+//! let nyse = CalendarRegistry::global()
+//!     .resolve_str("nyse")
+//!     .ok_or("NYSE calendar not found")?;
+//!
+//! // Check if a date is a business day
+//! let date = Date::from_calendar_date(2025, Month::December, 25)?;
+//! assert!(!nyse.is_business_day(date)); // Christmas is not a business day
+//!
+//! // Adjust date to next business day
+//! let adjusted = adjust(date, BusinessDayConvention::Following, nyse)?;
+//! assert_eq!(adjusted, Date::from_calendar_date(2025, Month::December, 26)?);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Calendar Types
+//!
+//! - **Exchange calendars**: NYSE, LSE, TSE, HKEX, etc.
+//! - **Settlement calendars**: TARGET (Eurozone), USGS (US Government Securities)
+//! - **Central bank calendars**: Federal Reserve, ECB, BOE, BOJ
+//! - **Country calendars**: Nationwide holidays (US, UK, JP, etc.)
+//!
+//! # Architecture
+//!
+//! - [`rule`]: Rule-based holiday definitions (Easter, IMM, lunar calendars)
+//! - [`registry`]: Calendar registration and lookup system
+//! - [`business_days`]: Business day adjustment and counting
+//! - [`composite`]: Multi-calendar union support
+//! - [`generated`]: Build-time generated bitsets for performance
+//!
+//! # See Also
+//!
+//! - [`HolidayCalendar`] for the core trait
+//! - [`get_calendar`] for calendar lookup by name
+//! - [`BusinessDayConvention`] for adjustment conventions
+//! - [`CompositeCalendar`] for combining calendars
+//!
+//! [`HolidayCalendar`]: business_days::HolidayCalendar
+//! [`get_calendar`]: registry::get_calendar
+//! [`BusinessDayConvention`]: business_days::BusinessDayConvention
+//! [`CompositeCalendar`]: composite::CompositeCalendar
 
 pub(crate) mod algo;
 pub mod business_days;

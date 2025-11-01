@@ -1,8 +1,23 @@
-//! Bilinear-interpolated implied-volatility surface.
+//! Implied volatility surface with bilinear interpolation.
 //!
-//! The surface is defined on a rectangular grid of *option expiry* × *strike*
-//! nodes.  Values between nodes are obtained via **bilinear interpolation**
-//! which is smooth enough for risk engines while staying computationally cheap.
+//! Represents market-implied volatility as a function of option maturity and
+//! strike. Uses bilinear interpolation on a rectangular grid, providing smooth
+//! vega and volga calculations for options Greeks.
+//!
+//! # Financial Context
+//!
+//! Volatility surfaces capture the volatility smile/skew observed in options
+//! markets. The surface shape reflects market views on:
+//! - **Strike dimension**: Implied probability distribution (skew)
+//! - **Maturity dimension**: Term structure of volatility
+//! - **Surface dynamics**: Sticky strike vs sticky delta behavior
+//!
+//! # Interpolation
+//!
+//! Bilinear interpolation provides:
+//! - C⁰ continuity (smooth values, discontinuous first derivatives)
+//! - Fast evaluation for pricing and Greeks
+//! - No spurious oscillations (unlike higher-order methods)
 //!
 //! # Examples
 //! ```rust
@@ -222,6 +237,7 @@ impl VolSurface {
     /// # Examples
     /// ```rust
     /// use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     ///
     /// let surface = VolSurface::builder("EQ-VOL")
     ///     .expiries(&[1.0, 2.0])
@@ -234,6 +250,8 @@ impl VolSurface {
     /// // Bump vol at (1.5 years, 100.0 strike) by 1%
     /// let bumped = surface.bump_point(1.5, 100.0, 0.01)?;
     /// assert!(bumped.value(1.5, 100.0) > surface.value(1.5, 100.0));
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn bump_point(&self, expiry: f64, strike: f64, bump_pct: f64) -> crate::Result<Self> {
         // Clamp to grid bounds

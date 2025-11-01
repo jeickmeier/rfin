@@ -1,16 +1,81 @@
-//! Geometric Brownian Motion (GBM) process.
+//! Geometric Brownian Motion (GBM) process for equity and FX simulation.
 //!
-//! Implements the standard model for equity/FX under risk-neutral measure:
+//! Implements the standard stochastic differential equation for asset prices
+//! under the risk-neutral measure. This is the fundamental process underlying
+//! the Black-Scholes-Merton framework.
+//!
+//! # Stochastic Differential Equation
+//!
+//! Under the risk-neutral measure ℚ:
 //!
 //! ```text
 //! dS_t = (r - q) S_t dt + σ S_t dW_t
 //! ```
 //!
 //! where:
-//! - r = risk-free rate
-//! - q = dividend/foreign rate
-//! - σ = volatility
-//! - W_t = Brownian motion
+//! - **S_t**: Asset price at time t
+//! - **r**: Risk-free interest rate (continuously compounded)
+//! - **q**: Dividend yield (equity) or foreign rate (FX)
+//! - **σ**: Volatility (constant in standard GBM)
+//! - **W_t**: Standard Brownian motion under ℚ
+//!
+//! # Exact Simulation
+//!
+//! GBM admits exact simulation without discretization bias. The solution is:
+//!
+//! ```text
+//! S_{t+Δt} = S_t · exp[(r - q - σ²/2)Δt + σ√Δt · Z]
+//! ```
+//!
+//! where Z ~ N(0,1). This is **unbiased** regardless of step size Δt.
+//!
+//! # Applications
+//!
+//! - **Equity options**: Standard model for single-stock options
+//! - **FX options**: Garman-Kohlhagen model (GBM with two rates)
+//! - **Index options**: Assuming constant dividend yield
+//! - **Commodity options**: With convenience yield q
+//!
+//! # Limitations
+//!
+//! GBM assumes:
+//! - Constant volatility (no smile/skew)
+//! - Lognormal returns (no jumps)
+//! - Continuous trading
+//! - No transaction costs
+//!
+//! For more realistic models, see:
+//! - [`HestonProcess`](super::heston::HestonProcess) for stochastic volatility
+//! - [`BatesProcess`](super::bates::BatesProcess) for jumps + stochastic vol
+//! - Local volatility models for calibrated smiles
+//!
+//! # References
+//!
+//! - Black, F., & Scholes, M. (1973). "The Pricing of Options and Corporate
+//!   Liabilities." *Journal of Political Economy*, 81(3), 637-654.
+//!
+//! - Merton, R. C. (1973). "Theory of Rational Option Pricing."
+//!   *Bell Journal of Economics and Management Science*, 4(1), 141-183.
+//!
+//! - Glasserman, P. (2003). *Monte Carlo Methods in Financial Engineering*.
+//!   Springer. Section 3.1: Generating Sample Paths. pp. 97-103.
+//!
+//! # Examples
+//!
+//! ```rust,ignore
+//! use finstack_valuations::instruments::common::mc::process::gbm::{GbmProcess, GbmParams};
+//!
+//! let params = GbmParams::new(
+//!     0.05,  // r = 5% risk-free rate
+//!     0.02,  // q = 2% dividend yield
+//!     0.20,  // σ = 20% volatility
+//! );
+//!
+//! let gbm = GbmProcess::new(params);
+//!
+//! // Use in MC engine for path generation
+//! // let paths = engine.generate_paths(&gbm, spot, time_grid)?;
+//! ```
 
 use super::super::path_data::ProcessParams;
 use super::super::traits::StochasticProcess;

@@ -1,4 +1,7 @@
-//! Expression evaluation context.
+//! Expression evaluation context for column name resolution.
+//!
+//! Provides the context interface used by expression evaluators to resolve
+//! column references to array indices at runtime.
 
 use hashbrown::HashMap;
 

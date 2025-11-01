@@ -4,34 +4,193 @@ use finstack_core::prelude::*;
 
 use indexmap::IndexMap;
 
-/// Complete valuation result with NPV and computed metrics.
+/// Complete valuation result envelope with NPV, risk metrics, and metadata.
 ///
-/// Contains the instrument's present value along with all requested
-/// risk measures and metadata about the calculation.
+/// This is the primary output structure returned by pricing operations.
+/// It contains the instrument's present value, computed risk metrics,
+/// calculation metadata, and optional covenant checks or explainability traces.
+///
+/// # Structure
+///
+/// - **Value**: Present value in the instrument's native currency
+/// - **Measures**: Risk metrics as key-value pairs (e.g., "dv01" → 500.0)
+/// - **Metadata**: Calculation context (rounding, numeric mode, timing)
+/// - **Covenants**: Optional covenant compliance results
+/// - **Explanation**: Optional computation trace for debugging
+///
+/// # Metadata Stamping
+///
+/// Results are stamped with metadata indicating:
+/// - Numeric mode (Decimal vs f64)
+/// - Rounding policy applied
+/// - FX policy for cross-currency calculations
+/// - Calculation timestamp and duration
+///
+/// # Examples
+///
+/// ## Basic Usage
+///
+/// ```rust
+/// use finstack_valuations::results::ValuationResult;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::money::Money;
+/// use finstack_core::dates::create_date;
+/// use time::Month;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let as_of = create_date(2025, Month::January, 15)?;
+/// let pv = Money::new(1_000_000.0, Currency::USD);
+///
+/// let result = ValuationResult::stamped("BOND-001", as_of, pv);
+///
+/// assert_eq!(result.instrument_id, "BOND-001");
+/// assert_eq!(result.value.amount(), 1_000_000.0);
+/// assert_eq!(result.value.currency(), Currency::USD);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ## With Metrics
+///
+/// ```rust
+/// use finstack_valuations::results::ValuationResult;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::money::Money;
+/// use finstack_core::dates::create_date;
+/// use indexmap::IndexMap;
+/// use time::Month;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let as_of = create_date(2025, Month::January, 15)?;
+/// let pv = Money::new(1_000_000.0, Currency::USD);
+///
+/// let mut measures = IndexMap::new();
+/// measures.insert("ytm".to_string(), 0.0475);
+/// measures.insert("modified_duration".to_string(), 4.25);
+/// measures.insert("dv01".to_string(), 425.0);
+///
+/// let result = ValuationResult::stamped("BOND-001", as_of, pv)
+///     .with_measures(measures);
+///
+/// assert_eq!(result.measures.get("ytm"), Some(&0.0475));
+/// assert_eq!(result.measures.get("dv01"), Some(&425.0));
+/// # Ok(())
+/// # }
+/// ```
+///
+/// ## With Covenants
+///
+/// ```rust
+/// use finstack_valuations::results::ValuationResult;
+/// use finstack_valuations::covenants::CovenantReport;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::money::Money;
+/// use finstack_core::dates::create_date;
+/// use time::Month;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let as_of = create_date(2025, Month::January, 15)?;
+/// let pv = Money::new(1_000_000.0, Currency::USD);
+///
+/// let covenant = CovenantReport {
+///     covenant_type: "dscr".to_string(),
+///     passed: true,
+///     actual_value: Some(1.5),
+///     threshold: Some(1.25),
+///     details: Some("DSCR: 1.50x >= 1.25x".to_string()),
+/// };
+///
+/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+///     .with_covenant("dscr_test", covenant);
+///
+/// assert!(result.all_covenants_passed());
+/// assert_eq!(result.failed_covenants().len(), 0);
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ValuationResult {
-    /// Unique identifier for the instrument.
+    /// Unique identifier for the priced instrument.
     pub instrument_id: String,
-    /// Valuation date.
+
+    /// Valuation date (T+0) for the calculation.
     pub as_of: Date,
-    /// Present value of the instrument.
+
+    /// Present value in the instrument's native currency.
+    ///
+    /// This is the primary pricing output. For cross-currency instruments,
+    /// this may be in a different currency than the base calculation currency.
     pub value: Money,
-    /// Computed risk measures and metrics.
+
+    /// Computed risk measures and financial metrics.
+    ///
+    /// Keys are metric names (e.g., "ytm", "dv01", "delta") and values
+    /// are the calculated metric values. Use `MetricId::as_str()` for
+    /// consistent key naming.
     pub measures: IndexMap<String, f64>,
-    /// Metadata about the calculation (timing, precision, etc.).
+
+    /// Calculation metadata and policy stamps.
+    ///
+    /// Contains:
+    /// - Numeric mode (Decimal vs f64)
+    /// - Rounding context and precision
+    /// - FX policy for cross-currency calculations
+    /// - Calculation timing information
     pub meta: ResultsMeta,
-    /// Covenant check results (if applicable).
+
+    /// Covenant compliance results for structured products.
+    ///
+    /// Present only for instruments with covenants (loans, structured credit).
+    /// Each covenant is keyed by its identifier with pass/fail status and details.
     pub covenants: Option<IndexMap<String, CovenantReport>>,
-    /// Optional explanation trace (enabled via ExplainOpts).
+
+    /// Optional computation explanation trace.
+    ///
+    /// Enabled via `ExplainOpts` in configuration. Provides step-by-step
+    /// trace of calculations for debugging and auditability.
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub explanation: Option<ExplanationTrace>,
 }
 
 impl ValuationResult {
-    /// Create a basic valuation result with just NPV.
+    /// Create a basic valuation result with NPV and default metadata.
     ///
-    /// See unit tests and `examples/` for usage.
+    /// Constructs a result with just the present value, using default
+    /// configuration for metadata stamping (Decimal mode, default rounding).
+    /// For custom metadata, use [`stamped_with_meta()`](Self::stamped_with_meta).
+    ///
+    /// # Arguments
+    ///
+    /// * `instrument_id` - Unique identifier for the priced instrument
+    /// * `as_of` - Valuation date
+    /// * `value` - Present value in the instrument's currency
+    ///
+    /// # Returns
+    ///
+    /// `ValuationResult` with NPV and default metadata (no metrics or covenants)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::results::ValuationResult;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::dates::create_date;
+    /// use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let as_of = create_date(2025, Month::January, 15)?;
+    /// let pv = Money::new(1_000_000.0, Currency::USD);
+    ///
+    /// let result = ValuationResult::stamped("BOND-001", as_of, pv);
+    ///
+    /// assert_eq!(result.instrument_id, "BOND-001");
+    /// assert_eq!(result.value.amount(), 1_000_000.0);
+    /// assert!(result.measures.is_empty());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn stamped(instrument_id: &str, as_of: Date, value: Money) -> Self {
         // Default stamping uses default configuration; callers needing custom
         // policy should construct core `ResultsMeta` and use
@@ -43,8 +202,44 @@ impl ValuationResult {
 
     /// Create a valuation result with caller-provided metadata.
     ///
-    /// Prefer this when you already have `ResultsMeta` available to avoid
-    /// constructing a default `FinstackConfig` in hot paths.
+    /// Use this in hot paths when you already have `ResultsMeta` available
+    /// to avoid constructing a default `FinstackConfig`. This is the
+    /// performance-optimized constructor for repeated valuations.
+    ///
+    /// # Arguments
+    ///
+    /// * `instrument_id` - Unique identifier for the priced instrument
+    /// * `as_of` - Valuation date
+    /// * `value` - Present value in the instrument's currency
+    /// * `meta` - Pre-constructed metadata with policy stamps
+    ///
+    /// # Returns
+    ///
+    /// `ValuationResult` with NPV and provided metadata
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::results::ValuationResult;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::dates::create_date;
+    /// use finstack_core::config::{FinstackConfig, results_meta};
+    /// use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let as_of = create_date(2025, Month::January, 15)?;
+    /// let pv = Money::new(1_000_000.0, Currency::USD);
+    ///
+    /// // Pre-construct metadata once for batch pricing
+    /// let config = FinstackConfig::default();
+    /// let meta = results_meta(&config);
+    ///
+    /// let result = ValuationResult::stamped_with_meta("BOND-001", as_of, pv, meta);
+    /// assert_eq!(result.instrument_id, "BOND-001");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn stamped_with_meta(
         instrument_id: &str,
         as_of: Date,
@@ -62,26 +257,187 @@ impl ValuationResult {
         }
     }
 
-    /// Attach an explanation trace to this result.
+    /// Attach an explanation trace for debugging and auditability.
+    ///
+    /// Explanation traces provide step-by-step computation logs showing
+    /// intermediate calculations and data flow. Enable via `ExplainOpts`
+    /// in configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `trace` - Explanation trace from the computation
+    ///
+    /// # Returns
+    ///
+    /// `Self` for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::results::ValuationResult;
+    /// use finstack_core::explain::ExplanationTrace;
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::dates::create_date;
+    /// # use time::Month;
+    ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let as_of = create_date(2025, Month::January, 15)?;
+/// # let pv = Money::new(1_000_000.0, Currency::USD);
+///
+/// let trace = ExplanationTrace::new("bond_pricing");
+/// // Add trace entries using TraceEntry variants (see explain module for available types)
+///
+/// let result = ValuationResult::stamped("BOND-001", as_of, pv)
+///     .with_explanation(trace);
+///
+/// assert!(result.explanation.is_some());
+/// # Ok(())
+/// # }
+/// ```
     pub fn with_explanation(mut self, trace: ExplanationTrace) -> Self {
         self.explanation = Some(trace);
         self
     }
 
-    /// Add measures to the result.
-    /// See unit tests and `examples/` for usage.
+    /// Attach computed risk metrics to the result.
+    ///
+    /// Replaces any existing measures with the provided map. Metrics
+    /// are keyed by their string identifier (e.g., "ytm", "dv01").
+    ///
+    /// # Arguments
+    ///
+    /// * `measures` - Map of metric name to computed value
+    ///
+    /// # Returns
+    ///
+    /// `Self` for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::results::ValuationResult;
+    /// use indexmap::IndexMap;
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::dates::create_date;
+    /// # use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let as_of = create_date(2025, Month::January, 15)?;
+    /// # let pv = Money::new(1_000_000.0, Currency::USD);
+    /// let mut measures = IndexMap::new();
+    /// measures.insert("ytm".to_string(), 0.0475);
+    /// measures.insert("modified_duration".to_string(), 4.25);
+    ///
+    /// let result = ValuationResult::stamped("BOND-001", as_of, pv)
+    ///     .with_measures(measures);
+    ///
+    /// assert_eq!(result.measures.len(), 2);
+    /// assert_eq!(result.measures.get("ytm"), Some(&0.0475));
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn with_measures(mut self, measures: IndexMap<String, f64>) -> Self {
         self.measures = measures;
         self
     }
 
-    /// Add covenant reports to the result.
+    /// Attach multiple covenant reports to the result.
+    ///
+    /// Replaces any existing covenant reports with the provided map.
+    /// Used for structured products with multiple compliance tests.
+    ///
+    /// # Arguments
+    ///
+    /// * `covenants` - Map of covenant identifier to compliance report
+    ///
+    /// # Returns
+    ///
+    /// `Self` for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::results::ValuationResult;
+    /// use finstack_valuations::covenants::CovenantReport;
+    /// use indexmap::IndexMap;
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::dates::create_date;
+    /// # use time::Month;
+    ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let as_of = create_date(2025, Month::January, 15)?;
+/// # let pv = Money::new(1_000_000.0, Currency::USD);
+/// let mut covenants = IndexMap::new();
+/// covenants.insert("dscr".to_string(), CovenantReport {
+///     covenant_type: "dscr".to_string(),
+///     passed: true,
+///     actual_value: Some(1.5),
+///     threshold: Some(1.25),
+///     details: Some("DSCR test passed".to_string()),
+/// });
+///
+/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+///     .with_covenants(covenants);
+///
+/// assert!(result.all_covenants_passed());
+/// # Ok(())
+/// # }
+/// ```
     pub fn with_covenants(mut self, covenants: IndexMap<String, CovenantReport>) -> Self {
         self.covenants = Some(covenants);
         self
     }
 
-    /// Add a single covenant report.
+    /// Add a single covenant report to the result.
+    ///
+    /// Preserves existing covenant reports and adds a new one.
+    /// Convenient for incrementally building covenant results.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Covenant identifier (e.g., "dscr_test", "ltv_check")
+    /// * `report` - Covenant compliance report
+    ///
+    /// # Returns
+    ///
+    /// `Self` for method chaining
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::results::ValuationResult;
+    /// use finstack_valuations::covenants::CovenantReport;
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::dates::create_date;
+    /// # use time::Month;
+    ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let as_of = create_date(2025, Month::January, 15)?;
+/// # let pv = Money::new(1_000_000.0, Currency::USD);
+/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+///     .with_covenant("dscr", CovenantReport {
+///         covenant_type: "dscr".to_string(),
+///         passed: true,
+///         actual_value: Some(1.5),
+///         threshold: Some(1.25),
+///         details: None,
+///     })
+///     .with_covenant("ltv", CovenantReport {
+///         covenant_type: "ltv".to_string(),
+///         passed: true,
+///         actual_value: Some(0.70),
+///         threshold: Some(0.80),
+///         details: None,
+///     });
+///
+/// assert_eq!(result.covenants.as_ref().unwrap().len(), 2);
+/// # Ok(())
+/// # }
+/// ```
     pub fn with_covenant(mut self, key: &str, report: CovenantReport) -> Self {
         let mut covenants = self.covenants.unwrap_or_default();
         covenants.insert(key.to_string(), report);
@@ -91,7 +447,41 @@ impl ValuationResult {
 
     // Note: FX policy stamping is handled at the core `ResultsMeta` level.
 
-    /// Check if all covenants passed.
+    /// Check if all covenants passed their compliance tests.
+    ///
+    /// Returns `true` if there are no covenants or if all covenants passed.
+    /// Use [`failed_covenants()`](Self::failed_covenants) to get specific failures.
+    ///
+    /// # Returns
+    ///
+    /// `true` if all covenants passed or no covenants present, `false` otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::results::ValuationResult;
+    /// use finstack_valuations::covenants::CovenantReport;
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::dates::create_date;
+    /// # use time::Month;
+    ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let as_of = create_date(2025, Month::January, 15)?;
+/// # let pv = Money::new(1_000_000.0, Currency::USD);
+/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+///     .with_covenant("dscr", CovenantReport {
+///         covenant_type: "dscr".to_string(),
+///         passed: true,
+///         actual_value: Some(1.5),
+///         threshold: Some(1.25),
+///         details: None,
+///     });
+///
+/// assert!(result.all_covenants_passed());
+/// # Ok(())
+/// # }
+/// ```
     pub fn all_covenants_passed(&self) -> bool {
         self.covenants
             .as_ref()
@@ -99,7 +489,43 @@ impl ValuationResult {
             .unwrap_or(true)
     }
 
-    /// Get failed covenants.
+    /// Get list of failed covenant identifiers.
+    ///
+    /// Returns identifiers of covenants that did not pass their compliance
+    /// tests. Empty vector if all covenants passed or no covenants present.
+    ///
+    /// # Returns
+    ///
+    /// Vector of covenant identifiers that failed
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::results::ValuationResult;
+    /// use finstack_valuations::covenants::CovenantReport;
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::dates::create_date;
+    /// # use time::Month;
+    ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let as_of = create_date(2025, Month::January, 15)?;
+/// # let pv = Money::new(1_000_000.0, Currency::USD);
+/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+///     .with_covenant("dscr", CovenantReport {
+///         covenant_type: "dscr".to_string(),
+///         passed: false,
+///         actual_value: Some(1.1),
+///         threshold: Some(1.25),
+///         details: Some("DSCR below threshold".to_string()),
+///     });
+///
+/// let failed = result.failed_covenants();
+/// assert_eq!(failed.len(), 1);
+/// assert_eq!(failed[0], "dscr");
+/// # Ok(())
+/// # }
+/// ```
     pub fn failed_covenants(&self) -> Vec<&str> {
         self.covenants
             .as_ref()

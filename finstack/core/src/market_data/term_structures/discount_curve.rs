@@ -1,10 +1,41 @@
-//! Piece-wise discount-factor curve with pluggable interpolation.
+//! Discount factor curves for present value calculations.
 //!
-//! A `DiscountCurve` stores discount factors at user-defined knot times (year
-//! fractions) and interpolates between them using any
-//! [`crate::math::interp::InterpStyle`].  The curve implements
-//! [`crate::market_data::traits::Discount`] so downstream pricing code can
-//! consume it polymorphically.
+//! A discount curve represents the time value of money, mapping future dates to
+//! present values. This is the fundamental building block for pricing all fixed
+//! income securities and derivatives.
+//!
+//! # Financial Concept
+//!
+//! The discount factor DF(t) is the present value of $1 received at time t:
+//! ```text
+//! DF(t) = PV($1 at time t)
+//!       = e^(-r(t) * t)
+//!
+//! where r(t) is the continuously compounded zero rate at maturity t
+//! ```
+//!
+//! # Market Construction
+//!
+//! Discount curves are typically bootstrapped from liquid market instruments:
+//! - **Money market**: Overnight rates (SOFR, €STR, SONIA)
+//! - **Futures**: SOFR futures, Eurodollar futures
+//! - **Swaps**: Fixed-float interest rate swaps (par rates)
+//! - **Bonds**: Government bonds (when OIS not available)
+//!
+//! # Interpolation Methods
+//!
+//! The curve supports multiple interpolation schemes via [`crate::math::interp::InterpStyle`]:
+//! - **Linear**: Simple, but may create arbitrage
+//! - **LogLinear**: Constant zero rates between knots
+//! - **FlatFwd**: Piecewise constant forward rates (no-arbitrage)
+//! - **MonotoneConvex**: Smooth, no-arbitrage (Hagan-West algorithm)
+//!
+//! # Use Cases
+//!
+//! - **Bond pricing**: Discount future coupons and principal
+//! - **Swap valuation**: Mark-to-market fixed and floating legs
+//! - **Option pricing**: Discount expected payoffs
+//! - **Risk metrics**: DV01, duration, convexity calculation
 //!
 //! ## Example
 //! ```rust
@@ -21,6 +52,24 @@
 //!     .unwrap();
 //! assert!(curve.df(3.0) < 1.0);
 //! ```
+//!
+//! # References
+//!
+//! - **Curve Construction and Bootstrapping**:
+//!   - Hull, J. C. (2018). *Options, Futures, and Other Derivatives* (10th ed.).
+//!     Pearson. Chapters 4-7.
+//!   - Andersen, L., & Piterbarg, V. (2010). *Interest Rate Modeling* (3 vols).
+//!     Atlantic Financial Press. Volume 1, Chapters 2-3.
+//!
+//! - **Interpolation Methods**:
+//!   - Hagan, P. S., & West, G. (2006). "Interpolation Methods for Curve Construction."
+//!     *Applied Mathematical Finance*, 13(2), 89-129.
+//!   - Hagan, P. S., & West, G. (2008). "Methods for Constructing a Yield Curve."
+//!     *Wilmott Magazine*, May 2008.
+//!
+//! - **Industry Standards**:
+//!   - OpenGamma (2013). "Interest Rate Instruments and Market Conventions Guide."
+//!   - ISDA (2006). "2006 ISDA Definitions." Sections on discount factors and rates.
 
 use super::common::{build_interp_input_error, split_points};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};

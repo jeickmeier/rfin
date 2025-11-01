@@ -1,4 +1,8 @@
-//! Date utilities shared across the `dates` module.
+//! Date arithmetic utilities and calendar helpers.
+//!
+//! Provides low-level date manipulation functions used by schedule builders
+//! and day count conventions. Functions are optimized for performance with
+//! no heap allocation.
 
 use time::{Date, Month};
 

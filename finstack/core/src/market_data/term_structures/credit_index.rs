@@ -1,7 +1,23 @@
-//! Credit index market data for CDS tranche pricing.
+//! Credit index market data aggregation for CDO/CDS pricing.
 //!
-//! Aggregates market data components required for pricing instruments on a
-//! standardized credit index (e.g., CDX.NA.IG.42, iTraxx Europe).
+//! Packages all market data components needed to price credit derivatives on
+//! standardized credit indices like CDX (North America) and iTraxx (Europe).
+//! Includes index hazard curve, base correlation curve, recovery rates, and
+//! optional constituent issuer curves.
+//!
+//! # Components
+//!
+//! - Index-level hazard curve (average credit risk)
+//! - Base correlation curve (tranche correlation skew)
+//! - Recovery rate (typically 40%)
+//! - Optional per-issuer hazard curves (for heterogeneous pools)
+//!
+//! # Use Cases
+//!
+//! - CDO tranche pricing (synthetic and cash)
+//! - CDS index tranche valuation
+//! - Bespoke portfolio pricing
+//! - Credit correlation trading
 
 use super::{hazard_curve::HazardCurve, BaseCorrelationCurve};
 use crate::prelude::*;

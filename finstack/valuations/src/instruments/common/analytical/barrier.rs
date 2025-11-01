@@ -1,11 +1,131 @@
-//! Continuous barrier option formulas for validation.
+//! Analytical formulas for barrier options with continuous monitoring.
 //!
-//! Implements Reiner-Rubinstein formulas for continuous monitoring barriers.
-//! Used to validate discrete barrier corrections (Gobet-Miri, Brownian bridge).
+//! Provides closed-form pricing formulas for European barrier options that
+//! knock in or out when the underlying asset price crosses a barrier level.
+//! These formulas assume continuous barrier monitoring and serve as:
+//! 1. **Validation benchmarks** for discrete barrier adjustments
+//! 2. **Production pricing** when continuous monitoring is appropriate
 //!
-//! Reference:
-//! - Reiner & Rubinstein (1991) - "Breaking Down the Barriers"
-//! - Merton (1973) - "Theory of Rational Option Pricing"
+//! # Barrier Option Types
+//!
+//! - **Up-and-In**: Activated when spot rises above barrier (S > H)
+//! - **Up-and-Out**: Deactivated when spot rises above barrier
+//! - **Down-and-In**: Activated when spot falls below barrier (S < H)
+//! - **Down-and-Out**: Deactivated when spot falls below barrier
+//!
+//! # Mathematical Foundation
+//!
+//! Barrier options are priced using the **reflection principle** applied to
+//! geometric Brownian motion. The key insight is that barrier crossing
+//! probabilities can be computed analytically using mirror image arguments.
+//!
+//! ## General Formula (Reiner-Rubinstein 1991)
+//!
+//! The price decomposes into combinations of vanilla options and
+//! barrier-adjusted terms involving powers of (H/S) where H is the barrier.
+//!
+//! For a down-and-out call:
+//! ```text
+//! C_do = C_vanilla - C_knock_in
+//!      = S·e^(-qT)·N(x) - K·e^(-rT)·N(x - σ√T)
+//!        - (H/S)^(2λ) · [H·e^(-qT)·N(y) - K·e^(-rT)·N(y - σ√T)]
+//! ```
+//!
+//! where λ = (r - q + σ²/2) / σ² and x, y are appropriately defined d-parameters.
+//!
+//! # Discrete Monitoring Corrections
+//!
+//! Real-world barriers are monitored discretely (e.g., daily closes), not continuously.
+//! Continuous barrier formulas **underestimate** discrete barrier option values.
+//!
+//! Common corrections:
+//! - **Broadie-Glasserman-Kou (1997)**: Adjust barrier by factor exp(±0.5826σ√Δt)
+//! - **Gobet (2000)**: Higher-order correction using Brownian bridge
+//! - **Rule of thumb**: H_adj = H · exp(±0.5826σ√Δt) where Δt is monitoring frequency
+//!
+//! # Academic References
+//!
+//! ## Primary Sources
+//!
+//! - Reiner, E., & Rubinstein, M. (1991). "Breaking Down the Barriers."
+//!   *Risk Magazine*, 4(8), 28-35.
+//!   (Canonical formulas for all 8 barrier option types)
+//!
+//! - Merton, R. C. (1973). "Theory of Rational Option Pricing."
+//!   *Bell Journal of Economics and Management Science*, 4(1), 141-183.
+//!   (Foundational work including barrier option theory)
+//!
+//! ## Discrete Monitoring Corrections
+//!
+//! - Broadie, M., Glasserman, P., & Kou, S. G. (1997). "A Continuity Correction
+//!   for Discrete Barrier Options." *Mathematical Finance*, 7(4), 325-349.
+//!
+//! - Gobet, E. (2000). "Weak Approximation of Killed Diffusion Using Euler Schemes."
+//!   *Stochastic Processes and their Applications*, 87(2), 167-197.
+//!
+//! - Fusai, G., & Recchioni, M. C. (2007). "Analysis of Quadrature Methods for
+//!   Pricing Discrete Barrier Options." *Journal of Economic Dynamics and Control*,
+//!   31(3), 826-860.
+//!
+//! ## Reference Texts
+//!
+//! - Haug, E. G. (2007). *The Complete Guide to Option Pricing Formulas* (2nd ed.).
+//!   McGraw-Hill. Chapter 4: Barrier Options.
+//!
+//! - Wilmott, P., Howison, S., & Dewynne, J. (1995). *The Mathematics of Financial
+//!   Derivatives*. Cambridge University Press. Chapter 8.
+//!
+//! # Implementation Notes
+//!
+//! - Formulas are numerically stable for typical parameter ranges
+//! - Edge cases handled: zero time, barrier already crossed, extreme strikes
+//! - Rebates (cash paid at barrier crossing) not implemented here
+//! - For discrete monitoring in production, apply Broadie-Glasserman-Kou correction
+//!
+//! # Examples
+//!
+//! ## Down-and-Out Call
+//!
+//! ```rust
+//! use finstack_valuations::instruments::common::analytical::barrier::down_out_call;
+//!
+//! let spot = 100.0;
+//! let strike = 100.0;
+//! let barrier = 90.0;    // Barrier below current spot
+//! let time = 1.0;
+//! let rate = 0.05;
+//! let div_yield = 0.02;
+//! let vol = 0.20;
+//!
+//! let price = down_out_call(spot, strike, barrier, time, rate, div_yield, vol);
+//!
+//! // Price should be less than vanilla call (knockout feature reduces value)
+//! assert!(price >= 0.0);
+//! ```
+//!
+//! ## Down-and-In Call
+//!
+//! ```rust
+//! use finstack_valuations::instruments::common::analytical::barrier::down_in_call;
+//!
+//! let spot = 100.0;
+//! let strike = 100.0;
+//! let barrier = 90.0;    // Barrier below current spot
+//! let time = 0.5;
+//! let rate = 0.05;
+//! let div_yield = 0.0;
+//! let vol = 0.25;
+//!
+//! // Option only activates if spot falls to 90
+//! let price = down_in_call(spot, strike, barrier, time, rate, div_yield, vol);
+//! assert!(price >= 0.0);
+//! ```
+//!
+//! # See Also
+//!
+//! - [`BarrierType`] for barrier option classification
+//! - [`BarrierParams`] for parameter grouping
+//! - Monte Carlo barrier pricing for discrete monitoring and exotic payoffs
 
 use finstack_core::math::special_functions::norm_cdf;
 

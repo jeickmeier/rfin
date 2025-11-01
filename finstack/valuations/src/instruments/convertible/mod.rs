@@ -1,9 +1,50 @@
-//! Convertible bond instrument module: structure, pricing, and metrics.
+//! Convertible bond instruments with embedded equity conversion features.
 //!
-//! Follows the standard instrument layout used across valuations:
-//! - `types`: instrument data structures and trait impls
-//! - `pricer`: pricing implementation and engine
-//! - `metrics`: metric calculators and registry hook
+//! Convertible bonds combine fixed income and equity characteristics,
+//! providing bondholders the option to convert into common stock at
+//! predetermined conversion ratios. Pricing requires hybrid models
+//! accounting for both credit and equity risks.
+//!
+//! # Structure
+//!
+//! - **Bond component**: Fixed coupons, principal, credit spread
+//! - **Conversion option**: Right to convert to equity at conversion price
+//! - **Call provision**: Issuer can force conversion (soft call)
+//! - **Put provision**: Holder can put back to issuer
+//!
+//! # Conversion Mechanics
+//!
+//! - **Conversion ratio**: Shares received per bond unit
+//! - **Conversion price**: Effective stock price = Par / Conversion ratio
+//! - **Conversion value**: Stock price × Conversion ratio
+//! - **Conversion premium**: (Bond price - Conversion value) / Conversion value
+//!
+//! # Pricing Models
+//!
+//! - **Tree methods**: Trinomial trees with credit and equity factors
+//! - **Partial differential equations**: Finite difference methods
+//! - **Monte Carlo**: For complex features and path dependency
+//!
+//! # Key Features
+//!
+//! - **Credit quality**: Embedded CDS spread or hazard curve
+//! - **Anti-dilution**: Adjustments for stock splits, dividends
+//! - **Soft call**: Can only call if stock above trigger (e.g., 130% of conversion price)
+//! - **Make-whole**: Additional compensation if called early
+//!
+//! # References
+//!
+//! - Tsiveriotis, K., & Fernandes, C. (1998). "Valuing Convertible Bonds with
+//!   Credit Risk." *Journal of Fixed Income*, 8(2), 95-102.
+//!
+//! - Ayache, E., Forsyth, P. A., & Vetzal, K. R. (2003). "Valuation of
+//!   Convertible Bonds with Credit Risk." *Journal of Derivatives*, 11(1), 9-29.
+//!
+//! # See Also
+//!
+//! - [`ConvertibleBond`] for instrument struct
+//! - [`ConversionSpec`] for conversion terms
+//! - [`AntiDilutionPolicy`] for adjustment policies
 
 pub mod metrics;
 pub mod pricer;

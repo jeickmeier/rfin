@@ -1,42 +1,98 @@
-//! Date schedule construction.
+//! Date schedule construction for cashflows, coupons, and payment dates.
 //!
-//! A single builder constructs a concrete `Schedule` in one step. Special modes
-//! (e.g., CDS IMM) are expressed as builder modifiers.
+//! Provides a fluent builder API for constructing deterministic date schedules
+//! with support for frequency-based generation, stub periods, end-of-month
+//! conventions, and business day adjustments.
 //!
-//! Examples
-//! --------
-//! Plain monthly schedule:
-//! ```
-//! use finstack_core::dates::{ScheduleBuilder, Frequency, Date, create_date};
-//! use time::Month;
+//! # Features
 //!
-//! let start = create_date(2025, Month::January, 15)?;
-//! let end = create_date(2025, Month::April, 15)?;
+//! - **Frequency-based**: Monthly, quarterly, annual, or custom day intervals
+//! - **Stub handling**: Short/long stubs at front or back of schedule
+//! - **Business day adjustment**: Modified Following, Following, Preceding
+//! - **End-of-month**: Snap to month-end for month-based frequencies
+//! - **CDS IMM mode**: Standard credit default swap quarterly schedules
+//! - **Deterministic**: Same inputs always produce identical outputs
+//! - **Deduplication**: Automatically removes duplicate dates from EOM/adjustment
+//!
+//! # Quick Example
+//!
+//! Basic monthly schedule:
+//! ```rust
+//! use finstack_core::dates::{ScheduleBuilder, Frequency};
+//! use time::{Date, Month};
+//!
+//! let start = Date::from_calendar_date(2025, Month::January, 15)?;
+//! let end = Date::from_calendar_date(2025, Month::April, 15)?;
+//!
 //! let sched = ScheduleBuilder::new(start, end)
 //!     .frequency(Frequency::monthly())
-//!     .build()
-//!     ?;
+//!     .build()?;
+//!
 //! let dates: Vec<_> = sched.into_iter().collect();
-//! assert_eq!(dates.len(), 4);
+//! assert_eq!(dates.len(), 4); // Jan-15, Feb-15, Mar-15, Apr-15
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
-//! CDS IMM schedule (quarterly on 20-Mar/Jun/Sep/Dec), start auto-adjusts to next
-//! roll if needed:
-//! ```
-//! use finstack_core::dates::{ScheduleBuilder, Date, create_date};
-//! use time::Month;
+//! CDS IMM schedule (quarterly on 20-Mar/Jun/Sep/Dec):
+//! ```rust
+//! use finstack_core::dates::ScheduleBuilder;
+//! use time::{Date, Month};
 //!
-//! let start = create_date(2025, Month::January, 15)?;
-//! let end = create_date(2025, Month::December, 20)?;
+//! let start = Date::from_calendar_date(2025, Month::January, 15)?;
+//! let end = Date::from_calendar_date(2025, Month::December, 20)?;
+//!
 //! let sched = ScheduleBuilder::new(start, end)
-//!     .cds_imm()
-//!     .build()
-//!     ?;
+//!     .cds_imm()  // Auto-adjusts start to next CDS roll date
+//!     .build()?;
+//!
 //! let dates: Vec<_> = sched.into_iter().collect();
+//! // Mar-20, Jun-20, Sep-20, Dec-20 (2025)
 //! assert_eq!(dates.len(), 4);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
+//!
+//! With business day adjustment:
+//! ```rust
+//! use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention};
+//! use finstack_core::dates::calendar::registry::CalendarRegistry;
+//! use time::{Date, Month};
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!
+//! let start = Date::from_calendar_date(2025, Month::June, 15)?;
+//! let end = Date::from_calendar_date(2025, Month::December, 15)?;
+//! let nyse = CalendarRegistry::global()
+//!     .resolve_str("nyse")
+//!     .ok_or("NYSE calendar not found")?;
+//!
+//! let sched = ScheduleBuilder::new(start, end)
+//!     .frequency(Frequency::monthly())
+//!     .adjust_with(BusinessDayConvention::ModifiedFollowing, nyse)
+//!     .build()?;
+//!
+//! // Dates are adjusted to business days according to NYSE calendar
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Stub Conventions
+//!
+//! When start/end dates don't align exactly with the frequency:
+//!
+//! - **`StubKind::None`**: No special handling (default)
+//! - **`StubKind::ShortFront`**: Short period at start, regular thereafter
+//! - **`StubKind::ShortBack`**: Regular periods, short period at end
+//! - **`StubKind::LongFront`**: Long period at start, regular thereafter
+//! - **`StubKind::LongBack`**: Regular periods, long period at end
+//!
+//! # See Also
+//!
+//! - [`ScheduleBuilder`] for the main builder API
+//! - [`Frequency`] for payment frequency options
+//! - [`StubKind`] for stub period handling
+//! - [`BusinessDayConvention`] for date adjustment rules
+//!
+//! [`BusinessDayConvention`]: super::BusinessDayConvention
 
-#![allow(missing_docs)]
 #![allow(clippy::needless_lifetimes)]
 
 use smallvec::SmallVec;
@@ -48,14 +104,59 @@ use crate::dates::utils::{add_months, last_day_of_month};
 /// Small helper alias when we need to pre-buffer (used only for `ShortFront`).
 type Buffer = SmallVec<[Date; 32]>;
 
-/// Coupon/payment frequency.
+/// Payment or coupon frequency for schedule generation.
+///
+/// Specifies how often payments occur in a financial instrument schedule.
+/// Supports both calendar-month-based frequencies (e.g., quarterly, monthly)
+/// and day-based frequencies (e.g., weekly, biweekly).
+///
+/// # Variants
+///
+/// - **`Months(n)`**: Period advances by `n` calendar months (1-12)
+/// - **`Days(n)`**: Period advances by `n` calendar days (1+)
+///
+/// # Examples
+///
+/// Using predefined frequency constructors:
+/// ```rust
+/// use finstack_core::dates::Frequency;
+///
+/// let quarterly = Frequency::quarterly();
+/// assert_eq!(quarterly.months(), Some(3));
+///
+/// let weekly = Frequency::weekly();
+/// assert_eq!(weekly.days(), Some(7));
+/// ```
+///
+/// Creating from payments per year:
+/// ```rust
+/// use finstack_core::dates::Frequency;
+///
+/// // 4 payments per year = quarterly
+/// let freq = Frequency::from_payments_per_year(4)?;
+/// assert_eq!(freq, Frequency::quarterly());
+///
+/// // 2 payments per year = semi-annual
+/// let freq = Frequency::from_payments_per_year(2)?;
+/// assert_eq!(freq, Frequency::semi_annual());
+/// # Ok::<(), String>(())
+/// ```
+///
+/// # See Also
+///
+/// - [`ScheduleBuilder::frequency`] to use with schedule builder
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum Frequency {
-    /// Calendar-month based frequency (e.g. 3 = quarterly).
+    /// Calendar-month based frequency (e.g., 3 = quarterly).
+    ///
+    /// Valid range: 1-12 months.
     Months(u8), // 1..=12
-    /// Day-based frequency (e.g. 14 = biweekly).
+    
+    /// Day-based frequency (e.g., 14 = biweekly, 7 = weekly).
+    ///
+    /// Valid range: 1+ days.
     Days(u16), // >0
 }
 
@@ -149,16 +250,65 @@ impl Frequency {
     }
 }
 
-/// Stub convention used when the start/end dates are not exact multiples of
-/// the frequency.
+/// Stub period handling when start/end dates don't align with payment frequency.
+///
+/// Controls how schedules are generated when the start and end dates don't
+/// divide evenly by the payment frequency, resulting in an irregular period
+/// (stub) at the beginning or end of the schedule.
+///
+/// # Variants
+///
+/// - **`None`**: No special stub handling (default). Generates regular periods
+///   from start to end, with the final period potentially irregular.
+/// - **`ShortFront`**: Short stub period at the start. Schedule is built
+///   backward from the end date, creating a short first period.
+/// - **`ShortBack`**: Short stub period at the end. Schedule is built forward
+///   from the start date, creating a short final period.
+/// - **`LongFront`**: Long stub period at the start. Combines the first two
+///   periods into a single longer period.
+/// - **`LongBack`**: Long stub period at the end. Combines the last two periods
+///   into a single longer period.
+///
+/// # Financial Context
+///
+/// Stub conventions are important for:
+/// - Interest accrual calculations (short/long first coupons)
+/// - Cash flow present value computations
+/// - Matching market conventions for specific instruments
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::dates::{ScheduleBuilder, Frequency, StubKind};
+/// use time::{Date, Month};
+///
+/// let start = Date::from_calendar_date(2025, Month::January, 10)?;
+/// let end = Date::from_calendar_date(2025, Month::December, 15)?;
+///
+/// // Short stub at front
+/// let sched = ScheduleBuilder::new(start, end)
+///     .frequency(Frequency::quarterly())
+///     .stub_rule(StubKind::ShortFront)
+///     .build()?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # See Also
+///
+/// - [`ScheduleBuilder::stub_rule`] to configure stub behavior
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum StubKind {
+    /// No special stub handling.
     None,
+    /// Short stub period at the beginning of the schedule.
     ShortFront,
+    /// Short stub period at the end of the schedule.
     ShortBack,
+    /// Long stub period at the beginning of the schedule.
     LongFront,
+    /// Long stub period at the end of the schedule.
     LongBack,
 }
 
@@ -231,10 +381,45 @@ fn push_if_new(buf: &mut Buffer, d: Date) {
     }
 }
 
-/// Concrete schedule containing generated anchor dates.
+/// Concrete schedule containing generated payment/coupon dates.
+///
+/// Represents the output of schedule generation: a sequence of dates
+/// for cashflows, coupon payments, or other periodic events. Dates are
+/// guaranteed to be monotonically increasing with no duplicates.
+///
+/// # Invariants
+///
+/// - Dates are strictly increasing (no duplicates)
+/// - Empty schedules are allowed (zero-length Vec)
+/// - All dates are valid `time::Date` values
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::dates::{ScheduleBuilder, Frequency};
+/// use time::{Date, Month};
+///
+/// let start = Date::from_calendar_date(2025, Month::January, 15)?;
+/// let end = Date::from_calendar_date(2025, Month::March, 15)?;
+///
+/// let schedule = ScheduleBuilder::new(start, end)
+///     .frequency(Frequency::monthly())
+///     .build()?;
+///
+/// // Iterate over dates
+/// for date in schedule.into_iter() {
+///     println!("Payment date: {}", date);
+/// }
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # See Also
+///
+/// - [`ScheduleBuilder`] for constructing schedules
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Schedule {
+    /// The generated sequence of dates, monotonically increasing.
     pub dates: Vec<Date>,
 }
 
@@ -260,10 +445,101 @@ fn is_cds_roll_date(date: Date) -> bool {
     )
 }
 
-/// Public builder for configuring schedule generation with
-/// fluent API (frequency, stub rule, business-day adjustment, EOM convention).
+/// Fluent builder for constructing date schedules with full configurability.
 ///
-/// See unit tests and `examples/` for usage patterns (stubs, adjustments, frequencies).
+/// Provides a type-safe, fluent API for generating payment/coupon schedules
+/// with support for frequency, stub periods, business day adjustments, and
+/// end-of-month conventions.
+///
+/// # Configuration Options
+///
+/// - **Frequency**: Monthly, quarterly, annual, or day-based intervals
+/// - **Stub handling**: Short/long stubs at front or back
+/// - **Business day adjustment**: Following, Modified Following, Preceding
+/// - **End-of-month**: Snap to last day of month for month-based frequencies
+/// - **CDS IMM mode**: Standard CDS quarterly schedule (auto-adjusts start)
+///
+/// # Construction Flow
+///
+/// 1. Create builder with `new(start, end)`
+/// 2. Configure options via fluent methods
+/// 3. Call `build()` to generate the [`Schedule`]
+///
+/// # Examples
+///
+/// Basic quarterly schedule:
+/// ```rust
+/// use finstack_core::dates::{ScheduleBuilder, Frequency};
+/// use time::{Date, Month};
+///
+/// let start = Date::from_calendar_date(2025, Month::March, 20)?;
+/// let end = Date::from_calendar_date(2025, Month::December, 20)?;
+///
+/// let schedule = ScheduleBuilder::new(start, end)
+///     .frequency(Frequency::quarterly())
+///     .build()?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// With business day adjustment:
+/// ```rust
+/// use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention};
+/// use finstack_core::dates::calendar::registry::CalendarRegistry;
+/// use time::{Date, Month};
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+///
+/// let start = Date::from_calendar_date(2025, Month::January, 15)?;
+/// let end = Date::from_calendar_date(2025, Month::December, 15)?;
+/// let nyse = CalendarRegistry::global()
+///     .resolve_str("nyse")
+///     .ok_or("NYSE calendar not found")?;
+///
+/// let schedule = ScheduleBuilder::new(start, end)
+///     .frequency(Frequency::monthly())
+///     .adjust_with(BusinessDayConvention::ModifiedFollowing, nyse)
+///     .build()?;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// CDS IMM schedule:
+/// ```rust
+/// use finstack_core::dates::ScheduleBuilder;
+/// use time::{Date, Month};
+///
+/// let start = Date::from_calendar_date(2025, Month::January, 15)?;
+/// let end = Date::from_calendar_date(2026, Month::December, 20)?;
+///
+/// let schedule = ScheduleBuilder::new(start, end)
+///     .cds_imm()  // Quarterly on 20-Mar/Jun/Sep/Dec
+///     .build()?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// End-of-month convention:
+/// ```rust
+/// use finstack_core::dates::{ScheduleBuilder, Frequency};
+/// use time::{Date, Month};
+///
+/// let start = Date::from_calendar_date(2025, Month::January, 31)?;
+/// let end = Date::from_calendar_date(2025, Month::June, 30)?;
+///
+/// let schedule = ScheduleBuilder::new(start, end)
+///     .frequency(Frequency::monthly())
+///     .end_of_month(true)  // Snap to month-end
+///     .build()?;
+///
+/// // Generates: Jan-31, Feb-28, Mar-31, Apr-30, May-31, Jun-30
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # See Also
+///
+/// - [`Frequency`] for payment frequency options
+/// - [`StubKind`] for stub period handling
+/// - [`BusinessDayConvention`] for adjustment rules
+///
+/// [`BusinessDayConvention`]: super::BusinessDayConvention
 #[derive(Clone, Copy)]
 pub struct ScheduleBuilder<'a> {
     start: Date,

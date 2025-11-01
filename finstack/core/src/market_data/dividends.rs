@@ -1,9 +1,45 @@
-//! Shared dividend schedules for equity/ETF underlyings.
+//! Dividend schedules for equity and ETF pricing.
 //!
-//! Stores dated dividend events that can be referenced by multiple instruments
-//! via `MarketContext`. Supports cash, proportional yield, and stock dividends.
-//! Schedules are keyed by a `CurveId` in the market context for consistency
-//! with other market data components.
+//! Provides types for storing and querying dividend events (cash, stock, yield)
+//! used in equity option pricing, dividend swap valuation, and ETF analytics.
+//! Schedules are stored in [`MarketContext`](crate::market_data::MarketContext)
+//! and keyed by [`CurveId`] for consistency with other market data.
+//!
+//! # Dividend Types
+//!
+//! - **Cash dividends**: Fixed amount in a currency (most common)
+//! - **Stock dividends**: Proportional share distribution (e.g., 5% stock dividend)
+//! - **Yield**: Continuous dividend yield approximation for modeling
+//!
+//! # Use Cases
+//!
+//! - **Equity option pricing**: Discrete dividend adjustments in Black-Scholes
+//! - **Dividend futures**: Contract on future dividend payments
+//! - **Total return swaps**: Dividend reinvestment calculations
+//! - **Ex-dividend adjustments**: Forward price and strike adjustments
+//!
+//! # Examples
+//!
+//! ```rust
+//! use finstack_core::market_data::dividends::{DividendSchedule, DividendScheduleBuilder};
+//! use finstack_core::money::Money;
+//! use finstack_core::currency::Currency;
+//! use finstack_core::dates::Date;
+//! use time::Month;
+//!
+//! let d1 = Date::from_calendar_date(2025, Month::March, 15).unwrap();
+//! let d2 = Date::from_calendar_date(2025, Month::June, 15).unwrap();
+//!
+//! let schedule = DividendScheduleBuilder::new("AAPL-DIVS")
+//!     .underlying("AAPL")
+//!     .currency(Currency::USD)
+//!     .cash(d1, Money::new(0.24, Currency::USD))
+//!     .cash(d2, Money::new(0.25, Currency::USD))
+//!     .build()
+//!     .unwrap();
+//!
+//! assert_eq!(schedule.events.len(), 2);
+//! ```
 
 use crate::currency::Currency;
 use crate::dates::Date;
@@ -15,16 +51,34 @@ use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 
 /// Type of dividend event.
+///
+/// Distinguishes between cash payments, stock distributions, and continuous
+/// yield approximations used in different pricing models.
+///
+/// # Variants
+///
+/// - **Cash**: Actual dividend payment (quarterly, semi-annual, etc.)
+/// - **Stock**: Share distribution (less common, complicates option pricing)
+/// - **Yield**: Continuous approximation for analytical models
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum DividendKind {
-    /// Fixed cash amount in a currency.
+    /// Cash dividend payment.
+    ///
+    /// Most common type. Ex-dividend date reduces stock price by dividend amount.
     Cash(Money),
-    /// Proportional yield (fraction per annum) to be applied over an accrual.
-    /// This is metadata for models that approximate dividends as a yield.
+    
+    /// Continuous dividend yield (annualized fraction).
+    ///
+    /// Used in analytical models (Black-Scholes with dividends) that assume
+    /// continuous payout rather than discrete payments.
     Yield(f64),
-    /// Stock dividend specified as a ratio (e.g., 0.05 = 5% stock dividend).
+    
+    /// Stock dividend (share distribution).
+    ///
+    /// Increases share count proportionally. For example, 5% stock dividend
+    /// means each shareholder receives 0.05 additional shares per share held.
     Stock {
         /// Stock distribution ratio; 0.05 corresponds to a 5% stock dividend.
         ratio: f64,
@@ -41,7 +95,38 @@ pub struct DividendEvent {
     pub kind: DividendKind,
 }
 
-/// Shared dividend schedule identified by `CurveId` (e.g., "AAPL-DIVS").
+/// Dividend schedule for an equity or ETF underlying.
+///
+/// Contains a time-ordered sequence of dividend events used for pricing equity
+/// derivatives and calculating total return. The schedule can be referenced by
+/// multiple instruments via its [`CurveId`] in the market context.
+///
+/// # Usage in Pricing
+///
+/// - **Discrete dividends**: Subtract PV of future dividends from spot for option pricing
+/// - **Ex-dividend adjustments**: Reduce forward price by dividend amount
+/// - **Dividend futures**: Sum dividends in contract period
+/// - **Total return**: Include dividend reinvestment in performance
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::dividends::DividendSchedule;
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let mut schedule = DividendSchedule::new("AAPL-DIVS")
+///     .with_underlying("AAPL")
+///     .with_currency(Currency::USD)
+///     .add_cash(
+///         Date::from_calendar_date(2025, Month::March, 15).unwrap(),
+///         Money::new(0.24, Currency::USD)
+///     );
+///
+/// assert_eq!(schedule.events.len(), 1);
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]

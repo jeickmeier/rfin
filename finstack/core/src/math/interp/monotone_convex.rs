@@ -26,7 +26,12 @@ use std::vec::Vec;
 /// positivity, monotonicity and convexity when the input curve is arbitrage-free
 /// (non-increasing). Evaluation is O(log N) due to binary search on the knot vector.
 ///
-/// See unit tests and `examples/` for usage.
+/// # References
+///
+/// - Hagan, P. S., & West, G. (2006). "Interpolation Methods for Curve Construction."
+///   *Applied Mathematical Finance*, 13(2), 89-129.
+/// - Hagan, P. S., & West, G. (2008). "Methods for Constructing a Yield Curve."
+///   *Wilmott Magazine*, May 2008.
 #[derive(Debug)]
 pub struct MonotoneConvex {
     /// Knot times _tᵢ_ (strictly increasing).  Length ≥ 2.

@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test test-slow test-doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest
+.PHONY: help setup-python build build-prod test test-slow test-doc doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook
 
 help:
 	@echo "Available targets:"
@@ -11,11 +11,19 @@ help:
 	@echo "  test-slow      - Run all tests incl. slow (cargo-nextest)"
 	@echo "  test-doc       - Run documentation tests only"
 	@echo ""
+	@echo "Documentation:"
+	@echo "  doc            - Generate rustdoc documentation (workspace crates only, no deps)"
+	@echo "  book-build     - Build mdBook documentation"
+	@echo "  book-serve     - Build and serve mdBook with live reload"
+	@echo "  book-watch     - Watch and rebuild mdBook on changes"
+	@echo "  book-clean     - Clean mdBook build artifacts"
+	@echo ""
 	@echo "Other:"
 	@echo "  fmt            - Format all code"
 	@echo "  lint           - Run linters"
 	@echo "  clean          - Clean build artifacts"
 	@echo "  install-nextest  - Install cargo-nextest (test runner)"
+	@echo "  install-mdbook   - Install mdBook (documentation builder)"
 	@echo "  python-dev    - Build Python bindings in development mode"
 	@echo "  stubs         - Regenerate *.pyi stub files for VS Code IntelliSense"
 	@echo "  wasm-build    - Build WASM package"
@@ -49,6 +57,9 @@ test-slow: install-nextest
 test-doc:
 	CARGO_INCREMENTAL=1 cargo test --workspace --exclude finstack-py --doc --features mc
 
+doc:
+	CARGO_INCREMENTAL=1 cargo doc --workspace --exclude finstack-py --exclude finstack-wasm --no-deps --all-features --open
+
 install-nextest:
 	@if command -v cargo-nextest >/dev/null 2>&1; then \
 		echo "cargo-nextest already installed"; \
@@ -56,6 +67,31 @@ install-nextest:
 		echo "Installing cargo-nextest..."; \
 		cargo install cargo-nextest --locked; \
 	fi
+
+install-mdbook:
+	@if command -v mdbook >/dev/null 2>&1; then \
+		echo "mdbook already installed"; \
+	else \
+		echo "Installing mdbook..."; \
+		cargo install mdbook; \
+	fi
+
+book-build: install-mdbook
+	@echo "Building mdBook documentation..."
+	cd book && mdbook build
+
+book-serve: install-mdbook
+	@echo "Building and serving mdBook with live reload..."
+	@echo "Documentation will be available at http://localhost:3000"
+	cd book && mdbook serve --open
+
+book-watch: install-mdbook
+	@echo "Watching for changes and rebuilding mdBook..."
+	cd book && mdbook watch
+
+book-clean:
+	@echo "Cleaning mdBook build artifacts..."
+	rm -rf book/book
 
 fmt:
 	cargo fmt --all
@@ -75,6 +111,7 @@ clean:
 	rm -rf .venv
 	rm -rf finstack-wasm/pkg
 	rm -rf finstack-wasm/pkg-node
+	rm -rf book/book
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 	find . -name "*.egg-info" -type d -exec rm -rf {} + 2>/dev/null || true
 

@@ -1,16 +1,45 @@
-//! finstack-core prelude: commonly used finstack types
+//! Commonly used types and functions from finstack-core.
 //!
 //! Import this module to get a convenient set of core finstack types
-//! without having to import each one individually.
-//! Downstream crates should prefer `use finstack_core::prelude::*;`.
+//! without having to import each one individually. This is the recommended
+//! entry point for most users.
 //!
-//! # Most-used quick guide
+//! # Usage
 //!
-//! - `Currency`, `Money`: currency-safe amounts
-//! - `Date`, `BusinessDayConvention`, `adjust`: business-day logic
-//! - `ScheduleBuilder`, `Period`, `DayCount`: scheduling & accruals
-//! - `MarketContext`, `FxProvider`, `FxMatrix`: market data and FX
-//! - `ResultsMeta`, `RoundingContext`: IO boundary stamping
+//! ```rust
+//! use finstack_core::prelude::*;
+//! ```
+//!
+//! # What's Included
+//!
+//! ## Core Types
+//! - [`Currency`], [`Money`]: Currency-safe monetary amounts
+//! - [`Date`], [`OffsetDateTime`]: Date and time primitives
+//! - [`Error`], [`InputError`], [`Result`]: Error handling
+//!
+//! ## Financial Identifiers
+//! - [`CurveId`], [`InstrumentId`], [`IndexId`], [`PriceId`]: Type-safe IDs
+//! - [`Rate`], [`Bps`], [`Percentage`]: Interest rate representations
+//!
+//! ## Date Operations
+//! - [`BusinessDayConvention`], [`adjust`]: Business day adjustments
+//! - [`DayCount`]: Day count conventions (Act/360, 30/360, etc.)
+//! - [`ScheduleBuilder`], [`Period`]: Schedule generation
+//! - [`create_date`], [`next_imm`], [`third_wednesday`]: Date utilities
+//!
+//! ## Market Data
+//! - [`MarketContext`]: Aggregated market data container
+//! - [`FxProvider`], [`FxMatrix`]: Foreign exchange rates
+//! - [`MarketScalar`], [`InflationIndex`]: Market observables
+//!
+//! ## Configuration
+//! - [`FinstackConfig`], [`RoundingMode`]: Numeric precision settings
+//! - [`ResultsMeta`], [`RoundingContext`]: Result metadata stamping
+//!
+//! ## Mathematical Utilities
+//! - [`Solver`], [`BrentSolver`], [`NewtonSolver`]: Root finding
+//! - [`mean`], [`variance`], [`correlation`]: Statistical functions
+//! - [`kahan_sum`], [`stable_sum`]: Numerically stable summation
 //!
 //! Example:
 //! ```rust

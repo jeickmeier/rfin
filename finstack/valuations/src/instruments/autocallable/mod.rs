@@ -1,4 +1,52 @@
-//! Autocallable structured product instrument module.
+//! Autocallable structured notes with Monte Carlo pricing.
+//!
+//! Autocallables (reverse convertibles, phoenix autocalls) automatically redeem
+//! early if the underlying exceeds barrier levels on observation dates. Popular
+//! structured products combining high coupons with downside participation.
+//!
+//! # Autocallable Structure
+//!
+//! - **Observation dates**: Regular schedule (monthly, quarterly)
+//! - **Autocall barrier**: Early redemption if S > Barrier
+//! - **Coupon barrier**: Conditional coupons if S > Lower Barrier
+//! - **Protection barrier**: Capital protection level at maturity
+//!
+//! Typical payoff at observation i:
+//! - If S_i ≥ Autocall Barrier: Redeem at par + accrued coupons (stop)
+//! - Else if S_i ≥ Coupon Barrier: Pay coupon, continue
+//! - Else: No coupon, continue to next observation
+//!
+//! At maturity (if not called):
+//! - If S_T ≥ Protection Barrier: Repay par
+//! - Else: Lose (Protection - S_T)/S_0 (downside participation)
+//!
+//! # Pricing Method
+//!
+//! Autocallables require Monte Carlo simulation due to:
+//! - Path dependency (early redemption feature)
+//! - Discrete observation dates
+//! - Complex conditional payoffs
+//!
+//! No closed-form solutions exist.
+//!
+//! # Market Usage
+//!
+//! Popular underlyings:
+//! - **Single stocks**: Large-cap, liquid names
+//! - **Indices**: S&P 500, Euro Stoxx 50
+//! - **Worst-of baskets**: Multiple underlyings
+//!
+//! # References
+//!
+//! - Overhaus, M., Bermudez, A., Buehler, H., Ferraris, A., Jordinson, C., &
+//!   Lamnouar, A. (2007). *Equity Derivatives: Theory and Applications*. Wiley.
+//!   Chapter 6: Autocallables.
+//!
+//! # See Also
+//!
+//! - [`Autocallable`] for instrument struct
+//! - [`FinalPayoffType`] for maturity payoff specification
+//! - Monte Carlo pricer for path-dependent pricing
 
 pub mod metrics;
 pub mod pricer;

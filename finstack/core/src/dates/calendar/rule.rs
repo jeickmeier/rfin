@@ -1,11 +1,56 @@
-//! Unified holiday rule enum replacing the previous micro-struct DSL.
-#![allow(missing_docs)]
-#![allow(clippy::unnecessary_map_or)]
+//! Holiday rule definitions for calendar computations.
 //!
-//! This module provides a single `Rule` enum with data-carrying variants that
-//! can express the common holiday patterns used across market calendars.
-//! Implementing `Rule::applies(&self, date)` once keeps the codebase compact
-//! and avoids dozens of tiny helper structs.
+//! Provides a unified `Rule` enum system for expressing common holiday patterns
+//! across global financial market calendars. Rules are used to define when holidays
+//! occur, supporting fixed dates, movable holidays, Easter-based calculations,
+//! and lunar calendar observances.
+//!
+//! # Features
+//!
+//! - **Fixed dates**: New Year's Day, Independence Day, Christmas
+//! - **Nth weekday**: MLK Day (3rd Monday), Thanksgiving (4th Thursday)
+//! - **Weekend observation**: US-style (Fri/Mon) or UK-style (next Monday)
+//! - **Easter-based**: Good Friday, Easter Monday, Ascension Day
+//! - **Lunar calendars**: Chinese New Year, Qing Ming, Buddha's Birthday
+//! - **Japanese holidays**: Vernal/Autumnal Equinox Days
+//! - **Multi-day spans**: Golden Week, extended holiday periods
+//!
+//! # Rule Evaluation
+//!
+//! Each rule implements two core methods:
+//! - `applies(&self, date)`: O(1) check if date matches the rule
+//! - `materialize_year(&self, year, out)`: Generate all matching dates for a year
+//!
+//! # Quick Example
+//!
+//! ```rust
+//! use finstack_core::dates::calendar::rule::{Rule, Observed};
+//! use time::{Date, Month};
+//!
+//! // Fixed date: July 4th (US Independence Day)
+//! let july4 = Rule::fixed_weekend(Month::July, 4);
+//!
+//! // Check if specific date is a holiday
+//! let date = Date::from_calendar_date(2025, Month::July, 4)?;
+//! assert!(july4.applies(date));
+//!
+//! // If July 4 falls on Saturday, observed on Friday July 3
+//! let saturday = Date::from_calendar_date(2026, Month::July, 4)?; // Saturday
+//! assert!(!july4.applies(saturday));
+//! let friday = Date::from_calendar_date(2026, Month::July, 3)?;
+//! assert!(july4.applies(friday));
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! # See Also
+//!
+//! - [`HolidayCalendar`] for the trait that uses these rules
+//! - [`Observed`] for weekend observation conventions
+//! - [`Direction`] for weekday shift logic
+//!
+//! [`HolidayCalendar`]: super::business_days::HolidayCalendar
+
+#![allow(clippy::unnecessary_map_or)]
 
 use crate::dates::calendar::algo;
 use crate::dates::calendar::business_days::HolidayCalendar;
@@ -15,29 +60,105 @@ use time::{Date, Duration, Month, Weekday};
 // Supporting enums
 // ---------------------------------------------------------------------------
 
-/// Weekend-observance behaviour for fixed-date holidays.
+/// Weekend observation convention for fixed-date holidays.
+///
+/// Defines how holidays are observed when the calendar date falls on a weekend.
+/// Different jurisdictions use different conventions, particularly between
+/// US markets (Friday/Monday) and UK/European markets (next Monday only).
+///
+/// # Variants
+///
+/// - **`None`**: No adjustment—holiday observed only on exact calendar date
+/// - **`NextMonday`**: Weekend holidays observed on following Monday
+/// - **`FriIfSatMonIfSun`**: Saturday → Friday, Sunday → Monday (US convention)
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::dates::calendar::rule::{Rule, Observed};
+/// use time::{Date, Month};
+///
+/// // US Independence Day: if weekend, observe Fri (Sat) or Mon (Sun)
+/// let july4 = Rule::Fixed {
+///     month: Month::July,
+///     day: 4,
+///     observed: Observed::FriIfSatMonIfSun,
+/// };
+///
+/// // July 4, 2026 is Saturday → observed July 3 (Friday)
+/// let sat = Date::from_calendar_date(2026, Month::July, 4)?;
+/// assert!(!july4.applies(sat));
+/// let fri = Date::from_calendar_date(2026, Month::July, 3)?;
+/// assert!(july4.applies(fri));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # Standards Reference
+///
+/// - **US markets**: FriIfSatMonIfSun (NYSE, NASDAQ, US Treasury)
+/// - **UK markets**: NextMonday (LSE, UK Bank Holidays)
+/// - **European markets**: Mixed; often NextMonday or None
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 #[non_exhaustive]
 pub enum Observed {
-    /// No adjustment – holiday is **only** on the calendar date itself.
+    /// No adjustment—holiday is observed **only** on the exact calendar date.
+    ///
+    /// If the date falls on a weekend, the weekend itself is the holiday.
+    /// No substitute business day is designated.
     None,
+    
     /// If holiday falls on Saturday **or** Sunday, observe on following Monday.
+    ///
+    /// Common in UK and many Commonwealth countries.
     NextMonday,
-    /// If Saturday ⇒ previous Friday, if Sunday ⇒ following Monday.
+    
+    /// Saturday → previous Friday; Sunday → following Monday.
+    ///
+    /// Standard US market convention (NYSE, NASDAQ, Federal Reserve).
     FriIfSatMonIfSun,
 }
 
-/// Direction selector used by the `WeekdayShift` rule.
+/// Search direction for weekday shift rules.
+///
+/// Used by [`Rule::WeekdayShift`] to specify whether to search forward or
+/// backward from a reference date to find the nearest occurrence of a
+/// specific weekday.
+///
+/// # Variants
+///
+/// - **`After`**: Find nearest weekday on or after the reference date
+/// - **`Before`**: Find nearest weekday on or before the reference date
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::dates::calendar::rule::{Rule, Direction};
+/// use time::{Date, Month, Weekday};
+///
+/// // US Election Day: Tuesday on or after November 2
+/// let election_day = Rule::WeekdayShift {
+///     weekday: Weekday::Tuesday,
+///     month: Month::November,
+///     day: 2,
+///     dir: Direction::After,
+/// };
+///
+/// // November 2, 2026 is Monday → find Tuesday after (Nov 3)
+/// let date = Date::from_calendar_date(2026, Month::November, 3)?;
+/// assert!(election_day.applies(date));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 #[non_exhaustive]
 pub enum Direction {
-    /// Nearest **on/after** the reference date.
+    /// Find the nearest occurrence of the weekday **on or after** the reference date.
     After,
-    /// Nearest **on/before** the reference date.
+    
+    /// Find the nearest occurrence of the weekday **on or before** the reference date.
     Before,
 }
 
@@ -45,59 +166,231 @@ pub enum Direction {
 // Rule enum
 // ---------------------------------------------------------------------------
 
-/// Single holiday rule covering the common patterns.
+/// Holiday rule pattern for calendar date computations.
+///
+/// A unified enum representing common holiday patterns across global financial
+/// market calendars. Each variant encapsulates a specific holiday calculation
+/// pattern (fixed date, movable holiday, lunar calendar, etc.).
+///
+/// # Variants
+///
+/// ## Fixed and Weekday-Based
+///
+/// - **`Fixed`**: Fixed calendar date (Jan 1, Dec 25) with optional weekend observation
+/// - **`NthWeekday`**: nth weekday of month (3rd Monday, last Friday)
+/// - **`WeekdayShift`**: First weekday on/after or on/before a reference date
+///
+/// ## Religious and Cultural
+///
+/// - **`EasterOffset`**: Offset from Easter Monday (Good Friday = -3, Ascension = +38)
+/// - **`ChineseNewYear`**: Spring Festival (lunar new year)
+/// - **`QingMing`**: Tomb-Sweeping Day (Chinese solar term)
+/// - **`BuddhasBirthday`**: Vesak (8th day of 4th lunar month)
+///
+/// ## Regional
+///
+/// - **`VernalEquinoxJP`**: Japanese Vernal Equinox Day (Shunbun no Hi)
+/// - **`AutumnalEquinoxJP`**: Japanese Autumnal Equinox Day (Shūbun no Hi)
+///
+/// ## Composite
+///
+/// - **`Span`**: Multi-day consecutive holiday period (Golden Week, extended breaks)
+///
+/// # Usage
+///
+/// Rules are typically defined in JSON calendar files and loaded at build time.
+/// Each rule can be evaluated against a specific date using `applies()` or
+/// materialized for an entire year using `materialize_year()`.
+///
+/// # Examples
+///
+/// Fixed date with weekend observation:
+/// ```rust
+/// use finstack_core::dates::calendar::rule::{Rule, Observed};
+/// use time::{Date, Month};
+///
+/// let new_years = Rule::fixed_next_monday(Month::January, 1);
+/// 
+/// // Jan 1, 2022 is Saturday → observed Monday Jan 3
+/// let sat = Date::from_calendar_date(2022, Month::January, 1)?;
+/// assert!(!new_years.applies(sat));
+/// let mon = Date::from_calendar_date(2022, Month::January, 3)?;
+/// assert!(new_years.applies(mon));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// Nth weekday of month:
+/// ```rust
+/// use finstack_core::dates::calendar::rule::Rule;
+/// use time::{Date, Month, Weekday};
+///
+/// // US Thanksgiving: 4th Thursday of November
+/// let thanksgiving = Rule::NthWeekday {
+///     n: 4,
+///     weekday: Weekday::Thursday,
+///     month: Month::November,
+/// };
+///
+/// let date = Date::from_calendar_date(2025, Month::November, 27)?;
+/// assert!(thanksgiving.applies(date));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// Easter offset:
+/// ```rust
+/// use finstack_core::dates::calendar::rule::Rule;
+/// use time::{Date, Month};
+///
+/// // Good Friday = Easter Monday - 3 days
+/// let good_friday = Rule::EasterOffset(-3);
+///
+/// let date = Date::from_calendar_date(2025, Month::April, 18)?;
+/// assert!(good_friday.applies(date));
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
+/// # See Also
+///
+/// - [`Observed`] for weekend observation conventions
+/// - [`Direction`] for weekday shift direction
+/// - [`HolidayCalendar`] for using rules in calendars
+///
+/// [`HolidayCalendar`]: super::business_days::HolidayCalendar
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 #[non_exhaustive]
 pub enum Rule {
-    /// Fixed calendar date (e.g. 1-Jan). Optional weekend observation logic.
+    /// Fixed calendar date with optional weekend observation.
+    ///
+    /// Examples: New Year's Day (Jan 1), Christmas (Dec 25), Independence Day (Jul 4).
+    ///
+    /// The `observed` field controls how the holiday is handled when it falls
+    /// on a weekend (see [`Observed`]).
     Fixed {
+        /// Month of the holiday
         month: Month,
+        /// Day of the month (1-31)
         day: u8,
+        /// Weekend observation convention
         observed: Observed,
     },
 
-    /// *n*-th occurrence of `weekday` in `month`.
-    ///  * n > 0 ⇒ nth from **start** (1 = first)
-    ///  * n < 0 ⇒ nth from **end**   (-1 = last)
+    /// Nth occurrence of a weekday within a month.
+    ///
+    /// Examples: MLK Day (3rd Monday of January), Thanksgiving (4th Thursday of November).
+    ///
+    /// # Convention
+    /// - `n > 0`: nth occurrence from **start** of month (1 = first, 2 = second, ...)
+    /// - `n < 0`: nth occurrence from **end** of month (-1 = last, -2 = second-to-last, ...)
     NthWeekday {
+        /// Occurrence count (positive from start, negative from end)
         n: i8,
+        /// Target weekday
         weekday: Weekday,
+        /// Month
         month: Month,
     },
 
-    /// Shift to `weekday` **on/after** or **on/before** the given base date.
+    /// Shift to nearest weekday on or after/before a reference date.
+    ///
+    /// Examples: US Election Day (Tuesday on or after Nov 2).
+    ///
+    /// Starts from `month/day` and shifts to the nearest `weekday` in the
+    /// specified `dir`ection.
     WeekdayShift {
+        /// Target weekday
         weekday: Weekday,
+        /// Reference month
         month: Month,
+        /// Reference day
         day: u8,
+        /// Search direction (After or Before)
         dir: Direction,
     },
 
-    /// Relative offset (days) from Easter **Monday** (e.g. ‑3 = Good Friday).
+    /// Offset in days from Easter Monday.
+    ///
+    /// Examples: Good Friday (-3), Easter Monday (0), Ascension Day (+38).
+    ///
+    /// # Calculation
+    /// Easter Monday is computed using the Anonymous Gregorian algorithm.
+    /// The offset is then applied as calendar days.
+    ///
+    /// # Common Offsets
+    /// - Good Friday: -3
+    /// - Easter Sunday: -1
+    /// - Easter Monday: 0
+    /// - Ascension Day: +38
+    /// - Whit Monday: +49
     EasterOffset(i16),
 
-    /// Consecutive multi-day block starting at `start` and spanning `len`
-    /// calendar days (including the start day).
-    /// Note: This variant cannot be serialized as it contains a static reference.
-    /// It is only used in compiled calendar definitions.
+    /// Consecutive multi-day holiday period.
+    ///
+    /// Examples: Golden Week (Japan), extended Christmas breaks.
+    ///
+    /// Materializes `len` consecutive days starting from each date that
+    /// matches the `start` rule. Handles year boundaries correctly.
+    ///
+    /// # Note
+    /// This variant cannot be serialized (contains `&'static Rule`).
+    /// Used only in compiled calendar definitions.
     #[cfg_attr(feature = "serde", serde(skip))]
-    Span { start: &'static Rule, len: u8 },
+    Span {
+        /// Rule defining the start date(s)
+        start: &'static Rule,
+        /// Number of consecutive days (including start day)
+        len: u8,
+    },
 
-    /// Chinese New Year (Spring Festival) – uses generated lookup table (1970-2150).
+    /// Chinese New Year (Spring Festival, 春节).
+    ///
+    /// Celebrated on the first day of the Chinese lunar calendar, typically
+    /// between January 21 and February 20. Uses pre-computed lookup table
+    /// for years 1970-2150.
+    ///
+    /// # Markets
+    /// Public holiday in Mainland China, Hong Kong, Taiwan, Singapore, and
+    /// other Asian markets with significant Chinese populations.
     ChineseNewYear,
 
-    /// Qing Ming festival (Tomb-Sweeping Day) – Chinese solar term around 4-Apr.
+    /// Qing Ming Festival (清明节, Tomb-Sweeping Day).
+    ///
+    /// One of the 24 solar terms in the traditional Chinese calendar,
+    /// typically falling around April 4-5. Computed using solar longitude
+    /// formula.
+    ///
+    /// # Markets
+    /// Public holiday in Mainland China, Hong Kong, Taiwan.
     QingMing,
 
-    /// Buddha's Birthday (8th day of 4th Chinese lunar month – approx CNY+95d).
+    /// Buddha's Birthday (Vesak, 佛誕).
+    ///
+    /// Celebrated on the 8th day of the 4th Chinese lunar month. Approximated
+    /// as Chinese New Year + 95 days.
+    ///
+    /// # Markets
+    /// Public holiday in Hong Kong, Macau, and some other Asian markets.
     BuddhasBirthday,
 
-    /// Vernal Equinox Day per Japanese calendar approximation.
+    /// Vernal Equinox Day (春分の日, Shunbun no Hi).
+    ///
+    /// Japanese national holiday around March 20-21, computed using
+    /// astronomical formula from the National Astronomical Observatory of Japan.
+    ///
+    /// # Reference
+    /// - Formula valid for years 1900-2100
+    /// - Source: Japan National Astronomical Observatory (国立天文台)
     VernalEquinoxJP,
 
-    /// Autumnal Equinox Day per Japanese calendar approximation.
+    /// Autumnal Equinox Day (秋分の日, Shūbun no Hi).
+    ///
+    /// Japanese national holiday around September 22-23, computed using
+    /// astronomical formula from the National Astronomical Observatory of Japan.
+    ///
+    /// # Reference
+    /// - Formula valid for years 1900-2100
+    /// - Source: Japan National Astronomical Observatory (国立天文台)
     AutumnalEquinoxJP,
 }
 

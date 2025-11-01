@@ -1,10 +1,11 @@
 use super::InterpFn;
 use crate::math::interp::LogLinearDf;
 
-/// Flat-forward DF interpolator – constant instantaneous forward rate between knots.
-/// Implemented via linear interpolation on log DF (equivalent behaviour).
+/// Flat-forward discount factor interpolation.
 ///
-/// See unit tests and `examples/` for usage.
+/// Assumes constant instantaneous forward rates between knots. Mathematically
+/// equivalent to log-linear interpolation. Commonly used for OIS curves and
+/// ensures no-arbitrage by construction (positive forwards guaranteed).
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FlatFwd {

@@ -1,10 +1,21 @@
-//! Small statistics helpers (mean/variance/covariance/correlation).
+//! Statistical functions for financial time series analysis.
 //!
-//! We implement these ourselves rather than using external crates to ensure:
-//! - Deterministic results using our custom summation algorithm
-//! - Feature-flag controlled behaviour (deterministic vs. fast)
-//! - No dependencies on external crates for basic operations
-//! - Consistent numerical behaviour across platforms
+//! Provides numerically stable implementations of basic statistics using
+//! Welford's online algorithm and Kahan summation. All functions are
+//! deterministic and produce identical results across platforms.
+//!
+//! # Algorithms
+//!
+//! - **Mean**: Kahan compensated summation for numerical stability
+//! - **Variance**: Welford's one-pass algorithm (avoids catastrophic cancellation)
+//! - **Covariance/Correlation**: Chan's parallel algorithm for stability
+//!
+//! # Use Cases
+//!
+//! - Portfolio risk metrics (volatility, correlation matrices)
+//! - Time series analysis (returns, volatility estimation)
+//! - Factor model estimation (principal components)
+//! - Monte Carlo variance reduction (control variates)
 //!
 //! # Examples
 //!
@@ -17,6 +28,21 @@
 //! assert!(covariance(&xs, &ys) > 0.0);
 //! assert!((correlation(&xs, &ys) - 1.0).abs() < 1e-12);
 //! ```
+//!
+//! # References
+//!
+//! - **Welford's Algorithm**:
+//!   - Welford, B. P. (1962). "Note on a Method for Calculating Corrected Sums of
+//!     Squares and Products." *Technometrics*, 4(3), 419-420.
+//!
+//! - **Chan's Parallel Algorithm**:
+//!   - Chan, T. F., Golub, G. H., & LeVeque, R. J. (1983). "Algorithms for Computing
+//!     the Sample Variance: Analysis and Recommendations." *The American Statistician*,
+//!     37(3), 242-247.
+//!
+//! - **Kahan Summation**:
+//!   - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
+//!     *Communications of the ACM*, 8(1), 40.
 
 use super::summation::kahan_sum;
 

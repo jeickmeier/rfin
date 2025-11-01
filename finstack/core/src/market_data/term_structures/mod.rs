@@ -1,11 +1,46 @@
-//! One-dimensional *term structures* – yield curves, forward curves, credit
-//! curves and inflation curves.
+//! Term structure curves for rates, credit, and inflation.
 //!
-//! A *term structure* maps a scalar time coordinate (usually expressed in
-//! **years** from some base date) to a numerical value such as a **discount
-//! factor**, **forward rate** or **survival probability**.  All concrete
-//! implementations share the lightweight [`crate::market_data::traits::TermStructure`]
-//! super-trait and then extend it with domain-specific behaviour:
+//! This module implements one-dimensional term structures that map time to
+//! market observables. These curves are fundamental building blocks for pricing
+//! fixed income securities and derivatives.
+//!
+//! # What is a Term Structure?
+//!
+//! A term structure maps a time coordinate (in years from a base date) to a
+//! numerical value representing market expectations:
+//! - **Discount factors**: Present value of $1 at time t
+//! - **Forward rates**: Expected future interest rates
+//! - **Hazard rates**: Credit event intensity (default probability)
+//! - **Survival probabilities**: Probability of no default by time t
+//! - **Inflation expectations**: Expected CPI growth
+//!
+//! # Financial Concepts
+//!
+//! ## Discount Curve
+//!
+//! The discount curve DF(t) represents the present value of $1 received at time t:
+//! ```text
+//! DF(t) = e^(-r(t) * t)
+//!
+//! where r(t) is the continuously compounded zero rate
+//! ```
+//!
+//! ## Forward Curve
+//!
+//! The forward curve f(t₁, t₂) represents the rate agreed today for borrowing
+//! from t₁ to t₂:
+//! ```text
+//! f(t₁, t₂) = [DF(t₁) / DF(t₂) - 1] / (t₂ - t₁)
+//! ```
+//!
+//! ## Hazard Curve
+//!
+//! The hazard rate λ(t) represents the instantaneous probability of default:
+//! ```text
+//! Survival(t) = e^(-∫₀ᵗ λ(s)ds)
+//! ```
+//!
+//! # Curve Types
 //!
 //! | Struct                              | Domain  | Specialised trait |
 //! |-------------------------------------|---------|-------------------|

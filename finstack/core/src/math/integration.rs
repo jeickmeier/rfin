@@ -1,19 +1,48 @@
-//! Numerical integration algorithms.
+//! Numerical integration methods for financial mathematics.
 //!
-//! This module provides implementations of common numerical integration
-//! methods used in financial mathematics, particularly for probability
-//! distributions and complex integrals.
+//! Implements deterministic quadrature rules and adaptive algorithms for
+//! computing integrals that arise in option pricing, risk-neutral expectations,
+//! and probability calculations.
+//!
+//! # Algorithms
+//!
+//! - **Gauss-Hermite**: Integration over normal distribution (Heston, SABR)
+//! - **Gauss-Legendre**: Integration over finite intervals (payoff expectations)
+//! - **Simpson's rule**: Classic adaptive quadrature
+//! - **Trapezoidal rule**: Simple, robust baseline method
+//!
+//! # Use Cases
+//!
+//! - **Option pricing**: Semi-analytical methods requiring characteristic function integration
+//! - **Heston model**: Fourier inversion for vanilla options
+//! - **SABR**: Probability density integration for digital payoffs
+//! - **Risk-neutral expectations**: Integrate payoff × density
 //!
 //! # Examples
 //!
 //! ```
 //! use finstack_core::math::integration::GaussHermiteQuadrature;
 //!
-//! // Integrate x² over standard normal (should give 1.0)
+//! // Integrate x² over standard normal (expected value = 1.0)
 //! let quad = GaussHermiteQuadrature::order_7();
 //! let integral = quad.integrate(|x| x * x);
 //! assert!((integral - 1.0).abs() < 0.1);
 //! ```
+//!
+//! # References
+//!
+//! - **Gaussian Quadrature**:
+//!   - Abramowitz, M., & Stegun, I. A. (1964). *Handbook of Mathematical Functions*.
+//!     Chapter 25 (Numerical Integration).
+//!   - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 4.5.
+//!
+//! - **Adaptive Methods**:
+//!   - Davis, P. J., & Rabinowitz, P. (1984). *Methods of Numerical Integration*
+//!     (2nd ed.). Academic Press.
+//!
+//! - **Financial Applications**:
+//!   - Lewis, A. L. (2000). *Option Valuation under Stochastic Volatility*.
+//!     Finance Press. (Fourier methods and quadrature)
 
 use crate::error::InputError;
 use crate::Error;
