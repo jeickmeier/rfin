@@ -1,0 +1,256 @@
+---
+description: This is useful for learning about the scenarios crate and its functionality which includes: Lightweight, deterministic scenario capability for stress testing and what-if analysis across market data, financial statements, and instrument portfolios.
+alwaysApply: false
+---
+### Finstack Scenarios (Rust) — Rules, Structure, and Contribution Guide
+
+This document defines Cursor rules for the `finstack/scenarios/` crate. It explains purpose, structure, invariants, coding standards, and how to add new scenario operations safely while preserving determinism, serde stability, and composability.
+
+### Scope and Purpose
+- **Core responsibilities**: Lightweight, deterministic scenario capability for stress testing and what-if analysis across market data, financial statements, and instrument portfolios.
+- **Determinism-first**: Scenario application must produce identical results across serial and parallel execution; stable ordering with priority-based conflict resolution.
+- **Serde-stable wire format**: All spec types (`ScenarioSpec`, `OperationSpec`) use stable serde names for JSON interoperability with pipelines, configuration files, and long-lived storage.
+- **Minimal dependencies**: Reuses existing `finstack-core`, `finstack-statements`, and `finstack-valuations` APIs; does not duplicate market data or pricing logic.
+- **Adapter pattern**: Each `OperationSpec` variant delegates to an adapter module that implements the shock mechanics; engine orchestrates ordering and reporting.
+- **No unsafe code**: The crate uses `#![deny(unsafe_code)]` at the crate level.
+
+### Directory Structure
+- `src/lib.rs`: Crate facade and public module exports.
+- `src/spec.rs`: Serializable scenario specifications (`ScenarioSpec`, `OperationSpec`, `CurveKind`, `VolSurfaceKind`, `TenorMatchMode`); serde-stable data structures.
+- `src/engine.rs`: Deterministic scenario execution engine (`ScenarioEngine`, `ExecutionContext`, `ApplicationReport`); orchestrates operation ordering and adapter dispatch.
+- `src/error.rs`: Error types and `Result` alias for the crate; granular variants for actionable error handling.
+- `src/utils.rs`: Utility helpers for parsing tenor/period strings (`parse_tenor_to_years`, `parse_period_to_days`).
+- `src/adapters/`: Adapter modules implementing shock mechanics for each operation category:
+  - `mod.rs`: Public adapter interface and re-exports.
+  - `basecorr.rs`: Base correlation surface shocks (parallel and bucket-specific).
+  - `curves.rs`: Discount/forecast/hazard/inflation curve shocks (parallel and node-specific).
+  - `equity.rs`: Equity price percent shocks.
+  - `fx.rs`: FX rate percent shocks via `SimpleFxProvider` replacement.
+  - `instruments.rs`: Instrument price/spread shocks by type or attributes.
+  - `statements.rs`: Statement forecast adjustments (percent and assign) and rate binding updates.
+  - `time_roll.rs`: Time roll-forward with carry/theta calculations.
+  - `vol.rs`: Volatility surface shocks (parallel and bucket-specific).
+- `tests/`: Integration and edge-case tests (14 test modules covering serde round-trips, invariants, boundary conditions, complex scenarios, error handling, etc.).
+- `benches/`: Criterion benchmarks for scenario composition and application performance.
+
+### Cross‑Cutting Invariants
+- **No `unsafe`**: The crate enforces `#![deny(unsafe_code)]` at the crate level.
+- **Determinism**: Scenario application must be deterministic; operations execute in fixed order (priority → declaration order); no hidden randomness.
+- **Serde stability**: All spec types use stable field names with `#[serde(deny_unknown_fields)]` on inbound types; avoid renaming serialized fields.
+- **Adapter pattern**: Each `OperationSpec` variant has a corresponding adapter function; engine does not contain shock implementation logic.
+- **Explicit context**: All mutable state (`MarketContext`, `FinancialModelSpec`, instruments) is passed via `ExecutionContext`; no global state.
+- **Composability**: Multiple scenarios can be merged via `ScenarioEngine::compose` with stable priority-based ordering (lower priority value = higher precedence).
+- **Phase ordering**: Operations apply in deterministic phases: (0) Time roll-forward → (1) Market data → (2) Rate bindings → (3) Statements → (4) Re-evaluation.
+- **Error handling**: Adapters return `Result<T>` with granular error variants; engine collects warnings for non-fatal issues and propagates errors for fatal failures.
+
+### Coding Standards (Scenarios)
+- **Naming**: Functions are verbs; types are nouns. Adapters use `apply_*` prefix (e.g., `apply_curve_parallel_shock`).
+- **Type safety**: Use enums for variants (`CurveKind`, `VolSurfaceKind`, `InstrumentType` re-exported from valuations); avoid stringly-typed operations.
+- **APIs**: Public spec types must be documented with examples. Adapters should have clear function-level docs explaining parameters, effects, and errors.
+- **Errors**: Use `Error` enum variants (`MarketDataNotFound`, `NodeNotFound`, `InvalidTenor`, etc.); provide actionable messages; use helper constructors (`Error::market_data_not_found`, etc.).
+- **Serde**: Gate serialization under the `serde` feature (default on); maintain `rename_all = "snake_case"` and `#[serde(tag = "kind")]` for `OperationSpec` enum; add defaults for optional fields to preserve backward compatibility.
+- **No global state**: Pass `ExecutionContext` to adapters; no singletons or thread-locals.
+- **Concurrency**: Not currently required; all operations are serial. Future parallelism must preserve determinism.
+- **Dependencies**: Minimal external deps; uses `indexmap` for ordered maps, `serde`/`serde_json` for serialization, `thiserror` for errors, `time` for dates (matching core).
+- **Tests**: Add unit tests in adapter modules and integration tests in `tests/` directory; cover happy paths, edge cases, error conditions, and serde round-trips.
+
+### Architecture Patterns
+
+#### Execution Flow
+```
+ScenarioEngine::apply(spec, ctx)
+  ├─ Phase 0: Time roll-forward (if TimeRollForward operation present)
+  ├─ Phase 1: Market data shocks (FX → Equities → Vol → Curves → BaseCorr)
+  ├─ Phase 2: Rate bindings update (optional; syncs statement rates from curves)
+  ├─ Phase 3: Statement forecast adjustments (percent, assign)
+  └─ Phase 4: Re-evaluate financial model to propagate changes
+```
+
+#### Adapter Pattern
+- Each `OperationSpec` variant has a corresponding adapter function in `src/adapters/`.
+- Adapters mutate `MarketContext`, `FinancialModelSpec`, or instruments in place.
+- Adapters return `Result<()>` or `Result<usize>` (operation count) with granular error variants.
+- Engine delegates to adapters and collects warnings for non-fatal issues.
+
+#### Scenario Composition
+- `ScenarioEngine::compose` merges multiple `ScenarioSpec` instances into a single spec.
+- Scenarios are sorted by `priority` field (lower value = higher precedence).
+- Operations from all scenarios are concatenated in priority order.
+- Last-wins semantics for conflicting operations (no deduplication in Phase A).
+
+### Feature Design Patterns
+
+#### Market Data Shocks
+- **Parallel shocks**: Apply additive or multiplicative adjustments uniformly across all points (e.g., `CurveParallelBp`, `VolSurfaceParallelPct`).
+- **Bucket/node shocks**: Filter by tenor, strike, detachment point, or maturity; apply targeted adjustments (e.g., `CurveNodeBp`, `VolSurfaceBucketPct`, `BaseCorrBucketPts`).
+- **Tenor matching**: Use `TenorMatchMode` to control exact vs. interpolated pillar matching for curve shocks.
+- **FX shocks**: Replace `FxProvider` in `MarketContext` with shocked `SimpleFxProvider`; applies percentage change to rate.
+
+#### Statement Shocks
+- **Percent adjustments**: Multiply forecast value by `(1 + pct / 100)` via `apply_forecast_percent`.
+- **Value assignments**: Directly assign new forecast value via `apply_forecast_assign`.
+- **Rate bindings**: Automatically sync statement node rates from curve par rates after curve shocks (if `rate_bindings` provided in context).
+- **Re-evaluation**: Always call `reevaluate_model` after statement adjustments to propagate changes through model graph.
+
+#### Instrument Shocks
+- **Type-based selectors**: Use `InstrumentType` enum (Bond, CDS, Swap, etc.) to filter instruments for price/spread shocks.
+- **Attribute-based selectors**: Phase A stub; requires instrument registry integration (future enhancement).
+- **Spread vs. price**: Spread shocks (basis points) are additive; price shocks (percent) are multiplicative.
+
+#### Time Operations
+- **Roll forward**: Advance `as_of` date by period; recalculate curve knots, instrument cashflows, and carry/theta via valuations crate.
+- **Apply shocks flag**: Controls whether market shocks should be applied after rolling forward; if `false`, skip remaining operations.
+
+### Adding New Features to `scenarios/`
+
+#### 1) New Operation Variant
+- Add variant to `OperationSpec` enum in `src/spec.rs` with:
+  - Clear doc comment with examples.
+  - `#[serde(rename_all = "snake_case")]` field naming.
+  - Stable field names; avoid renaming after release.
+- Create or extend adapter module in `src/adapters/` with:
+  - `apply_*` function implementing shock logic.
+  - `Result<()>` or `Result<usize>` return type.
+  - Granular error variants for actionable failures.
+- Add dispatch case in `ScenarioEngine::apply` (in `src/engine.rs`) to call adapter function.
+- Add tests:
+  - Unit tests in adapter module for happy path and edge cases.
+  - Integration test in `tests/` directory for end-to-end scenario application.
+  - Serde round-trip test in `tests/serde_roundtrip_test.rs`.
+
+#### 2) New Curve/Surface Shock Type
+- Extend `CurveKind` or `VolSurfaceKind` enum in `src/spec.rs` if targeting a new curve/surface family.
+- Add adapter logic in `src/adapters/curves.rs` or `src/adapters/vol.rs`:
+  - Handle new kind in match arms.
+  - Use `MarketContext` methods to retrieve and mutate curve/surface.
+  - Return `Error::MarketDataNotFound` if target not present.
+- Add tests covering new curve/surface kind in `tests/curve_variants_test.rs` or similar.
+
+#### 3) New Matching/Filtering Mode
+- Add enum variant to `TenorMatchMode` or create new enum (e.g., `StrikeMatchMode`) in `src/spec.rs`.
+- Update adapter logic to handle new mode:
+  - Implement filtering/matching logic in adapter function.
+  - Document semantics clearly (exact match, interpolation, nearest neighbor, etc.).
+- Add tests for new mode in `tests/tenor_shocks_test.rs` or `tests/bucket_filtering_test.rs`.
+
+#### 4) New Utility/Parser
+- Add parsing function to `src/utils.rs` following pattern of `parse_tenor_to_years` / `parse_period_to_days`.
+- Return `Result<T>` with `Error::InvalidTenor` or `Error::InvalidPeriod` for parse failures.
+- Add unit tests in `utils.rs` module covering valid inputs, edge cases, and error conditions.
+
+#### 5) Enhanced Reporting/Metadata
+- Extend `ApplicationReport` struct in `src/engine.rs` with new fields (e.g., `operations_by_phase`, `shocked_ids`).
+- Update `ScenarioEngine::apply` to populate new fields during execution.
+- Maintain backward compatibility by using `#[serde(default)]` for new optional fields if serializing reports.
+
+### Review & Testing Checklist
+- Public spec types have doc comments with examples.
+- Adapter functions have clear function-level docs.
+- New `OperationSpec` variants implement serde with stable names.
+- No panics in public code paths; return `Result`.
+- Determinism maintained (no hidden randomness; stable ordering).
+- Errors are granular and actionable (`Error::MarketDataNotFound`, `Error::InvalidTenor`, etc.).
+- Tests: units for happy paths and edges; integration tests for end-to-end scenarios; serde round-trips.
+- Benchmarks updated if performance-critical operation added.
+
+### Practical Tips
+- Use `Error` helper constructors (`Error::market_data_not_found(id)`) instead of variant struct syntax for consistency.
+- Parse tenor/period strings with `utils::parse_tenor_to_years` / `utils::parse_period_to_days`; do not duplicate parsing logic.
+- Delegate to existing `finstack-core`, `finstack-statements`, `finstack-valuations` APIs; do not reimplement market data or pricing logic.
+- Use `ExecutionContext` to access mutable state; avoid direct coupling to context internals in adapters.
+- Follow phase ordering in `ScenarioEngine::apply`; do not introduce out-of-order execution.
+- Use warnings for non-fatal issues (e.g., missing optional data); use errors for fatal failures (e.g., required curve not found).
+- Keep adapter functions focused; one function per operation type; avoid large match arms in engine.
+- Use `indexmap` for ordered maps where iteration order matters (e.g., rate bindings).
+
+### Anti‑Patterns to Avoid
+- Hidden global state or singletons (always pass `ExecutionContext` explicitly).
+- Duplicating market data or pricing logic from other crates (reuse via adapters).
+- Changing serde names/variants in released `OperationSpec` types (breaks backward compatibility).
+- `unwrap()`/`expect()` in public code paths (return `Result` instead).
+- Out-of-order operation execution (breaks determinism guarantees).
+- Stringly-typed operations (use enums like `CurveKind`, `InstrumentType`).
+- Adding `unsafe` code (denied at crate level).
+- Large adapter functions (split into helpers if > 50 lines).
+- Ignoring warnings during application (surface via `ApplicationReport::warnings`).
+
+### Cargo Features
+The `finstack-scenarios` crate supports the following features:
+- `serde` (default): Enables `Serialize`/`Deserialize` implementations for all spec types. Required for JSON serialization and wire format stability.
+
+Default features: `["serde"]`
+
+### Supported Operations (Phase A)
+
+#### Market Data Operations
+- **`MarketFxPct`**: FX rate percent shift via `SimpleFxProvider` replacement.
+- **`EquityPricePct`**: Equity price percent shock via `MarketContext::equities` mutation.
+- **`CurveParallelBp`**: Parallel basis point shift to discount/forecast/hazard/inflation curves.
+- **`CurveNodeBp`**: Node-specific basis point shifts with tenor matching (exact or interpolate).
+- **`BaseCorrParallelPts`**: Parallel correlation point shift to base correlation surface.
+- **`BaseCorrBucketPts`**: Bucket-specific correlation shifts filtered by detachment points and maturities.
+- **`VolSurfaceParallelPct`**: Parallel volatility percent shift to equity/credit/swaption surfaces.
+- **`VolSurfaceBucketPct`**: Bucket-specific volatility shifts filtered by tenor and strike.
+
+#### Statement Operations
+- **`StmtForecastPercent`**: Forecast percent change to statement node value.
+- **`StmtForecastAssign`**: Direct forecast value assignment to statement node.
+
+#### Instrument Operations
+- **`InstrumentPricePctByType`**: Price shock filtered by instrument type (Bond, CDS, Swap, etc.).
+- **`InstrumentSpreadBpByType`**: Spread shock filtered by instrument type.
+- **`InstrumentPricePctByAttr`**: Phase A stub; requires instrument registry (future).
+- **`InstrumentSpreadBpByAttr`**: Phase A stub; requires instrument registry (future).
+
+#### Time Operations
+- **`TimeRollForward`**: Roll forward horizon by period with carry/theta calculation; optional market shock application.
+
+### Execution Phases
+`ScenarioEngine::apply` executes operations in the following order:
+
+1. **Phase 0: Time Roll-Forward**
+   - If `TimeRollForward` operation present, advance `as_of` date and recalculate market data.
+   - If `apply_shocks = false`, skip remaining phases and return.
+
+2. **Phase 1: Market Data Shocks**
+   - Apply operations in order: FX → Equities → Instruments (type/attr) → Vol → Curves → BaseCorr.
+   - Non-fatal failures (e.g., missing equity) are collected as warnings.
+
+3. **Phase 2: Rate Bindings Update**
+   - If `rate_bindings` provided in context, sync statement node rates from curve par rates.
+   - Failures are collected as warnings (non-fatal).
+
+4. **Phase 3: Statement Adjustments**
+   - Apply `StmtForecastPercent` and `StmtForecastAssign` operations to model nodes.
+   - Failures propagate as errors (fatal).
+
+5. **Phase 4: Re-Evaluation**
+   - Call `reevaluate_model` to propagate changes through statement model graph.
+   - Failures are collected as warnings.
+
+### Error Handling Strategy
+- **Fatal errors**: Required market data not found, invalid tenor/period strings, node not found in statements. Engine returns `Err` immediately.
+- **Non-fatal warnings**: Optional data missing (e.g., equity not found in non-critical shock), rate binding update failures. Engine collects in `ApplicationReport::warnings` and continues.
+- **Adapter responsibilities**: Return granular error variants with actionable messages; avoid generic `Internal` errors where possible.
+- **Engine responsibilities**: Collect warnings for non-fatal issues; propagate errors for fatal failures; populate `ApplicationReport` with operation counts and warnings.
+
+### Future Enhancements (Not Yet Implemented)
+- Full DSL with text parser and glob/selector expansion.
+- Instrument registry integration for attribute-based selectors (`InstrumentPricePctByAttr`, `InstrumentSpreadBpByAttr`).
+- Time-windowed operations (`@on`, `@during` temporal qualifiers).
+- Curve rolling with proper knot expiry/adjustment.
+- Volatility skew/smile adjustments beyond parallel/bucket shocks.
+- Correlation matrix shocks (beyond base correlation).
+- Python and WASM bindings for scenarios crate.
+
+### How to Propose a Change
+- Open a small, scoped PR that:
+  - Explains the problem and target operation/feature.
+  - Shows tests that guard behavior and stability (unit, integration, serde round-trips).
+  - Calls out any serde compatibility risks explicitly (field renames, enum variant changes).
+  - Demonstrates determinism (stable ordering; no hidden randomness).
+  - Follows the coding standards and patterns documented here.
+  - Updates examples if new operation types are added.
+
+This file governs only the `scenarios/` crate. See separate rules for `core/`, `statements/`, `valuations/`, and Python/WASM bindings.
+

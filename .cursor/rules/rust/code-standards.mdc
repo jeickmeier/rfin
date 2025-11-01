@@ -1,5 +1,5 @@
 ---
-description: For the core rust library
+description: Information about the coding standards of the rust finstack library
 alwaysApply: false
 ---
 # Rust Code Standards for rfin Project
