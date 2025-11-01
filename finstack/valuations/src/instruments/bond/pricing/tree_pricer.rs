@@ -8,8 +8,8 @@ use super::super::types::Bond;
 #[cfg(test)]
 use super::super::types::CallPut;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::models::tree_framework::state_keys as tf_keys;
-use crate::instruments::common::models::two_factor_rates_credit::{
+use crate::instruments::common::models::trees::tree_framework::state_keys as tf_keys;
+use crate::instruments::common::models::trees::two_factor_rates_credit::{
     RatesCreditConfig, RatesCreditTree,
 };
 use crate::instruments::common::models::{
@@ -193,7 +193,7 @@ impl TreeValuator for BondValuator {
         // Default handling: if hazard and dt are present, compute survival/default weighting
         if let (Some(hazard), Some(dt)) = (
             state.get_var(
-                super::super::super::common::models::tree_framework::state_keys::HAZARD_RATE,
+                super::super::super::common::models::trees::tree_framework::state_keys::HAZARD_RATE,
             ),
             state.get_var("dt"),
         ) {
@@ -478,8 +478,8 @@ mod tests {
     #[test]
     #[cfg(feature = "slow")]
     fn test_rates_credit_default_lowers_price() {
-        use crate::instruments::common::models::tree_framework::state_keys as tf_keys;
-        use crate::instruments::common::models::two_factor_rates_credit::{
+        use crate::instruments::common::models::trees::tree_framework::state_keys as tf_keys;
+        use crate::instruments::common::models::trees::two_factor_rates_credit::{
             RatesCreditConfig, RatesCreditTree,
         };
         use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;

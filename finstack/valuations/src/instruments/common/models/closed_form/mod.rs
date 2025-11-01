@@ -1,4 +1,4 @@
-//! Analytical and semi-analytical pricing formulas with academic citations.
+//! Closed-form and semi-analytical pricing formulas with academic citations.
 //!
 //! This module provides closed-form and semi-analytical pricing formulas for
 //! options and derivatives. These implementations serve dual purposes:
@@ -92,7 +92,7 @@
 //! ## Black-Scholes Greeks
 //!
 //! ```rust
-//! use finstack_valuations::instruments::common::analytical::greeks::{
+//! use finstack_valuations::instruments::common::models::closed_form::greeks::{
 //!     bs_call_delta, bs_gamma, bs_vega
 //! };
 //!
@@ -114,7 +114,7 @@
 //! ## Barrier Option
 //!
 //! ```rust
-//! use finstack_valuations::instruments::common::analytical::barrier::{
+//! use finstack_valuations::instruments::common::models::closed_form::barrier::{
 //!     down_out_call
 //! };
 //!
@@ -168,4 +168,3 @@ pub use lookback::{
 pub use quanto::{
     quanto_call, quanto_call_simple, quanto_drift_adjustment, quanto_put, quanto_put_simple,
 };
-

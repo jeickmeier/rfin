@@ -222,7 +222,7 @@ pub fn npv(inst: &LookbackOption, curves: &MarketContext, as_of: Date) -> Result
 
 // ========================= ANALYTICAL PRICER =========================
 
-use crate::instruments::common::analytical::lookback::{
+use crate::instruments::common::models::closed_form::lookback::{
     fixed_strike_lookback_call, fixed_strike_lookback_put, floating_strike_lookback_call,
     floating_strike_lookback_put,
 };

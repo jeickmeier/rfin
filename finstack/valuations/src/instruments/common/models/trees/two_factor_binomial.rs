@@ -203,8 +203,8 @@ impl TreeModel for TwoFactorBinomialTree {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::common::models::binomial_tree::BinomialTree;
-    use crate::instruments::common::models::tree_framework::single_factor_equity_state;
+    use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
+    use crate::instruments::common::models::trees::tree_framework::single_factor_equity_state;
 
     struct TestCallValuator {
         strike: f64,

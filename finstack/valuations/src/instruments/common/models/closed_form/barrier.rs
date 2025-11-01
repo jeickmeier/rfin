@@ -87,7 +87,7 @@
 //! ## Down-and-Out Call
 //!
 //! ```rust
-//! use finstack_valuations::instruments::common::analytical::barrier::down_out_call;
+//! use finstack_valuations::instruments::common::models::closed_form::barrier::down_out_call;
 //!
 //! let spot = 100.0;
 //! let strike = 100.0;
@@ -106,7 +106,7 @@
 //! ## Down-and-In Call
 //!
 //! ```rust
-//! use finstack_valuations::instruments::common::analytical::barrier::down_in_call;
+//! use finstack_valuations::instruments::common::models::closed_form::barrier::down_in_call;
 //!
 //! let spot = 100.0;
 //! let strike = 100.0;

@@ -15,7 +15,7 @@
 //!
 //! - **Geometric average**: Exact closed-form (Kemna & Vorst 1990)
 //! - **Arithmetic average**: Turnbull-Wakeman approximation or Monte Carlo
-//! - See [`analytical::asian`](crate::instruments::common::analytical::asian) for formulas
+//! - See [`models::closed_form::asian`](crate::instruments::common::models::closed_form::asian) for formulas
 //!
 //! # References
 //!
@@ -27,7 +27,7 @@
 //!
 //! - [`AsianOption`] for instrument struct
 //! - [`AveragingMethod`] for geometric vs arithmetic
-//! - [`analytical::asian`](crate::instruments::common::analytical::asian) for pricing formulas
+//! - [`models::closed_form::asian`](crate::instruments::common::models::closed_form::asian) for pricing formulas
 
 pub mod metrics;
 pub mod pricer;

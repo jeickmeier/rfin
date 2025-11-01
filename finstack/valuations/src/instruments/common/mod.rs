@@ -20,11 +20,8 @@ pub mod helpers;
 // Common parameter types shared across instruments
 pub mod parameters;
 
-// Option pricing models and frameworks
+// Option pricing models and frameworks (includes closed-form, volatility, and tree models)
 pub mod models;
-
-// Analytical pricing formulas (closed-form and semi-analytical)
-pub mod analytical;
 
 // Monte Carlo pricing engine (requires mc feature)
 #[cfg(feature = "mc")]

@@ -218,7 +218,7 @@ pub fn npv(inst: &BarrierOption, curves: &MarketContext, as_of: Date) -> Result<
 
 // ========================= ANALYTICAL PRICER =========================
 
-use crate::instruments::common::analytical::barrier::{
+use crate::instruments::common::models::closed_form::barrier::{
     barrier_call_continuous, barrier_put_continuous, BarrierType as AnalyticalBarrierType,
 };
 

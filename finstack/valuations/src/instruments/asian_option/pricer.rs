@@ -244,7 +244,7 @@ pub fn npv(inst: &AsianOption, curves: &MarketContext, as_of: Date) -> Result<Mo
 
 // ========================= ANALYTICAL PRICERS =========================
 
-use crate::instruments::common::analytical::asian::{
+use crate::instruments::common::models::closed_form::asian::{
     arithmetic_asian_call_tw, arithmetic_asian_put_tw, geometric_asian_call, geometric_asian_put,
 };
 

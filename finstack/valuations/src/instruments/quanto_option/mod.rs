@@ -43,7 +43,7 @@
 //! # See Also
 //!
 //! - [`QuantoOption`] for instrument struct
-//! - [`analytical::quanto`](crate::instruments::common::analytical::quanto) for formulas
+//! - [`models::closed_form::quanto`](crate::instruments::common::models::closed_form::quanto) for formulas
 
 pub mod metrics;
 pub mod pricer;

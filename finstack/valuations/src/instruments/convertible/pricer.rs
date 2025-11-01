@@ -35,7 +35,7 @@ use finstack_core::{Error, Result};
 use std::collections::HashMap;
 
 use crate::cashflow::builder::CashFlowSchedule;
-use crate::instruments::common::models::tree_framework::map_date_to_step;
+use crate::instruments::common::models::trees::tree_framework::map_date_to_step;
 use crate::instruments::common::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeGreeks, TreeModel, TreeValuator,
     TrinomialTree,

@@ -373,7 +373,7 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
 // ========================= HESTON FOURIER PRICER =========================
 
 #[cfg(feature = "mc")]
-use crate::instruments::common::analytical::heston::{
+use crate::instruments::common::models::closed_form::heston::{
     heston_call_price_fourier, heston_put_price_fourier, HestonParams,
 };
 #[cfg(feature = "mc")]
