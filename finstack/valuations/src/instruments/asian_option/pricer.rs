@@ -1,7 +1,16 @@
-//! Asian option Monte Carlo pricer.
+//! Asian option pricers (Monte Carlo and analytical).
 
-#[cfg(feature = "mc")]
+// Common imports for all pricers
 use crate::instruments::asian_option::types::{AsianOption, AveragingMethod};
+use crate::instruments::common::traits::Instrument;
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+use crate::results::ValuationResult;
+use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::Result;
+
+// MC-specific imports
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::payoff::asian::{AsianCall, AsianPut};
 #[cfg(feature = "mc")]
@@ -10,20 +19,6 @@ use crate::instruments::common::mc::pricer::path_dependent::{
 };
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
-#[cfg(feature = "mc")]
-use crate::instruments::common::traits::Instrument;
-#[cfg(feature = "mc")]
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
-#[cfg(feature = "mc")]
-use crate::results::ValuationResult;
-#[cfg(feature = "mc")]
-use finstack_core::dates::{Date, DayCountCtx};
-#[cfg(feature = "mc")]
-use finstack_core::market_data::MarketContext;
-#[cfg(feature = "mc")]
-use finstack_core::money::Money;
-#[cfg(feature = "mc")]
-use finstack_core::Result;
 
 /// Asian option Monte Carlo pricer.
 #[cfg(feature = "mc")]
@@ -245,4 +240,167 @@ impl Pricer for AsianOptionMcPricer {
 pub fn npv(inst: &AsianOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = AsianOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
+}
+
+// ========================= ANALYTICAL PRICERS =========================
+
+use crate::instruments::common::analytical::asian::{
+    arithmetic_asian_call_tw, arithmetic_asian_put_tw, geometric_asian_call, geometric_asian_put,
+};
+
+/// Helper to collect standard inputs for Asian option pricing.
+fn collect_asian_inputs(
+    inst: &AsianOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<(f64, f64, f64, f64, f64, usize)> {
+    let t = inst
+        .day_count
+        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+
+    let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+    let r = disc_curve.zero(t);
+
+    let spot_scalar = curves.price(&inst.spot_id)?;
+    let spot = match spot_scalar {
+        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+        finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+    };
+
+    let q = if let Some(div_id) = &inst.div_yield_id {
+        match curves.price(div_id.as_str()) {
+            Ok(ms) => match ms {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
+            },
+            Err(_) => 0.0,
+        }
+    } else {
+        0.0
+    };
+
+    let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+    let sigma = vol_surface.value_clamped(t, inst.strike.amount());
+
+    let num_fixings = inst.fixing_dates.len();
+
+    Ok((spot, r, q, sigma, t, num_fixings))
+}
+
+/// Geometric Asian option analytical pricer.
+pub struct AsianOptionAnalyticalGeometricPricer;
+
+impl AsianOptionAnalyticalGeometricPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for AsianOptionAnalyticalGeometricPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Pricer for AsianOptionAnalyticalGeometricPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::AsianOption, ModelKey::AsianGeometricBS)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> PricingResult<ValuationResult> {
+        let asian = instrument
+            .as_any()
+            .downcast_ref::<AsianOption>()
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::AsianOption, instrument.key())
+            })?;
+
+        let (spot, r, q, sigma, t, num_fixings) =
+            collect_asian_inputs(asian, market, as_of)
+                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+        if t <= 0.0 {
+            return Ok(ValuationResult::stamped(
+                asian.id(),
+                as_of,
+                Money::new(0.0, asian.strike.currency()),
+            ));
+        }
+
+        let price = match asian.option_type {
+            crate::instruments::OptionType::Call => {
+                geometric_asian_call(spot, asian.strike.amount(), t, r, q, sigma, num_fixings)
+            }
+            crate::instruments::OptionType::Put => {
+                geometric_asian_put(spot, asian.strike.amount(), t, r, q, sigma, num_fixings)
+            }
+        };
+
+        let pv = Money::new(price * asian.notional, asian.strike.currency());
+        Ok(ValuationResult::stamped(asian.id(), as_of, pv))
+    }
+}
+
+/// Arithmetic Asian option semi-analytical pricer (Turnbull-Wakeman).
+pub struct AsianOptionSemiAnalyticalTwPricer;
+
+impl AsianOptionSemiAnalyticalTwPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for AsianOptionSemiAnalyticalTwPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Pricer for AsianOptionSemiAnalyticalTwPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::AsianOption, ModelKey::AsianTurnbullWakeman)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> PricingResult<ValuationResult> {
+        let asian = instrument
+            .as_any()
+            .downcast_ref::<AsianOption>()
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::AsianOption, instrument.key())
+            })?;
+
+        let (spot, r, q, sigma, t, num_fixings) =
+            collect_asian_inputs(asian, market, as_of)
+                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+
+        if t <= 0.0 {
+            return Ok(ValuationResult::stamped(
+                asian.id(),
+                as_of,
+                Money::new(0.0, asian.strike.currency()),
+            ));
+        }
+
+        let price = match asian.option_type {
+            crate::instruments::OptionType::Call => {
+                arithmetic_asian_call_tw(spot, asian.strike.amount(), t, r, q, sigma, num_fixings)
+            }
+            crate::instruments::OptionType::Put => {
+                arithmetic_asian_put_tw(spot, asian.strike.amount(), t, r, q, sigma, num_fixings)
+            }
+        };
+
+        let pv = Money::new(price * asian.notional, asian.strike.currency());
+        Ok(ValuationResult::stamped(asian.id(), as_of, pv))
+    }
 }

@@ -46,15 +46,31 @@ pub struct BarrierOption {
 }
 
 impl BarrierOption {
-    /// Calculate the net present value of this barrier option.
+    /// Calculate the net present value using Monte Carlo.
     #[cfg(feature = "mc")]
-    pub fn npv(
+    pub fn npv_mc(
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::barrier_option::pricer;
         pricer::npv(self, curves, as_of)
+    }
+    
+    /// Calculate the net present value using analytical method (default).
+    /// Uses Reiner-Rubinstein continuous monitoring formulas.
+    pub fn npv(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::instruments::barrier_option::pricer::BarrierOptionAnalyticalPricer;
+        use crate::pricer::Pricer;
+        
+        let pricer = BarrierOptionAnalyticalPricer::new();
+        let result = pricer.price_dyn(self, curves, as_of)
+            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+        Ok(result.value)
     }
 }
 
@@ -88,17 +104,8 @@ impl crate::instruments::common::traits::Instrument for BarrierOption {
         market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        #[cfg(feature = "mc")]
-        {
-            self.npv(market, as_of)
-        }
-        #[cfg(not(feature = "mc"))]
-        {
-            let _ = (market, as_of);
-            Err(finstack_core::Error::Validation(
-                "MC feature required for BarrierOption pricing".to_string(),
-            ))
-        }
+        // Default to analytical pricing
+        self.npv(market, as_of)
     }
 
     fn price_with_metrics(

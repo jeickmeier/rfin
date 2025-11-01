@@ -36,15 +36,31 @@ pub struct QuantoOption {
 }
 
 impl QuantoOption {
-    /// Calculate the net present value of this quanto option.
+    /// Calculate the net present value using Monte Carlo.
     #[cfg(feature = "mc")]
-    pub fn npv(
+    pub fn npv_mc(
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::quanto_option::pricer;
         pricer::npv(self, curves, as_of)
+    }
+    
+    /// Calculate the net present value using analytical method (default).
+    /// Uses quanto-adjusted Black-Scholes with correlation and FX vol.
+    pub fn npv(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::instruments::quanto_option::pricer::QuantoOptionAnalyticalPricer;
+        use crate::pricer::Pricer;
+        
+        let pricer = QuantoOptionAnalyticalPricer::new();
+        let result = pricer.price_dyn(self, curves, as_of)
+            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+        Ok(result.value)
     }
 }
 
@@ -78,17 +94,8 @@ impl crate::instruments::common::traits::Instrument for QuantoOption {
         market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        #[cfg(feature = "mc")]
-        {
-            self.npv(market, as_of)
-        }
-        #[cfg(not(feature = "mc"))]
-        {
-            let _ = (market, as_of);
-            Err(finstack_core::Error::Validation(
-                "MC feature required for QuantoOption pricing".to_string(),
-            ))
-        }
+        // Default to analytical pricing
+        self.npv(market, as_of)
     }
 
     fn price_with_metrics(

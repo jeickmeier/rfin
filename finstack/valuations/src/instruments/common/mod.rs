@@ -23,6 +23,9 @@ pub mod parameters;
 // Option pricing models and frameworks
 pub mod models;
 
+// Analytical pricing formulas (closed-form and semi-analytical)
+pub mod analytical;
+
 // Monte Carlo pricing engine (requires mc feature)
 #[cfg(feature = "mc")]
 pub mod mc;

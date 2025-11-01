@@ -1,7 +1,16 @@
-//! Barrier option Monte Carlo pricer.
+//! Barrier option pricers (Monte Carlo and analytical).
 
-#[cfg(feature = "mc")]
+// Common imports for all pricers
 use crate::instruments::barrier_option::types::{BarrierOption, BarrierType};
+use crate::instruments::common::traits::Instrument;
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
+use crate::results::ValuationResult;
+use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::Result;
+
+// MC-specific imports
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::payoff::barrier::BarrierCall;
 #[cfg(feature = "mc")]
@@ -12,20 +21,6 @@ use crate::instruments::common::mc::pricer::path_dependent::{
 };
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
-#[cfg(feature = "mc")]
-use crate::instruments::common::traits::Instrument;
-#[cfg(feature = "mc")]
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
-#[cfg(feature = "mc")]
-use crate::results::ValuationResult;
-#[cfg(feature = "mc")]
-use finstack_core::dates::{Date, DayCountCtx};
-#[cfg(feature = "mc")]
-use finstack_core::market_data::MarketContext;
-#[cfg(feature = "mc")]
-use finstack_core::money::Money;
-#[cfg(feature = "mc")]
-use finstack_core::Result;
 
 /// Barrier option Monte Carlo pricer.
 #[cfg(feature = "mc")]
@@ -219,4 +214,126 @@ impl Pricer for BarrierOptionMcPricer {
 pub fn npv(inst: &BarrierOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = BarrierOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
+}
+
+// ========================= ANALYTICAL PRICER =========================
+
+use crate::instruments::common::analytical::barrier::{
+    barrier_call_continuous, barrier_put_continuous, BarrierType as AnalyticalBarrierType,
+};
+
+/// Helper to collect inputs for barrier option pricing.
+fn collect_barrier_inputs(
+    inst: &BarrierOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
+    let t = inst.day_count.year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+    
+    let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+    let r = disc_curve.zero(t);
+    
+    let spot_scalar = curves.price(&inst.spot_id)?;
+    let spot = match spot_scalar {
+        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+        finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+    };
+    
+    let q = if let Some(div_id) = &inst.div_yield_id {
+        match curves.price(div_id.as_str()) {
+            Ok(ms) => match ms {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
+            },
+            Err(_) => 0.0,
+        }
+    } else {
+        0.0
+    };
+    
+    let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+    let sigma = vol_surface.value_clamped(t, inst.strike.amount());
+    
+    Ok((spot, r, q, sigma, t))
+}
+
+/// Barrier option analytical pricer (continuous monitoring).
+pub struct BarrierOptionAnalyticalPricer;
+
+impl BarrierOptionAnalyticalPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for BarrierOptionAnalyticalPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Pricer for BarrierOptionAnalyticalPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::BarrierOption, ModelKey::BarrierBSContinuous)
+    }
+    
+    fn price_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> PricingResult<ValuationResult> {
+        let barrier_opt = instrument
+            .as_any()
+            .downcast_ref::<BarrierOption>()
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::BarrierOption, instrument.key())
+            })?;
+        
+        let (spot, r, q, sigma, t) = collect_barrier_inputs(barrier_opt, market, as_of)
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        
+        if t <= 0.0 {
+            return Ok(ValuationResult::stamped(
+                barrier_opt.id(),
+                as_of,
+                Money::new(0.0, barrier_opt.strike.currency()),
+            ));
+        }
+        
+        // Map barrier type
+        use crate::instruments::barrier_option::types::BarrierType;
+        let analytical_barrier_type = match barrier_opt.barrier_type {
+            BarrierType::UpAndIn => AnalyticalBarrierType::UpIn,
+            BarrierType::UpAndOut => AnalyticalBarrierType::UpOut,
+            BarrierType::DownAndIn => AnalyticalBarrierType::DownIn,
+            BarrierType::DownAndOut => AnalyticalBarrierType::DownOut,
+        };
+        
+        let price = match barrier_opt.option_type {
+            crate::instruments::OptionType::Call => barrier_call_continuous(
+                spot,
+                barrier_opt.strike.amount(),
+                barrier_opt.barrier.amount(),
+                t,
+                r,
+                q,
+                sigma,
+                analytical_barrier_type,
+            ),
+            crate::instruments::OptionType::Put => barrier_put_continuous(
+                spot,
+                barrier_opt.strike.amount(),
+                barrier_opt.barrier.amount(),
+                t,
+                r,
+                q,
+                sigma,
+                analytical_barrier_type,
+            ),
+        };
+        
+        let pv = Money::new(price * barrier_opt.notional, barrier_opt.strike.currency());
+        Ok(ValuationResult::stamped(barrier_opt.id(), as_of, pv))
+    }
 }

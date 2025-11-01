@@ -257,6 +257,20 @@ pub enum ModelKey {
     MonteCarloHeston = 11,
     /// Monte Carlo with Hull-White 1F (rates)
     MonteCarloHullWhite1F = 12,
+    /// Barrier BS Continuous (Reiner-Rubinstein formulas)
+    BarrierBSContinuous = 20,
+    /// Asian Geometric BS (closed-form for geometric average)
+    AsianGeometricBS = 21,
+    /// Asian Turnbull-Wakeman (semi-analytical for arithmetic average)
+    AsianTurnbullWakeman = 22,
+    /// Lookback BS Continuous (closed-form for fixed/floating strike)
+    LookbackBSContinuous = 23,
+    /// Quanto BS (vanilla quanto with drift adjustment)
+    QuantoBS = 24,
+    /// FX Barrier BS Continuous (Reiner-Rubinstein with FX mapping)
+    FxBarrierBSContinuous = 25,
+    /// Heston Fourier (semi-analytical via characteristic function)
+    HestonFourier = 26,
 }
 
 impl std::fmt::Display for ModelKey {
@@ -270,6 +284,13 @@ impl std::fmt::Display for ModelKey {
             ModelKey::MonteCarloGBM => "monte_carlo_gbm",
             ModelKey::MonteCarloHeston => "monte_carlo_heston",
             ModelKey::MonteCarloHullWhite1F => "monte_carlo_hull_white_1f",
+            ModelKey::BarrierBSContinuous => "barrier_bs_continuous",
+            ModelKey::AsianGeometricBS => "asian_geometric_bs",
+            ModelKey::AsianTurnbullWakeman => "asian_turnbull_wakeman",
+            ModelKey::LookbackBSContinuous => "lookback_bs_continuous",
+            ModelKey::QuantoBS => "quanto_bs",
+            ModelKey::FxBarrierBSContinuous => "fx_barrier_bs_continuous",
+            ModelKey::HestonFourier => "heston_fourier",
         };
         write!(f, "{}", label)
     }
@@ -292,6 +313,25 @@ impl std::str::FromStr for ModelKey {
             }
             "monte_carlo_hull_white_1f" | "mc_hw1f" | "montecarlo_hw1f" => {
                 Ok(ModelKey::MonteCarloHullWhite1F)
+            }
+            "barrier_bs_continuous" | "barrier_bs" | "barrier_continuous" => {
+                Ok(ModelKey::BarrierBSContinuous)
+            }
+            "asian_geometric_bs" | "asian_geometric" | "geometric_asian_bs" => {
+                Ok(ModelKey::AsianGeometricBS)
+            }
+            "asian_turnbull_wakeman" | "asian_tw" | "arithmetic_asian_tw" => {
+                Ok(ModelKey::AsianTurnbullWakeman)
+            }
+            "lookback_bs_continuous" | "lookback_bs" | "lookback_continuous" => {
+                Ok(ModelKey::LookbackBSContinuous)
+            }
+            "quanto_bs" | "quanto" => Ok(ModelKey::QuantoBS),
+            "fx_barrier_bs_continuous" | "fx_barrier_bs" | "fx_barrier_continuous" => {
+                Ok(ModelKey::FxBarrierBSContinuous)
+            }
+            "heston_fourier" | "heston_semi_analytical" | "heston_analytical" => {
+                Ok(ModelKey::HestonFourier)
             }
             other => Err(format!("Unknown model key: {}", other)),
         }
@@ -641,6 +681,12 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
             ),
         ),
     );
+    // Equity Option - Heston Fourier (semi-analytical)
+    #[cfg(feature = "mc")]
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::EquityOption, ModelKey::HestonFourier),
+        Box::new(crate::instruments::equity_option::pricer::EquityOptionHestonFourierPricer),
+    );
 
     // TRS (Total Return Swap)
     registry.register_pricer(
@@ -722,12 +768,27 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         PricerKey::new(InstrumentType::AsianOption, ModelKey::MonteCarloGBM),
         Box::new(crate::instruments::asian_option::pricer::AsianOptionMcPricer::default()),
     );
+    // Asian Option - Analytical (Geometric)
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::AsianOption, ModelKey::AsianGeometricBS),
+        Box::new(crate::instruments::asian_option::pricer::AsianOptionAnalyticalGeometricPricer),
+    );
+    // Asian Option - Semi-Analytical (Turnbull-Wakeman)
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::AsianOption, ModelKey::AsianTurnbullWakeman),
+        Box::new(crate::instruments::asian_option::pricer::AsianOptionSemiAnalyticalTwPricer),
+    );
 
     // Barrier Option
     #[cfg(feature = "mc")]
     registry.register_pricer(
         PricerKey::new(InstrumentType::BarrierOption, ModelKey::MonteCarloGBM),
         Box::new(crate::instruments::barrier_option::pricer::BarrierOptionMcPricer::default()),
+    );
+    // Barrier Option - Analytical (Continuous monitoring)
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::BarrierOption, ModelKey::BarrierBSContinuous),
+        Box::new(crate::instruments::barrier_option::pricer::BarrierOptionAnalyticalPricer),
     );
 
     // Lookback Option
@@ -736,12 +797,22 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         PricerKey::new(InstrumentType::LookbackOption, ModelKey::MonteCarloGBM),
         Box::new(crate::instruments::lookback_option::pricer::LookbackOptionMcPricer::default()),
     );
+    // Lookback Option - Analytical (Continuous monitoring)
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::LookbackOption, ModelKey::LookbackBSContinuous),
+        Box::new(crate::instruments::lookback_option::pricer::LookbackOptionAnalyticalPricer),
+    );
 
     // Quanto Option
     #[cfg(feature = "mc")]
     registry.register_pricer(
         PricerKey::new(InstrumentType::QuantoOption, ModelKey::MonteCarloGBM),
         Box::new(crate::instruments::quanto_option::pricer::QuantoOptionMcPricer::default()),
+    );
+    // Quanto Option - Analytical
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::QuantoOption, ModelKey::QuantoBS),
+        Box::new(crate::instruments::quanto_option::pricer::QuantoOptionAnalyticalPricer),
     );
 
     // Autocallable
@@ -777,6 +848,11 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     registry.register_pricer(
         PricerKey::new(InstrumentType::FxBarrierOption, ModelKey::MonteCarloGBM),
         Box::new(crate::instruments::fx_barrier_option::pricer::FxBarrierOptionMcPricer::default()),
+    );
+    // FX Barrier Option - Analytical (Continuous monitoring)
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::FxBarrierOption, ModelKey::FxBarrierBSContinuous),
+        Box::new(crate::instruments::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer),
     );
 
     // Swaption LSMC (Bermudan exercise)

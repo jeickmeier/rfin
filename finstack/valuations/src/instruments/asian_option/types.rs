@@ -43,15 +43,43 @@ pub struct AsianOption {
 }
 
 impl AsianOption {
-    /// Calculate the net present value of this Asian option.
+    /// Calculate the net present value of this Asian option using Monte Carlo.
     #[cfg(feature = "mc")]
-    pub fn npv(
+    pub fn npv_mc(
         &self,
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::asian_option::pricer;
         pricer::npv(self, curves, as_of)
+    }
+    
+    /// Calculate the net present value using analytical method (default).
+    /// Uses geometric closed-form for geometric averaging, Turnbull-Wakeman for arithmetic.
+    pub fn npv(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::instruments::asian_option::pricer::{
+            AsianOptionAnalyticalGeometricPricer, AsianOptionSemiAnalyticalTwPricer,
+        };
+        use crate::pricer::Pricer;
+        
+        match self.averaging_method {
+            AveragingMethod::Geometric => {
+                let pricer = AsianOptionAnalyticalGeometricPricer::new();
+                let result = pricer.price_dyn(self, curves, as_of)
+                    .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+                Ok(result.value)
+            }
+            AveragingMethod::Arithmetic => {
+                let pricer = AsianOptionSemiAnalyticalTwPricer::new();
+                let result = pricer.price_dyn(self, curves, as_of)
+                    .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+                Ok(result.value)
+            }
+        }
     }
 }
 
@@ -85,18 +113,8 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
         market: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        #[cfg(feature = "mc")]
-        {
-            self.npv(market, as_of)
-        }
-        #[cfg(not(feature = "mc"))]
-        {
-            #[allow(unused_variables)]
-            let _ = (market, as_of);
-            Err(finstack_core::Error::Validation(
-                "MC feature required for AsianOption pricing".to_string(),
-            ))
-        }
+        // Default to analytical pricing
+        self.npv(market, as_of)
     }
 
     fn price_with_metrics(

@@ -1,0 +1,473 @@
+//! Analytical pricing formulas for Asian options.
+//!
+//! This module provides closed-form and semi-analytical formulas for Asian options
+//! under the Black-Scholes framework.
+//!
+//! # References
+//!
+//! - **Geometric average** (closed-form): Kemna, A. G. Z., & Vorst, A. C. F. (1990),
+//!   "A Pricing Method for Options Based on Average Asset Values"
+//! - **Arithmetic average** (semi-analytical approximation): Turnbull, S. M., & Wakeman, L. M. (1991),
+//!   "A Quick Algorithm for Pricing European Average Options"
+//! - Cross-checks: Levy (1992), Curran (1994)
+//!
+//! # Notes
+//!
+//! - Geometric average Asian options have exact closed-form solutions
+//! - Arithmetic average Asian options use moment-matching approximation (Turnbull-Wakeman)
+//! - All formulas assume continuous monitoring; for discrete monitoring with n fixings,
+//!   use the adjusted variance formulas provided
+
+use finstack_core::math::special_functions::norm_cdf;
+
+/// Pricing result for Asian options.
+#[derive(Clone, Copy, Debug)]
+pub struct AsianPriceResult {
+    /// Option price
+    pub price: f64,
+    /// First-order Greeks (delta, gamma, vega, theta, rho)
+    pub greeks: Option<AsianGreeks>,
+}
+
+/// Greeks for Asian options.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct AsianGreeks {
+    pub delta: f64,
+    pub gamma: f64,
+    pub vega: f64,
+    pub theta: f64,
+    pub rho: f64,
+}
+
+/// Price a geometric average Asian call option (closed-form).
+///
+/// # Arguments
+///
+/// * `spot` - Current spot price
+/// * `strike` - Strike price
+/// * `time` - Time to maturity (years)
+/// * `rate` - Risk-free rate
+/// * `div_yield` - Dividend yield
+/// * `vol` - Volatility
+/// * `num_fixings` - Number of discrete fixings (use large number for continuous approximation)
+///
+/// # Returns
+///
+/// Option price
+///
+/// # Formula (Kemna & Vorst, 1990)
+///
+/// Geometric Asian behaves like a vanilla option with adjusted drift and volatility:
+/// - σ_G = σ / √3
+/// - μ_G = (r - q - σ²/2) / 2 + σ²/6
+///
+/// For discrete monitoring with n fixings:
+/// - σ_G = σ √[(2n + 1) / (6(n + 1))]
+/// - μ_G = (r - q) / 2 - σ² / 2 * [(2n + 1) / (6(n + 1))]
+pub fn geometric_asian_call(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    num_fixings: usize,
+) -> f64 {
+    if time <= 0.0 {
+        return (spot - strike).max(0.0);
+    }
+
+    let n = num_fixings as f64;
+
+    // Adjusted volatility for geometric average
+    let vol_adj = if num_fixings == 0 {
+        // Continuous limit
+        vol / 3.0_f64.sqrt()
+    } else {
+        vol * ((2.0 * n + 1.0) / (6.0 * (n + 1.0))).sqrt()
+    };
+
+    // Adjusted drift/dividend yield for geometric average
+    let div_yield_adj = if num_fixings == 0 {
+        // Continuous limit: q_adj = q + (r - q - σ²/2) / 2 + σ²/6
+        div_yield + (rate - div_yield - 0.5 * vol * vol) / 2.0 + vol * vol / 6.0
+    } else {
+        // Discrete: q_adj = q + (r - q) / 2 - σ² / 2 * [(2n + 1) / (6(n + 1))]
+        div_yield + (rate - div_yield) / 2.0
+            - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0))
+    };
+
+    // Now price as vanilla option with adjusted parameters
+    vanilla_call_bs(spot, strike, time, rate, div_yield_adj, vol_adj)
+}
+
+/// Price a geometric average Asian put option (closed-form).
+///
+/// Uses same parameter adjustments as geometric call.
+pub fn geometric_asian_put(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    num_fixings: usize,
+) -> f64 {
+    if time <= 0.0 {
+        return (strike - spot).max(0.0);
+    }
+
+    let n = num_fixings as f64;
+
+    // Adjusted volatility
+    let vol_adj = if num_fixings == 0 {
+        vol / 3.0_f64.sqrt()
+    } else {
+        vol * ((2.0 * n + 1.0) / (6.0 * (n + 1.0))).sqrt()
+    };
+
+    // Adjusted dividend yield
+    let div_yield_adj = if num_fixings == 0 {
+        div_yield + (rate - div_yield - 0.5 * vol * vol) / 2.0 + vol * vol / 6.0
+    } else {
+        div_yield + (rate - div_yield) / 2.0
+            - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0))
+    };
+
+    vanilla_put_bs(spot, strike, time, rate, div_yield_adj, vol_adj)
+}
+
+/// Price an arithmetic average Asian call option using Turnbull-Wakeman approximation.
+///
+/// # Arguments
+///
+/// * `spot` - Current spot price
+/// * `strike` - Strike price
+/// * `time` - Time to maturity (years)
+/// * `rate` - Risk-free rate
+/// * `div_yield` - Dividend yield
+/// * `vol` - Volatility
+/// * `num_fixings` - Number of discrete fixings
+///
+/// # Returns
+///
+/// Option price
+///
+/// # Formula (Turnbull & Wakeman, 1991)
+///
+/// The method approximates the arithmetic average distribution as lognormal
+/// by matching the first two moments. For discrete monitoring with n equally-spaced fixings:
+///
+/// M1 = E[A] = S * exp((r - q)T) * [1 - exp(-qT)] / (qT) for q ≠ 0
+/// M2 = E[A²] computed via double integral (see implementation)
+///
+/// Then solve for parameters (μ*, σ*) of lognormal matching M1, M2,
+/// and price as vanilla with strike adjusted to average space.
+pub fn arithmetic_asian_call_tw(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    num_fixings: usize,
+) -> f64 {
+    if time <= 0.0 {
+        return (spot - strike).max(0.0);
+    }
+    if num_fixings == 0 {
+        return 0.0; // Need at least one fixing
+    }
+
+    // Compute first moment: E[A]
+    let m1 = compute_arithmetic_mean_first_moment(spot, time, rate, div_yield, num_fixings);
+
+    // Compute second moment: E[A²]
+    let m2 = compute_arithmetic_mean_second_moment(spot, time, rate, div_yield, vol, num_fixings);
+
+    // Match to lognormal distribution
+    // If E[X] = m1 and E[X²] = m2, and X ~ LogNormal(μ*, σ*²), then:
+    // m1 = exp(μ* + σ*²/2)
+    // m2 = exp(2μ* + 2σ*²)
+    // => σ*² = ln(m2 / m1²)
+    // => μ* = ln(m1) - σ*²/2
+
+    if m2 <= m1 * m1 {
+        // Degenerate case (no variance), treat as forward
+        return (m1 * (-rate * time).exp() - strike).max(0.0) * (rate * time).exp();
+    }
+
+    let var = (m2 / (m1 * m1)).ln();
+    if var <= 0.0 {
+        return (m1 * (-rate * time).exp() - strike).max(0.0) * (rate * time).exp();
+    }
+
+    let sigma_star = var.sqrt();
+    let mu_star = m1.ln() - 0.5 * var;
+
+    // Price as vanilla with modified parameters
+    // Forward value of average: F_A = m1
+    // Discount: df = exp(-rT)
+    // Effective time to maturity: T (same)
+
+    let d1 = (mu_star - strike.ln() + 0.5 * var) / sigma_star;
+    let d2 = d1 - sigma_star;
+
+    let call_price = (-rate * time).exp() * (m1 * norm_cdf(d1) - strike * norm_cdf(d2));
+
+    call_price.max(0.0)
+}
+
+/// Price an arithmetic average Asian put option using Turnbull-Wakeman approximation.
+pub fn arithmetic_asian_put_tw(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    num_fixings: usize,
+) -> f64 {
+    if time <= 0.0 {
+        return (strike - spot).max(0.0);
+    }
+    if num_fixings == 0 {
+        return 0.0;
+    }
+
+    let m1 = compute_arithmetic_mean_first_moment(spot, time, rate, div_yield, num_fixings);
+    let m2 = compute_arithmetic_mean_second_moment(spot, time, rate, div_yield, vol, num_fixings);
+
+    if m2 <= m1 * m1 {
+        return (strike - m1 * (-rate * time).exp()).max(0.0) * (rate * time).exp();
+    }
+
+    let var = (m2 / (m1 * m1)).ln();
+    if var <= 0.0 {
+        return (strike - m1 * (-rate * time).exp()).max(0.0) * (rate * time).exp();
+    }
+
+    let sigma_star = var.sqrt();
+    let mu_star = m1.ln() - 0.5 * var;
+
+    let d1 = (mu_star - strike.ln() + 0.5 * var) / sigma_star;
+    let d2 = d1 - sigma_star;
+
+    let put_price = (-rate * time).exp() * (strike * norm_cdf(-d2) - m1 * norm_cdf(-d1));
+
+    put_price.max(0.0)
+}
+
+/// Compute E[A] for arithmetic average with discrete fixings.
+///
+/// For n equally-spaced fixings over [0, T]:
+/// E[A] = (S / n) * Σ exp((r - q) * t_i)
+///      = (S / n) * Σ exp((r - q) * i * Δt)
+fn compute_arithmetic_mean_first_moment(
+    spot: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    num_fixings: usize,
+) -> f64 {
+    let n = num_fixings as f64;
+    let dt = time / n;
+    let drift = rate - div_yield;
+
+    let mut sum = 0.0;
+    for i in 1..=num_fixings {
+        let t_i = (i as f64) * dt;
+        sum += (drift * t_i).exp();
+    }
+
+    spot * sum / n
+}
+
+/// Compute E[A²] for arithmetic average with discrete fixings.
+///
+/// E[A²] = (1/n²) * Σᵢ Σⱼ E[S(tᵢ) * S(tⱼ)]
+///
+/// where E[S(tᵢ) * S(tⱼ)] = S² * exp((2r - 2q + σ²) * min(tᵢ, tⱼ)) * exp((r - q) * |tᵢ - tⱼ|)
+fn compute_arithmetic_mean_second_moment(
+    spot: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    num_fixings: usize,
+) -> f64 {
+    let n = num_fixings as f64;
+    let dt = time / n;
+
+    let mut sum = 0.0;
+    for i in 1..=num_fixings {
+        let t_i = (i as f64) * dt;
+        for j in 1..=num_fixings {
+            let t_j = (j as f64) * dt;
+            let t_min = t_i.min(t_j);
+            let t_diff = (t_i - t_j).abs();
+
+            // E[S(tᵢ) * S(tⱼ)] = S² * exp((2r - 2q + σ²) * t_min + (r - q) * t_diff)
+            let exponent =
+                (2.0 * rate - 2.0 * div_yield + vol * vol) * t_min + (rate - div_yield) * t_diff;
+            sum += exponent.exp();
+        }
+    }
+
+    spot * spot * sum / (n * n)
+}
+
+/// Helper: vanilla call under Black-Scholes.
+#[inline]
+fn vanilla_call_bs(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+) -> f64 {
+    if time <= 0.0 {
+        return (spot - strike).max(0.0);
+    }
+    if vol <= 0.0 {
+        let forward = spot * ((rate - div_yield) * time).exp();
+        return ((forward - strike) * (-rate * time).exp()).max(0.0);
+    }
+
+    let sqrt_t = time.sqrt();
+    let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
+    let d2 = d1 - vol * sqrt_t;
+
+    spot * (-div_yield * time).exp() * norm_cdf(d1)
+        - strike * (-rate * time).exp() * norm_cdf(d2)
+}
+
+/// Helper: vanilla put under Black-Scholes.
+#[inline]
+fn vanilla_put_bs(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+) -> f64 {
+    if time <= 0.0 {
+        return (strike - spot).max(0.0);
+    }
+    if vol <= 0.0 {
+        let forward = spot * ((rate - div_yield) * time).exp();
+        return ((strike - forward) * (-rate * time).exp()).max(0.0);
+    }
+
+    let sqrt_t = time.sqrt();
+    let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
+    let d2 = d1 - vol * sqrt_t;
+
+    strike * (-rate * time).exp() * norm_cdf(-d2)
+        - spot * (-div_yield * time).exp() * norm_cdf(-d1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_geometric_asian_call_positive() {
+        let price = geometric_asian_call(100.0, 100.0, 1.0, 0.05, 0.02, 0.2, 12);
+        assert!(price > 0.0);
+        assert!(price < 100.0); // Reasonable bound
+    }
+
+    #[test]
+    fn test_geometric_asian_less_than_vanilla() {
+        // Geometric average is always ≤ arithmetic average ≤ maximum
+        // So geometric Asian should be ≤ vanilla (which is like max)
+        let spot = 100.0;
+        let strike = 100.0;
+        let time = 1.0;
+        let rate = 0.05;
+        let div_yield = 0.02;
+        let vol = 0.2;
+
+        let geo_asian = geometric_asian_call(spot, strike, time, rate, div_yield, vol, 12);
+        let vanilla = vanilla_call_bs(spot, strike, time, rate, div_yield, vol);
+
+        assert!(
+            geo_asian <= vanilla + 0.01,
+            "Geometric Asian {} should be ≤ vanilla {}",
+            geo_asian,
+            vanilla
+        );
+    }
+
+    #[test]
+    fn test_arithmetic_asian_tw_positive() {
+        let price = arithmetic_asian_call_tw(100.0, 100.0, 1.0, 0.05, 0.02, 0.2, 12);
+        assert!(price > 0.0);
+        assert!(price < 100.0);
+    }
+
+    #[test]
+    fn test_arithmetic_geq_geometric() {
+        // Arithmetic average ≥ geometric average (AM-GM inequality)
+        // So arithmetic Asian price ≥ geometric Asian price (for calls)
+        let spot = 100.0;
+        let strike = 100.0;
+        let time = 1.0;
+        let rate = 0.05;
+        let div_yield = 0.02;
+        let vol = 0.2;
+        let num_fixings = 12;
+
+        let arith = arithmetic_asian_call_tw(spot, strike, time, rate, div_yield, vol, num_fixings);
+        let geo = geometric_asian_call(spot, strike, time, rate, div_yield, vol, num_fixings);
+
+        assert!(
+            arith >= geo - 0.01,
+            "Arithmetic Asian {} should be ≥ geometric Asian {}",
+            arith,
+            geo
+        );
+    }
+
+    #[test]
+    fn test_put_call_parity_geometric() {
+        // For geometric Asian: C - P = S * exp(-q_adj * T) - K * exp(-r * T)
+        // where q_adj is the adjusted dividend yield
+        let spot = 100.0;
+        let strike = 100.0;
+        let time = 1.0;
+        let rate = 0.05;
+        let div_yield = 0.02;
+        let vol = 0.2;
+        let num_fixings = 12;
+
+        let call = geometric_asian_call(spot, strike, time, rate, div_yield, vol, num_fixings);
+        let put = geometric_asian_put(spot, strike, time, rate, div_yield, vol, num_fixings);
+
+        let n = num_fixings as f64;
+        let div_yield_adj =
+            div_yield + (rate - div_yield) / 2.0 - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0));
+
+        let lhs = call - put;
+        let rhs = spot * (-div_yield_adj * time).exp() - strike * (-rate * time).exp();
+
+        assert!(
+            (lhs - rhs).abs() < 0.01,
+            "Put-call parity failed: {} vs {}",
+            lhs,
+            rhs
+        );
+    }
+
+    #[test]
+    fn test_first_moment_computation() {
+        let m1 = compute_arithmetic_mean_first_moment(100.0, 1.0, 0.05, 0.02, 12);
+        // Should be close to forward value
+        let forward_approx = 100.0 * ((0.05_f64 - 0.02) * 1.0).exp();
+        assert!((m1 - forward_approx).abs() < 5.0); // Reasonable proximity
+    }
+}
+
