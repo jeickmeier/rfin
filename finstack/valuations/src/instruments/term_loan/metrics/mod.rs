@@ -26,7 +26,7 @@ use crate::metrics::MetricRegistry;
 pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
     crate::register_metrics! {
         registry: registry,
-        instrument: "Loan",
+    instrument: "TermLoan",
         metrics: [
             (Dv01, Dv01Calculator),
             (Cs01, Cs01Calculator),
@@ -49,36 +49,36 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::custom("all_in_rate"),
         Arc::new(AllInRateCalculator),
-        &["Loan"],
+        &["TermLoan"],
     );
     registry.register_metric(
         MetricId::Ytm,
         Arc::new(YtmCalculator),
-        &["Loan"],
+        &["TermLoan"],
     );
     registry.register_metric(
         MetricId::DiscountMargin,
         Arc::new(DiscountMarginCalculator),
-        &["Loan"],
+        &["TermLoan"],
     );
 
     // Yield to first call (custom id: ytc)
     registry.register_metric(
         MetricId::custom("ytc"),
         Arc::new(YtcCalculator),
-        &["Loan"],
+        &["TermLoan"],
     );
 
     // Yields to fixed horizons
     registry.register_metric(
         MetricId::custom("yt2y"),
         Arc::new(Yt2yCalculator),
-        &["Loan"],
+        &["TermLoan"],
     );
     registry.register_metric(
         MetricId::custom("yt3y"),
         Arc::new(Yt3yCalculator),
-        &["Loan"],
+        &["TermLoan"],
     );
     registry.register_metric(
         MetricId::custom("yt4y"),

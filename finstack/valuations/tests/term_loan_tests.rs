@@ -61,7 +61,7 @@ fn term_loan_fixed_with_draws_and_fees() {
         .unwrap();
 
     let market = mc();
-    let pricer = finstack_valuations::instruments::term_loan::pricing::TermLoanDiscountingPricer::default();
+    let pricer = finstack_valuations::instruments::term_loan::pricing::TermLoanDiscountingPricer;
     let as_of = issue;
 
     // Ensure pricing runs and PV is finite

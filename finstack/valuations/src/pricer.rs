@@ -812,7 +812,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     registry.register_pricer(
         PricerKey::new(InstrumentType::TermLoan, ModelKey::Discounting),
         Box::new(
-            crate::instruments::term_loan::pricing::TermLoanDiscountingPricer::default(),
+            crate::instruments::term_loan::pricing::TermLoanDiscountingPricer,
         ),
     );
     #[cfg(feature = "mc")]
