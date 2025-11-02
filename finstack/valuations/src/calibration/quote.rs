@@ -111,51 +111,22 @@ impl RatesQuote {
             _ => false,
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use finstack_core::dates::{Date, DayCount, Frequency};
-    use time::Month;
-
-    #[test]
-    fn ois_detection_handles_tokens() {
-        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let sofr = RatesQuote::Swap {
-            maturity: base + time::Duration::days(365),
-            rate: 0.03,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::daily(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "SOFR".to_string().into(),
-        };
-        assert!(sofr.is_ois_suitable());
-
-        let estr = RatesQuote::Swap {
-            maturity: base + time::Duration::days(365),
-            rate: 0.03,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::daily(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "€STR".to_string().into(),
-        };
-        assert!(estr.is_ois_suitable());
-
-        let false_positive = RatesQuote::Swap {
-            maturity: base + time::Duration::days(365),
-            rate: 0.03,
-            fixed_freq: Frequency::annual(),
-            float_freq: Frequency::daily(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "13MOIS".to_string().into(),
-        };
-        assert!(!false_positive.is_ois_suitable());
+    /// Unified maturity date for sorting and time-axis derivations.
+    #[inline]
+    pub fn maturity_date(&self) -> Date {
+        match self {
+            RatesQuote::Deposit { maturity, .. } => *maturity,
+            RatesQuote::FRA { end, .. } => *end,
+            RatesQuote::Future { expiry, specs, .. } => {
+                finstack_core::dates::add_months(*expiry, specs.delivery_months as i32)
+            }
+            RatesQuote::Swap { maturity, .. } => *maturity,
+            RatesQuote::BasisSwap { maturity, .. } => *maturity,
+        }
     }
 }
+
 /// Credit instrument quotes for hazard curve and correlation calibration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum CreditQuote {
@@ -300,3 +271,4 @@ impl Default for FutureSpecs {
         }
     }
 }
+

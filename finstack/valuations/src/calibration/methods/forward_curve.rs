@@ -4,8 +4,8 @@
 //! in a multi-curve framework where discounting is performed using a separate OIS curve.
 
 use crate::calibration::{
-    config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport, solve_1d,
-    traits::Calibrator, SolverKind,
+    config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport,
+    traits::Calibrator,
 };
 use crate::instruments::{
     fra::ForwardRateAgreement,
@@ -137,15 +137,20 @@ impl ForwardCurveCalibrator {
         solver: &S,
         base_context: &MarketContext,
     ) -> Result<(ForwardCurve, CalibrationReport)> {
+        // Scan grid used to establish a bracket for forward-rate solves
+        const FWD_SCAN_POINTS: [f64; 19] = [
+            -0.05, -0.025, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.075, 0.10, 0.15, 0.20, 0.25, 0.30,
+            0.35, 0.40, 0.45, 0.50, 0.55,
+        ];
         // Validate quotes
         self.validate_quotes(quotes)?;
 
-        // Get discount curve
+        // Get discount curve (presence check)
         let _discount_curve = base_context.get_discount_ref(self.discount_curve_id.as_ref())?;
 
         // Filter and sort quotes by maturity
         let mut sorted_quotes = quotes.to_vec();
-        sorted_quotes.sort_by_key(|q| self.get_maturity(q));
+        sorted_quotes.sort_by_key(|q| q.maturity_date());
 
         // Initialize knots vector: (time, forward_rate)
         let mut knots: Vec<(f64, f64)> = Vec::new();
@@ -173,13 +178,19 @@ impl ForwardCurveCalibrator {
                 continue;
             }
 
-            // Clone data for closure
-            let self_clone = self.clone();
+            // Capture minimal data for closure
             let quote_clone = quote.clone();
             let knots_clone = knots.clone();
             let base_context_clone = base_context.clone();
+            let base_date = self.base_date;
+            let fwd_curve_id = self.fwd_curve_id.clone();
+            let tenor_years = self.tenor_years;
+            let solve_interp = self.solve_interp;
+            let time_dc = self.time_dc;
 
+            let this = self;
             // Define objective function
+            let fwd_id_for_closure = fwd_curve_id.clone();
             let objective = move |fwd_rate: f64| -> f64 {
                 // Build temporary forward curve with new knot
                 let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
@@ -187,19 +198,19 @@ impl ForwardCurveCalibrator {
                 // Quotes are processed in increasing maturity; maintain sorted invariant
                 debug_assert!(knots_clone
                     .last()
-                    .map(|(t, _)| *t <= knot_time + self_clone.config.tolerance)
+                    .map(|(t, _)| *t <= knot_time + this.config.tolerance)
                     .unwrap_or(true));
                 temp_knots.push((knot_time, fwd_rate));
-                self_clone.ensure_anchor(&mut temp_knots, fwd_rate);
+                this.ensure_anchor(&mut temp_knots, fwd_rate);
 
                 let temp_fwd_curve = match ForwardCurve::builder(
-                    self_clone.fwd_curve_id.to_owned(),
-                    self_clone.tenor_years,
+                    fwd_id_for_closure.clone(),
+                    tenor_years,
                 )
-                .base_date(self_clone.base_date)
+                .base_date(base_date)
                 .knots(temp_knots)
-                .set_interp(self_clone.solve_interp)
-                .day_count(self_clone.time_dc)
+                .set_interp(solve_interp)
+                .day_count(time_dc)
                 .build()
                 {
                     Ok(curve) => curve,
@@ -210,7 +221,7 @@ impl ForwardCurveCalibrator {
                 let temp_context = base_context_clone.clone().insert_forward(temp_fwd_curve);
 
                 // Price the instrument and return error (target is zero)
-                self_clone
+                this
                     .price_instrument(&quote_clone, &temp_context)
                     .unwrap_or(crate::calibration::PENALTY)
             };
@@ -219,7 +230,13 @@ impl ForwardCurveCalibrator {
             let initial_fwd = self.get_initial_guess(quote, &knots, base_context);
 
             // Solve for forward rate
-            let tentative = self.solve_with_bracketing(&objective, initial_fwd)?;
+            let tentative = crate::calibration::bracket_solve_1d(
+                &objective,
+                initial_fwd,
+                &FWD_SCAN_POINTS,
+                self.config.tolerance,
+                self.config.max_iterations,
+            )?;
             let mut solved_fwd = if let Some(root) = tentative {
                 root
             } else {
@@ -261,11 +278,11 @@ impl ForwardCurveCalibrator {
                 .unwrap_or(solved_fwd);
             self.ensure_anchor(&mut final_knots, anchor_rate);
 
-            let final_curve = ForwardCurve::builder(self.fwd_curve_id.to_owned(), self.tenor_years)
-                .base_date(self.base_date)
+            let final_curve = ForwardCurve::builder(self.fwd_curve_id.to_owned(), tenor_years)
+                .base_date(base_date)
                 .knots(final_knots.clone())
-                .set_interp(self.solve_interp)
-                .day_count(self.time_dc)
+                .set_interp(solve_interp)
+                .day_count(time_dc)
                 .build()?;
 
             let final_context = base_context.clone().insert_forward(final_curve);
@@ -356,53 +373,7 @@ impl ForwardCurveCalibrator {
         Ok((curve, report))
     }
 
-    fn solve_with_bracketing(
-        &self,
-        objective: &dyn Fn(f64) -> f64,
-        initial: f64,
-    ) -> Result<Option<f64>> {
-        let value_initial = objective(initial);
-        if value_initial.is_finite() && value_initial.abs() < self.config.tolerance {
-            return Ok(Some(initial));
-        }
-
-        let scan_points: [f64; 19] = [
-            -0.05, -0.025, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.075, 0.10, 0.15, 0.20, 0.25, 0.30,
-            0.35, 0.40, 0.45, 0.50, 0.55,
-        ];
-
-        let mut last_valid: Option<(f64, f64)> = None;
-        for &point in &scan_points {
-            let value = objective(point);
-            if !value.is_finite() || value.abs() >= crate::calibration::PENALTY / 10.0 {
-                continue;
-            }
-
-            if let Some((prev_point, prev_value)) = last_valid {
-                if prev_value == 0.0 {
-                    return Ok(Some(prev_point));
-                }
-                if value == 0.0 {
-                    return Ok(Some(point));
-                }
-                if prev_value.signum() != value.signum() {
-                    let guess = (prev_point + point) * 0.5;
-                    let root = solve_1d(
-                        SolverKind::Brent,
-                        self.config.tolerance,
-                        self.config.max_iterations.max(50),
-                        objective,
-                        guess,
-                    )?;
-                    return Ok(Some(root));
-                }
-            }
-
-            last_valid = Some((point, value));
-        }
-
-        Ok(None)
-    }
+    
 
     /// Price an instrument for calibration.
     fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
@@ -607,22 +578,11 @@ impl ForwardCurveCalibrator {
                 add_months(*expiry, specs.delivery_months as i32)
             }
             RatesQuote::Swap { maturity, .. } => *maturity,
-            _ => self.get_maturity(quote),
+            _ => quote.maturity_date(),
         }
     }
 
-    /// Get maturity date from quote.
-    fn get_maturity(&self, quote: &RatesQuote) -> Date {
-        match quote {
-            RatesQuote::Deposit { maturity, .. } => *maturity,
-            RatesQuote::FRA { end, .. } => *end,
-            RatesQuote::Future { expiry, specs, .. } => {
-                add_months(*expiry, specs.delivery_months as i32)
-            }
-            RatesQuote::Swap { maturity, .. } => *maturity,
-            RatesQuote::BasisSwap { maturity, .. } => *maturity,
-        }
-    }
+    
 
     /// Get initial guess for forward rate.
     ///

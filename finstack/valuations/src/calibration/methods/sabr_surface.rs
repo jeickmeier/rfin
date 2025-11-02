@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Interpolation choice for volatility surfaces (currently bilinear-only).
+/// Note: This is metadata for now; `VolSurface` manages its own interpolation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SurfaceInterp {
     /// Bilinear interpolation across expiry × strike grid

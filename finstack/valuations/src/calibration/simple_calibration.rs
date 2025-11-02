@@ -205,10 +205,7 @@ impl SimpleCalibration {
                 }
 
                 // Ensure we have at least a base knot
-                knots.sort_by(|a, b| {
-                    a.0.partial_cmp(&b.0)
-                        .expect("Discount curve knot times should be valid f64 values")
-                });
+                knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
                 if knots.first().map(|k| k.0).unwrap_or(1.0) > 0.0 {
                     knots.insert(0, (0.0, 1.0));
                 }
@@ -670,16 +667,12 @@ impl SimpleCalibration {
         }
 
         let mut expiry_grid: Vec<f64> = expiries.into_iter().map(|e| e as f64 / 1000.0).collect();
-        expiry_grid.sort_by(|a, b| {
-            a.partial_cmp(b)
-                .expect("Expiry grid values should be valid f64")
-        });
+        expiry_grid
+            .sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut strike_grid: Vec<f64> = strikes.into_iter().map(|s| s as f64 / 100.0).collect();
-        strike_grid.sort_by(|a, b| {
-            a.partial_cmp(b)
-                .expect("Strike grid values should be valid f64")
-        });
+        strike_grid
+            .sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         (expiry_grid, strike_grid)
     }

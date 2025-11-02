@@ -7,9 +7,7 @@
 //! pricing formulas, following market-standard bootstrap methodology.
 
 use crate::calibration::quote::RatesQuote;
-use crate::calibration::{
-    solve_1d, CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig, SolverKind,
-};
+use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
@@ -100,11 +98,16 @@ impl DiscountCurveCalibrator {
         solver: &S,
         base_context: &MarketContext,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
+        // Scan grid used to establish a bracket for discount factor solves
+        const DF_SCAN_POINTS: [f64; 18] = [
+            1.0, 0.99, 0.98, 0.96, 0.94, 0.92, 0.90, 0.88, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60,
+            0.55, 0.50, 0.45, 0.40,
+        ];
         // Sort quotes by maturity
         let mut sorted_quotes = quotes.to_vec();
         sorted_quotes.sort_by(|a, b| {
-            self.get_maturity(a)
-                .partial_cmp(&self.get_maturity(b))
+            a.maturity_date()
+                .partial_cmp(&b.maturity_date())
                 .unwrap()
         });
 
@@ -132,7 +135,7 @@ impl DiscountCurveCalibrator {
             .report(0, total_quotes, "Starting calibration");
 
         for (idx, quote) in sorted_quotes.iter().enumerate() {
-            let maturity_date = self.get_maturity(quote);
+            let maturity_date = quote.maturity_date();
             // Use instrument-specific day count for curve time at this knot
             let time_to_maturity = match quote {
                 RatesQuote::Deposit {
@@ -203,10 +206,11 @@ impl DiscountCurveCalibrator {
             // Create objective function that uses instrument pricing directly
             // Clone only the necessary data, not the entire context (for performance)
             let knots_clone = knots.clone();
-            let self_clone = self.clone();
             let quote_clone = quote.clone();
             // Capture context by reference; clone only once per evaluation (not twice)
             let base_context_ref = base_context;
+            let base_date = self.base_date;
+            let solve_interp = self.solve_interp;
 
             let objective = move |df: f64| -> f64 {
                 let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
@@ -215,9 +219,9 @@ impl DiscountCurveCalibrator {
 
                 // Build temporary curve with current knots
                 let temp_curve = match DiscountCurve::builder("CALIB_CURVE")
-                    .base_date(self_clone.base_date)
+                    .base_date(base_date)
                     .knots(temp_knots)
-                    .set_interp(self_clone.solve_interp)
+                    .set_interp(solve_interp)
                     .build()
                 {
                     Ok(curve) => curve,
@@ -237,7 +241,7 @@ impl DiscountCurveCalibrator {
                         let fwd = match temp_curve.to_forward_curve_with_interp(
                             "CALIB_FWD",
                             0.25,
-                            self_clone.solve_interp,
+                            solve_interp,
                         ) {
                             Ok(curve) => curve,
                             Err(_) => return crate::calibration::PENALTY,
@@ -252,7 +256,7 @@ impl DiscountCurveCalibrator {
                 };
 
                 // Price the instrument and return error (target is zero)
-                self_clone
+                self
                     .price_instrument(&quote_clone, &temp_context)
                     .unwrap_or(crate::calibration::PENALTY)
             };
@@ -281,7 +285,13 @@ impl DiscountCurveCalibrator {
                 }
             };
 
-            let tentative = self.solve_with_bracketing(&objective, initial_df)?;
+            let tentative = crate::calibration::bracket_solve_1d(
+                &objective,
+                initial_df,
+                &DF_SCAN_POINTS,
+                self.config.tolerance,
+                self.config.max_iterations,
+            )?;
             let mut solved_df = if let Some(root) = tentative {
                 root
             } else {
@@ -313,9 +323,9 @@ impl DiscountCurveCalibrator {
                 final_knots.push((time_to_maturity, solved_df));
 
                 let final_curve = DiscountCurve::builder("CALIB_CURVE")
-                    .base_date(self.base_date)
+                    .base_date(base_date)
                     .knots(final_knots)
-                    .set_interp(self.solve_interp)
+                    .set_interp(solve_interp)
                     .build()
                     .map_err(|e| finstack_core::Error::Calibration {
                         message: format!(
@@ -338,7 +348,7 @@ impl DiscountCurveCalibrator {
                             if let Ok(fwd) = disc_ref.to_forward_curve_with_interp(
                                 "CALIB_FWD",
                                 0.25,
-                                self.solve_interp,
+                                solve_interp,
                             ) {
                                 final_context = final_context.insert_forward(fwd);
                                 false
@@ -503,53 +513,7 @@ impl DiscountCurveCalibrator {
         Ok((curve, report))
     }
 
-    fn solve_with_bracketing(
-        &self,
-        objective: &dyn Fn(f64) -> f64,
-        initial: f64,
-    ) -> Result<Option<f64>> {
-        let value_initial = objective(initial);
-        if value_initial.is_finite() && value_initial.abs() < self.config.tolerance {
-            return Ok(Some(initial));
-        }
-
-        let scan_points: [f64; 18] = [
-            1.0, 0.99, 0.98, 0.96, 0.94, 0.92, 0.90, 0.88, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60,
-            0.55, 0.50, 0.45, 0.40,
-        ];
-
-        let mut last_valid: Option<(f64, f64)> = None;
-        for &point in &scan_points {
-            let value = objective(point);
-            if !value.is_finite() || value.abs() >= crate::calibration::PENALTY / 10.0 {
-                continue;
-            }
-
-            if let Some((prev_point, prev_value)) = last_valid {
-                if prev_value == 0.0 {
-                    return Ok(Some(prev_point));
-                }
-                if value == 0.0 {
-                    return Ok(Some(point));
-                }
-                if prev_value.signum() != value.signum() {
-                    let guess = (prev_point + point) * 0.5;
-                    let root = solve_1d(
-                        SolverKind::Brent,
-                        self.config.tolerance,
-                        self.config.max_iterations.max(50),
-                        objective,
-                        guess,
-                    )?;
-                    return Ok(Some(root));
-                }
-            }
-
-            last_valid = Some((point, value));
-        }
-
-        Ok(None)
-    }
+    
 
     /// Price an instrument using the given market context.
     ///
@@ -811,19 +775,7 @@ impl DiscountCurveCalibrator {
         }
     }
 
-    /// Get maturity date from quote.
-    fn get_maturity(&self, quote: &RatesQuote) -> Date {
-        match quote {
-            RatesQuote::Deposit { maturity, .. } => *maturity,
-            RatesQuote::FRA { end, .. } => *end,
-            RatesQuote::Future { expiry, specs, .. } => {
-                // Future maturity is expiry plus delivery period
-                add_months(*expiry, specs.delivery_months as i32)
-            }
-            RatesQuote::Swap { maturity, .. } => *maturity,
-            RatesQuote::BasisSwap { maturity, .. } => *maturity,
-        }
-    }
+    
 
     /// Validate quote sequence for no-arbitrage and completeness.
     ///
@@ -852,7 +804,7 @@ impl DiscountCurveCalibrator {
         // Check for duplicate maturities
         let mut maturities = std::collections::HashSet::new();
         for quote in quotes {
-            let maturity = self.get_maturity(quote);
+            let maturity = quote.maturity_date();
             if !maturities.insert(maturity) {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::Invalid,
@@ -1072,29 +1024,19 @@ mod tests {
 
     #[test]
     fn test_quote_sorting() {
-        let calibrator = DiscountCurveCalibrator::new(
-            "TEST",
-            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-            Currency::USD,
-        );
         let mut quotes = create_test_quotes();
 
         // Reverse order
         quotes.reverse();
 
         // Get maturities before sorting
-        let maturities_before: Vec<_> = quotes.iter().map(|q| calibrator.get_maturity(q)).collect();
+        let maturities_before: Vec<_> = quotes.iter().map(|q| q.maturity_date()).collect();
 
         // Sort
-        quotes.sort_by(|a, b| {
-            calibrator
-                .get_maturity(a)
-                .partial_cmp(&calibrator.get_maturity(b))
-                .unwrap()
-        });
+        quotes.sort_by(|a, b| a.maturity_date().partial_cmp(&b.maturity_date()).unwrap());
 
         // Get maturities after sorting
-        let maturities_after: Vec<_> = quotes.iter().map(|q| calibrator.get_maturity(q)).collect();
+        let maturities_after: Vec<_> = quotes.iter().map(|q| q.maturity_date()).collect();
 
         // Should be properly sorted
         for i in 1..maturities_after.len() {

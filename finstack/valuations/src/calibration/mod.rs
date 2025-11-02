@@ -116,6 +116,53 @@ where
     }
 }
 
+/// Scan a set of points to bracket a root, then refine with the configured 1D solver.
+/// Returns Ok(Some(root)) when a bracket is found and solved; Ok(None) if no bracket was found.
+pub(crate) fn bracket_solve_1d(
+    objective: &dyn Fn(f64) -> f64,
+    initial: f64,
+    scan_points: &[f64],
+    tol: f64,
+    max_iters: usize,
+) -> Result<Option<f64>> {
+    let v0 = objective(initial);
+    if v0.is_finite() && v0.abs() < tol {
+        return Ok(Some(initial));
+    }
+
+    let mut last_valid: Option<(f64, f64)> = None;
+    for &point in scan_points {
+        let value = objective(point);
+        if !value.is_finite() || value.abs() >= crate::calibration::PENALTY / 10.0 {
+            continue;
+        }
+
+        if let Some((prev_point, prev_value)) = last_valid {
+            if prev_value == 0.0 {
+                return Ok(Some(prev_point));
+            }
+            if value == 0.0 {
+                return Ok(Some(point));
+            }
+            if prev_value.signum() != value.signum() {
+                let guess = (prev_point + point) * 0.5;
+                let root = solve_1d(
+                    SolverKind::Brent,
+                    tol,
+                    max_iters.max(50),
+                    objective,
+                    guess,
+                )?;
+                return Ok(Some(root));
+            }
+        }
+
+        last_valid = Some((point, value));
+    }
+
+    Ok(None)
+}
+
 /// Create a simple solver wrapper for calibration methods using `solve_1d` internally.
 pub fn create_simple_solver(config: &CalibrationConfig) -> impl finstack_core::math::Solver {
     struct SimpleSolver {
@@ -143,5 +190,22 @@ pub fn create_simple_solver(config: &CalibrationConfig) -> impl finstack_core::m
         kind: config.solver_kind.clone(),
         tolerance: config.tolerance,
         max_iterations: config.max_iterations,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bracket_solve_1d_finds_root() {
+        // f(x) = x - 0.5 has root at 0.5
+        let f = |x: f64| x - 0.5;
+        let scan = [-1.0, 0.0, 0.25, 0.75, 1.0];
+        let root = bracket_solve_1d(&f, 0.0, &scan, 1e-12, 100)
+            .expect("solver error");
+        assert!(root.is_some());
+        let r = root.unwrap();
+        assert!((r - 0.5).abs() < 1e-9, "root inaccurate: {}", r);
     }
 }
