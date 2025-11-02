@@ -3,9 +3,6 @@
 use crate::core::error::core_to_py;
 use crate::valuations::mc_paths::PyPathDataset;
 use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
-use finstack_valuations::instruments::common::models::monte_carlo::engine::{
-    McEngineConfig, PathCaptureConfig, PathCaptureMode,
-};
 use finstack_valuations::instruments::common::mc::path_data::{
     PathDataset, PathPoint, PathSamplingMethod, SimulatedPath,
 };
@@ -15,6 +12,9 @@ use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
 use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
 use finstack_valuations::instruments::common::mc::traits::{
     Discretization, RandomStream, StochasticProcess,
+};
+use finstack_valuations::instruments::common::models::monte_carlo::engine::{
+    McEngineConfig, PathCaptureConfig, PathCaptureMode,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

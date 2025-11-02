@@ -96,7 +96,11 @@ fn test_cap_dv01_signed_negative() {
 
     // Signed convention (discount bump): caps lose value as discount rates rise ⇒ DV01 < 0
     assert!(dv01 < 0.0, "Cap DV01 should be negative: {}", dv01);
-    assert!(dv01.abs() < 10_000.0, "Cap DV01 magnitude should be reasonable: {}", dv01);
+    assert!(
+        dv01.abs() < 10_000.0,
+        "Cap DV01 magnitude should be reasonable: {}",
+        dv01
+    );
 }
 
 #[test]

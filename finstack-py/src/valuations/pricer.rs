@@ -16,7 +16,7 @@ use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 
 /// Default pricing date used when no explicit `as_of` parameter is provided.
-/// 
+///
 /// This is a placeholder value that ensures deterministic pricing when the caller
 /// doesn't specify a valuation date. In production use, callers should provide
 /// an explicit `as_of` date that matches their market data.
@@ -97,7 +97,7 @@ impl PyPricerRegistry {
             instrument: inst, ..
         } = extract_instrument(&instrument)?;
         let ModelKeyArg(model_key) = model.extract()?;
-        
+
         let as_of_date = match as_of {
             Some(date) => py_to_date(&date)?,
             None => default_pricing_date(),

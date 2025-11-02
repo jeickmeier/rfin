@@ -4,8 +4,7 @@
 //! in a multi-curve framework where discounting is performed using a separate OIS curve.
 
 use crate::calibration::{
-    config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport,
-    traits::Calibrator,
+    config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport, traits::Calibrator,
 };
 use crate::instruments::{
     fra::ForwardRateAgreement,
@@ -174,7 +173,10 @@ impl ForwardCurveCalibrator {
                     .year_fraction(self.base_date, knot_date, DayCountCtx::default())?;
 
             // Skip if we already have a knot at this time
-            if knots.iter().any(|(t, _)| (*t - knot_time).abs() < self.config.tolerance) {
+            if knots
+                .iter()
+                .any(|(t, _)| (*t - knot_time).abs() < self.config.tolerance)
+            {
                 continue;
             }
 
@@ -203,26 +205,23 @@ impl ForwardCurveCalibrator {
                 temp_knots.push((knot_time, fwd_rate));
                 this.ensure_anchor(&mut temp_knots, fwd_rate);
 
-                let temp_fwd_curve = match ForwardCurve::builder(
-                    fwd_id_for_closure.clone(),
-                    tenor_years,
-                )
-                .base_date(base_date)
-                .knots(temp_knots)
-                .set_interp(solve_interp)
-                .day_count(time_dc)
-                .build()
-                {
-                    Ok(curve) => curve,
-                    Err(_) => return crate::calibration::PENALTY,
-                };
+                let temp_fwd_curve =
+                    match ForwardCurve::builder(fwd_id_for_closure.clone(), tenor_years)
+                        .base_date(base_date)
+                        .knots(temp_knots)
+                        .set_interp(solve_interp)
+                        .day_count(time_dc)
+                        .build()
+                    {
+                        Ok(curve) => curve,
+                        Err(_) => return crate::calibration::PENALTY,
+                    };
 
                 // Update context with temporary forward curve
                 let temp_context = base_context_clone.clone().insert_forward(temp_fwd_curve);
 
                 // Price the instrument and return error (target is zero)
-                this
-                    .price_instrument(&quote_clone, &temp_context)
+                this.price_instrument(&quote_clone, &temp_context)
                     .unwrap_or(crate::calibration::PENALTY)
             };
 
@@ -330,7 +329,7 @@ impl ForwardCurveCalibrator {
                     .map(|disc_curve| disc_curve.zero(t))
             })
             .unwrap_or(0.02); // Final fallback
-        
+
         if self.config.verbose && final_knots.is_empty() {
             tracing::debug!(
                 curve_id = %self.fwd_curve_id.as_str(),
@@ -338,7 +337,7 @@ impl ForwardCurveCalibrator {
                 "No knots calibrated; using context-derived anchor rate"
             );
         }
-        
+
         self.ensure_anchor(&mut final_knots, anchor_rate);
 
         let curve = ForwardCurve::builder(self.fwd_curve_id.to_owned(), self.tenor_years)
@@ -372,8 +371,6 @@ impl ForwardCurveCalibrator {
 
         Ok((curve, report))
     }
-
-    
 
     /// Price an instrument for calibration.
     fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<f64> {
@@ -581,8 +578,6 @@ impl ForwardCurveCalibrator {
             _ => quote.maturity_date(),
         }
     }
-
-    
 
     /// Get initial guess for forward rate.
     ///

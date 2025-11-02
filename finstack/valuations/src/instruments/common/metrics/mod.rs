@@ -20,7 +20,9 @@ pub mod fd_greeks;
 
 pub use bucketed_cs01::{GenericBucketedCs01, HasHazardCurve};
 pub use bucketed_dv01::{GenericBucketedDv01, GenericBucketedDv01WithContext, HasDiscountCurve};
-pub use fd_greeks::{GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga};
+pub use fd_greeks::{
+    GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga,
+};
 pub use finite_difference::bump_sizes;
 pub use has_equity_underlying::HasEquityUnderlying;
 pub use has_pricing_overrides::HasPricingOverrides;

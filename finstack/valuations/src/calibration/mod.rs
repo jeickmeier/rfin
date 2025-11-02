@@ -146,13 +146,7 @@ pub(crate) fn bracket_solve_1d(
             }
             if prev_value.signum() != value.signum() {
                 let guess = (prev_point + point) * 0.5;
-                let root = solve_1d(
-                    SolverKind::Brent,
-                    tol,
-                    max_iters.max(50),
-                    objective,
-                    guess,
-                )?;
+                let root = solve_1d(SolverKind::Brent, tol, max_iters.max(50), objective, guess)?;
                 return Ok(Some(root));
             }
         }
@@ -202,8 +196,7 @@ mod tests {
         // f(x) = x - 0.5 has root at 0.5
         let f = |x: f64| x - 0.5;
         let scan = [-1.0, 0.0, 0.25, 0.75, 1.0];
-        let root = bracket_solve_1d(&f, 0.0, &scan, 1e-12, 100)
-            .expect("solver error");
+        let root = bracket_solve_1d(&f, 0.0, &scan, 1e-12, 100).expect("solver error");
         assert!(root.is_some());
         let r = root.unwrap();
         assert!((r - 0.5).abs() < 1e-9, "root inaccurate: {}", r);

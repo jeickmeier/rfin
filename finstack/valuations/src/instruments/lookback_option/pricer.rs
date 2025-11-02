@@ -12,6 +12,8 @@ use finstack_core::Result;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
+use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+#[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::payoff::lookback::{
     FloatingStrikeLookbackCall, LookbackCall, LookbackPut,
 };
@@ -19,8 +21,6 @@ use crate::instruments::common::models::monte_carlo::payoff::lookback::{
 use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
-use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 
 /// Lookback option Monte Carlo pricer.
 #[cfg(feature = "mc")]
@@ -234,17 +234,19 @@ fn collect_lookback_inputs(
     curves: &MarketContext,
     as_of: Date,
 ) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
-    let t = inst.day_count.year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
-    
+    let t = inst
+        .day_count
+        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+
     let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
     let r = disc_curve.zero(t);
-    
+
     let spot_scalar = curves.price(&inst.spot_id)?;
     let spot = match spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
     };
-    
+
     let q = if let Some(div_id) = &inst.div_yield_id {
         match curves.price(div_id.as_str()) {
             Ok(ms) => match ms {
@@ -256,11 +258,11 @@ fn collect_lookback_inputs(
     } else {
         0.0
     };
-    
+
     let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
     let strike_val = inst.strike.as_ref().map(|s| s.amount()).unwrap_or(spot);
     let sigma = vol_surface.value_clamped(t, strike_val);
-    
+
     Ok((spot, r, q, sigma, t))
 }
 
@@ -281,9 +283,12 @@ impl Default for LookbackOptionAnalyticalPricer {
 
 impl Pricer for LookbackOptionAnalyticalPricer {
     fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::LookbackOption, ModelKey::LookbackBSContinuous)
+        PricerKey::new(
+            InstrumentType::LookbackOption,
+            ModelKey::LookbackBSContinuous,
+        )
     }
-    
+
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -296,22 +301,29 @@ impl Pricer for LookbackOptionAnalyticalPricer {
             .ok_or_else(|| {
                 PricingError::type_mismatch(InstrumentType::LookbackOption, instrument.key())
             })?;
-        
+
         let (spot, r, q, sigma, t) = collect_lookback_inputs(lookback, market, as_of)
             .map_err(|e| PricingError::model_failure(e.to_string()))?;
-        
+
         if t <= 0.0 {
             return Ok(ValuationResult::stamped(
                 lookback.id(),
                 as_of,
-                Money::new(0.0, lookback.strike.as_ref().map(|s| s.currency()).unwrap_or(finstack_core::currency::Currency::USD)),
+                Money::new(
+                    0.0,
+                    lookback
+                        .strike
+                        .as_ref()
+                        .map(|s| s.currency())
+                        .unwrap_or(finstack_core::currency::Currency::USD),
+                ),
             ));
         }
-        
+
         // For now, assume spot_min = spot_max = spot (option just started)
         // In production, these would come from path history or market data
         let spot_extremum = spot;
-        
+
         let price = match lookback.lookback_type {
             LookbackType::FixedStrike => {
                 let strike = lookback.strike.as_ref().unwrap().amount();
@@ -324,19 +336,21 @@ impl Pricer for LookbackOptionAnalyticalPricer {
                     }
                 }
             }
-            LookbackType::FloatingStrike => {
-                match lookback.option_type {
-                    crate::instruments::OptionType::Call => {
-                        floating_strike_lookback_call(spot, t, r, q, sigma, spot_extremum)
-                    }
-                    crate::instruments::OptionType::Put => {
-                        floating_strike_lookback_put(spot, t, r, q, sigma, spot_extremum)
-                    }
+            LookbackType::FloatingStrike => match lookback.option_type {
+                crate::instruments::OptionType::Call => {
+                    floating_strike_lookback_call(spot, t, r, q, sigma, spot_extremum)
                 }
-            }
+                crate::instruments::OptionType::Put => {
+                    floating_strike_lookback_put(spot, t, r, q, sigma, spot_extremum)
+                }
+            },
         };
-        
-        let currency = lookback.strike.as_ref().map(|s| s.currency()).unwrap_or(finstack_core::currency::Currency::USD);
+
+        let currency = lookback
+            .strike
+            .as_ref()
+            .map(|s| s.currency())
+            .unwrap_or(finstack_core::currency::Currency::USD);
         let pv = Money::new(price * lookback.notional, currency);
         Ok(ValuationResult::stamped(lookback.id(), as_of, pv))
     }

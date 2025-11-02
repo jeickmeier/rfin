@@ -5,61 +5,57 @@ use finstack_core::prelude::*;
 
 use indexmap::IndexMap;
 
-// Re-export to preserve existing import paths in benches and callers
-pub use crate::cashflow::DatedFlow;
+// Use fully-qualified alias to avoid namespace duplication
 
 /// Currency-preserving aggregation of cashflows into `Period`s.
 ///
 /// Groups cashflows by time period while preserving currency separation.
-/// Returns a map: `PeriodId -> (Currency -> amount)`.
+/// Returns a map: `PeriodId -> (Currency -> Money)` using Decimal-safe `Money`.
 ///
 /// See unit tests and `examples/` for usage.
 fn aggregate_by_period_sorted(
-    sorted: &[DatedFlow],
+    sorted: &[crate::cashflow::DatedFlow],
     periods: &[Period],
-) -> IndexMap<PeriodId, IndexMap<Currency, f64>> {
-    use core::cmp::Ordering;
-    let mut out: IndexMap<PeriodId, IndexMap<Currency, f64>> = IndexMap::new();
+) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
+    let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
 
-    // For each period (preserve input order), locate the first flow >= start via binary search,
-    // then accumulate until flow.date < end. This is O(m log n + total_matched_flows).
+    // Maintain a moving index across sorted flows for O(n + m) behavior.
+    let mut i = 0usize;
+    let n = sorted.len();
+
     for p in periods {
-        // Find lower bound index for p.start
-        let mut lo = 0usize;
-        let mut hi = sorted.len();
-        while lo < hi {
-            let mid = (lo + hi) / 2;
-            match sorted[mid].0.cmp(&p.start) {
-                Ordering::Less => lo = mid + 1,
-                _ => hi = mid,
-            }
+        // Advance i to the first flow with date >= period.start
+        while i < n && sorted[i].0 < p.start {
+            i += 1;
         }
 
-        let mut per_ccy: IndexMap<Currency, f64> = IndexMap::new();
-        let mut i = lo;
-        while i < sorted.len() {
-            let (d, m) = sorted[i];
+        let mut per_ccy: IndexMap<Currency, Money> = IndexMap::new();
+        let mut j = i;
+        while j < n {
+            let (d, m) = sorted[j];
             if d >= p.end {
                 break;
             }
-            // We know d >= p.start by construction of lower bound
-            let e = per_ccy.entry(m.currency()).or_insert(0.0);
-            *e += m.amount();
-            i += 1;
+            let ccy = m.currency();
+            let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
+            *entry = entry.checked_add(m).expect("currency must match per key");
+            j += 1;
         }
         if !per_ccy.is_empty() {
             out.insert(p.id, per_ccy);
         }
+        // Set i to j to avoid re-scanning earlier flows in next period
+        i = j;
     }
     out
 }
 
 #[inline(never)]
 pub fn aggregate_by_period(
-    flows: &[DatedFlow],
+    flows: &[crate::cashflow::DatedFlow],
     periods: &[Period],
-) -> IndexMap<PeriodId, IndexMap<Currency, f64>> {
-    let mut sorted: Vec<DatedFlow> = flows.to_vec();
+) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
+    let mut sorted: Vec<crate::cashflow::DatedFlow> = flows.to_vec();
     if sorted.is_empty() || periods.is_empty() {
         return IndexMap::new();
     }
@@ -128,12 +124,12 @@ mod tests {
 
         let q1 = aggregated.get(&PeriodId::quarter(2025, 1)).unwrap();
         assert_eq!(q1.len(), 2);
-        assert!((q1[&Currency::USD] - 100.0).abs() < 1e-12);
-        assert!((q1[&Currency::EUR] - 200.0).abs() < 1e-12);
+        assert!((q1[&Currency::USD].amount() - 100.0).abs() < 1e-12);
+        assert!((q1[&Currency::EUR].amount() - 200.0).abs() < 1e-12);
 
         let q2 = aggregated.get(&PeriodId::quarter(2025, 2)).unwrap();
         assert_eq!(q2.len(), 1);
-        assert!((q2[&Currency::USD] - 60.0).abs() < 1e-12);
+        assert!((q2[&Currency::USD].amount() - 60.0).abs() < 1e-12);
 
         // Third quarter has no flows -> should not be present
         assert!(aggregated.get(&PeriodId::quarter(2025, 3)).is_none());
@@ -182,7 +178,10 @@ pub const KAHAN_THRESHOLD: usize = 20;
 /// Note: For empty input, returns 0.0 in USD to preserve `Money` typing
 /// without inferring currency. Callers needing explicit currency should
 /// wrap or provide one.
-pub fn aggregate_cashflows_precise(flows: &[DatedFlow]) -> Money {
+#[deprecated(
+    note = "Use aggregate_cashflows_precise_checked(target) for Decimal-safe, single-currency sums"
+)]
+pub fn aggregate_cashflows_precise(flows: &[crate::cashflow::DatedFlow]) -> Money {
     if flows.is_empty() {
         return Money::new(0.0, Currency::USD); // Default currency
     }
@@ -201,14 +200,42 @@ pub fn aggregate_cashflows_precise(flows: &[DatedFlow]) -> Money {
     Money::new(total, currency)
 }
 
+/// Decimal-safe single-currency aggregation with explicit target currency.
+///
+/// - Empty input returns `Ok(Some(0 target))`.
+/// - All flows must match `target` currency; otherwise returns `Error::CurrencyMismatch`.
+/// - Sums using `Money::checked_add` to preserve Decimal arithmetic.
+pub fn aggregate_cashflows_precise_checked(
+    flows: &[crate::cashflow::DatedFlow],
+    target: Currency,
+) -> finstack_core::Result<Option<Money>> {
+    if flows.is_empty() {
+        return Ok(Some(Money::new(0.0, target)));
+    }
+
+    let mut acc = Money::new(0.0, target);
+    for &(_d, m) in flows {
+        if m.currency() != target {
+            return Err(finstack_core::error::Error::CurrencyMismatch {
+                expected: target,
+                actual: m.currency(),
+            });
+        }
+        acc = acc.checked_add(m)?;
+    }
+    Ok(Some(acc))
+}
+
 #[cfg(test)]
 mod precision_tests {
     use super::*;
     use time::Month;
 
     #[test]
-    fn aggregation_empty_returns_zero_usd() {
-        let total = aggregate_cashflows_precise(&[]);
+    fn checked_empty_returns_zero_target() {
+        let total = aggregate_cashflows_precise_checked(&[], Currency::USD)
+            .unwrap()
+            .unwrap();
         assert_eq!(total.amount(), 0.0);
         assert_eq!(total.currency(), Currency::USD);
     }
@@ -216,7 +243,7 @@ mod precision_tests {
     #[test]
     fn test_kahan_vs_naive_30y_bond() {
         // Simulate 30-year semi-annual bond (60 cashflows)
-        let flows: Vec<DatedFlow> = (0..60)
+        let flows: Vec<crate::cashflow::DatedFlow> = (0..60)
             .map(|i| {
                 // Semi-annual payments
                 let months = i * 6;
@@ -234,6 +261,7 @@ mod precision_tests {
             })
             .collect();
 
+        #[allow(deprecated)]
         let total = aggregate_cashflows_precise(&flows);
 
         // Should sum to 60 * $25k = $1.5M
@@ -243,7 +271,7 @@ mod precision_tests {
     #[test]
     fn test_kahan_threshold_switching() {
         // Test exactly at threshold (20 flows)
-        let flows_at_threshold: Vec<DatedFlow> = (0..20)
+        let flows_at_threshold: Vec<crate::cashflow::DatedFlow> = (0..20)
             .map(|i| {
                 let day = (i % 28) + 1;
                 (
@@ -253,11 +281,12 @@ mod precision_tests {
             })
             .collect();
 
+        #[allow(deprecated)]
         let total_at = aggregate_cashflows_precise(&flows_at_threshold);
         assert_eq!(total_at.amount(), 1000.0);
 
         // Test just above threshold (21 flows) - should use Kahan
-        let flows_above: Vec<DatedFlow> = (0..21)
+        let flows_above: Vec<crate::cashflow::DatedFlow> = (0..21)
             .map(|i| {
                 let day = (i % 28) + 1;
                 (
@@ -267,7 +296,46 @@ mod precision_tests {
             })
             .collect();
 
+        #[allow(deprecated)]
         let total_above = aggregate_cashflows_precise(&flows_above);
         assert_eq!(total_above.amount(), 1050.0);
+    }
+
+    #[test]
+    fn checked_currency_mismatch_errors() {
+        let flows = vec![
+            (
+                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                Money::new(100.0, Currency::USD),
+            ),
+            (
+                Date::from_calendar_date(2025, Month::February, 1).unwrap(),
+                Money::new(200.0, Currency::EUR),
+            ),
+        ];
+        let err = aggregate_cashflows_precise_checked(&flows, Currency::USD).unwrap_err();
+        match err {
+            finstack_core::error::Error::CurrencyMismatch { .. } => {}
+            _ => panic!("expected CurrencyMismatch"),
+        }
+    }
+
+    #[test]
+    fn checked_sum_matches() {
+        let flows = vec![
+            (
+                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                Money::new(100.0, Currency::USD),
+            ),
+            (
+                Date::from_calendar_date(2025, Month::February, 1).unwrap(),
+                Money::new(200.0, Currency::USD),
+            ),
+        ];
+        let total = aggregate_cashflows_precise_checked(&flows, Currency::USD)
+            .unwrap()
+            .unwrap();
+        assert_eq!(total.currency(), Currency::USD);
+        assert!((total.amount() - 300.0).abs() < 1e-12);
     }
 }

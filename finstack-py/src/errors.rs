@@ -201,11 +201,17 @@ fn map_input_error(err: InputError) -> PyErr {
         }
 
         // Invalid date range
-        InputError::InvalidDateRange => DateError::new_err("Invalid date range: start must be before end"),
+        InputError::InvalidDateRange => {
+            DateError::new_err("Invalid date range: start must be before end")
+        }
 
         // Validation errors
-        InputError::TooFewPoints => ParameterError::new_err("At least two data points are required"),
-        InputError::NonMonotonicKnots => ParameterError::new_err("Times (knots) must be strictly increasing"),
+        InputError::TooFewPoints => {
+            ParameterError::new_err("At least two data points are required")
+        }
+        InputError::NonMonotonicKnots => {
+            ParameterError::new_err("Times (knots) must be strictly increasing")
+        }
         InputError::NonPositiveValue => ParameterError::new_err("Values must be positive"),
         InputError::NegativeValue => ParameterError::new_err("Values must be non-negative"),
         InputError::DimensionMismatch => ParameterError::new_err("Input dimensions do not match"),

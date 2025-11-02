@@ -176,7 +176,7 @@ impl HazardCurveCalibrator {
             );
 
             let pricer = CDSPricer::new();
-            
+
             // Pre-allocate hazard knots buffer to reduce allocations in objective
             let mut hazard_so_far = Vec::with_capacity(hazard_knots.len() + 1);
             hazard_so_far.extend_from_slice(&hazard_knots);

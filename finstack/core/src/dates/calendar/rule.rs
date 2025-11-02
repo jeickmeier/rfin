@@ -108,12 +108,12 @@ pub enum Observed {
     /// If the date falls on a weekend, the weekend itself is the holiday.
     /// No substitute business day is designated.
     None,
-    
+
     /// If holiday falls on Saturday **or** Sunday, observe on following Monday.
     ///
     /// Common in UK and many Commonwealth countries.
     NextMonday,
-    
+
     /// Saturday → previous Friday; Sunday → following Monday.
     ///
     /// Standard US market convention (NYSE, NASDAQ, Federal Reserve).
@@ -157,7 +157,7 @@ pub enum Observed {
 pub enum Direction {
     /// Find the nearest occurrence of the weekday **on or after** the reference date.
     After,
-    
+
     /// Find the nearest occurrence of the weekday **on or before** the reference date.
     Before,
 }
@@ -210,7 +210,7 @@ pub enum Direction {
 /// use time::{Date, Month};
 ///
 /// let new_years = Rule::fixed_next_monday(Month::January, 1);
-/// 
+///
 /// // Jan 1, 2022 is Saturday → observed Monday Jan 3
 /// let sat = Date::from_calendar_date(2022, Month::January, 1)?;
 /// assert!(!new_years.applies(sat));

@@ -48,7 +48,7 @@ impl LookbackOption {
         use crate::instruments::lookback_option::pricer;
         pricer::npv(self, curves, as_of)
     }
-    
+
     /// Calculate the net present value using analytical method (default).
     /// Uses continuous monitoring closed-form formulas.
     pub fn npv(
@@ -58,9 +58,10 @@ impl LookbackOption {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::lookback_option::pricer::LookbackOptionAnalyticalPricer;
         use crate::pricer::Pricer;
-        
+
         let pricer = LookbackOptionAnalyticalPricer::new();
-        let result = pricer.price_dyn(self, curves, as_of)
+        let result = pricer
+            .price_dyn(self, curves, as_of)
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
         Ok(result.value)
     }

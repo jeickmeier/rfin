@@ -667,12 +667,10 @@ impl SimpleCalibration {
         }
 
         let mut expiry_grid: Vec<f64> = expiries.into_iter().map(|e| e as f64 / 1000.0).collect();
-        expiry_grid
-            .sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        expiry_grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let mut strike_grid: Vec<f64> = strikes.into_iter().map(|s| s as f64 / 100.0).collect();
-        strike_grid
-            .sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        strike_grid.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         (expiry_grid, strike_grid)
     }

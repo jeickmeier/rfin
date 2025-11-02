@@ -8,15 +8,15 @@
 //! When correlation is present, applies Cholesky decomposition to generate
 //! correlated Brownian motions.
 
+use crate::instruments::common::mc::discretization::exact_hw1f::ExactHullWhite1F;
+use crate::instruments::common::mc::discretization::qe_cir::QeCir;
 use crate::instruments::common::mc::process::correlation::{
     apply_correlation, cholesky_decomposition,
 };
+use crate::instruments::common::mc::traits::Discretization;
 use crate::instruments::common::models::monte_carlo::process::revolving_credit::{
     InterestRateSpec, RevolvingCreditProcess,
 };
-use crate::instruments::common::mc::traits::Discretization;
-use crate::instruments::common::mc::discretization::exact_hw1f::ExactHullWhite1F;
-use crate::instruments::common::mc::discretization::qe_cir::QeCir;
 use finstack_core::math::linalg::CholeskyError;
 
 /// Discretization scheme for revolving credit process.
@@ -204,12 +204,12 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::instruments::common::mc::process::ou::HullWhite1FParams;
     use crate::instruments::common::models::monte_carlo::process::revolving_credit::{
         CreditSpreadParams, InterestRateSpec, RevolvingCreditProcess, RevolvingCreditProcessParams,
         UtilizationParams,
     };
-    use super::*;
 
     #[test]
     fn test_discretization_creation() {

@@ -1,12 +1,10 @@
 //! Cashflow-related traits and aliases.
 
+pub use crate::cashflow::{DatedFlow, DatedFlows};
 use crate::instruments::common::discountable::Discountable;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
-
-// Re-export canonical alias so existing imports continue to work
-pub use crate::cashflow::DatedFlows;
 
 /// Build cashflow schedules and provide currency-safe aggregation hooks.
 ///

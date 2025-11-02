@@ -28,7 +28,15 @@ pub struct HestonParams {
 #[cfg(not(feature = "mc"))]
 impl HestonParams {
     pub fn new(r: f64, q: f64, kappa: f64, theta: f64, sigma_v: f64, rho: f64, v0: f64) -> Self {
-        Self { r, q, kappa, theta, sigma_v, rho, v0 }
+        Self {
+            r,
+            q,
+            kappa,
+            theta,
+            sigma_v,
+            rho,
+            v0,
+        }
     }
 }
 
@@ -79,9 +87,7 @@ fn heston_characteristic_function(
     let d_squared_imag = -sigma_v * sigma_v * u - 2.0 * kappa * i_rho_sigma_u;
 
     // d = sqrt(d_squared)
-    let d_mag = ((d_squared_real * d_squared_real + d_squared_imag * d_squared_imag)
-        .sqrt())
-        .sqrt();
+    let d_mag = ((d_squared_real * d_squared_real + d_squared_imag * d_squared_imag).sqrt()).sqrt();
     let d_arg = (d_squared_imag.atan2(d_squared_real)) / 2.0;
     let d_real = d_mag * d_arg.cos();
     let d_imag = d_mag * d_arg.sin();

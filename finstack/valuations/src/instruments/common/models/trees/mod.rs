@@ -19,4 +19,3 @@ pub use tree_framework::{
     TreeParameters, TreeValuator,
 };
 pub use trinomial_tree::{TrinomialTree, TrinomialTreeType};
-

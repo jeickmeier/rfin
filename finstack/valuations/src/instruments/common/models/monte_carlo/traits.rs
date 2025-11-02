@@ -1,5 +1,5 @@
 //! Pricing-specific traits for Monte Carlo (payoffs and observers).
-//! 
+//!
 //! This module houses `Payoff` and related observer traits that are specific
 //! to instrument pricing. Generic MC traits such as `RandomStream`,
 //! `StochasticProcess`, `Discretization`, and `PathState` remain under

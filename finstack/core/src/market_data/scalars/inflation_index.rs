@@ -98,7 +98,7 @@ pub enum InflationInterpolation {
     ///
     /// Conservative approach: assumes no intra-month inflation.
     Step,
-    
+
     /// Linear interpolation between monthly observations.
     ///
     /// Standard for TIPS and most inflation-linked bonds.
@@ -171,12 +171,12 @@ pub enum InflationLag {
     ///
     /// Standard: 3 months for TIPS and most inflation-linked bonds.
     Months(u8),
-    
+
     /// Lag by specified number of calendar days.
     ///
     /// Alternative specification for non-standard contracts.
     Days(u16),
-    
+
     /// No lag applied.
     ///
     /// Used for inflation swaps where forecast indices are used.

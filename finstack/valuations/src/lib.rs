@@ -130,7 +130,7 @@
 //!
 //! // Calibration would use market quotes with correct RatesQuote structure
 //! // (See calibration module documentation for full examples)
-//! 
+//!
 //! // Example: let (market_context, report) = calibration.calibrate(...)?;
 //! # Ok(())
 //! # }

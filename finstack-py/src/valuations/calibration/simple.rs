@@ -169,12 +169,11 @@ impl PySimpleCalibration {
         })?;
 
         let calibrator = self.build();
-        
+
         // Release GIL for compute-heavy calibration work
-        let (market, report) = py.allow_threads(|| {
-            calibrator.calibrate(&rust_quotes).map_err(core_to_py)
-        })?;
-        
+        let (market, report) =
+            py.allow_threads(|| calibrator.calibrate(&rust_quotes).map_err(core_to_py))?;
+
         Ok((
             PyMarketContext { inner: market },
             PyCalibrationReport::new(report),

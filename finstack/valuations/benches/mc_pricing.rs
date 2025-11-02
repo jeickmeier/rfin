@@ -13,6 +13,8 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use finstack_core::currency::Currency;
 use finstack_valuations::instruments::common::mc::discretization::qe_heston::QeHeston;
+use finstack_valuations::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+use finstack_valuations::instruments::common::mc::process::heston::HestonProcess;
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::asian::{
     AsianCall, AveragingMethod,
 };
@@ -29,8 +31,6 @@ use finstack_valuations::instruments::common::models::monte_carlo::pricer::lsmc:
 use finstack_valuations::instruments::common::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-use finstack_valuations::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
-use finstack_valuations::instruments::common::mc::process::heston::HestonProcess;
 
 fn bench_european_gbm(c: &mut Criterion) {
     let mut group = c.benchmark_group("mc_european_gbm");
@@ -143,11 +143,11 @@ fn bench_barrier_options(c: &mut Criterion) {
 fn bench_heston(c: &mut Criterion) {
     let mut group = c.benchmark_group("mc_heston");
 
+    use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
+    use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
     use finstack_valuations::instruments::common::models::monte_carlo::engine::{
         McEngine, McEngineConfig,
     };
-    use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
-    use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
 
     group.bench_function("heston_european", |b| {
         let time_grid = TimeGrid::uniform(1.0, 252).unwrap();

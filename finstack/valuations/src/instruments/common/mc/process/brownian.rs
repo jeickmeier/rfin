@@ -95,7 +95,11 @@ pub struct MultiBrownianProcess {
 impl MultiBrownianProcess {
     /// Create a multi-dimensional Brownian motion.
     pub fn new(mus: Vec<f64>, sigmas: Vec<f64>, correlation: Option<Vec<f64>>) -> Self {
-        assert_eq!(mus.len(), sigmas.len(), "mus and sigmas must have same length");
+        assert_eq!(
+            mus.len(),
+            sigmas.len(),
+            "mus and sigmas must have same length"
+        );
         if let Some(ref corr) = correlation {
             let n = mus.len();
             assert_eq!(corr.len(), n * n, "Correlation matrix must be n x n");
@@ -188,5 +192,3 @@ mod tests {
         assert_eq!(md.factor_names, vec!["x_0".to_string(), "x_1".to_string()]);
     }
 }
-
-

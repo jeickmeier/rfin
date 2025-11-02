@@ -230,7 +230,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 // Pre-allocate knots buffer to reduce allocations in objective
                 let mut knots_with_capacity = Vec::with_capacity(knots.len() + 1);
                 knots_with_capacity.extend_from_slice(&knots);
-                
+
                 let base_ctx_ref = base_context;
                 let notional = Money::new(1_000_000.0, self.currency);
                 let disc_id_clone = disc_id.clone();

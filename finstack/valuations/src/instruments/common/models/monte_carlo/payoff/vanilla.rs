@@ -2,9 +2,9 @@
 //!
 //! All payoffs return Money types for currency safety.
 
+use super::traits::TerminalPayoff;
 use crate::instruments::common::mc::traits::PathState;
 use crate::instruments::common::models::monte_carlo::traits::Payoff;
-use super::traits::TerminalPayoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -284,8 +284,8 @@ impl TerminalPayoff for Forward {
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::common::mc::traits::state_keys;
     use super::*;
+    use crate::instruments::common::mc::traits::state_keys;
 
     fn create_terminal_state(step: usize, spot: f64) -> PathState {
         let mut state = PathState::new(step, step as f64 * 0.1);

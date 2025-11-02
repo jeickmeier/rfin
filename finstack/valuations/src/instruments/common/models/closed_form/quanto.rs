@@ -84,8 +84,11 @@ pub fn quanto_call(
         return (spot - strike).max(0.0);
     }
     if vol_asset <= 0.0 {
-        let forward_adj =
-            spot * ((rate_foreign - div_yield + quanto_drift_adjustment(correlation, vol_asset, vol_fx)) * time).exp();
+        let forward_adj = spot
+            * ((rate_foreign - div_yield
+                + quanto_drift_adjustment(correlation, vol_asset, vol_fx))
+                * time)
+                .exp();
         return ((forward_adj - strike) * (-rate_domestic * time).exp()).max(0.0);
     }
 
@@ -135,8 +138,11 @@ pub fn quanto_put(
         return (strike - spot).max(0.0);
     }
     if vol_asset <= 0.0 {
-        let forward_adj =
-            spot * ((rate_foreign - div_yield + quanto_drift_adjustment(correlation, vol_asset, vol_fx)) * time).exp();
+        let forward_adj = spot
+            * ((rate_foreign - div_yield
+                + quanto_drift_adjustment(correlation, vol_asset, vol_fx))
+                * time)
+                .exp();
         return ((strike - forward_adj) * (-rate_domestic * time).exp()).max(0.0);
     }
 
@@ -247,8 +253,8 @@ mod tests {
 
         // Vanilla BS call
         let sqrt_t = time.sqrt();
-        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
-            / (vol * sqrt_t);
+        let d1 =
+            ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
         let d2 = d1 - vol * sqrt_t;
         let vanilla = spot * (-div_yield * time).exp() * norm_cdf(d1)
             - strike * (-rate * time).exp() * norm_cdf(d2);
@@ -328,8 +334,12 @@ mod tests {
         let vol_asset = 0.2;
         let vol_fx = 0.1;
 
-        let call_neg_corr = quanto_call(spot, strike, time, r_dom, r_for, div_yield, vol_asset, vol_fx, -0.5);
-        let call_pos_corr = quanto_call(spot, strike, time, r_dom, r_for, div_yield, vol_asset, vol_fx, 0.5);
+        let call_neg_corr = quanto_call(
+            spot, strike, time, r_dom, r_for, div_yield, vol_asset, vol_fx, -0.5,
+        );
+        let call_pos_corr = quanto_call(
+            spot, strike, time, r_dom, r_for, div_yield, vol_asset, vol_fx, 0.5,
+        );
 
         assert!(
             call_neg_corr > call_pos_corr,
@@ -339,4 +349,3 @@ mod tests {
         );
     }
 }
-

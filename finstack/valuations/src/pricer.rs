@@ -846,7 +846,10 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     );
     // Lookback Option - Analytical (Continuous monitoring)
     registry.register_pricer(
-        PricerKey::new(InstrumentType::LookbackOption, ModelKey::LookbackBSContinuous),
+        PricerKey::new(
+            InstrumentType::LookbackOption,
+            ModelKey::LookbackBSContinuous,
+        ),
         Box::new(crate::instruments::lookback_option::pricer::LookbackOptionAnalyticalPricer),
     );
 
@@ -898,7 +901,10 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     );
     // FX Barrier Option - Analytical (Continuous monitoring)
     registry.register_pricer(
-        PricerKey::new(InstrumentType::FxBarrierOption, ModelKey::FxBarrierBSContinuous),
+        PricerKey::new(
+            InstrumentType::FxBarrierOption,
+            ModelKey::FxBarrierBSContinuous,
+        ),
         Box::new(crate::instruments::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer),
     );
 

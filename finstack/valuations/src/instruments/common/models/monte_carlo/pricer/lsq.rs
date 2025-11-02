@@ -3,8 +3,8 @@
 //! Provides a robust SVD-based solver used by both equity and swaption LSMC pricers.
 //! Consolidates duplicate regression logic to ensure consistent results and easier testing.
 
-use finstack_core::Result;
 use super::lsmc::BasisFunctions;
+use finstack_core::Result;
 
 /// Solve least squares problem using SVD (Singular Value Decomposition).
 ///
@@ -125,8 +125,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::lsmc::PolynomialBasis;
+    use super::*;
 
     #[test]
     fn test_solve_least_squares_simple() {
@@ -193,15 +193,21 @@ mod tests {
         // True function: y = 1 + 2x
         let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let y = vec![3.0, 5.0, 7.0, 9.0, 11.0];
-        
+
         let basis = PolynomialBasis::new(1); // Linear: {1, x}
-        
+
         let predictions = regression_with_basis(&x, &y, &basis).unwrap();
-        
+
         // Check predictions match observed values (perfect fit for linear data)
         for (i, &pred) in predictions.iter().enumerate() {
-            assert!((pred - y[i]).abs() < 1e-6, 
-                "Prediction {} differs from y[{}]: {} vs {}", i, i, pred, y[i]);
+            assert!(
+                (pred - y[i]).abs() < 1e-6,
+                "Prediction {} differs from y[{}]: {} vs {}",
+                i,
+                i,
+                pred,
+                y[i]
+            );
         }
     }
 
@@ -211,15 +217,21 @@ mod tests {
         // True function: y = 1 + 2x + 3x²
         let x = vec![0.0, 1.0, 2.0, 3.0, 4.0];
         let y = vec![1.0, 6.0, 17.0, 34.0, 57.0];
-        
+
         let basis = PolynomialBasis::new(2); // {1, x, x²}
-        
+
         let predictions = regression_with_basis(&x, &y, &basis).unwrap();
-        
+
         // Check predictions match observed values (perfect fit for quadratic data)
         for (i, &pred) in predictions.iter().enumerate() {
-            assert!((pred - y[i]).abs() < 1e-6,
-                "Prediction {} differs from y[{}]: {} vs {}", i, i, pred, y[i]);
+            assert!(
+                (pred - y[i]).abs() < 1e-6,
+                "Prediction {} differs from y[{}]: {} vs {}",
+                i,
+                i,
+                pred,
+                y[i]
+            );
         }
     }
 
@@ -228,11 +240,11 @@ mod tests {
         // Test numerical stability with high-degree polynomial and wide x range
         let x = vec![10.0, 50.0, 100.0, 200.0, 500.0, 1000.0];
         let y = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        
+
         let basis = PolynomialBasis::new(3); // Cubic basis
-        
+
         let result = regression_with_basis(&x, &y, &basis);
-        
+
         // Should succeed despite potentially ill-conditioned matrix
         assert!(result.is_ok());
         let predictions = result.unwrap();
@@ -240,4 +252,3 @@ mod tests {
         assert!(predictions.iter().all(|&p| p.is_finite()));
     }
 }
-

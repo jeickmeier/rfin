@@ -405,7 +405,7 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
             crate::pricer::ModelKey::HestonFourier,
         )
     }
-    
+
     fn price_dyn(
         &self,
         instrument: &dyn crate::instruments::common::traits::Instrument,
@@ -421,10 +421,10 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
                     instrument.key(),
                 )
             })?;
-        
+
         let (spot, r, q, _sigma, t) = collect_inputs(equity_option, market, as_of)
             .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
-        
+
         if t <= 0.0 {
             let intrinsic = match equity_option.option_type {
                 OptionType::Call => (spot - equity_option.strike.amount()).max(0.0),
@@ -433,60 +433,79 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
             return Ok(crate::results::ValuationResult::stamped(
                 equity_option.id(),
                 as_of,
-                Money::new(intrinsic * equity_option.contract_size, equity_option.strike.currency()),
+                Money::new(
+                    intrinsic * equity_option.contract_size,
+                    equity_option.strike.currency(),
+                ),
             ));
         }
-        
+
         // Fetch Heston parameters from market data or use defaults
         // Priority: instrument overrides > market scalars > defaults
-        let kappa = market.price("HESTON_KAPPA")
+        let kappa = market
+            .price("HESTON_KAPPA")
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
                 _ => None,
             })
             .unwrap_or(2.0);
-        
-        let theta = market.price("HESTON_THETA")
+
+        let theta = market
+            .price("HESTON_THETA")
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
                 _ => None,
             })
             .unwrap_or(0.04);
-        
-        let sigma_v = market.price("HESTON_SIGMA_V")
+
+        let sigma_v = market
+            .price("HESTON_SIGMA_V")
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
                 _ => None,
             })
             .unwrap_or(0.3);
-        
-        let rho = market.price("HESTON_RHO")
+
+        let rho = market
+            .price("HESTON_RHO")
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
                 _ => None,
             })
             .unwrap_or(-0.7);
-        
-        let v0 = market.price("HESTON_V0")
+
+        let v0 = market
+            .price("HESTON_V0")
             .ok()
             .and_then(|s| match s {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
                 _ => None,
             })
             .unwrap_or(0.04);
-        
+
         let params = HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0);
-        
+
         let price = match equity_option.option_type {
-            OptionType::Call => heston_call_price_fourier(spot, equity_option.strike.amount(), t, &params),
-            OptionType::Put => heston_put_price_fourier(spot, equity_option.strike.amount(), t, &params),
+            OptionType::Call => {
+                heston_call_price_fourier(spot, equity_option.strike.amount(), t, &params)
+            }
+            OptionType::Put => {
+                heston_put_price_fourier(spot, equity_option.strike.amount(), t, &params)
+            }
         };
-        
-        let pv = Money::new(price * equity_option.contract_size, equity_option.strike.currency());
-        Ok(crate::results::ValuationResult::stamped(equity_option.id(), as_of, pv))
+
+        let pv = Money::new(
+            price * equity_option.contract_size,
+            equity_option.strike.currency(),
+        );
+        Ok(crate::results::ValuationResult::stamped(
+            equity_option.id(),
+            as_of,
+            pv,
+        ))
     }
 }

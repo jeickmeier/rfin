@@ -742,16 +742,16 @@ pub trait Instrument: Send + Sync {
     /// let market = MarketContext::new();
     /// let as_of = create_date(2025, Month::January, 1)?;
     ///
-/// // Request specific metrics
-/// let metrics_to_compute = vec![
-///     MetricId::Ytm,
-///     MetricId::DurationMod,
-///     MetricId::Dv01,
-/// ];
-///
-/// // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute)?;
-/// // println!("NPV: {}", result.value);
-/// // println!("DV01: {}", result.measures.get("dv01").unwrap());
+    /// // Request specific metrics
+    /// let metrics_to_compute = vec![
+    ///     MetricId::Ytm,
+    ///     MetricId::DurationMod,
+    ///     MetricId::Dv01,
+    /// ];
+    ///
+    /// // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute)?;
+    /// // println!("NPV: {}", result.value);
+    /// // println!("DV01: {}", result.measures.get("dv01").unwrap());
     /// # Ok(())
     /// # }
     /// ```

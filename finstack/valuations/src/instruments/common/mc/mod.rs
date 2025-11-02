@@ -207,10 +207,10 @@
 
 pub mod discretization;
 pub mod estimate;
+pub mod online_stats;
 pub mod paths;
 pub mod process;
 pub mod rng;
-pub mod online_stats;
 pub mod time_grid;
 pub mod traits;
 
@@ -223,11 +223,11 @@ pub use paths as path_data;
 /// Prelude for convenient imports
 pub mod prelude {
     // Generic path data
+    pub use super::estimate::Estimate;
+    pub use super::online_stats::OnlineStats;
     pub use super::paths::{
         PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
     };
-    pub use super::estimate::Estimate;
-    pub use super::online_stats::OnlineStats;
     pub use super::time_grid::TimeGrid;
     pub use super::traits::{Discretization, PathState, RandomStream, StochasticProcess};
 
@@ -239,18 +239,18 @@ pub mod prelude {
     // Processes
     #[cfg(feature = "mc")]
     pub use super::process::bates::{BatesParams, BatesProcess};
+    pub use super::process::brownian::{BrownianParams, BrownianProcess, MultiBrownianProcess};
     #[cfg(feature = "mc")]
     pub use super::process::cir::{CirParams, CirPlusPlusProcess, CirProcess};
     pub use super::process::correlation::{apply_correlation, cholesky_decomposition};
-    pub use super::process::brownian::{BrownianParams, BrownianProcess, MultiBrownianProcess};
     pub use super::process::gbm::{GbmParams, GbmProcess, MultiGbmProcess};
     #[cfg(feature = "mc")]
     pub use super::process::heston::{HestonParams, HestonProcess};
     #[cfg(feature = "mc")]
     pub use super::process::jump_diffusion::{MertonJumpParams, MertonJumpProcess};
+    pub use super::process::multi_ou::{MultiOuParams, MultiOuProcess};
     #[cfg(feature = "mc")]
     pub use super::process::ou::{HullWhite1FParams, HullWhite1FProcess, VasicekProcess};
-    pub use super::process::multi_ou::{MultiOuParams, MultiOuProcess};
     #[cfg(feature = "mc")]
     pub use super::process::schwartz_smith::{SchwartzSmithParams, SchwartzSmithProcess};
 

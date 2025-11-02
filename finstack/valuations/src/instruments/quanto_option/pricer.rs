@@ -12,11 +12,15 @@ use finstack_core::Result;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::payoff::quanto::{QuantoCallPayoff, QuantoPutPayoff};
-#[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
-#[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+#[cfg(feature = "mc")]
+use crate::instruments::common::models::monte_carlo::payoff::quanto::{
+    QuantoCallPayoff, QuantoPutPayoff,
+};
+#[cfg(feature = "mc")]
+use crate::instruments::common::models::monte_carlo::pricer::european::{
+    EuropeanPricer, EuropeanPricerConfig,
+};
 
 /// Quanto option Monte Carlo pricer.
 #[cfg(feature = "mc")]
@@ -210,21 +214,23 @@ fn collect_quanto_inputs(
     curves: &MarketContext,
     as_of: Date,
 ) -> finstack_core::Result<(f64, f64, f64, f64, f64, f64, f64)> {
-    let t = inst.day_count.year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
-    
+    let t = inst
+        .day_count
+        .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+
     let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
     let r_dom = disc_curve.zero(t);
-    
+
     // For simplicity, use same rate curve for foreign rate
     // In production, would fetch from separate curve
     let r_for = r_dom;
-    
+
     let spot_scalar = curves.price(&inst.spot_id)?;
     let spot = match spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
     };
-    
+
     let q = if let Some(div_id) = &inst.div_yield_id {
         match curves.price(div_id.as_str()) {
             Ok(ms) => match ms {
@@ -236,10 +242,10 @@ fn collect_quanto_inputs(
     } else {
         0.0
     };
-    
+
     let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
     let sigma_equity = vol_surface.value_clamped(t, inst.equity_strike.amount());
-    
+
     // Get FX volatility
     let sigma_fx = if let Some(fx_vol_id) = &inst.fx_vol_id {
         let fx_vol_surface = curves.surface_ref(fx_vol_id.as_str())?;
@@ -247,7 +253,7 @@ fn collect_quanto_inputs(
     } else {
         0.12 // Default FX vol
     };
-    
+
     Ok((spot, r_dom, r_for, q, sigma_equity, sigma_fx, t))
 }
 
@@ -270,7 +276,7 @@ impl Pricer for QuantoOptionAnalyticalPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::QuantoOption, ModelKey::QuantoBS)
     }
-    
+
     fn price_dyn(
         &self,
         instrument: &dyn Instrument,
@@ -283,11 +289,11 @@ impl Pricer for QuantoOptionAnalyticalPricer {
             .ok_or_else(|| {
                 PricingError::type_mismatch(InstrumentType::QuantoOption, instrument.key())
             })?;
-        
-        let (spot, r_dom, r_for, q, sigma_equity, sigma_fx, t) = 
+
+        let (spot, r_dom, r_for, q, sigma_equity, sigma_fx, t) =
             collect_quanto_inputs(quanto, market, as_of)
                 .map_err(|e| PricingError::model_failure(e.to_string()))?;
-        
+
         if t <= 0.0 {
             return Ok(ValuationResult::stamped(
                 quanto.id(),
@@ -295,7 +301,7 @@ impl Pricer for QuantoOptionAnalyticalPricer {
                 Money::new(0.0, quanto.domestic_currency),
             ));
         }
-        
+
         let price = match quanto.option_type {
             crate::instruments::OptionType::Call => quanto_call(
                 spot,
@@ -320,7 +326,7 @@ impl Pricer for QuantoOptionAnalyticalPricer {
                 quanto.correlation,
             ),
         };
-        
+
         let pv = Money::new(price * quanto.notional, quanto.domestic_currency);
         Ok(ValuationResult::stamped(quanto.id(), as_of, pv))
     }

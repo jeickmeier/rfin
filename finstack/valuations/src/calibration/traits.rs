@@ -126,7 +126,7 @@ use finstack_core::Result;
 ///
 /// // Example quotes (fields depend on actual RatesQuote structure)
 /// // let quotes = vec![...];
-/// 
+///
 /// // let market_context = MarketContext::new();
 /// // let (curve, report) = calibrator.calibrate(&quotes, &market_context)?;
 ///
@@ -193,18 +193,18 @@ pub trait Calibrator<Input, Output> {
     ///     Currency::USD,
     /// );
     ///
-/// // Example quotes (fields depend on actual RatesQuote structure)
-/// // let quotes = vec![...];
-///
-/// // let market_context = MarketContext::new();
-/// // let (discount_curve, report) = calibrator.calibrate(&quotes, &market_context)?;
-///
-/// // Inspect calibration quality
-/// // println!("Calibration success: {}", report.success);
-/// // println!("Max pricing error: {:.2e}", report.max_error);
-/// // println!("Iterations: {}", report.iterations);
-/// # Ok(())
-/// # }
+    /// // Example quotes (fields depend on actual RatesQuote structure)
+    /// // let quotes = vec![...];
+    ///
+    /// // let market_context = MarketContext::new();
+    /// // let (discount_curve, report) = calibrator.calibrate(&quotes, &market_context)?;
+    ///
+    /// // Inspect calibration quality
+    /// // println!("Calibration success: {}", report.success);
+    /// // println!("Max pricing error: {:.2e}", report.max_error);
+    /// // println!("Iterations: {}", report.iterations);
+    /// # Ok(())
+    /// # }
     /// ```
     fn calibrate(
         &self,

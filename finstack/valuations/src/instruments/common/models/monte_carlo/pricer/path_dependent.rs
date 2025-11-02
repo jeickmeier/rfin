@@ -3,18 +3,18 @@
 //! Handles payoffs that depend on the entire price path (Asians, barriers, lookbacks)
 //! with flexible event scheduling.
 
-use crate::instruments::common::mc::discretization::exact::ExactGbm;
-use crate::instruments::common::mc::traits::{Discretization, RandomStream};
 use super::super::engine::{McEngine, McEngineConfig, PathCaptureConfig};
+use super::super::results::{MoneyEstimate, MonteCarloResult};
+use super::super::traits::Payoff;
+use crate::instruments::common::mc::discretization::exact::ExactGbm;
 use crate::instruments::common::mc::process::gbm::GbmProcess;
 use crate::instruments::common::mc::process::metadata::ProcessMetadata;
-use super::super::results::{MoneyEstimate, MonteCarloResult};
 use crate::instruments::common::mc::rng::philox::PhiloxRng;
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::rng::sobol::SobolRng;
-use crate::instruments::common::mc::traits::StochasticProcess;
 use crate::instruments::common::mc::time_grid::TimeGrid;
-use super::super::traits::Payoff;
+use crate::instruments::common::mc::traits::StochasticProcess;
+use crate::instruments::common::mc::traits::{Discretization, RandomStream};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -233,10 +233,26 @@ impl PathDependentPricer {
                     if self.config.antithetic {
                         // Antithetic pricing path
                         use crate::instruments::common::models::monte_carlo::variance_reduction::antithetic::{antithetic_price, AntitheticConfig};
-                        let time_grid = crate::instruments::common::mc::time_grid::TimeGrid::uniform(time_to_maturity, num_steps)?;
+                        let time_grid =
+                            crate::instruments::common::mc::time_grid::TimeGrid::uniform(
+                                time_to_maturity,
+                                num_steps,
+                            )?;
                         let mut rng_clone = rng.clone();
-                        let cfg = AntitheticConfig { num_pairs: self.config.num_paths / 2, time_grid: &time_grid, currency, discount_factor };
-                        let stats = antithetic_price(&mut rng_clone, process, &disc, &initial_state, payoff, &cfg);
+                        let cfg = AntitheticConfig {
+                            num_pairs: self.config.num_paths / 2,
+                            time_grid: &time_grid,
+                            currency,
+                            discount_factor,
+                        };
+                        let stats = antithetic_price(
+                            &mut rng_clone,
+                            process,
+                            &disc,
+                            &initial_state,
+                            payoff,
+                            &cfg,
+                        );
                         let est = crate::instruments::common::mc::results::Estimate::new(
                             stats.mean(),
                             stats.stderr(),
@@ -248,7 +264,11 @@ impl PathDependentPricer {
                         use crate::instruments::common::mc::rng::brownian_bridge::BrownianBridge;
                         use crate::instruments::common::mc::stats::OnlineStats;
 
-                        let time_grid = crate::instruments::common::mc::time_grid::TimeGrid::uniform(time_to_maturity, num_steps)?;
+                        let time_grid =
+                            crate::instruments::common::mc::time_grid::TimeGrid::uniform(
+                                time_to_maturity,
+                                num_steps,
+                            )?;
                         let dt = time_grid.dt(0);
                         let bridge = BrownianBridge::new(num_steps);
                         let mut stats = OnlineStats::new();
@@ -268,8 +288,12 @@ impl PathDependentPricer {
                             sobol.fill_std_normals(&mut z_bridge);
                             bridge.construct_path(&z_bridge, &mut w_path, dt);
 
-                            let mut path_state = crate::instruments::common::mc::traits::PathState::new(0, 0.0);
-                            path_state.set(crate::instruments::common::mc::traits::state_keys::SPOT, state[0]);
+                            let mut path_state =
+                                crate::instruments::common::mc::traits::PathState::new(0, 0.0);
+                            path_state.set(
+                                crate::instruments::common::mc::traits::state_keys::SPOT,
+                                state[0],
+                            );
                             payoff_clone.on_event(&path_state);
 
                             for step in 0..num_steps {
@@ -280,7 +304,10 @@ impl PathDependentPricer {
                                 disc.step(process, t, dt, &mut state, &z_step, &mut work);
                                 path_state.step = step + 1;
                                 path_state.time = t + dt;
-                                path_state.set(crate::instruments::common::mc::traits::state_keys::SPOT, state[0]);
+                                path_state.set(
+                                    crate::instruments::common::mc::traits::state_keys::SPOT,
+                                    state[0],
+                                );
                                 payoff_clone.on_event(&path_state);
                             }
 
@@ -293,7 +320,8 @@ impl PathDependentPricer {
                             stats.stderr(),
                             stats.ci_95(),
                             stats.count(),
-                        ).with_std_dev(stats.std_dev());
+                        )
+                        .with_std_dev(stats.std_dev());
                         Ok(MoneyEstimate::from_estimate(est, currency))
                     } else {
                         engine.price(
@@ -324,10 +352,25 @@ impl PathDependentPricer {
                 let rng = PhiloxRng::new(self.config.seed);
                 if self.config.antithetic {
                     use crate::instruments::common::models::monte_carlo::variance_reduction::antithetic::{antithetic_price, AntitheticConfig};
-                    let time_grid = crate::instruments::common::mc::time_grid::TimeGrid::uniform(time_to_maturity, num_steps)?;
+                    let time_grid = crate::instruments::common::mc::time_grid::TimeGrid::uniform(
+                        time_to_maturity,
+                        num_steps,
+                    )?;
                     let mut rng_clone = rng.clone();
-                    let cfg = AntitheticConfig { num_pairs: self.config.num_paths / 2, time_grid: &time_grid, currency, discount_factor };
-                    let stats = antithetic_price(&mut rng_clone, process, &disc, &initial_state, payoff, &cfg);
+                    let cfg = AntitheticConfig {
+                        num_pairs: self.config.num_paths / 2,
+                        time_grid: &time_grid,
+                        currency,
+                        discount_factor,
+                    };
+                    let stats = antithetic_price(
+                        &mut rng_clone,
+                        process,
+                        &disc,
+                        &initial_state,
+                        payoff,
+                        &cfg,
+                    );
                     let est = crate::instruments::common::mc::results::Estimate::new(
                         stats.mean(),
                         stats.stderr(),
@@ -465,7 +508,11 @@ impl PathDependentPricer {
             None => return Ok((estimate, None)),
         };
 
-        if paths.is_empty() || discount_factor <= 0.0 || time_to_maturity <= 0.0 || volatility <= 0.0 {
+        if paths.is_empty()
+            || discount_factor <= 0.0
+            || time_to_maturity <= 0.0
+            || volatility <= 0.0
+        {
             return Ok((estimate, None));
         }
 
@@ -481,7 +528,8 @@ impl PathDependentPricer {
             // Terminal spot from last point's state var
             if let Some(last) = p.terminal_point() {
                 if let Some(s_t) = last.spot() {
-                    let w_t = ((s_t / initial_spot).ln() - mu * time_to_maturity) / (volatility * time_to_maturity.sqrt());
+                    let w_t = ((s_t / initial_spot).ln() - mu * time_to_maturity)
+                        / (volatility * time_to_maturity.sqrt());
                     w_terminals.push(w_t);
                 }
             }
@@ -497,7 +545,13 @@ impl PathDependentPricer {
                 time_to_maturity,
                 discount_factor,
             );
-            let (vega, _) = lrm_vega(&payoffs, &w_terminals, volatility, time_to_maturity, discount_factor);
+            let (vega, _) = lrm_vega(
+                &payoffs,
+                &w_terminals,
+                volatility,
+                time_to_maturity,
+                discount_factor,
+            );
             Ok((estimate, Some((delta, vega))))
         } else {
             Ok((estimate, None))
@@ -512,10 +566,12 @@ impl PathDependentPricer {
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::common::models::monte_carlo::payoff::asian::{AsianCall, AveragingMethod};
-    use crate::instruments::common::models::monte_carlo::payoff::lookback::LookbackCall;
-    use crate::instruments::common::mc::process::gbm::GbmParams;
     use super::*;
+    use crate::instruments::common::mc::process::gbm::GbmParams;
+    use crate::instruments::common::models::monte_carlo::payoff::asian::{
+        AsianCall, AveragingMethod,
+    };
+    use crate::instruments::common::models::monte_carlo::payoff::lookback::LookbackCall;
 
     #[test]
     fn test_path_dependent_pricer_asian() {

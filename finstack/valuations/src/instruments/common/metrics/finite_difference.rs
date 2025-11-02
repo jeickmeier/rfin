@@ -343,21 +343,43 @@ mod tests {
     fn central_diff_1d_rejects_nonpositive_or_invalid_h() {
         let err = central_diff_1d(|| Ok(1.0f64), || Ok(1.0f64), 0.0).unwrap_err();
         match err {
-            finstack_core::error::Error::Input(finstack_core::error::InputError::NonPositiveValue) => {}
+            finstack_core::error::Error::Input(
+                finstack_core::error::InputError::NonPositiveValue,
+            ) => {}
             e => panic!("unexpected error: {e:?}"),
         }
     }
 
     #[test]
     fn central_mixed_rejects_nonpositive_or_invalid_hk() {
-        let err_h = central_mixed(|| Ok(0.0f64), || Ok(0.0f64), || Ok(0.0f64), || Ok(0.0f64), 0.0, 1.0).unwrap_err();
+        let err_h = central_mixed(
+            || Ok(0.0f64),
+            || Ok(0.0f64),
+            || Ok(0.0f64),
+            || Ok(0.0f64),
+            0.0,
+            1.0,
+        )
+        .unwrap_err();
         match err_h {
-            finstack_core::error::Error::Input(finstack_core::error::InputError::NonPositiveValue) => {}
+            finstack_core::error::Error::Input(
+                finstack_core::error::InputError::NonPositiveValue,
+            ) => {}
             e => panic!("unexpected error: {e:?}"),
         }
-        let err_k = central_mixed(|| Ok(0.0f64), || Ok(0.0f64), || Ok(0.0f64), || Ok(0.0f64), 1.0, 0.0).unwrap_err();
+        let err_k = central_mixed(
+            || Ok(0.0f64),
+            || Ok(0.0f64),
+            || Ok(0.0f64),
+            || Ok(0.0f64),
+            1.0,
+            0.0,
+        )
+        .unwrap_err();
         match err_k {
-            finstack_core::error::Error::Input(finstack_core::error::InputError::NonPositiveValue) => {}
+            finstack_core::error::Error::Input(
+                finstack_core::error::InputError::NonPositiveValue,
+            ) => {}
             e => panic!("unexpected error: {e:?}"),
         }
     }

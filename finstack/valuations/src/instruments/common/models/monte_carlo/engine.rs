@@ -8,18 +8,18 @@
 //! - Auto-stopping on target confidence interval
 //! - Optional path capture for visualization and diagnostics
 
+use super::results::{MoneyEstimate, MonteCarloResult};
+use super::traits::Payoff;
 use crate::instruments::common::mc::path_data::{
     PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
 };
 use crate::instruments::common::mc::results::Estimate;
 use crate::instruments::common::mc::stats::OnlineStats;
 use crate::instruments::common::mc::time_grid::TimeGrid;
+use crate::instruments::common::mc::traits::state_keys;
 use crate::instruments::common::mc::traits::{
     Discretization, PathState, RandomStream, StochasticProcess,
 };
-use crate::instruments::common::mc::traits::state_keys;
-use super::results::{MoneyEstimate, MonteCarloResult};
-use super::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 use std::sync::Mutex;

@@ -523,8 +523,7 @@ impl TrancheStructure {
 
         // Sort by attachment point for validation
         let mut sorted_tranches = tranches.to_vec();
-        sorted_tranches
-            .sort_by(|a, b| a.attachment_point.total_cmp(&b.attachment_point));
+        sorted_tranches.sort_by(|a, b| a.attachment_point.total_cmp(&b.attachment_point));
 
         // Check for gaps or overlaps
         let mut expected_attachment = 0.0;

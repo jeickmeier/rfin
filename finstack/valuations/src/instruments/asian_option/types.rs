@@ -53,7 +53,7 @@ impl AsianOption {
         use crate::instruments::asian_option::pricer;
         pricer::npv(self, curves, as_of)
     }
-    
+
     /// Calculate the net present value using analytical method (default).
     /// Uses geometric closed-form for geometric averaging, Turnbull-Wakeman for arithmetic.
     pub fn npv(
@@ -65,17 +65,19 @@ impl AsianOption {
             AsianOptionAnalyticalGeometricPricer, AsianOptionSemiAnalyticalTwPricer,
         };
         use crate::pricer::Pricer;
-        
+
         match self.averaging_method {
             AveragingMethod::Geometric => {
                 let pricer = AsianOptionAnalyticalGeometricPricer::new();
-                let result = pricer.price_dyn(self, curves, as_of)
+                let result = pricer
+                    .price_dyn(self, curves, as_of)
                     .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
                 Ok(result.value)
             }
             AveragingMethod::Arithmetic => {
                 let pricer = AsianOptionSemiAnalyticalTwPricer::new();
-                let result = pricer.price_dyn(self, curves, as_of)
+                let result = pricer
+                    .price_dyn(self, curves, as_of)
                     .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
                 Ok(result.value)
             }

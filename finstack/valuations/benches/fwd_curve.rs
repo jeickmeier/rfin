@@ -16,16 +16,29 @@ fn bench_forward_curve(c: &mut Criterion) {
         .unwrap();
     let ctx = MarketContext::new().insert_discount(disc);
     let quotes = vec![
-        RatesQuote::FRA { start: base_date + time::Duration::days(90), end: base_date + time::Duration::days(180), rate: 0.047, day_count: DayCount::Act360 },
-        RatesQuote::FRA { start: base_date + time::Duration::days(180), end: base_date + time::Duration::days(270), rate: 0.048, day_count: DayCount::Act360 },
+        RatesQuote::FRA {
+            start: base_date + time::Duration::days(90),
+            end: base_date + time::Duration::days(180),
+            rate: 0.047,
+            day_count: DayCount::Act360,
+        },
+        RatesQuote::FRA {
+            start: base_date + time::Duration::days(180),
+            end: base_date + time::Duration::days(270),
+            rate: 0.048,
+            day_count: DayCount::Act360,
+        },
     ];
-    let calibrator = ForwardCurveCalibrator::new("USD-SOFR-3M-FWD", 0.25, base_date, Currency::USD, "USD-OIS");
+    let calibrator =
+        ForwardCurveCalibrator::new("USD-SOFR-3M-FWD", 0.25, base_date, Currency::USD, "USD-OIS");
     c.bench_function("fwd_curve_fra_strip", |b| {
-        b.iter(|| calibrator.calibrate(black_box(&quotes), black_box(&ctx)).unwrap())
+        b.iter(|| {
+            calibrator
+                .calibrate(black_box(&quotes), black_box(&ctx))
+                .unwrap()
+        })
     });
 }
 
 criterion_group!(benches, bench_forward_curve);
 criterion_main!(benches);
-
-

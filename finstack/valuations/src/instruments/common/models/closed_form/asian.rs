@@ -218,8 +218,7 @@ pub fn geometric_asian_call(
         div_yield + (rate - div_yield - 0.5 * vol * vol) / 2.0 + vol * vol / 6.0
     } else {
         // Discrete: q_adj = q + (r - q) / 2 - σ² / 2 * [(2n + 1) / (6(n + 1))]
-        div_yield + (rate - div_yield) / 2.0
-            - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0))
+        div_yield + (rate - div_yield) / 2.0 - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0))
     };
 
     // Now price as vanilla option with adjusted parameters
@@ -255,8 +254,7 @@ pub fn geometric_asian_put(
     let div_yield_adj = if num_fixings == 0 {
         div_yield + (rate - div_yield - 0.5 * vol * vol) / 2.0 + vol * vol / 6.0
     } else {
-        div_yield + (rate - div_yield) / 2.0
-            - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0))
+        div_yield + (rate - div_yield) / 2.0 - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0))
     };
 
     vanilla_put_bs(spot, strike, time, rate, div_yield_adj, vol_adj)
@@ -444,14 +442,7 @@ fn compute_arithmetic_mean_second_moment(
 
 /// Helper: vanilla call under Black-Scholes.
 #[inline]
-fn vanilla_call_bs(
-    spot: f64,
-    strike: f64,
-    time: f64,
-    rate: f64,
-    div_yield: f64,
-    vol: f64,
-) -> f64 {
+fn vanilla_call_bs(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 {
         return (spot - strike).max(0.0);
     }
@@ -464,20 +455,12 @@ fn vanilla_call_bs(
     let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
     let d2 = d1 - vol * sqrt_t;
 
-    spot * (-div_yield * time).exp() * norm_cdf(d1)
-        - strike * (-rate * time).exp() * norm_cdf(d2)
+    spot * (-div_yield * time).exp() * norm_cdf(d1) - strike * (-rate * time).exp() * norm_cdf(d2)
 }
 
 /// Helper: vanilla put under Black-Scholes.
 #[inline]
-fn vanilla_put_bs(
-    spot: f64,
-    strike: f64,
-    time: f64,
-    rate: f64,
-    div_yield: f64,
-    vol: f64,
-) -> f64 {
+fn vanilla_put_bs(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 {
         return (strike - spot).max(0.0);
     }
@@ -490,8 +473,7 @@ fn vanilla_put_bs(
     let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
     let d2 = d1 - vol * sqrt_t;
 
-    strike * (-rate * time).exp() * norm_cdf(-d2)
-        - spot * (-div_yield * time).exp() * norm_cdf(-d1)
+    strike * (-rate * time).exp() * norm_cdf(-d2) - spot * (-div_yield * time).exp() * norm_cdf(-d1)
 }
 
 #[cfg(test)]
@@ -573,8 +555,8 @@ mod tests {
         let put = geometric_asian_put(spot, strike, time, rate, div_yield, vol, num_fixings);
 
         let n = num_fixings as f64;
-        let div_yield_adj =
-            div_yield + (rate - div_yield) / 2.0 - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0));
+        let div_yield_adj = div_yield + (rate - div_yield) / 2.0
+            - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0));
 
         let lhs = call - put;
         let rhs = spot * (-div_yield_adj * time).exp() - strike * (-rate * time).exp();
@@ -595,4 +577,3 @@ mod tests {
         assert!((m1 - forward_approx).abs() < 5.0); // Reasonable proximity
     }
 }
-

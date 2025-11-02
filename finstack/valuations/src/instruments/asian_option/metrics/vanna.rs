@@ -46,9 +46,10 @@ impl MetricCalculator for VannaCalculator {
             use finstack_core::types::CurveId;
             use std::sync::Arc;
             let bumped_surface = vol_surface.scaled(scale_factor);
-            curves
-                .surfaces
-                .insert(CurveId::from(option.vol_id.as_str()), Arc::new(bumped_surface));
+            curves.surfaces.insert(
+                CurveId::from(option.vol_id.as_str()),
+                Arc::new(bumped_surface),
+            );
             curves
         };
 
@@ -68,9 +69,10 @@ impl MetricCalculator for VannaCalculator {
             use finstack_core::types::CurveId;
             use std::sync::Arc;
             let bumped_surface = vol_surface.scaled(scale_factor);
-            curves
-                .surfaces
-                .insert(CurveId::from(option.vol_id.as_str()), Arc::new(bumped_surface));
+            curves.surfaces.insert(
+                CurveId::from(option.vol_id.as_str()),
+                Arc::new(bumped_surface),
+            );
             curves
         };
 

@@ -20,7 +20,10 @@ pub struct MoneyEstimate {
 
 impl MoneyEstimate {
     /// Create from estimate and currency.
-    pub fn from_estimate(estimate: crate::instruments::common::mc::results::Estimate, currency: Currency) -> Self {
+    pub fn from_estimate(
+        estimate: crate::instruments::common::mc::results::Estimate,
+        currency: Currency,
+    ) -> Self {
         Self {
             mean: Money::new(estimate.mean, currency),
             stderr: estimate.stderr,
@@ -76,19 +79,29 @@ pub struct MonteCarloGreeks {
 impl MonteCarloResult {
     /// Create a new Monte Carlo result without paths.
     pub fn new(estimate: MoneyEstimate) -> Self {
-        Self { estimate, paths: None }
+        Self {
+            estimate,
+            paths: None,
+        }
     }
 
     /// Create a Monte Carlo result with paths.
     pub fn with_paths(estimate: MoneyEstimate, paths: PathDataset) -> Self {
-        Self { estimate, paths: Some(paths) }
+        Self {
+            estimate,
+            paths: Some(paths),
+        }
     }
 
     /// Check if paths were captured.
-    pub fn has_paths(&self) -> bool { self.paths.is_some() }
+    pub fn has_paths(&self) -> bool {
+        self.paths.is_some()
+    }
 
     /// Get a reference to captured paths if available.
-    pub fn paths(&self) -> Option<&PathDataset> { self.paths.as_ref() }
+    pub fn paths(&self) -> Option<&PathDataset> {
+        self.paths.as_ref()
+    }
 
     /// Get the number of captured paths.
     pub fn num_captured_paths(&self) -> usize {
@@ -96,7 +109,9 @@ impl MonteCarloResult {
     }
 
     /// Get a reference to the estimate.
-    pub fn estimate(&self) -> &MoneyEstimate { &self.estimate }
+    pub fn estimate(&self) -> &MoneyEstimate {
+        &self.estimate
+    }
 }
 
 // models/monte_carlo/results.rs placeholder

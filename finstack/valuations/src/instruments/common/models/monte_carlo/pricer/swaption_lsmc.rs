@@ -3,18 +3,18 @@
 //! Extends the LSMC framework to price Bermudan swaptions where exercise decisions
 //! depend on forward swap rates computed from Hull-White short rate simulations.
 
-use crate::instruments::common::mc::discretization::exact_hw1f::ExactHullWhite1F;
 use super::super::payoff::swaption::{BermudanSwaptionPayoff, SwaptionType};
-use crate::instruments::common::mc::process::ou::HullWhite1FProcess;
 use super::super::results::MoneyEstimate;
+use super::lsmc::{BasisFunctions, LsmcConfig};
+use super::lsq::regression_with_basis;
+use super::swap_rate_utils::{ForwardSwapRate, HullWhiteBondPrice};
+use crate::instruments::common::mc::discretization::exact_hw1f::ExactHullWhite1F;
+use crate::instruments::common::mc::process::ou::HullWhite1FProcess;
+use crate::instruments::common::mc::results::Estimate;
 use crate::instruments::common::mc::rng::philox::PhiloxRng;
 use crate::instruments::common::mc::stats::OnlineStats;
 use crate::instruments::common::mc::time_grid::TimeGrid;
 use crate::instruments::common::mc::traits::{Discretization, RandomStream};
-use crate::instruments::common::mc::results::Estimate;
-use super::lsmc::{BasisFunctions, LsmcConfig};
-use super::swap_rate_utils::{ForwardSwapRate, HullWhiteBondPrice};
-use super::lsq::regression_with_basis;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -98,13 +98,8 @@ impl SwaptionLsmcPricer {
             stats.update(value);
         }
 
-        let estimate = Estimate::new(
-            stats.mean(),
-            stats.stderr(),
-            stats.ci_95(),
-            values.len(),
-        )
-        .with_std_dev(stats.std_dev());
+        let estimate = Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), values.len())
+            .with_std_dev(stats.std_dev());
 
         Ok(MoneyEstimate::from_estimate(estimate, currency))
     }
@@ -313,14 +308,14 @@ impl SwaptionLsmcPricer {
         // Discount all cashflows to present using discount factor ratios
         let mut present_values = vec![0.0; num_paths];
         let df_0 = discount_curve_fn(0.0);
-        
+
         // Ensure df_0 is positive to prevent division by zero and ensure well-defined PV
         assert!(
             df_0 > 0.0,
             "Discount factor at time 0 must be positive, got df_0 = {}",
             df_0
         );
-        
+
         for i in 0..num_paths {
             let df_t = discount_curve_fn(exercise_times[i]);
             present_values[i] = cashflows[i] * df_t / df_0;

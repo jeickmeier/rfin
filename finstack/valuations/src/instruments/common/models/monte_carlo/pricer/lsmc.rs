@@ -5,15 +5,15 @@
 //!
 //! Reference: Longstaff & Schwartz (2001) - "Valuing American Options by Simulation"
 
+use super::super::results::MoneyEstimate;
+use super::lsq::regression_with_basis;
 use crate::instruments::common::mc::discretization::exact::ExactGbm;
 use crate::instruments::common::mc::process::gbm::GbmProcess;
-use super::super::results::MoneyEstimate;
+use crate::instruments::common::mc::results::Estimate;
 use crate::instruments::common::mc::rng::philox::PhiloxRng;
 use crate::instruments::common::mc::stats::OnlineStats;
 use crate::instruments::common::mc::time_grid::TimeGrid;
 use crate::instruments::common::mc::traits::{Discretization, RandomStream};
-use crate::instruments::common::mc::results::Estimate;
-use super::lsq::regression_with_basis;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -256,13 +256,8 @@ impl LsmcPricer {
             stats.update(value);
         }
 
-        let estimate = Estimate::new(
-            stats.mean(),
-            stats.stderr(),
-            stats.ci_95(),
-            values.len(),
-        )
-        .with_std_dev(stats.std_dev());
+        let estimate = Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), values.len())
+            .with_std_dev(stats.std_dev());
 
         Ok(MoneyEstimate::from_estimate(estimate, currency))
     }
@@ -427,8 +422,8 @@ impl LsmcPricer {
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::common::mc::process::gbm::GbmParams;
     use super::*;
+    use crate::instruments::common::mc::process::gbm::GbmParams;
 
     #[test]
     fn test_polynomial_basis() {
@@ -511,7 +506,6 @@ mod tests {
         assert!(result.mean.amount() < 50.0); // Sanity check
     }
 
-
     #[test]
     fn test_lsmc_high_degree_polynomial() {
         // Test with degree-5 polynomial (can be ill-conditioned)
@@ -586,5 +580,4 @@ mod tests {
 
         println!("Few ITM paths LSMC: {}", price.mean);
     }
-
 }

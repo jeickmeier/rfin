@@ -19,14 +19,13 @@ pub mod volatility;
 // Re-export commonly used items from submodules for convenience
 pub use closed_form::{
     arithmetic_asian_call_tw, arithmetic_asian_put_tw, barrier_call_continuous,
-    barrier_put_continuous, bs_call_delta, bs_call_greeks, bs_call_rho, bs_call_theta,
-    bs_gamma, bs_put_delta, bs_put_greeks, bs_put_rho, bs_put_theta, bs_vega, down_in_call,
-    down_out_call, fixed_strike_lookback_call, fixed_strike_lookback_put,
-    floating_strike_lookback_call, floating_strike_lookback_put, geometric_asian_call,
-    geometric_asian_put, heston_call_price_fourier, heston_put_price_fourier, quanto_call,
-    quanto_call_simple, quanto_drift_adjustment, quanto_put, quanto_put_simple, up_in_call,
-    up_out_call, AsianGreeks, AsianPriceResult, BarrierType, CallGreeks, HestonParams,
-    PutGreeks,
+    barrier_put_continuous, bs_call_delta, bs_call_greeks, bs_call_rho, bs_call_theta, bs_gamma,
+    bs_put_delta, bs_put_greeks, bs_put_rho, bs_put_theta, bs_vega, down_in_call, down_out_call,
+    fixed_strike_lookback_call, fixed_strike_lookback_put, floating_strike_lookback_call,
+    floating_strike_lookback_put, geometric_asian_call, geometric_asian_put,
+    heston_call_price_fourier, heston_put_price_fourier, quanto_call, quanto_call_simple,
+    quanto_drift_adjustment, quanto_put, quanto_put_simple, up_in_call, up_out_call, AsianGreeks,
+    AsianPriceResult, BarrierType, CallGreeks, HestonParams, PutGreeks,
 };
 pub use trees::{
     short_rate_keys, single_factor_equity_state, state_keys, two_factor_equity_rates_state,
@@ -34,4 +33,7 @@ pub use trees::{
     ShortRateTree, ShortRateTreeConfig, StateVariables, TreeBranching, TreeGreeks, TreeModel,
     TreeParameters, TreeType, TreeValuator, TrinomialTree, TrinomialTreeType,
 };
-pub use volatility::{d1, d1_black76, d2, d2_black76, norm_cdf, norm_pdf, SABRCalibrator, SABRModel, SABRParameters, SABRSmile};
+pub use volatility::{
+    d1, d1_black76, d2, d2_black76, norm_cdf, norm_pdf, SABRCalibrator, SABRModel, SABRParameters,
+    SABRSmile,
+};

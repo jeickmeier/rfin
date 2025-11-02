@@ -153,7 +153,7 @@ pub enum Frequency {
     ///
     /// Valid range: 1-12 months.
     Months(u8), // 1..=12
-    
+
     /// Day-based frequency (e.g., 14 = biweekly, 7 = weekly).
     ///
     /// Valid range: 1+ days.

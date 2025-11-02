@@ -253,7 +253,9 @@ pub struct GenericFdVega<I> {
 
 impl<I> Default for GenericFdVega<I> {
     fn default() -> Self {
-        Self { _phantom: PhantomData }
+        Self {
+            _phantom: PhantomData,
+        }
     }
 }
 
@@ -297,7 +299,9 @@ pub struct GenericFdVolga<I> {
 
 impl<I> Default for GenericFdVolga<I> {
     fn default() -> Self {
-        Self { _phantom: PhantomData }
+        Self {
+            _phantom: PhantomData,
+        }
     }
 }
 
@@ -342,7 +346,9 @@ pub struct GenericFdVanna<I> {
 
 impl<I> Default for GenericFdVanna<I> {
     fn default() -> Self {
-        Self { _phantom: PhantomData }
+        Self {
+            _phantom: PhantomData,
+        }
     }
 }
 

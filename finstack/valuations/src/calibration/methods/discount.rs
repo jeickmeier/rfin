@@ -105,11 +105,7 @@ impl DiscountCurveCalibrator {
         ];
         // Sort quotes by maturity
         let mut sorted_quotes = quotes.to_vec();
-        sorted_quotes.sort_by(|a, b| {
-            a.maturity_date()
-                .partial_cmp(&b.maturity_date())
-                .unwrap()
-        });
+        sorted_quotes.sort_by(|a, b| a.maturity_date().partial_cmp(&b.maturity_date()).unwrap());
 
         // Validate quotes
         self.validate_quotes(&sorted_quotes)?;
@@ -256,8 +252,7 @@ impl DiscountCurveCalibrator {
                 };
 
                 // Price the instrument and return error (target is zero)
-                self
-                    .price_instrument(&quote_clone, &temp_context)
+                self.price_instrument(&quote_clone, &temp_context)
                     .unwrap_or(crate::calibration::PENALTY)
             };
 
@@ -420,7 +415,11 @@ impl DiscountCurveCalibrator {
                 } => {
                     format!(
                         "SWAP-{}-{}-fix{:?}-flt{:?}-{:06}",
-                        index.as_str(), maturity, fixed_freq, float_freq, residual_key_counter
+                        index.as_str(),
+                        maturity,
+                        fixed_freq,
+                        float_freq,
+                        residual_key_counter
                     )
                 }
                 RatesQuote::BasisSwap {
@@ -512,8 +511,6 @@ impl DiscountCurveCalibrator {
 
         Ok((curve, report))
     }
-
-    
 
     /// Price an instrument using the given market context.
     ///
@@ -775,8 +772,6 @@ impl DiscountCurveCalibrator {
         }
     }
 
-    
-
     /// Validate quote sequence for no-arbitrage and completeness.
     ///
     /// ## Multi-Curve Framework Guidance
@@ -930,14 +925,14 @@ mod tests {
             "FRAs should not be suitable for OIS"
         );
 
-            let ois_swap = RatesQuote::Swap {
+        let ois_swap = RatesQuote::Swap {
             maturity: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             rate: 0.02,
             fixed_freq: Frequency::annual(),
             float_freq: Frequency::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
-                index: "SOFR".to_string().into(),
+            index: "SOFR".to_string().into(),
         };
         assert!(
             ois_swap.requires_forward_curve(),
@@ -948,14 +943,14 @@ mod tests {
             "SOFR swaps should be OIS suitable"
         );
 
-            let libor_swap = RatesQuote::Swap {
+        let libor_swap = RatesQuote::Swap {
             maturity: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             rate: 0.02,
             fixed_freq: Frequency::semi_annual(),
             float_freq: Frequency::quarterly(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
-                index: "3M-LIBOR".to_string().into(),
+            index: "3M-LIBOR".to_string().into(),
         };
         assert!(
             libor_swap.requires_forward_curve(),

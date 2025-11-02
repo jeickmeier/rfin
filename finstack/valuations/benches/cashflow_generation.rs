@@ -15,7 +15,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::aggregation::{aggregate_cashflows_precise, DatedFlow};
+use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise_checked;
 use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::bond::Bond;
@@ -156,7 +156,7 @@ fn bench_kahan_summation(c: &mut Criterion) {
     // Generate cashflow legs of varying lengths
     for num_flows in [10, 20, 50, 100, 200].iter() {
         let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let flows: Vec<DatedFlow> = (0..*num_flows)
+        let flows: Vec<(Date, Money)> = (0..*num_flows)
             .map(|i| {
                 let months = i * 6; // Semi-annual
                 let date = base + time::Duration::days(months * 30);
@@ -168,7 +168,11 @@ fn bench_kahan_summation(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}flows", num_flows)),
             num_flows,
             |b, _| {
-                b.iter(|| aggregate_cashflows_precise(black_box(&flows)));
+                b.iter(|| {
+                    let _ = aggregate_cashflows_precise_checked(black_box(&flows), Currency::USD)
+                        .unwrap()
+                        .unwrap();
+                });
             },
         );
     }

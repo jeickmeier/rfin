@@ -51,7 +51,7 @@
 //! ## Aggregating Cashflows
 //!
 //! ```rust
-//! use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise;
+//! use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise_checked;
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::create_date;
@@ -66,8 +66,8 @@
 //!     (date2, Money::new(50_000.0, Currency::USD)),
 //! ];
 //!
-//! // Aggregate maintains currency safety (returns Money, not Result<Money>)
-//! let aggregated = aggregate_cashflows_precise(&flows);
+//! // Aggregate using explicit target currency
+//! let aggregated = aggregate_cashflows_precise_checked(&flows, Currency::USD)?.unwrap();
 //! assert_eq!(aggregated.amount(), Money::new(100_000.0, Currency::USD).amount());
 //! # Ok(())
 //! # }

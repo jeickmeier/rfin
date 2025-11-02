@@ -4,10 +4,10 @@
 //! simulation of swap rates via Hull-White or other short rate models.
 
 use super::super::pricer::swap_rate_utils::ForwardSwapRate;
+use super::swaption::SwapSchedule;
 use crate::instruments::common::mc::process::ou::HullWhite1FParams;
 use crate::instruments::common::mc::traits::PathState;
 use crate::instruments::common::models::monte_carlo::traits::Payoff;
-use super::swaption::SwapSchedule;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -269,8 +269,8 @@ impl Payoff for CmsFloorPayoff {
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::common::mc::process::ou::HullWhite1FParams;
     use super::*;
+    use crate::instruments::common::mc::process::ou::HullWhite1FParams;
 
     #[test]
     fn test_cms_cap_creation() {

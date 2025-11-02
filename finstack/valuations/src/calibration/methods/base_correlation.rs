@@ -220,13 +220,13 @@ impl BaseCorrelationCalibrator {
             };
 
             let market_ctx_ref = market_context;
-            
+
             // Pre-allocate correlation points buffer to reduce allocations in objective
             // Note: We still need to clone per evaluation due to solver API constraints,
             // but pre-allocating capacity reduces reallocation overhead
             let mut base_corr_points = Vec::with_capacity(solved_correlations.len() + 2);
             base_corr_points.extend_from_slice(&solved_correlations);
-            
+
             let objective = |trial_correlation: f64| -> f64 {
                 // Reuse pre-allocated buffer and only update last point
                 let mut temp_corr_points = base_corr_points.clone();

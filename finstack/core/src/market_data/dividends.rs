@@ -68,13 +68,13 @@ pub enum DividendKind {
     ///
     /// Most common type. Ex-dividend date reduces stock price by dividend amount.
     Cash(Money),
-    
+
     /// Continuous dividend yield (annualized fraction).
     ///
     /// Used in analytical models (Black-Scholes with dividends) that assume
     /// continuous payout rather than discrete payments.
     Yield(f64),
-    
+
     /// Stock dividend (share distribution).
     ///
     /// Increases share count proportionally. For example, 5% stock dividend

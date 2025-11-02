@@ -281,20 +281,20 @@ impl ValuationResult {
     /// # use finstack_core::dates::create_date;
     /// # use time::Month;
     ///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # let as_of = create_date(2025, Month::January, 15)?;
-/// # let pv = Money::new(1_000_000.0, Currency::USD);
-///
-/// let trace = ExplanationTrace::new("bond_pricing");
-/// // Add trace entries using TraceEntry variants (see explain module for available types)
-///
-/// let result = ValuationResult::stamped("BOND-001", as_of, pv)
-///     .with_explanation(trace);
-///
-/// assert!(result.explanation.is_some());
-/// # Ok(())
-/// # }
-/// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let as_of = create_date(2025, Month::January, 15)?;
+    /// # let pv = Money::new(1_000_000.0, Currency::USD);
+    ///
+    /// let trace = ExplanationTrace::new("bond_pricing");
+    /// // Add trace entries using TraceEntry variants (see explain module for available types)
+    ///
+    /// let result = ValuationResult::stamped("BOND-001", as_of, pv)
+    ///     .with_explanation(trace);
+    ///
+    /// assert!(result.explanation.is_some());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn with_explanation(mut self, trace: ExplanationTrace) -> Self {
         self.explanation = Some(trace);
         self
@@ -367,25 +367,25 @@ impl ValuationResult {
     /// # use finstack_core::dates::create_date;
     /// # use time::Month;
     ///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # let as_of = create_date(2025, Month::January, 15)?;
-/// # let pv = Money::new(1_000_000.0, Currency::USD);
-/// let mut covenants = IndexMap::new();
-/// covenants.insert("dscr".to_string(), CovenantReport {
-///     covenant_type: "dscr".to_string(),
-///     passed: true,
-///     actual_value: Some(1.5),
-///     threshold: Some(1.25),
-///     details: Some("DSCR test passed".to_string()),
-/// });
-///
-/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
-///     .with_covenants(covenants);
-///
-/// assert!(result.all_covenants_passed());
-/// # Ok(())
-/// # }
-/// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let as_of = create_date(2025, Month::January, 15)?;
+    /// # let pv = Money::new(1_000_000.0, Currency::USD);
+    /// let mut covenants = IndexMap::new();
+    /// covenants.insert("dscr".to_string(), CovenantReport {
+    ///     covenant_type: "dscr".to_string(),
+    ///     passed: true,
+    ///     actual_value: Some(1.5),
+    ///     threshold: Some(1.25),
+    ///     details: Some("DSCR test passed".to_string()),
+    /// });
+    ///
+    /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+    ///     .with_covenants(covenants);
+    ///
+    /// assert!(result.all_covenants_passed());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn with_covenants(mut self, covenants: IndexMap<String, CovenantReport>) -> Self {
         self.covenants = Some(covenants);
         self
@@ -415,29 +415,29 @@ impl ValuationResult {
     /// # use finstack_core::dates::create_date;
     /// # use time::Month;
     ///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # let as_of = create_date(2025, Month::January, 15)?;
-/// # let pv = Money::new(1_000_000.0, Currency::USD);
-/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
-///     .with_covenant("dscr", CovenantReport {
-///         covenant_type: "dscr".to_string(),
-///         passed: true,
-///         actual_value: Some(1.5),
-///         threshold: Some(1.25),
-///         details: None,
-///     })
-///     .with_covenant("ltv", CovenantReport {
-///         covenant_type: "ltv".to_string(),
-///         passed: true,
-///         actual_value: Some(0.70),
-///         threshold: Some(0.80),
-///         details: None,
-///     });
-///
-/// assert_eq!(result.covenants.as_ref().unwrap().len(), 2);
-/// # Ok(())
-/// # }
-/// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let as_of = create_date(2025, Month::January, 15)?;
+    /// # let pv = Money::new(1_000_000.0, Currency::USD);
+    /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+    ///     .with_covenant("dscr", CovenantReport {
+    ///         covenant_type: "dscr".to_string(),
+    ///         passed: true,
+    ///         actual_value: Some(1.5),
+    ///         threshold: Some(1.25),
+    ///         details: None,
+    ///     })
+    ///     .with_covenant("ltv", CovenantReport {
+    ///         covenant_type: "ltv".to_string(),
+    ///         passed: true,
+    ///         actual_value: Some(0.70),
+    ///         threshold: Some(0.80),
+    ///         details: None,
+    ///     });
+    ///
+    /// assert_eq!(result.covenants.as_ref().unwrap().len(), 2);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn with_covenant(mut self, key: &str, report: CovenantReport) -> Self {
         let mut covenants = self.covenants.unwrap_or_default();
         covenants.insert(key.to_string(), report);
@@ -466,22 +466,22 @@ impl ValuationResult {
     /// # use finstack_core::dates::create_date;
     /// # use time::Month;
     ///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # let as_of = create_date(2025, Month::January, 15)?;
-/// # let pv = Money::new(1_000_000.0, Currency::USD);
-/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
-///     .with_covenant("dscr", CovenantReport {
-///         covenant_type: "dscr".to_string(),
-///         passed: true,
-///         actual_value: Some(1.5),
-///         threshold: Some(1.25),
-///         details: None,
-///     });
-///
-/// assert!(result.all_covenants_passed());
-/// # Ok(())
-/// # }
-/// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let as_of = create_date(2025, Month::January, 15)?;
+    /// # let pv = Money::new(1_000_000.0, Currency::USD);
+    /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+    ///     .with_covenant("dscr", CovenantReport {
+    ///         covenant_type: "dscr".to_string(),
+    ///         passed: true,
+    ///         actual_value: Some(1.5),
+    ///         threshold: Some(1.25),
+    ///         details: None,
+    ///     });
+    ///
+    /// assert!(result.all_covenants_passed());
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn all_covenants_passed(&self) -> bool {
         self.covenants
             .as_ref()
@@ -508,24 +508,24 @@ impl ValuationResult {
     /// # use finstack_core::dates::create_date;
     /// # use time::Month;
     ///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # let as_of = create_date(2025, Month::January, 15)?;
-/// # let pv = Money::new(1_000_000.0, Currency::USD);
-/// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
-///     .with_covenant("dscr", CovenantReport {
-///         covenant_type: "dscr".to_string(),
-///         passed: false,
-///         actual_value: Some(1.1),
-///         threshold: Some(1.25),
-///         details: Some("DSCR below threshold".to_string()),
-///     });
-///
-/// let failed = result.failed_covenants();
-/// assert_eq!(failed.len(), 1);
-/// assert_eq!(failed[0], "dscr");
-/// # Ok(())
-/// # }
-/// ```
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let as_of = create_date(2025, Month::January, 15)?;
+    /// # let pv = Money::new(1_000_000.0, Currency::USD);
+    /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
+    ///     .with_covenant("dscr", CovenantReport {
+    ///         covenant_type: "dscr".to_string(),
+    ///         passed: false,
+    ///         actual_value: Some(1.1),
+    ///         threshold: Some(1.25),
+    ///         details: Some("DSCR below threshold".to_string()),
+    ///     });
+    ///
+    /// let failed = result.failed_covenants();
+    /// assert_eq!(failed.len(), 1);
+    /// assert_eq!(failed[0], "dscr");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn failed_covenants(&self) -> Vec<&str> {
         self.covenants
             .as_ref()

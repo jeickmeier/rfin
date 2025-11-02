@@ -43,9 +43,10 @@ impl MetricCalculator for VolgaCalculator {
             use finstack_core::types::CurveId;
             use std::sync::Arc;
             let bumped_surface = vol_surface.scaled(scale_factor);
-            curves
-                .surfaces
-                .insert(CurveId::from(option.vol_id.as_str()), Arc::new(bumped_surface));
+            curves.surfaces.insert(
+                CurveId::from(option.vol_id.as_str()),
+                Arc::new(bumped_surface),
+            );
             curves
         };
         let pv_vol_up = option.npv(&curves_vol_up, as_of)?.amount();
@@ -57,9 +58,10 @@ impl MetricCalculator for VolgaCalculator {
             use finstack_core::types::CurveId;
             use std::sync::Arc;
             let bumped_surface = vol_surface.scaled(scale_factor);
-            curves
-                .surfaces
-                .insert(CurveId::from(option.vol_id.as_str()), Arc::new(bumped_surface));
+            curves.surfaces.insert(
+                CurveId::from(option.vol_id.as_str()),
+                Arc::new(bumped_surface),
+            );
             curves
         };
         let pv_vol_down = option.npv(&curves_vol_down, as_of)?.amount();

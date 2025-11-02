@@ -1,8 +1,8 @@
 //! Market quote data structures and types.
 
 use finstack_core::dates::{Date, DayCount, Frequency};
-use finstack_core::types::{IndexId, UnderlyingId};
 use finstack_core::prelude::*;
+use finstack_core::types::{IndexId, UnderlyingId};
 
 /// Interest rate instrument quotes for yield curve calibration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -104,9 +104,7 @@ impl RatesQuote {
                 let ois_tokens = [
                     "OIS", "SOFR", "SONIA", "EONIA", "ESTR", "€STR", "TONAR", "TONA",
                 ];
-                tokens
-                    .iter()
-                    .any(|t| ois_tokens.contains(&t.as_str()))
+                tokens.iter().any(|t| ois_tokens.contains(&t.as_str()))
             }
             _ => false,
         }
@@ -271,4 +269,3 @@ impl Default for FutureSpecs {
         }
     }
 }
-

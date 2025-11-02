@@ -1,13 +1,13 @@
 //! Range accrual Monte Carlo pricer.
 
 #[cfg(feature = "mc")]
+use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+#[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::payoff::range_accrual::RangeAccrualPayoff;
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
-use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
 #[cfg(feature = "mc")]

@@ -85,38 +85,35 @@ fn test_registry_has_all_analytical_pricers() {
 #[test]
 fn test_model_key_parsing() {
     use std::str::FromStr;
-    
+
     // Test that all new ModelKey variants can be parsed from strings
     assert_eq!(
         ModelKey::from_str("asian_geometric_bs").unwrap(),
         ModelKey::AsianGeometricBS
     );
-    
+
     assert_eq!(
         ModelKey::from_str("asian_turnbull_wakeman").unwrap(),
         ModelKey::AsianTurnbullWakeman
     );
-    
+
     assert_eq!(
         ModelKey::from_str("barrier_bs_continuous").unwrap(),
         ModelKey::BarrierBSContinuous
     );
-    
+
     assert_eq!(
         ModelKey::from_str("lookback_bs_continuous").unwrap(),
         ModelKey::LookbackBSContinuous
     );
-    
-    assert_eq!(
-        ModelKey::from_str("quanto_bs").unwrap(),
-        ModelKey::QuantoBS
-    );
-    
+
+    assert_eq!(ModelKey::from_str("quanto_bs").unwrap(), ModelKey::QuantoBS);
+
     assert_eq!(
         ModelKey::from_str("fx_barrier_bs_continuous").unwrap(),
         ModelKey::FxBarrierBSContinuous
     );
-    
+
     assert_eq!(
         ModelKey::from_str("heston_fourier").unwrap(),
         ModelKey::HestonFourier

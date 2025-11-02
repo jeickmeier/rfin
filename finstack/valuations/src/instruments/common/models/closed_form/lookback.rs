@@ -71,7 +71,7 @@ pub fn fixed_strike_lookback_call(
 
         let vanilla_call = spot * (-div_yield * time).exp() * norm_cdf(d1)
             - strike * (-rate * time).exp() * norm_cdf(d2);
-        
+
         // Lookback premium: add ~30% for path dependency
         return (vanilla_call * 1.3).max(0.0);
     }
@@ -84,7 +84,7 @@ pub fn fixed_strike_lookback_call(
         spot * (-div_yield * time).exp() * norm_cdf(d1)
             - strike * (-rate * time).exp() * norm_cdf(d2)
     };
-    
+
     (intrinsic * (-rate * time).exp() + time_value).max(intrinsic * (-rate * time).exp())
 }
 
@@ -136,7 +136,7 @@ pub fn fixed_strike_lookback_put(
 
         let vanilla_put = strike * (-rate * time).exp() * norm_cdf(-d2)
             - spot * (-div_yield * time).exp() * norm_cdf(-d1);
-        
+
         // Lookback premium: add value from path dependency
         // Simplified: use ~50% premium over vanilla for reasonable approximation
         return (vanilla_put * 1.3).max(0.0);
@@ -146,8 +146,7 @@ pub fn fixed_strike_lookback_put(
     let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / vol_sqrt_t;
     let d2 = d1 - vol_sqrt_t;
 
-    strike * (-rate * time).exp() * norm_cdf(-d2)
-        - spot * (-div_yield * time).exp() * norm_cdf(-d1)
+    strike * (-rate * time).exp() * norm_cdf(-d2) - spot * (-div_yield * time).exp() * norm_cdf(-d1)
 }
 
 /// Price a floating-strike lookback call option (continuous monitoring).
@@ -337,8 +336,8 @@ mod tests {
 
         // Vanilla BS call
         let sqrt_t = time.sqrt();
-        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
-            / (vol * sqrt_t);
+        let d1 =
+            ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
         let d2 = d1 - vol * sqrt_t;
         let vanilla = spot * (-div_yield * time).exp() * norm_cdf(d1)
             - strike * (-rate * time).exp() * norm_cdf(d2);
@@ -351,4 +350,3 @@ mod tests {
         );
     }
 }
-

@@ -23,14 +23,24 @@ pub struct MultiOuParams {
 
 impl MultiOuParams {
     /// Create parameters; vectors must have equal length.
-    pub fn new(kappas: Vec<f64>, thetas: Vec<f64>, sigmas: Vec<f64>, correlation: Option<Vec<f64>>) -> Self {
+    pub fn new(
+        kappas: Vec<f64>,
+        thetas: Vec<f64>,
+        sigmas: Vec<f64>,
+        correlation: Option<Vec<f64>>,
+    ) -> Self {
         let n = kappas.len();
         assert_eq!(thetas.len(), n, "thetas length must match kappas");
         assert_eq!(sigmas.len(), n, "sigmas length must match kappas");
         if let Some(ref corr) = correlation {
             assert_eq!(corr.len(), n * n, "correlation must be n x n");
         }
-        Self { kappas, thetas, sigmas, correlation }
+        Self {
+            kappas,
+            thetas,
+            sigmas,
+            correlation,
+        }
     }
 }
 
@@ -115,5 +125,3 @@ mod tests {
         assert!((sig[1] - 0.4).abs() < 1e-12);
     }
 }
-
-

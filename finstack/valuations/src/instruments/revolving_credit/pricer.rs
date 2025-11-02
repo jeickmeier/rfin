@@ -326,6 +326,8 @@ impl RevolvingCreditMcPricer {
         use super::types::{
             BaseRateSpec, CreditSpreadProcessSpec, InterestRateProcessSpec, UtilizationProcess,
         };
+        use crate::instruments::common::mc::rng::philox::PhiloxRng;
+        use crate::instruments::common::mc::time_grid::TimeGrid;
         use crate::instruments::common::models::monte_carlo::discretization::revolving_credit::RevolvingCreditDiscretization;
         use crate::instruments::common::models::monte_carlo::engine::McEngineBuilder;
         use crate::instruments::common::models::monte_carlo::payoff::revolving_credit::{
@@ -335,8 +337,6 @@ impl RevolvingCreditMcPricer {
             CreditSpreadParams, InterestRateSpec, RevolvingCreditProcess,
             RevolvingCreditProcessParams, UtilizationParams,
         };
-        use crate::instruments::common::mc::rng::philox::PhiloxRng;
-        use crate::instruments::common::mc::time_grid::TimeGrid;
 
         // Extract utilization parameters
         let util_params = match &stoch_spec.utilization_process {

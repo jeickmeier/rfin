@@ -186,14 +186,14 @@ pub enum BusinessDayConvention {
     /// **ISDA**: Section 4.12(a) - "Unadjusted"
     /// **FpML**: "NONE"
     Unadjusted,
-    
+
     /// Adjust to next business day (may cross month boundary).
     ///
     /// **ISDA**: Section 4.12(b) - "Following Business Day Convention"
     /// **FpML**: "FOLLOWING"
     /// **ISO 20022**: "FWNG"
     Following,
-    
+
     /// Following, unless that crosses into next month, then preceding.
     ///
     /// Ensures month-end dates don't shift to next month, important for
@@ -203,14 +203,14 @@ pub enum BusinessDayConvention {
     /// **FpML**: "MODFOLLOWING"
     /// **ISO 20022**: "MODF"
     ModifiedFollowing,
-    
+
     /// Adjust to previous business day (may cross month boundary).
     ///
     /// **ISDA**: Section 4.12(d) - "Preceding Business Day Convention"
     /// **FpML**: "PRECEDING"
     /// **ISO 20022**: "PREC"
     Preceding,
-    
+
     /// Preceding, unless that crosses into previous month, then following.
     ///
     /// **ISDA**: Section 4.12(e) - "Modified Preceding Business Day Convention"

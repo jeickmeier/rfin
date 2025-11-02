@@ -20,7 +20,6 @@ pub enum ValidationMode {
     Error,
 }
 
-
 /// Solver type selection for calibration.
 ///
 /// For 1D problems (most curve calibrations), Newton, Brent, or Hybrid are used directly.

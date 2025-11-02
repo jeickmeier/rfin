@@ -2,13 +2,13 @@
 //!
 //! Provides pricing for European-style options under GBM dynamics.
 
-use crate::instruments::common::mc::discretization::exact::ExactGbm;
 use super::super::engine::{McEngine, McEngineConfig};
-use crate::instruments::common::mc::process::gbm::GbmProcess;
 use super::super::results::MoneyEstimate;
+use super::super::traits::Payoff;
+use crate::instruments::common::mc::discretization::exact::ExactGbm;
+use crate::instruments::common::mc::process::gbm::GbmProcess;
 use crate::instruments::common::mc::rng::philox::PhiloxRng;
 use crate::instruments::common::mc::time_grid::TimeGrid;
-use super::super::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -110,7 +110,9 @@ impl EuropeanPricer {
             target_ci_half_width: None,
             use_parallel: self.config.use_parallel,
             chunk_size: 1000,
-            path_capture: crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(),
+            path_capture:
+                crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(
+                ),
         };
         let engine = McEngine::new(engine_config);
 
@@ -141,9 +143,9 @@ impl EuropeanPricer {
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
-    use crate::instruments::common::mc::process::gbm::GbmParams;
     use super::*;
+    use crate::instruments::common::mc::process::gbm::GbmParams;
+    use crate::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
 
     #[test]
     fn test_european_pricer_basic() {

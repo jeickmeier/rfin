@@ -202,8 +202,8 @@ impl Payoff for QuantoPutPayoff {
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::common::mc::traits::{state_keys, PathState};
     use super::*;
+    use crate::instruments::common::mc::traits::{state_keys, PathState};
 
     #[test]
     fn test_quanto_adjustment_computation() {

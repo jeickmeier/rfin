@@ -215,8 +215,8 @@ impl Payoff for BarrierCall {
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::common::mc::traits::state_keys;
     use super::*;
+    use crate::instruments::common::mc::traits::state_keys;
 
     fn create_path_state(step: usize, spot: f64) -> PathState {
         let mut state = PathState::new(step, step as f64 * 0.01);

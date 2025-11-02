@@ -149,13 +149,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::common::mc::discretization::exact::ExactGbm;
     use super::super::super::engine::McEngineConfig;
-    use crate::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
+    use super::*;
+    use crate::instruments::common::mc::discretization::exact::ExactGbm;
     use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
     use crate::instruments::common::mc::rng::philox::PhiloxRng;
     use crate::instruments::common::mc::time_grid::TimeGrid;
-    use super::*;
+    use crate::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
 
     #[test]
     fn test_finite_diff_delta_atm() {
@@ -167,7 +167,9 @@ mod tests {
             target_ci_half_width: None,
             use_parallel: false,
             chunk_size: 1000,
-            path_capture: crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(),
+            path_capture:
+                crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(
+                ),
         });
 
         let rng = PhiloxRng::new(42);
@@ -202,7 +204,9 @@ mod tests {
             target_ci_half_width: None,
             use_parallel: false,
             chunk_size: 1000,
-            path_capture: crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(),
+            path_capture:
+                crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(
+                ),
         });
 
         let rng = PhiloxRng::new(42);

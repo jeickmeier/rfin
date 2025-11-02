@@ -142,8 +142,24 @@ pub struct BarrierParams {
 }
 
 impl BarrierParams {
-    pub fn new(spot: f64, strike: f64, barrier: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> Self {
-        Self { spot, strike, barrier, time, rate, div_yield, vol }
+    pub fn new(
+        spot: f64,
+        strike: f64,
+        barrier: f64,
+        time: f64,
+        rate: f64,
+        div_yield: f64,
+        vol: f64,
+    ) -> Self {
+        Self {
+            spot,
+            strike,
+            barrier,
+            time,
+            rate,
+            div_yield,
+            vol,
+        }
     }
 }
 

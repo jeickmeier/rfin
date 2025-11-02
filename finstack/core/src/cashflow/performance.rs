@@ -170,22 +170,14 @@ pub fn npv(
         let years = if *date == base {
             0.0
         } else if *date > base {
-            dc
-                .year_fraction(base, *date, DayCountCtx::default())
+            dc.year_fraction(base, *date, DayCountCtx::default())
                 .map_err(|e| {
-                    crate::Error::Validation(format!(
-                        "Day count calculation failed: {}",
-                        e
-                    ))
+                    crate::Error::Validation(format!("Day count calculation failed: {}", e))
                 })?
         } else {
-            -dc
-                .year_fraction(*date, base, DayCountCtx::default())
+            -dc.year_fraction(*date, base, DayCountCtx::default())
                 .map_err(|e| {
-                    crate::Error::Validation(format!(
-                        "Day count calculation failed: {}",
-                        e
-                    ))
+                    crate::Error::Validation(format!("Day count calculation failed: {}", e))
                 })?
         };
         let discount_factor = (1.0 + discount_rate).powf(years);
@@ -335,7 +327,9 @@ pub fn irr_periodic(amounts: &[f64], guess: Option<f64>) -> crate::Result<f64> {
             return Ok(root);
         }
     }
-    Err(crate::Error::Validation("IRR calculation failed: no convergence".into()))
+    Err(crate::Error::Validation(
+        "IRR calculation failed: no convergence".into(),
+    ))
 }
 
 #[cfg(test)]
@@ -410,11 +404,13 @@ mod tests {
         let irr = irr_periodic(&amounts, Some(-0.5)).unwrap();
         assert!(irr < -0.9);
         // NPV at computed IRR should be ~0
-        let f = |r: f64| amounts
-            .iter()
-            .enumerate()
-            .map(|(i, &a)| a / (1.0 + r).powi(i as i32))
-            .sum::<f64>();
+        let f = |r: f64| {
+            amounts
+                .iter()
+                .enumerate()
+                .map(|(i, &a)| a / (1.0 + r).powi(i as i32))
+                .sum::<f64>()
+        };
         assert!(f(irr).abs() < 1e-6);
     }
 
@@ -424,11 +420,13 @@ mod tests {
         let amounts = vec![-100.0, 300.0];
         let irr = irr_periodic(&amounts, Some(0.5)).unwrap();
         assert!(irr > 1.0);
-        let f = |r: f64| amounts
-            .iter()
-            .enumerate()
-            .map(|(i, &a)| a / (1.0 + r).powi(i as i32))
-            .sum::<f64>();
+        let f = |r: f64| {
+            amounts
+                .iter()
+                .enumerate()
+                .map(|(i, &a)| a / (1.0 + r).powi(i as i32))
+                .sum::<f64>()
+        };
         assert!(f(irr).abs() < 1e-6);
     }
 

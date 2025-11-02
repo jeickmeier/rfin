@@ -225,8 +225,8 @@ impl Payoff for AutocallablePayoff {
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::common::mc::traits::state_keys;
     use super::*;
+    use crate::instruments::common::mc::traits::state_keys;
 
     #[test]
     fn test_autocallable_creation() {

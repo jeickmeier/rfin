@@ -137,21 +137,20 @@ impl CashFlowSchedule {
     /// ```
     pub fn outstanding_path(&self) -> Vec<(Date, Money)> {
         let mut out = Vec::new();
-        let mut outstanding = self.notional.initial.amount();
-        let ccy = self.notional.initial.currency();
+        let mut outstanding = self.notional.initial;
         for cf in &self.flows {
             match cf.kind {
                 CFKind::Amortization => {
                     // Amortization amounts are stored as positive in the builder
                     // but economically represent principal reductions
-                    outstanding -= cf.amount.amount();
+                    outstanding = outstanding.checked_sub(cf.amount).unwrap();
                 }
                 CFKind::PIK => {
-                    outstanding += cf.amount.amount(); // adds to outstanding
+                    outstanding = outstanding.checked_add(cf.amount).unwrap();
                 }
                 _ => {}
             }
-            out.push((cf.date, Money::new(outstanding, ccy)));
+            out.push((cf.date, outstanding));
         }
         out
     }
@@ -185,8 +184,7 @@ impl CashFlowSchedule {
             return result;
         }
 
-        let ccy = self.notional.initial.currency();
-        let mut outstanding = self.notional.initial.amount();
+        let mut outstanding = self.notional.initial;
 
         let mut i = 0usize;
         while i < self.flows.len() {
@@ -196,16 +194,16 @@ impl CashFlowSchedule {
             while j < self.flows.len() && self.flows[j].date == d {
                 match self.flows[j].kind {
                     CFKind::Amortization => {
-                        outstanding -= self.flows[j].amount.amount(); // Subtract positive amount
+                        outstanding = outstanding.checked_sub(self.flows[j].amount).unwrap();
                     }
                     CFKind::PIK => {
-                        outstanding += self.flows[j].amount.amount();
+                        outstanding = outstanding.checked_add(self.flows[j].amount).unwrap();
                     }
                     _ => {}
                 }
                 j += 1;
             }
-            result.push((d, Money::new(outstanding, ccy)));
+            result.push((d, outstanding));
             i = j;
         }
 

@@ -3,13 +3,13 @@
 #[cfg(feature = "mc")]
 use crate::instruments::cliquet_option::types::CliquetOption;
 #[cfg(feature = "mc")]
+use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+#[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::payoff::cliquet::CliquetCallPayoff;
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
-#[cfg(feature = "mc")]
-use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
 #[cfg(feature = "mc")]
@@ -176,12 +176,18 @@ impl CliquetOptionMcPricer {
 
         let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
         let r = disc_curve.zero(t);
-        let t_as_of = disc_curve
-            .day_count()
-            .year_fraction(disc_curve.base_date(), as_of, DayCountCtx::default())?;
+        let t_as_of = disc_curve.day_count().year_fraction(
+            disc_curve.base_date(),
+            as_of,
+            DayCountCtx::default(),
+        )?;
         let df_as_of = disc_curve.df(t_as_of);
         let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 { df_maturity / df_as_of } else { 1.0 };
+        let discount_factor = if df_as_of > 0.0 {
+            df_maturity / df_as_of
+        } else {
+            1.0
+        };
 
         let q = if let Some(div_id) = &inst.div_yield_id {
             match curves.price(div_id.as_str()) {
@@ -227,12 +233,16 @@ impl CliquetOptionMcPricer {
         use crate::instruments::common::models::monte_carlo::seed;
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
-            { seed::derive_seed(&inst.id, scenario) }
+            {
+                seed::derive_seed(&inst.id, scenario)
+            }
             #[cfg(not(feature = "mc"))]
             42
         } else {
             #[cfg(feature = "mc")]
-            { seed::derive_seed(&inst.id, "base") }
+            {
+                seed::derive_seed(&inst.id, "base")
+            }
             #[cfg(not(feature = "mc"))]
             self.config.seed
         };

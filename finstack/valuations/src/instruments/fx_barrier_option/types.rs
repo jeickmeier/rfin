@@ -43,7 +43,7 @@ impl FxBarrierOption {
         use crate::instruments::fx_barrier_option::pricer;
         pricer::npv(self, curves, as_of)
     }
-    
+
     /// Calculate the net present value using analytical method (default).
     /// Uses Reiner-Rubinstein continuous monitoring formulas with FX rate mapping.
     pub fn npv(
@@ -53,9 +53,10 @@ impl FxBarrierOption {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer;
         use crate::pricer::Pricer;
-        
+
         let pricer = FxBarrierOptionAnalyticalPricer::new();
-        let result = pricer.price_dyn(self, curves, as_of)
+        let result = pricer
+            .price_dyn(self, curves, as_of)
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
         Ok(result.value)
     }

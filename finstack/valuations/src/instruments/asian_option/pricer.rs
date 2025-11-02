@@ -12,19 +12,21 @@ use finstack_core::Result;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
+use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+#[cfg(feature = "mc")]
+use crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig;
+#[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::payoff::asian::{AsianCall, AsianPut};
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
-#[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig;
-#[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::results::MoneyEstimate;
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::variance_reduction::control_variate::{apply_control_variate, covariance};
+use crate::instruments::common::models::monte_carlo::variance_reduction::control_variate::{
+    apply_control_variate, covariance,
+};
 
 /// Asian option Monte Carlo pricer.
 #[cfg(feature = "mc")]
@@ -241,10 +243,14 @@ impl AsianOptionMcPricer {
                 // Sample variances (unbiased)
                 let var_x = if n > 1 {
                     xs.iter().map(|v| (v - mean_x).powi(2)).sum::<f64>() / (n as f64 - 1.0)
-                } else { 0.0 };
+                } else {
+                    0.0
+                };
                 let var_y = if n > 1 {
                     ys.iter().map(|v| (v - mean_y).powi(2)).sum::<f64>() / (n as f64 - 1.0)
-                } else { 0.0 };
+                } else {
+                    0.0
+                };
                 // Covariance
                 let cov_xy = covariance(&xs, &ys);
 
@@ -328,10 +334,14 @@ impl AsianOptionMcPricer {
                 let mean_y = ys.iter().sum::<f64>() / n as f64;
                 let var_x = if n > 1 {
                     xs.iter().map(|v| (v - mean_x).powi(2)).sum::<f64>() / (n as f64 - 1.0)
-                } else { 0.0 };
+                } else {
+                    0.0
+                };
                 let var_y = if n > 1 {
                     ys.iter().map(|v| (v - mean_y).powi(2)).sum::<f64>() / (n as f64 - 1.0)
-                } else { 0.0 };
+                } else {
+                    0.0
+                };
                 let cov_xy = covariance(&xs, &ys);
 
                 let control_analytical = geometric_asian_put(
@@ -422,12 +432,18 @@ impl AsianOptionMcPricer {
 
         let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
         let r = disc_curve.zero(t);
-        let t_as_of = disc_curve
-            .day_count()
-            .year_fraction(disc_curve.base_date(), as_of, DayCountCtx::default())?;
+        let t_as_of = disc_curve.day_count().year_fraction(
+            disc_curve.base_date(),
+            as_of,
+            DayCountCtx::default(),
+        )?;
         let df_as_of = disc_curve.df(t_as_of);
         let df_maturity = disc_curve.df(t_as_of + t);
-        let discount_factor = if df_as_of > 0.0 { df_maturity / df_as_of } else { 1.0 };
+        let discount_factor = if df_as_of > 0.0 {
+            df_maturity / df_as_of
+        } else {
+            1.0
+        };
 
         let spot_scalar = curves.price(&inst.spot_id)?;
         let spot = match spot_scalar {
@@ -459,9 +475,9 @@ impl AsianOptionMcPricer {
         // Fixing steps mapping
         let mut fixing_steps = Vec::new();
         for &fixing_date in &inst.fixing_dates {
-            let fixing_t = inst
-                .day_count
-                .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+            let fixing_t =
+                inst.day_count
+                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
             if fixing_t > 0.0 && fixing_t <= t {
                 let step = (fixing_t / t * num_steps as f64).round() as usize;
                 let clamped = step.min(num_steps.saturating_sub(1)).max(0);
@@ -488,12 +504,16 @@ impl AsianOptionMcPricer {
         use crate::instruments::common::models::monte_carlo::seed;
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
-            { seed::derive_seed(&inst.id, scenario) }
+            {
+                seed::derive_seed(&inst.id, scenario)
+            }
             #[cfg(not(feature = "mc"))]
             42
         } else {
             #[cfg(feature = "mc")]
-            { seed::derive_seed(&inst.id, "base") }
+            {
+                seed::derive_seed(&inst.id, "base")
+            }
             #[cfg(not(feature = "mc"))]
             self.config.seed
         };
@@ -503,9 +523,13 @@ impl AsianOptionMcPricer {
 
         let (est, greeks) = match inst.option_type {
             crate::instruments::OptionType::Call => {
-                let payoff = crate::instruments::common::models::monte_carlo::payoff::asian::AsianCall::new(
-                    inst.strike.amount(), inst.notional, averaging, fixing_steps,
-                );
+                let payoff =
+                    crate::instruments::common::models::monte_carlo::payoff::asian::AsianCall::new(
+                        inst.strike.amount(),
+                        inst.notional,
+                        averaging,
+                        fixing_steps,
+                    );
                 pricer.price_with_lrm_greeks(
                     &process,
                     spot,
@@ -520,9 +544,13 @@ impl AsianOptionMcPricer {
                 )?
             }
             crate::instruments::OptionType::Put => {
-                let payoff = crate::instruments::common::models::monte_carlo::payoff::asian::AsianPut::new(
-                    inst.strike.amount(), inst.notional, averaging, fixing_steps,
-                );
+                let payoff =
+                    crate::instruments::common::models::monte_carlo::payoff::asian::AsianPut::new(
+                        inst.strike.amount(),
+                        inst.notional,
+                        averaging,
+                        fixing_steps,
+                    );
                 pricer.price_with_lrm_greeks(
                     &process,
                     spot,
@@ -672,9 +700,8 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
                 PricingError::type_mismatch(InstrumentType::AsianOption, instrument.key())
             })?;
 
-        let (spot, r, q, sigma, t, num_fixings) =
-            collect_asian_inputs(asian, market, as_of)
-                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        let (spot, r, q, sigma, t, num_fixings) = collect_asian_inputs(asian, market, as_of)
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         if t <= 0.0 {
             return Ok(ValuationResult::stamped(
@@ -731,9 +758,8 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                 PricingError::type_mismatch(InstrumentType::AsianOption, instrument.key())
             })?;
 
-        let (spot, r, q, sigma, t, num_fixings) =
-            collect_asian_inputs(asian, market, as_of)
-                .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        let (spot, r, q, sigma, t, num_fixings) = collect_asian_inputs(asian, market, as_of)
+            .map_err(|e| PricingError::model_failure(e.to_string()))?;
 
         if t <= 0.0 {
             return Ok(ValuationResult::stamped(

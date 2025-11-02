@@ -157,14 +157,14 @@ impl PyDiscountCurveCalibrator {
     ) -> PyResult<(PyDiscountCurve, PyCalibrationReport)> {
         let rust_quotes = collect_rates_quotes(quotes)?;
         let base_context = base_context_from_option(market);
-        
+
         // Release GIL for compute-heavy calibration work
         let (curve, report) = py.allow_threads(|| {
             self.inner
                 .calibrate(&rust_quotes, &base_context)
                 .map_err(core_to_py)
         })?;
-        
+
         Ok((
             PyDiscountCurve::new_arc(Arc::new(curve)),
             PyCalibrationReport::new(report),
@@ -236,14 +236,14 @@ impl PyForwardCurveCalibrator {
     ) -> PyResult<(PyForwardCurve, PyCalibrationReport)> {
         let rust_quotes = collect_rates_quotes(quotes)?;
         let base_context = market.inner.clone();
-        
+
         // Release GIL for compute-heavy calibration work
         let (curve, report) = py.allow_threads(|| {
             self.inner
                 .calibrate(&rust_quotes, &base_context)
                 .map_err(core_to_py)
         })?;
-        
+
         Ok((
             PyForwardCurve::new_arc(Arc::new(curve)),
             PyCalibrationReport::new(report),
@@ -328,14 +328,14 @@ impl PyHazardCurveCalibrator {
     ) -> PyResult<(PyHazardCurve, PyCalibrationReport)> {
         let rust_quotes = collect_credit_quotes(quotes)?;
         let context = market.inner.clone();
-        
+
         // Release GIL for compute-heavy calibration work
         let (curve, report) = py.allow_threads(|| {
             self.inner
                 .calibrate(&rust_quotes, &context)
                 .map_err(core_to_py)
         })?;
-        
+
         Ok((
             PyHazardCurve::new_arc(Arc::new(curve)),
             PyCalibrationReport::new(report),
@@ -458,14 +458,14 @@ impl PyInflationCurveCalibrator {
     ) -> PyResult<(PyInflationCurve, PyCalibrationReport)> {
         let rust_quotes = collect_inflation_quotes(quotes)?;
         let context = base_context_from_option(market);
-        
+
         // Release GIL for compute-heavy calibration work
         let (curve, report) = py.allow_threads(|| {
             self.inner
                 .calibrate(&rust_quotes, &context)
                 .map_err(core_to_py)
         })?;
-        
+
         Ok((
             PyInflationCurve::new_arc(Arc::new(curve)),
             PyCalibrationReport::new(report),
@@ -560,14 +560,14 @@ impl PyVolSurfaceCalibrator {
     ) -> PyResult<(PyVolSurface, PyCalibrationReport)> {
         let rust_quotes = collect_vol_quotes(quotes)?;
         let context = market.inner.clone();
-        
+
         // Release GIL for compute-heavy calibration work
         let (surface, report) = py.allow_threads(|| {
             self.inner
                 .calibrate(&rust_quotes, &context)
                 .map_err(core_to_py)
         })?;
-        
+
         Ok((
             PyVolSurface::new_arc(Arc::new(surface)),
             PyCalibrationReport::new(report),
@@ -748,14 +748,14 @@ impl PyBaseCorrelationCalibrator {
     ) -> PyResult<(PyBaseCorrelationCurve, PyCalibrationReport)> {
         let rust_quotes = collect_credit_quotes(quotes)?;
         let context = market.inner.clone();
-        
+
         // Release GIL for compute-heavy calibration work
         let (curve, report) = py.allow_threads(|| {
             self.inner
                 .calibrate(&rust_quotes, &context)
                 .map_err(core_to_py)
         })?;
-        
+
         Ok((
             PyBaseCorrelationCurve::new_arc(Arc::new(curve)),
             PyCalibrationReport::new(report),

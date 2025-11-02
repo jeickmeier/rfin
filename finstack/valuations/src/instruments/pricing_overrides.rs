@@ -140,17 +140,49 @@ impl PricingOverrides {
     pub fn validate(&self) -> finstack_core::Result<()> {
         use finstack_core::error::InputError;
         let nonneg = |v: f64| v.is_finite() && v >= 0.0;
-        if let Some(v) = self.quoted_clean_price { if !v.is_finite() { return Err(InputError::Invalid.into()); } }
-        if let Some(v) = self.implied_volatility { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
-        if let Some(v) = self.quoted_spread_bp { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
-        if let Some(v) = self.ytm_bump_decimal { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
-        if let Some(v) = self.spot_bump_pct { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
-        if let Some(v) = self.vol_bump_pct { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
-        if let Some(v) = self.rate_bump_bp { if !nonneg(v) { return Err(InputError::NegativeValue.into()); } }
+        if let Some(v) = self.quoted_clean_price {
+            if !v.is_finite() {
+                return Err(InputError::Invalid.into());
+            }
+        }
+        if let Some(v) = self.implied_volatility {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
+        if let Some(v) = self.quoted_spread_bp {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
+        if let Some(v) = self.ytm_bump_decimal {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
+        if let Some(v) = self.spot_bump_pct {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
+        if let Some(v) = self.vol_bump_pct {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
+        if let Some(v) = self.rate_bump_bp {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
         if let Some(ref s) = self.theta_period {
             // Minimal sanity: allow forms like "1D", "1W", "1M", "1Y"
-            let ok = s.len() >= 2 && s[..s.len()-1].chars().all(|c| c.is_ascii_digit()) && matches!(s.chars().last(), Some('D'|'W'|'M'|'Y'));
-            if !ok { return Err(InputError::Invalid.into()); }
+            let ok = s.len() >= 2
+                && s[..s.len() - 1].chars().all(|c| c.is_ascii_digit())
+                && matches!(s.chars().last(), Some('D' | 'W' | 'M' | 'Y'));
+            if !ok {
+                return Err(InputError::Invalid.into());
+            }
         }
         Ok(())
     }
@@ -176,7 +208,8 @@ mod tests {
         let po = PricingOverrides::default().with_vol_bump(-0.01);
         let err = po.validate().unwrap_err();
         match err {
-            finstack_core::error::Error::Input(finstack_core::error::InputError::NegativeValue) => {}
+            finstack_core::error::Error::Input(finstack_core::error::InputError::NegativeValue) => {
+            }
             e => panic!("unexpected error: {e:?}"),
         }
     }

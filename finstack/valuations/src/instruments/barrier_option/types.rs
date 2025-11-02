@@ -56,7 +56,7 @@ impl BarrierOption {
         use crate::instruments::barrier_option::pricer;
         pricer::npv(self, curves, as_of)
     }
-    
+
     /// Calculate the net present value using analytical method (default).
     /// Uses Reiner-Rubinstein continuous monitoring formulas.
     pub fn npv(
@@ -66,9 +66,10 @@ impl BarrierOption {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::barrier_option::pricer::BarrierOptionAnalyticalPricer;
         use crate::pricer::Pricer;
-        
+
         let pricer = BarrierOptionAnalyticalPricer::new();
-        let result = pricer.price_dyn(self, curves, as_of)
+        let result = pricer
+            .price_dyn(self, curves, as_of)
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
         Ok(result.value)
     }

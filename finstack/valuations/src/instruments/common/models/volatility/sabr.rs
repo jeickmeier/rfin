@@ -457,12 +457,7 @@ impl SABRCalibrator {
         beta: f64,
     ) -> Result<SABRParameters> {
         // Check if we need shift for negative rates
-        let min_rate = forward.min(
-            *strikes
-                .iter()
-                .min_by(|a, b| a.total_cmp(b))
-                .unwrap(),
-        );
+        let min_rate = forward.min(*strikes.iter().min_by(|a, b| a.total_cmp(b)).unwrap());
 
         if min_rate < 0.0 {
             // Use shifted SABR
@@ -484,12 +479,7 @@ impl SABRCalibrator {
         beta: f64,
     ) -> Result<SABRParameters> {
         // Check if we need shift for negative rates
-        let min_rate = forward.min(
-            *strikes
-                .iter()
-                .min_by(|a, b| a.total_cmp(b))
-                .unwrap(),
-        );
+        let min_rate = forward.min(*strikes.iter().min_by(|a, b| a.total_cmp(b)).unwrap());
 
         if min_rate < 0.0 {
             // Use shifted SABR with derivatives
@@ -939,14 +929,8 @@ mod tests {
         // Lower strikes should have higher vols
         // But the actual shape depends on all parameters
         // Just check that we get different vols (smile exists)
-        let vol_range = vols
-            .iter()
-            .max_by(|a, b| a.total_cmp(b))
-            .unwrap()
-            - vols
-                .iter()
-                .min_by(|a, b| a.total_cmp(b))
-                .unwrap();
+        let vol_range = vols.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
+            - vols.iter().min_by(|a, b| a.total_cmp(b)).unwrap();
         assert!(vol_range > 0.001); // There is a smile
     }
 
@@ -1090,14 +1074,8 @@ mod tests {
         }
 
         // Check all ATM-like volatilities are similar with practical tolerance
-        let vol_range = vols
-            .iter()
-            .max_by(|a, b| a.total_cmp(b))
-            .unwrap()
-            - vols
-                .iter()
-                .min_by(|a, b| a.total_cmp(b))
-                .unwrap();
+        let vol_range = vols.iter().max_by(|a, b| a.total_cmp(b)).unwrap()
+            - vols.iter().min_by(|a, b| a.total_cmp(b)).unwrap();
         assert!(vol_range < 1e-2); // Practical tolerance for numerical precision in ATM case
     }
 

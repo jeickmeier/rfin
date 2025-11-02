@@ -521,8 +521,8 @@ fn validate_sabr_params(params: &SABRParameters) -> Result<()> {
 mod tests {
     use super::*;
     use finstack_core::dates::Date;
-    use finstack_core::math::interp::InterpStyle;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::math::interp::InterpStyle;
     use time::Month;
 
     fn create_test_vol_quotes() -> Vec<VolQuote> {
@@ -532,21 +532,21 @@ mod tests {
 
         vec![
             // 1M expiry options
-                    VolQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
                 expiry: expiry_1m,
                 strike: 90.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
             },
-                    VolQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
                 expiry: expiry_1m,
                 strike: 100.0,
                 vol: 0.20,
                 option_type: "Call".to_string(),
             },
-                    VolQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
                 expiry: expiry_1m,
                 strike: 110.0,
@@ -554,21 +554,21 @@ mod tests {
                 option_type: "Call".to_string(),
             },
             // 3M expiry options
-                    VolQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
                 expiry: expiry_3m,
                 strike: 90.0,
                 vol: 0.24,
                 option_type: "Call".to_string(),
             },
-                    VolQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
                 expiry: expiry_3m,
                 strike: 100.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
             },
-                    VolQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string().into(),
                 expiry: expiry_3m,
                 strike: 110.0,
@@ -737,9 +737,10 @@ mod tests {
             },
         ];
 
-        let calibrator = VolSurfaceCalibrator::new("SPY-VOL", 1.0, vec![1.0 / 12.0], vec![95.0, 100.0, 105.0])
-            .with_base_date(base_date)
-            .with_base_currency(Currency::USD);
+        let calibrator =
+            VolSurfaceCalibrator::new("SPY-VOL", 1.0, vec![1.0 / 12.0], vec![95.0, 100.0, 105.0])
+                .with_base_date(base_date)
+                .with_base_currency(Currency::USD);
 
         let result = calibrator.calibrate(&quotes, &market);
         assert!(result.is_err());

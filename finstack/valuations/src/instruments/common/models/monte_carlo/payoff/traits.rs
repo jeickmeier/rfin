@@ -101,8 +101,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::common::mc::traits::state_keys;
     use super::*;
+    use crate::instruments::common::mc::traits::state_keys;
 
     #[test]
     fn test_simple_terminal_payoff() {

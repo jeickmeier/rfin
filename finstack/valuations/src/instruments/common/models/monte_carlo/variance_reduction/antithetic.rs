@@ -131,7 +131,10 @@ fn simulate_path<R, P, D, F>(
     // Create initial path state
     let mut path_state = crate::instruments::common::mc::traits::PathState::new(0, 0.0);
     if !state.is_empty() {
-        path_state.set(crate::instruments::common::mc::traits::state_keys::SPOT, state[0]);
+        path_state.set(
+            crate::instruments::common::mc::traits::state_keys::SPOT,
+            state[0],
+        );
     }
     payoff.on_event(&path_state);
 
@@ -158,9 +161,15 @@ fn simulate_path<R, P, D, F>(
         path_state.step = step + 1;
         path_state.time = t + dt;
         if !state.is_empty() {
-            path_state.set(crate::instruments::common::mc::traits::state_keys::SPOT, state[0]);
+            path_state.set(
+                crate::instruments::common::mc::traits::state_keys::SPOT,
+                state[0],
+            );
             if state.len() > 1 {
-                path_state.set(crate::instruments::common::mc::traits::state_keys::VARIANCE, state[1]);
+                path_state.set(
+                    crate::instruments::common::mc::traits::state_keys::VARIANCE,
+                    state[1],
+                );
             }
         }
 
@@ -171,12 +180,12 @@ fn simulate_path<R, P, D, F>(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::instruments::common::mc::discretization::exact::ExactGbm;
     use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
     use crate::instruments::common::mc::rng::philox::PhiloxRng;
     use crate::instruments::common::mc::time_grid::TimeGrid;
     use crate::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
-    use super::*;
     use finstack_core::currency::Currency;
 
     #[test]
