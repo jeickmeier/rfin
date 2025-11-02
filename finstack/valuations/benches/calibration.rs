@@ -86,7 +86,7 @@ fn create_swap_quotes(base_date: Date, tenors: &[i32]) -> Vec<RatesQuote> {
             float_freq: Frequency::quarterly(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
-            index: "USD-SOFR-3M".to_string(),
+            index: "USD-SOFR-3M".to_string().into(),
         });
     }
 
@@ -147,7 +147,7 @@ fn create_vol_quotes(base_date: Date, num_expiries: usize) -> Vec<VolQuote> {
         for &strike in &strikes {
             let vol = base_vol + ((strike - 100.0_f64).abs() * 0.001); // Smile effect
             quotes.push(VolQuote::OptionVol {
-                underlying: "SPY".to_string(),
+                underlying: "SPY".to_string().into(),
                 expiry,
                 strike,
                 vol,
@@ -251,7 +251,7 @@ fn create_sabr_vol_quotes(
             let vol = base_vol + ((strike - atm_strike).abs() * 0.001); // Smile
 
             quotes.push(VolQuote::OptionVol {
-                underlying: "SPY".to_string(),
+                underlying: "SPY".to_string().into(),
                 expiry,
                 strike,
                 vol,

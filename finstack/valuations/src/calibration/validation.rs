@@ -547,12 +547,25 @@ impl SurfaceValidator for VolSurface {
 
                 // Check monotonicity of total variance
                 if total_var < prev_total_var - 1e-10 {
-                    tracing::warn!(
-                        "Calendar spread arbitrage detected: total variance {:.6} < {:.6} at K={} in {}. \
-                        Consider using SVI or monotone convex fitting for arbitrage-free surfaces.",
-                        total_var, prev_total_var, strike, self.id().as_str()
-                    );
-                    // Keep as warning only for backward compatibility, but log clearly
+                    // In strict mode, escalate to hard error to enforce no-arbitrage
+                    #[cfg(feature = "strict_validation")]
+                    {
+                        return Err(Error::Validation(format!(
+                            "Calendar arbitrage: total variance {:.6} < {:.6} at K={} in {}",
+                            total_var,
+                            prev_total_var,
+                            strike,
+                            self.id().as_str()
+                        )));
+                    }
+                    #[cfg(not(feature = "strict_validation"))]
+                    {
+                        tracing::warn!(
+                            "Calendar spread arbitrage detected: total variance {:.6} < {:.6} at K={} in {}. \
+                            Consider using SVI or monotone convex fitting for arbitrage-free surfaces.",
+                            total_var, prev_total_var, strike, self.id().as_str()
+                        );
+                    }
                 }
 
                 prev_total_var = total_var;
@@ -601,17 +614,32 @@ impl SurfaceValidator for VolSurface {
                 // However, implied vol smiles typically show the opposite (actual > interpolated)
                 // so we check for extreme violations that would create arbitrage
                 if w2 > w2_interpolated * 1.5 || w2 < w2_interpolated * 0.5 {
-                    tracing::warn!(
-                        "Potential butterfly arbitrage at T={:.2}, K={:.2} in {}: \
-                        total_var={:.6} vs interpolated={:.6} (ratio {:.2}). \
-                        Consider SVI or monotone convex fitting.",
-                        expiry,
-                        k2,
-                        self.id().as_str(),
-                        w2,
-                        w2_interpolated,
-                        w2 / w2_interpolated
-                    );
+                    #[cfg(feature = "strict_validation")]
+                    {
+                        return Err(Error::Validation(format!(
+                            "Butterfly arbitrage at T={:.2}, K={:.2} in {}: total_var={:.6} vs interpolated={:.6} (ratio {:.2})",
+                            expiry,
+                            k2,
+                            self.id().as_str(),
+                            w2,
+                            w2_interpolated,
+                            w2 / w2_interpolated
+                        )));
+                    }
+                    #[cfg(not(feature = "strict_validation"))]
+                    {
+                        tracing::warn!(
+                            "Potential butterfly arbitrage at T={:.2}, K={:.2} in {}: \
+                            total_var={:.6} vs interpolated={:.6} (ratio {:.2}). \
+                            Consider SVI or monotone convex fitting.",
+                            expiry,
+                            k2,
+                            self.id().as_str(),
+                            w2,
+                            w2_interpolated,
+                            w2 / w2_interpolated
+                        );
+                    }
                 }
             }
         }

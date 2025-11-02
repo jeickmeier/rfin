@@ -82,7 +82,7 @@ fn test_discount_curve_swap_repricing_0_1bp() {
             float_freq: Frequency::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
-            index: "USD-OIS".to_string(),
+            index: "USD-OIS".to_string().into(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 2),
@@ -91,7 +91,7 @@ fn test_discount_curve_swap_repricing_0_1bp() {
             float_freq: Frequency::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
-            index: "USD-OIS".to_string(),
+            index: "USD-OIS".to_string().into(),
         },
         RatesQuote::Swap {
             maturity: base_date + time::Duration::days(365 * 5),
@@ -100,7 +100,7 @@ fn test_discount_curve_swap_repricing_0_1bp() {
             float_freq: Frequency::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
-            index: "USD-OIS".to_string(),
+            index: "USD-OIS".to_string().into(),
         },
     ];
 

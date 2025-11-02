@@ -218,8 +218,9 @@ impl SimpleCalibration {
                     .knots(knots)
                     .build()?;
 
-                let report = CalibrationReport::for_type("yield_curve", BTreeMap::new(), 0)
+                let mut report = CalibrationReport::for_type("yield_curve", BTreeMap::new(), 0)
                     .with_metadata("validation", "fallback_deposit_curve");
+                report.success = false;
 
                 (curve, report)
             }
@@ -489,7 +490,7 @@ impl SimpleCalibration {
                 match vol_quote {
                     VolQuote::OptionVol { underlying, .. } => {
                         quotes_by_underlying
-                            .entry(underlying.to_owned())
+                            .entry(underlying.to_string())
                             .or_default()
                             .push(vol_quote.clone());
                     }
@@ -747,7 +748,7 @@ mod tests {
                 float_freq: Frequency::daily(),
                 fixed_dc: DayCount::Act365F,
                 float_dc: DayCount::Act365F,
-                index: "USD-OIS".to_string(),
+                index: "USD-OIS".to_string().into(),
             }),
             MarketQuote::Rates(RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
@@ -756,7 +757,7 @@ mod tests {
                 float_freq: Frequency::quarterly(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
-                index: "USD-SOFR-3M".to_string(),
+                index: "USD-SOFR-3M".to_string().into(),
             }),
             MarketQuote::Credit(CreditQuote::CDS {
                 entity: "AAPL".to_string(),

@@ -41,6 +41,8 @@ pub struct DiscountCurveCalibrator {
     pub config: CalibrationConfig,
     /// Currency for the curve
     pub currency: Currency,
+    /// Optional calendar identifier for schedule generation
+    pub calendar_id: Option<String>,
 }
 
 impl DiscountCurveCalibrator {
@@ -52,6 +54,7 @@ impl DiscountCurveCalibrator {
             solve_interp: InterpStyle::MonotoneConvex, // Default; explicit and consistent
             config: CalibrationConfig::default(),      // Defaults to multi-curve mode
             currency,
+            calendar_id: None,
         }
     }
 
@@ -70,6 +73,12 @@ impl DiscountCurveCalibrator {
     /// Set multi-curve framework configuration.
     pub fn with_multi_curve_config(mut self, multi_curve_config: MultiCurveConfig) -> Self {
         self.config.multi_curve = multi_curve_config;
+        self
+    }
+
+    /// Set an optional calendar identifier for schedule generation.
+    pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
+        self.calendar_id = Some(calendar_id.into());
         self
     }
 
@@ -401,7 +410,7 @@ impl DiscountCurveCalibrator {
                 } => {
                     format!(
                         "SWAP-{}-{}-fix{:?}-flt{:?}-{:06}",
-                        index, maturity, fixed_freq, float_freq, residual_key_counter
+                        index.as_str(), maturity, fixed_freq, float_freq, residual_key_counter
                     )
                 }
                 RatesQuote::BasisSwap {
@@ -697,7 +706,7 @@ impl DiscountCurveCalibrator {
                     freq: *fixed_freq,
                     dc: *fixed_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: None,
+                    calendar_id: self.calendar_id.clone(),
                     stub: StubKind::None,
                     par_method: None,
                     compounding_simple: true,
@@ -712,7 +721,7 @@ impl DiscountCurveCalibrator {
                     freq: *float_freq,
                     dc: *float_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: None,
+                    calendar_id: self.calendar_id.clone(),
                     stub: StubKind::None,
                     reset_lag_days: 2,
                     start: self.base_date,
@@ -874,15 +883,19 @@ impl DiscountCurveCalibrator {
             }
         }
 
-        // Warn if using forward-dependent instruments for discount curve calibration
-        // (strict mode to error on this could be added via config.multi_curve.enforce_separation)
+        // Enforce separation if configured: do not allow forward-dependent instruments for discount curve
         if has_forward_dependent && !has_ois_suitable {
-            tracing::warn!(
-                "Discount curve calibration using forward-dependent instruments (FRA, Future, Swap). \
-                 Best practice: use OIS swaps (SOFR/ESTR/SONIA) or deposits for discount curves, \
-                 and calibrate forward curves separately. Forward curves must be available in the \
-                 market context for these instruments to price correctly in multi-curve mode."
-            );
+            if self.config.multi_curve.enforce_separation {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ));
+            } else {
+                tracing::warn!(
+                    "Discount curve calibration using forward-dependent instruments (FRA, Future, non-OIS Swap). \
+                     Best practice: use OIS swaps (SOFR/ESTR/SONIA) or deposits for discount curves, \
+                     and calibrate forward curves separately."
+                );
+            }
         }
 
         Ok(())
@@ -965,14 +978,14 @@ mod tests {
             "FRAs should not be suitable for OIS"
         );
 
-        let ois_swap = RatesQuote::Swap {
+            let ois_swap = RatesQuote::Swap {
             maturity: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             rate: 0.02,
             fixed_freq: Frequency::annual(),
             float_freq: Frequency::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
-            index: "SOFR".to_string(),
+                index: "SOFR".to_string().into(),
         };
         assert!(
             ois_swap.requires_forward_curve(),
@@ -983,14 +996,14 @@ mod tests {
             "SOFR swaps should be OIS suitable"
         );
 
-        let libor_swap = RatesQuote::Swap {
+            let libor_swap = RatesQuote::Swap {
             maturity: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             rate: 0.02,
             fixed_freq: Frequency::semi_annual(),
             float_freq: Frequency::quarterly(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
-            index: "3M-LIBOR".to_string(),
+                index: "3M-LIBOR".to_string().into(),
         };
         assert!(
             libor_swap.requires_forward_curve(),
@@ -1031,7 +1044,7 @@ mod tests {
                 float_freq: Frequency::quarterly(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
-                index: "USD-SOFR-3M".to_string(),
+                index: "USD-SOFR-3M".to_string().into(),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365 * 2),
@@ -1040,7 +1053,7 @@ mod tests {
                 float_freq: Frequency::quarterly(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
-                index: "USD-SOFR-3M".to_string(),
+                index: "USD-SOFR-3M".to_string().into(),
             },
         ]
     }
@@ -1307,7 +1320,7 @@ mod tests {
                 float_freq: Frequency::daily(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
-                index: "USD-OIS".to_string(),
+                index: "USD-OIS".to_string().into(),
             },
         ];
 
@@ -1425,7 +1438,7 @@ mod tests {
                 float_freq: Frequency::daily(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
-                index: "USD-OIS".to_string(),
+                index: "USD-OIS".to_string().into(),
             },
             RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365 * 2),
@@ -1434,7 +1447,7 @@ mod tests {
                 float_freq: Frequency::daily(),
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
-                index: "USD-OIS".to_string(),
+                index: "USD-OIS".to_string().into(),
             },
         ];
 

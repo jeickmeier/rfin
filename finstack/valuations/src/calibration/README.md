@@ -156,6 +156,13 @@ The `SwaptionVolCalibrator` estimates forward swap rates and annuities from appr
 - Business day adjustments with holiday calendar support
 - Reset lags, settlement conventions, and market-standard interpolation
 
+### New in this release (market-standards updates)
+- strict_validation feature flag to escalate calendar/butterfly arbitrage checks to hard errors (`--features strict_validation`)
+- Multi-curve separation enforcement via `CalibrationConfig.multi_curve.enforce_separation`
+- Explicit discount curve selection for equity/FX vol surfaces (require `discount_id` unless unambiguous)
+- Optional `calendar_id` on calibrators for schedule generation
+- Newtype IDs: `IndexId` (rates index) and `UnderlyingId` (option underlyings) for safer APIs
+
 ## Error Handling & Diagnostics
 
 The framework provides comprehensive diagnostics:

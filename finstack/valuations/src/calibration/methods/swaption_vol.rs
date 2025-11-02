@@ -73,6 +73,8 @@ pub struct SwaptionVolCalibrator {
     pub market_conventions: SwaptionMarketConvention,
     /// Calibration configuration
     pub config: CalibrationConfig,
+    /// Optional calendar identifier for schedule generation
+    pub calendar_id: Option<String>,
 }
 
 impl SwaptionVolCalibrator {
@@ -117,6 +119,7 @@ impl SwaptionVolCalibrator {
             currency,
             market_conventions: SwaptionMarketConvention::from_currency(currency),
             config: CalibrationConfig::default(),
+            calendar_id: None,
         }
     }
 
@@ -142,6 +145,12 @@ impl SwaptionVolCalibrator {
     /// By default, beta is currency-aware: 0.5 for USD/EUR rates, 0.0 for normal vols.
     pub fn with_sabr_beta(mut self, beta: f64) -> Self {
         self.sabr_beta = beta;
+        self
+    }
+
+    /// Set an optional calendar identifier for schedule generation.
+    pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
+        self.calendar_id = Some(calendar_id.into());
         self
     }
 
@@ -199,7 +208,7 @@ impl SwaptionVolCalibrator {
                 self.market_conventions.float_freq,
                 StubKind::None,
                 BusinessDayConvention::Following,
-                None,
+                self.calendar_id.as_deref(),
             );
 
             if float_sched.dates.len() < 2 {
@@ -267,7 +276,7 @@ impl SwaptionVolCalibrator {
             self.market_conventions.fixed_freq,
             StubKind::None,
             BusinessDayConvention::Following,
-            None,
+            self.calendar_id.as_deref(),
         );
         let dates = sched.dates;
         if dates.len() < 2 {

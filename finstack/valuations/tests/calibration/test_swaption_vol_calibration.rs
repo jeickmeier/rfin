@@ -262,7 +262,7 @@ fn test_swaption_vol_calibration_via_simple_calibration() {
             float_freq: Frequency::daily(),
             fixed_dc: DayCount::Thirty360,
             float_dc: DayCount::Act360,
-            index: "USD-OIS".to_string(),
+            index: "USD-OIS".to_string().into(),
         }),
     ];
 

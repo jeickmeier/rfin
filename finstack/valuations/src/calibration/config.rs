@@ -11,6 +11,15 @@ use finstack_core::progress::ProgressReporter;
 
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
+/// Runtime validation behavior for arbitrage/consistency checks.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ValidationMode {
+    /// Emit warnings (non-fatal) when validations fail
+    Warn,
+    /// Treat validation failures as hard errors
+    Error,
+}
+
 
 /// Solver type selection for calibration.
 ///
@@ -93,6 +102,8 @@ pub struct CalibrationConfig {
     /// Progress reporter for long-running calibrations (opt-in)
     #[serde(skip)]
     pub progress: ProgressReporter,
+    /// Runtime validation mode (warnings vs errors). Feature `strict_validation` may still harden checks.
+    pub validation_mode: ValidationMode,
 }
 
 impl Default for CalibrationConfig {
@@ -109,6 +120,7 @@ impl Default for CalibrationConfig {
             use_fd_sabr_gradients: false, // Use fast analytical approximations by default
             explain: ExplainOpts::default(), // Disabled by default (zero overhead)
             progress: ProgressReporter::default(), // Disabled by default (zero overhead)
+            validation_mode: ValidationMode::Warn,
         }
     }
 }
@@ -195,6 +207,7 @@ impl CalibrationConfig {
             use_fd_sabr_gradients: true, // Use more accurate FD gradients for conservative mode
             explain: ExplainOpts::default(),
             progress: ProgressReporter::default(),
+            validation_mode: ValidationMode::Warn,
         }
     }
 
@@ -232,6 +245,7 @@ impl CalibrationConfig {
             use_fd_sabr_gradients: false, // Use fast analytical approximations for speed
             explain: ExplainOpts::default(),
             progress: ProgressReporter::default(),
+            validation_mode: ValidationMode::Warn,
         }
     }
 
@@ -269,6 +283,7 @@ impl CalibrationConfig {
             use_fd_sabr_gradients: false, // Use fast analytical approximations
             explain: ExplainOpts::default(),
             progress: ProgressReporter::default(),
+            validation_mode: ValidationMode::Warn,
         }
     }
 

@@ -78,7 +78,7 @@ fn demo_multi_curve_mode(base_date: Date) -> Result<()> {
             float_freq: Frequency::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
-            index: "USD-OIS".to_string(),
+            index: "USD-OIS".to_string().into(),
         }),
         MarketQuote::Rates(RatesQuote::Swap {
             maturity: date(2026, 1, 2),
@@ -87,7 +87,7 @@ fn demo_multi_curve_mode(base_date: Date) -> Result<()> {
             float_freq: Frequency::annual(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
-            index: "USD-OIS".to_string(),
+            index: "USD-OIS".to_string().into(),
         }),
     ];
 
@@ -100,7 +100,7 @@ fn demo_multi_curve_mode(base_date: Date) -> Result<()> {
             float_freq: Frequency::quarterly(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
-            index: "USD-SOFR-3M".to_string(),
+            index: "USD-SOFR-3M".to_string().into(),
         }),
         MarketQuote::Rates(RatesQuote::Swap {
             maturity: date(2026, 1, 2),
@@ -109,7 +109,7 @@ fn demo_multi_curve_mode(base_date: Date) -> Result<()> {
             float_freq: Frequency::quarterly(),
             fixed_dc: DayCount::Act360,
             float_dc: DayCount::Act360,
-            index: "USD-SOFR-3M".to_string(),
+            index: "USD-SOFR-3M".to_string().into(),
         }),
     ];
 

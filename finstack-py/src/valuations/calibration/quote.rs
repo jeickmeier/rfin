@@ -190,7 +190,7 @@ impl PyRatesQuote {
             float_freq: float_freq.inner,
             fixed_dc,
             float_dc,
-            index: index.to_string(),
+            index: index.to_string().into(),
         }))
     }
 
@@ -460,7 +460,7 @@ impl PyVolQuote {
     ) -> PyResult<Self> {
         let expiry_date = py_to_date(&expiry)?;
         Ok(Self::new(VolQuote::OptionVol {
-            underlying: underlying.to_string(),
+            underlying: underlying.to_string().into(),
             expiry: expiry_date,
             strike,
             vol,

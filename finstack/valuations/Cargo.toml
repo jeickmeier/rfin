@@ -40,6 +40,7 @@ parallel = ["dep:rayon", "finstack-core/parallel"]
 stochastic = ["dep:rand", "dep:rand_pcg", "dep:rand_distr", "dep:rand_core"]
 mc = ["stochastic", "dep:nalgebra"]
 slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)
+strict_validation = []  # Enforce no-arbitrage checks as hard errors in validators
 
 [[bench]]
 name = "bond_pricing"

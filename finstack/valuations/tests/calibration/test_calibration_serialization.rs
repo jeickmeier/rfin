@@ -83,6 +83,7 @@ fn test_calibration_config_serialization() {
         use_fd_sabr_gradients: false,
         explain: finstack_core::explain::ExplainOpts::default(),
         progress: finstack_core::progress::ProgressReporter::default(),
+        ..CalibrationConfig::default()
     };
 
     let restored = roundtrip_json(&config);
@@ -148,7 +149,7 @@ fn test_rates_quote_serialization() {
         float_freq: Frequency::quarterly(),
         fixed_dc: DayCount::Thirty360,
         float_dc: DayCount::Act360,
-        index: "USD-SOFR-3M".to_string(),
+        index: "USD-SOFR-3M".to_string().into(),
     };
     let _ = roundtrip_json(&swap);
 
@@ -210,7 +211,7 @@ fn test_vol_quote_serialization() {
 
     // Option vol quote
     let option_vol = VolQuote::OptionVol {
-        underlying: "SPY".to_string(),
+        underlying: "SPY".to_string().into(),
         expiry: base_date + time::Duration::days(90),
         strike: 450.0,
         vol: 0.20,
@@ -269,7 +270,7 @@ fn test_market_quote_serialization() {
             currency: Currency::USD,
         }),
         MarketQuote::Vol(VolQuote::OptionVol {
-            underlying: "SPY".to_string(),
+            underlying: "SPY".to_string().into(),
             expiry: base_date + time::Duration::days(90),
             strike: 450.0,
             vol: 0.20,
@@ -621,6 +622,7 @@ fn test_complex_calibration_workflow_serialization() {
         use_fd_sabr_gradients: true,
         explain: finstack_core::explain::ExplainOpts::default(),
         progress: finstack_core::progress::ProgressReporter::default(),
+        ..CalibrationConfig::default()
     };
 
     // Create multiple calibrators with this config

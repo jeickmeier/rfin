@@ -417,7 +417,7 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
         use finstack_core::market_data::scalars::MarketScalar;
 
         let spot = base_context
-            .price(&underlying)
+            .price(underlying.as_ref())
             .map(|scalar| match scalar {
                 MarketScalar::Price(money) => money.amount(),
                 MarketScalar::Unitless(value) => *value,
@@ -442,34 +442,25 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
             if let Some(ref id) = self.discount_id {
                 base_context.get_discount(id.as_str())?
             } else {
-                let inferred = format!("{}-OIS", self.base_currency);
-                match base_context.get_discount(inferred.as_str()) {
-                    Ok(c) => {
-                        tracing::debug!(
-                            "Vol surface calibration for {} using inferred discount curve: {}",
-                            self.surface_id,
-                            inferred
-                        );
-                        c
+                // If there is exactly one discount in context, use it; otherwise require explicit id
+                let mut iter = base_context.curves_of_type("Discount");
+                let first = iter.next();
+                if let Some((id, _)) = first {
+                    if iter.next().is_none() {
+                        base_context.get_discount(id.as_str())?
+                    } else {
+                        return Err(finstack_core::Error::Input(
+                            finstack_core::error::InputError::NotFound {
+                                id: "discount_id (ambiguous)".to_string(),
+                            },
+                        ));
                     }
-                    Err(_) => {
-                        // Fallback to first discount curve available in the context
-                        let mut iter = base_context.curves_of_type("Discount");
-                        if let Some((id, _storage)) = iter.next() {
-                            tracing::warn!(
-                                "Vol surface calibration for {} auto-selecting first available discount curve: {}. \
-                                Consider specifying explicit discount_id to avoid ambiguity.",
-                                self.surface_id, id
-                            );
-                            base_context.get_discount(id.as_str())?
-                        } else {
-                            return Err(finstack_core::Error::Input(
-                                finstack_core::error::InputError::NotFound {
-                                    id: "discount curve".to_string(),
-                                },
-                            ));
-                        }
-                    }
+                } else {
+                    return Err(finstack_core::Error::Input(
+                        finstack_core::error::InputError::NotFound {
+                            id: "discount curve".to_string(),
+                        },
+                    ));
                 }
             }
         };
@@ -530,6 +521,7 @@ mod tests {
     use super::*;
     use finstack_core::dates::Date;
     use finstack_core::math::interp::InterpStyle;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
 
     fn create_test_vol_quotes() -> Vec<VolQuote> {
@@ -539,44 +531,44 @@ mod tests {
 
         vec![
             // 1M expiry options
-            VolQuote::OptionVol {
-                underlying: "SPY".to_string(),
+                    VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
                 expiry: expiry_1m,
                 strike: 90.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
             },
-            VolQuote::OptionVol {
-                underlying: "SPY".to_string(),
+                    VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
                 expiry: expiry_1m,
                 strike: 100.0,
                 vol: 0.20,
                 option_type: "Call".to_string(),
             },
-            VolQuote::OptionVol {
-                underlying: "SPY".to_string(),
+                    VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
                 expiry: expiry_1m,
                 strike: 110.0,
                 vol: 0.21,
                 option_type: "Call".to_string(),
             },
             // 3M expiry options
-            VolQuote::OptionVol {
-                underlying: "SPY".to_string(),
+                    VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
                 expiry: expiry_3m,
                 strike: 90.0,
                 vol: 0.24,
                 option_type: "Call".to_string(),
             },
-            VolQuote::OptionVol {
-                underlying: "SPY".to_string(),
+                    VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
                 expiry: expiry_3m,
                 strike: 100.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
             },
-            VolQuote::OptionVol {
-                underlying: "SPY".to_string(),
+                    VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
                 expiry: expiry_3m,
                 strike: 110.0,
                 vol: 0.23,
@@ -692,5 +684,65 @@ mod tests {
             assert!(*vol > 0.0);
             assert!(*vol < 2.0); // Reasonable vol range
         }
+    }
+
+    #[test]
+    fn error_when_discount_ambiguous_without_id() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        // Two discount curves in context
+        let disc_usd = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .knots(vec![(0.0, 1.0), (5.0, 0.80)])
+            .build()
+            .unwrap();
+        let disc_eur = DiscountCurve::builder("EUR-OIS")
+            .base_date(base_date)
+            .knots(vec![(0.0, 1.0), (5.0, 0.85)])
+            .build()
+            .unwrap();
+        let market = MarketContext::new()
+            .insert_discount(disc_usd)
+            .insert_discount(disc_eur)
+            .insert_price(
+                "SPY",
+                finstack_core::market_data::scalars::MarketScalar::Unitless(100.0),
+            )
+            .insert_price(
+                "SPY-DIVYIELD",
+                finstack_core::market_data::scalars::MarketScalar::Unitless(0.02),
+            );
+
+        let quotes = vec![
+            VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
+                expiry: base_date + time::Duration::days(30),
+                strike: 100.0,
+                vol: 0.20,
+                option_type: "Call".to_string(),
+            },
+            VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
+                expiry: base_date + time::Duration::days(30),
+                strike: 95.0,
+                vol: 0.21,
+                option_type: "Call".to_string(),
+            },
+            VolQuote::OptionVol {
+                underlying: "SPY".to_string().into(),
+                expiry: base_date + time::Duration::days(30),
+                strike: 105.0,
+                vol: 0.22,
+                option_type: "Call".to_string(),
+            },
+        ];
+
+        let calibrator = VolSurfaceCalibrator::new("SPY-VOL", 1.0, vec![1.0 / 12.0], vec![95.0, 100.0, 105.0])
+            .with_base_date(base_date)
+            .with_base_currency(Currency::USD);
+
+        let result = calibrator.calibrate(&quotes, &market);
+        assert!(result.is_err());
+        let err = format!("{}", result.err().unwrap());
+        assert!(err.contains("discount_id (ambiguous)"));
     }
 }

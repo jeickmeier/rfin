@@ -311,6 +311,10 @@ pub struct IndexTag;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PriceTag;
 
+/// Marker type for underlying asset identifiers (equity, fx, commodity)
+#[derive(Debug, Clone, Copy, Default)]
+pub struct UnderlyingTag;
+
 /// Type aliases for common ID types
 /// Type-safe identifier for market data curves
 pub type CurveId = Id<CurveTag>;
@@ -320,6 +324,8 @@ pub type InstrumentId = Id<InstrumentTag>;
 pub type IndexId = Id<IndexTag>;
 /// Type-safe identifier for market prices/scalars
 pub type PriceId = Id<PriceTag>;
+/// Type-safe identifier for underlying assets
+pub type UnderlyingId = Id<UnderlyingTag>;
 
 #[cfg(test)]
 mod tests {

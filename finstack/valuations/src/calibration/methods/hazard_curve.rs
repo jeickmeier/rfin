@@ -230,10 +230,38 @@ impl HazardCurveCalibrator {
                 .map(|&(_, l)| l)
                 .unwrap_or(*market_spread_bp / 10000.0 / (1.0 - self.recovery_rate));
 
-            let solved = solver.solve(objective, initial_guess)?;
+            // Bracket scan over positive lambdas to improve robustness
+            let grid: [f64; 14] = [
+                1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 5e-2, 0.1, 0.2, 0.5, 1.0,
+            ];
+            let mut solved = initial_guess.max(1e-6);
+            let mut last: Option<(f64, f64)> = None;
+            for &x in &grid {
+                let v = objective(x);
+                if let Some((px, pv)) = last {
+                    if pv.is_finite() && v.is_finite() && pv.signum() != v.signum() {
+                        // Use configured 1D solver within bracket midpoint
+                        let guess = 0.5 * (px + x);
+                        solved = crate::calibration::solve_1d(
+                            self.config.solver_kind.clone(),
+                            self.config.tolerance,
+                            self.config.max_iterations,
+                            objective,
+                            guess,
+                        )?;
+                        break;
+                    }
+                }
+                last = Some((x, v));
+            }
+
+            // If bracket search didn't resolve, fall back to direct solve
+            if !solved.is_finite() || solved <= 0.0 {
+                solved = solver.solve(objective, initial_guess.max(1e-6))?;
+            }
 
             // Validate hazard rate is positive (market standards requirement)
-            if solved <= 0.0 {
+            if solved <= 0.0 || !solved.is_finite() {
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
                         "Calibrated hazard rate {:.6} for maturity {} is not positive. \

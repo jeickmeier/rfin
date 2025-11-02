@@ -19,7 +19,7 @@
 pub mod id;
 pub mod rates;
 
-pub use id::{CurveId, Id, IndexId, InstrumentId, PriceId, TypeTag};
+pub use id::{CurveId, Id, IndexId, InstrumentId, PriceId, TypeTag, UnderlyingId};
 pub use rates::{Bps, Percentage, Rate};
 
 // Re-export commonly used types from other modules for convenience

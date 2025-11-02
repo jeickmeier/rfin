@@ -134,7 +134,7 @@ impl JsRatesQuote {
                 float_freq: float_freq.inner(),
                 fixed_dc: fixed_day_count,
                 float_dc: float_day_count,
-                index: index.to_string(),
+                index: index.to_string().into(),
             },
         })
     }
@@ -227,7 +227,7 @@ impl JsVolQuote {
     ) -> JsVolQuote {
         Self {
             inner: VolQuote::OptionVol {
-                underlying: underlying.to_string(),
+                underlying: underlying.to_string().into(),
                 expiry: expiry.inner(),
                 strike,
                 vol,

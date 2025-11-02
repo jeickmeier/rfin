@@ -1,6 +1,7 @@
 //! Market quote data structures and types.
 
 use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::types::{IndexId, UnderlyingId};
 use finstack_core::prelude::*;
 
 /// Interest rate instrument quotes for yield curve calibration.
@@ -50,7 +51,7 @@ pub enum RatesQuote {
         /// Float leg day count
         float_dc: DayCount,
         /// Float leg index (e.g., "3M-LIBOR")
-        index: String,
+        index: IndexId,
     },
     /// Basis Swap quote for multi-curve construction
     BasisSwap {
@@ -93,16 +94,68 @@ impl RatesQuote {
             RatesQuote::Deposit { .. } => true,
             // OIS swaps would have index like "SOFR", "EONIA", etc.
             RatesQuote::Swap { index, .. } => {
-                index.contains("SOFR")
-                    || index.contains("EONIA")
-                    || index.contains("SONIA")
-                    || index.contains("OIS")
+                // Tokenize and match exact tokens to avoid false positives like "13MOIS"
+                let up = index.as_ref().to_uppercase();
+                let ascii = up.replace('€', "E");
+                let tokens: Vec<String> = ascii
+                    .split(|c: char| !c.is_ascii_alphanumeric())
+                    .map(|s| s.to_string())
+                    .collect();
+                let ois_tokens = [
+                    "OIS", "SOFR", "SONIA", "EONIA", "ESTR", "€STR", "TONAR", "TONA",
+                ];
+                tokens
+                    .iter()
+                    .any(|t| ois_tokens.contains(&t.as_str()))
             }
             _ => false,
         }
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::{Date, DayCount, Frequency};
+    use time::Month;
+
+    #[test]
+    fn ois_detection_handles_tokens() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let sofr = RatesQuote::Swap {
+            maturity: base + time::Duration::days(365),
+            rate: 0.03,
+            fixed_freq: Frequency::annual(),
+            float_freq: Frequency::daily(),
+            fixed_dc: DayCount::Thirty360,
+            float_dc: DayCount::Act360,
+            index: "SOFR".to_string().into(),
+        };
+        assert!(sofr.is_ois_suitable());
+
+        let estr = RatesQuote::Swap {
+            maturity: base + time::Duration::days(365),
+            rate: 0.03,
+            fixed_freq: Frequency::annual(),
+            float_freq: Frequency::daily(),
+            fixed_dc: DayCount::Thirty360,
+            float_dc: DayCount::Act360,
+            index: "€STR".to_string().into(),
+        };
+        assert!(estr.is_ois_suitable());
+
+        let false_positive = RatesQuote::Swap {
+            maturity: base + time::Duration::days(365),
+            rate: 0.03,
+            fixed_freq: Frequency::annual(),
+            float_freq: Frequency::daily(),
+            fixed_dc: DayCount::Thirty360,
+            float_dc: DayCount::Act360,
+            index: "13MOIS".to_string().into(),
+        };
+        assert!(!false_positive.is_ois_suitable());
+    }
+}
 /// Credit instrument quotes for hazard curve and correlation calibration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum CreditQuote {
@@ -157,7 +210,7 @@ pub enum VolQuote {
     /// Option implied volatility quote
     OptionVol {
         /// Underlying identifier
-        underlying: String,
+        underlying: UnderlyingId,
         /// Option expiry
         expiry: Date,
         /// Strike (rate for swaptions, price for equity/FX)

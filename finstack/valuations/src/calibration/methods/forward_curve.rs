@@ -47,6 +47,8 @@ pub struct ForwardCurveCalibrator {
     pub solve_interp: InterpStyle,
     /// Calibration configuration
     pub config: CalibrationConfig,
+    /// Optional calendar identifier for schedule generation
+    pub calendar_id: Option<String>,
 }
 
 impl ForwardCurveCalibrator {
@@ -58,15 +60,22 @@ impl ForwardCurveCalibrator {
         currency: Currency,
         discount_curve_id: impl Into<CurveId>,
     ) -> Self {
+        // Choose sensible time-axis day count defaults by currency
+        let default_time_dc = match currency {
+            Currency::USD | Currency::EUR | Currency::CHF => DayCount::Act360,
+            Currency::GBP | Currency::JPY => DayCount::Act365F,
+            _ => DayCount::Act365F,
+        };
         Self {
             fwd_curve_id: fwd_curve_id.into(),
             tenor_years,
             base_date,
             currency,
             discount_curve_id: discount_curve_id.into(),
-            time_dc: DayCount::Act365F,
+            time_dc: default_time_dc,
             solve_interp: InterpStyle::Linear,
             config: CalibrationConfig::default(),
+            calendar_id: None,
         }
     }
 
@@ -85,6 +94,12 @@ impl ForwardCurveCalibrator {
     /// Set the calibration configuration.
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
+        self
+    }
+
+    /// Set an optional calendar identifier for schedule generation.
+    pub fn with_calendar_id(mut self, calendar_id: impl Into<String>) -> Self {
+        self.calendar_id = Some(calendar_id.into());
         self
     }
 
@@ -467,7 +482,7 @@ impl ForwardCurveCalibrator {
                 index,
             } => {
                 // Only process swaps that match our tenor
-                if !self.matches_tenor(index, float_freq) {
+                if !self.matches_tenor(index.as_ref(), float_freq) {
                     return Ok(0.0); // Skip non-matching swaps
                 }
 
@@ -477,7 +492,7 @@ impl ForwardCurveCalibrator {
                     dc: *fixed_dc,
                     disc_id: self.discount_curve_id.to_owned(),
                     bdc: BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: None,
+                    calendar_id: self.calendar_id.clone(),
                     stub: StubKind::None,
                     par_method: None,
                     compounding_simple: true,
@@ -492,7 +507,7 @@ impl ForwardCurveCalibrator {
                     freq: *float_freq,
                     dc: *float_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: None,
+                    calendar_id: self.calendar_id.clone(),
                     stub: StubKind::None,
                     reset_lag_days: 2,
                     start: self.base_date,
@@ -738,7 +753,7 @@ impl ForwardCurveCalibrator {
             RatesQuote::Swap {
                 maturity, index, ..
             } => {
-                format!("SWAP-{}-{}-{:06}", index, maturity, counter)
+                format!("SWAP-{}-{}-{:06}", index.as_ref(), maturity, counter)
             }
             RatesQuote::BasisSwap {
                 maturity,
