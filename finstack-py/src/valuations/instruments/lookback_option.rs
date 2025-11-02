@@ -162,7 +162,7 @@ impl PyLookbackOption {
         builder = builder.option_type(opt_type);
         builder = builder.lookback_type(lookback_type_enum);
         builder = builder.expiry(expiry_date);
-        builder = builder.notional(1.0);
+        builder = builder.notional(notional_money);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
@@ -223,9 +223,12 @@ impl PyLookbackOption {
     }
 
     /// Notional amount.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
-    fn notional(&self) -> f64 {
-        self.inner.notional
+    fn notional(&self) -> PyMoney {
+        PyMoney::new(self.inner.notional)
     }
 
     fn __repr__(&self) -> String {

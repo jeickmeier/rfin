@@ -101,7 +101,7 @@ impl MetricCalculator for CleanPriceCalculator {
 fn get_original_notional(context: &MetricContext) -> Result<f64> {
     // Use notional from context if available
     if let Some(notional) = context.notional {
-        return Ok(notional);
+        return Ok(notional.amount());
     }
 
     // Fallback: use base_value as notional approximation

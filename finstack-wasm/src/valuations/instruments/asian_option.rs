@@ -103,7 +103,7 @@ impl JsAsianOption {
         builder = builder.averaging_method(avg_method);
         builder = builder.expiry(expiry.inner());
         builder = builder.fixing_dates(fixing_dates_vec);
-        builder = builder.notional(1.0);
+        builder = builder.notional(notional.inner());
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.disc_id(curve_id_from_str(discount_curve));
         builder = builder.spot_id(spot_id.to_string());
@@ -162,8 +162,8 @@ impl JsAsianOption {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn notional(&self) -> f64 {
-        self.0.notional
+    pub fn notional(&self) -> JsMoney {
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]

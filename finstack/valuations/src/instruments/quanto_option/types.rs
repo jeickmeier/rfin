@@ -20,7 +20,7 @@ pub struct QuantoOption {
     pub equity_strike: Money,
     pub option_type: OptionType,
     pub expiry: Date,
-    pub notional: f64,
+    pub notional: Money,
     pub domestic_currency: Currency,
     pub foreign_currency: Currency,
     pub correlation: f64, // Correlation between equity and FX

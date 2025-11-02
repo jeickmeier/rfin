@@ -122,7 +122,7 @@ impl QuantoOptionMcPricer {
             crate::instruments::OptionType::Call => {
                 let payoff = QuantoCallPayoff::new(
                     inst.equity_strike.amount(),
-                    inst.notional,
+                    inst.notional.amount(),
                     inst.domestic_currency,
                     inst.foreign_currency,
                     quanto_adjustment,
@@ -141,7 +141,7 @@ impl QuantoOptionMcPricer {
             crate::instruments::OptionType::Put => {
                 let payoff = QuantoPutPayoff::new(
                     inst.equity_strike.amount(),
-                    inst.notional,
+                    inst.notional.amount(),
                     inst.domestic_currency,
                     inst.foreign_currency,
                     quanto_adjustment,
@@ -327,7 +327,7 @@ impl Pricer for QuantoOptionAnalyticalPricer {
             ),
         };
 
-        let pv = Money::new(price * quanto.notional, quanto.domestic_currency);
+        let pv = Money::new(price * quanto.notional.amount(), quanto.domestic_currency);
         Ok(ValuationResult::stamped(quanto.id(), as_of, pv))
     }
 }

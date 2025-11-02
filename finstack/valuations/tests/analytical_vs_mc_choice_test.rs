@@ -27,7 +27,7 @@ mod choice_tests {
             option_type: OptionType::Call,
             expiry: Date::from_calendar_date(2025, time::Month::December, 31).unwrap(),
             averaging_method: AveragingMethod::Geometric,
-            notional: 1.0,
+            notional: Money::new(1.0, Currency::USD),
             fixing_dates: vec![Date::from_calendar_date(2025, time::Month::December, 31).unwrap()],
             day_count: DayCount::Act365F,
             disc_id: CurveId::from("USD-OIS"),

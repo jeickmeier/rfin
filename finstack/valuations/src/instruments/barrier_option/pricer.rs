@@ -69,7 +69,7 @@ impl BarrierOptionMcPricer {
                 crate::instruments::OptionType::Put => (inst.strike.amount() - spot).max(0.0),
             };
             return Ok(finstack_core::money::Money::new(
-                intrinsic * inst.notional,
+                intrinsic * inst.notional.amount(),
                 inst.strike.currency(),
             ));
         }
@@ -129,7 +129,7 @@ impl BarrierOptionMcPricer {
             inst.strike.amount(),
             inst.barrier.amount(),
             mc_barrier_type,
-            inst.notional,
+            inst.notional.amount(),
             maturity_step,
             sigma,
             t,
@@ -242,7 +242,7 @@ impl BarrierOptionMcPricer {
             inst.strike.amount(),
             inst.barrier.amount(),
             mc_barrier_type,
-            inst.notional,
+            inst.notional.amount(),
             maturity_step,
             sigma,
             t,
@@ -459,7 +459,7 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             ),
         };
 
-        let pv = Money::new(price * barrier_opt.notional, barrier_opt.strike.currency());
+        let pv = Money::new(price * barrier_opt.notional.amount(), barrier_opt.strike.currency());
         Ok(ValuationResult::stamped(barrier_opt.id(), as_of, pv))
     }
 }

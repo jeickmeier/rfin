@@ -1,4 +1,4 @@
-use crate::core::money::PyMoney;
+use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{extract_curve_id, extract_instrument_id};
 use finstack_valuations::instruments::barrier_option::types::BarrierType;
@@ -61,7 +61,7 @@ impl PyFxBarrierOption {
         option_type: &str,
         barrier_type: &str,
         expiry: Bound<'_, PyAny>,
-        notional: f64,
+        notional: Bound<'_, PyAny>,
         domestic_currency: Bound<'_, PyAny>,
         foreign_currency: Bound<'_, PyAny>,
         correlation: f64,
@@ -103,6 +103,7 @@ impl PyFxBarrierOption {
             }
         };
 
+        let notional_money = extract_money(&notional)?;
         let strike_money = finstack_core::money::Money::new(strike, for_currency);
         let barrier_money = finstack_core::money::Money::new(barrier, for_currency);
 
@@ -113,7 +114,7 @@ impl PyFxBarrierOption {
         builder = builder.option_type(opt_type);
         builder = builder.barrier_type(barrier_type_enum);
         builder = builder.expiry(expiry_date);
-        builder = builder.notional(notional);
+        builder = builder.notional(notional_money);
         builder = builder.domestic_currency(dom_currency);
         builder = builder.foreign_currency(for_currency);
         builder = builder.correlation(correlation);
@@ -175,9 +176,12 @@ impl PyFxBarrierOption {
     }
 
     /// Notional amount.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
-    fn notional(&self) -> f64 {
-        self.inner.notional
+    fn notional(&self) -> PyMoney {
+        PyMoney::new(self.inner.notional)
     }
 
     /// Correlation.

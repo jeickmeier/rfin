@@ -32,7 +32,7 @@ pub struct AsianOption {
     pub averaging_method: AveragingMethod,
     pub expiry: Date,
     pub fixing_dates: Vec<Date>,
-    pub notional: f64,
+    pub notional: Money,
     pub day_count: finstack_core::dates::DayCount,
     pub disc_id: CurveId,
     pub spot_id: String,

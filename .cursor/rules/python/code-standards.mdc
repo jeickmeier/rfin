@@ -1,7 +1,7 @@
 ---
+description: When python code standards are needed
 alwaysApply: false
 ---
-
 # Finstack Python Bindings — Code Standards, Docstrings, and Binding Principles
 
 This document defines standards for the `finstack-py` Python bindings (PyO3-based) to ensure consistency, determinism, currency‑safety, and ergonomic APIs. Follow these rules for all new and edited bindings.

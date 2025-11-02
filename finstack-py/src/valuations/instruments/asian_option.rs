@@ -180,7 +180,7 @@ impl PyAsianOption {
         builder = builder.averaging_method(avg_method);
         builder = builder.expiry(expiry_date);
         builder = builder.fixing_dates(fixing_dates_vec);
-        builder = builder.notional(1.0);
+        builder = builder.notional(notional_money);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
@@ -272,10 +272,10 @@ impl PyAsianOption {
     /// Notional amount.
     ///
     /// Returns:
-    ///     float: Notional amount.
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
-    fn notional(&self) -> f64 {
-        self.inner.notional
+    fn notional(&self) -> PyMoney {
+        PyMoney::new(self.inner.notional)
     }
 
     /// Discount curve identifier.

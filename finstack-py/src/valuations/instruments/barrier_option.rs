@@ -176,7 +176,7 @@ impl PyBarrierOption {
         builder = builder.option_type(opt_type);
         builder = builder.barrier_type(barrier_type_enum);
         builder = builder.expiry(expiry_date);
-        builder = builder.notional(1.0);
+        builder = builder.notional(notional_money);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
         builder = builder
@@ -244,9 +244,12 @@ impl PyBarrierOption {
     }
 
     /// Notional amount.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
-    fn notional(&self) -> f64 {
-        self.inner.notional
+    fn notional(&self) -> PyMoney {
+        PyMoney::new(self.inner.notional)
     }
 
     fn __repr__(&self) -> String {

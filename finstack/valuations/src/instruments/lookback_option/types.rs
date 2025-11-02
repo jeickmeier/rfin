@@ -27,7 +27,7 @@ pub struct LookbackOption {
     pub option_type: OptionType,
     pub lookback_type: LookbackType,
     pub expiry: Date,
-    pub notional: f64,
+    pub notional: Money,
     pub day_count: finstack_core::dates::DayCount,
     pub disc_id: CurveId,
     pub spot_id: String,

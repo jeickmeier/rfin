@@ -34,7 +34,7 @@ pub struct BarrierOption {
     pub option_type: OptionType,
     pub barrier_type: BarrierType,
     pub expiry: Date,
-    pub notional: f64,
+    pub notional: Money,
     pub day_count: finstack_core::dates::DayCount,
     pub use_gobet_miri: bool,
     pub disc_id: CurveId,

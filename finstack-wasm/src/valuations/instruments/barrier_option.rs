@@ -68,7 +68,6 @@ impl JsBarrierOption {
 
         let strike_money = finstack_core::money::Money::new(strike, notional.inner().currency());
         let barrier_money = finstack_core::money::Money::new(barrier, notional.inner().currency());
-        let notional_amount = notional.inner().amount();
 
         let mut builder = BarrierOption::builder();
         builder = builder.id(instrument_id_from_str(instrument_id));
@@ -78,7 +77,7 @@ impl JsBarrierOption {
         builder = builder.option_type(opt_type);
         builder = builder.barrier_type(barrier_type_enum);
         builder = builder.expiry(expiry.inner());
-        builder = builder.notional(notional_amount);
+        builder = builder.notional(notional.inner());
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
         builder = builder.disc_id(curve_id_from_str(discount_curve));
@@ -145,8 +144,8 @@ impl JsBarrierOption {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn notional(&self) -> f64 {
-        self.0.notional
+    pub fn notional(&self) -> JsMoney {
+        JsMoney::from_inner(self.0.notional)
     }
 
     #[wasm_bindgen(getter, js_name = discountCurve)]

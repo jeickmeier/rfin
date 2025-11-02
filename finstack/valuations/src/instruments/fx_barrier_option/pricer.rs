@@ -111,7 +111,7 @@ impl FxBarrierOptionMcPricer {
             inst.strike.amount(),
             inst.barrier.amount(),
             mc_barrier_type,
-            inst.notional,
+            inst.notional.amount(),
             maturity_step,
             sigma,
             dt,
@@ -312,7 +312,7 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
             ),
         };
 
-        let pv = Money::new(price * fx_barrier.notional, fx_barrier.domestic_currency);
+        let pv = Money::new(price * fx_barrier.notional.amount(), fx_barrier.domestic_currency);
         Ok(ValuationResult::stamped(fx_barrier.id(), as_of, pv))
     }
 }

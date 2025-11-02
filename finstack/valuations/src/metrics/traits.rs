@@ -183,7 +183,7 @@ pub struct MetricContext {
     /// For structured credit: typically pool original balance or tranche original balance.
     /// For bonds: face amount. For other instruments: principal amount.
     /// Used by price calculators to avoid instrument downcasts.
-    pub notional: Option<f64>,
+    pub notional: Option<Money>,
 
     /// Optional resolver to customize per-bucket metric keys.
     ///

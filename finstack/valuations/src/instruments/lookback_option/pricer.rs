@@ -131,7 +131,7 @@ impl LookbackOptionMcPricer {
         let pricer = PathDependentPricer::new(config);
         let result = match (inst.lookback_type, inst.option_type) {
             (LookbackType::FloatingStrike, _) => {
-                let payoff = FloatingStrikeLookbackCall::new(inst.notional, maturity_step);
+                let payoff = FloatingStrikeLookbackCall::new(inst.notional.amount(), maturity_step);
                 pricer.price(
                     &process,
                     spot,
@@ -145,7 +145,7 @@ impl LookbackOptionMcPricer {
             (LookbackType::FixedStrike, crate::instruments::OptionType::Call) => {
                 let payoff = LookbackCall::new(
                     inst.strike.as_ref().unwrap().amount(),
-                    inst.notional,
+                    inst.notional.amount(),
                     maturity_step,
                 );
                 pricer.price(
@@ -161,7 +161,7 @@ impl LookbackOptionMcPricer {
             (LookbackType::FixedStrike, crate::instruments::OptionType::Put) => {
                 let payoff = LookbackPut::new(
                     inst.strike.as_ref().unwrap().amount(),
-                    inst.notional,
+                    inst.notional.amount(),
                     maturity_step,
                 );
                 pricer.price(
@@ -351,7 +351,7 @@ impl Pricer for LookbackOptionAnalyticalPricer {
             .as_ref()
             .map(|s| s.currency())
             .unwrap_or(finstack_core::currency::Currency::USD);
-        let pv = Money::new(price * lookback.notional, currency);
+        let pv = Money::new(price * lookback.notional.amount(), currency);
         Ok(ValuationResult::stamped(lookback.id(), as_of, pv))
     }
 }

@@ -71,7 +71,7 @@ impl AsianOptionMcPricer {
                 crate::instruments::OptionType::Put => (inst.strike.amount() - spot).max(0.0),
             };
             return Ok(Money::new(
-                intrinsic * inst.notional,
+                intrinsic * inst.notional.amount(),
                 inst.strike.currency(),
             ));
         }
@@ -187,7 +187,7 @@ impl AsianOptionMcPricer {
                 // Arithmetic payoff
                 let arith_payoff = AsianCall::new(
                     inst.strike.amount(),
-                    inst.notional,
+                    inst.notional.amount(),
                     crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
                     fixing_steps.clone(),
                 );
@@ -204,7 +204,7 @@ impl AsianOptionMcPricer {
                 // Geometric payoff (same RNG via same seed)
                 let geom_payoff = AsianCall::new(
                     inst.strike.amount(),
-                    inst.notional,
+                    inst.notional.amount(),
                     crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Geometric,
                     fixing_steps.clone(),
                 );
@@ -283,7 +283,7 @@ impl AsianOptionMcPricer {
 
                 let arith_payoff = AsianPut::new(
                     inst.strike.amount(),
-                    inst.notional,
+                    inst.notional.amount(),
                     crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
                     fixing_steps.clone(),
                 );
@@ -299,7 +299,7 @@ impl AsianOptionMcPricer {
 
                 let geom_payoff = AsianPut::new(
                     inst.strike.amount(),
-                    inst.notional,
+                    inst.notional.amount(),
                     crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Geometric,
                     fixing_steps.clone(),
                 );
@@ -372,7 +372,7 @@ impl AsianOptionMcPricer {
                     crate::instruments::OptionType::Call => {
                         let payoff = AsianCall::new(
                             inst.strike.amount(),
-                            inst.notional,
+                            inst.notional.amount(),
                             averaging,
                             fixing_steps,
                         );
@@ -391,7 +391,7 @@ impl AsianOptionMcPricer {
                     crate::instruments::OptionType::Put => {
                         let payoff = AsianPut::new(
                             inst.strike.amount(),
-                            inst.notional,
+                            inst.notional.amount(),
                             averaging,
                             fixing_steps,
                         );
@@ -526,7 +526,7 @@ impl AsianOptionMcPricer {
                 let payoff =
                     crate::instruments::common::models::monte_carlo::payoff::asian::AsianCall::new(
                         inst.strike.amount(),
-                        inst.notional,
+                        inst.notional.amount(),
                         averaging,
                         fixing_steps,
                     );
@@ -547,7 +547,7 @@ impl AsianOptionMcPricer {
                 let payoff =
                     crate::instruments::common::models::monte_carlo::payoff::asian::AsianPut::new(
                         inst.strike.amount(),
-                        inst.notional,
+                        inst.notional.amount(),
                         averaging,
                         fixing_steps,
                     );
@@ -720,7 +720,7 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
             }
         };
 
-        let pv = Money::new(price * asian.notional, asian.strike.currency());
+        let pv = Money::new(price * asian.notional.amount(), asian.strike.currency());
         Ok(ValuationResult::stamped(asian.id(), as_of, pv))
     }
 }
@@ -778,7 +778,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
             }
         };
 
-        let pv = Money::new(price * asian.notional, asian.strike.currency());
+        let pv = Money::new(price * asian.notional.amount(), asian.strike.currency());
         Ok(ValuationResult::stamped(asian.id(), as_of, pv))
     }
 }
