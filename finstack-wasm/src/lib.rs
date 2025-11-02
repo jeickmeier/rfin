@@ -83,7 +83,8 @@ pub use valuations::instruments::{
     EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement,
     FxBarrierOption, FxOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap,
     InterestRateFuture, InterestRateOption, InterestRateSwap, LookbackOption, PrivateMarketsFund,
-    QuantoOption, RangeAccrual, Repo, RevolvingCredit, StructuredCredit, Swaption, VarianceSwap,
+    QuantoOption, RangeAccrual, Repo, RevolvingCredit, StructuredCredit, Swaption, TermLoan,
+    VarianceSwap,
 };
 pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,

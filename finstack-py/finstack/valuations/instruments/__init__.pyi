@@ -23,6 +23,7 @@ from .inflation_swap import InflationSwap
 from .basket import Basket
 from .structured_credit import StructuredCredit
 from .private_markets_fund import PrivateMarketsFund
+from .term_loan import TermLoan
 
 __all__ = [
     # Fixed Income
@@ -56,4 +57,5 @@ __all__ = [
     "VarianceSwap",
     "Basket",
     "PrivateMarketsFund",
+    "TermLoan",
 ]

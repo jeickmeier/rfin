@@ -30,6 +30,7 @@ mod repo;
 mod revolving_credit;
 mod structured_credit;
 mod swaption;
+mod term_loan;
 mod trs;
 mod variance_swap;
 
@@ -66,6 +67,7 @@ use repo::PyRepo;
 use revolving_credit::PyRevolvingCredit;
 use structured_credit::PyStructuredCredit;
 use swaption::PySwaption;
+use term_loan::PyTermLoan;
 use trs::{PyEquityTotalReturnSwap, PyFiIndexTotalReturnSwap};
 use variance_swap::PyVarianceSwap;
 
@@ -308,6 +310,12 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
             instrument_type: InstrumentType::RevolvingCredit,
         });
     }
+    if let Ok(obj) = value.extract::<PyRef<PyTermLoan>>() {
+        return Ok(InstrumentHandle {
+            instrument: Box::new(obj.inner.clone()),
+            instrument_type: InstrumentType::TermLoan,
+        });
+    }
     Err(PyTypeError::new_err(
         "Unsupported instrument type; construct instruments from finstack.valuations",
     ))
@@ -426,6 +434,9 @@ pub(crate) fn register<'py>(
 
     let revolving_credit_exports = revolving_credit::register(py, &module)?;
     exports.extend(revolving_credit_exports.iter().copied());
+
+    let term_loan_exports = term_loan::register(py, &module)?;
+    exports.extend(term_loan_exports.iter().copied());
 
     exports.sort_unstable();
     exports.dedup();

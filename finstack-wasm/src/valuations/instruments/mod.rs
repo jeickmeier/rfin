@@ -31,6 +31,7 @@ mod repo;
 mod revolving_credit;
 mod structured;
 mod swaption;
+mod term_loan;
 mod trs;
 mod variance_swap;
 
@@ -70,6 +71,7 @@ pub use repo::JsRepo as Repo;
 pub use revolving_credit::JsRevolvingCredit as RevolvingCredit;
 pub use structured::{JsBasket as Basket, JsStructuredCredit as StructuredCredit};
 pub use swaption::JsSwaption as Swaption;
+pub use term_loan::JsTermLoan as TermLoan;
 pub use trs::{
     JsEquityTotalReturnSwap as EquityTotalReturnSwap,
     JsFiIndexTotalReturnSwap as FiIndexTotalReturnSwap,
