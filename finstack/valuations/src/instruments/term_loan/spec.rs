@@ -148,6 +148,24 @@ pub struct TermLoanSpec {
     pub covenants: Option<CovenantSpec>,
     pub oid_eir: Option<OidEirSpec>,
     pub pricing_overrides: PricingOverrides,
+    /// Optional call schedule (borrower callability)
+    pub call_schedule: Option<LoanCallSchedule>,
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+pub struct LoanCall {
+    pub date: Date,
+    /// Redemption price as % of par (outstanding principal) at call date
+    pub price_pct_of_par: f64,
+}
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+pub struct LoanCallSchedule {
+    pub calls: Vec<LoanCall>,
 }
 
 

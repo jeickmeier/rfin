@@ -47,8 +47,8 @@ impl MetricCalculator for Dv01Calculator {
             npv_down += cf.amount.amount() * df_down;
         }
 
-        // DV01 = (PV_down - PV_up) / 2
-        let dv01 = (npv_down - npv_up) / 2.0;
+        // DV01 magnitude per 1bp: use symmetric difference and return positive magnitude
+        let dv01 = ((npv_down - npv_up) / 2.0).abs();
 
         Ok(dv01)
     }

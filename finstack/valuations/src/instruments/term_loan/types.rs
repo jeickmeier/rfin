@@ -8,7 +8,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::pricing_overrides::PricingOverrides;
 use crate::cashflow::builder::types::CouponType;
-use super::spec::{AmortizationSpec, CovenantSpec, DdtlSpec};
+use super::spec::{AmortizationSpec, CovenantSpec, DdtlSpec, LoanCallSchedule};
 
 /// Minimal rate spec placeholder (extended in later tasks)
 #[derive(Clone, Debug)]
@@ -83,6 +83,9 @@ pub struct TermLoan {
 
     /// Pricing overrides (quoted price, seed, etc.)
     pub pricing_overrides: PricingOverrides,
+
+    /// Optional call schedule (borrower callability)
+    pub call_schedule: Option<LoanCallSchedule>,
 
     /// Attributes for tagging and scenarios
     pub attributes: Attributes,

@@ -23,6 +23,8 @@ pub use spec::{
     AmortizationSpec,
     PikToggle,
     CashSweepEvent,
+    LoanCall,
+    LoanCallSchedule,
 };
 
 

@@ -36,7 +36,7 @@ impl MetricCalculator for Dv01Calculator {
             pv_up += cf.amount.amount() * df_up;
             pv_down += cf.amount.amount() * df_down;
         }
-        Ok((pv_down - pv_up) / 2.0)
+        Ok((pv_up - pv_down) / 2.0)
     }
 }
 
