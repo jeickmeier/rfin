@@ -54,11 +54,11 @@ mod tests {
         }
 
         fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-            unimplemented!()
+            todo!("TestInstrument is a test double; attributes() not used in GenericPv tests")
         }
 
         fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-            unimplemented!()
+            todo!("TestInstrument is a test double; attributes_mut() not used in GenericPv tests")
         }
 
         fn clone_box(&self) -> Box<dyn Instrument> {

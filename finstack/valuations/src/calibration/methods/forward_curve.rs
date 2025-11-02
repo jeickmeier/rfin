@@ -88,14 +88,29 @@ impl ForwardCurveCalibrator {
         self
     }
 
-    fn ensure_anchor(knots: &mut Vec<(f64, f64)>, fallback_rate: f64) {
+    fn ensure_anchor(&self, knots: &mut Vec<(f64, f64)>, fallback_rate: f64) {
         if knots.is_empty() {
+            if self.config.verbose {
+                tracing::debug!(
+                    curve_id = %self.fwd_curve_id.as_str(),
+                    anchor_rate = fallback_rate,
+                    "Inserting anchor at t=0.0 with fallback rate"
+                );
+            }
             knots.push((0.0, fallback_rate));
             return;
         }
 
-        if knots[0].0 > 1e-12 {
+        if knots[0].0 > self.config.tolerance {
             let rate = knots[0].1;
+            if self.config.verbose {
+                tracing::debug!(
+                    curve_id = %self.fwd_curve_id.as_str(),
+                    anchor_rate = rate,
+                    first_knot_time = knots[0].0,
+                    "Inserting anchor at t=0.0 derived from first knot"
+                );
+            }
             knots.insert(0, (0.0, rate));
         }
     }
@@ -139,7 +154,7 @@ impl ForwardCurveCalibrator {
                     .year_fraction(self.base_date, knot_date, DayCountCtx::default())?;
 
             // Skip if we already have a knot at this time
-            if knots.iter().any(|(t, _)| (*t - knot_time).abs() < 1e-10) {
+            if knots.iter().any(|(t, _)| (*t - knot_time).abs() < self.config.tolerance) {
                 continue;
             }
 
@@ -157,10 +172,10 @@ impl ForwardCurveCalibrator {
                 // Quotes are processed in increasing maturity; maintain sorted invariant
                 debug_assert!(knots_clone
                     .last()
-                    .map(|(t, _)| *t <= knot_time + 1e-12)
+                    .map(|(t, _)| *t <= knot_time + self_clone.config.tolerance)
                     .unwrap_or(true));
                 temp_knots.push((knot_time, fwd_rate));
-                Self::ensure_anchor(&mut temp_knots, fwd_rate);
+                self_clone.ensure_anchor(&mut temp_knots, fwd_rate);
 
                 let temp_fwd_curve = match ForwardCurve::builder(
                     self_clone.fwd_curve_id.to_owned(),
@@ -219,16 +234,17 @@ impl ForwardCurveCalibrator {
             // Compute final residual
             debug_assert!(knots
                 .last()
-                .map(|(t, _)| *t <= knot_time + 1e-12)
+                .map(|(t, _)| *t <= knot_time + self.config.tolerance)
                 .unwrap_or(true));
             knots.push((knot_time, solved_fwd));
 
             let mut final_knots = knots.clone();
+            // Derive anchor rate consistently: prefer first knot, fallback to solved rate
             let anchor_rate = final_knots
                 .first()
                 .map(|(_, rate)| *rate)
                 .unwrap_or(solved_fwd);
-            Self::ensure_anchor(&mut final_knots, anchor_rate);
+            self.ensure_anchor(&mut final_knots, anchor_rate);
 
             let final_curve = ForwardCurve::builder(self.fwd_curve_id.to_owned(), self.tenor_years)
                 .base_date(self.base_date)
@@ -243,10 +259,20 @@ impl ForwardCurveCalibrator {
                 .unwrap_or(crate::calibration::PENALTY)
                 .abs();
 
+            // Guard against recording placeholder penalties that indicate solver/pricing failures
             if !(final_residual.is_finite()
                 && final_residual.abs() < crate::calibration::PENALTY * 0.5)
             {
-                // Skip placeholder penalties; do not record
+                if self.config.verbose {
+                    tracing::debug!(
+                        curve_id = %self.fwd_curve_id.as_str(),
+                        knot_time = knot_time,
+                        solved_fwd = solved_fwd,
+                        final_residual = final_residual,
+                        penalty_threshold = crate::calibration::PENALTY * 0.5,
+                        "Skipping penalty residual (solver near boundary or pricing failure)"
+                    );
+                }
                 continue;
             }
 
@@ -257,10 +283,31 @@ impl ForwardCurveCalibrator {
             total_iterations += 1;
         }
 
-        // Build final forward curve
+        // Build final forward curve with consistent anchor derivation
         let mut final_knots = knots;
-        let anchor_rate = final_knots.first().map(|(_, rate)| *rate).unwrap_or(0.0);
-        Self::ensure_anchor(&mut final_knots, anchor_rate);
+        // Derive anchor rate: prefer first knot, fallback to context-based guess, then 0.02
+        let anchor_rate = final_knots
+            .first()
+            .map(|(_, rate)| *rate)
+            .or_else(|| {
+                // If no knots exist, derive from discount curve as neutral market anchor
+                let t = self.tenor_years.max(1.0 / 12.0);
+                base_context
+                    .get_discount_ref(self.discount_curve_id.as_ref())
+                    .ok()
+                    .map(|disc_curve| disc_curve.zero(t))
+            })
+            .unwrap_or(0.02); // Final fallback
+        
+        if self.config.verbose && final_knots.is_empty() {
+            tracing::debug!(
+                curve_id = %self.fwd_curve_id.as_str(),
+                anchor_rate = anchor_rate,
+                "No knots calibrated; using context-derived anchor rate"
+            );
+        }
+        
+        self.ensure_anchor(&mut final_knots, anchor_rate);
 
         let curve = ForwardCurve::builder(self.fwd_curve_id.to_owned(), self.tenor_years)
             .base_date(self.base_date)
@@ -616,12 +663,13 @@ impl ForwardCurveCalibrator {
 
     /// Check if an index/frequency matches our tenor.
     fn matches_tenor(&self, index: &str, freq: &Frequency) -> bool {
+        let tol = self.config.tolerance;
         // Map tenor_years to standard tenor strings with epsilon comparison
         let tenor_str = match self.tenor_years {
-            x if (x - 1.0 / 12.0).abs() < 1e-12 => "1M",
-            x if (x - 0.25).abs() < 1e-12 => "3M",
-            x if (x - 0.5).abs() < 1e-12 => "6M",
-            x if (x - 1.0).abs() < 1e-12 => "12M",
+            x if (x - 1.0 / 12.0).abs() < tol => "1M",
+            x if (x - 0.25).abs() < tol => "3M",
+            x if (x - 0.5).abs() < tol => "6M",
+            x if (x - 1.0).abs() < tol => "12M",
             _ => return false,
         };
 
@@ -639,7 +687,7 @@ impl ForwardCurveCalibrator {
         match freq {
             Frequency::Months(m) => {
                 let freq_years = *m as f64 / 12.0;
-                (freq_years - self.tenor_years).abs() < 1e-10
+                (freq_years - self.tenor_years).abs() < self.config.tolerance
             }
             _ => false,
         }

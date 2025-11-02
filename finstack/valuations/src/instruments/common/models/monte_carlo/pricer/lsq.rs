@@ -1,8 +1,10 @@
 //! Shared least-squares solver for LSMC regression.
 //!
 //! Provides a robust SVD-based solver used by both equity and swaption LSMC pricers.
+//! Consolidates duplicate regression logic to ensure consistent results and easier testing.
 
 use finstack_core::Result;
+use super::lsmc::BasisFunctions;
 
 /// Solve least squares problem using SVD (Singular Value Decomposition).
 ///
@@ -70,9 +72,61 @@ pub fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Res
     }
 }
 
+/// Perform LSMC regression with basis functions.
+///
+/// This is the complete regression workflow used by both equity and swaption LSMC:
+/// 1. Build design matrix from basis function evaluations
+/// 2. Solve least squares using SVD
+/// 3. Predict continuation values for all inputs
+///
+/// # Arguments
+///
+/// * `x` - State variables (spot prices or swap rates)
+/// * `y` - Discounted continuation values to fit
+/// * `basis` - Basis functions to evaluate at each x value
+///
+/// # Returns
+///
+/// Predicted continuation values for each x value (same length as x)
+pub fn regression_with_basis<B>(x: &[f64], y: &[f64], basis: &B) -> Result<Vec<f64>>
+where
+    B: BasisFunctions,
+{
+    let n = x.len();
+    let k = basis.num_basis();
+
+    // Build design matrix X (n x k)
+    let mut design = vec![0.0; n * k];
+    let mut basis_vals = vec![0.0; k];
+
+    for (i, &x_val) in x.iter().enumerate() {
+        basis.evaluate(x_val, &mut basis_vals);
+        for j in 0..k {
+            design[i * k + j] = basis_vals[j];
+        }
+    }
+
+    // Solve least squares using SVD (numerically stable for ill-conditioned systems)
+    let coeffs = solve_least_squares(&design, y, n, k)?;
+
+    // Predict continuation values
+    let mut predictions = vec![0.0; n];
+    for (i, &x_val) in x.iter().enumerate() {
+        basis.evaluate(x_val, &mut basis_vals);
+        let mut pred = 0.0;
+        for j in 0..k {
+            pred += coeffs[j] * basis_vals[j];
+        }
+        predictions[i] = pred;
+    }
+
+    Ok(predictions)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::lsmc::PolynomialBasis;
 
     #[test]
     fn test_solve_least_squares_simple() {
@@ -131,6 +185,59 @@ mod tests {
         let beta = solution.unwrap();
         assert_eq!(beta.len(), 4);
         assert!(beta.iter().all(|&x| x.is_finite()));
+    }
+
+    #[test]
+    fn test_regression_with_basis_polynomial() {
+        // Test the complete regression workflow with polynomial basis
+        // True function: y = 1 + 2x
+        let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let y = vec![3.0, 5.0, 7.0, 9.0, 11.0];
+        
+        let basis = PolynomialBasis::new(1); // Linear: {1, x}
+        
+        let predictions = regression_with_basis(&x, &y, &basis).unwrap();
+        
+        // Check predictions match observed values (perfect fit for linear data)
+        for (i, &pred) in predictions.iter().enumerate() {
+            assert!((pred - y[i]).abs() < 1e-6, 
+                "Prediction {} differs from y[{}]: {} vs {}", i, i, pred, y[i]);
+        }
+    }
+
+    #[test]
+    fn test_regression_with_basis_quadratic() {
+        // Test with quadratic basis and quadratic data
+        // True function: y = 1 + 2x + 3x²
+        let x = vec![0.0, 1.0, 2.0, 3.0, 4.0];
+        let y = vec![1.0, 6.0, 17.0, 34.0, 57.0];
+        
+        let basis = PolynomialBasis::new(2); // {1, x, x²}
+        
+        let predictions = regression_with_basis(&x, &y, &basis).unwrap();
+        
+        // Check predictions match observed values (perfect fit for quadratic data)
+        for (i, &pred) in predictions.iter().enumerate() {
+            assert!((pred - y[i]).abs() < 1e-6,
+                "Prediction {} differs from y[{}]: {} vs {}", i, i, pred, y[i]);
+        }
+    }
+
+    #[test]
+    fn test_regression_with_basis_stability() {
+        // Test numerical stability with high-degree polynomial and wide x range
+        let x = vec![10.0, 50.0, 100.0, 200.0, 500.0, 1000.0];
+        let y = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        
+        let basis = PolynomialBasis::new(3); // Cubic basis
+        
+        let result = regression_with_basis(&x, &y, &basis);
+        
+        // Should succeed despite potentially ill-conditioned matrix
+        assert!(result.is_ok());
+        let predictions = result.unwrap();
+        assert_eq!(predictions.len(), x.len());
+        assert!(predictions.iter().all(|&p| p.is_finite()));
     }
 }
 

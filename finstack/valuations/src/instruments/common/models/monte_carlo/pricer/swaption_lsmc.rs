@@ -14,7 +14,7 @@ use crate::instruments::common::mc::traits::{Discretization, RandomStream};
 use crate::instruments::common::mc::results::Estimate;
 use super::lsmc::{BasisFunctions, LsmcConfig};
 use super::swap_rate_utils::{ForwardSwapRate, HullWhiteBondPrice};
-use super::lsq::solve_least_squares;
+use super::lsq::regression_with_basis;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -148,6 +148,23 @@ impl SwaptionLsmcPricer {
     }
 
     /// Perform backward induction for swaptions.
+    ///
+    /// # Discounting Convention
+    ///
+    /// This pricer uses **discount factor ratios from a yield curve**: `df_t / df_0`.
+    /// This approach properly handles the term structure embedded in the discount curve
+    /// and is appropriate for swaptions where rates vary across maturities.
+    ///
+    /// **Contrast with American LSMC**: The equity/American option pricer uses exponential
+    /// discounting (`exp(-r * t)`) with a flat rate. Both approaches produce present values
+    /// at time 0, but differ in their input assumptions:
+    /// - **American LSMC**: Flat rate input → exponential discounting
+    /// - **Swaption LSMC**: Discount curve input → ratio of discount factors
+    ///
+    /// The discount factor at time 0 (`df_0`) is asserted to be positive to prevent
+    /// division by zero and ensure well-defined present values.
+    ///
+    /// See `lsmc.rs` for the flat-rate discounting approach.
     #[allow(clippy::too_many_arguments)]
     fn backward_induction_swaption<B, F>(
         &self,
@@ -178,6 +195,11 @@ impl SwaptionLsmcPricer {
         sorted_exercise_steps.sort_unstable();
         sorted_exercise_steps.reverse(); // Go backward
 
+        // Pre-allocate regression buffers to avoid reallocations
+        let mut regression_x = Vec::with_capacity(paths.len() / 2); // Swap rates
+        let mut regression_y = Vec::with_capacity(paths.len() / 2); // Discounted continuation values
+        let mut regression_indices = Vec::with_capacity(paths.len() / 2);
+
         for &exercise_step in &sorted_exercise_steps {
             if exercise_step >= paths[0].len() - 1 {
                 continue;
@@ -185,10 +207,10 @@ impl SwaptionLsmcPricer {
 
             let t = exercise_step as f64 * dt;
 
-            // Collect ITM paths for regression
-            let mut regression_x = Vec::new(); // Swap rates
-            let mut regression_y = Vec::new(); // Discounted continuation values
-            let mut regression_indices = Vec::new();
+            // Clear buffers for this exercise date (reuse capacity)
+            regression_x.clear();
+            regression_y.clear();
+            regression_indices.clear();
 
             for (i, path) in paths.iter().enumerate() {
                 let r_t = path[exercise_step];
@@ -288,9 +310,17 @@ impl SwaptionLsmcPricer {
             }
         }
 
-        // Discount all cashflows to present
+        // Discount all cashflows to present using discount factor ratios
         let mut present_values = vec![0.0; num_paths];
         let df_0 = discount_curve_fn(0.0);
+        
+        // Ensure df_0 is positive to prevent division by zero and ensure well-defined PV
+        assert!(
+            df_0 > 0.0,
+            "Discount factor at time 0 must be positive, got df_0 = {}",
+            df_0
+        );
+        
         for i in 0..num_paths {
             let df_t = discount_curve_fn(exercise_times[i]);
             present_values[i] = cashflows[i] * df_t / df_0;
@@ -307,35 +337,7 @@ impl SwaptionLsmcPricer {
     where
         B: BasisFunctions,
     {
-        let n = x.len();
-        let k = basis.num_basis();
-
-        // Build design matrix
-        let mut design = vec![0.0; n * k];
-        let mut basis_vals = vec![0.0; k];
-
-        for (i, &swap_rate) in x.iter().enumerate() {
-            basis.evaluate(swap_rate, &mut basis_vals);
-            for j in 0..k {
-                design[i * k + j] = basis_vals[j];
-            }
-        }
-
-        // Solve using SVD (numerically stable for ill-conditioned systems)
-        let coeffs = solve_least_squares(&design, y, n, k)?;
-
-        // Predict continuation values
-        let mut predictions = vec![0.0; n];
-        for (i, &swap_rate) in x.iter().enumerate() {
-            basis.evaluate(swap_rate, &mut basis_vals);
-            let mut pred = 0.0;
-            for j in 0..k {
-                pred += coeffs[j] * basis_vals[j];
-            }
-            predictions[i] = pred;
-        }
-
-        Ok(predictions)
+        regression_with_basis(x, y, basis)
     }
 }
 

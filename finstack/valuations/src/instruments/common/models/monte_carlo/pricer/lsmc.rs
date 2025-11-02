@@ -13,7 +13,7 @@ use crate::instruments::common::mc::stats::OnlineStats;
 use crate::instruments::common::mc::time_grid::TimeGrid;
 use crate::instruments::common::mc::traits::{Discretization, RandomStream};
 use crate::instruments::common::mc::results::Estimate;
-use super::lsq::solve_least_squares;
+use super::lsq::regression_with_basis;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -307,6 +307,19 @@ impl LsmcPricer {
     }
 
     /// Perform backward induction with regression.
+    ///
+    /// # Discounting Convention
+    ///
+    /// This pricer uses **exponential discounting with a flat rate**: `exp(-r * t)`.
+    /// This is appropriate when `discount_rate` represents a constant risk-free rate.
+    ///
+    /// **Contrast with Swaption LSMC**: The swaption pricer uses discount factors from
+    /// a yield curve (`df_t / df_0`) to handle term structure. Both approaches produce
+    /// present values at time 0, but differ in their input assumptions:
+    /// - **American LSMC**: Flat rate input → exponential discounting
+    /// - **Swaption LSMC**: Discount curve input → ratio of discount factors
+    ///
+    /// See `swaption_lsmc.rs` for the curve-based discounting approach.
     #[allow(clippy::too_many_arguments)]
     fn backward_induction<E, B>(
         &self,
@@ -339,6 +352,11 @@ impl LsmcPricer {
         sorted_exercise_dates.sort_unstable();
         sorted_exercise_dates.reverse(); // Go backward
 
+        // Pre-allocate regression buffers to avoid reallocations
+        let mut regression_x = Vec::with_capacity(paths.len() / 2);
+        let mut regression_y = Vec::with_capacity(paths.len() / 2);
+        let mut regression_indices = Vec::with_capacity(paths.len() / 2);
+
         for &exercise_step in &sorted_exercise_dates {
             if exercise_step >= num_steps {
                 continue;
@@ -346,10 +364,10 @@ impl LsmcPricer {
 
             let t = exercise_step as f64 * dt;
 
-            // Collect in-the-money paths for regression
-            let mut regression_x = Vec::new();
-            let mut regression_y = Vec::new();
-            let mut regression_indices = Vec::new();
+            // Clear buffers for this exercise date (reuse capacity)
+            regression_x.clear();
+            regression_y.clear();
+            regression_indices.clear();
 
             for (i, path) in paths.iter().enumerate() {
                 let spot = path[exercise_step];
@@ -398,39 +416,12 @@ impl LsmcPricer {
     /// Perform least-squares regression.
     ///
     /// Fits continuation value = Σ β_i φ_i(S) using ordinary least squares.
+    /// Uses shared SVD-based regression for robustness.
     fn regression<B>(&self, x: &[f64], y: &[f64], basis: &B) -> Result<Vec<f64>>
     where
         B: BasisFunctions,
     {
-        let n = x.len();
-        let k = basis.num_basis();
-
-        // Build design matrix X (n x k)
-        let mut design = vec![0.0; n * k];
-        let mut basis_vals = vec![0.0; k];
-
-        for (i, &spot) in x.iter().enumerate() {
-            basis.evaluate(spot, &mut basis_vals);
-            for j in 0..k {
-                design[i * k + j] = basis_vals[j];
-            }
-        }
-
-        // Solve least squares using SVD (numerically stable for ill-conditioned systems)
-        let coeffs = solve_least_squares(&design, y, n, k)?;
-
-        // Predict continuation values
-        let mut predictions = vec![0.0; n];
-        for (i, &spot) in x.iter().enumerate() {
-            basis.evaluate(spot, &mut basis_vals);
-            let mut pred = 0.0;
-            for j in 0..k {
-                pred += coeffs[j] * basis_vals[j];
-            }
-            predictions[i] = pred;
-        }
-
-        Ok(predictions)
+        regression_with_basis(x, y, basis)
     }
 }
 

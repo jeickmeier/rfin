@@ -12,6 +12,25 @@ use finstack_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+// Static test points to avoid repeated allocations on hot validation paths
+// Discount curve validation points
+const DF_MONO_POINTS: &[f64] = &[0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
+const DF_BOUNDS_POINTS: &[f64] = &[0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0];
+
+// Forward curve validation points
+const FWD_ARBI_POINTS: &[f64] = &[0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
+const FWD_BOUNDS_POINTS: &[f64] = &[0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
+
+// Hazard curve validation points
+const HAZARD_ARBI_POINTS: &[f64] = &[0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
+const HAZARD_MONO_POINTS: &[f64] = &[0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
+const HAZARD_BOUNDS_POINTS: &[f64] = &[0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
+
+// Inflation curve validation points
+const INFL_ARBI_POINTS: &[f64] = &[0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 20.0];
+const INFL_MONO_POINTS: &[f64] = &[1.0, 2.0, 3.0, 5.0, 10.0];
+const INFL_BOUNDS_POINTS: &[f64] = &[1.0, 2.0, 5.0, 10.0, 20.0, 30.0];
+
 /// Validation error details
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ValidationError {
@@ -108,12 +127,9 @@ impl CurveValidator for DiscountCurve {
 
     fn validate_monotonicity(&self) -> Result<()> {
         // Discount factors must be monotonically decreasing
-        let test_points = vec![
-            0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0,
-        ];
         let mut prev_df = 1.0;
 
-        for &t in &test_points {
+        for &t in DF_MONO_POINTS {
             let df = self.df(t);
 
             // Allow for numerical tolerance
@@ -132,9 +148,7 @@ impl CurveValidator for DiscountCurve {
 
     fn validate_bounds(&self) -> Result<()> {
         // Check that discount factors are in (0, 1]
-        let test_points = vec![0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 30.0];
-
-        for &t in &test_points {
+        for &t in DF_BOUNDS_POINTS {
             let df = self.df(t);
 
             if df <= 0.0 {
@@ -157,7 +171,7 @@ impl CurveValidator for DiscountCurve {
         }
 
         // Check zero rates are reasonable
-        for &t in &test_points {
+        for &t in DF_BOUNDS_POINTS {
             let rate = self.zero(t);
 
             // Allow slightly negative rates but not too extreme
@@ -191,9 +205,7 @@ impl CurveValidator for DiscountCurve {
 impl CurveValidator for ForwardCurve {
     fn validate_no_arbitrage(&self) -> Result<()> {
         // Forward rates should be positive (with small tolerance for negative rates)
-        let test_points = vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
-
-        for &t in &test_points {
+        for &t in FWD_ARBI_POINTS {
             let fwd = self.rate(t);
 
             if fwd < -0.01 {
@@ -240,9 +252,7 @@ impl CurveValidator for ForwardCurve {
     }
 
     fn validate_bounds(&self) -> Result<()> {
-        let test_points = vec![0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
-
-        for &t in &test_points {
+        for &t in FWD_BOUNDS_POINTS {
             let rate = self.rate(t);
 
             // Allow slightly negative but bounded
@@ -274,9 +284,7 @@ impl CurveValidator for ForwardCurve {
 impl CurveValidator for HazardCurve {
     fn validate_no_arbitrage(&self) -> Result<()> {
         // Check hazard rates are non-negative using survival probability
-        let test_points = vec![0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
-
-        for &t in &test_points {
+        for &t in HAZARD_ARBI_POINTS {
             // Get hazard rate from survival probability derivative
             // λ(t) = -d/dt ln(S(t))
             let dt = 0.0001;
@@ -313,10 +321,9 @@ impl CurveValidator for HazardCurve {
 
     fn validate_monotonicity(&self) -> Result<()> {
         // Survival probabilities must be monotonically decreasing
-        let test_points = vec![0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
         let mut prev_sp = 1.0;
 
-        for &t in &test_points {
+        for &t in HAZARD_MONO_POINTS {
             let sp = self.sp(t);
 
             // Allow for numerical tolerance
@@ -336,9 +343,7 @@ impl CurveValidator for HazardCurve {
     fn validate_bounds(&self) -> Result<()> {
         // Check that survival probabilities are in [0, 1]
         // and that recovery rate is reasonable
-        let test_points = vec![0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0];
-
-        for &t in &test_points {
+        for &t in HAZARD_BOUNDS_POINTS {
             let sp = self.sp(t);
 
             if sp < 0.0 {
@@ -378,9 +383,7 @@ impl CurveValidator for HazardCurve {
 impl CurveValidator for InflationCurve {
     fn validate_no_arbitrage(&self) -> Result<()> {
         // CPI levels should be positive
-        let test_points = vec![0.0, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 20.0];
-
-        for &t in &test_points {
+        for &t in INFL_ARBI_POINTS {
             let cpi = self.cpi(t);
 
             if cpi <= 0.0 {
@@ -399,10 +402,9 @@ impl CurveValidator for InflationCurve {
     fn validate_monotonicity(&self) -> Result<()> {
         // CPI doesn't need to be strictly monotonic (deflation is possible)
         // but check for reasonable growth rates
-        let test_points = vec![1.0, 2.0, 3.0, 5.0, 10.0];
         let base_cpi = self.cpi(0.0);
 
-        for &t in &test_points {
+        for &t in INFL_MONO_POINTS {
             let cpi = self.cpi(t);
             let annual_inflation = (cpi / base_cpi).powf(1.0 / t) - 1.0;
 
@@ -432,9 +434,7 @@ impl CurveValidator for InflationCurve {
 
     fn validate_bounds(&self) -> Result<()> {
         // Check reasonable inflation expectations
-        let test_points = vec![1.0, 2.0, 5.0, 10.0, 20.0, 30.0];
-
-        for &t in &test_points {
+        for &t in INFL_BOUNDS_POINTS {
             // Calculate forward inflation over 1-year period
             let cpi_t = self.cpi(t);
             let cpi_t1 = self.cpi(t + 1.0);
