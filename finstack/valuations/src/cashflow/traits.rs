@@ -5,11 +5,8 @@ use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 
-/// Currency-preserving schedule as a list of dated `Money` amounts.
-///
-/// Used for cashflow aggregation and NPV calculations across different
-/// instruments and time periods.
-pub type DatedFlows = Vec<(Date, Money)>;
+// Re-export canonical alias so existing imports continue to work
+pub use crate::cashflow::DatedFlows;
 
 /// Build cashflow schedules and provide currency-safe aggregation hooks.
 ///
@@ -83,8 +80,7 @@ pub trait CashflowProvider: Send + Sync {
         let max_amount = cf_flows
             .iter()
             .map(|cf| cf.amount.amount().abs())
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .unwrap_or(0.0);
+            .fold(0.0, f64::max);
 
         let currency = cf_flows[0].amount.currency();
         let notional = Notional::par(max_amount, currency);
@@ -110,5 +106,43 @@ pub trait CashflowProvider: Send + Sync {
         let base = disc.base_date();
         let flows = self.build_schedule(curves, as_of)?;
         flows.npv(disc, base, dc)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::MarketContext;
+    use finstack_core::money::Money;
+    use time::Month;
+
+    struct Dummy;
+
+    impl CashflowProvider for Dummy {
+        fn build_schedule(
+            &self,
+            _curves: &MarketContext,
+            _as_of: Date,
+        ) -> finstack_core::Result<DatedFlows> {
+            let d1 = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+            let d2 = Date::from_calendar_date(2025, Month::July, 1).unwrap();
+            Ok(vec![
+                (d1, Money::new(100.0, Currency::USD)),
+                (d2, Money::new(250.0, Currency::USD)),
+            ])
+        }
+    }
+
+    #[test]
+    fn full_schedule_default_max_amount_ok() {
+        let curves = MarketContext::new();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let dummy = Dummy;
+        let sched = dummy.build_full_schedule(&curves, as_of).unwrap();
+        assert_eq!(sched.notional.initial.amount(), 250.0);
+        assert_eq!(sched.notional.initial.currency(), Currency::USD);
+        assert_eq!(sched.day_count, finstack_core::dates::DayCount::Act365F);
+        assert_eq!(sched.flows.len(), 2);
     }
 }

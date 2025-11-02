@@ -423,9 +423,8 @@ pub(super) fn compute_coupon_schedules(
                 gearing,
                 reset_lag_days,
             } => {
-                let id_clone = index_id.to_owned();
                 let spec = FloatingCouponSpec {
-                    index_id: id_clone,
+                    index_id: index_id.clone(),
                     margin_bp: *margin_bp,
                     gearing: *gearing,
                     coupon_type: split,

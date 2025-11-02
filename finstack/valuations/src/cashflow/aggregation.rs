@@ -1,13 +1,12 @@
 //! Currency-preserving aggregation of cashflows into `Period`s.
 
 use finstack_core::prelude::*;
+// use crate::cashflow::DatedFlow; // brought into scope by re-export below
 
 use indexmap::IndexMap;
 
-/// A single dated cashflow (date, money). Generic across instruments.
-///
-/// Used for aggregation and NPV calculations where only date and amount matter.
-pub type DatedFlow = (Date, Money);
+// Re-export to preserve existing import paths in benches and callers
+pub use crate::cashflow::DatedFlow;
 
 /// Currency-preserving aggregation of cashflows into `Period`s.
 ///
@@ -15,21 +14,12 @@ pub type DatedFlow = (Date, Money);
 /// Returns a map: `PeriodId -> (Currency -> amount)`.
 ///
 /// See unit tests and `examples/` for usage.
-#[inline(never)]
-pub fn aggregate_by_period(
-    flows: &[DatedFlow],
+fn aggregate_by_period_sorted(
+    sorted: &[DatedFlow],
     periods: &[Period],
 ) -> IndexMap<PeriodId, IndexMap<Currency, f64>> {
     use core::cmp::Ordering;
     let mut out: IndexMap<PeriodId, IndexMap<Currency, f64>> = IndexMap::new();
-
-    if flows.is_empty() || periods.is_empty() {
-        return out;
-    }
-
-    // Sort flows by date once. Do not mutate caller slice.
-    let mut sorted: Vec<DatedFlow> = flows.to_vec();
-    sorted.sort_by(|(d1, _), (d2, _)| d1.cmp(d2));
 
     // For each period (preserve input order), locate the first flow >= start via binary search,
     // then accumulate until flow.date < end. This is O(m log n + total_matched_flows).
@@ -62,6 +52,19 @@ pub fn aggregate_by_period(
         }
     }
     out
+}
+
+#[inline(never)]
+pub fn aggregate_by_period(
+    flows: &[DatedFlow],
+    periods: &[Period],
+) -> IndexMap<PeriodId, IndexMap<Currency, f64>> {
+    let mut sorted: Vec<DatedFlow> = flows.to_vec();
+    if sorted.is_empty() || periods.is_empty() {
+        return IndexMap::new();
+    }
+    sorted.sort_by(|(d1, _), (d2, _)| d1.cmp(d2));
+    aggregate_by_period_sorted(&sorted, periods)
 }
 
 #[cfg(test)]
@@ -176,20 +179,23 @@ pub const KAHAN_THRESHOLD: usize = 20;
 /// let total = aggregate_cashflows_precise(&flows);
 /// assert_eq!(total.amount(), 3000.0);
 /// ```
+/// Note: For empty input, returns 0.0 in USD to preserve `Money` typing
+/// without inferring currency. Callers needing explicit currency should
+/// wrap or provide one.
 pub fn aggregate_cashflows_precise(flows: &[DatedFlow]) -> Money {
     if flows.is_empty() {
         return Money::new(0.0, Currency::USD); // Default currency
     }
 
     let currency = flows[0].1.currency();
-    let amounts: Vec<f64> = flows.iter().map(|(_, m)| m.amount()).collect();
+    let len = flows.len();
 
-    let total = if amounts.len() > KAHAN_THRESHOLD {
+    let total = if len > KAHAN_THRESHOLD {
         // Use Kahan summation for long legs (precision-preserving)
-        kahan_sum(amounts.iter().copied())
+        kahan_sum(flows.iter().map(|(_, m)| m.amount()))
     } else {
         // Fast path for short legs
-        amounts.iter().sum()
+        flows.iter().map(|(_, m)| m.amount()).sum()
     };
 
     Money::new(total, currency)
@@ -199,6 +205,13 @@ pub fn aggregate_cashflows_precise(flows: &[DatedFlow]) -> Money {
 mod precision_tests {
     use super::*;
     use time::Month;
+
+    #[test]
+    fn aggregation_empty_returns_zero_usd() {
+        let total = aggregate_cashflows_precise(&[]);
+        assert_eq!(total.amount(), 0.0);
+        assert_eq!(total.currency(), Currency::USD);
+    }
 
     #[test]
     fn test_kahan_vs_naive_30y_bond() {

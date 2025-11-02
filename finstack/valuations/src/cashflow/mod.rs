@@ -93,3 +93,16 @@ pub mod builder;
 
 /// Cashflow-related traits and aliases.
 pub mod traits;
+
+// -----------------------------------------------------------------------------
+// Canonical flow aliases (deduplicated across the cashflow module)
+// -----------------------------------------------------------------------------
+
+pub use finstack_core::money::Money;
+pub use finstack_core::prelude::Date;
+
+/// Single dated amount in a specific currency.
+pub type DatedFlow = (Date, Money);
+
+/// Currency-preserving schedule as a list of dated amounts.
+pub type DatedFlows = Vec<DatedFlow>;
