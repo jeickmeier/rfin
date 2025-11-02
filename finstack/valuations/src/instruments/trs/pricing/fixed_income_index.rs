@@ -94,7 +94,7 @@ pub fn pv_total_return_leg(
     let params = TotalReturnLegParams {
         schedule: &trs.schedule,
         notional: trs.notional,
-        disc_id: trs.financing.disc_id.as_str(),
+        discount_curve_id: trs.financing.discount_curve_id.as_str(),
         contract_size: trs.underlying.contract_size,
         initial_level: trs.initial_level,
     };

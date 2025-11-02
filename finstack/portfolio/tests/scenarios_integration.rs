@@ -27,7 +27,7 @@ fn apply_and_revalue_succeeds() {
         .start(as_of)
         .end(as_of)
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
 

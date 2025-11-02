@@ -52,7 +52,7 @@ pub fn standard_strike_ratios() -> Vec<f64> {
 ///
 /// # Arguments
 /// * `context` - Metric context with base PV already computed
-/// * `vol_id` - ID of the volatility surface
+/// * `vol_surface_id` - ID of the volatility surface
 /// * `expiries` - Expiry times in years to bucket
 /// * `strikes` - Strike prices to bucket
 /// * `spot_price` - Current spot price (for strike ratio computation if needed)
@@ -63,7 +63,7 @@ pub fn standard_strike_ratios() -> Vec<f64> {
 /// Total Vega (sum of all bucketed values)
 pub fn compute_bucketed_vega_matrix<I, J, RevalFn>(
     context: &mut MetricContext,
-    vol_id: &CurveId,
+    vol_surface_id: &CurveId,
     expiries: I,
     strikes: J,
     spot_price: Option<f64>,
@@ -77,7 +77,7 @@ where
 {
     let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
-    let vol_surface = base_ctx.surface(vol_id.as_str())?; // Returns Arc<VolSurface>
+    let vol_surface = base_ctx.surface(vol_surface_id.as_str())?; // Returns Arc<VolSurface>
 
     let expiries_vec: Vec<f64> = expiries.into_iter().collect();
     let strikes_vec: Vec<f64> = strikes.clone().into_iter().collect();

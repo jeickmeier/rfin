@@ -31,9 +31,9 @@ pub struct FxSwap {
     /// Notional amount in base currency (exchanged on near, reversed on far)
     pub base_notional: Money,
     /// Domestic discount curve id (quote currency)
-    pub domestic_disc_id: CurveId,
+    pub domestic_discount_curve_id: CurveId,
     /// Foreign discount curve id (base currency)
-    pub foreign_disc_id: CurveId,
+    pub foreign_discount_curve_id: CurveId,
     /// Optional near leg FX rate (quote per base). If None, source from market.
     #[builder(optional)]
     pub near_rate: Option<f64>,
@@ -58,8 +58,8 @@ impl FxSwap {
             near_date: swap_params.near_date,
             far_date: swap_params.far_date,
             base_notional: swap_params.base_notional,
-            domestic_disc_id: underlying_params.domestic_disc_id.to_owned(),
-            foreign_disc_id: underlying_params.foreign_disc_id.to_owned(),
+            domestic_discount_curve_id: underlying_params.domestic_discount_curve_id.to_owned(),
+            foreign_discount_curve_id: underlying_params.foreign_discount_curve_id.to_owned(),
             near_rate: swap_params.near_rate,
             far_rate: swap_params.far_rate,
             attributes: Attributes::new(),
@@ -86,8 +86,8 @@ impl FxSwap {
         use finstack_core::money::fx::FxQuery;
 
         // Curves
-        let domestic_disc = curves.get_discount_ref(self.domestic_disc_id.as_str())?;
-        let foreign_disc = curves.get_discount_ref(self.foreign_disc_id.as_str())?;
+        let domestic_disc = curves.get_discount_ref(self.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount_ref(self.foreign_discount_curve_id.as_str())?;
 
         // Discount factors from as_of for correct theta
         let dom_dc = domestic_disc.day_count();
@@ -260,6 +260,6 @@ impl crate::instruments::common::traits::Instrument for FxSwap {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for FxSwap {
     fn discount_curve_id(&self) -> &CurveId {
-        &self.domestic_disc_id
+        &self.domestic_discount_curve_id
     }
 }

@@ -60,7 +60,7 @@ fn test_extremely_high_haircut() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();
@@ -84,7 +84,7 @@ fn test_very_short_term() {
         .repo_rate(0.05)
         .start_date(same_day)
         .maturity(same_day)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build();
 
     assert!(result.is_err());
@@ -284,7 +284,7 @@ fn test_triparty_flag_variations() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();
@@ -305,7 +305,7 @@ fn test_triparty_flag_variations() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();
@@ -357,7 +357,7 @@ fn test_business_day_conventions() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();
@@ -378,7 +378,7 @@ fn test_business_day_conventions() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();

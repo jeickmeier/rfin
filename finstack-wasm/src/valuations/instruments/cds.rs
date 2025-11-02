@@ -98,7 +98,7 @@ impl JsCreditDefaultSwap {
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.premium.disc_id.as_str().to_string()
+        self.0.premium.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = creditCurve)]

@@ -29,7 +29,7 @@ impl PyQuantoOption {
 impl PyQuantoOption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, equity_strike, option_type, expiry, notional, domestic_currency, foreign_currency, correlation, discount_curve, spot_id, vol_surface, *, dividend_yield_id=None, fx_rate_id=None, fx_vol_id=None)"
+        text_signature = "(cls, instrument_id, ticker, equity_strike, option_type, expiry, notional, domestic_currency, foreign_currency, correlation, discount_curve, spot_id, vol_surface, *, div_yield_id=None, fx_rate_id=None, fx_vol_id=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a quanto option.
@@ -47,7 +47,7 @@ impl PyQuantoOption {
     ///     discount_curve: Discount curve identifier.
     ///     spot_id: Spot price identifier.
     ///     vol_surface: Volatility surface identifier.
-    ///     dividend_yield_id: Optional dividend yield identifier.
+    ///     div_yield_id: Optional dividend yield identifier.
     ///     fx_rate_id: Optional FX rate identifier.
     ///     fx_vol_id: Optional FX volatility surface identifier.
     ///
@@ -67,7 +67,7 @@ impl PyQuantoOption {
         discount_curve: Bound<'_, PyAny>,
         spot_id: &str,
         vol_surface: Bound<'_, PyAny>,
-        dividend_yield_id: Option<&str>,
+        div_yield_id: Option<&str>,
         fx_rate_id: Option<&str>,
         fx_vol_id: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
@@ -77,8 +77,8 @@ impl PyQuantoOption {
 
         let id = extract_instrument_id(&instrument_id)?;
         let expiry_date = py_to_date(&expiry)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
-        let vol_id = extract_curve_id(&vol_surface)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let vol_surface_id = extract_curve_id(&vol_surface)?;
         let CurrencyArg(dom_currency) = domestic_currency.extract()?;
         let CurrencyArg(for_currency) = foreign_currency.extract()?;
 
@@ -110,10 +110,10 @@ impl PyQuantoOption {
         builder = builder.day_count(DayCount::Act365F);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder = builder.disc_id(disc_id);
+        builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.spot_id(spot_id.to_string());
-        builder = builder.vol_id(vol_id);
-        if let Some(div) = dividend_yield_id {
+        builder = builder.vol_surface_id(vol_surface_id);
+        if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(div.to_string());
         }
         if let Some(fx_rate) = fx_rate_id {

@@ -80,10 +80,10 @@ impl JsEquityUnderlying {
         ticker: &str,
         spot_id: &str,
         currency: &JsCurrency,
-        dividend_yield_id: Option<String>,
+        div_yield_id: Option<String>,
     ) -> JsEquityUnderlying {
         let mut params = EquityUnderlyingParams::new(ticker, spot_id, currency.inner());
-        if let Some(div) = dividend_yield_id {
+        if let Some(div) = div_yield_id {
             params = params.with_dividend_yield(&div);
         }
         JsEquityUnderlying { inner: params }

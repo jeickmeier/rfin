@@ -136,9 +136,9 @@ fn test_caplet_creation() {
         calendar_id: None,
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
-        disc_id: "USD_OIS".into(),
+        discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        vol_id: "USD_CAP_VOL".into(),
+        vol_surface_id: "USD_CAP_VOL".into(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -167,9 +167,9 @@ fn test_floorlet_creation() {
         calendar_id: None,
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
-        disc_id: "EUR_OIS".into(),
+        discount_curve_id: "EUR_OIS".into(),
         forward_id: "EUR_EURIBOR_6M".into(),
-        vol_id: "EUR_CAP_VOL".into(),
+        vol_surface_id: "EUR_CAP_VOL".into(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };

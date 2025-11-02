@@ -13,16 +13,16 @@ impl MetricCalculator for YtwCalculator {
         let flows = if let Some(ref flows) = context.cashflows {
             flows
         } else {
-            let (disc_id, dc, built) = {
+            let (discount_curve_id, dc, built) = {
                 let bond: &Bond = context.instrument_as()?;
                 (
-                    bond.disc_id.to_owned(),
+                    bond.discount_curve_id.to_owned(),
                     bond.dc,
                     bond.build_schedule(&context.curves, context.as_of)?,
                 )
             };
             context.cashflows = Some(built);
-            context.discount_curve_id = Some(disc_id);
+            context.discount_curve_id = Some(discount_curve_id);
             context.day_count = Some(dc);
             context.cashflows.as_ref().ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound {

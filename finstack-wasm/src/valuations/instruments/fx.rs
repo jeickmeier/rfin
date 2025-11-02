@@ -264,8 +264,8 @@ impl JsFxSwap {
             .base_notional(notional.inner())
             .near_date(near_date.inner())
             .far_date(far_date.inner())
-            .domestic_disc_id(curve_id_from_str(domestic_curve))
-            .foreign_disc_id(curve_id_from_str(foreign_curve));
+            .domestic_discount_curve_id(curve_id_from_str(domestic_curve))
+            .foreign_discount_curve_id(curve_id_from_str(foreign_curve));
 
         if let Some(rate) = near_rate {
             builder = builder.near_rate(rate);

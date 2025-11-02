@@ -177,7 +177,7 @@ fn test_cashflow_currency_consistency() {
 
     let dep = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::EUR))
-        .disc_id("EUR-OIS")
+        .discount_curve_id("EUR-OIS")
         .build();
 
     // Execute

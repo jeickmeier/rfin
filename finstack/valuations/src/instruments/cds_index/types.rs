@@ -86,7 +86,7 @@ impl CDSIndex {
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
         credit_params: &CreditParams,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
         credit_id: impl Into<CurveId>,
     ) -> Self {
         let dc = construction_params.convention.day_count();
@@ -112,7 +112,7 @@ impl CDSIndex {
                 calendar_id: None,
                 dc,
                 spread_bp: index_params.fixed_coupon_bp,
-                disc_id: disc_id.into(),
+                discount_curve_id: discount_curve_id.into(),
             },
             protection: ProtectionLegSpec {
                 credit_curve_id: credit_id.into(),
@@ -297,6 +297,6 @@ impl crate::instruments::common::traits::Instrument for CDSIndex {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for CDSIndex {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.premium.disc_id
+        &self.premium.discount_curve_id
     }
 }

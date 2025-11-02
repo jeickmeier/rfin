@@ -97,9 +97,9 @@ pub struct Swaption {
     pub day_count: DayCount,
     pub exercise: SwaptionExercise,
     pub settlement: SwaptionSettlement,
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     pub forward_id: CurveId,
-    pub vol_id: CurveId,
+    pub vol_surface_id: CurveId,
     pub pricing_overrides: PricingOverrides,
     pub sabr_params: Option<SABRParameters>,
     pub attributes: Attributes,
@@ -110,9 +110,9 @@ impl Swaption {
     pub fn new_payer(
         id: impl Into<InstrumentId>,
         params: &SwaptionParams,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
-        vol_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         let mut s = Self {
             id: id.into(),
@@ -127,9 +127,9 @@ impl Swaption {
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
-            disc_id: disc_id.into(),
+            discount_curve_id: discount_curve_id.into(),
             forward_id: forward_id.into(),
-            vol_id: vol_id.into(),
+            vol_surface_id: vol_surface_id.into(),
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
@@ -150,9 +150,9 @@ impl Swaption {
     pub fn new_receiver(
         id: impl Into<InstrumentId>,
         params: &SwaptionParams,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
-        vol_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         let mut s = Self {
             id: id.into(),
@@ -167,9 +167,9 @@ impl Swaption {
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
-            disc_id: disc_id.into(),
+            discount_curve_id: discount_curve_id.into(),
             forward_id: forward_id.into(),
-            vol_id: vol_id.into(),
+            vol_surface_id: vol_surface_id.into(),
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
@@ -198,12 +198,12 @@ impl Swaption {
 
     /// Compute instrument NPV dispatching to SABR or Black as configured on the instrument.
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        let disc = curves.get_discount_ref(self.disc_id.as_ref())?;
+        let disc = curves.get_discount_ref(self.discount_curve_id.as_ref())?;
         if self.sabr_params.is_some() {
             return self.price_sabr(disc, as_of);
         }
         let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
-        let vol_surface = curves.surface_ref(self.vol_id.as_str())?;
+        let vol_surface = curves.surface_ref(self.vol_surface_id.as_str())?;
         let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
             impl_vol
         } else {
@@ -358,6 +358,6 @@ impl crate::instruments::common::traits::Instrument for Swaption {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for Swaption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }

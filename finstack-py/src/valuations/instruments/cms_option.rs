@@ -59,7 +59,7 @@ impl PyCmsOption {
 
         let id = extract_instrument_id(&instrument_id)?;
         let notional_money = extract_money(&notional)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
 
         // Parse fixing dates
         let mut fixing_dates_vec = Vec::new();
@@ -83,7 +83,7 @@ impl PyCmsOption {
             }
         };
 
-        let vol_id = vol_surface.map(|v| extract_curve_id(&v).ok()).flatten();
+        let vol_surface_id = vol_surface.map(|v| extract_curve_id(&v).ok()).flatten();
 
         let mut builder = CmsOption::builder();
         builder = builder.id(id);
@@ -96,9 +96,9 @@ impl PyCmsOption {
         builder = builder.day_count(DayCount::Act365F);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder = builder.disc_id(disc_id);
-        if let Some(vol) = vol_id {
-            builder = builder.vol_id(vol);
+        builder = builder.discount_curve_id(discount_curve_id);
+        if let Some(vol) = vol_surface_id {
+            builder = builder.vol_surface_id(vol);
         }
         let option = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to build CmsOption: {e}"))

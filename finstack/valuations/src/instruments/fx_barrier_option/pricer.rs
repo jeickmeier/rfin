@@ -64,7 +64,7 @@ impl FxBarrierOptionMcPricer {
             ));
         }
 
-        let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r_dom = disc_curve.zero(t);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
@@ -215,7 +215,7 @@ fn collect_fx_barrier_inputs(
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
-    let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
     let r_dom = disc_curve.zero(t);
 
     let spot_scalar = curves.price(&inst.fx_spot_id)?;

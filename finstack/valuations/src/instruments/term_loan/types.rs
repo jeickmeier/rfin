@@ -64,7 +64,7 @@ pub struct TermLoan {
     pub stub: StubKind,
 
     /// Discount curve identifier
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
 
     /// Amortization specification
     pub amortization: AmortizationSpec,
@@ -160,7 +160,7 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
 // Allow generic metric calculators to fetch discount curve id
 impl crate::instruments::common::pricing::HasDiscountCurve for TermLoan {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }
 

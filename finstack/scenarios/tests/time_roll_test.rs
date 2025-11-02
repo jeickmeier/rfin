@@ -143,7 +143,7 @@ fn test_time_roll_with_bond_carry() {
             .bdc(finstack_core::dates::BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(finstack_core::dates::StubKind::None)
-            .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
+            .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())

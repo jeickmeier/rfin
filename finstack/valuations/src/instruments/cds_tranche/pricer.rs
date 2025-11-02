@@ -227,7 +227,7 @@ impl CDSTranchePricer {
         let index_data_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
 
         // Get the discount curve
-        let discount_curve = market_ctx.get_discount_ref(tranche.disc_id.as_ref())?;
+        let discount_curve = market_ctx.get_discount_ref(tranche.discount_curve_id.as_ref())?;
 
         // Calculate present values of premium and protection legs
         // These now calculate the EL curve internally with proper time dependency
@@ -1071,7 +1071,7 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        let discount_curve = market_ctx.get_discount_ref(&tranche.disc_id)?;
+        let discount_curve = market_ctx.get_discount_ref(&tranche.discount_curve_id)?;
         let index_data = match market_ctx.credit_index_ref(&tranche.credit_index_id) {
             Ok(data) => data,
             Err(_) => return Ok(0.0),
@@ -1279,7 +1279,7 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
 
         // Get as_of date from discount curve
         let disc = market
-            .get_discount_ref(&cds_tranche.disc_id)
+            .get_discount_ref(&cds_tranche.discount_curve_id)
             .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 
@@ -1770,7 +1770,7 @@ mod tests {
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id).unwrap();
-        let discount_curve = market_ctx.get_discount(tranche.disc_id.as_ref()).unwrap();
+        let discount_curve = market_ctx.get_discount(tranche.discount_curve_id.as_ref()).unwrap();
 
         // Calculate individual leg PVs
         let pv_premium = model.calculate_premium_leg_pv(

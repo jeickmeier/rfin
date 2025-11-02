@@ -83,7 +83,7 @@ pub enum ParRateMethod {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FixedLegSpec {
     /// Discount curve identifier for pricing
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Fixed rate (e.g., 0.05 for 5%)
     pub rate: f64,
     /// Payment frequency
@@ -111,9 +111,9 @@ pub struct FixedLegSpec {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FloatLegSpec {
     /// Discount curve identifier for pricing
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Forward curve identifier for rate projections
-    pub fwd_id: CurveId,
+    pub forward_curve_id: CurveId,
     /// Spread in basis points added to the forward rate
     pub spread_bp: f64,
     /// Payment frequency
@@ -171,7 +171,7 @@ pub struct PremiumLegSpec {
     /// Fixed spread in basis points
     pub spread_bp: f64,
     /// Discount curve identifier
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
 }
 
 /// Specification for CDS protection legs
@@ -196,9 +196,9 @@ pub struct ProtectionLegSpec {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FinancingLegSpec {
     /// Discount curve identifier for present value calculations
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Forward curve identifier (e.g., USD-SOFR-3M)
-    pub fwd_id: CurveId,
+    pub forward_curve_id: CurveId,
     /// Spread in basis points over the floating rate
     pub spread_bp: f64,
     /// Day count convention for accrual calculations
@@ -208,14 +208,14 @@ pub struct FinancingLegSpec {
 impl FinancingLegSpec {
     /// Create a new financing leg specification
     pub fn new(
-        disc_id: impl Into<String>,
-        fwd_id: impl Into<String>,
+        discount_curve_id: impl Into<String>,
+        forward_curve_id: impl Into<String>,
         spread_bp: f64,
         day_count: DayCount,
     ) -> Self {
         Self {
-            disc_id: CurveId::new(disc_id),
-            fwd_id: CurveId::new(fwd_id),
+            discount_curve_id: CurveId::new(discount_curve_id),
+            forward_curve_id: CurveId::new(forward_curve_id),
             spread_bp,
             day_count,
         }

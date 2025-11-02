@@ -86,7 +86,7 @@ pub fn asw_par_with_forward(
     fwd_curve_id: &str,
     float_spread_bp: f64,
 ) -> finstack_core::Result<f64> {
-    let disc = curves.get_discount_ref(&bond.disc_id)?;
+    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
     let fwd = curves.get_forward_ref(fwd_curve_id)?;
 
     // Mirror the bond schedule via holder flows
@@ -137,7 +137,7 @@ pub fn asw_market_with_forward(
     float_spread_bp: f64,
     dirty_price_ccy: Option<f64>,
 ) -> finstack_core::Result<f64> {
-    let disc = curves.get_discount_ref(&bond.disc_id)?;
+    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
     let flows = bond.build_schedule(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
@@ -175,7 +175,7 @@ impl MetricCalculator for AssetSwapParCalculator {
                     bond,
                     &context.curves,
                     context.as_of,
-                    fl.fwd_id.as_str(),
+                    fl.forward_curve_id.as_str(),
                     fl.margin_bp,
                 );
             } else {
@@ -186,10 +186,10 @@ impl MetricCalculator for AssetSwapParCalculator {
             }
         }
 
-        let disc_id = bond.disc_id.to_owned();
+        let discount_curve_id = bond.discount_curve_id.to_owned();
         let maturity = bond.maturity;
         let dc = bond.dc;
-        let disc = context.curves.get_discount_ref(&disc_id)?;
+        let disc = context.curves.get_discount_ref(&discount_curve_id)?;
 
         // Market standard: Par swap rate via discount ratio on bond's actual payment schedule
         let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
@@ -222,10 +222,10 @@ impl MetricCalculator for AssetSwapMarketCalculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        let (disc_id, maturity, dc, notional_amt, quoted_clean, is_custom, coupon) = {
+        let (discount_curve_id, maturity, dc, notional_amt, quoted_clean, is_custom, coupon) = {
             let b: &Bond = context.instrument_as()?;
             (
-                b.disc_id.to_owned(),
+                b.discount_curve_id.to_owned(),
                 b.maturity,
                 b.dc,
                 b.notional.amount(),
@@ -234,7 +234,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 b.coupon,
             )
         };
-        let disc = context.curves.get_discount_ref(&disc_id)?;
+        let disc = context.curves.get_discount_ref(&discount_curve_id)?;
 
         // Dirty market value in currency
         let dirty_ccy = if let Some(clean_px) = quoted_clean {
@@ -257,7 +257,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                     bond,
                     &context.curves,
                     context.as_of,
-                    fl.fwd_id.as_str(),
+                    fl.forward_curve_id.as_str(),
                     fl.margin_bp,
                     Some(dirty_ccy),
                 );
@@ -274,7 +274,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             let (disc_id_capture, dc_capture, built) = {
                 let b: &Bond = context.instrument_as()?;
                 (
-                    b.disc_id.to_owned(),
+                    b.discount_curve_id.to_owned(),
                     b.dc,
                     b.build_schedule(&context.curves, context.as_of)?,
                 )
@@ -348,14 +348,14 @@ impl MetricCalculator for AssetSwapParFwdCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
-        let disc = context.curves.get_discount_ref(bond.disc_id.as_str())?;
+        let disc = context.curves.get_discount_ref(bond.discount_curve_id.as_str())?;
         let as_of = disc.base_date();
         if let Some(fl) = &bond.float {
             return asw_par_with_forward(
                 bond,
                 &context.curves,
                 as_of,
-                fl.fwd_id.as_str(),
+                fl.forward_curve_id.as_str(),
                 fl.margin_bp,
             );
         }
@@ -373,7 +373,7 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
-        let disc = context.curves.get_discount_ref(bond.disc_id.as_str())?;
+        let disc = context.curves.get_discount_ref(bond.discount_curve_id.as_str())?;
         let as_of = disc.base_date();
         if let Some(fl) = &bond.float {
             let dirty = if let Some(clean) = bond.pricing_overrides.quoted_clean_price {
@@ -386,7 +386,7 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
                 bond,
                 &context.curves,
                 as_of,
-                fl.fwd_id.as_str(),
+                fl.forward_curve_id.as_str(),
                 fl.margin_bp,
                 dirty,
             );

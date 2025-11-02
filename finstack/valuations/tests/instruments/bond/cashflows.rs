@@ -120,7 +120,7 @@ fn test_quarterly_coupon_frequency() {
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(None)
         .stub(StubKind::None)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .pricing_overrides(PricingOverrides::default())
         .build()
         .unwrap();
@@ -148,9 +148,9 @@ fn test_floating_rate_cashflows() {
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(None)
         .stub(StubKind::None)
-        .disc_id(CurveId::new("USD-OIS"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
         .float_opt(Some(BondFloatSpec {
-            fwd_id: CurveId::new("USD-SOFR-3M"),
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
             margin_bp: 150.0,
             gearing: 1.0,
             reset_lag_days: 2,
@@ -187,7 +187,7 @@ fn test_amortizing_bond_linear() {
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(None)
         .stub(StubKind::None)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .amortization_opt(Some(AmortizationSpec::LinearTo {
             final_notional: Money::new(400.0, Currency::USD),
         }))
@@ -329,7 +329,7 @@ fn test_cashflows_with_short_front_stub() {
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(None)
         .stub(StubKind::ShortFront)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .pricing_overrides(PricingOverrides::default())
         .build()
         .unwrap();
@@ -443,9 +443,9 @@ fn test_get_full_schedule_floating() {
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(None)
         .stub(StubKind::None)
-        .disc_id(CurveId::new("USD-OIS"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
         .float_opt(Some(BondFloatSpec {
-            fwd_id: CurveId::new("USD-SOFR-3M"),
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
             margin_bp: 100.0,
             gearing: 1.0,
             reset_lag_days: 2,
@@ -484,7 +484,7 @@ fn test_cashflows_day_count_conventions() {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .build()
             .unwrap();
@@ -513,7 +513,7 @@ fn test_amortizing_full_redemption() {
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(None)
         .stub(StubKind::None)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .amortization_opt(Some(AmortizationSpec::LinearTo {
             final_notional: Money::new(0.0, Currency::USD),
         }))

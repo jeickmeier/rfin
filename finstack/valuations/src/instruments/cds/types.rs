@@ -135,7 +135,7 @@ impl CreditDefaultSwap {
         spread_bp: f64,
         start: Date,
         maturity: Date,
-        disc_id: impl Into<finstack_core::types::CurveId>,
+        discount_curve_id: impl Into<finstack_core::types::CurveId>,
         credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
         let convention = CDSConvention::IsdaNa;
@@ -158,7 +158,7 @@ impl CreditDefaultSwap {
                 calendar_id: None,
                 dc,
                 spread_bp,
-                disc_id: disc_id.into(),
+                discount_curve_id: discount_curve_id.into(),
             })
             .protection(ProtectionLegSpec {
                 credit_curve_id: credit_id.into(),
@@ -179,7 +179,7 @@ impl CreditDefaultSwap {
         spread_bp: f64,
         start: Date,
         maturity: Date,
-        disc_id: impl Into<finstack_core::types::CurveId>,
+        discount_curve_id: impl Into<finstack_core::types::CurveId>,
         credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
         let convention = CDSConvention::IsdaNa;
@@ -202,7 +202,7 @@ impl CreditDefaultSwap {
                 calendar_id: None,
                 dc,
                 spread_bp,
-                disc_id: disc_id.into(),
+                discount_curve_id: discount_curve_id.into(),
             })
             .protection(ProtectionLegSpec {
                 credit_curve_id: credit_id.into(),
@@ -230,7 +230,7 @@ impl CreditDefaultSwap {
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
         recovery_rate: f64,
-        disc_id: impl Into<finstack_core::types::CurveId>,
+        discount_curve_id: impl Into<finstack_core::types::CurveId>,
         credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
         let dc = convention.day_count();
@@ -252,7 +252,7 @@ impl CreditDefaultSwap {
                 calendar_id: None,
                 dc,
                 spread_bp,
-                disc_id: disc_id.into(),
+                discount_curve_id: discount_curve_id.into(),
             },
             protection: ProtectionLegSpec {
                 credit_curve_id: credit_id.into(),
@@ -361,7 +361,7 @@ impl CreditDefaultSwap {
         pricer.cs01(
             self,
             market,
-            market.get_discount_ref(&self.premium.disc_id)?.base_date(),
+            market.get_discount_ref(&self.premium.discount_curve_id)?.base_date(),
         )
     }
 
@@ -371,7 +371,7 @@ impl CreditDefaultSwap {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        let disc = market.get_discount_ref(&self.premium.disc_id)?;
+        let disc = market.get_discount_ref(&self.premium.discount_curve_id)?;
         let surv = market.get_hazard_ref(&self.protection.credit_curve_id)?;
         let pricer = CDSPricer::new();
 
@@ -443,7 +443,7 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for CreditDefaultSwap {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.premium.disc_id
+        &self.premium.discount_curve_id
     }
 }
 

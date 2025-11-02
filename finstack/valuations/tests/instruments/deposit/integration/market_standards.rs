@@ -20,7 +20,7 @@ fn test_standard_usd_3m_deposit() {
         .end(date(2025, 4, 1))
         .day_count(DayCount::Act360)
         .quote_rate(0.02)
-        .disc_id("USD-OIS")
+        .discount_curve_id("USD-OIS")
         .build();
 
     // Execute
@@ -44,7 +44,7 @@ fn test_standard_eur_6m_deposit() {
         .end(date(2025, 7, 1))
         .day_count(DayCount::Act360)
         .quote_rate(0.015)
-        .disc_id("EUR-OIS")
+        .discount_curve_id("EUR-OIS")
         .build();
 
     // Execute
@@ -182,21 +182,21 @@ fn test_multi_currency_portfolio() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .end(date(2025, 7, 1))
         .quote_rate(0.03)
-        .disc_id("USD-OIS")
+        .discount_curve_id("USD-OIS")
         .build();
 
     let dep_eur = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::EUR))
         .end(date(2025, 7, 1))
         .quote_rate(0.02)
-        .disc_id("EUR-OIS")
+        .discount_curve_id("EUR-OIS")
         .build();
 
     let dep_gbp = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::GBP))
         .end(date(2025, 7, 1))
         .quote_rate(0.025)
-        .disc_id("GBP-OIS")
+        .discount_curve_id("GBP-OIS")
         .build();
 
     // Execute

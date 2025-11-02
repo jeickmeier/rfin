@@ -198,7 +198,7 @@ impl PyCdsOption {
     ///     str: Discount curve used for valuation.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Credit curve identifier.

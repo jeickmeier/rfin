@@ -71,7 +71,7 @@ impl CdsOptionPricer {
         }
 
         // Market curves
-        let disc = curves.get_discount_ref(&option.disc_id)?;
+        let disc = curves.get_discount_ref(&option.discount_curve_id)?;
         let hazard = curves.get_hazard_ref(&option.credit_curve_id)?;
 
         // Forward spread at CDS maturity (bp)
@@ -88,7 +88,7 @@ impl CdsOptionPricer {
             vol
         } else {
             curves
-                .surface_ref(option.vol_id.as_str())?
+                .surface_ref(option.vol_surface_id.as_str())?
                 .value_clamped(t, option.strike_spread_bp)
         };
 
@@ -111,7 +111,7 @@ impl CdsOptionPricer {
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
         let hazard = curves.get_hazard_ref(&option.credit_curve_id)?;
-        let disc = curves.get_discount_ref(&option.disc_id)?;
+        let disc = curves.get_discount_ref(&option.discount_curve_id)?;
         self.forward_spread_from_pricer(option, disc, hazard, as_of)
     }
 }
@@ -126,7 +126,7 @@ fn synthetic_underlying_cds(option: &CdsOption) -> CreditDefaultSwap {
         option.expiry,
         option.cds_maturity,
         option.recovery_rate,
-        option.disc_id.to_owned(),
+        option.discount_curve_id.to_owned(),
         option.credit_curve_id.to_owned(),
     )
 }
@@ -381,7 +381,7 @@ impl CdsOptionPricer {
             return Ok(0.0);
         }
 
-        let disc = curves.get_discount_ref(&option.disc_id)?;
+        let disc = curves.get_discount_ref(&option.discount_curve_id)?;
         let hazard = curves.get_hazard_ref(&option.credit_curve_id)?;
 
         // Forward spread at CDS maturity (bp)
@@ -410,7 +410,7 @@ impl CdsOptionPricer {
             v
         } else {
             curves
-                .surface_ref(option.vol_id.as_str())
+                .surface_ref(option.vol_surface_id.as_str())
                 .ok()
                 .map(|s| s.value_clamped(t, option.strike_spread_bp))
                 .unwrap_or(self.config.iv_initial_guess)
@@ -474,7 +474,7 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
 
         // Get as_of date from discount curve
         let disc = market
-            .get_discount_ref(&cds_option.disc_id)
+            .get_discount_ref(&cds_option.discount_curve_id)
             .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 

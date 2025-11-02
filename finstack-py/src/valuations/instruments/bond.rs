@@ -230,7 +230,7 @@ impl PyBond {
             .notional(amt)
             .issue(issue_date)
             .maturity(maturity_date)
-            .disc_id(disc);
+            .discount_curve_id(disc);
 
         if let Some(px) = quoted_clean_price {
             builder = builder.pricing_overrides(
@@ -261,9 +261,9 @@ impl PyBond {
 
         // Optional floating-rate configuration
         if let Some(fwd) = forward_curve {
-            let fwd_id = extract_curve_id(&fwd)?;
+            let forward_curve_id = extract_curve_id(&fwd)?;
             let spec = BondFloatSpec {
-                fwd_id,
+                forward_curve_id,
                 margin_bp: float_margin_bp.unwrap_or(0.0),
                 gearing: float_gearing.unwrap_or(1.0),
                 reset_lag_days: float_reset_lag_days.unwrap_or(2),
@@ -337,9 +337,9 @@ impl PyBond {
         .map_err(crate::core::error::core_to_py)?;
 
         if let Some(fwd) = forward_curve {
-            let fwd_id = extract_curve_id(&fwd)?;
+            let forward_curve_id = extract_curve_id(&fwd)?;
             let spec = BondFloatSpec {
-                fwd_id,
+                forward_curve_id,
                 margin_bp: float_margin_bp.unwrap_or(0.0),
                 gearing: float_gearing.unwrap_or(1.0),
                 reset_lag_days: float_reset_lag_days.unwrap_or(2),
@@ -387,11 +387,11 @@ impl PyBond {
             .bdc(BusinessDayConvention::Following)
             .stub(StubKind::None)
             .calendar_id_opt(None)
-            .disc_id(disc)
+            .discount_curve_id(disc)
             .credit_curve_id_opt(None)
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
             .float_opt(Some(BondFloatSpec {
-                fwd_id: fwd,
+                forward_curve_id: fwd,
                 margin_bp,
                 gearing: 1.0,
                 reset_lag_days: 2,
@@ -453,7 +453,7 @@ impl PyBond {
     ///     str: Identifier for the discount curve.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Optional hazard curve identifier enabling credit-sensitive pricing.

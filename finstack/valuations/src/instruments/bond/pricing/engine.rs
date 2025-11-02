@@ -31,7 +31,7 @@ impl BondEngine {
         explain: ExplainOpts,
     ) -> Result<(Money, Option<ExplanationTrace>)> {
         let flows = bond.build_schedule(context, as_of)?;
-        let disc = context.get_discount(bond.disc_id.as_str())?;
+        let disc = context.get_discount(bond.discount_curve_id.as_str())?;
         // Discount using the curve's own day-count convention for time mapping.
         // Transform (date, amount) -> (df_on_date_curve(date) * amount) and sum.
         if flows.is_empty() {
@@ -114,7 +114,7 @@ impl BondEngine {
                         discount_factor: df,
                         pv_amount: pv_cf.amount(),
                         pv_currency: pv_cf.currency().to_string(),
-                        curve_id: bond.disc_id.to_string(),
+                        curve_id: bond.discount_curve_id.to_string(),
                     },
                     explain.max_entries,
                 );

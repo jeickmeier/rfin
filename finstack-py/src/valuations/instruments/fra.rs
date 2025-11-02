@@ -119,7 +119,7 @@ impl PyForwardRateAgreement {
         builder = builder.end_date(end);
         builder = builder.day_count(day_count_value);
         builder = builder.reset_lag(reset_lag.unwrap_or(2));
-        builder = builder.disc_id(disc);
+        builder = builder.discount_curve_id(disc);
         builder = builder.forward_id(fwd);
         builder = builder.pay_fixed(pay_fixed.unwrap_or(true));
 
@@ -178,7 +178,7 @@ impl PyForwardRateAgreement {
     ///     str: Discount curve used for valuation.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Forward curve identifier.

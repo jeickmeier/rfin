@@ -19,8 +19,8 @@ pub struct CmsOption {
     pub option_type: OptionType,
     pub notional: Money,
     pub day_count: finstack_core::dates::DayCount,
-    pub disc_id: CurveId,
-    pub vol_id: Option<CurveId>, // Optional volatility surface for CMS rates
+    pub discount_curve_id: CurveId,
+    pub vol_surface_id: Option<CurveId>, // Optional volatility surface for CMS rates
     pub pricing_overrides: PricingOverrides,
     pub attributes: Attributes,
 }
@@ -85,6 +85,6 @@ impl crate::instruments::common::traits::Instrument for CmsOption {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for CmsOption {
     fn discount_curve_id(&self) -> &CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }

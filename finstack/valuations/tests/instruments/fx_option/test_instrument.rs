@@ -28,9 +28,9 @@ fn test_builder_pattern_creates_valid_option() {
         .day_count(DayCount::Act365F)
         .notional(Money::new(1_000_000.0, Currency::EUR))
         .settlement(SettlementType::Cash)
-        .domestic_disc_id(CurveId::new("USD-OIS"))
-        .foreign_disc_id(CurveId::new("EUR-OIS"))
-        .vol_id(CurveId::new("EURUSD-VOL"))
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+        .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+        .vol_surface_id(CurveId::new("EURUSD-VOL"))
         .pricing_overrides(PricingOverrides::default())
         .attributes(Attributes::new())
         .build();

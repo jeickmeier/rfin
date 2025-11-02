@@ -41,7 +41,7 @@ impl JsDeposit {
             .start(start.inner())
             .end(end.inner())
             .day_count(day_count.inner())
-            .disc_id(curve_id_from_str(discount_curve))
+            .discount_curve_id(curve_id_from_str(discount_curve))
             .quote_rate_opt(quote_rate)
             .build()
             .map(JsDeposit::from_inner)
@@ -80,7 +80,7 @@ impl JsDeposit {
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.disc_id.as_str().to_string()
+        self.0.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

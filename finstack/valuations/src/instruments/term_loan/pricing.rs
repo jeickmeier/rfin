@@ -22,7 +22,7 @@ impl TermLoanDiscountingPricer {
         let schedule = generate_cashflows(loan, market, as_of)?;
 
         // Get discount curve
-        let disc = market.get_discount_ref(loan.disc_id.as_str())?;
+        let disc = market.get_discount_ref(loan.discount_curve_id.as_str())?;
         let disc_dc = disc.day_count();
         let base_date = disc.base_date();
 
@@ -71,7 +71,7 @@ impl Pricer for TermLoanDiscountingPricer {
 
         // Use discount curve base date as valuation date
         let disc = market
-            .get_discount_ref(loan.disc_id.as_str())
+            .get_discount_ref(loan.discount_curve_id.as_str())
             .map_err(|e| PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 

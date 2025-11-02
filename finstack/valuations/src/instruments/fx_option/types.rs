@@ -28,9 +28,9 @@ pub struct FxOption {
     pub day_count: finstack_core::dates::DayCount,
     pub notional: Money,
     pub settlement: SettlementType,
-    pub domestic_disc_id: CurveId,
-    pub foreign_disc_id: CurveId,
-    pub vol_id: CurveId,
+    pub domestic_discount_curve_id: CurveId,
+    pub foreign_discount_curve_id: CurveId,
+    pub vol_surface_id: CurveId,
     pub pricing_overrides: PricingOverrides,
     pub attributes: Attributes,
 }
@@ -44,7 +44,7 @@ impl FxOption {
         strike: f64,
         expiry: Date,
         notional: Money,
-        vol_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
@@ -65,9 +65,9 @@ impl FxOption {
             .day_count(finstack_core::dates::DayCount::Act365F)
             .notional(notional)
             .settlement(SettlementType::Cash)
-            .domestic_disc_id(fx_underlying.domestic_disc_id.to_owned())
-            .foreign_disc_id(fx_underlying.foreign_disc_id.to_owned())
-            .vol_id(vol_id.into())
+            .domestic_discount_curve_id(fx_underlying.domestic_discount_curve_id.to_owned())
+            .foreign_discount_curve_id(fx_underlying.foreign_discount_curve_id.to_owned())
+            .vol_surface_id(vol_surface_id.into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -82,7 +82,7 @@ impl FxOption {
         strike: f64,
         expiry: Date,
         notional: Money,
-        vol_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
@@ -103,9 +103,9 @@ impl FxOption {
             .day_count(finstack_core::dates::DayCount::Act365F)
             .notional(notional)
             .settlement(SettlementType::Cash)
-            .domestic_disc_id(fx_underlying.domestic_disc_id.to_owned())
-            .foreign_disc_id(fx_underlying.foreign_disc_id.to_owned())
-            .vol_id(vol_id.into())
+            .domestic_discount_curve_id(fx_underlying.domestic_discount_curve_id.to_owned())
+            .foreign_discount_curve_id(fx_underlying.foreign_discount_curve_id.to_owned())
+            .vol_surface_id(vol_surface_id.into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -117,7 +117,7 @@ impl FxOption {
         id: impl Into<InstrumentId>,
         option_params: &FxOptionParams,
         underlying_params: &FxUnderlyingParams,
-        vol_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -130,9 +130,9 @@ impl FxOption {
             day_count: finstack_core::dates::DayCount::Act365F,
             notional: option_params.notional,
             settlement: option_params.settlement,
-            domestic_disc_id: underlying_params.domestic_disc_id.to_owned(),
-            foreign_disc_id: underlying_params.foreign_disc_id.to_owned(),
-            vol_id: vol_id.into(),
+            domestic_discount_curve_id: underlying_params.domestic_discount_curve_id.to_owned(),
+            foreign_discount_curve_id: underlying_params.foreign_discount_curve_id.to_owned(),
+            vol_surface_id: vol_surface_id.into(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }

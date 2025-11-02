@@ -23,7 +23,7 @@ pub struct PrivateMarketsFund {
     /// events.
     pub events: Vec<FundEvent>,
     /// disc id.
-    pub disc_id: Option<CurveId>,
+    pub discount_curve_id: Option<CurveId>,
     /// Attributes.
     #[cfg_attr(feature = "serde", serde(default))]
     pub attributes: Attributes,
@@ -42,14 +42,14 @@ impl PrivateMarketsFund {
             currency,
             spec,
             events,
-            disc_id: None,
+            discount_curve_id: None,
             attributes: Attributes::new(),
         }
     }
 
     /// with discount curve.
-    pub fn with_discount_curve(mut self, disc_id: impl Into<CurveId>) -> Self {
-        self.disc_id = Some(disc_id.into());
+    pub fn with_discount_curve(mut self, discount_curve_id: impl Into<CurveId>) -> Self {
+        self.discount_curve_id = Some(discount_curve_id.into());
         self
     }
 
@@ -99,10 +99,10 @@ impl Instrument for PrivateMarketsFund {
     // === Pricing Methods ===
 
     fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
-        if let Some(ref disc_id) = self.disc_id {
+        if let Some(ref discount_curve_id) = self.discount_curve_id {
             use crate::instruments::common::discountable::Discountable;
             let flows = self.lp_cashflows()?;
-            let disc = curves.get_discount_ref(disc_id.as_str())?;
+            let disc = curves.get_discount_ref(discount_curve_id.as_str())?;
             flows.npv(disc, disc.base_date(), self.spec.irr_basis)
         } else {
             let ledger = self.run_waterfall()?;

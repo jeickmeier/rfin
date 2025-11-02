@@ -11,19 +11,19 @@ impl MetricCalculator for Inflation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let s: &InflationSwap = context.instrument_as()?;
 
-        let disc = context.curves.get_discount_ref(s.disc_id.as_str())?;
+        let disc = context.curves.get_discount_ref(s.discount_curve_id.as_str())?;
         let base = disc.base_date();
 
         let inflation_index = context
             .curves
-            .inflation_index_ref(s.inflation_id.as_str())
+            .inflation_index_ref(s.inflation_index_id.as_str())
             .ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                     id: "inflation_index".to_string(),
                 })
             })?;
 
-        let inflation_curve = context.curves.get_inflation_ref(s.inflation_id.as_str())?;
+        let inflation_curve = context.curves.get_inflation_ref(s.inflation_index_id.as_str())?;
 
         let i_start = inflation_index.value_on(s.start)?;
 

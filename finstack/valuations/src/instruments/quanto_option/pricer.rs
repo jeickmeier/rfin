@@ -54,7 +54,7 @@ impl QuantoOptionMcPricer {
             ));
         }
 
-        let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r_dom = disc_curve.zero(t);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
@@ -90,7 +90,7 @@ impl QuantoOptionMcPricer {
             0.0
         };
 
-        let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
         let sigma_equity = vol_surface.value_clamped(t, inst.equity_strike.amount());
 
         // Get FX volatility
@@ -218,7 +218,7 @@ fn collect_quanto_inputs(
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
-    let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
     let r_dom = disc_curve.zero(t);
 
     // For simplicity, use same rate curve for foreign rate
@@ -243,7 +243,7 @@ fn collect_quanto_inputs(
         0.0
     };
 
-    let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+    let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
     let sigma_equity = vol_surface.value_clamped(t, inst.equity_strike.amount());
 
     // Get FX volatility

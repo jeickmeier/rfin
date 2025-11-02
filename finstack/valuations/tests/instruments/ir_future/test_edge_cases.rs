@@ -165,7 +165,7 @@ fn test_wrong_curve_ids() {
     let market = build_standard_market(as_of, 0.05);
 
     let mut future = create_standard_future(start, end);
-    future.disc_id = "NONEXISTENT_DISC".into();
+    future.discount_curve_id = "NONEXISTENT_DISC".into();
 
     let result = future.npv(&market);
     assert!(result.is_err());

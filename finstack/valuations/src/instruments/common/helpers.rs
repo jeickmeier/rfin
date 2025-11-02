@@ -19,7 +19,7 @@ pub fn schedule_pv_impl<S>(
     instrument: &S,
     curves: &MarketContext,
     as_of: Date,
-    disc_id: &finstack_core::types::CurveId,
+    discount_curve_id: &finstack_core::types::CurveId,
     day_count: finstack_core::dates::DayCount,
 ) -> finstack_core::Result<Money>
 where
@@ -28,7 +28,7 @@ where
     use crate::instruments::common::discountable::npv_static;
 
     let flows = S::build_schedule(instrument, curves, as_of)?;
-    let disc = curves.get_discount_ref(disc_id.as_str())?;
+    let disc = curves.get_discount_ref(discount_curve_id.as_str())?;
     // Use as_of for correct theta calculation, not curve base_date
     npv_static(disc, as_of, day_count, &flows)
 }

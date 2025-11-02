@@ -18,8 +18,8 @@ impl MetricCalculator for ForeignIR01 {
         let as_of = context.as_of;
         let original_pv = fx_swap.value(&curves, as_of)?;
 
-        let domestic_disc = curves.get_discount_ref(fx_swap.domestic_disc_id.as_str())?;
-        let foreign_disc = curves.get_discount_ref(fx_swap.foreign_disc_id.as_str())?;
+        let domestic_disc = curves.get_discount_ref(fx_swap.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
 
         // Bump foreign curve by 1bp
         let bump = 0.0001;

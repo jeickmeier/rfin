@@ -35,7 +35,7 @@ fn test_equity_new_defaults() {
     assert_eq!(equity.shares, None);
     assert_eq!(equity.price_quote, None);
     assert_eq!(equity.price_id, None);
-    assert_eq!(equity.dividend_yield_id, None);
+    assert_eq!(equity.div_yield_id, None);
     assert_eq!(equity.discount_curve_id.as_str(), "USD");
 }
 
@@ -80,7 +80,7 @@ fn test_equity_with_price_id() {
 fn test_equity_with_dividend_yield_id() {
     let equity = Equity::new("AAPL", "AAPL", Currency::USD).with_dividend_yield_id("CUSTOM_DIV");
 
-    assert_eq!(equity.dividend_yield_id, Some("CUSTOM_DIV".to_string()));
+    assert_eq!(equity.div_yield_id, Some("CUSTOM_DIV".to_string()));
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn test_equity_builder_chaining() {
     assert_eq!(equity.shares, Some(100.0));
     assert_eq!(equity.price_quote, Some(150.0));
     assert_eq!(equity.price_id, Some("CUSTOM_PRICE".to_string()));
-    assert_eq!(equity.dividend_yield_id, Some("CUSTOM_DIV".to_string()));
+    assert_eq!(equity.div_yield_id, Some("CUSTOM_DIV".to_string()));
 }
 
 #[test]

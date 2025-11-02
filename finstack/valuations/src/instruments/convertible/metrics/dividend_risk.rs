@@ -31,7 +31,7 @@ impl MetricCalculator for DividendRiskCalculator {
         })?;
 
         let mut dividend_candidates: Vec<String> = Vec::new();
-        if let Some(id) = convertible.attributes.get_meta("dividend_yield_id") {
+        if let Some(id) = convertible.attributes.get_meta("div_yield_id") {
             dividend_candidates.push(id.to_string());
         }
         dividend_candidates.push(format!("{}-DIVYIELD", underlying_id));

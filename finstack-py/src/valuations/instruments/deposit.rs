@@ -78,7 +78,7 @@ impl PyDeposit {
             .start(start_date)
             .end(end_date)
             .day_count(dc)
-            .disc_id(disc)
+            .discount_curve_id(disc)
             .quote_rate_opt(quote_rate)
             .build()
             .map(Self::new)
@@ -145,7 +145,7 @@ impl PyDeposit {
     ///     str: Discount curve identifier.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Instrument type enum (``InstrumentType.DEPOSIT``).

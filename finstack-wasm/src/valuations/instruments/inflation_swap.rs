@@ -47,8 +47,8 @@ impl JsInflationSwap {
             .fixed_rate(fixed_rate)
             .start(start_date.inner())
             .maturity(maturity.inner())
-            .disc_id(curve_id_from_str(discount_curve))
-            .inflation_id(inflation_curve.into())
+            .discount_curve_id(curve_id_from_str(discount_curve))
+            .inflation_index_id(inflation_curve.into())
             .dc(dc)
             .side(side_value)
             .attributes(Default::default());

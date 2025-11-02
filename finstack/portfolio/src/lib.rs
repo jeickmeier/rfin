@@ -26,7 +26,7 @@
 //!     .start(as_of)
 //!     .end(date!(2024-02-01))
 //!     .day_count(finstack_core::dates::DayCount::Act360)
-//!     .disc_id("USD".into())
+//!     .discount_curve_id("USD".into())
 //!     .build()
 //!     .unwrap();
 //!

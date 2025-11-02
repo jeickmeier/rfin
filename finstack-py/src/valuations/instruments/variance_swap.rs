@@ -186,7 +186,7 @@ impl PyVarianceSwap {
                 "Maturity must be after observation start",
             ));
         }
-        let disc_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
         let method = realized_method
             .map(|m| m.inner)
             .unwrap_or(RealizedVarMethod::CloseToClose);
@@ -205,7 +205,7 @@ impl PyVarianceSwap {
             observation_freq: observation_frequency.inner,
             realized_var_method: method,
             side: direction,
-            disc_id,
+            discount_curve_id,
             day_count,
             attributes: Attributes::new(),
         };

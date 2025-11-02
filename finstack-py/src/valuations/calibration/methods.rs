@@ -707,17 +707,17 @@ impl PyBaseCorrelationCalibrator {
         Ok(Self::new(self.inner.clone().with_detachment_points(points)))
     }
 
-    #[pyo3(text_signature = "(self, disc_id)")]
+    #[pyo3(text_signature = "(self, discount_curve_id)")]
     /// Set the discount curve identifier for tranche pricing.
     ///
     /// Args:
-    ///     disc_id: Discount curve identifier (e.g., "USD-OIS", "EUR-ESTR")
+    ///     discount_curve_id: Discount curve identifier (e.g., "USD-OIS", "EUR-ESTR")
     ///
     /// Returns:
     ///     BaseCorrelationCalibrator: Updated calibrator
-    fn with_discount_curve_id(&self, disc_id: Bound<'_, PyAny>) -> PyResult<Self> {
+    fn with_discount_curve_id(&self, discount_curve_id: Bound<'_, PyAny>) -> PyResult<Self> {
         use crate::valuations::common::extract_curve_id;
-        let curve_id = extract_curve_id(&disc_id)?;
+        let curve_id = extract_curve_id(&discount_curve_id)?;
         Ok(Self::new(
             self.inner.clone().with_discount_curve_id(curve_id),
         ))

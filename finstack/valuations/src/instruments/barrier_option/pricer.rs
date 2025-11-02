@@ -75,7 +75,7 @@ impl BarrierOptionMcPricer {
         }
 
         // Get discount curve
-        let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
@@ -111,7 +111,7 @@ impl BarrierOptionMcPricer {
         };
 
         // Get volatility
-        let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike.amount());
 
         // Create GBM process
@@ -194,7 +194,7 @@ impl BarrierOptionMcPricer {
         }
 
         // Discounting inputs
-        let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
@@ -228,7 +228,7 @@ impl BarrierOptionMcPricer {
         };
 
         // Volatility and process
-        let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, inst.strike.amount());
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
@@ -356,7 +356,7 @@ fn collect_barrier_inputs(
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
-    let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
     let r = disc_curve.zero(t);
 
     let spot_scalar = curves.price(&inst.spot_id)?;
@@ -377,7 +377,7 @@ fn collect_barrier_inputs(
         0.0
     };
 
-    let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+    let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
     let sigma = vol_surface.value_clamped(t, inst.strike.amount());
 
     Ok((spot, r, q, sigma, t))

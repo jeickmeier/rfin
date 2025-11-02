@@ -18,7 +18,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         let option: &Swaption = context.instrument_as()?;
 
         // Fetch discount curve
-        let disc = context.curves.get_discount_ref(option.disc_id.as_ref())?;
+        let disc = context.curves.get_discount_ref(option.discount_curve_id.as_ref())?;
 
         // Time to expiry from as_of
         let t = option.year_fraction(context.as_of, option.expiry, option.day_count)?;
@@ -52,7 +52,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         } else {
             context
                 .curves
-                .surface_ref(option.vol_id.as_str())
+                .surface_ref(option.vol_surface_id.as_str())
                 .map(|s| s.value_clamped(t, option.strike_rate))
                 .unwrap_or(0.2)
         };

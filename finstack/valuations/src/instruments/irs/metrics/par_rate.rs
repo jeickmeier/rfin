@@ -18,14 +18,14 @@ impl MetricCalculator for ParRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.get_discount(&irs.fixed.disc_id)?;
+        let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
         let base = disc.base_date();
 
         let method = irs.fixed.par_method.unwrap_or(ParRateMethod::ForwardBased);
         match method {
             ParRateMethod::ForwardBased => {
                 // float PV / (N * annuity)
-                let fwd = context.curves.get_forward(&irs.float.fwd_id)?;
+                let fwd = context.curves.get_forward(&irs.float.forward_curve_id)?;
                 let as_of = context.as_of;
 
                 // Annuity is sum(yf*df) in years

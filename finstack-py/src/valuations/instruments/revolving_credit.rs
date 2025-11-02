@@ -70,7 +70,7 @@ impl PyRevolvingCredit {
         let drawn = extract_money(&drawn_amount)?;
         let commit_date = py_to_date(&commitment_date)?;
         let mat_date = py_to_date(&maturity_date)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
 
         // Parse base rate spec
         let base_rate = if let Ok(dict) = base_rate_spec.downcast::<PyDict>() {
@@ -256,7 +256,7 @@ impl PyRevolvingCredit {
         builder = builder.payment_frequency(pay_freq);
         builder = builder.fees(fees_struct);
         builder = builder.draw_repay_spec(draw_repay);
-        builder = builder.disc_id(disc_id);
+        builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.day_count(DayCount::Act365F);
         let rev_credit = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!(

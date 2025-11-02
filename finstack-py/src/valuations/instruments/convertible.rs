@@ -383,7 +383,7 @@ impl PyConvertibleBond {
         let notional_money = extract_money(&notional)?;
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
 
         if fixed_coupon.is_some() && floating_coupon.is_some() {
             return Err(PyValueError::new_err(
@@ -401,7 +401,7 @@ impl PyConvertibleBond {
             notional: notional_money,
             issue: issue_date,
             maturity: maturity_date,
-            disc_id,
+            discount_curve_id,
             conversion: conversion.inner.clone(),
             underlying_equity_id: underlying_equity_id.map(|s| s.to_string()),
             call_put,
@@ -425,7 +425,7 @@ impl PyConvertibleBond {
 
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[getter]

@@ -129,7 +129,7 @@ fn test_required_collateral_high_haircut() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();
@@ -157,7 +157,7 @@ fn test_required_collateral_zero_haircut() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();

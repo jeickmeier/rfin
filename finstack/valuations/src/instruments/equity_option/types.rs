@@ -26,9 +26,9 @@ pub struct EquityOption {
     pub contract_size: f64,
     pub day_count: finstack_core::dates::DayCount,
     pub settlement: SettlementType,
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     pub spot_id: String,
-    pub vol_id: CurveId,
+    pub vol_surface_id: CurveId,
     pub div_yield_id: Option<String>,
     pub pricing_overrides: PricingOverrides,
     pub attributes: Attributes,
@@ -61,10 +61,10 @@ impl EquityOption {
             .contract_size(underlying.contract_size)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .settlement(SettlementType::Cash)
-            .disc_id(CurveId::new("USD-OIS"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
             .spot_id(underlying.spot_id)
-            .vol_id(CurveId::new("EQUITY-VOL"))
-            .div_yield_id_opt(underlying.dividend_yield_id)
+            .vol_surface_id(CurveId::new("EQUITY-VOL"))
+            .div_yield_id_opt(underlying.div_yield_id)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -94,10 +94,10 @@ impl EquityOption {
             .contract_size(underlying.contract_size)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .settlement(SettlementType::Cash)
-            .disc_id(CurveId::new("USD-OIS"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
             .spot_id(underlying.spot_id)
-            .vol_id(CurveId::new("EQUITY-VOL"))
-            .div_yield_id_opt(underlying.dividend_yield_id)
+            .vol_surface_id(CurveId::new("EQUITY-VOL"))
+            .div_yield_id_opt(underlying.div_yield_id)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -127,10 +127,10 @@ impl EquityOption {
             .contract_size(underlying.contract_size)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .settlement(SettlementType::Cash)
-            .disc_id(CurveId::new("USD-OIS"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
             .spot_id(underlying.spot_id)
-            .vol_id(CurveId::new("EQUITY-VOL"))
-            .div_yield_id_opt(underlying.dividend_yield_id)
+            .vol_surface_id(CurveId::new("EQUITY-VOL"))
+            .div_yield_id_opt(underlying.div_yield_id)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -142,8 +142,8 @@ impl EquityOption {
         id: impl Into<String>,
         option_params: &EquityOptionParams,
         underlying_params: &EquityUnderlyingParams,
-        disc_id: CurveId,
-        vol_id: CurveId,
+        discount_curve_id: CurveId,
+        vol_surface_id: CurveId,
     ) -> Self {
         Self {
             id: InstrumentId::new(id.into()),
@@ -155,10 +155,10 @@ impl EquityOption {
             contract_size: option_params.contract_size,
             day_count: finstack_core::dates::DayCount::Act365F,
             settlement: option_params.settlement,
-            disc_id,
+            discount_curve_id,
             spot_id: underlying_params.spot_id.to_owned(),
-            vol_id,
-            div_yield_id: underlying_params.dividend_yield_id.to_owned(),
+            vol_surface_id,
+            div_yield_id: underlying_params.div_yield_id.to_owned(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
@@ -459,9 +459,9 @@ mod tests {
             .contract_size(100.0)
             .day_count(DayCount::Act365F)
             .settlement(SettlementType::Cash)
-            .disc_id(CurveId::new(DISC_ID))
+            .discount_curve_id(CurveId::new(DISC_ID))
             .spot_id(SPOT_ID.to_string())
-            .vol_id(CurveId::new(VOL_ID))
+            .vol_surface_id(CurveId::new(VOL_ID))
             .div_yield_id_opt(Some(DIV_ID.to_string()))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -484,9 +484,9 @@ mod tests {
         let call = EquityOption::european_call("SPX-CALL", "SPX", 100.0, expiry, notional, 100.0);
         assert_eq!(call.exercise_style, ExerciseStyle::European);
         assert_eq!(call.option_type, OptionType::Call);
-        assert_eq!(call.disc_id, CurveId::new(DISC_ID));
+        assert_eq!(call.discount_curve_id, CurveId::new(DISC_ID));
         assert_eq!(call.spot_id, "EQUITY-SPOT");
-        assert_eq!(call.vol_id, CurveId::new("EQUITY-VOL"));
+        assert_eq!(call.vol_surface_id, CurveId::new("EQUITY-VOL"));
 
         let put = EquityOption::european_put("SPX-PUT", "SPX", 90.0, expiry, notional, 50.0);
         assert_eq!(put.option_type, OptionType::Put);

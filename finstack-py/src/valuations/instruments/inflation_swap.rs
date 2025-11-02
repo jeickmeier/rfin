@@ -51,7 +51,7 @@ impl PyInflationSwap {
 impl PyInflationSwap {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, notional, fixed_rate, start_date, maturity, discount_curve, inflation_index=None, /, *, side='pay_fixed', day_count='act_act', inflation_id=None, lag_override=None, inflation_curve=None)",
+        text_signature = "(cls, instrument_id, notional, fixed_rate, start_date, maturity, discount_curve, inflation_index=None, /, *, side='pay_fixed', day_count='act_act', inflation_index_id=None, lag_override=None, inflation_curve=None)",
         signature = (
             instrument_id,
             notional,
@@ -63,7 +63,7 @@ impl PyInflationSwap {
             *,
             side = None,
             day_count = None,
-            inflation_id = None,
+            inflation_index_id = None,
             lag_override = None,
             inflation_curve = None,
         )
@@ -81,9 +81,9 @@ impl PyInflationSwap {
     ///     inflation_index: Optional inflation index identifier.
     ///     side: Optional pay/receive label (defaults to pay fixed).
     ///     day_count: Optional day-count convention label.
-    ///     inflation_id: Optional explicit inflation curve identifier.
+    ///     inflation_index_id: Optional explicit inflation curve identifier.
     ///     lag_override: Optional lag override label.
-    ///     inflation_curve: Optional curve identifier used when ``inflation_id`` omitted.
+    ///     inflation_curve: Optional curve identifier used when ``inflation_index_id`` omitted.
     ///
     /// Returns:
     ///     InflationSwap: Configured inflation swap instrument.
@@ -102,7 +102,7 @@ impl PyInflationSwap {
         inflation_index: Option<&str>,
         side: Option<&str>,
         day_count: Option<&str>,
-        inflation_id: Option<&str>,
+        inflation_index_id: Option<&str>,
         lag_override: Option<&str>,
         inflation_curve: Option<&str>,
     ) -> PyResult<Self> {
@@ -110,7 +110,7 @@ impl PyInflationSwap {
         let notional_money = extract_money(&notional)?;
         let start = py_to_date(&start_date)?;
         let end = py_to_date(&maturity)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
         let side_value = parse_side(side)?;
         let dc = if let Some(name) = day_count {
             match crate::core::common::labels::normalize_label(name).as_str() {
@@ -126,7 +126,7 @@ impl PyInflationSwap {
         } else {
             DayCount::ActAct
         };
-        let inflation_identifier = if let Some(explicit) = inflation_id {
+        let inflation_identifier = if let Some(explicit) = inflation_index_id {
             explicit
         } else if let Some(label) = inflation_index.or(inflation_curve) {
             label
@@ -142,8 +142,8 @@ impl PyInflationSwap {
         builder = builder.fixed_rate(fixed_rate);
         builder = builder.start(start);
         builder = builder.maturity(end);
-        builder = builder.disc_id(disc_id);
-        builder = builder.inflation_id(inflation_identifier.into());
+        builder = builder.discount_curve_id(discount_curve_id);
+        builder = builder.inflation_index_id(inflation_identifier.into());
         builder = builder.dc(dc);
         builder = builder.side(side_value);
         if let Some(lag) = lag_override {

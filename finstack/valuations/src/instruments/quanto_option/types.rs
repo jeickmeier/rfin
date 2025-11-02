@@ -25,9 +25,9 @@ pub struct QuantoOption {
     pub foreign_currency: Currency,
     pub correlation: f64, // Correlation between equity and FX
     pub day_count: finstack_core::dates::DayCount,
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     pub spot_id: String,
-    pub vol_id: CurveId,
+    pub vol_surface_id: CurveId,
     pub div_yield_id: Option<String>,
     pub fx_rate_id: Option<String>,
     pub fx_vol_id: Option<CurveId>,

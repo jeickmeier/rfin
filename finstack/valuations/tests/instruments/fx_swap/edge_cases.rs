@@ -206,8 +206,8 @@ fn test_currency_mismatch_notional() {
         .near_date(dates.near_date)
         .far_date(dates.far_date_1y)
         .base_notional(Money::new(1_000_000.0, Currency::GBP)) // Wrong currency!
-        .domestic_disc_id("USD-OIS".into())
-        .foreign_disc_id("EUR-OIS".into())
+        .domestic_discount_curve_id("USD-OIS".into())
+        .foreign_discount_curve_id("EUR-OIS".into())
         .build()
         .unwrap();
 

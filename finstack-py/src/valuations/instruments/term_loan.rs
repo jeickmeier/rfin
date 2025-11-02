@@ -22,7 +22,7 @@ use std::fmt;
 ///     >>> # Create a simple fixed-rate term loan
 ///     >>> loan = TermLoan.from_json('''{
 ///     ...     "id": "loan_001",
-///     ...     "disc_id": "usd_discount",
+///     ...     "discount_curve_id": "usd_discount",
 ///     ...     "currency": "USD",
 ///     ...     "issue": "2024-01-01",
 ///     ...     "maturity": "2029-01-01",
@@ -139,7 +139,7 @@ impl PyTermLoan {
     ///     str: Identifier for the discount curve.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Instrument type enum (``InstrumentType.TERM_LOAN``).

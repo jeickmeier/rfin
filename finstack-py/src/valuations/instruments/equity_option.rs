@@ -125,7 +125,7 @@ impl PyEquityOption {
 
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, strike, expiry, notional, discount_curve, spot_id, vol_surface, /, *, dividend_yield_id=None, contract_size=1.0)",
+        text_signature = "(cls, instrument_id, ticker, strike, expiry, notional, discount_curve, spot_id, vol_surface, /, *, div_yield_id=None, contract_size=1.0)",
         signature = (
             instrument_id,
             ticker,
@@ -136,7 +136,7 @@ impl PyEquityOption {
             spot_id,
             vol_surface,
             *,
-            dividend_yield_id=None,
+            div_yield_id=None,
             contract_size=None
         )
     )]
@@ -152,7 +152,7 @@ impl PyEquityOption {
         discount_curve: Bound<'_, PyAny>,
         spot_id: &str,
         vol_surface: Bound<'_, PyAny>,
-        dividend_yield_id: Option<&str>,
+        div_yield_id: Option<&str>,
         contract_size: Option<f64>,
     ) -> PyResult<Self> {
         use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
@@ -161,12 +161,12 @@ impl PyEquityOption {
         let id = extract_instrument_id(&instrument_id)?;
         let expiry_date = py_to_date(&expiry)?;
         let notional_money = extract_money(&notional)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
-        let vol_id = extract_curve_id(&vol_surface)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let vol_surface_id = extract_curve_id(&vol_surface)?;
 
         let mut underlying =
             EquityUnderlyingParams::new(ticker, spot_id, notional_money.currency());
-        if let Some(div) = dividend_yield_id {
+        if let Some(div) = div_yield_id {
             underlying = underlying.with_dividend_yield(div);
         }
         if let Some(cs) = contract_size {
@@ -180,8 +180,8 @@ impl PyEquityOption {
             id.into_string(),
             &params,
             &underlying,
-            CurveId::new(disc_id.as_str()),
-            CurveId::new(vol_id.as_str()),
+            CurveId::new(discount_curve_id.as_str()),
+            CurveId::new(vol_surface_id.as_str()),
         );
         Ok(Self::new(option))
     }
@@ -262,7 +262,7 @@ impl PyEquityOption {
     ///     str: Discount curve identifier.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Volatility surface identifier.
@@ -271,7 +271,7 @@ impl PyEquityOption {
     ///     str: Volatility surface identifier used for pricing.
     #[getter]
     fn vol_surface(&self) -> String {
-        self.inner.vol_id.as_str().to_string()
+        self.inner.vol_surface_id.as_str().to_string()
     }
 
     /// Instrument type enum (``InstrumentType.EQUITY_OPTION``).

@@ -89,7 +89,7 @@ fn test_zero_coupon_bond_ytm() {
         .stub(StubKind::None)
         .issue(issue)
         .maturity(maturity)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build();
 
     // Skip test if bond construction fails due to validation
@@ -141,7 +141,7 @@ fn test_odd_first_coupon_ytm() {
         .stub(StubKind::ShortFront) // Short stub at front
         .issue(issue)
         .maturity(maturity)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build();
 
     // Skip test if bond construction fails due to validation
@@ -189,7 +189,7 @@ fn test_eom_february_maturity_ytm() {
         .stub(StubKind::None)
         .issue(issue)
         .maturity(maturity)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build();
 
     // Skip test if bond construction fails due to validation
@@ -241,7 +241,7 @@ fn test_long_first_coupon_ytm() {
         .stub(StubKind::LongFront) // Long stub at front
         .issue(issue)
         .maturity(maturity)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build();
 
     // Skip test if bond construction fails due to validation

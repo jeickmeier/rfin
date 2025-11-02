@@ -38,7 +38,7 @@ pub struct Equity {
     /// Explicit market data identifier to resolve the spot price
     pub price_id: Option<String>,
     /// Explicit market data identifier to resolve the dividend yield
-    pub dividend_yield_id: Option<String>,
+    pub div_yield_id: Option<String>,
     /// Discount curve ID for pricing
     pub discount_curve_id: CurveId,
     /// Attributes for scenario selection and tagging
@@ -62,7 +62,7 @@ impl Equity {
             shares: None,
             price_quote: None,
             price_id: None,
-            dividend_yield_id: None,
+            div_yield_id: None,
             discount_curve_id,
             attributes: Attributes::new(),
         }
@@ -88,7 +88,7 @@ impl Equity {
 
     /// Override the market data identifier used to resolve the dividend yield
     pub fn with_dividend_yield_id(mut self, div_id: impl Into<String>) -> Self {
-        self.dividend_yield_id = Some(div_id.into());
+        self.div_yield_id = Some(div_id.into());
         self
     }
 
@@ -127,8 +127,8 @@ impl Equity {
             }
         };
 
-        push(self.dividend_yield_id.as_deref());
-        push(self.attributes.get_meta("dividend_yield_id"));
+        push(self.div_yield_id.as_deref());
+        push(self.attributes.get_meta("div_yield_id"));
         push(self.attributes.get_meta("dividend_yield_key"));
         push(self.attributes.get_meta("div_yield_id"));
         let ticker_div = format!("{}-DIVYIELD", self.ticker);

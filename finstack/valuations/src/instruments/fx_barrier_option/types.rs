@@ -25,7 +25,7 @@ pub struct FxBarrierOption {
     pub correlation: f64, // Correlation between FX and domestic/foreign rates
     pub day_count: finstack_core::dates::DayCount,
     pub use_gobet_miri: bool,
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     pub fx_spot_id: String,
     pub fx_vol_id: CurveId,
     pub pricing_overrides: PricingOverrides,

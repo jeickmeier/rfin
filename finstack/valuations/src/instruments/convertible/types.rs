@@ -30,7 +30,7 @@ pub struct ConvertibleBond {
     /// Maturity date.
     pub maturity: Date,
     /// Discount curve identifier for the debt component.
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Conversion terms for equity conversion.
     pub conversion: ConversionSpec,
     /// Optional underlying equity identifier (ticker or instrument id).
@@ -291,6 +291,6 @@ impl crate::instruments::common::traits::Instrument for ConvertibleBond {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for ConvertibleBond {
     fn discount_curve_id(&self) -> &CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }

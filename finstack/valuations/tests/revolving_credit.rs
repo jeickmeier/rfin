@@ -49,7 +49,7 @@ fn test_revolving_credit_basic_pricing() {
             facility_fee_bp: 5.0,
         })
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
@@ -109,7 +109,7 @@ fn test_revolving_credit_with_draws_and_repayments() {
                 is_draw: false, // Repay 1M
             },
         ]))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
@@ -150,7 +150,7 @@ fn test_revolving_credit_utilization_metrics() {
             facility_fee_bp: 5.0,
         })
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
@@ -211,7 +211,7 @@ fn test_revolving_credit_standard_metrics() {
             facility_fee_bp: 10.0,
         })
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
@@ -272,7 +272,7 @@ fn test_revolving_credit_bucketed_dv01() {
             facility_fee_bp: 5.0,
         })
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
@@ -309,7 +309,7 @@ fn test_revolving_credit_helpers() {
         .payment_frequency(Frequency::quarterly())
         .fees(RevolvingCreditFees::default())
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 

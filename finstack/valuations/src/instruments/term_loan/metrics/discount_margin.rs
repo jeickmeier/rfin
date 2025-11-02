@@ -19,7 +19,7 @@ impl DiscountMarginCalculator {
         dm: f64,
     ) -> finstack_core::Result<f64> {
         // Recreate a simplified cashflow accrual over coupon periods but add dm to base rate
-        let disc = curves.get_discount_ref(loan.disc_id.as_str())?;
+        let disc = curves.get_discount_ref(loan.discount_curve_id.as_str())?;
         let disc_dc = disc.day_count();
 
         let sched = finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)

@@ -39,7 +39,7 @@ pub struct Bond {
     /// Maturity date of the bond.
     pub maturity: Date,
     /// Discount curve identifier for pricing.
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Optional credit curve identifier (default intensity). When present,
     /// credit-rate pricing is enabled.
     pub credit_curve_id: Option<CurveId>,
@@ -96,7 +96,7 @@ impl CallPutSchedule {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BondFloatSpec {
     /// Forward curve identifier for the floating index (e.g., USD-SOFR-3M).
-    pub fwd_id: CurveId,
+    pub forward_curve_id: CurveId,
     /// Margin over the index in basis points.
     pub margin_bp: f64,
     /// Gearing multiplier on the index rate.
@@ -152,7 +152,7 @@ impl Bond {
     ///     .dc(DayCount::ActAct)  // ISDA variant
     ///     .issue(issue)
     ///     .maturity(maturity)
-    ///     .disc_id("GBP-GILT")
+    ///     .discount_curve_id("GBP-GILT")
     ///     .build()
     ///     .unwrap();
     ///
@@ -165,7 +165,7 @@ impl Bond {
     ///     .dc(DayCount::ThirtyE360)  // European 30/360
     ///     .issue(issue)
     ///     .maturity(maturity)
-    ///     .disc_id("EUR-GOVT")
+    ///     .discount_curve_id("EUR-GOVT")
     ///     .build()
     ///     .unwrap();
     /// ```
@@ -175,7 +175,7 @@ impl Bond {
         coupon_rate: f64,
         issue: Date,
         maturity: Date,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self::builder()
             .id(id.into())
@@ -188,7 +188,7 @@ impl Bond {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id(disc_id.into())
+            .discount_curve_id(discount_curve_id.into())
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -220,7 +220,7 @@ impl Bond {
         issue: Date,
         maturity: Date,
         convention: crate::instruments::common::parameters::BondConvention,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self::builder()
             .id(id.into())
@@ -233,7 +233,7 @@ impl Bond {
             .bdc(convention.business_day_convention())
             .calendar_id_opt(None)
             .stub(convention.stub_convention())
-            .disc_id(disc_id.into())
+            .discount_curve_id(discount_curve_id.into())
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -261,7 +261,7 @@ impl Bond {
     pub fn from_cashflows(
         id: impl Into<InstrumentId>,
         schedule: CashFlowSchedule,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
         quoted_clean: Option<f64>,
     ) -> finstack_core::Result<Self> {
         // Extract parameters from the schedule
@@ -300,7 +300,7 @@ impl Bond {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id(disc_id.into())
+            .discount_curve_id(discount_curve_id.into())
             .credit_curve_id_opt(None)
             .pricing_overrides(pricing_overrides)
             .custom_cashflows_opt(Some(schedule))
@@ -352,7 +352,7 @@ impl Bond {
         if let Some(ref fl) = self.float {
             // Floating rate bond
             b.floating_cf(FloatingCouponSpec {
-                index_id: fl.fwd_id.to_owned(),
+                index_id: fl.forward_curve_id.to_owned(),
                 margin_bp: fl.margin_bp,
                 gearing: fl.gearing,
                 reset_lag_days: fl.reset_lag_days,
@@ -417,7 +417,7 @@ impl Bond {
         }
 
         // Get discount curve and calibrate tree
-        let discount_curve = market.get_discount_ref(&self.disc_id)?;
+        let discount_curve = market.get_discount_ref(&self.discount_curve_id)?;
 
         // Tree configuration - use 100 steps and 1% volatility as defaults
         // These can be overridden via attributes if needed for specific calibration
@@ -491,7 +491,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
             self,
             curves,
             as_of,
-            &self.disc_id,
+            &self.discount_curve_id,
             self.dc,
         )
     }
@@ -511,7 +511,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for Bond {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }
 
@@ -567,7 +567,7 @@ mod tests {
 
         // Verify bond properties
         assert_eq!(bond.id.as_str(), "CUSTOM_STEPUP_BOND");
-        assert_eq!(bond.disc_id.as_str(), "USD-OIS");
+        assert_eq!(bond.discount_curve_id.as_str(), "USD-OIS");
         assert_eq!(bond.pricing_overrides.quoted_clean_price, Some(98.5));
         assert_eq!(bond.issue, issue);
         assert_eq!(bond.maturity, maturity);
@@ -638,14 +638,14 @@ mod tests {
             .calendar_id_opt(None)
             .stub(StubKind::None)
             .custom_cashflows_opt(Some(custom_schedule))
-            .disc_id(CurveId::new("USD-OIS"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
             .pricing_overrides(PricingOverrides::default().with_clean_price(99.0))
             .attributes(Attributes::new())
             .build()
             .unwrap();
 
         assert_eq!(bond.id.as_str(), "PIK_TOGGLE_BOND");
-        assert_eq!(bond.disc_id.as_str(), "USD-OIS");
+        assert_eq!(bond.discount_curve_id.as_str(), "USD-OIS");
         assert_eq!(bond.pricing_overrides.quoted_clean_price, Some(99.0));
         assert!(bond.custom_cashflows.is_some());
         assert_eq!(bond.notional.currency(), Currency::USD);
@@ -668,7 +668,7 @@ mod tests {
             .stub(StubKind::None)
             .issue(issue)
             .maturity(maturity)
-            .disc_id(CurveId::new("USD-OIS"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .call_put_opt(None)
@@ -721,7 +721,7 @@ mod tests {
             .stub(StubKind::None)
             .issue(issue)
             .maturity(maturity)
-            .disc_id(CurveId::new("USD-OIS"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .call_put_opt(None)
@@ -805,11 +805,11 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id(CurveId::new("USD-OIS"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .float_opt(Some(BondFloatSpec {
-                fwd_id: CurveId::new("USD-SOFR-3M"),
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
                 margin_bp: 150.0,
                 gearing: 1.0,
                 reset_lag_days: 2,

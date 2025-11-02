@@ -196,7 +196,7 @@ impl PyCdsIndex {
     ///     str: Discount curve used for premium leg.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.premium.disc_id.as_str().to_string()
+        self.inner.premium.discount_curve_id.as_str().to_string()
     }
 
     /// Credit curve identifier.

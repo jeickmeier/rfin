@@ -46,7 +46,7 @@ impl JsForwardRateAgreement {
             .fixing_date(fixing_date.inner())
             .start_date(start_date.inner())
             .end_date(end_date.inner())
-            .disc_id(curve_id_from_str(discount_curve))
+            .discount_curve_id(curve_id_from_str(discount_curve))
             .forward_id(curve_id_from_str(forward_curve));
 
         if let Some(dc) = day_count {
@@ -97,7 +97,7 @@ impl JsForwardRateAgreement {
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.disc_id.as_str().to_string()
+        self.0.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]

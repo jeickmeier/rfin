@@ -21,7 +21,7 @@ impl MetricCalculator for RepoDv01Calculator {
         let base_pv = repo.value(&context.curves, context.as_of)?;
 
         // Parallel +1bp bump on discount curve
-        let disc_curve_id = repo.disc_id.to_owned();
+        let disc_curve_id = repo.discount_curve_id.to_owned();
         let mut bumps = HashMap::new();
         bumps.insert(disc_curve_id, BumpSpec::parallel_bp(1.0));
         let bumped_context = context.curves.bump(bumps)?;

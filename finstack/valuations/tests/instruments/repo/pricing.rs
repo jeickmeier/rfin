@@ -22,7 +22,7 @@ fn test_interest_calculation_act360() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();
@@ -51,7 +51,7 @@ fn test_interest_calculation_act365() {
         .day_count(DayCount::Act365F)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();
@@ -81,7 +81,7 @@ fn test_daycount_360_vs_365_difference() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();
@@ -99,7 +99,7 @@ fn test_daycount_360_vs_365_difference() {
         .day_count(DayCount::Act365F)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();
@@ -296,7 +296,7 @@ fn test_pv_with_flat_curve() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-FLAT".into())
+        .discount_curve_id("USD-FLAT".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();

@@ -90,7 +90,7 @@ impl JsTermLoan {
     /// Get the discount curve identifier.
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.disc_id.as_str().to_string()
+        self.0.discount_curve_id.as_str().to_string()
     }
 
     /// Get the instrument type.

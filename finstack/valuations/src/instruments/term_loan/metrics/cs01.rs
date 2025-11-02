@@ -12,7 +12,7 @@ impl MetricCalculator for Cs01Calculator {
         let loan: &TermLoan = context.instrument_as()?;
         let as_of = context.as_of;
 
-        let disc = context.curves.get_discount_ref(loan.disc_id.as_str())?;
+        let disc = context.curves.get_discount_ref(loan.discount_curve_id.as_str())?;
         let disc_dc = disc.day_count();
         let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(
             loan,

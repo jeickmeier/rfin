@@ -168,7 +168,7 @@ impl PyCdsTranche {
         builder = builder.day_count(dc);
         builder = builder.business_day_convention(bdc);
         builder = builder.calendar_id_opt(to_optional_string(calendar));
-        builder = builder.disc_id(disc_curve);
+        builder = builder.discount_curve_id(disc_curve);
         builder = builder.credit_index_id(credit_curve);
         builder = builder.side(side_value);
         builder = builder.effective_date_opt(eff);
@@ -238,7 +238,7 @@ impl PyCdsTranche {
     ///     str: Discount curve used for valuation.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Credit index curve identifier.

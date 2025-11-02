@@ -69,7 +69,7 @@ impl JsInterestRateSwap {
             .unwrap_or(finstack_core::dates::DayCount::Act360);
         let stub = stub_kind.map(|s| s.inner()).unwrap_or(StubKind::None);
         let fixed = FixedLegSpec {
-            disc_id: curve_id_from_str(discount_curve),
+            discount_curve_id: curve_id_from_str(discount_curve),
             rate: fixed_rate,
             freq: fixed_freq,
             dc: fixed_dc,
@@ -82,8 +82,8 @@ impl JsInterestRateSwap {
             compounding_simple: true,
         };
         let float = FloatLegSpec {
-            disc_id: curve_id_from_str(discount_curve),
-            fwd_id: curve_id_from_str(forward_curve),
+            discount_curve_id: curve_id_from_str(discount_curve),
+            forward_curve_id: curve_id_from_str(forward_curve),
             spread_bp: 0.0,
             freq: float_freq,
             dc: float_dc,
@@ -137,12 +137,12 @@ impl JsInterestRateSwap {
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.fixed.disc_id.as_str().to_string()
+        self.0.fixed.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]
     pub fn forward_curve(&self) -> String {
-        self.0.float.fwd_id.as_str().to_string()
+        self.0.float.forward_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

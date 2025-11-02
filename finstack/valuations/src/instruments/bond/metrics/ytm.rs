@@ -22,7 +22,7 @@ impl MetricCalculator for YtmCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         // Extract fields we need from the bond
-        let (clean_px, notional, dc, disc_id, coupon, freq) = {
+        let (clean_px, notional, dc, discount_curve_id, coupon, freq) = {
             let bond: &Bond = context.instrument_as()?;
             (
                 bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
@@ -32,7 +32,7 @@ impl MetricCalculator for YtmCalculator {
                 })?,
                 bond.notional,
                 bond.dc,
-                bond.disc_id.to_owned(),
+                bond.discount_curve_id.to_owned(),
                 bond.coupon,
                 bond.freq,
             )
@@ -58,7 +58,7 @@ impl MetricCalculator for YtmCalculator {
             let bond: &Bond = context.instrument_as()?;
             let flows = bond.build_schedule(&context.curves, context.as_of)?;
             context.cashflows = Some(flows);
-            context.discount_curve_id = Some(disc_id);
+            context.discount_curve_id = Some(discount_curve_id);
             context.day_count = Some(dc);
         }
         let flows = context.cashflows.as_ref().ok_or_else(|| {

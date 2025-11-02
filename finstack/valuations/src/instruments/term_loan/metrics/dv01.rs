@@ -13,7 +13,7 @@ impl MetricCalculator for Dv01Calculator {
         let as_of = context.as_of;
 
         // Discount curve
-        let disc = context.curves.get_discount_ref(loan.disc_id.as_str())?;
+        let disc = context.curves.get_discount_ref(loan.discount_curve_id.as_str())?;
         let disc_dc = disc.day_count();
 
         // Generate cashflows

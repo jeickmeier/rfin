@@ -40,7 +40,7 @@ impl MetricCalculator for SwaptionDv01Calculator {
         }
 
         // Market standard: Use bump-and-reprice with 1bp parallel shift
-        let disc = context.curves.get_discount(&swaption.disc_id)?;
+        let disc = context.curves.get_discount(&swaption.discount_curve_id)?;
         let base_price = context.base_value.amount();
 
         // Get volatility (held constant during rate bump)
@@ -48,7 +48,7 @@ impl MetricCalculator for SwaptionDv01Calculator {
         let vol = if let Some(impl_vol) = swaption.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface_ref(swaption.vol_id.as_str())?;
+            let vol_surface = context.curves.surface_ref(swaption.vol_surface_id.as_str())?;
             vol_surface.value_clamped(time_to_expiry, swaption.strike_rate)
         };
 

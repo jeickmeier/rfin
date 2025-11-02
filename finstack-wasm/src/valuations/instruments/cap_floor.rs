@@ -51,7 +51,7 @@ impl JsInterestRateOption {
     ) -> Result<JsInterestRateOption, JsValue> {
         let freq = frequency_from_payments(payments_per_year)?;
         let dc = extract_day_count(day_count);
-        let vol_id = curve_id_from_str(vol_surface);
+        let vol_surface_id = curve_id_from_str(vol_surface);
 
         let option = InterestRateOption::new_cap(
             instrument_id_from_str(instrument_id),
@@ -63,7 +63,7 @@ impl JsInterestRateOption {
             dc,
             curve_id_from_str(discount_curve),
             curve_id_from_str(forward_curve),
-            vol_id,
+            vol_surface_id,
         );
 
         Ok(JsInterestRateOption::from_inner(option))
@@ -85,7 +85,7 @@ impl JsInterestRateOption {
     ) -> Result<JsInterestRateOption, JsValue> {
         let freq = frequency_from_payments(payments_per_year)?;
         let dc = extract_day_count(day_count);
-        let vol_id = curve_id_from_str(vol_surface);
+        let vol_surface_id = curve_id_from_str(vol_surface);
 
         let option = InterestRateOption::new_floor(
             instrument_id_from_str(instrument_id),
@@ -97,7 +97,7 @@ impl JsInterestRateOption {
             dc,
             curve_id_from_str(discount_curve),
             curve_id_from_str(forward_curve),
-            vol_id,
+            vol_surface_id,
         );
 
         Ok(JsInterestRateOption::from_inner(option))
@@ -130,7 +130,7 @@ impl JsInterestRateOption {
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.disc_id.as_str().to_string()
+        self.0.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]

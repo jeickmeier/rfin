@@ -84,7 +84,7 @@ fn test_multiple_contracts() {
         day_count: DayCount::Act360,
         position: Position::Long,
         contract_specs: FutureContractSpecs::default(),
-        disc_id: "USD_OIS".into(),
+        discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         attributes: Default::default(),
     };
@@ -114,7 +114,7 @@ fn test_different_day_counts() {
             day_count: dc,
             position: Position::Long,
             contract_specs: FutureContractSpecs::default(),
-            disc_id: "USD_OIS".into(),
+            discount_curve_id: "USD_OIS".into(),
             forward_id: "USD_LIBOR_3M".into(),
             attributes: Default::default(),
         };

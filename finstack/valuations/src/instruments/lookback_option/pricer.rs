@@ -56,7 +56,7 @@ impl LookbackOptionMcPricer {
             ));
         }
 
-        let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
@@ -89,7 +89,7 @@ impl LookbackOptionMcPricer {
             0.0
         };
 
-        let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
         let strike_val = inst.strike.as_ref().map(|s| s.amount()).unwrap_or(spot);
         let sigma = vol_surface.value_clamped(t, strike_val);
 
@@ -238,7 +238,7 @@ fn collect_lookback_inputs(
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
-    let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
     let r = disc_curve.zero(t);
 
     let spot_scalar = curves.price(&inst.spot_id)?;
@@ -259,7 +259,7 @@ fn collect_lookback_inputs(
         0.0
     };
 
-    let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+    let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
     let strike_val = inst.strike.as_ref().map(|s| s.amount()).unwrap_or(spot);
     let sigma = vol_surface.value_clamped(t, strike_val);
 

@@ -320,7 +320,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             1 => Currency::EUR,
             _ => Currency::GBP,
         };
-        let disc_id = match ccy {
+        let discount_curve_id = match ccy {
             Currency::EUR => "EUR-OIS",
             Currency::GBP => "GBP-OIS",
             _ => "USD-OIS",
@@ -333,7 +333,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .start(base)
             .end(maturity_2y())
             .day_count(DayCount::Act360)
-            .disc_id(disc_id.into())
+            .discount_curve_id(discount_curve_id.into())
             .build()
             .unwrap();
 
@@ -356,7 +356,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         } else {
             Currency::EUR
         };
-        let disc_id = if ccy == Currency::EUR {
+        let discount_curve_id = if ccy == Currency::EUR {
             "EUR-OIS"
         } else {
             "USD-OIS"
@@ -369,7 +369,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             0.05,
             base,
             maturity_5y(),
-            disc_id,
+            discount_curve_id,
         );
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
@@ -467,7 +467,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             calendar_id: None,
             dc: convention.day_count(),
             spread_bp: 100.0,
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
         };
 
         let protection = ProtectionLegSpec {
@@ -609,9 +609,9 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .expiry(maturity_2y())
             .day_count(DayCount::Act365F)
             .settlement(SettlementType::Cash)
-            .domestic_disc_id("USD-OIS".into())
-            .foreign_disc_id("EUR-OIS".into())
-            .vol_id("FX-VOL".into())
+            .domestic_discount_curve_id("USD-OIS".into())
+            .foreign_discount_curve_id("EUR-OIS".into())
+            .vol_surface_id("FX-VOL".into())
             .pricing_overrides(Default::default())
             .attributes(Attributes::default())
             .build()
@@ -679,7 +679,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .observation_freq(Frequency::daily())
             .realized_var_method(RealizedVarMethod::CloseToClose)
             .side(finstack_valuations::instruments::variance_swap::PayReceive::Receive)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)
             .attributes(Attributes::default())
             .build()
@@ -775,8 +775,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .start(base)
             .maturity(maturity_5y())
             .fixed_rate(0.02) // 2% fixed real rate
-            .inflation_id("USD-CPI".into())
-            .disc_id("USD-OIS".into())
+            .inflation_index_id("USD-CPI".into())
+            .discount_curve_id("USD-OIS".into())
             .dc(DayCount::Act365F)
             .side(PayReceiveInflation::PayFixed)
             .attributes(Attributes::default())
@@ -882,7 +882,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             notional: Money::new(1_000_000.0, Currency::USD),
             issue: base,
             maturity: maturity_5y(),
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             conversion: conversion_spec,
             underlying_equity_id: Some("AAPL".to_string()),
             call_put: None,
@@ -913,7 +913,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .start(base)
             .end(maturity_2y())
             .day_count(DayCount::Act360)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .build()
             .unwrap();
 

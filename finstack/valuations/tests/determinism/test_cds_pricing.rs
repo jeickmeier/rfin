@@ -24,7 +24,7 @@ fn create_test_cds() -> CreditDefaultSwap {
         100.0, // 100bp spread
         as_of,
         maturity,
-        "USD-OIS",     // disc_id
+        "USD-OIS",     // discount_curve_id
         "ACME-HAZARD", // credit_id (hazard curve contains recovery rate)
     )
 }
@@ -222,7 +222,7 @@ fn test_cds_different_tenors_determinism() {
             100.0, // 100bp spread
             as_of,
             maturity,
-            "USD-OIS",     // disc_id
+            "USD-OIS",     // discount_curve_id
             "ACME-HAZARD", // credit_id
         );
 

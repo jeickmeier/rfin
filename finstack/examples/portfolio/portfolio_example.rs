@@ -466,7 +466,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .start(as_of)
         .end(date!(2024 - 04 - 01))
         .day_count(DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
     deposit1.quote_rate = Some(0.05); // 5% quoted rate
@@ -490,7 +490,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .start(as_of)
         .end(date!(2024 - 07 - 01))
         .day_count(DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
     deposit2.quote_rate = Some(0.045); // 4.5% quoted rate
@@ -514,7 +514,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .start(as_of)
         .end(date!(2024 - 04 - 01))
         .day_count(DayCount::Act360)
-        .disc_id("EUR".into())
+        .discount_curve_id("EUR".into())
         .build()
         .unwrap();
     deposit_eur.quote_rate = Some(0.03); // 3% quoted rate
@@ -606,7 +606,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .notional(Money::new(10_000_000.0, Currency::USD))
         .side(PayReceive::PayFixed)
         .fixed(FixedLegSpec {
-            disc_id: "USD".into(),
+            discount_curve_id: "USD".into(),
             rate: 0.04,
             freq: finstack_core::dates::Frequency::semi_annual(),
             dc: DayCount::Thirty360,
@@ -619,8 +619,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             compounding_simple: true,
         })
         .float(FloatLegSpec {
-            disc_id: "USD".into(),
-            fwd_id: "USD_SOFR_3M".into(),
+            discount_curve_id: "USD".into(),
+            forward_curve_id: "USD_SOFR_3M".into(),
             spread_bp: 25.0,
             freq: finstack_core::dates::Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -654,8 +654,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .quote_currency(Currency::USD)
         .near_date(date!(2024 - 02 - 01)) // 1 month from as_of
         .far_date(date!(2024 - 08 - 01)) // 7 months from as_of
-        .domestic_disc_id("USD".into())
-        .foreign_disc_id("EUR".into())
+        .domestic_discount_curve_id("USD".into())
+        .foreign_discount_curve_id("EUR".into())
         .build()
         .unwrap();
 
@@ -863,7 +863,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .currency(Currency::USD)
         .shares(66_666.67) // Shares to make ~$10M at $150/share
         .price_id("AAPL-SPOT".to_string())
-        .dividend_yield_id("AAPL-DIV-YIELD".to_string())
+        .div_yield_id("AAPL-DIV-YIELD".to_string())
         .discount_curve_id("USD".into())
         .build()
         .unwrap();
@@ -939,8 +939,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .deflation_protection(finstack_valuations::instruments::inflation_linked_bond::DeflationProtection::MaturityOnly)
         .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
         .stub(finstack_core::dates::StubKind::None)
-        .disc_id("USD".into())
-        .inflation_id("US-CPI".into())
+        .discount_curve_id("USD".into())
+        .inflation_index_id("US-CPI".into())
         .build()
         .unwrap();
 
@@ -963,8 +963,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .start(as_of)
         .maturity(date!(2029 - 01 - 01)) // 5Y maturity
         .fixed_rate(0.025) // 2.5% fixed rate
-        .inflation_id("US-CPI".into())
-        .disc_id("USD".into())
+        .inflation_index_id("US-CPI".into())
+        .discount_curve_id("USD".into())
         .dc(finstack_core::dates::DayCount::Act365F)
         .side(PayReceiveInflation::ReceiveFixed) // Receive fixed, pay inflation
         .lag_override(finstack_core::market_data::scalars::inflation_index::InflationLag::Months(3))

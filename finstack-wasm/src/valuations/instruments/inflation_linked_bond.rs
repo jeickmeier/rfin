@@ -77,8 +77,8 @@ impl JsInflationLinkedBond {
             .deflation_protection(deflation)
             .bdc(BusinessDayConvention::Following)
             .stub(StubKind::None)
-            .disc_id(curve_id_from_str(discount_curve))
-            .inflation_id(curve_id_from_str(inflation_curve))
+            .discount_curve_id(curve_id_from_str(discount_curve))
+            .inflation_index_id(curve_id_from_str(inflation_curve))
             .attributes(Default::default());
 
         builder

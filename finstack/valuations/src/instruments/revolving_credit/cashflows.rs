@@ -288,7 +288,7 @@ mod tests {
                 facility_fee_bp: 5.0,    // 5 bps
             })
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .build()
             .unwrap();
 
@@ -335,7 +335,7 @@ mod tests {
                     is_draw: false,
                 },
             ]))
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .build()
             .unwrap();
 

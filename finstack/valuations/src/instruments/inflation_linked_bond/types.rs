@@ -175,9 +175,9 @@ pub struct InflationLinkedBond {
     /// Holiday calendar identifier
     pub calendar_id: Option<String>,
     /// Discount curve identifier (real or nominal depending on method)
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Inflation index identifier
-    pub inflation_id: CurveId,
+    pub inflation_index_id: CurveId,
     /// Quoted clean price (if available)
     pub quoted_clean: Option<f64>,
     /// Additional attributes
@@ -189,8 +189,8 @@ impl InflationLinkedBond {
     pub fn new_tips(
         id: impl Into<InstrumentId>,
         bond_params: &InflationLinkedBondParams,
-        disc_id: impl Into<CurveId>,
-        inflation_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
+        inflation_index_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -208,8 +208,8 @@ impl InflationLinkedBond {
             bdc: BusinessDayConvention::Following,
             stub: StubKind::None,
             calendar_id: None,
-            disc_id: disc_id.into(),
-            inflation_id: inflation_id.into(),
+            discount_curve_id: discount_curve_id.into(),
+            inflation_index_id: inflation_index_id.into(),
             quoted_clean: None,
             attributes: Attributes::new(),
         }
@@ -220,8 +220,8 @@ impl InflationLinkedBond {
         id: impl Into<InstrumentId>,
         bond_params: &InflationLinkedBondParams,
         base_date: Date,
-        disc_id: impl Into<CurveId>,
-        inflation_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
+        inflation_index_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -239,15 +239,15 @@ impl InflationLinkedBond {
             bdc: BusinessDayConvention::Following,
             stub: StubKind::None,
             calendar_id: None,
-            disc_id: disc_id.into(),
-            inflation_id: inflation_id.into(),
+            discount_curve_id: discount_curve_id.into(),
+            inflation_index_id: inflation_index_id.into(),
             quoted_clean: None,
             attributes: Attributes::new(),
         }
     }
 
     fn inflation_source(&self, curves: &MarketContext) -> Result<InflationSource> {
-        InflationSource::from_market(curves, &self.inflation_id)
+        InflationSource::from_market(curves, &self.inflation_index_id)
     }
 
     /// Calculate index ratio for a given date
@@ -473,7 +473,7 @@ impl InflationLinkedBond {
     /// Present value using standard cashflow discounting
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let flows = self.build_schedule(curves, as_of)?;
-        let disc = curves.get_discount_ref(&self.disc_id)?;
+        let disc = curves.get_discount_ref(&self.discount_curve_id)?;
         let base_date = disc.base_date();
         // Use curve basis for time mapping
         let dc = disc.day_count();
@@ -517,7 +517,7 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
             self,
             curves,
             as_of,
-            &self.disc_id,
+            &self.discount_curve_id,
             self.dc,
         )
     }
@@ -537,7 +537,7 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for InflationLinkedBond {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }
 

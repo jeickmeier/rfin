@@ -13,7 +13,7 @@ pub struct RhoCalculator;
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.get_discount(&option.disc_id)?;
+        let disc = context.curves.get_discount(&option.discount_curve_id)?;
 
         // Base price from context
         let base_price = context.base_value.amount();
@@ -24,7 +24,7 @@ impl MetricCalculator for RhoCalculator {
         let vol = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface_ref(option.vol_id.as_str())?;
+            let vol_surface = context.curves.surface_ref(option.vol_surface_id.as_str())?;
             vol_surface.value_clamped(time_to_expiry, option.strike_rate)
         };
 

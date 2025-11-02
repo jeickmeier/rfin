@@ -36,7 +36,7 @@ impl PyEquity {
 impl PyEquity {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, currency, *, shares=None, price=None, price_id=None, dividend_yield_id=None)"
+        text_signature = "(cls, instrument_id, ticker, currency, *, shares=None, price=None, price_id=None, div_yield_id=None)"
     )]
     #[pyo3(
         signature = (
@@ -47,7 +47,7 @@ impl PyEquity {
             shares=None,
             price=None,
             price_id=None,
-            dividend_yield_id=None
+            div_yield_id=None
         )
     )]
     /// Create an equity instrument optionally specifying share count and price.
@@ -59,7 +59,7 @@ impl PyEquity {
     ///     shares: Optional number of shares held.
     ///     price: Optional price override per share.
     ///     price_id: Optional market data identifier resolving spot price.
-    ///     dividend_yield_id: Optional market data identifier for dividend yield.
+    ///     div_yield_id: Optional market data identifier for dividend yield.
     ///
     /// Returns:
     ///     Equity: Configured equity instrument ready for pricing.
@@ -74,7 +74,7 @@ impl PyEquity {
         shares: Option<f64>,
         price: Option<f64>,
         price_id: Option<&str>,
-        dividend_yield_id: Option<&str>,
+        div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
         let id = extract_instrument_id(&instrument_id)?;
         let CurrencyArg(ccy) = currency.extract()?;
@@ -88,7 +88,7 @@ impl PyEquity {
         if let Some(pid) = price_id {
             equity = equity.with_price_id(pid);
         }
-        if let Some(did) = dividend_yield_id {
+        if let Some(did) = div_yield_id {
             equity = equity.with_dividend_yield_id(did);
         }
         Ok(Self::new(equity))
@@ -153,8 +153,8 @@ impl PyEquity {
     /// Returns:
     ///     str | None: Market data key for retrieving dividend yield.
     #[getter]
-    fn dividend_yield_id(&self) -> Option<&str> {
-        self.inner.dividend_yield_id.as_deref()
+    fn div_yield_id(&self) -> Option<&str> {
+        self.inner.div_yield_id.as_deref()
     }
 
     /// Instrument type enum (``InstrumentType.EQUITY``).

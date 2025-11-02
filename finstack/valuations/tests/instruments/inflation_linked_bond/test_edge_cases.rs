@@ -174,7 +174,7 @@ fn test_missing_inflation_data() {
 fn test_wrong_discount_curve_id() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.disc_id = finstack_core::types::CurveId::new("NONEXISTENT");
+    ilb.discount_curve_id = finstack_core::types::CurveId::new("NONEXISTENT");
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2025, 1, 2);
@@ -188,7 +188,7 @@ fn test_wrong_discount_curve_id() {
 fn test_wrong_inflation_id() {
     // Arrange
     let mut ilb = sample_tips();
-    ilb.inflation_id = finstack_core::types::CurveId::new("NONEXISTENT");
+    ilb.inflation_index_id = finstack_core::types::CurveId::new("NONEXISTENT");
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2025, 1, 2);

@@ -157,7 +157,7 @@ impl JsBond {
             .notional(notional.inner())
             .issue(issue.inner())
             .maturity(maturity.inner())
-            .disc_id(curve_id_from_str(discount_curve));
+            .discount_curve_id(curve_id_from_str(discount_curve));
 
         if let Some(rate) = coupon_rate {
             builder = builder.coupon(rate);
@@ -201,7 +201,7 @@ impl JsBond {
 
         if let Some(curve) = forward_curve {
             let spec = BondFloatSpec {
-                fwd_id: curve_id_from_str(&curve),
+                forward_curve_id: curve_id_from_str(&curve),
                 margin_bp: float_margin_bp.unwrap_or(0.0),
                 gearing: float_gearing.unwrap_or(1.0),
                 reset_lag_days: float_reset_lag_days.unwrap_or(2),
@@ -321,10 +321,10 @@ impl JsBond {
             .dc(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
             .stub(StubKind::None)
-            .disc_id(curve_id_from_str(discount_curve))
+            .discount_curve_id(curve_id_from_str(discount_curve))
             .pricing_overrides(pricing_overrides)
             .float_opt(Some(BondFloatSpec {
-                fwd_id: curve_id_from_str(forward_curve),
+                forward_curve_id: curve_id_from_str(forward_curve),
                 margin_bp,
                 gearing: 1.0,
                 reset_lag_days: 2,
@@ -496,7 +496,7 @@ impl JsBond {
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.disc_id.as_str().to_string()
+        self.0.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = hazardCurve)]

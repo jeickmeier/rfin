@@ -20,7 +20,7 @@ fn grouping_and_multi_attribute_aggregation() {
         .start(as_of)
         .end(as_of)
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
     let dep2 = Deposit::builder()
@@ -29,7 +29,7 @@ fn grouping_and_multi_attribute_aggregation() {
         .start(as_of)
         .end(as_of)
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
 
@@ -79,7 +79,7 @@ fn dataframe_exports_have_expected_columns() {
         .start(as_of)
         .end(as_of)
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
 

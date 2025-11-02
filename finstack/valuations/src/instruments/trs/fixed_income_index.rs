@@ -182,6 +182,6 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for FIIndexTotalReturnSwap {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.financing.disc_id
+        &self.financing.discount_curve_id
     }
 }

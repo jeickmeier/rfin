@@ -58,7 +58,7 @@ pub fn create_standard_future(start: Date, end: Date) -> InterestRateFuture {
         day_count: DayCount::Act360,
         position: Position::Long,
         contract_specs: FutureContractSpecs::default(),
-        disc_id: "USD_OIS".into(),
+        discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         attributes: Default::default(),
     }
@@ -85,7 +85,7 @@ pub fn create_custom_future(
         day_count: DayCount::Act360,
         position,
         contract_specs: FutureContractSpecs::default(),
-        disc_id: "USD_OIS".into(),
+        discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         attributes: Default::default(),
     }

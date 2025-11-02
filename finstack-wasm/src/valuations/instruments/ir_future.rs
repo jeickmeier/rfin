@@ -54,7 +54,7 @@ impl JsInterestRateFuture {
             .fixing_date(fixing_date.inner())
             .period_start(period_start.inner())
             .period_end(period_end.inner())
-            .disc_id(curve_id_from_str(discount_curve))
+            .discount_curve_id(curve_id_from_str(discount_curve))
             .forward_id(curve_id_from_str(forward_curve))
             .day_count(dc)
             .position(position_value)

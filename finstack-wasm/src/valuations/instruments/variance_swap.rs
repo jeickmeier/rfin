@@ -67,7 +67,7 @@ impl JsVarianceSwap {
             observation_freq: observation_frequency.inner(),
             realized_var_method: method,
             side: direction,
-            disc_id: curve_id_from_str(discount_curve),
+            discount_curve_id: curve_id_from_str(discount_curve),
             day_count: DayCount::Act365F,
             attributes: Attributes::new(),
         };

@@ -201,7 +201,7 @@ impl PyBasisSwap {
         let notional_money = extract_money(&notional)?;
         let start = py_to_date(&start_date)?;
         let maturity_date = py_to_date(&maturity)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
         let stub_kind = parse_stub(stub)?;
 
         let mut builder = BasisSwap::builder();
@@ -211,7 +211,7 @@ impl PyBasisSwap {
         builder = builder.maturity_date(maturity_date);
         builder = builder.primary_leg(primary_leg.inner.clone());
         builder = builder.reference_leg(reference_leg.inner.clone());
-        builder = builder.discount_curve_id(disc_id);
+        builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.stub_kind(stub_kind);
         builder = builder.calendar_id_opt(intern_calendar_id_opt(calendar));
         builder = builder.attributes(Default::default());

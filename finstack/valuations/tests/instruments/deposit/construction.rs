@@ -22,7 +22,7 @@ fn test_basic_construction() {
         .start(base)
         .end(date(2025, 7, 1))
         .day_count(DayCount::Act360)
-        .disc_id(CurveId::new("USD-OIS"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
         .build()
         .unwrap();
 
@@ -33,7 +33,7 @@ fn test_basic_construction() {
     assert_eq!(dep.start, base);
     assert_eq!(dep.end, date(2025, 7, 1));
     assert!(matches!(dep.day_count, DayCount::Act360));
-    assert_eq!(dep.disc_id.as_str(), "USD-OIS");
+    assert_eq!(dep.discount_curve_id.as_str(), "USD-OIS");
     assert!(dep.quote_rate.is_none());
 }
 
@@ -49,7 +49,7 @@ fn test_construction_with_quote_rate() {
         .start(base)
         .end(date(2025, 7, 1))
         .day_count(DayCount::Act360)
-        .disc_id(CurveId::new("USD-OIS"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
         .build()
         .unwrap();
     dep.quote_rate = Some(0.05);
@@ -77,7 +77,7 @@ fn test_construction_with_different_day_counts() {
             .start(base)
             .end(date(2025, 7, 1))
             .day_count(dc)
-            .disc_id(CurveId::new("USD-OIS"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
             .unwrap();
 
@@ -99,7 +99,7 @@ fn test_construction_with_different_currencies() {
             .start(base)
             .end(date(2025, 7, 1))
             .day_count(DayCount::Act360)
-            .disc_id(CurveId::new(format!("{}-OIS", ccy)))
+            .discount_curve_id(CurveId::new(format!("{}-OIS", ccy)))
             .build()
             .unwrap();
 
@@ -173,7 +173,7 @@ fn test_builder_pattern_ergonomics() {
         .end(date(2025, 8, 1))
         .day_count(DayCount::Act365F)
         .quote_rate(0.03)
-        .disc_id("EUR-OIS")
+        .discount_curve_id("EUR-OIS")
         .build();
 
     assert_eq!(dep.id.as_str(), "DEP-FLUENT");

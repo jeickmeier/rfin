@@ -35,7 +35,7 @@ impl RevolvingCreditDiscountingPricer {
         let schedule = generate_deterministic_cashflows(facility, as_of)?;
 
         // Get discount curve
-        let disc = market.get_discount_ref(facility.disc_id.as_str())?;
+        let disc = market.get_discount_ref(facility.discount_curve_id.as_str())?;
 
         // Discount all cashflows
         let mut pv = Money::new(0.0, facility.commitment_amount.currency());
@@ -106,7 +106,7 @@ impl Pricer for RevolvingCreditDiscountingPricer {
 
         // Extract valuation date from discount curve
         let disc = market
-            .get_discount_ref(facility.disc_id.as_str())
+            .get_discount_ref(facility.discount_curve_id.as_str())
             .map_err(|e| PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 
@@ -187,7 +187,7 @@ impl RevolvingCreditMcPricer {
         };
 
         // Get discount curve
-        let disc = market.get_discount_ref(facility.disc_id.as_str())?;
+        let disc = market.get_discount_ref(facility.discount_curve_id.as_str())?;
         let disc_dc = disc.day_count();
         let base_date = disc.base_date();
 
@@ -411,7 +411,7 @@ impl RevolvingCreditMcPricer {
         let disc = RevolvingCreditDiscretization::from_process(&process)?;
 
         // Get discount curve and compute time grid
-        let disc_curve = market.get_discount_ref(facility.disc_id.as_str())?;
+        let disc_curve = market.get_discount_ref(facility.discount_curve_id.as_str())?;
         let disc_dc = disc_curve.day_count();
         let base_date = disc_curve.base_date();
 
@@ -545,7 +545,7 @@ impl Pricer for RevolvingCreditMcPricer {
 
         // Extract valuation date from discount curve
         let disc = market
-            .get_discount_ref(facility.disc_id.as_str())
+            .get_discount_ref(facility.discount_curve_id.as_str())
             .map_err(|e| PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 

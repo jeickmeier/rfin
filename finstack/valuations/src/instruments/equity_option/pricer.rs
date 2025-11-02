@@ -50,7 +50,7 @@ pub fn collect_inputs(
     let t = year_fraction(as_of, inst.expiry, inst.day_count)?;
 
     // Discount curve -> zero rate
-    let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+    let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
     let r = disc_curve.zero(t);
 
     // Spot from scalar id (unitless or price)
@@ -77,7 +77,7 @@ pub fn collect_inputs(
     let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
         impl_vol
     } else {
-        let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
         vol_surface.value_clamped(t, inst.strike.amount())
     };
 

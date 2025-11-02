@@ -72,7 +72,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
         .side(PayReceive::ReceiveFixed)
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-                disc_id: "USD_OIS".into(),
+                discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
@@ -87,8 +87,8 @@ fn test_irs_fixed_leg_quarterly_schedule() {
         )
         .float(
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-                disc_id: "USD_OIS".into(),
-                fwd_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: "USD_OIS".into(),
+                forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
@@ -124,7 +124,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
         .side(PayReceive::ReceiveFixed)
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-                disc_id: "USD_OIS".into(),
+                discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -139,8 +139,8 @@ fn test_irs_fixed_leg_semiannual_schedule() {
         )
         .float(
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-                disc_id: "USD_OIS".into(),
-                fwd_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: "USD_OIS".into(),
+                forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
@@ -196,7 +196,7 @@ fn test_irs_stub_front() {
         .side(PayReceive::ReceiveFixed)
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-                disc_id: "USD_OIS".into(),
+                discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -211,8 +211,8 @@ fn test_irs_stub_front() {
         )
         .float(
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-                disc_id: "USD_OIS".into(),
-                fwd_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: "USD_OIS".into(),
+                forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
@@ -244,7 +244,7 @@ fn test_irs_stub_back() {
         .side(PayReceive::ReceiveFixed)
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-                disc_id: "USD_OIS".into(),
+                discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -259,8 +259,8 @@ fn test_irs_stub_back() {
         )
         .float(
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-                disc_id: "USD_OIS".into(),
-                fwd_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: "USD_OIS".into(),
+                forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
@@ -371,7 +371,7 @@ fn test_irs_different_frequencies() {
         .side(PayReceive::ReceiveFixed)
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-                disc_id: "USD_OIS".into(),
+                discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -386,8 +386,8 @@ fn test_irs_different_frequencies() {
         )
         .float(
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-                disc_id: "USD_OIS".into(),
-                fwd_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: "USD_OIS".into(),
+                forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
@@ -420,7 +420,7 @@ fn test_irs_calendar_adjustments() {
         .side(PayReceive::ReceiveFixed)
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-                disc_id: "USD_OIS".into(),
+                discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -435,8 +435,8 @@ fn test_irs_calendar_adjustments() {
         )
         .float(
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-                disc_id: "USD_OIS".into(),
-                fwd_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: "USD_OIS".into(),
+                forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,

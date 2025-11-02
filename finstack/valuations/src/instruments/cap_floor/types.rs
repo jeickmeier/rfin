@@ -54,11 +54,11 @@ pub struct InterestRateOption {
     /// Settlement type
     pub settlement: SettlementType,
     /// Discount curve identifier
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Forward curve identifier
     pub forward_id: CurveId,
     /// Volatility surface identifier
-    pub vol_id: CurveId,
+    pub vol_surface_id: CurveId,
     /// Pricing overrides (including implied volatility)
     pub pricing_overrides: PricingOverrides,
     /// Additional attributes
@@ -72,9 +72,9 @@ impl InterestRateOption {
         option_params: &InterestRateOptionParams,
         start_date: Date,
         end_date: Date,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
-        vol_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -90,9 +90,9 @@ impl InterestRateOption {
             calendar_id: option_params.calendar_id.map(|s| s.to_string()),
             exercise_style: ExerciseStyle::European,
             settlement: SettlementType::Cash,
-            disc_id: disc_id.into(),
+            discount_curve_id: discount_curve_id.into(),
             forward_id: forward_id.into(),
-            vol_id: vol_id.into(),
+            vol_surface_id: vol_surface_id.into(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
@@ -108,9 +108,9 @@ impl InterestRateOption {
         end_date: Date,
         frequency: Frequency,
         day_count: DayCount,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
-        vol_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         let option_params =
             InterestRateOptionParams::cap(notional, strike_rate, frequency, day_count);
@@ -119,9 +119,9 @@ impl InterestRateOption {
             &option_params,
             start_date,
             end_date,
-            disc_id.into(),
+            discount_curve_id.into(),
             forward_id.into(),
-            vol_id,
+            vol_surface_id,
         )
     }
 
@@ -135,9 +135,9 @@ impl InterestRateOption {
         end_date: Date,
         frequency: Frequency,
         day_count: DayCount,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
         forward_id: impl Into<CurveId>,
-        vol_id: impl Into<CurveId>,
+        vol_surface_id: impl Into<CurveId>,
     ) -> Self {
         let option_params =
             InterestRateOptionParams::floor(notional, strike_rate, frequency, day_count);
@@ -146,9 +146,9 @@ impl InterestRateOption {
             &option_params,
             start_date,
             end_date,
-            disc_id.into(),
+            discount_curve_id.into(),
             forward_id.into(),
-            vol_id,
+            vol_surface_id,
         )
     }
 }
@@ -210,10 +210,10 @@ impl InterestRateOption {
         use crate::instruments::cap_floor::pricing::black as black_ir;
 
         // Get market curves
-        let disc_curve = curves.get_discount_ref(self.disc_id.as_ref())?;
+        let disc_curve = curves.get_discount_ref(self.discount_curve_id.as_ref())?;
         let fwd_curve = curves.get_forward_ref(self.forward_id.as_ref())?;
         let vol_surface = if self.pricing_overrides.implied_volatility.is_none() {
-            Some(curves.surface_ref(self.vol_id.as_str())?)
+            Some(curves.surface_ref(self.vol_surface_id.as_str())?)
         } else {
             None
         };
@@ -343,6 +343,6 @@ impl InterestRateOption {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }

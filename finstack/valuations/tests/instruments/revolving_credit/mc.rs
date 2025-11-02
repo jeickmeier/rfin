@@ -60,7 +60,7 @@ fn test_mc_pricer_stochastic_utilization() {
             seed: Some(42),   // Fixed seed for reproducibility
             mc_config: None,
         }))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
@@ -121,7 +121,7 @@ fn test_mc_pricer_deterministic_reproducibility() {
             seed: Some(12345),
             mc_config: None,
         }))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
@@ -180,7 +180,7 @@ fn test_mc_pricer_convergence() {
                 seed: Some(99999),
                 mc_config: None,
             }))
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .build()
             .unwrap();
 
@@ -230,7 +230,7 @@ fn test_mc_utilization_mean_reversion() {
             seed: Some(54321),
             mc_config: None,
         }))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
@@ -264,7 +264,7 @@ fn test_mc_utilization_mean_reversion() {
             seed: Some(54321),
             mc_config: None,
         }))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 

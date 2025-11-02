@@ -37,7 +37,7 @@ impl CashflowProvider for Bond {
         if let Some(ref fl) = self.float {
             use crate::cashflow::builder::schedule_utils::build_dates as build_periods;
 
-            let fwd = _curves.get_forward_ref(&fl.fwd_id)?;
+            let fwd = _curves.get_forward_ref(&fl.forward_curve_id)?;
 
             // 1) Build amortization-only schedule using builder (dedup amort logic)
             let mut b_am = CashFlowSchedule::builder();

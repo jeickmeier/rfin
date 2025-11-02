@@ -131,7 +131,7 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
     let bond = Bond::builder()
         .id("PIK_TOGGLE_2027".into())
         .custom_cashflows(custom_schedule.clone())
-        .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
+        .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
         .build()?;
 
     // Create market data
@@ -246,7 +246,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         maturity,
         settlement_days: Some(2),
         ex_coupon_days: Some(0),
-        disc_id: "USD-OIS".into(),
+        discount_curve_id: "USD-OIS".into(),
         credit_curve_id: None,
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         call_put: None,
@@ -273,7 +273,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
     let custom_bond = Bond::builder()
         .id("CUSTOM_BOND".into())
         .custom_cashflows(custom_schedule)
-        .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
+        .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
         .build()?;
 
     // Create market data

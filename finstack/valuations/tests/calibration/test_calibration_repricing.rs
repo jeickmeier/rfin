@@ -132,7 +132,7 @@ fn test_discount_curve_swap_repricing_0_1bp() {
                 .notional(Money::new(NOTIONAL, Currency::USD))
                 .side(PayReceive::ReceiveFixed)
                 .fixed(finstack_valuations::instruments::irs::FixedLegSpec {
-                    disc_id: "USD-OIS".into(),
+                    discount_curve_id: "USD-OIS".into(),
                     rate: *rate,
                     freq: *fixed_freq,
                     dc: *fixed_dc,
@@ -145,8 +145,8 @@ fn test_discount_curve_swap_repricing_0_1bp() {
                     end: *maturity,
                 })
                 .float(finstack_valuations::instruments::irs::FloatLegSpec {
-                    disc_id: "USD-OIS".into(),
-                    fwd_id: "USD-SOFR".into(),
+                    discount_curve_id: "USD-OIS".into(),
+                    forward_curve_id: "USD-SOFR".into(),
                     spread_bp: 0.0,
                     freq: *float_freq,
                     dc: *float_dc,
@@ -234,7 +234,7 @@ fn test_discount_curve_deposit_repricing() {
                 end: *maturity,
                 day_count: *day_count,
                 quote_rate: Some(*rate),
-                disc_id: "USD-OIS".into(),
+                discount_curve_id: "USD-OIS".into(),
                 attributes: Default::default(),
             };
             let pv = dep.value(&ctx, base_date).unwrap();
@@ -342,7 +342,7 @@ fn test_forward_curve_fra_repricing_0_1bp() {
                 .fixed_rate(*rate)
                 .day_count(*day_count)
                 .reset_lag(2)
-                .disc_id("USD-OIS".into())
+                .discount_curve_id("USD-OIS".into())
                 .forward_id("USD-SOFR-3M".into())
                 .pay_fixed(false)
                 .build()

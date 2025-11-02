@@ -17,7 +17,7 @@ fn getters_and_tag_filters() {
         .start(as_of)
         .end(as_of)
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
 
@@ -47,7 +47,7 @@ fn validate_unknown_entity_fails() {
         .start(as_of)
         .end(as_of)
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
 
@@ -81,7 +81,7 @@ fn builder_required_fields_and_dummy_auto_create() {
         .start(as_of)
         .end(as_of)
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
 

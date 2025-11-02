@@ -106,7 +106,7 @@ pub fn create_standard_fra() -> ForwardRateAgreement {
         fixed_rate: 0.05,
         day_count: DayCount::Act360,
         reset_lag: 2,
-        disc_id: "USD_OIS".into(),
+        discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         pay_fixed: true, // true = receive fixed (confusing naming!)
         attributes: Default::default(),
@@ -124,7 +124,7 @@ pub struct TestFraBuilder {
     fixed_rate: f64,
     day_count: DayCount,
     reset_lag: i32,
-    disc_id: String,
+    discount_curve_id: String,
     forward_id: String,
     pay_fixed: bool,
 }
@@ -141,7 +141,7 @@ impl Default for TestFraBuilder {
             fixed_rate: 0.05,
             day_count: DayCount::Act360,
             reset_lag: 2,
-            disc_id: "USD_OIS".to_string(),
+            discount_curve_id: "USD_OIS".to_string(),
             forward_id: "USD_LIBOR_3M".to_string(),
             pay_fixed: true, // true = receive fixed
         }
@@ -181,7 +181,7 @@ impl TestFraBuilder {
     }
 
     pub fn curves(mut self, disc: &str, fwd: &str) -> Self {
-        self.disc_id = disc.to_string();
+        self.discount_curve_id = disc.to_string();
         self.forward_id = fwd.to_string();
         self
     }
@@ -201,7 +201,7 @@ impl TestFraBuilder {
             fixed_rate: self.fixed_rate,
             day_count: self.day_count,
             reset_lag: self.reset_lag,
-            disc_id: self.disc_id.into(),
+            discount_curve_id: self.discount_curve_id.into(),
             forward_id: self.forward_id.into(),
             pay_fixed: self.pay_fixed,
             attributes: Default::default(),

@@ -89,7 +89,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build();
@@ -99,7 +99,7 @@ mod tests {
         assert_eq!(bond.id.as_str(), "BOND_MIN");
         assert_eq!(bond.coupon, 0.05);
         assert_eq!(bond.notional.amount(), 1000.0);
-        assert_eq!(bond.disc_id.as_str(), "USD-OIS");
+        assert_eq!(bond.discount_curve_id.as_str(), "USD-OIS");
     }
 
     #[test]
@@ -117,7 +117,7 @@ mod tests {
         assert_eq!(bond.coupon, 0.04);
         assert_eq!(bond.freq, Frequency::semi_annual());
         assert_eq!(bond.dc, DayCount::Thirty360);
-        assert_eq!(bond.disc_id.as_str(), "USD-TREASURY");
+        assert_eq!(bond.discount_curve_id.as_str(), "USD-TREASURY");
     }
 
     #[test]
@@ -171,7 +171,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(overrides)
             .attributes(Attributes::new())
             .build()
@@ -194,7 +194,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .settlement_days_opt(Some(2))
             .ex_coupon_days_opt(Some(7))
@@ -225,7 +225,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(attrs)
             .build()
@@ -251,7 +251,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -273,7 +273,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -295,7 +295,7 @@ mod tests {
             .bdc(BusinessDayConvention::ModifiedFollowing)
             .calendar_id_opt(Some("USGS".to_string()))
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -319,7 +319,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::ShortFront)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -339,7 +339,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::LongBack)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -370,7 +370,7 @@ mod tests {
                 .bdc(BusinessDayConvention::Following)
                 .calendar_id_opt(None)
                 .stub(StubKind::None)
-                .disc_id(CurveId::new(format!("{}-OIS", code)))
+                .discount_curve_id(CurveId::new(format!("{}-OIS", code)))
                 .pricing_overrides(PricingOverrides::default())
                 .attributes(Attributes::new())
                 .build()
@@ -467,7 +467,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default().with_clean_price(105.0))
             .attributes(Attributes::new())
             .build()
@@ -487,7 +487,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default().with_clean_price(95.0))
             .attributes(Attributes::new())
             .build()
@@ -507,7 +507,7 @@ mod tests {
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .stub(StubKind::None)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default().with_clean_price(100.0))
             .attributes(Attributes::new())
             .build()

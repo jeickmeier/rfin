@@ -8,41 +8,41 @@ use finstack_core::types::CurveId;
 
 /// Extract volatility surface ID from an instrument if available.
 ///
-/// Uses Any downcasting to check for common vol_id field patterns.
+/// Uses Any downcasting to check for common vol_surface_id field patterns.
 /// Returns None if the instrument doesn't have a volatility surface.
 pub fn get_instrument_vol_id(instrument: &dyn std::any::Any) -> Option<CurveId> {
     use crate::instruments::*;
 
-    // Try downcasting to each instrument type with vol_id
+    // Try downcasting to each instrument type with vol_surface_id
     if let Some(eq_opt) = instrument.downcast_ref::<equity_option::EquityOption>() {
-        return Some(eq_opt.vol_id.clone());
+        return Some(eq_opt.vol_surface_id.clone());
     }
     if let Some(fx_opt) = instrument.downcast_ref::<fx_option::FxOption>() {
-        return Some(fx_opt.vol_id.clone());
+        return Some(fx_opt.vol_surface_id.clone());
     }
     if let Some(asian) = instrument.downcast_ref::<asian_option::AsianOption>() {
-        return Some(asian.vol_id.clone());
+        return Some(asian.vol_surface_id.clone());
     }
     if let Some(autocall) = instrument.downcast_ref::<autocallable::Autocallable>() {
-        return Some(autocall.vol_id.clone());
+        return Some(autocall.vol_surface_id.clone());
     }
     if let Some(barrier) = instrument.downcast_ref::<barrier_option::BarrierOption>() {
-        return Some(barrier.vol_id.clone());
+        return Some(barrier.vol_surface_id.clone());
     }
     if let Some(lookback) = instrument.downcast_ref::<lookback_option::LookbackOption>() {
-        return Some(lookback.vol_id.clone());
+        return Some(lookback.vol_surface_id.clone());
     }
     if let Some(cliquet) = instrument.downcast_ref::<cliquet_option::CliquetOption>() {
-        return Some(cliquet.vol_id.clone());
+        return Some(cliquet.vol_surface_id.clone());
     }
     if let Some(range_accrual) = instrument.downcast_ref::<range_accrual::RangeAccrual>() {
-        return Some(range_accrual.vol_id.clone());
+        return Some(range_accrual.vol_surface_id.clone());
     }
     if let Some(quanto) = instrument.downcast_ref::<quanto_option::QuantoOption>() {
-        return Some(quanto.vol_id.clone());
+        return Some(quanto.vol_surface_id.clone());
     }
     if let Some(swaption) = instrument.downcast_ref::<swaption::Swaption>() {
-        return Some(swaption.vol_id.clone());
+        return Some(swaption.vol_surface_id.clone());
     }
     if let Some(fx_barrier) = instrument.downcast_ref::<fx_barrier_option::FxBarrierOption>() {
         return Some(fx_barrier.fx_vol_id.clone());

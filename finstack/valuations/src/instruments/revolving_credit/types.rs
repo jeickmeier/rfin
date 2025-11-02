@@ -51,7 +51,7 @@ pub struct RevolvingCredit {
     pub draw_repay_spec: DrawRepaySpec,
 
     /// Discount curve identifier for pricing.
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
 
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
@@ -339,6 +339,6 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
 // Implement HasDiscountCurve for generic metric calculators
 impl crate::instruments::common::pricing::HasDiscountCurve for RevolvingCredit {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }

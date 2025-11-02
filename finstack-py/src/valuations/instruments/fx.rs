@@ -316,7 +316,7 @@ impl PyFxOption {
         let CurrencyArg(quote) = quote_currency.extract()?;
         let expiry_date = py_to_date(&expiry)?;
         let amt = extract_money(&notional)?;
-        let vol_id = extract_curve_id(&vol_surface)?;
+        let vol_surface_id = extract_curve_id(&vol_surface)?;
         Ok(Self::new(FxOption::european_call(
             id,
             base,
@@ -324,7 +324,7 @@ impl PyFxOption {
             strike,
             expiry_date,
             amt,
-            vol_id,
+            vol_surface_id,
         )))
     }
 
@@ -374,7 +374,7 @@ impl PyFxOption {
         let CurrencyArg(quote) = quote_currency.extract()?;
         let expiry_date = py_to_date(&expiry)?;
         let amt = extract_money(&notional)?;
-        let vol_id = extract_curve_id(&vol_surface)?;
+        let vol_surface_id = extract_curve_id(&vol_surface)?;
         Ok(Self::new(FxOption::european_put(
             id,
             base,
@@ -382,7 +382,7 @@ impl PyFxOption {
             strike,
             expiry_date,
             amt,
-            vol_id,
+            vol_surface_id,
         )))
     }
 
@@ -425,7 +425,7 @@ impl PyFxOption {
         let amt = extract_money(&notional)?;
         let dom = extract_curve_id(&domestic_curve)?;
         let for_id = extract_curve_id(&foreign_curve)?;
-        let vol_id = extract_curve_id(&vol_surface)?;
+        let vol_surface_id = extract_curve_id(&vol_surface)?;
 
         let settle = match settlement
             .map(crate::core::common::labels::normalize_label)
@@ -451,9 +451,9 @@ impl PyFxOption {
         builder = builder.day_count(finstack_core::dates::DayCount::Act365F);
         builder = builder.notional(amt);
         builder = builder.settlement(settle);
-        builder = builder.domestic_disc_id(dom);
-        builder = builder.foreign_disc_id(for_id);
-        builder = builder.vol_id(vol_id);
+        builder = builder.domestic_discount_curve_id(dom);
+        builder = builder.foreign_discount_curve_id(for_id);
+        builder = builder.vol_surface_id(vol_surface_id);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder =
@@ -558,7 +558,7 @@ impl PyFxOption {
     ///     str: Domestic discount curve used for discounting.
     #[getter]
     fn domestic_curve(&self) -> String {
-        self.inner.domestic_disc_id.as_str().to_string()
+        self.inner.domestic_discount_curve_id.as_str().to_string()
     }
 
     /// Foreign discount curve identifier.
@@ -567,7 +567,7 @@ impl PyFxOption {
     ///     str: Foreign discount curve used for discounting.
     #[getter]
     fn foreign_curve(&self) -> String {
-        self.inner.foreign_disc_id.as_str().to_string()
+        self.inner.foreign_discount_curve_id.as_str().to_string()
     }
 
     /// Volatility surface identifier used for pricing.
@@ -576,7 +576,7 @@ impl PyFxOption {
     ///     str: Volatility surface label.
     #[getter]
     fn vol_surface(&self) -> String {
-        self.inner.vol_id.as_str().to_string()
+        self.inner.vol_surface_id.as_str().to_string()
     }
 
     /// Instrument type enum (``InstrumentType.FX_OPTION``).
@@ -660,8 +660,8 @@ impl PyFxSwap {
         builder = builder.near_date(near);
         builder = builder.far_date(far);
         builder = builder.base_notional(base_notional);
-        builder = builder.domestic_disc_id(domestic);
-        builder = builder.foreign_disc_id(foreign);
+        builder = builder.domestic_discount_curve_id(domestic);
+        builder = builder.foreign_discount_curve_id(foreign);
         if let Some(rate) = near_rate {
             builder = builder.near_rate(rate);
         }
@@ -751,7 +751,7 @@ impl PyFxSwap {
     ///     Any: Domestic discount curve identifier.
     #[getter]
     fn domestic_curve(&self) -> String {
-        self.inner.domestic_disc_id.as_str().to_string()
+        self.inner.domestic_discount_curve_id.as_str().to_string()
     }
 
     /// Foreign discount curve identifier.
@@ -760,7 +760,7 @@ impl PyFxSwap {
     ///     Any: Foreign discount curve identifier.
     #[getter]
     fn foreign_curve(&self) -> String {
-        self.inner.foreign_disc_id.as_str().to_string()
+        self.inner.foreign_discount_curve_id.as_str().to_string()
     }
 
     /// Instrument type enum (``InstrumentType.FX_SWAP``).

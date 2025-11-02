@@ -124,7 +124,7 @@ pub fn bump_forward(
 ///
 /// # Arguments
 /// * `context` - Original market context  
-/// * `vol_id` - ID of the volatility surface
+/// * `vol_surface_id` - ID of the volatility surface
 /// * `bump_pct` - Relative bump size (e.g., 0.01 for 1% increase)
 ///
 /// # Returns
@@ -142,10 +142,10 @@ pub fn bump_forward(
 /// ```
 pub fn bump_vol_surface_parallel(
     context: &finstack_core::market_data::MarketContext,
-    vol_id: &str,
+    vol_surface_id: &str,
     bump_pct: f64,
 ) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
-    scale_surface(context, vol_id, 1.0 + bump_pct)
+    scale_surface(context, vol_surface_id, 1.0 + bump_pct)
 }
 
 /// Helper to scale a volatility surface by a constant multiplicative factor.
@@ -154,10 +154,10 @@ pub fn bump_vol_surface_parallel(
 /// applied directly when the caller already computed the desired scale.
 pub fn scale_surface(
     context: &finstack_core::market_data::MarketContext,
-    vol_id: &str,
+    vol_surface_id: &str,
     scale: f64,
 ) -> finstack_core::Result<finstack_core::market_data::MarketContext> {
-    let vol_surface = context.surface_ref(vol_id)?;
+    let vol_surface = context.surface_ref(vol_surface_id)?;
     let bumped_surface = vol_surface.scaled(scale);
     Ok(context.clone().insert_surface(bumped_surface))
 }

@@ -14,7 +14,7 @@ pub struct AccruedInterestCalculator;
 impl MetricCalculator for AccruedInterestCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         // Borrow bond once to compute accrued and optionally cache flows/hints
-        let (accrued_amt, disc_id, dc, maybe_flows) = {
+        let (accrued_amt, discount_curve_id, dc, maybe_flows) = {
             let bond: &Bond = context.instrument_as()?;
 
             // Use context-aware helper (supports FRNs); falls back to fixed/custom path
@@ -32,11 +32,11 @@ impl MetricCalculator for AccruedInterestCalculator {
                 None
             };
 
-            (accrued_amt, bond.disc_id.to_owned(), bond.dc, maybe_flows)
+            (accrued_amt, bond.discount_curve_id.to_owned(), bond.dc, maybe_flows)
         };
 
         // Cache basic context hints for downstream metrics
-        context.discount_curve_id = Some(disc_id);
+        context.discount_curve_id = Some(discount_curve_id);
         context.day_count = Some(dc);
         // Also cache full holder cashflows for downstream risk metrics
         if context.cashflows.is_none() {

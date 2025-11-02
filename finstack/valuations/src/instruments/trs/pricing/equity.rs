@@ -18,7 +18,7 @@ fn extract_underlying_data(
 
     let div_yield = trs
         .underlying
-        .dividend_yield_id
+        .div_yield_id
         .as_ref()
         .and_then(|id| {
             context.price(id.as_str()).ok().map(|s| match s {
@@ -46,7 +46,7 @@ impl TrsReturnModel for EquityReturnModel<'_> {
         initial_level: f64,
         context: &MarketContext,
     ) -> Result<f64> {
-        let disc = context.get_discount_ref(self.trs.financing.disc_id.as_str())?;
+        let disc = context.get_discount_ref(self.trs.financing.discount_curve_id.as_str())?;
         let df_start = disc.df(t_start);
         let df_end = disc.df(t_end);
         let fwd_start = initial_level * df_start.recip() * (-self.div_yield * t_start).exp();
@@ -75,7 +75,7 @@ pub fn pv_total_return_leg(
     let params = TotalReturnLegParams {
         schedule: &trs.schedule,
         notional: trs.notional,
-        disc_id: trs.financing.disc_id.as_str(),
+        discount_curve_id: trs.financing.discount_curve_id.as_str(),
         contract_size: trs.underlying.contract_size,
         initial_level: Some(initial),
     };

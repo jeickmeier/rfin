@@ -215,7 +215,7 @@ pub fn price_from_z_spread(
     z: f64,
 ) -> finstack_core::Result<f64> {
     let flows = bond.build_schedule(curves, as_of)?;
-    let disc = curves.get_discount_ref(&bond.disc_id)?;
+    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
     let base_date = disc.base_date();
 
     // Pre-compute as_of discount factor for correct theta
@@ -270,7 +270,7 @@ pub fn price_from_oas(
     if time_to_maturity <= 0.0 {
         return Ok(0.0);
     }
-    let discount_curve = curves.get_discount_ref(&bond.disc_id)?;
+    let discount_curve = curves.get_discount_ref(&bond.discount_curve_id)?;
     let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
     short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
     let valuator = BondValuator::new(bond.clone(), curves, time_to_maturity, 100)?;
@@ -288,7 +288,7 @@ fn price_from_annuity_spread(
     spread: f64,
 ) -> finstack_core::Result<f64> {
     let flows = bond.build_schedule(curves, as_of)?;
-    let disc = curves.get_discount_ref(&bond.disc_id)?;
+    let disc = curves.get_discount_ref(&bond.discount_curve_id)?;
 
     // Pre-compute as_of discount factor for correct theta
     let disc_dc = disc.day_count();
@@ -477,7 +477,7 @@ pub fn compute_accrued_interest_with_context(
 
     // FRN path: approximate accrual using forward rate fixed at last reset
     let fl = bond.float.as_ref().expect("Operation succeeded");
-    let fwd = curves.get_forward_ref(fl.fwd_id.as_str())?;
+    let fwd = curves.get_forward_ref(fl.forward_curve_id.as_str())?;
 
     // Build schedule with instrument conventions to locate current coupon window
     let sched = crate::cashflow::builder::build_dates(

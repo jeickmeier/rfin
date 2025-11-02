@@ -28,9 +28,9 @@ pub struct FxUnderlyingParams {
     /// Quote currency (pricing currency)
     pub quote_currency: Currency,
     /// Domestic discount curve ID (quote currency)
-    pub domestic_disc_id: CurveId,
+    pub domestic_discount_curve_id: CurveId,
     /// Foreign discount curve ID (base currency)
-    pub foreign_disc_id: CurveId,
+    pub foreign_discount_curve_id: CurveId,
 }
 
 impl FxUnderlyingParams {
@@ -38,14 +38,14 @@ impl FxUnderlyingParams {
     pub fn new(
         base_currency: Currency,
         quote_currency: Currency,
-        domestic_disc_id: impl Into<CurveId>,
-        foreign_disc_id: impl Into<CurveId>,
+        domestic_discount_curve_id: impl Into<CurveId>,
+        foreign_discount_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             base_currency,
             quote_currency,
-            domestic_disc_id: domestic_disc_id.into(),
-            foreign_disc_id: foreign_disc_id.into(),
+            domestic_discount_curve_id: domestic_discount_curve_id.into(),
+            foreign_discount_curve_id: foreign_discount_curve_id.into(),
         }
     }
 
@@ -71,7 +71,7 @@ impl UnderlyingParams for FxUnderlyingParams {
     }
 
     fn primary_curve_id(&self) -> &str {
-        self.domestic_disc_id.as_ref()
+        self.domestic_discount_curve_id.as_ref()
     }
 }
 
@@ -84,7 +84,7 @@ pub struct EquityUnderlyingParams {
     /// Spot price identifier in market data
     pub spot_id: String,
     /// Optional dividend yield identifier
-    pub dividend_yield_id: Option<String>,
+    pub div_yield_id: Option<String>,
     /// Contract size (shares per contract)
     pub contract_size: f64,
     /// Base currency for pricing
@@ -97,7 +97,7 @@ impl EquityUnderlyingParams {
         Self {
             ticker: ticker.into(),
             spot_id: spot_id.into(),
-            dividend_yield_id: None,
+            div_yield_id: None,
             contract_size: 1.0,
             currency,
         }
@@ -105,7 +105,7 @@ impl EquityUnderlyingParams {
 
     /// Set dividend yield identifier
     pub fn with_dividend_yield(mut self, div_yield_id: impl Into<String>) -> Self {
-        self.dividend_yield_id = Some(div_yield_id.into());
+        self.div_yield_id = Some(div_yield_id.into());
         self
     }
 

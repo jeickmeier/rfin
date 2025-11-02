@@ -85,7 +85,7 @@ pub fn standard_deposit(base: Date) -> Deposit {
             base.day(),
         ))
         .day_count(DayCount::Act360)
-        .disc_id(CurveId::new("USD-OIS"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
         .build()
         .unwrap()
 }
@@ -98,7 +98,7 @@ pub struct DepositBuilder {
     end: Date,
     day_count: DayCount,
     quote_rate: Option<f64>,
-    disc_id: String,
+    discount_curve_id: String,
 }
 
 impl DepositBuilder {
@@ -110,7 +110,7 @@ impl DepositBuilder {
             end: date(base.year(), (base.month() as u8 + 6).min(12), base.day()),
             day_count: DayCount::Act360,
             quote_rate: None,
-            disc_id: "USD-OIS".to_string(),
+            discount_curve_id: "USD-OIS".to_string(),
         }
     }
 
@@ -144,8 +144,8 @@ impl DepositBuilder {
         self
     }
 
-    pub fn disc_id(mut self, id: &str) -> Self {
-        self.disc_id = id.to_string();
+    pub fn discount_curve_id(mut self, id: &str) -> Self {
+        self.discount_curve_id = id.to_string();
         self
     }
 
@@ -156,7 +156,7 @@ impl DepositBuilder {
             .start(self.start)
             .end(self.end)
             .day_count(self.day_count)
-            .disc_id(CurveId::new(&self.disc_id))
+            .discount_curve_id(CurveId::new(&self.discount_curve_id))
             .build()
             .unwrap();
         dep.quote_rate = self.quote_rate;

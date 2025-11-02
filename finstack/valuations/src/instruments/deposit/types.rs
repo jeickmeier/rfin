@@ -34,7 +34,7 @@ pub struct Deposit {
     #[builder(optional)]
     pub quote_rate: Option<f64>,
     /// Discount curve id used for valuation and par extraction.
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
 }
@@ -46,7 +46,7 @@ impl Deposit {
         context: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        let disc = context.get_discount_ref(&self.disc_id)?;
+        let disc = context.get_discount_ref(&self.discount_curve_id)?;
 
         // Accrual factor (instrument basis)
         let yf = self
@@ -165,7 +165,7 @@ impl crate::instruments::common::traits::Instrument for Deposit {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for Deposit {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }
 

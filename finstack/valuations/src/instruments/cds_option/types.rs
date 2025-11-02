@@ -39,11 +39,11 @@ pub struct CdsOption {
     /// Recovery rate assumption
     pub recovery_rate: f64,
     /// Discount curve identifier
-    pub disc_id: finstack_core::types::CurveId,
+    pub discount_curve_id: finstack_core::types::CurveId,
     /// Credit curve identifier
     pub credit_curve_id: finstack_core::types::CurveId,
     /// Volatility surface identifier
-    pub vol_id: finstack_core::types::CurveId,
+    pub vol_surface_id: finstack_core::types::CurveId,
     /// Pricing overrides (including implied volatility)
     pub pricing_overrides: PricingOverrides,
     /// Additional attributes
@@ -62,16 +62,16 @@ impl CdsOption {
     /// Inputs separation:
     /// - `option_params`: deal-level fields (strike in bp, expiry, CDS maturity, notional, option type)
     /// - `credit_params`: reference entity, recovery rate, and the hazard `credit_id`
-    /// - `disc_id`: discount curve identifier for discounting cashflows
-    /// - `vol_id`: volatility surface identifier for the CDS option
+    /// - `discount_curve_id`: discount curve identifier for discounting cashflows
+    /// - `vol_surface_id`: volatility surface identifier for the CDS option
     ///
     /// Note: `credit_id` is sourced from `credit_params` to avoid duplication.
     pub fn new(
         id: impl Into<InstrumentId>,
         option_params: &CdsOptionParams,
         credit_params: &CreditParams,
-        disc_id: impl Into<finstack_core::types::CurveId>,
-        vol_id: impl Into<finstack_core::types::CurveId>,
+        discount_curve_id: impl Into<finstack_core::types::CurveId>,
+        vol_surface_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -84,9 +84,9 @@ impl CdsOption {
             notional: option_params.notional,
             settlement: SettlementType::Cash,
             recovery_rate: credit_params.recovery_rate,
-            disc_id: disc_id.into(),
+            discount_curve_id: discount_curve_id.into(),
             credit_curve_id: credit_params.credit_curve_id.to_owned(),
-            vol_id: vol_id.into(),
+            vol_surface_id: vol_surface_id.into(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
             underlying_is_index: option_params.underlying_is_index,
@@ -139,7 +139,7 @@ impl CdsOption {
             v
         } else {
             curves
-                .surface_ref(self.vol_id.as_str())?
+                .surface_ref(self.vol_surface_id.as_str())?
                 .value_clamped(t, self.strike_spread_bp)
         };
 
@@ -182,7 +182,7 @@ impl CdsOption {
             v
         } else {
             curves
-                .surface_ref(self.vol_id.as_str())?
+                .surface_ref(self.vol_surface_id.as_str())?
                 .value_clamped(t, self.strike_spread_bp)
         };
 
@@ -225,7 +225,7 @@ impl CdsOption {
             v
         } else {
             curves
-                .surface_ref(self.vol_id.as_str())?
+                .surface_ref(self.vol_surface_id.as_str())?
                 .value_clamped(t, self.strike_spread_bp)
         };
 
@@ -251,7 +251,7 @@ impl CdsOption {
         }
 
         // Risk-free rate proxy from discount curve at expiry
-        let disc = curves.get_discount_ref(&self.disc_id)?;
+        let disc = curves.get_discount_ref(&self.discount_curve_id)?;
         let r = disc.zero(t);
 
         // Forward spread in bp
@@ -272,7 +272,7 @@ impl CdsOption {
             v
         } else {
             curves
-                .surface(self.vol_id.as_str())?
+                .surface(self.vol_surface_id.as_str())?
                 .value_clamped(t, self.strike_spread_bp)
         };
 
@@ -342,6 +342,6 @@ impl crate::instruments::common::traits::Instrument for CdsOption {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for CdsOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }

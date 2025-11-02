@@ -29,8 +29,8 @@ fn test_irs_standard_construction() {
     assert_eq!(swap.notional.amount(), 1_000_000.0);
     assert_eq!(swap.fixed.rate, 0.05);
     assert_eq!(swap.side, PayReceive::PayFixed);
-    assert_eq!(swap.fixed.disc_id.as_ref(), "USD-OIS");
-    assert_eq!(swap.float.fwd_id.as_ref(), "USD-SOFR-3M");
+    assert_eq!(swap.fixed.discount_curve_id.as_ref(), "USD-OIS");
+    assert_eq!(swap.float.forward_curve_id.as_ref(), "USD-SOFR-3M");
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn test_irs_builder_pattern() {
         .side(PayReceive::ReceiveFixed)
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-                disc_id: "USD_OIS".into(),
+                discount_curve_id: "USD_OIS".into(),
                 rate: 0.0325,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -57,8 +57,8 @@ fn test_irs_builder_pattern() {
         )
         .float(
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-                disc_id: "USD_OIS".into(),
-                fwd_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: "USD_OIS".into(),
+                forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 25.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
@@ -103,8 +103,8 @@ fn test_irs_usd_convention() {
     assert_eq!(swap.float.freq, Frequency::semi_annual());
     assert_eq!(swap.fixed.dc, DayCount::Thirty360);
     assert_eq!(swap.float.dc, DayCount::Act360);
-    assert_eq!(swap.fixed.disc_id.as_ref(), "USD-OIS");
-    assert_eq!(swap.float.fwd_id.as_ref(), "USD-SOFR-3M");
+    assert_eq!(swap.fixed.discount_curve_id.as_ref(), "USD-OIS");
+    assert_eq!(swap.float.forward_curve_id.as_ref(), "USD-SOFR-3M");
 }
 
 #[test]
@@ -126,8 +126,8 @@ fn test_irs_eur_convention() {
     assert_eq!(swap.float.freq, Frequency::semi_annual());
     assert_eq!(swap.fixed.dc, DayCount::Thirty360);
     assert_eq!(swap.float.dc, DayCount::Act360);
-    assert_eq!(swap.fixed.disc_id.as_ref(), "EUR-ESTR");
-    assert_eq!(swap.float.fwd_id.as_ref(), "EUR-EURIBOR-6M");
+    assert_eq!(swap.fixed.discount_curve_id.as_ref(), "EUR-ESTR");
+    assert_eq!(swap.float.forward_curve_id.as_ref(), "EUR-EURIBOR-6M");
 }
 
 #[test]
@@ -149,8 +149,8 @@ fn test_irs_gbp_convention() {
     assert_eq!(swap.float.freq, Frequency::semi_annual());
     assert_eq!(swap.fixed.dc, DayCount::Act365F);
     assert_eq!(swap.float.dc, DayCount::Act365F);
-    assert_eq!(swap.fixed.disc_id.as_ref(), "GBP-SONIA");
-    assert_eq!(swap.float.fwd_id.as_ref(), "GBP-SONIA");
+    assert_eq!(swap.fixed.discount_curve_id.as_ref(), "GBP-SONIA");
+    assert_eq!(swap.float.forward_curve_id.as_ref(), "GBP-SONIA");
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn test_irs_basis_swap() {
 
     // Reference spread on float leg
     assert_eq!(swap.float.spread_bp, 10.0);
-    assert_eq!(swap.float.fwd_id.as_ref(), "USD-SOFR-6M");
+    assert_eq!(swap.float.forward_curve_id.as_ref(), "USD-SOFR-6M");
 }
 
 #[test]
@@ -310,7 +310,7 @@ fn test_irs_different_leg_frequencies() {
         .side(PayReceive::ReceiveFixed)
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-                disc_id: "USD_OIS".into(),
+                discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -325,8 +325,8 @@ fn test_irs_different_leg_frequencies() {
         )
         .float(
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-                disc_id: "USD_OIS".into(),
-                fwd_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: "USD_OIS".into(),
+                forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
@@ -379,7 +379,7 @@ fn test_irs_calendar_specification() {
         .side(PayReceive::ReceiveFixed)
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-                disc_id: "USD_OIS".into(),
+                discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -394,8 +394,8 @@ fn test_irs_calendar_specification() {
         )
         .float(
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-                disc_id: "USD_OIS".into(),
-                fwd_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: "USD_OIS".into(),
+                forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,
@@ -422,7 +422,7 @@ fn test_irs_stub_specification() {
         .side(PayReceive::ReceiveFixed)
         .fixed(
             finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-                disc_id: "USD_OIS".into(),
+                discount_curve_id: "USD_OIS".into(),
                 rate: 0.05,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -437,8 +437,8 @@ fn test_irs_stub_specification() {
         )
         .float(
             finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-                disc_id: "USD_OIS".into(),
-                fwd_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: "USD_OIS".into(),
+                forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: 0.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,

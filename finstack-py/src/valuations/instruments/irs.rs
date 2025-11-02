@@ -316,8 +316,8 @@ impl PyInterestRateSwap {
         let amt = extract_money(&notional)?;
         let start_date = py_to_date(&start)?;
         let end_date = py_to_date(&end)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
-        let fwd_id = extract_curve_id(&forward_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let forward_curve_id = extract_curve_id(&forward_curve)?;
 
         let side_value = side
             .parse::<PayReceive>()
@@ -354,7 +354,7 @@ impl PyInterestRateSwap {
         let cal_id_opt = intern_calendar_id_opt(calendar).map(|s| s.to_string());
 
         let fixed_leg = FixedLegSpec {
-            disc_id: disc_id.clone(),
+            discount_curve_id: discount_curve_id.clone(),
             rate: fixed_rate,
             freq: fixed_freq,
             dc: fixed_dc,
@@ -368,8 +368,8 @@ impl PyInterestRateSwap {
         };
 
         let float_leg = FloatLegSpec {
-            disc_id: disc_id.clone(),
-            fwd_id,
+            discount_curve_id: discount_curve_id.clone(),
+            forward_curve_id,
             spread_bp: float_spread_bp.unwrap_or(0.0),
             freq: float_freq,
             dc: float_dc,
@@ -462,7 +462,7 @@ impl PyInterestRateSwap {
     ///     Any: Discount curve identifier used by the fixed leg.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.fixed.disc_id.as_str().to_string()
+        self.inner.fixed.discount_curve_id.as_str().to_string()
     }
 
     /// Floating forward curve identifier.
@@ -471,7 +471,7 @@ impl PyInterestRateSwap {
     ///     Any: Floating forward curve identifier.
     #[getter]
     fn forward_curve(&self) -> String {
-        self.inner.float.fwd_id.as_str().to_string()
+        self.inner.float.forward_curve_id.as_str().to_string()
     }
 
     /// Instrument type enum (``InstrumentType.IRS``).

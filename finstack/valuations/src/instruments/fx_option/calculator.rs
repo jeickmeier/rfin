@@ -89,8 +89,8 @@ impl FxOptionCalculator {
         };
 
         // Discount curves provide domestic and foreign zero rates
-        let domestic_disc = curves.get_discount_ref(inst.domestic_disc_id.as_str())?;
-        let foreign_disc = curves.get_discount_ref(inst.foreign_disc_id.as_str())?;
+        let domestic_disc = curves.get_discount_ref(inst.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
         let r_d = domestic_disc.zero(t);
         let r_f = foreign_disc.zero(t);
 
@@ -108,7 +108,7 @@ impl FxOptionCalculator {
         let sigma = if let Some(impl_vol) = inst.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+            let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
             vol_surface.value_clamped(t, inst.strike)
         };
 
@@ -129,8 +129,8 @@ impl FxOptionCalculator {
             self.year_fraction(as_of, inst.expiry, inst.day_count)?
         };
 
-        let domestic_disc = curves.get_discount_ref(inst.domestic_disc_id.as_str())?;
-        let foreign_disc = curves.get_discount_ref(inst.foreign_disc_id.as_str())?;
+        let domestic_disc = curves.get_discount_ref(inst.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount_ref(inst.foreign_discount_curve_id.as_str())?;
         let r_d = domestic_disc.zero(t);
         let r_f = foreign_disc.zero(t);
 
@@ -214,7 +214,7 @@ impl FxOptionCalculator {
             v
         } else {
             curves
-                .surface_ref(inst.vol_id.as_str())
+                .surface_ref(inst.vol_surface_id.as_str())
                 .ok()
                 .map(|s| s.value_clamped(t, inst.strike))
                 .unwrap_or(self.config.iv_initial_guess)
@@ -474,9 +474,9 @@ mod tests {
             .day_count(DayCount::Act365F)
             .notional(Money::new(1_000_000.0, BASE))
             .settlement(SettlementType::Cash)
-            .domestic_disc_id(CurveId::new(DOMESTIC_ID))
-            .foreign_disc_id(CurveId::new(FOREIGN_ID))
-            .vol_id(CurveId::new(VOL_ID))
+            .domestic_discount_curve_id(CurveId::new(DOMESTIC_ID))
+            .foreign_discount_curve_id(CurveId::new(FOREIGN_ID))
+            .vol_surface_id(CurveId::new(VOL_ID))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()

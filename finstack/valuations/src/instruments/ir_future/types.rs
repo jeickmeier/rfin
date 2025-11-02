@@ -35,7 +35,7 @@ pub struct InterestRateFuture {
     /// Contract specifications
     pub contract_specs: FutureContractSpecs,
     /// Discount curve identifier
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Forward curve identifier
     pub forward_id: CurveId,
     /// Attributes
@@ -125,7 +125,7 @@ impl InterestRateFuture {
     pub fn npv(&self, context: &MarketContext) -> finstack_core::Result<Money> {
         use finstack_core::dates::DayCountCtx;
 
-        let disc = context.get_discount_ref(&self.disc_id)?;
+        let disc = context.get_discount_ref(&self.discount_curve_id)?;
         let fwd = context.get_forward_ref(&self.forward_id)?;
 
         // Base date for mapping to curve time
@@ -279,6 +279,6 @@ impl CashflowProvider for InterestRateFuture {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateFuture {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }

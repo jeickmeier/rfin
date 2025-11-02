@@ -44,7 +44,7 @@ impl JsSwaption {
         business_day_convention: Option<crate::core::dates::calendar::JsBusinessDayConvention>,
         calendar_id: Option<String>,
     ) -> Result<JsSwaption, JsValue> {
-        let vol_id = curve_id_from_str(vol_surface);
+        let vol_surface_id = curve_id_from_str(vol_surface);
         let exercise_style = parse_optional_with_default(exercise, SwaptionExercise::European)?;
         let settlement_type =
             parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
@@ -62,7 +62,7 @@ impl JsSwaption {
             &params,
             curve_id_from_str(discount_curve),
             curve_id_from_str(forward_curve),
-            vol_id,
+            vol_surface_id,
         );
         swaption.exercise = exercise_style;
         swaption.settlement = settlement_type;
@@ -106,7 +106,7 @@ impl JsSwaption {
         business_day_convention: Option<crate::core::dates::calendar::JsBusinessDayConvention>,
         calendar_id: Option<String>,
     ) -> Result<JsSwaption, JsValue> {
-        let vol_id = curve_id_from_str(vol_surface);
+        let vol_surface_id = curve_id_from_str(vol_surface);
         let exercise_style = parse_optional_with_default(exercise, SwaptionExercise::European)?;
         let settlement_type =
             parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
@@ -124,7 +124,7 @@ impl JsSwaption {
             &params,
             curve_id_from_str(discount_curve),
             curve_id_from_str(forward_curve),
-            vol_id,
+            vol_surface_id,
         );
         swaption.exercise = exercise_style;
         swaption.settlement = settlement_type;
@@ -180,7 +180,7 @@ impl JsSwaption {
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.disc_id.as_str().to_string()
+        self.0.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = forwardCurve)]

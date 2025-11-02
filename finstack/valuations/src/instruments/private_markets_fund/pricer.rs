@@ -33,9 +33,9 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
         let fund =
             expect_inst::<PrivateMarketsFund>(instrument, InstrumentType::PrivateMarketsFund)?;
 
-        let as_of = if let Some(ref disc_id) = fund.disc_id {
+        let as_of = if let Some(ref discount_curve_id) = fund.discount_curve_id {
             let disc = market
-                .get_discount_ref(disc_id.as_str())
+                .get_discount_ref(discount_curve_id.as_str())
                 .map_err(|e| PricingError::model_failure(e.to_string()))?;
             disc.base_date()
         } else {

@@ -16,13 +16,13 @@ impl MetricCalculator for FloatLegPvCalculator {
         let irs: &InterestRateSwap = context.instrument_as()?;
         let as_of = context.as_of;
 
-        let disc = context.curves.get_discount(&irs.float.disc_id)?;
+        let disc = context.curves.get_discount(&irs.float.discount_curve_id)?;
         let base = disc.base_date();
         let disc_dc = disc.day_count();
 
         // For OIS swaps (same discount curve for both legs), use discount-only pricing
         // to be consistent with the main IRS pricer
-        if irs.float.disc_id == irs.fixed.disc_id {
+        if irs.float.discount_curve_id == irs.fixed.discount_curve_id {
             // OIS swap: use discount-only method
             let t_as_of = disc_dc
                 .year_fraction(base, as_of, finstack_core::dates::DayCountCtx::default())
@@ -105,7 +105,7 @@ impl MetricCalculator for FloatLegPvCalculator {
         }
 
         // Non-OIS swap: use forward curve for pricing
-        let fwd = context.curves.get_forward(&irs.float.fwd_id)?;
+        let fwd = context.curves.get_forward(&irs.float.forward_curve_id)?;
 
         let sched = crate::cashflow::builder::build_dates(
             irs.float.start,

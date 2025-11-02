@@ -267,7 +267,7 @@ impl TreeValuator for ConvertibleBondValuator {
 fn extract_equity_state(
     ctx: &MarketContext,
     underlying_id: &str,
-    disc_id: &finstack_core::types::CurveId,
+    discount_curve_id: &finstack_core::types::CurveId,
     maturity: Date,
     expected_currency: Currency,
     attributes: &Attributes,
@@ -287,7 +287,7 @@ fn extract_equity_state(
     };
 
     // Get risk-free rate from discount curve
-    let discount_curve = ctx.get_discount_ref(disc_id.as_str())?;
+    let discount_curve = ctx.get_discount_ref(discount_curve_id.as_str())?;
     let base_date = discount_curve.base_date();
 
     // Calculate time to maturity
@@ -309,7 +309,7 @@ fn extract_equity_state(
 
     // Resolve volatility (unitless) via metadata or naming heuristics.
     let mut vol_candidates: Vec<String> = Vec::new();
-    if let Some(id) = attributes.get_meta("vol_id") {
+    if let Some(id) = attributes.get_meta("vol_surface_id") {
         vol_candidates.push(id.to_string());
     }
     if let Some(id) = attributes.get_meta("vol_surface_id") {
@@ -326,7 +326,7 @@ fn extract_equity_state(
 
     // Resolve dividend yield (unitless), defaulting to zero if unavailable.
     let mut dividend_candidates: Vec<String> = Vec::new();
-    if let Some(id) = attributes.get_meta("dividend_yield_id") {
+    if let Some(id) = attributes.get_meta("div_yield_id") {
         dividend_candidates.push(id.to_string());
     }
     dividend_candidates.push(format!("{}-DIVYIELD", underlying_id));
@@ -429,7 +429,7 @@ fn prepare_for_pricing(
         extract_equity_state(
             market_context,
             underlying_id,
-            &bond.disc_id,
+            &bond.discount_curve_id,
             bond.maturity,
             bond.notional.currency(),
             &bond.attributes,
@@ -465,7 +465,7 @@ pub fn price_convertible_bond(
     };
 
     let base_date = market_context
-        .get_discount_ref(bond.disc_id.as_str())?
+        .get_discount_ref(bond.discount_curve_id.as_str())?
         .base_date();
     let valuator = ConvertibleBondValuator::new(
         bond,
@@ -525,7 +525,7 @@ pub fn calculate_convertible_greeks(
     };
 
     let base_date = market_context
-        .get_discount_ref(bond.disc_id.as_str())?
+        .get_discount_ref(bond.discount_curve_id.as_str())?
         .base_date();
     let valuator = ConvertibleBondValuator::new(
         bond,
@@ -655,7 +655,7 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
 
         // Get as_of date from discount curve
         let disc = market
-            .get_discount_ref(convertible.disc_id.as_str())
+            .get_discount_ref(convertible.discount_curve_id.as_str())
             .map_err(|e| crate::pricer::PricingError::model_failure(e.to_string()))?;
         let as_of = disc.base_date();
 
@@ -712,7 +712,7 @@ mod tests {
             notional: Money::new(1000.0, Currency::USD),
             issue,
             maturity,
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             conversion: conversion_spec,
             underlying_equity_id: Some("AAPL".to_string()),
             call_put: None,

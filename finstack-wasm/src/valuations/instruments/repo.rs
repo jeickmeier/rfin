@@ -81,7 +81,7 @@ impl JsRepo {
             .triparty(false)
             .day_count(dc)
             .bdc(bdc)
-            .disc_id(curve_id_from_str(discount_curve));
+            .discount_curve_id(curve_id_from_str(discount_curve));
 
         builder
             .build()

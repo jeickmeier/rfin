@@ -19,7 +19,7 @@ impl MetricCalculator for BucketedDv01Calculator {
         let dom_total = crate::metrics::compute_key_rate_series_with_context_for_id(
             context,
             MetricId::custom("bucketed_dv01_domestic"),
-            &opt.domestic_disc_id,
+            &opt.domestic_discount_curve_id,
             buckets.iter().copied(),
             1.0,
             {
@@ -35,7 +35,7 @@ impl MetricCalculator for BucketedDv01Calculator {
         let for_total = crate::metrics::compute_key_rate_series_with_context_for_id(
             context,
             MetricId::custom("bucketed_dv01_foreign"),
-            &opt.foreign_disc_id,
+            &opt.foreign_discount_curve_id,
             buckets.into_iter(),
             1.0,
             {

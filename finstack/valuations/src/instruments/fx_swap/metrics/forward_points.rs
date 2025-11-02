@@ -18,8 +18,8 @@ impl MetricCalculator for ForwardPoints {
         let curves = context.curves.clone();
         let as_of = context.as_of;
 
-        let domestic_disc = curves.get_discount_ref(fx_swap.domestic_disc_id.as_str())?;
-        let foreign_disc = curves.get_discount_ref(fx_swap.foreign_disc_id.as_str())?;
+        let domestic_disc = curves.get_discount_ref(fx_swap.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = curves.get_discount_ref(fx_swap.foreign_discount_curve_id.as_str())?;
 
         // Use curve-consistent discount factors on dates
         let df_dom_far = domestic_disc.df_on_date_curve(fx_swap.far_date);

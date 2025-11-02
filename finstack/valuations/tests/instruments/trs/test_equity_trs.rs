@@ -54,7 +54,7 @@ fn test_equity_trs_with_no_dividend_yield() {
     let trs = TestEquityTrsBuilder::new().div_yield_id(None).build();
 
     // Assert
-    assert!(trs.underlying.dividend_yield_id.is_none());
+    assert!(trs.underlying.div_yield_id.is_none());
 }
 
 #[test]

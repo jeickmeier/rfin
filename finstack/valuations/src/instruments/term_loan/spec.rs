@@ -131,7 +131,7 @@ pub struct OidEirSpec {
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct TermLoanSpec {
     pub id: InstrumentId,
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     pub currency: Currency,
     pub issue: Date,
     pub maturity: Date,

@@ -125,8 +125,8 @@ impl PyInflationLinkedBond {
         let notional_money = extract_money(&notional)?;
         let issue_date = py_to_date(&issue)?;
         let maturity_date = py_to_date(&maturity)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
-        let inflation_id = extract_curve_id(&inflation_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let inflation_index_id = extract_curve_id(&inflation_curve)?;
         let indexation_method = parse_indexation_method(indexation)?;
         let freq = crate::valuations::common::parse_frequency_label(frequency)?;
         let dc = if let Some(obj) = day_count {
@@ -163,8 +163,8 @@ impl PyInflationLinkedBond {
         builder = builder.bdc(BusinessDayConvention::Following);
         builder = builder.stub(StubKind::None);
         builder = builder.calendar_id_opt(calendar.map(|s| s.to_string()));
-        builder = builder.disc_id(disc_id);
-        builder = builder.inflation_id(inflation_id);
+        builder = builder.discount_curve_id(discount_curve_id);
+        builder = builder.inflation_index_id(inflation_index_id);
         builder = builder.attributes(Default::default());
 
         let bond = builder.build().map_err(core_to_py)?;
@@ -213,7 +213,7 @@ impl PyInflationLinkedBond {
     ///     str: Discount curve used for valuation.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Inflation curve identifier.
@@ -222,7 +222,7 @@ impl PyInflationLinkedBond {
     ///     str: Inflation curve used for indexation.
     #[getter]
     fn inflation_curve(&self) -> String {
-        self.inner.inflation_id.as_str().to_string()
+        self.inner.inflation_index_id.as_str().to_string()
     }
 
     /// Instrument type enumeration.

@@ -18,9 +18,9 @@ pub struct RangeAccrual {
     pub coupon_rate: f64,
     pub notional: Money,
     pub day_count: finstack_core::dates::DayCount,
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     pub spot_id: String,
-    pub vol_id: CurveId,
+    pub vol_surface_id: CurveId,
     pub div_yield_id: Option<String>,
     pub pricing_overrides: PricingOverrides,
     pub attributes: Attributes,
@@ -97,6 +97,6 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for RangeAccrual {
     fn discount_curve_id(&self) -> &CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }

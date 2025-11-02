@@ -81,7 +81,7 @@ pub struct VarianceSwap {
     /// Pay/receive variance
     pub side: PayReceive,
     /// Discount curve identifier
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Day count convention for time calculations
     pub day_count: DayCount,
     /// Attributes for scenario selection
@@ -94,7 +94,7 @@ impl VarianceSwap {
     /// Calculate present value of the variance swap.
     pub fn npv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         // Get discount curve
-        let disc = context.get_discount_ref(self.disc_id.as_str())?;
+        let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
 
         // If expired, compute final payoff from realized variance (if any prices)
         if as_of >= self.maturity {
@@ -138,7 +138,7 @@ impl VarianceSwap {
 
     /// Get the discount curve ID for this variance swap.
     pub fn discount_curve_id(&self) -> &CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 
     /// Calculate payoff given realized variance.
@@ -364,7 +364,7 @@ impl VarianceSwap {
         ] {
             if let Ok(surface) = context.surface_ref(sid) {
                 // Attempt variance replication (VIX-like)
-                if let Ok(disc) = context.get_discount_ref(&self.disc_id) {
+                if let Ok(disc) = context.get_discount_ref(&self.discount_curve_id) {
                     if let Ok(spot_scalar) = context.price(&self.underlying_id) {
                         let spot = match spot_scalar {
                             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
@@ -520,7 +520,7 @@ impl crate::instruments::common::traits::Instrument for VarianceSwap {
 // Implement HasDiscountCurve trait
 impl crate::instruments::common::pricing::HasDiscountCurve for VarianceSwap {
     fn discount_curve_id(&self) -> &CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }
 

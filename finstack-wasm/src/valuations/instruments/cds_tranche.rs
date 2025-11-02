@@ -69,7 +69,7 @@ impl JsCdsTranche {
             .payment_frequency(freq)
             .day_count(dc)
             .business_day_convention(BusinessDayConvention::Following)
-            .disc_id(curve_id_from_str(discount_curve))
+            .discount_curve_id(curve_id_from_str(discount_curve))
             .credit_index_id(curve_id_from_str(credit_index_curve))
             .side(side_value)
             .attributes(Default::default());

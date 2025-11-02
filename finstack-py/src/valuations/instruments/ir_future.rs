@@ -88,8 +88,8 @@ impl PyInterestRateFuture {
         let fixing = py_to_date(&fixing_date)?;
         let start = py_to_date(&period_start)?;
         let end = py_to_date(&period_end)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
-        let fwd_id = extract_curve_id(&forward_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let forward_curve_id = extract_curve_id(&forward_curve)?;
         let day_count_value = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract()?;
             value
@@ -121,8 +121,8 @@ impl PyInterestRateFuture {
         builder = builder.fixing_date(fixing);
         builder = builder.period_start(start);
         builder = builder.period_end(end);
-        builder = builder.disc_id(disc_id);
-        builder = builder.forward_id(fwd_id);
+        builder = builder.discount_curve_id(discount_curve_id);
+        builder = builder.forward_id(forward_curve_id);
         builder = builder.day_count(day_count_value);
         builder = builder.position(position_value);
         builder = builder.contract_specs(specs);

@@ -26,7 +26,7 @@ fn test_builder_creates_valid_swap_with_all_required_fields() {
         .observation_freq(Frequency::daily())
         .realized_var_method(RealizedVarMethod::CloseToClose)
         .side(PayReceive::Receive)
-        .disc_id(CurveId::new(DISC_ID))
+        .discount_curve_id(CurveId::new(DISC_ID))
         .day_count(DayCount::Act365F)
         .attributes(Attributes::new())
         .build();
@@ -168,10 +168,10 @@ fn test_discount_curve_id_accessor_returns_correct_value() {
     let swap = sample_swap(PayReceive::Receive);
 
     // Act
-    let disc_id = swap.discount_curve_id();
+    let discount_curve_id = swap.discount_curve_id();
 
     // Assert
-    assert_eq!(disc_id.as_str(), DISC_ID);
+    assert_eq!(discount_curve_id.as_str(), DISC_ID);
 }
 
 #[test]

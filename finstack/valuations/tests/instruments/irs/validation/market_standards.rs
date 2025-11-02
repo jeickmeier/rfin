@@ -210,7 +210,7 @@ fn test_irs_receive_vs_pay_fixed() {
         .insert_forward(fwd_curve);
 
     let fixed_leg = FixedLegSpec {
-        disc_id: "USD-OIS".into(),
+        discount_curve_id: "USD-OIS".into(),
         rate: 0.05,
         freq: Frequency::quarterly(),
         dc: DayCount::Act360,
@@ -224,8 +224,8 @@ fn test_irs_receive_vs_pay_fixed() {
     };
 
     let float_leg = FloatLegSpec {
-        disc_id: "USD-OIS".into(),
-        fwd_id: "USD-SOFR-3M".into(),
+        discount_curve_id: "USD-OIS".into(),
+        forward_curve_id: "USD-SOFR-3M".into(),
         spread_bp: 0.0,
         freq: Frequency::quarterly(),
         dc: DayCount::Act360,
@@ -289,7 +289,7 @@ fn test_irs_rate_sensitivity() {
     let end = date!(2029 - 01 - 01);
 
     let fixed_leg = FixedLegSpec {
-        disc_id: "USD-OIS".into(),
+        discount_curve_id: "USD-OIS".into(),
         rate: 0.05,
         freq: Frequency::quarterly(),
         dc: DayCount::Act360,
@@ -303,8 +303,8 @@ fn test_irs_rate_sensitivity() {
     };
 
     let float_leg = FloatLegSpec {
-        disc_id: "USD-OIS".into(),
-        fwd_id: "USD-SOFR-3M".into(),
+        discount_curve_id: "USD-OIS".into(),
+        forward_curve_id: "USD-SOFR-3M".into(),
         spread_bp: 0.0,
         freq: Frequency::quarterly(),
         dc: DayCount::Act360,
@@ -382,7 +382,7 @@ fn test_irs_leg_pvs_consistency() {
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
         fixed: FixedLegSpec {
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             rate: 0.05,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -395,8 +395,8 @@ fn test_irs_leg_pvs_consistency() {
             end,
         },
         float: FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,

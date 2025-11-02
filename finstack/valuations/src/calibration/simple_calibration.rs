@@ -544,7 +544,7 @@ impl SimpleCalibration {
             };
 
             // Determine discount curve ID from context (use first available OIS curve)
-            let disc_id = if updated_context.get_discount("USD-OIS").is_ok() {
+            let discount_curve_id = if updated_context.get_discount("USD-OIS").is_ok() {
                 "USD-OIS"
             } else if updated_context.get_discount("EUR-OIS").is_ok() {
                 "EUR-OIS"
@@ -558,7 +558,7 @@ impl SimpleCalibration {
                 SwaptionVolConvention::Normal, // Normal vols are more stable for rates
                 AtmStrikeConvention::SwapRate, // Most common convention
                 self.base_date,
-                disc_id,
+                discount_curve_id,
                 self.base_currency,
             )
             .with_config(CalibrationConfig {

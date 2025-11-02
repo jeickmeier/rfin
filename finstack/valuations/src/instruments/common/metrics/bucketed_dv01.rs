@@ -37,7 +37,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let disc_id = instrument.discount_curve_id().clone();
+        let discount_curve_id = instrument.discount_curve_id().clone();
 
         // Standard bucket times (years) - shared across all instruments
         let buckets = crate::metrics::standard_ir_dv01_buckets();
@@ -65,7 +65,7 @@ where
         };
 
         let total =
-            crate::metrics::compute_key_rate_dv01_series(context, &disc_id, buckets, 1.0, reval)?;
+            crate::metrics::compute_key_rate_dv01_series(context, &discount_curve_id, buckets, 1.0, reval)?;
 
         Ok(total)
     }
@@ -93,7 +93,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let disc_id = instrument.discount_curve_id().clone();
+        let discount_curve_id = instrument.discount_curve_id().clone();
 
         // Standard bucket times
         let buckets = crate::metrics::standard_ir_dv01_buckets();
@@ -107,7 +107,7 @@ where
         };
 
         let total = crate::metrics::compute_key_rate_dv01_series_with_context(
-            context, &disc_id, buckets, 1.0, reval,
+            context, &discount_curve_id, buckets, 1.0, reval,
         )?;
 
         Ok(total)

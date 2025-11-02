@@ -32,7 +32,7 @@ impl MetricCalculator for VannaCalculator {
 
         let spot_bump = current_spot * bump_sizes::SPOT;
         let vol_bump = bump_sizes::VOLATILITY;
-        let vol_surface = context.curves.surface_ref(option.vol_id.as_str())?;
+        let vol_surface = context.curves.surface_ref(option.vol_surface_id.as_str())?;
 
         // Delta at vol_up
         let curves_vol_up = {
@@ -42,7 +42,7 @@ impl MetricCalculator for VannaCalculator {
             use std::sync::Arc;
             let bumped_surface = vol_surface.scaled(scale_factor);
             curves.surfaces.insert(
-                CurveId::from(option.vol_id.as_str()),
+                CurveId::from(option.vol_surface_id.as_str()),
                 Arc::new(bumped_surface),
             );
             curves
@@ -63,7 +63,7 @@ impl MetricCalculator for VannaCalculator {
             use std::sync::Arc;
             let bumped_surface = vol_surface.scaled(scale_factor);
             curves.surfaces.insert(
-                CurveId::from(option.vol_id.as_str()),
+                CurveId::from(option.vol_surface_id.as_str()),
                 Arc::new(bumped_surface),
             );
             curves

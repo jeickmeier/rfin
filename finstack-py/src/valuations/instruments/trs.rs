@@ -106,12 +106,12 @@ impl PyFinancingLegSpec {
 
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[getter]
     fn forward_curve(&self) -> String {
-        self.inner.fwd_id.as_str().to_string()
+        self.inner.forward_curve_id.as_str().to_string()
     }
 
     #[getter]
@@ -181,18 +181,18 @@ pub struct PyEquityUnderlyingParams {
 impl PyEquityUnderlyingParams {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, ticker, spot_id, currency, *, dividend_yield_id=None, contract_size=None)"
+        text_signature = "(cls, ticker, spot_id, currency, *, div_yield_id=None, contract_size=None)"
     )]
     fn new(
         _cls: &Bound<'_, PyType>,
         ticker: &str,
         spot_id: &str,
         currency: &PyCurrency,
-        dividend_yield_id: Option<&str>,
+        div_yield_id: Option<&str>,
         contract_size: Option<f64>,
     ) -> Self {
         let mut params = EquityUnderlyingParams::new(ticker, spot_id, currency.inner);
-        if let Some(div) = dividend_yield_id {
+        if let Some(div) = div_yield_id {
             params = params.with_dividend_yield(div);
         }
         if let Some(size) = contract_size {

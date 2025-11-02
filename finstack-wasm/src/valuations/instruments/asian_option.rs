@@ -64,7 +64,7 @@ impl JsAsianOption {
         vol_surface: &str,
         averaging_method: Option<String>,
         option_type: Option<String>,
-        dividend_yield_id: Option<String>,
+        div_yield_id: Option<String>,
     ) -> Result<JsAsianOption, JsValue> {
         use crate::core::error::js_error;
         use finstack_core::dates::DayCount;
@@ -105,10 +105,10 @@ impl JsAsianOption {
         builder = builder.fixing_dates(fixing_dates_vec);
         builder = builder.notional(notional.inner());
         builder = builder.day_count(DayCount::Act365F);
-        builder = builder.disc_id(curve_id_from_str(discount_curve));
+        builder = builder.discount_curve_id(curve_id_from_str(discount_curve));
         builder = builder.spot_id(spot_id.to_string());
-        builder = builder.vol_id(curve_id_from_str(vol_surface));
-        if let Some(div) = dividend_yield_id {
+        builder = builder.vol_surface_id(curve_id_from_str(vol_surface));
+        if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(div);
         }
 
@@ -168,7 +168,7 @@ impl JsAsianOption {
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.disc_id.as_str().to_string()
+        self.0.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = spotId)]
@@ -178,11 +178,11 @@ impl JsAsianOption {
 
     #[wasm_bindgen(getter, js_name = volSurface)]
     pub fn vol_surface(&self) -> String {
-        self.0.vol_id.as_str().to_string()
+        self.0.vol_surface_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = dividendYieldId)]
-    pub fn dividend_yield_id(&self) -> Option<String> {
+    pub fn div_yield_id(&self) -> Option<String> {
         self.0.div_yield_id.clone()
     }
 

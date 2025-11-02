@@ -100,11 +100,11 @@ fn test_accrued_frn_uses_forward_rate() {
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(None)
         .stub(StubKind::None)
-        .disc_id(CurveId::new("USD-OIS"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
         .credit_curve_id_opt(None)
         .pricing_overrides(PricingOverrides::default())
         .float_opt(Some(BondFloatSpec {
-            fwd_id: CurveId::new("USD-SOFR-3M"),
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
             margin_bp: 0.0,
             gearing: 1.0,
             reset_lag_days: 2,

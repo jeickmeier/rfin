@@ -142,9 +142,9 @@ pub fn build_call_option(_as_of: Date, expiry: Date, strike: f64, notional: f64)
         .day_count(DayCount::Act365F)
         .notional(Money::new(notional, BASE))
         .settlement(SettlementType::Cash)
-        .domestic_disc_id(CurveId::new(DOMESTIC_ID))
-        .foreign_disc_id(CurveId::new(FOREIGN_ID))
-        .vol_id(CurveId::new(VOL_ID))
+        .domestic_discount_curve_id(CurveId::new(DOMESTIC_ID))
+        .foreign_discount_curve_id(CurveId::new(FOREIGN_ID))
+        .vol_surface_id(CurveId::new(VOL_ID))
         .pricing_overrides(PricingOverrides::default())
         .attributes(Attributes::new())
         .build()
@@ -164,9 +164,9 @@ pub fn build_put_option(_as_of: Date, expiry: Date, strike: f64, notional: f64) 
         .day_count(DayCount::Act365F)
         .notional(Money::new(notional, BASE))
         .settlement(SettlementType::Cash)
-        .domestic_disc_id(CurveId::new(DOMESTIC_ID))
-        .foreign_disc_id(CurveId::new(FOREIGN_ID))
-        .vol_id(CurveId::new(VOL_ID))
+        .domestic_discount_curve_id(CurveId::new(DOMESTIC_ID))
+        .foreign_discount_curve_id(CurveId::new(FOREIGN_ID))
+        .vol_surface_id(CurveId::new(VOL_ID))
         .pricing_overrides(PricingOverrides::default())
         .attributes(Attributes::new())
         .build()
@@ -276,7 +276,7 @@ pub fn finite_diff_vega(
     bump: f64,
 ) -> finstack_core::Result<f64> {
     // Bump volatility surface
-    let vol_surface = market.surface_ref(option.vol_id.clone())?;
+    let vol_surface = market.surface_ref(option.vol_surface_id.clone())?;
     let base_vol = vol_surface.value_clamped(0.5, option.strike);
 
     let vol_surface_up = build_flat_vol_surface(base_vol + bump, VOL_ID);

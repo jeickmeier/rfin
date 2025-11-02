@@ -18,7 +18,7 @@ fn cross_currency_conversion_uses_fx_matrix() {
         .start(as_of)
         .end(as_of)
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("EUR".into())
+        .discount_curve_id("EUR".into())
         .build()
         .unwrap();
 
@@ -63,7 +63,7 @@ fn missing_fx_matrix_errors_for_cross_currency() {
         .start(as_of)
         .end(as_of)
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("EUR".into())
+        .discount_curve_id("EUR".into())
         .build()
         .unwrap();
 
@@ -107,7 +107,7 @@ fn quantity_scaling_and_entity_totals() {
         .end(end_date)
         .quote_rate(0.05) // Add a 5% rate so deposit has non-zero PV
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
 

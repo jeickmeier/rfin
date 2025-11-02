@@ -36,7 +36,7 @@ pub struct ForwardRateAgreement {
     /// Reset lag in business days (fixing to value date)
     pub reset_lag: i32,
     /// Discount curve identifier
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Forward curve identifier
     pub forward_id: CurveId,
     /// Pay/receive flag (true = receive fixed, pay floating)
@@ -52,7 +52,7 @@ impl ForwardRateAgreement {
         context: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        let disc = context.get_discount_ref(&self.disc_id)?;
+        let disc = context.get_discount_ref(&self.discount_curve_id)?;
         let fwd = context.get_forward_ref(&self.forward_id)?;
 
         // Time fractions for mapping into the forward curve domain must use the
@@ -190,7 +190,7 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for ForwardRateAgreement {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }
 
@@ -265,7 +265,7 @@ mod tests {
             .fixed_rate(0.05)
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)
-            .disc_id("DISC".into())
+            .discount_curve_id("DISC".into())
             .forward_id("FWD-3M".into())
             .pay_fixed(false) // Receive fixed, pay floating
             .build()

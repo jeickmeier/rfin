@@ -42,7 +42,7 @@ impl JsBarrierOption {
         discount_curve: &str,
         spot_id: &str,
         vol_surface: &str,
-        dividend_yield_id: Option<String>,
+        div_yield_id: Option<String>,
         use_gobet_miri: Option<bool>,
     ) -> Result<JsBarrierOption, JsValue> {
         use crate::core::error::js_error;
@@ -80,10 +80,10 @@ impl JsBarrierOption {
         builder = builder.notional(notional.inner());
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
-        builder = builder.disc_id(curve_id_from_str(discount_curve));
+        builder = builder.discount_curve_id(curve_id_from_str(discount_curve));
         builder = builder.spot_id(spot_id.to_string());
-        builder = builder.vol_id(curve_id_from_str(vol_surface));
-        if let Some(div) = dividend_yield_id {
+        builder = builder.vol_surface_id(curve_id_from_str(vol_surface));
+        if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(div);
         }
         builder = builder
@@ -150,7 +150,7 @@ impl JsBarrierOption {
 
     #[wasm_bindgen(getter, js_name = discountCurve)]
     pub fn discount_curve(&self) -> String {
-        self.0.disc_id.as_str().to_string()
+        self.0.discount_curve_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = spotId)]
@@ -160,11 +160,11 @@ impl JsBarrierOption {
 
     #[wasm_bindgen(getter, js_name = volSurface)]
     pub fn vol_surface(&self) -> String {
-        self.0.vol_id.as_str().to_string()
+        self.0.vol_surface_id.as_str().to_string()
     }
 
     #[wasm_bindgen(getter, js_name = dividendYieldId)]
-    pub fn dividend_yield_id(&self) -> Option<String> {
+    pub fn div_yield_id(&self) -> Option<String> {
         self.0.div_yield_id.clone()
     }
 

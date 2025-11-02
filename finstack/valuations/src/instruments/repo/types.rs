@@ -169,7 +169,7 @@ pub struct Repo {
     /// Optional calendar for business day adjustments
     pub calendar_id: Option<String>,
     /// Discount curve identifier for valuation
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
@@ -183,7 +183,7 @@ impl Repo {
         collateral: CollateralSpec,
         repo_rate: f64,
         start_date: Date,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
     ) -> Result<Self> {
         let maturity = start_date.add_business_days(1, &finstack_core::dates::calendar::TARGET2)?;
         RepoBuilder::new()
@@ -199,7 +199,7 @@ impl Repo {
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(Some("target2".to_string()))
-            .disc_id(disc_id.into())
+            .discount_curve_id(discount_curve_id.into())
             .attributes(Attributes::default())
             .build()
     }
@@ -212,7 +212,7 @@ impl Repo {
         repo_rate: f64,
         start_date: Date,
         maturity: Date,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
     ) -> Self {
         RepoBuilder::new()
             .id(id.into().into())
@@ -227,7 +227,7 @@ impl Repo {
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(Some("target2".to_string()))
-            .disc_id(disc_id.into())
+            .discount_curve_id(discount_curve_id.into())
             .attributes(Attributes::default())
             .build()
             .expect("term repo default construction should not fail")
@@ -241,7 +241,7 @@ impl Repo {
         repo_rate: f64,
         start_date: Date,
         initial_maturity: Date,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
     ) -> Self {
         RepoBuilder::new()
             .id(id.into().into())
@@ -256,7 +256,7 @@ impl Repo {
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(Some("target2".to_string()))
-            .disc_id(disc_id.into())
+            .discount_curve_id(discount_curve_id.into())
             .attributes(Attributes::default())
             .build()
             .expect("open repo default construction should not fail")
@@ -306,7 +306,7 @@ impl Repo {
     /// where total_repayment = principal + interest, and discounting is
     /// performed off the configured discount curve.
     pub fn pv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        let disc_curve = context.get_discount_ref(self.disc_id.as_str())?;
+        let disc_curve = context.get_discount_ref(self.discount_curve_id.as_str())?;
 
         // Total repayment at maturity (principal + interest)
         let total_repayment = self.total_repayment()?;
@@ -446,7 +446,7 @@ impl CashflowProvider for Repo {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for Repo {
     fn discount_curve_id(&self) -> &CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }
 

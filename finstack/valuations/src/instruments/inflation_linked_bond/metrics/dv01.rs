@@ -29,7 +29,7 @@ impl MetricCalculator for InflationLinkedBondDv01Calculator {
 
         // Parallel +1bp bump on real rate discount curve
         let mut bumps = HashMap::new();
-        bumps.insert(bond.disc_id.clone(), BumpSpec::parallel_bp(1.0));
+        bumps.insert(bond.discount_curve_id.clone(), BumpSpec::parallel_bp(1.0));
         let bumped_context = context.curves.bump(bumps)?;
 
         // Reprice with bumped curve

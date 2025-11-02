@@ -30,18 +30,18 @@ impl MetricCalculator for VegaCalculator {
         }
 
         // Get volatility surface (if provided)
-        let vol_id = match option.vol_id.as_ref() {
+        let vol_surface_id = match option.vol_surface_id.as_ref() {
             Some(id) => id,
             None => {
                 return Err(finstack_core::Error::from(
                     finstack_core::error::InputError::NotFound {
-                        id: "vol_id not provided for CMS option".to_string(),
+                        id: "vol_surface_id not provided for CMS option".to_string(),
                     },
                 ));
             }
         };
 
-        let vol_surface = context.curves.surface_ref(vol_id.as_str())?;
+        let vol_surface = context.curves.surface_ref(vol_surface_id.as_str())?;
 
         // Bump volatility surface by scaling all values (no grid rebuild)
         let mut curves_bumped = context.curves.as_ref().clone();
@@ -51,7 +51,7 @@ impl MetricCalculator for VegaCalculator {
         let bumped_surface = vol_surface.scaled(scale_factor);
         curves_bumped
             .surfaces
-            .insert(CurveId::from(vol_id.as_str()), Arc::new(bumped_surface));
+            .insert(CurveId::from(vol_surface_id.as_str()), Arc::new(bumped_surface));
 
         // Reprice with bumped vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();

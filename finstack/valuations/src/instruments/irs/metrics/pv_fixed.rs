@@ -14,7 +14,7 @@ impl MetricCalculator for FixedLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
         let as_of = context.as_of;
-        let disc = context.curves.get_discount(&irs.fixed.disc_id)?;
+        let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
         let disc_dc = disc.day_count();
 
         let sched = crate::cashflow::builder::build_dates(

@@ -401,7 +401,7 @@ fn test_breakeven_inflation_metric_consistency() {
     let breakeven_via_framework = result.measures[MetricId::BreakevenInflation.as_str()];
 
     // Direct calculation (using discount curve zero rate as proxy for nominal)
-    let disc = ctx.get_discount_ref(ilb.disc_id.as_str()).unwrap();
+    let disc = ctx.get_discount_ref(ilb.discount_curve_id.as_str()).unwrap();
     let t = disc
         .day_count()
         .year_fraction(

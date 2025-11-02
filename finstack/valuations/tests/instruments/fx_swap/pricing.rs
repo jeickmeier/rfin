@@ -235,8 +235,8 @@ fn test_pv_with_only_near_rate() {
         .near_date(dates.near_date)
         .far_date(dates.far_date_1y)
         .base_notional(Money::new(1_000_000.0, Currency::EUR))
-        .domestic_disc_id("USD-OIS".into())
-        .foreign_disc_id("EUR-OIS".into())
+        .domestic_discount_curve_id("USD-OIS".into())
+        .foreign_discount_curve_id("EUR-OIS".into())
         .near_rate(1.10)
         .build()
         .unwrap();
@@ -260,8 +260,8 @@ fn test_pv_with_only_far_rate() {
         .near_date(dates.near_date)
         .far_date(dates.far_date_1y)
         .base_notional(Money::new(1_000_000.0, Currency::EUR))
-        .domestic_disc_id("USD-OIS".into())
-        .foreign_disc_id("EUR-OIS".into())
+        .domestic_discount_curve_id("USD-OIS".into())
+        .foreign_discount_curve_id("EUR-OIS".into())
         .far_rate(1.20)
         .build()
         .unwrap();

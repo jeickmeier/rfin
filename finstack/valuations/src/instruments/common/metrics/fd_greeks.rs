@@ -59,7 +59,7 @@ where
                 // Try to get vol, expiry, and day_count for adaptive calculation
                 let day_count = get_instrument_day_count(instrument.as_any());
                 let expiry = get_instrument_expiry_for_adaptive(instrument.as_any());
-                let vol_id = get_instrument_vol_id(instrument.as_any());
+                let vol_surface_id = get_instrument_vol_id(instrument.as_any());
 
                 let time_to_expiry = if let (Some(dc), Some(exp)) = (day_count, expiry) {
                     dc.year_fraction(as_of, exp, finstack_core::dates::DayCountCtx::default())
@@ -69,8 +69,8 @@ where
                     0.0
                 };
 
-                let atm_vol = vol_id
-                    .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
+                let atm_vol = vol_surface_id
+                    .and_then(|vol_surface_id| context.curves.surface_ref(vol_surface_id.as_str()).ok())
                     .and_then(|vol_surface| {
                         if time_to_expiry > 0.0 {
                             Some(vol_surface.value_clamped(time_to_expiry, current_spot))
@@ -152,7 +152,7 @@ where
                 // Try to get vol, expiry, and day_count for adaptive calculation
                 let day_count = get_instrument_day_count(instrument.as_any());
                 let expiry = get_instrument_expiry_for_adaptive(instrument.as_any());
-                let vol_id = get_instrument_vol_id(instrument.as_any());
+                let vol_surface_id = get_instrument_vol_id(instrument.as_any());
 
                 let time_to_expiry = if let (Some(dc), Some(exp)) = (day_count, expiry) {
                     dc.year_fraction(as_of, exp, finstack_core::dates::DayCountCtx::default())
@@ -162,8 +162,8 @@ where
                     0.0
                 };
 
-                let atm_vol = vol_id
-                    .and_then(|vol_id| context.curves.surface_ref(vol_id.as_str()).ok())
+                let atm_vol = vol_surface_id
+                    .and_then(|vol_surface_id| context.curves.surface_ref(vol_surface_id.as_str()).ok())
                     .and_then(|vol_surface| {
                         if time_to_expiry > 0.0 {
                             Some(vol_surface.value_clamped(time_to_expiry, current_spot))
@@ -269,7 +269,7 @@ where
         let base_pv = context.base_value.amount();
 
         // Resolve vol surface id
-        let Some(vol_id) = get_instrument_vol_id(instrument.as_any()) else {
+        let Some(vol_surface_id) = get_instrument_vol_id(instrument.as_any()) else {
             return Ok(0.0);
         };
 
@@ -284,7 +284,7 @@ where
         let mut inst_up = instrument.clone();
         inst_up.pricing_overrides_mut().mc_seed_scenario = Some("vega_up".to_string());
 
-        let curves_up = scale_surface(&context.curves, vol_id.as_str(), 1.0 + bump_pct)?;
+        let curves_up = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 + bump_pct)?;
         let pv_up = inst_up.value(&curves_up, as_of)?.amount();
 
         // Vega per 1% vol scaling
@@ -314,7 +314,7 @@ where
         let as_of = context.as_of;
         let base_pv = context.base_value.amount();
 
-        let Some(vol_id) = get_instrument_vol_id(instrument.as_any()) else {
+        let Some(vol_surface_id) = get_instrument_vol_id(instrument.as_any()) else {
             return Ok(0.0);
         };
 
@@ -329,8 +329,8 @@ where
         let mut inst_down = instrument.clone();
         inst_down.pricing_overrides_mut().mc_seed_scenario = Some("volga_down".to_string());
 
-        let curves_up = scale_surface(&context.curves, vol_id.as_str(), 1.0 + bump_pct)?;
-        let curves_down = scale_surface(&context.curves, vol_id.as_str(), 1.0 - bump_pct)?;
+        let curves_up = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 + bump_pct)?;
+        let curves_down = scale_surface(&context.curves, vol_surface_id.as_str(), 1.0 - bump_pct)?;
 
         let pv_up = inst_up.value(&curves_up, as_of)?.amount();
         let pv_down = inst_down.value(&curves_down, as_of)?.amount();
@@ -367,7 +367,7 @@ where
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        let Some(vol_id) = get_instrument_vol_id(instrument.as_any()) else {
+        let Some(vol_surface_id) = get_instrument_vol_id(instrument.as_any()) else {
             return Ok(0.0);
         };
 
@@ -384,7 +384,7 @@ where
         let atm_vol = if t > 0.0 {
             context
                 .curves
-                .surface_ref(vol_id.as_str())
+                .surface_ref(vol_surface_id.as_str())
                 .ok()
                 .map(|surf| surf.value_clamped(t, current_spot))
                 .unwrap_or(0.2)
@@ -412,7 +412,7 @@ where
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_su_vu".to_string());
             let curves = scale_surface(
                 &bump_scalar_price(&context.curves, instrument.spot_id(), spot_bump_pct)?,
-                vol_id.as_str(),
+                vol_surface_id.as_str(),
                 1.0 + vol_bump_pct,
             )?;
             move || inst.value(&curves, as_of).map(|m| m.amount())
@@ -423,7 +423,7 @@ where
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_su_vd".to_string());
             let curves = scale_surface(
                 &bump_scalar_price(&context.curves, instrument.spot_id(), spot_bump_pct)?,
-                vol_id.as_str(),
+                vol_surface_id.as_str(),
                 1.0 - vol_bump_pct,
             )?;
             move || inst.value(&curves, as_of).map(|m| m.amount())
@@ -434,7 +434,7 @@ where
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_sd_vu".to_string());
             let curves = scale_surface(
                 &bump_scalar_price(&context.curves, instrument.spot_id(), -spot_bump_pct)?,
-                vol_id.as_str(),
+                vol_surface_id.as_str(),
                 1.0 + vol_bump_pct,
             )?;
             move || inst.value(&curves, as_of).map(|m| m.amount())
@@ -445,7 +445,7 @@ where
             inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_sd_vd".to_string());
             let curves = scale_surface(
                 &bump_scalar_price(&context.curves, instrument.spot_id(), -spot_bump_pct)?,
-                vol_id.as_str(),
+                vol_surface_id.as_str(),
                 1.0 - vol_bump_pct,
             )?;
             move || inst.value(&curves, as_of).map(|m| m.amount())

@@ -29,11 +29,11 @@ impl MetricCalculator for FxOptionDv01Calculator {
         // Parallel +1bp bump on both domestic and foreign discount curves
         let mut bumps = HashMap::new();
         bumps.insert(
-            fx_option.domestic_disc_id.clone(),
+            fx_option.domestic_discount_curve_id.clone(),
             BumpSpec::parallel_bp(1.0),
         );
         bumps.insert(
-            fx_option.foreign_disc_id.clone(),
+            fx_option.foreign_discount_curve_id.clone(),
             BumpSpec::parallel_bp(1.0),
         );
         let bumped_context = context.curves.bump(bumps)?;

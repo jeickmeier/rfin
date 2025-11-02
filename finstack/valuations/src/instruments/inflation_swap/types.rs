@@ -56,9 +56,9 @@ pub struct InflationSwap {
     /// Fixed real rate (as decimal)
     pub fixed_rate: f64,
     /// Inflation index identifier (e.g., US-CPI-U)
-    pub inflation_id: CurveId,
+    pub inflation_index_id: CurveId,
     /// Discount curve identifier (quote currency)
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Day count for any accrual-style metrics if needed
     pub dc: DayCount,
     /// Trade side
@@ -78,8 +78,8 @@ impl InflationSwap {
         curves: &MarketContext,
         discount_base: Date,
     ) -> finstack_core::Result<f64> {
-        let inflation_index = curves.inflation_index_ref(self.inflation_id.as_str());
-        let inflation_curve = curves.get_inflation_ref(self.inflation_id.as_str())?;
+        let inflation_index = curves.inflation_index_ref(self.inflation_index_id.as_str());
+        let inflation_curve = curves.get_inflation_ref(self.inflation_index_id.as_str())?;
 
         let i_start = if let Some(index) = inflation_index {
             index.value_on(self.start)?
@@ -140,7 +140,7 @@ impl InflationSwap {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.get_discount_ref(self.disc_id.as_str())?;
+        let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
 
         let tau_accrual = self.dc.year_fraction(
             self.start,
@@ -168,7 +168,7 @@ impl InflationSwap {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.get_discount_ref(self.disc_id.as_str())?;
+        let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
         let index_ratio = self.projected_index_ratio(curves, as_of)?;
         let inflation_payment = self.notional * (index_ratio - 1.0);
 
@@ -186,7 +186,7 @@ impl InflationSwap {
 
     /// Fixed rate that sets the swap's present value to zero (par real rate)
     pub fn par_rate(&self, curves: &MarketContext) -> finstack_core::Result<f64> {
-        let disc = curves.get_discount_ref(self.disc_id.as_str())?;
+        let disc = curves.get_discount_ref(self.discount_curve_id.as_str())?;
         let base = disc.base_date();
         let index_ratio = self.projected_index_ratio(curves, base)?;
 
@@ -265,6 +265,6 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for InflationSwap {
     fn discount_curve_id(&self) -> &CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }

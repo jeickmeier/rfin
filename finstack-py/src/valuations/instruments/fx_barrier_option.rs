@@ -76,7 +76,7 @@ impl PyFxBarrierOption {
 
         let id = extract_instrument_id(&instrument_id)?;
         let expiry_date = py_to_date(&expiry)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
         let fx_vol_id = extract_curve_id(&fx_vol_surface)?;
         let CurrencyArg(dom_currency) = domestic_currency.extract()?;
         let CurrencyArg(for_currency) = foreign_currency.extract()?;
@@ -120,7 +120,7 @@ impl PyFxBarrierOption {
         builder = builder.correlation(correlation);
         builder = builder.day_count(DayCount::Act365F);
         builder = builder.use_gobet_miri(use_gobet_miri.unwrap_or(false));
-        builder = builder.disc_id(disc_id);
+        builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.fx_spot_id(fx_spot_id.to_string());
         builder = builder.fx_vol_id(fx_vol_id);
         let option = builder.build().map_err(|e| {

@@ -173,7 +173,7 @@ fn test_time_mapping_with_quarterly_coupons() {
         notional: Money::new(bond_params::NOTIONAL, Currency::USD),
         issue,
         maturity,
-        disc_id: "USD-OIS".into(),
+        discount_curve_id: "USD-OIS".into(),
         conversion: conversion_spec,
         underlying_equity_id: Some("AAPL".to_string()),
         call_put: None,

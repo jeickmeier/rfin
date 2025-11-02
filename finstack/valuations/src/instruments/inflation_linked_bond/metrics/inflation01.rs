@@ -34,7 +34,7 @@ impl MetricCalculator for Inflation01Calculator {
         let _base_pv = context.base_value.amount();
 
         // Check if we have an inflation curve (preferred) or index
-        let inflation_curve_id = &bond.inflation_id;
+        let inflation_curve_id = &bond.inflation_index_id;
 
         // Use MarketContext::bump() API to bump the inflation curve
         // Bump by 1bp using parallel shift

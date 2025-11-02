@@ -27,7 +27,7 @@ impl PyRangeAccrual {
 impl PyRangeAccrual {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, observation_dates, lower_bound, upper_bound, coupon_rate, notional, discount_curve, spot_id, vol_surface, *, dividend_yield_id=None)"
+        text_signature = "(cls, instrument_id, ticker, observation_dates, lower_bound, upper_bound, coupon_rate, notional, discount_curve, spot_id, vol_surface, *, div_yield_id=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a range accrual instrument.
@@ -43,7 +43,7 @@ impl PyRangeAccrual {
     ///     discount_curve: Discount curve identifier.
     ///     spot_id: Spot price identifier.
     ///     vol_surface: Volatility surface identifier.
-    ///     dividend_yield_id: Optional dividend yield identifier.
+    ///     div_yield_id: Optional dividend yield identifier.
     ///
     /// Returns:
     ///     RangeAccrual: Configured range accrual instrument.
@@ -59,14 +59,14 @@ impl PyRangeAccrual {
         discount_curve: Bound<'_, PyAny>,
         spot_id: &str,
         vol_surface: Bound<'_, PyAny>,
-        dividend_yield_id: Option<&str>,
+        div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
         use finstack_core::dates::DayCount;
 
         let id = extract_instrument_id(&instrument_id)?;
         let notional_money = extract_money(&notional)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
-        let vol_id = extract_curve_id(&vol_surface)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let vol_surface_id = extract_curve_id(&vol_surface)?;
 
         // Parse observation dates
         let mut obs_dates = Vec::new();
@@ -85,10 +85,10 @@ impl PyRangeAccrual {
         builder = builder.day_count(DayCount::Act365F);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder = builder.disc_id(disc_id);
+        builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.spot_id(spot_id.to_string());
-        builder = builder.vol_id(vol_id);
-        if let Some(div) = dividend_yield_id {
+        builder = builder.vol_surface_id(vol_surface_id);
+        if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(div.to_string());
         }
         let range_accrual = builder.build().map_err(|e| {

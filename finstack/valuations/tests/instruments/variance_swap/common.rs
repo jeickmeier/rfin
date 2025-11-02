@@ -42,7 +42,7 @@ pub fn sample_swap(side: PayReceive) -> VarianceSwap {
         .observation_freq(Frequency::daily())
         .realized_var_method(RealizedVarMethod::CloseToClose)
         .side(side)
-        .disc_id(CurveId::new(DISC_ID))
+        .discount_curve_id(CurveId::new(DISC_ID))
         .day_count(DayCount::Act365F)
         .attributes(Attributes::new())
         .build()

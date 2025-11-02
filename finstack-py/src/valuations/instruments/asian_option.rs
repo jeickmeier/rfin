@@ -94,7 +94,7 @@ impl PyAsianOption {
 impl PyAsianOption {
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, strike, expiry, fixing_dates, notional, discount_curve, spot_id, vol_surface, *, averaging_method='arithmetic', option_type='call', dividend_yield_id=None)"
+        text_signature = "(cls, instrument_id, ticker, strike, expiry, fixing_dates, notional, discount_curve, spot_id, vol_surface, *, averaging_method='arithmetic', option_type='call', div_yield_id=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create an Asian option with explicit parameters.
@@ -111,7 +111,7 @@ impl PyAsianOption {
     ///     vol_surface: Volatility surface identifier.
     ///     averaging_method: Averaging method (``"arithmetic"`` or ``"geometric"``).
     ///     option_type: Option type (``"call"`` or ``"put"``).
-    ///     dividend_yield_id: Optional dividend yield identifier.
+    ///     div_yield_id: Optional dividend yield identifier.
     ///
     /// Returns:
     ///     AsianOption: Configured Asian option instrument.
@@ -131,7 +131,7 @@ impl PyAsianOption {
         vol_surface: Bound<'_, PyAny>,
         averaging_method: Option<&str>,
         option_type: Option<&str>,
-        dividend_yield_id: Option<&str>,
+        div_yield_id: Option<&str>,
     ) -> PyResult<Self> {
         use crate::core::common::labels::normalize_label;
         use finstack_core::dates::DayCount;
@@ -139,8 +139,8 @@ impl PyAsianOption {
         let id = extract_instrument_id(&instrument_id)?;
         let expiry_date = py_to_date(&expiry)?;
         let notional_money = extract_money(&notional)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
-        let vol_id = extract_curve_id(&vol_surface)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
+        let vol_surface_id = extract_curve_id(&vol_surface)?;
 
         // Parse fixing dates
         let mut fixing_dates_vec = Vec::new();
@@ -184,10 +184,10 @@ impl PyAsianOption {
         builder = builder.day_count(DayCount::Act365F);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder = builder.disc_id(disc_id);
+        builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.spot_id(spot_id.to_string());
-        builder = builder.vol_id(vol_id);
-        if let Some(div) = dividend_yield_id {
+        builder = builder.vol_surface_id(vol_surface_id);
+        if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(div.to_string());
         }
         let option = builder.build().map_err(|e| {
@@ -284,7 +284,7 @@ impl PyAsianOption {
     ///     str: Discount curve identifier.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Spot price identifier.
@@ -302,7 +302,7 @@ impl PyAsianOption {
     ///     str: Volatility surface identifier used for pricing.
     #[getter]
     fn vol_surface(&self) -> String {
-        self.inner.vol_id.as_str().to_string()
+        self.inner.vol_surface_id.as_str().to_string()
     }
 
     /// Dividend yield identifier (if any).
@@ -310,7 +310,7 @@ impl PyAsianOption {
     /// Returns:
     ///     str | None: Dividend yield identifier or None.
     #[getter]
-    fn dividend_yield_id(&self) -> Option<&str> {
+    fn div_yield_id(&self) -> Option<&str> {
         self.inner.div_yield_id.as_deref()
     }
 

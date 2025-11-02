@@ -71,7 +71,7 @@ impl BondValuator {
         let time_steps: Vec<f64> = (0..=tree_steps).map(|i| i as f64 * dt).collect();
 
         let curves = market_context;
-        let base_date = market_context.get_discount(&bond.disc_id)?.base_date();
+        let base_date = market_context.get_discount(&bond.discount_curve_id)?.base_date();
         let flows = bond.build_schedule(curves, base_date)?;
 
         let mut coupon_map = HashMap::new();
@@ -151,10 +151,10 @@ impl BondValuator {
         // Convention: credit (hazard) curve ID == hazard curve ID. For compatibility, we also try a
         // fallback suffix of "-CREDIT".
         let mut recovery_rate: Option<f64> = None;
-        if let Ok(hc) = market_context.get_hazard(bond.disc_id.as_str()) {
+        if let Ok(hc) = market_context.get_hazard(bond.discount_curve_id.as_str()) {
             recovery_rate = Some(hc.recovery_rate());
         } else if let Ok(hc) =
-            market_context.get_hazard(format!("{}-CREDIT", bond.disc_id.as_str()))
+            market_context.get_hazard(format!("{}-CREDIT", bond.discount_curve_id.as_str()))
         {
             recovery_rate = Some(hc.recovery_rate());
         }
@@ -251,20 +251,20 @@ impl TreePricer {
         }
 
         // Choose model: if a hazard curve is present in MarketContext whose ID matches the bond's
-        // discount ID (preferred) or the fallback pattern "{disc_id}-CREDIT", use the rates+credit
+        // discount ID (preferred) or the fallback pattern "{discount_curve_id}-CREDIT", use the rates+credit
         // two-factor tree; otherwise, fall back to short-rate.
         let mut use_rates_credit = false;
         let mut rc_tree: Option<RatesCreditTree> = None;
-        let discount_curve = market_context.get_discount(&bond.disc_id)?;
+        let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
         let hazard_curve = if let Some(hid) = bond.credit_curve_id.as_ref() {
             market_context.get_hazard(hid.as_str()).ok()
         } else {
             market_context
-                .get_hazard(bond.disc_id.as_str())
+                .get_hazard(bond.discount_curve_id.as_str())
                 .ok()
                 .or_else(|| {
                     market_context
-                        .get_hazard(format!("{}-CREDIT", bond.disc_id.as_str()))
+                        .get_hazard(format!("{}-CREDIT", bond.discount_curve_id.as_str()))
                         .ok()
                 })
         };
@@ -397,7 +397,7 @@ mod tests {
             maturity,
             settlement_days: Some(2),
             ex_coupon_days: Some(0),
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             credit_curve_id: None,
             pricing_overrides: PricingOverrides::default().with_clean_price(98.5),
             call_put: None,

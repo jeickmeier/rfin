@@ -18,7 +18,7 @@ impl StructuredCredit {
     /// This method generates cashflows through the waterfall engine and discounts
     /// them back to present value using the instrument's discount curve.
     pub fn price(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        let disc = context.get_discount_ref(self.disc_id.as_str())?;
+        let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
         let flows = self.build_schedule(context, as_of)?;
 
         flows.npv(disc, as_of, DayCount::Act360)
@@ -52,7 +52,7 @@ impl StructuredCredit {
             base_value,
         );
         metric_context.cashflows = Some(flows);
-        metric_context.discount_curve_id = Some(self.disc_id.to_owned());
+        metric_context.discount_curve_id = Some(self.discount_curve_id.to_owned());
 
         let registry = crate::metrics::standard_registry();
         let computed_metrics = registry.compute(metrics, &mut metric_context)?;

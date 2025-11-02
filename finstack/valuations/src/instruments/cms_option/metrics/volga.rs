@@ -27,19 +27,19 @@ impl MetricCalculator for VolgaCalculator {
             return Ok(0.0);
         }
 
-        let vol_id = match option.vol_id.as_ref() {
+        let vol_surface_id = match option.vol_surface_id.as_ref() {
             Some(id) => id,
             None => {
                 return Err(finstack_core::Error::from(
                     finstack_core::error::InputError::NotFound {
-                        id: "vol_id not provided for CMS option".to_string(),
+                        id: "vol_surface_id not provided for CMS option".to_string(),
                     },
                 ));
             }
         };
 
         let vol_bump = bump_sizes::VOLATILITY;
-        let vol_surface = context.curves.surface_ref(vol_id.as_str())?;
+        let vol_surface = context.curves.surface_ref(vol_surface_id.as_str())?;
 
         let curves_vol_up = {
             let mut curves = context.curves.as_ref().clone();
@@ -49,7 +49,7 @@ impl MetricCalculator for VolgaCalculator {
             let bumped_surface = vol_surface.scaled(scale_factor);
             curves
                 .surfaces
-                .insert(CurveId::from(vol_id.as_str()), Arc::new(bumped_surface));
+                .insert(CurveId::from(vol_surface_id.as_str()), Arc::new(bumped_surface));
             curves
         };
         let pv_vol_up = option.npv(&curves_vol_up, as_of)?.amount();
@@ -62,7 +62,7 @@ impl MetricCalculator for VolgaCalculator {
             let bumped_surface = vol_surface.scaled(scale_factor);
             curves
                 .surfaces
-                .insert(CurveId::from(vol_id.as_str()), Arc::new(bumped_surface));
+                .insert(CurveId::from(vol_surface_id.as_str()), Arc::new(bumped_surface));
             curves
         };
         let pv_vol_down = option.npv(&curves_vol_down, as_of)?.amount();

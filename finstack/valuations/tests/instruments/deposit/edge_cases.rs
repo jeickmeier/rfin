@@ -318,14 +318,14 @@ fn test_multiple_currencies_independent() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .end(date(2025, 7, 1))
         .quote_rate(0.03)
-        .disc_id("USD-OIS")
+        .discount_curve_id("USD-OIS")
         .build();
 
     let dep_eur = DepositBuilder::new(base)
         .notional(Money::new(1_000_000.0, Currency::EUR))
         .end(date(2025, 7, 1))
         .quote_rate(0.03)
-        .disc_id("EUR-OIS")
+        .discount_curve_id("EUR-OIS")
         .build();
 
     // Execute

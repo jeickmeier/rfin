@@ -64,7 +64,7 @@ fn test_irs_at_par_npv_zero() {
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             rate: 0.05,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -77,8 +77,8 @@ fn test_irs_at_par_npv_zero() {
             end,
         },
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -119,7 +119,7 @@ fn test_irs_receive_fixed_below_market() {
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             rate: 0.03, // Below market
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -132,8 +132,8 @@ fn test_irs_receive_fixed_below_market() {
             end,
         },
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -174,7 +174,7 @@ fn test_irs_receive_fixed_above_market() {
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             rate: 0.07, // Above market
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -187,8 +187,8 @@ fn test_irs_receive_fixed_above_market() {
             end,
         },
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -225,7 +225,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
         .insert_forward(fwd_curve);
 
     let fixed_leg = finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-        disc_id: "USD-OIS".into(),
+        discount_curve_id: "USD-OIS".into(),
         rate: 0.05,
         freq: Frequency::quarterly(),
         dc: DayCount::Act360,
@@ -239,8 +239,8 @@ fn test_irs_pay_vs_receive_opposite_signs() {
     };
 
     let float_leg = finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-        disc_id: "USD-OIS".into(),
-        fwd_id: "USD-SOFR-3M".into(),
+        discount_curve_id: "USD-OIS".into(),
+        forward_curve_id: "USD-SOFR-3M".into(),
         spread_bp: 0.0,
         freq: Frequency::quarterly(),
         dc: DayCount::Act360,

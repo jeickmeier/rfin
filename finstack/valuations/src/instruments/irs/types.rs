@@ -119,7 +119,7 @@ impl InterestRateSwap {
         config: SwapConfig<'_>,
     ) -> Self {
         let fixed = FixedLegSpec {
-            disc_id: finstack_core::types::CurveId::from(config.disc_curve),
+            discount_curve_id: finstack_core::types::CurveId::from(config.disc_curve),
             rate: fixed_rate,
             freq: config.sched.fixed_freq,
             dc: config.sched.fixed_dc,
@@ -132,8 +132,8 @@ impl InterestRateSwap {
             compounding_simple: true,
         };
         let float = FloatLegSpec {
-            disc_id: finstack_core::types::CurveId::from(config.disc_curve),
-            fwd_id: finstack_core::types::CurveId::from(config.fwd_curve),
+            discount_curve_id: finstack_core::types::CurveId::from(config.disc_curve),
+            forward_curve_id: finstack_core::types::CurveId::from(config.fwd_curve),
             spread_bp: 0.0,
             freq: config.sched.float_freq,
             dc: config.sched.float_dc,
@@ -268,7 +268,7 @@ impl InterestRateSwap {
         let calendar_id = convention.calendar_id();
 
         let fixed = FixedLegSpec {
-            disc_id: CurveId::from(convention.disc_curve_id()),
+            discount_curve_id: CurveId::from(convention.disc_curve_id()),
             rate: fixed_rate,
             freq: fixed_freq,
             dc: fixed_dc,
@@ -281,8 +281,8 @@ impl InterestRateSwap {
             compounding_simple: true,
         };
         let float = FloatLegSpec {
-            disc_id: CurveId::from(convention.disc_curve_id()),
-            fwd_id: CurveId::from(convention.forward_curve_id()),
+            discount_curve_id: CurveId::from(convention.disc_curve_id()),
+            forward_curve_id: CurveId::from(convention.forward_curve_id()),
             spread_bp: 0.0,
             freq: float_freq,
             dc: float_dc,
@@ -316,7 +316,7 @@ impl InterestRateSwap {
         // Approximate basis swap by using fixed leg to carry the primary spread as a fixed coupon
         let sched = ScheduleParams::usd_standard();
         let fixed = FixedLegSpec {
-            disc_id: finstack_core::types::CurveId::from("USD-OIS"),
+            discount_curve_id: finstack_core::types::CurveId::from("USD-OIS"),
             rate: primary_spread_bp * 1e-4,
             freq: sched.freq,
             dc: sched.dc,
@@ -329,8 +329,8 @@ impl InterestRateSwap {
             compounding_simple: true,
         };
         let float = FloatLegSpec {
-            disc_id: finstack_core::types::CurveId::from("USD-OIS"),
-            fwd_id: finstack_core::types::CurveId::from("USD-SOFR-6M"),
+            discount_curve_id: finstack_core::types::CurveId::from("USD-OIS"),
+            forward_curve_id: finstack_core::types::CurveId::from("USD-SOFR-6M"),
             spread_bp: reference_spread_bp,
             freq: sched.freq,
             dc: sched.dc,
@@ -517,13 +517,13 @@ impl InterestRateSwap {
     ///
     /// PV = sign × (PV_fixed − PV_float) with sign determined by `PayReceive`.
     pub fn npv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        let disc = context.get_discount_ref(self.fixed.disc_id.as_ref())?;
+        let disc = context.get_discount_ref(self.fixed.discount_curve_id.as_ref())?;
         // For OIS swaps (same discount curve for both legs), use discount-only pricing
         // even if a forward curve is provided. This ensures correct compounding for
         // daily frequency OIS swaps. The discount-only method properly handles
         // compounded OIS rates: PV_float = N × (DF_start - DF_end).
         let pv_fixed = self.pv_fixed_leg(disc, as_of)?;
-        let pv_float = if self.float.disc_id == self.fixed.disc_id {
+        let pv_float = if self.float.discount_curve_id == self.fixed.discount_curve_id {
             // OIS swap: use discount-only method for accurate pricing
             // This handles daily compounded OIS rates correctly
             // Discount from as_of for correct theta
@@ -623,12 +623,12 @@ impl InterestRateSwap {
             Money::new(pv, self.notional.currency())
         } else {
             // Non-OIS swap: requires forward curve for float leg pricing
-            match context.get_forward_ref(self.float.fwd_id.as_ref()) {
+            match context.get_forward_ref(self.float.forward_curve_id.as_ref()) {
                 Ok(fwd) => self.pv_float_leg(disc, fwd, as_of)?,
                 Err(_) => {
                     // Forward curve missing: return error to guide callers
                     return Err(context
-                        .get_forward_ref(self.float.fwd_id.as_ref())
+                        .get_forward_ref(self.float.forward_curve_id.as_ref())
                         .err()
                         .unwrap_or(finstack_core::error::InputError::Invalid.into()));
                 }
@@ -717,7 +717,7 @@ impl CashflowProvider for InterestRateSwap {
         float_b
             .principal(self.notional, self.float.start, self.float.end)
             .floating_cf(crate::cashflow::builder::FloatingCouponSpec {
-                index_id: self.float.fwd_id.to_owned(),
+                index_id: self.float.forward_curve_id.to_owned(),
                 margin_bp: self.float.spread_bp,
                 gearing: 1.0,
                 coupon_type: CouponType::Cash,
@@ -785,7 +785,7 @@ impl CashflowProvider for InterestRateSwap {
         float_b
             .principal(self.notional, self.float.start, self.float.end)
             .floating_cf(FloatingCouponSpec {
-                index_id: self.float.fwd_id.to_owned(),
+                index_id: self.float.forward_curve_id.to_owned(),
                 margin_bp: self.float.spread_bp,
                 gearing: 1.0,
                 coupon_type: CouponType::Cash,
@@ -877,6 +877,6 @@ impl CashflowProvider for InterestRateSwap {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateSwap {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.fixed.disc_id
+        &self.fixed.discount_curve_id
     }
 }

@@ -21,7 +21,7 @@ pub struct TotalReturnLegParams<'a> {
     /// Notional amount for the leg.
     pub notional: Money,
     /// Discount curve identifier.
-    pub disc_id: &'a str,
+    pub discount_curve_id: &'a str,
     /// Contract size multiplier for the underlying.
     pub contract_size: f64,
     /// Initial level of the underlying (if known).
@@ -78,7 +78,7 @@ impl TrsEngine {
         model: &impl TrsReturnModel,
     ) -> Result<Money> {
         // Get discount curve
-        let disc = context.get_discount_ref(params.disc_id)?;
+        let disc = context.get_discount_ref(params.discount_curve_id)?;
 
         // Build schedule
         let period_schedule = params.schedule.period_schedule();
@@ -144,8 +144,8 @@ impl TrsEngine {
         as_of: Date,
     ) -> Result<Money> {
         // Get curves
-        let disc_curve_id = financing.disc_id.as_str();
-        let fwd_curve_id = financing.fwd_id.as_str();
+        let disc_curve_id = financing.discount_curve_id.as_str();
+        let fwd_curve_id = financing.forward_curve_id.as_str();
 
         let disc = context.get_discount_ref(disc_curve_id)?;
         let fwd = context.get_forward_ref(fwd_curve_id)?;
@@ -206,7 +206,7 @@ impl TrsEngine {
         as_of: Date,
     ) -> Result<f64> {
         // Get discount curve
-        let disc_curve_id = financing.disc_id.as_str();
+        let disc_curve_id = financing.discount_curve_id.as_str();
         let disc = context.get_discount_ref(disc_curve_id)?;
 
         // Build schedule

@@ -183,7 +183,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             let _ = base_context.get_discount_ref(&self.discount_id)?;
 
             // Clone discount id for use in closures (avoids memory leak from Box::leak)
-            let disc_id = self.discount_id.clone();
+            let discount_curve_id = self.discount_id.clone();
 
             // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
 
@@ -233,7 +233,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
                 let base_ctx_ref = base_context;
                 let notional = Money::new(1_000_000.0, self.currency);
-                let disc_id_clone = disc_id.clone();
+                let disc_id_clone = discount_curve_id.clone();
 
                 let base_date = self.base_date;
                 let objective = move |cpi_guess: f64| -> f64 {
@@ -265,8 +265,8 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                         .start(base_date)
                         .maturity(maturity)
                         .fixed_rate(par_rate)
-                        .inflation_id(CALIB_INDEX_ID.into())
-                        .disc_id(disc_id_clone.clone())
+                        .inflation_index_id(CALIB_INDEX_ID.into())
+                        .discount_curve_id(disc_id_clone.clone())
                         .dc(self.accrual_dc)
                         .side(PayReceiveInflation::PayFixed)
                         .build()
@@ -575,8 +575,8 @@ mod tests {
                     .start(base_date)
                     .maturity(maturity)
                     .fixed_rate(rate)
-                    .inflation_id("US-CPI-U".into())
-                    .disc_id("USD-OIS".into())
+                    .inflation_index_id("US-CPI-U".into())
+                    .discount_curve_id("USD-OIS".into())
                     .dc(finstack_core::dates::DayCount::ActAct)
                     .side(PayReceiveInflation::PayFixed)
                     .build()

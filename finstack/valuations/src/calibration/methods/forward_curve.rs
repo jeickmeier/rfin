@@ -397,7 +397,7 @@ impl ForwardCurveCalibrator {
                     .fixed_rate(*rate)
                     .day_count(*day_count)
                     .reset_lag(2)
-                    .disc_id(self.discount_curve_id.to_owned())
+                    .discount_curve_id(self.discount_curve_id.to_owned())
                     .forward_id(self.fwd_curve_id.clone())
                     .build()
                 {
@@ -429,7 +429,7 @@ impl ForwardCurveCalibrator {
                     .day_count(specs.day_count)
                     .position(crate::instruments::ir_future::Position::Long)
                     .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
-                    .disc_id(self.discount_curve_id.to_owned())
+                    .discount_curve_id(self.discount_curve_id.to_owned())
                     .forward_id(self.fwd_curve_id.clone())
                     .build()
                 {
@@ -458,7 +458,7 @@ impl ForwardCurveCalibrator {
                     rate: *rate,
                     freq: *fixed_freq,
                     dc: *fixed_dc,
-                    disc_id: self.discount_curve_id.to_owned(),
+                    discount_curve_id: self.discount_curve_id.to_owned(),
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: self.calendar_id.clone(),
                     stub: StubKind::None,
@@ -469,8 +469,8 @@ impl ForwardCurveCalibrator {
                 };
 
                 let float_spec = FloatLegSpec {
-                    disc_id: self.discount_curve_id.to_owned(),
-                    fwd_id: self.fwd_curve_id.clone(),
+                    discount_curve_id: self.discount_curve_id.to_owned(),
+                    forward_curve_id: self.fwd_curve_id.clone(),
                     spread_bp: 0.0,
                     freq: *float_freq,
                     dc: *float_dc,

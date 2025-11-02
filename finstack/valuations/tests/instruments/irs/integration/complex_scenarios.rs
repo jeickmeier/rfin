@@ -47,7 +47,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
         notional: Money::new(1_000_000.0, Currency::USD),
         side,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             rate: fixed_rate,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -60,8 +60,8 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
             end,
         },
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -202,7 +202,7 @@ fn test_forward_starting_swap() {
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             rate: 0.05,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -215,8 +215,8 @@ fn test_forward_starting_swap() {
             end,
         },
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -320,7 +320,7 @@ fn test_swap_seasoned() {
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             rate: 0.04, // Old rate from 2023
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -333,8 +333,8 @@ fn test_swap_seasoned() {
             end,
         },
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,

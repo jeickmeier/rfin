@@ -153,7 +153,7 @@ impl PyRepo {
         let cash = extract_money(&cash_amount)?;
         let start = py_to_date(&start_date)?;
         let maturity_date = py_to_date(&maturity)?;
-        let disc_id = extract_curve_id(&discount_curve)?;
+        let discount_curve_id = extract_curve_id(&discount_curve)?;
         let repo_type_value = parse_repo_type(repo_type)?;
         let day_count_value = if let Some(obj) = day_count {
             let DayCountArg(value) = obj.extract()?;
@@ -181,7 +181,7 @@ impl PyRepo {
         builder = builder.day_count(day_count_value);
         builder = builder.bdc(bdc_value);
         builder = builder.calendar_id_opt(to_optional_string(calendar));
-        builder = builder.disc_id(disc_id);
+        builder = builder.discount_curve_id(discount_curve_id);
 
         let repo = builder.build().map_err(core_to_py)?;
         Ok(Self::new(repo))
@@ -214,7 +214,7 @@ impl PyRepo {
 
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[getter]

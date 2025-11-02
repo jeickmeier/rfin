@@ -64,7 +64,7 @@ pub struct SwaptionVolCalibrator {
     /// Base date for calculations
     pub base_date: Date,
     /// Discount curve ID for swap pricing
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
     /// Forward curve ID (if different from discount)
     pub forward_id: Option<String>,
     /// Currency for market conventions
@@ -97,7 +97,7 @@ impl SwaptionVolCalibrator {
         vol_convention: SwaptionVolConvention,
         atm_convention: AtmStrikeConvention,
         base_date: Date,
-        disc_id: impl Into<CurveId>,
+        discount_curve_id: impl Into<CurveId>,
         currency: Currency,
     ) -> Self {
         // Set SABR beta based on volatility convention and currency
@@ -114,7 +114,7 @@ impl SwaptionVolCalibrator {
             atm_convention,
             sabr_beta,
             base_date,
-            disc_id: disc_id.into(),
+            discount_curve_id: discount_curve_id.into(),
             forward_id: None,
             currency,
             market_conventions: SwaptionMarketConvention::from_currency(currency),
@@ -165,7 +165,7 @@ impl SwaptionVolCalibrator {
         tenor_years: f64,
         context: &MarketContext,
     ) -> Result<f64> {
-        let disc = context.get_discount_ref(self.disc_id.as_str())?;
+        let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
         let swap_start = expiry;
         let swap_end = add_months(expiry, (tenor_years * 12.0) as i32);
 

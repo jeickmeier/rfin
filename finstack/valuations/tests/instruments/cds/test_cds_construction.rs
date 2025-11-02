@@ -116,7 +116,7 @@ fn test_builder_pattern() {
             calendar_id: None,
             dc: convention.day_count(),
             spread_bp: 200.0,
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
         })
         .protection(ProtectionLegSpec {
             credit_curve_id: "CORP".into(),
@@ -290,7 +290,7 @@ fn test_premium_leg_spec_fields() {
     assert_eq!(cds.premium.end, end);
     assert_eq!(cds.premium.freq, Frequency::quarterly());
     assert_eq!(cds.premium.dc, DayCount::Act360);
-    assert_eq!(cds.premium.disc_id.as_str(), "USD-OIS");
+    assert_eq!(cds.premium.discount_curve_id.as_str(), "USD-OIS");
 }
 
 #[test]

@@ -33,7 +33,7 @@ impl MetricCalculator for VannaCalculator {
         }
 
         let pair = (option.base_currency, option.quote_currency);
-        let vol_id = &option.vol_id;
+        let vol_surface_id = &option.vol_surface_id;
 
         // Get current spot and vol for bump sizes
         let fx_matrix = context.curves.fx.as_ref().ok_or_else(|| {
@@ -45,7 +45,7 @@ impl MetricCalculator for VannaCalculator {
         let spot_query = finstack_core::money::fx::FxQuery::new(pair.0, pair.1, as_of);
         let current_spot = fx_matrix.rate(spot_query)?.rate;
 
-        let vol_surface = context.curves.surface_ref(vol_id.as_str())?;
+        let vol_surface = context.curves.surface_ref(vol_surface_id.as_str())?;
         let current_vol = vol_surface.value_clamped(t, option.strike);
 
         // Calculate bump sizes

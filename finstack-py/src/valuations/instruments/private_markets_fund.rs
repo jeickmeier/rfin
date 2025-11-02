@@ -77,7 +77,7 @@ impl PyPrivateMarketsFund {
     #[getter]
     fn discount_curve(&self) -> Option<String> {
         self.inner
-            .disc_id
+            .discount_curve_id
             .as_ref()
             .map(|id| id.as_str().to_string())
     }

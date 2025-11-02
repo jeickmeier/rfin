@@ -123,8 +123,8 @@ pub struct TestEquityTrsBuilder {
     spot_id: String,
     div_yield_id: Option<String>,
     contract_size: f64,
-    disc_id: String,
-    fwd_id: String,
+    discount_curve_id: String,
+    forward_curve_id: String,
     spread_bp: f64,
     start: Date,
     end: Date,
@@ -140,8 +140,8 @@ impl Default for TestEquityTrsBuilder {
             spot_id: "SPX-SPOT".into(),
             div_yield_id: Some("SPX-DIV-YIELD".into()),
             contract_size: 1.0,
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 25.0,
             start: as_of_date(),
             end: d(2026, 1, 2),
@@ -200,7 +200,7 @@ impl TestEquityTrsBuilder {
         }
 
         let financing =
-            FinancingLegSpec::new(self.disc_id, self.fwd_id, self.spread_bp, DayCount::Act360);
+            FinancingLegSpec::new(self.discount_curve_id, self.forward_curve_id, self.spread_bp, DayCount::Act360);
 
         let schedule =
             TrsScheduleSpec::from_params(self.start, self.end, ScheduleParams::quarterly_act360());
@@ -229,8 +229,8 @@ pub struct TestFIIndexTrsBuilder {
     yield_id: Option<String>,
     duration_id: Option<String>,
     contract_size: f64,
-    disc_id: String,
-    fwd_id: String,
+    discount_curve_id: String,
+    forward_curve_id: String,
     spread_bp: f64,
     start: Date,
     end: Date,
@@ -247,8 +247,8 @@ impl Default for TestFIIndexTrsBuilder {
             yield_id: Some("HY-INDEX-YIELD".into()),
             duration_id: Some("HY-INDEX-DURATION".into()),
             contract_size: 1.0,
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 100.0,
             start: as_of_date(),
             end: d(2026, 1, 2),
@@ -311,7 +311,7 @@ impl TestFIIndexTrsBuilder {
         }
 
         let financing =
-            FinancingLegSpec::new(self.disc_id, self.fwd_id, self.spread_bp, DayCount::Act360);
+            FinancingLegSpec::new(self.discount_curve_id, self.forward_curve_id, self.spread_bp, DayCount::Act360);
 
         let schedule =
             TrsScheduleSpec::from_params(self.start, self.end, ScheduleParams::quarterly_act360());

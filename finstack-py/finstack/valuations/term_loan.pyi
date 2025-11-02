@@ -28,7 +28,7 @@ class TermLoan:
         >>> # Create a simple fixed-rate term loan
         >>> loan = TermLoan.from_json('''{
         ...     "id": "loan_001",
-        ...     "disc_id": "usd_discount",
+        ...     "discount_curve_id": "usd_discount",
         ...     "currency": "USD",
         ...     "notional_limit": {"amount": "100000000", "currency": "USD"},
         ...     "issue": "2024-01-01",

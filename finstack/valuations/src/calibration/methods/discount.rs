@@ -531,7 +531,7 @@ impl DiscountCurveCalibrator {
                     end: *maturity,
                     day_count: *day_count,
                     quote_rate: Some(*rate),
-                    disc_id: "CALIB_CURVE".into(),
+                    discount_curve_id: "CALIB_CURVE".into(),
                     attributes: Default::default(),
                 };
 
@@ -561,7 +561,7 @@ impl DiscountCurveCalibrator {
                     .fixed_rate(*rate)
                     .day_count(*day_count)
                     .reset_lag(2)
-                    .disc_id("CALIB_CURVE".into())
+                    .discount_curve_id("CALIB_CURVE".into())
                     .forward_id("CALIB_FWD".into())
                     .build()
                 {
@@ -628,7 +628,7 @@ impl DiscountCurveCalibrator {
                     .day_count(specs.day_count)
                     .position(crate::instruments::ir_future::Position::Long)
                     .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
-                    .disc_id(finstack_core::types::CurveId::from("CALIB_CURVE"))
+                    .discount_curve_id(finstack_core::types::CurveId::from("CALIB_CURVE"))
                     .forward_id(finstack_core::types::CurveId::from("CALIB_FWD"))
                     .build()
                     .unwrap();
@@ -662,7 +662,7 @@ impl DiscountCurveCalibrator {
                 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
                 let fixed_spec = FixedLegSpec {
-                    disc_id: finstack_core::types::CurveId::from("CALIB_CURVE"),
+                    discount_curve_id: finstack_core::types::CurveId::from("CALIB_CURVE"),
                     rate: *rate,
                     freq: *fixed_freq,
                     dc: *fixed_dc,
@@ -676,8 +676,8 @@ impl DiscountCurveCalibrator {
                 };
 
                 let float_spec = FloatLegSpec {
-                    disc_id: finstack_core::types::CurveId::from("CALIB_CURVE"),
-                    fwd_id: finstack_core::types::CurveId::from("CALIB_FWD"),
+                    discount_curve_id: finstack_core::types::CurveId::from("CALIB_CURVE"),
+                    forward_curve_id: finstack_core::types::CurveId::from("CALIB_FWD"),
                     spread_bp: 0.0,
                     freq: *float_freq,
                     dc: *float_dc,
@@ -1107,7 +1107,7 @@ mod tests {
                     end: *maturity,
                     day_count: *day_count,
                     quote_rate: Some(*rate),
-                    disc_id: "USD-OIS".into(),
+                    discount_curve_id: "USD-OIS".into(),
                     attributes: Default::default(),
                 };
                 let pv = dep.value(&ctx, base_date).unwrap();
@@ -1180,7 +1180,7 @@ mod tests {
             .fixed_rate(0.0470)
             .day_count(DayCount::Act360)
             .reset_lag(2)
-            .disc_id("USD-OIS".into())
+            .discount_curve_id("USD-OIS".into())
             .forward_id("USD-SOFR".into())
             .pay_fixed(false)
             .build()
@@ -1288,7 +1288,7 @@ mod tests {
             .notional(Money::new(1_000_000.0, Currency::USD))
             .side(PayReceive::ReceiveFixed)
             .fixed(crate::instruments::irs::FixedLegSpec {
-                disc_id: "USD-OIS".into(),
+                discount_curve_id: "USD-OIS".into(),
                 rate: 0.0470,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -1301,8 +1301,8 @@ mod tests {
                 end,
             })
             .float(crate::instruments::irs::FloatLegSpec {
-                disc_id: "USD-OIS".into(),
-                fwd_id: "USD-SOFR".into(),
+                discount_curve_id: "USD-OIS".into(),
+                forward_curve_id: "USD-SOFR".into(),
                 spread_bp: 0.0,
                 freq: Frequency::daily(),
                 dc: DayCount::Act360,

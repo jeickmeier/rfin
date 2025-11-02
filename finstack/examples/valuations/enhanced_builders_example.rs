@@ -90,7 +90,7 @@ fn main() -> finstack_core::Result<()> {
         .notional(Money::new(25_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(finstack_valuations::instruments::irs::FixedLegSpec {
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             rate: 0.0425,
             freq: finstack_core::dates::Frequency::semi_annual(),
             dc: finstack_core::dates::DayCount::Thirty360,
@@ -103,8 +103,8 @@ fn main() -> finstack_core::Result<()> {
             compounding_simple: true,
         })
         .float(finstack_valuations::instruments::irs::FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 25.0,
             freq: finstack_core::dates::Frequency::quarterly(),
             dc: finstack_core::dates::DayCount::Act360,
@@ -148,10 +148,10 @@ fn main() -> finstack_core::Result<()> {
         .contract_size(underlying_params.contract_size)
         .day_count(finstack_core::dates::DayCount::Act365F)
         .settlement(finstack_valuations::instruments::SettlementType::Cash)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .spot_id(underlying_params.spot_id)
-        .vol_id("TSLA-VOL".into())
-        .div_yield_id_opt(underlying_params.dividend_yield_id)
+        .vol_surface_id("TSLA-VOL".into())
+        .div_yield_id_opt(underlying_params.div_yield_id)
         .pricing_overrides(pricing_overrides)
         .attributes(finstack_valuations::instruments::Attributes::new())
         .build()?;

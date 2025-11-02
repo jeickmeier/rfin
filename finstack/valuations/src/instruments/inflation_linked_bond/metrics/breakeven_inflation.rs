@@ -11,7 +11,7 @@ impl MetricCalculator for BreakevenInflationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let ilb: &InflationLinkedBond = context.instrument_as()?;
         let curves = context.curves.as_ref();
-        let disc_curve = curves.get_discount_ref(ilb.disc_id.as_str())?;
+        let disc_curve = curves.get_discount_ref(ilb.discount_curve_id.as_str())?;
 
         let day_count = disc_curve.day_count();
         let base_date = disc_curve.base_date();

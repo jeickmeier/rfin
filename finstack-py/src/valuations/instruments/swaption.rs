@@ -169,7 +169,7 @@ impl PySwaption {
 
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     #[getter]
@@ -179,7 +179,7 @@ impl PySwaption {
 
     #[getter]
     fn vol_surface(&self) -> &str {
-        self.inner.vol_id.as_str()
+        self.inner.vol_surface_id.as_str()
     }
 
     #[getter]
@@ -237,12 +237,12 @@ fn construct_swaption(
         SwaptionParams::receiver(amt, strike, expiry_date, start, end)
     };
 
-    let vol_id = extract_curve_id(&vol_surface)?;
+    let vol_surface_id = extract_curve_id(&vol_surface)?;
 
     let mut swaption = if payer {
-        Swaption::new_payer(id.clone(), &params, disc, fwd, vol_id)
+        Swaption::new_payer(id.clone(), &params, disc, fwd, vol_surface_id)
     } else {
-        Swaption::new_receiver(id.clone(), &params, disc, fwd, vol_id)
+        Swaption::new_receiver(id.clone(), &params, disc, fwd, vol_surface_id)
     };
 
     swaption.exercise = exercise_style;

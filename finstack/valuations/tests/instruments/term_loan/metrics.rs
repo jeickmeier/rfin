@@ -36,7 +36,7 @@ fn build_simple_term_loan(as_of: Date, maturity: Date) -> TermLoan {
         .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)
         .stub(finstack_core::dates::StubKind::None)
-        .disc_id(CurveId::from("USD-OIS"))
+        .discount_curve_id(CurveId::from("USD-OIS"))
         .amortization(term_loan::AmortizationSpec::None)
         .coupon_type(finstack_valuations::cashflow::builder::types::CouponType::Cash)
         .upfront_fee_opt(None)

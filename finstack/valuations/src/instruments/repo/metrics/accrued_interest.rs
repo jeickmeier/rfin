@@ -17,7 +17,7 @@ impl MetricCalculator for AccruedInterestCalculator {
         let (discount_curve_id, day_count, start_date, maturity, notional_amount, effective_rate) = {
             let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;
             (
-                repo.disc_id.to_owned(),
+                repo.discount_curve_id.to_owned(),
                 repo.day_count,
                 repo.start_date,
                 repo.maturity,

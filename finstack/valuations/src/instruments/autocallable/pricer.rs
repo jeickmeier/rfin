@@ -78,7 +78,7 @@ impl AutocallableMcPricer {
             return Ok(Money::new(0.0, inst.notional.currency()));
         }
 
-        let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
+        let disc_curve = curves.get_discount_ref(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
         let t_as_of = disc_curve.day_count().year_fraction(
             disc_curve.base_date(),
@@ -105,7 +105,7 @@ impl AutocallableMcPricer {
             0.0
         };
 
-        let vol_surface = curves.surface_ref(inst.vol_id.as_str())?;
+        let vol_surface = curves.surface_ref(inst.vol_surface_id.as_str())?;
         let sigma = vol_surface.value_clamped(t, initial_spot);
 
         let gbm_params = GbmParams::new(r, q, sigma);

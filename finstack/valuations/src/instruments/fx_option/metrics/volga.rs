@@ -30,7 +30,7 @@ impl MetricCalculator for VolgaCalculator {
         let vol_bump = bump_sizes::VOLATILITY;
 
         // Get current volatility
-        let vol_surface = context.curves.surface_ref(option.vol_id.as_str())?;
+        let vol_surface = context.curves.surface_ref(option.vol_surface_id.as_str())?;
 
         // Bump vol up and down (same as equity option approach)
         let curves_vol_up = {
@@ -40,7 +40,7 @@ impl MetricCalculator for VolgaCalculator {
             use std::sync::Arc;
             let bumped_surface = vol_surface.scaled(scale_factor);
             curves.surfaces.insert(
-                CurveId::from(option.vol_id.as_str()),
+                CurveId::from(option.vol_surface_id.as_str()),
                 Arc::new(bumped_surface),
             );
             curves
@@ -54,7 +54,7 @@ impl MetricCalculator for VolgaCalculator {
             use std::sync::Arc;
             let bumped_surface = vol_surface.scaled(scale_factor);
             curves.surfaces.insert(
-                CurveId::from(option.vol_id.as_str()),
+                CurveId::from(option.vol_surface_id.as_str()),
                 Arc::new(bumped_surface),
             );
             curves

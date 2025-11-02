@@ -18,7 +18,7 @@ fn summable_vs_non_summable_metrics() {
         .start(as_of)
         .end(as_of)
         .day_count(finstack_core::dates::DayCount::Act360)
-        .disc_id("USD".into())
+        .discount_curve_id("USD".into())
         .build()
         .unwrap();
 

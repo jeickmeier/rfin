@@ -184,7 +184,7 @@ fn test_multiple_curve_ids() {
         .curves("USD_OIS", "USD_SOFR_3M")
         .build();
 
-    assert_eq!(fra.disc_id.as_str(), "USD_OIS");
+    assert_eq!(fra.discount_curve_id.as_str(), "USD_OIS");
     assert_eq!(fra.forward_id.as_str(), "USD_SOFR_3M");
 }
 

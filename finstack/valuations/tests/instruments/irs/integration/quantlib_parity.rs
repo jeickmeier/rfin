@@ -90,7 +90,7 @@ fn create_quantlib_swap(
         notional: Money::new(notional, Currency::USD),
         side,
         fixed: FixedLegSpec {
-            disc_id: "USD-OIS".into(),
+            discount_curve_id: "USD-OIS".into(),
             rate: fixed_rate,
             freq: Frequency::semi_annual(), // QuantLib uses semiannual
             dc: DayCount::Thirty360,        // QuantLib uses 30/360
@@ -103,8 +103,8 @@ fn create_quantlib_swap(
             end,
         },
         float: FloatLegSpec {
-            disc_id: "USD-OIS".into(),
-            fwd_id: "USD-SOFR-3M".into(),
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: 0.0,
             freq: Frequency::semi_annual(), // QuantLib uses semiannual (same as fixed!)
             dc: DayCount::Thirty360,        // QuantLib uses 30/360 (same as fixed!)

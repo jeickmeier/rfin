@@ -20,7 +20,7 @@ where
     FN: FnMut(f64, f64, f64) -> f64,
 {
     // Get market curves
-    let disc_curve = context.curves.get_discount_ref(option.disc_id.as_ref())?;
+    let disc_curve = context.curves.get_discount_ref(option.discount_curve_id.as_ref())?;
     let fwd_curve = context.curves.get_forward_ref(option.forward_id.as_ref())?;
     let base_date = disc_curve.base_date();
 
@@ -55,7 +55,7 @@ where
         } else {
             context
                 .curves
-                .surface_ref(option.vol_id.as_str())?
+                .surface_ref(option.vol_surface_id.as_str())?
                 .value_clamped(t_fix, option.strike_rate)
         };
 

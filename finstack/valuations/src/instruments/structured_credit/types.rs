@@ -107,7 +107,7 @@ pub struct StructuredCredit {
     pub payment_frequency: Frequency,
 
     /// Discount curve for valuation
-    pub disc_id: CurveId,
+    pub discount_curve_id: CurveId,
 
     /// Attributes for scenario selection
     pub attributes: Attributes,
@@ -170,7 +170,7 @@ struct InstrumentParams<'a> {
     tranches: TrancheStructure,
     waterfall: WaterfallEngine,
     legal_maturity: Date,
-    disc_id: &'a str,
+    discount_curve_id: &'a str,
 }
 
 impl StructuredCredit {
@@ -199,7 +199,7 @@ impl StructuredCredit {
         waterfall: WaterfallEngine,
         closing_date: Date,
         legal_maturity: Date,
-        disc_id: impl Into<String>,
+        discount_curve_id: impl Into<String>,
     ) -> Self {
         match deal_type {
             DealType::ABS => Self::new_abs(
@@ -209,7 +209,7 @@ impl StructuredCredit {
                 waterfall,
                 closing_date,
                 legal_maturity,
-                disc_id,
+                discount_curve_id,
             ),
             DealType::CLO => Self::new_clo(
                 id,
@@ -218,7 +218,7 @@ impl StructuredCredit {
                 waterfall,
                 closing_date,
                 legal_maturity,
-                disc_id,
+                discount_curve_id,
             ),
             DealType::CMBS => Self::new_cmbs(
                 id,
@@ -227,7 +227,7 @@ impl StructuredCredit {
                 waterfall,
                 closing_date,
                 legal_maturity,
-                disc_id,
+                discount_curve_id,
             ),
             DealType::RMBS => Self::new_rmbs(
                 id,
@@ -236,7 +236,7 @@ impl StructuredCredit {
                 waterfall,
                 closing_date,
                 legal_maturity,
-                disc_id,
+                discount_curve_id,
             ),
             _ => Self::new_abs(
                 id,
@@ -245,7 +245,7 @@ impl StructuredCredit {
                 waterfall,
                 closing_date,
                 legal_maturity,
-                disc_id,
+                discount_curve_id,
             ), // Default to ABS
         }
     }
@@ -270,7 +270,7 @@ impl StructuredCredit {
             reinvestment_end_date: None,
             legal_maturity: params.legal_maturity,
             payment_frequency: config.payment_frequency,
-            disc_id: CurveId::new(params.disc_id.to_string()),
+            discount_curve_id: CurveId::new(params.discount_curve_id.to_string()),
             attributes: Attributes::new(),
             prepayment_spec: config.prepayment_spec,
             default_spec: config.default_spec,
@@ -291,9 +291,9 @@ impl StructuredCredit {
         waterfall: WaterfallEngine,
         closing_date: Date,
         legal_maturity: Date,
-        disc_id: impl Into<String>,
+        discount_curve_id: impl Into<String>,
     ) -> Self {
-        let disc_id_str = disc_id.into();
+        let disc_id_str = discount_curve_id.into();
         let mut inst = Self::new_with_deal_config(
             id,
             DealType::ABS,
@@ -302,7 +302,7 @@ impl StructuredCredit {
                 tranches,
                 waterfall,
                 legal_maturity,
-                disc_id: &disc_id_str,
+                discount_curve_id: &disc_id_str,
             },
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
@@ -335,9 +335,9 @@ impl StructuredCredit {
         waterfall: WaterfallEngine,
         closing_date: Date,
         legal_maturity: Date,
-        disc_id: impl Into<String>,
+        discount_curve_id: impl Into<String>,
     ) -> Self {
-        let disc_id_str = disc_id.into();
+        let disc_id_str = discount_curve_id.into();
         let mut inst = Self::new_with_deal_config(
             id,
             DealType::CLO,
@@ -346,7 +346,7 @@ impl StructuredCredit {
                 tranches,
                 waterfall,
                 legal_maturity,
-                disc_id: &disc_id_str,
+                discount_curve_id: &disc_id_str,
             },
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1).unwrap(),
@@ -376,9 +376,9 @@ impl StructuredCredit {
         waterfall: WaterfallEngine,
         closing_date: Date,
         legal_maturity: Date,
-        disc_id: impl Into<String>,
+        discount_curve_id: impl Into<String>,
     ) -> Self {
-        let disc_id_str = disc_id.into();
+        let disc_id_str = discount_curve_id.into();
         let mut inst = Self::new_with_deal_config(
             id,
             DealType::CMBS,
@@ -387,7 +387,7 @@ impl StructuredCredit {
                 tranches,
                 waterfall,
                 legal_maturity,
-                disc_id: &disc_id_str,
+                discount_curve_id: &disc_id_str,
             },
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
@@ -420,9 +420,9 @@ impl StructuredCredit {
         waterfall: WaterfallEngine,
         closing_date: Date,
         legal_maturity: Date,
-        disc_id: impl Into<String>,
+        discount_curve_id: impl Into<String>,
     ) -> Self {
-        let disc_id_str = disc_id.into();
+        let disc_id_str = discount_curve_id.into();
         let mut inst = Self::new_with_deal_config(
             id,
             DealType::RMBS,
@@ -431,7 +431,7 @@ impl StructuredCredit {
                 tranches,
                 waterfall,
                 legal_maturity,
-                disc_id: &disc_id_str,
+                discount_curve_id: &disc_id_str,
             },
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
@@ -606,7 +606,7 @@ impl Instrument for StructuredCredit {
     }
 
     fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        let disc = context.get_discount_ref(self.disc_id.as_str())?;
+        let disc = context.get_discount_ref(self.discount_curve_id.as_str())?;
         let flows = self.build_schedule(context, as_of)?;
 
         use crate::instruments::common::discountable::Discountable;
@@ -638,7 +638,7 @@ impl Instrument for StructuredCredit {
             base_value,
         );
         metric_context.cashflows = Some(flows);
-        metric_context.discount_curve_id = Some(self.disc_id.to_owned());
+        metric_context.discount_curve_id = Some(self.discount_curve_id.to_owned());
 
         let registry = crate::metrics::standard_registry();
         let computed_metrics = registry.compute(metrics, &mut metric_context)?;
@@ -654,7 +654,7 @@ impl Instrument for StructuredCredit {
 
 impl crate::instruments::common::pricing::HasDiscountCurve for StructuredCredit {
     fn discount_curve_id(&self) -> &CurveId {
-        &self.disc_id
+        &self.discount_curve_id
     }
 }
 
@@ -794,7 +794,7 @@ impl TrancheValuationExt for StructuredCredit {
         as_of: Date,
     ) -> finstack_core::Result<Money> {
         let cashflows = self.get_tranche_cashflows(tranche_id, context, as_of)?;
-        let disc = context.get_discount(&self.disc_id)?;
+        let disc = context.get_discount(&self.discount_curve_id)?;
 
         // Pre-compute as_of discount factor for correct theta
         let disc_dc = disc.day_count();
@@ -858,7 +858,7 @@ impl TrancheValuationExt for StructuredCredit {
         );
         metric_context.cashflows = Some(cashflow_result.cashflows.clone());
         metric_context.detailed_tranche_cashflows = Some(cashflow_result.clone());
-        metric_context.discount_curve_id = Some(self.disc_id.to_owned());
+        metric_context.discount_curve_id = Some(self.discount_curve_id.to_owned());
 
         let registry = crate::metrics::standard_registry();
         let computed_metrics = registry.compute(metrics, &mut metric_context)?;
@@ -901,7 +901,7 @@ impl TrancheValuationExt for StructuredCredit {
         };
 
         // Fallback calculations for metrics not handled by the registry or if not requested
-        let disc = context.get_discount(&self.disc_id)?;
+        let disc = context.get_discount(&self.discount_curve_id)?;
         let modified_duration = computed_metrics
             .get(&MetricId::DurationMod)
             .copied()
@@ -961,7 +961,7 @@ impl core::fmt::Debug for StructuredCredit {
             .field("first_payment_date", &self.first_payment_date)
             .field("legal_maturity", &self.legal_maturity)
             .field("payment_frequency", &self.payment_frequency)
-            .field("disc_id", &self.disc_id)
+            .field("discount_curve_id", &self.discount_curve_id)
             .finish()
     }
 }

@@ -111,9 +111,9 @@ impl PyInterestRateOption {
         let fwd = extract_curve_id(&forward_curve)?;
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
-        let vol_id = extract_curve_id(&vol_surface)?;
+        let vol_surface_id = extract_curve_id(&vol_surface)?;
         let option =
-            InterestRateOption::new_cap(id, amt, strike, start, end, freq, dc, disc, fwd, vol_id);
+            InterestRateOption::new_cap(id, amt, strike, start, end, freq, dc, disc, fwd, vol_surface_id);
         Ok(Self::new(option))
     }
 
@@ -175,9 +175,9 @@ impl PyInterestRateOption {
         let fwd = extract_curve_id(&forward_curve)?;
         let freq = frequency_from_payments_per_year(payments_per_year)?;
         let dc = extract_day_count(day_count)?;
-        let vol_id = extract_curve_id(&vol_surface)?;
+        let vol_surface_id = extract_curve_id(&vol_surface)?;
         let option =
-            InterestRateOption::new_floor(id, amt, strike, start, end, freq, dc, disc, fwd, vol_id);
+            InterestRateOption::new_floor(id, amt, strike, start, end, freq, dc, disc, fwd, vol_surface_id);
         Ok(Self::new(option))
     }
 
@@ -232,7 +232,7 @@ impl PyInterestRateOption {
     ///     str: Discount curve used for valuation.
     #[getter]
     fn discount_curve(&self) -> String {
-        self.inner.disc_id.as_str().to_string()
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
     /// Forward curve identifier.
@@ -250,7 +250,7 @@ impl PyInterestRateOption {
     ///     str: Volatility surface used for option pricing.
     #[getter]
     fn vol_surface(&self) -> &str {
-        self.inner.vol_id.as_str()
+        self.inner.vol_surface_id.as_str()
     }
 
     /// Instrument type enumeration.

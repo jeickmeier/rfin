@@ -41,7 +41,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
         fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
-            disc_id: "USD_OIS".into(),
+            discount_curve_id: "USD_OIS".into(),
             rate: fixed_rate,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,
@@ -54,8 +54,8 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64) -> InterestRateSwap {
             end,
         },
         float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
-            disc_id: "USD_OIS".into(),
-            fwd_id: "USD_LIBOR_3M".into(),
+            discount_curve_id: "USD_OIS".into(),
+            forward_curve_id: "USD_LIBOR_3M".into(),
             spread_bp: 0.0,
             freq: Frequency::quarterly(),
             dc: DayCount::Act360,

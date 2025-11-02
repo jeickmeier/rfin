@@ -32,7 +32,7 @@ impl MetricCalculator for CapFloorDv01Calculator {
 
         // Parallel +1bp bump on discount curve
         let mut bumps = HashMap::new();
-        bumps.insert(option.disc_id.clone(), BumpSpec::parallel_bp(1.0));
+        bumps.insert(option.discount_curve_id.clone(), BumpSpec::parallel_bp(1.0));
         let bumped_context = context.curves.bump(bumps)?;
 
         // Reprice with bumped curve

@@ -339,9 +339,9 @@ fn test_swaption_pricing_with_calibrated_surface() {
     context = context.insert_surface(surface);
 
     // Create and price a swaption
-    let disc_id: &'static str = "USD-OIS";
-    let fwd_id: &'static str = "USD-OIS";
-    let vol_id: &'static str = "SWAPTION-VOL";
+    let discount_curve_id: &'static str = "USD-OIS";
+    let forward_curve_id: &'static str = "USD-OIS";
+    let vol_surface_id: &'static str = "SWAPTION-VOL";
     let params = SwaptionParams::payer(
         Money::new(1_000_000.0, Currency::USD),
         0.04,
@@ -349,7 +349,7 @@ fn test_swaption_pricing_with_calibrated_surface() {
         Date::from_calendar_date(2026, Month::January, 1).unwrap(),
         Date::from_calendar_date(2027, Month::January, 1).unwrap(),
     );
-    let swaption = Swaption::new_payer("TEST-SWAPTION", &params, disc_id, fwd_id, vol_id);
+    let swaption = Swaption::new_payer("TEST-SWAPTION", &params, discount_curve_id, forward_curve_id, vol_surface_id);
 
     // Price should work with calibrated surface
     let price_result = swaption.value(&context, base_date);

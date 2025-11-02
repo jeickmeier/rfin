@@ -25,7 +25,7 @@ pub fn standard_ir_dv01_buckets() -> Vec<f64> {
 /// - Labels are derived from times using the standard m/y formatting
 pub fn compute_key_rate_dv01_series<I, RevalFn>(
     context: &mut MetricContext,
-    disc_id: &CurveId,
+    discount_curve_id: &CurveId,
     bucket_times_years: I,
     bump_bp: f64,
     mut revalue_with_disc: RevalFn,
@@ -35,7 +35,7 @@ where
     RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
 {
     let base_pv = context.base_value;
-    let disc = context.curves.get_discount_ref(disc_id.as_str())?;
+    let disc = context.curves.get_discount_ref(discount_curve_id.as_str())?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {
@@ -58,7 +58,7 @@ where
 /// Key-rate DV01 series using full MarketContext revaluation per bucket time.
 pub fn compute_key_rate_dv01_series_with_context<I, RevalFn>(
     context: &mut MetricContext,
-    disc_id: &CurveId,
+    discount_curve_id: &CurveId,
     bucket_times_years: I,
     bump_bp: f64,
     mut revalue_with_context: RevalFn,
@@ -69,7 +69,7 @@ where
 {
     let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
-    let disc = base_ctx.get_discount_ref(disc_id.as_str())?;
+    let disc = base_ctx.get_discount_ref(discount_curve_id.as_str())?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {
@@ -94,7 +94,7 @@ where
 pub fn compute_key_rate_series_for_id<I, RevalFn>(
     context: &mut MetricContext,
     base_metric_id: MetricId,
-    disc_id: &CurveId,
+    discount_curve_id: &CurveId,
     bucket_times_years: I,
     bump_bp: f64,
     mut revalue_with_disc: RevalFn,
@@ -104,7 +104,7 @@ where
     RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
 {
     let base_pv = context.base_value;
-    let disc = context.curves.get_discount_ref(disc_id.as_str())?;
+    let disc = context.curves.get_discount_ref(discount_curve_id.as_str())?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {
@@ -128,7 +128,7 @@ where
 pub fn compute_key_rate_series_with_context_for_id<I, RevalFn>(
     context: &mut MetricContext,
     base_metric_id: MetricId,
-    disc_id: &CurveId,
+    discount_curve_id: &CurveId,
     bucket_times_years: I,
     bump_bp: f64,
     mut revalue_with_context: RevalFn,
@@ -139,7 +139,7 @@ where
 {
     let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
-    let disc = base_ctx.get_discount_ref(disc_id.as_str())?;
+    let disc = base_ctx.get_discount_ref(discount_curve_id.as_str())?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {

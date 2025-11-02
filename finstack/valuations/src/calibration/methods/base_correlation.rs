@@ -101,9 +101,9 @@ impl BaseCorrelationCalibrator {
     /// Set the discount curve identifier used when pricing synthetic tranches.
     pub fn with_discount_curve_id(
         mut self,
-        disc_id: impl Into<finstack_core::types::CurveId>,
+        discount_curve_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
-        self.discount_curve_id = disc_id.into();
+        self.discount_curve_id = discount_curve_id.into();
         self
     }
 
@@ -336,7 +336,7 @@ impl BaseCorrelationCalibrator {
             .day_count(DayCount::Act360)
             .business_day_convention(BusinessDayConvention::Following)
             .calendar_id_opt(None)
-            .disc_id(self.discount_curve_id.to_owned())
+            .discount_curve_id(self.discount_curve_id.to_owned())
             .credit_index_id(finstack_core::types::CurveId::new(self.index_id.to_owned()))
             .side(TrancheSide::SellProtection)
             .effective_date_opt(None)

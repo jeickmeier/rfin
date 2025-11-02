@@ -313,7 +313,7 @@ fn test_private_markets_fund_creation() {
 
     assert_eq!(pe.id, "TEST_FUND".into());
     assert_eq!(pe.currency, test_currency());
-    assert!(pe.disc_id.is_none());
+    assert!(pe.discount_curve_id.is_none());
 }
 
 #[test]
@@ -322,7 +322,7 @@ fn test_private_markets_fund_with_discount_curve() {
     let pe = PrivateMarketsFund::new("TEST_FUND", test_currency(), spec, events)
         .with_discount_curve("USD-OIS");
 
-    assert_eq!(pe.disc_id, Some("USD-OIS".into()));
+    assert_eq!(pe.discount_curve_id, Some("USD-OIS".into()));
 }
 
 #[test]

@@ -229,7 +229,7 @@ impl PyPricerRegistry {
 
         let disc = market
             .inner
-            .get_discount_ref(bond_ref.disc_id.as_str())
+            .get_discount_ref(bond_ref.discount_curve_id.as_str())
             .map_err(core_to_py)?;
         let as_of = disc.base_date();
 

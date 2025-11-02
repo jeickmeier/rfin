@@ -14,7 +14,7 @@ impl MetricCalculator for BucketedCs01Calculator {
         let inst_clone = loan.clone();
 
         let buckets = standard_ir_dv01_buckets();
-        let disc_id = inst_clone.disc_id.clone();
+        let discount_curve_id = inst_clone.discount_curve_id.clone();
 
         // Revalue via full MarketContext per bucket
         let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
@@ -24,7 +24,7 @@ impl MetricCalculator for BucketedCs01Calculator {
         crate::metrics::bucketed::compute_key_rate_series_with_context_for_id(
             context,
             crate::metrics::MetricId::BucketedCs01,
-            &disc_id,
+            &discount_curve_id,
             buckets,
             1.0,
             reval,

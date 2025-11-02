@@ -20,7 +20,7 @@ impl MetricCalculator for Cs01Calculator {
         let as_of = context.as_of;
 
         // Get base curves
-        let disc = context.curves.get_discount_ref(facility.disc_id.as_str())?;
+        let disc = context.curves.get_discount_ref(facility.discount_curve_id.as_str())?;
         let disc_dc = disc.day_count();
 
         // Generate cashflows

@@ -23,7 +23,7 @@ impl MetricCalculator for DividendRiskCalculator {
         let as_of = context.as_of;
 
         // If no dividend yield ID, risk is zero
-        let div_yield_id = match &trs.underlying.dividend_yield_id {
+        let div_yield_id = match &trs.underlying.div_yield_id {
             Some(id) => id.clone(),
             None => return Ok(0.0),
         };

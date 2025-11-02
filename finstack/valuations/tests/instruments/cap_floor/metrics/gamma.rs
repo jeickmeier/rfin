@@ -64,9 +64,9 @@ fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOptio
         calendar_id: None,
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
-        disc_id: "USD_OIS".into(),
+        discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        vol_id: "USD_CAP_VOL".into(),
+        vol_surface_id: "USD_CAP_VOL".into(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     }
@@ -117,9 +117,9 @@ fn test_floor_gamma_positive() {
         calendar_id: None,
         exercise_style: ExerciseStyle::European,
         settlement: SettlementType::Cash,
-        disc_id: "USD_OIS".into(),
+        discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        vol_id: "USD_CAP_VOL".into(),
+        vol_surface_id: "USD_CAP_VOL".into(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };

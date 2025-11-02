@@ -91,7 +91,7 @@ fn test_builder_with_all_fields() {
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(Some("nyc".to_string()))
         .triparty(true)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(
             Attributes::new()
                 .with_tag("funding")
@@ -131,7 +131,7 @@ fn test_builder_minimal_fields() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(Attributes::default())
         .build()
         .unwrap();
@@ -164,7 +164,7 @@ fn test_validation_maturity_before_start() {
         .repo_rate(0.05)
         .start_date(date(2025, 4, 15))
         .maturity(date(2025, 1, 15)) // Maturity before start
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build();
 
     assert!(result.is_err(), "Should reject maturity before start date");
@@ -182,7 +182,7 @@ fn test_validation_same_day_maturity() {
         .repo_rate(0.05)
         .start_date(same_date)
         .maturity(same_date)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build();
 
     assert!(result.is_err(), "Should reject same-day start and maturity");
@@ -199,7 +199,7 @@ fn test_validation_negative_rate() {
         .repo_rate(-0.01)
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build();
 
     assert!(result.is_err(), "Should reject negative repo rate");
@@ -217,7 +217,7 @@ fn test_validation_negative_haircut() {
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
         .haircut(-0.05)
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build();
 
     assert!(result.is_err(), "Should reject negative haircut");
@@ -234,7 +234,7 @@ fn test_validation_zero_or_negative_cash() {
         .repo_rate(0.05)
         .start_date(date(2025, 1, 15))
         .maturity(date(2025, 4, 15))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .build();
 
     assert!(result.is_err(), "Should reject zero cash amount");
@@ -304,7 +304,7 @@ fn test_attributes_tagging() {
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::Following)
         .calendar_id_opt(Some("target2".to_string()))
-        .disc_id("USD-OIS".into())
+        .discount_curve_id("USD-OIS".into())
         .attributes(
             Attributes::new()
                 .with_tag("treasury")
