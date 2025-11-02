@@ -186,7 +186,7 @@ impl ForwardCurveCalibrator {
             };
 
             // Initial guess based on quote type
-            let initial_fwd = self.get_initial_guess(quote, &knots);
+            let initial_fwd = self.get_initial_guess(quote, &knots, base_context);
 
             // Solve for forward rate
             let tentative = self.solve_with_bracketing(&objective, initial_fwd)?;
@@ -563,7 +563,18 @@ impl ForwardCurveCalibrator {
     }
 
     /// Get initial guess for forward rate.
-    fn get_initial_guess(&self, quote: &RatesQuote, existing_knots: &[(f64, f64)]) -> f64 {
+    ///
+    /// Uses a sophisticated fallback strategy that derives from market context:
+    /// 1. For FRA/Future/Swap quotes: use the quoted rate/price
+    /// 2. For other quotes: use last solved knot if available
+    /// 3. If no knots exist: derive from discount curve over tenor (market-regime-aware)
+    /// 4. Final fallback: use benign global default (0.02) only if nothing else available
+    fn get_initial_guess(
+        &self,
+        quote: &RatesQuote,
+        existing_knots: &[(f64, f64)],
+        context: &MarketContext,
+    ) -> f64 {
         match quote {
             RatesQuote::FRA { rate, .. } => *rate,
             RatesQuote::Future { price, specs, .. } => {
@@ -582,28 +593,45 @@ impl ForwardCurveCalibrator {
                 *rate
             }
             _ => {
-                // Fallback: use last knot or default
-                existing_knots.last().map(|(_, fwd)| *fwd).unwrap_or(0.045)
+                // Sophisticated fallback: prefer last knot, then derive from discount curve
+                existing_knots
+                    .last()
+                    .map(|(_, fwd)| *fwd)
+                    .or_else(|| {
+                        // Derive from OIS discount curve over the tenor as a neutral anchor
+                        // This keeps guesses consistent with the market regime
+                        let t = self.tenor_years.max(1.0 / 12.0); // At least 1 month
+                        context
+                            .get_discount_ref(self.discount_curve_id.as_ref())
+                            .ok()
+                            .map(|disc_curve| {
+                                // Extract zero rate from discount curve
+                                disc_curve.zero(t)
+                            })
+                    })
+                    .unwrap_or(0.02) // Benign global fallback only if nothing else available
             }
         }
     }
 
     /// Check if an index/frequency matches our tenor.
     fn matches_tenor(&self, index: &str, freq: &Frequency) -> bool {
-        // Check index string for tenor match
-        let tenor_str = if self.tenor_years == 1.0 / 12.0 {
-            "1M"
-        } else if self.tenor_years == 0.25 {
-            "3M"
-        } else if self.tenor_years == 0.5 {
-            "6M"
-        } else if self.tenor_years == 1.0 {
-            "12M"
-        } else {
-            return false;
+        // Map tenor_years to standard tenor strings with epsilon comparison
+        let tenor_str = match self.tenor_years {
+            x if (x - 1.0 / 12.0).abs() < 1e-12 => "1M",
+            x if (x - 0.25).abs() < 1e-12 => "3M",
+            x if (x - 0.5).abs() < 1e-12 => "6M",
+            x if (x - 1.0).abs() < 1e-12 => "12M",
+            _ => return false,
         };
 
-        index.contains(tenor_str) || self.frequency_matches_tenor(freq)
+        // Tokenize on non-alphanumerics to avoid substring traps ("13M" contains "3M")
+        let normalized = index.to_uppercase();
+        let tokens: Vec<&str> = normalized
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .collect();
+
+        tokens.contains(&tenor_str) || self.frequency_matches_tenor(freq)
     }
 
     /// Check if frequency matches tenor.
@@ -619,15 +647,21 @@ impl ForwardCurveCalibrator {
 
     /// Resolve a reference index name to a forward curve ID.
     fn resolve_forward_curve_id(&self, reference_index: &str) -> CurveId {
-        // Extract tenor from index name
-        let tenor = if reference_index.contains("1M") {
-            "1M"
-        } else if reference_index.contains("3M") {
-            "3M"
-        } else if reference_index.contains("6M") {
-            "6M"
-        } else if reference_index.contains("12M") || reference_index.contains("1Y") {
+        // Normalize & tokenize on non-alphanumerics to avoid substring traps ("12M" vs "1M")
+        let normalized = reference_index.to_uppercase();
+        let tokens: Vec<&str> = normalized
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .collect();
+
+        // Check in correct precedence: longer tenors first to avoid substring collisions
+        let tenor = if tokens.contains(&"12M") || tokens.contains(&"1Y") {
             "12M"
+        } else if tokens.contains(&"6M") {
+            "6M"
+        } else if tokens.contains(&"3M") {
+            "3M"
+        } else if tokens.contains(&"1M") {
+            "1M"
         } else {
             // Fallback for unknown format
             return CurveId::new(format!("FWD_{}", reference_index));

@@ -14,4 +14,7 @@ pub mod swaption_lsmc;
 #[cfg(feature = "mc")]
 pub mod swap_rate_utils;
 
+#[cfg(feature = "mc")]
+pub mod lsq;
+
 pub use european::*;

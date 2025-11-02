@@ -14,6 +14,7 @@ use crate::instruments::common::mc::traits::{Discretization, RandomStream};
 use crate::instruments::common::mc::results::Estimate;
 use super::lsmc::{BasisFunctions, LsmcConfig};
 use super::swap_rate_utils::{ForwardSwapRate, HullWhiteBondPrice};
+use super::lsq::solve_least_squares;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -298,13 +299,14 @@ impl SwaptionLsmcPricer {
         Ok(present_values)
     }
 
-    /// Perform least-squares regression (reuse from LSMC).
+    /// Perform least-squares regression using robust SVD solver.
+    ///
+    /// Uses the same SVD-based regression as equity LSMC to avoid numerical
+    /// instability from normal equations (X'X) which square the condition number.
     fn regression<B>(&self, x: &[f64], y: &[f64], basis: &B) -> Result<Vec<f64>>
     where
         B: BasisFunctions,
     {
-        // Reuse regression logic from LsmcPricer
-        // This is a simplified version - in production, use the full SVD-based regression
         let n = x.len();
         let k = basis.num_basis();
 
@@ -319,8 +321,8 @@ impl SwaptionLsmcPricer {
             }
         }
 
-        // Solve using normal equations (for now - can upgrade to SVD)
-        let coeffs = solve_normal_equations(&design, y, n, k)?;
+        // Solve using SVD (numerically stable for ill-conditioned systems)
+        let coeffs = solve_least_squares(&design, y, n, k)?;
 
         // Predict continuation values
         let mut predictions = vec![0.0; n];
@@ -335,85 +337,6 @@ impl SwaptionLsmcPricer {
 
         Ok(predictions)
     }
-}
-
-/// Solve least squares using normal equations (simplified version).
-///
-/// For production, use SVD-based solver like in LsmcPricer.
-fn solve_normal_equations(design: &[f64], y: &[f64], n: usize, k: usize) -> Result<Vec<f64>> {
-    // X'X * β = X'y
-    // Build X'X (k x k)
-    let mut xtx = vec![0.0; k * k];
-    for i in 0..k {
-        for j in 0..k {
-            let mut sum = 0.0;
-            for p in 0..n {
-                sum += design[p * k + i] * design[p * k + j];
-            }
-            xtx[i * k + j] = sum;
-        }
-    }
-
-    // Build X'y (k x 1)
-    let mut xty = vec![0.0; k];
-    for i in 0..k {
-        let mut sum = 0.0;
-        for p in 0..n {
-            sum += design[p * k + i] * y[p];
-        }
-        xty[i] = sum;
-    }
-
-    // Solve: X'X * β = X'y using Cholesky decomposition
-    // For now, use simple Gaussian elimination (can upgrade)
-    let mut coeffs = xty;
-
-    // Simple Gaussian elimination (LU would be better)
-    for col in 0..k {
-        // Find pivot
-        let mut max_row = col;
-        let mut max_val = xtx[col * k + col].abs();
-        for row in (col + 1)..k {
-            if xtx[row * k + col].abs() > max_val {
-                max_val = xtx[row * k + col].abs();
-                max_row = row;
-            }
-        }
-
-        // Swap rows
-        if max_row != col {
-            for j in 0..k {
-                xtx.swap(col * k + j, max_row * k + j);
-            }
-            coeffs.swap(col, max_row);
-        }
-
-        // Eliminate
-        let pivot = xtx[col * k + col];
-        if pivot.abs() < 1e-10 {
-            return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
-            ));
-        }
-
-        for row in (col + 1)..k {
-            let factor = xtx[row * k + col] / pivot;
-            for j in col..k {
-                xtx[row * k + j] -= factor * xtx[col * k + j];
-            }
-            coeffs[row] -= factor * coeffs[col];
-        }
-    }
-
-    // Back-substitution
-    for i in (0..k).rev() {
-        for j in (i + 1)..k {
-            coeffs[i] -= xtx[i * k + j] * coeffs[j];
-        }
-        coeffs[i] /= xtx[i * k + i];
-    }
-
-    Ok(coeffs)
 }
 
 #[cfg(test)]
