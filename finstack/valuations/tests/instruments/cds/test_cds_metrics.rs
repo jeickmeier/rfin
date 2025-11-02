@@ -89,7 +89,7 @@ fn test_cs01_hazard_vs_risky_pv01_consistency() {
             .knots([(0.0, 1.0), (10.0, (-(0.05_f64 * 10.0_f64)).exp())])
             .build()
             .unwrap();
-        let hazard = HazardCurve::builder(cds.protection.credit_id.clone())
+        let hazard = HazardCurve::builder(cds.protection.credit_curve_id.clone())
             .base_date(as_of)
             .day_count(DayCount::Act365F)
             .recovery_rate(0.4)

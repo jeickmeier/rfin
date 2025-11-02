@@ -388,7 +388,7 @@ impl PyBond {
             .stub(StubKind::None)
             .calendar_id_opt(None)
             .disc_id(disc)
-            .hazard_id_opt(None)
+            .credit_curve_id_opt(None)
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
             .float_opt(Some(BondFloatSpec {
                 fwd_id: fwd,
@@ -463,7 +463,7 @@ impl PyBond {
     #[getter]
     fn hazard_curve(&self) -> Option<String> {
         self.inner
-            .hazard_id
+            .credit_curve_id
             .as_ref()
             .map(|id| id.as_str().to_string())
     }

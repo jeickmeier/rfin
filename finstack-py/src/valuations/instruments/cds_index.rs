@@ -205,7 +205,7 @@ impl PyCdsIndex {
     ///     str: Hazard curve for the index constituents.
     #[getter]
     fn credit_curve(&self) -> String {
-        self.inner.protection.credit_id.as_str().to_string()
+        self.inner.protection.credit_curve_id.as_str().to_string()
     }
 
     /// Maturity date of the index swap.

@@ -115,7 +115,7 @@ impl CDSIndex {
                 disc_id: disc_id.into(),
             },
             protection: ProtectionLegSpec {
-                credit_id: credit_id.into(),
+                credit_curve_id: credit_id.into(),
                 recovery_rate: credit_params.recovery_rate,
                 settlement_delay: construction_params.convention.settlement_delay(),
             },

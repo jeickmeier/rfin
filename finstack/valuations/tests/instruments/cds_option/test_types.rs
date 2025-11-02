@@ -41,7 +41,7 @@ fn test_cds_option_construction() {
     assert_eq!(option.notional.amount(), 10_000_000.0);
     assert_eq!(option.notional.currency(), Currency::USD);
     assert_eq!(option.disc_id.as_str(), "USD-OIS");
-    assert_eq!(option.credit_id.as_str(), "HZ-CORP");
+    assert_eq!(option.credit_curve_id.as_str(), "HZ-CORP");
     assert_eq!(option.vol_id.as_str(), "CDS-VOL");
 }
 

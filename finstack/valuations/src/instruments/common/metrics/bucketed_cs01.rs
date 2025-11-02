@@ -1,20 +1,20 @@
 //! Generic BucketedCs01 calculator to eliminate duplication across credit instruments.
 //!
 //! This module provides a generic implementation that can be used by any instrument
-//! that has a hazard curve and can be valued using standard revaluation patterns.
+//! that has a credit curve and can be valued using standard revaluation patterns.
 
 use std::marker::PhantomData;
 
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-/// Trait for instruments that have a primary hazard curve.
+/// Trait for instruments that have a primary credit curve.
 ///
-/// Used by generic bucketed CS01 calculators to identify which hazard curve
+/// Used by generic bucketed CS01 calculators to identify which credit curve
 /// to bump for credit spread sensitivity calculations.
-pub trait HasHazardCurve {
-    /// Returns the ID of the primary hazard curve used for credit spread sensitivity.
-    fn hazard_curve_id(&self) -> &finstack_core::types::CurveId;
+pub trait HasCreditCurve {
+    /// Returns the ID of the primary credit curve used for credit spread sensitivity.
+    fn credit_curve_id(&self) -> &finstack_core::types::CurveId;
 }
 
 /// Generic BucketedCs01 calculator that works for any instrument implementing
@@ -33,11 +33,11 @@ impl<I> Default for GenericBucketedCs01<I> {
 
 impl<I> MetricCalculator for GenericBucketedCs01<I>
 where
-    I: Instrument + HasHazardCurve + Clone + 'static,
+    I: Instrument + HasCreditCurve + Clone + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let hazard_id = instrument.hazard_curve_id().clone();
+        let hazard_id = instrument.credit_curve_id().clone();
 
         // Standard credit bucket times
         let buckets = crate::metrics::bucketed_cs01::standard_credit_cs01_buckets();

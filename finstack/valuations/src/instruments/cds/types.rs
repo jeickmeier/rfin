@@ -161,7 +161,7 @@ impl CreditDefaultSwap {
                 disc_id: disc_id.into(),
             })
             .protection(ProtectionLegSpec {
-                credit_id: credit_id.into(),
+                credit_curve_id: credit_id.into(),
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
                 settlement_delay: convention.settlement_delay(),
             })
@@ -205,7 +205,7 @@ impl CreditDefaultSwap {
                 disc_id: disc_id.into(),
             })
             .protection(ProtectionLegSpec {
-                credit_id: credit_id.into(),
+                credit_curve_id: credit_id.into(),
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
                 settlement_delay: convention.settlement_delay(),
             })
@@ -255,7 +255,7 @@ impl CreditDefaultSwap {
                 disc_id: disc_id.into(),
             },
             protection: ProtectionLegSpec {
-                credit_id: credit_id.into(),
+                credit_curve_id: credit_id.into(),
                 recovery_rate,
                 settlement_delay: convention.settlement_delay(),
             },
@@ -372,7 +372,7 @@ impl CreditDefaultSwap {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         let disc = market.get_discount_ref(&self.premium.disc_id)?;
-        let surv = market.get_hazard_ref(&self.protection.credit_id)?;
+        let surv = market.get_hazard_ref(&self.protection.credit_curve_id)?;
         let pricer = CDSPricer::new();
 
         // Calculate NPV as protection leg PV - premium leg PV (from buyer's perspective)

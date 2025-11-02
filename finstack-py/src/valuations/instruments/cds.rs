@@ -312,7 +312,7 @@ impl PyCreditDefaultSwap {
     ///     str: Hazard curve used for protection leg.
     #[getter]
     fn credit_curve(&self) -> String {
-        self.inner.protection.credit_id.as_str().to_string()
+        self.inner.protection.credit_curve_id.as_str().to_string()
     }
 
     /// Recovery rate applied upon default.

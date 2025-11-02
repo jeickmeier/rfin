@@ -20,7 +20,7 @@ impl MetricCalculator for ExpectedLossCalculator {
         // Get hazard curve for the index from protection leg
         let hazard = context
             .curves
-            .get_hazard_ref(index.protection.credit_id.as_str())?;
+            .get_hazard_ref(index.protection.credit_curve_id.as_str())?;
         let base_date = hazard.base_date();
 
         // Calculate time to maturity in years

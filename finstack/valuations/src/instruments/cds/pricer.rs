@@ -627,7 +627,7 @@ impl CDSPricer {
         as_of: Date,
     ) -> Result<f64> {
         let disc = curves.get_discount_ref(&cds.premium.disc_id)?;
-        let surv = curves.get_hazard_ref(&cds.protection.credit_id)?;
+        let surv = curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
         let base_npv = self.npv(cds, disc, surv, as_of)?;
         let risky_pv01 = self.risky_pv01(cds, disc, surv, as_of)?;
         let bumped_npv = Money::new(risky_pv01, cds.notional.currency());
@@ -673,7 +673,7 @@ impl CDSPricer {
         as_of: Date,
     ) -> Result<Money> {
         let disc = curves.get_discount_ref(&cds.premium.disc_id)?;
-        let surv = curves.get_hazard_ref(&cds.protection.credit_id)?;
+        let surv = curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
         self.npv_with_upfront(cds, disc, surv, as_of)
     }
 

@@ -179,7 +179,7 @@ pub struct PremiumLegSpec {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ProtectionLegSpec {
     /// Credit curve identifier for default probabilities
-    pub credit_id: CurveId,
+    pub credit_curve_id: CurveId,
     /// Recovery rate (0.0 to 1.0)
     pub recovery_rate: f64,
     /// Settlement delay in business days

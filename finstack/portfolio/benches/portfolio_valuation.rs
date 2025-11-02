@@ -471,7 +471,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
         };
 
         let protection = ProtectionLegSpec {
-            credit_id: "CORP-HAZARD".into(),
+            credit_curve_id: "CORP-HAZARD".into(),
             recovery_rate: 0.40,
             settlement_delay: convention.settlement_delay(),
         };

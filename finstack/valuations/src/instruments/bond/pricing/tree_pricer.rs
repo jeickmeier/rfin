@@ -256,7 +256,7 @@ impl TreePricer {
         let mut use_rates_credit = false;
         let mut rc_tree: Option<RatesCreditTree> = None;
         let discount_curve = market_context.get_discount(&bond.disc_id)?;
-        let hazard_curve = if let Some(hid) = bond.hazard_id.as_ref() {
+        let hazard_curve = if let Some(hid) = bond.credit_curve_id.as_ref() {
             market_context.get_hazard(hid.as_str()).ok()
         } else {
             market_context
@@ -398,7 +398,7 @@ mod tests {
             settlement_days: Some(2),
             ex_coupon_days: Some(0),
             disc_id: "USD-OIS".into(),
-            hazard_id: None,
+            credit_curve_id: None,
             pricing_overrides: PricingOverrides::default().with_clean_price(98.5),
             call_put: None,
             amortization: None,

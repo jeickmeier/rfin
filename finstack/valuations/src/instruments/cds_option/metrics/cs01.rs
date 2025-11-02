@@ -136,7 +136,7 @@ mod tests {
             settlement: SettlementType::Cash,
             recovery_rate: 0.4,
             disc_id: "USD_OIS".into(),
-            credit_id: "CORP_HAZARD".into(),
+            credit_curve_id: "CORP_HAZARD".into(),
             vol_id: "CDS_VOL".into(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Default::default(),

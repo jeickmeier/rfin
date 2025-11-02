@@ -207,7 +207,7 @@ impl PyCdsOption {
     ///     str: Hazard curve for the reference entity or index.
     #[getter]
     fn credit_curve(&self) -> String {
-        self.inner.credit_id.as_str().to_string()
+        self.inner.credit_curve_id.as_str().to_string()
     }
 
     /// Instrument type enumeration.

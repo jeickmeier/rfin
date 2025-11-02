@@ -122,7 +122,7 @@ impl CDSIndexPricer {
             IndexPricing::SingleCurve => {
                 let cds = index.to_synthetic_cds();
                 let disc = curves.get_discount_ref(&cds.premium.disc_id)?;
-                let surv = curves.get_hazard_ref(&cds.protection.credit_id)?;
+                let surv = curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
                 pricer.par_spread(&cds, disc, surv, as_of)
             }
             IndexPricing::Constituents => {
@@ -131,7 +131,7 @@ impl CDSIndexPricer {
                 let mut denom_sum = 0.0; // sum_i (denom_i * notional_i)
                 for cds in self.constituent_cdss(index)? {
                     let disc = curves.get_discount_ref(&cds.premium.disc_id)?;
-                    let surv = curves.get_hazard_ref(&cds.protection.credit_id)?;
+                    let surv = curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
                     prot_sum = (prot_sum + pricer.pv_protection_leg(&cds, disc, surv, as_of)?)?;
                     let denom_per_unit = match self.config.par_spread_method {
                         ParSpreadMethod::RiskyAnnuity => {
@@ -158,14 +158,14 @@ impl CDSIndexPricer {
             IndexPricing::SingleCurve => {
                 let cds = index.to_synthetic_cds();
                 let disc = curves.get_discount_ref(&cds.premium.disc_id)?;
-                let surv = curves.get_hazard_ref(&cds.protection.credit_id)?;
+                let surv = curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
                 pricer.risky_pv01(&cds, disc, surv, as_of)
             }
             IndexPricing::Constituents => {
                 let mut sum = 0.0;
                 for cds in self.constituent_cdss(index)? {
                     let disc = curves.get_discount_ref(&cds.premium.disc_id)?;
-                    let surv = curves.get_hazard_ref(&cds.protection.credit_id)?;
+                    let surv = curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
                     sum += pricer.risky_pv01(&cds, disc, surv, as_of)?;
                 }
                 Ok(sum)
@@ -204,7 +204,7 @@ impl CDSIndexPricer {
             IndexPricing::SingleCurve => {
                 let cds = index.to_synthetic_cds();
                 let disc = curves.get_discount_ref(&cds.premium.disc_id)?;
-                let surv = curves.get_hazard_ref(&cds.protection.credit_id)?;
+                let surv = curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
                 let pv_protection = pricer.pv_protection_leg(&cds, disc, surv, as_of)?;
                 let pv_premium = pricer.pv_premium_leg(&cds, disc, surv, as_of)?;
                 Ok((pv_protection, pv_premium))
@@ -215,7 +215,7 @@ impl CDSIndexPricer {
                 let mut prem_sum = Money::new(0.0, ccy);
                 for cds in self.constituent_cdss(index)? {
                     let disc = curves.get_discount_ref(&cds.premium.disc_id)?;
-                    let surv = curves.get_hazard_ref(&cds.protection.credit_id)?;
+                    let surv = curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
                     prot_sum = (prot_sum + pricer.pv_protection_leg(&cds, disc, surv, as_of)?)?;
                     prem_sum = (prem_sum + pricer.pv_premium_leg(&cds, disc, surv, as_of)?)?;
                 }

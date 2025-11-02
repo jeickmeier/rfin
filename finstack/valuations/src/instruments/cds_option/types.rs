@@ -40,8 +40,8 @@ pub struct CdsOption {
     pub recovery_rate: f64,
     /// Discount curve identifier
     pub disc_id: finstack_core::types::CurveId,
-    /// Hazard curve identifier
-    pub credit_id: finstack_core::types::CurveId,
+    /// Credit curve identifier
+    pub credit_curve_id: finstack_core::types::CurveId,
     /// Volatility surface identifier
     pub vol_id: finstack_core::types::CurveId,
     /// Pricing overrides (including implied volatility)
@@ -85,7 +85,7 @@ impl CdsOption {
             settlement: SettlementType::Cash,
             recovery_rate: credit_params.recovery_rate,
             disc_id: disc_id.into(),
-            credit_id: credit_params.credit_curve_id.to_owned(),
+            credit_curve_id: credit_params.credit_curve_id.to_owned(),
             vol_id: vol_id.into(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
@@ -122,7 +122,7 @@ impl CdsOption {
         }
 
         // Forward spread in bp
-        let hazard_curve = curves.get_hazard_ref(&self.credit_id)?;
+        let hazard_curve = curves.get_hazard_ref(&self.credit_curve_id)?;
         let current_tenor = self.day_count.year_fraction(
             as_of,
             self.cds_maturity,
@@ -165,7 +165,7 @@ impl CdsOption {
         }
 
         // Forward spread in bp
-        let hazard_curve = curves.get_hazard_ref(&self.credit_id)?;
+        let hazard_curve = curves.get_hazard_ref(&self.credit_curve_id)?;
         let current_tenor = self.day_count.year_fraction(
             as_of,
             self.cds_maturity,
@@ -208,7 +208,7 @@ impl CdsOption {
         }
 
         // Forward spread in bp
-        let hazard_curve = curves.get_hazard_ref(&self.credit_id)?;
+        let hazard_curve = curves.get_hazard_ref(&self.credit_curve_id)?;
         let current_tenor = self.day_count.year_fraction(
             as_of,
             self.cds_maturity,
@@ -255,7 +255,7 @@ impl CdsOption {
         let r = disc.zero(t);
 
         // Forward spread in bp
-        let hazard_curve = curves.get_hazard(&self.credit_id)?;
+        let hazard_curve = curves.get_hazard(&self.credit_curve_id)?;
         let current_tenor = self.day_count.year_fraction(
             as_of,
             self.cds_maturity,

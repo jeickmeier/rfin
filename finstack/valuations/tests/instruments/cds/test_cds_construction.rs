@@ -119,7 +119,7 @@ fn test_builder_pattern() {
             disc_id: "USD-OIS".into(),
         })
         .protection(ProtectionLegSpec {
-            credit_id: "CORP".into(),
+            credit_curve_id: "CORP".into(),
             recovery_rate: 0.40,
             settlement_delay: 3,
         })
@@ -308,7 +308,7 @@ fn test_protection_leg_spec_fields() {
         "CORP-CREDIT",
     );
 
-    assert_eq!(cds.protection.credit_id.as_str(), "CORP-CREDIT");
+    assert_eq!(cds.protection.credit_curve_id.as_str(), "CORP-CREDIT");
     assert_eq!(cds.protection.recovery_rate, 0.40);
     assert_eq!(cds.protection.settlement_delay, 3);
 }

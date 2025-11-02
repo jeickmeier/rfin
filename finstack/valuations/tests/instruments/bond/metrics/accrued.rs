@@ -101,7 +101,7 @@ fn test_accrued_frn_uses_forward_rate() {
         .calendar_id_opt(None)
         .stub(StubKind::None)
         .disc_id(CurveId::new("USD-OIS"))
-        .hazard_id_opt(None)
+        .credit_curve_id_opt(None)
         .pricing_overrides(PricingOverrides::default())
         .float_opt(Some(BondFloatSpec {
             fwd_id: CurveId::new("USD-SOFR-3M"),

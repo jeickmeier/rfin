@@ -40,9 +40,9 @@ pub struct Bond {
     pub maturity: Date,
     /// Discount curve identifier for pricing.
     pub disc_id: CurveId,
-    /// Optional hazard curve identifier (default intensity). When present,
-    /// hazard-rate pricing is enabled.
-    pub hazard_id: Option<CurveId>,
+    /// Optional credit curve identifier (default intensity). When present,
+    /// credit-rate pricing is enabled.
+    pub credit_curve_id: Option<CurveId>,
     /// Pricing overrides (including quoted clean price)
     pub pricing_overrides: PricingOverrides,
     /// Optional call/put schedule (dates and redemption prices as % of par amount).
@@ -189,7 +189,7 @@ impl Bond {
             .calendar_id_opt(None)
             .stub(StubKind::None)
             .disc_id(disc_id.into())
-            .hazard_id_opt(None)
+            .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -234,7 +234,7 @@ impl Bond {
             .calendar_id_opt(None)
             .stub(convention.stub_convention())
             .disc_id(disc_id.into())
-            .hazard_id_opt(None)
+            .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -301,7 +301,7 @@ impl Bond {
             .calendar_id_opt(None)
             .stub(StubKind::None)
             .disc_id(disc_id.into())
-            .hazard_id_opt(None)
+            .credit_curve_id_opt(None)
             .pricing_overrides(pricing_overrides)
             .custom_cashflows_opt(Some(schedule))
             .attributes(Attributes::new())
@@ -669,7 +669,7 @@ mod tests {
             .issue(issue)
             .maturity(maturity)
             .disc_id(CurveId::new("USD-OIS"))
-            .hazard_id_opt(None)
+            .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .call_put_opt(None)
             .amortization_opt(None)
@@ -722,7 +722,7 @@ mod tests {
             .issue(issue)
             .maturity(maturity)
             .disc_id(CurveId::new("USD-OIS"))
-            .hazard_id_opt(None)
+            .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .call_put_opt(None)
             .amortization_opt(None)
@@ -806,7 +806,7 @@ mod tests {
             .calendar_id_opt(None)
             .stub(StubKind::None)
             .disc_id(CurveId::new("USD-OIS"))
-            .hazard_id_opt(None)
+            .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .float_opt(Some(BondFloatSpec {
                 fwd_id: CurveId::new("USD-SOFR-3M"),

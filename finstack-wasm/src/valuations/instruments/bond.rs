@@ -182,7 +182,7 @@ impl JsBond {
                 builder.pricing_overrides(PricingOverrides::default().with_clean_price(price));
         }
         if let Some(hazard) = hazard_curve {
-            builder = builder.hazard_id_opt(Some(curve_id_from_str(&hazard)));
+            builder = builder.credit_curve_id_opt(Some(curve_id_from_str(&hazard)));
         }
         if let Some(cal) = calendar_id {
             builder = builder.calendar_id_opt(Some(cal));
@@ -501,7 +501,7 @@ impl JsBond {
 
     #[wasm_bindgen(getter, js_name = hazardCurve)]
     pub fn hazard_curve(&self) -> Option<String> {
-        self.0.hazard_id.as_ref().map(|id| id.as_str().to_string())
+        self.0.credit_curve_id.as_ref().map(|id| id.as_str().to_string())
     }
 
     #[wasm_bindgen(getter, js_name = quotedCleanPrice)]

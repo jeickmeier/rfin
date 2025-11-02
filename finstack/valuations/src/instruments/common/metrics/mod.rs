@@ -18,7 +18,7 @@ mod tests;
 
 pub mod fd_greeks;
 
-pub use bucketed_cs01::{GenericBucketedCs01, HasHazardCurve};
+pub use bucketed_cs01::{GenericBucketedCs01, HasCreditCurve};
 pub use bucketed_dv01::{GenericBucketedDv01, GenericBucketedDv01WithContext, HasDiscountCurve};
 pub use fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga,
