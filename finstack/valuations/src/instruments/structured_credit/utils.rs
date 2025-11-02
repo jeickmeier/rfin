@@ -6,7 +6,6 @@
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use std::cmp::Ordering;
 use std::sync::OnceLock;
 
 use super::components::enums::CreditRating;
@@ -162,7 +161,8 @@ impl ReinvestmentManager {
             } else {
                 1.0
             };
-            pi.partial_cmp(&pj).unwrap_or(Ordering::Equal)
+            // Use total_cmp for safe float comparison (handles NaN consistently)
+            pi.total_cmp(&pj)
         });
 
         let mut selected = Vec::new();

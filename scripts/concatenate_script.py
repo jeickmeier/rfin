@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Define the paths to include (can be empty for 'include everything' mode)
 include_paths = [
-    "finstack/valuations/src/instruments/",
+    "finstack/valuations/src/",
 ]
 
 # Define patterns to exclude

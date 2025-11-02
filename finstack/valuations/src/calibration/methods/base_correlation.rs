@@ -166,8 +166,17 @@ impl BaseCorrelationCalibrator {
             ));
         }
 
+        // Validate no NaN values in detachment points before sorting
+        for (_, detach, _, _, _) in &tranche_quotes {
+            if !detach.is_finite() {
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ));
+            }
+        }
+
         // Sort by detachment point for sequential bootstrapping
-        tranche_quotes.sort_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal));
+        tranche_quotes.sort_by(|a, b| OrderedFloat(*a.1).cmp(&OrderedFloat(*b.1)));
 
         // Validate tranche quotes
         for (attach, detach, _, _, _) in &tranche_quotes {
@@ -211,8 +220,16 @@ impl BaseCorrelationCalibrator {
             };
 
             let market_ctx_ref = market_context;
+            
+            // Pre-allocate correlation points buffer to reduce allocations in objective
+            // Note: We still need to clone per evaluation due to solver API constraints,
+            // but pre-allocating capacity reduces reallocation overhead
+            let mut base_corr_points = Vec::with_capacity(solved_correlations.len() + 2);
+            base_corr_points.extend_from_slice(&solved_correlations);
+            
             let objective = |trial_correlation: f64| -> f64 {
-                let mut temp_corr_points = solved_correlations.clone();
+                // Reuse pre-allocated buffer and only update last point
+                let mut temp_corr_points = base_corr_points.clone();
                 temp_corr_points.push((*detach_pct, trial_correlation));
 
                 // Ensure minimum curve requirements (need at least 2 points)
@@ -229,10 +246,12 @@ impl BaseCorrelationCalibrator {
                 };
 
                 let mut temp_market_ctx = market_ctx_ref.clone();
-                let _ = temp_market_ctx.update_base_correlation_curve(
+                if !temp_market_ctx.update_base_correlation_curve(
                     &synthetic_tranche.credit_index_id,
                     temp_base_corr_curve,
-                );
+                ) {
+                    return crate::calibration::PENALTY;
+                }
 
                 match pricing_model.price_tranche(
                     &synthetic_tranche,

@@ -71,8 +71,8 @@ impl GbmWithDividends {
     ///
     /// Panics if dividend times are not sorted in ascending order.
     pub fn new(params: GbmParams, mut dividends: Vec<(f64, Dividend)>) -> Self {
-        // Sort dividends by time
-        dividends.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        // Sort dividends by time using total_cmp for safe float comparison
+        dividends.sort_by(|a, b| a.0.total_cmp(&b.0));
 
         // Validate sorted order
         for i in 1..dividends.len() {

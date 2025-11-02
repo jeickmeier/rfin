@@ -456,8 +456,8 @@ impl CDSTranchePricer {
 
         // If issuer marginals are effectively identical, use homogeneous path
         if let (Some(&min_pd), Some(&max_pd)) = (
-            pd_i.iter().min_by(|a, b| a.partial_cmp(b).unwrap()),
-            pd_i.iter().max_by(|a, b| a.partial_cmp(b).unwrap()),
+            pd_i.iter().min_by(|a, b| a.total_cmp(b)),
+            pd_i.iter().max_by(|a, b| a.total_cmp(b)),
         ) {
             if (max_pd - min_pd).abs() <= self.params.probability_clip {
                 let num_constituents = index_data.num_constituents as usize;

@@ -227,7 +227,10 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 }
 
                 // Objective priced via instrument pricer
-                let knots_clone = knots.clone();
+                // Pre-allocate knots buffer to reduce allocations in objective
+                let mut knots_with_capacity = Vec::with_capacity(knots.len() + 1);
+                knots_with_capacity.extend_from_slice(&knots);
+                
                 let base_ctx_ref = base_context;
                 let notional = Money::new(1_000_000.0, self.currency);
                 let disc_id_clone = disc_id.clone();
@@ -239,10 +242,11 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     }
 
                     // Build temporary inflation curve with current knots + guessed point
-                    let mut temp_knots = knots_clone.clone();
+                    // Reuse pre-allocated buffer
+                    let mut temp_knots = knots_with_capacity.clone();
                     temp_knots.push((t, cpi_guess));
-                    temp_knots
-                        .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+                    // Sort by time using total_cmp for safe float comparison
+                    temp_knots.sort_by(|a, b| a.0.total_cmp(&b.0));
 
                     let temp_curve = match InflationCurve::builder(CALIB_INDEX_ID)
                         .base_cpi(temp_knots.first().map(|&(_, v)| v).unwrap_or(0.0))

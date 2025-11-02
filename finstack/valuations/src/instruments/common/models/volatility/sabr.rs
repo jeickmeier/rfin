@@ -460,7 +460,7 @@ impl SABRCalibrator {
         let min_rate = forward.min(
             *strikes
                 .iter()
-                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .min_by(|a, b| a.total_cmp(b))
                 .unwrap(),
         );
 
@@ -487,7 +487,7 @@ impl SABRCalibrator {
         let min_rate = forward.min(
             *strikes
                 .iter()
-                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .min_by(|a, b| a.total_cmp(b))
                 .unwrap(),
         );
 
@@ -941,11 +941,11 @@ mod tests {
         // Just check that we get different vols (smile exists)
         let vol_range = vols
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a, b| a.total_cmp(b))
             .unwrap()
             - vols
                 .iter()
-                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .min_by(|a, b| a.total_cmp(b))
                 .unwrap();
         assert!(vol_range > 0.001); // There is a smile
     }
@@ -1092,11 +1092,11 @@ mod tests {
         // Check all ATM-like volatilities are similar with practical tolerance
         let vol_range = vols
             .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .max_by(|a, b| a.total_cmp(b))
             .unwrap()
             - vols
                 .iter()
-                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .min_by(|a, b| a.total_cmp(b))
                 .unwrap();
         assert!(vol_range < 1e-2); // Practical tolerance for numerical precision in ATM case
     }

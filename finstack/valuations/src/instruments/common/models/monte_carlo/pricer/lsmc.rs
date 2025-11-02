@@ -79,6 +79,13 @@ impl BasisFunctions for PolynomialBasis {
     }
 
     fn evaluate(&self, spot: f64, out: &mut [f64]) {
+        debug_assert_eq!(
+            out.len(),
+            self.num_basis(),
+            "Buffer size mismatch: expected {}, got {}",
+            self.num_basis(),
+            out.len()
+        );
         out[0] = 1.0;
         for i in 1..=self.degree {
             out[i] = out[i - 1] * spot;
@@ -125,6 +132,13 @@ impl BasisFunctions for LaguerreBasis {
     }
 
     fn evaluate(&self, spot: f64, out: &mut [f64]) {
+        debug_assert_eq!(
+            out.len(),
+            self.num_basis(),
+            "Buffer size mismatch: expected {}, got {}",
+            self.num_basis(),
+            out.len()
+        );
         // Laguerre polynomials: L_0(x)=1, L_1(x)=1-x, L_2(x)=1-2x+x²/2, ...
         // Applied to x = S/K (normalized spot by strike)
         let x = spot / self.strike;

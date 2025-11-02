@@ -75,8 +75,8 @@ pub fn pca_ordering(correlation: &[f64], num_factors: usize) -> (Vec<f64>, Vec<f
         .map(|(i, &val)| (i, val))
         .collect();
 
-    // Sort by eigenvalue (descending)
-    eigenvalues.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    // Sort by eigenvalue (descending) using total_cmp for safe float comparison
+    eigenvalues.sort_by(|a, b| b.1.total_cmp(&a.1));
 
     // Build permutation (original index → sorted index)
     let permutation: Vec<usize> = eigenvalues.iter().map(|(i, _)| *i).collect();

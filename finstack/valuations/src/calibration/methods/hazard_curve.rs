@@ -134,7 +134,8 @@ impl HazardCurveCalibrator {
             ));
         }
 
-        cds_quotes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+        // Sort by maturity using total_cmp for safe float comparison
+        cds_quotes.sort_by(|a, b| a.0.cmp(&b.0));
 
         // Sequentially solve hazards per tenor to match market PV≈0
         let mut hazard_knots: Vec<(f64, f64)> = Vec::new();
@@ -175,10 +176,14 @@ impl HazardCurveCalibrator {
             );
 
             let pricer = CDSPricer::new();
-            let hazard_so_far = hazard_knots.clone();
+            
+            // Pre-allocate hazard knots buffer to reduce allocations in objective
+            let mut hazard_so_far = Vec::with_capacity(hazard_knots.len() + 1);
+            hazard_so_far.extend_from_slice(&hazard_knots);
 
             let objective = |trial_lambda: f64| -> f64 {
                 // Build temporary hazard curve with prior segments + trial point
+                // Reuse pre-allocated buffer
                 let mut temp_knots = hazard_so_far.clone();
                 temp_knots.push((tenor_years, trial_lambda.max(0.0)));
 
