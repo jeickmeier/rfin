@@ -64,7 +64,9 @@ use crate::money::Money;
 /// Objects that can be present-valued against a `Discount` curve.
 ///
 /// Provides a unified interface for NPV calculations across different
-/// cashflow representations and instrument types.
+/// cashflow representations and instrument types. Implemented for any
+/// type that implements `AsRef<[(Date, Money)]>` (including `&[(..)]`
+/// and `Vec<(..)>`).
 pub trait Discountable {
     /// Output type for the NPV calculation.
     type PVOutput;
@@ -115,19 +117,14 @@ fn npv(
     npv_static(disc, base, dc, flows)
 }
 
-impl Discountable for &[(Date, Money)] {
+impl<T> Discountable for T
+where
+    T: AsRef<[(Date, Money)]>,
+{
     type PVOutput = crate::Result<Money>;
 
     fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> crate::Result<Money> {
-        npv(disc, base, dc, self)
-    }
-}
-
-impl Discountable for Vec<(Date, Money)> {
-    type PVOutput = crate::Result<Money>;
-
-    fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> crate::Result<Money> {
-        npv(disc, base, dc, self)
+        npv(disc, base, dc, self.as_ref())
     }
 }
 

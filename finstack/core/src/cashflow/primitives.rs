@@ -16,6 +16,14 @@ use crate::dates::Date;
 use crate::error::InputError;
 use crate::money::Money;
 
+#[inline]
+fn ensure_nonzero(amount: &Money) -> crate::Result<()> {
+    if amount.amount() == 0.0 {
+        return Err(InputError::Invalid.into());
+    }
+    Ok(())
+}
+
 /// Enumeration of cash-flow kinds for classification and ordering.
 ///
 /// Used to distinguish between different types of cashflows for
@@ -67,9 +75,7 @@ impl CashFlow {
     ///
     /// See unit tests and `examples/` for usage.
     pub fn fixed_cf(date: Date, amount: Money) -> crate::Result<Self> {
-        if amount.amount() == 0.0 {
-            return Err(InputError::Invalid.into());
-        }
+        ensure_nonzero(&amount)?;
         Ok(Self {
             date,
             reset_date: None,
@@ -86,9 +92,7 @@ impl CashFlow {
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
     pub fn floating_cf(date: Date, amount: Money, reset_date: Option<Date>) -> crate::Result<Self> {
-        if amount.amount() == 0.0 {
-            return Err(InputError::Invalid.into());
-        }
+        ensure_nonzero(&amount)?;
         Ok(Self {
             date,
             reset_date: Some(reset_date.unwrap_or(date)),
@@ -105,9 +109,7 @@ impl CashFlow {
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
     pub fn pik_cf(date: Date, amount: Money) -> crate::Result<Self> {
-        if amount.amount() == 0.0 {
-            return Err(InputError::Invalid.into());
-        }
+        ensure_nonzero(&amount)?;
         Ok(Self {
             date,
             reset_date: None,
@@ -124,9 +126,7 @@ impl CashFlow {
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
     pub fn amort_cf(date: Date, amount: Money) -> crate::Result<Self> {
-        if amount.amount() == 0.0 {
-            return Err(InputError::Invalid.into());
-        }
+        ensure_nonzero(&amount)?;
         Ok(Self {
             date,
             reset_date: None,
@@ -141,9 +141,7 @@ impl CashFlow {
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
     pub fn principal_exchange(date: Date, amount: Money) -> crate::Result<Self> {
-        if amount.amount() == 0.0 {
-            return Err(InputError::Invalid.into());
-        }
+        ensure_nonzero(&amount)?;
         Ok(Self {
             date,
             reset_date: None,
@@ -158,9 +156,7 @@ impl CashFlow {
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
     pub fn fee(date: Date, amount: Money) -> crate::Result<Self> {
-        if amount.amount() == 0.0 {
-            return Err(InputError::Invalid.into());
-        }
+        ensure_nonzero(&amount)?;
         Ok(Self {
             date,
             reset_date: None,
@@ -294,7 +290,12 @@ impl Notional {
                 }
                 Ok(())
             }
-            AmortizationSpec::PercentPerPeriod { .. } => Ok(()),
+            AmortizationSpec::PercentPerPeriod { pct } => {
+                if !pct.is_finite() || *pct < 0.0 || *pct > 1.0 {
+                    return Err(InputError::Invalid.into());
+                }
+                Ok(())
+            }
             AmortizationSpec::CustomPrincipal { items } => {
                 for (_d, amt) in items {
                     if amt.currency() != self.initial.currency() {
@@ -363,5 +364,38 @@ mod tests {
         assert!(CashFlow::floating_cf(date, zero, None).is_err());
         assert!(CashFlow::pik_cf(date, zero).is_err());
         assert!(CashFlow::amort_cf(date, zero).is_err());
+    }
+
+    #[test]
+    fn percent_per_period_validation_bounds() {
+        let initial = Money::new(1_000.0, Currency::USD);
+
+        // Valid edge 0.0
+        let n0 = Notional {
+            initial,
+            amort: AmortizationSpec::PercentPerPeriod { pct: 0.0 },
+        };
+        assert!(n0.validate().is_ok());
+
+        // Valid edge 1.0
+        let n1 = Notional {
+            initial,
+            amort: AmortizationSpec::PercentPerPeriod { pct: 1.0 },
+        };
+        assert!(n1.validate().is_ok());
+
+        // Invalid: negative
+        let nneg = Notional {
+            initial,
+            amort: AmortizationSpec::PercentPerPeriod { pct: -0.01 },
+        };
+        assert!(nneg.validate().is_err());
+
+        // Invalid: greater than 1
+        let ngt = Notional {
+            initial,
+            amort: AmortizationSpec::PercentPerPeriod { pct: 1.01 },
+        };
+        assert!(ngt.validate().is_err());
     }
 }

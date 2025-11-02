@@ -143,6 +143,9 @@ use crate::math::solver::{HybridSolver, Solver};
 /// - Cash flows vector is empty
 /// - Day count calculation fails (invalid dates)
 ///
+/// # Notes
+/// - Dates prior to `base_date` are allowed; corresponding year-fractions are treated as negative.
+///
 /// # References
 ///
 /// - Brealey, R. A., Myers, S. C., & Allen, F. (2020). *Principles of Corporate Finance*
@@ -156,7 +159,7 @@ pub fn npv(
     day_count: Option<DayCount>,
 ) -> crate::Result<f64> {
     if cash_flows.is_empty() {
-        return Ok(0.0);
+        return Err(InputError::TooFewPoints.into());
     }
 
     let base = base_date.unwrap_or(cash_flows[0].0);
@@ -164,11 +167,27 @@ pub fn npv(
     let mut sum = 0.0;
 
     for (date, amount) in cash_flows {
-        let years = dc
-            .year_fraction(base, *date, DayCountCtx::default())
-            .map_err(|e| {
-                crate::Error::Validation(format!("Day count calculation failed: {}", e))
-            })?;
+        let years = if *date == base {
+            0.0
+        } else if *date > base {
+            dc
+                .year_fraction(base, *date, DayCountCtx::default())
+                .map_err(|e| {
+                    crate::Error::Validation(format!(
+                        "Day count calculation failed: {}",
+                        e
+                    ))
+                })?
+        } else {
+            -dc
+                .year_fraction(*date, base, DayCountCtx::default())
+                .map_err(|e| {
+                    crate::Error::Validation(format!(
+                        "Day count calculation failed: {}",
+                        e
+                    ))
+                })?
+        };
         let discount_factor = (1.0 + discount_rate).powf(years);
         sum += amount / discount_factor;
     }
@@ -294,9 +313,29 @@ pub fn irr_periodic(amounts: &[f64], guess: Option<f64>) -> crate::Result<f64> {
         .with_tolerance(1e-6)
         .with_max_iterations(100);
 
-    solver
-        .solve(npv, initial_guess)
-        .map_err(|e| crate::Error::Validation(format!("IRR calculation failed: {}", e)))
+    // Try the user-provided guess first, then fall back to a small set of seeds to
+    // improve robustness near challenging regions (e.g., r ≈ -1.0 or large r).
+    let seeds: &[f64] = &[
+        initial_guess,
+        -0.99,
+        -0.9,
+        -0.75,
+        -0.5,
+        -0.25,
+        0.01,
+        0.05,
+        0.1,
+        0.2,
+        0.5,
+        1.0,
+        2.0,
+    ];
+    for &g in seeds {
+        if let Ok(root) = solver.solve(npv, g) {
+            return Ok(root);
+        }
+    }
+    Err(crate::Error::Validation("IRR calculation failed: no convergence".into()))
 }
 
 #[cfg(test)]
@@ -328,6 +367,26 @@ mod tests {
     }
 
     #[test]
+    fn test_npv_allows_past_and_future_dates() {
+        let base = create_date(2025, Month::January, 1).unwrap();
+        let flows = vec![
+            (create_date(2024, Month::July, 1).unwrap(), -50.0), // past relative to base
+            (create_date(2025, Month::July, 1).unwrap(), 55.0),  // future relative to base
+        ];
+        // Should not error; just compute signed year fractions
+        let pv = npv(&flows, 0.05, Some(base), Some(DayCount::Act365F)).unwrap();
+        // With positive rate and inflow slightly bigger than outflow, PV should be > 0
+        assert!(pv > 0.0);
+    }
+
+    #[test]
+    fn test_npv_errors_on_empty_flows_now() {
+        let flows: Vec<(Date, f64)> = vec![];
+        let err = npv(&flows, 0.05, None, None).unwrap_err();
+        let _ = format!("{}", err);
+    }
+
+    #[test]
     fn test_irr_periodic() {
         // Simple case: invest 100, get 110 back after 1 period
         let amounts = vec![-100.0, 110.0];
@@ -342,6 +401,35 @@ mod tests {
         let irr = irr_periodic(&amounts, None).unwrap();
         // Should be close to 7.71% per period
         assert!(irr > 0.07 && irr < 0.08);
+    }
+
+    #[test]
+    fn test_irr_periodic_near_minus_100() {
+        // Invest 100, get 1 back after one period → IRR close to -99%
+        let amounts = vec![-100.0, 1.0];
+        let irr = irr_periodic(&amounts, Some(-0.5)).unwrap();
+        assert!(irr < -0.9);
+        // NPV at computed IRR should be ~0
+        let f = |r: f64| amounts
+            .iter()
+            .enumerate()
+            .map(|(i, &a)| a / (1.0 + r).powi(i as i32))
+            .sum::<f64>();
+        assert!(f(irr).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_irr_periodic_high_positive() {
+        // Invest 100, get 300 next period → ~200% IRR
+        let amounts = vec![-100.0, 300.0];
+        let irr = irr_periodic(&amounts, Some(0.5)).unwrap();
+        assert!(irr > 1.0);
+        let f = |r: f64| amounts
+            .iter()
+            .enumerate()
+            .map(|(i, &a)| a / (1.0 + r).powi(i as i32))
+            .sum::<f64>();
+        assert!(f(irr).abs() < 1e-6);
     }
 
     #[test]

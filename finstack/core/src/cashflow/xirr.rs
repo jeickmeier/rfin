@@ -34,7 +34,9 @@
 //! # Implementation
 //!
 //! Uses Act/365F day count convention (matching Excel XIRR) and hybrid
-//! Newton-Brent solver for robust convergence.
+//! Newton-Brent solver for robust convergence. Inputs are internally
+//! sorted by date ascending and the earliest date is used as the base,
+//! making results invariant to input order.
 //!
 //! # Examples
 //!
@@ -91,7 +93,7 @@ use crate::math::solver::{HybridSolver, Solver};
 ///
 /// # Arguments
 ///
-/// * `cash_flows` - Vector of (date, amount) tuples in any order
+/// * `cash_flows` - Vector of (date, amount) tuples in any order (internally sorted; earliest date used as base)
 /// * `guess` - Optional initial guess for IRR (defaults to 0.1 = 10% annual)
 ///
 /// # Returns
@@ -176,19 +178,20 @@ pub fn xirr(cash_flows: &[(Date, f64)], guess: Option<f64>) -> crate::Result<f64
         return Err(InputError::Invalid.into());
     }
 
-    let first_date = cash_flows[0].0;
+    // Sort flows by date and use earliest as the base date (Excel/GIPS semantics).
+    let mut flows = cash_flows.to_vec();
+    flows.sort_by_key(|(d, _)| *d);
+
+    let first_date = flows[0].0;
     let dc = DayCount::Act365F; // Standard day count for XIRR
 
-    // Precompute (year_fraction, amount) once for performance
-    let years_and_amounts: Vec<(f64, f64)> = cash_flows
-        .iter()
-        .map(|&(date, amount)| {
-            let years = dc
-                .year_fraction(first_date, date, DayCountCtx::default())
-                .unwrap_or(0.0);
-            (years, amount)
-        })
-        .collect();
+    // Precompute (year_fraction, amount) once for performance and
+    // propagate any day-count errors rather than masking/panicking.
+    let mut years_and_amounts: Vec<(f64, f64)> = Vec::with_capacity(flows.len());
+    for (date, amount) in flows.iter().copied() {
+        let years = dc.year_fraction(first_date, date, DayCountCtx::default())?;
+        years_and_amounts.push((years, amount));
+    }
 
     // NPV function for root finding
     let npv = |rate: f64| -> f64 {
@@ -201,7 +204,26 @@ pub fn xirr(cash_flows: &[(Date, f64)], guess: Option<f64>) -> crate::Result<f64
     };
 
     // Use HybridSolver for Newton-Raphson with automatic Brent fallback
-    let initial_guess = guess.unwrap_or(0.1);
+    // Choose an initial guess by evaluating a small grid if none provided.
+    let initial_guess = match guess {
+        Some(g) => g,
+        None => {
+            let candidates: &[f64] = &[-0.5, 0.01, 0.05, 0.1, 0.2, 0.5, 1.0];
+            let mut best = 0.1;
+            let mut best_abs = f64::INFINITY;
+            for &g in candidates {
+                let val = npv(g);
+                if val.is_finite() {
+                    let a = val.abs();
+                    if a < best_abs {
+                        best_abs = a;
+                        best = g;
+                    }
+                }
+            }
+            best
+        }
+    };
     let solver = HybridSolver::new()
         .with_tolerance(1e-6)
         .with_max_iterations(100);
@@ -272,6 +294,27 @@ mod tests {
 
         let result = xirr(&flows, None).unwrap();
         assert!(result > 0.1 && result < 0.2); // Should be between 10% and 20%
+    }
+
+    #[test]
+    fn test_xirr_unsorted_inputs_equivalence() {
+        // Same cashflows, different order; result should be equivalent
+        let sorted = vec![
+            (
+                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                -100_000.0,
+            ),
+            (
+                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                110_000.0,
+            ),
+        ];
+        let mut unsorted = sorted.clone();
+        unsorted.reverse();
+
+        let r1 = xirr(&sorted, None).unwrap();
+        let r2 = xirr(&unsorted, None).unwrap();
+        assert!((r1 - r2).abs() < 1e-8);
     }
 
     #[test]
