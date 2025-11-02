@@ -1,6 +1,7 @@
 //! Pricing overrides for market-quoted instruments.
 
 use finstack_core::money::Money;
+use finstack_core::dates::Date;
 
 /// Optional parameters that override model pricing with market quotes.
 #[derive(Clone, Debug, Default)]
@@ -46,6 +47,9 @@ pub struct PricingOverrides {
     ///
     /// When set, overrides both standard and adaptive rate bump calculations.
     pub rate_bump_bp: Option<f64>,
+    /// Term loan specific overrides
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub term_loan: Option<TermLoanOverrides>,
 }
 
 impl PricingOverrides {
@@ -186,6 +190,21 @@ impl PricingOverrides {
         }
         Ok(())
     }
+}
+
+/// Term loan specific overrides for covenants and schedule adjustments.
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+pub struct TermLoanOverrides {
+    /// Additional margin step-ups by date (bps)
+    pub margin_add_bp_by_date: Vec<(Date, i32)>,
+    /// Force PIK toggles by date
+    pub pik_toggle_by_date: Vec<(Date, bool)>,
+    /// Extra cash sweeps by date
+    pub extra_cash_sweeps: Vec<(Date, Money)>,
+    /// Draw stop date (earliest date after which draws are blocked)
+    pub draw_stop_date: Option<Date>,
 }
 
 #[cfg(test)]

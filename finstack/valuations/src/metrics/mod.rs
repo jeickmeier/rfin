@@ -100,6 +100,7 @@ pub fn standard_registry() -> MetricRegistry {
         &mut registry,
     );
     crate::instruments::repo::metrics::register_repo_metrics(&mut registry);
+    crate::instruments::term_loan::metrics::register_term_loan_metrics(&mut registry);
     crate::instruments::revolving_credit::metrics::register_revolving_credit_metrics(&mut registry);
     crate::instruments::basis_swap::metrics::register_basis_swap_metrics(&mut registry);
     crate::instruments::trs::metrics::register_trs_metrics(&mut registry);

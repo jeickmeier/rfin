@@ -93,6 +93,8 @@ pub enum InstrumentType {
     RangeAccrual = 39,
     /// FX barrier option (FX option with knock-in/out barrier).
     FxBarrierOption = 40,
+    /// Term loan (optionally Delayed Draw Term Loan)
+    TermLoan = 41,
 }
 
 impl InstrumentType {
@@ -139,6 +141,7 @@ impl InstrumentType {
             InstrumentType::CliquetOption => "CliquetOption",
             InstrumentType::RangeAccrual => "RangeAccrual",
             InstrumentType::FxBarrierOption => "FxBarrierOption",
+            InstrumentType::TermLoan => "TermLoan",
         }
     }
 }
@@ -183,6 +186,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::CliquetOption => "cliquet_option",
             InstrumentType::RangeAccrual => "range_accrual",
             InstrumentType::FxBarrierOption => "fx_barrier_option",
+            InstrumentType::TermLoan => "term_loan",
         };
         write!(f, "{}", label)
     }
@@ -236,6 +240,7 @@ impl std::str::FromStr for InstrumentType {
             "cliquet_option" | "cliquet" => Ok(InstrumentType::CliquetOption),
             "range_accrual" | "range_accrual_note" => Ok(InstrumentType::RangeAccrual),
             "fx_barrier_option" | "fx_barrier" => Ok(InstrumentType::FxBarrierOption),
+            "term_loan" | "termloan" | "loan_term" => Ok(InstrumentType::TermLoan),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }
@@ -801,6 +806,13 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::Discounting),
         Box::new(
             crate::instruments::revolving_credit::pricer::RevolvingCreditDiscountingPricer::new(),
+        ),
+    );
+    // Term Loan (including DDTL)
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::TermLoan, ModelKey::Discounting),
+        Box::new(
+            crate::instruments::term_loan::pricing::TermLoanDiscountingPricer::default(),
         ),
     );
     #[cfg(feature = "mc")]
