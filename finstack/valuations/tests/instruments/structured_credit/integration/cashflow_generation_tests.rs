@@ -13,7 +13,7 @@ use finstack_core::types::InstrumentId;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::structured_credit::{
     AssetPool, AssetType, CreditRating, DealType, ManagementFeeType, PaymentCalculation,
-    PaymentRecipient, PaymentRule, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority,
+    PaymentRecipient, Recipient, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority,
     TrancheStructure, WaterfallEngine,
 };
 use time::Month;
@@ -95,17 +95,15 @@ fn create_test_tranches() -> TrancheStructure {
 
 fn create_test_waterfall() -> WaterfallEngine {
     let fees = vec![
-        PaymentRule::new(
+        Recipient::new(
             "trustee_fees",
-            1,
             PaymentRecipient::ServiceProvider("Trustee".to_string()),
             PaymentCalculation::FixedAmount {
                 amount: Money::new(12_500.0, Currency::USD),
             },
         ),
-        PaymentRule::new(
+        Recipient::new(
             "senior_mgmt_fee",
-            2,
             PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
             PaymentCalculation::PercentageOfCollateral {
                 rate: 0.0040,

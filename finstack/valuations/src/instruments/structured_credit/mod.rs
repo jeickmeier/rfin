@@ -175,6 +175,7 @@ pub mod config;
 pub mod instrument_trait;
 pub mod metrics;
 pub mod pricer;
+pub mod templates;
 pub mod types;
 pub mod utils;
 
@@ -261,6 +262,10 @@ pub use components::{
     CreditRating,
     DealType,
     DefaultModelSpec,
+    // Diversion system
+    DiversionCondition,
+    DiversionEngine,
+    DiversionRule,
     ManagementFeeType,
     // Market context
     MarketConditions,
@@ -269,11 +274,12 @@ pub use components::{
     PaymentMode,
     PaymentRecipient,
     PaymentRecord,
-    PaymentRule,
+    PaymentType,
     PoolAsset,
     PoolStats,
     // Behavioral model specs (single source of truth)
     PrepaymentModelSpec,
+    Recipient,
     RecoveryModelSpec,
     ReinvestmentCriteria,
     ReinvestmentPeriod,
@@ -291,10 +297,17 @@ pub use components::{
     TrancheValuation,
     TrancheValuationExt,
     TriggerConsequence,
+    // Validation
+    ValidationError,
     WaterfallBuilder,
     // Waterfall
     WaterfallEngine,
     WaterfallResult,
+    WaterfallTier,
+    WaterfallValidator,
+    AllocationMode,
+    get_validation_errors,
+    is_valid_waterfall_spec,
 };
 
 pub use utils::months_between;
@@ -396,7 +409,11 @@ pub use utils::{
 };
 
 // ============================================================================
-// Type aliases for backward compatibility
+// Waterfall Templates
 // ============================================================================
 
-pub type StructuredCreditWaterfall = WaterfallEngine;
+pub use templates::{
+    available_templates, clo_2_0_template, cmbs_standard_template, cre_operating_company_template,
+    get_template, WaterfallTemplate,
+};
+

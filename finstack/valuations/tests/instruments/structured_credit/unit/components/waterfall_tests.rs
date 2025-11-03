@@ -2,16 +2,17 @@
 //!
 //! Tests cover:
 //! - Waterfall builder construction
-//! - Payment rule ordering
+//! - Tier-based payment ordering
 //! - Sequential distribution logic
+//! - Pro-rata distribution logic
 //! - OC/IC diversion triggers
 //! - Payment calculation methods
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
-    ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRule, WaterfallBuilder,
-    WaterfallEngine,
+    AllocationMode, ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentType,
+    Recipient, WaterfallBuilder, WaterfallEngine, WaterfallTier,
 };
 
 // ============================================================================
@@ -22,215 +23,247 @@ use finstack_valuations::instruments::structured_credit::{
 fn test_waterfall_builder_creates_proper_priority_order() {
     // Arrange & Act
     let waterfall = WaterfallBuilder::new(Currency::USD)
-        .add_senior_expenses(Money::new(25_000.0, Currency::USD), "Trustee")
-        .add_management_fee(0.004, ManagementFeeType::Senior)
-        .add_tranche_interest("CLASS_A", true)
-        .add_tranche_principal("CLASS_A")
-        .add_equity_distribution()
+        .add_tier(
+            WaterfallTier::new("fees", 1, PaymentType::Fee)
+                .add_recipient(Recipient::new(
+                    "trustee",
+                    PaymentRecipient::ServiceProvider("Trustee".into()),
+                    PaymentCalculation::FixedAmount {
+                        amount: Money::new(25_000.0, Currency::USD),
+                    },
+                )),
+        )
+        .add_tier(
+            WaterfallTier::new("interest", 2, PaymentType::Interest)
+                .add_recipient(Recipient::tranche_interest("class_a_int", "CLASS_A")),
+        )
+        .add_tier(
+            WaterfallTier::new("principal", 3, PaymentType::Principal)
+                .add_recipient(Recipient::tranche_principal("class_a_prin", "CLASS_A", None)),
+        )
         .build();
 
     // Assert
-    assert_eq!(waterfall.payment_rules.len(), 5);
+    assert_eq!(waterfall.tiers.len(), 3);
 
-    // Verify priority order (1, 2, 3, 4, 5)
-    for (i, rule) in waterfall.payment_rules.iter().enumerate() {
-        assert_eq!(rule.priority, (i + 1) as u32);
+    // Verify priority order (1, 2, 3)
+    for (i, tier) in waterfall.tiers.iter().enumerate() {
+        assert_eq!(tier.priority, i + 1);
     }
 }
 
 #[test]
-fn test_waterfall_builder_fee_types() {
+fn test_waterfall_builder_tier_types() {
     // Arrange & Act
     let waterfall = WaterfallBuilder::new(Currency::USD)
-        .add_management_fee(0.004, ManagementFeeType::Senior)
-        .add_management_fee(0.002, ManagementFeeType::Subordinated)
+        .add_tier(
+            WaterfallTier::new("fees", 1, PaymentType::Fee)
+                .add_recipient(Recipient::new(
+                    "mgmt",
+                    PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
+                    PaymentCalculation::PercentageOfCollateral {
+                        rate: 0.004,
+                        annualized: true,
+                    },
+                )),
+        )
+        .add_tier(
+            WaterfallTier::new("interest", 2, PaymentType::Interest)
+                .add_recipient(Recipient::tranche_interest("int", "A")),
+        )
         .build();
 
     // Assert
-    assert_eq!(waterfall.payment_rules.len(), 2);
-
-    // Verify fee recipients
-    match &waterfall.payment_rules[0].recipient {
-        PaymentRecipient::ManagerFee(ManagementFeeType::Senior) => {}
-        _ => panic!("Expected senior management fee"),
-    }
-
-    match &waterfall.payment_rules[1].recipient {
-        PaymentRecipient::ManagerFee(ManagementFeeType::Subordinated) => {}
-        _ => panic!("Expected subordinated management fee"),
-    }
+    assert_eq!(waterfall.tiers.len(), 2);
+    assert_eq!(waterfall.tiers[0].payment_type, PaymentType::Fee);
+    assert_eq!(waterfall.tiers[1].payment_type, PaymentType::Interest);
 }
 
 #[test]
-fn test_waterfall_builder_tranche_payments() {
+fn test_waterfall_tier_divertible() {
     // Arrange & Act
     let waterfall = WaterfallBuilder::new(Currency::USD)
-        .add_tranche_interest("A", false)
-        .add_tranche_interest("B", true) // Divertible
-        .add_tranche_principal("A")
+        .add_tier(
+            WaterfallTier::new("interest", 1, PaymentType::Interest)
+                .divertible(false)
+                .add_recipient(Recipient::tranche_interest("a_int", "A")),
+        )
+        .add_tier(
+            WaterfallTier::new("principal", 2, PaymentType::Principal)
+                .divertible(true)
+                .add_recipient(Recipient::tranche_principal("a_prin", "A", None)),
+        )
         .build();
 
     // Assert
-    assert_eq!(waterfall.payment_rules.len(), 3);
-
-    // Check divertible flag
-    assert!(!waterfall.payment_rules[0].divertible); // A interest not divertible
-    assert!(waterfall.payment_rules[1].divertible); // B interest divertible
-}
-
-#[test]
-fn test_waterfall_builder_coverage_triggers() {
-    // Arrange & Act
-    let waterfall = WaterfallBuilder::new(Currency::USD)
-        .add_tranche_interest("A", true)
-        .add_oc_ic_trigger("A", Some(1.25), Some(1.20))
-        .build();
-
-    // Assert
-    assert_eq!(waterfall.coverage_triggers.len(), 1);
-    assert_eq!(waterfall.coverage_triggers[0].tranche_id, "A");
-    assert_eq!(waterfall.coverage_triggers[0].oc_trigger, Some(1.25));
-    assert_eq!(waterfall.coverage_triggers[0].ic_trigger, Some(1.20));
+    assert!(!waterfall.tiers[0].divertible);
+    assert!(waterfall.tiers[1].divertible);
 }
 
 // ============================================================================
-// Payment Rule Tests
+// Payment Priority Tests
 // ============================================================================
 
 #[test]
-fn test_payment_rule_creation() {
-    // Arrange & Act
-    let rule = PaymentRule::new(
-        "test_fee",
-        1,
-        PaymentRecipient::ServiceProvider("Trustee".to_string()),
-        PaymentCalculation::FixedAmount {
-            amount: Money::new(50_000.0, Currency::USD),
-        },
-    );
-
-    // Assert
-    assert_eq!(rule.id, "test_fee");
-    assert_eq!(rule.priority, 1);
-    assert!(!rule.divertible);
-}
-
-#[test]
-fn test_payment_rule_divertible_flag() {
-    // Arrange & Act
-    let rule = PaymentRule::new(
-        "equity_payment",
-        5,
-        PaymentRecipient::Equity,
-        PaymentCalculation::ResidualCash,
-    )
-    .divertible();
-
-    // Assert
-    assert!(rule.divertible);
-}
-
-// ============================================================================
-// Waterfall Engine Tests
-// ============================================================================
-
-#[test]
-fn test_waterfall_engine_sorts_by_priority() {
+fn test_payment_priority_ordering() {
     // Arrange
     let mut waterfall = WaterfallEngine::new(Currency::USD);
 
-    // Add rules out of order
-    waterfall = waterfall.add_rule(PaymentRule::new(
-        "third",
-        3,
-        PaymentRecipient::Equity,
-        PaymentCalculation::ResidualCash,
-    ));
-    waterfall = waterfall.add_rule(PaymentRule::new(
-        "first",
-        1,
-        PaymentRecipient::ServiceProvider("Trustee".to_string()),
-        PaymentCalculation::FixedAmount {
-            amount: Money::new(10_000.0, Currency::USD),
-        },
-    ));
-    waterfall = waterfall.add_rule(PaymentRule::new(
-        "second",
-        2,
-        PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
-        PaymentCalculation::PercentageOfCollateral {
-            rate: 0.004,
-            annualized: true,
-        },
-    ));
+    waterfall = waterfall.add_tier(
+        WaterfallTier::new("third", 3, PaymentType::Residual)
+            .add_recipient(Recipient::new(
+                "equity",
+                PaymentRecipient::Equity,
+                PaymentCalculation::ResidualCash,
+            )),
+    );
 
-    // Assert: Should be automatically sorted
-    assert_eq!(waterfall.payment_rules[0].id, "first");
-    assert_eq!(waterfall.payment_rules[1].id, "second");
-    assert_eq!(waterfall.payment_rules[2].id, "third");
+    waterfall = waterfall.add_tier(
+        WaterfallTier::new("first", 1, PaymentType::Fee)
+            .add_recipient(Recipient::new(
+                "fee",
+                PaymentRecipient::ServiceProvider("Test".into()),
+                PaymentCalculation::FixedAmount {
+                    amount: Money::new(1000.0, Currency::USD),
+                },
+            )),
+    );
+
+    waterfall = waterfall.add_tier(
+        WaterfallTier::new("second", 2, PaymentType::Interest)
+            .add_recipient(Recipient::tranche_interest("int", "A")),
+    );
+
+    // Assert - tiers should be auto-sorted by priority
+    assert_eq!(waterfall.tiers[0].id, "first");
+    assert_eq!(waterfall.tiers[1].id, "second");
+    assert_eq!(waterfall.tiers[2].id, "third");
 }
 
 // ============================================================================
-// Payment Recipient Tests
+// Allocation Mode Tests
 // ============================================================================
 
 #[test]
-fn test_payment_recipient_variants() {
-    // Arrange & Act
-    let service = PaymentRecipient::ServiceProvider("Trustee".to_string());
-    let manager = PaymentRecipient::ManagerFee(ManagementFeeType::Senior);
-    let tranche = PaymentRecipient::Tranche("A".to_string());
-    let equity = PaymentRecipient::Equity;
+fn test_allocation_mode_sequential() {
+    let tier = WaterfallTier::new("test", 1, PaymentType::Fee)
+        .allocation_mode(AllocationMode::Sequential)
+        .add_recipient(Recipient::new(
+            "r1",
+            PaymentRecipient::ServiceProvider("P1".into()),
+            PaymentCalculation::FixedAmount {
+                amount: Money::new(1000.0, Currency::USD),
+            },
+        ));
 
-    // Assert: All variants are distinct
-    assert_ne!(service, manager);
-    assert_ne!(service, tranche);
-    assert_ne!(service, equity);
+    assert_eq!(tier.allocation_mode, AllocationMode::Sequential);
+}
+
+#[test]
+fn test_allocation_mode_pro_rata() {
+    let tier = WaterfallTier::new("test", 1, PaymentType::Interest)
+        .allocation_mode(AllocationMode::ProRata)
+        .add_recipient(
+            Recipient::new(
+                "r1",
+                PaymentRecipient::Tranche("A".into()),
+                PaymentCalculation::ResidualCash,
+            )
+            .with_weight(0.60),
+        )
+        .add_recipient(
+            Recipient::new(
+                "r2",
+                PaymentRecipient::Tranche("B".into()),
+                PaymentCalculation::ResidualCash,
+            )
+            .with_weight(0.40),
+        );
+
+    assert_eq!(tier.allocation_mode, AllocationMode::ProRata);
+    assert_eq!(tier.recipients[0].weight, Some(0.60));
+    assert_eq!(tier.recipients[1].weight, Some(0.40));
 }
 
 // ============================================================================
-// Payment Calculation Tests
+// Recipient Helper Tests
 // ============================================================================
 
 #[test]
-fn test_payment_calculation_fixed_amount() {
-    // Arrange & Act
-    let calc = PaymentCalculation::FixedAmount {
-        amount: Money::new(100_000.0, Currency::USD),
-    };
+fn test_recipient_fixed_fee_helper() {
+    let recipient = Recipient::fixed_fee("trustee", "Trustee", Money::new(50_000.0, Currency::USD));
 
-    // Assert
-    match calc {
-        PaymentCalculation::FixedAmount { amount } => {
-            assert_eq!(amount.amount(), 100_000.0);
-        }
-        _ => panic!("Expected FixedAmount"),
+    assert_eq!(recipient.id, "trustee");
+    match &recipient.recipient_type {
+        PaymentRecipient::ServiceProvider(name) => assert_eq!(name, "Trustee"),
+        _ => panic!("Expected ServiceProvider"),
     }
 }
 
 #[test]
-fn test_payment_calculation_percentage_of_collateral() {
-    // Arrange & Act
-    let calc = PaymentCalculation::PercentageOfCollateral {
-        rate: 0.0040,
-        annualized: true,
-    };
+fn test_recipient_tranche_interest_helper() {
+    let recipient = Recipient::tranche_interest("class_a_int", "CLASS_A");
 
-    // Assert
-    match calc {
-        PaymentCalculation::PercentageOfCollateral { rate, annualized } => {
-            assert_eq!(rate, 0.0040);
-            assert!(annualized);
-        }
-        _ => panic!("Expected PercentageOfCollateral"),
+    assert_eq!(recipient.id, "class_a_int");
+    match &recipient.recipient_type {
+        PaymentRecipient::Tranche(id) => assert_eq!(id, "CLASS_A"),
+        _ => panic!("Expected Tranche recipient"),
     }
 }
 
 #[test]
-fn test_payment_calculation_residual_cash() {
-    // Arrange & Act
-    let calc = PaymentCalculation::ResidualCash;
+fn test_recipient_tranche_principal_helper() {
+    let recipient = Recipient::tranche_principal("class_a_prin", "CLASS_A", None);
 
-    // Assert
-    assert!(matches!(calc, PaymentCalculation::ResidualCash));
+    assert_eq!(recipient.id, "class_a_prin");
+    match &recipient.calculation {
+        PaymentCalculation::TranchePrincipal { tranche_id, target_balance } => {
+            assert_eq!(tranche_id, "CLASS_A");
+            assert_eq!(*target_balance, None);
+        }
+        _ => panic!("Expected TranchePrincipal calculation"),
+    }
+}
+
+// ============================================================================
+// Multi-Recipient Tier Tests
+// ============================================================================
+
+#[test]
+fn test_tier_multiple_recipients() {
+    let tier = WaterfallTier::new("fees", 1, PaymentType::Fee)
+        .add_recipient(Recipient::fixed_fee("trustee", "Trustee", Money::new(50_000.0, Currency::USD)))
+        .add_recipient(Recipient::fixed_fee("admin", "Admin", Money::new(25_000.0, Currency::USD)))
+        .add_recipient(Recipient::fixed_fee("rating", "RatingAgency", Money::new(10_000.0, Currency::USD)));
+
+    assert_eq!(tier.recipients.len(), 3);
+    assert_eq!(tier.recipients[0].id, "trustee");
+    assert_eq!(tier.recipients[1].id, "admin");
+    assert_eq!(tier.recipients[2].id, "rating");
+}
+
+#[test]
+fn test_waterfall_engine_creation() {
+    let engine = WaterfallEngine::new(Currency::USD);
+
+    assert_eq!(engine.base_currency, Currency::USD);
+    assert_eq!(engine.tiers.len(), 0);
+    assert_eq!(engine.coverage_triggers.len(), 0);
+}
+
+#[test]
+fn test_waterfall_engine_add_tier() {
+    let tier = WaterfallTier::new("test", 1, PaymentType::Fee)
+        .add_recipient(Recipient::new(
+            "recipient",
+            PaymentRecipient::ServiceProvider("Test".into()),
+            PaymentCalculation::FixedAmount {
+                amount: Money::new(1000.0, Currency::USD),
+            },
+        ));
+
+    let engine = WaterfallEngine::new(Currency::USD).add_tier(tier);
+
+    assert_eq!(engine.tiers.len(), 1);
+    assert_eq!(engine.tiers[0].id, "test");
 }

@@ -44,3 +44,9 @@ pub mod integration;
 
 // Examples (documentation)
 pub mod examples;
+
+// Golden tests (real-world scenarios)
+pub mod waterfall_golden;
+
+// Property tests (invariant verification)
+pub mod waterfall_properties;

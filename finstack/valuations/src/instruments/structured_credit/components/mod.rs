@@ -8,6 +8,8 @@
 //! - `tranches`: Tranche structure with attachment/detachment points
 //! - `waterfall`: Payment distribution engine
 //! - `coverage_tests`: OC/IC test calculations for waterfall diversion
+//! - `diversion`: Diversion rules with circular detection
+//! - `validation`: Validation framework for waterfall specifications
 //!
 //! ## Behavioral Models
 //! - `specs`: Behavioral model specifications (prepayment, default, recovery)
@@ -19,9 +21,11 @@
 
 // Structural components
 pub mod coverage_tests;
+pub mod diversion;
 pub mod enums;
 pub mod pool;
 pub mod tranches;
+pub mod validation;
 pub mod waterfall;
 
 // Behavioral models
@@ -54,12 +58,18 @@ pub use tranches::{
 };
 
 pub use waterfall::{
-    CoverageTestType, CoverageTrigger as WaterfallCoverageTrigger, ManagementFeeType,
-    PaymentCalculation, PaymentRecipient, PaymentRecord, PaymentRule, WaterfallBuilder,
-    WaterfallEngine, WaterfallResult,
+    AllocationMode, CoverageTestType, CoverageTrigger as WaterfallCoverageTrigger,
+    ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRecord, PaymentType, Recipient,
+    WaterfallBuilder, WaterfallEngine, WaterfallResult, WaterfallTier,
 };
 
 pub use coverage_tests::{CoverageTest, TestContext, TestResult};
+
+// Diversion system
+pub use diversion::{DiversionCondition, DiversionEngine, DiversionRule};
+
+// Validation framework
+pub use validation::{ValidationError, WaterfallValidator, is_valid_waterfall_spec, get_validation_errors};
 
 // ============================================================================
 // Re-export behavioral models

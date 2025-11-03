@@ -12,6 +12,7 @@
 //! - [`trees`]: Tree-based methods (Binomial, Trinomial, Multi-factor, Short-rate)
 
 pub mod closed_form;
+#[cfg(feature = "mc")]
 pub mod monte_carlo;
 pub mod trees;
 pub mod volatility;

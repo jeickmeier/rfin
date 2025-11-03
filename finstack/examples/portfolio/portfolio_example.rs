@@ -1102,14 +1102,51 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         TrancheStructure::new(vec![senior_tranche, mezz_tranche, equity_tranche]).unwrap();
 
     // Create waterfall: fees -> interest -> principal -> equity
+    use finstack_valuations::instruments::structured_credit::{
+        AllocationMode, ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentType,
+        Recipient, WaterfallTier,
+    };
+
     let waterfall = WaterfallBuilder::new(Currency::USD)
-        .add_senior_expenses(Money::new(35_714.29, Currency::USD), "Trustee")  // Scaled trustee fee
-        .add_management_fee(0.002, finstack_valuations::instruments::structured_credit::components::ManagementFeeType::Senior)  // 0.2% senior management fee
-        .add_tranche_interest("SENIOR_A", true)  // Senior interest (divertible)
-        .add_tranche_interest("MEZZANINE_B", true)  // Mezzanine interest (divertible)
-        .add_tranche_principal("SENIOR_A")  // Senior principal
-        .add_tranche_principal("MEZZANINE_B")  // Mezzanine principal
-        .add_equity_distribution()  // Equity residual
+        .add_tier(
+            WaterfallTier::new("fees", 1, PaymentType::Fee)
+                .allocation_mode(AllocationMode::Sequential)
+                .add_recipient(Recipient::new(
+                    "trustee",
+                    PaymentRecipient::ServiceProvider("Trustee".into()),
+                    PaymentCalculation::FixedAmount {
+                        amount: Money::new(35_714.29, Currency::USD),
+                    },
+                ))
+                .add_recipient(Recipient::new(
+                    "senior_mgmt",
+                    PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
+                    PaymentCalculation::PercentageOfCollateral {
+                        rate: 0.002,
+                        annualized: true,
+                    },
+                )),
+        )
+        .add_tier(
+            WaterfallTier::new("interest", 2, PaymentType::Interest)
+                .allocation_mode(AllocationMode::Sequential)
+                .add_recipient(Recipient::tranche_interest("senior_int", "SENIOR_A"))
+                .add_recipient(Recipient::tranche_interest("mezz_int", "MEZZANINE_B")),
+        )
+        .add_tier(
+            WaterfallTier::new("principal", 3, PaymentType::Principal)
+                .allocation_mode(AllocationMode::Sequential)
+                .divertible(true)
+                .add_recipient(Recipient::tranche_principal("senior_prin", "SENIOR_A", None))
+                .add_recipient(Recipient::tranche_principal("mezz_prin", "MEZZANINE_B", None)),
+        )
+        .add_tier(
+            WaterfallTier::new("equity", 4, PaymentType::Residual).add_recipient(Recipient::new(
+                "equity_dist",
+                PaymentRecipient::Equity,
+                PaymentCalculation::ResidualCash,
+            )),
+        )
         .build();
 
     // Create the CLO instrument

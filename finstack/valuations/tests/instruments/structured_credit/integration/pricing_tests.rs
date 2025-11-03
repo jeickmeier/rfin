@@ -10,7 +10,7 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PaymentCalculation, PaymentRecipient, PaymentRule, PoolAsset,
+    AssetPool, DealType, PaymentCalculation, PaymentRecipient, PoolAsset, Recipient,
     StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
 use finstack_valuations::metrics::MetricId;
@@ -56,9 +56,8 @@ fn create_simple_tranches() -> TrancheStructure {
 }
 
 fn create_simple_waterfall() -> WaterfallEngine {
-    let fees = vec![PaymentRule::new(
+    let fees = vec![Recipient::new(
         "trustee",
-        1,
         PaymentRecipient::ServiceProvider("Trustee".to_string()),
         PaymentCalculation::FixedAmount {
             amount: Money::new(10_000.0, Currency::USD),

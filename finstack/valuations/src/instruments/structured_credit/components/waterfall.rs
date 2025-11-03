@@ -1,8 +1,12 @@
-//! Simplified waterfall engine for structured credit instruments.
+//! Generalized tier-based waterfall engine for structured credit instruments.
 //!
-//! This module provides a streamlined sequential waterfall for pricing flows:
-//! fees → tranche interest → tranche principal → equity residual.
-//! Supports simple OC/IC diversion triggers for coverage test breaches.
+//! This module provides a production-grade waterfall engine supporting:
+//! - Tier-based payment distribution with configurable priorities
+//! - Pro-rata and sequential allocation modes within tiers
+//! - Multi-recipient tiers for complex payment structures
+//! - Coverage test integration with diversion rules
+//! - Circular reference detection
+//! - Explainability traces
 
 use super::coverage_tests::{CoverageTest, TestContext};
 use super::AssetPool;
@@ -18,6 +22,10 @@ use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+
+// ============================================================================
+// CORE TYPES
+// ============================================================================
 
 /// Recipient of waterfall payments
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -77,55 +85,217 @@ pub enum PaymentCalculation {
     ResidualCash,
 }
 
-/// Type of coverage test (simplified to OC/IC only)
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+/// Allocation mode within a tier
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum CoverageTestType {
-    /// Overcollateralization test
-    OC,
-    /// Interest coverage test
-    IC,
+pub enum AllocationMode {
+    /// Pay recipients sequentially in order until tier allocation exhausted
+    Sequential,
+    /// Distribute proportionally by weight or equally if no weights
+    ProRata,
 }
 
-/// Payment rule in the waterfall
+/// Payment type classification
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub enum PaymentType {
+    /// Fee payment
+    Fee,
+    /// Interest payment
+    Interest,
+    /// Principal payment
+    Principal,
+    /// Residual/equity distribution
+    Residual,
+}
+
+/// Individual payment recipient within a tier
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct PaymentRule {
+pub struct Recipient {
     /// Unique identifier
     pub id: String,
-    /// Priority order (lower = higher priority)
-    pub priority: u32,
-    /// Who receives the payment
-    pub recipient: PaymentRecipient,
-    /// How to calculate amount
+    /// Recipient type
+    pub recipient_type: PaymentRecipient,
+    /// How to calculate payment amount
     pub calculation: PaymentCalculation,
-    /// Whether payment can be diverted if coverage tests fail
-    pub divertible: bool,
+    /// Weight for pro-rata distribution (None = equal weight)
+    pub weight: Option<f64>,
 }
 
-impl PaymentRule {
-    /// Create a new payment rule
+impl Recipient {
+    /// Create a new recipient
     pub fn new(
         id: impl Into<String>,
-        priority: u32,
-        recipient: PaymentRecipient,
+        recipient_type: PaymentRecipient,
         calculation: PaymentCalculation,
     ) -> Self {
         Self {
             id: id.into(),
-            priority,
-            recipient,
+            recipient_type,
             calculation,
+            weight: None,
+        }
+    }
+
+    /// Set weight for pro-rata allocation
+    pub fn with_weight(mut self, weight: f64) -> Self {
+        self.weight = Some(weight);
+        self
+    }
+
+    /// Create a fixed fee recipient
+    pub fn fixed_fee(id: impl Into<String>, provider: impl Into<String>, amount: Money) -> Self {
+        Self::new(
+            id,
+            PaymentRecipient::ServiceProvider(provider.into()),
+            PaymentCalculation::FixedAmount { amount },
+        )
+    }
+
+    /// Create a tranche interest recipient
+    pub fn tranche_interest(id: impl Into<String>, tranche_id: impl Into<String>) -> Self {
+        let tranche_id_str = tranche_id.into();
+        Self::new(
+            id,
+            PaymentRecipient::Tranche(tranche_id_str.clone()),
+            PaymentCalculation::TrancheInterest {
+                tranche_id: tranche_id_str,
+            },
+        )
+    }
+
+    /// Create a tranche principal recipient
+    pub fn tranche_principal(
+        id: impl Into<String>,
+        tranche_id: impl Into<String>,
+        target_balance: Option<Money>,
+    ) -> Self {
+        let tranche_id_str = tranche_id.into();
+        Self::new(
+            id,
+            PaymentRecipient::Tranche(tranche_id_str.clone()),
+            PaymentCalculation::TranchePrincipal {
+                tranche_id: tranche_id_str,
+                target_balance,
+            },
+        )
+    }
+}
+
+/// Waterfall tier with multiple recipients
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct WaterfallTier {
+    /// Unique tier identifier
+    pub id: String,
+    /// Priority order (lower = higher priority)
+    pub priority: usize,
+    /// Recipients in this tier
+    pub recipients: Vec<Recipient>,
+    /// Payment type classification
+    pub payment_type: PaymentType,
+    /// How to allocate within tier
+    pub allocation_mode: AllocationMode,
+    /// Whether this tier can be diverted if coverage tests fail
+    pub divertible: bool,
+}
+
+impl WaterfallTier {
+    /// Create a new waterfall tier
+    pub fn new(id: impl Into<String>, priority: usize, payment_type: PaymentType) -> Self {
+        Self {
+            id: id.into(),
+            priority,
+            recipients: Vec::new(),
+            payment_type,
+            allocation_mode: AllocationMode::Sequential,
             divertible: false,
         }
     }
 
-    /// Mark as divertible if coverage tests fail
-    pub fn divertible(mut self) -> Self {
-        self.divertible = true;
+    /// Add a recipient to this tier
+    pub fn add_recipient(mut self, recipient: Recipient) -> Self {
+        self.recipients.push(recipient);
+        self
+    }
+
+    /// Set allocation mode
+    pub fn allocation_mode(mut self, mode: AllocationMode) -> Self {
+        self.allocation_mode = mode;
+        self
+    }
+
+    /// Mark as divertible
+    pub fn divertible(mut self, divertible: bool) -> Self {
+        self.divertible = divertible;
         self
     }
 }
+
+// ============================================================================
+// WATERFALL RESULT
+// ============================================================================
+
+/// Result of waterfall distribution
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct WaterfallResult {
+    /// Payment date
+    pub payment_date: Date,
+    /// Total available cash at start
+    pub total_available: Money,
+    
+    /// Tier-level allocations
+    pub tier_allocations: Vec<(String, Money)>,
+    
+    /// Distributions by recipient
+    pub distributions: HashMap<PaymentRecipient, Money>,
+    /// Detailed payment records
+    pub payment_records: Vec<PaymentRecord>,
+    
+    /// Coverage test results (test_name, value, passed)
+    pub coverage_tests: Vec<(String, f64, bool)>,
+    
+    /// Total diverted cash
+    pub diverted_cash: Money,
+    /// Remaining undistributed cash
+    pub remaining_cash: Money,
+    /// Whether any diversions occurred
+    pub had_diversions: bool,
+    /// Diversion reason if applicable
+    pub diversion_reason: Option<String>,
+    
+    /// Optional explanation trace (enabled via ExplainOpts)
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub explanation: Option<ExplanationTrace>,
+}
+
+/// Record of individual payment
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct PaymentRecord {
+    /// Tier id
+    pub tier_id: String,
+    /// Recipient id within tier
+    pub recipient_id: String,
+    /// Priority
+    pub priority: usize,
+    /// Recipient
+    pub recipient: PaymentRecipient,
+    /// Requested amount
+    pub requested_amount: Money,
+    /// Paid amount
+    pub paid_amount: Money,
+    /// Shortfall
+    pub shortfall: Money,
+    /// Diverted
+    pub diverted: bool,
+}
+
+// ============================================================================
+// COVERAGE TRIGGERS
+// ============================================================================
 
 /// Simple OC/IC trigger for diversion
 #[derive(Debug, Clone)]
@@ -139,55 +309,26 @@ pub struct CoverageTrigger {
     pub ic_trigger: Option<f64>,
 }
 
-/// Result of waterfall distribution
-#[derive(Debug, Clone)]
+/// Type of coverage test (simplified to OC/IC only)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct WaterfallResult {
-    /// Payment date
-    pub payment_date: Date,
-    /// Total available cash at start
-    pub total_available: Money,
-    /// Distributions by recipient
-    pub distributions: HashMap<PaymentRecipient, Money>,
-    /// Detailed payment records
-    pub payment_records: Vec<PaymentRecord>,
-    /// Remaining undistributed cash
-    pub remaining_cash: Money,
-    /// Whether any diversions occurred
-    pub had_diversions: bool,
-    /// Diversion reason if applicable
-    pub diversion_reason: Option<String>,
-    /// Optional explanation trace (enabled via ExplainOpts)
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    pub explanation: Option<ExplanationTrace>,
+pub enum CoverageTestType {
+    /// Overcollateralization test
+    OC,
+    /// Interest coverage test
+    IC,
 }
 
-/// Record of individual payment
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub struct PaymentRecord {
-    /// rule id.
-    pub rule_id: String,
-    /// priority.
-    pub priority: u32,
-    /// recipient.
-    pub recipient: PaymentRecipient,
-    /// requested amount.
-    pub requested_amount: Money,
-    /// paid amount.
-    pub paid_amount: Money,
-    /// shortfall.
-    pub shortfall: Money,
-    /// diverted.
-    pub diverted: bool,
-}
+// ============================================================================
+// WATERFALL ENGINE
+// ============================================================================
 
-/// Main waterfall engine (simplified sequential)
+/// Main waterfall engine with tier-based distribution
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct WaterfallEngine {
-    /// Ordered payment rules
-    pub payment_rules: Vec<PaymentRule>,
+    /// Ordered payment tiers
+    pub tiers: Vec<WaterfallTier>,
     /// Coverage triggers for OC/IC diversion
     pub coverage_triggers: Vec<CoverageTrigger>,
     /// Base currency
@@ -198,16 +339,16 @@ impl WaterfallEngine {
     /// Create new waterfall engine
     pub fn new(base_currency: Currency) -> Self {
         Self {
-            payment_rules: Vec::new(),
+            tiers: Vec::new(),
             coverage_triggers: Vec::new(),
             base_currency,
         }
     }
 
-    /// Add payment rule
-    pub fn add_rule(mut self, rule: PaymentRule) -> Self {
-        self.payment_rules.push(rule);
-        self.payment_rules.sort_by_key(|r| r.priority);
+    /// Add a tier
+    pub fn add_tier(mut self, tier: WaterfallTier) -> Self {
+        self.tiers.push(tier);
+        self.tiers.sort_by_key(|t| t.priority);
         self
     }
 
@@ -217,54 +358,48 @@ impl WaterfallEngine {
         self
     }
 
-    /// Apply waterfall to distribute available cash
-    ///
-    /// Sequential waterfall: processes payment rules in priority order.
-    /// If OC/IC triggers are configured and breached, diverts equity/junior principal
-    /// to senior tranches until tests pass.
+    /// Execute waterfall to distribute available cash
     #[allow(clippy::too_many_arguments)]
-    pub fn apply_waterfall(
+    pub fn execute_waterfall(
         &mut self,
         available_cash: Money,
         interest_collections: Money,
         payment_date: Date,
         tranches: &TrancheStructure,
         pool_balance: Money,
-        _pool: &AssetPool,
+        pool: &AssetPool,
         market: &MarketContext,
     ) -> Result<WaterfallResult> {
-        self.apply_waterfall_with_explanation(
+        self.execute_waterfall_with_explanation(
             available_cash,
             interest_collections,
             payment_date,
             tranches,
             pool_balance,
-            _pool,
+            pool,
             market,
             ExplainOpts::disabled(),
         )
     }
 
-    /// Apply waterfall with optional explanation trace.
-    ///
-    /// Returns waterfall result with optional trace containing
-    /// step-by-step payment allocations when explanation is enabled.
+    /// Execute waterfall with optional explanation trace
     #[allow(clippy::too_many_arguments)]
-    pub fn apply_waterfall_with_explanation(
+    pub fn execute_waterfall_with_explanation(
         &mut self,
         available_cash: Money,
         interest_collections: Money,
         payment_date: Date,
         tranches: &TrancheStructure,
         pool_balance: Money,
-        _pool: &AssetPool,
+        pool: &AssetPool,
         market: &MarketContext,
         explain: ExplainOpts,
     ) -> Result<WaterfallResult> {
         let mut remaining = available_cash;
-        let mut distributions: HashMap<PaymentRecipient, Money> =
-            HashMap::with_capacity(self.payment_rules.len());
-        let mut payment_records = Vec::with_capacity(self.payment_rules.len());
+        let mut tier_allocations = Vec::with_capacity(self.tiers.len());
+        let mut distributions: HashMap<PaymentRecipient, Money> = HashMap::new();
+        let mut payment_records = Vec::new();
+        let mut total_diverted = Money::new(0.0, self.base_currency);
         let mut had_diversions = false;
         let mut diversion_reason = None;
 
@@ -282,63 +417,154 @@ impl WaterfallEngine {
             tranche_index.insert(t.id.as_str(), i);
         }
 
-        // Check OC/IC triggers (simplified: assumes we can compute on the fly)
-        // For now, set triggers as inactive; in production, caller would check tests and set active
-        let diversion_active = self.check_diversion_triggers_active(
+        // Evaluate coverage tests
+        let coverage_test_results = self.evaluate_coverage_tests(
             tranches,
-            _pool,
+            pool,
             payment_date,
             available_cash,
             interest_collections,
         )?;
+
+        // Check if diversions are active
+        let diversion_active = coverage_test_results
+            .iter()
+            .any(|(_, _, passed)| !passed);
         if diversion_active {
             had_diversions = true;
-            diversion_reason = Some("OC or IC breached".to_string());
+            diversion_reason = Some("OC or IC test failed".to_string());
         }
 
-        // Process payments in priority order (sequential)
-        for rule in &self.payment_rules {
-            if remaining.amount() <= 0.0 {
+        // Process tiers in priority order (all tiers processed, even if cash exhausted)
+        for tier in &self.tiers {
+
+            // Determine if this tier should be diverted
+            let (target_recipients, tier_diverted) = if tier.divertible && diversion_active {
+                // Find senior tier to divert to
+                let senior_tier = self
+                    .tiers
+                    .iter()
+                    .filter(|t| t.priority < tier.priority && t.payment_type == PaymentType::Principal)
+                    .min_by_key(|t| t.priority);
+
+                if let Some(senior) = senior_tier {
+                    (senior.recipients.clone(), true)
+                } else {
+                    (tier.recipients.clone(), false)
+                }
+            } else {
+                (tier.recipients.clone(), false)
+            };
+
+            // Allocate cash to tier based on mode
+            let tier_cash = match tier.allocation_mode {
+                AllocationMode::Sequential => {
+                    self.allocate_sequential(
+                        tier,
+                        &target_recipients,
+                        remaining,
+                        tranches,
+                        &tranche_index,
+                        pool_balance,
+                        payment_date,
+                        market,
+                        tier_diverted,
+                        &mut distributions,
+                        &mut payment_records,
+                        &mut trace,
+                        &explain,
+                    )?
+                }
+                AllocationMode::ProRata => {
+                    self.allocate_pro_rata(
+                        tier,
+                        &target_recipients,
+                        remaining,
+                        tranches,
+                        &tranche_index,
+                        pool_balance,
+                        payment_date,
+                        market,
+                        tier_diverted,
+                        &mut distributions,
+                        &mut payment_records,
+                        &mut trace,
+                        &explain,
+                    )?
+                }
+            };
+
+            if tier_diverted {
+                total_diverted = total_diverted.checked_add(tier_cash)?;
+            }
+
+            tier_allocations.push((tier.id.clone(), tier_cash));
+            remaining = remaining.checked_sub(tier_cash)?;
+        }
+
+        Ok(WaterfallResult {
+            payment_date,
+            total_available: available_cash,
+            tier_allocations,
+            distributions,
+            payment_records,
+            coverage_tests: coverage_test_results,
+            diverted_cash: total_diverted,
+            remaining_cash: remaining,
+            had_diversions,
+            diversion_reason,
+            explanation: trace,
+        })
+    }
+
+    /// Allocate cash sequentially to recipients
+    #[allow(clippy::too_many_arguments)]
+    fn allocate_sequential(
+        &self,
+        tier: &WaterfallTier,
+        recipients: &[Recipient],
+        mut available: Money,
+        tranches: &TrancheStructure,
+        tranche_index: &HashMap<&str, usize>,
+        pool_balance: Money,
+        payment_date: Date,
+        market: &MarketContext,
+        diverted: bool,
+        distributions: &mut HashMap<PaymentRecipient, Money>,
+        payment_records: &mut Vec<PaymentRecord>,
+        trace: &mut Option<ExplanationTrace>,
+        explain: &ExplainOpts,
+    ) -> Result<Money> {
+        let mut tier_total = Money::new(0.0, self.base_currency);
+
+        for recipient in recipients {
+            if available.amount() <= 0.0 {
                 break;
             }
 
-            // Calculate payment amount
             let requested = self.calculate_payment_amount(
-                &rule.calculation,
-                remaining,
+                &recipient.calculation,
+                available,
                 tranches,
-                &tranche_index,
+                tranche_index,
                 pool_balance,
                 payment_date,
                 market,
             )?;
 
-            // Check for diversion: if divertible and triggers active, skip payment
-            let (recipient, diverted) = if rule.divertible && diversion_active {
-                // Divert to first senior tranche (priority 1)
-                let senior_tranche = tranches
-                    .tranches
-                    .iter()
-                    .min_by_key(|t| t.payment_priority)
-                    .map(|t| PaymentRecipient::Tranche(t.id.to_string()))
-                    .unwrap_or_else(|| rule.recipient.clone());
-                (senior_tranche, true)
-            } else {
-                (rule.recipient.clone(), false)
-            };
-
-            // Make payment (sequential logic)
-            let paid = if requested.amount() <= remaining.amount() {
+            let paid = if requested.amount() <= available.amount() {
                 requested
             } else {
-                remaining
+                available
             };
+
             let shortfall = requested
                 .checked_sub(paid)
                 .unwrap_or(Money::new(0.0, self.base_currency));
 
+            // Update distributions
             use std::collections::hash_map::Entry;
-            match distributions.entry(recipient.clone()) {
+            match distributions.entry(recipient.recipient_type.clone()) {
                 Entry::Occupied(mut e) => {
                     let next = e.get().checked_add(paid)?;
                     e.insert(next);
@@ -348,23 +574,24 @@ impl WaterfallEngine {
                 }
             }
 
+            // Record payment
             payment_records.push(PaymentRecord {
-                rule_id: rule.id.clone(),
-                priority: rule.priority,
-                recipient: recipient.clone(),
+                tier_id: tier.id.clone(),
+                recipient_id: recipient.id.clone(),
+                priority: tier.priority,
+                recipient: recipient.recipient_type.clone(),
                 requested_amount: requested,
                 paid_amount: paid,
                 shortfall,
                 diverted,
             });
 
-            // Add trace entry if explanation is enabled
+            // Add trace entry
             if let Some(ref mut t) = trace {
-                let step_name = format!("{} - {:?}", rule.id, recipient);
                 t.push(
                     TraceEntry::WaterfallStep {
-                        period: 0, // Single period waterfall
-                        step_name,
+                        period: 0,
+                        step_name: format!("{}/{} - {:?}", tier.id, recipient.id, recipient.recipient_type),
                         cash_in_amount: requested.amount(),
                         cash_in_currency: requested.currency().to_string(),
                         cash_out_amount: paid.amount(),
@@ -384,54 +611,165 @@ impl WaterfallEngine {
                 );
             }
 
-            remaining = remaining.checked_sub(paid)?;
+            tier_total = tier_total.checked_add(paid)?;
+            available = available.checked_sub(paid)?;
         }
 
-        Ok(WaterfallResult {
-            payment_date,
-            total_available: available_cash,
-            distributions,
-            payment_records,
-            remaining_cash: remaining,
-            had_diversions,
-            diversion_reason,
-            explanation: trace,
-        })
+        Ok(tier_total)
     }
 
-    /// Check if any OC/IC triggers are breached
-    ///
-    /// Computes OC and IC ratios for each configured trigger and returns true
-    /// if any test is below its threshold.
-    fn check_diversion_triggers_active(
+    /// Allocate cash pro-rata to recipients
+    #[allow(clippy::too_many_arguments)]
+    fn allocate_pro_rata(
+        &self,
+        tier: &WaterfallTier,
+        recipients: &[Recipient],
+        available: Money,
+        tranches: &TrancheStructure,
+        tranche_index: &HashMap<&str, usize>,
+        pool_balance: Money,
+        payment_date: Date,
+        market: &MarketContext,
+        diverted: bool,
+        distributions: &mut HashMap<PaymentRecipient, Money>,
+        payment_records: &mut Vec<PaymentRecord>,
+        trace: &mut Option<ExplanationTrace>,
+        explain: &ExplainOpts,
+    ) -> Result<Money> {
+        if recipients.is_empty() {
+            return Ok(Money::new(0.0, self.base_currency));
+        }
+
+        // Calculate total requested across all recipients
+        let mut total_requested = Money::new(0.0, self.base_currency);
+        let mut recipient_requests = Vec::new();
+
+        for recipient in recipients {
+            let requested = self.calculate_payment_amount(
+                &recipient.calculation,
+                available,
+                tranches,
+                tranche_index,
+                pool_balance,
+                payment_date,
+                market,
+            )?;
+            total_requested = total_requested.checked_add(requested)?;
+            recipient_requests.push((recipient, requested));
+        }
+
+        // Calculate total weight
+        let total_weight: f64 = recipients
+            .iter()
+            .map(|r| r.weight.unwrap_or(1.0))
+            .sum();
+
+        let tier_available = if total_requested.amount() <= available.amount() {
+            total_requested
+        } else {
+            available
+        };
+
+        let mut tier_total = Money::new(0.0, self.base_currency);
+
+        // Distribute pro-rata by weight
+        for (recipient, requested) in recipient_requests {
+            let weight = recipient.weight.unwrap_or(1.0);
+            let pro_rata_share = if total_weight > 0.0 {
+                weight / total_weight
+            } else {
+                1.0 / recipients.len() as f64
+            };
+
+            let allocated = Money::new(
+                tier_available.amount() * pro_rata_share,
+                self.base_currency,
+            );
+
+            let paid = if allocated.amount() <= requested.amount() {
+                allocated
+            } else {
+                requested
+            };
+
+            let shortfall = requested
+                .checked_sub(paid)
+                .unwrap_or(Money::new(0.0, self.base_currency));
+
+            // Update distributions
+            use std::collections::hash_map::Entry;
+            match distributions.entry(recipient.recipient_type.clone()) {
+                Entry::Occupied(mut e) => {
+                    let next = e.get().checked_add(paid)?;
+                    e.insert(next);
+                }
+                Entry::Vacant(e) => {
+                    e.insert(paid);
+                }
+            }
+
+            // Record payment
+            payment_records.push(PaymentRecord {
+                tier_id: tier.id.clone(),
+                recipient_id: recipient.id.clone(),
+                priority: tier.priority,
+                recipient: recipient.recipient_type.clone(),
+                requested_amount: requested,
+                paid_amount: paid,
+                shortfall,
+                diverted,
+            });
+
+            // Add trace entry
+            if let Some(ref mut t) = trace {
+                t.push(
+                    TraceEntry::WaterfallStep {
+                        period: 0,
+                        step_name: format!(
+                            "{}/{} - {:?} (pro-rata {:.1}%)",
+                            tier.id,
+                            recipient.id,
+                            recipient.recipient_type,
+                            pro_rata_share * 100.0
+                        ),
+                        cash_in_amount: requested.amount(),
+                        cash_in_currency: requested.currency().to_string(),
+                        cash_out_amount: paid.amount(),
+                        cash_out_currency: paid.currency().to_string(),
+                        shortfall_amount: if shortfall.amount() > 0.0 {
+                            Some(shortfall.amount())
+                        } else {
+                            None
+                        },
+                        shortfall_currency: if shortfall.amount() > 0.0 {
+                            Some(shortfall.currency().to_string())
+                        } else {
+                            None
+                        },
+                    },
+                    explain.max_entries,
+                );
+            }
+
+            tier_total = tier_total.checked_add(paid)?;
+        }
+
+        Ok(tier_total)
+    }
+
+    /// Evaluate coverage tests
+    fn evaluate_coverage_tests(
         &self,
         tranches: &TrancheStructure,
         pool: &AssetPool,
         as_of: Date,
         available_cash: Money,
         interest_collections: Money,
-    ) -> Result<bool> {
-        if self.coverage_triggers.is_empty() {
-            return Ok(false);
-        }
+    ) -> Result<Vec<(String, f64, bool)>> {
+        let mut results = Vec::new();
 
         for trigger in &self.coverage_triggers {
-            // Find the tranche
-            let _ = tranches
-                .tranches
-                .iter()
-                .find(|t| t.id.as_str() == trigger.tranche_id)
-                .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                        id: format!("tranche:{}", trigger.tranche_id),
-                    })
-                })?;
-
-            // Calculate cumulative senior balance (all tranches with higher priority)
-            let _ = tranches.senior_balance(&trigger.tranche_id);
-
             if let Some(oc_trigger_level) = trigger.oc_trigger {
-                // Reuse unified coverage test logic with performing balance and cash
                 let ctx = TestContext {
                     pool,
                     tranches,
@@ -443,9 +781,11 @@ impl WaterfallEngine {
 
                 let oc_test = CoverageTest::new_oc(oc_trigger_level);
                 let result = oc_test.calculate(&ctx);
-                if !result.is_passing {
-                    return Ok(true);
-                }
+                results.push((
+                    format!("OC_{}", trigger.tranche_id),
+                    result.current_ratio,
+                    result.is_passing,
+                ));
             }
 
             if let Some(ic_trigger_level) = trigger.ic_trigger {
@@ -454,19 +794,21 @@ impl WaterfallEngine {
                     tranches,
                     tranche_id: &trigger.tranche_id,
                     as_of,
-                    cash_balance: available_cash, // Not used by IC, but required by context
+                    cash_balance: available_cash,
                     interest_collections,
                 };
 
                 let ic_test = CoverageTest::new_ic(ic_trigger_level);
                 let result = ic_test.calculate(&ctx);
-                if !result.is_passing {
-                    return Ok(true);
-                }
+                results.push((
+                    format!("IC_{}", trigger.tranche_id),
+                    result.current_ratio,
+                    result.is_passing,
+                ));
             }
         }
 
-        Ok(false)
+        Ok(results)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -544,79 +886,93 @@ impl WaterfallEngine {
     /// Create standard sequential waterfall with fees + tranche interest + tranche principal
     ///
     /// This is the common pattern across CLO, ABS, CMBS, and RMBS instruments.
-    /// Each instrument provides instrument-specific fees, then this method adds
-    /// standard interest and principal payments in priority order.
     pub fn standard_sequential(
         base_currency: Currency,
         tranches: &TrancheStructure,
-        fees: Vec<PaymentRule>,
+        fee_recipients: Vec<Recipient>,
     ) -> Self {
         let mut engine = Self::new(base_currency);
         let mut priority = 1;
 
-        // Add fee rules
-        for mut fee in fees {
-            fee.priority = priority;
-            engine.payment_rules.push(fee);
+        // Add fees tier
+        if !fee_recipients.is_empty() {
+            let fees_tier = WaterfallTier::new("fees", priority, PaymentType::Fee)
+                .allocation_mode(AllocationMode::Sequential);
+            let fees_tier = fee_recipients
+                .into_iter()
+                .fold(fees_tier, |tier, recipient| tier.add_recipient(recipient));
+            engine.tiers.push(fees_tier);
             priority += 1;
         }
 
-        // Add interest payments for each tranche (in priority order)
+        // Add interest tier
         let mut sorted_tranches = tranches.tranches.clone();
         sorted_tranches.sort_by_key(|t| t.payment_priority);
 
-        for tranche in &sorted_tranches {
-            // Skip equity tranches for interest (they get residual cash)
-            if tranche.seniority == super::enums::TrancheSeniority::Equity {
-                continue;
-            }
-
-            engine.payment_rules.push(PaymentRule::new(
-                format!("{}_interest", tranche.id.as_str()),
-                priority,
-                PaymentRecipient::Tranche(tranche.id.to_string()),
-                PaymentCalculation::TrancheInterest {
-                    tranche_id: tranche.id.to_string(),
-                },
-            ));
-            priority += 1;
-        }
-
-        // Add principal payments for each debt tranche
+        let mut interest_recipients = Vec::new();
         for tranche in &sorted_tranches {
             if tranche.seniority != super::enums::TrancheSeniority::Equity {
-                engine.payment_rules.push(
-                    PaymentRule::new(
-                        format!("{}_principal", tranche.id.as_str()),
-                        priority,
-                        PaymentRecipient::Tranche(tranche.id.to_string()),
-                        PaymentCalculation::TranchePrincipal {
-                            tranche_id: tranche.id.to_string(),
-                            target_balance: None,
-                        },
-                    )
-                    .divertible(),
-                );
+                interest_recipients.push(Recipient::tranche_interest(
+                    format!("{}_interest", tranche.id.as_str()),
+                    tranche.id.as_str(),
+                ));
             }
+        }
+
+        if !interest_recipients.is_empty() {
+            let interest_tier = WaterfallTier::new("interest", priority, PaymentType::Interest)
+                .allocation_mode(AllocationMode::Sequential);
+            let interest_tier = interest_recipients
+                .into_iter()
+                .fold(interest_tier, |tier, recipient| tier.add_recipient(recipient));
+            engine.tiers.push(interest_tier);
             priority += 1;
         }
 
-        // Add equity distribution (residual cash)
-        engine.payment_rules.push(PaymentRule::new(
-            "equity_distribution",
-            priority,
-            PaymentRecipient::Equity,
-            PaymentCalculation::ResidualCash,
-        ));
+        // Add principal tier
+        let mut principal_recipients = Vec::new();
+        for tranche in &sorted_tranches {
+            if tranche.seniority != super::enums::TrancheSeniority::Equity {
+                principal_recipients.push(Recipient::tranche_principal(
+                    format!("{}_principal", tranche.id.as_str()),
+                    tranche.id.as_str(),
+                    None,
+                ));
+            }
+        }
+
+        if !principal_recipients.is_empty() {
+            let principal_tier = WaterfallTier::new("principal", priority, PaymentType::Principal)
+                .allocation_mode(AllocationMode::Sequential)
+                .divertible(true);
+            let principal_tier = principal_recipients
+                .into_iter()
+                .fold(principal_tier, |tier, recipient| {
+                    tier.add_recipient(recipient)
+                });
+            engine.tiers.push(principal_tier);
+            priority += 1;
+        }
+
+        // Add equity tier
+        let equity_tier = WaterfallTier::new("equity", priority, PaymentType::Residual)
+            .allocation_mode(AllocationMode::Sequential)
+            .add_recipient(Recipient::new(
+                "equity_distribution",
+                PaymentRecipient::Equity,
+                PaymentCalculation::ResidualCash,
+            ));
+        engine.tiers.push(equity_tier);
 
         engine
     }
+
 }
 
 /// Builder for waterfall engine
 pub struct WaterfallBuilder {
     engine: WaterfallEngine,
-    next_priority: u32,
+    next_priority: usize,
 }
 
 impl WaterfallBuilder {
@@ -628,98 +984,19 @@ impl WaterfallBuilder {
         }
     }
 
-    /// Add senior expenses
-    pub fn add_senior_expenses(mut self, amount: Money, provider: &str) -> Self {
-        self.engine = self.engine.add_rule(PaymentRule::new(
-            format!("expense_{}", provider.to_lowercase()),
-            self.next_priority,
-            PaymentRecipient::ServiceProvider(provider.into()),
-            PaymentCalculation::FixedAmount { amount },
-        ));
-        self.next_priority += 1;
-        self
-    }
-
-    /// Add management fee
-    pub fn add_management_fee(mut self, rate: f64, fee_type: ManagementFeeType) -> Self {
-        let fee_name = match fee_type {
-            ManagementFeeType::Senior => "senior",
-            ManagementFeeType::Subordinated => "sub",
-            ManagementFeeType::Incentive => "incentive",
-        };
-
-        self.engine = self.engine.add_rule(PaymentRule::new(
-            format!("{}_mgmt_fee", fee_name),
-            self.next_priority,
-            PaymentRecipient::ManagerFee(fee_type),
-            PaymentCalculation::PercentageOfCollateral {
-                rate,
-                annualized: true,
-            },
-        ));
-        self.next_priority += 1;
-        self
-    }
-
-    /// Add tranche interest payment
-    pub fn add_tranche_interest(mut self, tranche_id: &str, divertible: bool) -> Self {
-        let mut rule = PaymentRule::new(
-            format!("{}_interest", tranche_id.to_lowercase()),
-            self.next_priority,
-            PaymentRecipient::Tranche(tranche_id.into()),
-            PaymentCalculation::TrancheInterest {
-                tranche_id: tranche_id.into(),
-            },
-        );
-
-        if divertible {
-            rule = rule.divertible();
+    /// Add a tier
+    pub fn add_tier(mut self, mut tier: WaterfallTier) -> Self {
+        if tier.priority == 0 {
+            tier.priority = self.next_priority;
+            self.next_priority += 1;
         }
-
-        self.engine = self.engine.add_rule(rule);
-        self.next_priority += 1;
+        self.engine = self.engine.add_tier(tier);
         self
     }
 
-    /// Add tranche principal payment
-    pub fn add_tranche_principal(mut self, tranche_id: &str) -> Self {
-        self.engine = self.engine.add_rule(PaymentRule::new(
-            format!("{}_principal", tranche_id.to_lowercase()),
-            self.next_priority,
-            PaymentRecipient::Tranche(tranche_id.into()),
-            PaymentCalculation::TranchePrincipal {
-                tranche_id: tranche_id.into(),
-                target_balance: None,
-            },
-        ));
-        self.next_priority += 1;
-        self
-    }
-
-    /// Add equity distribution
-    pub fn add_equity_distribution(mut self) -> Self {
-        self.engine = self.engine.add_rule(PaymentRule::new(
-            "equity_distribution",
-            self.next_priority,
-            PaymentRecipient::Equity,
-            PaymentCalculation::ResidualCash,
-        ));
-        self.next_priority += 1;
-        self
-    }
-
-    /// Add OC/IC coverage trigger for diversion
-    pub fn add_oc_ic_trigger(
-        mut self,
-        tranche_id: &str,
-        oc_trigger: Option<f64>,
-        ic_trigger: Option<f64>,
-    ) -> Self {
-        self.engine = self.engine.add_coverage_trigger(CoverageTrigger {
-            tranche_id: tranche_id.into(),
-            oc_trigger,
-            ic_trigger,
-        });
+    /// Add coverage trigger
+    pub fn add_coverage_trigger(mut self, trigger: CoverageTrigger) -> Self {
+        self.engine = self.engine.add_coverage_trigger(trigger);
         self
     }
 
@@ -735,45 +1012,64 @@ mod tests {
     use finstack_core::currency::Currency;
 
     #[test]
-    fn test_waterfall_builder() {
-        let waterfall = WaterfallBuilder::new(Currency::USD)
-            .add_senior_expenses(Money::new(25000.0, Currency::USD), "Trustee")
-            .add_management_fee(0.004, ManagementFeeType::Senior)
-            .add_tranche_interest("CLASS_A", true)
-            .add_tranche_principal("CLASS_A")
-            .add_equity_distribution()
-            .build();
+    fn test_waterfall_tier_creation() {
+        let tier = WaterfallTier::new("test_tier", 1, PaymentType::Fee)
+            .add_recipient(Recipient::new(
+                "recipient1",
+                PaymentRecipient::ServiceProvider("Trustee".into()),
+                PaymentCalculation::FixedAmount {
+                    amount: Money::new(1000.0, Currency::USD),
+                },
+            ))
+            .allocation_mode(AllocationMode::Sequential);
 
-        assert_eq!(waterfall.payment_rules.len(), 5);
-        assert_eq!(waterfall.payment_rules[0].priority, 1);
-        assert_eq!(waterfall.payment_rules[4].priority, 5);
+        assert_eq!(tier.id, "test_tier");
+        assert_eq!(tier.priority, 1);
+        assert_eq!(tier.recipients.len(), 1);
+        assert_eq!(tier.allocation_mode, AllocationMode::Sequential);
     }
 
     #[test]
-    fn test_payment_priority_ordering() {
-        let mut waterfall = WaterfallEngine::new(Currency::USD);
+    fn test_recipient_helpers() {
+        let fee = Recipient::fixed_fee("trustee", "Trustee", Money::new(50000.0, Currency::USD));
+        assert_eq!(fee.id, "trustee");
 
-        waterfall = waterfall.add_rule(PaymentRule::new(
-            "third",
-            3,
-            PaymentRecipient::Equity,
-            PaymentCalculation::ResidualCash,
-        ));
-        waterfall = waterfall.add_rule(PaymentRule::new(
-            "first",
-            1,
-            PaymentRecipient::Equity,
-            PaymentCalculation::ResidualCash,
-        ));
-        waterfall = waterfall.add_rule(PaymentRule::new(
-            "second",
-            2,
-            PaymentRecipient::Equity,
-            PaymentCalculation::ResidualCash,
-        ));
+        let interest = Recipient::tranche_interest("class_a_int", "CLASS_A");
+        assert_eq!(interest.id, "class_a_int");
+        if let PaymentRecipient::Tranche(id) = &interest.recipient_type {
+            assert_eq!(id, "CLASS_A");
+        } else {
+            panic!("Expected Tranche recipient");
+        }
+    }
 
-        assert_eq!(waterfall.payment_rules[0].id, "first");
-        assert_eq!(waterfall.payment_rules[1].id, "second");
-        assert_eq!(waterfall.payment_rules[2].id, "third");
+    #[test]
+    fn test_waterfall_builder() {
+        let waterfall = WaterfallBuilder::new(Currency::USD)
+            .add_tier(
+                WaterfallTier::new("fees", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                    "trustee",
+                    PaymentRecipient::ServiceProvider("Trustee".into()),
+                    PaymentCalculation::FixedAmount {
+                        amount: Money::new(25000.0, Currency::USD),
+                    },
+                )),
+            )
+            .build();
+
+        assert_eq!(waterfall.tiers.len(), 1);
+        assert_eq!(waterfall.tiers[0].id, "fees");
+    }
+
+    #[test]
+    fn test_allocation_mode_sequential() {
+        let mode = AllocationMode::Sequential;
+        assert_eq!(mode, AllocationMode::Sequential);
+    }
+
+    #[test]
+    fn test_allocation_mode_pro_rata() {
+        let mode = AllocationMode::ProRata;
+        assert_eq!(mode, AllocationMode::ProRata);
     }
 }

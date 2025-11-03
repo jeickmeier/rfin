@@ -12,3 +12,4 @@ pub mod performance;
 pub mod pricer;
 pub mod results;
 pub mod risk;
+pub mod structured_credit_waterfall;

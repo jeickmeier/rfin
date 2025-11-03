@@ -498,7 +498,7 @@ impl StructuredCredit {
     /// Create waterfall engine based on deal type
     fn create_waterfall_engine_internal(&self) -> WaterfallEngine {
         use super::components::{
-            ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentRule, WaterfallEngine,
+            ManagementFeeType, PaymentCalculation, PaymentRecipient, Recipient, WaterfallEngine,
         };
         use super::config::{
             ABS_SERVICING_FEE_BPS, BASIS_POINTS_DIVISOR, CLO_SENIOR_MGMT_FEE_BPS,
@@ -509,9 +509,8 @@ impl StructuredCredit {
 
         let fees = match self.deal_type {
             DealType::ABS => {
-                vec![PaymentRule::new(
+                vec![Recipient::new(
                     "servicing_fees",
-                    1,
                     PaymentRecipient::ServiceProvider("Servicer".to_string()),
                     PaymentCalculation::PercentageOfCollateral {
                         rate: ABS_SERVICING_FEE_BPS / BASIS_POINTS_DIVISOR,
@@ -521,17 +520,15 @@ impl StructuredCredit {
             }
             DealType::CLO => {
                 vec![
-                    PaymentRule::new(
+                    Recipient::new(
                         "trustee_fees",
-                        1,
                         PaymentRecipient::ServiceProvider("Trustee".to_string()),
                         PaymentCalculation::FixedAmount {
                             amount: Money::new(CLO_TRUSTEE_FEE_ANNUAL, base_ccy),
                         },
                     ),
-                    PaymentRule::new(
+                    Recipient::new(
                         "senior_mgmt_fee",
-                        2,
                         PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
                         PaymentCalculation::PercentageOfCollateral {
                             rate: CLO_SENIOR_MGMT_FEE_BPS / BASIS_POINTS_DIVISOR,
@@ -541,9 +538,8 @@ impl StructuredCredit {
                 ]
             }
             DealType::CMBS => {
-                vec![PaymentRule::new(
+                vec![Recipient::new(
                     "master_servicing",
-                    1,
                     PaymentRecipient::ServiceProvider("MasterServicer".to_string()),
                     PaymentCalculation::PercentageOfCollateral {
                         rate: CMBS_MASTER_SERVICER_FEE_BPS / BASIS_POINTS_DIVISOR,
@@ -552,9 +548,8 @@ impl StructuredCredit {
                 )]
             }
             DealType::RMBS => {
-                vec![PaymentRule::new(
+                vec![Recipient::new(
                     "servicing_fees",
-                    1,
                     PaymentRecipient::ServiceProvider("Servicer".to_string()),
                     PaymentCalculation::PercentageOfCollateral {
                         rate: RMBS_SERVICING_FEE_BPS / BASIS_POINTS_DIVISOR,

@@ -16,6 +16,8 @@ use super::AssetPool;
 pub enum CoverageTest {
     /// Overcollateralization test
     OC {
+        /// Unique test identifier
+        id: String,
         /// Required OC ratio (e.g., 1.25 = 125%)
         required_ratio: f64,
         /// Include cash in numerator
@@ -25,6 +27,8 @@ pub enum CoverageTest {
     },
     /// Interest coverage test
     IC {
+        /// Unique test identifier
+        id: String,
         /// Required IC ratio (e.g., 1.20 = 120%)
         required_ratio: f64,
     },
@@ -34,6 +38,17 @@ impl CoverageTest {
     /// Create new OC test with standard settings
     pub fn new_oc(required_ratio: f64) -> Self {
         Self::OC {
+            id: format!("oc_test_{}", (required_ratio * 100.0) as u32),
+            required_ratio,
+            include_cash: true,
+            performing_only: true,
+        }
+    }
+
+    /// Create new OC test with explicit ID
+    pub fn new_oc_with_id(id: impl Into<String>, required_ratio: f64) -> Self {
+        Self::OC {
+            id: id.into(),
             required_ratio,
             include_cash: true,
             performing_only: true,
@@ -42,7 +57,26 @@ impl CoverageTest {
 
     /// Create new IC test
     pub fn new_ic(required_ratio: f64) -> Self {
-        Self::IC { required_ratio }
+        Self::IC {
+            id: format!("ic_test_{}", (required_ratio * 100.0) as u32),
+            required_ratio,
+        }
+    }
+
+    /// Create new IC test with explicit ID
+    pub fn new_ic_with_id(id: impl Into<String>, required_ratio: f64) -> Self {
+        Self::IC {
+            id: id.into(),
+            required_ratio,
+        }
+    }
+
+    /// Get the test ID
+    pub fn id(&self) -> &str {
+        match self {
+            Self::OC { id, .. } => id.as_str(),
+            Self::IC { id, .. } => id.as_str(),
+        }
     }
 
     /// Get the required ratio for this test
@@ -57,17 +91,19 @@ impl CoverageTest {
     pub fn calculate(&self, context: &TestContext) -> TestResult {
         match self {
             Self::OC {
+                id,
                 required_ratio,
                 include_cash,
                 performing_only,
-            } => self.calculate_oc(context, *required_ratio, *include_cash, *performing_only),
-            Self::IC { required_ratio } => self.calculate_ic(context, *required_ratio),
+            } => self.calculate_oc(context, id.clone(), *required_ratio, *include_cash, *performing_only),
+            Self::IC { id, required_ratio } => self.calculate_ic(context, id.clone(), *required_ratio),
         }
     }
 
     fn calculate_oc(
         &self,
         context: &TestContext,
+        test_id: String,
         required_ratio: f64,
         include_cash: bool,
         performing_only: bool,
@@ -123,13 +159,14 @@ impl CoverageTest {
         };
 
         TestResult {
+            test_id,
             current_ratio: ratio,
             is_passing,
             cure_amount,
         }
     }
 
-    fn calculate_ic(&self, context: &TestContext, required_ratio: f64) -> TestResult {
+    fn calculate_ic(&self, context: &TestContext, test_id: String, required_ratio: f64) -> TestResult {
         // Find the target tranche
         let tranche = context
             .tranches
@@ -171,6 +208,7 @@ impl CoverageTest {
         let is_passing = ratio >= required_ratio;
 
         TestResult {
+            test_id,
             current_ratio: ratio,
             is_passing,
             cure_amount: None, // IC tests don't have a cure amount
@@ -203,6 +241,8 @@ pub struct TestContext<'a> {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct TestResult {
+    /// Test identifier
+    pub test_id: String,
     /// Current calculated ratio
     pub current_ratio: f64,
     /// Whether test is currently passing

@@ -206,14 +206,41 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
     let tranches = TrancheStructure::new(vec![aaa_tranche, aa_tranche, equity_tranche])?;
 
     // Create waterfall with pro-rata principal distribution
+    use finstack_valuations::instruments::structured_credit::{
+        AllocationMode, PaymentCalculation, PaymentRecipient, PaymentType, Recipient,
+        WaterfallTier,
+    };
+
     let waterfall = WaterfallBuilder::new(base_currency)
-        .add_senior_expenses(Money::new(100_000.0, base_currency), "Trustee")
-        .add_tranche_interest("AAA", false)
-        .add_tranche_interest("AA", false)
-        .add_tranche_interest("Equity", false)
-        .add_tranche_principal("AAA")
-        .add_tranche_principal("AA")
-        .add_equity_distribution()
+        .add_tier(
+            WaterfallTier::new("fees", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                "trustee",
+                PaymentRecipient::ServiceProvider("Trustee".into()),
+                PaymentCalculation::FixedAmount {
+                    amount: Money::new(100_000.0, base_currency),
+                },
+            )),
+        )
+        .add_tier(
+            WaterfallTier::new("interest", 2, PaymentType::Interest)
+                .allocation_mode(AllocationMode::Sequential)
+                .add_recipient(Recipient::tranche_interest("aaa_int", "AAA"))
+                .add_recipient(Recipient::tranche_interest("aa_int", "AA"))
+                .add_recipient(Recipient::tranche_interest("equity_int", "Equity")),
+        )
+        .add_tier(
+            WaterfallTier::new("principal", 3, PaymentType::Principal)
+                .allocation_mode(AllocationMode::Sequential)
+                .add_recipient(Recipient::tranche_principal("aaa_prin", "AAA", None))
+                .add_recipient(Recipient::tranche_principal("aa_prin", "AA", None)),
+        )
+        .add_tier(
+            WaterfallTier::new("equity", 4, PaymentType::Residual).add_recipient(Recipient::new(
+                "equity_dist",
+                PaymentRecipient::Equity,
+                PaymentCalculation::ResidualCash,
+            )),
+        )
         .build();
 
     // Create CLO with realistic assumptions for investment-grade tranches

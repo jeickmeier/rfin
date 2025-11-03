@@ -34,6 +34,15 @@ __all__ = [
     "ProcessParams",
     "MonteCarloResult",
     "MonteCarloPathGenerator",
+    # Waterfall Engine
+    "AllocationMode",
+    "PaymentType",
+    "WaterfallTier",
+    "clo_2_0_template",
+    "cmbs_standard_template",
+    "cre_operating_company_template",
+    "get_waterfall_template",
+    "available_waterfall_templates",
     # Instruments (imported from submodule)
     # Calibration (imported from submodule)
     # Cashflow (imported from submodule)

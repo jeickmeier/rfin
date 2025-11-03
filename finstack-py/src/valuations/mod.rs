@@ -11,6 +11,7 @@ pub(crate) mod metrics;
 pub(crate) mod pricer;
 pub(crate) mod results;
 pub(crate) mod risk;
+pub(crate) mod structured_credit_waterfall;
 
 use crate::core::common::reexport::reexport_from_submodule;
 use pyo3::prelude::*;
@@ -78,6 +79,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let mc_generator_exports = mc_generator::register(py, &module)?;
     reexport_from_submodule(&module, "mc_generator", &mc_generator_exports)?;
     exports.extend(mc_generator_exports.iter().copied());
+
+    let waterfall_exports = structured_credit_waterfall::register(py, &module)?;
+    reexport_from_submodule(&module, "structured_credit_waterfall", &waterfall_exports)?;
+    exports.extend(waterfall_exports.iter().copied());
 
     let mut uniq = HashSet::new();
     exports.retain(|item| uniq.insert(*item));

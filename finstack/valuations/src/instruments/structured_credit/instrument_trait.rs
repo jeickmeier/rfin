@@ -303,7 +303,7 @@ pub(crate) trait StructuredCreditInstrument {
             let total_cash = period_flows.total_cash()?;
 
             // Step 2: Run waterfall to distribute cash
-            let waterfall_result = waterfall_engine.apply_waterfall(
+            let waterfall_result = waterfall_engine.execute_waterfall(
                 total_cash,
                 period_flows.interest_collections,
                 pay_date,
