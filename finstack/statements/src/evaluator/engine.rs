@@ -51,6 +51,7 @@ pub struct Evaluator {
 
 impl Evaluator {
     /// Create a new evaluator.
+    #[must_use = "creating an evaluator has no effect without calling evaluate()"]
     pub fn new() -> Self {
         Self {
             compiled_cache: IndexMap::new(),

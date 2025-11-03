@@ -20,6 +20,7 @@ polars = { version = "0.44", optional = true, default-features = false }
 indexmap = { version = "2", features = ["serde"] }
 time = { version = "0.3", features = ["macros"] }
 criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1"
 
 [features]
 default = []

@@ -60,12 +60,16 @@ impl DependencyGraph {
 
                 for dep in &node_deps {
                     // Add to this node's dependencies
-                    // SAFETY: All node_ids were initialized in the loop above
-                    dependencies.get_mut(node_id).unwrap().insert(dep.clone());
+                    dependencies
+                        .get_mut(node_id)
+                        .expect("node_id must exist as it was initialized in the previous loop")
+                        .insert(dep.clone());
 
                     // Add this node to the dependent's dependents list
-                    // SAFETY: dep is guaranteed to exist as it was extracted from model.nodes
-                    dependents.get_mut(dep).unwrap().insert(node_id.clone());
+                    dependents
+                        .get_mut(dep)
+                        .expect("dependency must exist as it was validated by validate_formula_references")
+                        .insert(node_id.clone());
                 }
             }
         }

@@ -6,12 +6,43 @@ use crate::explain::DependencyTracer;
 use crate::extensions::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};
 
 /// Extension for explaining node dependencies.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_statements::prelude::*;
+/// use finstack_statements::extensions::ExplainerExtension;
+///
+/// # fn main() -> Result<()> {
+/// let model = ModelBuilder::new("demo")
+///     .periods("2025Q1..Q1", None)?
+///     .value("revenue", &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0))])
+///     .compute("gross_profit", "revenue * 0.4")?
+///     .build()?;
+///
+/// let mut evaluator = Evaluator::new();
+/// let results = evaluator.evaluate(&model)?;
+///
+/// // Create explainer extension
+/// let mut extension = ExplainerExtension::new("gross_profit");
+///
+/// // Execute the extension
+/// let context = ExtensionContext::new(&model, &results);
+/// let result = extension.execute(&context)?;
+///
+/// assert_eq!(result.status, finstack_statements::extensions::ExtensionStatus::Success);
+/// # Ok(())
+/// # }
+/// ```
 pub struct ExplainerExtension {
     node_id: String,
 }
 
 impl ExplainerExtension {
-    /// Create a new explainer extension.
+    /// Create a new explainer extension for a specific node.
+    ///
+    /// # Arguments
+    /// * `node_id` - The node identifier to explain
     pub fn new(node_id: impl Into<String>) -> Self {
         Self {
             node_id: node_id.into(),

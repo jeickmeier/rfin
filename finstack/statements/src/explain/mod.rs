@@ -11,20 +11,36 @@
 //!
 //! # Examples
 //!
-//! ```rust,ignore
+//! ```rust
+//! use finstack_statements::prelude::*;
 //! use finstack_statements::explain::{DependencyTracer, FormulaExplainer};
 //! use finstack_statements::evaluator::DependencyGraph;
+//!
+//! # fn main() -> Result<()> {
+//! // Build a model
+//! let model = ModelBuilder::new("explain_demo")
+//!     .periods("2025Q1..Q1", None)?
+//!     .value("revenue", &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0))])
+//!     .compute("cogs", "revenue * 0.6")?
+//!     .compute("gross_profit", "revenue - cogs")?
+//!     .build()?;
 //!
 //! // Trace dependencies
 //! let graph = DependencyGraph::from_model(&model)?;
 //! let tracer = DependencyTracer::new(&model, &graph);
 //! let tree = tracer.dependency_tree("gross_profit")?;
-//! println!("{}", tree.to_string_ascii());
+//! let tree_str = tree.to_string_ascii();
+//! assert!(tree_str.contains("gross_profit"));
 //!
 //! // Explain formula calculation
+//! let mut evaluator = Evaluator::new();
+//! let results = evaluator.evaluate(&model)?;
 //! let explainer = FormulaExplainer::new(&model, &results);
+//! let period = PeriodId::quarter(2025, 1);
 //! let explanation = explainer.explain("gross_profit", &period)?;
-//! println!("{}", explanation.to_string_detailed());
+//! assert_eq!(explanation.node_id, "gross_profit");
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod dependency_trace;

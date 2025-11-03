@@ -104,7 +104,7 @@ impl TableBuilder {
         for (i, header) in self.headers.iter().enumerate() {
             let width = widths[i];
             let aligned = self.align_text(header, width, self.alignment[i]);
-            write!(&mut output, " {} │", aligned).unwrap();
+            write!(&mut output, " {} │", aligned).expect("writing to String cannot fail");
         }
         output.push('\n');
 
@@ -124,7 +124,7 @@ impl TableBuilder {
                         Alignment::Left
                     };
                     let aligned = self.align_text(cell, width, align);
-                    write!(&mut output, " {} │", aligned).unwrap();
+                    write!(&mut output, " {} │", aligned).expect("writing to String cannot fail");
                 }
             }
             output.push('\n');
@@ -154,7 +154,7 @@ impl TableBuilder {
         for (i, header) in self.headers.iter().enumerate() {
             let width = widths[i];
             let aligned = self.align_text(header, width, Alignment::Left);
-            write!(&mut output, " {} |", aligned).unwrap();
+            write!(&mut output, " {} |", aligned).expect("writing to String cannot fail");
         }
         output.push('\n');
 
@@ -172,7 +172,7 @@ impl TableBuilder {
                 Alignment::Right => format!("{}:", "-".repeat(width)),
                 Alignment::Center => format!(":{}:", "-".repeat(width.saturating_sub(1).max(1))),
             };
-            write!(&mut output, " {} |", sep).unwrap();
+            write!(&mut output, " {} |", sep).expect("writing to String cannot fail");
         }
         output.push('\n');
 
@@ -188,7 +188,7 @@ impl TableBuilder {
                         Alignment::Left
                     };
                     let aligned = self.align_text(cell, width, align);
-                    write!(&mut output, " {} |", aligned).unwrap();
+                    write!(&mut output, " {} |", aligned).expect("writing to String cannot fail");
                 }
             }
             output.push('\n');

@@ -12,13 +12,40 @@ use indexmap::IndexMap;
 ///
 /// # Examples
 ///
-/// ```rust,ignore
-/// use finstack_statements::analysis::{SensitivityAnalyzer, SensitivityConfig, SensitivityMode};
+/// ```rust
+/// use finstack_statements::prelude::*;
+/// use finstack_statements::analysis::{SensitivityAnalyzer, SensitivityConfig, SensitivityMode, ParameterSpec};
+///
+/// # fn main() -> Result<()> {
+/// let model = ModelBuilder::new("sensitivity_test")
+///     .periods("2025Q1..Q2", None)?
+///     .value("revenue", &[
+///         (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
+///         (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110_000.0)),
+///     ])
+///     .compute("cogs", "revenue * 0.6")?
+///     .compute("gross_profit", "revenue - cogs")?
+///     .build()?;
 ///
 /// let analyzer = SensitivityAnalyzer::new(&model);
 /// let mut config = SensitivityConfig::new(SensitivityMode::Diagonal);
-/// // Add parameters and targets...
+///
+/// // Define parameter to vary
+/// config.add_parameter(ParameterSpec::with_percentages(
+///     "revenue",
+///     PeriodId::quarter(2025, 1),
+///     100_000.0,
+///     vec![-10.0, 0.0, 10.0],
+/// ));
+///
+/// // Define target metric to observe
+/// config.add_target_metric("gross_profit");
+///
+/// // Run sensitivity analysis
 /// let result = analyzer.run(&config)?;
+/// assert_eq!(result.scenarios.len(), 3); // One for each perturbation
+/// # Ok(())
+/// # }
 /// ```
 pub struct SensitivityAnalyzer<'a> {
     model: &'a FinancialModelSpec,

@@ -79,6 +79,7 @@ impl NodeSpec {
     ///
     /// # Arguments
     /// * `name` - Display name shown in reports or UI
+    #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
@@ -88,6 +89,7 @@ impl NodeSpec {
     ///
     /// # Arguments
     /// * `values` - Period-indexed map of explicit values
+    #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_values(mut self, values: IndexMap<PeriodId, AmountOrScalar>) -> Self {
         self.values = Some(values);
         self
@@ -97,6 +99,7 @@ impl NodeSpec {
     ///
     /// # Arguments
     /// * `formula` - Expression written in the statements DSL
+    #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_formula(mut self, formula: impl Into<String>) -> Self {
         self.formula_text = Some(formula.into());
         self
@@ -106,6 +109,7 @@ impl NodeSpec {
     ///
     /// # Arguments
     /// * `forecast_spec` - Forecast configuration created with [`ForecastSpec`]
+    #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_forecast(mut self, forecast_spec: ForecastSpec) -> Self {
         self.forecast = Some(forecast_spec);
         self
@@ -115,6 +119,7 @@ impl NodeSpec {
     ///
     /// # Arguments
     /// * `tags` - Arbitrary labels used for grouping or filtering
+    #[must_use = "builder methods take self by value and return the modified value"]
     pub fn with_tags(mut self, tags: Vec<String>) -> Self {
         self.tags = tags;
         self

@@ -479,6 +479,7 @@ impl ModelBuilder<Ready> {
     /// # Ok(())
     /// # }
     /// ```
+    #[must_use = "builder methods must be chained"]
     pub fn with_builtin_metrics(mut self) -> Result<Self> {
         let mut registry = crate::registry::Registry::new();
         registry.load_builtins()?;
@@ -510,6 +511,7 @@ impl ModelBuilder<Ready> {
     /// # Ok(())
     /// # }
     /// ```
+    #[must_use = "builder methods must be chained"]
     pub fn with_metrics(mut self, path: &str) -> Result<Self> {
         let mut registry = crate::registry::Registry::new();
         registry.load_from_json(path)?;
