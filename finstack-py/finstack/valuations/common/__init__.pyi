@@ -2,6 +2,9 @@
 
 from typing import Union
 
+# Monte Carlo submodule
+from . import mc
+
 class InstrumentType:
     """Enumerates instrument families supported by the valuation engines.
     

@@ -1,3 +1,7 @@
+//! Python bindings for structured credit instruments (ABS, RMBS, CMBS, CLO).
+
+pub(crate) mod waterfall;
+
 use crate::valuations::common::PyInstrumentType;
 use finstack_valuations::instruments::structured_credit::StructuredCredit;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -131,9 +135,16 @@ impl fmt::Display for PyStructuredCredit {
 }
 
 pub(crate) fn register<'py>(
-    _py: Python<'py>,
+    py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyStructuredCredit>()?;
-    Ok(vec!["StructuredCredit"])
+    
+    // Also register waterfall types  
+    let waterfall_exports = waterfall::register(py, module)?;
+    
+    let mut exports = vec!["StructuredCredit"];
+    exports.extend(waterfall_exports.iter().copied());
+    
+    Ok(exports)
 }

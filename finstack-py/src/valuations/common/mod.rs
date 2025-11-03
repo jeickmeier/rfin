@@ -518,6 +518,7 @@ pub(crate) fn intern_calendar_id(value: &str) -> &'static str {
     Box::leak(value.to_ascii_lowercase().into_boxed_str())
 }
 
+pub(crate) mod mc;
 pub(crate) mod parameters;
 
 pub(crate) fn register<'py>(
@@ -536,8 +537,15 @@ pub(crate) fn register<'py>(
     // Register parameter types submodule
     let _param_exports = parameters::register(py, &module)?;
 
-    let exports = ["InstrumentType", "ModelKey", "PricerKey"];
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    // Register Monte Carlo submodule
+    let mc_exports = mc::register(py, &module)?;
+
+    // Combine all exports
+    let mut all_exports = vec!["InstrumentType", "ModelKey", "PricerKey"];
+    all_exports.extend(mc_exports.iter().copied());
+    
+    module.setattr("__all__", PyList::new(py, &all_exports)?)?;
     parent.add_submodule(&module)?;
-    Ok(exports.to_vec())
+    parent.setattr("common", &module)?;
+    Ok(all_exports)
 }

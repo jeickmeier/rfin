@@ -97,13 +97,12 @@ pub use valuations::results::JsValuationResult as ValuationResult;
 // Using valuations::results::JsResultsMeta for ValuationResult.meta
 pub use valuations::results::JsResultsMeta as ValuationResultsMeta;
 
-// Monte Carlo path generation
-pub use valuations::mc_generator::JsMonteCarloPathGenerator as MonteCarloPathGenerator;
-pub use valuations::mc_params::JsProcessParams as ProcessParams;
-pub use valuations::mc_paths::{
-    JsPathDataset as PathDataset, JsPathPoint as PathPoint, JsSimulatedPath as SimulatedPath,
+// Monte Carlo path generation (now under common::mc)
+pub use valuations::common::mc::{
+    JsMonteCarloPathGenerator as MonteCarloPathGenerator, JsMonteCarloResult as MonteCarloResult,
+    JsPathDataset as PathDataset, JsPathPoint as PathPoint, JsProcessParams as ProcessParams,
+    JsSimulatedPath as SimulatedPath,
 };
-pub use valuations::mc_result::JsMonteCarloResult as MonteCarloResult;
 
 // DataFrame conversion
 pub use valuations::dataframe::{

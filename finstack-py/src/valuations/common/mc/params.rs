@@ -2,11 +2,10 @@
 
 use finstack_valuations::instruments::common::mc::path_data::ProcessParams;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyModule};
-use pyo3::Bound;
+use pyo3::types::{PyDict, PyList};
 
 /// Process parameters and metadata for Monte Carlo simulation.
-#[pyclass(module = "finstack.valuations.mc_params", name = "ProcessParams")]
+#[pyclass(module = "finstack.valuations.common.mc", name = "ProcessParams")]
 #[derive(Clone)]
 pub struct PyProcessParams {
     pub(crate) inner: ProcessParams,
@@ -100,21 +99,3 @@ impl PyProcessParams {
     }
 }
 
-pub(crate) fn register<'py>(
-    py: Python<'py>,
-    parent: &Bound<'py, PyModule>,
-) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "mc_params")?;
-    module.setattr("__doc__", "Monte Carlo process parameters and metadata.")?;
-
-    module.add_class::<PyProcessParams>()?;
-
-    let exports = vec!["ProcessParams"];
-
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-
-    parent.add_submodule(&module)?;
-    parent.setattr("mc_params", &module)?;
-
-    Ok(exports)
-}

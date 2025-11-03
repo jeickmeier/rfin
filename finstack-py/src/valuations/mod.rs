@@ -3,15 +3,10 @@ pub(crate) mod cashflow;
 pub(crate) mod common;
 pub(crate) mod dataframe;
 pub(crate) mod instruments;
-pub(crate) mod mc_generator;
-pub(crate) mod mc_params;
-pub(crate) mod mc_paths;
-pub(crate) mod mc_result;
 pub(crate) mod metrics;
 pub(crate) mod pricer;
 pub(crate) mod results;
 pub(crate) mod risk;
-pub(crate) mod structured_credit_waterfall;
 
 use crate::core::common::reexport::reexport_from_submodule;
 use pyo3::prelude::*;
@@ -31,6 +26,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let common_exports = common::register(py, &module)?;
     reexport_from_submodule(&module, "common", &common_exports)?;
     exports.extend(common_exports.iter().copied());
+    // Note: common::register already calls parent.setattr("common", &module)
 
     let cashflow_exports = cashflow::register(py, &module)?;
     reexport_from_submodule(&module, "cashflow", &cashflow_exports)?;
@@ -63,26 +59,6 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let risk_exports = risk::register(py, &module)?;
     reexport_from_submodule(&module, "risk", &risk_exports)?;
     exports.extend(risk_exports.iter().copied());
-
-    let mc_paths_exports = mc_paths::register(py, &module)?;
-    reexport_from_submodule(&module, "mc_paths", &mc_paths_exports)?;
-    exports.extend(mc_paths_exports.iter().copied());
-
-    let mc_params_exports = mc_params::register(py, &module)?;
-    reexport_from_submodule(&module, "mc_params", &mc_params_exports)?;
-    exports.extend(mc_params_exports.iter().copied());
-
-    let mc_result_exports = mc_result::register(py, &module)?;
-    reexport_from_submodule(&module, "mc_result", &mc_result_exports)?;
-    exports.extend(mc_result_exports.iter().copied());
-
-    let mc_generator_exports = mc_generator::register(py, &module)?;
-    reexport_from_submodule(&module, "mc_generator", &mc_generator_exports)?;
-    exports.extend(mc_generator_exports.iter().copied());
-
-    let waterfall_exports = structured_credit_waterfall::register(py, &module)?;
-    reexport_from_submodule(&module, "structured_credit_waterfall", &waterfall_exports)?;
-    exports.extend(waterfall_exports.iter().copied());
 
     let mut uniq = HashSet::new();
     exports.retain(|item| uniq.insert(*item));

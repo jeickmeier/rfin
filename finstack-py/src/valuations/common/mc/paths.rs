@@ -5,12 +5,11 @@ use finstack_valuations::instruments::common::mc::path_data::{
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyModule};
-use pyo3::Bound;
+use pyo3::types::PyDict;
 use std::collections::HashMap;
 
 /// A single point along a Monte Carlo path.
-#[pyclass(module = "finstack.valuations.mc_paths", name = "PathPoint")]
+#[pyclass(module = "finstack.valuations.common.mc", name = "PathPoint")]
 #[derive(Clone)]
 pub struct PyPathPoint {
     pub(crate) inner: PathPoint,
@@ -77,7 +76,7 @@ impl PyPathPoint {
 }
 
 /// A complete simulated Monte Carlo path.
-#[pyclass(module = "finstack.valuations.mc_paths", name = "SimulatedPath")]
+#[pyclass(module = "finstack.valuations.common.mc", name = "SimulatedPath")]
 #[derive(Clone)]
 pub struct PySimulatedPath {
     pub(crate) inner: SimulatedPath,
@@ -148,7 +147,7 @@ impl PySimulatedPath {
 }
 
 /// Collection of simulated paths with metadata.
-#[pyclass(module = "finstack.valuations.mc_paths", name = "PathDataset")]
+#[pyclass(module = "finstack.valuations.common.mc", name = "PathDataset")]
 #[derive(Clone)]
 pub struct PyPathDataset {
     pub(crate) inner: PathDataset,
@@ -316,26 +315,3 @@ impl PyPathDataset {
     }
 }
 
-pub(crate) fn register<'py>(
-    py: Python<'py>,
-    parent: &Bound<'py, PyModule>,
-) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "mc_paths")?;
-    module.setattr(
-        "__doc__",
-        "Monte Carlo path data structures for visualization and analysis.",
-    )?;
-
-    module.add_class::<PyPathPoint>()?;
-    module.add_class::<PySimulatedPath>()?;
-    module.add_class::<PyPathDataset>()?;
-
-    let exports = vec!["PathPoint", "SimulatedPath", "PathDataset"];
-
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-
-    parent.add_submodule(&module)?;
-    parent.setattr("mc_paths", &module)?;
-
-    Ok(exports)
-}

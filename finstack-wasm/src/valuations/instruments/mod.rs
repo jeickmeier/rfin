@@ -29,7 +29,7 @@ mod quanto_option;
 mod range_accrual;
 mod repo;
 mod revolving_credit;
-mod structured;
+mod structured_credit;
 mod swaption;
 mod term_loan;
 mod trs;
@@ -69,7 +69,7 @@ pub use quanto_option::JsQuantoOption as QuantoOption;
 pub use range_accrual::JsRangeAccrual as RangeAccrual;
 pub use repo::JsRepo as Repo;
 pub use revolving_credit::JsRevolvingCredit as RevolvingCredit;
-pub use structured::{JsBasket as Basket, JsStructuredCredit as StructuredCredit};
+pub use structured_credit::{JsBasket as Basket, JsStructuredCredit as StructuredCredit};
 pub use swaption::JsSwaption as Swaption;
 pub use term_loan::JsTermLoan as TermLoan;
 pub use trs::{

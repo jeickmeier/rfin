@@ -1,7 +1,7 @@
 //! Python bindings for standalone Monte Carlo path generation.
 
 use crate::core::error::core_to_py;
-use crate::valuations::mc_paths::PyPathDataset;
+use super::paths::PyPathDataset;
 use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
 use finstack_valuations::instruments::common::mc::path_data::{
     PathDataset, PathPoint, PathSamplingMethod, SimulatedPath,
@@ -18,7 +18,7 @@ use finstack_valuations::instruments::common::models::monte_carlo::engine::{
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyModule};
+use pyo3::types::PyDict;
 use pyo3::Bound;
 
 /// Standalone Monte Carlo path generator.
@@ -29,10 +29,10 @@ use pyo3::Bound;
 /// - Understanding stochastic dynamics
 /// - Educational purposes
 #[pyclass(
-    module = "finstack.valuations.mc_generator",
+    module = "finstack.valuations.common.mc",
     name = "MonteCarloPathGenerator"
 )]
-pub struct PyMonteCarloPathGenerator;
+pub(crate) struct PyMonteCarloPathGenerator;
 
 #[pymethods]
 impl PyMonteCarloPathGenerator {
@@ -288,24 +288,3 @@ impl PyMonteCarloPathGenerator {
     }
 }
 
-pub(crate) fn register<'py>(
-    py: Python<'py>,
-    parent: &Bound<'py, PyModule>,
-) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "mc_generator")?;
-    module.setattr(
-        "__doc__",
-        "Standalone Monte Carlo path generation for visualization and analysis.",
-    )?;
-
-    module.add_class::<PyMonteCarloPathGenerator>()?;
-
-    let exports = vec!["MonteCarloPathGenerator"];
-
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-
-    parent.add_submodule(&module)?;
-    parent.setattr("mc_generator", &module)?;
-
-    Ok(exports)
-}

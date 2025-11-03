@@ -1,14 +1,12 @@
 //! Python bindings for Monte Carlo result wrapper.
 
 use crate::core::money::PyMoney;
-use crate::valuations::mc_paths::PyPathDataset;
+use super::paths::PyPathDataset;
 use finstack_valuations::instruments::common::models::monte_carlo::results::MonteCarloResult;
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
-use pyo3::Bound;
 
 /// Monte Carlo result with optional path data.
-#[pyclass(module = "finstack.valuations.mc_result", name = "MonteCarloResult")]
+#[pyclass(module = "finstack.valuations.common.mc", name = "MonteCarloResult")]
 #[derive(Clone)]
 pub struct PyMonteCarloResult {
     pub(crate) inner: MonteCarloResult,
@@ -96,24 +94,3 @@ impl PyMonteCarloResult {
     }
 }
 
-pub(crate) fn register<'py>(
-    py: Python<'py>,
-    parent: &Bound<'py, PyModule>,
-) -> PyResult<Vec<&'static str>> {
-    let module = PyModule::new(py, "mc_result")?;
-    module.setattr(
-        "__doc__",
-        "Monte Carlo result wrapper with optional path data.",
-    )?;
-
-    module.add_class::<PyMonteCarloResult>()?;
-
-    let exports = vec!["MonteCarloResult"];
-
-    module.setattr("__all__", PyList::new(py, &exports)?)?;
-
-    parent.add_submodule(&module)?;
-    parent.setattr("mc_result", &module)?;
-
-    Ok(exports)
-}
