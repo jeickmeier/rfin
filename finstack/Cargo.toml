@@ -85,6 +85,26 @@ name = "lbo_model_complete"
 path = "examples/statements/lbo_model_complete.rs"
 required-features = ["statements"]
 
+[[example]]
+name = "node_explainer_example"
+path = "examples/statements/node_explainer_example.rs"
+required-features = ["statements"]
+
+[[example]]
+name = "sensitivity_analysis_example"
+path = "examples/statements/sensitivity_analysis_example.rs"
+required-features = ["statements"]
+
+[[example]]
+name = "convenience_reports_example"
+path = "examples/statements/convenience_reports_example.rs"
+required-features = ["statements"]
+
+[[example]]
+name = "name_normalization_example"
+path = "examples/statements/name_normalization_example.rs"
+required-features = ["statements"]
+
 # Valuations Examples
 [[example]]
 name = "bond_custom_cashflows_example"

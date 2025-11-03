@@ -99,14 +99,17 @@
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
 
+pub mod analysis;
 pub mod builder;
 pub mod capital_structure;
 pub mod dsl;
 pub mod error;
 pub mod evaluator;
+pub mod explain;
 pub mod extensions;
 pub mod forecast;
 pub mod registry;
+pub mod reports;
 pub mod results;
 pub mod types;
 pub(crate) mod utils;

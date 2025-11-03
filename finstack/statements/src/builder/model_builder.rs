@@ -46,6 +46,7 @@ pub struct ModelBuilder<State> {
     nodes: IndexMap<String, NodeSpec>,
     meta: IndexMap<String, serde_json::Value>,
     pub(crate) capital_structure: Option<crate::types::CapitalStructureSpec>,
+    alias_registry: Option<crate::registry::AliasRegistry>,
     _state: PhantomData<State>,
 }
 
@@ -63,6 +64,7 @@ impl ModelBuilder<NeedPeriods> {
             nodes: IndexMap::new(),
             meta: IndexMap::new(),
             capital_structure: None,
+            alias_registry: None,
             _state: PhantomData,
         }
     }
@@ -88,6 +90,7 @@ impl ModelBuilder<NeedPeriods> {
             nodes: self.nodes,
             meta: self.meta,
             capital_structure: self.capital_structure,
+            alias_registry: self.alias_registry,
             _state: PhantomData,
         })
     }
@@ -110,6 +113,7 @@ impl ModelBuilder<NeedPeriods> {
             nodes: self.nodes,
             meta: self.meta,
             capital_structure: self.capital_structure,
+            alias_registry: self.alias_registry,
             _state: PhantomData,
         })
     }
@@ -748,6 +752,82 @@ impl MixedNodeBuilder {
 
         self.parent.nodes.insert(self.node_id, node);
         self.parent
+    }
+}
+
+impl ModelBuilder<Ready> {
+    /// Enable name normalization with standard aliases.
+    ///
+    /// Loads standard accounting term aliases (e.g., "rev" → "revenue", "sales" → "revenue").
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("demo")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .with_name_normalization()
+    ///     .compute("revenue", "100000")?
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use = "builder methods take self by value and return the modified value"]
+    pub fn with_name_normalization(mut self) -> Self {
+        let mut registry = crate::registry::AliasRegistry::new();
+        registry.load_standard_aliases();
+        self.alias_registry = Some(registry);
+        self
+    }
+
+    /// Set custom alias registry.
+    ///
+    /// # Arguments
+    ///
+    /// * `registry` - Custom alias registry
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_statements::registry::AliasRegistry;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut aliases = AliasRegistry::new();
+    /// aliases.add_alias("rev", "revenue");
+    ///
+    /// let model = ModelBuilder::new("demo")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .with_aliases(aliases)
+    ///     .compute("revenue", "100000")?
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use = "builder methods take self by value and return the modified value"]
+    pub fn with_aliases(mut self, registry: crate::registry::AliasRegistry) -> Self {
+        self.alias_registry = Some(registry);
+        self
+    }
+
+    // Internal helper to resolve node IDs through alias registry
+    #[allow(dead_code)]
+    fn resolve_node_id(&self, input: &str) -> String {
+        if let Some(registry) = &self.alias_registry {
+            // Try exact alias match
+            if let Some(canonical) = registry.normalize(input) {
+                return canonical;
+            }
+
+            // Try fuzzy match against available nodes
+            let available: IndexSet<String> = self.nodes.keys().cloned().collect();
+            if let Some(matched) = registry.normalize_fuzzy(input, &available) {
+                return matched;
+            }
+        }
+
+        // No match - return original
+        input.to_string()
     }
 }
 

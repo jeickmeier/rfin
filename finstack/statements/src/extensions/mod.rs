@@ -34,13 +34,17 @@
 //! ```
 
 mod corkscrew;
+mod explainer;
 mod plugin;
 mod registry;
 mod scorecards;
+mod sensitivity;
 
 pub use corkscrew::{AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension};
+pub use explainer::ExplainerExtension;
 pub use plugin::{
     Extension, ExtensionContext, ExtensionMetadata, ExtensionResult, ExtensionStatus,
 };
 pub use registry::ExtensionRegistry;
 pub use scorecards::{CreditScorecardExtension, ScorecardConfig, ScorecardMetric};
+pub use sensitivity::SensitivityExtension;
