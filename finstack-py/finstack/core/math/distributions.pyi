@@ -5,6 +5,7 @@ logarithmic functions for financial modeling.
 """
 
 def binomial_probability(trials: int, successes: int, probability: float) -> float: ...
+
 """Calculate binomial probability.
 
 Parameters
@@ -28,6 +29,7 @@ ValueError
 """
 
 def log_binomial_coefficient(trials: int, successes: int) -> float: ...
+
 """Calculate log of binomial coefficient.
 
 Parameters
@@ -49,6 +51,7 @@ ValueError
 """
 
 def log_factorial(value: int) -> float: ...
+
 """Calculate log of factorial.
 
 Parameters

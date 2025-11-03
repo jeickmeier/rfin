@@ -26,7 +26,7 @@ class MetricDefinition:
         category: Optional[str] = None,
         unit_type: Optional[UnitType] = None,
         requires: Optional[List[str]] = None,
-        tags: Optional[List[str]] = None
+        tags: Optional[List[str]] = None,
     ) -> None:
         """Create a metric definition.
 
@@ -47,31 +47,22 @@ class MetricDefinition:
 
     @property
     def id(self) -> str: ...
-
     @property
     def name(self) -> str: ...
-
     @property
     def formula(self) -> str: ...
-
     @property
     def description(self) -> Optional[str]: ...
-
     @property
     def category(self) -> Optional[str]: ...
-
     @property
     def unit_type(self) -> Optional[UnitType]: ...
-
     @property
     def requires(self) -> List[str]: ...
-
     @property
     def tags(self) -> List[str]: ...
-
     @property
     def meta(self) -> Dict[str, Any]: ...
-
     def to_json(self) -> str:
         """Convert to JSON string.
 
@@ -97,12 +88,7 @@ class MetricDefinition:
 class MetricRegistry:
     """Top-level metric registry schema."""
 
-    def __init__(
-        self,
-        namespace: str,
-        metrics: List[MetricDefinition],
-        schema_version: Optional[int] = None
-    ) -> None:
+    def __init__(self, namespace: str, metrics: List[MetricDefinition], schema_version: Optional[int] = None) -> None:
         """Create a metric registry.
 
         Args:
@@ -117,16 +103,12 @@ class MetricRegistry:
 
     @property
     def namespace(self) -> str: ...
-
     @property
     def schema_version(self) -> int: ...
-
     @property
     def metrics(self) -> List[MetricDefinition]: ...
-
     @property
     def meta(self) -> Dict[str, Any]: ...
-
     def to_json(self) -> str:
         """Convert to JSON string.
 

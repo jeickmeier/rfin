@@ -17,7 +17,7 @@ from . import utils
 
 __all__ = [
     "calendar",
-    "daycount", 
+    "daycount",
     "imm",
     "periods",
     "schedule",

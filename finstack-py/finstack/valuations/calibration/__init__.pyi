@@ -10,7 +10,7 @@ from .sabr import SabrCalibrator
 
 __all__ = [
     "SolverKind",
-    "MultiCurveConfig", 
+    "MultiCurveConfig",
     "CalibrationConfig",
     "Quote",
     "QuoteType",

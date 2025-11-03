@@ -125,11 +125,7 @@ class TestCalibrationErrors:
         """Calibration with insufficient data should raise appropriate error."""
         from finstack.valuations.calibration import DiscountCurveCalibrator, RatesQuote
 
-        calibrator = DiscountCurveCalibrator(
-            "USD-OIS",
-            dt.date(2024, 1, 2),
-            Currency("USD")
-        )
+        calibrator = DiscountCurveCalibrator("USD-OIS", dt.date(2024, 1, 2), Currency("USD"))
 
         # Single quote should fail (need at least 2 points)
         quotes = [RatesQuote.from_deposit(1.0, 0.05, DayCount.ACT_360)]
@@ -142,11 +138,7 @@ class TestCalibrationErrors:
         # Create quotes with non-increasing maturities
         from finstack.valuations.calibration import DiscountCurveCalibrator, RatesQuote
 
-        calibrator = DiscountCurveCalibrator(
-            "USD-OIS",
-            dt.date(2024, 1, 2),
-            Currency("USD")
-        )
+        calibrator = DiscountCurveCalibrator("USD-OIS", dt.date(2024, 1, 2), Currency("USD"))
 
         # Quotes with decreasing maturities (invalid)
         quotes = [
@@ -169,7 +161,7 @@ class TestValidationErrors:
                 "INVALID",
                 dt.date(2024, 1, 2),
                 [(0.0, -0.5), (1.0, -0.3)],  # Negative discount factors
-                day_count=DayCount.ACT_365F
+                day_count=DayCount.ACT_365F,
             )
 
     def test_dimension_mismatch_error(self) -> None:
@@ -182,7 +174,7 @@ class TestValidationErrors:
                 "INVALID",
                 expiries=[1.0, 2.0],  # 2 expiries
                 strikes=[90.0, 100.0, 110.0],  # 3 strikes
-                grid=[[0.2, 0.21]]  # Only 1 row (should be 2) and 2 cols (should be 3)
+                grid=[[0.2, 0.21]],  # Only 1 row (should be 2) and 2 cols (should be 3)
             )
 
 
@@ -198,21 +190,22 @@ class TestPricingErrors:
         market = MarketContext()
 
         # Add minimal market data
-        market.insert_discount(DiscountCurve(
-            "USD-OIS",
-            dt.date(2024, 1, 2),
-            [(0.0, 1.0), (1.0, 0.97), (5.0, 0.85)],
-            day_count=DayCount.ACT_365F
-        ))
+        market.insert_discount(
+            DiscountCurve(
+                "USD-OIS", dt.date(2024, 1, 2), [(0.0, 1.0), (1.0, 0.97), (5.0, 0.85)], day_count=DayCount.ACT_365F
+            )
+        )
 
-        bond = Bond.builder("TEST_BOND") \
-            .notional(1_000_000.0) \
-            .currency("USD") \
-            .coupon_rate(0.05) \
-            .frequency("annual") \
-            .maturity(dt.date(2029, 1, 2)) \
-            .disc_id("USD-OIS") \
+        bond = (
+            Bond.builder("TEST_BOND")
+            .notional(1_000_000.0)
+            .currency("USD")
+            .coupon_rate(0.05)
+            .frequency("annual")
+            .maturity(dt.date(2029, 1, 2))
+            .disc_id("USD-OIS")
             .build()
+        )
 
         # Pricing with invalid model should raise error
         with pytest.raises((finstack.PricingError, KeyError, finstack.FinstackError)):
@@ -244,4 +237,3 @@ class TestErrorMessageQuality:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

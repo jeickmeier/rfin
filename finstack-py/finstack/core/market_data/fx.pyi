@@ -10,14 +10,14 @@ from ..currency import Currency
 
 class FxConversionPolicy:
     """FX conversion policy for cross-currency calculations.
-    
+
     Available policies:
     - NoConversion: No conversion (error if currencies differ)
     - ConvertToBase: Convert to base currency
     - ConvertToQuote: Convert to quote currency
     - ConvertToPivot: Convert to pivot currency
     """
-    
+
     @classmethod
     def from_name(cls, name: str) -> FxConversionPolicy: ...
     """Create from string name.
@@ -32,7 +32,7 @@ class FxConversionPolicy:
     FxConversionPolicy
         Policy instance.
     """
-    
+
     @property
     def name(self) -> str: ...
     """Get the policy name.
@@ -42,7 +42,7 @@ class FxConversionPolicy:
     str
         Human-readable policy name.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
@@ -54,7 +54,7 @@ ConvertToPivot: FxConversionPolicy
 
 class FxConfig:
     """FX configuration for rate management.
-    
+
     Parameters
     ----------
     pivot_currency : Currency, optional
@@ -64,14 +64,13 @@ class FxConfig:
     cache_capacity : int, optional
         Cache capacity for rates.
     """
-    
+
     def __init__(
         self,
         pivot_currency: Optional[Currency] = None,
         enable_triangulation: Optional[bool] = None,
         cache_capacity: Optional[int] = None,
     ) -> None: ...
-    
     @property
     def pivot_currency(self) -> Currency: ...
     """Get the pivot currency.
@@ -81,7 +80,7 @@ class FxConfig:
     Currency
         Pivot currency.
     """
-    
+
     @property
     def enable_triangulation(self) -> bool: ...
     """Check if triangulation is enabled.
@@ -91,7 +90,7 @@ class FxConfig:
     bool
         True if triangulation is enabled.
     """
-    
+
     @property
     def cache_capacity(self) -> int: ...
     """Get the cache capacity.
@@ -101,12 +100,12 @@ class FxConfig:
     int
         Cache capacity.
     """
-    
+
     def __repr__(self) -> str: ...
 
 class FxRateResult:
     """Result of FX rate lookup.
-    
+
     Attributes
     ----------
     rate : float
@@ -114,23 +113,22 @@ class FxRateResult:
     triangulated : bool
         Whether the rate was triangulated.
     """
-    
+
     rate: float
     triangulated: bool
-    
+
     def __init__(self, rate: float, triangulated: bool) -> None: ...
 
 class FxMatrix:
     """FX rate matrix for currency conversions.
-    
+
     Parameters
     ----------
     config : FxConfig, optional
         FX configuration.
     """
-    
+
     def __init__(self, config: Optional[FxConfig] = None) -> None: ...
-    
     def set_quote(
         self,
         from_currency: Currency,
@@ -148,7 +146,7 @@ class FxMatrix:
     rate : float
         Exchange rate.
     """
-    
+
     def set_quotes(self, quotes: List[Tuple[Currency, Currency, float]]) -> None: ...
     """Set multiple FX rates.
     
@@ -157,7 +155,7 @@ class FxMatrix:
     quotes : List[Tuple[Currency, Currency, float]]
         List of (from, to, rate) tuples.
     """
-    
+
     def rate(
         self,
         from_currency: Currency,
@@ -183,7 +181,7 @@ class FxMatrix:
     FxRateResult
         FX rate result.
     """
-    
+
     def cache_stats(self) -> Tuple[int, int]: ...
     """Get cache statistics.
     
@@ -192,5 +190,5 @@ class FxMatrix:
     Tuple[int, int]
         (hits, misses) cache statistics.
     """
-    
+
     def __repr__(self) -> str: ...

@@ -16,7 +16,7 @@ from .builder import (
 
 __all__ = [
     "CouponType",
-    "ScheduleParams", 
+    "ScheduleParams",
     "FixedCouponSpec",
     "FloatCouponParams",
     "FloatingCouponSpec",

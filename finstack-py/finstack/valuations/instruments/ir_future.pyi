@@ -7,7 +7,7 @@ from ..common import InstrumentType
 
 class InterestRateFuture:
     """Interest rate future instrument."""
-    
+
     def __init__(
         self,
         instrument_id: str,
@@ -16,11 +16,11 @@ class InterestRateFuture:
         maturity: date,
         rate: float,
         currency: str,
-        discount_curve: str
+        discount_curve: str,
     ) -> None:
         """Create an interest rate future."""
         ...
-    
+
     @property
     def instrument_id(self) -> str: ...
     @property
@@ -37,6 +37,5 @@ class InterestRateFuture:
     def discount_curve(self) -> str: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
-    
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

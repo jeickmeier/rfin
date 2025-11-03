@@ -10,7 +10,7 @@ from .engine import ExecutionContext, ScenarioEngine
 
 __all__ = [
     "CurveKind",
-    "VolSurfaceKind", 
+    "VolSurfaceKind",
     "TenorMatchMode",
     "OperationSpec",
     "ScenarioSpec",

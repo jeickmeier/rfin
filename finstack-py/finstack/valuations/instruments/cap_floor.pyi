@@ -10,7 +10,7 @@ from ..common import InstrumentType
 
 class InterestRateOption:
     """Interest rate option (cap/floor) instrument."""
-    
+
     def __init__(
         self,
         instrument_id: str,
@@ -24,11 +24,11 @@ class InterestRateOption:
         bdc: BusinessDayConvention,
         currency: str,
         discount_curve: str,
-        forward_curve: Optional[str] = None
+        forward_curve: Optional[str] = None,
     ) -> None:
         """Create an interest rate option."""
         ...
-    
+
     @property
     def instrument_id(self) -> str: ...
     @property
@@ -55,6 +55,5 @@ class InterestRateOption:
     def forward_curve(self) -> Optional[str]: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
-    
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

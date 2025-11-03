@@ -74,7 +74,7 @@ def example_quarterly_cliquet():
         discount_curve="USD.SOFR",
         spot_id="NVDA",
         vol_surface="NVDA.VOL",
-        dividend_yield_id="NVDA.DIV",
+        div_yield_id="NVDA.DIV",
     )
     
     print(f"\nInstrument: {cliquet}")
@@ -123,7 +123,7 @@ def example_annual_cliquet():
         discount_curve="USD.SOFR",
         spot_id="NVDA",
         vol_surface="NVDA.VOL",
-        dividend_yield_id="NVDA.DIV",
+        div_yield_id="NVDA.DIV",
     )
     
     print(f"\nInstrument: {cliquet}")
@@ -174,7 +174,7 @@ def example_monthly_cliquet():
         discount_curve="USD.SOFR",
         spot_id="NVDA",
         vol_surface="NVDA.VOL",
-        dividend_yield_id="NVDA.DIV",
+        div_yield_id="NVDA.DIV",
     )
     
     print(f"\nInstrument: {cliquet}")

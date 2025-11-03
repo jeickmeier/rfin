@@ -6,14 +6,14 @@ for curve construction and evaluation.
 
 class InterpStyle:
     """Interpolation style for curve construction.
-    
+
     Available styles:
     - Linear: Linear interpolation
     - MonotoneConvex: Monotone convex interpolation
     - CubicSpline: Cubic spline interpolation
     - LogLinear: Log-linear interpolation
     """
-    
+
     @classmethod
     def from_name(cls, name: str) -> InterpStyle: ...
     """Create from string name.
@@ -28,7 +28,7 @@ class InterpStyle:
     InterpStyle
         Interpolation style instance.
     """
-    
+
     @property
     def name(self) -> str: ...
     """Get the style name.
@@ -38,7 +38,7 @@ class InterpStyle:
     str
         Human-readable style name.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
@@ -50,14 +50,14 @@ LogLinear: InterpStyle
 
 class ExtrapolationPolicy:
     """Extrapolation policy for curve evaluation.
-    
+
     Available policies:
     - FlatZero: Extrapolate with zero
     - FlatForward: Extrapolate with last forward rate
     - Linear: Linear extrapolation
     - Constant: Constant extrapolation
     """
-    
+
     @classmethod
     def from_name(cls, name: str) -> ExtrapolationPolicy: ...
     """Create from string name.
@@ -72,7 +72,7 @@ class ExtrapolationPolicy:
     ExtrapolationPolicy
         Extrapolation policy instance.
     """
-    
+
     @property
     def name(self) -> str: ...
     """Get the policy name.
@@ -82,7 +82,7 @@ class ExtrapolationPolicy:
     str
         Human-readable policy name.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 

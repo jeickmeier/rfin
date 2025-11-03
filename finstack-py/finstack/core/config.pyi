@@ -12,7 +12,7 @@ from .currency import Currency
 
 class RoundingMode:
     """Rounding strategy for decimal arithmetic.
-    
+
     Available modes:
     - Bankers: Round to nearest even (default)
     - Floor: Round toward negative infinity
@@ -20,7 +20,7 @@ class RoundingMode:
     - TowardZero: Round toward zero
     - AwayFromZero: Round away from zero
     """
-    
+
     @classmethod
     def from_name(cls, name: str) -> RoundingMode: ...
     """Create from string name.
@@ -40,7 +40,7 @@ class RoundingMode:
     ValueError
         If name is not recognized.
     """
-    
+
     @property
     def name(self) -> str: ...
     """Get the mode name.
@@ -50,7 +50,7 @@ class RoundingMode:
     str
         Human-readable mode name.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
     def __hash__(self) -> int: ...
@@ -66,20 +66,19 @@ AwayFromZero: RoundingMode
 
 class FinstackConfig:
     """Manage global rounding behaviour and currency decimal scales.
-    
+
     Parameters
     ----------
     None
         Construct via FinstackConfig() to use default rounding rules.
-        
+
     Returns
     -------
     FinstackConfig
         Configuration handle that can be reused across money formatting operations.
     """
-    
+
     def __init__(self) -> None: ...
-    
     def copy(self) -> FinstackConfig: ...
     """Create a copy of this configuration.
     
@@ -88,7 +87,7 @@ class FinstackConfig:
     FinstackConfig
         Independent copy of the configuration.
     """
-    
+
     @property
     def rounding_mode(self) -> RoundingMode: ...
     """Get the current rounding mode.
@@ -98,7 +97,7 @@ class FinstackConfig:
     RoundingMode
         Active rounding strategy.
     """
-    
+
     def set_rounding_mode(self, mode: Union[str, RoundingMode]) -> None: ...
     """Set the rounding mode.
     
@@ -107,7 +106,7 @@ class FinstackConfig:
     mode : str or RoundingMode
         New rounding mode.
     """
-    
+
     def ingest_scale(self, currency: Union[str, Currency]) -> int: ...
     """Get the ingest scale for a currency.
     
@@ -121,7 +120,7 @@ class FinstackConfig:
     int
         Number of decimal places for ingest.
     """
-    
+
     def set_ingest_scale(self, currency: Union[str, Currency], decimals: int) -> None: ...
     """Set the ingest scale for a currency.
     
@@ -132,7 +131,7 @@ class FinstackConfig:
     decimals : int
         Number of decimal places for ingest.
     """
-    
+
     def output_scale(self, currency: Union[str, Currency]) -> int: ...
     """Get the output scale for a currency.
     
@@ -146,7 +145,7 @@ class FinstackConfig:
     int
         Number of decimal places for output.
     """
-    
+
     def set_output_scale(self, currency: Union[str, Currency], decimals: int) -> None: ...
     """Set the output scale for a currency.
     

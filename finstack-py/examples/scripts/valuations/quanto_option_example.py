@@ -81,14 +81,14 @@ def example_quanto_call_positive_correlation():
         equity_strike=140.0,  # Strike in EUR
         option_type="call",
         expiry=date(2025, 12, 31),
-        notional=10000.0,  # Number of shares
+        notional=Money(10000.0, USD),  # Notional in USD
         domestic_currency=USD,  # Settlement currency
         foreign_currency=EUR,  # Underlying currency
         correlation=0.3,  # Positive correlation between SAP and EUR/USD
         discount_curve="USD.SOFR",
         spot_id="SAP",
         vol_surface="SAP.VOL",
-        dividend_yield_id="SAP.DIV",
+        div_yield_id="SAP.DIV",
         fx_rate_id="EURUSD",
         fx_vol_id="EURUSD.VOL",
     )
@@ -132,14 +132,14 @@ def example_quanto_put_negative_correlation():
         equity_strike=150.0,  # Higher strike for put
         option_type="put",
         expiry=date(2025, 6, 30),
-        notional=25000.0,
+        notional=Money(25000.0, USD),
         domestic_currency=USD,
         foreign_currency=EUR,
         correlation=-0.2,  # Negative correlation (SAP falls when EUR strengthens)
         discount_curve="USD.SOFR",
         spot_id="SAP",
         vol_surface="SAP.VOL",
-        dividend_yield_id="SAP.DIV",
+        div_yield_id="SAP.DIV",
         fx_rate_id="EURUSD",
         fx_vol_id="EURUSD.VOL",
     )
@@ -181,14 +181,14 @@ def example_quanto_call_zero_correlation():
         equity_strike=140.0,
         option_type="call",
         expiry=date(2026, 1, 1),
-        notional=50000.0,
+        notional=Money(50000.0, USD),
         domestic_currency=USD,
         foreign_currency=EUR,
         correlation=0.0,  # Zero correlation
         discount_curve="USD.SOFR",
         spot_id="SAP",
         vol_surface="SAP.VOL",
-        dividend_yield_id="SAP.DIV",
+        div_yield_id="SAP.DIV",
         fx_rate_id="EURUSD",
         fx_vol_id="EURUSD.VOL",
     )

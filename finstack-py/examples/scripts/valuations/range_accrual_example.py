@@ -82,7 +82,7 @@ def example_narrow_range_accrual():
         discount_curve="USD.SOFR",
         spot_id="SPY",
         vol_surface="SPY.VOL",
-        dividend_yield_id="SPY.DIV",
+        div_yield_id="SPY.DIV",
     )
     
     print(f"\nInstrument: {range_accrual}")
@@ -137,7 +137,7 @@ def example_wide_range_accrual():
         discount_curve="USD.SOFR",
         spot_id="SPY",
         vol_surface="SPY.VOL",
-        dividend_yield_id="SPY.DIV",
+        div_yield_id="SPY.DIV",
     )
     
     print(f"\nInstrument: {range_accrual}")
@@ -196,7 +196,7 @@ def example_asymmetric_range_accrual():
         discount_curve="USD.SOFR",
         spot_id="SPY",
         vol_surface="SPY.VOL",
-        dividend_yield_id="SPY.DIV",
+        div_yield_id="SPY.DIV",
     )
     
     print(f"\nInstrument: {range_accrual}")
@@ -252,7 +252,7 @@ def example_high_coupon_tight_range():
         discount_curve="USD.SOFR",
         spot_id="SPY",
         vol_surface="SPY.VOL",
-        dividend_yield_id="SPY.DIV",
+        div_yield_id="SPY.DIV",
     )
     
     print(f"\nInstrument: {range_accrual}")

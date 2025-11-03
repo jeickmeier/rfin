@@ -10,7 +10,7 @@ from ..money import Money
 
 class CFKind:
     """Cashflow kind enumeration.
-    
+
     Available kinds:
     - Fixed: Fixed cashflow
     - Floating: Floating cashflow
@@ -19,7 +19,7 @@ class CFKind:
     - PrincipalExchange: Principal exchange
     - Fee: Fee payment
     """
-    
+
     @classmethod
     def from_name(cls, name: str) -> CFKind: ...
     """Create from string name.
@@ -34,7 +34,7 @@ class CFKind:
     CFKind
         Cashflow kind instance.
     """
-    
+
     @property
     def name(self) -> str: ...
     """Get the kind name.
@@ -44,7 +44,7 @@ class CFKind:
     str
         Human-readable kind name.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
     def __hash__(self) -> int: ...
@@ -61,7 +61,7 @@ Fee: CFKind
 
 class CashFlow:
     """A single cashflow event.
-    
+
     Parameters
     ----------
     date : str or date
@@ -75,7 +75,7 @@ class CashFlow:
     reset_date : str or date, optional
         Reset date for floating cashflows.
     """
-    
+
     @classmethod
     def fixed(
         cls,
@@ -99,7 +99,7 @@ class CashFlow:
     CashFlow
         Fixed cashflow.
     """
-    
+
     @classmethod
     def floating(
         cls,
@@ -126,7 +126,7 @@ class CashFlow:
     CashFlow
         Floating cashflow.
     """
-    
+
     @classmethod
     def pik(
         cls,
@@ -147,7 +147,7 @@ class CashFlow:
     CashFlow
         PIK cashflow.
     """
-    
+
     @classmethod
     def amortization(
         cls,
@@ -168,7 +168,7 @@ class CashFlow:
     CashFlow
         Amortization cashflow.
     """
-    
+
     @classmethod
     def principal_exchange(
         cls,
@@ -189,7 +189,7 @@ class CashFlow:
     CashFlow
         Principal exchange cashflow.
     """
-    
+
     @classmethod
     def fee(
         cls,
@@ -210,7 +210,7 @@ class CashFlow:
     CashFlow
         Fee cashflow.
     """
-    
+
     @property
     def kind(self) -> CFKind: ...
     """Get the cashflow kind.
@@ -220,7 +220,7 @@ class CashFlow:
     CFKind
         Cashflow kind.
     """
-    
+
     def date(self) -> date: ...
     """Get the cashflow date.
     
@@ -229,7 +229,7 @@ class CashFlow:
     date
         Cashflow date.
     """
-    
+
     def reset_date(self) -> Optional[date]: ...
     """Get the reset date.
     
@@ -238,7 +238,7 @@ class CashFlow:
     date or None
         Reset date if applicable.
     """
-    
+
     @property
     def amount(self) -> Money: ...
     """Get the cashflow amount.
@@ -248,7 +248,7 @@ class CashFlow:
     Money
         Cashflow amount.
     """
-    
+
     @property
     def accrual_factor(self) -> float: ...
     """Get the accrual factor.
@@ -258,7 +258,7 @@ class CashFlow:
     float
         Accrual factor.
     """
-    
+
     def set_accrual_factor(self, value: float) -> None: ...
     """Set the accrual factor.
     
@@ -267,7 +267,7 @@ class CashFlow:
     value : float
         New accrual factor.
     """
-    
+
     def to_tuple(self) -> Tuple[date, Money, CFKind, float, Optional[date]]: ...
     """Convert to tuple representation.
     
@@ -276,18 +276,18 @@ class CashFlow:
     Tuple[date, Money, CFKind, float, Optional[date]]
         (date, amount, kind, accrual_factor, reset_date).
     """
-    
+
     def __repr__(self) -> str: ...
 
 class AmortizationSpec:
     """Amortization specification for principal payments.
-    
+
     Parameters
     ----------
     None
         Use class methods to create specific types.
     """
-    
+
     @classmethod
     def none(cls) -> AmortizationSpec: ...
     """No amortization: principal remains until redemption.
@@ -297,7 +297,7 @@ class AmortizationSpec:
     AmortizationSpec
         No amortization spec.
     """
-    
+
     @classmethod
     def linear_to(cls, final_notional: Money) -> AmortizationSpec: ...
     """Linear amortization to final notional.
@@ -312,7 +312,7 @@ class AmortizationSpec:
     AmortizationSpec
         Linear amortization spec.
     """
-    
+
     @classmethod
     def step_remaining(
         cls,
@@ -330,7 +330,7 @@ class AmortizationSpec:
     AmortizationSpec
         Step amortization spec.
     """
-    
+
     @classmethod
     def percent_per_period(cls, pct: float) -> AmortizationSpec: ...
     """Percentage amortization per period.
@@ -345,7 +345,7 @@ class AmortizationSpec:
     AmortizationSpec
         Percentage amortization spec.
     """
-    
+
     @classmethod
     def custom_principal(
         cls,
@@ -363,5 +363,5 @@ class AmortizationSpec:
     AmortizationSpec
         Custom amortization spec.
     """
-    
+
     def __repr__(self) -> str: ...

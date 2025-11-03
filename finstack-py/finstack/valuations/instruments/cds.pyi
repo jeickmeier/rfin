@@ -8,7 +8,7 @@ from ..common import InstrumentType
 
 class CreditDefaultSwap:
     """Credit default swap instrument."""
-    
+
     def __init__(
         self,
         instrument_id: str,
@@ -20,10 +20,10 @@ class CreditDefaultSwap:
         recovery_rate: float,
         currency: Currency,
         discount_curve: str,
-        hazard_curve: Optional[str] = None
+        hazard_curve: Optional[str] = None,
     ) -> None:
         """Create a credit default swap.
-        
+
         Args:
             instrument_id: Instrument identifier
             notional: Notional amount
@@ -37,7 +37,7 @@ class CreditDefaultSwap:
             hazard_curve: Optional hazard curve identifier
         """
         ...
-    
+
     @property
     def instrument_id(self) -> str: ...
     @property
@@ -60,6 +60,5 @@ class CreditDefaultSwap:
     def hazard_curve(self) -> Optional[str]: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
-    
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

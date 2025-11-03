@@ -67,7 +67,7 @@ def example_fixed_strike_call():
         discount_curve="USD.SOFR",
         spot_id="TSLA",
         vol_surface="TSLA.VOL",
-        dividend_yield_id="TSLA.DIV",
+        div_yield_id="TSLA.DIV",
     )
     
     print(f"\nInstrument: {option}")
@@ -116,7 +116,7 @@ def example_fixed_strike_put():
         discount_curve="USD.SOFR",
         spot_id="TSLA",
         vol_surface="TSLA.VOL",
-        dividend_yield_id="TSLA.DIV",
+        div_yield_id="TSLA.DIV",
     )
     
     print(f"\nInstrument: {option}")
@@ -165,7 +165,7 @@ def example_floating_strike_call():
         discount_curve="USD.SOFR",
         spot_id="TSLA",
         vol_surface="TSLA.VOL",
-        dividend_yield_id="TSLA.DIV",
+        div_yield_id="TSLA.DIV",
     )
     
     print(f"\nInstrument: {option}")
@@ -214,7 +214,7 @@ def example_floating_strike_put():
         discount_curve="USD.SOFR",
         spot_id="TSLA",
         vol_surface="TSLA.VOL",
-        dividend_yield_id="TSLA.DIV",
+        div_yield_id="TSLA.DIV",
     )
     
     print(f"\nInstrument: {option}")

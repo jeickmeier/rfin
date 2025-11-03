@@ -146,6 +146,13 @@ impl PyRegistry {
     }
 }
 
+impl PyRegistry {
+    /// Get a reference to the inner Registry (for internal use only)
+    pub(crate) fn inner(&self) -> &Registry {
+        &self.inner
+    }
+}
+
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,

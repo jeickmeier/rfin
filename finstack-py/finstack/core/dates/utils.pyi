@@ -8,6 +8,7 @@ from typing import Union
 from datetime import date
 
 def add_months(date: Union[str, date], months: int) -> date: ...
+
 """Add months to a date.
 
 Parameters
@@ -24,6 +25,7 @@ date
 """
 
 def last_day_of_month(date: Union[str, date]) -> date: ...
+
 """Get the last day of the month for a date.
 
 Parameters
@@ -38,6 +40,7 @@ date
 """
 
 def days_in_month(year: int, month: int) -> int: ...
+
 """Get the number of days in a month.
 
 Parameters
@@ -54,6 +57,7 @@ int
 """
 
 def is_leap_year(year: int) -> bool: ...
+
 """Check if a year is a leap year.
 
 Parameters
@@ -68,6 +72,7 @@ bool
 """
 
 def date_to_days_since_epoch(date: Union[str, date]) -> int: ...
+
 """Convert date to days since epoch.
 
 Parameters
@@ -82,6 +87,7 @@ int
 """
 
 def days_since_epoch_to_date(days: int) -> date: ...
+
 """Convert days since epoch to date.
 
 Parameters

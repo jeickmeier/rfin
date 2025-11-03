@@ -86,7 +86,7 @@ def main() -> None:
         ticker="ACME",
         spot_id="ACME-SPOT",
         currency=USD,
-        dividend_yield_id="ACME-DIVYIELD",
+        div_yield_id="ACME-DIVYIELD",
         contract_size=1.0,
     )
     equity_trs = EquityTotalReturnSwap.create(

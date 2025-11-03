@@ -10,7 +10,7 @@ from ..common import InstrumentType
 
 class InterestRateSwap:
     """Interest rate swap instrument."""
-    
+
     def __init__(
         self,
         instrument_id: str,
@@ -26,10 +26,10 @@ class InterestRateSwap:
         float_day_count: DayCount,
         float_bdc: BusinessDayConvention,
         discount_curve: str,
-        forward_curve: Optional[str] = None
+        forward_curve: Optional[str] = None,
     ) -> None:
         """Create an interest rate swap.
-        
+
         Args:
             instrument_id: Instrument identifier
             notional: Notional amount
@@ -47,7 +47,7 @@ class InterestRateSwap:
             forward_curve: Optional forward curve identifier
         """
         ...
-    
+
     @property
     def instrument_id(self) -> str: ...
     @property
@@ -66,6 +66,5 @@ class InterestRateSwap:
     def forward_curve(self) -> Optional[str]: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
-    
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

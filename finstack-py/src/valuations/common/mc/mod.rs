@@ -33,7 +33,7 @@ pub(crate) fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult
         "SimulatedPath",
         "PathDataset",
         "MonteCarloResult",
-        "McGenerator",
+        "MonteCarloPathGenerator",
     ];
 
     mc_module.setattr("__all__", PyList::new(py, &exports)?)?;

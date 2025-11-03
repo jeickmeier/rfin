@@ -8,6 +8,7 @@ from typing import Union
 from datetime import date
 
 def date_to_days_since_epoch(date: Union[str, date]) -> int: ...
+
 """Convert date to days since epoch.
 
 Parameters
@@ -22,6 +23,7 @@ int
 """
 
 def days_since_epoch_to_date(days: int) -> date: ...
+
 """Convert days since epoch to date.
 
 Parameters

@@ -248,4 +248,3 @@ def main() -> None:  # noqa: C901, PLR0915 (complexity acceptable for verificati
 
 if __name__ == "__main__":
     sys.exit(main())
-

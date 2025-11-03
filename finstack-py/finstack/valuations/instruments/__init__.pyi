@@ -38,7 +38,7 @@ __all__ = [
     "InflationSwap",
     # FX
     "FxSpot",
-    "FxOption", 
+    "FxOption",
     "FxSwap",
     # Equity
     "Equity",

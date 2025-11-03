@@ -1,10 +1,11 @@
 """Builder API for financial models."""
 
-from typing import Any, List
+from typing import Any, List, Dict
 from ..types.model import FinancialModelSpec
 from ..types.forecast import ForecastSpec
 from ..types.value import AmountOrScalar
 from ...core.dates.periods import Period, PeriodId
+from .mixed_builder import MixedNodeBuilder
 
 class ModelBuilder:
     """Builder for financial models.
@@ -71,6 +72,36 @@ class ModelBuilder:
         """
         ...
 
+    def value_money(self, node_id: str, values: Any) -> None:
+        """Add a monetary value node.
+
+        This is a convenience method for creating value nodes that represent
+        monetary amounts (Money type).
+
+        Args:
+            node_id: Node identifier
+            values: Period values as Money objects (list of tuples or dict)
+
+        Returns:
+            ModelBuilder: Builder instance for chaining
+        """
+        ...
+
+    def value_scalar(self, node_id: str, values: Any) -> None:
+        """Add a scalar value node.
+
+        This is a convenience method for creating value nodes that represent
+        non-monetary scalars (ratios, percentages, counts, etc.).
+
+        Args:
+            node_id: Node identifier
+            values: Period values as floats (list of tuples or dict)
+
+        Returns:
+            ModelBuilder: Builder instance for chaining
+        """
+        ...
+
     def compute(self, node_id: str, formula: str) -> None:
         """Add a calculated node with a formula.
 
@@ -82,6 +113,19 @@ class ModelBuilder:
 
         Returns:
             ModelBuilder: Builder instance for chaining
+        """
+        ...
+
+    def mixed(self, node_id: str) -> MixedNodeBuilder:
+        """Create a mixed node with values, forecasts, and formulas.
+
+        Returns a MixedNodeBuilder for chaining method calls.
+
+        Args:
+            node_id: Node identifier
+
+        Returns:
+            MixedNodeBuilder: Mixed node builder instance
         """
         ...
 
@@ -108,6 +152,91 @@ class ModelBuilder:
 
         Returns:
             ModelBuilder: Builder instance for chaining
+        """
+        ...
+
+    def add_bond(
+        self,
+        id: str,
+        notional: Any,  # Money
+        coupon_rate: float,
+        issue_date: Any,  # date
+        maturity_date: Any,  # date
+        discount_curve_id: str,
+    ) -> None:
+        """Add a bond instrument to the capital structure.
+
+        Args:
+            id: Unique instrument identifier
+            notional: Principal amount (Money)
+            coupon_rate: Annual coupon rate (e.g., 0.05 for 5%)
+            issue_date: Bond issue date
+            maturity_date: Bond maturity date
+            discount_curve_id: Discount curve ID for pricing
+        """
+        ...
+
+    def add_swap(
+        self,
+        id: str,
+        notional: Any,  # Money
+        fixed_rate: float,
+        start_date: Any,  # date
+        maturity_date: Any,  # date
+        discount_curve_id: str,
+        forward_curve_id: str,
+    ) -> None:
+        """Add an interest rate swap to the capital structure.
+
+        Args:
+            id: Unique instrument identifier
+            notional: Notional amount (Money)
+            fixed_rate: Fixed rate (e.g., 0.04 for 4%)
+            start_date: Swap start date
+            maturity_date: Swap maturity date
+            discount_curve_id: Discount curve ID
+            forward_curve_id: Forward curve ID for floating leg
+        """
+        ...
+
+    def add_custom_debt(self, id: str, spec: Dict[str, Any]) -> None:
+        """Add a generic debt instrument via JSON specification.
+
+        Args:
+            id: Unique instrument identifier
+            spec: JSON specification for the debt instrument
+        """
+        ...
+
+    def with_builtin_metrics(self) -> None:
+        """Load built-in metrics (fin.* namespace) and add them to the model.
+
+        This adds all standard financial metrics from the built-in registry.
+        """
+        ...
+
+    def with_metrics(self, path: str) -> None:
+        """Load metrics from a JSON file and add them to the model.
+
+        Args:
+            path: Path to a metrics JSON definition file
+        """
+        ...
+
+    def add_metric(self, qualified_id: str) -> None:
+        """Add a specific metric from the built-in registry.
+
+        Args:
+            qualified_id: Fully qualified metric identifier (e.g., "fin.gross_margin")
+        """
+        ...
+
+    def add_metric_from_registry(self, qualified_id: str, registry: Any) -> None:
+        """Add a specific metric from a registry.
+
+        Args:
+            qualified_id: Fully qualified metric identifier to add
+            registry: Registry loaded by the caller (allows reuse across builders)
         """
         ...
 

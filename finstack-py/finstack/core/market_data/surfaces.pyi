@@ -8,7 +8,7 @@ from typing import List
 
 class VolSurface:
     """Volatility surface for options pricing.
-    
+
     Parameters
     ----------
     id : str
@@ -20,7 +20,7 @@ class VolSurface:
     grid : list[list[float]]
         2D volatility grid (expiry x strike).
     """
-    
+
     def __init__(
         self,
         id: str,
@@ -28,7 +28,6 @@ class VolSurface:
         strikes: List[float],
         grid: List[List[float]],
     ) -> None: ...
-    
     @property
     def id(self) -> str: ...
     """Get the surface identifier.
@@ -38,7 +37,7 @@ class VolSurface:
     str
         Surface ID.
     """
-    
+
     @property
     def expiries(self) -> List[float]: ...
     """Get the expiry times.
@@ -48,7 +47,7 @@ class VolSurface:
     List[float]
         Expiry times in years.
     """
-    
+
     @property
     def strikes(self) -> List[float]: ...
     """Get the strike prices.
@@ -58,7 +57,7 @@ class VolSurface:
     List[float]
         Strike prices.
     """
-    
+
     @property
     def grid_shape(self) -> Tuple[int, int]: ...
     """Get the grid shape.
@@ -68,7 +67,7 @@ class VolSurface:
     Tuple[int, int]
         (n_expiries, n_strikes) shape.
     """
-    
+
     def value(self, expiry: float, strike: float) -> float: ...
     """Get volatility at expiry and strike.
     
@@ -84,7 +83,7 @@ class VolSurface:
     float
         Volatility.
     """
-    
+
     def value_checked(self, expiry: float, strike: float) -> float: ...
     """Get volatility with bounds checking.
     
@@ -105,7 +104,7 @@ class VolSurface:
     ValueError
         If expiry or strike is out of bounds.
     """
-    
+
     def value_clamped(self, expiry: float, strike: float) -> float: ...
     """Get volatility with clamping to bounds.
     
@@ -121,5 +120,5 @@ class VolSurface:
     float
         Clamped volatility.
     """
-    
+
     def __repr__(self) -> str: ...

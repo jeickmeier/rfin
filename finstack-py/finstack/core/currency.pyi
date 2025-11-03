@@ -10,20 +10,19 @@ from typing import List, Tuple
 
 class Currency:
     """Wrap ISO-4217 currency metadata for Python usage.
-    
+
     Parameters
     ----------
     code : str
         Three-letter ISO code such as "USD" or "eur".
-        
+
     Returns
     -------
     Currency
         Strongly typed currency object used throughout the bindings.
     """
-    
+
     def __init__(self, code: str) -> None: ...
-    
     @classmethod
     def from_numeric(cls, numeric: int) -> Currency: ...
     """Construct from an ISO numeric currency code (e.g. 840 → USD).
@@ -38,7 +37,7 @@ class Currency:
     Currency
         Currency instance associated with numeric.
     """
-    
+
     @property
     def code(self) -> str: ...
     """Three-letter currency code (always upper-case).
@@ -48,7 +47,7 @@ class Currency:
     str
         Upper-case ISO code (e.g. "USD").
     """
-    
+
     @property
     def numeric(self) -> int: ...
     """ISO numeric currency code.
@@ -58,7 +57,7 @@ class Currency:
     int
         Numeric ISO identifier (e.g. 840 for USD).
     """
-    
+
     @property
     def decimals(self) -> int: ...
     """Number of decimal places for this currency.
@@ -68,7 +67,7 @@ class Currency:
     int
         Decimal places (e.g. 2 for USD, 0 for JPY).
     """
-    
+
     def to_tuple(self) -> Tuple[str, int, int]: ...
     """Convert to (code, numeric, decimals) tuple.
     
@@ -77,7 +76,7 @@ class Currency:
     Tuple[str, int, int]
         (code, numeric, decimals) representation.
     """
-    
+
     @classmethod
     def all(cls) -> List[Currency]: ...
     """Get all available currencies.
@@ -87,7 +86,7 @@ class Currency:
     List[Currency]
         All supported ISO-4217 currencies.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
     def __hash__(self) -> int: ...

@@ -65,12 +65,7 @@ class TestMarketDataRoundtrips:
         points = [(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (5.0, 0.85)]
         day_count = DayCount.ACT_365F
 
-        curve = DiscountCurve(
-            curve_id,
-            base_date,
-            points,
-            day_count=day_count
-        )
+        curve = DiscountCurve(curve_id, base_date, points, day_count=day_count)
 
         # Store in market context and retrieve
         market = MarketContext()
@@ -85,12 +80,15 @@ class TestMarketDataRoundtrips:
     def test_market_context_multiple_curves(self) -> None:
         """Market context should handle multiple curves."""
         curves = {
-            "USD-OIS": DiscountCurve("USD-OIS", dt.date(2024, 1, 2),
-                                     [(0.0, 1.0), (1.0, 0.97)], day_count=DayCount.ACT_365F),
-            "EUR-OIS": DiscountCurve("EUR-OIS", dt.date(2024, 1, 2),
-                                     [(0.0, 1.0), (1.0, 0.98)], day_count=DayCount.ACT_365F),
-            "GBP-OIS": DiscountCurve("GBP-OIS", dt.date(2024, 1, 2),
-                                     [(0.0, 1.0), (1.0, 0.96)], day_count=DayCount.ACT_365F),
+            "USD-OIS": DiscountCurve(
+                "USD-OIS", dt.date(2024, 1, 2), [(0.0, 1.0), (1.0, 0.97)], day_count=DayCount.ACT_365F
+            ),
+            "EUR-OIS": DiscountCurve(
+                "EUR-OIS", dt.date(2024, 1, 2), [(0.0, 1.0), (1.0, 0.98)], day_count=DayCount.ACT_365F
+            ),
+            "GBP-OIS": DiscountCurve(
+                "GBP-OIS", dt.date(2024, 1, 2), [(0.0, 1.0), (1.0, 0.96)], day_count=DayCount.ACT_365F
+            ),
         }
 
         market = MarketContext()
@@ -110,14 +108,16 @@ class TestInstrumentRoundtrips:
         """Bond built with builder should preserve properties."""
         from finstack.valuations.instruments import Bond
 
-        bond = Bond.builder("BOND_001") \
-            .notional(1_000_000.0) \
-            .currency("USD") \
-            .coupon_rate(0.05) \
-            .frequency("semiannual") \
-            .maturity(dt.date(2029, 6, 15)) \
-            .disc_id("USD-OIS") \
+        bond = (
+            Bond.builder("BOND_001")
+            .notional(1_000_000.0)
+            .currency("USD")
+            .coupon_rate(0.05)
+            .frequency("semiannual")
+            .maturity(dt.date(2029, 6, 15))
+            .disc_id("USD-OIS")
             .build()
+        )
 
         # Verify properties are accessible
         assert bond.id == "BOND_001"
@@ -128,16 +128,18 @@ class TestInstrumentRoundtrips:
         """IRS built with builder should preserve properties."""
         from finstack.valuations.instruments import IRS
 
-        irs = IRS.builder("SWAP_001") \
-            .notional(10_000_000.0) \
-            .currency("USD") \
-            .fixed_rate(0.03) \
-            .float_spread_bp(25.0) \
-            .frequency("quarterly") \
-            .maturity(dt.date(2029, 1, 15)) \
-            .disc_id("USD-OIS") \
-            .fwd_id("USD-LIBOR-3M") \
+        irs = (
+            IRS.builder("SWAP_001")
+            .notional(10_000_000.0)
+            .currency("USD")
+            .fixed_rate(0.03)
+            .float_spread_bp(25.0)
+            .frequency("quarterly")
+            .maturity(dt.date(2029, 1, 15))
+            .disc_id("USD-OIS")
+            .fwd_id("USD-LIBOR-3M")
             .build()
+        )
 
         assert irs.id == "SWAP_001"
         assert irs.notional.amount == pytest.approx(10_000_000.0)
@@ -156,9 +158,12 @@ class TestStatementModelRoundtrips:
         builder.periods("2025Q1..Q2", "2025Q1")
 
         # Add a simple value
-        builder.value("revenue", [
-            (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(1_000_000.0)),
-        ])
+        builder.value(
+            "revenue",
+            [
+                (PeriodId.quarter(2025, 1), AmountOrScalar.scalar(1_000_000.0)),
+            ],
+        )
 
         # Add computed value
         builder.compute("double_revenue", "revenue * 2")
@@ -185,11 +190,7 @@ class TestCalibrationRoundtrips:
         """Calibration should accept quotes and return usable curve."""
         from finstack.valuations.calibration import DiscountCurveCalibrator, RatesQuote
 
-        calibrator = DiscountCurveCalibrator(
-            "USD-OIS",
-            dt.date(2024, 1, 2),
-            Currency("USD")
-        )
+        calibrator = DiscountCurveCalibrator("USD-OIS", dt.date(2024, 1, 2), Currency("USD"))
 
         quotes = [
             RatesQuote.from_deposit(0.25, 0.0500, DayCount.ACT_360),
@@ -221,22 +222,26 @@ class TestPricingRoundtrips:
 
         # Setup market
         market = MarketContext()
-        market.insert_discount(DiscountCurve(
-            "USD-OIS",
-            dt.date(2024, 1, 2),
-            [(0.0, 1.0), (1.0, 0.97), (5.0, 0.85), (10.0, 0.70)],
-            day_count=DayCount.ACT_365F
-        ))
+        market.insert_discount(
+            DiscountCurve(
+                "USD-OIS",
+                dt.date(2024, 1, 2),
+                [(0.0, 1.0), (1.0, 0.97), (5.0, 0.85), (10.0, 0.70)],
+                day_count=DayCount.ACT_365F,
+            )
+        )
 
         # Create bond
-        bond = Bond.builder("TEST_BOND") \
-            .notional(1_000_000.0) \
-            .currency("USD") \
-            .coupon_rate(0.05) \
-            .frequency("annual") \
-            .maturity(dt.date(2029, 1, 2)) \
-            .disc_id("USD-OIS") \
+        bond = (
+            Bond.builder("TEST_BOND")
+            .notional(1_000_000.0)
+            .currency("USD")
+            .coupon_rate(0.05)
+            .frequency("annual")
+            .maturity(dt.date(2029, 1, 2))
+            .disc_id("USD-OIS")
             .build()
+        )
 
         # Price
         registry = create_standard_registry()
@@ -270,12 +275,12 @@ class TestDateRoundtrips:
 
         calendar = get_calendar("usny")
 
-        schedule = ScheduleBuilder.new(
-            dt.date(2024, 1, 15),
-            dt.date(2024, 12, 15)
-        ).frequency(Frequency.QUARTERLY) \
-         .adjust_with("modified_following", calendar) \
-         .build()
+        schedule = (
+            ScheduleBuilder.new(dt.date(2024, 1, 15), dt.date(2024, 12, 15))
+            .frequency(Frequency.QUARTERLY)
+            .adjust_with("modified_following", calendar)
+            .build()
+        )
 
         dates = list(schedule.dates)
 
@@ -305,7 +310,7 @@ class TestNumericalPrecision:
             dt.date(2024, 1, 2),
             [(0.0, 1.0), (1.0, 0.95), (2.0, 0.90), (5.0, 0.80)],
             day_count=DayCount.ACT_365F,
-            interp="linear"
+            interp="linear",
         )
 
         # Multiple queries at the same point should give same result
@@ -315,4 +320,3 @@ class TestNumericalPrecision:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

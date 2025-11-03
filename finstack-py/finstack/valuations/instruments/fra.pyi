@@ -8,7 +8,7 @@ from ..common import InstrumentType
 
 class ForwardRateAgreement:
     """Forward rate agreement instrument."""
-    
+
     def __init__(
         self,
         instrument_id: str,
@@ -17,11 +17,11 @@ class ForwardRateAgreement:
         end: date,
         rate: float,
         day_count: DayCount,
-        discount_curve: str
+        discount_curve: str,
     ) -> None:
         """Create a forward rate agreement."""
         ...
-    
+
     @property
     def instrument_id(self) -> str: ...
     @property
@@ -38,6 +38,5 @@ class ForwardRateAgreement:
     def discount_curve(self) -> str: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
-    
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

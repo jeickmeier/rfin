@@ -11,22 +11,21 @@ from .currency import Currency
 
 class Money:
     """Represent a currency-tagged monetary amount with safe arithmetic semantics.
-    
+
     Parameters
     ----------
     amount : float
         Scalar value expressed in minor units defined by currency.
     currency : str or Currency
         ISO code or Currency instance describing the legal tender.
-        
+
     Returns
     -------
     Money
         Money wrapper supporting arithmetic, formatting, and tuple conversions.
     """
-    
+
     def __init__(self, amount: float, currency: Union[str, Currency]) -> None: ...
-    
     @classmethod
     def from_config(cls, amount: float, currency: Union[str, Currency], config: "FinstackConfig") -> Money: ...
     """Construct a money value using a configuration for ingest rounding.
@@ -51,7 +50,7 @@ class Money:
     >>> cfg.set_ingest_scale("JPY", 4)
     >>> Money.from_config(123.4567, "JPY", cfg)
     """
-    
+
     @classmethod
     def zero(cls, currency: Union[str, Currency]) -> Money: ...
     """Create a zero amount in the specified currency.
@@ -66,7 +65,7 @@ class Money:
     Money
         Zero amount in the specified currency.
     """
-    
+
     @classmethod
     def from_tuple(cls, value: Tuple[float, Currency]) -> Money: ...
     """Construct from a (amount, currency) tuple.
@@ -81,7 +80,7 @@ class Money:
     Money
         Money instance from tuple representation.
     """
-    
+
     @property
     def amount(self) -> float: ...
     """Get the numeric amount.
@@ -91,7 +90,7 @@ class Money:
     float
         Scalar value in the currency's minor units.
     """
-    
+
     @property
     def currency(self) -> Currency: ...
     """Get the currency.
@@ -101,7 +100,7 @@ class Money:
     Currency
         Currency instance.
     """
-    
+
     def to_tuple(self) -> Tuple[float, Currency]: ...
     """Convert to (amount, currency) tuple.
     
@@ -110,7 +109,7 @@ class Money:
     Tuple[float, Currency]
         Tuple representation.
     """
-    
+
     def format(self) -> str: ...
     """Format as a human-readable string.
     
@@ -119,7 +118,7 @@ class Money:
     str
         Formatted string (e.g. "USD 125.50").
     """
-    
+
     def format_with_config(self, config: "FinstackConfig") -> str: ...
     """Format using custom configuration.
     
@@ -133,7 +132,7 @@ class Money:
     str
         Formatted string respecting config rules.
     """
-    
+
     def checked_add(self, other: Money) -> Money: ...
     """Add another money amount (same currency required).
     
@@ -152,7 +151,7 @@ class Money:
     ValueError
         If currencies don't match.
     """
-    
+
     def checked_sub(self, other: Money) -> Money: ...
     """Subtract another money amount (same currency required).
     
@@ -171,7 +170,7 @@ class Money:
     ValueError
         If currencies don't match.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
     def __hash__(self) -> int: ...

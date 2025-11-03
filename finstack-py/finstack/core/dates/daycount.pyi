@@ -10,7 +10,7 @@ from .calendar import Calendar
 
 class DayCount:
     """Day count convention for year fraction calculations.
-    
+
     Available conventions:
     - ACT_360: Actual days over 360
     - ACT_365: Actual days over 365
@@ -19,7 +19,7 @@ class DayCount:
     - THIRTY_360_EU: European 30/360
     - THIRTY_360_ISDA: ISDA 30/360
     """
-    
+
     @classmethod
     def from_name(cls, name: str) -> DayCount: ...
     """Create from string name.
@@ -34,7 +34,7 @@ class DayCount:
     DayCount
         Day count instance.
     """
-    
+
     @property
     def name(self) -> str: ...
     """Get the day count name.
@@ -44,8 +44,10 @@ class DayCount:
     str
         Human-readable day count name.
     """
-    
-    def year_fraction(self, start: Union[str, date], end: Union[str, date], ctx: Optional["DayCountContext"] = None) -> float: ...
+
+    def year_fraction(
+        self, start: Union[str, date], end: Union[str, date], ctx: Optional["DayCountContext"] = None
+    ) -> float: ...
     """Calculate year fraction between two dates.
     
     Parameters
@@ -62,7 +64,7 @@ class DayCount:
     float
         Year fraction between the dates.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
@@ -76,11 +78,11 @@ THIRTY_360_ISDA: DayCount
 
 class DayCountContext:
     """Context for day count calculations.
-    
+
     Provides optional calendar and frequency hints that may affect
     day count calculations for certain conventions.
     """
-    
+
     def __init__(self, calendar: Optional[Calendar] = None, frequency: Optional["Frequency"] = None) -> None: ...
     """Create a context with optional calendar/frequency hints.
     
@@ -91,7 +93,7 @@ class DayCountContext:
     frequency : Frequency, optional
         Payment frequency hint.
     """
-    
+
     @property
     def calendar(self) -> Optional[Calendar]: ...
     """Get the calendar hint.
@@ -101,7 +103,7 @@ class DayCountContext:
     Calendar or None
         Calendar hint if set.
     """
-    
+
     def set_calendar(self, calendar: Optional[Calendar]) -> None: ...
     """Set the calendar hint.
     
@@ -110,7 +112,7 @@ class DayCountContext:
     calendar : Calendar or None
         New calendar hint.
     """
-    
+
     @property
     def frequency(self) -> Optional["Frequency"]: ...
     """Get the frequency hint.
@@ -120,7 +122,7 @@ class DayCountContext:
     Frequency or None
         Frequency hint if set.
     """
-    
+
     def set_frequency(self, frequency: Optional["Frequency"]) -> None: ...
     """Set the frequency hint.
     
@@ -129,18 +131,18 @@ class DayCountContext:
     frequency : Frequency or None
         New frequency hint.
     """
-    
+
     def __repr__(self) -> str: ...
 
 class Thirty360Convention:
     """30/360 convention variant.
-    
+
     Available variants:
     - US: US 30/360
     - EU: European 30/360
     - ISDA: ISDA 30/360
     """
-    
+
     @classmethod
     def from_name(cls, name: str) -> Thirty360Convention: ...
     """Create from string name.
@@ -155,7 +157,7 @@ class Thirty360Convention:
     Thirty360Convention
         Convention instance.
     """
-    
+
     @property
     def name(self) -> str: ...
     """Get the convention name.
@@ -165,7 +167,7 @@ class Thirty360Convention:
     str
         Human-readable convention name.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 

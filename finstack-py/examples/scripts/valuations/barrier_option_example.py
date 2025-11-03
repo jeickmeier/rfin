@@ -66,7 +66,7 @@ def example_up_and_out_call():
         discount_curve="USD.SOFR",
         spot_id="MSFT",
         vol_surface="MSFT.VOL",
-        dividend_yield_id="MSFT.DIV",
+        div_yield_id="MSFT.DIV",
         use_gobet_miri=False,
     )
     
@@ -110,7 +110,7 @@ def example_down_and_in_put():
         discount_curve="USD.SOFR",
         spot_id="MSFT",
         vol_surface="MSFT.VOL",
-        dividend_yield_id="MSFT.DIV",
+        div_yield_id="MSFT.DIV",
         use_gobet_miri=True,  # Use Gobet-Miri approximation
     )
     
@@ -155,7 +155,7 @@ def example_down_and_out_put():
         discount_curve="USD.SOFR",
         spot_id="MSFT",
         vol_surface="MSFT.VOL",
-        dividend_yield_id="MSFT.DIV",
+        div_yield_id="MSFT.DIV",
         use_gobet_miri=False,
     )
     
@@ -199,7 +199,7 @@ def example_up_and_in_call():
         discount_curve="USD.SOFR",
         spot_id="MSFT",
         vol_surface="MSFT.VOL",
-        dividend_yield_id="MSFT.DIV",
+        div_yield_id="MSFT.DIV",
         use_gobet_miri=False,
     )
     

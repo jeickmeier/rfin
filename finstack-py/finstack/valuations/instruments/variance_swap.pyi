@@ -8,7 +8,7 @@ from ..common import InstrumentType
 
 class VarianceSwap:
     """Variance swap instrument."""
-    
+
     def __init__(
         self,
         instrument_id: str,
@@ -18,11 +18,11 @@ class VarianceSwap:
         maturity: date,
         strike_variance: float,
         currency: Currency,
-        discount_curve: str
+        discount_curve: str,
     ) -> None:
         """Create a variance swap."""
         ...
-    
+
     @property
     def instrument_id(self) -> str: ...
     @property
@@ -41,6 +41,5 @@ class VarianceSwap:
     def discount_curve(self) -> str: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
-    
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

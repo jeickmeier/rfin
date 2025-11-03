@@ -9,7 +9,7 @@ from datetime import date
 
 class BusinessDayConvention:
     """Business day adjustment convention.
-    
+
     Available conventions:
     - Following: Move to next business day
     - Preceding: Move to previous business day
@@ -17,7 +17,7 @@ class BusinessDayConvention:
     - ModifiedPreceding: Preceding, but if in previous month, use Following
     - Unadjusted: No adjustment
     """
-    
+
     @classmethod
     def from_name(cls, name: str) -> BusinessDayConvention: ...
     """Create from string name.
@@ -32,7 +32,7 @@ class BusinessDayConvention:
     BusinessDayConvention
         Convention instance.
     """
-    
+
     @property
     def name(self) -> str: ...
     """Get the convention name.
@@ -42,7 +42,7 @@ class BusinessDayConvention:
     str
         Human-readable convention name.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
     def __hash__(self) -> int: ...
@@ -58,11 +58,11 @@ Unadjusted: BusinessDayConvention
 
 class Calendar:
     """Holiday calendar with business day logic.
-    
+
     Provides methods to check business days and holidays for various
     financial centers and jurisdictions.
     """
-    
+
     @property
     def code(self) -> str: ...
     """Short calendar identifier (matching the registry code).
@@ -72,7 +72,7 @@ class Calendar:
     str
         Calendar code (e.g. "US", "GB", "JP").
     """
-    
+
     @property
     def name(self) -> str: ...
     """Full calendar name.
@@ -82,7 +82,7 @@ class Calendar:
     str
         Human-readable calendar name.
     """
-    
+
     @property
     def ignore_weekends(self) -> bool: ...
     """Whether weekends are treated as holidays.
@@ -92,7 +92,7 @@ class Calendar:
     bool
         True if weekends are holidays.
     """
-    
+
     def is_business_day(self, date: Union[str, date]) -> bool: ...
     """Check if a date is a business day.
     
@@ -106,7 +106,7 @@ class Calendar:
     bool
         True if the date is a business day.
     """
-    
+
     def is_holiday(self, date: Union[str, date]) -> bool: ...
     """Check if a date is a holiday.
     
@@ -120,7 +120,7 @@ class Calendar:
     bool
         True if the date is a holiday.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
     def __hash__(self) -> int: ...
@@ -128,6 +128,7 @@ class Calendar:
     def __ne__(self, other: object) -> bool: ...
 
 def available_calendars() -> List[Calendar]: ...
+
 """Get all available holiday calendars.
 
 Returns
@@ -137,6 +138,7 @@ List[Calendar]
 """
 
 def available_calendar_codes() -> List[str]: ...
+
 """Get all available calendar codes.
 
 Returns
@@ -146,6 +148,7 @@ List[str]
 """
 
 def get_calendar(code: str) -> Calendar: ...
+
 """Get a calendar by code.
 
 Parameters
@@ -165,6 +168,7 @@ ValueError
 """
 
 def adjust(date: Union[str, date], convention: BusinessDayConvention, calendar: Calendar) -> date: ...
+
 """Adjust a date according to business day convention.
 
 Parameters

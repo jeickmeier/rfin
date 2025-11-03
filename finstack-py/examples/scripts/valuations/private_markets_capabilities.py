@@ -30,7 +30,7 @@ def build_fund_definition() -> str:
     fund = {
         "id": "PMF-CORE-EQ",
         "currency": "USD",
-        "disc_id": "USD-OIS",
+        "discount_curve_id": "USD-OIS",
         "spec": {
             "style": "european",
             "catchup_mode": "full",

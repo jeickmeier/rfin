@@ -1,7 +1,7 @@
 """Portfolio management and aggregation for finstack.
 
-This module provides portfolio-level operations including entity and position 
-management, valuation aggregation, metrics calculation, attribute-based grouping, 
+This module provides portfolio-level operations including entity and position
+management, valuation aggregation, metrics calculation, attribute-based grouping,
 and DataFrame exports for analysis.
 """
 
@@ -16,9 +16,10 @@ from .grouping import group_by_attribute, aggregate_by_attribute
 # Scenario integration (if available)
 try:
     from .scenarios import apply_scenario, apply_and_revalue
+
     __all__ = [
         "Entity",
-        "PositionUnit", 
+        "PositionUnit",
         "Position",
         "Portfolio",
         "PortfolioBuilder",
@@ -38,7 +39,7 @@ except ImportError:
     __all__ = [
         "Entity",
         "PositionUnit",
-        "Position", 
+        "Position",
         "Portfolio",
         "PortfolioBuilder",
         "PositionValue",

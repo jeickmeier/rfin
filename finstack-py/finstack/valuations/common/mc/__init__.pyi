@@ -5,7 +5,7 @@ from . import params
 from . import paths
 from . import result
 
-from .generator import McGenerator
+from .generator import MonteCarloPathGenerator
 from .params import ProcessParams
 from .paths import PathPoint, SimulatedPath, PathDataset
 from .result import MonteCarloResult
@@ -17,11 +17,10 @@ __all__ = [
     "paths",
     "result",
     # Classes
-    "McGenerator",
+    "MonteCarloPathGenerator",
     "ProcessParams",
     "PathPoint",
     "SimulatedPath",
     "PathDataset",
     "MonteCarloResult",
 ]
-

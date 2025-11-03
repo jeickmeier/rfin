@@ -40,11 +40,7 @@ class ForecastSpec:
     and parameters.
     """
 
-    def __init__(
-        self,
-        method: ForecastMethod,
-        params: Optional[Dict[str, Any]] = None
-    ) -> None:
+    def __init__(self, method: ForecastMethod, params: Optional[Dict[str, Any]] = None) -> None:
         """Create a forecast specification.
 
         Args:

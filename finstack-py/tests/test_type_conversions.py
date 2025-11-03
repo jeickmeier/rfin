@@ -75,19 +75,14 @@ class TestDayCountConversions:
                 f"TEST_{string_format.replace('/', '_')}",
                 dt.date(2024, 1, 2),
                 [(0.0, 1.0), (1.0, 0.97)],
-                day_count=string_format
+                day_count=string_format,
             )
             assert curve is not None
 
     def test_invalid_daycount_raises_error(self) -> None:
         """Invalid day count string should raise ValueError."""
         with pytest.raises(ValueError, match="Unknown day-count"):
-            DiscountCurve(
-                "INVALID",
-                dt.date(2024, 1, 2),
-                [(0.0, 1.0), (1.0, 0.97)],
-                day_count="INVALID_DAYCOUNT"
-            )
+            DiscountCurve("INVALID", dt.date(2024, 1, 2), [(0.0, 1.0), (1.0, 0.97)], day_count="INVALID_DAYCOUNT")
 
 
 class TestBusinessDayConventionConversions:
@@ -151,10 +146,7 @@ class TestFrequencyConversions:
 
         for string_format, _expected_freq in test_cases:
             # Test by building a schedule with the frequency
-            schedule = ScheduleBuilder.new(
-                dt.date(2024, 1, 15),
-                dt.date(2024, 7, 15)
-            ).frequency(string_format).build()
+            schedule = ScheduleBuilder.new(dt.date(2024, 1, 15), dt.date(2024, 7, 15)).frequency(string_format).build()
 
             assert schedule is not None
             assert len(list(schedule.dates)) > 0
@@ -181,7 +173,7 @@ class TestInterpolationConversions:
                 dt.date(2024, 1, 2),
                 [(0.0, 1.0), (1.0, 0.97), (5.0, 0.85)],
                 day_count=DayCount.ACT_365F,
-                interp=interp_string
+                interp=interp_string,
             )
             assert curve is not None
 
@@ -193,7 +185,7 @@ class TestInterpolationConversions:
                 dt.date(2024, 1, 2),
                 [(0.0, 1.0), (1.0, 0.97)],
                 day_count=DayCount.ACT_365F,
-                interp="INVALID_INTERP"
+                interp="INVALID_INTERP",
             )
 
 
@@ -263,7 +255,7 @@ class TestNoneAndOptionalHandling:
             "USD-OIS",
             dt.date(2024, 1, 2),
             [(0.0, 1.0), (1.0, 0.97), (5.0, 0.85)],
-            day_count=DayCount.ACT_365F
+            day_count=DayCount.ACT_365F,
             # No interp parameter - should use default
         )
         assert curve is not None
@@ -272,11 +264,7 @@ class TestNoneAndOptionalHandling:
         """Optional market context should accept None."""
         from finstack.valuations.calibration import DiscountCurveCalibrator, RatesQuote
 
-        calibrator = DiscountCurveCalibrator(
-            "USD-OIS",
-            dt.date(2024, 1, 2),
-            Currency("USD")
-        )
+        calibrator = DiscountCurveCalibrator("USD-OIS", dt.date(2024, 1, 2), Currency("USD"))
 
         quotes = [
             RatesQuote.from_deposit(1.0, 0.05, DayCount.ACT_360),
@@ -296,12 +284,7 @@ class TestListAndVectorConversions:
         """Lists of tuples should convert to Vec<(f64, f64)>."""
         points = [(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (5.0, 0.85)]
 
-        curve = DiscountCurve(
-            "USD-OIS",
-            dt.date(2024, 1, 2),
-            points,
-            day_count=DayCount.ACT_365F
-        )
+        curve = DiscountCurve("USD-OIS", dt.date(2024, 1, 2), points, day_count=DayCount.ACT_365F)
         assert curve is not None
 
     def test_list_of_floats_for_grid(self) -> None:
@@ -316,7 +299,7 @@ class TestListAndVectorConversions:
                 [0.20, 0.21, 0.22],
                 [0.19, 0.20, 0.21],
                 [0.18, 0.19, 0.20],
-            ]
+            ],
         )
         assert surface is not None
 
@@ -354,4 +337,3 @@ class TestEdgeCases:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

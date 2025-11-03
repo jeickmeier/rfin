@@ -223,6 +223,90 @@ impl PyResults {
             .map_err(|e| PyValueError::new_err(format!("Deserialization error: {}", e)))
     }
 
+    #[pyo3(text_signature = "(self)")]
+    /// Export results to long-format Polars DataFrame.
+    ///
+    /// Schema: (node_id, period_id, value, value_money, currency, value_type)
+    ///
+    /// Includes both f64 and Money representations where applicable.
+    ///
+    /// Returns
+    /// -------
+    /// polars.DataFrame
+    ///     Long-format DataFrame with all node-period combinations
+    ///
+    /// Examples
+    /// --------
+    /// >>> df = results.to_polars_long()
+    /// >>> print(df)
+    /// # ┌─────────────┬───────────┬────────────┬──────────────┬──────────┬────────────┐
+    /// # │ node_id     │ period_id │ value      │ value_money  │ currency │ value_type │
+    /// # ├─────────────┼───────────┼────────────┼──────────────┼──────────┼────────────┤
+    /// # │ revenue     │ 2025Q1    │ 100000.0   │ 100000.0     │ USD      │ monetary   │
+    /// # │ revenue     │ 2025Q2    │ 105000.0   │ 105000.0     │ USD      │ monetary   │
+    /// # │ margin_pct  │ 2025Q1    │ 0.35       │ null         │ null     │ scalar     │
+    /// # └─────────────┴───────────┴────────────┴──────────────┴──────────┴────────────┘
+    fn to_polars_long(&self) -> PyResult<pyo3_polars::PyDataFrame> {
+        use finstack_statements::results::to_polars_long;
+        
+        let df = to_polars_long(&self.inner).map_err(stmt_to_py)?;
+        Ok(pyo3_polars::PyDataFrame(df))
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Export results to wide-format Polars DataFrame.
+    ///
+    /// Schema: periods as rows, nodes as columns
+    ///
+    /// Returns
+    /// -------
+    /// polars.DataFrame
+    ///     Wide-format DataFrame with periods as rows and nodes as columns
+    ///
+    /// Examples
+    /// --------
+    /// >>> df = results.to_polars_wide()
+    /// >>> print(df)
+    /// # ┌───────────┬────────────┬──────────┐
+    /// # │ period_id │ revenue    │ cogs     │
+    /// # ├───────────┼────────────┼──────────┤
+    /// # │ 2025Q1    │ 100000.0   │ 60000.0  │
+    /// # │ 2025Q2    │ 105000.0   │ 63000.0  │
+    /// # └───────────┴────────────┴──────────┘
+    fn to_polars_wide(&self) -> PyResult<pyo3_polars::PyDataFrame> {
+        use finstack_statements::results::to_polars_wide;
+        
+        let df = to_polars_wide(&self.inner).map_err(stmt_to_py)?;
+        Ok(pyo3_polars::PyDataFrame(df))
+    }
+
+    #[pyo3(text_signature = "(self, node_filter)")]
+    /// Export results to long-format Polars DataFrame with node filtering.
+    ///
+    /// Schema: (node_id, period_id, value, value_money, currency, value_type)
+    ///
+    /// Parameters
+    /// ----------
+    /// node_filter : list[str]
+    ///     List of node IDs to include (empty list includes all nodes)
+    ///
+    /// Returns
+    /// -------
+    /// polars.DataFrame
+    ///     Filtered long-format DataFrame
+    ///
+    /// Examples
+    /// --------
+    /// >>> df = results.to_polars_long_filtered(["revenue", "cogs"])
+    /// >>> print(df)
+    fn to_polars_long_filtered(&self, node_filter: Vec<String>) -> PyResult<pyo3_polars::PyDataFrame> {
+        use finstack_statements::results::to_polars_long_filtered;
+        
+        let node_filter_refs: Vec<&str> = node_filter.iter().map(|s| s.as_str()).collect();
+        let df = to_polars_long_filtered(&self.inner, &node_filter_refs).map_err(stmt_to_py)?;
+        Ok(pyo3_polars::PyDataFrame(df))
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "Results(nodes={}, periods={})",
@@ -328,6 +412,153 @@ impl PyEvaluator {
     }
 }
 
+/// Evaluator with pre-configured market context.
+///
+/// This is a convenience wrapper that stores market context and as-of date
+/// for capital structure evaluation.
+#[pyclass(
+    module = "finstack.statements.evaluator",
+    name = "EvaluatorWithContext",
+    unsendable
+)]
+pub struct PyEvaluatorWithContext {
+    inner: finstack_statements::evaluator::EvaluatorWithContext,
+}
+
+#[pymethods]
+impl PyEvaluatorWithContext {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, market_ctx, as_of)")]
+    /// Create a new evaluator with pre-configured market context.
+    ///
+    /// Parameters
+    /// ----------
+    /// market_ctx : MarketContext
+    ///     Market context with discount/forward curves
+    /// as_of : date
+    ///     Valuation date for pricing
+    ///
+    /// Returns
+    /// -------
+    /// EvaluatorWithContext
+    ///     Evaluator instance with stored context
+    fn new(
+        _cls: &Bound<'_, PyType>,
+        market_ctx: &crate::core::market_data::context::PyMarketContext,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        use crate::core::utils::py_to_date;
+        
+        let as_of_date = py_to_date(as_of)?;
+        let inner = finstack_statements::evaluator::Evaluator::with_market_context(
+            &market_ctx.inner,
+            as_of_date,
+        );
+        
+        Ok(Self { inner })
+    }
+
+    #[pyo3(text_signature = "(self, model)")]
+    /// Evaluate a financial model using the stored market context.
+    ///
+    /// Parameters
+    /// ----------
+    /// model : FinancialModelSpec
+    ///     Financial model specification
+    ///
+    /// Returns
+    /// -------
+    /// Results
+    ///     Evaluation results
+    fn evaluate(&mut self, py: Python<'_>, model: &PyFinancialModelSpec) -> PyResult<PyResults> {
+        let results = py.allow_threads(|| self.inner.evaluate(&model.inner).map_err(stmt_to_py))?;
+        Ok(PyResults::new(results))
+    }
+}
+
+/// Dependency graph for financial models.
+///
+/// Provides DAG construction and topological ordering for model nodes.
+#[pyclass(
+    module = "finstack.statements.evaluator",
+    name = "DependencyGraph",
+    frozen
+)]
+pub struct PyDependencyGraph {
+    pub(crate) inner: finstack_statements::evaluator::DependencyGraph,
+}
+
+#[pymethods]
+impl PyDependencyGraph {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, model)")]
+    /// Construct a dependency graph from a financial model.
+    ///
+    /// Parameters
+    /// ----------
+    /// model : FinancialModelSpec
+    ///     Financial model specification
+    ///
+    /// Returns
+    /// -------
+    /// DependencyGraph
+    ///     Dependency graph instance
+    fn from_model(_cls: &Bound<'_, PyType>, model: &PyFinancialModelSpec) -> PyResult<Self> {
+        let inner = finstack_statements::evaluator::DependencyGraph::from_model(&model.inner)
+            .map_err(stmt_to_py)?;
+        Ok(Self { inner })
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Get topological ordering of nodes.
+    ///
+    /// Returns
+    /// -------
+    /// list[str]
+    ///     Node IDs in evaluation order
+    fn topological_order(&self) -> PyResult<Vec<String>> {
+        finstack_statements::evaluator::evaluate_order(&self.inner)
+            .map_err(stmt_to_py)
+            .map(|order| order.into_iter().map(|s| s.to_string()).collect())
+    }
+
+    #[pyo3(text_signature = "(self, node_id)")]
+    /// Get direct dependencies for a node.
+    ///
+    /// Parameters
+    /// ----------
+    /// node_id : str
+    ///     Node identifier
+    ///
+    /// Returns
+    /// -------
+    /// list[str]
+    ///     List of node IDs that this node depends on
+    fn dependencies(&self, node_id: &str) -> Vec<String> {
+        self.inner
+            .get_dependencies(node_id)
+            .map(|deps| deps.iter().map(|s| s.to_string()).collect())
+            .unwrap_or_default()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Check if the graph has cycles.
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     True if there are circular dependencies
+    fn has_cycle(&self) -> bool {
+        // Try to get topological order; if it fails, there's a cycle
+        finstack_statements::evaluator::evaluate_order(&self.inner).is_err()
+    }
+
+    fn __repr__(&self) -> String {
+        let node_count = self.inner.dependencies.len();
+        format!("DependencyGraph(nodes={})", node_count)
+    }
+}
+
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -338,9 +569,17 @@ pub(crate) fn register<'py>(
     module.add_class::<PyResultsMeta>()?;
     module.add_class::<PyResults>()?;
     module.add_class::<PyEvaluator>()?;
+    module.add_class::<PyEvaluatorWithContext>()?;
+    module.add_class::<PyDependencyGraph>()?;
 
     parent.add_submodule(&module)?;
     parent.setattr("evaluator", &module)?;
 
-    Ok(vec!["ResultsMeta", "Results", "Evaluator"])
+    Ok(vec![
+        "ResultsMeta",
+        "Results",
+        "Evaluator",
+        "EvaluatorWithContext",
+        "DependencyGraph",
+    ])
 }

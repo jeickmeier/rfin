@@ -84,4 +84,17 @@ globals()["portfolio"] = _portfolio
 _sys.modules[f"{__name__}.portfolio"] = _portfolio
 _walk_and_register(_portfolio, "portfolio")
 
-del _finstack, _sys, _name, _core, _valuations, _statements, _scenarios, _portfolio, _types, _walk_and_register, _Any, _MutableMapping
+del (
+    _finstack,
+    _sys,
+    _name,
+    _core,
+    _valuations,
+    _statements,
+    _scenarios,
+    _portfolio,
+    _types,
+    _walk_and_register,
+    _Any,
+    _MutableMapping,
+)

@@ -12,7 +12,7 @@ class CapitalStructureSpec:
     def __init__(
         self,
         debt_instruments: Optional[List[DebtInstrumentSpec]] = None,
-        equity_instruments: Optional[List[Any]] = None
+        equity_instruments: Optional[List[Any]] = None,
     ) -> None:
         """Create a capital structure specification.
 

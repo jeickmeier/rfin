@@ -126,6 +126,115 @@ class Results:
         """
         ...
 
+    def to_polars_long(self) -> Any:
+        """Export results to long-format Polars DataFrame.
+
+        Schema: (node_id, period_id, value, value_money, currency, value_type)
+
+        Returns:
+            polars.DataFrame: Long-format DataFrame with all node-period combinations
+        """
+        ...
+
+    def to_polars_wide(self) -> Any:
+        """Export results to wide-format Polars DataFrame.
+
+        Schema: periods as rows, nodes as columns
+
+        Returns:
+            polars.DataFrame: Wide-format DataFrame with periods as rows and nodes as columns
+        """
+        ...
+
+    def to_polars_long_filtered(self, node_filter: List[str]) -> Any:
+        """Export results to long-format Polars DataFrame with node filtering.
+
+        Args:
+            node_filter: List of node IDs to include (empty list includes all nodes)
+
+        Returns:
+            polars.DataFrame: Filtered long-format DataFrame
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+
+class EvaluatorWithContext:
+    """Evaluator with pre-configured market context.
+
+    This is a convenience wrapper that stores market context and as-of date
+    for capital structure evaluation.
+    """
+
+    @classmethod
+    def new(cls, market_ctx: MarketContext, as_of: date) -> EvaluatorWithContext:
+        """Create a new evaluator with pre-configured market context.
+
+        Args:
+            market_ctx: Market context with discount/forward curves
+            as_of: Valuation date for pricing
+
+        Returns:
+            EvaluatorWithContext: Evaluator instance with stored context
+        """
+        ...
+
+    def evaluate(self, model: FinancialModelSpec) -> Results:
+        """Evaluate a financial model using the stored market context.
+
+        Args:
+            model: Financial model specification
+
+        Returns:
+            Results: Evaluation results
+        """
+        ...
+
+class DependencyGraph:
+    """Dependency graph for financial models.
+
+    Provides DAG construction and topological ordering for model nodes.
+    """
+
+    @classmethod
+    def from_model(cls, model: FinancialModelSpec) -> DependencyGraph:
+        """Construct a dependency graph from a financial model.
+
+        Args:
+            model: Financial model specification
+
+        Returns:
+            DependencyGraph: Dependency graph instance
+        """
+        ...
+
+    def topological_order(self) -> List[str]:
+        """Get topological ordering of nodes.
+
+        Returns:
+            list[str]: Node IDs in evaluation order
+        """
+        ...
+
+    def dependencies(self, node_id: str) -> List[str]:
+        """Get direct dependencies for a node.
+
+        Args:
+            node_id: Node identifier
+
+        Returns:
+            list[str]: List of node IDs that this node depends on
+        """
+        ...
+
+    def has_cycle(self) -> bool:
+        """Check if the graph has cycles.
+
+        Returns:
+            bool: True if there are circular dependencies
+        """
+        ...
+
     def __repr__(self) -> str: ...
 
 class Evaluator:
@@ -160,10 +269,7 @@ class Evaluator:
         ...
 
     def evaluate_with_market_context(
-        self,
-        model: FinancialModelSpec,
-        market_ctx: MarketContext,
-        as_of: date
+        self, model: FinancialModelSpec, market_ctx: MarketContext, as_of: date
     ) -> Results:
         """Evaluate a financial model with market context for pricing.
 

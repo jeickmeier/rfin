@@ -19,7 +19,7 @@ from . import term_structures
 __all__ = [
     "context",
     "dividends",
-    "fx", 
+    "fx",
     "interp",
     "scalars",
     "surfaces",

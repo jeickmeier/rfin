@@ -8,6 +8,7 @@ from typing import Union
 from datetime import date
 
 def next_imm(date: Union[str, date]) -> date: ...
+
 """Get the next IMM date after the given date.
 
 Parameters
@@ -22,6 +23,7 @@ date
 """
 
 def next_cds_date(date: Union[str, date]) -> date: ...
+
 """Get the next CDS date after the given date.
 
 Parameters
@@ -36,6 +38,7 @@ date
 """
 
 def next_imm_option_expiry(date: Union[str, date]) -> date: ...
+
 """Get the next IMM option expiry date.
 
 Parameters
@@ -50,6 +53,7 @@ date
 """
 
 def imm_option_expiry(year: int, month: int) -> date: ...
+
 """Get the IMM option expiry for a specific year/month.
 
 Parameters
@@ -66,6 +70,7 @@ date
 """
 
 def next_equity_option_expiry(date: Union[str, date]) -> date: ...
+
 """Get the next equity option expiry date.
 
 Parameters
@@ -80,6 +85,7 @@ date
 """
 
 def third_friday(year: int, month: int) -> date: ...
+
 """Get the third Friday of a month.
 
 Parameters
@@ -96,6 +102,7 @@ date
 """
 
 def third_wednesday(year: int, month: int) -> date: ...
+
 """Get the third Wednesday of a month.
 
 Parameters

@@ -15,12 +15,14 @@ class PortfolioBuilder:
         >>> from finstack.portfolio import PortfolioBuilder, Entity
         >>> from finstack.core import Currency
         >>> from datetime import date
-        >>> portfolio = (PortfolioBuilder("FUND_A")
+        >>> portfolio = (
+        ...     PortfolioBuilder("FUND_A")
         ...     .name("Alpha Fund")
         ...     .base_ccy(Currency.USD)
         ...     .as_of(date(2024, 1, 1))
         ...     .entity(Entity("ACME"))
-        ...     .build())
+        ...     .build()
+        ... )
     """
 
     def __init__(self, id: str) -> None:

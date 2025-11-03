@@ -12,7 +12,7 @@ from .interp import InterpStyle, ExtrapolationPolicy
 
 class DiscountCurve:
     """Discount curve wrapper supporting multiple interpolation and extrapolation styles.
-    
+
     Parameters
     ----------
     id : str
@@ -29,13 +29,13 @@ class DiscountCurve:
         Extrapolation policy name (e.g. "flat_zero").
     require_monotonic : bool, default False
         Enforce monotonic discount factors across knots.
-        
+
     Returns
     -------
     DiscountCurve
         Curve object exposing discount factor, zero rate, and forward helpers.
     """
-    
+
     def __init__(
         self,
         id: str,
@@ -46,7 +46,6 @@ class DiscountCurve:
         extrapolation: Optional[Union[str, ExtrapolationPolicy]] = None,
         require_monotonic: bool = False,
     ) -> None: ...
-    
     @property
     def id(self) -> str: ...
     """Get the curve identifier.
@@ -56,7 +55,7 @@ class DiscountCurve:
     str
         Curve ID.
     """
-    
+
     def base_date(self) -> date: ...
     """Get the base date.
     
@@ -65,7 +64,7 @@ class DiscountCurve:
     date
         Base date (t=0).
     """
-    
+
     @property
     def day_count(self) -> DayCount: ...
     """Get the day count convention.
@@ -75,7 +74,7 @@ class DiscountCurve:
     DayCount
         Day count convention.
     """
-    
+
     @property
     def points(self) -> List[Tuple[float, float]]: ...
     """Get the knot points.
@@ -85,7 +84,7 @@ class DiscountCurve:
     List[Tuple[float, float]]
         (time, discount_factor) pairs.
     """
-    
+
     def df(self, t: float) -> float: ...
     """Get discount factor at time t.
     
@@ -99,7 +98,7 @@ class DiscountCurve:
     float
         Discount factor.
     """
-    
+
     def zero(self, t: float) -> float: ...
     """Get zero rate at time t.
     
@@ -113,7 +112,7 @@ class DiscountCurve:
     float
         Zero rate (continuously compounded).
     """
-    
+
     def forward(self, t1: float, t2: float) -> float: ...
     """Get forward rate between times t1 and t2.
     
@@ -129,7 +128,7 @@ class DiscountCurve:
     float
         Forward rate.
     """
-    
+
     def df_on_date(self, date: Union[str, date]) -> float: ...
     """Get discount factor on a specific date.
     
@@ -143,12 +142,12 @@ class DiscountCurve:
     float
         Discount factor.
     """
-    
+
     def __repr__(self) -> str: ...
 
 class ForwardCurve:
     """Forward curve for interest rate modeling.
-    
+
     Parameters
     ----------
     id : str
@@ -166,7 +165,7 @@ class ForwardCurve:
     interp : str, optional
         Interpolation style.
     """
-    
+
     def __init__(
         self,
         id: str,
@@ -177,7 +176,6 @@ class ForwardCurve:
         day_count: Optional[Union[str, DayCount]] = None,
         interp: Optional[Union[str, InterpStyle]] = None,
     ) -> None: ...
-    
     @property
     def id(self) -> str: ...
     """Get the curve identifier.
@@ -187,7 +185,7 @@ class ForwardCurve:
     str
         Curve ID.
     """
-    
+
     @property
     def tenor_years(self) -> float: ...
     """Get the tenor in years.
@@ -197,7 +195,7 @@ class ForwardCurve:
     float
         Tenor in years.
     """
-    
+
     def base_date(self) -> date: ...
     """Get the base date.
     
@@ -206,7 +204,7 @@ class ForwardCurve:
     date
         Base date.
     """
-    
+
     @property
     def day_count(self) -> DayCount: ...
     """Get the day count convention.
@@ -216,7 +214,7 @@ class ForwardCurve:
     DayCount
         Day count convention.
     """
-    
+
     @property
     def reset_lag(self) -> int: ...
     """Get the reset lag in days.
@@ -226,7 +224,7 @@ class ForwardCurve:
     int
         Reset lag in days.
     """
-    
+
     @property
     def points(self) -> List[Tuple[float, float]]: ...
     """Get the knot points.
@@ -236,7 +234,7 @@ class ForwardCurve:
     List[Tuple[float, float]]
         (time, rate) pairs.
     """
-    
+
     def rate(self, t: float) -> float: ...
     """Get forward rate at time t.
     
@@ -250,12 +248,12 @@ class ForwardCurve:
     float
         Forward rate.
     """
-    
+
     def __repr__(self) -> str: ...
 
 class HazardCurve:
     """Hazard curve for credit risk modeling.
-    
+
     Parameters
     ----------
     id : str
@@ -277,7 +275,7 @@ class HazardCurve:
     par_points : list[tuple[float, float]], optional
         Par spread points for calibration.
     """
-    
+
     def __init__(
         self,
         id: str,
@@ -290,7 +288,6 @@ class HazardCurve:
         currency: Optional[Currency] = None,
         par_points: Optional[List[Tuple[float, float]]] = None,
     ) -> None: ...
-    
     @property
     def id(self) -> str: ...
     """Get the curve identifier.
@@ -300,7 +297,7 @@ class HazardCurve:
     str
         Curve ID.
     """
-    
+
     def base_date(self) -> date: ...
     """Get the base date.
     
@@ -309,7 +306,7 @@ class HazardCurve:
     date
         Base date.
     """
-    
+
     @property
     def recovery_rate(self) -> float: ...
     """Get the recovery rate.
@@ -319,7 +316,7 @@ class HazardCurve:
     float
         Recovery rate.
     """
-    
+
     @property
     def day_count(self) -> DayCount: ...
     """Get the day count convention.
@@ -329,7 +326,7 @@ class HazardCurve:
     DayCount
         Day count convention.
     """
-    
+
     @property
     def points(self) -> List[Tuple[float, float]]: ...
     """Get the knot points.
@@ -339,7 +336,7 @@ class HazardCurve:
     List[Tuple[float, float]]
         (time, hazard_rate) pairs.
     """
-    
+
     @property
     def par_spreads(self) -> List[Tuple[float, float]]: ...
     """Get the par spread points.
@@ -349,7 +346,7 @@ class HazardCurve:
     List[Tuple[float, float]]
         (time, spread) pairs.
     """
-    
+
     def survival(self, t: float) -> float: ...
     """Get survival probability at time t.
     
@@ -363,7 +360,7 @@ class HazardCurve:
     float
         Survival probability.
     """
-    
+
     def default_prob(self, t1: float, t2: float) -> float: ...
     """Get default probability between times t1 and t2.
     
@@ -379,12 +376,12 @@ class HazardCurve:
     float
         Default probability.
     """
-    
+
     def __repr__(self) -> str: ...
 
 class InflationCurve:
     """Inflation curve for inflation-linked instruments.
-    
+
     Parameters
     ----------
     id : str
@@ -396,7 +393,7 @@ class InflationCurve:
     interp : str, optional
         Interpolation style.
     """
-    
+
     def __init__(
         self,
         id: str,
@@ -404,7 +401,6 @@ class InflationCurve:
         knots: List[Tuple[float, float]],
         interp: Optional[Union[str, InterpStyle]] = None,
     ) -> None: ...
-    
     @property
     def id(self) -> str: ...
     """Get the curve identifier.
@@ -414,7 +410,7 @@ class InflationCurve:
     str
         Curve ID.
     """
-    
+
     @property
     def base_cpi(self) -> float: ...
     """Get the base CPI level.
@@ -424,7 +420,7 @@ class InflationCurve:
     float
         Base CPI level.
     """
-    
+
     @property
     def points(self) -> List[Tuple[float, float]]: ...
     """Get the knot points.
@@ -434,7 +430,7 @@ class InflationCurve:
     List[Tuple[float, float]]
         (time, cpi_level) pairs.
     """
-    
+
     def cpi(self, t: float) -> float: ...
     """Get CPI level at time t.
     
@@ -448,7 +444,7 @@ class InflationCurve:
     float
         CPI level.
     """
-    
+
     def inflation_rate(self, t1: float, t2: float) -> float: ...
     """Get inflation rate between times t1 and t2.
     
@@ -464,12 +460,12 @@ class InflationCurve:
     float
         Inflation rate.
     """
-    
+
     def __repr__(self) -> str: ...
 
 class BaseCorrelationCurve:
     """Base correlation curve for CDO/CDS index modeling.
-    
+
     Parameters
     ----------
     id : str
@@ -477,9 +473,8 @@ class BaseCorrelationCurve:
     points : list[tuple[float, float]]
         (detachment, correlation) pairs.
     """
-    
+
     def __init__(self, id: str, points: List[Tuple[float, float]]) -> None: ...
-    
     @property
     def id(self) -> str: ...
     """Get the curve identifier.
@@ -489,7 +484,7 @@ class BaseCorrelationCurve:
     str
         Curve ID.
     """
-    
+
     @property
     def points(self) -> List[Tuple[float, float]]: ...
     """Get the knot points.
@@ -499,7 +494,7 @@ class BaseCorrelationCurve:
     List[Tuple[float, float]]
         (detachment, correlation) pairs.
     """
-    
+
     def correlation(self, detachment_pct: float) -> float: ...
     """Get correlation at detachment percentage.
     
@@ -513,12 +508,12 @@ class BaseCorrelationCurve:
     float
         Base correlation.
     """
-    
+
     def __repr__(self) -> str: ...
 
 class CreditIndexData:
     """Credit index data for CDS index modeling.
-    
+
     Parameters
     ----------
     num_constituents : int
@@ -532,7 +527,7 @@ class CreditIndexData:
     issuer_curves : dict[str, HazardCurve], optional
         Individual issuer curves.
     """
-    
+
     def __init__(
         self,
         num_constituents: int,
@@ -541,7 +536,6 @@ class CreditIndexData:
         base_correlation_curve: BaseCorrelationCurve,
         issuer_curves: Optional[Dict[str, HazardCurve]] = None,
     ) -> None: ...
-    
     @property
     def num_constituents(self) -> int: ...
     """Get the number of constituents.
@@ -551,7 +545,7 @@ class CreditIndexData:
     int
         Number of constituents.
     """
-    
+
     @property
     def recovery_rate(self) -> float: ...
     """Get the recovery rate.
@@ -561,7 +555,7 @@ class CreditIndexData:
     float
         Recovery rate.
     """
-    
+
     @property
     def index_curve(self) -> HazardCurve: ...
     """Get the index curve.
@@ -571,7 +565,7 @@ class CreditIndexData:
     HazardCurve
         Index hazard curve.
     """
-    
+
     @property
     def base_correlation_curve(self) -> BaseCorrelationCurve: ...
     """Get the base correlation curve.
@@ -581,7 +575,7 @@ class CreditIndexData:
     BaseCorrelationCurve
         Base correlation curve.
     """
-    
+
     @property
     def has_issuer_curves(self) -> bool: ...
     """Check if issuer curves are present.
@@ -591,7 +585,7 @@ class CreditIndexData:
     bool
         True if issuer curves are available.
     """
-    
+
     def issuer_ids(self) -> List[str]: ...
     """Get issuer identifiers.
     
@@ -600,7 +594,7 @@ class CreditIndexData:
     List[str]
         List of issuer IDs.
     """
-    
+
     def issuer_curve(self, issuer_id: str) -> Optional[HazardCurve]: ...
     """Get an issuer curve.
     
@@ -614,5 +608,5 @@ class CreditIndexData:
     HazardCurve or None
         Issuer curve if found.
     """
-    
+
     def __repr__(self) -> str: ...

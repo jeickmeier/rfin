@@ -8,7 +8,7 @@ from ..common import InstrumentType
 
 class Basket:
     """Basket instrument."""
-    
+
     def __init__(
         self,
         instrument_id: str,
@@ -16,11 +16,11 @@ class Basket:
         constituents: List[str],
         weights: List[float],
         as_of: date,
-        currency: Currency
+        currency: Currency,
     ) -> None:
         """Create a basket instrument."""
         ...
-    
+
     @property
     def instrument_id(self) -> str: ...
     @property
@@ -35,6 +35,5 @@ class Basket:
     def currency(self) -> Currency: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
-    
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

@@ -74,7 +74,7 @@ def example_arithmetic_asian_call():
         vol_surface="AAPL.VOL",
         averaging_method="arithmetic",
         option_type="call",
-        dividend_yield_id="AAPL.DIV",
+        div_yield_id="AAPL.DIV",
     )
     
     print(f"\nInstrument: {option}")
@@ -127,7 +127,7 @@ def example_geometric_asian_put():
         vol_surface="AAPL.VOL",
         averaging_method="geometric",
         option_type="put",
-        dividend_yield_id="AAPL.DIV",
+        div_yield_id="AAPL.DIV",
     )
     
     print(f"\nInstrument: {option}")

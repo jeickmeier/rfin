@@ -8,23 +8,23 @@ from typing import Callable
 
 class GaussHermiteQuadrature:
     """Gauss-Hermite quadrature for infinite integrals.
-    
+
     Provides high-order quadrature rules for integrals of the form:
     ∫ f(x) * exp(-x²) dx from -∞ to +∞
     """
-    
+
     @classmethod
     def order_5(cls) -> GaussHermiteQuadrature: ...
     """Create 5th order Gauss-Hermite quadrature."""
-    
+
     @classmethod
     def order_7(cls) -> GaussHermiteQuadrature: ...
     """Create 7th order Gauss-Hermite quadrature."""
-    
+
     @classmethod
     def order_10(cls) -> GaussHermiteQuadrature: ...
     """Create 10th order Gauss-Hermite quadrature."""
-    
+
     @property
     def order(self) -> int: ...
     """Get the quadrature order.
@@ -34,7 +34,7 @@ class GaussHermiteQuadrature:
     int
         Quadrature order.
     """
-    
+
     @property
     def points(self) -> List[float]: ...
     """Get the quadrature points.
@@ -44,7 +44,7 @@ class GaussHermiteQuadrature:
     List[float]
         Quadrature points.
     """
-    
+
     @property
     def weights(self) -> List[float]: ...
     """Get the quadrature weights.
@@ -54,7 +54,7 @@ class GaussHermiteQuadrature:
     List[float]
         Quadrature weights.
     """
-    
+
     def integrate(self, func: Callable[[float], float]) -> float: ...
     """Integrate a function using Gauss-Hermite quadrature.
     
@@ -68,7 +68,7 @@ class GaussHermiteQuadrature:
     float
         Integral value.
     """
-    
+
     def integrate_adaptive(self, func: Callable[[float], float], tolerance: float) -> float: ...
     """Integrate with adaptive tolerance.
     
@@ -84,10 +84,11 @@ class GaussHermiteQuadrature:
     float
         Integral value.
     """
-    
+
     def __repr__(self) -> str: ...
 
 def simpson_rule(func: Callable[[float], float], a: float, b: float, intervals: int) -> float: ...
+
 """Simpson's rule integration.
 
 Parameters
@@ -114,6 +115,7 @@ def adaptive_simpson(
     tol: float,
     max_depth: int,
 ) -> float: ...
+
 """Adaptive Simpson's rule integration.
 
 Parameters
@@ -142,6 +144,7 @@ def adaptive_quadrature(
     tol: float,
     max_depth: int,
 ) -> float: ...
+
 """Adaptive quadrature integration.
 
 Parameters
@@ -169,6 +172,7 @@ def gauss_legendre_integrate(
     b: float,
     order: int,
 ) -> float: ...
+
 """Gauss-Legendre quadrature integration.
 
 Parameters
@@ -195,6 +199,7 @@ def gauss_legendre_integrate_composite(
     order: int,
     panels: int,
 ) -> float: ...
+
 """Composite Gauss-Legendre quadrature integration.
 
 Parameters
@@ -224,6 +229,7 @@ def gauss_legendre_integrate_adaptive(
     tol: float,
     max_depth: int,
 ) -> float: ...
+
 """Adaptive Gauss-Legendre quadrature integration.
 
 Parameters
@@ -253,6 +259,7 @@ def trapezoidal_rule(
     b: float,
     intervals: int,
 ) -> float: ...
+
 """Trapezoidal rule integration.
 
 Parameters

@@ -8,11 +8,7 @@ class ExtensionMetadata:
     """Extension metadata."""
 
     def __init__(
-        self,
-        name: str,
-        version: str,
-        description: Optional[str] = None,
-        author: Optional[str] = None
+        self, name: str, version: str, description: Optional[str] = None, author: Optional[str] = None
     ) -> None:
         """Create extension metadata.
 
@@ -29,16 +25,12 @@ class ExtensionMetadata:
 
     @property
     def name(self) -> str: ...
-
     @property
     def version(self) -> str: ...
-
     @property
     def description(self) -> Optional[str]: ...
-
     @property
     def author(self) -> Optional[str]: ...
-
     def __repr__(self) -> str: ...
 
 class ExtensionStatus:
@@ -93,13 +85,10 @@ class ExtensionResult:
 
     @property
     def status(self) -> ExtensionStatus: ...
-
     @property
     def message(self) -> str: ...
-
     @property
     def data(self) -> Dict[str, Any]: ...
-
     def __repr__(self) -> str: ...
 
 class ExtensionContext:
@@ -110,10 +99,8 @@ class ExtensionContext:
 
     @property
     def model(self) -> FinancialModelSpec: ...
-
     @property
     def results(self) -> Results: ...
-
     @property
     def config(self) -> Any: ...
 
@@ -132,11 +119,7 @@ class ExtensionRegistry:
         """
         ...
 
-    def execute_all(
-        self,
-        model: FinancialModelSpec,
-        results: Results
-    ) -> Dict[str, ExtensionResult]:
+    def execute_all(self, model: FinancialModelSpec, results: Results) -> Dict[str, ExtensionResult]:
         """Execute all registered extensions.
 
         Args:

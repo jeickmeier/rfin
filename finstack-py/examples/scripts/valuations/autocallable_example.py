@@ -98,7 +98,7 @@ def example_participation_autocallable():
         discount_curve="USD.SOFR",
         spot_id="SPX",
         vol_surface="SPX.VOL",
-        dividend_yield_id="SPX.DIV",
+        div_yield_id="SPX.DIV",
     )
     
     print(f"\nInstrument: {autocallable}")
@@ -157,7 +157,7 @@ def example_capital_protection_autocallable():
         discount_curve="USD.SOFR",
         spot_id="SPX",
         vol_surface="SPX.VOL",
-        dividend_yield_id="SPX.DIV",
+        div_yield_id="SPX.DIV",
     )
     
     print(f"\nInstrument: {autocallable}")
@@ -211,7 +211,7 @@ def example_knock_in_autocallable():
         discount_curve="USD.SOFR",
         spot_id="SPX",
         vol_surface="SPX.VOL",
-        dividend_yield_id="SPX.DIV",
+        div_yield_id="SPX.DIV",
     )
     
     print(f"\nInstrument: {autocallable}")

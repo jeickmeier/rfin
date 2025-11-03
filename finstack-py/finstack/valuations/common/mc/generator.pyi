@@ -6,16 +6,15 @@ from finstack.valuations.mc_paths import PathDataset
 class MonteCarloPathGenerator:
     """
     Standalone Monte Carlo path generator.
-    
+
     This class generates Monte Carlo paths without pricing, useful for:
     - Pure process visualization
     - Process validation
     - Understanding stochastic dynamics
     - Educational purposes
     """
-    
+
     def __init__(self) -> None: ...
-    
     def generate_gbm_paths(
         self,
         initial_spot: float,
@@ -31,7 +30,7 @@ class MonteCarloPathGenerator:
     ) -> PathDataset:
         """
         Generate paths for a Geometric Brownian Motion process.
-        
+
         Args:
             initial_spot: Initial spot price
             r: Risk-free rate (annual)
@@ -43,10 +42,10 @@ class MonteCarloPathGenerator:
             capture_mode: 'all' to capture all paths, or 'sample' with count
             sample_count: Number of paths to capture (if mode='sample')
             seed: Random seed for reproducibility
-        
+
         Returns:
             PathDataset with generated paths
-        
+
         Example:
             >>> generator = MonteCarloPathGenerator()
             >>> paths = generator.generate_gbm_paths(
@@ -57,14 +56,14 @@ class MonteCarloPathGenerator:
             ...     time_to_maturity=1.0,
             ...     num_steps=252,
             ...     num_paths=1000,
-            ...     capture_mode='sample',
+            ...     capture_mode="sample",
             ...     sample_count=100,
-            ...     seed=42
+            ...     seed=42,
             ... )
             >>> print(f"Generated {paths.num_captured()} paths")
         """
         ...
-    
+
     def generate_paths(
         self,
         process_type: str,
@@ -79,9 +78,9 @@ class MonteCarloPathGenerator:
     ) -> PathDataset:
         """
         Generate paths with custom parameters (advanced).
-        
+
         This is a lower-level interface for advanced users who want full control.
-        
+
         Args:
             process_type: Currently only 'gbm' supported
             process_params: Dictionary of process parameters
@@ -92,23 +91,21 @@ class MonteCarloPathGenerator:
             capture_mode: 'all' or 'sample'
             sample_count: Number of paths to capture (if mode='sample')
             seed: Random seed
-        
+
         Returns:
             PathDataset with generated paths
-        
+
         Example:
             >>> generator = MonteCarloPathGenerator()
             >>> paths = generator.generate_paths(
-            ...     process_type='gbm',
-            ...     process_params={'r': 0.05, 'q': 0.02, 'sigma': 0.2},
+            ...     process_type="gbm",
+            ...     process_params={"r": 0.05, "q": 0.02, "sigma": 0.2},
             ...     initial_state=[100.0],
             ...     time_to_maturity=1.0,
             ...     num_steps=252,
-            ...     num_paths=1000
+            ...     num_paths=1000,
             ... )
         """
         ...
 
 __all__ = ["MonteCarloPathGenerator"]
-
-

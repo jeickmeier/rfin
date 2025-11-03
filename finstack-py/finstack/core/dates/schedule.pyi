@@ -10,10 +10,10 @@ from .calendar import Calendar, BusinessDayConvention
 
 class Frequency:
     """Payment frequency specification.
-    
+
     Represents how often payments occur within a year.
     """
-    
+
     @classmethod
     def from_months(cls, months: int) -> Frequency: ...
     """Construct a frequency based on a number of calendar months.
@@ -28,7 +28,7 @@ class Frequency:
     Frequency
         Frequency instance.
     """
-    
+
     @classmethod
     def from_days(cls, days: int) -> Frequency: ...
     """Construct a frequency based on a number of days.
@@ -43,7 +43,7 @@ class Frequency:
     Frequency
         Frequency instance.
     """
-    
+
     @property
     def months(self) -> Optional[int]: ...
     """Get the months component.
@@ -53,7 +53,7 @@ class Frequency:
     int or None
         Months if this is a monthly frequency.
     """
-    
+
     @property
     def days(self) -> Optional[int]: ...
     """Get the days component.
@@ -63,7 +63,7 @@ class Frequency:
     int or None
         Days if this is a daily frequency.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
@@ -77,7 +77,7 @@ ANNUAL: Frequency
 
 class StubKind:
     """Stub period handling for irregular schedules.
-    
+
     Available kinds:
     - ShortFirst: Short first period
     - ShortLast: Short last period
@@ -85,7 +85,7 @@ class StubKind:
     - LongLast: Long last period
     - NoStub: No stub handling
     """
-    
+
     @classmethod
     def from_name(cls, name: str) -> StubKind: ...
     """Create from string name.
@@ -100,7 +100,7 @@ class StubKind:
     StubKind
         Stub kind instance.
     """
-    
+
     @property
     def name(self) -> str: ...
     """Get the stub kind name.
@@ -110,7 +110,7 @@ class StubKind:
     str
         Human-readable stub kind name.
     """
-    
+
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
@@ -123,11 +123,11 @@ NoStub: StubKind
 
 class ScheduleBuilder:
     """Builder for payment schedules.
-    
+
     Provides a fluent interface for constructing payment schedules
     with various frequency and adjustment options.
     """
-    
+
     def __init__(self, start: Union[str, date], end: Union[str, date]) -> None: ...
     """Create a schedule builder.
     
@@ -138,7 +138,7 @@ class ScheduleBuilder:
     end : str or date
         Schedule end date.
     """
-    
+
     def frequency(self, frequency: Frequency) -> ScheduleBuilder: ...
     """Set the payment frequency.
     
@@ -152,7 +152,7 @@ class ScheduleBuilder:
     ScheduleBuilder
         Self for chaining.
     """
-    
+
     def stub_rule(self, stub: StubKind) -> ScheduleBuilder: ...
     """Set the stub period handling.
     
@@ -166,7 +166,7 @@ class ScheduleBuilder:
     ScheduleBuilder
         Self for chaining.
     """
-    
+
     def adjust_with(self, convention: BusinessDayConvention, calendar: Calendar) -> ScheduleBuilder: ...
     """Set business day adjustment.
     
@@ -182,7 +182,7 @@ class ScheduleBuilder:
     ScheduleBuilder
         Self for chaining.
     """
-    
+
     def end_of_month(self, enabled: bool) -> ScheduleBuilder: ...
     """Enable/disable end-of-month adjustment.
     
@@ -196,7 +196,7 @@ class ScheduleBuilder:
     ScheduleBuilder
         Self for chaining.
     """
-    
+
     def cds_imm(self) -> ScheduleBuilder: ...
     """Use CDS IMM dates.
     
@@ -205,7 +205,7 @@ class ScheduleBuilder:
     ScheduleBuilder
         Self for chaining.
     """
-    
+
     def build(self) -> Schedule: ...
     """Build the final schedule.
     
@@ -214,12 +214,12 @@ class ScheduleBuilder:
     Schedule
         Constructed payment schedule.
     """
-    
+
     def __repr__(self) -> str: ...
 
 class Schedule:
     """A payment schedule with dates and metadata."""
-    
+
     @property
     def dates(self) -> List[date]: ...
     """Dates contained in the schedule as datetime.date objects.
@@ -229,7 +229,7 @@ class Schedule:
     List[date]
         All payment dates.
     """
-    
+
     def __len__(self) -> int: ...
     """Get the number of dates.
     
@@ -238,5 +238,5 @@ class Schedule:
     int
         Number of dates in the schedule.
     """
-    
+
     def __repr__(self) -> str: ...

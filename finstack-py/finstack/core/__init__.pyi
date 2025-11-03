@@ -20,7 +20,7 @@ from . import utils
 
 __all__ = [
     "cashflow",
-    "config", 
+    "config",
     "currency",
     "dates",
     "market_data",

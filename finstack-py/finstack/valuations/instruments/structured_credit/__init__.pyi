@@ -4,4 +4,3 @@ from .mod import StructuredCredit
 from . import waterfall
 
 __all__ = ["StructuredCredit", "waterfall"]
-

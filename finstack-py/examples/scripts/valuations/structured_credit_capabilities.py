@@ -27,49 +27,90 @@ def coverage_tests_template() -> dict:
 
 def waterfall_engine(tranche_ids) -> dict:
     # Minimal sequential engine: fees -> tranche interest -> tranche principal -> equity
-    rules: list[dict] = []
-    rules.append(
+    tiers: list[dict] = []
+    
+    # Fee tier
+    tiers.append(
         {
             "id": "trustee_fees",
             "priority": 1,
-            "recipient": {"ServiceProvider": "Trustee"},
-            "calculation": {"FixedAmount": {"amount": money(25_000.0)}},
+            "recipients": [
+                {
+                    "id": "trustee_fee_payment",
+                    "recipient_type": {"ServiceProvider": "Trustee"},
+                    "calculation": {"FixedAmount": {"amount": money(25_000.0)}},
+                    "weight": None,
+                }
+            ],
+            "payment_type": "Fee",
+            "allocation_mode": "Sequential",
             "divertible": False,
         }
     )
+    
     prio = 2
+    # Interest tiers
     for tid in tranche_ids:
-        rules.append(
+        tiers.append(
             {
                 "id": f"{tid}_interest",
                 "priority": prio,
-                "recipient": {"Tranche": tid},
-                "calculation": {"TrancheInterest": {"tranche_id": tid}},
+                "recipients": [
+                    {
+                        "id": f"{tid}_int_payment",
+                        "recipient_type": {"Tranche": tid},
+                        "calculation": {"TrancheInterest": {"tranche_id": tid}},
+                        "weight": None,
+                    }
+                ],
+                "payment_type": "Interest",
+                "allocation_mode": "Sequential",
                 "divertible": False,
             }
         )
         prio += 1
+    
+    # Principal tiers
     for tid in tranche_ids:
-        rules.append(
+        tiers.append(
             {
                 "id": f"{tid}_principal",
                 "priority": prio,
-                "recipient": {"Tranche": tid},
-                "calculation": {"TranchePrincipal": {"tranche_id": tid, "target_balance": None}},
+                "recipients": [
+                    {
+                        "id": f"{tid}_prin_payment",
+                        "recipient_type": {"Tranche": tid},
+                        "calculation": {"TranchePrincipal": {"tranche_id": tid, "target_balance": None}},
+                        "weight": None,
+                    }
+                ],
+                "payment_type": "Principal",
+                "allocation_mode": "Sequential",
                 "divertible": True,
             }
         )
         prio += 1
-    rules.append(
+    
+    # Residual tier
+    tiers.append(
         {
             "id": "equity_distribution",
             "priority": prio,
-            "recipient": "Equity",
-            "calculation": "ResidualCash",
+            "recipients": [
+                {
+                    "id": "equity_payment",
+                    "recipient_type": "Equity",
+                    "calculation": "ResidualCash",
+                    "weight": None,
+                }
+            ],
+            "payment_type": "Residual",
+            "allocation_mode": "Sequential",
             "divertible": False,
         }
     )
-    return {"payment_rules": rules, "coverage_triggers": [], "base_currency": CURRENCY}
+    
+    return {"tiers": tiers, "coverage_triggers": [], "base_currency": CURRENCY}
 
 
 def asset_entry(identifier: str, asset_type: dict, balance: float, rate: float, maturity: str, *, obligor: str) -> dict:
@@ -217,7 +258,7 @@ def base_deal_payload(instrument_id: str, deal_type: str, asset_kind: str) -> di
         "reinvestment_end_date": None,
         "legal_maturity": "2035-01-01",
         "payment_frequency": {"Months": 3},
-        "disc_id": "USD-OIS",
+        "discount_curve_id": "USD-OIS",
         "attributes": base_attributes(),
         # Required defaults for behavioral models and market/credit context
         "prepayment_spec": {"type": "constant_cpr", "cpr": 0.15},

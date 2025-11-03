@@ -14,14 +14,14 @@ from ..currency import Currency
 
 class MarketContext:
     """Central repository for market data.
-    
+
     Aggregates all market data including curves, surfaces, FX rates,
     and other market information for use in pricing and risk calculations.
     """
-    
+
     def __init__(self) -> None: ...
     """Create an empty market context."""
-    
+
     def clone(self) -> MarketContext: ...
     """Create a deep copy of this market context.
     
@@ -30,7 +30,7 @@ class MarketContext:
     MarketContext
         Independent copy of the market context.
     """
-    
+
     def insert_discount(self, curve: DiscountCurve) -> None: ...
     """Insert a discount curve.
     
@@ -39,7 +39,7 @@ class MarketContext:
     curve : DiscountCurve
         Discount curve to add.
     """
-    
+
     def insert_forward(self, curve: ForwardCurve) -> None: ...
     """Insert a forward curve.
     
@@ -48,7 +48,7 @@ class MarketContext:
     curve : ForwardCurve
         Forward curve to add.
     """
-    
+
     def insert_hazard(self, curve: HazardCurve) -> None: ...
     """Insert a hazard curve.
     
@@ -57,7 +57,7 @@ class MarketContext:
     curve : HazardCurve
         Hazard curve to add.
     """
-    
+
     def insert_inflation(self, curve: InflationCurve) -> None: ...
     """Insert an inflation curve.
     
@@ -66,7 +66,7 @@ class MarketContext:
     curve : InflationCurve
         Inflation curve to add.
     """
-    
+
     def insert_base_correlation(self, curve: BaseCorrelationCurve) -> None: ...
     """Insert a base correlation curve.
     
@@ -75,7 +75,7 @@ class MarketContext:
     curve : BaseCorrelationCurve
         Base correlation curve to add.
     """
-    
+
     def insert_fx(self, fx_matrix: FxMatrix) -> None: ...
     """Insert an FX matrix.
     
@@ -84,7 +84,7 @@ class MarketContext:
     fx_matrix : FxMatrix
         FX matrix to add.
     """
-    
+
     def insert_surface(self, surface: VolSurface) -> None: ...
     """Insert a volatility surface.
     
@@ -93,7 +93,7 @@ class MarketContext:
     surface : VolSurface
         Volatility surface to add.
     """
-    
+
     def insert_price(self, id: str, scalar: MarketScalar) -> None: ...
     """Insert a market price.
     
@@ -104,7 +104,7 @@ class MarketContext:
     scalar : MarketScalar
         Market price scalar.
     """
-    
+
     def insert_series(self, series: ScalarTimeSeries) -> None: ...
     """Insert a time series.
     
@@ -113,7 +113,7 @@ class MarketContext:
     series : ScalarTimeSeries
         Time series to add.
     """
-    
+
     def insert_dividends(self, schedule: DividendSchedule) -> None: ...
     """Insert a dividend schedule.
     
@@ -122,7 +122,7 @@ class MarketContext:
     schedule : DividendSchedule
         Dividend schedule to add.
     """
-    
+
     def insert_credit_index(self, id: str, data: "CreditIndexData") -> None: ...
     """Insert credit index data.
     
@@ -133,7 +133,7 @@ class MarketContext:
     data : CreditIndexData
         Credit index data.
     """
-    
+
     def map_collateral(self, csa_code: str, curve_id: str) -> None: ...
     """Map collateral to a discount curve.
     
@@ -144,7 +144,7 @@ class MarketContext:
     curve_id : str
         Discount curve identifier.
     """
-    
+
     def discount(self, id: str) -> DiscountCurve: ...
     """Get a discount curve by ID.
     
@@ -163,7 +163,7 @@ class MarketContext:
     KeyError
         If curve not found.
     """
-    
+
     def forward(self, id: str) -> ForwardCurve: ...
     """Get a forward curve by ID.
     
@@ -182,7 +182,7 @@ class MarketContext:
     KeyError
         If curve not found.
     """
-    
+
     def hazard(self, id: str) -> HazardCurve: ...
     """Get a hazard curve by ID.
     
@@ -201,7 +201,7 @@ class MarketContext:
     KeyError
         If curve not found.
     """
-    
+
     def inflation(self, id: str) -> InflationCurve: ...
     """Get an inflation curve by ID.
     
@@ -220,7 +220,7 @@ class MarketContext:
     KeyError
         If curve not found.
     """
-    
+
     def base_correlation(self, id: str) -> BaseCorrelationCurve: ...
     """Get a base correlation curve by ID.
     
@@ -239,7 +239,7 @@ class MarketContext:
     KeyError
         If curve not found.
     """
-    
+
     def surface(self, id: str) -> VolSurface: ...
     """Get a volatility surface by ID.
     
@@ -258,7 +258,7 @@ class MarketContext:
     KeyError
         If surface not found.
     """
-    
+
     def price(self, id: str) -> MarketScalar: ...
     """Get a market price by ID.
     
@@ -277,7 +277,7 @@ class MarketContext:
     KeyError
         If price not found.
     """
-    
+
     def series(self, id: str) -> ScalarTimeSeries: ...
     """Get a time series by ID.
     
@@ -296,7 +296,7 @@ class MarketContext:
     KeyError
         If series not found.
     """
-    
+
     def credit_index(self, id: str) -> "CreditIndexData": ...
     """Get credit index data by ID.
     
@@ -315,7 +315,7 @@ class MarketContext:
     KeyError
         If credit index not found.
     """
-    
+
     def dividend_schedule(self, id: str) -> Optional[DividendSchedule]: ...
     """Get a dividend schedule by ID.
     
@@ -329,7 +329,7 @@ class MarketContext:
     DividendSchedule or None
         Dividend schedule if found.
     """
-    
+
     def curve_ids(self) -> List[str]: ...
     """Get all curve identifiers.
     
@@ -338,7 +338,7 @@ class MarketContext:
     List[str]
         All curve IDs.
     """
-    
+
     def curve_ids_by_type(self, curve_type: str) -> List[str]: ...
     """Get curve IDs by type.
     
@@ -352,7 +352,7 @@ class MarketContext:
     List[str]
         Curve IDs of the specified type.
     """
-    
+
     def count_by_type(self) -> Dict[str, int]: ...
     """Get count of objects by type.
     
@@ -361,7 +361,7 @@ class MarketContext:
     Dict[str, int]
         Count of objects by type.
     """
-    
+
     def stats(self) -> Dict[str, Any]: ...
     """Get market context statistics.
     
@@ -370,7 +370,7 @@ class MarketContext:
     Dict[str, Any]
         Statistics about the market context.
     """
-    
+
     @property
     def is_empty(self) -> bool: ...
     """Check if the context is empty.
@@ -380,7 +380,7 @@ class MarketContext:
     bool
         True if no market data is present.
     """
-    
+
     @property
     def total_objects(self) -> int: ...
     """Get total number of objects.
@@ -390,7 +390,7 @@ class MarketContext:
     int
         Total number of market data objects.
     """
-    
+
     @property
     def has_fx(self) -> bool: ...
     """Check if FX data is present.
@@ -400,5 +400,5 @@ class MarketContext:
     bool
         True if FX matrix is present.
     """
-    
+
     def __repr__(self) -> str: ...

@@ -525,6 +525,8 @@ pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    use crate::core::common::reexport::reexport_from_submodule;
+    
     let module = PyModule::new(py, "common")?;
     module.setattr(
         "__doc__",
@@ -539,6 +541,9 @@ pub(crate) fn register<'py>(
 
     // Register Monte Carlo submodule
     let mc_exports = mc::register(py, &module)?;
+    
+    // Re-export mc classes at the common module level for convenience
+    reexport_from_submodule(&module, "mc", &mc_exports)?;
 
     // Combine all exports
     let mut all_exports = vec!["InstrumentType", "ModelKey", "PricerKey"];

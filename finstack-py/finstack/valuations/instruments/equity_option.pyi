@@ -8,7 +8,7 @@ from ..common import InstrumentType
 
 class EquityOption:
     """Equity option instrument."""
-    
+
     def __init__(
         self,
         instrument_id: str,
@@ -18,11 +18,11 @@ class EquityOption:
         expiry: date,
         option_type: str,  # "call" or "put"
         currency: Currency,
-        as_of: date
+        as_of: date,
     ) -> None:
         """Create an equity option instrument."""
         ...
-    
+
     @property
     def instrument_id(self) -> str: ...
     @property
@@ -41,6 +41,5 @@ class EquityOption:
     def as_of(self) -> date: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
-    
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

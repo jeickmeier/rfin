@@ -5,7 +5,6 @@ added to CalibrationReport and ValuationResult.
 """
 
 
-
 def test_py_typed_marker_exists() -> None:
     """Test that py.typed marker file exists for type checkers."""
     from pathlib import Path
@@ -112,4 +111,3 @@ if __name__ == "__main__":
     test_trace_entry_calibration_iteration()
     test_trace_entry_cashflow_pv()
     test_trace_entry_waterfall_step()
-
