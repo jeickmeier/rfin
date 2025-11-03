@@ -1,6 +1,7 @@
 //! Node specification and types.
 
 use crate::types::AmountOrScalar;
+use finstack_core::currency::Currency;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -44,6 +45,10 @@ pub struct NodeSpec {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
 
+    /// Value type (monetary with currency or scalar)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_type: Option<NodeValueType>,
+
     /// Additional metadata
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub meta: IndexMap<String, serde_json::Value>,
@@ -65,6 +70,7 @@ impl NodeSpec {
             formula_text: None,
             where_text: None,
             tags: Vec::new(),
+            value_type: None,
             meta: IndexMap::new(),
         }
     }
@@ -253,4 +259,20 @@ pub enum SeasonalMode {
     Additive,
     /// Multiplicative seasonality: Y = Trend * Seasonal * Error
     Multiplicative,
+}
+
+/// Node value type classification.
+///
+/// Determines whether a node represents monetary values (with a specific currency)
+/// or scalar values (ratios, percentages, counts, etc.).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum NodeValueType {
+    /// Monetary value with a specific currency (e.g., revenue, costs, balance sheet items)
+    Monetary {
+        /// Currency of the monetary value
+        currency: Currency,
+    },
+    /// Unitless scalar value (e.g., ratios, percentages, counts)
+    Scalar,
 }

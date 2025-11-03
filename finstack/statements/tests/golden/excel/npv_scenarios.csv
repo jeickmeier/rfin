@@ -1,0 +1,7 @@
+test_id,rate,cf_period_1,cf_period_2,cf_period_3,cf_period_4,expected_npv,notes
+npv_001,0.10,1000,1000,1000,1000,3169.87,Simple 4-period cashflow
+npv_002,0.05,5000,5000,5000,5000,17729.75,Lower discount rate
+npv_003,0.15,-10000,3000,4000,5000,-1109.53,Initial outflow with positive returns
+npv_004,0.08,100000,110000,120000,130000,406149.56,Growing cashflows
+npv_005,0.12,50000,50000,50000,50000,151883.27,Higher discount rate
+

@@ -8,7 +8,7 @@ use crate::evaluator::forecast_eval;
 use crate::evaluator::formula::evaluate_formula;
 use crate::evaluator::precedence::{resolve_node_value, NodeValueSource};
 use crate::evaluator::results::{Results, ResultsMeta};
-use crate::types::FinancialModelSpec;
+use crate::types::{FinancialModelSpec, NodeValueType};
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::Expr;
 use indexmap::IndexMap;
@@ -172,6 +172,54 @@ impl Evaluator {
             historical.insert(period.id, period_results);
         }
 
+        // Infer and populate node value types from model
+        for (node_id, node_spec) in &model.nodes {
+            // Check if node has explicit value_type
+            if let Some(value_type) = &node_spec.value_type {
+                results.node_value_types.insert(node_id.clone(), *value_type);
+                
+                // Populate monetary_nodes if this is a monetary type
+                if let NodeValueType::Monetary { currency } = value_type {
+                    if let Some(period_map) = results.nodes.get(node_id) {
+                        let mut money_map = IndexMap::new();
+                        for (period_id, &f64_value) in period_map {
+                            money_map.insert(*period_id, finstack_core::money::Money::new(f64_value, *currency));
+                        }
+                        results.monetary_nodes.insert(node_id.clone(), money_map);
+                    }
+                }
+            } else if let Some(values) = &node_spec.values {
+                // Infer from first value
+                if let Some((_, first_value)) = values.iter().next() {
+                    if let Some(money) = first_value.as_money() {
+                        results.node_value_types.insert(
+                            node_id.clone(),
+                            NodeValueType::Monetary {
+                                currency: money.currency(),
+                            },
+                        );
+                        
+                        // Populate monetary_nodes from Money values
+                        if let Some(period_map) = results.nodes.get(node_id) {
+                            let mut money_map = IndexMap::new();
+                            for (period_id, &f64_value) in period_map {
+                                money_map.insert(*period_id, finstack_core::money::Money::new(f64_value, money.currency()));
+                            }
+                            results.monetary_nodes.insert(node_id.clone(), money_map);
+                        }
+                    } else {
+                        results.node_value_types.insert(node_id.clone(), NodeValueType::Scalar);
+                    }
+                } else {
+                    // No values, default to scalar
+                    results.node_value_types.insert(node_id.clone(), NodeValueType::Scalar);
+                }
+            } else {
+                // No explicit value_type and no values, default to scalar
+                results.node_value_types.insert(node_id.clone(), NodeValueType::Scalar);
+            }
+        }
+
         // Set metadata
         results.meta = ResultsMeta {
             #[cfg(not(target_arch = "wasm32"))]
@@ -180,6 +228,9 @@ impl Evaluator {
             eval_time_ms: None,
             num_nodes: model.nodes.len(),
             num_periods: model.periods.len(),
+            numeric_mode: crate::evaluator::NumericMode::Float64,
+            rounding_context: None,  // Not implemented yet
+            parallel: false,
         };
 
         Ok(results)
@@ -259,10 +310,11 @@ impl Evaluator {
             IndexMap::new();
 
         for debt_spec in &cs_spec.debt_instruments {
-            // build_any_instrument_from_spec handles all variants (Bond, Swap, Generic)
+            // build_any_instrument_from_spec handles all variants (Bond, Swap, TermLoan, Generic)
             let (id, instrument) = match debt_spec {
                 DebtInstrumentSpec::Bond { id, .. }
                 | DebtInstrumentSpec::Swap { id, .. }
+                | DebtInstrumentSpec::TermLoan { id, .. }
                 | DebtInstrumentSpec::Generic { id, .. } => {
                     let instrument = integration::build_any_instrument_from_spec(debt_spec)?;
                     (id.clone(), instrument)

@@ -116,9 +116,10 @@ pub(crate) mod utils;
 
 // Re-export core types at crate root for ergonomic imports
 pub use error::{Error, Result};
+pub use evaluator::NumericMode;
 pub use types::{
     AmountOrScalar, CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec, ForecastMethod,
-    ForecastSpec, NodeSpec, NodeType, SeasonalMode,
+    ForecastSpec, NodeSpec, NodeType, NodeValueType, SeasonalMode,
 };
 
 /// Commonly used types and traits.
@@ -131,7 +132,7 @@ pub use types::{
 pub mod prelude {
     pub use crate::builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};
     pub use crate::error::{Error, Result};
-    pub use crate::evaluator::{Evaluator, EvaluatorWithContext, Results};
+    pub use crate::evaluator::{Evaluator, EvaluatorWithContext, NumericMode, Results};
     pub use crate::extensions::{
         CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext,
         ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,
@@ -139,7 +140,7 @@ pub mod prelude {
     pub use crate::registry::Registry;
     pub use crate::types::{
         AmountOrScalar, FinancialModelSpec, ForecastMethod, ForecastSpec, NodeSpec, NodeType,
-        SeasonalMode,
+        NodeValueType, SeasonalMode,
     };
 
     // Re-export commonly used types from finstack-core

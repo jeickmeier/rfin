@@ -311,12 +311,14 @@ fn test_export_with_builtin_metrics() {
 fn test_empty_results_export() {
     let results = Results {
         nodes: indexmap::IndexMap::new(),
+        monetary_nodes: indexmap::IndexMap::new(),
+        node_value_types: indexmap::IndexMap::new(),
         meta: Default::default(),
     };
 
     let df_long = results.to_polars_long().unwrap();
     assert_eq!(df_long.height(), 0);
-    assert_eq!(df_long.width(), 3);
+    assert_eq!(df_long.width(), 6); // Updated for new columns
 
     let df_wide = results.to_polars_wide().unwrap();
     assert_eq!(df_wide.height(), 0);

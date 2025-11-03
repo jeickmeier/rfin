@@ -60,6 +60,17 @@ impl AmountOrScalar {
     pub fn is_scalar(&self) -> bool {
         matches!(self, Self::Scalar(_))
     }
+
+    /// Get the Money value if this is an amount.
+    ///
+    /// # Returns
+    /// `Some(Money)` if this is a currency-aware amount, `None` if it's a scalar.
+    pub fn as_money(&self) -> Option<Money> {
+        match self {
+            Self::Amount(money) => Some(*money),
+            Self::Scalar(_) => None,
+        }
+    }
 }
 
 impl From<f64> for AmountOrScalar {
@@ -109,5 +120,16 @@ mod tests {
         let amount: AmountOrScalar = money.into();
         assert_eq!(amount.value(), 500.0);
         assert_eq!(amount.currency(), Some(Currency::EUR));
+    }
+
+    #[test]
+    fn test_as_money() {
+        let amount = AmountOrScalar::amount(1_000_000.0, Currency::USD);
+        let money = amount.as_money().unwrap();
+        assert_eq!(money.amount(), 1_000_000.0);
+        assert_eq!(money.currency(), Currency::USD);
+
+        let scalar = AmountOrScalar::scalar(42.0);
+        assert!(scalar.as_money().is_none());
     }
 }

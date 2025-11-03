@@ -8,11 +8,13 @@
 //! All forecast methods operate on a base value (typically the last actual value)
 //! and project forward for a specified number of periods.
 
+mod backtesting;
 mod deterministic;
 mod override_method;
 mod statistical;
 mod timeseries;
 
+pub use backtesting::{backtest_forecast, ForecastMetrics};
 pub use deterministic::{curve_pct, forward_fill, growth_pct};
 pub use override_method::apply_override;
 pub use statistical::{lognormal_forecast, normal_forecast};

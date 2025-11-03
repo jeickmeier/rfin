@@ -9,6 +9,9 @@
 use finstack_statements::prelude::*;
 use indexmap::indexmap;
 
+mod common;
+use common::{assert_close, SAMPLE_VAR_TOLERANCE};
+
 // ============================================================================
 // Variance and Standard Deviation Tests (Market Standards)
 // ============================================================================
@@ -51,10 +54,11 @@ fn test_variance_uses_sample_not_population() {
         .unwrap();
 
     let expected_sample_var = 1.0;
-    assert!(
-        (variance - expected_sample_var).abs() < 0.001,
-        "Rolling variance should use sample variance (n-1), got {}",
-        variance
+    assert_close(
+        variance,
+        expected_sample_var,
+        SAMPLE_VAR_TOLERANCE,
+        "Rolling variance should use sample variance (n-1)"
     );
 
     // Verify it's NOT population variance
@@ -68,11 +72,13 @@ fn test_variance_uses_sample_not_population() {
     let std_dev = results
         .get("rolling_std_4", &PeriodId::quarter(2025, 4))
         .unwrap();
-    assert!(
-        (std_dev - variance.sqrt()).abs() < 0.001,
+    assert_close(
+        std_dev,
+        variance.sqrt(),
+        SAMPLE_VAR_TOLERANCE,
         "Rolling std should be sqrt of rolling variance"
     );
-    assert!((std_dev - 1.0).abs() < 0.001, "Rolling std should be 1.0");
+    assert_close(std_dev, 1.0, SAMPLE_VAR_TOLERANCE, "Rolling std should be 1.0");
 }
 
 #[test]

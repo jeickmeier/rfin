@@ -27,6 +27,9 @@ fn test_results_serialization() {
         eval_time_ms: Some(42),
         num_nodes: 2,
         num_periods: 1,
+        numeric_mode: finstack_statements::NumericMode::Float64,
+        rounding_context: None,
+        parallel: false,
     };
 
     // Serialize to JSON
@@ -51,11 +54,11 @@ fn test_capital_structure_cashflows_serialization() {
 
     // Add breakdown for an instrument
     let breakdown = CashflowBreakdown {
-        interest_expense_cash: 5_000.0,
-        interest_expense_pik: 0.0,
-        principal_payment: 10_000.0,
-        debt_balance: 100_000.0,
-        fees: 500.0,
+        interest_expense_cash: finstack_core::money::Money::new(5_000.0, finstack_core::currency::Currency::USD),
+        interest_expense_pik: finstack_core::money::Money::new(0.0, finstack_core::currency::Currency::USD),
+        principal_payment: finstack_core::money::Money::new(10_000.0, finstack_core::currency::Currency::USD),
+        debt_balance: finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
+        fees: finstack_core::money::Money::new(500.0, finstack_core::currency::Currency::USD),
     };
 
     let mut period_map = IndexMap::new();
@@ -277,20 +280,20 @@ fn test_results_to_json_file() {
 fn test_capital_structure_json_roundtrip() {
     // Test CashflowBreakdown JSON serialization
     let breakdown = CashflowBreakdown {
-        interest_expense_cash: 5_000.0,
-        interest_expense_pik: 0.0,
-        principal_payment: 10_000.0,
-        debt_balance: 100_000.0,
-        fees: 500.0,
+        interest_expense_cash: finstack_core::money::Money::new(5_000.0, finstack_core::currency::Currency::USD),
+        interest_expense_pik: finstack_core::money::Money::new(0.0, finstack_core::currency::Currency::USD),
+        principal_payment: finstack_core::money::Money::new(10_000.0, finstack_core::currency::Currency::USD),
+        debt_balance: finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
+        fees: finstack_core::money::Money::new(500.0, finstack_core::currency::Currency::USD),
     };
 
     let json = serde_json::to_string(&breakdown).expect("Failed to serialize");
     let deserialized: CashflowBreakdown =
         serde_json::from_str(&json).expect("Failed to deserialize");
 
-    assert_eq!(deserialized.interest_expense_cash, 5_000.0);
-    assert_eq!(deserialized.interest_expense_pik, 0.0);
-    assert_eq!(deserialized.principal_payment, 10_000.0);
-    assert_eq!(deserialized.debt_balance, 100_000.0);
-    assert_eq!(deserialized.fees, 500.0);
+    assert_eq!(deserialized.interest_expense_cash.amount(), 5_000.0);
+    assert_eq!(deserialized.interest_expense_pik.amount(), 0.0);
+    assert_eq!(deserialized.principal_payment.amount(), 10_000.0);
+    assert_eq!(deserialized.debt_balance.amount(), 100_000.0);
+    assert_eq!(deserialized.fees.amount(), 500.0);
 }

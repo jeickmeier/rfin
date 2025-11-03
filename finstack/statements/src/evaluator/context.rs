@@ -6,6 +6,7 @@
 //! graph.
 
 use crate::error::{Error, Result};
+use crate::types::NodeValueType;
 use finstack_core::dates::{PeriodId, PeriodKind};
 use indexmap::IndexMap;
 
@@ -29,6 +30,9 @@ pub struct EvaluationContext {
     /// Current period results being built.
     /// Uses `Option<f64>` to distinguish between "not yet evaluated" (`None`) and "evaluated to NaN" (`Some(NaN)`).
     pub current_values: Vec<Option<f64>>,
+
+    /// Track value types for each node (monetary vs scalar)
+    pub node_value_types: IndexMap<String, NodeValueType>,
 
     /// Capital structure cashflows (optional)
     pub capital_structure_cashflows: Option<crate::capital_structure::CapitalStructureCashflows>,
@@ -70,6 +74,7 @@ impl EvaluationContext {
             node_to_column,
             historical_results,
             current_values: vec![None; num_nodes],
+            node_value_types: IndexMap::new(),
             capital_structure_cashflows: None,
         }
     }

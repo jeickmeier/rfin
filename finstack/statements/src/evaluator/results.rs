@@ -1,6 +1,8 @@
 //! Results types for statement evaluation.
 
+use crate::types::NodeValueType;
 use finstack_core::dates::PeriodId;
+use finstack_core::money::Money;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +14,11 @@ use crate::error::Result;
 /// Values are stored as an [`IndexMap`] keyed by node identifier so you can
 /// preserve declaration order when presenting them. Helper methods make it easy
 /// to access per-period values or export to Polars.
+///
+/// Results now support dual storage:
+/// - `nodes`: f64 values for backward compatibility
+/// - `monetary_nodes`: Money values for currency-aware monetary nodes
+/// - `node_value_types`: Track which nodes are monetary vs scalar
 ///
 /// # Example
 ///
@@ -37,15 +44,23 @@ use crate::error::Result;
 /// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Results {
-    /// Map of node_id → (period_id → value)
+    /// Map of node_id → (period_id → value) [f64 for backward compatibility]
     pub nodes: IndexMap<String, IndexMap<PeriodId, f64>>,
+
+    /// Map of node_id → (period_id → Money) for monetary nodes
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub monetary_nodes: IndexMap<String, IndexMap<PeriodId, Money>>,
+
+    /// Track value types for each node
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub node_value_types: IndexMap<String, NodeValueType>,
 
     /// Metadata about the evaluation
     pub meta: ResultsMeta,
 }
 
 /// Metadata about evaluation results.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultsMeta {
     /// Evaluation time in milliseconds
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -56,6 +71,42 @@ pub struct ResultsMeta {
 
     /// Number of periods evaluated
     pub num_periods: usize,
+
+    /// Numeric mode used for evaluation
+    #[serde(default)]
+    pub numeric_mode: NumericMode,
+
+    /// Rounding context (if applicable)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rounding_context: Option<finstack_core::config::RoundingContext>,
+
+    /// Whether parallel evaluation was used
+    #[serde(default)]
+    pub parallel: bool,
+}
+
+impl Default for ResultsMeta {
+    fn default() -> Self {
+        Self {
+            eval_time_ms: None,
+            num_nodes: 0,
+            num_periods: 0,
+            numeric_mode: NumericMode::Float64,
+            rounding_context: None,
+            parallel: false,
+        }
+    }
+}
+
+/// Numeric mode used for evaluation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NumericMode {
+    /// f64 floating-point mode (current default)
+    #[default]
+    Float64,
+    /// Decimal fixed-point mode (future)
+    Decimal,
 }
 
 impl Results {
@@ -79,6 +130,37 @@ impl Results {
         self.nodes
             .get(node_id)
             .and_then(|period_map| period_map.get(period_id).copied())
+    }
+
+    /// Get the Money value for a monetary node at a specific period.
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier of the monetary node (e.g., `"revenue"`)
+    /// * `period_id` - Period key
+    ///
+    /// # Returns
+    /// `Some(Money)` if the node is monetary and has a value for this period, otherwise `None`.
+    pub fn get_money(&self, node_id: &str, period_id: &PeriodId) -> Option<Money> {
+        self.monetary_nodes
+            .get(node_id)
+            .and_then(|period_map| period_map.get(period_id).copied())
+    }
+
+    /// Get the scalar value for a non-monetary node at a specific period.
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier of the scalar node (e.g., `"gross_margin_pct"`)
+    /// * `period_id` - Period key
+    ///
+    /// # Returns
+    /// `Some(f64)` if the node is scalar and has a value for this period, otherwise `None`.
+    pub fn get_scalar(&self, node_id: &str, period_id: &PeriodId) -> Option<f64> {
+        // Check if this is a scalar node (not monetary)
+        if let Some(NodeValueType::Scalar) = self.node_value_types.get(node_id) {
+            self.get(node_id, period_id)
+        } else {
+            None
+        }
     }
 
     /// Get all period values for a specific node.

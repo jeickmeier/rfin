@@ -3,7 +3,9 @@
 //! This module defines the types used for aggregated cashflow storage.
 //! Instrument types (Bond, InterestRateSwap) are re-exported from finstack-valuations.
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::PeriodId;
+use finstack_core::money::Money;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -18,24 +20,26 @@ use serde::{Deserialize, Serialize};
 /// ```rust
 /// # use finstack_statements::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};
 /// # use finstack_core::dates::PeriodId;
+/// # use finstack_core::money::Money;
+/// # use finstack_core::currency::Currency;
 /// let mut cs = CapitalStructureCashflows::new();
 /// let period = PeriodId::quarter(2025, 1);
 /// cs.by_instrument
 ///     .entry("BOND-1".into())
 ///     .or_default()
 ///     .insert(period, CashflowBreakdown {
-///         interest_expense_cash: 10_000.0,
-///         interest_expense_pik: 2_500.0,
-///        principal_payment: 100_000.0,
-///        fees: 0.0,
-///        debt_balance: 4_900_000.0,
+///         interest_expense_cash: Money::new(10_000.0, Currency::USD),
+///         interest_expense_pik: Money::new(2_500.0, Currency::USD),
+///        principal_payment: Money::new(100_000.0, Currency::USD),
+///        fees: Money::new(0.0, Currency::USD),
+///        debt_balance: Money::new(4_900_000.0, Currency::USD),
 ///     });
 /// cs.totals.insert(period, CashflowBreakdown {
-///     interest_expense_cash: 10_000.0,
-///     interest_expense_pik: 2_500.0,
-///     principal_payment: 100_000.0,
-///     fees: 0.0,
-///     debt_balance: 4_900_000.0,
+///     interest_expense_cash: Money::new(10_000.0, Currency::USD),
+///     interest_expense_pik: Money::new(2_500.0, Currency::USD),
+///     principal_payment: Money::new(100_000.0, Currency::USD),
+///     fees: Money::new(0.0, Currency::USD),
+///     debt_balance: Money::new(4_900_000.0, Currency::USD),
 /// });
 ///
 /// assert_eq!(cs.get_total_interest(&period), Some(12_500.0));
@@ -58,25 +62,41 @@ pub struct CapitalStructureCashflows {
 /// is deprecated in favor of `interest_expense_cash` and `interest_expense_pik`.
 ///
 /// Use `interest_expense_total()` to get the combined value for backward compatibility.
+///
+/// # Breaking Change (v3.0)
+///
+/// As of v3.0, all monetary fields use the Money type for currency safety.
+/// Use the accessor methods to get f64 values for backward compatibility.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CashflowBreakdown {
     /// Cash interest payments (coupons, floating resets)
-    pub interest_expense_cash: f64,
+    pub interest_expense_cash: Money,
 
     /// PIK (payment-in-kind) interest accrued but not paid in cash
-    pub interest_expense_pik: f64,
+    pub interest_expense_pik: Money,
 
     /// Principal repayments (amortization, maturity)
-    pub principal_payment: f64,
+    pub principal_payment: Money,
 
     /// Fees (commitment fees, etc.)
-    pub fees: f64,
+    pub fees: Money,
 
     /// Outstanding debt balance at period end
-    pub debt_balance: f64,
+    pub debt_balance: Money,
 }
 
 impl CashflowBreakdown {
+    /// Create a new breakdown with a specific currency.
+    pub fn with_currency(currency: Currency) -> Self {
+        Self {
+            interest_expense_cash: Money::new(0.0, currency),
+            interest_expense_pik: Money::new(0.0, currency),
+            principal_payment: Money::new(0.0, currency),
+            fees: Money::new(0.0, currency),
+            debt_balance: Money::new(0.0, currency),
+        }
+    }
+
     /// Get total interest expense (cash + PIK).
     ///
     /// This method provides backward compatibility for code that used the
@@ -86,27 +106,26 @@ impl CashflowBreakdown {
     ///
     /// ```rust
     /// # use finstack_statements::capital_structure::CashflowBreakdown;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::currency::Currency;
     /// let cf = CashflowBreakdown {
-    ///     interest_expense_cash: 10_000.0,
-    ///     interest_expense_pik: 2_500.0,
-    ///     ..Default::default()
+    ///     interest_expense_cash: Money::new(10_000.0, Currency::USD),
+    ///     interest_expense_pik: Money::new(2_500.0, Currency::USD),
+    ///     ..CashflowBreakdown::with_currency(Currency::USD)
     /// };
-    /// assert_eq!(cf.interest_expense_total(), 12_500.0);
+    /// assert_eq!(cf.interest_expense_total().amount(), 12_500.0);
     /// ```
-    pub fn interest_expense_total(&self) -> f64 {
-        self.interest_expense_cash + self.interest_expense_pik
+    pub fn interest_expense_total(&self) -> Money {
+        // SAFETY: Both values in a CashflowBreakdown have the same currency by construction
+        (self.interest_expense_cash + self.interest_expense_pik)
+            .expect("CashflowBreakdown values should have same currency")
     }
 }
 
 impl Default for CashflowBreakdown {
     fn default() -> Self {
-        Self {
-            interest_expense_cash: 0.0,
-            interest_expense_pik: 0.0,
-            principal_payment: 0.0,
-            fees: 0.0,
-            debt_balance: 0.0,
-        }
+        // Default to USD for backward compatibility
+        Self::with_currency(Currency::USD)
     }
 }
 
@@ -137,11 +156,13 @@ impl CapitalStructureCashflows {
     /// ```rust
     /// # use finstack_statements::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};
     /// # use finstack_core::dates::PeriodId;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::currency::Currency;
     /// let mut cashflows = CapitalStructureCashflows::new();
     /// let period = PeriodId::quarter(2025, 1);
     /// cashflows.by_instrument.insert(
     ///     "BOND-1".into(),
-    ///     [(period, CashflowBreakdown { interest_expense_cash: 5_000.0, ..Default::default() })]
+    ///     [(period, CashflowBreakdown { interest_expense_cash: Money::new(5_000.0, Currency::USD), ..CashflowBreakdown::with_currency(Currency::USD) })]
     ///         .into_iter()
     ///         .collect(),
     /// );
@@ -151,7 +172,7 @@ impl CapitalStructureCashflows {
         self.by_instrument
             .get(instrument_id)?
             .get(period_id)
-            .map(|cf| cf.interest_expense_total())
+            .map(|cf| cf.interest_expense_total().amount())
     }
 
     /// Get cash interest expense for a specific instrument and period.
@@ -163,7 +184,7 @@ impl CapitalStructureCashflows {
         self.by_instrument
             .get(instrument_id)?
             .get(period_id)
-            .map(|cf| cf.interest_expense_cash)
+            .map(|cf| cf.interest_expense_cash.amount())
     }
 
     /// Get PIK interest expense for a specific instrument and period.
@@ -175,7 +196,7 @@ impl CapitalStructureCashflows {
         self.by_instrument
             .get(instrument_id)?
             .get(period_id)
-            .map(|cf| cf.interest_expense_pik)
+            .map(|cf| cf.interest_expense_pik.amount())
     }
 
     /// Get principal payment for a specific instrument and period.
@@ -187,7 +208,7 @@ impl CapitalStructureCashflows {
         self.by_instrument
             .get(instrument_id)?
             .get(period_id)
-            .map(|cf| cf.principal_payment)
+            .map(|cf| cf.principal_payment.amount())
     }
 
     /// Get debt balance for a specific instrument and period.
@@ -199,7 +220,7 @@ impl CapitalStructureCashflows {
         self.by_instrument
             .get(instrument_id)?
             .get(period_id)
-            .map(|cf| cf.debt_balance)
+            .map(|cf| cf.debt_balance.amount())
     }
 
     /// Get total interest expense (cash + PIK) across all instruments for a period.
@@ -209,7 +230,7 @@ impl CapitalStructureCashflows {
     pub fn get_total_interest(&self, period_id: &PeriodId) -> Option<f64> {
         self.totals
             .get(period_id)
-            .map(|cf| cf.interest_expense_total())
+            .map(|cf| cf.interest_expense_total().amount())
     }
 
     /// Get total cash interest expense across all instruments for a period.
@@ -219,7 +240,7 @@ impl CapitalStructureCashflows {
     pub fn get_total_interest_cash(&self, period_id: &PeriodId) -> Option<f64> {
         self.totals
             .get(period_id)
-            .map(|cf| cf.interest_expense_cash)
+            .map(|cf| cf.interest_expense_cash.amount())
     }
 
     /// Get total PIK interest expense across all instruments for a period.
@@ -227,7 +248,7 @@ impl CapitalStructureCashflows {
     /// # Arguments
     /// * `period_id` - Period to inspect
     pub fn get_total_interest_pik(&self, period_id: &PeriodId) -> Option<f64> {
-        self.totals.get(period_id).map(|cf| cf.interest_expense_pik)
+        self.totals.get(period_id).map(|cf| cf.interest_expense_pik.amount())
     }
 
     /// Get total principal payments across all instruments for a period.
@@ -235,7 +256,7 @@ impl CapitalStructureCashflows {
     /// # Arguments
     /// * `period_id` - Period to inspect
     pub fn get_total_principal(&self, period_id: &PeriodId) -> Option<f64> {
-        self.totals.get(period_id).map(|cf| cf.principal_payment)
+        self.totals.get(period_id).map(|cf| cf.principal_payment.amount())
     }
 
     /// Get total debt balance across all instruments for a period.
@@ -243,7 +264,7 @@ impl CapitalStructureCashflows {
     /// # Arguments
     /// * `period_id` - Period to inspect
     pub fn get_total_debt_balance(&self, period_id: &PeriodId) -> Option<f64> {
-        self.totals.get(period_id).map(|cf| cf.debt_balance)
+        self.totals.get(period_id).map(|cf| cf.debt_balance.amount())
     }
 }
 
@@ -254,22 +275,22 @@ mod tests {
     #[test]
     fn test_cashflow_breakdown_default() {
         let cf = CashflowBreakdown::default();
-        assert_eq!(cf.interest_expense_cash, 0.0);
-        assert_eq!(cf.interest_expense_pik, 0.0);
-        assert_eq!(cf.interest_expense_total(), 0.0);
-        assert_eq!(cf.principal_payment, 0.0);
-        assert_eq!(cf.fees, 0.0);
-        assert_eq!(cf.debt_balance, 0.0);
+        assert_eq!(cf.interest_expense_cash.amount(), 0.0);
+        assert_eq!(cf.interest_expense_pik.amount(), 0.0);
+        assert_eq!(cf.interest_expense_total().amount(), 0.0);
+        assert_eq!(cf.principal_payment.amount(), 0.0);
+        assert_eq!(cf.fees.amount(), 0.0);
+        assert_eq!(cf.debt_balance.amount(), 0.0);
     }
 
     #[test]
     fn test_cashflow_breakdown_interest_total() {
         let cf = CashflowBreakdown {
-            interest_expense_cash: 10_000.0,
-            interest_expense_pik: 2_500.0,
-            ..Default::default()
+            interest_expense_cash: Money::new(10_000.0, Currency::USD),
+            interest_expense_pik: Money::new(2_500.0, Currency::USD),
+            ..CashflowBreakdown::with_currency(Currency::USD)
         };
-        assert_eq!(cf.interest_expense_total(), 12_500.0);
+        assert_eq!(cf.interest_expense_total().amount(), 12_500.0);
     }
 
     #[test]
@@ -285,11 +306,11 @@ mod tests {
 
         let period_id = PeriodId::quarter(2025, 1);
         let breakdown = CashflowBreakdown {
-            interest_expense_cash: 45_000.0,
-            interest_expense_pik: 5_000.0,
-            principal_payment: 100_000.0,
-            debt_balance: 1_000_000.0,
-            fees: 0.0,
+            interest_expense_cash: Money::new(45_000.0, Currency::USD),
+            interest_expense_pik: Money::new(5_000.0, Currency::USD),
+            principal_payment: Money::new(100_000.0, Currency::USD),
+            debt_balance: Money::new(1_000_000.0, Currency::USD),
+            fees: Money::new(0.0, Currency::USD),
         };
 
         let mut period_map = IndexMap::new();

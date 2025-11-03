@@ -113,11 +113,11 @@ fn test_context_get_cs_value_interest_total() {
     // Create sample capital structure cashflows
     let mut cs_cashflows = CapitalStructureCashflows::new();
     let breakdown = finstack_statements::capital_structure::CashflowBreakdown {
-        interest_expense_cash: 50_000.0,
-        interest_expense_pik: 0.0,
-        principal_payment: 100_000.0,
-        debt_balance: 1_000_000.0,
-        ..Default::default()
+        interest_expense_cash: finstack_core::money::Money::new(50_000.0, finstack_core::currency::Currency::USD),
+        interest_expense_pik: finstack_core::money::Money::new(0.0, finstack_core::currency::Currency::USD),
+        principal_payment: finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
+        debt_balance: finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD),
+        fees: finstack_core::money::Money::new(0.0, finstack_core::currency::Currency::USD),
     };
     cs_cashflows.totals.insert(period_id, breakdown);
 
@@ -140,8 +140,8 @@ fn test_context_get_cs_value_principal_instrument() {
     let mut cs_cashflows = CapitalStructureCashflows::new();
     let mut by_instrument = IndexMap::new();
     let breakdown = finstack_statements::capital_structure::CashflowBreakdown {
-        principal_payment: 25_000.0,
-        ..Default::default()
+        principal_payment: finstack_core::money::Money::new(25_000.0, finstack_core::currency::Currency::USD),
+        ..finstack_statements::capital_structure::CashflowBreakdown::with_currency(finstack_core::currency::Currency::USD)
     };
     by_instrument.insert(period_id, breakdown);
     cs_cashflows
@@ -573,11 +573,11 @@ fn test_capital_structure_cashflows_accessors() {
     let period = PeriodId::quarter(2025, 1);
 
     let breakdown = CashflowBreakdown {
-        interest_expense_cash: 10_000.0,
-        interest_expense_pik: 0.0,
-        principal_payment: 25_000.0,
-        debt_balance: 500_000.0,
-        fees: 1_000.0,
+        interest_expense_cash: finstack_core::money::Money::new(10_000.0, finstack_core::currency::Currency::USD),
+        interest_expense_pik: finstack_core::money::Money::new(0.0, finstack_core::currency::Currency::USD),
+        principal_payment: finstack_core::money::Money::new(25_000.0, finstack_core::currency::Currency::USD),
+        debt_balance: finstack_core::money::Money::new(500_000.0, finstack_core::currency::Currency::USD),
+        fees: finstack_core::money::Money::new(1_000.0, finstack_core::currency::Currency::USD),
     };
 
     let mut instrument_map = indexmap::IndexMap::new();

@@ -11,7 +11,9 @@ use polars::prelude::*;
 
 /// Export results to long-format Polars DataFrame.
 ///
-/// Schema: `(node_id, period_id, value)`
+/// Schema: `(node_id, period_id, value, value_money, currency, value_type)`
+///
+/// Includes both f64 and Money representations where applicable.
 ///
 /// # Arguments
 /// * `results` - Evaluation output to serialize
@@ -21,25 +23,43 @@ use polars::prelude::*;
 /// ```ignore
 /// let df = to_polars_long(&results)?;
 /// // Output:
-/// // ┌─────────────┬───────────┬────────────┐
-/// // │ node_id     │ period_id │ value      │
-/// // ├─────────────┼───────────┼────────────┤
-/// // │ revenue     │ 2025Q1    │ 100000.0   │
-/// // │ revenue     │ 2025Q2    │ 105000.0   │
-/// // │ cogs        │ 2025Q1    │ 60000.0    │
-/// // └─────────────┴───────────┴────────────┘
+/// // ┌─────────────┬───────────┬────────────┬──────────────┬──────────┬────────────┐
+/// // │ node_id     │ period_id │ value      │ value_money  │ currency │ value_type │
+/// // ├─────────────┼───────────┼────────────┼──────────────┼──────────┼────────────┤
+/// // │ revenue     │ 2025Q1    │ 100000.0   │ 100000.0     │ USD      │ monetary   │
+/// // │ revenue     │ 2025Q2    │ 105000.0   │ 105000.0     │ USD      │ monetary   │
+/// // │ margin_pct  │ 2025Q1    │ 0.35       │ null         │ null     │ scalar     │
+/// // └─────────────┴───────────┴────────────┴──────────────┴──────────┴────────────┘
 /// ```
 #[cfg(feature = "dataframes")]
 pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
+    use crate::types::NodeValueType;
+
     let mut node_ids = Vec::new();
     let mut period_ids = Vec::new();
     let mut values = Vec::new();
+    let mut money_values = Vec::new();
+    let mut currencies = Vec::new();
+    let mut value_types = Vec::new();
 
     for (node_id, period_map) in &results.nodes {
+        let node_value_type = results.node_value_types.get(node_id);
+        
         for (period_id, value) in period_map {
             node_ids.push(node_id.as_str());
             period_ids.push(period_id.to_string());
             values.push(*value);
+
+            // Add Money-specific columns if this is a monetary node
+            if let Some(NodeValueType::Monetary { currency }) = node_value_type {
+                money_values.push(Some(*value));
+                currencies.push(Some(currency.to_string()));
+                value_types.push("monetary");
+            } else {
+                money_values.push(None);
+                currencies.push(None);
+                value_types.push("scalar");
+            }
         }
     }
 
@@ -47,6 +67,9 @@ pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
         Series::new("node_id".into(), node_ids).into(),
         Series::new("period_id".into(), period_ids).into(),
         Series::new("value".into(), values).into(),
+        Series::new("value_money".into(), money_values).into(),
+        Series::new("currency".into(), currencies).into(),
+        Series::new("value_type".into(), value_types).into(),
     ])
     .map_err(|e| {
         crate::error::Error::invalid_input(format!("Failed to create DataFrame: {}", e))
@@ -57,7 +80,7 @@ pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
 
 /// Export results to long-format Polars DataFrame with node filtering.
 ///
-/// Schema: `(node_id, period_id, value)`
+/// Schema: `(node_id, period_id, value, value_money, currency, value_type)`
 ///
 /// # Arguments
 ///
@@ -71,9 +94,14 @@ pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
 /// ```
 #[cfg(feature = "dataframes")]
 pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Result<DataFrame> {
+    use crate::types::NodeValueType;
+
     let mut node_ids = Vec::new();
     let mut period_ids = Vec::new();
     let mut values = Vec::new();
+    let mut money_values = Vec::new();
+    let mut currencies = Vec::new();
+    let mut value_types = Vec::new();
 
     for (node_id, period_map) in &results.nodes {
         // Skip if filter is specified and node not in filter
@@ -81,10 +109,23 @@ pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Resul
             continue;
         }
 
+        let node_value_type = results.node_value_types.get(node_id);
+
         for (period_id, value) in period_map {
             node_ids.push(node_id.as_str());
             period_ids.push(period_id.to_string());
             values.push(*value);
+
+            // Add Money-specific columns if this is a monetary node
+            if let Some(NodeValueType::Monetary { currency }) = node_value_type {
+                money_values.push(Some(*value));
+                currencies.push(Some(currency.to_string()));
+                value_types.push("monetary");
+            } else {
+                money_values.push(None);
+                currencies.push(None);
+                value_types.push("scalar");
+            }
         }
     }
 
@@ -92,6 +133,9 @@ pub fn to_polars_long_filtered(results: &Results, node_filter: &[&str]) -> Resul
         Series::new("node_id".into(), node_ids).into(),
         Series::new("period_id".into(), period_ids).into(),
         Series::new("value".into(), values).into(),
+        Series::new("value_money".into(), money_values).into(),
+        Series::new("currency".into(), currencies).into(),
+        Series::new("value_type".into(), value_types).into(),
     ])
     .map_err(|e| {
         crate::error::Error::invalid_input(format!("Failed to create DataFrame: {}", e))
@@ -192,11 +236,9 @@ mod tests {
 
         Results {
             nodes,
-            meta: ResultsMeta {
-                eval_time_ms: Some(10),
-                num_nodes: 3,
-                num_periods: 2,
-            },
+            monetary_nodes: IndexMap::new(),
+            node_value_types: IndexMap::new(),
+            meta: ResultsMeta::default(),
         }
     }
 
@@ -206,14 +248,17 @@ mod tests {
         let df = to_polars_long(&results).unwrap();
 
         assert_eq!(df.height(), 6); // 3 nodes × 2 periods
-        assert_eq!(df.width(), 3); // node_id, period_id, value
+        assert_eq!(df.width(), 6); // node_id, period_id, value, value_money, currency, value_type
 
         // Check column names
         let columns = df.get_column_names();
-        assert_eq!(columns.len(), 3);
+        assert_eq!(columns.len(), 6);
         assert_eq!(columns[0].as_str(), "node_id");
         assert_eq!(columns[1].as_str(), "period_id");
         assert_eq!(columns[2].as_str(), "value");
+        assert_eq!(columns[3].as_str(), "value_money");
+        assert_eq!(columns[4].as_str(), "currency");
+        assert_eq!(columns[5].as_str(), "value_type");
 
         // Check first row
         let node_ids = df.column("node_id").unwrap().str().unwrap();
@@ -229,7 +274,7 @@ mod tests {
         let df = to_polars_long_filtered(&results, &["revenue", "cogs"]).unwrap();
 
         assert_eq!(df.height(), 4); // 2 nodes × 2 periods
-        assert_eq!(df.width(), 3);
+        assert_eq!(df.width(), 6); // Updated for new columns
 
         // Check that only revenue and cogs are included
         let node_ids = df.column("node_id").unwrap().str().unwrap();
@@ -289,6 +334,8 @@ mod tests {
     fn test_empty_results() {
         let results = Results {
             nodes: IndexMap::new(),
+            monetary_nodes: IndexMap::new(),
+            node_value_types: IndexMap::new(),
             meta: ResultsMeta::default(),
         };
 

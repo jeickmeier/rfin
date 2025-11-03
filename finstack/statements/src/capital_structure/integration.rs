@@ -10,7 +10,7 @@ use finstack_core::dates::{Date, Period, PeriodId};
 use finstack_core::market_data::MarketContext;
 use finstack_valuations::cashflow::primitives::CFKind;
 use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::{Bond, InterestRateSwap};
+use finstack_valuations::instruments::{Bond, InterestRateSwap, TermLoan};
 use indexmap::IndexMap;
 use std::sync::Arc;
 
@@ -49,11 +49,16 @@ pub fn aggregate_instrument_cashflows(
 ) -> Result<CapitalStructureCashflows> {
     let mut result = CapitalStructureCashflows::new();
 
-    // Initialize period maps for totals
+    // Determine base currency from first instrument (if any) or default to USD
+    // For now, we default to USD for all aggregations
+    // In a future implementation, we'll query instrument currency
+    let base_currency = finstack_core::currency::Currency::USD;
+
+    // Initialize period maps for totals with base currency
     for period in periods {
         result
             .totals
-            .insert(period.id, CashflowBreakdown::default());
+            .insert(period.id, CashflowBreakdown::with_currency(base_currency));
     }
 
     // Process each instrument
@@ -61,10 +66,15 @@ pub fn aggregate_instrument_cashflows(
         // Use enhanced build_full_schedule() for precise CFKind classification
         let full_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
 
+        // Determine currency from first cashflow (all cashflows should be same currency)
+        let currency = full_schedule.flows.first()
+            .map(|cf| cf.amount.currency())
+            .unwrap_or(finstack_core::currency::Currency::USD);
+
         // Initialize period map for this instrument
         let mut instrument_periods: IndexMap<PeriodId, CashflowBreakdown> = IndexMap::new();
         for period in periods {
-            instrument_periods.insert(period.id, CashflowBreakdown::default());
+            instrument_periods.insert(period.id, CashflowBreakdown::with_currency(currency));
         }
 
         // Classify cashflows using precise CFKind information (NO MORE HEURISTICS!)
@@ -78,29 +88,34 @@ pub fn aggregate_instrument_cashflows(
                 .map(|p| p.id)
             {
                 if let Some(breakdown) = instrument_periods.get_mut(&period_id) {
-                    let value = cf.amount.amount().abs(); // Convert to issuer perspective
+                    // Keep as Money, convert to issuer perspective (absolute value)
+                    let abs_value = if cf.amount.amount() < 0.0 {
+                        finstack_core::money::Money::new(-cf.amount.amount(), cf.amount.currency())
+                    } else {
+                        cf.amount
+                    };
 
                     match cf.kind {
                         CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => {
                             // Cash interest payments (coupons, floating resets)
-                            breakdown.interest_expense_cash += value;
+                            breakdown.interest_expense_cash += abs_value;
                         }
                         CFKind::Amortization => {
                             // Principal amortization payments
-                            breakdown.principal_payment += value;
+                            breakdown.principal_payment += abs_value;
                         }
                         CFKind::Notional if cf.amount.amount() > 0.0 => {
                             // Principal redemption (bullet payment)
-                            breakdown.principal_payment += value;
+                            breakdown.principal_payment += abs_value;
                         }
                         CFKind::Fee => {
                             // Commitment fees, facility fees, etc.
-                            breakdown.fees += value;
+                            breakdown.fees += abs_value;
                         }
                         CFKind::PIK => {
                             // PIK (payment-in-kind) interest accrued but not paid in cash
                             // This increases the outstanding balance and is tracked separately
-                            breakdown.interest_expense_pik += value;
+                            breakdown.interest_expense_pik += abs_value;
                         }
                         CFKind::Notional if cf.amount.amount() <= 0.0 => {
                             // Negative notional flows (initial exchange) - typically netted against principal
@@ -112,7 +127,7 @@ pub fn aggregate_instrument_cashflows(
                             // If new CFKind variants are added in the future, conservatively treat them as cash interest.
                             // Note: If this case is hit frequently, consider adding explicit handling for the new CFKind.
                             // In production, this should be logged with: tracing::warn!("Unknown CFKind: {:?}", cf.kind)
-                            breakdown.interest_expense_cash += value;
+                            breakdown.interest_expense_cash += abs_value;
                         }
                     }
                 }
@@ -128,7 +143,12 @@ pub fn aggregate_instrument_cashflows(
                 .map(|p| p.id)
             {
                 if let Some(breakdown) = instrument_periods.get_mut(&period_id) {
-                    breakdown.debt_balance = outstanding_amount.amount().abs();
+                    // Keep as Money, use absolute value for issuer perspective
+                    breakdown.debt_balance = if outstanding_amount.amount() < 0.0 {
+                        finstack_core::money::Money::new(-outstanding_amount.amount(), outstanding_amount.currency())
+                    } else {
+                        outstanding_amount
+                    };
                 }
             }
         }
@@ -138,10 +158,11 @@ pub fn aggregate_instrument_cashflows(
             .by_instrument
             .insert(instrument_id.clone(), instrument_periods.clone());
 
-        // Aggregate into totals
+        // Aggregate into totals (handling Money addition which returns Result)
         for (period_id, breakdown) in &instrument_periods {
             // SAFETY: All periods were initialized at function start
             let total = result.totals.get_mut(period_id).unwrap();
+            // Money += Money unwraps internally (uses AddAssign which panics on currency mismatch)
             total.interest_expense_cash += breakdown.interest_expense_cash;
             total.interest_expense_pik += breakdown.interest_expense_pik;
             total.principal_payment += breakdown.principal_payment;
@@ -199,6 +220,29 @@ pub fn build_swap_from_spec(spec: &DebtInstrumentSpec) -> Result<InterestRateSwa
     }
 }
 
+/// Build a [`TermLoan`] instrument from a [`DebtInstrumentSpec`].
+///
+/// # Arguments
+/// * `spec` - Debt instrument specification sourced from the model
+///
+/// # Errors
+/// Returns an error when the payload cannot be deserialized as a `TermLoan`.
+pub fn build_term_loan_from_spec(spec: &DebtInstrumentSpec) -> Result<TermLoan> {
+    match spec {
+        DebtInstrumentSpec::TermLoan {
+            id,
+            spec: json_spec,
+        } => serde_json::from_value(json_spec.clone())
+            .map_err(|e| crate::error::Error::build(format!(
+                "Failed to deserialize term loan '{}': {}. Ensure the JSON spec matches the TermLoan structure.",
+                id, e
+            ))),
+        _ => Err(crate::error::Error::build(
+            "Expected TermLoan variant in DebtInstrumentSpec, but got a different variant"
+        )),
+    }
+}
+
 /// Build a concrete instrument from a [`DebtInstrumentSpec`].
 ///
 /// Generic specs are attempted against a known set of instrument implementations
@@ -224,6 +268,10 @@ pub fn build_any_instrument_from_spec(
             let swap = build_swap_from_spec(spec)?;
             Ok(Arc::new(swap))
         }
+        DebtInstrumentSpec::TermLoan { .. } => {
+            let term_loan = build_term_loan_from_spec(spec)?;
+            Ok(Arc::new(term_loan))
+        }
         DebtInstrumentSpec::Generic {
             id,
             spec: json_spec,
@@ -238,6 +286,11 @@ pub fn build_any_instrument_from_spec(
             // Try as InterestRateSwap
             if let Ok(swap) = serde_json::from_value::<InterestRateSwap>(json_spec.clone()) {
                 return Ok(Arc::new(swap));
+            }
+
+            // Try as TermLoan (bank debt)
+            if let Ok(term_loan) = serde_json::from_value::<TermLoan>(json_spec.clone()) {
+                return Ok(Arc::new(term_loan));
             }
 
             // Try as Deposit (cash management)
@@ -274,7 +327,7 @@ pub fn build_any_instrument_from_spec(
             // If all deserialization attempts fail, return an error
             Err(crate::error::Error::build(format!(
                 "Failed to deserialize generic debt instrument '{}' as any known type. \
-                 Tried: Bond, InterestRateSwap, Deposit, ForwardRateAgreement, Repo. \
+                 Tried: Bond, InterestRateSwap, TermLoan, Deposit, ForwardRateAgreement, Repo. \
                  The JSON structure must match one of these types exactly.",
                 id
             )))

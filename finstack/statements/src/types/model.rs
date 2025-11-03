@@ -123,6 +123,13 @@ pub enum DebtInstrumentSpec {
         /// Instrument specification (JSON)
         spec: serde_json::Value,
     },
+    /// Term loan (bank debt with amortization, floating rates, covenants)
+    TermLoan {
+        /// Instrument identifier
+        id: String,
+        /// Instrument specification (JSON)
+        spec: serde_json::Value,
+    },
     /// Generic debt instrument (custom JSON spec)
     Generic {
         /// Instrument identifier

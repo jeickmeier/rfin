@@ -1,0 +1,200 @@
+{
+  "metadata": {
+    "review_date": "2025-11-03",
+    "scope": "finstack-statements",
+    "total_loc": 14373,
+    "total_tests": 331,
+    "test_pass_rate": 100
+  },
+  "summary": {
+    "loc_removed_est": 573,
+    "clone_ops_reduced": 11,
+    "files_deleted": 2,
+    "functions_removed": 3,
+    "types_removed": 3,
+    "build_time_improvement_pct": 1,
+    "perf_improvement_est_pct": 15,
+    "risk_level": "low"
+  },
+  "findings": [
+    {
+      "type": "dead",
+      "path": "src/analysis/tornado.rs",
+      "lines": "42-48",
+      "impact": "low",
+      "risk": "none",
+      "fix": "Delete generate_tornado_chart function and TornadoEntry struct",
+      "loc_saved": 50,
+      "priority": 1
+    },
+    {
+      "type": "dead",
+      "path": "src/reports/debt.rs",
+      "lines": "1-60",
+      "impact": "low",
+      "risk": "none",
+      "fix": "Delete DebtSummaryReport struct and module",
+      "loc_saved": 60,
+      "priority": 1
+    },
+    {
+      "type": "dead",
+      "path": "src/builder/model_builder.rs",
+      "lines": "814-828",
+      "impact": "low",
+      "risk": "none",
+      "fix": "Delete resolve_node_id method",
+      "loc_saved": 15,
+      "priority": 1
+    },
+    {
+      "type": "unnecessary",
+      "path": "src/capital_structure/integration.rs",
+      "lines": "168,191,234,239,245,253,260,268",
+      "impact": "medium",
+      "risk": "low",
+      "fix": "Remove json_spec.clone() calls in deserialization",
+      "loc_saved": 8,
+      "priority": 2,
+      "perf_impact": "high"
+    },
+    {
+      "type": "unnecessary",
+      "path": "src/capital_structure/integration.rs",
+      "lines": "139",
+      "impact": "low",
+      "risk": "low",
+      "fix": "Avoid clone on insert by consuming variables",
+      "loc_saved": 2,
+      "priority": 3
+    },
+    {
+      "type": "unnecessary",
+      "path": "src/reports/summary.rs",
+      "lines": "69",
+      "impact": "low",
+      "risk": "low",
+      "fix": "Remove line_item.clone() in loop",
+      "loc_saved": 1,
+      "priority": 4
+    },
+    {
+      "type": "unnecessary",
+      "path": "src/registry/aliases.rs",
+      "lines": "126",
+      "impact": "low",
+      "risk": "low",
+      "fix": "Hoist canonical_str.clone() outside loop",
+      "loc_saved": 1,
+      "priority": 4
+    },
+    {
+      "type": "duplicate",
+      "path": "src/registry/aliases.rs",
+      "lines": "319-324,359-369",
+      "impact": "low",
+      "risk": "low",
+      "fix": "Extract top_n_by_score helper function",
+      "loc_saved": 8,
+      "priority": 3
+    },
+    {
+      "type": "code-smell",
+      "path": "src/capital_structure/integration.rs",
+      "lines": "144",
+      "impact": "low",
+      "risk": "none",
+      "fix": "Replace unwrap() with expect() for clarity",
+      "loc_saved": 0,
+      "priority": 5,
+      "style_only": true
+    },
+    {
+      "type": "config-drift",
+      "path": "Cargo.toml",
+      "lines": "20",
+      "impact": "low",
+      "risk": "none",
+      "fix": "Remove redundant indexmap from dev-dependencies",
+      "loc_saved": 0,
+      "priority": 4
+    }
+  ],
+  "tool_runs": {
+    "cargo_test": {
+      "status": "OK",
+      "tests_passed": 331,
+      "tests_failed": 0
+    },
+    "cargo_clippy": {
+      "status": "OK",
+      "warnings_statements": 0,
+      "warnings_macros": 6
+    },
+    "cargo_tree": {
+      "status": "OK",
+      "unused_deps": 0
+    },
+    "cargo_build_release": {
+      "status": "OK",
+      "time_seconds": 25.87
+    }
+  },
+  "validation_checklist": [
+    "cargo test --package finstack-statements",
+    "cargo check --package finstack-py",
+    "cargo check --package finstack-wasm",
+    "cargo clippy --package finstack-statements -- -W clippy::pedantic",
+    "cargo run --example sensitivity_analysis_example",
+    "cargo bench --package finstack-statements"
+  ],
+  "commits": [
+    {
+      "id": 1,
+      "title": "Remove dead code (tornado, debt report, unused helper)",
+      "files": [
+        "src/analysis/tornado.rs",
+        "src/reports/debt.rs",
+        "src/builder/model_builder.rs",
+        "src/analysis/mod.rs",
+        "src/reports/mod.rs",
+        "examples/statements/convenience_reports_example.rs"
+      ],
+      "est_hours": 2,
+      "loc_removed": 140
+    },
+    {
+      "id": 2,
+      "title": "Optimize capital structure clone operations",
+      "files": [
+        "src/capital_structure/types.rs",
+        "src/capital_structure/integration.rs",
+        "src/capital_structure/builder.rs"
+      ],
+      "est_hours": 3,
+      "loc_removed": 10,
+      "perf_gain_pct": 15
+    },
+    {
+      "id": 3,
+      "title": "Cleanup minor clones and extract duplication",
+      "files": [
+        "src/capital_structure/integration.rs",
+        "src/registry/aliases.rs",
+        "src/reports/summary.rs"
+      ],
+      "est_hours": 1,
+      "loc_removed": 10
+    },
+    {
+      "id": 4,
+      "title": "Config cleanup (remove redundant dev-dep)",
+      "files": [
+        "Cargo.toml"
+      ],
+      "est_hours": 0.25,
+      "loc_removed": 1
+    }
+  ]
+}
+

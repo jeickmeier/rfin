@@ -160,6 +160,101 @@ impl ModelBuilder<Ready> {
         self
     }
 
+    /// Add a monetary value node with Money values.
+    ///
+    /// This is a type-safe way to create value nodes that explicitly represent
+    /// monetary amounts with currency. The node will be tracked as a Monetary type.
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier for the node to create
+    /// * `values` - Slice of `(PeriodId, Money)` tuples representing monetary values
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::dates::PeriodId;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("test")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .value_money("revenue", &[
+    ///         (PeriodId::quarter(2025, 1), Money::new(100_000.0, Currency::USD)),
+    ///         (PeriodId::quarter(2025, 2), Money::new(110_000.0, Currency::USD)),
+    ///     ])
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use = "builder methods must be chained"]
+    pub fn value_money(
+        mut self,
+        node_id: impl Into<String>,
+        values: &[(PeriodId, finstack_core::money::Money)],
+    ) -> Self {
+        let node_id = node_id.into();
+        let values_map: IndexMap<PeriodId, AmountOrScalar> = values
+            .iter()
+            .map(|(period_id, money)| (*period_id, AmountOrScalar::Amount(*money)))
+            .collect();
+
+        // Get currency from first value for type tracking
+        let value_type = values.first().map(|(_, money)| crate::types::NodeValueType::Monetary {
+            currency: money.currency(),
+        });
+
+        let mut node = NodeSpec::new(node_id.clone(), NodeType::Value).with_values(values_map);
+        node.value_type = value_type;
+
+        self.nodes.insert(node_id, node);
+        self
+    }
+
+    /// Add a scalar value node.
+    ///
+    /// This is a convenience method for creating value nodes that represent
+    /// non-monetary scalars (ratios, percentages, counts, etc.).
+    ///
+    /// # Arguments
+    /// * `node_id` - Identifier for the node to create
+    /// * `values` - Slice of `(PeriodId, f64)` tuples representing scalar values
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_core::dates::PeriodId;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let model = ModelBuilder::new("test")
+    ///     .periods("2025Q1..Q2", None)?
+    ///     .value_scalar("gross_margin_pct", &[
+    ///         (PeriodId::quarter(2025, 1), 0.35),
+    ///         (PeriodId::quarter(2025, 2), 0.37),
+    ///     ])
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use = "builder methods must be chained"]
+    pub fn value_scalar(
+        mut self,
+        node_id: impl Into<String>,
+        values: &[(PeriodId, f64)],
+    ) -> Self {
+        let node_id = node_id.into();
+        let values_map: IndexMap<PeriodId, AmountOrScalar> = values
+            .iter()
+            .map(|(period_id, value)| (*period_id, AmountOrScalar::Scalar(*value)))
+            .collect();
+
+        let mut node = NodeSpec::new(node_id.clone(), NodeType::Value).with_values(values_map);
+        node.value_type = Some(crate::types::NodeValueType::Scalar);
+
+        self.nodes.insert(node_id, node);
+        self
+    }
+
     /// Add a calculated node with a formula.
     ///
     /// Calculated nodes derive their values from formulas only.
