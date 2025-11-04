@@ -28,6 +28,15 @@ pub trait Payoff: Send + Sync + Clone {
     fn discount_factor(&self) -> f64 {
         1.0
     }
+
+    /// Optional hook invoked at the start of each path with access to RNG.
+    ///
+    /// Useful to draw per-path random variables (e.g., default threshold E ~ Exp(1)).
+    fn on_path_start<R: crate::instruments::common::mc::traits::RandomStream>(
+        &mut self,
+        _rng: &mut R,
+    ) {
+    }
 }
 
 /// Path observer for collecting statistics along paths.

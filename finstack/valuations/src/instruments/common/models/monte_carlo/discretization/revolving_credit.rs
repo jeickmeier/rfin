@@ -144,6 +144,33 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
                 rate_state[0] = mean + std_dev * rate_shock[0];
                 x[1] = rate_state[0];
             }
+            InterestRateSpec::DeterministicForward { times, rates } => {
+                // Deterministic forward curve: set short rate to fwd(time_offset + t+dt)
+                let t_total = process.params().time_offset + t + dt;
+                // Linear interpolation with clamp at ends
+                let n = times.len();
+                let mut r = if n == 0 { 0.0 } else if t_total <= times[0] {
+                    rates[0]
+                } else if t_total >= times[n - 1] {
+                    rates[n - 1]
+                } else {
+                    // find bracket
+                    let mut i = 1usize;
+                    while i < n && t_total > times[i] {
+                        i += 1;
+                    }
+                    let i1 = i - 1;
+                    let (t1, t2) = (times[i1], times[i]);
+                    let (r1, r2) = (rates[i1], rates[i]);
+                    let w = (t_total - t1) / (t2 - t1);
+                    r1 + w * (r2 - r1)
+                };
+                // Guard against NaN
+                if !r.is_finite() {
+                    r = 0.0;
+                }
+                x[1] = r;
+            }
         }
 
         // Step 3: Credit spread (CIR process) - QE scheme

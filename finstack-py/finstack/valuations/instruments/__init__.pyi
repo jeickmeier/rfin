@@ -24,6 +24,7 @@ from .basket import Basket
 from .structured_credit import StructuredCredit
 from .private_markets_fund import PrivateMarketsFund
 from .term_loan import TermLoan
+from .revolving_credit import RevolvingCredit
 
 __all__ = [
     # Fixed Income
@@ -58,4 +59,5 @@ __all__ = [
     "Basket",
     "PrivateMarketsFund",
     "TermLoan",
+    "RevolvingCredit",
 ]

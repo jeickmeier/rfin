@@ -192,6 +192,7 @@ impl PathDependentPricer {
             use_parallel: self.config.use_parallel,
             chunk_size: self.config.chunk_size,
             path_capture: self.config.path_capture.clone(),
+            antithetic: false,
         };
 
         // If path capture is enabled, use price_with_capture
@@ -423,6 +424,7 @@ impl PathDependentPricer {
             use_parallel: self.config.use_parallel,
             chunk_size: self.config.chunk_size,
             path_capture: self.config.path_capture.clone(),
+            antithetic: false,
         };
         let engine = McEngine::new(engine_config);
 
@@ -480,6 +482,7 @@ impl PathDependentPricer {
             use_parallel: self.config.use_parallel,
             chunk_size: self.config.chunk_size,
             path_capture: PathCaptureConfig::all().with_payoffs(),
+            antithetic: false,
         };
         let engine = McEngine::new(engine_config);
 

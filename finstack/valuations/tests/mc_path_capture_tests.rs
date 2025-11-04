@@ -23,6 +23,7 @@ fn test_path_capture_all() {
         use_parallel: false,
         chunk_size: 1000,
         path_capture: PathCaptureConfig::all(),
+        antithetic: false,
     };
 
     assert!(config.path_capture.enabled);
@@ -40,6 +41,7 @@ fn test_path_capture_sample() {
         use_parallel: false,
         chunk_size: 1000,
         path_capture: PathCaptureConfig::sample(50, 123),
+        antithetic: false,
     };
 
     assert!(config.path_capture.enabled);

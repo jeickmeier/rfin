@@ -4,6 +4,7 @@
 //! and computes final discounted value.
 
 use crate::instruments::common::mc::traits::{state_keys, PathState};
+use crate::instruments::common::mc::traits::RandomStream;
 use crate::instruments::common::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
@@ -33,6 +34,8 @@ pub struct RevolvingCreditPayoff {
     pub maturity_time: f64,
     /// Time grid for cashflow events
     pub time_grid: Vec<f64>,
+    /// Precomputed discount factors per step (df(as_of -> t_step))
+    pub discounts: Vec<f64>,
 
     // Path state (updated during simulation)
     /// Current utilization rate
@@ -93,6 +96,7 @@ impl RevolvingCreditPayoff {
         recovery_rate: f64,
         maturity_time: f64,
         time_grid: Vec<f64>,
+        discounts: Vec<f64>,
     ) -> Self {
         Self {
             commitment_amount,
@@ -104,6 +108,7 @@ impl RevolvingCreditPayoff {
             recovery_rate: recovery_rate.clamp(0.0, 1.0),
             maturity_time,
             time_grid,
+            discounts,
             utilization: 0.0,
             short_rate: 0.0,
             credit_spread: 0.0,
@@ -183,23 +188,29 @@ impl RevolvingCreditPayoff {
         let undrawn = self.undrawn_amount();
         let rate = self.interest_rate();
 
-        // Interest on drawn amount (paid by borrower, negative for lender)
-        let interest = -drawn * rate * dt;
+        // Interest on drawn amount (received by lender, positive)
+        let interest = drawn * rate * dt;
 
-        // Commitment fee on undrawn (paid by borrower, negative for lender)
-        let commitment_fee = -undrawn * (self.fees.commitment_fee_bp * 1e-4) * dt;
+        // Commitment fee on undrawn (received by lender, positive)
+        let commitment_fee = undrawn * (self.fees.commitment_fee_bp * 1e-4) * dt;
 
-        // Usage fee on drawn (paid by borrower, negative for lender)
-        let usage_fee = -drawn * (self.fees.usage_fee_bp * 1e-4) * dt;
+        // Usage fee on drawn (received by lender, positive)
+        let usage_fee = drawn * (self.fees.usage_fee_bp * 1e-4) * dt;
 
-        // Facility fee on total commitment (paid by borrower, negative for lender)
-        let facility_fee = -self.commitment_amount * (self.fees.facility_fee_bp * 1e-4) * dt;
+        // Facility fee on total commitment (received by lender, positive)
+        let facility_fee = self.commitment_amount * (self.fees.facility_fee_bp * 1e-4) * dt;
 
         interest + commitment_fee + usage_fee + facility_fee
     }
 }
 
 impl Payoff for RevolvingCreditPayoff {
+    fn on_path_start<R: RandomStream>(&mut self, rng: &mut R) {
+        // Draw U ~ Uniform(0,1), set default threshold E = -ln(U)
+        let u = rng.next_u01().clamp(1e-12, 1.0 - 1e-12);
+        self.default_threshold = -u.ln();
+    }
+
     fn on_event(&mut self, state: &PathState) {
         // Extract state variables from PathState
         // For revolving credit, state vector is [utilization, short_rate, credit_spread]
@@ -234,15 +245,11 @@ impl Payoff for RevolvingCreditPayoff {
         if self.defaulted {
             if let Some(default_t) = self.default_time {
                 if (current_time - default_t).abs() < 1e-10 {
-                    // At default time: compute recovery
+                    // At default time: receive recovery only; principal loss is implied
                     let drawn = self.drawn_amount();
                     let recovery_amount = drawn * self.recovery_rate;
-                    let loss = drawn * (1.0 - self.recovery_rate);
-
-                    // Recovery is positive (received by lender)
-                    // Loss is negative (cost to lender)
                     self.accumulated_cashflows
-                        .push((current_time, recovery_amount - loss));
+                        .push((current_time, recovery_amount));
                 }
             }
             return; // No more cashflows after default
@@ -252,26 +259,32 @@ impl Payoff for RevolvingCreditPayoff {
         let dt = current_time - self.prev_time;
         if dt > 0.0 {
             let cashflow = self.compute_cashflow(dt);
-            self.accumulated_cashflows.push((current_time, cashflow));
+            // Discount at this step
+            let step = state.step.min(self.discounts.len().saturating_sub(1));
+            let df = self.discounts[step];
+            self.accumulated_cashflows.push((current_time, cashflow * df));
         }
 
         self.prev_time = current_time;
     }
 
     fn value(&self, currency: Currency) -> Money {
-        // Sum all accumulated cashflows
-        // Note: Discounting will be applied by the engine
+        // Sum discounted cashflows accumulated
         let total_cashflow: f64 = self.accumulated_cashflows.iter().map(|(_, cf)| cf).sum();
 
-        // Add upfront fee (paid at start, negative for lender)
-        let upfront = -self.fees.upfront_fee;
+        // Upfront fee occurs at start; for lender it is an outflow (negative), discount at step 0
+        let upfront_df = self.discounts.first().copied().unwrap_or(1.0);
+        let upfront = -self.fees.upfront_fee * upfront_df;
 
-        // If defaulted, recovery/loss already in accumulated_cashflows
-        // Otherwise, if maturity reached without default, add terminal repayment
+        // If no default, add terminal repayment discounted at final step
         let value = if !self.defaulted {
-            // At maturity, borrower repays drawn amount (positive for lender)
+            let last_df = self
+                .discounts
+                .last()
+                .copied()
+                .unwrap_or(1.0);
             let drawn = self.drawn_amount();
-            total_cashflow + upfront + drawn
+            total_cashflow + upfront + drawn * last_df
         } else {
             total_cashflow + upfront
         };
@@ -343,6 +356,7 @@ mod tests {
             0.4,
             1.0,
             vec![0.0, 0.25, 0.5, 0.75, 1.0],
+            vec![1.0, 0.99, 0.98, 0.97, 0.96],
         );
 
         assert_eq!(payoff.commitment_amount, 10_000_000.0);
@@ -363,6 +377,7 @@ mod tests {
             0.4,
             1.0,
             vec![0.0, 0.25, 0.5, 0.75, 1.0],
+            vec![1.0, 0.99, 0.98, 0.97, 0.96],
         );
 
         // Set utilization to 50%
@@ -374,13 +389,12 @@ mod tests {
         let dt = 0.25;
         let cf = payoff.compute_cashflow(dt);
 
-        // Interest: -5M * 0.05 * 0.25 = -62,500
-        // Commitment fee: -5M * 0.0025 * 0.25 = -3,125
-        // Usage fee: -5M * 0.001 * 0.25 = -1,250
-        // Facility fee: -10M * 0.0005 * 0.25 = -1,250
-        // Total: -68,125
-        assert!(cf < 0.0); // Negative for lender
-        assert!(cf.abs() > 60_000.0);
+        // Interest:  5M * 0.05 * 0.25 = 62,500
+        // Commitment fee: 5M * 0.0025 * 0.25 = 3,125
+        // Usage fee: 5M * 0.001 * 0.25 = 1,250
+        // Facility fee: 10M * 0.0005 * 0.25 = 1,250
+        // Total: 68,125 (undiscounted for this dt snippet)
+        assert!(cf > 60_000.0);
     }
 
     #[test]
@@ -396,6 +410,7 @@ mod tests {
             0.4,
             1.0,
             vec![0.0, 1.0],
+            vec![1.0, 0.95],
         );
 
         // Set default threshold to low value to trigger default

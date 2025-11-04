@@ -170,6 +170,7 @@ mod tests {
             path_capture:
                 crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(
                 ),
+            antithetic: false,
         });
 
         let rng = PhiloxRng::new(42);
@@ -207,6 +208,7 @@ mod tests {
             path_capture:
                 crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(
                 ),
+            antithetic: false,
         });
 
         let rng = PhiloxRng::new(42);

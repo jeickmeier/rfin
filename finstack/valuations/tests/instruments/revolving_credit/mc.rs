@@ -3,6 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
@@ -50,7 +51,7 @@ fn test_mc_pricer_stochastic_utilization() {
             usage_fee_bp: 10.0,      // 10 bps on drawn
             facility_fee_bp: 5.0,    // 5 bps on total commitment
         })
-        .draw_repay_spec(DrawRepaySpec::Stochastic(StochasticUtilizationSpec {
+        .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(StochasticUtilizationSpec {
             utilization_process: UtilizationProcess::MeanReverting {
                 target_rate: 0.6, // Mean-revert to 60% utilization
                 speed: 0.5,       // Moderate mean reversion
@@ -58,8 +59,11 @@ fn test_mc_pricer_stochastic_utilization() {
             },
             num_paths: 10000, // 10k paths for reasonable convergence
             seed: Some(42),   // Fixed seed for reproducibility
+            antithetic: false,
+            use_sobol_qmc: false,
+            default_model: None,
             mc_config: None,
-        }))
+        })))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -88,6 +92,132 @@ fn test_mc_pricer_stochastic_utilization() {
 }
 
 #[test]
+#[cfg(feature = "mc")]
+fn test_mc_pricer_market_anchored_zero_vol_and_vol_sensitivity() {
+    use finstack_valuations::instruments::revolving_credit::types::{
+        CreditSpreadProcessSpec, McConfig,
+    };
+
+    // Setup dates
+    let val_date = date!(2025 - 01 - 01);
+    let commitment_date = date!(2025 - 01 - 01);
+    let maturity_date = date!(2028 - 01 - 01); // 3 years
+
+    // Flat discount at 3%
+    let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
+
+    // Simple hazard curve with constant hazard 2% (implies ~1.2% spread at R=40%)
+    let hazard = HazardCurve::builder("BORROWER-HZD")
+        .base_date(val_date)
+        .recovery_rate(0.40)
+        .day_count(DayCount::Act365F)
+        .knots([(1.0, 0.02), (5.0, 0.02)])
+        .build()
+        .unwrap();
+
+    // Build market context with discount + hazard
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_hazard(hazard);
+
+    // Zero vol (should collapse toward deterministic behavior wrt default randomness off)
+    let facility_zero_vol = RevolvingCredit::builder()
+        .id("RC-MC-ANCHOR".into())
+        .commitment_amount(Money::new(5_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(2_000_000.0, Currency::USD))
+        .commitment_date(commitment_date)
+        .maturity_date(maturity_date)
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 })
+        .day_count(DayCount::Act360)
+        .payment_frequency(Frequency::quarterly())
+        .fees(RevolvingCreditFees {
+            upfront_fee: None,
+            commitment_fee_bp: 25.0,
+            usage_fee_bp: 50.0,
+            facility_fee_bp: 0.0,
+        })
+        .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(StochasticUtilizationSpec {
+            utilization_process: UtilizationProcess::MeanReverting {
+                target_rate: 0.4,
+                speed: 0.5,
+                volatility: 1e-8, // near-zero, but positive to satisfy model constraints
+            },
+            num_paths: 5000,
+            seed: Some(42),
+            antithetic: false,
+            use_sobol_qmc: false,
+            default_model: None,
+            mc_config: Some(McConfig {
+                correlation_matrix: None,
+                recovery_rate: 0.40,
+                credit_spread_process: CreditSpreadProcessSpec::MarketAnchored {
+                    hazard_curve_id: "BORROWER-HZD".into(),
+                    kappa: 0.5,
+                    implied_vol: 1e-8, // near-zero, but positive to satisfy CIR constraints
+                    tenor_years: None,
+                },
+                interest_rate_process: None,
+                util_credit_corr: Some(0.8),
+            }),
+        })))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+
+    let pv_zero = facility_zero_vol.value(&market, val_date).unwrap();
+    assert!(pv_zero.amount().is_finite());
+
+    // Higher vol should not increase PV for the lender on average (default risk)
+    let facility_high_vol = RevolvingCredit::builder()
+        .id("RC-MC-ANCHOR-HV".into())
+        .commitment_amount(Money::new(5_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(2_000_000.0, Currency::USD))
+        .commitment_date(commitment_date)
+        .maturity_date(maturity_date)
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 })
+        .day_count(DayCount::Act360)
+        .payment_frequency(Frequency::quarterly())
+        .fees(RevolvingCreditFees {
+            upfront_fee: None,
+            commitment_fee_bp: 25.0,
+            usage_fee_bp: 50.0,
+            facility_fee_bp: 0.0,
+        })
+        .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(StochasticUtilizationSpec {
+            utilization_process: UtilizationProcess::MeanReverting {
+                target_rate: 0.4,
+                speed: 0.5,
+                volatility: 0.20,
+            },
+            num_paths: 5000,
+            seed: Some(42),
+            antithetic: false,
+            use_sobol_qmc: false,
+            default_model: None,
+            mc_config: Some(McConfig {
+                correlation_matrix: None,
+                recovery_rate: 0.40,
+                credit_spread_process: CreditSpreadProcessSpec::MarketAnchored {
+                    hazard_curve_id: "BORROWER-HZD".into(),
+                    kappa: 0.5,
+                    implied_vol: 0.30,
+                    tenor_years: None,
+                },
+                interest_rate_process: None,
+                util_credit_corr: Some(0.8),
+            }),
+        })))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+
+    let pv_high_vol = facility_high_vol.value(&market, val_date).unwrap();
+
+    // Allow tolerance due to path randomness and competing utilization effect
+    assert!(pv_high_vol.amount() <= pv_zero.amount() * 1.02);
+}
+
+#[test]
 fn test_mc_pricer_deterministic_reproducibility() {
     // Test that MC pricer is deterministic with fixed seed
     let val_date = date!(2025 - 01 - 01);
@@ -109,7 +239,7 @@ fn test_mc_pricer_deterministic_reproducibility() {
             usage_fee_bp: 5.0,
             facility_fee_bp: 3.0,
         })
-        .draw_repay_spec(DrawRepaySpec::Stochastic(StochasticUtilizationSpec {
+        .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(StochasticUtilizationSpec {
             utilization_process: UtilizationProcess::MeanReverting {
                 target_rate: 0.5,
                 speed: 0.3,
@@ -117,8 +247,11 @@ fn test_mc_pricer_deterministic_reproducibility() {
             },
             num_paths: 1000,
             seed: Some(12345),
+            antithetic: false,
+            use_sobol_qmc: false,
+            default_model: None,
             mc_config: None,
-        }))
+        })))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -168,7 +301,7 @@ fn test_mc_pricer_convergence() {
                 usage_fee_bp: 15.0,
                 facility_fee_bp: 10.0,
             })
-            .draw_repay_spec(DrawRepaySpec::Stochastic(StochasticUtilizationSpec {
+            .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(StochasticUtilizationSpec {
                 utilization_process: UtilizationProcess::MeanReverting {
                     target_rate: 0.7,
                     speed: 0.4,
@@ -176,8 +309,11 @@ fn test_mc_pricer_convergence() {
                 },
                 num_paths,
                 seed: Some(99999),
+                antithetic: false,
+                use_sobol_qmc: false,
+                default_model: None,
                 mc_config: None,
-            }))
+            })))
             .discount_curve_id("USD-OIS".into())
             .build()
             .unwrap();
@@ -218,7 +354,7 @@ fn test_mc_utilization_mean_reversion() {
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
         .fees(RevolvingCreditFees::default())
-        .draw_repay_spec(DrawRepaySpec::Stochastic(StochasticUtilizationSpec {
+        .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(StochasticUtilizationSpec {
             utilization_process: UtilizationProcess::MeanReverting {
                 target_rate: 0.8, // Should drift toward 80%
                 speed: 1.0,       // Fast mean reversion
@@ -226,8 +362,11 @@ fn test_mc_utilization_mean_reversion() {
             },
             num_paths: 5000,
             seed: Some(54321),
+            antithetic: false,
+            use_sobol_qmc: false,
+            default_model: None,
             mc_config: None,
-        }))
+        })))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -252,7 +391,7 @@ fn test_mc_utilization_mean_reversion() {
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
         .fees(RevolvingCreditFees::default())
-        .draw_repay_spec(DrawRepaySpec::Stochastic(StochasticUtilizationSpec {
+        .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(StochasticUtilizationSpec {
             utilization_process: UtilizationProcess::MeanReverting {
                 target_rate: 0.8, // Already at target
                 speed: 1.0,
@@ -260,8 +399,11 @@ fn test_mc_utilization_mean_reversion() {
             },
             num_paths: 5000,
             seed: Some(54321),
+            antithetic: false,
+            use_sobol_qmc: false,
+            default_model: None,
             mc_config: None,
-        }))
+        })))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();

@@ -185,10 +185,23 @@ fn generate_facility_fee_flows(
 ) -> Result<Vec<CashFlow>> {
     use finstack_core::dates::ScheduleBuilder;
 
-    let schedule = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
+    // Optionally adjust by calendar if provided via attributes metadata
+    let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
         .frequency(facility.payment_frequency)
-        .stub_rule(finstack_core::dates::StubKind::None)
-        .build()?;
+        .stub_rule(finstack_core::dates::StubKind::None);
+    if let Some(cal_code) = facility
+        .attributes
+        .get_meta("calendar_id")
+        .or_else(|| facility.attributes.get_meta("calendar"))
+    {
+        if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
+            builder = builder.adjust_with(
+                finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                cal,
+            );
+        }
+    }
+    let schedule = builder.build()?;
 
     let dates: Vec<Date> = schedule.into_iter().collect();
     let mut flows = Vec::new();

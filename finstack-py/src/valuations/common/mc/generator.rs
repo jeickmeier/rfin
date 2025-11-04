@@ -103,6 +103,7 @@ impl PyMonteCarloPathGenerator {
             use_parallel: false,
             chunk_size: 1000,
             path_capture,
+            antithetic: false,
         };
 
         // Generate paths (release GIL for compute-heavy path generation)

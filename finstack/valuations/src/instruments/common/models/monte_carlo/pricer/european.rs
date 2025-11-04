@@ -113,6 +113,7 @@ impl EuropeanPricer {
             path_capture:
                 crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(
                 ),
+            antithetic: false,
         };
         let engine = McEngine::new(engine_config);
 

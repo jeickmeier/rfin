@@ -115,7 +115,7 @@ pub enum DrawRepaySpec {
     Deterministic(Vec<DrawRepayEvent>),
 
     /// Stochastic utilization for Monte Carlo simulation.
-    Stochastic(StochasticUtilizationSpec),
+    Stochastic(Box<StochasticUtilizationSpec>),
 }
 
 /// A single draw or repayment event.
@@ -148,12 +148,39 @@ pub struct StochasticUtilizationSpec {
     /// Random seed for reproducibility (None for non-deterministic).
     pub seed: Option<u64>,
 
+    /// Use antithetic variance reduction when simulating paths (default: false).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub antithetic: bool,
+
+    /// Use Sobol quasi-Monte Carlo RNG instead of Philox (default: false).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub use_sobol_qmc: bool,
+
+    /// Optional simple default model used when `mc_config` is None.
+    /// If provided, integrates a constant hazard/spread with recovery into simple MC.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub default_model: Option<SimpleDefaultSpec>,
+
     /// Advanced Monte Carlo configuration (optional).
     ///
     /// When present, enables multi-factor modeling with credit spread
     /// and interest rate dynamics, correlation, and default modeling.
     #[cfg(feature = "mc")]
     pub mc_config: Option<McConfig>,
+}
+
+/// Simple default model for utilization-only Monte Carlo.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SimpleDefaultSpec {
+    /// Annual hazard rate (e.g., 0.02). If None, derived from `annual_spread` and `recovery_rate`.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub annual_hazard: Option<f64>,
+    /// Annual credit spread (decimal, e.g., 0.012). Used if `annual_hazard` is None.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub annual_spread: Option<f64>,
+    /// Recovery rate (e.g., 0.40).
+    pub recovery_rate: f64,
 }
 
 /// Advanced Monte Carlo configuration for revolving credit facilities.
@@ -180,6 +207,15 @@ pub struct McConfig {
     ///
     /// If None, assumes fixed rate (no stochastic dynamics).
     pub interest_rate_process: Option<InterestRateProcessSpec>,
+
+    /// Optional utilization–credit correlation used when `correlation_matrix` is None.
+    ///
+    /// If provided, builds a 3×3 matrix with:
+    ///   [ [1, 0, rho], [0, 1, 0], [rho, 0, 1] ]
+    /// representing correlation between utilization and credit, with the rate
+    /// factor uncorrelated (kept fixed in 2‑factor mode).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub util_credit_corr: Option<f64>,
 }
 
 /// Credit spread process specification.
@@ -202,6 +238,24 @@ pub enum CreditSpreadProcessSpec {
     },
     /// Constant credit spread (no dynamics).
     Constant(f64),
+
+    /// Market-anchored credit spread process calibrated to a hazard curve and CDS option vol.
+    ///
+    /// The mean level is anchored to the time-average spread implied by the input hazard
+    /// curve (over tenor T chosen as facility maturity by default). The initial spread is set
+    /// to the first-segment spread, and the volatility is scaled from the CDS index option
+    /// implied volatility.
+    MarketAnchored {
+        /// Hazard curve identifier in `MarketContext` used to anchor spreads.
+        hazard_curve_id: CurveId,
+        /// Mean reversion speed (κ) of the CIR process.
+        kappa: f64,
+        /// Annualized CDS (index) option implied volatility for spreads.
+        implied_vol: f64,
+        /// Optional tenor in years; if None, uses facility maturity horizon.
+        #[cfg_attr(feature = "serde", serde(default))]
+        tenor_years: Option<f64>,
+    },
 }
 
 /// Interest rate process specification (for floating rates).

@@ -5,6 +5,9 @@ use finstack_valuations::instruments::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
     StochasticUtilizationSpec, UtilizationProcess,
 };
+use finstack_valuations::instruments::revolving_credit::types::{
+    CreditSpreadProcessSpec, InterestRateProcessSpec, McConfig,
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
@@ -222,21 +225,161 @@ impl PyRevolvingCredit {
                         .and_then(|v| v.extract::<Option<u64>>().ok())
                         .flatten();
 
+                    // Optional Monte Carlo config (utilization + credit, correlation, etc.)
+                    let mc_config_opt: Option<McConfig> = if let Some(mc_obj) = stoch_dict.get_item("mc_config")? {
+                        let mc = mc_obj
+                            .downcast::<PyDict>()
+                            .map_err(|_| PyValueError::new_err("mc_config must be a dict"))?;
+
+                        // recovery_rate (required)
+                        let recovery_rate = mc
+                            .get_item("recovery_rate")?
+                            .ok_or_else(|| PyValueError::new_err("mc_config.recovery_rate is required"))?
+                            .extract::<f64>()?;
+
+                        // credit_spread_process (required): one-of keys
+                        let csp_item = mc
+                            .get_item("credit_spread_process")?
+                            .ok_or_else(|| PyValueError::new_err("mc_config.credit_spread_process is required"))?;
+                        let csp_dict = csp_item
+                            .downcast::<PyDict>()
+                            .map_err(|_| PyValueError::new_err("credit_spread_process must be a dict"))?;
+
+                        let credit_spread_process = if let Ok(Some(cir_any)) = csp_dict.get_item("cir") {
+                            let cir = cir_any.downcast::<PyDict>()?;
+                            let kappa = cir
+                                .get_item("kappa")?
+                                .ok_or_else(|| PyValueError::new_err("cir.kappa is required"))?
+                                .extract::<f64>()?;
+                            let theta = cir
+                                .get_item("theta")?
+                                .ok_or_else(|| PyValueError::new_err("cir.theta is required"))?
+                                .extract::<f64>()?;
+                            let sigma = cir
+                                .get_item("sigma")?
+                                .ok_or_else(|| PyValueError::new_err("cir.sigma is required"))?
+                                .extract::<f64>()?;
+                            let initial = cir
+                                .get_item("initial")?
+                                .ok_or_else(|| PyValueError::new_err("cir.initial is required"))?
+                                .extract::<f64>()?;
+                            CreditSpreadProcessSpec::Cir { kappa, theta, sigma, initial }
+                        } else if let Ok(Some(const_any)) = csp_dict.get_item("constant") {
+                            let spread = const_any
+                                .downcast::<PyAny>()
+                                .map_err(|_| PyValueError::new_err("constant must be a float"))?
+                                .extract::<f64>()?;
+                            CreditSpreadProcessSpec::Constant(spread)
+                        } else if let Ok(Some(ma_any)) = csp_dict.get_item("market_anchored") {
+                            let ma = ma_any.downcast::<PyDict>()?;
+                            let hazard_curve_id = ma
+                                .get_item("hazard_curve_id")?
+                                .ok_or_else(|| PyValueError::new_err("market_anchored.hazard_curve_id is required"))?
+                                .extract::<String>()?;
+                            let kappa = ma
+                                .get_item("kappa")?
+                                .ok_or_else(|| PyValueError::new_err("market_anchored.kappa is required"))?
+                                .extract::<f64>()?;
+                            let implied_vol = ma
+                                .get_item("implied_vol")?
+                                .ok_or_else(|| PyValueError::new_err("market_anchored.implied_vol is required"))?
+                                .extract::<f64>()?;
+                            let tenor_years = ma
+                                .get_item("tenor_years")?
+                                .and_then(|v| v.extract::<Option<f64>>().ok())
+                                .flatten();
+                            CreditSpreadProcessSpec::MarketAnchored {
+                                hazard_curve_id: finstack_core::types::CurveId::new(&hazard_curve_id),
+                                kappa,
+                                implied_vol,
+                                tenor_years,
+                            }
+                        } else {
+                            return Err(PyValueError::new_err(
+                                "credit_spread_process must contain one of: 'cir', 'constant', 'market_anchored'",
+                            ));
+                        };
+
+                        // interest_rate_process (optional)
+                        let irp = if let Some(irp_any) = mc.get_item("interest_rate_process")? {
+                            let irp_dict = irp_any
+                                .downcast::<PyDict>()
+                                .map_err(|_| PyValueError::new_err("interest_rate_process must be a dict"))?;
+                            if let Ok(Some(hw_any)) = irp_dict.get_item("hull_white_1f") {
+                                let hw = hw_any.downcast::<PyDict>()?;
+                                let kappa = hw
+                                    .get_item("kappa")?
+                                    .ok_or_else(|| PyValueError::new_err("hull_white_1f.kappa is required"))?
+                                    .extract::<f64>()?;
+                                let sigma = hw
+                                    .get_item("sigma")?
+                                    .ok_or_else(|| PyValueError::new_err("hull_white_1f.sigma is required"))?
+                                    .extract::<f64>()?;
+                                let initial = hw
+                                    .get_item("initial")?
+                                    .ok_or_else(|| PyValueError::new_err("hull_white_1f.initial is required"))?
+                                    .extract::<f64>()?;
+                                let theta = hw
+                                    .get_item("theta")?
+                                    .ok_or_else(|| PyValueError::new_err("hull_white_1f.theta is required"))?
+                                    .extract::<f64>()?;
+                                Some(InterestRateProcessSpec::HullWhite1F { kappa, sigma, initial, theta })
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        };
+
+                        // correlation: either full 3x3 matrix or util_credit_corr
+                        let correlation_matrix = if let Some(corr_any) = mc.get_item("correlation_matrix")? {
+                            let corr_list = corr_any
+                                .downcast::<PyList>()
+                                .map_err(|_| PyValueError::new_err("correlation_matrix must be a 3x3 list"))?;
+                            if corr_list.len() != 3 {
+                                return Err(PyValueError::new_err("correlation_matrix must have 3 rows"));
+                            }
+                            let mut mat = [[0.0_f64; 3]; 3];
+                            for (i, row_any) in corr_list.iter().enumerate() {
+                                let row = row_any.downcast::<PyList>()?;
+                                if row.len() != 3 {
+                                    return Err(PyValueError::new_err("each correlation_matrix row must have 3 elements"));
+                                }
+                                for (j, val_any) in row.iter().enumerate() {
+                                    mat[i][j] = val_any.extract::<f64>()?;
+                                }
+                            }
+                            Some(mat)
+                        } else {
+                            None
+                        };
+                        let util_credit_corr = mc
+                            .get_item("util_credit_corr")?
+                            .and_then(|v| v.extract::<Option<f64>>().ok())
+                            .flatten();
+
+                        Some(McConfig {
+                            correlation_matrix,
+                            recovery_rate,
+                            credit_spread_process,
+                            interest_rate_process: irp,
+                            util_credit_corr,
+                        })
+                    } else {
+                        None
+                    };
+
                     // Construct StochasticUtilizationSpec
-                    // When --all-features is used (as in make lint), the mc feature in
-                    // finstack-valuations is enabled via transitive dependency features,
-                    // so mc_config field exists and must be provided.
-                    // Note: This code will only compile when mc feature is enabled in finstack-valuations.
-                    #[allow(unused_attributes)]
                     let spec = StochasticUtilizationSpec {
                         utilization_process,
                         num_paths,
                         seed,
-                        // Include mc_config when the field exists (i.e., when mc feature is enabled)
-                        // The field is conditionally compiled in finstack-valuations with #[cfg(feature = "mc")]
-                        mc_config: None,
+                        antithetic: false,
+                        use_sobol_qmc: false,
+                        default_model: None,
+                        mc_config: mc_config_opt,
                     };
-                    DrawRepaySpec::Stochastic(spec)
+                    DrawRepaySpec::Stochastic(Box::new(spec))
                 } else {
                     return Err(PyValueError::new_err(
                         "draw_repay_spec must have 'deterministic' or 'stochastic' key",

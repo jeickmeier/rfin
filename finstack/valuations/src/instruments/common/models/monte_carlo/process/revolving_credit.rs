@@ -87,6 +87,14 @@ pub enum InterestRateSpec {
         /// Initial short rate
         initial: f64,
     },
+    /// Deterministic forward curve (no randomness): short rate = fwd(t)
+    /// where fwd(t) is obtained via linear interpolation of provided knots.
+    DeterministicForward {
+        /// Knot times in years (monotone increasing)
+        times: Vec<f64>,
+        /// Forward rates at each knot
+        rates: Vec<f64>,
+    },
 }
 
 /// Revolving credit multi-factor process parameters.
@@ -101,6 +109,9 @@ pub struct RevolvingCreditProcessParams {
     /// Correlation matrix (3x3) between [utilization, rate, credit]
     /// Must be symmetric, positive definite, with ones on diagonal
     pub correlation: Option<[[f64; 3]; 3]>,
+    /// Time offset applied to MC time when mapping to market curve time axis
+    /// (e.g., base_date→commitment_date), so market-t = offset + path-t
+    pub time_offset: f64,
 }
 
 impl RevolvingCreditProcessParams {
@@ -115,6 +126,7 @@ impl RevolvingCreditProcessParams {
             interest_rate,
             credit_spread,
             correlation: None,
+            time_offset: 0.0,
         }
     }
 
@@ -124,11 +136,20 @@ impl RevolvingCreditProcessParams {
         self
     }
 
+    /// Set time offset for mapping MC time to market time axis.
+    pub fn with_time_offset(mut self, time_offset: f64) -> Self {
+        self.time_offset = time_offset.max(0.0);
+        self
+    }
+
     /// Get initial state vector [utilization, short_rate, credit_spread].
     pub fn initial_state(&self, initial_utilization: f64) -> [f64; 3] {
         let rate = match &self.interest_rate {
             InterestRateSpec::Fixed { rate } => *rate,
             InterestRateSpec::Floating { initial, .. } => *initial,
+            InterestRateSpec::DeterministicForward { times, rates } => {
+                if times.is_empty() { 0.0 } else { rates[0] }
+            }
         };
 
         [
@@ -195,6 +216,7 @@ impl StochasticProcess for RevolvingCreditProcess {
             InterestRateSpec::Floating { params, .. } => {
                 params.kappa * (params.theta_at_time(t) - x[1])
             }
+            InterestRateSpec::DeterministicForward { .. } => 0.0,
         };
 
         // Credit spread: κ_λ (θ_λ - λ_t)
@@ -216,6 +238,7 @@ impl StochasticProcess for RevolvingCreditProcess {
                 let _ = t;
                 params.sigma
             }
+            InterestRateSpec::DeterministicForward { .. } => 0.0,
         };
 
         // Credit spread: σ_λ √λ_t (square-root diffusion)
@@ -253,6 +276,10 @@ impl ProcessMetadata for RevolvingCreditProcess {
                 params.add_param("rate_kappa", hw_params.kappa);
                 params.add_param("rate_sigma", hw_params.sigma);
                 params.add_param("rate_initial", *initial);
+            }
+            InterestRateSpec::DeterministicForward { times, .. } => {
+                params.add_param("rate_type", 2.0); // 2.0 = deterministic forward
+                params.add_param("rate_knots", times.len() as f64);
             }
         }
 

@@ -153,7 +153,7 @@ impl RevolvingCreditMcPricer {
 
         // Extract stochastic spec
         let stoch_spec = match &facility.draw_repay_spec {
-            DrawRepaySpec::Stochastic(spec) => spec,
+            DrawRepaySpec::Stochastic(spec) => spec.as_ref(),
             _ => return Err(finstack_core::error::InputError::Invalid.into()),
         };
 
@@ -240,16 +240,29 @@ impl RevolvingCreditMcPricer {
             let mut utilization = facility.utilization_rate();
             let mut path_pv = 0.0;
 
-            // Get base rate for interest calculation
-            let base_rate = match &facility.base_rate_spec {
-                super::types::BaseRateSpec::Fixed { rate } => *rate,
-                super::types::BaseRateSpec::Floating {
-                    index_id,
-                    margin_bp,
-                    ..
-                } => {
+            // Simple default model (optional)
+            let mut default_threshold: Option<f64> = None;
+            let mut cum_hazard = 0.0;
+            let mut defaulted = false;
+            let mut recovery_rate = 0.0;
+            let mut hazard_rate = 0.0;
+            if let Some(def) = &stoch_spec.default_model {
+                recovery_rate = def.recovery_rate.clamp(0.0, 1.0);
+                hazard_rate = def
+                    .annual_hazard
+                    .unwrap_or_else(|| def.annual_spread.unwrap_or(0.0) / (1.0 - recovery_rate).max(1e-6))
+                    .max(0.0);
+                // Draw Exp(1) threshold: E = -ln(U)
+                let u = rng.next_u01().clamp(1e-12, 1.0 - 1e-12);
+                default_threshold = Some(-u.ln());
+            }
+
+            // Prepare base rate sources for interest calculation
+            let (fixed_rate_opt, fwd_opt, margin_bp_opt) = match &facility.base_rate_spec {
+                super::types::BaseRateSpec::Fixed { rate } => (Some(*rate), None, None),
+                super::types::BaseRateSpec::Floating { index_id, margin_bp, .. } => {
                     let fwd = market.get_forward_ref(index_id.as_str())?;
-                    fwd.rate(0.25) + (margin_bp * 1e-4)
+                    (None, Some(fwd), Some(*margin_bp))
                 }
             };
 
@@ -273,6 +286,26 @@ impl RevolvingCreditMcPricer {
                     break;
                 }
 
+                // Default check
+                if let Some(th) = default_threshold {
+                    if !defaulted {
+                        cum_hazard += hazard_rate * actual_dt;
+                        if cum_hazard >= th {
+                            defaulted = true;
+                            // Recovery at default time
+                            let commitment = facility.commitment_amount.amount();
+                            let drawn_now = commitment * utilization;
+                            let df_abs = disc.df(t_next);
+                            let df = if df_as_of != 0.0 { df_abs / df_as_of } else { 1.0 };
+                            path_pv += drawn_now * recovery_rate * df;
+                        }
+                    }
+                }
+
+                if defaulted {
+                    break;
+                }
+
                 // Current drawn and undrawn amounts based on utilization
                 let commitment = facility.commitment_amount.amount();
                 let drawn = commitment * utilization;
@@ -280,7 +313,14 @@ impl RevolvingCreditMcPricer {
 
                 // Calculate cashflows for this period
                 // Interest on drawn
-                let interest = drawn * base_rate * actual_dt;
+                let period_rate = if let Some(r) = fixed_rate_opt {
+                    r
+                } else {
+                    let fwd = fwd_opt.expect("forward curve available");
+                    let m = margin_bp_opt.unwrap_or(0.0) * 1e-4;
+                    fwd.rate(actual_dt).max(0.0) + m
+                };
+                let interest = drawn * period_rate * actual_dt;
 
                 // Commitment fee on undrawn
                 let commitment_fee = undrawn * (facility.fees.commitment_fee_bp * 1e-4) * actual_dt;
@@ -305,7 +345,7 @@ impl RevolvingCreditMcPricer {
                 path_pv += total_cf * df;
 
                 // Add terminal repayment of outstanding principal at maturity
-                if step == num_steps - 1 {
+                if step == num_steps - 1 && !defaulted {
                     // Repay drawn balance at maturity
                     path_pv += drawn * df;
                 }
@@ -344,6 +384,8 @@ impl RevolvingCreditMcPricer {
             BaseRateSpec, CreditSpreadProcessSpec, InterestRateProcessSpec, UtilizationProcess,
         };
         use crate::instruments::common::mc::rng::philox::PhiloxRng;
+        use crate::instruments::common::mc::rng::sobol::SobolRng;
+        use crate::instruments::common::mc::traits::StochasticProcess;
         use crate::instruments::common::mc::time_grid::TimeGrid;
         use crate::instruments::common::models::monte_carlo::discretization::revolving_credit::RevolvingCreditDiscretization;
         use crate::instruments::common::models::monte_carlo::engine::McEngineBuilder;
@@ -383,14 +425,14 @@ impl RevolvingCreditMcPricer {
                         }
                     }
                     None => {
-                        // Floating rate but no process specified - use fixed forward rate
+                        // Floating rate but no process specified - use deterministic forward curve
                         let fwd = market.get_forward_ref(match &facility.base_rate_spec {
                             BaseRateSpec::Floating { index_id, .. } => index_id.as_str(),
                             _ => unreachable!(),
                         })?;
-                        InterestRateSpec::Fixed {
-                            rate: fwd.rate(0.25),
-                        }
+                        let times = fwd.knots().to_vec();
+                        let rates = fwd.forwards().to_vec();
+                        InterestRateSpec::DeterministicForward { times, rates }
                     }
                 }
             }
@@ -408,26 +450,62 @@ impl RevolvingCreditMcPricer {
                 // Use constant spread with minimal dynamics (very low vol)
                 CreditSpreadParams::new(0.01, *spread, 0.001, *spread)
             }
+            CreditSpreadProcessSpec::MarketAnchored {
+                hazard_curve_id,
+                kappa,
+                implied_vol,
+                tenor_years,
+            } => {
+                // Pull hazard curve and compute tenor to maturity (or provided tenor)
+                let hazard = market.get_hazard_ref(hazard_curve_id.as_str())?;
+                let dc = hazard.day_count();
+                let base_date = hazard.base_date();
+
+                let t_maturity = dc.year_fraction(
+                    base_date,
+                    facility.maturity_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
+                let t = tenor_years.unwrap_or_else(|| t_maturity.max(1e-8));
+
+                // Survival and average hazard over [0,T]
+                let sp_t = hazard.sp(t);
+                let avg_lambda = if t > 0.0 { (-sp_t.ln()) / t } else { 0.0 };
+
+                // Initial hazard from first segment (fallback to avg when unavailable)
+                let mut first_lambda = None;
+                if let Some((tenor, lambda)) = hazard.knot_points().next() {
+                    let _ = tenor;
+                    first_lambda = Some(lambda.max(0.0));
+                }
+                let lambda0 = first_lambda.unwrap_or(avg_lambda).max(0.0);
+
+                // Map hazard ↔ spread using s ≈ (1 − R) · λ
+                let one_minus_r = (1.0 - mc_config.recovery_rate).max(1e-6);
+                let s0 = one_minus_r * lambda0;
+                let s_bar = one_minus_r * avg_lambda;
+
+                // Mean-anchored CIR params on spread space
+                let k = *kappa;
+                let a = if (k * t).abs() < 1e-8 {
+                    1.0 - 0.5 * k * t // first-order expansion
+                } else {
+                    (1.0 - (-k * t).exp()) / (k * t)
+                };
+                let theta = if (1.0 - a).abs() < 1e-12 {
+                    s_bar
+                } else {
+                    ((s_bar - a * s0) / (1.0 - a)).max(0.0)
+                };
+
+                // Volatility scaled to match fractional vol near mean: σ ≈ implied_vol * sqrt(s̄)
+                let sigma = (*implied_vol) * s_bar.max(1e-12).sqrt();
+
+                CreditSpreadParams::new(k, theta, sigma, s0)
+            }
         };
 
-        // Build process parameters
-        let mut process_params = RevolvingCreditProcessParams::new(
-            util_params,
-            interest_rate_spec,
-            credit_spread_params,
-        );
-
-        // Set correlation if provided
-        if let Some(corr) = mc_config.correlation_matrix {
-            process_params = process_params.with_correlation(corr);
-        }
-
-        let process = RevolvingCreditProcess::new(process_params);
-
-        // Build discretization
-        let disc = RevolvingCreditDiscretization::from_process(&process)?;
-
-        // Get discount curve and compute time grid
+        // Get discount curve and compute time grid anchors (t_start, t_end)
         let disc_curve = market.get_discount_ref(facility.discount_curve_id.as_str())?;
         let disc_dc = disc_curve.day_count();
         let base_date = disc_curve.base_date();
@@ -447,6 +525,35 @@ impl RevolvingCreditMcPricer {
         if time_horizon <= 0.0 {
             return Ok(Money::new(0.0, facility.commitment_amount.currency()));
         }
+
+        // Build process parameters
+        let mut process_params = RevolvingCreditProcessParams::new(
+            util_params,
+            interest_rate_spec,
+            credit_spread_params,
+        );
+
+        // Set correlation: prefer provided matrix, else use util–credit correlation if supplied
+        if let Some(corr) = mc_config.correlation_matrix {
+            process_params = process_params.with_correlation(corr);
+        } else if let Some(rho) = mc_config.util_credit_corr.or(Some(0.8)) {
+            let correlation = [
+                [1.0, 0.0, rho],
+                [0.0, 1.0, 0.0],
+                [rho, 0.0, 1.0],
+            ];
+            process_params = process_params.with_correlation(correlation);
+        }
+
+        // Apply time offset to align MC time to market time axis
+        process_params = process_params.with_time_offset(t_start);
+
+        // Map MC time 0 to commitment date offset on the curve axis
+        process_params = process_params.with_time_offset(t_start);
+        let process = RevolvingCreditProcess::new(process_params);
+
+        // Build discretization
+        let disc = RevolvingCreditDiscretization::from_process(&process)?;
 
         // Create time grid (quarterly steps)
         let num_steps = ((time_horizon / 0.25).ceil() as usize).max(1);
@@ -472,6 +579,28 @@ impl RevolvingCreditMcPricer {
             time_grid_vec.push(time_grid.time(i + 1));
         }
 
+        // Compute as_of discount factor used for relative DFs
+        let t_as_of = disc_dc.year_fraction(
+            base_date,
+            as_of,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        let df_as_of = disc_curve.df(t_as_of);
+
+        // Precompute discount factors at each step relative to as_of
+        let mut discounts = Vec::with_capacity(num_steps + 1);
+        // step 0 corresponds to commitment date (t_start)
+        // helper to df at absolute t
+        let df_at = |t_abs: f64| -> f64 {
+            let df_abs = disc_curve.df(t_abs);
+            if df_as_of > 0.0 { df_abs / df_as_of } else { 1.0 }
+        };
+        discounts.push(df_at(t_start));
+        for i in 0..num_steps {
+            let t_abs = t_start + time_grid.time(i + 1);
+            discounts.push(df_at(t_abs));
+        }
+
         let payoff = RevolvingCreditPayoff::new(
             facility.commitment_amount.amount(),
             facility.day_count,
@@ -482,6 +611,7 @@ impl RevolvingCreditMcPricer {
             mc_config.recovery_rate,
             time_horizon,
             time_grid_vec,
+            discounts,
         );
 
         // Initial state
@@ -495,39 +625,42 @@ impl RevolvingCreditMcPricer {
             .seed(seed)
             .time_grid(time_grid)
             .parallel(cfg!(feature = "parallel"))
+            .antithetic(stoch_spec.antithetic)
             .build()?;
 
         // Create RNG
-        let rng = PhiloxRng::new(seed);
+        // Choose RNG based on spec
+        let rng_philox = PhiloxRng::new(seed);
+        let sobol_dim = process.num_factors();
+        let rng_sobol = SobolRng::new(sobol_dim, seed);
+        let use_sobol = stoch_spec.use_sobol_qmc;
 
-        // For discounting, we need to compute discount factors at each time step
-        // The engine applies a single discount_factor, but we need path-dependent discounting
-        // For now, use average discount factor (will be improved in future)
-        let t_as_of = disc_dc.year_fraction(
-            base_date,
-            as_of,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let df_as_of = disc_curve.df(t_as_of);
-        let df_maturity = disc_curve.df(t_end);
-        let avg_discount = if df_as_of > 0.0 {
-            df_maturity / df_as_of
-        } else {
-            1.0
-        };
+        // The engine applies a scalar discount_factor; we use 1.0 because payoff is already discounted pathwise
 
         // Run simulation
         // Note: The engine's simulate_path doesn't properly set all state variables for 3-factor model
         // We need to extend it or create a custom wrapper. For now, use a workaround.
-        let estimate = engine.price(
-            &rng,
-            &process,
-            &disc,
-            &initial_state,
-            &payoff,
-            facility.commitment_amount.currency(),
-            avg_discount,
-        )?;
+        let estimate = if use_sobol {
+            engine.price::<SobolRng, _, _, _>(
+                &rng_sobol,
+                &process,
+                &disc,
+                &initial_state,
+                &payoff,
+                facility.commitment_amount.currency(),
+                1.0,
+            )?
+        } else {
+            engine.price::<PhiloxRng, _, _, _>(
+                &rng_philox,
+                &process,
+                &disc,
+                &initial_state,
+                &payoff,
+                facility.commitment_amount.currency(),
+                1.0,
+            )?
+        };
 
         Ok(estimate.mean)
     }

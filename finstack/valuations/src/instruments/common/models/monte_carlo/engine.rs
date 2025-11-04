@@ -139,6 +139,8 @@ pub struct McEngineConfig {
     pub chunk_size: usize,
     /// Path capture configuration
     pub path_capture: PathCaptureConfig,
+    /// Use antithetic variance reduction (pair z and -z per step)
+    pub antithetic: bool,
 }
 
 impl McEngineConfig {
@@ -152,6 +154,7 @@ impl McEngineConfig {
             use_parallel: cfg!(feature = "parallel"),
             chunk_size: 1000,
             path_capture: PathCaptureConfig::default(),
+            antithetic: false,
         }
     }
 
@@ -185,6 +188,12 @@ impl McEngineConfig {
         self
     }
 
+    /// Enable/disable antithetic variance reduction.
+    pub fn with_antithetic(mut self, enabled: bool) -> Self {
+        self.antithetic = enabled;
+        self
+    }
+
     /// Enable path capture for all paths.
     pub fn capture_all_paths(mut self) -> Self {
         self.path_capture = PathCaptureConfig::all();
@@ -207,6 +216,7 @@ pub struct McEngineBuilder {
     parallel: bool,
     chunk_size: usize,
     path_capture: PathCaptureConfig,
+    antithetic: bool,
 }
 
 impl McEngineBuilder {
@@ -220,6 +230,7 @@ impl McEngineBuilder {
             parallel: cfg!(feature = "parallel"),
             chunk_size: 1000,
             path_capture: PathCaptureConfig::default(),
+            antithetic: false,
         }
     }
 
@@ -283,6 +294,12 @@ impl McEngineBuilder {
         self
     }
 
+    /// Enable/disable antithetic variance reduction.
+    pub fn antithetic(mut self, enable: bool) -> Self {
+        self.antithetic = enable;
+        self
+    }
+
     /// Build the engine.
     pub fn build(self) -> Result<McEngine> {
         let time_grid = self
@@ -297,6 +314,7 @@ impl McEngineBuilder {
             use_parallel: self.parallel,
             chunk_size: self.chunk_size,
             path_capture: self.path_capture,
+            antithetic: self.antithetic,
         };
 
         Ok(McEngine { config })
@@ -373,9 +391,25 @@ impl McEngine {
         F: Payoff,
     {
         let estimate = if self.config.use_parallel {
-            self.price_parallel(rng, process, disc, initial_state, payoff, discount_factor)?
+            self.price_parallel(
+                rng,
+                process,
+                disc,
+                initial_state,
+                payoff,
+                currency,
+                discount_factor,
+            )?
         } else {
-            self.price_serial(rng, process, disc, initial_state, payoff, discount_factor)?
+            self.price_serial(
+                rng,
+                process,
+                disc,
+                initial_state,
+                payoff,
+                currency,
+                discount_factor,
+            )?
         };
 
         Ok(MoneyEstimate::from_estimate(estimate, currency))
@@ -416,6 +450,7 @@ impl McEngine {
                 disc,
                 initial_state,
                 payoff,
+                currency,
                 discount_factor,
                 process_params,
             )?
@@ -426,6 +461,7 @@ impl McEngine {
                 disc,
                 initial_state,
                 payoff,
+                currency,
                 discount_factor,
                 process_params,
             )?
@@ -441,6 +477,7 @@ impl McEngine {
     }
 
     /// Serial pricing implementation.
+    #[allow(clippy::too_many_arguments)]
     fn price_serial<R, P, D, F>(
         &self,
         rng: &R,
@@ -448,6 +485,7 @@ impl McEngine {
         disc: &D,
         initial_state: &[f64],
         payoff: &F,
+        currency: Currency,
         discount_factor: f64,
     ) -> Result<Estimate>
     where
@@ -472,9 +510,21 @@ impl McEngine {
 
             // Clone payoff for this path (required since Payoff trait needs &mut self)
             let mut payoff_clone = payoff.clone();
+            // Allow payoff to draw per-path state (e.g., default threshold)
+            payoff_clone.on_path_start(&mut path_rng);
 
             // Simulate one path
-            let payoff_value = self.simulate_path(
+            let payoff_value = if self.config.antithetic {
+                self.simulate_antithetic_pair(
+                    &mut path_rng,
+                    process,
+                    disc,
+                    initial_state,
+                    &mut payoff_clone,
+                    currency,
+                )?
+            } else {
+                self.simulate_path(
                 &mut path_rng,
                 process,
                 disc,
@@ -483,7 +533,9 @@ impl McEngine {
                 &mut state,
                 &mut z,
                 &mut work,
-            )?;
+                currency,
+                )?
+            };
 
             // Accumulate statistics
             let discounted_value = payoff_value * discount_factor;
@@ -505,6 +557,7 @@ impl McEngine {
 
     /// Parallel pricing implementation.
     #[cfg(feature = "parallel")]
+    #[allow(clippy::too_many_arguments)]
     fn price_parallel<R, P, D, F>(
         &self,
         rng: &R,
@@ -512,6 +565,7 @@ impl McEngine {
         disc: &D,
         initial_state: &[f64],
         payoff: &F,
+        currency: Currency,
         discount_factor: f64,
     ) -> Result<Estimate>
     where
@@ -547,9 +601,20 @@ impl McEngine {
 
                     // Clone payoff for this path
                     let mut payoff_clone = payoff.clone();
+                    payoff_clone.on_path_start(&mut path_rng);
 
                     // Use ? operator to propagate errors instead of panicking
-                    let payoff_value = self.simulate_path(
+                    let payoff_value = if self.config.antithetic {
+                        self.simulate_antithetic_pair(
+                            &mut path_rng,
+                            process,
+                            disc,
+                            initial_state,
+                            &mut payoff_clone,
+                            currency,
+                        )?
+                    } else {
+                        self.simulate_path(
                         &mut path_rng,
                         process,
                         disc,
@@ -558,7 +623,9 @@ impl McEngine {
                         &mut state,
                         &mut z,
                         &mut work,
-                    )?;
+                            currency,
+                        )?
+                    };
 
                     let discounted_value = payoff_value * discount_factor;
                     stats.update(discounted_value);
@@ -596,6 +663,7 @@ impl McEngine {
         disc: &D,
         initial_state: &[f64],
         payoff: &F,
+        currency: Currency,
         discount_factor: f64,
     ) -> Result<Estimate>
     where
@@ -605,7 +673,7 @@ impl McEngine {
         F: Payoff,
     {
         // Fall back to serial when parallel feature is disabled
-        self.price_serial(rng, process, disc, initial_state, payoff, discount_factor)
+        self.price_serial(rng, process, disc, initial_state, payoff, currency, discount_factor)
     }
 
     /// Serial pricing with path capture.
@@ -617,6 +685,7 @@ impl McEngine {
         disc: &D,
         initial_state: &[f64],
         payoff: &F,
+        currency: Currency,
         discount_factor: f64,
         process_params: ProcessParams,
     ) -> Result<(Estimate, Option<PathDataset>)>
@@ -662,6 +731,7 @@ impl McEngine {
 
             // Clone payoff for this path
             let mut payoff_clone = payoff.clone();
+            payoff_clone.on_path_start(&mut path_rng);
 
             // Determine if we should capture this path
             let should_capture = capture_enabled
@@ -683,9 +753,20 @@ impl McEngine {
                     &mut work,
                     path_id,
                     discount_factor,
+                    currency,
                 )?
             } else {
-                let val = self.simulate_path(
+                let val = if self.config.antithetic {
+                    self.simulate_antithetic_pair(
+                        &mut path_rng,
+                        process,
+                        disc,
+                        initial_state,
+                        &mut payoff_clone,
+                        currency,
+                    )?
+                } else {
+                    self.simulate_path(
                     &mut path_rng,
                     process,
                     disc,
@@ -694,7 +775,9 @@ impl McEngine {
                     &mut state,
                     &mut z,
                     &mut work,
-                )?;
+                        currency,
+                    )?
+                };
                 (val, None)
             };
 
@@ -731,6 +814,7 @@ impl McEngine {
         disc: &D,
         initial_state: &[f64],
         payoff: &F,
+        currency: Currency,
         discount_factor: f64,
         process_params: ProcessParams,
     ) -> Result<(Estimate, Option<PathDataset>)>
@@ -778,6 +862,7 @@ impl McEngine {
                 for path_id in range.clone() {
                     let mut path_rng = rng.split(path_id as u64);
                     let mut payoff_clone = payoff.clone();
+                    payoff_clone.on_path_start(&mut path_rng);
 
                     let should_capture = capture_enabled
                         && self
@@ -797,9 +882,20 @@ impl McEngine {
                             &mut work,
                             path_id,
                             discount_factor,
+                            currency,
                         )?
                     } else {
-                        let val = self.simulate_path(
+                        let val = if self.config.antithetic {
+                            self.simulate_antithetic_pair(
+                                &mut path_rng,
+                                process,
+                                disc,
+                                initial_state,
+                                &mut payoff_clone,
+                                currency,
+                            )?
+                        } else {
+                            self.simulate_path(
                             &mut path_rng,
                             process,
                             disc,
@@ -808,7 +904,9 @@ impl McEngine {
                             &mut state,
                             &mut z,
                             &mut work,
-                        )?;
+                                currency,
+                            )?
+                        };
                         (val, None)
                     };
 
@@ -872,6 +970,7 @@ impl McEngine {
         disc: &D,
         initial_state: &[f64],
         payoff: &F,
+        currency: Currency,
         discount_factor: f64,
         process_params: ProcessParams,
     ) -> Result<(Estimate, Option<PathDataset>)>
@@ -888,6 +987,7 @@ impl McEngine {
             disc,
             initial_state,
             payoff,
+            currency,
             discount_factor,
             process_params,
         )
@@ -905,6 +1005,7 @@ impl McEngine {
         state: &mut [f64],
         z: &mut [f64],
         work: &mut [f64],
+        currency: Currency,
     ) -> Result<f64>
     where
         R: RandomStream,
@@ -964,7 +1065,7 @@ impl McEngine {
         }
 
         // Extract payoff value (currency will be added by caller)
-        let payoff_money = payoff.value(Currency::USD); // Temporary currency
+        let payoff_money = payoff.value(currency);
         Ok(payoff_money.amount())
     }
 
@@ -984,6 +1085,7 @@ impl McEngine {
         work: &mut [f64],
         path_id: usize,
         discount_factor: f64,
+        currency: Currency,
     ) -> Result<(f64, Option<SimulatedPath>)>
     where
         R: RandomStream,
@@ -1073,20 +1175,127 @@ impl McEngine {
             }
             if self.config.path_capture.capture_payoffs {
                 // Capture intermediate payoff value (undiscounted)
-                let payoff_money = payoff.value(Currency::USD);
+                let payoff_money = payoff.value(currency);
                 point.set_payoff(payoff_money.amount());
             }
             simulated_path.add_point(point);
         }
 
         // Extract final payoff value
-        let payoff_money = payoff.value(Currency::USD);
+        let payoff_money = payoff.value(currency);
         let payoff_value = payoff_money.amount();
 
         // Set final discounted value
         simulated_path.set_final_value(payoff_value * discount_factor);
 
         Ok((payoff_value, Some(simulated_path)))
+    }
+
+    /// Simulate one antithetic pair and return the average payoff (in amount).
+    #[allow(clippy::too_many_arguments)]
+    fn simulate_antithetic_pair<R, P, D, F>(
+        &self,
+        rng: &mut R,
+        process: &P,
+        disc: &D,
+        initial_state: &[f64],
+        payoff: &mut F,
+        currency: Currency,
+    ) -> Result<f64>
+    where
+        R: RandomStream,
+        P: StochasticProcess,
+        D: Discretization<P>,
+        F: Payoff,
+    {
+        // Primary path state and payoff
+        let mut state_p = vec![0.0; process.dim()];
+        state_p.copy_from_slice(initial_state);
+        let mut payoff_p = payoff.clone();
+        payoff_p.reset();
+        let mut path_state_p = PathState::new(0, 0.0);
+        for (i, &val) in state_p.iter().enumerate() {
+            if i == 0 {
+                path_state_p.set(state_keys::SPOT, val);
+            } else if i == 1 {
+                path_state_p.set(state_keys::VARIANCE, val);
+                path_state_p.set(state_keys::SHORT_RATE, val);
+            } else if i == 2 {
+                path_state_p.set("credit_spread", val);
+            }
+        }
+        payoff_p.on_event(&path_state_p);
+
+        // Antithetic path state and payoff
+        let mut state_a = vec![0.0; process.dim()];
+        state_a.copy_from_slice(initial_state);
+        let mut payoff_a = payoff.clone();
+        payoff_a.reset();
+        let mut path_state_a = PathState::new(0, 0.0);
+        for (i, &val) in state_a.iter().enumerate() {
+            if i == 0 {
+                path_state_a.set(state_keys::SPOT, val);
+            } else if i == 1 {
+                path_state_a.set(state_keys::VARIANCE, val);
+                path_state_a.set(state_keys::SHORT_RATE, val);
+            } else if i == 2 {
+                path_state_a.set("credit_spread", val);
+            }
+        }
+        payoff_a.on_event(&path_state_a);
+
+        // Shared buffers
+        let mut z = vec![0.0; process.num_factors()];
+        let mut z_anti = vec![0.0; process.num_factors()];
+        let mut work = vec![0.0; disc.work_size(process)];
+
+        for step in 0..self.config.time_grid.num_steps() {
+            let t = self.config.time_grid.time(step);
+            let dt = self.config.time_grid.dt(step);
+
+            // Draw normals and build antithetic counterparts
+            rng.fill_std_normals(&mut z);
+            for i in 0..z.len() {
+                z_anti[i] = -z[i];
+            }
+
+            // Advance primary and antithetic states
+            disc.step(process, t, dt, &mut state_p, &z, &mut work);
+            disc.step(process, t, dt, &mut state_a, &z_anti, &mut work);
+
+            // Update path states and notify payoffs
+            path_state_p.step = step + 1;
+            path_state_p.time = t + dt;
+            for (i, &val) in state_p.iter().enumerate() {
+                if i == 0 {
+                    path_state_p.set(state_keys::SPOT, val);
+                } else if i == 1 {
+                    path_state_p.set(state_keys::VARIANCE, val);
+                    path_state_p.set(state_keys::SHORT_RATE, val);
+                } else if i == 2 {
+                    path_state_p.set("credit_spread", val);
+                }
+            }
+            payoff_p.on_event(&path_state_p);
+
+            path_state_a.step = step + 1;
+            path_state_a.time = t + dt;
+            for (i, &val) in state_a.iter().enumerate() {
+                if i == 0 {
+                    path_state_a.set(state_keys::SPOT, val);
+                } else if i == 1 {
+                    path_state_a.set(state_keys::VARIANCE, val);
+                    path_state_a.set(state_keys::SHORT_RATE, val);
+                } else if i == 2 {
+                    path_state_a.set("credit_spread", val);
+                }
+            }
+            payoff_a.on_event(&path_state_a);
+        }
+
+        let v_p = payoff_p.value(currency).amount();
+        let v_a = payoff_a.value(currency).amount();
+        Ok(0.5 * (v_p + v_a))
     }
 }
 
