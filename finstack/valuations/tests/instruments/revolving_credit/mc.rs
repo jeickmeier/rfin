@@ -76,14 +76,12 @@ fn test_mc_pricer_stochastic_utilization() {
     // Expected value should be positive (we're receiving fees and interest)
     assert!(pv.amount() > 0.0, "PV should be positive");
 
-    // Rough sanity check: PV should be in a reasonable range
-    // With 1 year maturity, 10M commitment, ~50-60% utilization, 5% + fees
-    // Expected annual cashflow ~= 5M * 0.05 + 5M * 0.001 + 5M * 0.0025 + 10M * 0.0005
-    //                          ~= 250k + 5k + 12.5k + 5k = 272.5k
-    // Discounted at 3% for 1 year ~= 264.5k
-    // But with stochastic utilization, could vary
+    // Rough sanity check: PV should be in a reasonable range INCLUDING principal repayment
+    // With 1 year maturity, 10M commitment, ~50-60% utilization, principal ~5-6M repaid at maturity
+    // Discounted principal at 3%: ~ 4.85M - 5.8M, plus interest/fees ~ 250-300k
+    // Allow a wide band due to stochastic utilization
     assert!(
-        pv.amount() > 100_000.0 && pv.amount() < 500_000.0,
+        pv.amount() > 4_500_000.0 && pv.amount() < 6_500_000.0,
         "PV should be in reasonable range, got {}",
         pv.amount()
     );

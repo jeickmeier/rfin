@@ -253,6 +253,17 @@ impl RevolvingCreditMcPricer {
                 }
             };
 
+            // Include upfront fee at commitment date (if applicable)
+            if let Some(upfront) = facility.fees.upfront_fee {
+                if facility.commitment_date >= as_of {
+                    let df_commit = {
+                        let df_abs = disc.df(t_start);
+                        if df_as_of != 0.0 { df_abs / df_as_of } else { 1.0 }
+                    };
+                    path_pv += upfront.amount() * df_commit;
+                }
+            }
+
             for step in 0..num_steps {
                 let t = t_start + (step as f64) * dt;
                 let t_next = (t + dt).min(t_end);
@@ -292,6 +303,12 @@ impl RevolvingCreditMcPricer {
                 };
 
                 path_pv += total_cf * df;
+
+                // Add terminal repayment of outstanding principal at maturity
+                if step == num_steps - 1 {
+                    // Repay drawn balance at maturity
+                    path_pv += drawn * df;
+                }
 
                 // Evolve utilization using Euler-Maruyama discretization
                 // dU = speed * (target - U) * dt + volatility * sqrt(dt) * dW
