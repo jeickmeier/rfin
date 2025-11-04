@@ -223,6 +223,12 @@ define_metrics! {
     Volga => "volga",
     /// Veta (theta sensitivity to volatility)
     Veta => "veta",
+    /// Interest rate convexity (IRS, similar concept to bond convexity)
+    IrConvexity => "ir_convexity",
+    /// Credit spread gamma (second derivative w.r.t spreads)
+    CsGamma => "cs_gamma",
+    /// Inflation convexity (second derivative w.r.t inflation)
+    InflationConvexity => "inflation_convexity",
     /// Charm (rho sensitivity to volatility)
     Charm => "charm",
     /// Color (gamma sensitivity to time)

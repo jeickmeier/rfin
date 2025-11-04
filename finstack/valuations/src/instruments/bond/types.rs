@@ -507,6 +507,18 @@ impl crate::instruments::common::traits::Instrument for Bond {
             self, market, as_of, base_value, metrics,
         )
     }
+
+    fn required_discount_curves(&self) -> Vec<CurveId> {
+        vec![self.discount_curve_id.clone()]
+    }
+
+    fn required_hazard_curves(&self) -> Vec<CurveId> {
+        if let Some(ref credit_id) = self.credit_curve_id {
+            vec![credit_id.clone()]
+        } else {
+            vec![]
+        }
+    }
 }
 
 impl crate::instruments::common::pricing::HasDiscountCurve for Bond {

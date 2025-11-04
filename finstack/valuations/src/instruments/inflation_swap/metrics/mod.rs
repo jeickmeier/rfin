@@ -15,6 +15,7 @@ mod breakeven;
 mod dv01;
 mod fixed_leg_pv;
 mod inflation01;
+mod inflation_convexity;
 mod inflation_leg_pv;
 mod par_rate;
 // risk_bucketed_dv01 and theta now using generic implementations
@@ -46,6 +47,11 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::Inflation01,
             Arc::new(inflation01::Inflation01Calculator),
+            &["InflationSwap"],
+        )
+        .register_metric(
+            MetricId::InflationConvexity,
+            Arc::new(inflation_convexity::InflationConvexityCalculator),
             &["InflationSwap"],
         )
         .register_metric(

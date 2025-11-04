@@ -72,6 +72,8 @@
 pub mod bumps;
 /// Market data context with enum-based storage (simplified from V2).
 pub mod context;
+/// Market data comparison and shift measurement.
+pub mod diff;
 /// Shared dividend schedules (cash/yield/stock) for equities/ETFs.
 pub mod dividends;
 /// Scalar market data types and time series (including primitives)

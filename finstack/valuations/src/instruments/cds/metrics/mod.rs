@@ -14,6 +14,7 @@
 //! - Jump to default
 
 mod cs01;
+mod cs_gamma;
 mod dv01;
 mod expected_loss;
 mod jump_to_default;
@@ -50,6 +51,7 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (ParSpread, par_spread::ParSpreadCalculator),
             (Cs01, cs01::Cs01Calculator),
+            (CsGamma, cs_gamma::CsGammaCalculator),
             (ProtectionLegPv, pv_protection::ProtectionLegPvCalculator),
             (PremiumLegPv, pv_premium::PremiumLegPvCalculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),

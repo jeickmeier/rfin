@@ -761,6 +761,108 @@ pub trait Instrument: Send + Sync {
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult>;
+
+    // === Market Data Introspection (for Attribution) ===
+
+    /// Discount curves required for pricing this instrument.
+    ///
+    /// Returns the list of discount curve IDs that this instrument depends on.
+    /// Used by P&L attribution to identify which curve shifts affect the instrument.
+    ///
+    /// Default implementation returns empty vector. Instruments should override
+    /// to return their actual discount curve dependencies.
+    ///
+    /// # Returns
+    ///
+    /// Vector of discount curve IDs (e.g., `["USD-OIS", "USD-SOFR"]`)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::dates::create_date;
+    /// # use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let issue = create_date(2025, Month::January, 15)?;
+    /// # let maturity = create_date(2030, Month::January, 15)?;
+    /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
+    ///     0.05, issue, maturity, "USD-OIS");
+    ///
+    /// let curves = bond.required_discount_curves();
+    /// // Bond returns ["USD-OIS"]
+    /// # Ok(())
+    /// # }
+    /// ```
+    fn required_discount_curves(&self) -> Vec<CurveId> {
+        vec![]
+    }
+
+    /// Hazard curves required for pricing this instrument.
+    ///
+    /// Returns the list of hazard curve IDs that this instrument depends on.
+    /// Used by credit attribution to measure spread shifts.
+    ///
+    /// Default implementation returns empty vector.
+    ///
+    /// # Returns
+    ///
+    /// Vector of hazard curve IDs (e.g., `["CORP-AA", "CDX.NA.IG"]`)
+    fn required_hazard_curves(&self) -> Vec<CurveId> {
+        vec![]
+    }
+
+    /// FX exposure for this instrument.
+    ///
+    /// Returns the currency pair if this instrument has FX exposure.
+    /// Used by FX attribution to measure spot rate changes.
+    ///
+    /// Default implementation returns `None`.
+    ///
+    /// # Returns
+    ///
+    /// `Some((base, quote))` if FX-sensitive, `None` otherwise
+    ///
+    /// # Examples
+    ///
+    /// FX Forward would return `Some((USD, EUR))` for a USD/EUR forward.
+    fn fx_exposure(&self) -> Option<(Currency, Currency)> {
+        None
+    }
+
+    /// Volatility surface ID for this instrument.
+    ///
+    /// Returns the volatility surface ID if this instrument depends on implied vol.
+    /// Used by vega attribution to measure vol shifts.
+    ///
+    /// Default implementation returns `None`.
+    ///
+    /// # Returns
+    ///
+    /// `Some(surface_id)` if vol-sensitive, `None` otherwise
+    ///
+    /// # Examples
+    ///
+    /// Equity option would return `Some("SPX-VOL")`.
+    fn vol_surface_id(&self) -> Option<CurveId> {
+        None
+    }
+
+    /// Dividend schedule ID for this instrument.
+    ///
+    /// Returns the dividend schedule ID if this instrument depends on dividends.
+    /// Used by dividend attribution.
+    ///
+    /// Default implementation returns `None`.
+    ///
+    /// # Returns
+    ///
+    /// `Some(schedule_id)` if dividend-sensitive, `None` otherwise
+    fn dividend_schedule_id(&self) -> Option<CurveId> {
+        None
+    }
 }
 
 // Note: Methods formerly on the `Attributable` trait are now default methods on `Instrument`.

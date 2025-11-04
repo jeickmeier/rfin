@@ -7,6 +7,7 @@ mod breakeven_inflation;
 mod dv01;
 mod index_ratio;
 mod inflation01;
+mod inflation_convexity;
 mod real_duration;
 mod real_yield;
 mod theta;
@@ -15,6 +16,7 @@ mod theta;
 pub use breakeven_inflation::BreakevenInflationCalculator;
 pub use index_ratio::IndexRatioCalculator;
 pub use inflation01::Inflation01Calculator;
+pub use inflation_convexity::InflationConvexityCalculator;
 pub use real_duration::RealDurationCalculator;
 pub use real_yield::RealYieldCalculator;
 pub use theta::ThetaCalculator;
@@ -30,6 +32,13 @@ pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Inflation01,
         Arc::new(Inflation01Calculator),
+        &["InflationLinkedBond"],
+    );
+
+    // Custom metric: InflationConvexity (second-order inflation sensitivity)
+    registry.register_metric(
+        MetricId::InflationConvexity,
+        Arc::new(InflationConvexityCalculator),
         &["InflationLinkedBond"],
     );
 
