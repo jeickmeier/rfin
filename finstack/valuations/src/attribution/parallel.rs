@@ -202,8 +202,30 @@ pub fn attribute_pnl_parallel(
     }
 
     // Step 9: Model parameters attribution
-    // TODO: Requires instrument-specific support for extracting/replacing model parameters
-    // For now, this remains zero
+    let params_t0 = crate::attribution::model_params::extract_model_params(instrument);
+    if !matches!(params_t0, crate::attribution::model_params::ModelParamsSnapshot::None) {
+        // Create instrument with T₀ parameters
+        match crate::attribution::model_params::with_model_params(instrument, &params_t0) {
+            Ok(instrument_with_t0_params) => {
+                // Reprice with T₁ market
+                if let Ok(val_with_t0_params) = reprice_instrument(&instrument_with_t0_params, market_t1, as_of_t1) {
+                    num_repricings += 1;
+
+                    attribution.model_params_pnl = compute_pnl(
+                        val_with_t0_params,
+                        val_t1,
+                        val_t1.currency(),
+                        market_t1,
+                        as_of_t1,
+                    )?;
+                }
+                // If repricing fails, model_params_pnl remains zero
+            }
+            Err(_) => {
+                // If modification fails, model_params_pnl remains zero
+            }
+        }
+    }
 
     // Step 10: Market scalars attribution
     let scalars_snapshot = extract_scalars(market_t0);

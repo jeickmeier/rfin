@@ -12,33 +12,9 @@ from datetime import datetime
 
 
 def find_python_scripts(base_dir: Path) -> List[Path]:
-    """Find all Python scripts in the examples/scripts directory."""
-    scripts = []
-    
-    # Core scripts
-    core_dir = base_dir / "core"
-    if core_dir.exists():
-        scripts.extend(sorted(core_dir.glob("*.py")))
-    
-    # Valuations scripts
-    valuations_dir = base_dir / "valuations"
-    if valuations_dir.exists():
-        scripts.extend(sorted(valuations_dir.glob("*.py")))
-
-    # Statements scripts
-    statements_dir = base_dir / "statements"
-    if statements_dir.exists():
-        scripts.extend(sorted(statements_dir.glob("*.py")))
-
-    # Scenarios scripts
-    scenarios_dir = base_dir / "scenarios"
-    if scenarios_dir.exists():
-        scripts.extend(sorted(scenarios_dir.glob("*.py")))
-
-    # Portfolio scripts
-    portfolio_dir = base_dir / "portfolio"
-    if portfolio_dir.exists():
-        scripts.extend(sorted(portfolio_dir.glob("*.py")))
+    """Find all Python scripts in the examples/scripts directory and all subdirectories."""
+    # Recursively find all Python files in all subdirectories
+    scripts = sorted(base_dir.glob("**/*.py"))
     
     # Exclude this script itself if it's in the same directory
     script_name = Path(__file__).name
@@ -48,14 +24,7 @@ def find_python_scripts(base_dir: Path) -> List[Path]:
     # These are comprehensive demonstrations but too slow for routine testing
     # Run them manually when needed: uv run python finstack-py/examples/scripts/valuations/<example>.py
     excluded_patterns = [
-        "asian_option_example.py",
-        "barrier_option_example.py",
-        "lookback_option_example.py",
-        "cliquet_option_example.py",
-        "range_accrual_example.py",
-        "autocallable_example.py",
-        "quanto_option_example.py",
-        "cms_option_example.py",
+
     ]
     scripts = [s for s in scripts if s.name not in excluded_patterns]
     

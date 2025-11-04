@@ -191,18 +191,12 @@ pub fn extract_volatility(market: &MarketContext) -> VolatilitySnapshot {
 /// # Returns
 ///
 /// Snapshot containing all market scalars.
-///
-/// Note: This function clones market scalars. In a future version with
-/// public accessors, we could avoid some cloning.
-pub fn extract_scalars(_market: &MarketContext) -> ScalarsSnapshot {
-    // TODO: MarketContext doesn't expose iterators for prices, series, etc.
-    // For now, return empty snapshot. This will be filled in when
-    // MarketContext exposes the necessary public API.
+pub fn extract_scalars(market: &MarketContext) -> ScalarsSnapshot {
     ScalarsSnapshot {
-        prices: HashMap::new(),
-        series: HashMap::new(),
-        inflation_indices: HashMap::new(),
-        dividends: HashMap::new(),
+        prices: market.prices_iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        series: market.series_iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        inflation_indices: market.inflation_indices_iter().map(|(k, v)| (k.clone(), Arc::clone(v))).collect(),
+        dividends: market.dividends_iter().map(|(k, v)| (k.clone(), Arc::clone(v))).collect(),
     }
 }
 
@@ -444,15 +438,46 @@ pub fn restore_volatility(
 /// # Returns
 ///
 /// New market context with replaced market scalars.
-///
-/// Note: Currently returns market unchanged since MarketContext doesn't expose
-/// public mutators for prices, series, inflation_indices, and dividends fields.
-/// TODO: Add public API to MarketContext for these fields.
-pub fn restore_scalars(market: &MarketContext, _snapshot: &ScalarsSnapshot) -> MarketContext {
-    // TODO: MarketContext fields (prices, series, inflation_indices, dividends)
-    // are private and don't have public setters. For now, return market unchanged.
-    // This means market scalars attribution will be zero until API is enhanced.
-    market.clone()
+pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> MarketContext {
+    // Create a fresh market context
+    let mut new_market = MarketContext::new();
+
+    // Copy all curves
+    for curve_id in market.curve_ids() {
+        if let Ok(discount) = market.get_discount(curve_id) {
+            new_market.insert_discount_mut(discount);
+        } else if let Ok(forward) = market.get_forward(curve_id) {
+            new_market.insert_forward_mut(forward);
+        } else if let Ok(hazard) = market.get_hazard(curve_id) {
+            new_market.insert_hazard_mut(hazard);
+        } else if let Ok(inflation) = market.get_inflation(curve_id) {
+            new_market.insert_inflation_mut(inflation);
+        } else if let Ok(base_corr) = market.get_base_correlation(curve_id) {
+            new_market.insert_base_correlation_mut(base_corr);
+        }
+    }
+
+    // Copy FX and surfaces
+    if let Some(fx) = &market.fx {
+        new_market.insert_fx_mut(Arc::clone(fx));
+    }
+    new_market.surfaces = market.surfaces.clone();
+
+    // Restore scalars from snapshot (overwrites any existing)
+    for (id, scalar) in &snapshot.prices {
+        new_market.set_price_mut(id.clone(), scalar.clone());
+    }
+    for (_id, series) in &snapshot.series {
+        new_market.set_series_mut(series.clone());
+    }
+    for (id, index) in &snapshot.inflation_indices {
+        new_market.set_inflation_index_mut(id.as_str(), Arc::clone(index));
+    }
+    for (_id, schedule) in &snapshot.dividends {
+        new_market.set_dividends_mut(Arc::clone(schedule));
+    }
+
+    new_market
 }
 
 /// Create a hybrid market context: T₀ market data with T₁ structure.

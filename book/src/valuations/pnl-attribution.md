@@ -243,18 +243,110 @@ For large portfolios, consider:
 - Running parallel/waterfall overnight for detailed reports
 - Caching intermediate results
 
+## Model Parameters Attribution
+
+### Supported Instruments
+
+**Structured Credit (ABS, RMBS, CMBS, CLO)**:
+- Prepayment speeds (PSA, CPR, SMM models)
+- Default rates (CDR, SDA models)
+- Recovery rates (constant severity, time-varying)
+
+```rust
+// Attribution will automatically detect parameter changes
+let attribution = attribute_pnl_parallel(&rmbs, &market_t0, &market_t1, ...)?;
+
+// Model params P&L captures prepayment/default/recovery changes
+println!("Model Params P&L: {}", attribution.model_params_pnl);
+```
+
+**Convertible Bonds**:
+- Conversion ratios
+- Conversion policies
+
+```rust
+// Conversion ratio changes are automatically attributed
+let attribution = attribute_pnl_parallel(&convertible, &market_t0, &market_t1, ...)?;
+println!("Conversion P&L: {}", attribution.model_params_pnl);
+```
+
+### Parameter Shift Measurement
+
+The following shifts are automatically measured:
+- **PSA Multiplier**: Converted to equivalent CPR basis points (0.1 PSA = 60bp)
+- **CPR/CDR**: Direct basis point comparison
+- **Recovery/Severity**: Percentage point comparison
+- **Conversion Ratio**: Percentage change
+
+## Market Scalars Attribution
+
+### Supported Scalars
+
+- **Equity Prices**: Spot price changes for equity instruments
+- **Dividends**: Dividend schedule changes for equity options
+- **Inflation Indices**: CPI/RPI changes for inflation-linked bonds
+- **Commodity Prices**: Price changes for commodity-linked instruments
+
+```rust
+// Create markets with different equity prices
+let market_t0 = MarketContext::new()
+    .insert_price("AAPL", MarketScalar::Price(Money::new(180.0, Currency::USD)));
+
+let market_t1 = MarketContext::new()
+    .insert_price("AAPL", MarketScalar::Price(Money::new(185.0, Currency::USD)));
+
+let attribution = attribute_pnl_parallel(&equity, &market_t0, &market_t1, ...)?;
+
+// Market scalars P&L captures the price change
+println!("Scalars P&L: {}", attribution.market_scalars_pnl);
+```
+
+## Complete Example
+
+```rust
+use finstack_valuations::attribution::attribute_pnl_parallel;
+use finstack_valuations::instruments::structured_credit::StructuredCredit;
+
+// Create RMBS at T₀ with PSA 100%
+let rmbs_t0 = create_rmbs_with_psa(1.0);
+
+// Market changes:
+// - Rates increased by 50bp
+// - Spreads tightened by 10bp  
+// - PSA speeds increased to 150%
+
+let attribution = attribute_pnl_parallel(
+    &rmbs_t0,
+    &market_t0,
+    &market_t1,
+    as_of_t0,
+    as_of_t1,
+    &config,
+)?;
+
+// See full breakdown
+println!("{}", attribution.explain());
+
+// Output:
+// Total P&L: $-50,000
+//   ├─ Carry: $5,000 (theta)
+//   ├─ Rates Curves: $-60,000 (rates up, price down)
+//   ├─ Credit Curves: $15,000 (spreads tightened)
+//   ├─ Model Params: $-10,000 (faster prepayments reduce WAL)
+//   └─ Residual: $0 (0.0%)
+```
+
 ## Limitations
 
 ### Current Limitations
 
-1. **Model Parameters**: Instrument-specific support required. Currently returns zero for most instruments.
-2. **Market Scalars**: Limited by private fields in MarketContext. Will be enhanced in future releases.
-3. **Per-Tenor Attribution**: Not yet implemented for detailed curve analysis.
+1. **Per-Tenor Attribution**: Not yet implemented for detailed curve analysis (planned)
+2. **Multi-day Batch**: Single T₀→T₁ attribution only (batch support planned)
 
 ### Future Enhancements
 
 - Bucketed attribution (per-tenor for curves)
 - Multi-day batch attribution
-- Parallel execution with Rayon
-- Enhanced model parameter extraction for all instrument types
+- Parallel execution with Rayon for portfolio attribution
+- Enhanced model parameter extraction for exotic derivatives
 

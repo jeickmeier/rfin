@@ -214,6 +214,32 @@ fn apply_factor_to_t1(
     current_val: Money,
     num_repricings: &mut usize,
 ) -> Result<(MarketContext, Money)> {
+    // For ModelParameters, we need to modify the instrument, not the market
+    if matches!(factor, AttributionFactor::ModelParameters) {
+        // Extract T₁ parameters and create modified instrument
+        let params_t1 = crate::attribution::model_params::extract_model_params(instrument);
+        
+        if !matches!(params_t1, crate::attribution::model_params::ModelParamsSnapshot::None) {
+            match crate::attribution::model_params::with_model_params(instrument, &params_t1) {
+                Ok(instrument_with_t1_params) => {
+                    // Reprice with T₁ parameters
+                    if let Ok(new_val) = reprice_instrument(&instrument_with_t1_params, current_market, as_of_t1) {
+                        *num_repricings += 1;
+                        let factor_pnl = compute_pnl(current_val, new_val, current_val.currency(), current_market, as_of_t1)?;
+                        return Ok((current_market.clone(), factor_pnl));
+                    }
+                }
+                Err(_) => {
+                    // If modification fails, return zero P&L
+                    return Ok((current_market.clone(), Money::new(0.0, current_val.currency())));
+                }
+            }
+        }
+        // If no params or extraction fails, return zero P&L
+        return Ok((current_market.clone(), Money::new(0.0, current_val.currency())));
+    }
+
+    // For all other factors, modify the market
     let new_market = match factor {
         AttributionFactor::Carry => {
             // Carry: just advances time (already priced at T₁ date)
@@ -251,14 +277,14 @@ fn apply_factor_to_t1(
             restore_volatility(current_market, &vol_t1)
         }
 
-        AttributionFactor::ModelParameters => {
-            // TODO: Requires instrument-specific support
-            current_market.clone()
-        }
-
         AttributionFactor::MarketScalars => {
             let scalars_t1 = extract_scalars(market_t1);
             restore_scalars(current_market, &scalars_t1)
+        }
+
+        AttributionFactor::ModelParameters => {
+            // Already handled above
+            unreachable!()
         }
     };
 

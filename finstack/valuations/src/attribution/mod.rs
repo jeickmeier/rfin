@@ -125,6 +125,7 @@ pub mod dataframe;
 pub mod factors;
 pub mod helpers;
 pub mod metrics_based;
+pub mod model_params;
 pub mod parallel;
 pub mod types;
 pub mod waterfall;
@@ -138,6 +139,10 @@ pub use types::{
 
 // Re-export attribution functions
 pub use metrics_based::attribute_pnl_metrics_based;
+pub use model_params::{
+    extract_model_params, measure_conversion_shift, measure_default_shift,
+    measure_prepayment_shift, measure_recovery_shift, with_model_params, ModelParamsSnapshot,
+};
 pub use parallel::attribute_pnl_parallel;
 pub use waterfall::{attribute_pnl_waterfall, default_waterfall_order};
 

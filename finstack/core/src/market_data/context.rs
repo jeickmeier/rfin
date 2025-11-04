@@ -1406,6 +1406,114 @@ impl MarketContext {
     }
 
     // -----------------------------------------------------------------------------
+    // Iterators for Market Scalars (P&L Attribution Support)
+    // -----------------------------------------------------------------------------
+
+    /// Iterate over all market prices/scalars.
+    ///
+    /// Returns an iterator over (CurveId, MarketScalar) pairs.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::market_data::scalars::MarketScalar;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let ctx = MarketContext::new()
+    ///     .insert_price("AAPL", MarketScalar::Price(Money::new(180.0, Currency::USD)));
+    ///
+    /// for (id, scalar) in ctx.prices_iter() {
+    ///     println!("{}: {:?}", id, scalar);
+    /// }
+    /// ```
+    pub fn prices_iter(&self) -> impl Iterator<Item = (&CurveId, &MarketScalar)> {
+        self.prices.iter()
+    }
+
+    /// Iterate over all time series.
+    ///
+    /// Returns an iterator over (CurveId, ScalarTimeSeries) pairs.
+    pub fn series_iter(&self) -> impl Iterator<Item = (&CurveId, &ScalarTimeSeries)> {
+        self.series.iter()
+    }
+
+    /// Iterate over all inflation indices.
+    ///
+    /// Returns an iterator over (CurveId, Arc<InflationIndex>) pairs.
+    pub fn inflation_indices_iter(&self) -> impl Iterator<Item = (&CurveId, &Arc<InflationIndex>)> {
+        self.inflation_indices.iter()
+    }
+
+    /// Iterate over all dividend schedules.
+    ///
+    /// Returns an iterator over (CurveId, Arc<DividendSchedule>) pairs.
+    pub fn dividends_iter(&self) -> impl Iterator<Item = (&CurveId, &Arc<DividendSchedule>)> {
+        self.dividends.iter()
+    }
+
+    /// Set or update a market price (mutable).
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Price identifier
+    /// * `price` - Market scalar to store
+    ///
+    /// # Returns
+    ///
+    /// Mutable reference to self for chaining.
+    pub fn set_price_mut(&mut self, id: CurveId, price: MarketScalar) -> &mut Self {
+        self.prices.insert(id, price);
+        self
+    }
+
+    /// Set or update a time series (mutable).
+    ///
+    /// # Arguments
+    ///
+    /// * `series` - Time series to store
+    ///
+    /// # Returns
+    ///
+    /// Mutable reference to self for chaining.
+    pub fn set_series_mut(&mut self, series: ScalarTimeSeries) -> &mut Self {
+        let id = series.id().to_owned();
+        self.series.insert(id, series);
+        self
+    }
+
+    /// Set or update an inflation index (mutable).
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Index identifier
+    /// * `index` - Inflation index to store
+    ///
+    /// # Returns
+    ///
+    /// Mutable reference to self for chaining.
+    pub fn set_inflation_index_mut(&mut self, id: impl AsRef<str>, index: Arc<InflationIndex>) -> &mut Self {
+        self.inflation_indices.insert(CurveId::from(id.as_ref()), index);
+        self
+    }
+
+    /// Set or update a dividend schedule (mutable).
+    ///
+    /// # Arguments
+    ///
+    /// * `schedule` - Dividend schedule to store
+    ///
+    /// # Returns
+    ///
+    /// Mutable reference to self for chaining.
+    pub fn set_dividends_mut(&mut self, schedule: Arc<DividendSchedule>) -> &mut Self {
+        let id = schedule.id.to_owned();
+        self.dividends.insert(id, schedule);
+        self
+    }
+
+    // -----------------------------------------------------------------------------
     // Scenario Analysis and Stress Testing
     // -----------------------------------------------------------------------------
 
