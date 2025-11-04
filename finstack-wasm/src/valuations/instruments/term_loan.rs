@@ -114,4 +114,3 @@ impl JsTermLoan {
         JsTermLoan::from_inner(self.0.clone())
     }
 }
-

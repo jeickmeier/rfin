@@ -107,6 +107,7 @@
 
 # Language Bindings
 
+- [Overview](./bindings/README.md)
 - [Python](./bindings/python.md)
   - [Installation](./bindings/python-install.md)
   - [API Reference](./bindings/python-api.md)
@@ -115,6 +116,9 @@
   - [Setup](./bindings/wasm-setup.md)
   - [API Reference](./bindings/wasm-api.md)
   - [Examples](./bindings/wasm-examples.md)
+- [Parity & Migration](./bindings/migration-guide.md)
+  - [API Comparison](./bindings/api-reference.md)
+  - [Side-by-Side Examples](./bindings/examples.md)
 
 ---
 

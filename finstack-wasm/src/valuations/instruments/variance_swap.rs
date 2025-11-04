@@ -14,6 +14,46 @@ use finstack_valuations::instruments::variance_swap::{
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
+/// Realized variance calculation method for variance swaps.
+#[wasm_bindgen(js_name = RealizedVarMethod)]
+#[derive(Clone, Copy, Debug)]
+pub enum JsRealizedVarMethod {
+    /// Close-to-close method (default, simplest)
+    CloseToClose,
+    /// Parkinson's method (uses high-low range)
+    Parkinson,
+    /// Garman-Klass method (uses OHLC)
+    GarmanKlass,
+    /// Rogers-Satchell method (uses OHLC)
+    RogersSatchell,
+    /// Yang-Zhang method (most accurate, uses OHLC)
+    YangZhang,
+}
+
+impl From<RealizedVarMethod> for JsRealizedVarMethod {
+    fn from(method: RealizedVarMethod) -> Self {
+        match method {
+            RealizedVarMethod::CloseToClose => JsRealizedVarMethod::CloseToClose,
+            RealizedVarMethod::Parkinson => JsRealizedVarMethod::Parkinson,
+            RealizedVarMethod::GarmanKlass => JsRealizedVarMethod::GarmanKlass,
+            RealizedVarMethod::RogersSatchell => JsRealizedVarMethod::RogersSatchell,
+            RealizedVarMethod::YangZhang => JsRealizedVarMethod::YangZhang,
+        }
+    }
+}
+
+impl From<JsRealizedVarMethod> for RealizedVarMethod {
+    fn from(method: JsRealizedVarMethod) -> Self {
+        match method {
+            JsRealizedVarMethod::CloseToClose => RealizedVarMethod::CloseToClose,
+            JsRealizedVarMethod::Parkinson => RealizedVarMethod::Parkinson,
+            JsRealizedVarMethod::GarmanKlass => RealizedVarMethod::GarmanKlass,
+            JsRealizedVarMethod::RogersSatchell => RealizedVarMethod::RogersSatchell,
+            JsRealizedVarMethod::YangZhang => RealizedVarMethod::YangZhang,
+        }
+    }
+}
+
 #[wasm_bindgen(js_name = VarianceSwap)]
 #[derive(Clone, Debug)]
 pub struct JsVarianceSwap(VarianceSwap);

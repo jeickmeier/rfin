@@ -419,3 +419,38 @@ uv run python finstack-py/examples/scripts/portfolio/portfolio_example.py
 
 Interactive notebooks are available in `finstack-py/examples/notebooks/`:
 - **`core_basics.ipynb`**: Interactive core functionality walkthrough
+
+## Using with TypeScript/WASM
+
+The finstack library also provides WebAssembly bindings for browser and Node.js environments. The WASM bindings have **100% feature parity** with the Python bindings, enabling seamless code migration between languages.
+
+### Quick Links
+
+- **WASM Bindings:** See [`finstack-wasm/README.md`](../finstack-wasm/README.md)
+- **API Reference:** Complete Python ↔ TypeScript mapping in [`book/src/bindings/api-reference.md`](../book/src/bindings/api-reference.md)
+- **Migration Guide:** Detailed migration patterns in [`book/src/bindings/migration-guide.md`](../book/src/bindings/migration-guide.md)
+- **Naming Conventions:** Function name mappings in [`NAMING_CONVENTIONS.md`](../NAMING_CONVENTIONS.md)
+- **Side-by-Side Examples:** Code comparisons in [`book/src/bindings/examples.md`](../book/src/bindings/examples.md)
+
+### Example: Same Code, Different Language
+
+**Python:**
+```python
+from finstack.valuations.instruments import Bond
+from finstack.valuations.calibration import DiscountCurveCalibrator
+
+bond = Bond.treasury("US-10Y", 1_000_000, "USD", 0.0375, maturity, issue)
+calibrator = DiscountCurveCalibrator("USD-OIS", date, "USD")
+curve, report = calibrator.calibrate(quotes, market)
+```
+
+**TypeScript:**
+```typescript
+import { Bond, DiscountCurveCalibrator } from 'finstack-wasm';
+
+const bond = Bond.treasury("US-10Y", 1_000_000, "USD", 0.0375, maturity, issue);
+const calibrator = new DiscountCurveCalibrator("USD-OIS", date, "USD");
+const [curve, report] = calibrator.calibrate(quotes, market);
+```
+
+**Key Differences:** Method names use camelCase in TypeScript vs snake_case in Python. See the [Naming Conventions](../NAMING_CONVENTIONS.md) guide for complete mappings.

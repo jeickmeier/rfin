@@ -1,0 +1,4510 @@
+{
+  "binding": "python",
+  "source_root": "/Users/joneickmeier/projects/rfin/finstack-py/src",
+  "api": {
+    "core": {
+      "modules": {
+        "core.money": {
+          "path": "core/money.rs",
+          "classes": [
+            {
+              "name": "Money",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Money",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.error": {
+          "path": "core/error.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.config": {
+          "path": "core/config.rs",
+          "classes": [
+            {
+              "name": "FinstackConfig",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FinstackConfig",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "RoundingMode",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "RoundingMode",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.progress": {
+          "path": "core/progress.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.currency": {
+          "path": "core/currency.rs",
+          "classes": [
+            {
+              "name": "Currency",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Currency",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.utils": {
+          "path": "core/utils.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.dates.daycount": {
+          "path": "core/dates/daycount.rs",
+          "classes": [
+            {
+              "name": "DayCount",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "DayCount",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "DayCountContext",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Thirty360Convention",
+              "methods": [
+                {
+                  "name": "name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.dates.schedule": {
+          "path": "core/dates/schedule.rs",
+          "classes": [
+            {
+              "name": "Frequency",
+              "methods": [
+                {
+                  "name": "from_months",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Frequency",
+              "methods": [
+                {
+                  "name": "from_months",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "StubKind",
+              "methods": [
+                {
+                  "name": "name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "StubKind",
+              "methods": [
+                {
+                  "name": "name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ScheduleBuilder",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Schedule",
+              "methods": [
+                {
+                  "name": "dates",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Schedule",
+              "methods": [
+                {
+                  "name": "dates",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.dates.imm": {
+          "path": "core/dates/imm.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.dates.periods": {
+          "path": "core/dates/periods.rs",
+          "classes": [
+            {
+              "name": "FiscalConfig",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FiscalConfig",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PeriodId",
+              "methods": [
+                {
+                  "name": "quarter",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PeriodId",
+              "methods": [
+                {
+                  "name": "quarter",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Period",
+              "methods": [
+                {
+                  "name": "id",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Period",
+              "methods": [
+                {
+                  "name": "id",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PeriodPlan",
+              "methods": [
+                {
+                  "name": "periods",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PeriodPlan",
+              "methods": [
+                {
+                  "name": "periods",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.dates.calendar": {
+          "path": "core/dates/calendar.rs",
+          "classes": [
+            {
+              "name": "BusinessDayConvention",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BusinessDayConvention",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Calendar",
+              "methods": [
+                {
+                  "name": "code",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Calendar",
+              "methods": [
+                {
+                  "name": "code",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.dates.utils": {
+          "path": "core/dates/utils.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.market_data.surfaces": {
+          "path": "core/market_data/surfaces.rs",
+          "classes": [
+            {
+              "name": "VolSurface",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.market_data.interp": {
+          "path": "core/market_data/interp.rs",
+          "classes": [
+            {
+              "name": "InterpStyle",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ExtrapolationPolicy",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.market_data.scalars": {
+          "path": "core/market_data/scalars.rs",
+          "classes": [
+            {
+              "name": "SeriesInterpolation",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "MarketScalar",
+              "methods": [
+                {
+                  "name": "unitless",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ScalarTimeSeries",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.market_data.fx": {
+          "path": "core/market_data/fx.rs",
+          "classes": [
+            {
+              "name": "FxConversionPolicy",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxConfig",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxConfig",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxRateResult",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxRateResult",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxMatrix",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxMatrix",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.market_data.dividends": {
+          "path": "core/market_data/dividends.rs",
+          "classes": [
+            {
+              "name": "DividendEvent",
+              "methods": [
+                {
+                  "name": "date",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "DividendSchedule",
+              "methods": [
+                {
+                  "name": "id",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "DividendScheduleBuilder",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.market_data.context": {
+          "path": "core/market_data/context.rs",
+          "classes": [
+            {
+              "name": "MarketContext",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.market_data.term_structures": {
+          "path": "core/market_data/term_structures.rs",
+          "classes": [
+            {
+              "name": "DiscountCurve",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ForwardCurve",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "HazardCurve",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "InflationCurve",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BaseCorrelationCurve",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": true,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CreditIndexData",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.cashflow.primitives": {
+          "path": "core/cashflow/primitives.rs",
+          "classes": [
+            {
+              "name": "CFKind",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                },
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CFKind",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                },
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CashFlow",
+              "methods": [
+                {
+                  "name": "fixed",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                },
+                {
+                  "name": "fixed",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CashFlow",
+              "methods": [
+                {
+                  "name": "fixed",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                },
+                {
+                  "name": "fixed",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AmortizationSpec",
+              "methods": [
+                {
+                  "name": "none",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AmortizationSpec",
+              "methods": [
+                {
+                  "name": "none",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.cashflow.xirr": {
+          "path": "core/cashflow/xirr.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.cashflow.performance": {
+          "path": "core/cashflow/performance.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.math.solver": {
+          "path": "core/math/solver.rs",
+          "classes": [
+            {
+              "name": "NewtonSolver",
+              "methods": [
+                {
+                  "name": "py_new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                },
+                {
+                  "name": "py_new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BrentSolver",
+              "methods": [
+                {
+                  "name": "py_new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                },
+                {
+                  "name": "py_new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "HybridSolver",
+              "methods": [
+                {
+                  "name": "py_new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                },
+                {
+                  "name": "py_new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.math.callable": {
+          "path": "core/math/callable.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.math.distributions": {
+          "path": "core/math/distributions.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.math.integration": {
+          "path": "core/math/integration.rs",
+          "classes": [
+            {
+              "name": "GaussHermiteQuadrature",
+              "methods": [
+                {
+                  "name": "order_5",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                },
+                {
+                  "name": "order_5",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "core.common.pycmp": {
+          "path": "core/common/pycmp.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.common.labels": {
+          "path": "core/common/labels.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.common.reexport": {
+          "path": "core/common/reexport.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.common.args": {
+          "path": "core/common/args.rs",
+          "classes": [],
+          "functions": []
+        }
+      },
+      "classes": [
+        "Money",
+        "Money",
+        "FinstackConfig",
+        "FinstackConfig",
+        "RoundingMode",
+        "RoundingMode",
+        "Currency",
+        "Currency",
+        "DayCount",
+        "DayCount",
+        "DayCountContext",
+        "Thirty360Convention",
+        "Frequency",
+        "Frequency",
+        "StubKind",
+        "StubKind",
+        "ScheduleBuilder",
+        "Schedule",
+        "Schedule",
+        "FiscalConfig",
+        "FiscalConfig",
+        "PeriodId",
+        "PeriodId",
+        "Period",
+        "Period",
+        "PeriodPlan",
+        "PeriodPlan",
+        "BusinessDayConvention",
+        "BusinessDayConvention",
+        "Calendar",
+        "Calendar",
+        "VolSurface",
+        "InterpStyle",
+        "ExtrapolationPolicy",
+        "SeriesInterpolation",
+        "MarketScalar",
+        "ScalarTimeSeries",
+        "FxConversionPolicy",
+        "FxConfig",
+        "FxConfig",
+        "FxRateResult",
+        "FxRateResult",
+        "FxMatrix",
+        "FxMatrix",
+        "DividendEvent",
+        "DividendSchedule",
+        "DividendScheduleBuilder",
+        "MarketContext",
+        "DiscountCurve",
+        "ForwardCurve",
+        "HazardCurve",
+        "InflationCurve",
+        "BaseCorrelationCurve",
+        "CreditIndexData",
+        "CFKind",
+        "CFKind",
+        "CashFlow",
+        "CashFlow",
+        "AmortizationSpec",
+        "AmortizationSpec",
+        "NewtonSolver",
+        "BrentSolver",
+        "HybridSolver",
+        "GaussHermiteQuadrature"
+      ],
+      "functions": []
+    },
+    "valuations": {
+      "modules": {
+        "valuations.dataframe": {
+          "path": "valuations/dataframe.rs",
+          "classes": [],
+          "functions": []
+        },
+        "valuations.results": {
+          "path": "valuations/results.rs",
+          "classes": [
+            {
+              "name": "CovenantReport",
+              "methods": [
+                {
+                  "name": "covenant_type",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "covenant_type"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "ResultsMeta",
+              "methods": [
+                {
+                  "name": "numeric_mode",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "numeric_mode"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "ResultsMeta",
+              "methods": [
+                {
+                  "name": "numeric_mode",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "numeric_mode"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "ValuationResult",
+              "methods": [
+                {
+                  "name": "instrument_id",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "instrument_id"
+              ],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.metrics": {
+          "path": "valuations/metrics.rs",
+          "classes": [
+            {
+              "name": "MetricId",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "MetricId",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "MetricRegistry",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.pricer": {
+          "path": "valuations/pricer.rs",
+          "classes": [
+            {
+              "name": "PricerRegistry",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PricerRegistry",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.risk": {
+          "path": "valuations/risk.rs",
+          "classes": [],
+          "functions": []
+        },
+        "valuations.calibration.sabr": {
+          "path": "valuations/calibration/sabr.rs",
+          "classes": [
+            {
+              "name": "SABRModelParams",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "SABRMarketData",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "SABRCalibrationDerivatives",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.calibration.quote": {
+          "path": "valuations/calibration/quote.rs",
+          "classes": [
+            {
+              "name": "FutureSpecs",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "RatesQuote",
+              "methods": [
+                {
+                  "name": "deposit",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CreditQuote",
+              "methods": [
+                {
+                  "name": "cds",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VolQuote",
+              "methods": [
+                {
+                  "name": "option_vol",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VolQuote",
+              "methods": [
+                {
+                  "name": "option_vol",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "InflationQuote",
+              "methods": [
+                {
+                  "name": "inflation_swap",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "MarketQuote",
+              "methods": [
+                {
+                  "name": "from_rates",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": true,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.calibration.config": {
+          "path": "valuations/calibration/config.rs",
+          "classes": [
+            {
+              "name": "SolverKind",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "MultiCurveConfig",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CalibrationConfig",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.calibration.methods": {
+          "path": "valuations/calibration/methods.rs",
+          "classes": [
+            {
+              "name": "DiscountCurveCalibrator",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ForwardCurveCalibrator",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "HazardCurveCalibrator",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "InflationCurveCalibrator",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VolSurfaceCalibrator",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BaseCorrelationCalibrator",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.calibration.report": {
+          "path": "valuations/calibration/report.rs",
+          "classes": [
+            {
+              "name": "CalibrationReport",
+              "methods": [
+                {
+                  "name": "success",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "success"
+              ],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.calibration.validation": {
+          "path": "valuations/calibration/validation.rs",
+          "classes": [
+            {
+              "name": "ValidationError",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ValidationConfig",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.calibration.simple": {
+          "path": "valuations/calibration/simple.rs",
+          "classes": [
+            {
+              "name": "SimpleCalibration",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.cashflow.builder": {
+          "path": "valuations/cashflow/builder.rs",
+          "classes": [
+            {
+              "name": "CouponType",
+              "methods": [
+                {
+                  "name": "split",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ScheduleParams",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FixedCouponSpec",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FloatCouponParams",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FloatingCouponSpec",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CashflowBuilder",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CashFlowSchedule",
+              "methods": [
+                {
+                  "name": "day_count",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "day_count"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "FeeBase",
+              "methods": [
+                {
+                  "name": "drawn",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FeeSpec",
+              "methods": [
+                {
+                  "name": "fixed",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FixedWindow",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FloatWindow",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.common.parameters": {
+          "path": "valuations/common/parameters.rs",
+          "classes": [
+            {
+              "name": "OptionType",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ExerciseStyle",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "SettlementType",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PayReceive",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BarrierType",
+              "methods": [
+                {
+                  "name": "is_knock_out",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.common.mc.paths": {
+          "path": "valuations/common/mc/paths.rs",
+          "classes": [
+            {
+              "name": "PathPoint",
+              "methods": [
+                {
+                  "name": "step",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "step"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "PathPoint",
+              "methods": [
+                {
+                  "name": "step",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "step"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "SimulatedPath",
+              "methods": [
+                {
+                  "name": "path_id",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "path_id"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "SimulatedPath",
+              "methods": [
+                {
+                  "name": "path_id",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "path_id"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "PathDataset",
+              "methods": [
+                {
+                  "name": "paths",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "paths"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "PathDataset",
+              "methods": [
+                {
+                  "name": "paths",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "paths"
+              ],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.common.mc.params": {
+          "path": "valuations/common/mc/params.rs",
+          "classes": [
+            {
+              "name": "ProcessParams",
+              "methods": [
+                {
+                  "name": "process_type",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "process_type"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "ProcessParams",
+              "methods": [
+                {
+                  "name": "process_type",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "process_type"
+              ],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.common.mc.result": {
+          "path": "valuations/common/mc/result.rs",
+          "classes": [
+            {
+              "name": "MonteCarloResult",
+              "methods": [
+                {
+                  "name": "estimate",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "estimate"
+              ],
+              "is_exported": true
+            },
+            {
+              "name": "MonteCarloResult",
+              "methods": [
+                {
+                  "name": "estimate",
+                  "is_static": false,
+                  "is_property": true,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [
+                "estimate"
+              ],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.common.mc.generator": {
+          "path": "valuations/common/mc/generator.rs",
+          "classes": [],
+          "functions": []
+        },
+        "valuations.instruments.fra": {
+          "path": "valuations/instruments/fra.rs",
+          "classes": [
+            {
+              "name": "ForwardRateAgreement",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.autocallable": {
+          "path": "valuations/instruments/autocallable.rs",
+          "classes": [
+            {
+              "name": "Autocallable",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.inflation_linked_bond": {
+          "path": "valuations/instruments/inflation_linked_bond.rs",
+          "classes": [
+            {
+              "name": "InflationLinkedBond",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.equity_option": {
+          "path": "valuations/instruments/equity_option.rs",
+          "classes": [
+            {
+              "name": "EquityOption",
+              "methods": [
+                {
+                  "name": "european_call",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.revolving_credit": {
+          "path": "valuations/instruments/revolving_credit.rs",
+          "classes": [
+            {
+              "name": "RevolvingCredit",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.term_loan": {
+          "path": "valuations/instruments/term_loan.rs",
+          "classes": [
+            {
+              "name": "TermLoan",
+              "methods": [
+                {
+                  "name": "from_json",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "TermLoan",
+              "methods": [
+                {
+                  "name": "from_json",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.trs": {
+          "path": "valuations/instruments/trs.rs",
+          "classes": [
+            {
+              "name": "TrsSide",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "TrsSide",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FinancingLegSpec",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "TrsScheduleSpec",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "EquityUnderlyingParams",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "IndexUnderlyingParams",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "EquityTotalReturnSwap",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FiIndexTotalReturnSwap",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.variance_swap": {
+          "path": "valuations/instruments/variance_swap.rs",
+          "classes": [
+            {
+              "name": "PayReceive",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "RealizedVarMethod",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VarianceSwap",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.range_accrual": {
+          "path": "valuations/instruments/range_accrual.rs",
+          "classes": [
+            {
+              "name": "RangeAccrual",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.equity": {
+          "path": "valuations/instruments/equity.rs",
+          "classes": [
+            {
+              "name": "Equity",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Equity",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.cliquet_option": {
+          "path": "valuations/instruments/cliquet_option.rs",
+          "classes": [
+            {
+              "name": "CliquetOption",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.lookback_option": {
+          "path": "valuations/instruments/lookback_option.rs",
+          "classes": [
+            {
+              "name": "LookbackType",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "LookbackOption",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.basis_swap": {
+          "path": "valuations/instruments/basis_swap.rs",
+          "classes": [
+            {
+              "name": "BasisSwapLeg",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BasisSwap",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BasisSwap",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.swaption": {
+          "path": "valuations/instruments/swaption.rs",
+          "classes": [
+            {
+              "name": "Swaption",
+              "methods": [
+                {
+                  "name": "payer",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Swaption",
+              "methods": [
+                {
+                  "name": "payer",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.deposit": {
+          "path": "valuations/instruments/deposit.rs",
+          "classes": [
+            {
+              "name": "Deposit",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Deposit",
+              "methods": [
+                {
+                  "name": "ctor",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.cms_option": {
+          "path": "valuations/instruments/cms_option.rs",
+          "classes": [
+            {
+              "name": "CmsOption",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CmsOption",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.convertible": {
+          "path": "valuations/instruments/convertible.rs",
+          "classes": [
+            {
+              "name": "ConversionEvent",
+              "methods": [
+                {
+                  "name": "price_trigger",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ConversionPolicy",
+              "methods": [
+                {
+                  "name": "voluntary",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AntiDilutionPolicy",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "DividendAdjustment",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ConversionSpec",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ConvertibleBond",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.quanto_option": {
+          "path": "valuations/instruments/quanto_option.rs",
+          "classes": [
+            {
+              "name": "QuantoOption",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.irs": {
+          "path": "valuations/instruments/irs.rs",
+          "classes": [
+            {
+              "name": "PayReceive",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "InterestRateSwap",
+              "methods": [
+                {
+                  "name": "usd_pay_fixed",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.bond": {
+          "path": "valuations/instruments/bond.rs",
+          "classes": [
+            {
+              "name": "Bond",
+              "methods": [
+                {
+                  "name": "fixed_semiannual",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Bond",
+              "methods": [
+                {
+                  "name": "fixed_semiannual",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.inflation_swap": {
+          "path": "valuations/instruments/inflation_swap.rs",
+          "classes": [
+            {
+              "name": "InflationSwap",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.barrier_option": {
+          "path": "valuations/instruments/barrier_option.rs",
+          "classes": [
+            {
+              "name": "BarrierType",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "BarrierOption",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.fx": {
+          "path": "valuations/instruments/fx.rs",
+          "classes": [
+            {
+              "name": "FxSpot",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxSpot",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxOption",
+              "methods": [
+                {
+                  "name": "european_call",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxOption",
+              "methods": [
+                {
+                  "name": "european_call",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxSwap",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FxSwap",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.asian_option": {
+          "path": "valuations/instruments/asian_option.rs",
+          "classes": [
+            {
+              "name": "AveragingMethod",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AsianOption",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.ir_future": {
+          "path": "valuations/instruments/ir_future.rs",
+          "classes": [
+            {
+              "name": "InterestRateFuture",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.cap_floor": {
+          "path": "valuations/instruments/cap_floor.rs",
+          "classes": [
+            {
+              "name": "InterestRateOption",
+              "methods": [
+                {
+                  "name": "cap",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.repo": {
+          "path": "valuations/instruments/repo.rs",
+          "classes": [
+            {
+              "name": "RepoCollateral",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Repo",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Repo",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.basket": {
+          "path": "valuations/instruments/basket.rs",
+          "classes": [
+            {
+              "name": "Basket",
+              "methods": [
+                {
+                  "name": "from_json",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Basket",
+              "methods": [
+                {
+                  "name": "from_json",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.cds_index": {
+          "path": "valuations/instruments/cds_index.rs",
+          "classes": [
+            {
+              "name": "CdsIndex",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CdsIndex",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.cds_tranche": {
+          "path": "valuations/instruments/cds_tranche.rs",
+          "classes": [
+            {
+              "name": "CdsTranche",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.fx_barrier_option": {
+          "path": "valuations/instruments/fx_barrier_option.rs",
+          "classes": [
+            {
+              "name": "FxBarrierOption",
+              "methods": [
+                {
+                  "name": "builder",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.private_markets_fund": {
+          "path": "valuations/instruments/private_markets_fund.rs",
+          "classes": [
+            {
+              "name": "PrivateMarketsFund",
+              "methods": [
+                {
+                  "name": "from_json",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.cds": {
+          "path": "valuations/instruments/cds.rs",
+          "classes": [
+            {
+              "name": "CdsPayReceive",
+              "methods": [
+                {
+                  "name": "from_name",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CreditDefaultSwap",
+              "methods": [
+                {
+                  "name": "buy_protection",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.cds_option": {
+          "path": "valuations/instruments/cds_option.rs",
+          "classes": [
+            {
+              "name": "CdsOption",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CdsOption",
+              "methods": [
+                {
+                  "name": "create",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "valuations.instruments.structured_credit.waterfall": {
+          "path": "valuations/instruments/structured_credit/waterfall.rs",
+          "classes": [
+            {
+              "name": "WaterfallTier",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "WaterfallTier",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        }
+      },
+      "classes": [
+        "CovenantReport",
+        "ResultsMeta",
+        "ResultsMeta",
+        "ValuationResult",
+        "MetricId",
+        "MetricId",
+        "MetricRegistry",
+        "PricerRegistry",
+        "PricerRegistry",
+        "SABRModelParams",
+        "SABRMarketData",
+        "SABRCalibrationDerivatives",
+        "FutureSpecs",
+        "RatesQuote",
+        "CreditQuote",
+        "VolQuote",
+        "VolQuote",
+        "InflationQuote",
+        "MarketQuote",
+        "SolverKind",
+        "MultiCurveConfig",
+        "CalibrationConfig",
+        "DiscountCurveCalibrator",
+        "ForwardCurveCalibrator",
+        "HazardCurveCalibrator",
+        "InflationCurveCalibrator",
+        "VolSurfaceCalibrator",
+        "BaseCorrelationCalibrator",
+        "CalibrationReport",
+        "ValidationError",
+        "ValidationConfig",
+        "SimpleCalibration",
+        "CouponType",
+        "ScheduleParams",
+        "FixedCouponSpec",
+        "FloatCouponParams",
+        "FloatingCouponSpec",
+        "CashflowBuilder",
+        "CashFlowSchedule",
+        "FeeBase",
+        "FeeSpec",
+        "FixedWindow",
+        "FloatWindow",
+        "OptionType",
+        "ExerciseStyle",
+        "SettlementType",
+        "PayReceive",
+        "BarrierType",
+        "PathPoint",
+        "PathPoint",
+        "SimulatedPath",
+        "SimulatedPath",
+        "PathDataset",
+        "PathDataset",
+        "ProcessParams",
+        "ProcessParams",
+        "MonteCarloResult",
+        "MonteCarloResult",
+        "ForwardRateAgreement",
+        "Autocallable",
+        "InflationLinkedBond",
+        "EquityOption",
+        "RevolvingCredit",
+        "TermLoan",
+        "TermLoan",
+        "TrsSide",
+        "TrsSide",
+        "FinancingLegSpec",
+        "TrsScheduleSpec",
+        "EquityUnderlyingParams",
+        "IndexUnderlyingParams",
+        "EquityTotalReturnSwap",
+        "FiIndexTotalReturnSwap",
+        "PayReceive",
+        "RealizedVarMethod",
+        "VarianceSwap",
+        "RangeAccrual",
+        "Equity",
+        "Equity",
+        "CliquetOption",
+        "LookbackType",
+        "LookbackOption",
+        "BasisSwapLeg",
+        "BasisSwap",
+        "BasisSwap",
+        "Swaption",
+        "Swaption",
+        "Deposit",
+        "Deposit",
+        "CmsOption",
+        "CmsOption",
+        "ConversionEvent",
+        "ConversionPolicy",
+        "AntiDilutionPolicy",
+        "DividendAdjustment",
+        "ConversionSpec",
+        "ConvertibleBond",
+        "QuantoOption",
+        "PayReceive",
+        "InterestRateSwap",
+        "Bond",
+        "Bond",
+        "InflationSwap",
+        "BarrierType",
+        "BarrierOption",
+        "FxSpot",
+        "FxSpot",
+        "FxOption",
+        "FxOption",
+        "FxSwap",
+        "FxSwap",
+        "AveragingMethod",
+        "AsianOption",
+        "InterestRateFuture",
+        "InterestRateOption",
+        "RepoCollateral",
+        "Repo",
+        "Repo",
+        "Basket",
+        "Basket",
+        "CdsIndex",
+        "CdsIndex",
+        "CdsTranche",
+        "FxBarrierOption",
+        "PrivateMarketsFund",
+        "CdsPayReceive",
+        "CreditDefaultSwap",
+        "CdsOption",
+        "CdsOption",
+        "WaterfallTier",
+        "WaterfallTier"
+      ],
+      "functions": []
+    },
+    "statements": {
+      "modules": {
+        "statements.error": {
+          "path": "statements/error.rs",
+          "classes": [],
+          "functions": []
+        },
+        "statements.utils": {
+          "path": "statements/utils.rs",
+          "classes": [],
+          "functions": []
+        },
+        "statements.types.forecast": {
+          "path": "statements/types/forecast.rs",
+          "classes": [
+            {
+              "name": "ForecastMethod",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ForecastMethod",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "SeasonalMode",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "SeasonalMode",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ForecastSpec",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ForecastSpec",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "statements.types.node": {
+          "path": "statements/types/node.rs",
+          "classes": [
+            {
+              "name": "NodeType",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "NodeType",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "NodeSpec",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "NodeSpec",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "statements.types.value": {
+          "path": "statements/types/value.rs",
+          "classes": [
+            {
+              "name": "AmountOrScalar",
+              "methods": [
+                {
+                  "name": "scalar",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AmountOrScalar",
+              "methods": [
+                {
+                  "name": "scalar",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "statements.types.model": {
+          "path": "statements/types/model.rs",
+          "classes": [
+            {
+              "name": "CapitalStructureSpec",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CapitalStructureSpec",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "DebtInstrumentSpec",
+              "methods": [
+                {
+                  "name": "bond",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "DebtInstrumentSpec",
+              "methods": [
+                {
+                  "name": "bond",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FinancialModelSpec",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "FinancialModelSpec",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "statements.extensions.builtins": {
+          "path": "statements/extensions/builtins.rs",
+          "classes": [
+            {
+              "name": "CorkscrewExtension",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CreditScorecardExtension",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "statements.registry.schema": {
+          "path": "statements/registry/schema.rs",
+          "classes": [
+            {
+              "name": "UnitType",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "UnitType",
+              "methods": [],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "MetricDefinition",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "MetricDefinition",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "MetricRegistry",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "MetricRegistry",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        }
+      },
+      "classes": [
+        "ForecastMethod",
+        "ForecastMethod",
+        "SeasonalMode",
+        "SeasonalMode",
+        "ForecastSpec",
+        "ForecastSpec",
+        "NodeType",
+        "NodeType",
+        "NodeSpec",
+        "NodeSpec",
+        "AmountOrScalar",
+        "AmountOrScalar",
+        "CapitalStructureSpec",
+        "CapitalStructureSpec",
+        "DebtInstrumentSpec",
+        "DebtInstrumentSpec",
+        "FinancialModelSpec",
+        "FinancialModelSpec",
+        "CorkscrewExtension",
+        "CreditScorecardExtension",
+        "UnitType",
+        "UnitType",
+        "MetricDefinition",
+        "MetricDefinition",
+        "MetricRegistry",
+        "MetricRegistry"
+      ],
+      "functions": []
+    },
+    "scenarios": {
+      "modules": {
+        "scenarios.spec": {
+          "path": "scenarios/spec.rs",
+          "classes": [
+            {
+              "name": "OperationSpec",
+              "methods": [
+                {
+                  "name": "market_fx_pct",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "OperationSpec",
+              "methods": [
+                {
+                  "name": "market_fx_pct",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ScenarioSpec",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ScenarioSpec",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "scenarios.error": {
+          "path": "scenarios/error.rs",
+          "classes": [],
+          "functions": []
+        },
+        "scenarios.enums": {
+          "path": "scenarios/enums.rs",
+          "classes": [
+            {
+              "name": "CurveKind",
+              "methods": [
+                {
+                  "name": "Discount",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "CurveKind",
+              "methods": [
+                {
+                  "name": "Discount",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VolSurfaceKind",
+              "methods": [
+                {
+                  "name": "Equity",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "VolSurfaceKind",
+              "methods": [
+                {
+                  "name": "Equity",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "TenorMatchMode",
+              "methods": [
+                {
+                  "name": "Exact",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "TenorMatchMode",
+              "methods": [
+                {
+                  "name": "Exact",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "scenarios.reports": {
+          "path": "scenarios/reports.rs",
+          "classes": [
+            {
+              "name": "ApplicationReport",
+              "methods": [
+                {
+                  "name": "operations_applied",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ApplicationReport",
+              "methods": [
+                {
+                  "name": "operations_applied",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "RollForwardReport",
+              "methods": [
+                {
+                  "name": "old_date",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "RollForwardReport",
+              "methods": [
+                {
+                  "name": "old_date",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "scenarios.engine": {
+          "path": "scenarios/engine.rs",
+          "classes": [
+            {
+              "name": "ExecutionContext",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ExecutionContext",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ScenarioEngine",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "ScenarioEngine",
+              "methods": [
+                {
+                  "name": "new",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        }
+      },
+      "classes": [
+        "OperationSpec",
+        "OperationSpec",
+        "ScenarioSpec",
+        "ScenarioSpec",
+        "CurveKind",
+        "CurveKind",
+        "VolSurfaceKind",
+        "VolSurfaceKind",
+        "TenorMatchMode",
+        "TenorMatchMode",
+        "ApplicationReport",
+        "ApplicationReport",
+        "RollForwardReport",
+        "RollForwardReport",
+        "ExecutionContext",
+        "ExecutionContext",
+        "ScenarioEngine",
+        "ScenarioEngine"
+      ],
+      "functions": []
+    },
+    "portfolio": {
+      "modules": {
+        "portfolio.types": {
+          "path": "portfolio/types.rs",
+          "classes": [
+            {
+              "name": "Entity",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Entity",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PositionUnit",
+              "methods": [
+                {
+                  "name": "notional",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PositionUnit",
+              "methods": [
+                {
+                  "name": "notional",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Position",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Position",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "portfolio.grouping": {
+          "path": "portfolio/grouping.rs",
+          "classes": [],
+          "functions": []
+        },
+        "portfolio.error": {
+          "path": "portfolio/error.rs",
+          "classes": [],
+          "functions": []
+        },
+        "portfolio.results": {
+          "path": "portfolio/results.rs",
+          "classes": [
+            {
+              "name": "PortfolioResults",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioResults",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "portfolio.scenarios": {
+          "path": "portfolio/scenarios.rs",
+          "classes": [],
+          "functions": []
+        },
+        "portfolio.metrics": {
+          "path": "portfolio/metrics.rs",
+          "classes": [
+            {
+              "name": "AggregatedMetric",
+              "methods": [
+                {
+                  "name": "metric_id",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "AggregatedMetric",
+              "methods": [
+                {
+                  "name": "metric_id",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioMetrics",
+              "methods": [
+                {
+                  "name": "get_metric",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioMetrics",
+              "methods": [
+                {
+                  "name": "get_metric",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "portfolio.portfolio": {
+          "path": "portfolio/portfolio.rs",
+          "classes": [
+            {
+              "name": "Portfolio",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "Portfolio",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "portfolio.builder": {
+          "path": "portfolio/builder.rs",
+          "classes": [
+            {
+              "name": "PortfolioBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioBuilder",
+              "methods": [
+                {
+                  "name": "new_py",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        },
+        "portfolio.valuation": {
+          "path": "portfolio/valuation.rs",
+          "classes": [
+            {
+              "name": "PositionValue",
+              "methods": [
+                {
+                  "name": "position_id",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PositionValue",
+              "methods": [
+                {
+                  "name": "position_id",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioValuation",
+              "methods": [
+                {
+                  "name": "get_position_value",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            },
+            {
+              "name": "PortfolioValuation",
+              "methods": [
+                {
+                  "name": "get_position_value",
+                  "is_static": false,
+                  "is_property": false,
+                  "is_classmethod": false,
+                  "signature": ""
+                }
+              ],
+              "properties": [],
+              "is_exported": true
+            }
+          ],
+          "functions": []
+        }
+      },
+      "classes": [
+        "Entity",
+        "Entity",
+        "PositionUnit",
+        "PositionUnit",
+        "Position",
+        "Position",
+        "PortfolioResults",
+        "PortfolioResults",
+        "AggregatedMetric",
+        "AggregatedMetric",
+        "PortfolioMetrics",
+        "PortfolioMetrics",
+        "Portfolio",
+        "Portfolio",
+        "PortfolioBuilder",
+        "PortfolioBuilder",
+        "PositionValue",
+        "PositionValue",
+        "PortfolioValuation",
+        "PortfolioValuation"
+      ],
+      "functions": []
+    }
+  }
+}

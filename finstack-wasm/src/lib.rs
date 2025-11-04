@@ -52,6 +52,7 @@ pub use core::math::{
 };
 pub use core::money::JsMoney as Money;
 pub use valuations::calibration::{
+    JsBaseCorrelationCalibrator as BaseCorrelationCalibrator,
     JsCalibrationConfig as CalibrationConfig, JsCalibrationReport as CalibrationReport,
     JsCreditQuote as CreditQuote, JsDiscountCurveCalibrator as DiscountCurveCalibrator,
     JsForwardCurveCalibrator as ForwardCurveCalibrator,
@@ -76,15 +77,15 @@ pub use valuations::cashflow::{
     FloatingCouponSpec, ScheduleParams,
 };
 pub use valuations::metrics::{JsMetricId as MetricId, JsMetricRegistry as MetricRegistry};
-// Performance functions
+// Instruments and their helper types
 pub use valuations::instruments::{
-    AsianOption, Autocallable, BarrierOption, BasisSwap, Basket, Bond, CDSIndex, CdsOption,
-    CdsTranche, CliquetOption, CmsOption, ConvertibleBond, CreditDefaultSwap, Deposit, Equity,
-    EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement,
+    AsianOption, Autocallable, AveragingMethod, BarrierOption, BasisSwap, Basket, Bond, CDSIndex,
+    CdsOption, CdsTranche, CliquetOption, CmsOption, ConvertibleBond, CreditDefaultSwap, Deposit,
+    Equity, EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement,
     FxBarrierOption, FxOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap,
-    InterestRateFuture, InterestRateOption, InterestRateSwap, LookbackOption, PrivateMarketsFund,
-    QuantoOption, RangeAccrual, Repo, RevolvingCredit, StructuredCredit, Swaption, TermLoan,
-    VarianceSwap,
+    InterestRateFuture, InterestRateOption, InterestRateSwap, LookbackOption, LookbackType,
+    PrivateMarketsFund, QuantoOption, RangeAccrual, RealizedVarMethod, Repo, RevolvingCredit,
+    StructuredCredit, Swaption, TermLoan, VarianceSwap,
 };
 pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,

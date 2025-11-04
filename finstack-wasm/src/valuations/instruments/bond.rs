@@ -501,7 +501,10 @@ impl JsBond {
 
     #[wasm_bindgen(getter, js_name = hazardCurve)]
     pub fn hazard_curve(&self) -> Option<String> {
-        self.0.credit_curve_id.as_ref().map(|id| id.as_str().to_string())
+        self.0
+            .credit_curve_id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
     }
 
     #[wasm_bindgen(getter, js_name = quotedCleanPrice)]

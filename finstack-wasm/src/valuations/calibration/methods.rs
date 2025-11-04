@@ -6,12 +6,12 @@ use super::report::JsCalibrationReport;
 use crate::core::dates::FsDate;
 use crate::core::market_data::context::JsMarketContext;
 use crate::core::market_data::term_structures::{
-    JsDiscountCurve, JsForwardCurve, JsHazardCurve, JsInflationCurve,
+    JsBaseCorrelationCurve, JsDiscountCurve, JsForwardCurve, JsHazardCurve, JsInflationCurve,
 };
 use crate::core::market_data::VolSurface as JsVolSurface;
 use finstack_valuations::calibration::methods::{
-    DiscountCurveCalibrator, ForwardCurveCalibrator, HazardCurveCalibrator,
-    InflationCurveCalibrator, VolSurfaceCalibrator,
+    BaseCorrelationCalibrator, DiscountCurveCalibrator, ForwardCurveCalibrator,
+    HazardCurveCalibrator, InflationCurveCalibrator, VolSurfaceCalibrator,
 };
 use finstack_valuations::calibration::{
     Calibrator, CreditQuote, InflationQuote, RatesQuote, VolQuote,
@@ -399,6 +399,142 @@ impl JsVolSurfaceCalibrator {
         // Return as [surface, report] array
         let result = js_sys::Array::new();
         result.push(&JsVolSurface::from_arc(std::sync::Arc::new(surface)).into());
+        result.push(&JsCalibrationReport::from_inner(report).into());
+        Ok(result.into())
+    }
+}
+
+/// Base correlation calibrator for CDO tranches.
+///
+/// Calibrates base correlation curves from tranche market quotes for
+/// index CDO products (e.g., CDX, iTraxx).
+#[wasm_bindgen(js_name = BaseCorrelationCalibrator)]
+#[derive(Clone)]
+pub struct JsBaseCorrelationCalibrator {
+    inner: BaseCorrelationCalibrator,
+}
+
+#[wasm_bindgen(js_class = BaseCorrelationCalibrator)]
+impl JsBaseCorrelationCalibrator {
+    /// Create a new base correlation calibrator.
+    ///
+    /// @param {string} index_id - Index identifier (e.g., "CDX.NA.IG.42", "iTraxx.Europe.40")
+    /// @param {number} series - Index series number
+    /// @param {number} maturity_years - Maturity for correlation curve in years (e.g., 5.0)
+    /// @param {FsDate} base_date - Base date for calibration
+    /// @returns {BaseCorrelationCalibrator} Configured calibrator with default settings
+    ///
+    /// @example
+    /// ```javascript
+    /// const calibrator = new BaseCorrelationCalibrator(
+    ///   "CDX.NA.IG.42",
+    ///   42,
+    ///   5.0,
+    ///   new FsDate(2025, 1, 1)
+    /// );
+    /// ```
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        index_id: &str,
+        series: u16,
+        maturity_years: f64,
+        base_date: &FsDate,
+    ) -> JsBaseCorrelationCalibrator {
+        Self {
+            inner: BaseCorrelationCalibrator::new(
+                index_id,
+                series,
+                maturity_years,
+                base_date.inner(),
+            ),
+        }
+    }
+
+    /// Configure the calibrator with solver settings and tolerances.
+    ///
+    /// @param {CalibrationConfig} config - Configuration with solver kind, tolerance, iterations
+    /// @returns {BaseCorrelationCalibrator} New calibrator with updated configuration
+    ///
+    /// @example
+    /// ```javascript
+    /// const config = CalibrationConfig.multiCurve()
+    ///   .withMaxIterations(50);
+    ///
+    /// const calibrator = new BaseCorrelationCalibrator("CDX.NA.IG.42", 42, 5.0, baseDate)
+    ///   .withConfig(config);
+    /// ```
+    #[wasm_bindgen(js_name = withConfig)]
+    pub fn with_config(&self, config: &JsCalibrationConfig) -> JsBaseCorrelationCalibrator {
+        Self {
+            inner: self.inner.clone().with_config(config.inner()),
+        }
+    }
+
+    /// Set the discount curve identifier for calibration.
+    ///
+    /// @param {string} curve_id - Discount curve identifier (e.g., "USD-OIS")
+    /// @returns {BaseCorrelationCalibrator} New calibrator with updated curve ID
+    #[wasm_bindgen(js_name = withDiscountCurveId)]
+    pub fn with_discount_curve_id(&self, curve_id: &str) -> JsBaseCorrelationCalibrator {
+        Self {
+            inner: self.inner.clone().with_discount_curve_id(curve_id),
+        }
+    }
+
+    /// Set custom detachment points for calibration.
+    ///
+    /// @param {Float64Array} points - Detachment points in percent (e.g., [3.0, 7.0, 10.0, 15.0, 30.0])
+    /// @returns {BaseCorrelationCalibrator} New calibrator with updated detachment points
+    ///
+    /// @example
+    /// ```javascript
+    /// const calibrator = new BaseCorrelationCalibrator("CDX.NA.IG.42", 42, 5.0, baseDate)
+    ///   .withDetachmentPoints(new Float64Array([3.0, 7.0, 10.0, 15.0, 30.0]));
+    /// ```
+    #[wasm_bindgen(js_name = withDetachmentPoints)]
+    pub fn with_detachment_points(&self, points: &[f64]) -> JsBaseCorrelationCalibrator {
+        Self {
+            inner: self.inner.clone().with_detachment_points(points.to_vec()),
+        }
+    }
+
+    /// Calibrate the base correlation curve to tranche market quotes.
+    ///
+    /// Fits the curve to tranche upfront and running spread quotes using numerical optimization.
+    /// Returns a tuple of [calibrated_curve, calibration_report].
+    ///
+    /// @param {Array<CreditQuote>} quotes - Tranche market quotes to fit
+    /// @param {MarketContext} market - Market context with discount curves
+    /// @returns {Array} Tuple [BaseCorrelationCurve, CalibrationReport]
+    /// @throws {Error} If calibration fails or quotes are insufficient
+    ///
+    /// @example
+    /// ```javascript
+    /// const quotes = [
+    ///   CreditQuote.cdsTranche("CDX.NA.IG.42", 0.0, 3.0,
+    ///                          new FsDate(2030, 1, 1), 15.0, 500.0),
+    ///   CreditQuote.cdsTranche("CDX.NA.IG.42", 3.0, 7.0,
+    ///                          new FsDate(2030, 1, 1), 5.0, 150.0)
+    /// ];
+    ///
+    /// const [curve, report] = calibrator.calibrate(quotes, market);
+    /// console.log('Success:', report.success, 'Iterations:', report.iterations);
+    /// ```
+    #[wasm_bindgen]
+    pub fn calibrate(
+        &self,
+        quotes: Vec<JsCreditQuote>,
+        market: &JsMarketContext,
+    ) -> Result<JsValue, JsValue> {
+        let credit_quotes: Vec<CreditQuote> = quotes.iter().map(|q| q.inner()).collect();
+
+        let (curve, report) = self
+            .inner
+            .calibrate(&credit_quotes, market.inner())
+            .map_err(|e| JsValue::from_str(&format!("Calibration failed: {}", e)))?;
+
+        let result = js_sys::Array::new();
+        result.push(&JsBaseCorrelationCurve::from_arc(std::sync::Arc::new(curve)).into());
         result.push(&JsCalibrationReport::from_inner(report).into());
         Ok(result.into())
     }

@@ -118,13 +118,14 @@ achieving feature parity with the Python bindings.
 - `HazardCurveCalibrator` – calibrate credit hazard curves from CDS quotes.
 - `InflationCurveCalibrator` – calibrate inflation curves from inflation swap quotes.
 - `VolSurfaceCalibrator` – calibrate implied volatility surfaces from option quotes.
+- `BaseCorrelationCalibrator` – calibrate base correlation curves from CDO tranche quotes.
 - `SimpleCalibration` – one-shot multi-curve calibration workflow.
 - `CalibrationConfig` – configure solver strategy, tolerance, and iterations.
 - `SolverKind` – choose optimization method (Newton, Brent, Hybrid, LM, DE).
 - `RatesQuote`, `CreditQuote`, `VolQuote`, `InflationQuote` – market quote types for calibration.
 - `CalibrationReport` – detailed convergence diagnostics and residuals.
 
-**Feature Parity**: The WASM bindings now have complete feature parity with `finstack-py`, including calibration.
+**Feature Parity**: The WASM bindings have **100% feature parity** with `finstack-py`, including all calibration APIs.
 
 ## Building
 
@@ -571,6 +572,41 @@ This project uses GitHub Actions for continuous integration:
 - **Examples**: Automated example builds
 
 See [.github/workflows/wasm-ci.yml](../.github/workflows/wasm-ci.yml) for configuration.
+
+## Using with Python
+
+The finstack library also provides Python bindings via PyO3. The Python bindings have **100% feature parity** with the WASM bindings, enabling seamless code migration between languages.
+
+### Quick Links
+
+- **Python Bindings:** See [`finstack-py/README.md`](../finstack-py/README.md)
+- **API Reference:** Complete TypeScript ↔ Python mapping in [`book/src/bindings/api-reference.md`](../book/src/bindings/api-reference.md)
+- **Migration Guide:** Detailed migration patterns in [`book/src/bindings/migration-guide.md`](../book/src/bindings/migration-guide.md)
+- **Naming Conventions:** Function name mappings in [`NAMING_CONVENTIONS.md`](../NAMING_CONVENTIONS.md)
+- **Side-by-Side Examples:** Code comparisons in [`book/src/bindings/examples.md`](../book/src/bindings/examples.md)
+
+### Example: Same Code, Different Language
+
+**TypeScript:**
+```typescript
+import { Bond, DiscountCurveCalibrator } from 'finstack-wasm';
+
+const bond = Bond.treasury("US-10Y", 1_000_000, "USD", 0.0375, maturity, issue);
+const calibrator = new DiscountCurveCalibrator("USD-OIS", date, "USD");
+const [curve, report] = calibrator.calibrate(quotes, market);
+```
+
+**Python:**
+```python
+from finstack.valuations.instruments import Bond
+from finstack.valuations.calibration import DiscountCurveCalibrator
+
+bond = Bond.treasury("US-10Y", 1_000_000, "USD", 0.0375, maturity, issue)
+calibrator = DiscountCurveCalibrator("USD-OIS", date, "USD")
+curve, report = calibrator.calibrate(quotes, market)
+```
+
+**Key Differences:** Method names use snake_case in Python vs camelCase in TypeScript. Module imports are nested in Python (`finstack.core.dates`) vs flat in WASM (`'finstack-wasm'`). See the [Naming Conventions](../NAMING_CONVENTIONS.md) guide for complete mappings.
 
 ## Contributing
 

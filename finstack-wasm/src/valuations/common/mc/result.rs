@@ -1,7 +1,7 @@
 //! WASM bindings for Monte Carlo result wrapper.
 
-use crate::core::money::JsMoney;
 use super::paths::JsPathDataset;
+use crate::core::money::JsMoney;
 use finstack_valuations::instruments::common::models::monte_carlo::results::MonteCarloResult;
 use wasm_bindgen::prelude::*;
 

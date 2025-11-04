@@ -10,8 +10,8 @@ pub mod validation;
 
 pub use config::{JsCalibrationConfig, JsMultiCurveConfig, JsSolverKind};
 pub use methods::{
-    JsDiscountCurveCalibrator, JsForwardCurveCalibrator, JsHazardCurveCalibrator,
-    JsInflationCurveCalibrator, JsVolSurfaceCalibrator,
+    JsBaseCorrelationCalibrator, JsDiscountCurveCalibrator, JsForwardCurveCalibrator,
+    JsHazardCurveCalibrator, JsInflationCurveCalibrator, JsVolSurfaceCalibrator,
 };
 pub use quote::{JsCreditQuote, JsInflationQuote, JsMarketQuote, JsRatesQuote, JsVolQuote};
 pub use report::JsCalibrationReport;

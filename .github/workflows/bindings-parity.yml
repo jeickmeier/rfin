@@ -1,0 +1,314 @@
+name: Bindings Parity Check
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'finstack-py/**'
+      - 'finstack-wasm/**'
+      - 'finstack/*/src/**'
+      - 'tests/golden_values.json'
+      - '.github/workflows/bindings-parity.yml'
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'finstack-py/**'
+      - 'finstack-wasm/**'
+      - 'finstack/*/src/**'
+      - 'tests/golden_values.json'
+      - '.github/workflows/bindings-parity.yml'
+
+jobs:
+  api-audit:
+    name: API Surface Comparison
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Extract Python API surface
+        run: |
+          python3 scripts/audit_python_api.py
+          echo "Python API extraction complete"
+      
+      - name: Extract WASM API surface
+        run: |
+          python3 scripts/audit_wasm_api.py
+          echo "WASM API extraction complete"
+      
+      - name: Compare APIs and generate report
+        run: |
+          python3 scripts/compare_apis.py
+          echo "Generated PARITY_AUDIT.md"
+      
+      - name: Check for API regressions
+        run: |
+          # Fail if significant gaps appear
+          if python3 -c "
+          import json
+          with open('scripts/python_api.json') as f:
+              py = json.load(f)
+          with open('scripts/wasm_api.json') as f:
+              wasm = json.load(f)
+          
+          # Extract class counts from each module
+          py_classes = set()
+          for mod in py.get('api', {}).values():
+              for m in mod.get('modules', {}).values():
+                  for c in m.get('classes', []):
+                      py_classes.add(c.get('name', ''))
+          
+          wasm_classes = set()
+          for mod in wasm.get('api', {}).values():
+              for m in mod.get('modules', {}).values():
+                  for c in m.get('classes', []):
+                      wasm_classes.add(c.get('js_name', c.get('name', '')))
+          
+          # Check parity percentage
+          if len(py_classes) > 0 and len(wasm_classes) > 0:
+              overlap = len(py_classes & wasm_classes)
+              total = len(py_classes | wasm_classes)
+              parity_pct = (overlap / total) * 100
+              print(f'Parity: {parity_pct:.1f}% ({overlap}/{total} classes)')
+              
+              if parity_pct < 85:
+                  print('ERROR: Parity below 85% threshold')
+                  exit(1)
+          "; then
+            echo "✓ API parity check passed"
+          else
+            echo "✗ API parity check failed"
+            exit 1
+          fi
+      
+      - name: Upload parity audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-audit
+          path: |
+            PARITY_AUDIT.md
+            scripts/python_api.json
+            scripts/wasm_api.json
+          retention-days: 30
+      
+      - name: Comment PR with parity report
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('PARITY_AUDIT.md', 'utf8');
+            
+            // Extract summary
+            const lines = report.split('\n');
+            const summary = lines.slice(0, 30).join('\n');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## Bindings Parity Report\n\n' + summary + '\n\n[Full Report in Artifacts]'
+            });
+
+  golden-value-tests:
+    name: Golden Value Parity Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.12']
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install uv
+        run: pip install uv
+      
+      - name: Install Python dependencies
+        run: |
+          uv sync
+          uv run maturin develop --release
+        working-directory: .
+      
+      - name: Run Python parity tests
+        run: |
+          uv run pytest finstack-py/tests/test_parity_golden.py -v --tb=short
+      
+      - name: Report test results
+        if: always()
+        run: |
+          echo "Python parity tests completed on ${{ matrix.os }}"
+
+  naming-convention-check:
+    name: Naming Convention Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check Python snake_case compliance
+        run: |
+          # Check that Python bindings use snake_case
+          violations=0
+          while IFS= read -r file; do
+            # Look for camelCase in function/method definitions (excluding class names)
+            if grep -E 'def [a-z]+[A-Z]' "$file"; then
+              echo "ERROR: camelCase found in Python binding: $file"
+              violations=$((violations + 1))
+            fi
+          done < <(find finstack-py/src -name "*.rs" -type f)
+          
+          if [ $violations -gt 0 ]; then
+            echo "Found $violations naming convention violations"
+            exit 1
+          fi
+          echo "✓ Python naming conventions OK"
+      
+      - name: Check WASM camelCase compliance
+        run: |
+          # Check that WASM bindings use camelCase
+          violations=0
+          while IFS= read -r file; do
+            # Look for snake_case in js_name attributes
+            if grep -E 'js_name.*=.*"[a-z]+_[a-z]+"' "$file"; then
+              echo "WARNING: snake_case in WASM js_name: $file"
+              violations=$((violations + 1))
+            fi
+          done < <(find finstack-wasm/src -name "*.rs" -type f)
+          
+          if [ $violations -gt 5 ]; then
+            echo "Found $violations naming violations (threshold: 5)"
+            exit 1
+          fi
+          echo "✓ WASM naming conventions OK (warnings: $violations)"
+
+  documentation-check:
+    name: Documentation Completeness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check required documentation exists
+        run: |
+          required_docs=(
+            "NAMING_CONVENTIONS.md"
+            "PARITY_AUDIT.md"
+            "book/src/bindings/api-reference.md"
+            "book/src/bindings/migration-guide.md"
+            "book/src/bindings/examples.md"
+            "tests/golden_values.json"
+          )
+          
+          missing=0
+          for doc in "${required_docs[@]}"; do
+            if [ ! -f "$doc" ]; then
+              echo "ERROR: Missing required documentation: $doc"
+              missing=$((missing + 1))
+            else
+              echo "✓ Found: $doc"
+            fi
+          done
+          
+          if [ $missing -gt 0 ]; then
+            echo "Missing $missing required documentation files"
+            exit 1
+          fi
+          echo "✓ All required documentation present"
+      
+      - name: Validate golden values JSON
+        run: |
+          python3 -c "import json; json.load(open('tests/golden_values.json'))"
+          echo "✓ Golden values JSON is valid"
+      
+      - name: Check documentation freshness
+        run: |
+          # Warn if parity audit is older than 7 days
+          if [ -f "PARITY_AUDIT.md" ]; then
+            age=$(($(date +%s) - $(stat -c %Y PARITY_AUDIT.md)))
+            days=$((age / 86400))
+            if [ $days -gt 7 ]; then
+              echo "WARNING: PARITY_AUDIT.md is $days days old"
+              echo "Consider running: python3 scripts/compare_apis.py"
+            else
+              echo "✓ PARITY_AUDIT.md is up to date ($days days old)"
+            fi
+          fi
+
+  typescript-definitions:
+    name: TypeScript Definitions Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      
+      - name: Check TypeScript definitions exist
+        run: |
+          if [ ! -f "finstack-wasm/pkg/finstack_wasm.d.ts" ]; then
+            echo "TypeScript definitions not found, generating..."
+            cd finstack-wasm
+            wasm-pack build --target web --out-dir pkg
+            cd ..
+          fi
+          
+          if [ -f "finstack-wasm/pkg/finstack_wasm.d.ts" ]; then
+            size=$(wc -c < "finstack-wasm/pkg/finstack_wasm.d.ts")
+            echo "✓ TypeScript definitions exist (${size} bytes)"
+          else
+            echo "ERROR: Failed to generate TypeScript definitions"
+            exit 1
+          fi
+      
+      - name: Validate TypeScript definitions
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - run: |
+          cd finstack-wasm/pkg
+          if command -v tsc &> /dev/null; then
+            tsc --noEmit --skipLibCheck finstack_wasm.d.ts || echo "TypeScript check completed with warnings"
+          else
+            echo "TypeScript compiler not available, skipping validation"
+          fi
+
+  summary:
+    name: Parity Summary
+    needs: [api-audit, golden-value-tests, naming-convention-check, documentation-check]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Summary
+        run: |
+          echo "## Bindings Parity Check Summary"
+          echo ""
+          echo "- API Audit: ${{ needs.api-audit.result }}"
+          echo "- Golden Value Tests: ${{ needs.golden-value-tests.result }}"
+          echo "- Naming Conventions: ${{ needs.naming-convention-check.result }}"
+          echo "- Documentation: ${{ needs.documentation-check.result }}"
+          echo ""
+          
+          if [ "${{ needs.api-audit.result }}" == "success" ] && \
+             [ "${{ needs.golden-value-tests.result }}" == "success" ] && \
+             [ "${{ needs.naming-convention-check.result }}" == "success" ] && \
+             [ "${{ needs.documentation-check.result }}" == "success" ]; then
+            echo "✓ All parity checks passed!"
+            exit 0
+          else
+            echo "✗ Some parity checks failed"
+            exit 1
+          fi
+

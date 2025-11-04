@@ -1,7 +1,7 @@
 //! WASM bindings for standalone Monte Carlo path generation.
 
-use crate::core::error::js_error;
 use super::paths::JsPathDataset;
+use crate::core::error::js_error;
 use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
 use finstack_valuations::instruments::common::mc::path_data::{
     PathDataset, PathPoint, PathSamplingMethod, SimulatedPath,
