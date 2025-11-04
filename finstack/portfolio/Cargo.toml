@@ -19,14 +19,16 @@ indexmap = { version = "2", features = ["serde"] }
 tracing = "0.1"
 time = { version = "0.3", features = ["macros", "serde", "parsing", "formatting"] }
 polars = { version = "0.46", default-features = false, features = ["fmt", "dtype-date"], optional = true }
+rayon = { version = "1.10", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
-default = ["scenarios", "dataframes"]
+default = ["scenarios", "dataframes", "parallel"]
 scenarios = ["dep:finstack-scenarios", "dep:finstack-statements"]
 dataframes = ["dep:polars"]
+parallel = ["dep:rayon"]
 
 [[bench]]
 name = "portfolio_valuation"

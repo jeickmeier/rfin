@@ -78,7 +78,7 @@ fn standard_portfolio_metrics() -> Vec<MetricId> {
 /// Value all positions in a portfolio with full metrics.
 ///
 /// This function:
-/// 1. Iterates through all positions  
+/// 1. Iterates through all positions (in parallel if enabled)
 /// 2. Prices each instrument with metrics  
 /// 3. Converts values to base currency using FX rates  
 /// 4. Aggregates by entity
@@ -97,7 +97,31 @@ fn standard_portfolio_metrics() -> Vec<MetricId> {
 ///
 /// Returns [`PortfolioError`] when pricing fails, FX rates are missing, or monetary
 /// arithmetic overflows.
+///
+/// # Parallelism
+///
+/// When the `parallel` feature is enabled, position valuations are computed in parallel
+/// using rayon. Results are deterministically reduced to ensure consistency across runs.
 pub fn value_portfolio(
+    portfolio: &Portfolio,
+    market: &MarketContext,
+    config: &FinstackConfig,
+) -> Result<PortfolioValuation> {
+    // Use parallel execution if feature is enabled
+    #[cfg(feature = "parallel")]
+    {
+        value_portfolio_parallel(portfolio, market, config)
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        value_portfolio_serial(portfolio, market, config)
+    }
+}
+
+/// Serial implementation of portfolio valuation.
+#[cfg(not(feature = "parallel"))]
+fn value_portfolio_serial(
     portfolio: &Portfolio,
     market: &MarketContext,
     _config: &FinstackConfig,
@@ -109,77 +133,18 @@ pub fn value_portfolio(
     let metrics = standard_portfolio_metrics();
 
     for position in &portfolio.positions {
-        // Price the instrument with metrics (try with metrics, fall back to value only)
-        let valuation_result = position
-            .instrument
-            .price_with_metrics(market, portfolio.as_of, &metrics)
-            .or_else(|_: finstack_core::Error| {
-                // If metrics fail, just get base value
-                let value = position.instrument.value(market, portfolio.as_of)?;
-                Ok(ValuationResult::stamped(
-                    position.instrument.id(),
-                    portfolio.as_of,
-                    value,
-                ))
-            })
-            .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
-                position_id: position.position_id.clone(),
-                message: e.to_string(),
-            })?;
-
-        let value_native = valuation_result.value;
-
-        // Scale by quantity if needed (for most instruments, returns unit value)
-        let scaled_native = value_native * position.quantity;
-
-        // Convert to base currency
-        let value_base = if scaled_native.currency() == portfolio.base_ccy {
-            scaled_native
-        } else {
-            // Get FX matrix
-            let fx_matrix = market.fx.as_ref().ok_or_else(|| {
-                PortfolioError::MissingMarketData("FX matrix not available".to_string())
-            })?;
-
-            // Get FX rate
-            let query = FxQuery::new(
-                scaled_native.currency(),
-                portfolio.base_ccy,
-                portfolio.as_of,
-            );
-            let rate_result =
-                fx_matrix
-                    .rate(query)
-                    .map_err(|_| PortfolioError::FxConversionFailed {
-                        from: scaled_native.currency(),
-                        to: portfolio.base_ccy,
-                    })?;
-
-            Money::new(
-                scaled_native.amount() * rate_result.rate,
-                portfolio.base_ccy,
-            )
-        };
+        let position_value = value_single_position(position, market, portfolio, &metrics)?;
 
         // Aggregate by entity
         let entity_total = by_entity
             .entry(position.entity_id.clone())
             .or_insert_with(|| Money::new(0.0, portfolio.base_ccy));
         *entity_total = entity_total
-            .checked_add(value_base)
+            .checked_add(position_value.value_base)
             .map_err(PortfolioError::Core)?;
 
         // Store position value
-        position_values.insert(
-            position.position_id.clone(),
-            PositionValue {
-                position_id: position.position_id.clone(),
-                entity_id: position.entity_id.clone(),
-                value_native: scaled_native,
-                value_base,
-                valuation_result: Some(valuation_result),
-            },
-        );
+        position_values.insert(position.position_id.clone(), position_value);
     }
 
     // Calculate total
@@ -194,6 +159,129 @@ pub fn value_portfolio(
         position_values,
         total_base_ccy,
         by_entity,
+    })
+}
+
+/// Parallel implementation of portfolio valuation.
+#[cfg(feature = "parallel")]
+fn value_portfolio_parallel(
+    portfolio: &Portfolio,
+    market: &MarketContext,
+    _config: &FinstackConfig,
+) -> Result<PortfolioValuation> {
+    use rayon::prelude::*;
+    
+    let metrics = standard_portfolio_metrics();
+
+    // Value all positions in parallel
+    let position_results: Vec<Result<PositionValue>> = portfolio
+        .positions
+        .par_iter()
+        .map(|position| value_single_position(position, market, portfolio, &metrics))
+        .collect();
+
+    // Collect results and handle errors (fail-fast on first error)
+    let position_values_vec: Vec<PositionValue> =
+        position_results.into_iter().collect::<Result<Vec<_>>>()?;
+
+    // Build position_values map and aggregate by entity deterministically
+    let mut position_values = IndexMap::new();
+    let mut by_entity: IndexMap<EntityId, Money> = IndexMap::new();
+
+    for position_value in position_values_vec {
+        // Aggregate by entity
+        let entity_total = by_entity
+            .entry(position_value.entity_id.clone())
+            .or_insert_with(|| Money::new(0.0, portfolio.base_ccy));
+        *entity_total = entity_total
+            .checked_add(position_value.value_base)
+            .map_err(PortfolioError::Core)?;
+
+        // Store position value
+        position_values.insert(position_value.position_id.clone(), position_value);
+    }
+
+    // Calculate total
+    let mut total_base_ccy = Money::new(0.0, portfolio.base_ccy);
+    for v in by_entity.values() {
+        total_base_ccy = total_base_ccy
+            .checked_add(*v)
+            .map_err(PortfolioError::Core)?;
+    }
+
+    Ok(PortfolioValuation {
+        position_values,
+        total_base_ccy,
+        by_entity,
+    })
+}
+
+/// Value a single position with metrics and FX conversion.
+///
+/// This helper function is used by both serial and parallel implementations.
+fn value_single_position(
+    position: &crate::position::Position,
+    market: &MarketContext,
+    portfolio: &Portfolio,
+    metrics: &[MetricId],
+) -> Result<PositionValue> {
+    // Price the instrument with metrics (try with metrics, fall back to value only)
+    let valuation_result = position
+        .instrument
+        .price_with_metrics(market, portfolio.as_of, metrics)
+        .or_else(|_: finstack_core::Error| {
+            // If metrics fail, just get base value
+            let value = position.instrument.value(market, portfolio.as_of)?;
+            Ok(ValuationResult::stamped(
+                position.instrument.id(),
+                portfolio.as_of,
+                value,
+            ))
+        })
+        .map_err(|e: finstack_core::Error| PortfolioError::ValuationError {
+            position_id: position.position_id.clone(),
+            message: e.to_string(),
+        })?;
+
+    let value_native = valuation_result.value;
+
+    // Scale by quantity if needed (for most instruments, returns unit value)
+    let scaled_native = value_native * position.quantity;
+
+    // Convert to base currency
+    let value_base = if scaled_native.currency() == portfolio.base_ccy {
+        scaled_native
+    } else {
+        // Get FX matrix
+        let fx_matrix = market.fx.as_ref().ok_or_else(|| {
+            PortfolioError::MissingMarketData("FX matrix not available".to_string())
+        })?;
+
+        // Get FX rate
+        let query = FxQuery::new(
+            scaled_native.currency(),
+            portfolio.base_ccy,
+            portfolio.as_of,
+        );
+        let rate_result = fx_matrix
+            .rate(query)
+            .map_err(|_| PortfolioError::FxConversionFailed {
+                from: scaled_native.currency(),
+                to: portfolio.base_ccy,
+            })?;
+
+        Money::new(
+            scaled_native.amount() * rate_result.rate,
+            portfolio.base_ccy,
+        )
+    };
+
+    Ok(PositionValue {
+        position_id: position.position_id.clone(),
+        entity_id: position.entity_id.clone(),
+        value_native: scaled_native,
+        value_base,
+        valuation_result: Some(valuation_result),
     })
 }
 

@@ -106,7 +106,7 @@ pub fn is_summable(metric_id: &str) -> bool {
 /// Aggregate metrics from portfolio valuation results.
 ///
 /// This function:
-/// 1. Collects all metrics from position valuations  
+/// 1. Collects all metrics from position valuations (in parallel if enabled)
 /// 2. Aggregates summable metrics by entity and portfolio total  
 /// 3. Stores non-summable metrics by position only
 ///
@@ -117,7 +117,27 @@ pub fn is_summable(metric_id: &str) -> bool {
 /// # Returns
 ///
 /// [`Result`] with a populated [`PortfolioMetrics`] structure.
+///
+/// # Parallelism
+///
+/// When the `parallel` feature is enabled, metrics are collected in parallel
+/// and then deterministically aggregated to ensure consistency across runs.
 pub fn aggregate_metrics(valuation: &PortfolioValuation) -> Result<PortfolioMetrics> {
+    // Use parallel execution if feature is enabled
+    #[cfg(feature = "parallel")]
+    {
+        aggregate_metrics_parallel(valuation)
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    {
+        aggregate_metrics_serial(valuation)
+    }
+}
+
+/// Serial implementation of metrics aggregation.
+#[cfg(not(feature = "parallel"))]
+fn aggregate_metrics_serial(valuation: &PortfolioValuation) -> Result<PortfolioMetrics> {
     let mut by_position: IndexMap<PositionId, IndexMap<String, f64>> = IndexMap::new();
     let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
 
@@ -147,6 +167,61 @@ pub fn aggregate_metrics(valuation: &PortfolioValuation) -> Result<PortfolioMetr
                         .entry(position_value.entity_id.clone())
                         .or_insert(0.0) += value;
                 }
+            }
+        }
+    }
+
+    Ok(PortfolioMetrics {
+        aggregated,
+        by_position,
+    })
+}
+
+/// Parallel implementation of metrics aggregation.
+#[cfg(feature = "parallel")]
+fn aggregate_metrics_parallel(valuation: &PortfolioValuation) -> Result<PortfolioMetrics> {
+    use rayon::prelude::*;
+    
+    // Phase 1: Collect metrics from each position in parallel
+    // Convert to Vec for parallel iteration
+    let position_entries: Vec<_> = valuation.position_values.iter().collect();
+    
+    let position_metrics: Vec<_> = position_entries
+        .par_iter()
+        .filter_map(|(position_id, position_value)| {
+            position_value.valuation_result.as_ref().map(|val_result| {
+                (
+                    (*position_id).clone(),
+                    position_value.entity_id.clone(),
+                    val_result.measures.clone(),
+                )
+            })
+        })
+        .collect();
+
+    // Phase 2: Build by_position map and aggregate summable metrics deterministically
+    let mut by_position: IndexMap<PositionId, IndexMap<String, f64>> = IndexMap::new();
+    let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
+
+    for (position_id, entity_id, metrics) in position_metrics {
+        by_position.insert(position_id, metrics.clone());
+
+        // Aggregate summable metrics
+        for (metric_id, value) in &metrics {
+            if is_summable(metric_id) {
+                let agg = aggregated
+                    .entry(metric_id.clone())
+                    .or_insert_with(|| AggregatedMetric {
+                        metric_id: metric_id.clone(),
+                        total: 0.0,
+                        by_entity: IndexMap::new(),
+                    });
+
+                // Add to total
+                agg.total += value;
+
+                // Add to entity
+                *agg.by_entity.entry(entity_id.clone()).or_insert(0.0) += value;
             }
         }
     }
