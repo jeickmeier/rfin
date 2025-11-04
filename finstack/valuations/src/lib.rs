@@ -259,5 +259,6 @@ pub mod schema;
 // Export macros before instruments module
 #[macro_use]
 pub mod instruments;
+pub mod attribution;
 pub mod covenants;
 pub mod metrics;

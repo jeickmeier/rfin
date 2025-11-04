@@ -1,3 +1,4 @@
+pub(crate) mod attribution;
 pub(crate) mod calibration;
 pub(crate) mod cashflow;
 pub(crate) mod common;
@@ -64,6 +65,11 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let cov_exports = covenants::register(py, &module)?;
     reexport_from_submodule(&module, "covenants", &cov_exports)?;
     exports.extend(cov_exports.iter().copied());
+
+    // Register attribution module
+    let attr_submod = PyModule::new(py, "attribution")?;
+    attribution::register(&attr_submod)?;
+    module.add_submodule(&attr_submod)?;
 
     let mut uniq = HashSet::new();
     exports.retain(|item| uniq.insert(*item));

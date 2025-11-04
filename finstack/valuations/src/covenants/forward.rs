@@ -10,6 +10,8 @@ use finstack_core::dates::{Date, PeriodId};
 use finstack_core::error::Error;
 use finstack_core::Result;
 use finstack_core::error::InputError;
+
+#[cfg(feature = "mc")]
 use crate::instruments::common::mc::traits::RandomStream;
 
 /// Comparator for headroom calculation.
@@ -147,6 +149,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     let mut breach_probability = deterministic_breach_prob.clone();
 
     // Optional MC overlay (multiplicative shock to metric value)
+    #[cfg(feature = "mc")]
     if config.stochastic {
         let sigma = config.volatility.unwrap_or(0.0);
         let paths = config.num_paths.max(1);

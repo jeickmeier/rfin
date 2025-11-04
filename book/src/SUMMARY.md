@@ -71,6 +71,7 @@
 - [Risk Metrics](./valuations/risk-metrics.md)
   - [Greeks](./valuations/greeks.md)
   - [DV01 & CS01](./valuations/dv01-cs01.md)
+- [P&L Attribution](./valuations/pnl-attribution.md)
 - [Calibration](./valuations/calibration.md)
 
 ---

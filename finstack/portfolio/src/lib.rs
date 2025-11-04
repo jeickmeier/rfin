@@ -52,6 +52,7 @@
 
 #![deny(unsafe_code)]
 
+pub mod attribution;
 pub mod builder;
 #[cfg(feature = "dataframes")]
 pub mod dataframe;
@@ -68,6 +69,7 @@ pub mod valuation;
 pub mod scenarios;
 
 // Re-export key types
+pub use attribution::{attribute_portfolio_pnl, PortfolioAttribution};
 pub use builder::PortfolioBuilder;
 pub use error::{PortfolioError, Result};
 pub use grouping::{aggregate_by_attribute, group_by_attribute};
