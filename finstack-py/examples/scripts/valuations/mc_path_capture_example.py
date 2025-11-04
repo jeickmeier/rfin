@@ -14,6 +14,10 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+# Set up output directory for artifacts
+OUTPUT_DIR = Path(__file__).parent.parent.parent / "outputs"
+OUTPUT_DIR.mkdir(exist_ok=True)
+
 try:
     from finstack.valuations import (
         MonteCarloPathGenerator,
@@ -211,8 +215,9 @@ def example_3_visualization():
     ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig("mc_path_examples.png", dpi=150, bbox_inches="tight")
-    print("Saved visualization to: mc_path_examples.png")
+    output_file = OUTPUT_DIR / "mc_path_examples.png"
+    plt.savefig(output_file, dpi=150, bbox_inches="tight")
+    print(f"Saved visualization to: {output_file}")
 
 
 def example_4_process_parameters():
@@ -340,8 +345,9 @@ def example_5_barrier_analysis():
         ax.legend()
         ax.grid(True, alpha=0.3)
 
-        plt.savefig("barrier_analysis.png", dpi=150, bbox_inches="tight")
-        print("\nSaved barrier analysis to: barrier_analysis.png")
+        output_file = OUTPUT_DIR / "barrier_analysis.png"
+        plt.savefig(output_file, dpi=150, bbox_inches="tight")
+        print(f"\nSaved barrier analysis to: {output_file}")
 
 
 def example_6_export_for_external_analysis():
@@ -363,12 +369,12 @@ def example_6_export_for_external_analysis():
     df = pd.DataFrame(paths.to_dict())
 
     # Export to CSV for external tools
-    csv_file = "mc_paths_export.csv"
+    csv_file = OUTPUT_DIR / "mc_paths_export.csv"
     df.to_csv(csv_file, index=False)
     print(f"Exported {len(df)} rows to {csv_file}")
 
     # Export to Parquet for efficient storage
-    parquet_file = "mc_paths_export.parquet"
+    parquet_file = OUTPUT_DIR / "mc_paths_export.parquet"
     df.to_parquet(parquet_file, index=False)
     print(f"Exported to {parquet_file} (compressed)")
 
