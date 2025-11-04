@@ -13,6 +13,7 @@ Output: JSON file with complete API inventory.
 from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 
@@ -55,13 +56,14 @@ class ModuleInfo:
 class PythonAPIExtractor:
     """Extract API information from Python binding source files."""
 
-    def __init__(self, src_root: Path):
+    def __init__(self, src_root: Path) -> None:
+        """Initialize the extractor with the source root directory."""
         self.src_root = src_root
         self.modules: dict[str, ModuleInfo] = {}
 
     def extract_from_rust_file(self, rust_file: Path) -> ModuleInfo:
         """Extract API info from a Rust file with PyO3 bindings.
-        
+
         This parses Rust source looking for:
         - #[pyclass] declarations
         - #[pymethods] blocks
@@ -123,7 +125,7 @@ class PythonAPIExtractor:
                         return name[2:]
         return ""
 
-    def _extract_methods(self, lines: list[str], class_start: int, class_name: str) -> list[MethodInfo]:
+    def _extract_methods(self, lines: list[str], class_start: int, _class_name: str) -> list[MethodInfo]:
         """Extract methods from a pymethods block."""
         methods = []
         in_pymethods = False
@@ -236,7 +238,7 @@ class PythonAPIExtractor:
         return result
 
 
-def main():
+def main() -> int:
     """Main entry point."""
     # Find project root
     script_dir = Path(__file__).parent
@@ -244,7 +246,6 @@ def main():
     py_src = project_root / "finstack-py" / "src"
 
     if not py_src.exists():
-        print(f"Error: Python source directory not found: {py_src}")
         return 1
 
     extractor = PythonAPIExtractor(py_src)
@@ -252,21 +253,17 @@ def main():
 
     # Write to output file
     output_file = project_root / "scripts" / "python_api.json"
-    with open(output_file, "w") as f:
+    with output_file.open("w") as f:
         json.dump(api_data, f, indent=2)
 
     # Print summary
-    total_classes = sum(len(mod.get("classes", [])) for mod in api_data["api"].values())
-    total_functions = sum(len(mod.get("functions", [])) for mod in api_data["api"].values())
+    sum(len(mod.get("classes", [])) for mod in api_data["api"].values())
+    sum(len(mod.get("functions", [])) for mod in api_data["api"].values())
 
-    print(f"✓ Extracted Python API to {output_file}")
-    print(f"  - Modules: {len(api_data['api'])}")
-    print(f"  - Classes: {total_classes}")
-    print(f"  - Functions: {total_functions}")
 
     return 0
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())
 

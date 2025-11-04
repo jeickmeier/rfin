@@ -17,3 +17,7 @@ pub use finstack_scenarios as scenarios;
 
 #[cfg(feature = "io")]
 pub use finstack_io as io;
+
+// Bridge modules that wire multiple subcrates together
+#[cfg(all(feature = "valuations", feature = "statements"))]
+pub mod covenants;

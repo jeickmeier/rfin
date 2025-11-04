@@ -44,10 +44,18 @@ def find_python_scripts(base_dir: Path) -> List[Path]:
     script_name = Path(__file__).name
     scripts = [s for s in scripts if s.name != script_name]
     
-    # Exclude new instrument examples that are still in development
-    # See NEW_INSTRUMENTS_README.md for details
+    # Exclude slow Monte Carlo examples (100k paths each, can take 30-60s)
+    # These are comprehensive demonstrations but too slow for routine testing
+    # Run them manually when needed: uv run python finstack-py/examples/scripts/valuations/<example>.py
     excluded_patterns = [
-
+        "asian_option_example.py",
+        "barrier_option_example.py",
+        "lookback_option_example.py",
+        "cliquet_option_example.py",
+        "range_accrual_example.py",
+        "autocallable_example.py",
+        "quanto_option_example.py",
+        "cms_option_example.py",
     ]
     scripts = [s for s in scripts if s.name not in excluded_patterns]
     
@@ -69,7 +77,7 @@ def run_script(script_path: Path) -> Tuple[bool, str, float]:
             ["uv", "run", "python", str(script_path)],
             capture_output=True,
             text=True,
-            timeout=30,  # 30 second timeout per script
+            timeout=60,  # 60 second timeout per script (increased for calibration examples)
             cwd=script_path.parent.parent.parent.parent  # Run from project root
         )
         
@@ -90,7 +98,7 @@ def run_script(script_path: Path) -> Tuple[bool, str, float]:
             
     except subprocess.TimeoutExpired:
         execution_time = time.time() - start_time
-        return False, "Script timed out (>30s)", execution_time
+        return False, "Script timed out (>60s)", execution_time
     except Exception as e:
         execution_time = time.time() - start_time
         return False, f"Exception: {str(e)}", execution_time

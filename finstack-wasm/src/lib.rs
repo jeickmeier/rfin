@@ -98,6 +98,13 @@ pub use valuations::results::JsValuationResult as ValuationResult;
 // Using valuations::results::JsResultsMeta for ValuationResult.meta
 pub use valuations::results::JsResultsMeta as ValuationResultsMeta;
 
+// Covenants forecasting
+pub use valuations::covenants::{
+    forecast_covenant as forecastCovenant, JsCovenant as Covenant, JsCovenantForecast as CovenantForecast,
+    JsCovenantForecastConfig as CovenantForecastConfig, JsCovenantSpec as CovenantSpec,
+    JsCovenantType as CovenantType,
+};
+
 // Monte Carlo path generation (now under common::mc)
 pub use valuations::common::mc::{
     JsMonteCarloPathGenerator as MonteCarloPathGenerator, JsMonteCarloResult as MonteCarloResult,

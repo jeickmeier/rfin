@@ -11,6 +11,7 @@ This script:
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 
@@ -27,7 +28,8 @@ class ParityIssue:
 class APIComparator:
     """Compare APIs between Python and WASM bindings."""
 
-    def __init__(self, python_api: dict, wasm_api: dict):
+    def __init__(self, python_api: dict, wasm_api: dict) -> None:
+        """Initialize the comparator with Python and WASM API data."""
         self.python_api = python_api
         self.wasm_api = wasm_api
         self.issues: list[ParityIssue] = []
@@ -39,20 +41,20 @@ class APIComparator:
 
     def compare_classes(self) -> tuple[set[str], set[str], set[str]]:
         """Compare classes between bindings.
-        
+
         Returns:
             (in_both, only_python, only_wasm)
         """
         # Collect all classes from both bindings
         python_classes = set()
-        for module_name, module_data in self.python_api.get("api", {}).items():
-            for mod_key, mod_info in module_data.get("modules", {}).items():
+        for module_data in self.python_api.get("api", {}).values():
+            for mod_info in module_data.get("modules", {}).values():
                 for cls in mod_info.get("classes", []):
                     python_classes.add(cls.get("name", ""))
 
         wasm_classes = set()
-        for module_name, module_data in self.wasm_api.get("api", {}).items():
-            for mod_key, mod_info in module_data.get("modules", {}).items():
+        for module_data in self.wasm_api.get("api", {}).values():
+            for mod_info in module_data.get("modules", {}).values():
                 for cls in mod_info.get("classes", []):
                     wasm_classes.add(cls.get("js_name", cls.get("name", "")))
 
@@ -94,8 +96,8 @@ class APIComparator:
 
         in_both, only_python, only_wasm = self.compare_classes()
 
-        python_instruments = all_instruments & {cls for cls in only_python | in_both}
-        wasm_instruments = all_instruments & {cls for cls in only_wasm | in_both}
+        python_instruments = all_instruments & set(only_python | in_both)
+        wasm_instruments = all_instruments & set(only_wasm | in_both)
 
         missing_in_python = all_instruments - python_instruments
         missing_in_wasm = all_instruments - wasm_instruments
@@ -123,8 +125,8 @@ class APIComparator:
 
         in_both, only_python, only_wasm = self.compare_classes()
 
-        python_cal = calibration_classes & {cls for cls in only_python | in_both}
-        wasm_cal = calibration_classes & {cls for cls in only_wasm | in_both}
+        python_cal = calibration_classes & set(only_python | in_both)
+        wasm_cal = calibration_classes & set(only_wasm | in_both)
 
         return {
             "total_expected": len(calibration_classes),
@@ -328,7 +330,7 @@ class APIComparator:
         return "\n".join(lines)
 
 
-def main():
+def main() -> int:
     """Main entry point."""
     script_dir = Path(__file__).parent
     project_root = script_dir.parent
@@ -338,19 +340,15 @@ def main():
     wasm_api_file = script_dir / "wasm_api.json"
 
     if not python_api_file.exists():
-        print(f"Error: Python API file not found: {python_api_file}")
-        print("Run: python scripts/audit_python_api.py")
         return 1
 
     if not wasm_api_file.exists():
-        print(f"Error: WASM API file not found: {wasm_api_file}")
-        print("Run: python scripts/audit_wasm_api.py")
         return 1
 
-    with open(python_api_file) as f:
+    with python_api_file.open() as f:
         python_api = json.load(f)
 
-    with open(wasm_api_file) as f:
+    with wasm_api_file.open() as f:
         wasm_api = json.load(f)
 
     # Compare APIs
@@ -361,13 +359,10 @@ def main():
     output_file = project_root / "PARITY_AUDIT.md"
     output_file.write_text(report)
 
-    print(f"✓ Generated parity audit report: {output_file}")
-    print("\nRun the following to view:")
-    print(f"  cat {output_file}")
 
     return 0
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())
 

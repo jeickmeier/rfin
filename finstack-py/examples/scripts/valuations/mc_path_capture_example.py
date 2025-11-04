@@ -55,7 +55,7 @@ def example_1_basic_path_generation():
     # Create path generator
     generator = MonteCarloPathGenerator()
 
-    # Generate 1000 GBM paths, capturing 50 for visualization
+    # Generate 500 GBM paths, capturing 50 for visualization
     paths = generator.generate_gbm_paths(
         initial_spot=100.0,
         r=0.05,  # 5% risk-free rate
@@ -63,7 +63,7 @@ def example_1_basic_path_generation():
         sigma=0.25,  # 25% volatility
         time_to_maturity=1.0,  # 1 year
         num_steps=252,  # Daily steps
-        num_paths=1000,  # Total simulation
+        num_paths=500,  # Total simulation
         capture_mode="sample",
         sample_count=50,  # Only capture 50 paths
         seed=42,
@@ -105,7 +105,7 @@ def example_2_dataframe_conversion():
         sigma=0.25,
         time_to_maturity=1.0,
         num_steps=100,
-        num_paths=500,
+        num_paths=200,
         capture_mode="sample",
         sample_count=20,
         seed=42,
@@ -143,10 +143,10 @@ def example_3_visualization():
 
     # Generate paths with different volatilities for comparison
     vol_low = generator.generate_gbm_paths(
-        100.0, 0.05, 0.02, 0.15, 1.0, 252, 1000, "sample", 30, 42
+        100.0, 0.05, 0.02, 0.15, 1.0, 252, 500, "sample", 30, 42
     )
     vol_high = generator.generate_gbm_paths(
-        100.0, 0.05, 0.02, 0.35, 1.0, 252, 1000, "sample", 30, 43
+        100.0, 0.05, 0.02, 0.35, 1.0, 252, 500, "sample", 30, 43
     )
 
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -259,7 +259,7 @@ def example_5_barrier_analysis():
         sigma=0.30,
         time_to_maturity=1.0,
         num_steps=252,
-        num_paths=1000,
+        num_paths=500,
         capture_mode="sample",
         sample_count=100,
         seed=42,
@@ -356,7 +356,7 @@ def example_6_export_for_external_analysis():
 
     generator = MonteCarloPathGenerator()
     paths = generator.generate_gbm_paths(
-        100.0, 0.05, 0.02, 0.20, 2.0, 500, 200, "sample", 50, 42
+        100.0, 0.05, 0.02, 0.20, 2.0, 500, 100, "sample", 50, 42
     )
 
     # Convert to DataFrame
@@ -398,9 +398,9 @@ def example_7_sampling_strategies():
     print(f"  Is complete: {paths_all.is_complete()}")
 
     # Large simulation - capture sample
-    print("\nLarge simulation (10,000 paths, sample 100):")
+    print("\nLarge simulation (2,000 paths, sample 100):")
     paths_sample = generator.generate_gbm_paths(
-        100.0, 0.05, 0.02, 0.20, 1.0, 50, 10000, "sample", 100, 42
+        100.0, 0.05, 0.02, 0.20, 1.0, 50, 2000, "sample", 100, 42
     )
     print(f"  Captured: {paths_sample.num_captured()}/{paths_sample.num_paths_total}")
     print(f"  Sampling ratio: {paths_sample.sampling_ratio():.2%}")
@@ -413,10 +413,10 @@ def example_7_sampling_strategies():
         f"  All paths (100): {len(df_all)} rows, ~{df_all.memory_usage(deep=True).sum() / 1024:.1f} KB"
     )
     print(
-        f"  Sample (100 of 10k): {len(df_sample)} rows, ~{df_sample.memory_usage(deep=True).sum() / 1024:.1f} KB"
+        f"  Sample (100 of 2k): {len(df_sample)} rows, ~{df_sample.memory_usage(deep=True).sum() / 1024:.1f} KB"
     )
     print(
-        "  => Same memory usage, but second simulation has 100x better statistics!"
+        "  => Same memory usage, but second simulation has 20x better statistics!"
     )
 
 

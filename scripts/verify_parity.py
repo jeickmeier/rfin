@@ -12,7 +12,7 @@ Usage:
     python scripts/verify_parity.py
 """
 
-# ruff: noqa: T201 (print statements are fine for CLI scripts)
+
 from pathlib import Path
 import sys
 
@@ -156,7 +156,7 @@ def check_dataframe_support() -> tuple[bool, bool]:
     return (py_file.exists(), wasm_file.exists())
 
 
-def main() -> None:  # noqa: C901, PLR0915 (complexity acceptable for verification script)
+def main() -> None:
     """Main entry point for parity verification."""
     print("=" * 80)
     print("Finstack Bindings Parity Verification")

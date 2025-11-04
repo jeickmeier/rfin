@@ -7,6 +7,7 @@ pub(crate) mod metrics;
 pub(crate) mod pricer;
 pub(crate) mod results;
 pub(crate) mod risk;
+pub(crate) mod covenants;
 
 use crate::core::common::reexport::reexport_from_submodule;
 use pyo3::prelude::*;
@@ -59,6 +60,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let risk_exports = risk::register(py, &module)?;
     reexport_from_submodule(&module, "risk", &risk_exports)?;
     exports.extend(risk_exports.iter().copied());
+
+    let cov_exports = covenants::register(py, &module)?;
+    reexport_from_submodule(&module, "covenants", &cov_exports)?;
+    exports.extend(cov_exports.iter().copied());
 
     let mut uniq = HashSet::new();
     exports.retain(|item| uniq.insert(*item));

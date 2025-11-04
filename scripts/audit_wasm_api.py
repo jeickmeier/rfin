@@ -14,6 +14,7 @@ from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
 import re
+import sys
 from typing import Any
 
 
@@ -55,12 +56,13 @@ class ModuleInfo:
 class WasmAPIExtractor:
     """Extract API information from WASM binding source files."""
 
-    def __init__(self, src_root: Path):
+    def __init__(self, src_root: Path) -> None:
+        """Initialize the extractor with the source root directory."""
         self.src_root = src_root
 
     def extract_from_rust_file(self, rust_file: Path) -> ModuleInfo:
         """Extract API info from a Rust file with wasm-bindgen bindings.
-        
+
         Looks for:
         - #[wasm_bindgen] structs
         - #[wasm_bindgen] impl blocks
@@ -132,10 +134,7 @@ class WasmAPIExtractor:
         struct_name = match.group(1)
 
         # Remove Js prefix if present
-        if struct_name.startswith("Js"):
-            rust_name = struct_name[2:]
-        else:
-            rust_name = struct_name
+        rust_name = struct_name[2:] if struct_name.startswith("Js") else struct_name
 
         # Use js_name if specified, otherwise use rust name without Js prefix
         final_name = js_name if js_name else rust_name
@@ -258,8 +257,8 @@ class WasmAPIExtractor:
             "functions": []
         }
 
-        for line in content.split("\n"):
-            line = line.strip()
+        for raw_line in content.split("\n"):
+            line = raw_line.strip()
 
             # Look for pub use statements
             if line.startswith("pub use"):
@@ -268,8 +267,8 @@ class WasmAPIExtractor:
                 match = re.search(r"pub use [^{]+\{([^}]+)\}", line)
                 if match:
                     items = match.group(1).split(",")
-                    for item in items:
-                        item = item.strip()
+                    for raw_item in items:
+                        item = raw_item.strip()
                         # Handle "Type as Alias"
                         if " as " in item:
                             alias = item.split(" as ")[1].strip()
@@ -342,7 +341,7 @@ class WasmAPIExtractor:
         return result
 
 
-def main():
+def main() -> int:
     """Main entry point."""
     # Find project root
     script_dir = Path(__file__).parent
@@ -350,7 +349,6 @@ def main():
     wasm_src = project_root / "finstack-wasm" / "src"
 
     if not wasm_src.exists():
-        print(f"Error: WASM source directory not found: {wasm_src}")
         return 1
 
     extractor = WasmAPIExtractor(wasm_src)
@@ -358,22 +356,17 @@ def main():
 
     # Write to output file
     output_file = project_root / "scripts" / "wasm_api.json"
-    with open(output_file, "w") as f:
+    with output_file.open("w") as f:
         json.dump(api_data, f, indent=2)
 
     # Print summary
-    total_classes = sum(len(mod.get("classes", [])) for mod in api_data["api"].values())
-    total_functions = sum(len(mod.get("functions", [])) for mod in api_data["api"].values())
+    sum(len(mod.get("classes", [])) for mod in api_data["api"].values())
+    sum(len(mod.get("functions", [])) for mod in api_data["api"].values())
 
-    print(f"✓ Extracted WASM API to {output_file}")
-    print(f"  - Modules: {len(api_data['api'])}")
-    print(f"  - Classes: {total_classes}")
-    print(f"  - Functions: {total_functions}")
-    print(f"  - Exported types: {len(api_data.get('exports', {}).get('types', []))}")
 
     return 0
 
 
 if __name__ == "__main__":
-    exit(main())
+    sys.exit(main())
 

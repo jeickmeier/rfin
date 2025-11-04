@@ -205,3 +205,4 @@ pyo3-polars = "0.22"  # For DataFrame conversion (version mismatch issue)
 **Status**: Significant progress on P0/P1 features; compilation issues need resolution
 
 
+

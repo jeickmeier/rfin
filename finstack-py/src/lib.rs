@@ -136,6 +136,20 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
         }
     }
 
+    // Convenience re-exports for covenant forecasting at package root
+    if let Ok(valuations_mod) = m.getattr("valuations") {
+        if let Ok(val_mod) = valuations_mod.downcast::<PyModule>() {
+            if let Ok(cov_mod) = val_mod.getattr("covenants") {
+                let cov_mod = cov_mod.downcast::<PyModule>()?;
+                for attr in ["CovenantType", "Covenant", "CovenantSpec", "CovenantForecastConfig", "CovenantForecast", "forecast_covenant"] {
+                    if let Ok(value) = cov_mod.getattr(attr) {
+                        m.setattr(attr, &value)?;
+                    }
+                }
+            }
+        }
+    }
+
     let all = PyList::new(
         py,
         [
@@ -155,6 +169,15 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "Currency",
             "Money",
             "DiscountCurve",
+            // Common convenience functions
+            "build_periods",
+            "build_fiscal_periods",
+            "CovenantType",
+            "Covenant",
+            "CovenantSpec",
+            "CovenantForecastConfig",
+            "CovenantForecast",
+            "forecast_covenant",
         ],
     )?;
     m.setattr("__all__", all)?;
