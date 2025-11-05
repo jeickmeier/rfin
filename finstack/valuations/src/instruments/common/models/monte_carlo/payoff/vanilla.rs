@@ -52,7 +52,7 @@ impl Payoff for EuropeanCall {
     /// Captures the terminal spot price at maturity. If spot is not available
     /// in the path state, defaults to 0.0, which will result in a zero payoff
     /// value (since max(0 - K, 0) = 0).
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
             self.terminal_spot = state.spot().unwrap_or(0.0);
         }
@@ -107,7 +107,7 @@ impl Payoff for EuropeanPut {
     /// Captures the terminal spot price at maturity. If spot is not available
     /// in the path state, defaults to 0.0, which will result in the maximum
     /// payoff value (since max(K - 0, 0) = K for puts).
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
             self.terminal_spot = state.spot().unwrap_or(0.0);
         }
@@ -182,7 +182,7 @@ impl Payoff for Digital {
     /// in the path state, defaults to 0.0. For digital options, this default
     /// means: digital calls pay if 0.0 >= K (only if K <= 0), and digital puts
     /// pay if 0.0 < K (always, if K > 0).
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
             self.terminal_spot = state.spot().unwrap_or(0.0);
         }
@@ -259,7 +259,7 @@ impl Payoff for Forward {
     /// Captures the terminal spot price at maturity. If spot is not available
     /// in the path state, defaults to 0.0, which will result in a payoff of
     /// (F - 0) × N for long positions or (0 - F) × N for short positions.
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
             self.terminal_spot = state.spot().unwrap_or(0.0);
         }
@@ -298,8 +298,8 @@ mod tests {
         let mut call = EuropeanCall::new(100.0, 1.0, 10);
 
         // Simulate path with terminal spot = 110
-        let state = create_terminal_state(10, 110.0);
-        call.on_event(&state);
+        let mut state = create_terminal_state(10, 110.0);
+        call.on_event(&mut state);
 
         let value = call.value(Currency::USD);
         assert_eq!(value.amount(), 10.0); // max(110 - 100, 0)
@@ -311,8 +311,8 @@ mod tests {
         let mut call = EuropeanCall::new(100.0, 1.0, 10);
 
         // Out of the money
-        let state = create_terminal_state(10, 90.0);
-        call.on_event(&state);
+        let mut state = create_terminal_state(10, 90.0);
+        call.on_event(&mut state);
 
         let value = call.value(Currency::USD);
         assert_eq!(value.amount(), 0.0); // max(90 - 100, 0) = 0
@@ -323,8 +323,8 @@ mod tests {
         let mut put = EuropeanPut::new(100.0, 1.0, 10);
 
         // In the money
-        let state = create_terminal_state(10, 90.0);
-        put.on_event(&state);
+        let mut state = create_terminal_state(10, 90.0);
+        put.on_event(&mut state);
 
         let value = put.value(Currency::USD);
         assert_eq!(value.amount(), 10.0); // max(100 - 90, 0)
@@ -335,16 +335,16 @@ mod tests {
         let mut digital = Digital::call(100.0, 50.0, 10);
 
         // Above strike
-        let state = create_terminal_state(10, 110.0);
-        digital.on_event(&state);
+        let mut state = create_terminal_state(10, 110.0);
+        digital.on_event(&mut state);
 
         let value = digital.value(Currency::USD);
         assert_eq!(value.amount(), 50.0);
 
         // Reset and test below strike
         digital.reset();
-        let state2 = create_terminal_state(10, 90.0);
-        digital.on_event(&state2);
+        let mut state2 = create_terminal_state(10, 90.0);
+        digital.on_event(&mut state2);
 
         let value2 = digital.value(Currency::USD);
         assert_eq!(value2.amount(), 0.0);
@@ -355,8 +355,8 @@ mod tests {
         let mut digital = Digital::put(100.0, 50.0, 10);
 
         // Below strike
-        let state = create_terminal_state(10, 90.0);
-        digital.on_event(&state);
+        let mut state = create_terminal_state(10, 90.0);
+        digital.on_event(&mut state);
 
         let value = digital.value(Currency::USD);
         assert_eq!(value.amount(), 50.0);
@@ -367,8 +367,8 @@ mod tests {
         let mut forward = Forward::long(100.0, 1.0, 10);
 
         // Spot above forward price
-        let state = create_terminal_state(10, 110.0);
-        forward.on_event(&state);
+        let mut state = create_terminal_state(10, 110.0);
+        forward.on_event(&mut state);
 
         let value = forward.value(Currency::USD);
         assert_eq!(value.amount(), 10.0); // 110 - 100
@@ -379,8 +379,8 @@ mod tests {
         let mut forward = Forward::short(100.0, 1.0, 10);
 
         // Spot above forward price (loss for short)
-        let state = create_terminal_state(10, 110.0);
-        forward.on_event(&state);
+        let mut state = create_terminal_state(10, 110.0);
+        forward.on_event(&mut state);
 
         let value = forward.value(Currency::USD);
         assert_eq!(value.amount(), -10.0); // -(110 - 100)
@@ -390,8 +390,8 @@ mod tests {
     fn test_payoff_reset() {
         let mut call = EuropeanCall::new(100.0, 1.0, 10);
 
-        let state = create_terminal_state(10, 110.0);
-        call.on_event(&state);
+        let mut state = create_terminal_state(10, 110.0);
+        call.on_event(&mut state);
         assert_eq!(call.terminal_spot, 110.0);
 
         call.reset();
@@ -402,8 +402,8 @@ mod tests {
     fn test_notional_scaling() {
         let mut call = EuropeanCall::new(100.0, 10.0, 10);
 
-        let state = create_terminal_state(10, 110.0);
-        call.on_event(&state);
+        let mut state = create_terminal_state(10, 110.0);
+        call.on_event(&mut state);
 
         let value = call.value(Currency::USD);
         assert_eq!(value.amount(), 100.0); // (110 - 100) * 10

@@ -74,7 +74,7 @@ impl<F> Payoff for SimpleTerminalPayoff<F>
 where
     F: Fn(f64) -> f64 + Send + Sync + Clone,
 {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
             self.terminal_spot = state.spot().unwrap_or(0.0);
         }
@@ -112,13 +112,13 @@ mod tests {
         // Before maturity
         let mut state = PathState::new(5, 0.5);
         state.set(state_keys::SPOT, 110.0);
-        payoff.on_event(&state);
+        payoff.on_event(&mut state);
         assert_eq!(payoff.terminal_spot, 0.0);
 
         // At maturity
         let mut state_mat = PathState::new(10, 1.0);
         state_mat.set(state_keys::SPOT, 110.0);
-        payoff.on_event(&state_mat);
+        payoff.on_event(&mut state_mat);
         assert_eq!(payoff.terminal_spot, 110.0);
 
         // Get value

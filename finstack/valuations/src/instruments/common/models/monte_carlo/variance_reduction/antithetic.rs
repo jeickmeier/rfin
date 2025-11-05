@@ -136,7 +136,7 @@ fn simulate_path<R, P, D, F>(
             state[0],
         );
     }
-    payoff.on_event(&path_state);
+    payoff.on_event(&mut path_state);
 
     // Simulate path through time steps
     for step in 0..time_grid.num_steps() {
@@ -174,7 +174,7 @@ fn simulate_path<R, P, D, F>(
         }
 
         // Process payoff event
-        payoff.on_event(&path_state);
+        payoff.on_event(&mut path_state);
     }
 }
 

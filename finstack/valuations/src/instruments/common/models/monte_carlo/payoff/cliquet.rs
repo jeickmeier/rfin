@@ -114,7 +114,7 @@ impl CliquetCallPayoff {
 }
 
 impl Payoff for CliquetCallPayoff {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if self.next_reset_idx < self.reset_dates.len() {
             let target_date = self.reset_dates[self.next_reset_idx];
 

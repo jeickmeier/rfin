@@ -85,7 +85,7 @@ impl AsianCall {
 }
 
 impl Payoff for AsianCall {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         // Check if this is a fixing date
         if self.fixing_steps.contains(&state.step) {
             if let Some(spot) = state.spot() {
@@ -163,7 +163,7 @@ impl AsianPut {
 }
 
 impl Payoff for AsianPut {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if self.fixing_steps.contains(&state.step) {
             if let Some(spot) = state.spot() {
                 match self.averaging {
@@ -266,9 +266,12 @@ mod tests {
         let mut asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
 
         // Simulate fixings: 90, 100, 110 -> average = 100
-        asian.on_event(&create_state(0, 90.0));
-        asian.on_event(&create_state(5, 100.0));
-        asian.on_event(&create_state(10, 110.0));
+        let mut s0 = create_state(0, 90.0);
+        let mut s1 = create_state(5, 100.0);
+        let mut s2 = create_state(10, 110.0);
+        asian.on_event(&mut s0);
+        asian.on_event(&mut s1);
+        asian.on_event(&mut s2);
 
         let value = asian.value(Currency::USD);
         // Average = 100, strike = 100, payoff = 0
@@ -281,9 +284,12 @@ mod tests {
         let mut asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
 
         // Average = (100 + 110 + 120) / 3 = 110
-        asian.on_event(&create_state(0, 100.0));
-        asian.on_event(&create_state(5, 110.0));
-        asian.on_event(&create_state(10, 120.0));
+        let mut s1 = create_state(0, 100.0);
+        asian.on_event(&mut s1);
+        let mut s2 = create_state(5, 110.0);
+        asian.on_event(&mut s2);
+        let mut s3 = create_state(10, 120.0);
+        asian.on_event(&mut s3);
 
         let value = asian.value(Currency::USD);
         // max(110 - 100, 0) = 10
@@ -296,9 +302,12 @@ mod tests {
         let mut asian = AsianCall::new(100.0, 1.0, AveragingMethod::Geometric, fixing_steps);
 
         // Geometric average of (80, 100, 125) = (80*100*125)^(1/3) = 100
-        asian.on_event(&create_state(0, 80.0));
-        asian.on_event(&create_state(5, 100.0));
-        asian.on_event(&create_state(10, 125.0));
+        let mut s4 = create_state(0, 80.0);
+        asian.on_event(&mut s4);
+        let mut s5 = create_state(5, 100.0);
+        asian.on_event(&mut s5);
+        let mut s6 = create_state(10, 125.0);
+        asian.on_event(&mut s6);
 
         let value = asian.value(Currency::USD);
         let expected_avg = (80.0 * 100.0 * 125.0_f64).powf(1.0 / 3.0);
@@ -312,9 +321,12 @@ mod tests {
         let mut asian = AsianPut::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
 
         // Average = (90 + 95 + 100) / 3 = 95
-        asian.on_event(&create_state(0, 90.0));
-        asian.on_event(&create_state(5, 95.0));
-        asian.on_event(&create_state(10, 100.0));
+        let mut s7 = create_state(0, 90.0);
+        asian.on_event(&mut s7);
+        let mut s8 = create_state(5, 95.0);
+        asian.on_event(&mut s8);
+        let mut s9 = create_state(10, 100.0);
+        asian.on_event(&mut s9);
 
         let value = asian.value(Currency::USD);
         // max(100 - 95, 0) = 5
@@ -326,8 +338,10 @@ mod tests {
         let fixing_steps = vec![0, 5, 10];
         let mut asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
 
-        asian.on_event(&create_state(0, 100.0));
-        asian.on_event(&create_state(5, 110.0));
+        let mut s10 = create_state(0, 100.0);
+        asian.on_event(&mut s10);
+        let mut s11 = create_state(5, 110.0);
+        asian.on_event(&mut s11);
         assert_eq!(asian.num_fixings_seen, 2);
 
         asian.reset();

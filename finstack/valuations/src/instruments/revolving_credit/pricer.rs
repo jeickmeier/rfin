@@ -25,56 +25,71 @@ impl RevolvingCreditDiscountingPricer {
     }
 
     /// Price a revolving credit facility using deterministic cashflows.
-    /// TODO: This is a placeholder for the actual mc pricing logic
     pub fn price_deterministic(
         facility: &RevolvingCredit,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        // Generate cashflows
+        // Generate cashflows (excludes upfront fee - handled below)
         let schedule = generate_deterministic_cashflows(facility, as_of)?;
 
         // Get discount curve
         let disc = market.get_discount_ref(facility.discount_curve_id.as_str())?;
-
-        // Discount all cashflows
-        let mut pv = Money::new(0.0, facility.commitment_amount.currency());
-
         let disc_dc = disc.day_count();
-        let base_date = disc.base_date();
 
-        // Compute as_of discount factor
-        let t_as_of = disc_dc.year_fraction(
-            base_date,
-            as_of,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let df_as_of = disc.df(t_as_of);
+        // Convert cashflows to dated flows and filter future only
+        let dated_flows: Vec<(finstack_core::dates::Date, Money)> = schedule
+            .flows
+            .into_iter()
+            .filter(|cf| cf.date > as_of)
+            .map(|cf| (cf.date, cf.amount))
+            .collect();
 
-        for cf in &schedule.flows {
-            // Skip past cashflows
-            if cf.date <= as_of {
-                continue;
-            }
+        // Use core npv_static for efficient discounting
+        use finstack_core::cashflow::discounting::npv_static;
+        let pv_cashflows = if !dated_flows.is_empty() {
+            npv_static(disc, as_of, disc_dc, &dated_flows)?
+        } else {
+            Money::new(0.0, facility.commitment_amount.currency())
+        };
 
-            // Compute discount factor from as_of
-            let t_cf = disc_dc.year_fraction(
-                base_date,
-                cf.date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let df_cf_abs = disc.df(t_cf);
-            let df = if df_as_of != 0.0 {
-                df_cf_abs / df_as_of
+        // Handle upfront fee at pricer level (consistent with MC pricer)
+        // Upfront fee is paid by lender at commitment, so it reduces facility value
+        let upfront_fee_pv = if let Some(upfront_fee) = facility.fees.upfront_fee {
+            if facility.commitment_date > as_of {
+                // Discount upfront fee from commitment date to as_of
+                let t_commitment = disc_dc.year_fraction(
+                    disc.base_date(),
+                    facility.commitment_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
+                let t_as_of = disc_dc.year_fraction(
+                    disc.base_date(),
+                    as_of,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
+                
+                let df_commitment = disc.df(t_commitment);
+                let df_as_of = disc.df(t_as_of);
+                let df = if df_as_of > 0.0 {
+                    df_commitment / df_as_of
+                } else {
+                    1.0
+                };
+                
+                upfront_fee.amount() * df
             } else {
-                1.0
-            };
+                // Commitment date in the past or today - no discounting needed
+                upfront_fee.amount()
+            }
+        } else {
+            0.0
+        };
 
-            let discounted = cf.amount * df;
-            pv = pv.checked_add(discounted)?;
-        }
-
-        Ok(pv)
+        // Lender perspective: upfront fee is an outflow, so subtract from PV
+        let total_pv = pv_cashflows.amount() - upfront_fee_pv;
+        
+        Ok(Money::new(total_pv, facility.commitment_amount.currency()))
     }
 }
 
@@ -534,9 +549,15 @@ impl RevolvingCreditMcPricer {
         );
 
         // Set correlation: prefer provided matrix, else use util–credit correlation if supplied
+        // Default to identity (independent factors) when no correlation is specified
         if let Some(corr) = mc_config.correlation_matrix {
+            // Validate correlation matrix is PSD
+            finstack_core::math::linalg::validate_correlation_matrix(
+                &corr.iter().flatten().copied().collect::<Vec<_>>(),
+                3,
+            )?;
             process_params = process_params.with_correlation(corr);
-        } else if let Some(rho) = mc_config.util_credit_corr.or(Some(0.8)) {
+        } else if let Some(rho) = mc_config.util_credit_corr {
             let correlation = [
                 [1.0, 0.0, rho],
                 [0.0, 1.0, 0.0],
@@ -546,8 +567,6 @@ impl RevolvingCreditMcPricer {
         }
 
         // Apply time offset to align MC time to market time axis
-        process_params = process_params.with_time_offset(t_start);
-
         // Map MC time 0 to commitment date offset on the curve axis
         process_params = process_params.with_time_offset(t_start);
         let process = RevolvingCreditProcess::new(process_params);
@@ -559,12 +578,27 @@ impl RevolvingCreditMcPricer {
         let num_steps = ((time_horizon / 0.25).ceil() as usize).max(1);
         let time_grid = TimeGrid::uniform(time_horizon, num_steps)?;
 
-        // Build payoff
+        // Precompute discount factors for each step (for payoff internal PV accumulation)
+        let t_as_of = disc_dc.year_fraction(
+            base_date,
+            as_of,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        let df_as_of = disc_curve.df(t_as_of);
+        
+        let mut discount_factors = Vec::with_capacity(num_steps + 1);
+        discount_factors.push(if df_as_of > 0.0 { disc_curve.df(t_start) / df_as_of } else { 1.0 });
+        for i in 0..num_steps {
+            let t_abs = t_start + time_grid.time(i + 1);
+            let df_abs = disc_curve.df(t_abs);
+            discount_factors.push(if df_as_of > 0.0 { df_abs / df_as_of } else { 1.0 });
+        }
+
+        // Build payoff (NOTE: upfront fee handled separately below, not in payoff)
         let fees = FeeStructure::new(
             facility.fees.commitment_fee_bp,
             facility.fees.usage_fee_bp,
             facility.fees.facility_fee_bp,
-            facility.fees.upfront_fee.map(|m| m.amount()).unwrap_or(0.0),
         );
 
         let is_fixed_rate = matches!(facility.base_rate_spec, BaseRateSpec::Fixed { .. });
@@ -572,34 +606,6 @@ impl RevolvingCreditMcPricer {
             BaseRateSpec::Fixed { rate } => (*rate, 0.0),
             BaseRateSpec::Floating { margin_bp, .. } => (0.0, *margin_bp),
         };
-
-        // Build time grid vector for payoff
-        let mut time_grid_vec = vec![0.0];
-        for i in 0..num_steps {
-            time_grid_vec.push(time_grid.time(i + 1));
-        }
-
-        // Compute as_of discount factor used for relative DFs
-        let t_as_of = disc_dc.year_fraction(
-            base_date,
-            as_of,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let df_as_of = disc_curve.df(t_as_of);
-
-        // Precompute discount factors at each step relative to as_of
-        let mut discounts = Vec::with_capacity(num_steps + 1);
-        // step 0 corresponds to commitment date (t_start)
-        // helper to df at absolute t
-        let df_at = |t_abs: f64| -> f64 {
-            let df_abs = disc_curve.df(t_abs);
-            if df_as_of > 0.0 { df_abs / df_as_of } else { 1.0 }
-        };
-        discounts.push(df_at(t_start));
-        for i in 0..num_steps {
-            let t_abs = t_start + time_grid.time(i + 1);
-            discounts.push(df_at(t_abs));
-        }
 
         let payoff = RevolvingCreditPayoff::new(
             facility.commitment_amount.amount(),
@@ -610,8 +616,7 @@ impl RevolvingCreditMcPricer {
             fees,
             mc_config.recovery_rate,
             time_horizon,
-            time_grid_vec,
-            discounts,
+            discount_factors,
         );
 
         // Initial state
@@ -635,11 +640,8 @@ impl RevolvingCreditMcPricer {
         let rng_sobol = SobolRng::new(sobol_dim, seed);
         let use_sobol = stoch_spec.use_sobol_qmc;
 
-        // The engine applies a scalar discount_factor; we use 1.0 because payoff is already discounted pathwise
-
         // Run simulation
-        // Note: The engine's simulate_path doesn't properly set all state variables for 3-factor model
-        // We need to extend it or create a custom wrapper. For now, use a workaround.
+        // Note: Payoff emits undiscounted cashflows; engine handles discounting
         let estimate = if use_sobol {
             engine.price::<SobolRng, _, _, _>(
                 &rng_sobol,
@@ -662,7 +664,35 @@ impl RevolvingCreditMcPricer {
             )?
         };
 
-        Ok(estimate.mean)
+        // Handle upfront fee at pricer level (one-time cashflow, not path-dependent)
+        // Upfront fee is paid by lender at commitment, so it reduces facility value
+        let upfront_fee_pv = if let Some(upfront_fee) = facility.fees.upfront_fee {
+            // Discount upfront fee from commitment date to as_of
+            let t_as_of = disc_dc.year_fraction(
+                base_date,
+                as_of,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let df_as_of = disc_curve.df(t_as_of);
+            let df_commitment = disc_curve.df(t_start);
+            let df = if df_as_of > 0.0 {
+                df_commitment / df_as_of
+            } else {
+                1.0
+            };
+            upfront_fee.amount() * df
+        } else {
+            0.0
+        };
+
+        // Combine path-dependent PV with upfront fee
+        // Lender perspective: upfront fee is an outflow, so subtract from PV
+        let total_pv = estimate.mean.amount() - upfront_fee_pv;
+
+        Ok(Money::new(
+            total_pv,
+            facility.commitment_amount.currency(),
+        ))
     }
 }
 

@@ -16,7 +16,11 @@ use finstack_core::money::Money;
 /// explicit currency information.
 pub trait Payoff: Send + Sync + Clone {
     /// Process a path event (fixing, barrier check, etc.).
-    fn on_event(&mut self, state: &PathState);
+    ///
+    /// The PathState is mutable to allow payoffs to record cashflows
+    /// using `state.add_cashflow()`. These cashflows will be transferred
+    /// to PathPoint during path capture.
+    fn on_event(&mut self, state: &mut PathState);
 
     /// Compute final payoff value in the specified currency (undiscounted).
     fn value(&self, currency: Currency) -> Money;
@@ -45,7 +49,7 @@ pub trait Payoff: Send + Sync + Clone {
 /// beyond just the final payoff (useful for debugging, Greeks, etc.).
 pub trait PathObserver: Send + Sync {
     /// Observe a path state.
-    fn observe(&mut self, state: &PathState);
+    fn observe(&mut self, state: &mut PathState);
 
     /// Reset observer for next path.
     fn reset(&mut self);

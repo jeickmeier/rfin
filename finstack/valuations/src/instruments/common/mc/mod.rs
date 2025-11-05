@@ -226,7 +226,7 @@ pub mod prelude {
     pub use super::estimate::Estimate;
     pub use super::online_stats::OnlineStats;
     pub use super::paths::{
-        PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
+        CashflowType, PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
     };
     pub use super::time_grid::TimeGrid;
     pub use super::traits::{Discretization, PathState, RandomStream, StochasticProcess};

@@ -21,6 +21,21 @@ pub struct Estimate {
     pub num_paths: usize,
     /// Optional: sample standard deviation
     pub std_dev: Option<f64>,
+    /// Optional: median value
+    #[serde(default)]
+    pub median: Option<f64>,
+    /// Optional: 25th percentile
+    #[serde(default)]
+    pub percentile_25: Option<f64>,
+    /// Optional: 75th percentile
+    #[serde(default)]
+    pub percentile_75: Option<f64>,
+    /// Optional: minimum value
+    #[serde(default)]
+    pub min: Option<f64>,
+    /// Optional: maximum value
+    #[serde(default)]
+    pub max: Option<f64>,
 }
 
 impl Estimate {
@@ -32,6 +47,11 @@ impl Estimate {
             ci_95,
             num_paths,
             std_dev: None,
+            median: None,
+            percentile_25: None,
+            percentile_75: None,
+            min: None,
+            max: None,
         }
     }
 
@@ -39,6 +59,42 @@ impl Estimate {
     pub fn with_std_dev(mut self, std_dev: f64) -> Self {
         self.std_dev = Some(std_dev);
         self
+    }
+
+    /// Set median value.
+    pub fn with_median(mut self, median: f64) -> Self {
+        self.median = Some(median);
+        self
+    }
+
+    /// Set percentiles (25th and 75th).
+    pub fn with_percentiles(mut self, p25: f64, p75: f64) -> Self {
+        self.percentile_25 = Some(p25);
+        self.percentile_75 = Some(p75);
+        self
+    }
+
+    /// Set min and max values.
+    pub fn with_range(mut self, min: f64, max: f64) -> Self {
+        self.min = Some(min);
+        self.max = Some(max);
+        self
+    }
+
+    /// Get interquartile range (IQR) if percentiles are available.
+    pub fn iqr(&self) -> Option<f64> {
+        match (self.percentile_25, self.percentile_75) {
+            (Some(p25), Some(p75)) => Some(p75 - p25),
+            _ => None,
+        }
+    }
+
+    /// Get range (max - min) if available.
+    pub fn range(&self) -> Option<f64> {
+        match (self.min, self.max) {
+            (Some(min), Some(max)) => Some(max - min),
+            _ => None,
+        }
     }
 
     /// Relative standard error (stderr / mean).

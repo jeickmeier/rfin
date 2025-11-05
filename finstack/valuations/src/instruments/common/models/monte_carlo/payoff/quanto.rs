@@ -90,7 +90,7 @@ impl QuantoCallPayoff {
 }
 
 impl Payoff for QuantoCallPayoff {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         // Track equity spot and FX rate at maturity
         if let Some(&equity) = state.vars.get(state_keys::SPOT) {
             self.terminal_equity = equity;
@@ -170,7 +170,7 @@ impl QuantoPutPayoff {
 }
 
 impl Payoff for QuantoPutPayoff {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if let Some(&equity) = state.vars.get(state_keys::SPOT) {
             self.terminal_equity = equity;
         }
@@ -236,7 +236,7 @@ mod tests {
         state.set(state_keys::SPOT, 4200.0); // Equity spot
         state.set("fx_rate", 1.10); // EUR/USD = 1.10
 
-        payoff.on_event(&state);
+        payoff.on_event(&mut state);
 
         let value = payoff.value(Currency::USD);
         // Payoff = max(4200 - 4000, 0) * 1.10 * 1.0 = 200 * 1.10 = 220
@@ -251,7 +251,7 @@ mod tests {
         state.set(state_keys::SPOT, 3800.0); // Equity below strike
         state.set("fx_rate", 1.10);
 
-        payoff.on_event(&state);
+        payoff.on_event(&mut state);
 
         let value = payoff.value(Currency::USD);
         // Payoff = max(4000 - 3800, 0) * 1.10 * 1.0 = 200 * 1.10 = 220
@@ -266,7 +266,7 @@ mod tests {
         state.set(state_keys::SPOT, 4200.0);
         state.set("fx_rate", 1.10);
 
-        payoff.on_event(&state);
+        payoff.on_event(&mut state);
         assert_eq!(payoff.terminal_equity, 4200.0);
         assert_eq!(payoff.terminal_fx, 1.10);
 

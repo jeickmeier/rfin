@@ -396,3 +396,42 @@ impl crate::instruments::common::pricing::HasDiscountCurve for RevolvingCredit {
         &self.discount_curve_id
     }
 }
+
+// Implement CashflowProvider for standard cashflow interface
+impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
+    fn build_schedule(
+        &self,
+        _curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
+        // Only works for deterministic specs
+        if !self.is_deterministic() {
+            return Err(finstack_core::error::InputError::Invalid.into());
+        }
+
+        let schedule = crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows(
+            self, as_of,
+        )?;
+
+        Ok(schedule
+            .flows
+            .into_iter()
+            .map(|cf| (cf.date, cf.amount))
+            .collect())
+    }
+
+    fn build_full_schedule(
+        &self,
+        _curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        // Only works for deterministic specs
+        if !self.is_deterministic() {
+            return Err(finstack_core::error::InputError::Invalid.into());
+        }
+
+        crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows(
+            self, as_of,
+        )
+    }
+}

@@ -1,61 +1,63 @@
 //! Payoff computation for revolving credit facility Monte Carlo pricing.
 //!
-//! Accumulates cashflows over the facility life, handles default events,
-//! and computes final discounted value.
+//! Generates cashflows over the facility life, handles default events,
+//! and tracks principal balances. Uses market-standard conventions for
+//! cashflow signs and principal tracking.
+//!
+//! # Architecture
+//!
+//! This payoff follows a clean separation of concerns:
+//! - **Cashflow generation**: Emits undiscounted typed cashflows via `PathState`
+//! - **Default detection**: Delegated to `FirstPassageCalculator`
+//! - **Discounting**: Handled by the MC engine (not in payoff)
+//!
+//! # Sign Conventions (Lender Perspective)
+//!
+//! All cashflows follow lender perspective:
+//! - **Principal deployment (draw)**: Negative (outflow to borrower)
+//! - **Principal repayment**: Positive (inflow from borrower)
+//! - **Interest/fees received**: Positive (inflow)
+//! - **Upfront fee paid**: Negative (handled at pricer level)
+//! - **Recovery**: Positive (partial recovery of defaulted principal)
+//!
+//! # Cashflow Types
+//!
+//! Uses `CashflowType` enum for typed cashflow tracking:
+//! - `Principal`: Draws, repayments, and terminal repayment
+//! - `Interest`: Interest on drawn amounts
+//! - `CommitmentFee`: Fee on undrawn amounts
+//! - `UsageFee`: Fee on drawn amounts  
+//! - `FacilityFee`: Fee on total commitment
+//! - `Recovery`: Recovery proceeds on default
+//!
+//! # References
+//!
+//! - Basel Committee on Banking Supervision (2017). *Basel III: Finalising
+//!   post-crisis reforms*. Bank for International Settlements.
+//! - Altman, E. I., & Saunders, A. (1998). "Credit risk measurement:
+//!   Developments over the last 20 years." *Journal of Banking & Finance*, 21(11-12).
 
-use crate::instruments::common::mc::traits::{state_keys, PathState};
-use crate::instruments::common::mc::traits::RandomStream;
+use crate::instruments::common::models::monte_carlo::payoff::default_calculator::{DefaultEvent, FirstPassageCalculator};
+use crate::instruments::common::mc::paths::CashflowType;
+use crate::instruments::common::mc::traits::{state_keys, PathState, RandomStream};
 use crate::instruments::common::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
 
-/// Payoff for revolving credit facility.
-///
-/// Tracks utilization, interest rates, credit spreads, and accumulates
-/// cashflows (interest, fees) over time. Handles default events with recovery.
+/// Rate specification for revolving credit facility.
 #[derive(Clone, Debug)]
-pub struct RevolvingCreditPayoff {
-    /// Total commitment amount
-    pub commitment_amount: f64,
-    /// Day count convention for accrual
-    pub day_count: DayCount,
-    /// Base rate specification
-    pub is_fixed_rate: bool,
-    /// Fixed rate (if applicable)
-    pub fixed_rate: f64,
-    /// Margin in basis points (for floating rate)
-    pub margin_bp: f64,
-    /// Fee structure
-    pub fees: FeeStructure,
-    /// Recovery rate (fraction of drawn amount recovered on default)
-    pub recovery_rate: f64,
-    /// Maturity time (in years from valuation)
-    pub maturity_time: f64,
-    /// Time grid for cashflow events
-    pub time_grid: Vec<f64>,
-    /// Precomputed discount factors per step (df(as_of -> t_step))
-    pub discounts: Vec<f64>,
-
-    // Path state (updated during simulation)
-    /// Current utilization rate
-    utilization: f64,
-    /// Current short rate (for floating)
-    short_rate: f64,
-    /// Current credit spread/hazard rate
-    credit_spread: f64,
-    /// Cumulative hazard (integrated credit spread)
-    cumulative_hazard: f64,
-    /// Default threshold (random draw per path)
-    default_threshold: f64,
-    /// Whether default has occurred
-    defaulted: bool,
-    /// Default time (if occurred)
-    default_time: Option<f64>,
-    /// Accumulated cashflows (negative for lender)
-    accumulated_cashflows: Vec<(f64, f64)>, // (time, cashflow)
-    /// Previous time step (for integration)
-    prev_time: f64,
+pub enum RateSpec {
+    /// Fixed rate (annualized)
+    Fixed {
+        /// Annual rate (e.g., 0.05 for 5%)
+        rate: f64,
+    },
+    /// Floating rate with margin
+    Floating {
+        /// Margin in basis points over short rate
+        margin_bp: f64,
+    },
 }
 
 /// Fee structure for revolving credit facility.
@@ -67,8 +69,72 @@ pub struct FeeStructure {
     pub usage_fee_bp: f64,
     /// Facility fee (bps, annual, on total commitment)
     pub facility_fee_bp: f64,
-    /// Upfront fee (absolute amount, paid at start)
-    pub upfront_fee: f64,
+}
+
+impl FeeStructure {
+    /// Create a new fee structure.
+    pub fn new(
+        commitment_fee_bp: f64,
+        usage_fee_bp: f64,
+        facility_fee_bp: f64,
+    ) -> Self {
+        Self {
+            commitment_fee_bp,
+            usage_fee_bp,
+            facility_fee_bp,
+        }
+    }
+}
+
+/// Payoff for revolving credit facility.
+///
+/// Tracks utilization, interest rates, credit spreads, and generates
+/// cashflows (interest, fees, principal) over time. Handles default events
+/// with recovery using first-passage time methodology.
+///
+/// # Design Principles
+///
+/// - **Dual tracking**: Accumulates discounted PV for engine + undiscounted cashflows for Python
+/// - **Explicit principal tracking**: Maintains outstanding balance, not cumulative flows
+/// - **Modular default**: Uses `FirstPassageCalculator` for credit risk
+///
+/// # State Management
+///
+/// Per-path state:
+/// - Current utilization rate
+/// - Outstanding principal (absolute amount)
+/// - Accumulated discounted PV (for engine)
+/// - Previous timestamp (for integration)
+/// - Default calculator (encapsulates default state)
+#[derive(Clone, Debug)]
+pub struct RevolvingCreditPayoff {
+    // Static configuration (set once, never mutated during path)
+    /// Total commitment amount
+    pub commitment_amount: f64,
+    /// Day count convention for accrual
+    pub day_count: DayCount,
+    /// Rate specification (fixed or floating)
+    pub rate_spec: RateSpec,
+    /// Fee structure
+    pub fees: FeeStructure,
+    /// Maturity time (in years from valuation)
+    pub maturity_time: f64,
+    /// Precomputed discount factors at each step
+    pub discount_factors: Vec<f64>,
+
+    // Default detection (stateful but encapsulated)
+    /// First-passage time default calculator
+    default_calculator: FirstPassageCalculator,
+
+    // Per-path state (reset on each path)
+    /// Current utilization rate (0.0 to 1.0)
+    current_utilization: f64,
+    /// Outstanding principal (absolute amount drawn)
+    outstanding_principal: f64,
+    /// Accumulated discounted PV (for engine's value() call)
+    accumulated_pv: f64,
+    /// Previous time step (for integration)
+    prev_time: f64,
 }
 
 impl RevolvingCreditPayoff {
@@ -84,7 +150,7 @@ impl RevolvingCreditPayoff {
     /// * `fees` - Fee structure
     /// * `recovery_rate` - Recovery rate on default (e.g., 0.4 for 40%)
     /// * `maturity_time` - Maturity time in years
-    /// * `time_grid` - Time grid for cashflow events
+    /// * `discount_factors` - Precomputed discount factors at each step
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         commitment_amount: f64,
@@ -95,112 +161,43 @@ impl RevolvingCreditPayoff {
         fees: FeeStructure,
         recovery_rate: f64,
         maturity_time: f64,
-        time_grid: Vec<f64>,
-        discounts: Vec<f64>,
+        discount_factors: Vec<f64>,
     ) -> Self {
+        let rate_spec = if is_fixed_rate {
+            RateSpec::Fixed { rate: fixed_rate }
+        } else {
+            RateSpec::Floating { margin_bp }
+        };
+
         Self {
             commitment_amount,
             day_count,
-            is_fixed_rate,
-            fixed_rate,
-            margin_bp,
+            rate_spec,
             fees,
-            recovery_rate: recovery_rate.clamp(0.0, 1.0),
             maturity_time,
-            time_grid,
-            discounts,
-            utilization: 0.0,
-            short_rate: 0.0,
-            credit_spread: 0.0,
-            cumulative_hazard: 0.0,
-            default_threshold: 0.0,
-            defaulted: false,
-            default_time: None,
-            accumulated_cashflows: Vec::new(),
+            discount_factors,
+            default_calculator: FirstPassageCalculator::new(recovery_rate),
+            current_utilization: 0.0,
+            outstanding_principal: 0.0,
+            accumulated_pv: 0.0,
             prev_time: 0.0,
         }
     }
 
-    /// Get current drawn amount.
-    fn drawn_amount(&self) -> f64 {
-        self.commitment_amount * self.utilization.clamp(0.0, 1.0)
-    }
-
-    /// Get current undrawn amount.
-    fn undrawn_amount(&self) -> f64 {
-        self.commitment_amount * (1.0 - self.utilization.clamp(0.0, 1.0))
-    }
-
-    /// Get current interest rate.
-    fn interest_rate(&self) -> f64 {
-        if self.is_fixed_rate {
-            self.fixed_rate
-        } else {
+    /// Compute the current interest rate from short rate and rate spec.
+    fn compute_rate(&self, short_rate: f64) -> f64 {
+        match &self.rate_spec {
+            RateSpec::Fixed { rate } => *rate,
+            RateSpec::Floating { margin_bp } => {
             // Floating: short_rate + margin
-            self.short_rate + (self.margin_bp * 1e-4)
+                short_rate + (margin_bp * 1e-4)
+            }
         }
     }
 
-    /// Set default threshold for this path (should be called before each path).
-    ///
-    /// # Arguments
-    ///
-    /// * `threshold` - Exponential random variable E ~ Exp(1) = -ln(U)
-    pub fn set_default_threshold(&mut self, threshold: f64) {
-        self.default_threshold = threshold.max(1e-10);
-    }
-
-    /// Check for default event using cumulative hazard.
-    ///
-    /// Default occurs when cumulative hazard exceeds threshold:
-    /// Λ(t) = ∫₀ᵗ λ(s) ds > E, where E ~ Exp(1)
-    fn check_default(&mut self, current_time: f64) {
-        if self.defaulted {
-            return; // Already defaulted
-        }
-
-        // Update cumulative hazard using trapezoidal integration
-        let dt = current_time - self.prev_time;
-        if dt > 0.0 {
-            // Use average credit spread over interval
-            let avg_spread = self.credit_spread.max(0.0);
-            // Convert credit spread to hazard rate: λ = spread / (1 - recovery)
-            let hazard_rate = avg_spread / (1.0 - self.recovery_rate).max(0.01);
-            self.cumulative_hazard += hazard_rate * dt;
-        }
-
-        // Check if default occurred
-        if self.cumulative_hazard >= self.default_threshold {
-            self.defaulted = true;
-            self.default_time = Some(current_time);
-        }
-    }
-
-    /// Compute cashflows for a time period.
-    ///
-    /// Returns cashflow amount (negative for lender, positive for borrower).
-    fn compute_cashflow(&self, dt: f64) -> f64 {
-        if self.defaulted {
-            return 0.0; // No cashflows after default
-        }
-
-        let drawn = self.drawn_amount();
-        let undrawn = self.undrawn_amount();
-        let rate = self.interest_rate();
-
-        // Interest on drawn amount (received by lender, positive)
-        let interest = drawn * rate * dt;
-
-        // Commitment fee on undrawn (received by lender, positive)
-        let commitment_fee = undrawn * (self.fees.commitment_fee_bp * 1e-4) * dt;
-
-        // Usage fee on drawn (received by lender, positive)
-        let usage_fee = drawn * (self.fees.usage_fee_bp * 1e-4) * dt;
-
-        // Facility fee on total commitment (received by lender, positive)
-        let facility_fee = self.commitment_amount * (self.fees.facility_fee_bp * 1e-4) * dt;
-
-        interest + commitment_fee + usage_fee + facility_fee
+    /// Check if the given time is at or near maturity.
+    fn is_maturity(&self, time: f64) -> bool {
+        (time - self.maturity_time).abs() < 1e-2
     }
 }
 
@@ -208,133 +205,146 @@ impl Payoff for RevolvingCreditPayoff {
     fn on_path_start<R: RandomStream>(&mut self, rng: &mut R) {
         // Draw U ~ Uniform(0,1), set default threshold E = -ln(U)
         let u = rng.next_u01().clamp(1e-12, 1.0 - 1e-12);
-        self.default_threshold = -u.ln();
+        let threshold = -u.ln();
+        self.default_calculator.set_threshold(threshold);
     }
 
-    fn on_event(&mut self, state: &PathState) {
-        // Extract state variables from PathState
-        // For revolving credit, state vector is [utilization, short_rate, credit_spread]
-        // The engine sets: SPOT = state[0], VARIANCE = state[1]
-        // We need to add custom keys for the full 3-factor state
-
-        // Utilization is in SPOT slot (state[0])
-        if let Some(util) = state.get(state_keys::SPOT) {
-            self.utilization = util.clamp(0.0, 1.0);
-        }
-
-        // Short rate might be in SHORT_RATE key (set by custom engine wrapper)
-        // or VARIANCE slot (state[1]) as fallback
-        if let Some(rate) = state.get(state_keys::SHORT_RATE) {
-            self.short_rate = rate;
-        } else if let Some(rate) = state.get(state_keys::VARIANCE) {
-            // Fallback: might be in VARIANCE slot
-            self.short_rate = rate;
-        }
-
-        // Credit spread should be in a custom key "credit_spread" (set by engine wrapper)
-        if let Some(spread) = state.get("credit_spread") {
-            self.credit_spread = spread.max(0.0);
-        }
-
+    fn on_event(&mut self, state: &mut PathState) {
         let current_time = state.time;
-
-        // Check for default
-        self.check_default(current_time);
-
-        // If defaulted, compute recovery and stop
-        if self.defaulted {
-            if let Some(default_t) = self.default_time {
-                if (current_time - default_t).abs() < 1e-10 {
-                    // At default time: receive recovery only; principal loss is implied
-                    let drawn = self.drawn_amount();
-                    let recovery_amount = drawn * self.recovery_rate;
-                    self.accumulated_cashflows
-                        .push((current_time, recovery_amount));
-                }
-            }
-            return; // No more cashflows after default
-        }
-
-        // Compute cashflow for this period
         let dt = current_time - self.prev_time;
-        if dt > 0.0 {
-            let cashflow = self.compute_cashflow(dt);
-            // Discount at this step
-            let step = state.step.min(self.discounts.len().saturating_sub(1));
-            let df = self.discounts[step];
-            self.accumulated_cashflows.push((current_time, cashflow * df));
+
+        // 1. Extract state variables
+        // Utilization is in SPOT slot (state[0])
+        let new_utilization = state.get(state_keys::SPOT).unwrap_or(0.0).clamp(0.0, 1.0);
+
+        // Short rate from SHORT_RATE key or VARIANCE slot as fallback
+        let short_rate = state
+            .get(state_keys::SHORT_RATE)
+            .or_else(|| state.get(state_keys::VARIANCE))
+            .unwrap_or(0.0);
+
+        // Credit spread from custom key "credit_spread"
+        let credit_spread = state.get("credit_spread").unwrap_or(0.0).max(0.0);
+
+        // 2. Check for default
+        let default_event = self.default_calculator.update(credit_spread, dt, current_time);
+
+        if let DefaultEvent::DefaultOccurred {
+            time,
+            recovery_fraction,
+        } = default_event
+        {
+            // Emit recovery cashflow and stop all further processing
+            let recovery = self.outstanding_principal * recovery_fraction;
+            if recovery > 1e-10 {
+                state.add_typed_cashflow(time, recovery, CashflowType::Recovery);
+                
+                // Add discounted recovery to accumulated PV
+                let step = state.step.min(self.discount_factors.len().saturating_sub(1));
+                let df = self.discount_factors[step];
+                self.accumulated_pv += recovery * df;
+            }
+            // Note: Principal loss is implicit (no negative principal flow)
+            // The lender deployed outstanding_principal but only receives recovery
+            return;
         }
 
+        // 3. Compute principal change from utilization delta
+        let new_balance = self.commitment_amount * new_utilization;
+        let principal_change = new_balance - self.outstanding_principal;
+
+        if principal_change.abs() > 1e-6 {
+            // Sign convention (lender perspective):
+            // - Draw (principal_change > 0): negative cashflow (deployment to borrower)
+            // - Repay (principal_change < 0): positive cashflow (receipt from borrower)
+            state.add_typed_cashflow(
+                current_time,
+                -principal_change,
+                CashflowType::Principal,
+            );
+            self.outstanding_principal = new_balance;
+        }
+
+        // 4. Generate operational cashflows (interest + fees)
+        if dt > 0.0 {
+            let drawn = self.outstanding_principal;
+            let undrawn = self.commitment_amount - drawn;
+            let rate = self.compute_rate(short_rate);
+
+            // Get discount factor for this step
+            let step = state.step.min(self.discount_factors.len().saturating_sub(1));
+            let df = self.discount_factors[step];
+
+            // Interest on drawn amount
+            let interest = drawn * rate * dt;
+            if interest.abs() > 1e-10 {
+                state.add_typed_cashflow(current_time, interest, CashflowType::Interest);
+                self.accumulated_pv += interest * df;
+            }
+
+            // Commitment fee on undrawn
+            let commitment_fee = undrawn * (self.fees.commitment_fee_bp * 1e-4) * dt;
+            if commitment_fee.abs() > 1e-10 {
+                state.add_typed_cashflow(
+                    current_time,
+                    commitment_fee,
+                    CashflowType::CommitmentFee,
+                );
+                self.accumulated_pv += commitment_fee * df;
+            }
+
+            // Usage fee on drawn
+            let usage_fee = drawn * (self.fees.usage_fee_bp * 1e-4) * dt;
+            if usage_fee.abs() > 1e-10 {
+                state.add_typed_cashflow(current_time, usage_fee, CashflowType::UsageFee);
+                self.accumulated_pv += usage_fee * df;
+            }
+
+            // Facility fee on total commitment
+            let facility_fee = self.commitment_amount * (self.fees.facility_fee_bp * 1e-4) * dt;
+            if facility_fee.abs() > 1e-10 {
+                state.add_typed_cashflow(
+                    current_time,
+                    facility_fee,
+                    CashflowType::FacilityFee,
+                );
+                self.accumulated_pv += facility_fee * df;
+            }
+        }
+
+        // 5. At maturity: repay outstanding principal (if any)
+        if self.is_maturity(current_time) && self.outstanding_principal > 1e-6 {
+            state.add_typed_cashflow(
+                current_time,
+                self.outstanding_principal,
+                CashflowType::Principal,
+            );
+            
+            // Add discounted terminal repayment to PV
+            let step = state.step.min(self.discount_factors.len().saturating_sub(1));
+            let df = self.discount_factors[step];
+            self.accumulated_pv += self.outstanding_principal * df;
+            
+            self.outstanding_principal = 0.0;
+        }
+
+        // Update state for next event
         self.prev_time = current_time;
+        self.current_utilization = new_utilization;
     }
 
     fn value(&self, currency: Currency) -> Money {
-        // Sum discounted cashflows accumulated
-        let total_cashflow: f64 = self.accumulated_cashflows.iter().map(|(_, cf)| cf).sum();
-
-        // Upfront fee occurs at start; for lender it is an outflow (negative), discount at step 0
-        let upfront_df = self.discounts.first().copied().unwrap_or(1.0);
-        let upfront = -self.fees.upfront_fee * upfront_df;
-
-        // If no default, add terminal repayment discounted at final step
-        let value = if !self.defaulted {
-            let last_df = self
-                .discounts
-                .last()
-                .copied()
-                .unwrap_or(1.0);
-            let drawn = self.drawn_amount();
-            total_cashflow + upfront + drawn * last_df
-        } else {
-            total_cashflow + upfront
-        };
-
-        // Apply sanity bounds
-        let bounded_value = value.clamp(
-            -self.commitment_amount * 10.0,
-            self.commitment_amount * 10.0,
-        );
-
-        Money::new(bounded_value, currency)
+        // Return accumulated discounted PV for the engine
+        Money::new(self.accumulated_pv, currency)
     }
 
     fn reset(&mut self) {
-        // Reset path state for new simulation
-        self.utilization = 0.0;
-        self.short_rate = 0.0;
-        self.credit_spread = 0.0;
-        self.cumulative_hazard = 0.0;
-
-        // Draw new default threshold: E ~ Exp(1) = -ln(U) where U ~ Uniform(0,1)
-        // Note: In a full implementation, this should be generated by the RNG in the engine
-        // For now, we'll use a deterministic approach that will be overridden by the pricer
-        // The pricer should set default_threshold before each path
-        // Default to a reasonable value that won't cause immediate default
-        if self.default_threshold == 0.0 {
-            self.default_threshold = 10.0; // High threshold by default
-        }
-
-        self.defaulted = false;
-        self.default_time = None;
-        self.accumulated_cashflows.clear();
+        // Reset per-path state
+        self.current_utilization = 0.0;
+        self.outstanding_principal = 0.0;
+        self.accumulated_pv = 0.0;
         self.prev_time = 0.0;
-    }
-}
-
-impl FeeStructure {
-    /// Create a new fee structure.
-    pub fn new(
-        commitment_fee_bp: f64,
-        usage_fee_bp: f64,
-        facility_fee_bp: f64,
-        upfront_fee: f64,
-    ) -> Self {
-        Self {
-            commitment_fee_bp,
-            usage_fee_bp,
-            facility_fee_bp,
-            upfront_fee,
-        }
+        self.default_calculator.reset();
     }
 }
 
@@ -345,7 +355,8 @@ mod tests {
 
     #[test]
     fn test_payoff_creation() {
-        let fees = FeeStructure::new(25.0, 10.0, 5.0, 50_000.0);
+        let fees = FeeStructure::new(25.0, 10.0, 5.0);
+        let discounts = vec![1.0, 0.99, 0.98, 0.97, 0.96];
         let payoff = RevolvingCreditPayoff::new(
             10_000_000.0,
             DayCount::Act360,
@@ -355,18 +366,80 @@ mod tests {
             fees,
             0.4,
             1.0,
-            vec![0.0, 0.25, 0.5, 0.75, 1.0],
-            vec![1.0, 0.99, 0.98, 0.97, 0.96],
+            discounts,
         );
 
         assert_eq!(payoff.commitment_amount, 10_000_000.0);
-        assert_eq!(payoff.fixed_rate, 0.05);
-        assert!(payoff.is_fixed_rate);
+        assert_eq!(payoff.maturity_time, 1.0);
+        assert!(matches!(payoff.rate_spec, RateSpec::Fixed { rate } if rate == 0.05));
     }
 
     #[test]
-    fn test_cashflow_computation() {
-        let fees = FeeStructure::new(25.0, 10.0, 5.0, 0.0);
+    fn test_fixed_rate_computation() {
+        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        let discounts = vec![1.0];
+        let payoff = RevolvingCreditPayoff::new(
+            10_000_000.0,
+            DayCount::Act360,
+            true,
+            0.05,
+            0.0,
+            fees,
+            0.4,
+            1.0,
+            discounts,
+        );
+
+        assert_eq!(payoff.compute_rate(0.03), 0.05); // Short rate ignored for fixed
+    }
+
+    #[test]
+    fn test_floating_rate_computation() {
+        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        let discounts = vec![1.0];
+        let payoff = RevolvingCreditPayoff::new(
+            10_000_000.0,
+            DayCount::Act360,
+            false,
+            0.0,
+            50.0, // 50bp margin
+            fees,
+            0.4,
+            1.0,
+            discounts,
+        );
+
+        // Floating: short_rate + margin
+        // 0.03 + 50bp = 0.03 + 0.005 = 0.035
+        assert!((payoff.compute_rate(0.03) - 0.035).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_maturity_check() {
+        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        let discounts = vec![1.0];
+        let payoff = RevolvingCreditPayoff::new(
+            10_000_000.0,
+            DayCount::Act360,
+            true,
+            0.05,
+            0.0,
+            fees,
+            0.4,
+            1.0,
+            discounts,
+        );
+
+        assert!(payoff.is_maturity(1.0));
+        assert!(payoff.is_maturity(1.005)); // Within tolerance
+        assert!(!payoff.is_maturity(0.5));
+        assert!(!payoff.is_maturity(1.02)); // Outside tolerance
+    }
+
+    #[test]
+    fn test_reset() {
+        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        let discounts = vec![1.0];
         let mut payoff = RevolvingCreditPayoff::new(
             10_000_000.0,
             DayCount::Act360,
@@ -376,30 +449,28 @@ mod tests {
             fees,
             0.4,
             1.0,
-            vec![0.0, 0.25, 0.5, 0.75, 1.0],
-            vec![1.0, 0.99, 0.98, 0.97, 0.96],
+            discounts,
         );
 
-        // Set utilization to 50%
-        payoff.utilization = 0.5;
-        payoff.short_rate = 0.05;
-        payoff.credit_spread = 0.01;
+        // Set some state
+        payoff.current_utilization = 0.5;
+        payoff.outstanding_principal = 5_000_000.0;
+        payoff.accumulated_pv = 100_000.0;
+        payoff.prev_time = 0.5;
 
-        // Compute cashflow for one quarter
-        let dt = 0.25;
-        let cf = payoff.compute_cashflow(dt);
+        // Reset
+        payoff.reset();
 
-        // Interest:  5M * 0.05 * 0.25 = 62,500
-        // Commitment fee: 5M * 0.0025 * 0.25 = 3,125
-        // Usage fee: 5M * 0.001 * 0.25 = 1,250
-        // Facility fee: 10M * 0.0005 * 0.25 = 1,250
-        // Total: 68,125 (undiscounted for this dt snippet)
-        assert!(cf > 60_000.0);
+        assert_eq!(payoff.current_utilization, 0.0);
+        assert_eq!(payoff.outstanding_principal, 0.0);
+        assert_eq!(payoff.accumulated_pv, 0.0);
+        assert_eq!(payoff.prev_time, 0.0);
     }
 
     #[test]
-    fn test_default_check() {
-        let fees = FeeStructure::new(0.0, 0.0, 0.0, 0.0);
+    fn test_value_returns_accumulated_pv() {
+        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        let discounts = vec![1.0];
         let mut payoff = RevolvingCreditPayoff::new(
             10_000_000.0,
             DayCount::Act360,
@@ -409,19 +480,14 @@ mod tests {
             fees,
             0.4,
             1.0,
-            vec![0.0, 1.0],
-            vec![1.0, 0.95],
+            discounts,
         );
 
-        // Set default threshold to low value to trigger default
-        payoff.default_threshold = 0.1;
-        payoff.credit_spread = 0.2; // High spread
-        payoff.cumulative_hazard = 0.0;
-
-        // Check default after some time
-        payoff.check_default(0.5);
-
-        // Should default due to high cumulative hazard
-        assert!(payoff.defaulted || payoff.cumulative_hazard > 0.0);
+        // Initially zero
+        assert_eq!(payoff.value(Currency::USD).amount(), 0.0);
+        
+        // After accumulating PV
+        payoff.accumulated_pv = 123_456.78;
+        assert_eq!(payoff.value(Currency::USD).amount(), 123_456.78);
     }
 }

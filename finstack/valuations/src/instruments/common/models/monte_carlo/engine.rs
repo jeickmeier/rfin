@@ -798,8 +798,45 @@ impl McEngine {
             }
         }
 
-        let estimate = Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count())
+        // Compute median and percentiles if paths were captured
+        let mut estimate = Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count())
             .with_std_dev(stats.std_dev());
+
+        // If we have captured paths, calculate additional statistics
+        if let Some(ref dataset) = paths {
+            let mut values: Vec<f64> = dataset
+                .paths
+                .iter()
+                .map(|p| p.final_value)
+                .collect();
+            
+            if !values.is_empty() {
+                values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                let n = values.len();
+                
+                // Median
+                let median = if n % 2 == 0 {
+                    (values[n / 2 - 1] + values[n / 2]) / 2.0
+                } else {
+                    values[n / 2]
+                };
+                
+                // Percentiles
+                let p25_idx = (n as f64 * 0.25).floor() as usize;
+                let p75_idx = (n as f64 * 0.75).floor() as usize;
+                let p25 = values[p25_idx.min(n - 1)];
+                let p75 = values[p75_idx.min(n - 1)];
+                
+                // Min/Max
+                let min = values[0];
+                let max = values[n - 1];
+                
+                estimate = estimate
+                    .with_median(median)
+                    .with_percentiles(p25, p75)
+                    .with_range(min, max);
+            }
+        }
 
         Ok((estimate, paths))
     }
@@ -937,7 +974,7 @@ impl McEngine {
             combined.merge(&chunk_stat);
         }
 
-        let estimate = Estimate::new(
+        let mut estimate = Estimate::new(
             combined.mean(),
             combined.stderr(),
             combined.ci_95(),
@@ -952,6 +989,41 @@ impl McEngine {
             for path in collected_paths {
                 dataset.add_path(path);
             }
+
+            // Compute additional statistics from captured paths
+            let mut values: Vec<f64> = dataset
+                .paths
+                .iter()
+                .map(|p| p.final_value)
+                .collect();
+            
+            if !values.is_empty() {
+                values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                let n = values.len();
+                
+                // Median
+                let median = if n % 2 == 0 {
+                    (values[n / 2 - 1] + values[n / 2]) / 2.0
+                } else {
+                    values[n / 2]
+                };
+                
+                // Percentiles
+                let p25_idx = (n as f64 * 0.25).floor() as usize;
+                let p75_idx = (n as f64 * 0.75).floor() as usize;
+                let p25 = values[p25_idx.min(n - 1)];
+                let p75 = values[p75_idx.min(n - 1)];
+                
+                // Min/Max
+                let min = values[0];
+                let max = values[n - 1];
+                
+                estimate = estimate
+                    .with_median(median)
+                    .with_percentiles(p25, p75)
+                    .with_range(min, max);
+            }
+
             Some(dataset)
         } else {
             None
@@ -1031,7 +1103,7 @@ impl McEngine {
                 path_state.set("credit_spread", val);
             }
         }
-        payoff.on_event(&path_state);
+        payoff.on_event(&mut path_state);
 
         // Simulate path through time steps
         for step in 0..self.config.time_grid.num_steps() {
@@ -1061,7 +1133,7 @@ impl McEngine {
             }
 
             // Process payoff event
-            payoff.on_event(&path_state);
+            payoff.on_event(&mut path_state);
         }
 
         // Extract payoff value (currency will be added by caller)
@@ -1132,7 +1204,7 @@ impl McEngine {
                 path_state.set("credit_spread", val);
             }
         }
-        payoff.on_event(&path_state);
+        payoff.on_event(&mut path_state);
 
         // Simulate path through time steps
         for step in 0..self.config.time_grid.num_steps() {
@@ -1159,8 +1231,8 @@ impl McEngine {
                 }
             }
 
-            // Process payoff event
-            payoff.on_event(&path_state);
+            // Process payoff event (payoff may add cashflows to path_state)
+            payoff.on_event(&mut path_state);
 
             // Capture this point
             let mut point = PathPoint::new(step + 1, t + dt);
@@ -1173,6 +1245,13 @@ impl McEngine {
                 };
                 point.add_var(key.to_string(), val);
             }
+            
+            // Transfer cashflows from PathState to PathPoint
+            let cashflows = path_state.take_cashflows();
+            for (time, amount, cf_type) in cashflows {
+                point.add_typed_cashflow(time, amount, cf_type);
+            }
+            
             if self.config.path_capture.capture_payoffs {
                 // Capture intermediate payoff value (undiscounted)
                 let payoff_money = payoff.value(currency);
@@ -1187,6 +1266,18 @@ impl McEngine {
 
         // Set final discounted value
         simulated_path.set_final_value(payoff_value * discount_factor);
+
+        // Calculate IRR from cashflows (if available)
+        let all_cashflows = simulated_path.extract_cashflows();
+        if all_cashflows.len() >= 2 {
+            // Use periodic IRR approximation (assumes roughly equal spacing)
+            let cashflow_amounts: Vec<f64> = all_cashflows.iter().map(|(_, amt)| *amt).collect();
+            
+            // Use finstack_core IRR calculation
+            if let Ok(irr) = finstack_core::cashflow::performance::irr_periodic(&cashflow_amounts, None) {
+                simulated_path.set_irr(irr);
+            }
+        }
 
         Ok((payoff_value, Some(simulated_path)))
     }
@@ -1224,7 +1315,7 @@ impl McEngine {
                 path_state_p.set("credit_spread", val);
             }
         }
-        payoff_p.on_event(&path_state_p);
+        payoff_p.on_event(&mut path_state_p);
 
         // Antithetic path state and payoff
         let mut state_a = vec![0.0; process.dim()];
@@ -1242,7 +1333,7 @@ impl McEngine {
                 path_state_a.set("credit_spread", val);
             }
         }
-        payoff_a.on_event(&path_state_a);
+        payoff_a.on_event(&mut path_state_a);
 
         // Shared buffers
         let mut z = vec![0.0; process.num_factors()];
@@ -1276,7 +1367,7 @@ impl McEngine {
                     path_state_p.set("credit_spread", val);
                 }
             }
-            payoff_p.on_event(&path_state_p);
+            payoff_p.on_event(&mut path_state_p);
 
             path_state_a.step = step + 1;
             path_state_a.time = t + dt;
@@ -1290,7 +1381,7 @@ impl McEngine {
                     path_state_a.set("credit_spread", val);
                 }
             }
-            payoff_a.on_event(&path_state_a);
+            payoff_a.on_event(&mut path_state_a);
         }
 
         let v_p = payoff_p.value(currency).amount();
@@ -1354,7 +1445,7 @@ mod tests {
     #[derive(Clone)]
     struct DummyPayoff;
     impl Payoff for DummyPayoff {
-        fn on_event(&mut self, _state: &PathState) {}
+        fn on_event(&mut self, _state: &mut PathState) {}
         fn value(&self, currency: Currency) -> Money {
             Money::new(100.0, currency)
         }

@@ -106,7 +106,7 @@ impl Payoff for BasketCall {
     /// This default ensures that missing assets contribute zero to the basket value,
     /// which may be appropriate for basket options where some assets might not be
     /// present in all scenarios.
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         // Update terminal value if at maturity
         if state.step == self.maturity_step {
             // Extract asset values from path state
@@ -199,7 +199,7 @@ impl Payoff for BasketPut {
     /// Extracts asset values from path state using keys "spot_0", "spot_1", etc.
     /// If an asset value is not found in the path state, it defaults to 0.0.
     /// This default ensures that missing assets contribute zero to the basket value.
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
             // Extract asset values from path state
             let mut asset_values = Vec::with_capacity(self.num_assets);
@@ -282,7 +282,7 @@ impl Payoff for ExchangeOption {
     /// is not found in the path state, it defaults to 0.0. For exchange options,
     /// defaults result in a payoff of max(0 - 0, 0) = 0 (zero payoff when both
     /// assets are missing).
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if state.step == self.maturity_step {
             let key1 = format!("spot_{}", self.asset1_idx);
             let key2 = format!("spot_{}", self.asset2_idx);

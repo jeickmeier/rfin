@@ -21,6 +21,7 @@ pub(crate) fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult
 
     // Register all MC classes directly to the mc module (not as sub-submodules)
     mc_module.add_class::<params::PyProcessParams>()?;
+    mc_module.add_class::<paths::PyCashflowType>()?;
     mc_module.add_class::<paths::PyPathPoint>()?;
     mc_module.add_class::<paths::PySimulatedPath>()?;
     mc_module.add_class::<paths::PyPathDataset>()?;
@@ -29,6 +30,7 @@ pub(crate) fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult
 
     let exports = vec![
         "ProcessParams",
+        "CashflowType",
         "PathPoint",
         "SimulatedPath",
         "PathDataset",

@@ -8,6 +8,32 @@ use super::traits::state_keys;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Type of cashflow for categorization and analysis.
+///
+/// Used to distinguish different cashflow categories in Monte Carlo simulations,
+/// particularly for complex instruments like revolving credit facilities.
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum CashflowType {
+    /// Principal deployment (draws) or repayment
+    Principal,
+    /// Interest payment on drawn amounts
+    Interest,
+    /// Commitment fee on undrawn amounts
+    CommitmentFee,
+    /// Usage fee on drawn amounts
+    UsageFee,
+    /// Facility fee on total commitment
+    FacilityFee,
+    /// One-time upfront fee
+    UpfrontFee,
+    /// Recovery proceeds on default
+    Recovery,
+    /// Mark-to-market P&L at timestep
+    MarkToMarket,
+    /// Other/generic cashflow
+    Other,
+}
+
 /// A single point along a Monte Carlo path.
 ///
 /// Captures the state at a specific time step, including state variables
@@ -22,6 +48,10 @@ pub struct PathPoint {
     pub state_vars: HashMap<String, f64>,
     /// Optional payoff value at this point (if capture_payoffs is enabled)
     pub payoff_value: Option<f64>,
+    /// Typed cashflows generated at this timestep (time, amount, type) tuples
+    /// For instruments like revolving credit: interest, fees, principal changes
+    #[serde(default)]
+    pub cashflows: Vec<(f64, f64, CashflowType)>,
 }
 
 impl PathPoint {
@@ -32,6 +62,7 @@ impl PathPoint {
             time,
             state_vars: HashMap::new(),
             payoff_value: None,
+            cashflows: Vec::new(),
         }
     }
 
@@ -42,6 +73,7 @@ impl PathPoint {
             time,
             state_vars,
             payoff_value: None,
+            cashflows: Vec::new(),
         }
     }
 
@@ -74,6 +106,65 @@ impl PathPoint {
     pub fn short_rate(&self) -> Option<f64> {
         self.get_var(state_keys::SHORT_RATE)
     }
+
+    /// Add a cashflow to this point (legacy method, uses Other type).
+    ///
+    /// # Arguments
+    /// * `time` - Time in years when the cashflow occurs
+    /// * `amount` - Cashflow amount (positive = inflow, negative = outflow)
+    pub fn add_cashflow(&mut self, time: f64, amount: f64) {
+        self.cashflows.push((time, amount, CashflowType::Other));
+    }
+
+    /// Add a typed cashflow to this point.
+    ///
+    /// # Arguments
+    /// * `time` - Time in years when the cashflow occurs
+    /// * `amount` - Cashflow amount (positive = inflow, negative = outflow)
+    /// * `cf_type` - Type of cashflow
+    pub fn add_typed_cashflow(&mut self, time: f64, amount: f64, cf_type: CashflowType) {
+        self.cashflows.push((time, amount, cf_type));
+    }
+
+    /// Get all cashflows at this point.
+    pub fn get_cashflows(&self) -> &[(f64, f64, CashflowType)] {
+        &self.cashflows
+    }
+
+    /// Get cashflows by type.
+    ///
+    /// Returns (time, amount) pairs for all cashflows matching the given type.
+    pub fn get_cashflows_by_type(&self, cf_type: CashflowType) -> Vec<(f64, f64)> {
+        self.cashflows
+            .iter()
+            .filter(|(_, _, t)| *t == cf_type)
+            .map(|(time, amount, _)| (*time, *amount))
+            .collect()
+    }
+
+    /// Get principal flows (convenience method).
+    pub fn principal_flows(&self) -> Vec<(f64, f64)> {
+        self.get_cashflows_by_type(CashflowType::Principal)
+    }
+
+    /// Get interest flows (convenience method).
+    pub fn interest_flows(&self) -> Vec<(f64, f64)> {
+        self.get_cashflows_by_type(CashflowType::Interest)
+    }
+
+    /// Get total cashflow amount at this timestep.
+    pub fn total_cashflow(&self) -> f64 {
+        self.cashflows.iter().map(|(_, amt, _)| amt).sum()
+    }
+
+    /// Get total cashflow amount by type.
+    pub fn total_cashflow_by_type(&self, cf_type: CashflowType) -> f64 {
+        self.cashflows
+            .iter()
+            .filter(|(_, _, t)| *t == cf_type)
+            .map(|(_, amt, _)| amt)
+            .sum()
+    }
 }
 
 /// A complete simulated path through time.
@@ -88,6 +179,9 @@ pub struct SimulatedPath {
     pub points: Vec<PathPoint>,
     /// Final discounted payoff value for this path
     pub final_value: f64,
+    /// Internal Rate of Return for this path (if calculable)
+    #[serde(default)]
+    pub irr: Option<f64>,
 }
 
 impl SimulatedPath {
@@ -97,6 +191,7 @@ impl SimulatedPath {
             path_id,
             points: Vec::new(),
             final_value: 0.0,
+            irr: None,
         }
     }
 
@@ -106,6 +201,7 @@ impl SimulatedPath {
             path_id,
             points: Vec::with_capacity(capacity),
             final_value: 0.0,
+            irr: None,
         }
     }
 
@@ -117,6 +213,11 @@ impl SimulatedPath {
     /// Set the final payoff value.
     pub fn set_final_value(&mut self, value: f64) {
         self.final_value = value;
+    }
+
+    /// Set the IRR for this path.
+    pub fn set_irr(&mut self, irr: f64) {
+        self.irr = Some(irr);
     }
 
     /// Get the number of time steps.
@@ -137,6 +238,41 @@ impl SimulatedPath {
     /// Get the final point.
     pub fn terminal_point(&self) -> Option<&PathPoint> {
         self.points.last()
+    }
+
+    /// Extract all cashflows from the path.
+    ///
+    /// Returns all (time, amount) cashflow pairs across all timesteps.
+    pub fn extract_cashflows(&self) -> Vec<(f64, f64)> {
+        let mut all_cashflows = Vec::new();
+        for point in &self.points {
+            for (time, amount, _) in &point.cashflows {
+                all_cashflows.push((*time, *amount));
+            }
+        }
+        all_cashflows
+    }
+
+    /// Extract typed cashflows from the path.
+    ///
+    /// Returns all (time, amount, type) tuples across all timesteps.
+    pub fn extract_typed_cashflows(&self) -> Vec<(f64, f64, CashflowType)> {
+        let mut all_cashflows = Vec::new();
+        for point in &self.points {
+            all_cashflows.extend_from_slice(&point.cashflows);
+        }
+        all_cashflows
+    }
+
+    /// Extract cashflows by type.
+    ///
+    /// Returns all (time, amount) pairs for cashflows of the specified type.
+    pub fn extract_cashflows_by_type(&self, cf_type: CashflowType) -> Vec<(f64, f64)> {
+        let mut all_cashflows = Vec::new();
+        for point in &self.points {
+            all_cashflows.extend(point.get_cashflows_by_type(cf_type));
+        }
+        all_cashflows
     }
 }
 
@@ -311,12 +447,29 @@ mod tests {
         assert_eq!(point.time, 0.0);
         assert!(point.state_vars.is_empty());
         assert!(point.payoff_value.is_none());
+        assert!(point.cashflows.is_empty());
 
         point.add_var("spot".to_string(), 100.0);
         assert_eq!(point.get_var("spot"), Some(100.0));
 
         point.set_payoff(42.5);
         assert_eq!(point.payoff_value, Some(42.5));
+
+        // Test cashflows
+        point.add_cashflow(0.25, 1000.0);
+        point.add_cashflow(0.25, 500.0);
+        assert_eq!(point.cashflows.len(), 2);
+        assert_eq!(point.get_cashflows()[0], (0.25, 1000.0, CashflowType::Other));
+        assert_eq!(point.get_cashflows()[1], (0.25, 500.0, CashflowType::Other));
+        assert_eq!(point.total_cashflow(), 1500.0);
+
+        // Test typed cashflows
+        let mut point2 = PathPoint::new(1, 0.5);
+        point2.add_typed_cashflow(0.5, 100.0, CashflowType::Interest);
+        point2.add_typed_cashflow(0.5, 50.0, CashflowType::Principal);
+        assert_eq!(point2.principal_flows().len(), 1);
+        assert_eq!(point2.interest_flows().len(), 1);
+        assert_eq!(point2.total_cashflow_by_type(CashflowType::Interest), 100.0);
     }
 
     #[test]
@@ -339,6 +492,33 @@ mod tests {
 
         path.set_final_value(5.0);
         assert_eq!(path.final_value, 5.0);
+    }
+
+    #[test]
+    fn test_simulated_path_cashflows() {
+        let mut path = SimulatedPath::with_capacity(1, 10);
+
+        // Add points with cashflows
+        let mut point1 = PathPoint::new(0, 0.0);
+        point1.add_cashflow(0.0, -100.0); // Initial outflow
+        path.add_point(point1);
+
+        let mut point2 = PathPoint::new(1, 0.25);
+        point2.add_cashflow(0.25, 5.0); // Interest payment
+        point2.add_cashflow(0.25, 2.0); // Fee payment
+        path.add_point(point2);
+
+        let mut point3 = PathPoint::new(2, 0.50);
+        point3.add_cashflow(0.50, 5.0); // Interest payment
+        path.add_point(point3);
+
+        // Extract all cashflows
+        let all_cashflows = path.extract_cashflows();
+        assert_eq!(all_cashflows.len(), 4);
+        assert_eq!(all_cashflows[0], (0.0, -100.0));
+        assert_eq!(all_cashflows[1], (0.25, 5.0));
+        assert_eq!(all_cashflows[2], (0.25, 2.0));
+        assert_eq!(all_cashflows[3], (0.50, 5.0));
     }
 
     #[test]

@@ -8,6 +8,7 @@
 //! - `Discretization`: Time-stepping schemes
 //! - `PathState`: State information at a point along a path
 
+use super::paths::CashflowType;
 use std::collections::HashMap;
 
 /// Random stream trait for generating random numbers.
@@ -72,6 +73,12 @@ pub mod state_keys {
     pub const FX_RATE: &str = "fx_rate";
     /// Equity spot (for multi-asset, when SPOT refers to FX)
     pub const EQUITY_SPOT: &str = "equity_spot";
+    /// Current NPV of remaining cashflows (for MTM)
+    pub const NPV_CURRENT: &str = "npv_current";
+    /// NPV from previous timestep (for MTM)
+    pub const NPV_PREVIOUS: &str = "npv_previous";
+    /// Mark-to-market P&L (change in NPV)
+    pub const MTM_PNL: &str = "mtm_pnl";
 }
 
 /// State information for a point along a Monte Carlo path.
@@ -86,6 +93,9 @@ pub struct PathState {
     pub time: f64,
     /// State variables (spot, variance, rate, etc.)
     pub vars: StateVariables,
+    /// Typed cashflows generated at this timestep (time, amount, type) tuples
+    /// Payoffs can add cashflows here which will be transferred to PathPoint during capture
+    cashflows: Vec<(f64, f64, CashflowType)>,
 }
 
 impl PathState {
@@ -95,12 +105,18 @@ impl PathState {
             step,
             time,
             vars: StateVariables::new(),
+            cashflows: Vec::new(),
         }
     }
 
     /// Create a path state with initial variables.
     pub fn with_vars(step: usize, time: f64, vars: StateVariables) -> Self {
-        Self { step, time, vars }
+        Self {
+            step,
+            time,
+            vars,
+            cashflows: Vec::new(),
+        }
     }
 
     /// Get a state variable by key.
@@ -126,6 +142,41 @@ impl PathState {
     /// Get variance (convenience method).
     pub fn variance(&self) -> Option<f64> {
         self.get(state_keys::VARIANCE)
+    }
+
+    /// Add a cashflow to this state (legacy method, uses Other type).
+    ///
+    /// Payoffs can use this method to record cashflows generated at this timestep.
+    /// During path capture, these cashflows are transferred to the PathPoint.
+    ///
+    /// # Arguments
+    /// * `time` - Time in years when the cashflow occurs
+    /// * `amount` - Cashflow amount (positive = inflow, negative = outflow)
+    pub fn add_cashflow(&mut self, time: f64, amount: f64) {
+        self.cashflows.push((time, amount, CashflowType::Other));
+    }
+
+    /// Add a typed cashflow to this state.
+    ///
+    /// # Arguments
+    /// * `time` - Time in years when the cashflow occurs
+    /// * `amount` - Cashflow amount (positive = inflow, negative = outflow)
+    /// * `cf_type` - Type of cashflow
+    pub fn add_typed_cashflow(&mut self, time: f64, amount: f64, cf_type: CashflowType) {
+        self.cashflows.push((time, amount, cf_type));
+    }
+
+    /// Take all cashflows from this state, leaving it empty.
+    ///
+    /// This is used by the monte carlo engine to transfer cashflows to PathPoint.
+    /// After calling this method, the cashflows vector will be empty.
+    pub fn take_cashflows(&mut self) -> Vec<(f64, f64, CashflowType)> {
+        std::mem::take(&mut self.cashflows)
+    }
+
+    /// Get a reference to cashflows (for inspection, not taking ownership).
+    pub fn cashflows(&self) -> &[(f64, f64, CashflowType)] {
+        &self.cashflows
     }
 }
 
@@ -264,5 +315,37 @@ mod tests {
         assert_eq!(state.variance(), Some(0.04));
         assert_eq!(state.get("nonexistent"), None);
         assert_eq!(state.get_or("nonexistent", 42.0), 42.0);
+    }
+
+    #[test]
+    fn test_path_state_cashflows() {
+        let mut state = PathState::new(1, 0.25);
+
+        // Initially no cashflows
+        assert!(state.cashflows().is_empty());
+
+        // Add cashflows
+        state.add_cashflow(0.25, 1000.0);
+        state.add_cashflow(0.25, 500.0);
+
+        assert_eq!(state.cashflows().len(), 2);
+        assert_eq!(state.cashflows()[0], (0.25, 1000.0, CashflowType::Other));
+        assert_eq!(state.cashflows()[1], (0.25, 500.0, CashflowType::Other));
+
+        // Take cashflows (moves them out)
+        let cashflows = state.take_cashflows();
+        assert_eq!(cashflows.len(), 2);
+        assert_eq!(cashflows[0], (0.25, 1000.0, CashflowType::Other));
+        assert_eq!(cashflows[1], (0.25, 500.0, CashflowType::Other));
+
+        // State should now be empty
+        assert!(state.cashflows().is_empty());
+
+        // Test typed cashflows
+        state.add_typed_cashflow(0.5, 2000.0, CashflowType::Interest);
+        state.add_typed_cashflow(0.5, 100.0, CashflowType::Principal);
+        assert_eq!(state.cashflows().len(), 2);
+        assert_eq!(state.cashflows()[0], (0.5, 2000.0, CashflowType::Interest));
+        assert_eq!(state.cashflows()[1], (0.5, 100.0, CashflowType::Principal));
     }
 }

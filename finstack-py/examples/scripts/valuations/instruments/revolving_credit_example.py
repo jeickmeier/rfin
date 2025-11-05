@@ -17,8 +17,8 @@ import matplotlib.pyplot as plt
 from typing import Dict, List
 
 
-def create_market_data() -> MarketContext:
-    """Create market data for revolving credit pricing."""
+def create_market_data() -> tuple[MarketContext, date]:
+    """Create market data for revolving credit pricing and return (market, as_of)."""
     val_date = date(2025, 1, 1)
 
     # Discount curve (times in years)
@@ -31,7 +31,7 @@ def create_market_data() -> MarketContext:
     market = MarketContext()
     market.insert_discount(disc_curve)
 
-    return market
+    return market, val_date
 
 
 def example_deterministic_revolver():
@@ -66,9 +66,9 @@ def example_deterministic_revolver():
     print(f"  Commitment Fee: 25 bps on undrawn")
     print(f"  Usage Fee: 50 bps on drawn")
     
-    market = create_market_data()
+    market, as_of = create_market_data()
     registry = create_standard_registry()
-    result = registry.price(revolver, "discounting", market)
+    result = registry.price(revolver, "discounting", market, as_of=as_of)
     
     print(f"\nPricing Results (Deterministic):")
     print(f"  Present Value: {result.value}")
@@ -125,12 +125,12 @@ def example_monte_carlo_revolver():
     print(f"\nNote: Borrower has flexibility to adjust draws/repays over time")
     print(f"      based on business needs, modeled as mean-reverting process.")
     
-    market = create_market_data()
+    market, as_of = create_market_data()
     registry = create_standard_registry()
     
     print("\nRunning Monte Carlo simulation...")
     # Use monte_carlo_gbm pricer for stochastic utilization
-    result_mc = registry.price(revolver_mc, "monte_carlo_gbm", market)
+    result_mc = registry.price(revolver_mc, "monte_carlo_gbm", market, as_of=as_of)
     
     print(f"\nPricing Results (Monte Carlo):")
     print(f"  Present Value: {result_mc.value}")
@@ -358,7 +358,7 @@ def sensitivity_analysis():
     print("SENSITIVITY ANALYSIS: Optionality Value vs Volatility & Mean Reversion")
     print("=" * 80)
     
-    market = create_market_data()
+    market, as_of = create_market_data()
     registry = create_standard_registry()
     
     # Get deterministic baseline (only once)
@@ -378,7 +378,7 @@ def sensitivity_analysis():
         discount_curve="USD.SOFR",
     )
     
-    pv_det = registry.price(revolver_det, "discounting", market)
+    pv_det = registry.price(revolver_det, "discounting", market, as_of=as_of)
     
     # Test multiple mean reversion speeds
     speeds = [0.2, 0.5, 1.0]  # Lower speeds allow more volatility impact
@@ -427,7 +427,7 @@ def sensitivity_analysis():
                 discount_curve="USD.SOFR",
             )
             
-            pv_mc = registry.price(revolver_mc, "monte_carlo_gbm", market)
+            pv_mc = registry.price(revolver_mc, "monte_carlo_gbm", market, as_of=as_of)
             
             option_val = pv_mc.value - pv_det.value
             relative_pct = (float(option_val.amount) / float(pv_det.value.amount) * 100)
@@ -487,7 +487,7 @@ def sensitivity_analysis():
                 discount_curve="USD.SOFR",
             )
             
-            pv_mc = registry.price(revolver_mc, "monte_carlo_gbm", market)
+            pv_mc = registry.price(revolver_mc, "monte_carlo_gbm", market, as_of=as_of)
             option_val = pv_mc.value - pv_det.value
             option_grid[i, j] = float(option_val.amount) / 1e6
     
@@ -636,6 +636,133 @@ def example_optionality_value():
     plot_utilization_paths(paths, 5000000.0, save_path='revolving_credit_paths.png')
 
 
+def example_cashflow_tracking_and_dataframes():
+    """Example: Detailed cashflow tracking with pandas DataFrames."""
+    print("\n" + "=" * 80)
+    print("CASHFLOW TRACKING & DATAFRAME ANALYSIS")
+    print("=" * 80)
+    
+    # Create a Monte Carlo revolver with path capture enabled
+    from finstack.valuations.common.mc import MonteCarloPathGenerator
+    
+    revolver = RevolvingCredit.builder(
+        instrument_id="REVOLVER_CASHFLOW_DEMO",
+        commitment_amount=Money(10000000.0, USD),
+        drawn_amount=Money(3000000.0, USD),
+        commitment_date=date(2025, 1, 1),
+        maturity_date=date(2026, 1, 1),
+        base_rate_spec={"type": "fixed", "rate": 0.06},
+        payment_frequency="quarterly",
+        fees={
+            "upfront_fee": Money(50000.0, USD),
+            "commitment_fee_bp": 25.0,
+            "usage_fee_bp": 50.0,
+            "facility_fee_bp": 10.0,
+        },
+        draw_repay_spec={
+            "stochastic": {
+                "utilization_process": {
+                    "type": "mean_reverting",
+                    "target_rate": 0.5,
+                    "speed": 1.0,
+                    "volatility": 0.20,
+                },
+                "num_paths": 100,  # Smaller for demo
+                "seed": 123,
+            }
+        },
+        discount_curve="USD.SOFR",
+    )
+    
+    print(f"\nInstrument: {revolver.instrument_id}")
+    print(f"Commitment: {revolver.commitment_amount}")
+    print(f"Simulating 100 paths with cashflow tracking...")
+    
+    market, as_of = create_market_data()
+    registry = create_standard_registry()
+    
+    # Price with path capture to get detailed cashflows
+    # Note: This requires the pricer to be configured to capture paths
+    result = registry.price(revolver, "monte_carlo_gbm", market, as_of=as_of)
+    
+    # If paths were captured in the result, analyze them
+    # (This is a placeholder - actual path capture depends on pricer configuration)
+    print("\n" + "-" * 80)
+    print("CASHFLOW DATAFRAME DEMONSTRATION")
+    print("-" * 80)
+    
+    print("\nExample cashflow extraction methods available:")
+    print("  • path.to_dataframe() - Convert path cashflows to pandas DataFrame")
+    print("  • path.extract_typed_cashflows() - Get (time, amount, type) tuples")
+    print("  • path.extract_cashflows_by_type(CashflowType.Interest) - Filter by type")
+    print("  • point.principal_flows() - Get principal cashflows at a timestep")
+    print("  • point.interest_flows() - Get interest cashflows at a timestep")
+    
+    print("\nDataFrame columns available:")
+    print("  • path_id: Unique path identifier")
+    print("  • step: Timestep index")
+    print("  • time_years: Time in years from commitment")
+    print("  • amount: Cashflow amount")
+    print("  • cashflow_type: Principal, Interest, CommitmentFee, UsageFee, FacilityFee, etc.")
+    
+    print("\nExample analysis with pandas:")
+    print("""
+    # Get cashflows as DataFrame
+    df = path.to_dataframe()
+    
+    # Analyze by cashflow type
+    principal_df = df[df['cashflow_type'] == 'Principal']
+    interest_df = df[df['cashflow_type'] == 'Interest']
+    fees_df = df[df['cashflow_type'].isin(['CommitmentFee', 'UsageFee', 'FacilityFee'])]
+    
+    # Calculate totals by type
+    summary = df.groupby('cashflow_type')['amount'].agg(['sum', 'count', 'mean'])
+    
+    # For all paths in dataset
+    all_cashflows = dataset.cashflows_to_dataframe()
+    
+    # Aggregate across paths
+    path_summary = all_cashflows.groupby(['path_id', 'cashflow_type'])['amount'].sum()
+    
+    # Calculate IRR per path
+    if path.irr is not None:
+        print(f"Path IRR: {path.irr:.2%}")
+    """)
+    
+    print("\n" + "-" * 80)
+    print("CASHFLOW TYPE BREAKDOWN")
+    print("-" * 80)
+    
+    print("\nCashflow types tracked:")
+    print("  1. Principal      - Draws (negative) and repayments (positive)")
+    print("  2. Interest       - Interest on drawn amounts")
+    print("  3. CommitmentFee  - Fee on undrawn commitment")
+    print("  4. UsageFee       - Fee on drawn amounts")
+    print("  5. FacilityFee    - Fee on total commitment")
+    print("  6. UpfrontFee     - One-time fee at commitment")
+    print("  7. Recovery       - Recovery proceeds on default (if applicable)")
+    print("  8. MarkToMarket   - MTM P&L at each timestep (if enabled)")
+    
+    print("\n" + "-" * 80)
+    print("IRR CALCULATION")
+    print("-" * 80)
+    
+    print("\nEach path now includes IRR calculation:")
+    print("  • IRR is calculated from lender's perspective")
+    print("  • Negative cashflows: Principal deployments")
+    print("  • Positive cashflows: Interest, fees, repayments")
+    print("  • IRR = annualized internal rate of return")
+    
+    print("\nStatistics available in results:")
+    print("  • Mean: Average PV across paths")
+    print("  • Median: Median PV (more robust to outliers)")
+    print("  • Percentiles: 25th and 75th percentiles")
+    print("  • Min/Max: Range of path values")
+    print("  • Std Dev: Standard deviation")
+    
+    return result
+
+
 def main():
     """Run revolving credit examples."""
     print("\n" + "=" * 80)
@@ -648,12 +775,17 @@ def main():
     print("  4. Detailed cashflow analysis")
     print("  5. Utilization path visualization")
     print("  6. Sensitivity analysis")
+    print("  7. Cashflow tracking with pandas DataFrames (NEW!)")
+    print("  8. Per-path IRR calculation (NEW!)")
     
     # Main optionality analysis with charts and tables
     example_optionality_value()
     
     # Sensitivity analysis
     sensitivity_analysis()
+    
+    # NEW: Cashflow tracking and DataFrame demonstration
+    example_cashflow_tracking_and_dataframes()
     
     print("\n" + "=" * 80)
     print("EXAMPLES COMPLETED!")
@@ -666,6 +798,8 @@ def main():
     print("  2. Fee structure creates asymmetric incentives")
     print("  3. Higher volatility → Higher cost of flexibility")
     print("  4. Monte Carlo essential for realistic pricing")
+    print("  5. Detailed cashflow tracking enables granular analysis (NEW!)")
+    print("  6. Pandas integration simplifies cashflow analysis (NEW!)")
     print("=" * 80 + "\n")
 
 

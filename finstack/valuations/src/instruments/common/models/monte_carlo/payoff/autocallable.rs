@@ -142,7 +142,7 @@ impl AutocallablePayoff {
 }
 
 impl Payoff for AutocallablePayoff {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         // Get spot value from state
         let spot = state.spot().unwrap_or(0.0);
 
@@ -275,7 +275,7 @@ mod tests {
         let mut state = PathState::new(10, 0.25);
         state.set(state_keys::SPOT, 106.0); // Above 105 barrier
 
-        payoff.on_event(&state);
+        payoff.on_event(&mut state);
 
         assert_eq!(payoff.autocalled_at, Some(0));
 
@@ -310,7 +310,7 @@ mod tests {
         // Verify spot is set correctly
         assert_eq!(state.spot(), Some(80.0), "Spot should be set to 80.0");
 
-        payoff.on_event(&state);
+        payoff.on_event(&mut state);
 
         let value = payoff.value(Currency::USD);
 
@@ -345,7 +345,7 @@ mod tests {
 
         let mut state = PathState::new(10, 0.25);
         state.set(state_keys::SPOT, 106.0);
-        payoff.on_event(&state);
+        payoff.on_event(&mut state);
         assert!(payoff.autocalled_at.is_some());
 
         payoff.reset();

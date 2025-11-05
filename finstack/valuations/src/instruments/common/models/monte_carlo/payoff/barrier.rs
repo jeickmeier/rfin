@@ -155,7 +155,7 @@ impl Payoff for BarrierCall {
     /// If spot is not available in the path state, defaults to 0.0. This default
     /// may cause incorrect barrier detection in some scenarios, so spot should
     /// always be available for barrier options.
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         let current_spot = state.spot().unwrap_or(0.0);
 
         // Check barrier on first event
@@ -240,8 +240,8 @@ mod tests {
         // Simulate path that never hits barrier
         for step in 0..=10 {
             let spot = 105.0; // Below barrier
-            let state = create_path_state(step, spot);
-            barrier_call.on_event(&state);
+            let mut state = create_path_state(step, spot);
+            barrier_call.on_event(&mut state);
         }
 
         // Should get standard call payoff (105 - 100 = 5)
@@ -263,9 +263,12 @@ mod tests {
         );
 
         // Simulate path that hits barrier
-        barrier_call.on_event(&create_path_state(0, 105.0));
-        barrier_call.on_event(&create_path_state(1, 115.0)); // Hit barrier
-        barrier_call.on_event(&create_path_state(10, 120.0)); // Terminal
+        let mut s1 = create_path_state(0, 105.0);
+        barrier_call.on_event(&mut s1);
+        let mut s2 = create_path_state(1, 115.0);
+        barrier_call.on_event(&mut s2); // Hit barrier
+        let mut s3 = create_path_state(10, 120.0);
+        barrier_call.on_event(&mut s3); // Terminal
 
         // Should get zero (knocked out)
         let value = barrier_call.value(Currency::USD);
@@ -280,7 +283,8 @@ mod tests {
         // Path that never hits barrier
         for step in 0..=10 {
             let spot = 105.0;
-            barrier_call.on_event(&create_path_state(step, spot));
+            let mut s4 = create_path_state(step, spot);
+        barrier_call.on_event(&mut s4);
         }
 
         // Should get zero (never knocked in)
@@ -294,9 +298,12 @@ mod tests {
             BarrierCall::new(100.0, 110.0, BarrierType::UpAndIn, 1.0, 10, 0.2, 1.0, false);
 
         // Path that hits barrier
-        barrier_call.on_event(&create_path_state(0, 105.0));
-        barrier_call.on_event(&create_path_state(1, 115.0)); // Knock in
-        barrier_call.on_event(&create_path_state(10, 120.0)); // Terminal
+        let mut s5 = create_path_state(0, 105.0);
+        barrier_call.on_event(&mut s5);
+        let mut s6 = create_path_state(1, 115.0);
+        barrier_call.on_event(&mut s6); // Knock in
+        let mut s7 = create_path_state(10, 120.0);
+        barrier_call.on_event(&mut s7); // Terminal
 
         // Should get call payoff (120 - 100 = 20)
         let value = barrier_call.value(Currency::USD);

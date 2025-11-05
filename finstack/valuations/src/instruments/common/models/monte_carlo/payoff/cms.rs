@@ -105,7 +105,7 @@ impl CmsCapPayoff {
 }
 
 impl Payoff for CmsCapPayoff {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if self.next_fixing_idx < self.fixing_dates.len() {
             let target_time = self.fixing_dates[self.next_fixing_idx];
 
@@ -224,7 +224,7 @@ impl CmsFloorPayoff {
 }
 
 impl Payoff for CmsFloorPayoff {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if self.next_fixing_idx < self.fixing_dates.len() {
             let target_time = self.fixing_dates[self.next_fixing_idx];
 

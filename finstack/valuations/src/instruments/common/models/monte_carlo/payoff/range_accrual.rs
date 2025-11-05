@@ -95,7 +95,7 @@ impl RangeAccrualPayoff {
 }
 
 impl Payoff for RangeAccrualPayoff {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if self.next_obs_idx < self.observation_dates.len() {
             let target_date = self.observation_dates[self.next_obs_idx];
 
@@ -170,11 +170,11 @@ mod tests {
         // Both observations in range
         let mut state1 = PathState::new(10, 0.25);
         state1.set(state_keys::SPOT, 100.0);
-        accrual.on_event(&state1);
+        accrual.on_event(&mut state1);
 
         let mut state2 = PathState::new(20, 0.5);
         state2.set(state_keys::SPOT, 98.0);
-        accrual.on_event(&state2);
+        accrual.on_event(&mut state2);
 
         let value = accrual.value(Currency::USD);
         // 2 days in range / 2 total = 1.0 fraction
@@ -197,15 +197,15 @@ mod tests {
         // Only 2 out of 3 in range
         let mut state1 = PathState::new(10, 0.25);
         state1.set(state_keys::SPOT, 100.0); // In range
-        accrual.on_event(&state1);
+        accrual.on_event(&mut state1);
 
         let mut state2 = PathState::new(20, 0.5);
         state2.set(state_keys::SPOT, 110.0); // Out of range
-        accrual.on_event(&state2);
+        accrual.on_event(&mut state2);
 
         let mut state3 = PathState::new(30, 0.75);
         state3.set(state_keys::SPOT, 98.0); // In range
-        accrual.on_event(&state3);
+        accrual.on_event(&mut state3);
 
         let value = accrual.value(Currency::USD);
         // 2 days in range / 3 total = 2/3 fraction
@@ -228,14 +228,14 @@ mod tests {
         // Exactly at lower boundary (should be in range)
         let mut state = PathState::new(10, 0.25);
         state.set(state_keys::SPOT, 95.0);
-        accrual.on_event(&state);
+        accrual.on_event(&mut state);
 
         assert_eq!(accrual.days_in_range, 1);
 
         // Exactly at upper boundary (should be in range)
         accrual.reset();
         state.set(state_keys::SPOT, 105.0);
-        accrual.on_event(&state);
+        accrual.on_event(&mut state);
 
         assert_eq!(accrual.days_in_range, 1);
     }
@@ -254,7 +254,7 @@ mod tests {
 
         let mut state = PathState::new(10, 0.25);
         state.set(state_keys::SPOT, 100.0);
-        accrual.on_event(&state);
+        accrual.on_event(&mut state);
 
         assert_eq!(accrual.days_in_range, 1);
         assert_eq!(accrual.total_observations, 1);

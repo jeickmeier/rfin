@@ -295,7 +295,7 @@ impl PathDependentPricer {
                                 crate::instruments::common::mc::traits::state_keys::SPOT,
                                 state[0],
                             );
-                            payoff_clone.on_event(&path_state);
+                            payoff_clone.on_event(&mut path_state);
 
                             for step in 0..num_steps {
                                 let t = time_grid.time(step);
@@ -309,7 +309,7 @@ impl PathDependentPricer {
                                     crate::instruments::common::mc::traits::state_keys::SPOT,
                                     state[0],
                                 );
-                                payoff_clone.on_event(&path_state);
+                                payoff_clone.on_event(&mut path_state);
                             }
 
                             let payoff_money = payoff_clone.value(currency);

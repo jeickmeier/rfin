@@ -39,7 +39,7 @@ impl LookbackCall {
 }
 
 impl Payoff for LookbackCall {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if let Some(spot) = state.spot() {
             self.max_spot = self.max_spot.max(spot);
         }
@@ -82,7 +82,7 @@ impl LookbackPut {
 }
 
 impl Payoff for LookbackPut {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if let Some(spot) = state.spot() {
             self.min_spot = self.min_spot.min(spot);
         }
@@ -125,7 +125,7 @@ impl FloatingStrikeLookbackCall {
 }
 
 impl Payoff for FloatingStrikeLookbackCall {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         if let Some(spot) = state.spot() {
             self.min_spot = self.min_spot.min(spot);
             if state.step == self.maturity_step {
@@ -161,9 +161,9 @@ mod tests {
         let mut lookback = LookbackCall::new(100.0, 1.0, 10);
 
         // Simulate path: max = 120
-        lookback.on_event(&create_state(0, 100.0));
-        lookback.on_event(&create_state(5, 120.0));
-        lookback.on_event(&create_state(10, 110.0));
+        lookback.on_event(&mut create_state(0, 100.0));
+        lookback.on_event(&mut create_state(5, 120.0));
+        lookback.on_event(&mut create_state(10, 110.0));
 
         let value = lookback.value(Currency::USD);
         // max(120 - 100, 0) = 20
@@ -175,9 +175,9 @@ mod tests {
         let mut lookback = LookbackPut::new(100.0, 1.0, 10);
 
         // Simulate path: min = 80
-        lookback.on_event(&create_state(0, 100.0));
-        lookback.on_event(&create_state(5, 80.0));
-        lookback.on_event(&create_state(10, 90.0));
+        lookback.on_event(&mut create_state(0, 100.0));
+        lookback.on_event(&mut create_state(5, 80.0));
+        lookback.on_event(&mut create_state(10, 90.0));
 
         let value = lookback.value(Currency::USD);
         // max(100 - 80, 0) = 20
@@ -189,9 +189,9 @@ mod tests {
         let mut lookback = FloatingStrikeLookbackCall::new(1.0, 10);
 
         // Path: starts 100, min 90, ends 110
-        lookback.on_event(&create_state(0, 100.0));
-        lookback.on_event(&create_state(5, 90.0));
-        lookback.on_event(&create_state(10, 110.0));
+        lookback.on_event(&mut create_state(0, 100.0));
+        lookback.on_event(&mut create_state(5, 90.0));
+        lookback.on_event(&mut create_state(10, 110.0));
 
         let value = lookback.value(Currency::USD);
         // 110 - 90 = 20
@@ -202,8 +202,8 @@ mod tests {
     fn test_lookback_reset() {
         let mut lookback = LookbackCall::new(100.0, 1.0, 10);
 
-        lookback.on_event(&create_state(0, 100.0));
-        lookback.on_event(&create_state(5, 120.0));
+        lookback.on_event(&mut create_state(0, 100.0));
+        lookback.on_event(&mut create_state(5, 120.0));
         assert_eq!(lookback.max_spot, 120.0);
 
         lookback.reset();

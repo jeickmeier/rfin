@@ -150,7 +150,7 @@ impl FxBarrierCall {
 }
 
 impl Payoff for FxBarrierCall {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         // Delegate to inner barrier call
         // FX rate should be stored in state as "spot" or "fx_rate"
         self.inner.on_event(state);

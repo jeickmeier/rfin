@@ -203,7 +203,7 @@ impl BermudanSwaptionPayoff {
 }
 
 impl Payoff for BermudanSwaptionPayoff {
-    fn on_event(&mut self, state: &PathState) {
+    fn on_event(&mut self, state: &mut PathState) {
         // Check if we're at an exercise date
         if !self.exercised && self.next_exercise_idx < self.exercise_dates.len() {
             let target_date = self.exercise_dates[self.next_exercise_idx];
