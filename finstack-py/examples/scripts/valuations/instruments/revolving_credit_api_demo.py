@@ -70,9 +70,9 @@ def example_1_standard_pricing():
     revolver = RevolvingCredit.builder(
         instrument_id="RC_STANDARD",
         commitment_amount=Money(10_000_000.0, USD),
-        drawn_amount=Money(5_000_000.0, USD),
+        drawn_amount=Money(4_000_000.0, USD),
         commitment_date=val_date,
-        maturity_date=date(2027, 1, 1),
+        maturity_date=date(2030, 1, 1),
         base_rate_spec={"type": "fixed", "rate": 0.055},
         payment_frequency="quarterly",
         fees={
@@ -112,9 +112,9 @@ def example_2_monte_carlo_with_paths():
     revolver = RevolvingCredit.builder(
         instrument_id="RC_STOCHASTIC",
         commitment_amount=Money(10_000_000.0, USD),
-        drawn_amount=Money(3_000_000.0, USD),
+        drawn_amount=Money(4_000_000.0, USD),
         commitment_date=val_date,
-        maturity_date=date(2026, 1, 1),
+        maturity_date=date(2030, 1, 1),
         base_rate_spec={"type": "fixed", "rate": 0.06},
         payment_frequency="quarterly",
         fees={
@@ -127,11 +127,11 @@ def example_2_monte_carlo_with_paths():
             "stochastic": {
                 "utilization_process": {
                     "type": "mean_reverting",
-                    "target_rate": 0.55,
-                    "speed": 1.2,
+                    "target_rate": 0.40,
+                    "speed": 2.0,
                     "volatility": 0.35,
                 },
-                "num_paths": 500,
+                "num_paths": 5000,
                 "seed": 42,
                 "mc_config": {
                     "recovery_rate": 0.40,
@@ -196,7 +196,7 @@ def example_3_cashflow_dataframe():
         commitment_amount=Money(10_000_000.0, USD),
         drawn_amount=Money(4_000_000.0, USD),
         commitment_date=val_date,
-        maturity_date=date(2026, 1, 1),
+        maturity_date=date(2030, 1, 1),
         base_rate_spec={"type": "fixed", "rate": 0.055},
         payment_frequency="quarterly",
         fees={
@@ -208,11 +208,11 @@ def example_3_cashflow_dataframe():
             "stochastic": {
                 "utilization_process": {
                     "type": "mean_reverting",
-                    "target_rate": 0.50,
-                    "speed": 1.0,
-                    "volatility": 0.25,
+                    "target_rate": 0.40,
+                    "speed": 2.0,
+                    "volatility": 0.3,
                 },
-                "num_paths": 200,
+                "num_paths": 5000,
                 "seed": 123,
                 "mc_config": {
                     "recovery_rate": 0.40,
@@ -225,7 +225,7 @@ def example_3_cashflow_dataframe():
     
     # One-line cashflow DataFrame extraction!
     print("\nExtracting cashflows to DataFrame...")
-    df = revolver.cashflows_df(market, val_date, num_paths=2000, capture_mode="all", seed=123)
+    df = revolver.cashflows_df(market, val_date, num_paths=5000, capture_mode="all", seed=123)
     
     print(f"Total cashflows: {len(df)}")
     print(f"\nCashflow breakdown by type:")
@@ -258,7 +258,7 @@ def example_4_irr_distribution():
         commitment_amount=Money(10_000_000.0, USD),
         drawn_amount=Money(4_000_000.0, USD),
         commitment_date=val_date,
-        maturity_date=date(2026, 1, 1),
+        maturity_date=date(2030, 1, 1),
         base_rate_spec={"type": "fixed", "rate": 0.06},
         payment_frequency="quarterly",
         fees={
@@ -270,11 +270,11 @@ def example_4_irr_distribution():
             "stochastic": {
                 "utilization_process": {
                     "type": "mean_reverting",
-                    "target_rate": 0.60,
-                    "speed": 0.8,
+                    "target_rate": 0.40,
+                    "speed": 2.0,
                     "volatility": 0.30,
                 },
-                "num_paths": 500,
+                "num_paths": 5000,
                 "seed": 456,
                 "mc_config": {
                     "recovery_rate": 0.40,
@@ -295,7 +295,7 @@ def example_4_irr_distribution():
     
     # Calculate IRR distribution (simple one-liner!)
     print("\nCalculating IRR distribution across 500 paths...")
-    irr_stats = revolver.irr_distribution(market, val_date, num_paths=500, seed=456)
+    irr_stats = revolver.irr_distribution(market, val_date, num_paths=5000, seed=456)
     
     print(f"\nIRR Distribution Statistics:")
     print(f"  Mean:     {irr_stats['mean']:.2%}")
@@ -322,9 +322,9 @@ def create_visualizations():
     revolver = RevolvingCredit.builder(
         instrument_id="RC_VIZ",
         commitment_amount=Money(10_000_000.0, USD),
-        drawn_amount=Money(3_500_000.0, USD),
+        drawn_amount=Money(4_000_000.0, USD),
         commitment_date=val_date,
-        maturity_date=date(2026, 1, 1),
+        maturity_date=date(2030, 1, 1),
         base_rate_spec={"type": "fixed", "rate": 0.055},
         payment_frequency="quarterly",
         fees={
@@ -337,11 +337,11 @@ def create_visualizations():
             "stochastic": {
                 "utilization_process": {
                     "type": "mean_reverting",
-                    "target_rate": 0.50,
-                    "speed": 1.0,
+                    "target_rate": 0.40,
+                    "speed": 2.0,
                     "volatility": 0.30,
                 },
-                "num_paths": 300,
+                "num_paths": 5000,
                 "seed": 789,
                 "mc_config": {
                     "recovery_rate": 0.40,
@@ -378,7 +378,7 @@ def create_visualizations():
     
     # Extract cashflows
     print("\nExtracting cashflow data...")
-    df_cashflows = revolver.cashflows_df(market, val_date, num_paths=300, capture_mode="sample", seed=789)
+    df_cashflows = revolver.cashflows_df(market, val_date, num_paths=5000, capture_mode="sample", seed=789)
     
     # Create figure with subplots
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
@@ -554,9 +554,9 @@ def example_5_pandas_analysis():
     revolver = RevolvingCredit.builder(
         instrument_id="RC_PANDAS_DEMO",
         commitment_amount=Money(10_000_000.0, USD),
-        drawn_amount=Money(3_000_000.0, USD),
+        drawn_amount=Money(4_000_000.0, USD),
         commitment_date=val_date,
-        maturity_date=date(2026, 1, 1),
+        maturity_date=date(2030, 1, 1),
         base_rate_spec={"type": "fixed", "rate": 0.055},
         payment_frequency="quarterly",
         fees={
@@ -568,11 +568,11 @@ def example_5_pandas_analysis():
             "stochastic": {
                 "utilization_process": {
                     "type": "mean_reverting",
-                    "target_rate": 0.50,
-                    "speed": 1.0,
+                    "target_rate": 0.40,
+                    "speed": 2.0,
                     "volatility": 0.25,
                 },
-                "num_paths": 200,
+                "num_paths": 5000,
                 "seed": 111,
                 "mc_config": {
                     "recovery_rate": 0.40,
@@ -584,7 +584,7 @@ def example_5_pandas_analysis():
     )
     
     # Get cashflows
-    df = revolver.cashflows_df(market, val_date, num_paths=200, seed=111)
+    df = revolver.cashflows_df(market, val_date, num_paths=5000, seed=111)
     
     print("\nPandas Analysis Examples:")
     print("-" * 80)
