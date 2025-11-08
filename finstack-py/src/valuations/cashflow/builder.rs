@@ -1,11 +1,17 @@
 use crate::core::error::core_to_py;
 use crate::core::money::PyMoney;
 use crate::core::utils::py_to_date;
+use crate::core::market_data::context::PyMarketContext;
+use crate::core::market_data::term_structures::PyDiscountCurve;
+use crate::core::dates::periods::{PyPeriod, PyPeriodPlan};
 use finstack_core::money::Money;
+use finstack_core::dates::Period;
+use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder as val_builder;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
 use pyo3::Bound;
+use std::collections::HashMap;
 
 /// Coupon split type (cash, PIK, split) mirroring valuations builder.
 #[pyclass(
@@ -394,7 +400,7 @@ pub struct PyCashFlowSchedule {
 }
 
 impl PyCashFlowSchedule {
-    fn new(inner: val_builder::CashFlowSchedule) -> Self {
+    pub(crate) fn new(inner: val_builder::CashFlowSchedule) -> Self {
         Self { inner }
     }
     pub(crate) fn inner_clone(&self) -> val_builder::CashFlowSchedule {
@@ -470,6 +476,303 @@ impl PyCashFlowSchedule {
         out.set_item("accrual_factor", PyList::new(py, accruals)?)?;
         out.set_item("reset_date", PyList::new(py, reset_dates)?)?;
         out.set_item("outstanding", PyList::new(py, outstanding_series)?)?;
+        Ok(out.into())
+    }
+
+    /// Compute pre-period present values aggregated by period.
+    ///
+    /// Groups cashflows by period and computes the present value of each cashflow
+    /// discounted back to the base date. Returns a dictionary mapping period codes
+    /// to PV values (for single-currency schedules).
+    ///
+    /// Args:
+    ///     periods: List of Period objects or PeriodPlan
+    ///     market_or_curve: Either MarketContext (when using curve IDs) or DiscountCurve (backwards compat)
+    ///     discount_curve_id: Optional curve ID when using MarketContext
+    ///     hazard_curve_id: Optional hazard curve ID for credit adjustment
+    ///     as_of: Optional valuation date (defaults to curve base_date)
+    ///     day_count: Optional day count convention (defaults to schedule.day_count)
+    ///
+    /// Returns:
+    ///     dict[str, float]: Mapping from PeriodId.code to PV value
+    #[pyo3(
+        signature = (periods, market_or_curve, *, discount_curve_id=None, hazard_curve_id=None, as_of=None, day_count=None),
+        text_signature = "(periods, market_or_curve, /, *, discount_curve_id=None, hazard_curve_id=None, as_of=None, day_count=None)"
+    )]
+    pub(crate) fn per_period_pv(
+        &self,
+        _py: Python<'_>,
+        periods: Bound<'_, PyAny>,
+        market_or_curve: Bound<'_, PyAny>,
+        discount_curve_id: Option<&str>,
+        hazard_curve_id: Option<&str>,
+        as_of: Option<Bound<'_, PyAny>>,
+        day_count: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<HashMap<String, f64>> {
+        use crate::core::dates::daycount::PyDayCount;
+
+        // Extract periods
+        let periods_vec: Vec<Period> = if let Ok(plan) = periods.extract::<PyRef<PyPeriodPlan>>() {
+            plan.periods.clone()
+        } else if let Ok(periods_list) = periods.extract::<Vec<PyRef<PyPeriod>>>() {
+            periods_list.iter().map(|p| p.inner.clone()).collect()
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "periods must be PeriodPlan or list[Period]",
+            ));
+        };
+
+        // Determine day count
+        let dc = if let Some(dc_obj) = day_count {
+            if let Ok(py_dc) = dc_obj.extract::<PyRef<PyDayCount>>() {
+                py_dc.inner
+            } else {
+                return Err(pyo3::exceptions::PyTypeError::new_err(
+                    "day_count must be DayCount",
+                ));
+            }
+        } else {
+            self.inner.day_count
+        };
+
+        // Handle MarketContext vs DiscountCurve
+        let pv_map = if let Ok(market) = market_or_curve.extract::<PyRef<PyMarketContext>>() {
+            // Using MarketContext
+            let disc_id = discount_curve_id.ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err("discount_curve_id required when using MarketContext")
+            })?;
+            let disc_curve_id = CurveId::from(disc_id);
+            let hazard_curve_id_opt = hazard_curve_id.map(CurveId::from);
+
+            let base = if let Some(as_of_obj) = as_of {
+                py_to_date(&as_of_obj)?
+            } else {
+                // Get base date from discount curve
+                let disc_arc = market.inner.get_discount(disc_id).map_err(core_to_py)?;
+                disc_arc.base_date()
+            };
+
+            let pv_result = self.inner.pre_period_pv_with_market(
+                &periods_vec,
+                &market.inner,
+                &disc_curve_id,
+                hazard_curve_id_opt.as_ref(),
+                base,
+                dc,
+            ).map_err(core_to_py)?;
+            pv_result
+        } else if let Ok(disc_curve) = market_or_curve.extract::<PyRef<PyDiscountCurve>>() {
+            // Using DiscountCurve directly (backwards compat, no hazard support)
+            if hazard_curve_id.is_some() {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "hazard_curve_id not supported when using DiscountCurve directly; use MarketContext",
+                ));
+            }
+
+            let base = if let Some(as_of_obj) = as_of {
+                py_to_date(&as_of_obj)?
+            } else {
+                disc_curve.inner.base_date()
+            };
+
+            let pv_map = self.inner.pre_period_pv(
+                &periods_vec,
+                disc_curve.inner.as_ref(),
+                base,
+                dc,
+            );
+            pv_map
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "market_or_curve must be MarketContext or DiscountCurve",
+            ));
+        };
+
+        // Convert to Python dict: PeriodId.code -> PV (single currency)
+        let mut result = HashMap::new();
+        for (period_id, currency_map) in pv_map {
+            // For single-currency schedules, take the first (and only) currency
+            if let Some((_currency, pv_money)) = currency_map.first() {
+                result.insert(period_id.to_string(), pv_money.amount());
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Convert cashflow schedule to a period-aligned DataFrame.
+    ///
+    /// Returns a dict-of-arrays suitable for pandas/Polars with columns:
+    /// Start Date, End Date, PayDate, CFType, Currency, Notional, Rate, YrFraq,
+    /// Days, Amount, DiscountFactor, SurvivalProb (optional), PV, Unfunded Amount (optional),
+    /// Base Rate (optional), Spread (optional).
+    ///
+    /// Args:
+    ///     periods: List of Period objects or PeriodPlan
+    ///     market_or_curve: Either MarketContext (when using curve IDs) or DiscountCurve (backwards compat)
+    ///     discount_curve_id: Optional curve ID when using MarketContext
+    ///     hazard_curve_id: Optional hazard curve ID for credit adjustment (adds SurvivalProb column)
+    ///     forward_curve_id: Optional forward curve ID for floating rate decomposition
+    ///     as_of: Optional valuation date (defaults to curve base_date)
+    ///     day_count: Optional day count convention (defaults to schedule.day_count)
+    ///     facility_limit: Optional facility limit Money for Unfunded Amount column
+    ///     include_floating_decomposition: If True, adds Base Rate and Spread columns for floating cashflows
+    ///
+    /// Returns:
+    ///     dict: Dictionary with column names as keys and lists as values
+    #[pyo3(
+        signature = (periods, market_or_curve, *, discount_curve_id=None, hazard_curve_id=None, forward_curve_id=None, as_of=None, day_count=None, facility_limit=None, include_floating_decomposition=false),
+        text_signature = "(periods, market_or_curve, /, *, discount_curve_id=None, hazard_curve_id=None, forward_curve_id=None, as_of=None, day_count=None, facility_limit=None, include_floating_decomposition=False)"
+    )]
+    pub(crate) fn to_period_dataframe(
+        &self,
+        py: Python<'_>,
+        periods: Bound<'_, PyAny>,
+        market_or_curve: Bound<'_, PyAny>,
+        discount_curve_id: Option<&str>,
+        hazard_curve_id: Option<&str>,
+        forward_curve_id: Option<&str>,
+        as_of: Option<Bound<'_, PyAny>>,
+        day_count: Option<Bound<'_, PyAny>>,
+        facility_limit: Option<Bound<'_, PyAny>>,
+        include_floating_decomposition: bool,
+    ) -> PyResult<PyObject> {
+        use crate::core::dates::daycount::PyDayCount;
+        use crate::core::cashflow::primitives::PyCFKind;
+        use finstack_core::dates::DayCountCtx;
+        use finstack_core::cashflow::primitives::CFKind;
+
+        // Extract periods
+        let periods_vec: Vec<Period> = if let Ok(plan) = periods.extract::<PyRef<PyPeriodPlan>>() {
+            plan.periods.clone()
+        } else if let Ok(periods_list) = periods.extract::<Vec<PyRef<PyPeriod>>>() {
+            periods_list.iter().map(|p| p.inner.clone()).collect()
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "periods must be PeriodPlan or list[Period]",
+            ));
+        };
+
+        // Determine day count
+        let dc = if let Some(dc_obj) = day_count {
+            if let Ok(py_dc) = dc_obj.extract::<PyRef<PyDayCount>>() {
+                py_dc.inner
+            } else {
+                return Err(pyo3::exceptions::PyTypeError::new_err(
+                    "day_count must be DayCount",
+                ));
+            }
+        } else {
+            self.inner.day_count
+        };
+
+        // Extract facility_limit if provided
+        let facility_limit_money = if let Some(limit_obj) = facility_limit {
+            Some(crate::core::money::extract_money(&limit_obj)?)
+        } else {
+            None
+        };
+
+        // Build MarketContext and discount curve id
+        let (market_ctx, disc_id_owned, as_of_date) = if let Ok(market) = market_or_curve.extract::<PyRef<PyMarketContext>>() {
+            let disc_id = discount_curve_id.ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err("discount_curve_id required when using MarketContext")
+            })?;
+            let disc_arc = market.inner.get_discount(disc_id).map_err(core_to_py)?;
+            let base = if let Some(as_of_obj) = as_of {
+                py_to_date(&as_of_obj)?
+            } else {
+                disc_arc.base_date()
+            };
+            (Some(market.inner.clone()), Some(disc_id.to_string()), base)
+        } else if let Ok(disc_curve) = market_or_curve.extract::<PyRef<PyDiscountCurve>>() {
+            // Build a minimal MarketContext with just the discount curve
+            use finstack_core::market_data::MarketContext as CoreMarketContext;
+            let ctx = CoreMarketContext::new().insert_discount_arc(disc_curve.inner.clone());
+            let disc_id = disc_curve.inner.id().to_string();
+            let base = if let Some(as_of_obj) = as_of {
+                py_to_date(&as_of_obj)?
+            } else {
+                disc_curve.inner.base_date()
+            };
+            (Some(ctx), Some(disc_id), base)
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "market_or_curve must be MarketContext or DiscountCurve",
+            ));
+        };
+        // Build frame in Rust valuations crate
+        let market_ctx = market_ctx.expect("market context always present here");
+        let disc_id = disc_id_owned.expect("discount curve id present");
+        let frame = self
+            .inner
+            .to_period_dataframe(
+                &periods_vec,
+                &market_ctx,
+                disc_id.as_str(),
+                hazard_curve_id,
+                forward_curve_id,
+                Some(as_of_date),
+                Some(dc),
+                facility_limit_money,
+                include_floating_decomposition,
+            )
+            .map_err(core_to_py)?;
+
+        // Convert to Python dict
+        let out = PyDict::new(py);
+        // Dates
+        let start_dates: Vec<PyObject> = frame
+            .start_dates
+            .iter()
+            .map(|d| crate::core::utils::date_to_py(py, *d))
+            .collect::<PyResult<Vec<_>>>()?;
+        let end_dates: Vec<PyObject> = frame
+            .end_dates
+            .iter()
+            .map(|d| crate::core::utils::date_to_py(py, *d))
+            .collect::<PyResult<Vec<_>>>()?;
+        let pay_dates: Vec<PyObject> = frame
+            .pay_dates
+            .iter()
+            .map(|d| crate::core::utils::date_to_py(py, *d))
+            .collect::<PyResult<Vec<_>>>()?;
+        out.set_item("Start Date", PyList::new(py, start_dates)?)?;
+        out.set_item("End Date", PyList::new(py, end_dates)?)?;
+        out.set_item("PayDate", PyList::new(py, pay_dates)?)?;
+        // CFType and Currency
+        let cf_types: Vec<String> = frame
+            .cf_types
+            .iter()
+            .map(|k| PyCFKind::new(*k).name().to_string())
+            .collect();
+        let currencies: Vec<String> = frame.currencies.iter().map(|c| c.to_string()).collect();
+        out.set_item("CFType", PyList::new(py, cf_types)?)?;
+        out.set_item("Currency", PyList::new(py, currencies)?)?;
+        // Core numeric columns
+        out.set_item("Notional", PyList::new(py, frame.notionals)?)?;
+        out.set_item("YrFraq", PyList::new(py, frame.yr_fraqs)?)?;
+        out.set_item("Days", PyList::new(py, frame.days)?)?;
+        out.set_item("Amount", PyList::new(py, frame.amounts)?)?;
+        out.set_item("DiscountFactor", PyList::new(py, frame.discount_factors)?)?;
+        if let Some(sp) = frame.survival_probs {
+            out.set_item("SurvivalProb", PyList::new(py, sp)?)?;
+        }
+        out.set_item("PV", PyList::new(py, frame.pvs)?)?;
+        if let Some(unf) = frame.unfunded_amounts {
+            out.set_item("Unfunded Amount", PyList::new(py, unf)?)?;
+        }
+        if let Some(comm) = frame.commitment_amounts {
+            out.set_item("Commitment Amount", PyList::new(py, comm)?)?;
+        }
+        if let Some(baser) = frame.base_rates {
+            out.set_item("Base Rate", PyList::new(py, baser)?)?;
+        }
+        if let Some(spreads) = frame.spreads {
+            out.set_item("Spread", PyList::new(py, spreads)?)?;
+        }
+        out.set_item("allin_rate", PyList::new(py, frame.allin_rates)?)?;
+
         Ok(out.into())
     }
 }

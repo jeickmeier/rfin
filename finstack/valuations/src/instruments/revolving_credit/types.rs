@@ -401,7 +401,7 @@ impl crate::instruments::common::pricing::HasDiscountCurve for RevolvingCredit {
 impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
     fn build_schedule(
         &self,
-        _curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
         // Only works for deterministic specs
@@ -409,8 +409,8 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
             return Err(finstack_core::error::InputError::Invalid.into());
         }
 
-        let schedule = crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows(
-            self, as_of,
+        let schedule = crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves(
+            self, curves, as_of,
         )?;
 
         Ok(schedule
@@ -422,7 +422,7 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
 
     fn build_full_schedule(
         &self,
-        _curves: &finstack_core::market_data::MarketContext,
+        curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Only works for deterministic specs
@@ -430,8 +430,8 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
             return Err(finstack_core::error::InputError::Invalid.into());
         }
 
-        crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows(
-            self, as_of,
+        crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves(
+            self, curves, as_of,
         )
     }
 }

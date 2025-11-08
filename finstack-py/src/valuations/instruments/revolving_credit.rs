@@ -10,10 +10,13 @@ use finstack_valuations::instruments::revolving_credit::types::{
 };
 use crate::core::market_data::PyMarketContext;
 use crate::valuations::common::mc::result::PyMonteCarloResult;
+use crate::valuations::cashflow::builder::PyCashFlowSchedule;
+use crate::core::error::core_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
 use pyo3::Bound;
+use std::collections::HashMap;
 
 /// Revolving credit facility instrument.
 #[pyclass(
@@ -956,6 +959,197 @@ impl PyRevolvingCredit {
         result.set_item("percentiles", percentiles)?;
         
         Ok(result.into())
+    }
+
+    /// Build the cashflow schedule for this facility (deterministic only).
+    ///
+    /// Args:
+    ///     market: MarketContext (not used for deterministic, but required for API consistency)
+    ///     as_of: Optional valuation date; defaults to discount curve base date
+    ///
+    /// Returns:
+    ///     CashFlowSchedule: The generated cashflow schedule
+    #[pyo3(
+        signature = (market, as_of=None),
+        text_signature = "(self, market, as_of=None)"
+    )]
+    #[allow(unused_variables)]
+    fn build_schedule(
+        &self,
+        market: &PyMarketContext,
+        as_of: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<PyCashFlowSchedule> {
+        // Only works for deterministic specs
+        if !self.inner.is_deterministic() {
+            return Err(PyValueError::new_err(
+                "build_schedule only works for deterministic draw_repay_spec"
+            ));
+        }
+
+        // Resolve as_of date
+        let as_of_date = if let Some(as_of_obj) = as_of {
+            py_to_date(&as_of_obj)?
+        } else {
+            // Default to commitment_date
+            self.inner.commitment_date
+        };
+
+        // Generate cashflow schedule with curves (include floating base-rate projections)
+        use finstack_valuations::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves;
+        let schedule = generate_deterministic_cashflows_with_curves(&self.inner, &market.inner, as_of_date)
+            .map_err(core_to_py)?;
+
+        Ok(PyCashFlowSchedule::new(schedule))
+    }
+
+    /// Compute per-period present values for this facility's cashflows.
+    ///
+    /// Args:
+    ///     periods: PeriodPlan, list[Period], or period range string
+    ///     market: MarketContext with discount/forward/hazard curves
+    ///     discount_curve_id: Optional curve ID (defaults to facility's discount_curve_id)
+    ///     hazard_curve_id: Optional hazard curve ID for credit adjustment
+    ///     as_of: Optional valuation date (defaults to discount curve base_date)
+    ///     day_count: Optional day count convention (defaults to discount curve day_count)
+    ///
+    /// Returns:
+    ///     dict[str, float]: Map from period code to PV amount
+    #[pyo3(
+        signature = (periods, market, *, discount_curve_id=None, hazard_curve_id=None, as_of=None, day_count=None),
+        text_signature = "(periods, market, /, *, discount_curve_id=None, hazard_curve_id=None, as_of=None, day_count=None)"
+    )]
+    fn per_period_pv(
+        &self,
+        py: Python<'_>,
+        periods: Bound<'_, PyAny>,
+        market: &PyMarketContext,
+        discount_curve_id: Option<&str>,
+        hazard_curve_id: Option<&str>,
+        as_of: Option<Bound<'_, PyAny>>,
+        day_count: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<HashMap<String, f64>> {
+        // Build schedule first
+        let schedule = self.build_schedule(market, as_of.clone())?;
+        
+        // Delegate to schedule's per_period_pv method
+        // Need to convert PyMarketContext reference to Bound<PyAny>
+        let disc_id = discount_curve_id.unwrap_or_else(|| self.inner.discount_curve_id.as_str());
+        let market_py = Py::new(py, market.clone())?;
+        let market_bound_temp = market_py.into_bound(py);
+        let market_bound: Bound<'_, PyAny> = unsafe {
+            <Bound<'_, PyAny> as Clone>::clone(&market_bound_temp).downcast_into_unchecked()
+        };
+        schedule.per_period_pv(py, periods, market_bound, Some(disc_id), hazard_curve_id, as_of, day_count)
+    }
+
+    /// Convert cashflow schedule to a period-aligned DataFrame.
+    ///
+    /// Returns a dict-of-arrays suitable for pandas/Polars with columns:
+    /// Start Date, End Date, PayDate, CFType, Currency, Notional, YrFraq,
+    /// Days, Amount, DiscountFactor, SurvivalProb (optional), PV,
+    /// Unfunded Amount (optional), Commitment Amount (optional),
+    /// Base Rate (optional), Spread (optional), allin_rate.
+    ///
+    /// Note: For revolving credit, Notional represents the drawn amount at each period,
+    /// and Commitment Amount (when provided) represents the total facility commitment.
+    ///
+    /// Args:
+    ///     periods: PeriodPlan, list[Period], or period range string
+    ///     market: MarketContext with discount/forward/hazard curves
+    ///     discount_curve_id: Optional curve ID (defaults to facility's discount_curve_id)
+    ///     hazard_curve_id: Optional hazard curve ID for credit adjustment (adds SurvivalProb column)
+    ///     forward_curve_id: Optional forward curve ID for floating rate decomposition
+    ///     as_of: Optional valuation date (defaults to discount curve base_date)
+    ///     day_count: Optional day count convention (defaults to schedule.day_count)
+    ///     facility_limit: Optional facility limit Money for Unfunded Amount column
+    ///     include_floating_decomposition: If True, adds Base Rate and Spread columns for floating cashflows
+    ///
+    /// Returns:
+    ///     dict: Dictionary with column names as keys and lists as values
+    #[pyo3(
+        signature = (periods, market, *, discount_curve_id=None, hazard_curve_id=None, forward_curve_id=None, as_of=None, day_count=None, facility_limit=None, include_floating_decomposition=false),
+        text_signature = "(periods, market, /, *, discount_curve_id=None, hazard_curve_id=None, forward_curve_id=None, as_of=None, day_count=None, facility_limit=None, include_floating_decomposition=False)"
+    )]
+    fn to_period_dataframe(
+        &self,
+        py: Python<'_>,
+        periods: Bound<'_, PyAny>,
+        market: &PyMarketContext,
+        discount_curve_id: Option<&str>,
+        hazard_curve_id: Option<&str>,
+        forward_curve_id: Option<&str>,
+        as_of: Option<Bound<'_, PyAny>>,
+        day_count: Option<Bound<'_, PyAny>>,
+        facility_limit: Option<Bound<'_, PyAny>>,
+        include_floating_decomposition: bool,
+    ) -> PyResult<PyObject> {
+        // Build schedule first
+        let schedule = self.build_schedule(market, as_of.clone())?;
+        
+        // Delegate to schedule's to_period_dataframe method
+        let disc_id = discount_curve_id.unwrap_or_else(|| self.inner.discount_curve_id.as_str());
+        
+        // For floating rate decomposition, use forward_curve_id if provided, otherwise try to extract from base_rate_spec
+        let fwd_id = if include_floating_decomposition {
+            forward_curve_id.or_else(|| {
+                match &self.inner.base_rate_spec {
+                    finstack_valuations::instruments::revolving_credit::BaseRateSpec::Floating { index_id, .. } => {
+                        Some(index_id.as_str())
+                    }
+                    _ => None
+                }
+            })
+        } else {
+            forward_curve_id
+        };
+        
+        // Need to convert PyMarketContext reference to Bound<PyAny>
+        let market_py = Py::new(py, market.clone())?;
+        let market_bound_temp = market_py.into_bound(py);
+        let market_bound: Bound<'_, PyAny> = unsafe {
+            <Bound<'_, PyAny> as Clone>::clone(&market_bound_temp).downcast_into_unchecked()
+        };
+        let out = schedule.to_period_dataframe(
+            py,
+            periods,
+            market_bound,
+            Some(disc_id),
+            hazard_curve_id,
+            fwd_id,
+            as_of,
+            day_count,
+            facility_limit,
+            include_floating_decomposition,
+        )?;
+
+        // Post-process columns:
+        // - allin_rate: effective coupon (Fixed rate, or Base Rate + Spread for FloatReset)
+        // - Drop 'Rate' to avoid duplication when Base Rate/Spread are present
+        let out_bound = out.into_bound(py);
+        if let Ok(dict) = out_bound.clone().downcast_into::<PyDict>() {
+            // Extract existing columns
+            let cf_any = dict.get_item("CFType")?;
+            let rate_any = dict.get_item("Rate")?;
+            if let (Some(cf_any), Some(rate_any)) = (cf_any, rate_any) {
+                if let (Ok(cf_list), Ok(rate_list)) = (cf_any.downcast::<PyList>(), rate_any.downcast::<PyList>()) {
+                    let n = cf_list.len();
+                    // Build allin_rate from existing 'Rate'
+                    let mut allin_vals: Vec<PyObject> = Vec::with_capacity(n);
+                    for i in 0..n {
+                        allin_vals.push(rate_list.get_item(i).unwrap().clone().unbind());
+                    }
+
+                    // Set new column and drop 'Rate'
+                    dict.set_item("allin_rate", PyList::new(py, allin_vals)?)?;
+                    let _ = dict.del_item("Rate");
+                    return Ok(dict.into_any().into());
+                }
+            }
+            // If structure differs, fall through and return original
+            return Ok(dict.into_any().into());
+        }
+        // Default return if not a dict
+        Ok(out_bound.into())
     }
 
     fn __repr__(&self) -> String {

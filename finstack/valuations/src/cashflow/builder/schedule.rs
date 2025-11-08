@@ -5,8 +5,15 @@
 
 use crate::cashflow::primitives::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
+use crate::cashflow::aggregation::{pv_by_period, pv_by_period_credit_adjusted};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
+use finstack_core::market_data::{MarketContext, traits::{Discounting, Survival}};
+use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::types::CurveId;
+use finstack_core::prelude::*;
+use indexmap::IndexMap;
+use std::sync::Arc;
 
 use super::types::{FixedCouponSpec, FloatingCouponSpec};
 
@@ -209,4 +216,302 @@ impl CashFlowSchedule {
 
         result
     }
+
+    /// Compute pre-period present values aggregated by period.
+    ///
+    /// Groups cashflows by period and computes the present value of each cashflow
+    /// discounted back to the base date. Returns a map from `PeriodId` to currency-indexed
+    /// PV sums for that period.
+    ///
+    /// # Arguments
+    /// * `periods` - Period definitions with start/end boundaries
+    /// * `disc` - Discount curve for present value calculation
+    /// * `base` - Base date for discounting (typically valuation date)
+    /// * `dc` - Day count convention for year fraction calculation
+    ///
+    /// # Returns
+    /// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
+    /// are omitted from the result.
+    pub fn pre_period_pv(
+        &self,
+        periods: &[Period],
+        disc: &dyn Discounting,
+        base: Date,
+        dc: DayCount,
+    ) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
+        let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
+        pv_by_period(&flows, periods, disc, base, dc)
+    }
+
+    /// Compute pre-period present values with market context support for credit adjustment.
+    ///
+    /// Similar to `pre_period_pv`, but uses `MarketContext` to look up curves by ID,
+    /// enabling credit-adjusted discounting via hazard curves.
+    ///
+    /// # Arguments
+    /// * `periods` - Period definitions with start/end boundaries
+    /// * `market` - Market context containing discount and optional hazard curves
+    /// * `disc_curve_id` - Identifier for the discount curve in the market context
+    /// * `hazard_curve_id` - Optional identifier for hazard curve (credit adjustment)
+    /// * `base` - Base date for discounting (typically valuation date)
+    /// * `dc` - Day count convention for year fraction calculation
+    ///
+    /// # Returns
+    /// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
+    /// are omitted from the result.
+    ///
+    /// # Errors
+    /// Returns an error if the discount curve is not found, or if hazard_curve_id
+    /// is provided but the curve is not found in the market context.
+    pub fn pre_period_pv_with_market(
+        &self,
+        periods: &[Period],
+        market: &MarketContext,
+        disc_curve_id: &CurveId,
+        hazard_curve_id: Option<&CurveId>,
+        base: Date,
+        dc: DayCount,
+    ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+        let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
+        
+        // Get discount curve
+        let disc_arc = market.get_discount(disc_curve_id.as_str())?;
+        let disc: &dyn Discounting = disc_arc.as_ref();
+
+        // Get hazard curve if provided
+        // Note: We need to store the Arc to keep the reference alive for the function scope
+        let hazard_arc_opt: Option<Arc<HazardCurve>> = if let Some(hazard_id) = hazard_curve_id {
+            Some(market.get_hazard(hazard_id.as_str())?)
+        } else {
+            None
+        };
+
+        let hazard: Option<&dyn Survival> = hazard_arc_opt.as_ref().map(|arc| arc.as_ref() as &dyn Survival);
+
+        Ok(pv_by_period_credit_adjusted(&flows, periods, disc, hazard, base, dc))
+    }
+
+    /// Period-aligned DataFrame-like export with optional credit and floating decomposition.
+    ///
+    /// This computes all derived columns (discount factors, survival probabilities,
+    /// base rate, spread, all-in rate, unfunded amounts) in Rust for consistency
+    /// across language bindings. Bindings should only perform type conversion.
+    pub fn to_period_dataframe(
+        &self,
+        periods: &[finstack_core::dates::Period],
+        market: &MarketContext,
+        discount_curve_id: &str,
+        hazard_curve_id: Option<&str>,
+        forward_curve_id: Option<&str>,
+        as_of: Option<Date>,
+        day_count: Option<DayCount>,
+        facility_limit: Option<Money>,
+        include_floating_decomposition: bool,
+    ) -> finstack_core::Result<PeriodDataFrame> {
+        use finstack_core::dates::DayCountCtx;
+        let dc = day_count.unwrap_or(self.day_count);
+
+        let disc_arc = market.get_discount(discount_curve_id)?;
+        let base = as_of.unwrap_or_else(|| disc_arc.base_date());
+
+        let has_hazard = hazard_curve_id.is_some();
+        let hazard_arc_opt = if let Some(hz) = hazard_curve_id {
+            Some(market.get_hazard(hz)?)
+        } else {
+            None
+        };
+        let forward_arc_opt = if include_floating_decomposition {
+            forward_curve_id.and_then(|fid| market.get_forward(fid).ok())
+        } else {
+            None
+        };
+
+        // Columns
+        let mut start_dates: Vec<Date> = Vec::new();
+        let mut end_dates: Vec<Date> = Vec::new();
+        let mut pay_dates: Vec<Date> = Vec::new();
+        let mut cf_types: Vec<CFKind> = Vec::new();
+        let mut currencies: Vec<Currency> = Vec::new();
+        let mut notionals: Vec<Option<f64>> = Vec::new();
+        let mut yr_fraqs: Vec<f64> = Vec::new();
+        let mut days: Vec<i64> = Vec::new();
+        let mut amounts: Vec<f64> = Vec::new();
+        let mut discount_factors: Vec<f64> = Vec::new();
+        let mut survival_probs: Option<Vec<Option<f64>>> = if has_hazard { Some(Vec::new()) } else { None };
+        let mut pvs: Vec<f64> = Vec::new();
+        let mut unfunded_amounts: Option<Vec<Option<f64>>> = facility_limit.as_ref().map(|_| Vec::new());
+        let mut commitment_amounts: Option<Vec<Option<f64>>> = facility_limit.as_ref().map(|_| Vec::new());
+        let mut base_rates: Option<Vec<Option<f64>>> = if include_floating_decomposition { Some(Vec::new()) } else { None };
+        let mut spreads: Option<Vec<Option<f64>>> = if include_floating_decomposition { Some(Vec::new()) } else { None };
+        let mut allin_rates: Vec<Option<f64>> = Vec::new();
+
+        // Track outstanding drawn balance for Notional column
+        let mut outstanding = self.notional.initial;
+
+        for cf in &self.flows {
+            // Find containing period (inclusive end)
+            let period_opt = periods.iter().find(|p| cf.date >= p.start && cf.date <= p.end);
+            if period_opt.is_none() {
+                continue;
+            }
+            let period = period_opt.unwrap();
+
+            // Outstanding before this cashflow
+            let outstanding_pre = outstanding;
+            match cf.kind {
+                CFKind::Amortization => {
+                    outstanding = outstanding.checked_sub(cf.amount)?;
+                }
+                CFKind::PIK => {
+                    outstanding = outstanding.checked_add(cf.amount)?;
+                }
+                CFKind::Notional => {
+                    // Draws are negative, repays are positive from lender perspective
+                    outstanding = outstanding.checked_sub(cf.amount)?;
+                }
+                _ => {}
+            }
+
+            // Basic columns
+            start_dates.push(period.start);
+            end_dates.push(period.end);
+            pay_dates.push(cf.date);
+            cf_types.push(cf.kind);
+            currencies.push(cf.amount.currency());
+            amounts.push(cf.amount.amount());
+
+            // Notional for interest-like rows
+            let notional_val = if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset) || cf.accrual_factor > 0.0 {
+                Some(outstanding_pre.amount())
+            } else {
+                None
+            };
+            notionals.push(notional_val);
+
+            // YrFraq and Days
+            let yr_fraq = dc.year_fraction(period.start, cf.date, DayCountCtx::default()).unwrap_or(0.0);
+            yr_fraqs.push(yr_fraq);
+            days.push((cf.date - period.start).whole_days());
+
+            // Discount factor using schedule dc for consistency with legacy outputs
+            let t = if cf.date == base {
+                0.0
+            } else if cf.date > base {
+                dc.year_fraction(base, cf.date, DayCountCtx::default()).unwrap_or(0.0)
+            } else {
+                -dc.year_fraction(cf.date, base, DayCountCtx::default()).unwrap_or(0.0)
+            };
+            let df = disc_arc.df(t);
+            discount_factors.push(df);
+
+            // Survival probability
+            if let (Some(ref h), Some(ref mut spv)) = (hazard_arc_opt.as_ref(), survival_probs.as_mut()) {
+                spv.push(Some(h.sp(t)));
+            }
+
+            // PV
+            let sp_mult = if let Some(ref spv) = survival_probs { spv.last().copied().flatten().unwrap_or(1.0) } else { 1.0 };
+            pvs.push(cf.amount.amount() * df * sp_mult);
+
+            // Unfunded and commitment amounts
+            if let Some(limit) = facility_limit {
+                if let Some(ref mut unfunded_vec) = unfunded_amounts {
+                    if limit.currency() == cf.amount.currency() {
+                        let val = (limit.amount() - outstanding_pre.amount()).max(0.0);
+                        unfunded_vec.push(Some(val));
+                    } else {
+                        unfunded_vec.push(None);
+                    }
+                }
+                if let Some(ref mut commit_vec) = commitment_amounts {
+                    if limit.currency() == cf.amount.currency() {
+                        commit_vec.push(Some(limit.amount()));
+                    } else {
+                        commit_vec.push(None);
+                    }
+                }
+            }
+
+            // Floating decomposition
+            let mut base_rate_opt: Option<f64> = None;
+            let mut spread_opt: Option<f64> = None;
+            if include_floating_decomposition && matches!(cf.kind, CFKind::FloatReset) {
+                if let Some(ref fwd) = forward_arc_opt {
+                    let reset_t = if let Some(reset_date) = cf.reset_date {
+                        if reset_date == base {
+                            0.0
+                        } else if reset_date > base {
+                            fwd.day_count().year_fraction(base, reset_date, DayCountCtx::default()).unwrap_or(0.0)
+                        } else {
+                            -fwd.day_count().year_fraction(reset_date, base, DayCountCtx::default()).unwrap_or(0.0)
+                        }
+                    } else {
+                        fwd.day_count().year_fraction(base, period.start, DayCountCtx::default()).unwrap_or(0.0)
+                    };
+                    let b = fwd.rate(reset_t);
+                    base_rate_opt = Some(b);
+                    if let (Some(not), true) = (notional_val, yr_fraq > 0.0) {
+                        let eff = cf.amount.amount() / (not * yr_fraq);
+                        spread_opt = Some(eff - b);
+                    }
+                }
+            }
+            if let Some(ref mut br) = base_rates {
+                br.push(base_rate_opt);
+            }
+            if let Some(ref mut sp) = spreads {
+                sp.push(spread_opt);
+            }
+
+            // All-in rate from amounts when notional and yr_fraq available
+            let allin = if let (Some(not), true) = (notional_val, yr_fraq > 0.0) {
+                Some(cf.amount.amount() / (not * yr_fraq))
+            } else {
+                None
+            };
+            allin_rates.push(allin);
+        }
+
+        Ok(PeriodDataFrame {
+            start_dates,
+            end_dates,
+            pay_dates,
+            cf_types,
+            currencies,
+            notionals,
+            yr_fraqs,
+            days,
+            amounts,
+            discount_factors,
+            survival_probs,
+            pvs,
+            unfunded_amounts,
+            commitment_amounts,
+            base_rates,
+            spreads,
+            allin_rates,
+        })
+    }
+}
+
+/// Period-aligned DataFrame-like result.
+#[derive(Clone)]
+pub struct PeriodDataFrame {
+    pub start_dates: Vec<Date>,
+    pub end_dates: Vec<Date>,
+    pub pay_dates: Vec<Date>,
+    pub cf_types: Vec<CFKind>,
+    pub currencies: Vec<Currency>,
+    pub notionals: Vec<Option<f64>>,
+    pub yr_fraqs: Vec<f64>,
+    pub days: Vec<i64>,
+    pub amounts: Vec<f64>,
+    pub discount_factors: Vec<f64>,
+    pub survival_probs: Option<Vec<Option<f64>>>,
+    pub pvs: Vec<f64>,
+    pub unfunded_amounts: Option<Vec<Option<f64>>>,
+    pub commitment_amounts: Option<Vec<Option<f64>>>,
+    pub base_rates: Option<Vec<Option<f64>>>,
+    pub spreads: Option<Vec<Option<f64>>>,
+    pub allin_rates: Vec<Option<f64>>,
 }

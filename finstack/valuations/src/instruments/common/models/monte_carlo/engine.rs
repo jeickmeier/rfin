@@ -815,7 +815,7 @@ impl McEngine {
                 let n = values.len();
                 
                 // Median
-                let median = if n % 2 == 0 {
+                let median = if n.is_multiple_of(2) {
                     (values[n / 2 - 1] + values[n / 2]) / 2.0
                 } else {
                     values[n / 2]
@@ -1002,7 +1002,7 @@ impl McEngine {
                 let n = values.len();
                 
                 // Median
-                let median = if n % 2 == 0 {
+                let median = if n.is_multiple_of(2) {
                     (values[n / 2 - 1] + values[n / 2]) / 2.0
                 } else {
                     values[n / 2]

@@ -37,6 +37,28 @@ pub fn generate_deterministic_cashflows(
     facility: &RevolvingCredit,
     as_of: Date,
 ) -> Result<CashFlowSchedule> {
+    // Backward-compatible entry point without market curves: floating interest
+    // is approximated using margin only. Prefer using
+    // generate_deterministic_cashflows_with_curves when available.
+    generate_deterministic_cashflows_internal(facility, None, as_of)
+}
+
+/// Generate deterministic cashflows for a revolving credit facility using market curves.
+///
+/// This variant includes floating rate projections from the provided MarketContext.
+pub fn generate_deterministic_cashflows_with_curves(
+    facility: &RevolvingCredit,
+    market: &finstack_core::market_data::MarketContext,
+    as_of: Date,
+) -> Result<CashFlowSchedule> {
+    generate_deterministic_cashflows_internal(facility, Some(market), as_of)
+}
+
+fn generate_deterministic_cashflows_internal(
+    facility: &RevolvingCredit,
+    market_opt: Option<&finstack_core::market_data::MarketContext>,
+    as_of: Date,
+) -> Result<CashFlowSchedule> {
     // Validate that we have a deterministic spec
     let draw_repay_events = match &facility.draw_repay_spec {
         DrawRepaySpec::Deterministic(events) => events,
@@ -88,7 +110,7 @@ pub fn generate_deterministic_cashflows(
         let period_end = payment_dates[i + 1];
         let balance_start = balance_schedule[i];
         let undrawn_start = facility.commitment_amount.checked_sub(balance_start)?;
-        
+
         // Calculate accrual factor
         let accrual = facility.day_count.year_fraction(
             period_start,
@@ -111,9 +133,29 @@ pub fn generate_deterministic_cashflows(
                 }
             }
             BaseRateSpec::Floating { margin_bp, .. } => {
-                // For floating, we create a reset flow (actual rate will be projected later)
-                // Using margin as a placeholder for the full rate in deterministic mode
-                let interest = balance_start * ((*margin_bp * 1e-4) * accrual);
+                // For floating, include forward-looking base rate if market is provided,
+                // otherwise fall back to margin-only (legacy behavior).
+                let mut coupon_rate = (*margin_bp * 1e-4);
+                if let Some(market) = market_opt {
+                    // Resolve forward curve from index_id
+                    if let BaseRateSpec::Floating { index_id, .. } = &facility.base_rate_spec {
+                        if let Ok(fwd) = market.get_forward_ref(index_id.as_str()) {
+                            // Use period start as reset date (reset frequency is typically aligned
+                            // with payment frequency in this deterministic path).
+                            let t_reset = fwd
+                                .day_count()
+                                .year_fraction(
+                                    fwd.base_date(),
+                                    period_start,
+                                    finstack_core::dates::DayCountCtx::default(),
+                                )
+                                .unwrap_or(0.0);
+                            let base_rate = fwd.rate(t_reset).max(0.0);
+                            coupon_rate += base_rate;
+                        }
+                    }
+                }
+                let interest = balance_start * (coupon_rate * accrual);
                 if interest.amount().abs() > 1e-10 {
                     flows.push(CashFlow {
                         date: period_end,
@@ -224,10 +266,11 @@ pub fn generate_deterministic_cashflows(
     });
 
     // Create schedule with flows
+    // For revolving credit, notional represents the initial drawn amount (not commitment)
     use crate::cashflow::primitives::Notional;
     Ok(CashFlowSchedule {
         flows,
-        notional: Notional::par(facility.commitment_amount.amount(), facility.commitment_amount.currency()),
+        notional: Notional::par(facility.drawn_amount.amount(), facility.drawn_amount.currency()),
         day_count: facility.day_count,
         meta: Default::default(),
     })

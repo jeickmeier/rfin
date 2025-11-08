@@ -73,11 +73,42 @@
 //! # }
 //! ```
 //!
+//! ## Pre-Period Present Value Aggregation
+//!
+//! Compute present values aggregated by reporting period for debugging and reconciliation:
+//!
+//! ```rust
+//! use finstack_valuations::cashflow::builder::CashFlowSchedule;
+//! use finstack_valuations::cashflow::aggregation::pv_by_period;
+//! use finstack_core::dates::{Period, PeriodId, DayCount};
+//! use finstack_core::market_data::traits::Discounting;
+//! use time::Month;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Build schedule and periods
+//! let schedule = CashFlowSchedule::builder()/* ... */.build()?;
+//! let periods = vec![/* ... */];
+//!
+//! // Compute PV by period
+//! let disc_curve: &dyn Discounting = /* ... */;
+//! let base = disc_curve.base_date();
+//! let pv_map = schedule.pre_period_pv(&periods, disc_curve, base, DayCount::Act365F);
+//!
+//! // Sum of period PVs equals total NPV
+//! let total_pv: f64 = pv_map.values()
+//!     .flat_map(|ccy_map| ccy_map.values().map(|m| m.amount()))
+//!     .sum();
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! For credit-adjusted discounting, use `pre_period_pv_with_market` with a hazard curve ID.
+//!
 //! # See Also
 //!
 //! - [`primitives`] for core [`CashFlow`] type from finstack-core
 //! - [`builder`] for schedule construction
-//! - [`aggregation`] for currency-safe merging
+//! - [`aggregation`] for currency-safe merging and [`pv_by_period`](aggregation::pv_by_period)
 //! - [`traits`] for [`CashflowProvider`] and [`DatedFlows`]
 
 /// Cash-flow primitives (`CashFlow`, `CFKind`, etc.).
