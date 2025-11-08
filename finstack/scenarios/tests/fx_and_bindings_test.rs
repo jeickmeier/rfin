@@ -68,6 +68,46 @@ fn test_fx_shock() {
 }
 
 #[test]
+fn test_fx_shock_preserves_other_quotes() {
+    let fx_provider = Arc::new(SimpleFxProvider::new());
+    fx_provider.set_quote(Currency::EUR, Currency::USD, 1.1);
+    fx_provider.set_quote(Currency::GBP, Currency::USD, 1.25);
+
+    let fx_matrix = FxMatrix::new(fx_provider);
+    let mut market = MarketContext::new().insert_fx(fx_matrix);
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let scenario = ScenarioSpec {
+        id: "fx_shock".into(),
+        name: Some("FX Shock".into()),
+        description: None,
+        operations: vec![OperationSpec::MarketFxPct {
+            base: Currency::EUR,
+            quote: Currency::USD,
+            pct: 5.0,
+        }],
+        priority: 0,
+    };
+
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        as_of: base_date,
+    };
+
+    engine.apply(&scenario, &mut ctx).unwrap();
+
+    let fx = market.fx.as_ref().unwrap();
+    let gbp_query = finstack_core::money::fx::FxQuery::new(Currency::GBP, Currency::USD, base_date);
+    let gbp_rate = fx.rate(gbp_query).unwrap().rate;
+    assert!((gbp_rate - 1.25).abs() < 1e-6, "Expected unchanged GBP/USD quote");
+}
+
+#[test]
 fn test_rate_binding() {
     // Setup market with discount curve
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();

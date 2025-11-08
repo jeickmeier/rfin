@@ -191,7 +191,7 @@ impl JsFxMatrix {
     #[wasm_bindgen(js_name = withConfig)]
     pub fn with_config(config: &JsFxConfig) -> JsFxMatrix {
         let provider = Arc::new(SimpleFxProvider::new());
-        JsFxMatrix::new_with(provider, config.inner.clone())
+        JsFxMatrix::new_with(provider, config.inner)
     }
 
     #[wasm_bindgen(js_name = setQuote)]

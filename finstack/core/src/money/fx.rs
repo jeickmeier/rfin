@@ -146,7 +146,7 @@ struct Pair(Currency, Currency);
 ///
 /// Controls triangulation and caching.
 ///
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 #[cfg_attr(feature = "serde", serde(default))]
@@ -329,6 +329,16 @@ impl FxMatrix {
             quotes: Mutex::new(quotes),
             config,
         }
+    }
+
+    /// Access the underlying FX provider reference.
+    pub fn provider(&self) -> Arc<dyn FxProvider> {
+        Arc::clone(&self.provider)
+    }
+
+    /// Return the matrix configuration.
+    pub fn config(&self) -> FxConfig {
+        self.config
     }
 
     /// Look up an FX rate (with metadata) using caching and triangulation fallbacks.
@@ -573,7 +583,7 @@ impl FxMatrix {
             .map(|(pair, rate)| (pair.0, pair.1, *rate))
             .collect();
         FxMatrixState {
-            config: self.config.clone(),
+            config: self.config,
             quotes: quote_vec,
         }
     }
@@ -648,7 +658,7 @@ impl FxMatrix {
         ));
 
         // Create new FX matrix with same config
-        Ok(Self::with_config(bumped_provider, self.config.clone()))
+        Ok(Self::with_config(bumped_provider, self.config))
     }
 
     // Private helper methods

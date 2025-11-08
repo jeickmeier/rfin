@@ -6,8 +6,14 @@ use finstack_statements::dsl;
 use proptest::prelude::*;
 
 // Strategy to generate valid identifiers
+// Avoid identifiers starting with "nan" followed by a digit, as "nan" is a reserved literal
+// that the parser tries to match before identifiers
 fn valid_identifier() -> impl Strategy<Value = String> {
-    "[a-z][a-z0-9_]{0,15}".prop_map(|s| s)
+    "[a-z][a-z0-9_]{0,15}"
+        .prop_filter("must not start with 'nan' followed by digit", |s: &String| {
+            !s.starts_with("nan") || (s.len() > 3 && !s.chars().nth(3).unwrap().is_ascii_digit())
+        })
+        .prop_map(|s: String| s)
 }
 
 // Strategy to generate simple numeric literals

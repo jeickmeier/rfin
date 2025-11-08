@@ -2,23 +2,23 @@
 //!
 //! Provides helper functions used by `OperationSpec::MarketFxPct` to apply
 //! multiplicative shocks to FX matrices held inside the market context. The
-//! logic intentionally focuses on the `SimpleFxProvider` implementation so the
+//! adapter wraps the existing provider behind a [`BumpedFxProvider`] so the
 //! operation remains deterministic and easy to audit.
 
 use crate::error::{Error, Result};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
-use finstack_core::money::fx::providers::SimpleFxProvider;
+use finstack_core::money::fx::providers::BumpedFxProvider;
 use finstack_core::money::fx::FxMatrix;
 use std::sync::Arc;
 
 /// Apply a percentage shock to an FX rate.
 ///
 /// Positive percentages strengthen the base currency (increase the quoted rate).
-/// The function expects the FX matrix inside the [`MarketContext`] to be powered
-/// by a [`SimpleFxProvider`]; in that case it clones the matrix with the updated
-/// rate and replaces the original.
+/// The function wraps the existing FX provider with a [`BumpedFxProvider`] so the
+/// shocked pair is overridden while every other rate continues to delegate to the
+/// original matrix configuration.
 ///
 /// # Arguments
 /// - `market`: Market context whose FX matrix will be shocked.
@@ -77,14 +77,18 @@ pub fn apply_fx_shock(
     let factor = 1.0 + (pct / 100.0);
     let shocked_rate = current_rate * factor;
 
-    // Create a new SimpleFxProvider with the shocked rate.
-    // TODO: Expose a merge API in SimpleFxProvider to preserve other quotes instead of replacing
-    // the entire matrix. Current implementation replaces the matrix, which drops other pairs.
-    let provider = Arc::new(SimpleFxProvider::new());
-    provider.set_quote(base, quote, shocked_rate);
+    // Wrap the original provider so only the requested pair is bumped and all
+    // other quotes continue to delegate to the existing source.
+    let bumped_provider = Arc::new(BumpedFxProvider::new(
+        fx.provider(),
+        base,
+        quote,
+        shocked_rate,
+    ));
 
-    // Create and insert new FxMatrix
-    let new_matrix = FxMatrix::new(provider);
+    // Recreate the matrix with the previous configuration to preserve cache
+    // sizing and triangulation behaviour.
+    let new_matrix = FxMatrix::with_config(bumped_provider, fx.config());
     market.insert_fx_mut(Arc::new(new_matrix));
 
     Ok(())
