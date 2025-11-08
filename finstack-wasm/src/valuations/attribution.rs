@@ -405,4 +405,3 @@ impl WasmPortfolioAttribution {
 
 // Note: attribution functions (attributePnl, attributePortfolioPnl) are exported
 // at the module level below, following the pattern of other WASM bindings.
-

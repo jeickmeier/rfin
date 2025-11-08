@@ -141,17 +141,16 @@ impl Report for CreditAssessmentReport<'_> {
         }
 
         if let Some(coverage) = self.calculate_interest_coverage() {
-            output.push_str(&format!(
-                "EBITDA / Interest Expense:  {:.2}x\n",
-                coverage
-            ));
+            output.push_str(&format!("EBITDA / Interest Expense:  {:.2}x\n", coverage));
         }
 
         if let Some(fcf) = self.results.get("free_cash_flow", &self.as_of) {
-            output.push_str(&format!("Free Cash Flow:             ${:.2}M\n", fcf / 1_000_000.0));
+            output.push_str(&format!(
+                "Free Cash Flow:             ${:.2}M\n",
+                fcf / 1_000_000.0
+            ));
         }
 
         output
     }
 }
-

@@ -217,7 +217,9 @@ impl PyDebtInstrumentSpec {
         match &self.inner {
             DebtInstrumentSpec::Bond { id, .. } => format!("DebtInstrumentSpec.bond('{}')", id),
             DebtInstrumentSpec::Swap { id, .. } => format!("DebtInstrumentSpec.swap('{}')", id),
-            DebtInstrumentSpec::TermLoan { id, .. } => format!("DebtInstrumentSpec.term_loan('{}')", id),
+            DebtInstrumentSpec::TermLoan { id, .. } => {
+                format!("DebtInstrumentSpec.term_loan('{}')", id)
+            }
             DebtInstrumentSpec::Generic { id, .. } => {
                 format!("DebtInstrumentSpec.generic('{}')", id)
             }

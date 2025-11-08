@@ -20,7 +20,9 @@ where
     FN: FnMut(f64, f64, f64) -> f64,
 {
     // Get market curves
-    let disc_curve = context.curves.get_discount_ref(option.discount_curve_id.as_ref())?;
+    let disc_curve = context
+        .curves
+        .get_discount_ref(option.discount_curve_id.as_ref())?;
     let fwd_curve = context.curves.get_forward_ref(option.forward_id.as_ref())?;
     let base_date = disc_curve.base_date();
 

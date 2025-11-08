@@ -129,4 +129,3 @@ fn test_model_params_none_for_plain_instruments() {
     // This is verified in the extract_model_params function
     // which returns ModelParamsSnapshot::None for unsupported types
 }
-

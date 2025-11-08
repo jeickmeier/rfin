@@ -95,8 +95,16 @@ impl CoverageTest {
                 required_ratio,
                 include_cash,
                 performing_only,
-            } => self.calculate_oc(context, id.clone(), *required_ratio, *include_cash, *performing_only),
-            Self::IC { id, required_ratio } => self.calculate_ic(context, id.clone(), *required_ratio),
+            } => self.calculate_oc(
+                context,
+                id.clone(),
+                *required_ratio,
+                *include_cash,
+                *performing_only,
+            ),
+            Self::IC { id, required_ratio } => {
+                self.calculate_ic(context, id.clone(), *required_ratio)
+            }
         }
     }
 
@@ -166,7 +174,12 @@ impl CoverageTest {
         }
     }
 
-    fn calculate_ic(&self, context: &TestContext, test_id: String, required_ratio: f64) -> TestResult {
+    fn calculate_ic(
+        &self,
+        context: &TestContext,
+        test_id: String,
+        required_ratio: f64,
+    ) -> TestResult {
         // Find the target tranche
         let tranche = context
             .tranches

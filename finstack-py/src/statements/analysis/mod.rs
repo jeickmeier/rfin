@@ -3,11 +3,11 @@
 use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
-use finstack_statements::analysis::{
-    generate_tornado_chart, ParameterSpec, SensitivityAnalyzer, SensitivityConfig,
-    SensitivityMode, SensitivityResult, TornadoEntry,
-};
 use finstack_statements::analysis::types::SensitivityScenario;
+use finstack_statements::analysis::{
+    generate_tornado_chart, ParameterSpec, SensitivityAnalyzer, SensitivityConfig, SensitivityMode,
+    SensitivityResult, TornadoEntry,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule};
 use pyo3::Bound;
@@ -149,10 +149,7 @@ impl PySensitivityMode {
 }
 
 /// Sensitivity analysis configuration.
-#[pyclass(
-    module = "finstack.statements.analysis",
-    name = "SensitivityConfig"
-)]
+#[pyclass(module = "finstack.statements.analysis", name = "SensitivityConfig")]
 pub struct PySensitivityConfig {
     inner: SensitivityConfig,
 }
@@ -347,8 +344,7 @@ impl PySensitivityAnalyzer {
     ///     Analysis results
     fn run(&self, py: Python<'_>, config: &PySensitivityConfig) -> PyResult<PySensitivityResult> {
         let analyzer = SensitivityAnalyzer::new(&self.model.inner);
-        let result = py
-            .allow_threads(|| analyzer.run(&config.inner).map_err(stmt_to_py))?;
+        let result = py.allow_threads(|| analyzer.run(&config.inner).map_err(stmt_to_py))?;
 
         Ok(PySensitivityResult { inner: result })
     }
@@ -359,11 +355,7 @@ impl PySensitivityAnalyzer {
 }
 
 /// Entry in a tornado chart.
-#[pyclass(
-    module = "finstack.statements.analysis",
-    name = "TornadoEntry",
-    frozen
-)]
+#[pyclass(module = "finstack.statements.analysis", name = "TornadoEntry", frozen)]
 pub struct PyTornadoEntry {
     inner: TornadoEntry,
 }
@@ -476,4 +468,3 @@ pub(crate) fn register<'py>(
         "generate_tornado_chart",
     ])
 }
-

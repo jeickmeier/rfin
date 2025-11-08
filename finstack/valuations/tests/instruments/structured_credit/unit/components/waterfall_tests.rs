@@ -24,22 +24,22 @@ fn test_waterfall_builder_creates_proper_priority_order() {
     // Arrange & Act
     let waterfall = WaterfallBuilder::new(Currency::USD)
         .add_tier(
-            WaterfallTier::new("fees", 1, PaymentType::Fee)
-                .add_recipient(Recipient::new(
-                    "trustee",
-                    PaymentRecipient::ServiceProvider("Trustee".into()),
-                    PaymentCalculation::FixedAmount {
-                        amount: Money::new(25_000.0, Currency::USD),
-                    },
-                )),
+            WaterfallTier::new("fees", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                "trustee",
+                PaymentRecipient::ServiceProvider("Trustee".into()),
+                PaymentCalculation::FixedAmount {
+                    amount: Money::new(25_000.0, Currency::USD),
+                },
+            )),
         )
         .add_tier(
             WaterfallTier::new("interest", 2, PaymentType::Interest)
                 .add_recipient(Recipient::tranche_interest("class_a_int", "CLASS_A")),
         )
         .add_tier(
-            WaterfallTier::new("principal", 3, PaymentType::Principal)
-                .add_recipient(Recipient::tranche_principal("class_a_prin", "CLASS_A", None)),
+            WaterfallTier::new("principal", 3, PaymentType::Principal).add_recipient(
+                Recipient::tranche_principal("class_a_prin", "CLASS_A", None),
+            ),
         )
         .build();
 
@@ -57,15 +57,14 @@ fn test_waterfall_builder_tier_types() {
     // Arrange & Act
     let waterfall = WaterfallBuilder::new(Currency::USD)
         .add_tier(
-            WaterfallTier::new("fees", 1, PaymentType::Fee)
-                .add_recipient(Recipient::new(
-                    "mgmt",
-                    PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
-                    PaymentCalculation::PercentageOfCollateral {
-                        rate: 0.004,
-                        annualized: true,
-                    },
-                )),
+            WaterfallTier::new("fees", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                "mgmt",
+                PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
+                PaymentCalculation::PercentageOfCollateral {
+                    rate: 0.004,
+                    annualized: true,
+                },
+            )),
         )
         .add_tier(
             WaterfallTier::new("interest", 2, PaymentType::Interest)
@@ -110,23 +109,21 @@ fn test_payment_priority_ordering() {
     let mut waterfall = WaterfallEngine::new(Currency::USD);
 
     waterfall = waterfall.add_tier(
-        WaterfallTier::new("third", 3, PaymentType::Residual)
-            .add_recipient(Recipient::new(
-                "equity",
-                PaymentRecipient::Equity,
-                PaymentCalculation::ResidualCash,
-            )),
+        WaterfallTier::new("third", 3, PaymentType::Residual).add_recipient(Recipient::new(
+            "equity",
+            PaymentRecipient::Equity,
+            PaymentCalculation::ResidualCash,
+        )),
     );
 
     waterfall = waterfall.add_tier(
-        WaterfallTier::new("first", 1, PaymentType::Fee)
-            .add_recipient(Recipient::new(
-                "fee",
-                PaymentRecipient::ServiceProvider("Test".into()),
-                PaymentCalculation::FixedAmount {
-                    amount: Money::new(1000.0, Currency::USD),
-                },
-            )),
+        WaterfallTier::new("first", 1, PaymentType::Fee).add_recipient(Recipient::new(
+            "fee",
+            PaymentRecipient::ServiceProvider("Test".into()),
+            PaymentCalculation::FixedAmount {
+                amount: Money::new(1000.0, Currency::USD),
+            },
+        )),
     );
 
     waterfall = waterfall.add_tier(
@@ -217,7 +214,10 @@ fn test_recipient_tranche_principal_helper() {
 
     assert_eq!(recipient.id, "class_a_prin");
     match &recipient.calculation {
-        PaymentCalculation::TranchePrincipal { tranche_id, target_balance } => {
+        PaymentCalculation::TranchePrincipal {
+            tranche_id,
+            target_balance,
+        } => {
             assert_eq!(tranche_id, "CLASS_A");
             assert_eq!(*target_balance, None);
         }
@@ -232,9 +232,21 @@ fn test_recipient_tranche_principal_helper() {
 #[test]
 fn test_tier_multiple_recipients() {
     let tier = WaterfallTier::new("fees", 1, PaymentType::Fee)
-        .add_recipient(Recipient::fixed_fee("trustee", "Trustee", Money::new(50_000.0, Currency::USD)))
-        .add_recipient(Recipient::fixed_fee("admin", "Admin", Money::new(25_000.0, Currency::USD)))
-        .add_recipient(Recipient::fixed_fee("rating", "RatingAgency", Money::new(10_000.0, Currency::USD)));
+        .add_recipient(Recipient::fixed_fee(
+            "trustee",
+            "Trustee",
+            Money::new(50_000.0, Currency::USD),
+        ))
+        .add_recipient(Recipient::fixed_fee(
+            "admin",
+            "Admin",
+            Money::new(25_000.0, Currency::USD),
+        ))
+        .add_recipient(Recipient::fixed_fee(
+            "rating",
+            "RatingAgency",
+            Money::new(10_000.0, Currency::USD),
+        ));
 
     assert_eq!(tier.recipients.len(), 3);
     assert_eq!(tier.recipients[0].id, "trustee");
@@ -253,14 +265,13 @@ fn test_waterfall_engine_creation() {
 
 #[test]
 fn test_waterfall_engine_add_tier() {
-    let tier = WaterfallTier::new("test", 1, PaymentType::Fee)
-        .add_recipient(Recipient::new(
-            "recipient",
-            PaymentRecipient::ServiceProvider("Test".into()),
-            PaymentCalculation::FixedAmount {
-                amount: Money::new(1000.0, Currency::USD),
-            },
-        ));
+    let tier = WaterfallTier::new("test", 1, PaymentType::Fee).add_recipient(Recipient::new(
+        "recipient",
+        PaymentRecipient::ServiceProvider("Test".into()),
+        PaymentCalculation::FixedAmount {
+            amount: Money::new(1000.0, Currency::USD),
+        },
+    ));
 
     let engine = WaterfallEngine::new(Currency::USD).add_tier(tier);
 

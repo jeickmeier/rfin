@@ -43,9 +43,10 @@ impl PyAttributionMethod {
                 "volatility" => Ok(AttributionFactor::Volatility),
                 "model_parameters" => Ok(AttributionFactor::ModelParameters),
                 "market_scalars" => Ok(AttributionFactor::MarketScalars),
-                _ => Err(pyo3::exceptions::PyValueError::new_err(
-                    format!("Unknown attribution factor: {}", s)
-                )),
+                _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Unknown attribution factor: {}",
+                    s
+                ))),
             })
             .collect::<PyResult<Vec<_>>>()?;
 
@@ -115,7 +116,10 @@ impl PyAttributionMeta {
     fn __repr__(&self) -> String {
         format!(
             "AttributionMeta(method={}, instrument={}, repricings={}, residual_pct={:.2}%)",
-            self.inner.method, self.inner.instrument_id, self.inner.num_repricings, self.inner.residual_pct
+            self.inner.method,
+            self.inner.instrument_id,
+            self.inner.num_repricings,
+            self.inner.residual_pct
         )
     }
 }
@@ -441,26 +445,26 @@ pub fn attribute_pnl(
             // Include standard risk metrics for P&L attribution (first and second-order)
             let metrics = vec![
                 // First-order metrics
-                MetricId::Theta,    // Time decay (carry)
-                MetricId::Dv01,     // Interest rate sensitivity
-                MetricId::Cs01,     // Credit spread sensitivity
-                MetricId::Vega,     // Volatility sensitivity
-                MetricId::Delta,    // Delta for options/equity
-                MetricId::Fx01,     // FX sensitivity
+                MetricId::Theta,       // Time decay (carry)
+                MetricId::Dv01,        // Interest rate sensitivity
+                MetricId::Cs01,        // Credit spread sensitivity
+                MetricId::Vega,        // Volatility sensitivity
+                MetricId::Delta,       // Delta for options/equity
+                MetricId::Fx01,        // FX sensitivity
                 MetricId::Inflation01, // Inflation sensitivity
                 // Second-order metrics (for improved accuracy)
-                MetricId::Gamma,    // Spot convexity for options
-                MetricId::Convexity, // Rate convexity for bonds
-                MetricId::IrConvexity, // Rate convexity for IRS
-                MetricId::Volga,    // Volatility convexity
-                MetricId::Vanna,    // Cross-gamma (spot-vol)
-                MetricId::CsGamma,  // Credit spread convexity
+                MetricId::Gamma,              // Spot convexity for options
+                MetricId::Convexity,          // Rate convexity for bonds
+                MetricId::IrConvexity,        // Rate convexity for IRS
+                MetricId::Volga,              // Volatility convexity
+                MetricId::Vanna,              // Cross-gamma (spot-vol)
+                MetricId::CsGamma,            // Credit spread convexity
                 MetricId::InflationConvexity, // Inflation convexity
             ];
             let val_t0 = instrument_arc
                 .price_with_metrics(&market_t0.inner, date_t0, &metrics)
                 .map_err(map_error)?;
-                
+
             let val_t1 = instrument_arc
                 .price_with_metrics(&market_t1.inner, date_t1, &metrics)
                 .map_err(map_error)?;
@@ -661,4 +665,3 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(attribute_portfolio_pnl, module)?)?;
     Ok(())
 }
-

@@ -2,13 +2,13 @@ pub(crate) mod attribution;
 pub(crate) mod calibration;
 pub(crate) mod cashflow;
 pub(crate) mod common;
+pub(crate) mod covenants;
 pub(crate) mod dataframe;
 pub(crate) mod instruments;
 pub(crate) mod metrics;
 pub(crate) mod pricer;
 pub(crate) mod results;
 pub(crate) mod risk;
-pub(crate) mod covenants;
 
 use crate::core::common::reexport::reexport_from_submodule;
 use pyo3::prelude::*;

@@ -37,7 +37,9 @@ impl MetricCalculator for VannaCalculator {
 
         let spot_bump = current_spot * bump_sizes::SPOT;
         let vol_bump = bump_sizes::VOLATILITY;
-        let vol_surface = context.curves.surface_ref(instrument.vol_surface_id.as_str())?;
+        let vol_surface = context
+            .curves
+            .surface_ref(instrument.vol_surface_id.as_str())?;
 
         // Delta at vol_up
         let curves_vol_up = {

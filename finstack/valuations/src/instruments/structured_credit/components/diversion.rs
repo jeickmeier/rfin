@@ -92,7 +92,10 @@ impl DiversionRule {
         match &self.condition {
             DiversionCondition::CoverageTestFailed { test_id } => {
                 // Active if test failed (returned false)
-                test_results.get(test_id).map(|&passed| !passed).unwrap_or(false)
+                test_results
+                    .get(test_id)
+                    .map(|&passed| !passed)
+                    .unwrap_or(false)
             }
             DiversionCondition::CustomExpression { .. } => {
                 // TODO: Implement expression evaluation
@@ -197,10 +200,8 @@ impl DiversionEngine {
             Black, // Visited (fully explored)
         }
 
-        let mut colors: HashMap<&str, Color> = all_nodes
-            .iter()
-            .map(|&node| (node, Color::White))
-            .collect();
+        let mut colors: HashMap<&str, Color> =
+            all_nodes.iter().map(|&node| (node, Color::White)).collect();
 
         let mut path: Vec<&str> = Vec::new();
 
@@ -311,16 +312,10 @@ mod tests {
 
     #[test]
     fn test_diversion_condition_evaluation() {
-        let rule = DiversionRule::on_test_failure(
-            "rule1",
-            "tier_a",
-            "tier_b",
-            "oc_test",
-            1,
-        );
+        let rule = DiversionRule::on_test_failure("rule1", "tier_a", "tier_b", "oc_test", 1);
 
         let mut test_results = HashMap::new();
-        
+
         // Test passed - rule should not be active
         test_results.insert("oc_test".to_string(), true);
         assert!(!rule.is_active(&test_results));
@@ -461,26 +456,18 @@ mod tests {
     fn test_get_active_diversions() {
         let engine = DiversionEngine::new()
             .add_rule(DiversionRule::on_test_failure(
-                "rule1",
-                "tier_a",
-                "tier_b",
-                "test1",
-                1,
+                "rule1", "tier_a", "tier_b", "test1", 1,
             ))
             .add_rule(DiversionRule::on_test_failure(
-                "rule2",
-                "tier_c",
-                "tier_d",
-                "test2",
-                2,
+                "rule2", "tier_c", "tier_d", "test2", 2,
             ));
 
         let mut test_results = HashMap::new();
         test_results.insert("test1".to_string(), false); // Failed
-        test_results.insert("test2".to_string(), true);  // Passed
+        test_results.insert("test2".to_string(), true); // Passed
 
         let active = engine.get_active_diversions(&test_results);
-        
+
         assert_eq!(active.len(), 1);
         assert_eq!(active.get("tier_a"), Some(&"tier_b".to_string()));
         assert_eq!(active.get("tier_c"), None);
@@ -527,4 +514,3 @@ mod tests {
         assert!(engine.validate().is_ok());
     }
 }
-

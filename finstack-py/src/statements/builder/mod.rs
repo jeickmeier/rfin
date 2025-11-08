@@ -322,7 +322,7 @@ impl PyModelBuilder {
                     .periods("2025Q1..Q2", None)
                     .unwrap(),
             );
-            
+
             Ok(PyMixedNodeBuilder {
                 parent_builder: Some(parent),
                 node_id,
@@ -401,7 +401,9 @@ impl PyModelBuilder {
         }
     }
 
-    #[pyo3(text_signature = "(self, id, notional, coupon_rate, issue_date, maturity_date, discount_curve_id)")]
+    #[pyo3(
+        text_signature = "(self, id, notional, coupon_rate, issue_date, maturity_date, discount_curve_id)"
+    )]
     /// Add a bond instrument to the capital structure.
     ///
     /// Parameters
@@ -444,7 +446,14 @@ impl PyModelBuilder {
                     .unwrap(),
             );
             *builder = new_builder
-                .add_bond(id, notional.inner, coupon_rate, issue, maturity, discount_curve_id)
+                .add_bond(
+                    id,
+                    notional.inner,
+                    coupon_rate,
+                    issue,
+                    maturity,
+                    discount_curve_id,
+                )
                 .map_err(stmt_to_py)?;
             Ok(())
         } else {
@@ -452,7 +461,9 @@ impl PyModelBuilder {
         }
     }
 
-    #[pyo3(text_signature = "(self, id, notional, fixed_rate, start_date, maturity_date, discount_curve_id, forward_curve_id)")]
+    #[pyo3(
+        text_signature = "(self, id, notional, fixed_rate, start_date, maturity_date, discount_curve_id, forward_curve_id)"
+    )]
     /// Add an interest rate swap to the capital structure.
     ///
     /// Parameters
@@ -660,7 +671,8 @@ impl PyModelBuilder {
         registry: Bound<'_, PyAny>,
     ) -> PyResult<()> {
         // Extract the PyRegistry directly
-        let registry_ref: PyRef<'_, crate::statements::registry::PyRegistry> = registry.extract()?;
+        let registry_ref: PyRef<'_, crate::statements::registry::PyRegistry> =
+            registry.extract()?;
 
         if let BuilderState::Ready(builder) = &mut self.state {
             let new_builder = std::mem::replace(
@@ -813,7 +825,7 @@ impl PyMixedNodeBuilder {
             return Err(PyValueError::new_err("Formula cannot be empty"));
         }
         finstack_statements::dsl::parse_and_compile(&formula).map_err(stmt_to_py)?;
-        
+
         self.formula = Some(formula);
         Ok(())
     }
@@ -843,12 +855,14 @@ impl PyMixedNodeBuilder {
     /// None
     fn finish(mut self_: PyRefMut<'_, Self>) -> PyResult<PyModelBuilder> {
         let mut self_owned = std::mem::take(&mut *self_);
-        let parent = self_owned.parent_builder.take()
+        let parent = self_owned
+            .parent_builder
+            .take()
             .ok_or_else(|| PyValueError::new_err("Builder already finished"))?;
 
         // Create mixed node using Rust builder API
         let mixed_builder = parent.mixed(&self_owned.node_id);
-        
+
         let mut mixed_builder = if let Some(values) = self_owned.values.take() {
             mixed_builder.values(&values)
         } else {

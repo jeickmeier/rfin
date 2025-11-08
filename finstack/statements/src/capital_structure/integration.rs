@@ -67,7 +67,9 @@ pub fn aggregate_instrument_cashflows(
         let full_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
 
         // Determine currency from first cashflow (all cashflows should be same currency)
-        let currency = full_schedule.flows.first()
+        let currency = full_schedule
+            .flows
+            .first()
             .map(|cf| cf.amount.currency())
             .unwrap_or(finstack_core::currency::Currency::USD);
 
@@ -145,7 +147,10 @@ pub fn aggregate_instrument_cashflows(
                 if let Some(breakdown) = instrument_periods.get_mut(&period_id) {
                     // Keep as Money, use absolute value for issuer perspective
                     breakdown.debt_balance = if outstanding_amount.amount() < 0.0 {
-                        finstack_core::money::Money::new(-outstanding_amount.amount(), outstanding_amount.currency())
+                        finstack_core::money::Money::new(
+                            -outstanding_amount.amount(),
+                            outstanding_amount.currency(),
+                        )
                     } else {
                         outstanding_amount
                     };

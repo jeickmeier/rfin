@@ -31,7 +31,9 @@ impl MetricCalculator for VegaCalculator {
         let t = swap
             .day_count
             .year_fraction(context.as_of, swap.maturity, Default::default())?;
-        let disc = context.curves.get_discount_ref(swap.discount_curve_id.as_str())?;
+        let disc = context
+            .curves
+            .get_discount_ref(swap.discount_curve_id.as_str())?;
         let df = disc.df(t);
 
         // Vega per 1% vol move: DF * 2 * Notional * sigma * 0.01 * remaining_fraction

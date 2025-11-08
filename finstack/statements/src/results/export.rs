@@ -44,7 +44,7 @@ pub fn to_polars_long(results: &Results) -> Result<DataFrame> {
 
     for (node_id, period_map) in &results.nodes {
         let node_value_type = results.node_value_types.get(node_id);
-        
+
         for (period_id, value) in period_map {
             node_ids.push(node_id.as_str());
             period_ids.push(period_id.to_string());

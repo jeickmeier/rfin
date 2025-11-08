@@ -1,17 +1,17 @@
+use crate::core::error::core_to_py;
+use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
+use crate::valuations::cashflow::builder::PyCashFlowSchedule;
+use crate::valuations::common::mc::result::PyMonteCarloResult;
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, parse_frequency_label};
+use finstack_valuations::instruments::revolving_credit::types::{
+    CreditSpreadProcessSpec, InterestRateProcessSpec, McConfig,
+};
 use finstack_valuations::instruments::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
     StochasticUtilizationSpec, UtilizationProcess,
 };
-use finstack_valuations::instruments::revolving_credit::types::{
-    CreditSpreadProcessSpec, InterestRateProcessSpec, McConfig,
-};
-use crate::core::market_data::PyMarketContext;
-use crate::valuations::common::mc::result::PyMonteCarloResult;
-use crate::valuations::cashflow::builder::PyCashFlowSchedule;
-use crate::core::error::core_to_py;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
@@ -153,202 +153,237 @@ impl PyRevolvingCredit {
         };
 
         // Parse draw/repay spec
-        let draw_repay =
-            if let Ok(dict) = draw_repay_spec.downcast::<PyDict>() {
-                if let Ok(Some(deterministic)) = dict.get_item("deterministic") {
-                    let events_list = deterministic
-                        .downcast::<PyList>()
-                        .map_err(|_| PyValueError::new_err("deterministic must be a list"))?;
-                    let mut events = Vec::new();
-                    for item in events_list.iter() {
-                        let event_dict = item.downcast::<PyDict>()?;
-                        let date =
-                            py_to_date(&event_dict.get_item("date")?.ok_or_else(|| {
-                                PyValueError::new_err("Missing 'date' in event")
-                            })?)?;
-                        let amount =
-                            extract_money(&event_dict.get_item("amount")?.ok_or_else(|| {
-                                PyValueError::new_err("Missing 'amount' in event")
-                            })?)?;
-                        let is_draw = event_dict
-                            .get_item("is_draw")?
-                            .and_then(|v| v.extract::<bool>().ok())
-                            .unwrap_or(true);
-                        events.push(DrawRepayEvent {
-                            date,
-                            amount,
-                            is_draw,
-                        });
-                    }
-                    DrawRepaySpec::Deterministic(events)
-                } else if let Ok(Some(stochastic)) = dict.get_item("stochastic") {
-                    let stoch_dict = stochastic
-                        .downcast::<PyDict>()
-                        .map_err(|_| PyValueError::new_err("stochastic must be a dict"))?;
-                    let process_dict_item = stoch_dict
-                        .get_item("utilization_process")?
-                        .ok_or_else(|| PyValueError::new_err("Missing 'utilization_process'"))?;
-                    let process_dict = process_dict_item.downcast::<PyDict>()?;
-                    let process_type_val = process_dict.get_item("type")?.ok_or_else(|| {
-                        PyValueError::new_err("Missing 'type' in utilization_process")
-                    })?;
-                    let process_type = process_type_val.extract::<String>()?;
+        let draw_repay = if let Ok(dict) = draw_repay_spec.downcast::<PyDict>() {
+            if let Ok(Some(deterministic)) = dict.get_item("deterministic") {
+                let events_list = deterministic
+                    .downcast::<PyList>()
+                    .map_err(|_| PyValueError::new_err("deterministic must be a list"))?;
+                let mut events = Vec::new();
+                for item in events_list.iter() {
+                    let event_dict = item.downcast::<PyDict>()?;
+                    let date = py_to_date(
+                        &event_dict
+                            .get_item("date")?
+                            .ok_or_else(|| PyValueError::new_err("Missing 'date' in event"))?,
+                    )?;
+                    let amount = extract_money(
+                        &event_dict
+                            .get_item("amount")?
+                            .ok_or_else(|| PyValueError::new_err("Missing 'amount' in event"))?,
+                    )?;
+                    let is_draw = event_dict
+                        .get_item("is_draw")?
+                        .and_then(|v| v.extract::<bool>().ok())
+                        .unwrap_or(true);
+                    events.push(DrawRepayEvent {
+                        date,
+                        amount,
+                        is_draw,
+                    });
+                }
+                DrawRepaySpec::Deterministic(events)
+            } else if let Ok(Some(stochastic)) = dict.get_item("stochastic") {
+                let stoch_dict = stochastic
+                    .downcast::<PyDict>()
+                    .map_err(|_| PyValueError::new_err("stochastic must be a dict"))?;
+                let process_dict_item = stoch_dict
+                    .get_item("utilization_process")?
+                    .ok_or_else(|| PyValueError::new_err("Missing 'utilization_process'"))?;
+                let process_dict = process_dict_item.downcast::<PyDict>()?;
+                let process_type_val = process_dict.get_item("type")?.ok_or_else(|| {
+                    PyValueError::new_err("Missing 'type' in utilization_process")
+                })?;
+                let process_type = process_type_val.extract::<String>()?;
 
-                    let utilization_process = match process_type.to_lowercase().as_str() {
-                        "mean_reverting" | "meanreverting" => {
-                            let target_rate = process_dict
-                                .get_item("target_rate")?
-                                .ok_or_else(|| PyValueError::new_err("Missing 'target_rate'"))?
-                                .extract::<f64>()?;
-                            let speed = process_dict
-                                .get_item("speed")?
-                                .ok_or_else(|| PyValueError::new_err("Missing 'speed'"))?
-                                .extract::<f64>()?;
-                            let volatility = process_dict
-                                .get_item("volatility")?
-                                .ok_or_else(|| PyValueError::new_err("Missing 'volatility'"))?
-                                .extract::<f64>()?;
-                            UtilizationProcess::MeanReverting {
-                                target_rate,
-                                speed,
-                                volatility,
-                            }
-                        }
-                        other => {
-                            return Err(PyValueError::new_err(format!(
-                                "Unknown utilization process: {other}"
-                            )))
-                        }
-                    };
-
-                    let num_paths = stoch_dict
-                        .get_item("num_paths")?
-                        .ok_or_else(|| PyValueError::new_err("Missing 'num_paths'"))?
-                        .extract::<usize>()?;
-                    let seed = stoch_dict
-                        .get_item("seed")?
-                        .and_then(|v| v.extract::<Option<u64>>().ok())
-                        .flatten();
-
-                    // Optional Monte Carlo config (utilization + credit, correlation, etc.)
-                    let mc_config_opt: Option<McConfig> = if let Some(mc_obj) = stoch_dict.get_item("mc_config")? {
-                        let mc = mc_obj
-                            .downcast::<PyDict>()
-                            .map_err(|_| PyValueError::new_err("mc_config must be a dict"))?;
-
-                        // recovery_rate (required)
-                        let recovery_rate = mc
-                            .get_item("recovery_rate")?
-                            .ok_or_else(|| PyValueError::new_err("mc_config.recovery_rate is required"))?
+                let utilization_process = match process_type.to_lowercase().as_str() {
+                    "mean_reverting" | "meanreverting" => {
+                        let target_rate = process_dict
+                            .get_item("target_rate")?
+                            .ok_or_else(|| PyValueError::new_err("Missing 'target_rate'"))?
                             .extract::<f64>()?;
+                        let speed = process_dict
+                            .get_item("speed")?
+                            .ok_or_else(|| PyValueError::new_err("Missing 'speed'"))?
+                            .extract::<f64>()?;
+                        let volatility = process_dict
+                            .get_item("volatility")?
+                            .ok_or_else(|| PyValueError::new_err("Missing 'volatility'"))?
+                            .extract::<f64>()?;
+                        UtilizationProcess::MeanReverting {
+                            target_rate,
+                            speed,
+                            volatility,
+                        }
+                    }
+                    other => {
+                        return Err(PyValueError::new_err(format!(
+                            "Unknown utilization process: {other}"
+                        )))
+                    }
+                };
 
-                        // credit_spread_process (required): one-of keys
-                        let csp_item = mc
-                            .get_item("credit_spread_process")?
-                            .ok_or_else(|| PyValueError::new_err("mc_config.credit_spread_process is required"))?;
-                        let csp_dict = csp_item
-                            .downcast::<PyDict>()
-                            .map_err(|_| PyValueError::new_err("credit_spread_process must be a dict"))?;
+                let num_paths = stoch_dict
+                    .get_item("num_paths")?
+                    .ok_or_else(|| PyValueError::new_err("Missing 'num_paths'"))?
+                    .extract::<usize>()?;
+                let seed = stoch_dict
+                    .get_item("seed")?
+                    .and_then(|v| v.extract::<Option<u64>>().ok())
+                    .flatten();
 
-                        let credit_spread_process = if let Ok(Some(cir_any)) = csp_dict.get_item("cir") {
-                            let cir = cir_any.downcast::<PyDict>()?;
-                            let kappa = cir
-                                .get_item("kappa")?
-                                .ok_or_else(|| PyValueError::new_err("cir.kappa is required"))?
-                                .extract::<f64>()?;
-                            let theta = cir
-                                .get_item("theta")?
-                                .ok_or_else(|| PyValueError::new_err("cir.theta is required"))?
-                                .extract::<f64>()?;
-                            let sigma = cir
-                                .get_item("sigma")?
-                                .ok_or_else(|| PyValueError::new_err("cir.sigma is required"))?
-                                .extract::<f64>()?;
-                            let initial = cir
-                                .get_item("initial")?
-                                .ok_or_else(|| PyValueError::new_err("cir.initial is required"))?
-                                .extract::<f64>()?;
-                            CreditSpreadProcessSpec::Cir { kappa, theta, sigma, initial }
-                        } else if let Ok(Some(const_any)) = csp_dict.get_item("constant") {
-                            let spread = const_any
-                                .downcast::<PyAny>()
-                                .map_err(|_| PyValueError::new_err("constant must be a float"))?
-                                .extract::<f64>()?;
-                            CreditSpreadProcessSpec::Constant(spread)
-                        } else if let Ok(Some(ma_any)) = csp_dict.get_item("market_anchored") {
-                            let ma = ma_any.downcast::<PyDict>()?;
-                            let hazard_curve_id = ma
-                                .get_item("hazard_curve_id")?
-                                .ok_or_else(|| PyValueError::new_err("market_anchored.hazard_curve_id is required"))?
-                                .extract::<String>()?;
-                            let kappa = ma
-                                .get_item("kappa")?
-                                .ok_or_else(|| PyValueError::new_err("market_anchored.kappa is required"))?
-                                .extract::<f64>()?;
-                            let implied_vol = ma
-                                .get_item("implied_vol")?
-                                .ok_or_else(|| PyValueError::new_err("market_anchored.implied_vol is required"))?
-                                .extract::<f64>()?;
-                            let tenor_years = ma
-                                .get_item("tenor_years")?
-                                .and_then(|v| v.extract::<Option<f64>>().ok())
-                                .flatten();
-                            CreditSpreadProcessSpec::MarketAnchored {
-                                hazard_curve_id: finstack_core::types::CurveId::new(&hazard_curve_id),
-                                kappa,
-                                implied_vol,
-                                tenor_years,
-                            }
-                        } else {
-                            return Err(PyValueError::new_err(
+                // Optional Monte Carlo config (utilization + credit, correlation, etc.)
+                let mc_config_opt: Option<McConfig> = if let Some(mc_obj) =
+                    stoch_dict.get_item("mc_config")?
+                {
+                    let mc = mc_obj
+                        .downcast::<PyDict>()
+                        .map_err(|_| PyValueError::new_err("mc_config must be a dict"))?;
+
+                    // recovery_rate (required)
+                    let recovery_rate = mc
+                        .get_item("recovery_rate")?
+                        .ok_or_else(|| {
+                            PyValueError::new_err("mc_config.recovery_rate is required")
+                        })?
+                        .extract::<f64>()?;
+
+                    // credit_spread_process (required): one-of keys
+                    let csp_item = mc.get_item("credit_spread_process")?.ok_or_else(|| {
+                        PyValueError::new_err("mc_config.credit_spread_process is required")
+                    })?;
+                    let csp_dict = csp_item.downcast::<PyDict>().map_err(|_| {
+                        PyValueError::new_err("credit_spread_process must be a dict")
+                    })?;
+
+                    let credit_spread_process = if let Ok(Some(cir_any)) = csp_dict.get_item("cir")
+                    {
+                        let cir = cir_any.downcast::<PyDict>()?;
+                        let kappa = cir
+                            .get_item("kappa")?
+                            .ok_or_else(|| PyValueError::new_err("cir.kappa is required"))?
+                            .extract::<f64>()?;
+                        let theta = cir
+                            .get_item("theta")?
+                            .ok_or_else(|| PyValueError::new_err("cir.theta is required"))?
+                            .extract::<f64>()?;
+                        let sigma = cir
+                            .get_item("sigma")?
+                            .ok_or_else(|| PyValueError::new_err("cir.sigma is required"))?
+                            .extract::<f64>()?;
+                        let initial = cir
+                            .get_item("initial")?
+                            .ok_or_else(|| PyValueError::new_err("cir.initial is required"))?
+                            .extract::<f64>()?;
+                        CreditSpreadProcessSpec::Cir {
+                            kappa,
+                            theta,
+                            sigma,
+                            initial,
+                        }
+                    } else if let Ok(Some(const_any)) = csp_dict.get_item("constant") {
+                        let spread = const_any
+                            .downcast::<PyAny>()
+                            .map_err(|_| PyValueError::new_err("constant must be a float"))?
+                            .extract::<f64>()?;
+                        CreditSpreadProcessSpec::Constant(spread)
+                    } else if let Ok(Some(ma_any)) = csp_dict.get_item("market_anchored") {
+                        let ma = ma_any.downcast::<PyDict>()?;
+                        let hazard_curve_id = ma
+                            .get_item("hazard_curve_id")?
+                            .ok_or_else(|| {
+                                PyValueError::new_err("market_anchored.hazard_curve_id is required")
+                            })?
+                            .extract::<String>()?;
+                        let kappa = ma
+                            .get_item("kappa")?
+                            .ok_or_else(|| {
+                                PyValueError::new_err("market_anchored.kappa is required")
+                            })?
+                            .extract::<f64>()?;
+                        let implied_vol = ma
+                            .get_item("implied_vol")?
+                            .ok_or_else(|| {
+                                PyValueError::new_err("market_anchored.implied_vol is required")
+                            })?
+                            .extract::<f64>()?;
+                        let tenor_years = ma
+                            .get_item("tenor_years")?
+                            .and_then(|v| v.extract::<Option<f64>>().ok())
+                            .flatten();
+                        CreditSpreadProcessSpec::MarketAnchored {
+                            hazard_curve_id: finstack_core::types::CurveId::new(&hazard_curve_id),
+                            kappa,
+                            implied_vol,
+                            tenor_years,
+                        }
+                    } else {
+                        return Err(PyValueError::new_err(
                                 "credit_spread_process must contain one of: 'cir', 'constant', 'market_anchored'",
                             ));
-                        };
+                    };
 
-                        // interest_rate_process (optional)
-                        let irp = if let Some(irp_any) = mc.get_item("interest_rate_process")? {
-                            let irp_dict = irp_any
-                                .downcast::<PyDict>()
-                                .map_err(|_| PyValueError::new_err("interest_rate_process must be a dict"))?;
-                            if let Ok(Some(hw_any)) = irp_dict.get_item("hull_white_1f") {
-                                let hw = hw_any.downcast::<PyDict>()?;
-                                let kappa = hw
-                                    .get_item("kappa")?
-                                    .ok_or_else(|| PyValueError::new_err("hull_white_1f.kappa is required"))?
-                                    .extract::<f64>()?;
-                                let sigma = hw
-                                    .get_item("sigma")?
-                                    .ok_or_else(|| PyValueError::new_err("hull_white_1f.sigma is required"))?
-                                    .extract::<f64>()?;
-                                let initial = hw
-                                    .get_item("initial")?
-                                    .ok_or_else(|| PyValueError::new_err("hull_white_1f.initial is required"))?
-                                    .extract::<f64>()?;
-                                let theta = hw
-                                    .get_item("theta")?
-                                    .ok_or_else(|| PyValueError::new_err("hull_white_1f.theta is required"))?
-                                    .extract::<f64>()?;
-                                Some(InterestRateProcessSpec::HullWhite1F { kappa, sigma, initial, theta })
-                            } else {
-                                None
-                            }
+                    // interest_rate_process (optional)
+                    let irp = if let Some(irp_any) = mc.get_item("interest_rate_process")? {
+                        let irp_dict = irp_any.downcast::<PyDict>().map_err(|_| {
+                            PyValueError::new_err("interest_rate_process must be a dict")
+                        })?;
+                        if let Ok(Some(hw_any)) = irp_dict.get_item("hull_white_1f") {
+                            let hw = hw_any.downcast::<PyDict>()?;
+                            let kappa = hw
+                                .get_item("kappa")?
+                                .ok_or_else(|| {
+                                    PyValueError::new_err("hull_white_1f.kappa is required")
+                                })?
+                                .extract::<f64>()?;
+                            let sigma = hw
+                                .get_item("sigma")?
+                                .ok_or_else(|| {
+                                    PyValueError::new_err("hull_white_1f.sigma is required")
+                                })?
+                                .extract::<f64>()?;
+                            let initial = hw
+                                .get_item("initial")?
+                                .ok_or_else(|| {
+                                    PyValueError::new_err("hull_white_1f.initial is required")
+                                })?
+                                .extract::<f64>()?;
+                            let theta = hw
+                                .get_item("theta")?
+                                .ok_or_else(|| {
+                                    PyValueError::new_err("hull_white_1f.theta is required")
+                                })?
+                                .extract::<f64>()?;
+                            Some(InterestRateProcessSpec::HullWhite1F {
+                                kappa,
+                                sigma,
+                                initial,
+                                theta,
+                            })
                         } else {
                             None
-                        };
+                        }
+                    } else {
+                        None
+                    };
 
-                        // correlation: either full 3x3 matrix or util_credit_corr
-                        let correlation_matrix = if let Some(corr_any) = mc.get_item("correlation_matrix")? {
-                            let corr_list = corr_any
-                                .downcast::<PyList>()
-                                .map_err(|_| PyValueError::new_err("correlation_matrix must be a 3x3 list"))?;
+                    // correlation: either full 3x3 matrix or util_credit_corr
+                    let correlation_matrix =
+                        if let Some(corr_any) = mc.get_item("correlation_matrix")? {
+                            let corr_list = corr_any.downcast::<PyList>().map_err(|_| {
+                                PyValueError::new_err("correlation_matrix must be a 3x3 list")
+                            })?;
                             if corr_list.len() != 3 {
-                                return Err(PyValueError::new_err("correlation_matrix must have 3 rows"));
+                                return Err(PyValueError::new_err(
+                                    "correlation_matrix must have 3 rows",
+                                ));
                             }
                             let mut mat = [[0.0_f64; 3]; 3];
                             for (i, row_any) in corr_list.iter().enumerate() {
                                 let row = row_any.downcast::<PyList>()?;
                                 if row.len() != 3 {
-                                    return Err(PyValueError::new_err("each correlation_matrix row must have 3 elements"));
+                                    return Err(PyValueError::new_err(
+                                        "each correlation_matrix row must have 3 elements",
+                                    ));
                                 }
                                 for (j, val_any) in row.iter().enumerate() {
                                     mat[i][j] = val_any.extract::<f64>()?;
@@ -358,41 +393,41 @@ impl PyRevolvingCredit {
                         } else {
                             None
                         };
-                        let util_credit_corr = mc
-                            .get_item("util_credit_corr")?
-                            .and_then(|v| v.extract::<Option<f64>>().ok())
-                            .flatten();
+                    let util_credit_corr = mc
+                        .get_item("util_credit_corr")?
+                        .and_then(|v| v.extract::<Option<f64>>().ok())
+                        .flatten();
 
-                        Some(McConfig {
-                            correlation_matrix,
-                            recovery_rate,
-                            credit_spread_process,
-                            interest_rate_process: irp,
-                            util_credit_corr,
-                        })
-                    } else {
-                        None
-                    };
-
-                    // Construct StochasticUtilizationSpec
-                    let spec = StochasticUtilizationSpec {
-                        utilization_process,
-                        num_paths,
-                        seed,
-                        antithetic: false,
-                        use_sobol_qmc: false,
-                        default_model: None,
-                        mc_config: mc_config_opt,
-                    };
-                    DrawRepaySpec::Stochastic(Box::new(spec))
+                    Some(McConfig {
+                        correlation_matrix,
+                        recovery_rate,
+                        credit_spread_process,
+                        interest_rate_process: irp,
+                        util_credit_corr,
+                    })
                 } else {
-                    return Err(PyValueError::new_err(
-                        "draw_repay_spec must have 'deterministic' or 'stochastic' key",
-                    ));
-                }
+                    None
+                };
+
+                // Construct StochasticUtilizationSpec
+                let spec = StochasticUtilizationSpec {
+                    utilization_process,
+                    num_paths,
+                    seed,
+                    antithetic: false,
+                    use_sobol_qmc: false,
+                    default_model: None,
+                    mc_config: mc_config_opt,
+                };
+                DrawRepaySpec::Stochastic(Box::new(spec))
             } else {
-                return Err(PyValueError::new_err("draw_repay_spec must be a dict"));
-            };
+                return Err(PyValueError::new_err(
+                    "draw_repay_spec must have 'deterministic' or 'stochastic' key",
+                ));
+            }
+        } else {
+            return Err(PyValueError::new_err("draw_repay_spec must be a dict"));
+        };
 
         let mut builder = RevolvingCredit::builder();
         builder = builder.id(id);
@@ -507,9 +542,19 @@ impl PyRevolvingCredit {
         // Credit spread params (supports MarketAnchored and others)
         use finstack_valuations::instruments::revolving_credit::types::CreditSpreadProcessSpec as CsSpec;
         let credit_spread_params = match &mc_config.credit_spread_process {
-            CsSpec::Cir { kappa, theta, sigma, initial } => CreditSpreadParams::new(*kappa, *theta, *sigma, *initial),
+            CsSpec::Cir {
+                kappa,
+                theta,
+                sigma,
+                initial,
+            } => CreditSpreadParams::new(*kappa, *theta, *sigma, *initial),
             CsSpec::Constant(spread) => CreditSpreadParams::new(0.01, *spread, 0.001, *spread),
-            CsSpec::MarketAnchored { hazard_curve_id, kappa, implied_vol, tenor_years } => {
+            CsSpec::MarketAnchored {
+                hazard_curve_id,
+                kappa,
+                implied_vol,
+                tenor_years,
+            } => {
                 let hazard = market
                     .inner
                     .get_hazard_ref(hazard_curve_id.as_str())
@@ -517,20 +562,34 @@ impl PyRevolvingCredit {
                 let dc = hazard.day_count();
                 let base_date = hazard.base_date();
                 let t_maturity = dc
-                    .year_fraction(base_date, self.inner.maturity_date, finstack_core::dates::DayCountCtx::default())
+                    .year_fraction(
+                        base_date,
+                        self.inner.maturity_date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
                     .map_err(crate::core::error::core_to_py)?;
                 let t = tenor_years.unwrap_or_else(|| t_maturity.max(1e-8));
                 let sp_t = hazard.sp(t);
                 let avg_lambda = if t > 0.0 { (-sp_t.ln()) / t } else { 0.0 };
                 let mut first_lambda = None;
-                if let Some((_, lambda)) = hazard.knot_points().next() { first_lambda = Some(lambda.max(0.0)); }
+                if let Some((_, lambda)) = hazard.knot_points().next() {
+                    first_lambda = Some(lambda.max(0.0));
+                }
                 let lambda0 = first_lambda.unwrap_or(avg_lambda).max(0.0);
                 let one_minus_r = (1.0 - mc_config.recovery_rate).max(1e-6);
                 let s0 = one_minus_r * lambda0;
                 let s_bar = one_minus_r * avg_lambda;
                 let k = *kappa;
-                let a = if (k * t).abs() < 1e-8 { 1.0 - 0.5 * k * t } else { (1.0 - (-k * t).exp()) / (k * t) };
-                let theta = if (1.0 - a).abs() < 1e-12 { s_bar } else { ((s_bar - a * s0) / (1.0 - a)).max(0.0) };
+                let a = if (k * t).abs() < 1e-8 {
+                    1.0 - 0.5 * k * t
+                } else {
+                    (1.0 - (-k * t).exp()) / (k * t)
+                };
+                let theta = if (1.0 - a).abs() < 1e-12 {
+                    s_bar
+                } else {
+                    ((s_bar - a * s0) / (1.0 - a)).max(0.0)
+                };
                 let sigma = (*implied_vol) * s_bar.max(1e-12).sqrt();
                 CreditSpreadParams::new(k, theta, sigma, s0)
             }
@@ -541,46 +600,74 @@ impl PyRevolvingCredit {
         let disc_dc = disc_curve.day_count();
         let base_date = disc_curve.base_date();
         let t_start = disc_dc
-            .year_fraction(base_date, self.inner.commitment_date.max(as_of_date), finstack_core::dates::DayCountCtx::default())
+            .year_fraction(
+                base_date,
+                self.inner.commitment_date.max(as_of_date),
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .map_err(crate::core::error::core_to_py)?;
         let t_end = disc_dc
-            .year_fraction(base_date, self.inner.maturity_date, finstack_core::dates::DayCountCtx::default())
+            .year_fraction(
+                base_date,
+                self.inner.maturity_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .map_err(crate::core::error::core_to_py)?;
         let time_horizon = (t_end - t_start).max(0.0);
         let num_steps = ((time_horizon / 0.25).ceil() as usize).max(1);
-        let time_grid = TimeGrid::uniform(time_horizon, num_steps).map_err(crate::core::error::core_to_py)?;
+        let time_grid =
+            TimeGrid::uniform(time_horizon, num_steps).map_err(crate::core::error::core_to_py)?;
 
         // Build process and discretization
-        let mut process_params = RevolvingCreditProcessParams::new(util_params, interest_rate_spec, credit_spread_params);
+        let mut process_params = RevolvingCreditProcessParams::new(
+            util_params,
+            interest_rate_spec,
+            credit_spread_params,
+        );
         if let Some(corr) = mc_config.correlation_matrix {
             process_params = process_params.with_correlation(corr);
         } else if let Some(rho) = mc_config.util_credit_corr.or(Some(0.8)) {
-            let correlation = [ [1.0, 0.0, rho], [0.0, 1.0, 0.0], [rho, 0.0, 1.0] ];
+            let correlation = [[1.0, 0.0, rho], [0.0, 1.0, 0.0], [rho, 0.0, 1.0]];
             process_params = process_params.with_correlation(correlation);
         }
         process_params = process_params.with_time_offset(t_start);
         let process = RevolvingCreditProcess::new(process_params);
-        let discz = RevolvingCreditDiscretization::from_process(&process).map_err(crate::core::error::core_to_py)?;
+        let discz = RevolvingCreditDiscretization::from_process(&process)
+            .map_err(crate::core::error::core_to_py)?;
 
         // Precompute discount factors for payoff (needed for internal PV accumulation)
-        let disc_curve = market.inner.get_discount_ref(self.inner.discount_curve_id.as_str())
+        let disc_curve = market
+            .inner
+            .get_discount_ref(self.inner.discount_curve_id.as_str())
             .map_err(crate::core::error::core_to_py)?;
         let disc_dc = disc_curve.day_count();
         let base_date = disc_curve.base_date();
-        
+
         let t_as_of = disc_dc
-            .year_fraction(base_date, as_of_date, finstack_core::dates::DayCountCtx::default())
+            .year_fraction(
+                base_date,
+                as_of_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .map_err(crate::core::error::core_to_py)?;
         let df_as_of = disc_curve.df(t_as_of);
-        
+
         let mut discount_factors = Vec::with_capacity(num_steps + 1);
-        discount_factors.push(if df_as_of > 0.0 { disc_curve.df(t_start) / df_as_of } else { 1.0 });
+        discount_factors.push(if df_as_of > 0.0 {
+            disc_curve.df(t_start) / df_as_of
+        } else {
+            1.0
+        });
         for i in 0..num_steps {
             let t_abs = t_start + time_grid.time(i + 1);
             let df_abs = disc_curve.df(t_abs);
-            discount_factors.push(if df_as_of > 0.0 { df_abs / df_as_of } else { 1.0 });
+            discount_factors.push(if df_as_of > 0.0 {
+                df_abs / df_as_of
+            } else {
+                1.0
+            });
         }
-        
+
         // Payoff
         let fees = FeeStructure::new(
             self.inner.fees.commitment_fee_bp,
@@ -664,21 +751,35 @@ impl PyRevolvingCredit {
         // Upfront fee is paid by lender at commitment, so it reduces facility value
         let upfront_fee_pv = if let Some(upfront_fee) = self.inner.fees.upfront_fee {
             // Recompute discount factors for upfront fee adjustment
-            let disc_curve = market.inner.get_discount_ref(self.inner.discount_curve_id.as_str())
+            let disc_curve = market
+                .inner
+                .get_discount_ref(self.inner.discount_curve_id.as_str())
                 .map_err(crate::core::error::core_to_py)?;
             let base_date = disc_curve.base_date();
             let disc_dc = disc_curve.day_count();
-            
+
             let t_start = disc_dc
-                .year_fraction(base_date, self.inner.commitment_date, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(
+                    base_date,
+                    self.inner.commitment_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
                 .map_err(crate::core::error::core_to_py)?;
             let t_as_of = disc_dc
-                .year_fraction(base_date, as_of_date, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(
+                    base_date,
+                    as_of_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
                 .map_err(crate::core::error::core_to_py)?;
-            
+
             let df_as_of = disc_curve.df(t_as_of);
             let df_commitment = disc_curve.df(t_start);
-            let df = if df_as_of > 0.0 { df_commitment / df_as_of } else { 1.0 };
+            let df = if df_as_of > 0.0 {
+                df_commitment / df_as_of
+            } else {
+                1.0
+            };
             upfront_fee.amount() * df
         } else {
             0.0
@@ -736,7 +837,7 @@ impl PyRevolvingCredit {
     fn value(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
         use crate::core::error::core_to_py;
         use finstack_valuations::instruments::common::traits::Instrument;
-        
+
         let date = py_to_date(&as_of)?;
         let pv = self.inner.value(&market.inner, date).map_err(core_to_py)?;
         Ok(PyMoney::new(pv))
@@ -824,19 +925,26 @@ impl PyRevolvingCredit {
     ) -> PyResult<PyObject> {
         // Determine sample count (all paths when capture_mode="all")
         let sample_count = num_paths.unwrap_or(1000);
-        
+
         // Run MC simulation with path capture
         let mc_result = self.mc_paths(py, market, as_of, capture_mode, sample_count, seed)?;
-        
+
         // Extract paths from result
-        let path_dataset_inner = mc_result.inner.paths
+        let path_dataset_inner = mc_result
+            .inner
+            .paths
             .as_ref()
             .ok_or_else(|| PyValueError::new_err("No paths captured in MC result"))?;
-        
+
         // Create Python wrapper for PathDataset
         use crate::valuations::common::mc::paths::PyPathDataset;
-        let py_paths = Py::new(py, PyPathDataset { inner: path_dataset_inner.clone() })?;
-        
+        let py_paths = Py::new(
+            py,
+            PyPathDataset {
+                inner: path_dataset_inner.clone(),
+            },
+        )?;
+
         // Call the method on the Python object
         let df = py_paths.call_method1(py, "cashflows_to_dataframe", ())?;
         Ok(df)
@@ -874,82 +982,88 @@ impl PyRevolvingCredit {
         seed: u64,
     ) -> PyResult<PyObject> {
         use crate::core::error::core_to_py;
-        
+
         // Run MC simulation with all paths captured
         let mc_result = self.mc_paths(py, market, as_of.clone(), "all", num_paths, seed)?;
-        
+
         // Extract paths (access inner field directly)
-        let path_dataset = mc_result.inner.paths
+        let path_dataset = mc_result
+            .inner
+            .paths
             .as_ref()
             .ok_or_else(|| PyValueError::new_err("No paths captured in MC result"))?;
-        
+
         // Get base date for IRR calculation
-        let disc = market.inner
+        let disc = market
+            .inner
             .get_discount_ref(self.inner.discount_curve_id.as_str())
             .map_err(core_to_py)?;
         let base_date = disc.base_date();
-        
+
         // Calculate IRR for each path
         let mut irrs = Vec::new();
-        
+
         for path in &path_dataset.paths {
             // Collect all cashflows for this path
             let mut path_cashflows: Vec<(f64, f64)> = Vec::new();
-            
+
             for point in &path.points {
                 for (time, amount, _cf_type) in &point.cashflows {
                     path_cashflows.push((*time, *amount));
                 }
             }
-            
+
             // Aggregate cashflows by time (sum amounts at same time)
             let mut time_map = std::collections::HashMap::new();
             for (time, amount) in path_cashflows {
-                *time_map.entry((time * 1000.0).round() as i64).or_insert(0.0) += amount;
+                *time_map
+                    .entry((time * 1000.0).round() as i64)
+                    .or_insert(0.0) += amount;
             }
-            
+
             let mut aggregated: Vec<(f64, f64)> = time_map
                 .into_iter()
                 .map(|(time_key, amount)| (time_key as f64 / 1000.0, amount))
                 .collect();
             aggregated.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-            
+
             // Calculate IRR using core XIRR
             use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
             let irr = calculate_path_irr(&aggregated, base_date, self.inner.day_count);
-            
+
             irrs.push(irr);
         }
-        
+
         // Calculate statistics
         let valid_irrs: Vec<f64> = irrs.iter().filter_map(|&x| x).collect();
-        
+
         if valid_irrs.is_empty() {
             return Err(PyValueError::new_err(
-                "No valid IRRs calculated (all paths may have same-sign cashflows)"
+                "No valid IRRs calculated (all paths may have same-sign cashflows)",
             ));
         }
-        
+
         let mean = valid_irrs.iter().sum::<f64>() / valid_irrs.len() as f64;
-        let variance = valid_irrs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / valid_irrs.len() as f64;
+        let variance =
+            valid_irrs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / valid_irrs.len() as f64;
         let std = variance.sqrt();
-        
+
         // Calculate percentiles
         let mut sorted = valid_irrs.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        
+
         let percentile = |p: f64| -> f64 {
             let idx = ((p / 100.0) * (sorted.len() - 1) as f64).round() as usize;
             sorted[idx.min(sorted.len() - 1)]
         };
-        
+
         // Create result dictionary
         use pyo3::types::PyDict;
         let result = PyDict::new(py);
         result.set_item("irrs", irrs)?;
         result.set_item("mean", mean)?;
         result.set_item("std", std)?;
-        
+
         let percentiles = PyDict::new(py);
         percentiles.set_item("p10", percentile(10.0))?;
         percentiles.set_item("p25", percentile(25.0))?;
@@ -957,7 +1071,7 @@ impl PyRevolvingCredit {
         percentiles.set_item("p75", percentile(75.0))?;
         percentiles.set_item("p90", percentile(90.0))?;
         result.set_item("percentiles", percentiles)?;
-        
+
         Ok(result.into())
     }
 
@@ -982,7 +1096,7 @@ impl PyRevolvingCredit {
         // Only works for deterministic specs
         if !self.inner.is_deterministic() {
             return Err(PyValueError::new_err(
-                "build_schedule only works for deterministic draw_repay_spec"
+                "build_schedule only works for deterministic draw_repay_spec",
             ));
         }
 
@@ -996,8 +1110,9 @@ impl PyRevolvingCredit {
 
         // Generate cashflow schedule with curves (include floating base-rate projections)
         use finstack_valuations::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves;
-        let schedule = generate_deterministic_cashflows_with_curves(&self.inner, &market.inner, as_of_date)
-            .map_err(core_to_py)?;
+        let schedule =
+            generate_deterministic_cashflows_with_curves(&self.inner, &market.inner, as_of_date)
+                .map_err(core_to_py)?;
 
         Ok(PyCashFlowSchedule::new(schedule))
     }
@@ -1030,7 +1145,7 @@ impl PyRevolvingCredit {
     ) -> PyResult<HashMap<String, f64>> {
         // Build schedule first
         let schedule = self.build_schedule(market, as_of.clone())?;
-        
+
         // Delegate to schedule's per_period_pv method
         // Need to convert PyMarketContext reference to Bound<PyAny>
         let disc_id = discount_curve_id.unwrap_or_else(|| self.inner.discount_curve_id.as_str());
@@ -1039,7 +1154,15 @@ impl PyRevolvingCredit {
         let market_bound: Bound<'_, PyAny> = unsafe {
             <Bound<'_, PyAny> as Clone>::clone(&market_bound_temp).downcast_into_unchecked()
         };
-        schedule.per_period_pv(py, periods, market_bound, Some(disc_id), hazard_curve_id, as_of, day_count)
+        schedule.per_period_pv(
+            py,
+            periods,
+            market_bound,
+            Some(disc_id),
+            hazard_curve_id,
+            as_of,
+            day_count,
+        )
     }
 
     /// Convert cashflow schedule to a period-aligned DataFrame.
@@ -1085,24 +1208,23 @@ impl PyRevolvingCredit {
     ) -> PyResult<PyObject> {
         // Build schedule first
         let schedule = self.build_schedule(market, as_of.clone())?;
-        
+
         // Delegate to schedule's to_period_dataframe method
         let disc_id = discount_curve_id.unwrap_or_else(|| self.inner.discount_curve_id.as_str());
-        
+
         // For floating rate decomposition, use forward_curve_id if provided, otherwise try to extract from base_rate_spec
         let fwd_id = if include_floating_decomposition {
-            forward_curve_id.or_else(|| {
-                match &self.inner.base_rate_spec {
-                    finstack_valuations::instruments::revolving_credit::BaseRateSpec::Floating { index_id, .. } => {
-                        Some(index_id.as_str())
-                    }
-                    _ => None
-                }
+            forward_curve_id.or_else(|| match &self.inner.base_rate_spec {
+                finstack_valuations::instruments::revolving_credit::BaseRateSpec::Floating {
+                    index_id,
+                    ..
+                } => Some(index_id.as_str()),
+                _ => None,
             })
         } else {
             forward_curve_id
         };
-        
+
         // Need to convert PyMarketContext reference to Bound<PyAny>
         let market_py = Py::new(py, market.clone())?;
         let market_bound_temp = market_py.into_bound(py);
@@ -1131,7 +1253,9 @@ impl PyRevolvingCredit {
             let cf_any = dict.get_item("CFType")?;
             let rate_any = dict.get_item("Rate")?;
             if let (Some(cf_any), Some(rate_any)) = (cf_any, rate_any) {
-                if let (Ok(cf_list), Ok(rate_list)) = (cf_any.downcast::<PyList>(), rate_any.downcast::<PyList>()) {
+                if let (Ok(cf_list), Ok(rate_list)) =
+                    (cf_any.downcast::<PyList>(), rate_any.downcast::<PyList>())
+                {
                     let n = cf_list.len();
                     // Build allin_rate from existing 'Rate'
                     let mut allin_vals: Vec<PyObject> = Vec::with_capacity(n);

@@ -1,7 +1,7 @@
 //! Python bindings for Monte Carlo result wrapper.
 
-use crate::core::money::PyMoney;
 use super::paths::PyPathDataset;
+use crate::core::money::PyMoney;
 use finstack_valuations::instruments::common::models::monte_carlo::results::MonteCarloResult;
 use pyo3::prelude::*;
 
@@ -93,4 +93,3 @@ impl PyMonteCarloResult {
         Self { inner }
     }
 }
-

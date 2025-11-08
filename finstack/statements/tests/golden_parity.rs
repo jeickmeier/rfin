@@ -110,7 +110,7 @@ fn test_excel_npv_simple_cashflows() {
 
     // Verify cashflows are present
     assert!(results.get("cashflow", &PeriodId::annual(2025)).is_some());
-    
+
     // Verify Money accessor works for monetary nodes
     let money = results.get_money("cashflow", &PeriodId::annual(2025));
     // Note: monetary_nodes is only populated for nodes with explicit Money values in the spec
@@ -192,7 +192,7 @@ fn test_pandas_rolling_variance_parity() {
     let q4_var = results
         .get("rolling_var_4", &PeriodId::quarter(2025, 4))
         .unwrap();
-    
+
     assert!(
         (q4_var - 1.0).abs() < SAMPLE_VAR_TOLERANCE,
         "Rolling variance should match pandas with ddof=1"
@@ -235,9 +235,7 @@ mod helpers {
 
     /// Build a financial model from CSV test data.
     #[allow(dead_code)]
-    pub fn build_model_from_csv(
-        _test_case: &super::GoldenTestCase,
-    ) -> Result<FinancialModelSpec> {
+    pub fn build_model_from_csv(_test_case: &super::GoldenTestCase) -> Result<FinancialModelSpec> {
         // Placeholder for CSV-to-model conversion
         // Will be implemented when we have real test scenarios
         Err(Error::invalid_input(
@@ -245,4 +243,3 @@ mod helpers {
         ))
     }
 }
-

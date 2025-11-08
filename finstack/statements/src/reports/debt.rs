@@ -57,4 +57,3 @@ impl Report for DebtSummaryReport<'_> {
 pub fn print_debt_summary(model: &FinancialModelSpec, results: &Results, as_of: PeriodId) {
     DebtSummaryReport::new(model, results, as_of).print();
 }
-

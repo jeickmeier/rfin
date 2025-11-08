@@ -32,7 +32,12 @@ fn test_backtest_constant_bias() {
     let metrics = backtest_forecast(&actual, &forecast).unwrap();
 
     assert_close(metrics.mae, 5.0, METRICS_TOLERANCE, "MAE should be 5.0");
-    assert_close(metrics.rmse, 5.0, METRICS_TOLERANCE, "RMSE should equal MAE for constant error");
+    assert_close(
+        metrics.rmse,
+        5.0,
+        METRICS_TOLERANCE,
+        "RMSE should equal MAE for constant error",
+    );
 }
 
 #[test]
@@ -46,7 +51,10 @@ fn test_backtest_mae_vs_rmse() {
     assert_close(metrics.mae, 3.25, METRICS_TOLERANCE, "MAE calculation");
 
     // RMSE: sqrt((1+1+1+100)/4) = sqrt(25.75) ≈ 5.074
-    assert!(metrics.rmse > metrics.mae, "RMSE should be > MAE with outliers");
+    assert!(
+        metrics.rmse > metrics.mae,
+        "RMSE should be > MAE with outliers"
+    );
     assert_close(metrics.rmse, 5.074, 0.01, "RMSE calculation");
 }
 
@@ -74,7 +82,12 @@ fn test_backtest_single_datapoint() {
 
     assert_eq!(metrics.mae, 5.0);
     assert_eq!(metrics.rmse, 5.0);
-    assert_close(metrics.mape, 5.0, METRICS_TOLERANCE, "MAPE for single point");
+    assert_close(
+        metrics.mape,
+        5.0,
+        METRICS_TOLERANCE,
+        "MAPE for single point",
+    );
     assert_eq!(metrics.n, 1);
 }
 
@@ -182,4 +195,3 @@ fn test_backtest_trending_series() {
     assert!(metrics.mae > 0.0);
     assert!(metrics.mape > 0.0);
 }
-

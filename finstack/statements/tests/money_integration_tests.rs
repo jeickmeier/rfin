@@ -7,9 +7,9 @@
 //! - Monetary vs scalar tracking is accurate
 //! - Results provide both Money and f64 accessors
 
-use finstack_statements::prelude::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_statements::prelude::*;
 
 mod common;
 
@@ -290,10 +290,7 @@ fn test_lognormal_forecast_determinism() {
     let results2 = evaluator2.evaluate(&model).unwrap();
 
     // Same seed should produce identical results
-    for period in &[
-        PeriodId::quarter(2025, 2),
-        PeriodId::quarter(2025, 3),
-    ] {
+    for period in &[PeriodId::quarter(2025, 2), PeriodId::quarter(2025, 3)] {
         assert_eq!(
             results1.get("price", period),
             results2.get("price", period),
@@ -329,12 +326,15 @@ fn test_results_metadata_timing() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..Q4", None)
         .unwrap()
-        .value_scalar("revenue", &[
-            (PeriodId::quarter(2025, 1), 100_000.0),
-            (PeriodId::quarter(2025, 2), 110_000.0),
-            (PeriodId::quarter(2025, 3), 120_000.0),
-            (PeriodId::quarter(2025, 4), 130_000.0),
-        ])
+        .value_scalar(
+            "revenue",
+            &[
+                (PeriodId::quarter(2025, 1), 100_000.0),
+                (PeriodId::quarter(2025, 2), 110_000.0),
+                (PeriodId::quarter(2025, 3), 120_000.0),
+                (PeriodId::quarter(2025, 4), 130_000.0),
+            ],
+        )
         .build()
         .unwrap();
 
@@ -602,4 +602,3 @@ fn test_value_scalar_builder_api() {
     assert_eq!(node.node_type, NodeType::Value);
     assert_eq!(node.value_type, Some(NodeValueType::Scalar));
 }
-

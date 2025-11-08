@@ -139,12 +139,12 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyStructuredCredit>()?;
-    
-    // Also register waterfall types  
+
+    // Also register waterfall types
     let waterfall_exports = waterfall::register(py, module)?;
-    
+
     let mut exports = vec!["StructuredCredit"];
     exports.extend(waterfall_exports.iter().copied());
-    
+
     Ok(exports)
 }

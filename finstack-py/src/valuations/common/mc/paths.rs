@@ -218,24 +218,24 @@ impl PyPathPoint {
     fn to_dataframe(&self, py: Python) -> PyResult<PyObject> {
         let pd = py.import("pandas")?;
         let dict = PyDict::new(py);
-        
+
         let mut steps = Vec::new();
         let mut times = Vec::new();
         let mut amounts = Vec::new();
         let mut types = Vec::new();
-        
+
         for (time, amount, cf_type) in &self.inner.cashflows {
             steps.push(self.inner.step);
             times.push(*time);
             amounts.push(*amount);
             types.push(cashflow_type_to_string(*cf_type));
         }
-        
+
         dict.set_item("step", steps)?;
         dict.set_item("time_years", times)?;
         dict.set_item("amount", amounts)?;
         dict.set_item("cashflow_type", types)?;
-        
+
         pd.call_method1("DataFrame", (dict,))?.extract()
     }
 
@@ -371,10 +371,10 @@ impl PySimulatedPath {
         base_date: Bound<'_, PyAny>,
     ) -> PyResult<Vec<(PyObject, f64)>> {
         use crate::core::utils::{date_to_py, py_to_date};
-        
+
         let base = py_to_date(&base_date)?;
         let mut result = Vec::new();
-        
+
         for point in &self.inner.points {
             for (time_years, amount, _cf_type) in &point.cashflows {
                 // Convert year fraction to date (approximate using 365.25 days/year)
@@ -384,7 +384,7 @@ impl PySimulatedPath {
                 result.push((py_date, *amount));
             }
         }
-        
+
         Ok(result)
     }
 
@@ -400,13 +400,13 @@ impl PySimulatedPath {
     fn to_dataframe(&self, py: Python) -> PyResult<PyObject> {
         let pd = py.import("pandas")?;
         let dict = PyDict::new(py);
-        
+
         let mut path_ids = Vec::new();
         let mut steps = Vec::new();
         let mut times = Vec::new();
         let mut amounts = Vec::new();
         let mut types = Vec::new();
-        
+
         for point in &self.inner.points {
             for (time, amount, cf_type) in &point.cashflows {
                 path_ids.push(self.inner.path_id);
@@ -416,13 +416,13 @@ impl PySimulatedPath {
                 types.push(cashflow_type_to_string(*cf_type));
             }
         }
-        
+
         dict.set_item("path_id", path_ids)?;
         dict.set_item("step", steps)?;
         dict.set_item("time_years", times)?;
         dict.set_item("amount", amounts)?;
         dict.set_item("cashflow_type", types)?;
-        
+
         pd.call_method1("DataFrame", (dict,))?.extract()
     }
 
@@ -617,13 +617,13 @@ impl PyPathDataset {
     fn cashflows_to_dataframe(&self, py: Python) -> PyResult<PyObject> {
         let pd = py.import("pandas")?;
         let dict = PyDict::new(py);
-        
+
         let mut path_ids = Vec::new();
         let mut steps = Vec::new();
         let mut times = Vec::new();
         let mut amounts = Vec::new();
         let mut types = Vec::new();
-        
+
         // Iterate through all paths and their cashflows
         for path in &self.inner.paths {
             for point in &path.points {
@@ -636,13 +636,13 @@ impl PyPathDataset {
                 }
             }
         }
-        
+
         dict.set_item("path_id", path_ids)?;
         dict.set_item("step", steps)?;
         dict.set_item("time_years", times)?;
         dict.set_item("amount", amounts)?;
         dict.set_item("cashflow_type", types)?;
-        
+
         pd.call_method1("DataFrame", (dict,))?.extract()
     }
 
@@ -659,4 +659,3 @@ impl PyPathDataset {
         self.inner.num_captured()
     }
 }
-

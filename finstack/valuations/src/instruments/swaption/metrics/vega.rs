@@ -14,7 +14,9 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.get_discount_ref(option.discount_curve_id.as_ref())?;
+        let disc = context
+            .curves
+            .get_discount_ref(option.discount_curve_id.as_ref())?;
         let t = option.year_fraction(context.as_of, option.expiry, option.day_count)?;
 
         if t <= 0.0 {

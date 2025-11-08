@@ -34,4 +34,3 @@ impl Extension for SensitivityExtension {
             .with_data("scenario_count", serde_json::json!(result.scenarios.len())))
     }
 }
-

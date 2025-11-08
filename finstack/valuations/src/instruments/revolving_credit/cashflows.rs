@@ -69,11 +69,11 @@ fn generate_deterministic_cashflows_internal(
 
     // Step 1: Build payment schedule dates
     use finstack_core::dates::ScheduleBuilder;
-    
+
     let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
         .frequency(facility.payment_frequency)
         .stub_rule(finstack_core::dates::StubKind::None);
-    
+
     if let Some(cal_code) = facility
         .attributes
         .get_meta("calendar_id")
@@ -86,10 +86,10 @@ fn generate_deterministic_cashflows_internal(
             );
         }
     }
-    
+
     let payment_schedule = builder.build()?;
     let payment_dates: Vec<Date> = payment_schedule.into_iter().collect();
-    
+
     if payment_dates.len() < 2 {
         return Err(finstack_core::error::InputError::Invalid.into());
     }
@@ -103,7 +103,7 @@ fn generate_deterministic_cashflows_internal(
 
     // Step 3: Generate cashflows based on actual balances
     let mut flows = Vec::new();
-    
+
     // Add interest and fee cashflows for each period
     for i in 0..(payment_dates.len() - 1) {
         let period_start = payment_dates[i];
@@ -135,7 +135,7 @@ fn generate_deterministic_cashflows_internal(
             BaseRateSpec::Floating { margin_bp, .. } => {
                 // For floating, include forward-looking base rate if market is provided,
                 // otherwise fall back to margin-only (legacy behavior).
-                let mut coupon_rate = (*margin_bp * 1e-4);
+                let mut coupon_rate = *margin_bp * 1e-4;
                 if let Some(market) = market_opt {
                     // Resolve forward curve from index_id
                     if let BaseRateSpec::Floating { index_id, .. } = &facility.base_rate_spec {
@@ -198,7 +198,8 @@ fn generate_deterministic_cashflows_internal(
 
         // Facility fee on total commitment
         if facility.fees.facility_fee_bp > 0.0 {
-            let facility_fee = facility.commitment_amount * (facility.fees.facility_fee_bp * 1e-4 * accrual);
+            let facility_fee =
+                facility.commitment_amount * (facility.fees.facility_fee_bp * 1e-4 * accrual);
             if facility_fee.amount().abs() > 1e-10 {
                 flows.push(CashFlow {
                     date: period_end,
@@ -230,7 +231,10 @@ fn generate_deterministic_cashflows_internal(
     }
 
     // Step 5: Add terminal repayment (if balance outstanding at maturity)
-    let final_balance = balance_schedule.last().copied().unwrap_or(facility.drawn_amount);
+    let final_balance = balance_schedule
+        .last()
+        .copied()
+        .unwrap_or(facility.drawn_amount);
     if final_balance.amount() > 1e-6 {
         flows.push(CashFlow {
             date: facility.maturity_date,
@@ -270,7 +274,10 @@ fn generate_deterministic_cashflows_internal(
     use crate::cashflow::primitives::Notional;
     Ok(CashFlowSchedule {
         flows,
-        notional: Notional::par(facility.drawn_amount.amount(), facility.drawn_amount.currency()),
+        notional: Notional::par(
+            facility.drawn_amount.amount(),
+            facility.drawn_amount.currency(),
+        ),
         day_count: facility.day_count,
         meta: Default::default(),
     })
@@ -295,13 +302,13 @@ fn calculate_balance_schedule_internal(
 ) -> Result<Vec<Money>> {
     let mut balances = Vec::with_capacity(payment_dates.len());
     let mut current_balance = initial_drawn;
-    
+
     // Sort events by date (should already be sorted, but ensure it)
     let mut sorted_events: Vec<_> = events.iter().collect();
     sorted_events.sort_by_key(|e| e.date);
-    
+
     let mut event_idx = 0;
-    
+
     for &date in payment_dates {
         // Apply all events that occur before this date
         while event_idx < sorted_events.len() && sorted_events[event_idx].date < date {
@@ -313,10 +320,10 @@ fn calculate_balance_schedule_internal(
             }
             event_idx += 1;
         }
-        
+
         balances.push(current_balance);
     }
-    
+
     Ok(balances)
 }
 
@@ -541,7 +548,10 @@ mod tests {
         assert_eq!(principal_flows.len(), 3);
 
         // Draw should be negative (lender deploys capital)
-        let draw_flow = principal_flows.iter().find(|cf| cf.date == draw_date).unwrap();
+        let draw_flow = principal_flows
+            .iter()
+            .find(|cf| cf.date == draw_date)
+            .unwrap();
         assert!(
             draw_flow.amount.amount() < 0.0,
             "Draw should be negative (lender deploys capital)"
@@ -549,7 +559,10 @@ mod tests {
         assert_eq!(draw_flow.amount.amount(), -2_000_000.0);
 
         // Repay should be positive (lender receives capital back)
-        let repay_flow = principal_flows.iter().find(|cf| cf.date == repay_date).unwrap();
+        let repay_flow = principal_flows
+            .iter()
+            .find(|cf| cf.date == repay_date)
+            .unwrap();
         assert!(
             repay_flow.amount.amount() > 0.0,
             "Repayment should be positive (lender receives capital)"
@@ -595,7 +608,10 @@ mod tests {
             .flows
             .iter()
             .any(|cf| cf.amount == Money::new(50_000.0, Currency::USD));
-        
-        assert!(!has_upfront, "Upfront fee should not be in cashflow schedule");
+
+        assert!(
+            !has_upfront,
+            "Upfront fee should not be in cashflow schedule"
+        );
     }
 }

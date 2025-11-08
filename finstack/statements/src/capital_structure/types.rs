@@ -248,7 +248,9 @@ impl CapitalStructureCashflows {
     /// # Arguments
     /// * `period_id` - Period to inspect
     pub fn get_total_interest_pik(&self, period_id: &PeriodId) -> Option<f64> {
-        self.totals.get(period_id).map(|cf| cf.interest_expense_pik.amount())
+        self.totals
+            .get(period_id)
+            .map(|cf| cf.interest_expense_pik.amount())
     }
 
     /// Get total principal payments across all instruments for a period.
@@ -256,7 +258,9 @@ impl CapitalStructureCashflows {
     /// # Arguments
     /// * `period_id` - Period to inspect
     pub fn get_total_principal(&self, period_id: &PeriodId) -> Option<f64> {
-        self.totals.get(period_id).map(|cf| cf.principal_payment.amount())
+        self.totals
+            .get(period_id)
+            .map(|cf| cf.principal_payment.amount())
     }
 
     /// Get total debt balance across all instruments for a period.
@@ -264,7 +268,9 @@ impl CapitalStructureCashflows {
     /// # Arguments
     /// * `period_id` - Period to inspect
     pub fn get_total_debt_balance(&self, period_id: &PeriodId) -> Option<f64> {
-        self.totals.get(period_id).map(|cf| cf.debt_balance.amount())
+        self.totals
+            .get(period_id)
+            .map(|cf| cf.debt_balance.amount())
     }
 }
 

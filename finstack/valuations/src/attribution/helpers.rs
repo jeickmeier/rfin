@@ -108,7 +108,7 @@ pub fn clone_market(market: &MarketContext) -> MarketContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::money::fx::{FxMatrix, FxProvider, FxConversionPolicy};
+    use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
     use std::sync::Arc;
     use time::macros::date;
 
@@ -170,4 +170,3 @@ mod tests {
         assert_eq!(pnl.currency(), Currency::USD);
     }
 }
-

@@ -113,4 +113,3 @@ fn test_term_loan_in_capital_structure_placeholder() {
 // - Proper TermLoan spec construction matching valuations crate requirements
 // - Market context with discount and forward curves
 // - These will be added as the integration matures
-

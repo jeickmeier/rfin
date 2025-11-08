@@ -27,27 +27,54 @@ impl DiscountMarginCalculator {
             .stub_rule(loan.stub)
             .build()?;
         let mut dates: Vec<finstack_core::dates::Date> = sched.into_iter().collect();
-        if dates.first().copied() != Some(loan.issue) { dates.insert(0, loan.issue); }
+        if dates.first().copied() != Some(loan.issue) {
+            dates.insert(0, loan.issue);
+        }
 
         let mut outstanding = Money::new(0.0, loan.currency);
-        if let Some(ddtl) = &loan.ddtl { for ev in &ddtl.draws { if ev.date >= loan.issue && ev.date <= loan.maturity { outstanding = outstanding.checked_add(ev.amount)?; } } }
-        else { outstanding = outstanding.checked_add(loan.notional_limit)?; }
+        if let Some(ddtl) = &loan.ddtl {
+            for ev in &ddtl.draws {
+                if ev.date >= loan.issue && ev.date <= loan.maturity {
+                    outstanding = outstanding.checked_add(ev.amount)?;
+                }
+            }
+        } else {
+            outstanding = outstanding.checked_add(loan.notional_limit)?;
+        }
 
         let mut pv = 0.0;
         let mut prev = dates[0];
         for &d in dates.iter().skip(1) {
-            if d <= as_of { prev = d; continue; }
-            let yf = loan.day_count.year_fraction(prev, d, DayCountCtx::default())?;
+            if d <= as_of {
+                prev = d;
+                continue;
+            }
+            let yf = loan
+                .day_count
+                .year_fraction(prev, d, DayCountCtx::default())?;
             let base_rate = match &loan.rate {
-                crate::instruments::term_loan::types::RateSpec::Fixed { rate_bp } => (*rate_bp as f64) * 1e-4,
-                crate::instruments::term_loan::types::RateSpec::Floating { index_id, floor_bp, .. } => {
+                crate::instruments::term_loan::types::RateSpec::Fixed { rate_bp } => {
+                    (*rate_bp as f64) * 1e-4
+                }
+                crate::instruments::term_loan::types::RateSpec::Floating {
+                    index_id,
+                    floor_bp,
+                    ..
+                } => {
                     let fwd = curves.get_forward_ref(index_id.as_str())?;
                     let mut r = fwd.rate(yf) + dm;
-                    if let Some(floor) = floor_bp { r = r.max((*floor as f64) * 1e-4); }
+                    if let Some(floor) = floor_bp {
+                        r = r.max((*floor as f64) * 1e-4);
+                    }
                     r
                 }
             };
-            let margin_add = match &loan.rate { crate::instruments::term_loan::types::RateSpec::Floating{ margin_bp, .. } => (*margin_bp as f64) * 1e-4, _ => 0.0 };
+            let margin_add = match &loan.rate {
+                crate::instruments::term_loan::types::RateSpec::Floating { margin_bp, .. } => {
+                    (*margin_bp as f64) * 1e-4
+                }
+                _ => 0.0,
+            };
             let rate = base_rate + margin_add;
             let interest = outstanding.amount() * rate * yf;
 
@@ -55,7 +82,11 @@ impl DiscountMarginCalculator {
             let t = disc_dc.year_fraction(disc.base_date(), d, DayCountCtx::default())?;
             let df_abs = disc.df(t);
             let t_asof = disc_dc.year_fraction(disc.base_date(), as_of, DayCountCtx::default())?;
-            let df = if t_asof != 0.0 { df_abs / disc.df(t_asof) } else { 1.0 };
+            let df = if t_asof != 0.0 {
+                df_abs / disc.df(t_asof)
+            } else {
+                1.0
+            };
             pv += interest * df;
 
             prev = d;
@@ -93,5 +124,3 @@ impl MetricCalculator for DiscountMarginCalculator {
         solver.solve(objective, 0.0)
     }
 }
-
-

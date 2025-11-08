@@ -13,7 +13,9 @@ impl MetricCalculator for Dv01Calculator {
         let as_of = context.as_of;
 
         // Discount curve
-        let disc = context.curves.get_discount_ref(loan.discount_curve_id.as_str())?;
+        let disc = context
+            .curves
+            .get_discount_ref(loan.discount_curve_id.as_str())?;
         let disc_dc = disc.day_count();
 
         // Generate cashflows
@@ -28,7 +30,9 @@ impl MetricCalculator for Dv01Calculator {
         let mut pv_up = 0.0;
         let mut pv_down = 0.0;
         for cf in &schedule.flows {
-            if cf.date <= as_of { continue; }
+            if cf.date <= as_of {
+                continue;
+            }
             let t = disc_dc.year_fraction(disc.base_date(), cf.date, DayCountCtx::default())?;
             let df_base = disc.df(t);
             let df_up = df_base * (-bump_bp * t).exp();
@@ -39,5 +43,3 @@ impl MetricCalculator for Dv01Calculator {
         Ok((pv_up - pv_down) / 2.0)
     }
 }
-
-

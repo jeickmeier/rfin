@@ -322,4 +322,3 @@ mod tests {
         assert_eq!(widths[1], 16); // "much longer text" is longer than "B"
     }
 }
-

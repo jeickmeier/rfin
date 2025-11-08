@@ -21,11 +21,7 @@ pub struct TornadoEntry {
 
 impl TornadoEntry {
     /// Create from scenario data.
-    pub fn new(
-        parameter_id: String,
-        downside_impact: f64,
-        upside_impact: f64,
-    ) -> Self {
+    pub fn new(parameter_id: String, downside_impact: f64, upside_impact: f64) -> Self {
         let swing = (upside_impact - downside_impact).abs();
         Self {
             parameter_id,
@@ -39,11 +35,7 @@ impl TornadoEntry {
 /// Generate tornado chart data from sensitivity results.
 ///
 /// Returns entries sorted by swing magnitude (descending).
-pub fn generate_tornado_chart(
-    _result: &SensitivityResult,
-    _metric: &str,
-) -> Vec<TornadoEntry> {
+pub fn generate_tornado_chart(_result: &SensitivityResult, _metric: &str) -> Vec<TornadoEntry> {
     // Simplified implementation
     Vec::new()
 }
-

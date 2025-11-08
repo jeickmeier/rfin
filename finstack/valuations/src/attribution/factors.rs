@@ -5,8 +5,8 @@
 
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::dividends::DividendSchedule;
-use finstack_core::market_data::scalars::{MarketScalar, ScalarTimeSeries};
 use finstack_core::market_data::scalars::inflation_index::InflationIndex;
+use finstack_core::market_data::scalars::{MarketScalar, ScalarTimeSeries};
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -193,10 +193,22 @@ pub fn extract_volatility(market: &MarketContext) -> VolatilitySnapshot {
 /// Snapshot containing all market scalars.
 pub fn extract_scalars(market: &MarketContext) -> ScalarsSnapshot {
     ScalarsSnapshot {
-        prices: market.prices_iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
-        series: market.series_iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
-        inflation_indices: market.inflation_indices_iter().map(|(k, v)| (k.clone(), Arc::clone(v))).collect(),
-        dividends: market.dividends_iter().map(|(k, v)| (k.clone(), Arc::clone(v))).collect(),
+        prices: market
+            .prices_iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
+        series: market
+            .series_iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
+        inflation_indices: market
+            .inflation_indices_iter()
+            .map(|(k, v)| (k.clone(), Arc::clone(v)))
+            .collect(),
+        dividends: market
+            .dividends_iter()
+            .map(|(k, v)| (k.clone(), Arc::clone(v)))
+            .collect(),
     }
 }
 
@@ -419,10 +431,7 @@ pub fn restore_fx(market: &MarketContext, fx: Option<Arc<FxMatrix>>) -> MarketCo
 /// # Returns
 ///
 /// New market context with replaced volatility surfaces.
-pub fn restore_volatility(
-    market: &MarketContext,
-    snapshot: &VolatilitySnapshot,
-) -> MarketContext {
+pub fn restore_volatility(market: &MarketContext, snapshot: &VolatilitySnapshot) -> MarketContext {
     let mut new_market = market.clone();
     new_market.surfaces = snapshot.surfaces.clone();
     new_market
@@ -549,4 +558,3 @@ mod tests {
         assert!(frozen.get_discount("USD-OIS").is_ok());
     }
 }
-

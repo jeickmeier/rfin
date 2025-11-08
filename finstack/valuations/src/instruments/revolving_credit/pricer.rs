@@ -5,9 +5,9 @@
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
+use finstack_core::dates::{Date, Period, PeriodId, PeriodKind};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::dates::{Date, Period, PeriodId, PeriodKind};
 
 use super::cashflows::generate_deterministic_cashflows;
 use super::types::RevolvingCredit;
@@ -25,7 +25,7 @@ fn build_periods_from_payment_dates(
     }
 
     let mut periods = Vec::with_capacity(payment_dates.len() - 1);
-    
+
     // Determine period kind from frequency
     let period_kind = match frequency {
         finstack_core::dates::Frequency::Months(12) => PeriodKind::Annual,
@@ -39,7 +39,7 @@ fn build_periods_from_payment_dates(
     for i in 0..(payment_dates.len() - 1) {
         let start = payment_dates[i];
         let end = payment_dates[i + 1];
-        
+
         // Create a synthetic PeriodId based on the start date and frequency
         let period_id = match period_kind {
             PeriodKind::Quarterly => {
@@ -120,29 +120,36 @@ impl RevolvingCreditDiscountingPricer {
         let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
             .frequency(facility.payment_frequency)
             .stub_rule(finstack_core::dates::StubKind::None);
-        
+
         if let Some(cal_code) = facility
             .attributes
             .get_meta("calendar_id")
             .or_else(|| facility.attributes.get_meta("calendar"))
         {
-            if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
+            if let Some(cal) =
+                finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code)
+            {
                 builder = builder.adjust_with(
                     finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                     cal,
                 );
             }
         }
-        
+
         let payment_schedule = builder.build()?;
         let payment_dates: Vec<Date> = payment_schedule.into_iter().collect();
-        
+
         // Build periods from payment dates
         let periods = build_periods_from_payment_dates(&payment_dates, facility.payment_frequency);
-        
+
         // Compute per-period PVs using the standard cashflow schedule method
-        let period_pvs = schedule.pre_period_pv(&periods, disc as &dyn finstack_core::market_data::traits::Discounting, as_of, disc_dc);
-        
+        let period_pvs = schedule.pre_period_pv(
+            &periods,
+            disc as &dyn finstack_core::market_data::traits::Discounting,
+            as_of,
+            disc_dc,
+        );
+
         // Sum PVs across all periods and currencies
         let mut total_pv = 0.0;
         let ccy = facility.commitment_amount.currency();
@@ -167,7 +174,7 @@ impl RevolvingCreditDiscountingPricer {
                     as_of,
                     finstack_core::dates::DayCountCtx::default(),
                 )?;
-                
+
                 let df_commitment = disc.df(t_commitment);
                 let df_as_of = disc.df(t_as_of);
                 let df = if df_as_of > 0.0 {
@@ -175,7 +182,7 @@ impl RevolvingCreditDiscountingPricer {
                 } else {
                     1.0
                 };
-                
+
                 upfront_fee.amount() * df
             } else {
                 // Commitment date in the past or today - no discounting needed
@@ -187,7 +194,7 @@ impl RevolvingCreditDiscountingPricer {
 
         // Lender perspective: upfront fee is an outflow, so subtract from PV
         let final_pv = total_pv - upfront_fee_pv;
-        
+
         Ok(Money::new(final_pv, ccy))
     }
 }
@@ -291,7 +298,7 @@ impl RevolvingCreditMcPricer {
     ) -> finstack_core::Result<Money> {
         use super::types::UtilizationProcess;
         use crate::cashflow::builder::schedule::CashFlowSchedule;
-        use crate::cashflow::primitives::{CashFlow, CFKind, Notional};
+        use crate::cashflow::primitives::{CFKind, CashFlow, Notional};
         use finstack_core::dates::DayCountCtx;
 
         // Extract mean-reverting parameters
@@ -311,16 +318,10 @@ impl RevolvingCreditMcPricer {
         // Note: t_as_of not needed for MC pricing with CashFlowSchedule
 
         // Time horizon in years
-        let t_start = disc_dc.year_fraction(
-            base_date,
-            facility.commitment_date,
-            DayCountCtx::default(),
-        )?;
-        let t_end = disc_dc.year_fraction(
-            base_date,
-            facility.maturity_date,
-            DayCountCtx::default(),
-        )?;
+        let t_start =
+            disc_dc.year_fraction(base_date, facility.commitment_date, DayCountCtx::default())?;
+        let t_end =
+            disc_dc.year_fraction(base_date, facility.maturity_date, DayCountCtx::default())?;
         let time_horizon = t_end - t_start;
 
         if time_horizon <= 0.0 {
@@ -340,20 +341,22 @@ impl RevolvingCreditMcPricer {
         let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
             .frequency(facility.payment_frequency)
             .stub_rule(finstack_core::dates::StubKind::None);
-        
+
         if let Some(cal_code) = facility
             .attributes
             .get_meta("calendar_id")
             .or_else(|| facility.attributes.get_meta("calendar"))
         {
-            if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
+            if let Some(cal) =
+                finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code)
+            {
                 builder = builder.adjust_with(
                     finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                     cal,
                 );
             }
         }
-        
+
         let payment_schedule = builder.build()?;
         let payment_dates: Vec<Date> = payment_schedule.into_iter().collect();
         let periods = build_periods_from_payment_dates(&payment_dates, facility.payment_frequency);
@@ -384,7 +387,9 @@ impl RevolvingCreditMcPricer {
                 recovery_rate = def.recovery_rate.clamp(0.0, 1.0);
                 hazard_rate = def
                     .annual_hazard
-                    .unwrap_or_else(|| def.annual_spread.unwrap_or(0.0) / (1.0 - recovery_rate).max(1e-6))
+                    .unwrap_or_else(|| {
+                        def.annual_spread.unwrap_or(0.0) / (1.0 - recovery_rate).max(1e-6)
+                    })
                     .max(0.0);
                 // Draw Exp(1) threshold: E = -ln(U)
                 let u = rng.next_u01().clamp(1e-12, 1.0 - 1e-12);
@@ -394,7 +399,11 @@ impl RevolvingCreditMcPricer {
             // Prepare base rate sources for interest calculation
             let (fixed_rate_opt, fwd_opt, margin_bp_opt) = match &facility.base_rate_spec {
                 super::types::BaseRateSpec::Fixed { rate } => (Some(*rate), None, None),
-                super::types::BaseRateSpec::Floating { index_id, margin_bp, .. } => {
+                super::types::BaseRateSpec::Floating {
+                    index_id,
+                    margin_bp,
+                    ..
+                } => {
                     let fwd = market.get_forward_ref(index_id.as_str())?;
                     (None, Some(fwd), Some(*margin_bp))
                 }
@@ -483,13 +492,20 @@ impl RevolvingCreditMcPricer {
                 let interest = Money::new(drawn * period_rate * actual_dt, ccy);
 
                 // Commitment fee on undrawn
-                let commitment_fee = Money::new(undrawn * (facility.fees.commitment_fee_bp * 1e-4) * actual_dt, ccy);
+                let commitment_fee = Money::new(
+                    undrawn * (facility.fees.commitment_fee_bp * 1e-4) * actual_dt,
+                    ccy,
+                );
 
                 // Usage fee on drawn
-                let usage_fee = Money::new(drawn * (facility.fees.usage_fee_bp * 1e-4) * actual_dt, ccy);
+                let usage_fee =
+                    Money::new(drawn * (facility.fees.usage_fee_bp * 1e-4) * actual_dt, ccy);
 
                 // Facility fee on total commitment
-                let facility_fee = Money::new(commitment * (facility.fees.facility_fee_bp * 1e-4) * actual_dt, ccy);
+                let facility_fee = Money::new(
+                    commitment * (facility.fees.facility_fee_bp * 1e-4) * actual_dt,
+                    ccy,
+                );
 
                 // Calculate accrual factor
                 // payment_dates[0] is commitment_date, so step 0 period starts at commitment_date
@@ -500,19 +516,26 @@ impl RevolvingCreditMcPricer {
                 } else {
                     facility.commitment_date
                 };
-                let accrual = facility.day_count.year_fraction(
-                    date_start,
-                    date_next,
-                    DayCountCtx::default(),
-                ).unwrap_or(actual_dt);
+                let accrual = facility
+                    .day_count
+                    .year_fraction(date_start, date_next, DayCountCtx::default())
+                    .unwrap_or(actual_dt);
 
                 // Add interest cashflow
                 if interest.amount().abs() > 1e-10 {
                     path_flows.push(CashFlow {
                         date: date_next,
-                        reset_date: if fixed_rate_opt.is_none() { Some(date_start) } else { None },
+                        reset_date: if fixed_rate_opt.is_none() {
+                            Some(date_start)
+                        } else {
+                            None
+                        },
                         amount: interest,
-                        kind: if fixed_rate_opt.is_some() { CFKind::Fixed } else { CFKind::FloatReset },
+                        kind: if fixed_rate_opt.is_some() {
+                            CFKind::Fixed
+                        } else {
+                            CFKind::FloatReset
+                        },
                         accrual_factor: accrual,
                     });
                 }
@@ -580,8 +603,13 @@ impl RevolvingCreditMcPricer {
             };
 
             // Compute per-period PVs for this path
-            let period_pvs = path_schedule.pre_period_pv(&periods, disc as &dyn finstack_core::market_data::traits::Discounting, as_of, disc_dc);
-            
+            let period_pvs = path_schedule.pre_period_pv(
+                &periods,
+                disc as &dyn finstack_core::market_data::traits::Discounting,
+                as_of,
+                disc_dc,
+            );
+
             // Sum PVs across all periods for this path
             let mut path_pv = 0.0;
             for (_period_id, ccy_map) in period_pvs.iter() {
@@ -613,8 +641,8 @@ impl RevolvingCreditMcPricer {
         };
         use crate::instruments::common::mc::rng::philox::PhiloxRng;
         use crate::instruments::common::mc::rng::sobol::SobolRng;
-        use crate::instruments::common::mc::traits::StochasticProcess;
         use crate::instruments::common::mc::time_grid::TimeGrid;
+        use crate::instruments::common::mc::traits::StochasticProcess;
         use crate::instruments::common::models::monte_carlo::discretization::revolving_credit::RevolvingCreditDiscretization;
         use crate::instruments::common::models::monte_carlo::engine::McEngineBuilder;
         use crate::instruments::common::models::monte_carlo::payoff::revolving_credit::{
@@ -771,11 +799,7 @@ impl RevolvingCreditMcPricer {
             )?;
             process_params = process_params.with_correlation(corr);
         } else if let Some(rho) = mc_config.util_credit_corr {
-            let correlation = [
-                [1.0, 0.0, rho],
-                [0.0, 1.0, 0.0],
-                [rho, 0.0, 1.0],
-            ];
+            let correlation = [[1.0, 0.0, rho], [0.0, 1.0, 0.0], [rho, 0.0, 1.0]];
             process_params = process_params.with_correlation(correlation);
         }
 
@@ -798,13 +822,21 @@ impl RevolvingCreditMcPricer {
             finstack_core::dates::DayCountCtx::default(),
         )?;
         let df_as_of = disc_curve.df(t_as_of);
-        
+
         let mut discount_factors = Vec::with_capacity(num_steps + 1);
-        discount_factors.push(if df_as_of > 0.0 { disc_curve.df(t_start) / df_as_of } else { 1.0 });
+        discount_factors.push(if df_as_of > 0.0 {
+            disc_curve.df(t_start) / df_as_of
+        } else {
+            1.0
+        });
         for i in 0..num_steps {
             let t_abs = t_start + time_grid.time(i + 1);
             let df_abs = disc_curve.df(t_abs);
-            discount_factors.push(if df_as_of > 0.0 { df_abs / df_as_of } else { 1.0 });
+            discount_factors.push(if df_as_of > 0.0 {
+                df_abs / df_as_of
+            } else {
+                1.0
+            });
         }
 
         // Build payoff (NOTE: upfront fee handled separately below, not in payoff)
@@ -902,10 +934,7 @@ impl RevolvingCreditMcPricer {
         // Lender perspective: upfront fee is an outflow, so subtract from PV
         let total_pv = estimate.mean.amount() - upfront_fee_pv;
 
-        Ok(Money::new(
-            total_pv,
-            facility.commitment_amount.currency(),
-        ))
+        Ok(Money::new(total_pv, facility.commitment_amount.currency()))
     }
 }
 
@@ -953,11 +982,11 @@ impl Pricer for RevolvingCreditMcPricer {
 
 #[cfg(test)]
 mod tests {
+    use super::super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCreditFees};
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Frequency};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use super::super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCreditFees};
     use time::Month;
 
     #[test]
@@ -1010,16 +1039,27 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .day_count(DayCount::Act365F)
-            .knots([(0.0, 1.0), (1.0, (-0.03f64).exp()), (5.0, (-0.03f64 * 5.0).exp())])
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-0.03f64).exp()),
+                (5.0, (-0.03f64 * 5.0).exp()),
+            ])
             .build()
             .unwrap();
         let market = MarketContext::new().insert_discount(disc_curve);
 
-        let pv = RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start).unwrap();
+        let pv = RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start)
+            .unwrap();
 
         // Verify we get a reasonable PV (should be negative for lender perspective with fees)
-        assert!(pv.amount() < 0.0, "PV should be negative for lender with fees");
-        assert!(pv.amount().abs() < 1_000_000.0, "PV magnitude should be reasonable");
+        assert!(
+            pv.amount() < 0.0,
+            "PV should be negative for lender with fees"
+        );
+        assert!(
+            pv.amount().abs() < 1_000_000.0,
+            "PV magnitude should be reasonable"
+        );
     }
 
     #[test]
@@ -1054,13 +1094,18 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .day_count(DayCount::Act365F)
-            .knots([(0.0, 1.0), (1.0, (-0.03f64).exp()), (5.0, (-0.03f64 * 5.0).exp())])
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-0.03f64).exp()),
+                (5.0, (-0.03f64 * 5.0).exp()),
+            ])
             .build()
             .unwrap();
         let market = MarketContext::new().insert_discount(disc_curve);
 
-        let pv = RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start).unwrap();
-        
+        let pv = RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start)
+            .unwrap();
+
         // Should price successfully
         assert!(pv.currency() == Currency::USD);
     }
@@ -1121,16 +1166,27 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .day_count(DayCount::Act365F)
-            .knots([(0.0, 1.0), (1.0, (-0.03f64).exp()), (5.0, (-0.03f64 * 5.0).exp())])
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-0.03f64).exp()),
+                (5.0, (-0.03f64 * 5.0).exp()),
+            ])
             .build()
             .unwrap();
         let market = MarketContext::new().insert_discount(disc_curve);
 
-        let pv_det = RevolvingCreditDiscountingPricer::price_deterministic(&facility_det, &market, start).unwrap();
-        let pv_mc = RevolvingCreditMcPricer::price_stochastic(&facility_mc, &market, start).unwrap();
+        let pv_det =
+            RevolvingCreditDiscountingPricer::price_deterministic(&facility_det, &market, start)
+                .unwrap();
+        let pv_mc =
+            RevolvingCreditMcPricer::price_stochastic(&facility_mc, &market, start).unwrap();
 
         // With zero volatility and single path, MC should match deterministic (within numerical tolerance)
         let diff = (pv_det.amount() - pv_mc.amount()).abs();
-        assert!(diff < 1000.0, "MC with zero volatility should match deterministic, diff: {}", diff);
+        assert!(
+            diff < 1000.0,
+            "MC with zero volatility should match deterministic, diff: {}",
+            diff
+        );
     }
 }

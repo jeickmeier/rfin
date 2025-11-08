@@ -149,7 +149,9 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
                 let t_total = process.params().time_offset + t + dt;
                 // Linear interpolation with clamp at ends
                 let n = times.len();
-                let mut r = if n == 0 { 0.0 } else if t_total <= times[0] {
+                let mut r = if n == 0 {
+                    0.0
+                } else if t_total <= times[0] {
                     rates[0]
                 } else if t_total >= times[n - 1] {
                     rates[n - 1]

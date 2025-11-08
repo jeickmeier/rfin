@@ -71,7 +71,9 @@ impl BondValuator {
         let time_steps: Vec<f64> = (0..=tree_steps).map(|i| i as f64 * dt).collect();
 
         let curves = market_context;
-        let base_date = market_context.get_discount(&bond.discount_curve_id)?.base_date();
+        let base_date = market_context
+            .get_discount(&bond.discount_curve_id)?
+            .base_date();
         let flows = bond.build_schedule(curves, base_date)?;
 
         let mut coupon_map = HashMap::new();

@@ -3,13 +3,20 @@ use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::dates::{Date, PeriodId};
 use finstack_valuations::covenants::engine::{Covenant, CovenantSpec, CovenantType, ThresholdTest};
-use finstack_valuations::covenants::forward::{CovenantForecast as ValCovForecast, CovenantForecastConfig as ValCovForecastConfig, McConfig as ValMcConfig, ModelTimeSeries};
+use finstack_valuations::covenants::forward::{
+    CovenantForecast as ValCovForecast, CovenantForecastConfig as ValCovForecastConfig,
+    McConfig as ValMcConfig, ModelTimeSeries,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 use time::Month;
 
-#[pyclass(module = "finstack.valuations.covenants", name = "CovenantType", frozen)]
+#[pyclass(
+    module = "finstack.valuations.covenants",
+    name = "CovenantType",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyCovenantType {
     pub(crate) inner: CovenantType,
@@ -23,31 +30,41 @@ impl PyCovenantType {
     #[pyo3(text_signature = "(threshold)")]
     #[staticmethod]
     pub fn max_debt_to_ebitda(threshold: f64) -> Self {
-        Self { inner: CovenantType::MaxDebtToEBITDA { threshold } }
+        Self {
+            inner: CovenantType::MaxDebtToEBITDA { threshold },
+        }
     }
 
     #[pyo3(text_signature = "(threshold)")]
     #[staticmethod]
     pub fn min_interest_coverage(threshold: f64) -> Self {
-        Self { inner: CovenantType::MinInterestCoverage { threshold } }
+        Self {
+            inner: CovenantType::MinInterestCoverage { threshold },
+        }
     }
 
     #[pyo3(text_signature = "(threshold)")]
     #[staticmethod]
     pub fn min_fixed_charge_coverage(threshold: f64) -> Self {
-        Self { inner: CovenantType::MinFixedChargeCoverage { threshold } }
+        Self {
+            inner: CovenantType::MinFixedChargeCoverage { threshold },
+        }
     }
 
     #[pyo3(text_signature = "(threshold)")]
     #[staticmethod]
     pub fn max_total_leverage(threshold: f64) -> Self {
-        Self { inner: CovenantType::MaxTotalLeverage { threshold } }
+        Self {
+            inner: CovenantType::MaxTotalLeverage { threshold },
+        }
     }
 
     #[pyo3(text_signature = "(threshold)")]
     #[staticmethod]
     pub fn max_senior_leverage(threshold: f64) -> Self {
-        Self { inner: CovenantType::MaxSeniorLeverage { threshold } }
+        Self {
+            inner: CovenantType::MaxSeniorLeverage { threshold },
+        }
     }
 
     #[pyo3(text_signature = "(metric, comparator, threshold)")]
@@ -63,7 +80,12 @@ impl PyCovenantType {
                 )))
             }
         };
-        Ok(Self { inner: CovenantType::Custom { metric: metric.to_string(), test } })
+        Ok(Self {
+            inner: CovenantType::Custom {
+                metric: metric.to_string(),
+                test,
+            },
+        })
     }
 }
 
@@ -79,12 +101,19 @@ impl PyCovenant {
     #[pyo3(text_signature = "(ctype)")]
     pub fn new(ctype: &PyCovenantType) -> Self {
         Self {
-            inner: Covenant::new(ctype.inner.clone(), finstack_core::dates::Frequency::quarterly()),
+            inner: Covenant::new(
+                ctype.inner.clone(),
+                finstack_core::dates::Frequency::quarterly(),
+            ),
         }
     }
 }
 
-#[pyclass(module = "finstack.valuations.covenants", name = "CovenantSpec", frozen)]
+#[pyclass(
+    module = "finstack.valuations.covenants",
+    name = "CovenantSpec",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyCovenantSpec {
     pub(crate) inner: CovenantSpec,
@@ -95,11 +124,20 @@ impl PyCovenantSpec {
     #[pyo3(text_signature = "(covenant, metric_id)")]
     #[staticmethod]
     pub fn with_metric(covenant: &PyCovenant, metric_id: &str) -> Self {
-        Self { inner: CovenantSpec::with_metric(covenant.inner.clone(), finstack_valuations::metrics::MetricId::custom(metric_id)) }
+        Self {
+            inner: CovenantSpec::with_metric(
+                covenant.inner.clone(),
+                finstack_valuations::metrics::MetricId::custom(metric_id),
+            ),
+        }
     }
 }
 
-#[pyclass(module = "finstack.valuations.covenants", name = "CovenantForecastConfig", frozen)]
+#[pyclass(
+    module = "finstack.valuations.covenants",
+    name = "CovenantForecastConfig",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyCovenantForecastConfig {
     pub(crate) inner: ValCovForecastConfig,
@@ -108,21 +146,36 @@ pub struct PyCovenantForecastConfig {
 #[pymethods]
 impl PyCovenantForecastConfig {
     #[new]
-    #[pyo3(text_signature = "(stochastic=False, num_paths=0, volatility=None, seed=None, antithetic=False)")]
-    pub fn new(stochastic: Option<bool>, num_paths: Option<usize>, volatility: Option<Option<f64>>, seed: Option<Option<u64>>, antithetic: Option<bool>) -> Self {
+    #[pyo3(
+        text_signature = "(stochastic=False, num_paths=0, volatility=None, seed=None, antithetic=False)"
+    )]
+    pub fn new(
+        stochastic: Option<bool>,
+        num_paths: Option<usize>,
+        volatility: Option<Option<f64>>,
+        seed: Option<Option<u64>>,
+        antithetic: Option<bool>,
+    ) -> Self {
         let mut cfg = ValCovForecastConfig::default();
         cfg.stochastic = stochastic.unwrap_or(false);
         cfg.num_paths = num_paths.unwrap_or(0);
         cfg.volatility = volatility.unwrap_or(None);
         cfg.random_seed = seed.unwrap_or(None);
         if antithetic.unwrap_or(false) {
-            cfg.mc = Some(ValMcConfig { seed: cfg.random_seed.unwrap_or(42), antithetic: true });
+            cfg.mc = Some(ValMcConfig {
+                seed: cfg.random_seed.unwrap_or(42),
+                antithetic: true,
+            });
         }
         Self { inner: cfg }
     }
 }
 
-#[pyclass(module = "finstack.valuations.covenants", name = "CovenantForecast", frozen)]
+#[pyclass(
+    module = "finstack.valuations.covenants",
+    name = "CovenantForecast",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyCovenantForecast {
     pub(crate) inner: ValCovForecast,
@@ -131,7 +184,9 @@ pub struct PyCovenantForecast {
 #[pymethods]
 impl PyCovenantForecast {
     #[getter]
-    fn covenant_id(&self) -> &str { &self.inner.covenant_id }
+    fn covenant_id(&self) -> &str {
+        &self.inner.covenant_id
+    }
 
     #[getter]
     fn test_dates(&self, py: Python<'_>) -> PyResult<PyObject> {
@@ -143,13 +198,21 @@ impl PyCovenantForecast {
     }
 
     #[getter]
-    fn projected_values(&self) -> Vec<f64> { self.inner.projected_values.clone() }
+    fn projected_values(&self) -> Vec<f64> {
+        self.inner.projected_values.clone()
+    }
     #[getter]
-    fn thresholds(&self) -> Vec<f64> { self.inner.thresholds.clone() }
+    fn thresholds(&self) -> Vec<f64> {
+        self.inner.thresholds.clone()
+    }
     #[getter]
-    fn headroom(&self) -> Vec<f64> { self.inner.headroom.clone() }
+    fn headroom(&self) -> Vec<f64> {
+        self.inner.headroom.clone()
+    }
     #[getter]
-    fn breach_probability(&self) -> Vec<f64> { self.inner.breach_probability.clone() }
+    fn breach_probability(&self) -> Vec<f64> {
+        self.inner.breach_probability.clone()
+    }
 
     #[getter]
     fn first_breach_date(&self, py: Python<'_>) -> PyResult<PyObject> {
@@ -165,22 +228,32 @@ impl PyCovenantForecast {
     }
 
     #[getter]
-    fn min_headroom_value(&self) -> f64 { self.inner.min_headroom_value }
+    fn min_headroom_value(&self) -> f64 {
+        self.inner.min_headroom_value
+    }
 
     /// Human-readable multi-period explanation.
-    fn explain(&self) -> String { self.inner.explain() }
+    fn explain(&self) -> String {
+        self.inner.explain()
+    }
 
     /// Export to Polars DataFrame (requires polars and pyo3-polars).
     fn to_polars(&self) -> PyResult<pyo3_polars::PyDataFrame> {
         use polars::prelude::*;
-        let dates: Vec<String> = self.inner.test_dates.iter().map(|d| d.to_string()).collect();
+        let dates: Vec<String> = self
+            .inner
+            .test_dates
+            .iter()
+            .map(|d| d.to_string())
+            .collect();
         let df = df![
             "test_date" => dates,
             "projected_value" => self.inner.projected_values.clone(),
             "threshold" => self.inner.thresholds.clone(),
             "headroom" => self.inner.headroom.clone(),
             "breach_prob" => self.inner.breach_probability.clone()
-        ].map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        ]
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
         Ok(pyo3_polars::PyDataFrame(df))
     }
 }
@@ -190,12 +263,25 @@ struct StatementsAdapter<'a> {
     results: &'a finstack_statements::evaluator::Results,
 }
 
-impl<'a> StatementsAdapter<'a> { fn new(model: &'a finstack_statements::types::FinancialModelSpec, results: &'a finstack_statements::evaluator::Results) -> Self { Self { model, results } } }
+impl<'a> StatementsAdapter<'a> {
+    fn new(
+        model: &'a finstack_statements::types::FinancialModelSpec,
+        results: &'a finstack_statements::evaluator::Results,
+    ) -> Self {
+        Self { model, results }
+    }
+}
 
 impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
-    fn get_scalar(&self, node_id: &str, period: &PeriodId) -> Option<f64> { self.results.get(node_id, period) }
+    fn get_scalar(&self, node_id: &str, period: &PeriodId) -> Option<f64> {
+        self.results.get(node_id, period)
+    }
     fn period_end_date(&self, period: &PeriodId) -> Date {
-        for p in &self.model.periods { if p.id == *period { return p.end; } }
+        for p in &self.model.periods {
+            if p.id == *period {
+                return p.end;
+            }
+        }
         Date::from_calendar_date(period.year, Month::December, 31).unwrap()
     }
 }
@@ -221,7 +307,10 @@ pub fn py_forecast_covenant(
     .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
-pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<Vec<&'static str>> {
+pub(crate) fn register<'py>(
+    py: Python<'py>,
+    parent: &Bound<'py, PyModule>,
+) -> PyResult<Vec<&'static str>> {
     let module = PyModule::new(py, "covenants")?;
     module.setattr(
         "__doc__",
@@ -245,5 +334,3 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
 }
-
-

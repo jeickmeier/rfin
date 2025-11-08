@@ -8,8 +8,8 @@
 use crate::covenants::engine::{CovenantSpec, CovenantType, ThresholdTest};
 use finstack_core::dates::{Date, PeriodId};
 use finstack_core::error::Error;
-use finstack_core::Result;
 use finstack_core::error::InputError;
+use finstack_core::Result;
 
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::traits::RandomStream;
@@ -193,7 +193,8 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
                 }
                 remaining -= take;
             }
-            breach_probability[i] = (breaches as f64) / (paths as f64 * if antithetic { 2.0 } else { 1.0 });
+            breach_probability[i] =
+                (breaches as f64) / (paths as f64 * if antithetic { 2.0 } else { 1.0 });
         }
     }
 
@@ -241,7 +242,9 @@ fn comparator_for(cov: &CovenantType) -> Comparator {
             ThresholdTest::Maximum(_) => Comparator::LessOrEqual,
             ThresholdTest::Minimum(_) => Comparator::GreaterOrEqual,
         },
-        CovenantType::Negative { .. } | CovenantType::Affirmative { .. } => Comparator::GreaterOrEqual, // Non-financial: treated as pass
+        CovenantType::Negative { .. } | CovenantType::Affirmative { .. } => {
+            Comparator::GreaterOrEqual
+        } // Non-financial: treated as pass
     }
 }
 
@@ -284,7 +287,9 @@ fn metric_value_for_spec<MTS: ModelTimeSeries>(
     match &spec.covenant.covenant_type {
         CovenantType::MaxDebtToEBITDA { .. } => model.get_scalar("debt_to_ebitda", period),
         CovenantType::MinInterestCoverage { .. } => model.get_scalar("interest_coverage", period),
-        CovenantType::MinFixedChargeCoverage { .. } => model.get_scalar("fixed_charge_coverage", period),
+        CovenantType::MinFixedChargeCoverage { .. } => {
+            model.get_scalar("fixed_charge_coverage", period)
+        }
         CovenantType::MaxTotalLeverage { .. } => model.get_scalar("total_leverage", period),
         CovenantType::MaxSeniorLeverage { .. } => model.get_scalar("senior_leverage", period),
         CovenantType::MinAssetCoverage { .. } => model.get_scalar("asset_coverage", period),
@@ -295,7 +300,6 @@ fn metric_value_for_spec<MTS: ModelTimeSeries>(
 
 // Note: Statements-specific bridging lives in the `finstack` meta crate to avoid a
 // dependency cycle between `valuations` and `statements`.
-
 
 #[cfg(test)]
 mod tests {
@@ -309,7 +313,9 @@ mod tests {
 
     impl MockTs {
         fn new() -> Self {
-            Self { map: std::collections::HashMap::new() }
+            Self {
+                map: std::collections::HashMap::new(),
+            }
         }
         fn with(mut self, node: &str, period: PeriodId, v: f64) -> Self {
             self.map.insert((node.to_string(), period.to_string()), v);
@@ -319,7 +325,9 @@ mod tests {
 
     impl ModelTimeSeries for MockTs {
         fn get_scalar(&self, node_id: &str, period: &PeriodId) -> Option<f64> {
-            self.map.get(&(node_id.to_string(), period.to_string())).copied()
+            self.map
+                .get(&(node_id.to_string(), period.to_string()))
+                .copied()
         }
         fn period_end_date(&self, period: &PeriodId) -> Date {
             // simple quarterly end approximation
@@ -328,7 +336,9 @@ mod tests {
         }
     }
 
-    fn q(year: i32, q: u8) -> PeriodId { PeriodId::quarter(year, q) }
+    fn q(year: i32, q: u8) -> PeriodId {
+        PeriodId::quarter(year, q)
+    }
 
     #[test]
     fn deterministic_headroom_positive_zero_breach_prob() {
@@ -342,15 +352,20 @@ mod tests {
         );
 
         let periods = vec![q(2025, 1), q(2025, 2)];
-        let mts = MockTs::new()
-            .with("debt_to_ebitda", periods[0], 4.0)
-            .with("debt_to_ebitda", periods[1], 4.2);
+        let mts = MockTs::new().with("debt_to_ebitda", periods[0], 4.0).with(
+            "debt_to_ebitda",
+            periods[1],
+            4.2,
+        );
 
         let cfg = CovenantForecastConfig::default();
         let fc = forecast_covenant_generic(&spec, &mts, &periods, cfg).unwrap();
 
         assert!(fc.headroom.iter().all(|&h| h > 0.0));
-        assert!(fc.breach_probability.iter().all(|&p| (p - 0.0).abs() < 1e-12));
+        assert!(fc
+            .breach_probability
+            .iter()
+            .all(|&p| (p - 0.0).abs() < 1e-12));
         assert!(fc.first_breach_date.is_none());
     }
 
@@ -373,7 +388,10 @@ mod tests {
             num_paths: 10_000,
             volatility: Some(0.25),
             random_seed: Some(42),
-            mc: Some(McConfig { seed: 42, antithetic: true }),
+            mc: Some(McConfig {
+                seed: 42,
+                antithetic: true,
+            }),
         };
         let fc = forecast_covenant_generic(&spec, &mts, &periods, cfg).unwrap();
         let p = fc.breach_probability[0];

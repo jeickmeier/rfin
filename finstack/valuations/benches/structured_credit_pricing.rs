@@ -19,9 +19,8 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, CreditRating, DealType, PaymentCalculation, PaymentRecipient,
-    PoolAsset, Recipient, StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
-    WaterfallEngine,
+    AssetPool, CreditRating, DealType, PaymentCalculation, PaymentRecipient, PoolAsset, Recipient,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
 use finstack_valuations::metrics::MetricId;
 use time::Month;

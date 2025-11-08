@@ -27,41 +27,40 @@ impl MetricCalculator for InflationConvexityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let swap: &InflationSwap = context.instrument_as()?;
         let as_of = context.as_of;
-        
+
         // Get base value
         let base_pv = context.base_value.amount();
-        
+
         // Bump size: 1bp for numerical convexity
         let bump_bp = INFLATION_BUMP_BP;
-        
+
         // Get the inflation index/curve ID
         let inflation_curve_id = &swap.inflation_index_id;
-        
+
         // Create bumped curves (up)
         let bump_spec_up = BumpSpec::inflation_shift_pct(bump_bp * 100.0); // Convert bp to percent
         let mut bumps_up = HashMap::new();
         bumps_up.insert(inflation_curve_id.clone(), bump_spec_up);
-        
+
         let curves_up = context.curves.bump(bumps_up)?;
         let pv_up = swap.value(&curves_up, as_of)?.amount();
-        
+
         // Create bumped curves (down)
         let bump_spec_down = BumpSpec::inflation_shift_pct(-bump_bp * 100.0);
         let mut bumps_down = HashMap::new();
         bumps_down.insert(inflation_curve_id.clone(), bump_spec_down);
-        
+
         let curves_down = context.curves.bump(bumps_down)?;
         let pv_down = swap.value(&curves_down, as_of)?.amount();
-        
+
         if base_pv == 0.0 {
             return Ok(0.0);
         }
-        
+
         // InflationConvexity = (PV_up + PV_down - 2×PV_base) / (bump²)
         // This gives the second derivative normalized per (basis point)²
         let inflation_convexity = (pv_up + pv_down - 2.0 * base_pv) / (bump_bp * bump_bp);
-        
+
         Ok(inflation_convexity)
     }
 }
-

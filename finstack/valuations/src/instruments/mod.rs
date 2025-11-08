@@ -71,12 +71,12 @@ pub mod range_accrual;
 pub mod repo;
 /// revolving credit module.
 pub mod revolving_credit;
-/// term loan module.
-pub mod term_loan;
 /// structured credit module.
 pub mod structured_credit;
 /// swaption module.
 pub mod swaption;
+/// term loan module.
+pub mod term_loan;
 /// trs module.
 pub mod trs;
 /// variance swap module.
@@ -119,9 +119,9 @@ pub use quanto_option::QuantoOption;
 pub use range_accrual::RangeAccrual;
 pub use repo::{CollateralSpec, CollateralType, Repo, RepoType};
 pub use revolving_credit::RevolvingCredit;
-pub use term_loan::TermLoan;
 pub use structured_credit::StructuredCredit;
 pub use swaption::Swaption;
+pub use term_loan::TermLoan;
 pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 pub use variance_swap::VarianceSwap;
 

@@ -1,7 +1,7 @@
 //! Python bindings for standalone Monte Carlo path generation.
 
-use crate::core::error::core_to_py;
 use super::paths::PyPathDataset;
+use crate::core::error::core_to_py;
 use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
 use finstack_valuations::instruments::common::mc::path_data::{
     PathDataset, PathPoint, PathSamplingMethod, SimulatedPath,
@@ -288,4 +288,3 @@ impl PyMonteCarloPathGenerator {
         Ok(dataset)
     }
 }
-

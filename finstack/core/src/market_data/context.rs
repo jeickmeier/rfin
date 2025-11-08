@@ -1493,8 +1493,13 @@ impl MarketContext {
     /// # Returns
     ///
     /// Mutable reference to self for chaining.
-    pub fn set_inflation_index_mut(&mut self, id: impl AsRef<str>, index: Arc<InflationIndex>) -> &mut Self {
-        self.inflation_indices.insert(CurveId::from(id.as_ref()), index);
+    pub fn set_inflation_index_mut(
+        &mut self,
+        id: impl AsRef<str>,
+        index: Arc<InflationIndex>,
+    ) -> &mut Self {
+        self.inflation_indices
+            .insert(CurveId::from(id.as_ref()), index);
         self
     }
 

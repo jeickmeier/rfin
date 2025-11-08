@@ -32,7 +32,12 @@ impl MetricCalculator for AccruedInterestCalculator {
                 None
             };
 
-            (accrued_amt, bond.discount_curve_id.to_owned(), bond.dc, maybe_flows)
+            (
+                accrued_amt,
+                bond.discount_curve_id.to_owned(),
+                bond.dc,
+                maybe_flows,
+            )
         };
 
         // Cache basic context hints for downstream metrics

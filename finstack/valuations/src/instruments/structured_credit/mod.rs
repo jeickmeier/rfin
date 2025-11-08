@@ -244,9 +244,12 @@ pub use components::{
     cdr_to_mdr,
     // Rate conversion utilities
     cpr_to_smm,
+    get_validation_errors,
+    is_valid_waterfall_spec,
     mdr_to_cdr,
     psa_to_cpr,
     smm_to_cpr,
+    AllocationMode,
     // Pool
     AssetPool,
     // Enumerations
@@ -305,9 +308,6 @@ pub use components::{
     WaterfallResult,
     WaterfallTier,
     WaterfallValidator,
-    AllocationMode,
-    get_validation_errors,
-    is_valid_waterfall_spec,
 };
 
 pub use utils::months_between;
@@ -416,4 +416,3 @@ pub use templates::{
     available_templates, clo_2_0_template, cmbs_standard_template, cre_operating_company_template,
     get_template, WaterfallTemplate,
 };
-

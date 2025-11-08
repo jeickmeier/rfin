@@ -349,7 +349,13 @@ fn test_swaption_pricing_with_calibrated_surface() {
         Date::from_calendar_date(2026, Month::January, 1).unwrap(),
         Date::from_calendar_date(2027, Month::January, 1).unwrap(),
     );
-    let swaption = Swaption::new_payer("TEST-SWAPTION", &params, discount_curve_id, forward_curve_id, vol_surface_id);
+    let swaption = Swaption::new_payer(
+        "TEST-SWAPTION",
+        &params,
+        discount_curve_id,
+        forward_curve_id,
+        vol_surface_id,
+    );
 
     // Price should work with calibrated surface
     let price_result = swaption.value(&context, base_date);

@@ -167,5 +167,3 @@ pub struct LoanCall {
 pub struct LoanCallSchedule {
     pub calls: Vec<LoanCall>,
 }
-
-

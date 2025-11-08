@@ -65,9 +65,11 @@ pub fn calculate_path_irr(
         .filter_map(|(time_years, amount)| {
             // Convert years to days (approximate, using 365.25 days/year)
             let days = (*time_years * 365.25).round() as i64;
-            
+
             // Add days to base date
-            base_date.checked_add(time::Duration::days(days)).map(|date| (date, *amount))
+            base_date
+                .checked_add(time::Duration::days(days))
+                .map(|date| (date, *amount))
         })
         .collect();
 
@@ -120,23 +122,24 @@ mod tests {
     #[test]
     fn test_calculate_path_irr_simple() {
         let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         // Simple case: deploy 1M, receive 1.05M in 1 year = 5% IRR
-        let cashflows = vec![
-            (0.0, -1_000_000.0),
-            (1.0, 1_050_000.0),
-        ];
+        let cashflows = vec![(0.0, -1_000_000.0), (1.0, 1_050_000.0)];
 
         let irr = calculate_path_irr(&cashflows, base, DayCount::Act365F);
         assert!(irr.is_some());
         let irr_val = irr.unwrap();
-        assert!((irr_val - 0.05).abs() < 0.001, "Expected ~5% IRR, got {}", irr_val);
+        assert!(
+            (irr_val - 0.05).abs() < 0.001,
+            "Expected ~5% IRR, got {}",
+            irr_val
+        );
     }
 
     #[test]
     fn test_calculate_path_irr_quarterly_payments() {
         let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         // Quarterly payments: deploy 1M, receive 12.5k quarterly + 1M at end
         // ~5% annual IRR
         let cashflows = vec![
@@ -151,18 +154,19 @@ mod tests {
         assert!(irr.is_some());
         let irr_val = irr.unwrap();
         // Should be around 5% annual
-        assert!(irr_val > 0.04 && irr_val < 0.06, "Expected ~5% IRR, got {}", irr_val);
+        assert!(
+            irr_val > 0.04 && irr_val < 0.06,
+            "Expected ~5% IRR, got {}",
+            irr_val
+        );
     }
 
     #[test]
     fn test_calculate_path_irr_no_sign_change() {
         let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         // All positive - no IRR
-        let cashflows = vec![
-            (0.0, 1_000_000.0),
-            (1.0, 1_050_000.0),
-        ];
+        let cashflows = vec![(0.0, 1_000_000.0), (1.0, 1_050_000.0)];
 
         let irr = calculate_path_irr(&cashflows, base, DayCount::Act365F);
         assert!(irr.is_none());
@@ -175,7 +179,11 @@ mod tests {
         let irr = calculate_periodic_irr(&amounts);
         assert!(irr.is_some());
         let irr_val = irr.unwrap();
-        assert!((irr_val - 0.1).abs() < 0.001, "Expected 10% IRR, got {}", irr_val);
+        assert!(
+            (irr_val - 0.1).abs() < 0.001,
+            "Expected 10% IRR, got {}",
+            irr_val
+        );
     }
 
     #[test]
@@ -187,7 +195,10 @@ mod tests {
         assert!(irr.is_some());
         let irr_val = irr.unwrap();
         // Should be around 2.4% per quarter
-        assert!(irr_val > 0.02 && irr_val < 0.03, "Expected ~2.4% quarterly IRR, got {}", irr_val);
+        assert!(
+            irr_val > 0.02 && irr_val < 0.03,
+            "Expected ~2.4% quarterly IRR, got {}",
+            irr_val
+        );
     }
 }
-

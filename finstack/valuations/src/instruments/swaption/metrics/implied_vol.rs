@@ -18,7 +18,9 @@ impl MetricCalculator for ImpliedVolCalculator {
         let option: &Swaption = context.instrument_as()?;
 
         // Fetch discount curve
-        let disc = context.curves.get_discount_ref(option.discount_curve_id.as_ref())?;
+        let disc = context
+            .curves
+            .get_discount_ref(option.discount_curve_id.as_ref())?;
 
         // Time to expiry from as_of
         let t = option.year_fraction(context.as_of, option.expiry, option.day_count)?;

@@ -99,7 +99,7 @@ impl AliasRegistry {
     pub fn add_alias(&mut self, alias: impl Into<String>, canonical: impl Into<String>) {
         let alias_str = alias.into();
         let canonical_str = canonical.into();
-        
+
         // Normalize the alias key (lowercase, no underscores/spaces)
         let normalized_alias = normalize_string(&alias_str);
         self.aliases.insert(normalized_alias, canonical_str);
@@ -185,92 +185,117 @@ impl AliasRegistry {
     /// ```
     pub fn load_standard_aliases(&mut self) {
         // Revenue variations
-        self.add_aliases("revenue", vec![
-            "rev".to_string(),
-            "sales".to_string(),
-            "turnover".to_string(),
-            "top_line".to_string(),
-            "topline".to_string(),
-        ]);
+        self.add_aliases(
+            "revenue",
+            vec![
+                "rev".to_string(),
+                "sales".to_string(),
+                "turnover".to_string(),
+                "top_line".to_string(),
+                "topline".to_string(),
+            ],
+        );
 
         // COGS variations
-        self.add_aliases("cogs", vec![
-            "cost_of_sales".to_string(),
-            "cost_of_goods_sold".to_string(),
-            "cos".to_string(),
-        ]);
+        self.add_aliases(
+            "cogs",
+            vec![
+                "cost_of_sales".to_string(),
+                "cost_of_goods_sold".to_string(),
+                "cos".to_string(),
+            ],
+        );
 
         // Operating expense variations
-        self.add_aliases("operating_expenses", vec![
-            "opex".to_string(),
-            "operating_expense".to_string(),
-            "op_exp".to_string(),
-        ]);
+        self.add_aliases(
+            "operating_expenses",
+            vec![
+                "opex".to_string(),
+                "operating_expense".to_string(),
+                "op_exp".to_string(),
+            ],
+        );
 
         // SG&A variations
-        self.add_aliases("sga", vec![
-            "sg&a".to_string(),
-            "selling_general_admin".to_string(),
-            "selling_general_administrative".to_string(),
-        ]);
+        self.add_aliases(
+            "sga",
+            vec![
+                "sg&a".to_string(),
+                "selling_general_admin".to_string(),
+                "selling_general_administrative".to_string(),
+            ],
+        );
 
         // Gross profit variations
-        self.add_aliases("gross_profit", vec![
-            "gp".to_string(),
-            "gross_margin_dollars".to_string(),
-        ]);
+        self.add_aliases(
+            "gross_profit",
+            vec!["gp".to_string(), "gross_margin_dollars".to_string()],
+        );
 
         // EBITDA variations
-        self.add_aliases("ebitda", vec![
-            "earnings_before_interest_taxes_depreciation_amortization".to_string(),
-        ]);
+        self.add_aliases(
+            "ebitda",
+            vec!["earnings_before_interest_taxes_depreciation_amortization".to_string()],
+        );
 
         // EBIT variations
-        self.add_aliases("ebit", vec![
-            "operating_income".to_string(),
-            "earnings_before_interest_taxes".to_string(),
-        ]);
+        self.add_aliases(
+            "ebit",
+            vec![
+                "operating_income".to_string(),
+                "earnings_before_interest_taxes".to_string(),
+            ],
+        );
 
         // Net income variations
-        self.add_aliases("net_income", vec![
-            "ni".to_string(),
-            "net_profit".to_string(),
-            "bottom_line".to_string(),
-            "bottomline".to_string(),
-            "earnings".to_string(),
-        ]);
+        self.add_aliases(
+            "net_income",
+            vec![
+                "ni".to_string(),
+                "net_profit".to_string(),
+                "bottom_line".to_string(),
+                "bottomline".to_string(),
+                "earnings".to_string(),
+            ],
+        );
 
         // Depreciation & Amortization
-        self.add_aliases("depreciation_amortization", vec![
-            "d&a".to_string(),
-            "da".to_string(),
-            "depreciation_and_amortization".to_string(),
-        ]);
+        self.add_aliases(
+            "depreciation_amortization",
+            vec![
+                "d&a".to_string(),
+                "da".to_string(),
+                "depreciation_and_amortization".to_string(),
+            ],
+        );
 
         // Interest expense
-        self.add_aliases("interest_expense", vec![
-            "int_exp".to_string(),
-            "interest".to_string(),
-        ]);
+        self.add_aliases(
+            "interest_expense",
+            vec!["int_exp".to_string(), "interest".to_string()],
+        );
 
         // Tax expense
-        self.add_aliases("tax_expense", vec![
-            "taxes".to_string(),
-            "income_tax".to_string(),
-        ]);
+        self.add_aliases(
+            "tax_expense",
+            vec!["taxes".to_string(), "income_tax".to_string()],
+        );
 
         // Capital expenditures
-        self.add_aliases("capex", vec![
-            "capital_expenditures".to_string(),
-            "capital_expenditure".to_string(),
-            "cap_ex".to_string(),
-        ]);
+        self.add_aliases(
+            "capex",
+            vec![
+                "capital_expenditures".to_string(),
+                "capital_expenditure".to_string(),
+                "cap_ex".to_string(),
+            ],
+        );
 
         // Free cash flow
-        self.add_aliases("free_cash_flow", vec![
-            "fcf".to_string(),
-            "free_cashflow".to_string(),
-        ]);
+        self.add_aliases(
+            "free_cash_flow",
+            vec!["fcf".to_string(), "free_cashflow".to_string()],
+        );
     }
 
     /// Get all registered aliases.
@@ -310,7 +335,7 @@ impl AliasRegistry {
         max_suggestions: usize,
     ) -> String {
         let normalized_input = normalize_string(input);
-        
+
         // Calculate similarity scores
         let mut scores: Vec<(f64, String)> = available_nodes
             .iter()
@@ -460,7 +485,8 @@ fn jaro_similarity(s1: &str, s2: &str) -> f64 {
     }
 
     let matches_f = matches as f64;
-    (matches_f / s1_len as f64 + matches_f / s2_len as f64
+    (matches_f / s1_len as f64
+        + matches_f / s2_len as f64
         + (matches_f - transpositions as f64 / 2.0) / matches_f)
         / 3.0
 }
@@ -515,7 +541,7 @@ mod tests {
             registry.normalize_fuzzy("revenu", &available),
             Some("revenue".to_string())
         );
-        
+
         assert_eq!(
             registry.normalize_fuzzy("reveneu", &available),
             Some("revenue".to_string())
@@ -617,4 +643,3 @@ mod tests {
         assert_eq!(registry.normalize("Rev"), Some("revenue".to_string()));
     }
 }
-

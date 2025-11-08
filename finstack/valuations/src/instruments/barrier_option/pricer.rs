@@ -459,7 +459,10 @@ impl Pricer for BarrierOptionAnalyticalPricer {
             ),
         };
 
-        let pv = Money::new(price * barrier_opt.notional.amount(), barrier_opt.strike.currency());
+        let pv = Money::new(
+            price * barrier_opt.notional.amount(),
+            barrier_opt.strike.currency(),
+        );
         Ok(ValuationResult::stamped(barrier_opt.id(), as_of, pv))
     }
 }

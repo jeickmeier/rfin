@@ -69,7 +69,9 @@ pub use coverage_tests::{CoverageTest, TestContext, TestResult};
 pub use diversion::{DiversionCondition, DiversionEngine, DiversionRule};
 
 // Validation framework
-pub use validation::{ValidationError, WaterfallValidator, is_valid_waterfall_spec, get_validation_errors};
+pub use validation::{
+    get_validation_errors, is_valid_waterfall_spec, ValidationError, WaterfallValidator,
+};
 
 // ============================================================================
 // Re-export behavioral models

@@ -170,7 +170,7 @@ fn value_portfolio_parallel(
     _config: &FinstackConfig,
 ) -> Result<PortfolioValuation> {
     use rayon::prelude::*;
-    
+
     let metrics = standard_portfolio_metrics();
 
     // Value all positions in parallel
@@ -263,12 +263,13 @@ fn value_single_position(
             portfolio.base_ccy,
             portfolio.as_of,
         );
-        let rate_result = fx_matrix
-            .rate(query)
-            .map_err(|_| PortfolioError::FxConversionFailed {
-                from: scaled_native.currency(),
-                to: portfolio.base_ccy,
-            })?;
+        let rate_result =
+            fx_matrix
+                .rate(query)
+                .map_err(|_| PortfolioError::FxConversionFailed {
+                    from: scaled_native.currency(),
+                    to: portfolio.base_ccy,
+                })?;
 
         Money::new(
             scaled_native.amount() * rate_result.rate,

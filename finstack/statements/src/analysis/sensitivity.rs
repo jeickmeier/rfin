@@ -1,8 +1,6 @@
 //! Sensitivity analysis engine.
 
-use super::types::{
-    SensitivityConfig, SensitivityMode, SensitivityResult, SensitivityScenario,
-};
+use super::types::{SensitivityConfig, SensitivityMode, SensitivityResult, SensitivityScenario};
 use crate::error::{Error, Result};
 use crate::evaluator::Evaluator;
 use crate::types::{AmountOrScalar, FinancialModelSpec};
@@ -74,7 +72,12 @@ impl<'a> SensitivityAnalyzer<'a> {
             for perturbation in &param.perturbations {
                 // Clone model and override this parameter
                 let mut model_clone = self.model.clone();
-                self.apply_parameter_override(&mut model_clone, &param.node_id, param.period_id, *perturbation)?;
+                self.apply_parameter_override(
+                    &mut model_clone,
+                    &param.node_id,
+                    param.period_id,
+                    *perturbation,
+                )?;
 
                 // Evaluate
                 let mut evaluator = Evaluator::new();
@@ -126,7 +129,10 @@ impl<'a> SensitivityAnalyzer<'a> {
             node.values = Some(values);
             Ok(())
         } else {
-            Err(Error::invalid_input(format!("Node '{}' not found", node_id)))
+            Err(Error::invalid_input(format!(
+                "Node '{}' not found",
+                node_id
+            )))
         }
     }
 }
@@ -145,10 +151,13 @@ mod tests {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
             .unwrap()
-            .value("revenue", &[
-                (period, AmountOrScalar::scalar(100_000.0)),
-                (period2, AmountOrScalar::scalar(100_000.0)),
-            ])
+            .value(
+                "revenue",
+                &[
+                    (period, AmountOrScalar::scalar(100_000.0)),
+                    (period2, AmountOrScalar::scalar(100_000.0)),
+                ],
+            )
             .compute("cogs", "revenue * 0.4")
             .unwrap()
             .compute("gross_profit", "revenue - cogs")
@@ -171,4 +180,3 @@ mod tests {
         assert_eq!(result.scenarios.len(), 3); // 3 perturbations
     }
 }
-

@@ -122,4 +122,3 @@ pub fn assert_vec_close(actual: &[f64], expected: &[f64], tolerance: f64, messag
         );
     }
 }
-

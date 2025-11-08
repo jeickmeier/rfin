@@ -49,9 +49,10 @@ impl MetricCalculator for VegaCalculator {
         use finstack_core::types::CurveId;
         use std::sync::Arc;
         let bumped_surface = vol_surface.scaled(scale_factor);
-        curves_bumped
-            .surfaces
-            .insert(CurveId::from(vol_surface_id.as_str()), Arc::new(bumped_surface));
+        curves_bumped.surfaces.insert(
+            CurveId::from(vol_surface_id.as_str()),
+            Arc::new(bumped_surface),
+        );
 
         // Reprice with bumped vol
         let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();

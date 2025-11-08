@@ -39,19 +39,19 @@ proptest! {
         for i in 1..results_vec.len() {
             let period_q1 = PeriodId::quarter(2025, 1);
             let period_q2 = PeriodId::quarter(2025, 2);
-            
+
             prop_assert_eq!(
                 results_vec[0].get("revenue", &period_q1),
                 results_vec[i].get("revenue", &period_q1),
                 "Revenue Q1 not deterministic on iteration {}", i
             );
-            
+
             prop_assert_eq!(
                 results_vec[0].get("gross_profit", &period_q1),
                 results_vec[i].get("gross_profit", &period_q1),
                 "Gross profit Q1 not deterministic on iteration {}", i
             );
-            
+
             prop_assert_eq!(
                 results_vec[0].get("gross_profit", &period_q2),
                 results_vec[i].get("gross_profit", &period_q2),
@@ -70,21 +70,21 @@ proptest! {
             .periods("2025Q1..Q1", None)
             .unwrap()
             .value("base", &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))]);
-        
+
         for i in 1..num_nodes {
             let prev = if i == 1 { "base".to_string() } else { format!("node_{}", i - 1) };
             builder = builder.compute(format!("node_{}", i), format!("{} * 1.1", prev)).unwrap();
         }
-        
+
         let model = builder.build().unwrap();
-        
+
         // Build DAG multiple times
         let dag1 = finstack_statements::evaluator::DependencyGraph::from_model(&model).unwrap();
         let dag2 = finstack_statements::evaluator::DependencyGraph::from_model(&model).unwrap();
-        
+
         // Dependencies should be identical
         prop_assert_eq!(dag1.dependencies.len(), dag2.dependencies.len());
-        
+
         for (node_id, deps1) in &dag1.dependencies {
             let deps2 = dag2.dependencies.get(node_id).unwrap();
             prop_assert_eq!(deps1, deps2, "Dependencies differ for node {}", node_id);
@@ -105,14 +105,14 @@ proptest! {
             .forecast("revenue", ForecastSpec::lognormal(mean, std_dev, seed))
             .build()
             .unwrap();
-        
+
         // Evaluate twice with same seed
         let mut eval1 = Evaluator::new();
         let results1 = eval1.evaluate(&model).unwrap();
-        
+
         let mut eval2 = Evaluator::new();
         let results2 = eval2.evaluate(&model).unwrap();
-        
+
         // Results should be identical
         for q in 2..=4 {
             let period = PeriodId::quarter(2025, q);
@@ -137,17 +137,17 @@ proptest! {
             .forecast("revenue", ForecastSpec::growth(growth_rate))
             .build()
             .unwrap();
-        
+
         let mut evaluator = Evaluator::new();
         let results = evaluator.evaluate(&model).unwrap();
-        
+
         // Verify growth rate is applied correctly
         let q1_value = results.get("revenue", &PeriodId::quarter(2025, 1)).unwrap();
         let q2_value = results.get("revenue", &PeriodId::quarter(2025, 2)).unwrap();
-        
+
         let expected_q2 = q1_value * (1.0 + growth_rate);
         let diff = (q2_value - expected_q2).abs();
-        
+
         prop_assert!(diff < 0.01, "Growth calculation incorrect: expected {}, got {}", expected_q2, q2_value);
     }
 }
@@ -162,4 +162,3 @@ fn test_proptest_evaluator_infrastructure_works() {
         .unwrap();
     assert_eq!(model.id, "test");
 }
-

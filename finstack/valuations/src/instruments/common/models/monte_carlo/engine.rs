@@ -525,15 +525,15 @@ impl McEngine {
                 )?
             } else {
                 self.simulate_path(
-                &mut path_rng,
-                process,
-                disc,
-                initial_state,
-                &mut payoff_clone,
-                &mut state,
-                &mut z,
-                &mut work,
-                currency,
+                    &mut path_rng,
+                    process,
+                    disc,
+                    initial_state,
+                    &mut payoff_clone,
+                    &mut state,
+                    &mut z,
+                    &mut work,
+                    currency,
                 )?
             };
 
@@ -615,14 +615,14 @@ impl McEngine {
                         )?
                     } else {
                         self.simulate_path(
-                        &mut path_rng,
-                        process,
-                        disc,
-                        initial_state,
-                        &mut payoff_clone,
-                        &mut state,
-                        &mut z,
-                        &mut work,
+                            &mut path_rng,
+                            process,
+                            disc,
+                            initial_state,
+                            &mut payoff_clone,
+                            &mut state,
+                            &mut z,
+                            &mut work,
                             currency,
                         )?
                     };
@@ -673,7 +673,15 @@ impl McEngine {
         F: Payoff,
     {
         // Fall back to serial when parallel feature is disabled
-        self.price_serial(rng, process, disc, initial_state, payoff, currency, discount_factor)
+        self.price_serial(
+            rng,
+            process,
+            disc,
+            initial_state,
+            payoff,
+            currency,
+            discount_factor,
+        )
     }
 
     /// Serial pricing with path capture.
@@ -767,14 +775,14 @@ impl McEngine {
                     )?
                 } else {
                     self.simulate_path(
-                    &mut path_rng,
-                    process,
-                    disc,
-                    initial_state,
-                    &mut payoff_clone,
-                    &mut state,
-                    &mut z,
-                    &mut work,
+                        &mut path_rng,
+                        process,
+                        disc,
+                        initial_state,
+                        &mut payoff_clone,
+                        &mut state,
+                        &mut z,
+                        &mut work,
                         currency,
                     )?
                 };
@@ -799,38 +807,35 @@ impl McEngine {
         }
 
         // Compute median and percentiles if paths were captured
-        let mut estimate = Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count())
-            .with_std_dev(stats.std_dev());
+        let mut estimate =
+            Estimate::new(stats.mean(), stats.stderr(), stats.ci_95(), stats.count())
+                .with_std_dev(stats.std_dev());
 
         // If we have captured paths, calculate additional statistics
         if let Some(ref dataset) = paths {
-            let mut values: Vec<f64> = dataset
-                .paths
-                .iter()
-                .map(|p| p.final_value)
-                .collect();
-            
+            let mut values: Vec<f64> = dataset.paths.iter().map(|p| p.final_value).collect();
+
             if !values.is_empty() {
                 values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                 let n = values.len();
-                
+
                 // Median
                 let median = if n.is_multiple_of(2) {
                     (values[n / 2 - 1] + values[n / 2]) / 2.0
                 } else {
                     values[n / 2]
                 };
-                
+
                 // Percentiles
                 let p25_idx = (n as f64 * 0.25).floor() as usize;
                 let p75_idx = (n as f64 * 0.75).floor() as usize;
                 let p25 = values[p25_idx.min(n - 1)];
                 let p75 = values[p75_idx.min(n - 1)];
-                
+
                 // Min/Max
                 let min = values[0];
                 let max = values[n - 1];
-                
+
                 estimate = estimate
                     .with_median(median)
                     .with_percentiles(p25, p75)
@@ -933,14 +938,14 @@ impl McEngine {
                             )?
                         } else {
                             self.simulate_path(
-                            &mut path_rng,
-                            process,
-                            disc,
-                            initial_state,
-                            &mut payoff_clone,
-                            &mut state,
-                            &mut z,
-                            &mut work,
+                                &mut path_rng,
+                                process,
+                                disc,
+                                initial_state,
+                                &mut payoff_clone,
+                                &mut state,
+                                &mut z,
+                                &mut work,
                                 currency,
                             )?
                         };
@@ -991,33 +996,29 @@ impl McEngine {
             }
 
             // Compute additional statistics from captured paths
-            let mut values: Vec<f64> = dataset
-                .paths
-                .iter()
-                .map(|p| p.final_value)
-                .collect();
-            
+            let mut values: Vec<f64> = dataset.paths.iter().map(|p| p.final_value).collect();
+
             if !values.is_empty() {
                 values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
                 let n = values.len();
-                
+
                 // Median
                 let median = if n.is_multiple_of(2) {
                     (values[n / 2 - 1] + values[n / 2]) / 2.0
                 } else {
                     values[n / 2]
                 };
-                
+
                 // Percentiles
                 let p25_idx = (n as f64 * 0.25).floor() as usize;
                 let p75_idx = (n as f64 * 0.75).floor() as usize;
                 let p25 = values[p25_idx.min(n - 1)];
                 let p75 = values[p75_idx.min(n - 1)];
-                
+
                 // Min/Max
                 let min = values[0];
                 let max = values[n - 1];
-                
+
                 estimate = estimate
                     .with_median(median)
                     .with_percentiles(p25, p75)
@@ -1245,13 +1246,13 @@ impl McEngine {
                 };
                 point.add_var(key.to_string(), val);
             }
-            
+
             // Transfer cashflows from PathState to PathPoint
             let cashflows = path_state.take_cashflows();
             for (time, amount, cf_type) in cashflows {
                 point.add_typed_cashflow(time, amount, cf_type);
             }
-            
+
             if self.config.path_capture.capture_payoffs {
                 // Capture intermediate payoff value (undiscounted)
                 let payoff_money = payoff.value(currency);
@@ -1272,9 +1273,11 @@ impl McEngine {
         if all_cashflows.len() >= 2 {
             // Use periodic IRR approximation (assumes roughly equal spacing)
             let cashflow_amounts: Vec<f64> = all_cashflows.iter().map(|(_, amt)| *amt).collect();
-            
+
             // Use finstack_core IRR calculation
-            if let Ok(irr) = finstack_core::cashflow::performance::irr_periodic(&cashflow_amounts, None) {
+            if let Ok(irr) =
+                finstack_core::cashflow::performance::irr_periodic(&cashflow_amounts, None)
+            {
                 simulated_path.set_irr(irr);
             }
         }

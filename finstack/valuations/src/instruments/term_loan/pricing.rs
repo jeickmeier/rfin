@@ -36,7 +36,9 @@ impl TermLoanDiscountingPricer {
         let mut pv = Money::new(0.0, loan.currency);
 
         for cf in &schedule.flows {
-            if cf.date <= as_of { continue; }
+            if cf.date <= as_of {
+                continue;
+            }
             let t_cf = disc_dc.year_fraction(
                 base_date,
                 cf.date,
@@ -44,7 +46,11 @@ impl TermLoanDiscountingPricer {
             )?;
             let df = {
                 let df_abs = disc.df(t_cf);
-                if df_as_of != 0.0 { df_abs / df_as_of } else { 1.0 }
+                if df_as_of != 0.0 {
+                    df_abs / df_as_of
+                } else {
+                    1.0
+                }
             };
             pv = pv.checked_add(cf.amount * df)?;
         }
@@ -67,7 +73,9 @@ impl Pricer for TermLoanDiscountingPricer {
         let loan = instrument
             .as_any()
             .downcast_ref::<TermLoan>()
-            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::TermLoan, instrument.key()))?;
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::TermLoan, instrument.key())
+            })?;
 
         // Use discount curve base date as valuation date
         let disc = market
@@ -81,5 +89,3 @@ impl Pricer for TermLoanDiscountingPricer {
         Ok(ValuationResult::stamped(loan.id(), as_of, pv))
     }
 }
-
-

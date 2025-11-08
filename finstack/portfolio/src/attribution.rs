@@ -217,12 +217,13 @@ pub fn attribute_portfolio_pnl(
                     PortfolioError::MissingMarketData("FX matrix not available".to_string())
                 })?;
                 let query = FxQuery::new(money.currency(), base_ccy, portfolio.as_of);
-                let rate_result = fx_matrix
-                    .rate(query)
-                    .map_err(|_| PortfolioError::FxConversionFailed {
-                        from: money.currency(),
-                        to: base_ccy,
-                    })?;
+                let rate_result =
+                    fx_matrix
+                        .rate(query)
+                        .map_err(|_| PortfolioError::FxConversionFailed {
+                            from: money.currency(),
+                            to: base_ccy,
+                        })?;
                 Ok(Money::new(money.amount() * rate_result.rate, base_ccy))
             }
         };
@@ -449,4 +450,3 @@ mod tests {
         assert!(csv.contains("1000"));
     }
 }
-

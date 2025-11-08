@@ -1,13 +1,14 @@
+use crate::core::dates::periods::{PyPeriod, PyPeriodPlan};
 use crate::core::error::core_to_py;
-use crate::core::money::PyMoney;
-use crate::core::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::term_structures::PyDiscountCurve;
-use crate::core::dates::periods::{PyPeriod, PyPeriodPlan};
-use finstack_core::money::Money;
+use crate::core::money::PyMoney;
+use crate::core::utils::py_to_date;
 use finstack_core::dates::Period;
+use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder as val_builder;
+use finstack_valuations::cashflow::builder::schedule::PeriodDataFrameOptions;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
 use pyo3::Bound;
@@ -539,7 +540,9 @@ impl PyCashFlowSchedule {
         let pv_map = if let Ok(market) = market_or_curve.extract::<PyRef<PyMarketContext>>() {
             // Using MarketContext
             let disc_id = discount_curve_id.ok_or_else(|| {
-                pyo3::exceptions::PyValueError::new_err("discount_curve_id required when using MarketContext")
+                pyo3::exceptions::PyValueError::new_err(
+                    "discount_curve_id required when using MarketContext",
+                )
             })?;
             let disc_curve_id = CurveId::from(disc_id);
             let hazard_curve_id_opt = hazard_curve_id.map(CurveId::from);
@@ -552,14 +555,17 @@ impl PyCashFlowSchedule {
                 disc_arc.base_date()
             };
 
-            let pv_result = self.inner.pre_period_pv_with_market(
-                &periods_vec,
-                &market.inner,
-                &disc_curve_id,
-                hazard_curve_id_opt.as_ref(),
-                base,
-                dc,
-            ).map_err(core_to_py)?;
+            let pv_result = self
+                .inner
+                .pre_period_pv_with_market(
+                    &periods_vec,
+                    &market.inner,
+                    &disc_curve_id,
+                    hazard_curve_id_opt.as_ref(),
+                    base,
+                    dc,
+                )
+                .map_err(core_to_py)?;
             pv_result
         } else if let Ok(disc_curve) = market_or_curve.extract::<PyRef<PyDiscountCurve>>() {
             // Using DiscountCurve directly (backwards compat, no hazard support)
@@ -575,12 +581,9 @@ impl PyCashFlowSchedule {
                 disc_curve.inner.base_date()
             };
 
-            let pv_map = self.inner.pre_period_pv(
-                &periods_vec,
-                disc_curve.inner.as_ref(),
-                base,
-                dc,
-            );
+            let pv_map =
+                self.inner
+                    .pre_period_pv(&periods_vec, disc_curve.inner.as_ref(), base, dc);
             pv_map
         } else {
             return Err(pyo3::exceptions::PyTypeError::new_err(
@@ -637,10 +640,8 @@ impl PyCashFlowSchedule {
         facility_limit: Option<Bound<'_, PyAny>>,
         include_floating_decomposition: bool,
     ) -> PyResult<PyObject> {
-        use crate::core::dates::daycount::PyDayCount;
         use crate::core::cashflow::primitives::PyCFKind;
-        use finstack_core::dates::DayCountCtx;
-        use finstack_core::cashflow::primitives::CFKind;
+        use crate::core::dates::daycount::PyDayCount;
 
         // Extract periods
         let periods_vec: Vec<Period> = if let Ok(plan) = periods.extract::<PyRef<PyPeriodPlan>>() {
@@ -674,33 +675,36 @@ impl PyCashFlowSchedule {
         };
 
         // Build MarketContext and discount curve id
-        let (market_ctx, disc_id_owned, as_of_date) = if let Ok(market) = market_or_curve.extract::<PyRef<PyMarketContext>>() {
-            let disc_id = discount_curve_id.ok_or_else(|| {
-                pyo3::exceptions::PyValueError::new_err("discount_curve_id required when using MarketContext")
-            })?;
-            let disc_arc = market.inner.get_discount(disc_id).map_err(core_to_py)?;
-            let base = if let Some(as_of_obj) = as_of {
-                py_to_date(&as_of_obj)?
+        let (market_ctx, disc_id_owned, as_of_date) =
+            if let Ok(market) = market_or_curve.extract::<PyRef<PyMarketContext>>() {
+                let disc_id = discount_curve_id.ok_or_else(|| {
+                    pyo3::exceptions::PyValueError::new_err(
+                        "discount_curve_id required when using MarketContext",
+                    )
+                })?;
+                let disc_arc = market.inner.get_discount(disc_id).map_err(core_to_py)?;
+                let base = if let Some(as_of_obj) = as_of {
+                    py_to_date(&as_of_obj)?
+                } else {
+                    disc_arc.base_date()
+                };
+                (Some(market.inner.clone()), Some(disc_id.to_string()), base)
+            } else if let Ok(disc_curve) = market_or_curve.extract::<PyRef<PyDiscountCurve>>() {
+                // Build a minimal MarketContext with just the discount curve
+                use finstack_core::market_data::MarketContext as CoreMarketContext;
+                let ctx = CoreMarketContext::new().insert_discount_arc(disc_curve.inner.clone());
+                let disc_id = disc_curve.inner.id().to_string();
+                let base = if let Some(as_of_obj) = as_of {
+                    py_to_date(&as_of_obj)?
+                } else {
+                    disc_curve.inner.base_date()
+                };
+                (Some(ctx), Some(disc_id), base)
             } else {
-                disc_arc.base_date()
+                return Err(pyo3::exceptions::PyTypeError::new_err(
+                    "market_or_curve must be MarketContext or DiscountCurve",
+                ));
             };
-            (Some(market.inner.clone()), Some(disc_id.to_string()), base)
-        } else if let Ok(disc_curve) = market_or_curve.extract::<PyRef<PyDiscountCurve>>() {
-            // Build a minimal MarketContext with just the discount curve
-            use finstack_core::market_data::MarketContext as CoreMarketContext;
-            let ctx = CoreMarketContext::new().insert_discount_arc(disc_curve.inner.clone());
-            let disc_id = disc_curve.inner.id().to_string();
-            let base = if let Some(as_of_obj) = as_of {
-                py_to_date(&as_of_obj)?
-            } else {
-                disc_curve.inner.base_date()
-            };
-            (Some(ctx), Some(disc_id), base)
-        } else {
-            return Err(pyo3::exceptions::PyTypeError::new_err(
-                "market_or_curve must be MarketContext or DiscountCurve",
-            ));
-        };
         // Build frame in Rust valuations crate
         let market_ctx = market_ctx.expect("market context always present here");
         let disc_id = disc_id_owned.expect("discount curve id present");
@@ -710,12 +714,14 @@ impl PyCashFlowSchedule {
                 &periods_vec,
                 &market_ctx,
                 disc_id.as_str(),
-                hazard_curve_id,
-                forward_curve_id,
-                Some(as_of_date),
-                Some(dc),
-                facility_limit_money,
-                include_floating_decomposition,
+                PeriodDataFrameOptions {
+                    hazard_curve_id,
+                    forward_curve_id,
+                    as_of: Some(as_of_date),
+                    day_count: Some(dc),
+                    facility_limit: facility_limit_money,
+                    include_floating_decomposition,
+                },
             )
             .map_err(core_to_py)?;
 

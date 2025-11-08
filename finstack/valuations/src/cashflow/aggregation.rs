@@ -140,9 +140,9 @@ mod tests {
 // Precision-Preserving Aggregation (Market Standards Review - Priority 3)
 // =============================================================================
 
-use finstack_core::math::summation::kahan_sum;
-use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::dates::DayCountCtx;
+use finstack_core::market_data::traits::{Discounting, Survival};
+use finstack_core::math::summation::kahan_sum;
 
 /// Threshold for switching to Kahan summation (number of cashflows).
 ///

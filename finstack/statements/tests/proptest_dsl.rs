@@ -17,9 +17,8 @@ fn numeric_literal() -> impl Strategy<Value = String> {
 
 // Strategy to generate simple binary expressions
 fn simple_binary_expr() -> impl Strategy<Value = String> {
-    (valid_identifier(), "[+\\-*/]", numeric_literal()).prop_map(|(id, op, num)| {
-        format!("{} {} {}", id, op, num)
-    })
+    (valid_identifier(), "[+\\-*/]", numeric_literal())
+        .prop_map(|(id, op, num)| format!("{} {} {}", id, op, num))
 }
 
 proptest! {
@@ -41,7 +40,7 @@ proptest! {
     ) {
         let result1 = dsl::parser::parse_formula(&formula);
         let result2 = dsl::parser::parse_formula(&formula);
-        
+
         match (result1, result2) {
             (Ok(ast1), Ok(ast2)) => {
                 prop_assert_eq!(ast1, ast2, "Same formula parsed differently");
@@ -65,12 +64,12 @@ proptest! {
         // a + b * c should always parse as a + (b * c)
         let formula = format!("{} + {} * {}", a, b, c);
         let result = dsl::parser::parse_formula(&formula);
-        
+
         if let Ok(ast) = result {
             // Verify the structure matches expected precedence
             // Top level should be Add, right side should be Mul
             use finstack_statements::dsl::ast::{StmtExpr, BinOp};
-            
+
             match ast {
                 StmtExpr::BinOp { op: BinOp::Add, left: _, right } => {
                     match *right {
@@ -96,7 +95,7 @@ proptest! {
         let with_parens = format!("({})", formula);
         let result1 = dsl::parser::parse_formula(&formula);
         let result2 = dsl::parser::parse_formula(&with_parens);
-        
+
         // Both should succeed or both should fail
         prop_assert_eq!(result1.is_ok(), result2.is_ok(), "Parentheses changed parse success");
     }
@@ -109,4 +108,3 @@ fn test_proptest_infrastructure_works() {
     let result = dsl::parser::parse_formula("a + b");
     assert!(result.is_ok());
 }
-

@@ -1770,7 +1770,9 @@ mod tests {
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id).unwrap();
-        let discount_curve = market_ctx.get_discount(tranche.discount_curve_id.as_ref()).unwrap();
+        let discount_curve = market_ctx
+            .get_discount(tranche.discount_curve_id.as_ref())
+            .unwrap();
 
         // Calculate individual leg PVs
         let pv_premium = model.calculate_premium_leg_pv(

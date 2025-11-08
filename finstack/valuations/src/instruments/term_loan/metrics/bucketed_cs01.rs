@@ -1,7 +1,7 @@
 //! Bucketed CS01 for term loans using discount-curve key-rate bumps.
 
-use crate::instruments::TermLoan;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::TermLoan;
 use crate::metrics::{bucketed::standard_ir_dv01_buckets, MetricCalculator, MetricContext};
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -31,5 +31,3 @@ impl MetricCalculator for BucketedCs01Calculator {
         )
     }
 }
-
-

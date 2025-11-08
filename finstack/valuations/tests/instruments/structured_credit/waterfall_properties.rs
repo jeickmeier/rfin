@@ -43,38 +43,32 @@ fn create_single_tranche(currency: Currency) -> TrancheStructure {
 fn property_cash_conservation() {
     // Property: sum(tier_allocations) + remaining_cash = total_available
     // This must hold for ANY waterfall execution
-    
+
     let currency = Currency::USD;
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
-    
-    let test_cases = vec![
-        1_000.0,
-        10_000.0,
-        100_000.0,
-        1_000_000.0,
-        10_000_000.0,
-    ];
+
+    let test_cases = vec![1_000.0, 10_000.0, 100_000.0, 1_000_000.0, 10_000_000.0];
 
     for available_amount in test_cases {
         let mut waterfall = WaterfallBuilder::new(currency)
             .add_tier(
-                WaterfallTier::new("tier1", 1, PaymentType::Fee)
-                    .add_recipient(Recipient::new(
-                        "recipient1",
-                        PaymentRecipient::ServiceProvider("Test".into()),
-                        PaymentCalculation::FixedAmount {
-                            amount: Money::new(1_000.0, currency),
-                        },
-                    )),
+                WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                    "recipient1",
+                    PaymentRecipient::ServiceProvider("Test".into()),
+                    PaymentCalculation::FixedAmount {
+                        amount: Money::new(1_000.0, currency),
+                    },
+                )),
             )
             .add_tier(
-                WaterfallTier::new("tier2", 2, PaymentType::Residual)
-                    .add_recipient(Recipient::new(
+                WaterfallTier::new("tier2", 2, PaymentType::Residual).add_recipient(
+                    Recipient::new(
                         "residual",
                         PaymentRecipient::Equity,
                         PaymentCalculation::ResidualCash,
-                    )),
+                    ),
+                ),
             )
             .build();
 
@@ -112,21 +106,20 @@ fn property_cash_conservation() {
 fn property_non_negative_distributions() {
     // Property: All distributions must be >= 0
     // Negative payments should never occur
-    
+
     let currency = Currency::USD;
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
 
     let mut waterfall = WaterfallBuilder::new(currency)
         .add_tier(
-            WaterfallTier::new("tier1", 1, PaymentType::Fee)
-                .add_recipient(Recipient::new(
-                    "fee",
-                    PaymentRecipient::ServiceProvider("Test".into()),
-                    PaymentCalculation::FixedAmount {
-                        amount: Money::new(10_000.0, currency),
-                    },
-                )),
+            WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                "fee",
+                PaymentRecipient::ServiceProvider("Test".into()),
+                PaymentCalculation::FixedAmount {
+                    amount: Money::new(10_000.0, currency),
+                },
+            )),
         )
         .build();
 
@@ -170,7 +163,7 @@ fn property_non_negative_distributions() {
 fn property_priority_ordering() {
     // Property: Higher priority tiers (lower number) receive funds first
     // If tier N gets partial payment, tier N+1 should get 0 (sequential mode)
-    
+
     let currency = Currency::USD;
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
@@ -239,7 +232,7 @@ fn property_priority_ordering() {
 fn property_pro_rata_weight_distribution() {
     // Property: In pro-rata mode, recipients receive proportional to weights
     // total_allocated * (weight_i / sum_weights) = recipient_i_amount
-    
+
     let currency = Currency::USD;
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
@@ -310,21 +303,20 @@ fn property_pro_rata_weight_distribution() {
 fn property_shortfall_computation() {
     // Property: shortfall = requested - paid for each payment record
     // shortfall should be 0 if fully paid, > 0 if underpaid
-    
+
     let currency = Currency::USD;
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
 
     let mut waterfall = WaterfallBuilder::new(currency)
         .add_tier(
-            WaterfallTier::new("tier1", 1, PaymentType::Fee)
-                .add_recipient(Recipient::new(
-                    "fee",
-                    PaymentRecipient::ServiceProvider("Test".into()),
-                    PaymentCalculation::FixedAmount {
-                        amount: Money::new(100_000.0, currency),
-                    },
-                )),
+            WaterfallTier::new("tier1", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                "fee",
+                PaymentRecipient::ServiceProvider("Test".into()),
+                PaymentCalculation::FixedAmount {
+                    amount: Money::new(100_000.0, currency),
+                },
+            )),
         )
         .build();
 
@@ -385,7 +377,7 @@ fn property_shortfall_computation() {
 fn property_tier_count_consistency() {
     // Property: Number of tier_allocations should equal number of tiers
     // Even if a tier gets zero allocation, it should appear in results
-    
+
     let currency = Currency::USD;
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
@@ -395,14 +387,15 @@ fn property_tier_count_consistency() {
 
     for i in 1..=tier_count {
         builder = builder.add_tier(
-            WaterfallTier::new(format!("tier{}", i), i, PaymentType::Fee)
-                .add_recipient(Recipient::new(
+            WaterfallTier::new(format!("tier{}", i), i, PaymentType::Fee).add_recipient(
+                Recipient::new(
                     format!("recipient{}", i),
                     PaymentRecipient::ServiceProvider(format!("Provider{}", i)),
                     PaymentCalculation::FixedAmount {
                         amount: Money::new(10_000.0, currency),
                     },
-                )),
+                ),
+            ),
         );
     }
 
@@ -432,7 +425,7 @@ fn property_tier_count_consistency() {
 fn property_diversion_tracking() {
     // Property: diverted_cash should equal sum of all diverted payments
     // If had_diversions is true, diverted_cash should be > 0
-    
+
     let currency = Currency::USD;
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
@@ -474,9 +467,12 @@ fn property_diversion_tracking() {
 
     // Property: diverted payment records
     let diverted_count = result.payment_records.iter().filter(|r| r.diverted).count();
-    
+
     if diverted_count > 0 {
-        assert!(result.had_diversions, "If payments were diverted, had_diversions should be true");
+        assert!(
+            result.had_diversions,
+            "If payments were diverted, had_diversions should be true"
+        );
     }
 }
 
@@ -485,7 +481,7 @@ fn property_monotonic_tier_allocation() {
     // Property: In sequential mode with equal recipients,
     // tier allocations should be monotonically non-increasing by priority
     // (higher priority tiers get at least as much as lower priority tiers)
-    
+
     let currency = Currency::USD;
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
@@ -562,7 +558,7 @@ fn property_coverage_test_result_format() {
     // Property: Coverage test results should have valid format
     // (test_id: String, ratio: f64, passed: bool)
     // ratio should be non-negative
-    
+
     let currency = Currency::USD;
     let pool = create_pool(currency);
     let tranches = create_single_tranche(currency);
@@ -604,11 +600,14 @@ fn property_coverage_test_result_format() {
         assert!(!test_id.is_empty(), "Test ID should not be empty");
 
         // Ratio should be non-negative
-        assert!(*ratio >= 0.0, "Test ratio should be non-negative: {}", ratio);
+        assert!(
+            *ratio >= 0.0,
+            "Test ratio should be non-negative: {}",
+            ratio
+        );
 
         // Passed should be consistent with ratio and threshold
         // (We can't verify exact logic without knowing threshold, but can check type)
         let _ = passed; // Just verify it's a bool
     }
 }
-

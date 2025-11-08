@@ -14,16 +14,27 @@ fn solve_irr_to_date(
 ) -> finstack_core::Result<f64> {
     let mut flows: Vec<(Date, Money)> = Vec::new();
     // Include initial outflow equal to current base PV
-    flows.push((as_of, Money::new(-target_price.amount(), target_price.currency())));
+    flows.push((
+        as_of,
+        Money::new(-target_price.amount(), target_price.currency()),
+    ));
     for cf in &schedule.flows {
-        if cf.date <= as_of || cf.date > exercise_date { continue; }
+        if cf.date <= as_of || cf.date > exercise_date {
+            continue;
+        }
         flows.push((cf.date, cf.amount));
     }
 
     // Redemption = outstanding at exercise date
     let out_path = schedule.outstanding_path();
     let mut outstanding_at = Money::new(0.0, loan.currency);
-    for (d, amt) in &out_path { if *d <= exercise_date { outstanding_at = *amt; } else { break; } }
+    for (d, amt) in &out_path {
+        if *d <= exercise_date {
+            outstanding_at = *amt;
+        } else {
+            break;
+        }
+    }
     flows.push((exercise_date, outstanding_at));
 
     crate::instruments::private_markets_fund::metrics::calculate_irr(&flows, loan.day_count)
@@ -53,7 +64,11 @@ macro_rules! define_ytn {
                 let as_of = context.as_of;
 
                 let target = years_ahead(as_of, $years);
-                let exercise_date = if target < loan.maturity { target } else { loan.maturity };
+                let exercise_date = if target < loan.maturity {
+                    target
+                } else {
+                    loan.maturity
+                };
                 if exercise_date <= as_of {
                     return Ok(0.0);
                 }
@@ -73,5 +88,3 @@ macro_rules! define_ytn {
 define_ytn!(Yt2yCalculator, 2);
 define_ytn!(Yt3yCalculator, 3);
 define_ytn!(Yt4yCalculator, 4);
-
-

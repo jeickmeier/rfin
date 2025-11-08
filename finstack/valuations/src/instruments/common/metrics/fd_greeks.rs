@@ -70,7 +70,9 @@ where
                 };
 
                 let atm_vol = vol_surface_id
-                    .and_then(|vol_surface_id| context.curves.surface_ref(vol_surface_id.as_str()).ok())
+                    .and_then(|vol_surface_id| {
+                        context.curves.surface_ref(vol_surface_id.as_str()).ok()
+                    })
                     .and_then(|vol_surface| {
                         if time_to_expiry > 0.0 {
                             Some(vol_surface.value_clamped(time_to_expiry, current_spot))
@@ -163,7 +165,9 @@ where
                 };
 
                 let atm_vol = vol_surface_id
-                    .and_then(|vol_surface_id| context.curves.surface_ref(vol_surface_id.as_str()).ok())
+                    .and_then(|vol_surface_id| {
+                        context.curves.surface_ref(vol_surface_id.as_str()).ok()
+                    })
                     .and_then(|vol_surface| {
                         if time_to_expiry > 0.0 {
                             Some(vol_surface.value_clamped(time_to_expiry, current_spot))

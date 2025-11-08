@@ -60,7 +60,7 @@ pub fn cre_operating_company_template(currency: Currency) -> WaterfallEngine {
                         "property_mgmt",
                         PaymentRecipient::ServiceProvider("PropertyManager".into()),
                         PaymentCalculation::PercentageOfCollateral {
-                            rate: 0.03,       // 3% of property value
+                            rate: 0.03, // 3% of property value
                             annualized: true,
                         },
                     )
@@ -91,10 +91,21 @@ pub fn cre_operating_company_template(currency: Currency) -> WaterfallEngine {
         .add_tier(
             WaterfallTier::new("debt_service", 2, PaymentType::Interest)
                 .allocation_mode(AllocationMode::Sequential)
-                .add_recipient(Recipient::tranche_interest("senior_debt_int", "SENIOR_DEBT"))
-                .add_recipient(Recipient::tranche_principal("senior_debt_prin", "SENIOR_DEBT", None))
+                .add_recipient(Recipient::tranche_interest(
+                    "senior_debt_int",
+                    "SENIOR_DEBT",
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "senior_debt_prin",
+                    "SENIOR_DEBT",
+                    None,
+                ))
                 .add_recipient(Recipient::tranche_interest("mezz_debt_int", "MEZZ_DEBT"))
-                .add_recipient(Recipient::tranche_principal("mezz_debt_prin", "MEZZ_DEBT", None)),
+                .add_recipient(Recipient::tranche_principal(
+                    "mezz_debt_prin",
+                    "MEZZ_DEBT",
+                    None,
+                )),
         )
         // Tier 3: Capital Reserves (Pro-Rata)
         .add_tier(
@@ -221,10 +232,16 @@ mod tests {
         let waterfall = cre_operating_company_template(Currency::USD);
 
         // Debt service should be sequential
-        assert_eq!(waterfall.tiers[1].allocation_mode, AllocationMode::Sequential);
+        assert_eq!(
+            waterfall.tiers[1].allocation_mode,
+            AllocationMode::Sequential
+        );
 
         // GP catchup should be sequential
-        assert_eq!(waterfall.tiers[4].allocation_mode, AllocationMode::Sequential);
+        assert_eq!(
+            waterfall.tiers[4].allocation_mode,
+            AllocationMode::Sequential
+        );
     }
 
     #[test]
@@ -247,4 +264,3 @@ mod tests {
         assert_eq!(residual_tier.recipients[1].weight, Some(0.20));
     }
 }
-

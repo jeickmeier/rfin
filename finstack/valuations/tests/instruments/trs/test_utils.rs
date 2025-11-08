@@ -199,8 +199,12 @@ impl TestEquityTrsBuilder {
             underlying = underlying.with_dividend_yield(div_id);
         }
 
-        let financing =
-            FinancingLegSpec::new(self.discount_curve_id, self.forward_curve_id, self.spread_bp, DayCount::Act360);
+        let financing = FinancingLegSpec::new(
+            self.discount_curve_id,
+            self.forward_curve_id,
+            self.spread_bp,
+            DayCount::Act360,
+        );
 
         let schedule =
             TrsScheduleSpec::from_params(self.start, self.end, ScheduleParams::quarterly_act360());
@@ -310,8 +314,12 @@ impl TestFIIndexTrsBuilder {
             underlying = underlying.with_duration(d_id);
         }
 
-        let financing =
-            FinancingLegSpec::new(self.discount_curve_id, self.forward_curve_id, self.spread_bp, DayCount::Act360);
+        let financing = FinancingLegSpec::new(
+            self.discount_curve_id,
+            self.forward_curve_id,
+            self.spread_bp,
+            DayCount::Act360,
+        );
 
         let schedule =
             TrsScheduleSpec::from_params(self.start, self.end, ScheduleParams::quarterly_act360());

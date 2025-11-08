@@ -1137,8 +1137,16 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             WaterfallTier::new("principal", 3, PaymentType::Principal)
                 .allocation_mode(AllocationMode::Sequential)
                 .divertible(true)
-                .add_recipient(Recipient::tranche_principal("senior_prin", "SENIOR_A", None))
-                .add_recipient(Recipient::tranche_principal("mezz_prin", "MEZZANINE_B", None)),
+                .add_recipient(Recipient::tranche_principal(
+                    "senior_prin",
+                    "SENIOR_A",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "mezz_prin",
+                    "MEZZANINE_B",
+                    None,
+                )),
         )
         .add_tier(
             WaterfallTier::new("equity", 4, PaymentType::Residual).add_recipient(Recipient::new(

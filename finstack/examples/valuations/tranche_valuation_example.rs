@@ -207,8 +207,7 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
 
     // Create waterfall with pro-rata principal distribution
     use finstack_valuations::instruments::structured_credit::{
-        AllocationMode, PaymentCalculation, PaymentRecipient, PaymentType, Recipient,
-        WaterfallTier,
+        AllocationMode, PaymentCalculation, PaymentRecipient, PaymentType, Recipient, WaterfallTier,
     };
 
     let waterfall = WaterfallBuilder::new(base_currency)

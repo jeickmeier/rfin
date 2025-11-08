@@ -18,8 +18,9 @@ impl PnlAttribution {
     /// Returns error if JSON serialization fails.
     #[cfg(feature = "serde")]
     pub fn to_json(&self) -> finstack_core::Result<String> {
-        serde_json::to_string_pretty(self)
-            .map_err(|e| finstack_core::Error::Validation(format!("JSON serialization failed: {}", e)))
+        serde_json::to_string_pretty(self).map_err(|e| {
+            finstack_core::Error::Validation(format!("JSON serialization failed: {}", e))
+        })
     }
 
     /// Export attribution summary as a CSV-compatible string.
@@ -149,4 +150,3 @@ mod tests {
         assert!(json.contains("total_pnl"));
     }
 }
-

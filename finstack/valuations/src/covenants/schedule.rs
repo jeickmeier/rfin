@@ -31,5 +31,3 @@ pub fn threshold_for_date(schedule: &ThresholdSchedule, test_date: Date) -> Opti
     }
     last
 }
-
-

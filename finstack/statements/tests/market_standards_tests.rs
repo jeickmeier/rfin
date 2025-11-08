@@ -58,7 +58,7 @@ fn test_variance_uses_sample_not_population() {
         variance,
         expected_sample_var,
         SAMPLE_VAR_TOLERANCE,
-        "Rolling variance should use sample variance (n-1)"
+        "Rolling variance should use sample variance (n-1)",
     );
 
     // Verify it's NOT population variance
@@ -76,9 +76,14 @@ fn test_variance_uses_sample_not_population() {
         std_dev,
         variance.sqrt(),
         SAMPLE_VAR_TOLERANCE,
-        "Rolling std should be sqrt of rolling variance"
+        "Rolling std should be sqrt of rolling variance",
     );
-    assert_close(std_dev, 1.0, SAMPLE_VAR_TOLERANCE, "Rolling std should be 1.0");
+    assert_close(
+        std_dev,
+        1.0,
+        SAMPLE_VAR_TOLERANCE,
+        "Rolling std should be 1.0",
+    );
 }
 
 #[test]

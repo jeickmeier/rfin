@@ -4,7 +4,7 @@
 //! create modified versions with different parameters, and measure parameter shifts.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::convertible::{ConvertibleBond, ConversionSpec};
+use crate::instruments::convertible::{ConversionSpec, ConvertibleBond};
 use crate::instruments::structured_credit::components::specs::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
 };
@@ -176,8 +176,12 @@ pub fn measure_prepayment_shift(
             },
         ) => match (prep_t0, prep_t1) {
             (
-                PrepaymentModelSpec::Psa { multiplier: mult_t0 },
-                PrepaymentModelSpec::Psa { multiplier: mult_t1 },
+                PrepaymentModelSpec::Psa {
+                    multiplier: mult_t0,
+                },
+                PrepaymentModelSpec::Psa {
+                    multiplier: mult_t1,
+                },
             ) => {
                 // PSA multiplier change (convert to CPR change approximation)
                 // PSA 100% ≈ 6% CPR terminal, so multiply difference by 6%
@@ -353,4 +357,3 @@ mod tests {
         assert!((shift - 5.0).abs() < 0.01);
     }
 }
-

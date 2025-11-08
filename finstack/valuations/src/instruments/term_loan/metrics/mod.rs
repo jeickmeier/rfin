@@ -1,24 +1,24 @@
 //! Metrics for Term Loan instruments.
 
-mod dv01;
-mod cs01;
-mod ytm;
-mod ytw;
-mod ytc;
-mod ytn;
 mod all_in_rate;
-mod discount_margin;
 mod bucketed_cs01;
+mod cs01;
+mod discount_margin;
+mod dv01;
+mod ytc;
+mod ytm;
+mod ytn;
+mod ytw;
 
 pub use all_in_rate::AllInRateCalculator;
+pub use bucketed_cs01::BucketedCs01Calculator;
 pub use cs01::Cs01Calculator;
 pub use discount_margin::DiscountMarginCalculator;
 pub use dv01::Dv01Calculator;
-pub use ytm::YtmCalculator;
-pub use ytw::YtwCalculator;
 pub use ytc::YtcCalculator;
+pub use ytm::YtmCalculator;
 pub use ytn::{Yt2yCalculator, Yt3yCalculator, Yt4yCalculator};
-pub use bucketed_cs01::BucketedCs01Calculator;
+pub use ytw::YtwCalculator;
 
 use crate::metrics::MetricRegistry;
 
@@ -51,11 +51,7 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
         Arc::new(AllInRateCalculator),
         &["TermLoan"],
     );
-    registry.register_metric(
-        MetricId::Ytm,
-        Arc::new(YtmCalculator),
-        &["TermLoan"],
-    );
+    registry.register_metric(MetricId::Ytm, Arc::new(YtmCalculator), &["TermLoan"]);
     registry.register_metric(
         MetricId::DiscountMargin,
         Arc::new(DiscountMarginCalculator),
@@ -86,5 +82,3 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
         &["TermLoan"],
     );
 }
-
-

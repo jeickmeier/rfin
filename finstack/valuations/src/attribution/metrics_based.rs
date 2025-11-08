@@ -7,10 +7,10 @@
 //! # Algorithm (Enhanced with Second-Order)
 //!
 //! 1. **Carry**: Theta × time_period
-//! 2. **RatesCurves**: 
+//! 2. **RatesCurves**:
 //!    - First-order: DV01 × Δr (or BucketedDV01 × Δr_i)
 //!    - Second-order: ½ × Convexity × (Δr)² (if available)
-//! 3. **CreditCurves**: 
+//! 3. **CreditCurves**:
 //!    - First-order: CS01 × Δs
 //!    - Second-order: ½ × CS-Gamma × (Δs)² (if available)
 //! 4. **Fx**: FX01 × Δfx
@@ -138,10 +138,10 @@ pub fn attribute_pnl_metrics_based(
     if let Some(dv01) = val_t0.measures.get(MetricId::Dv01.as_str()) {
         // DV01 is per 1bp move - measure actual curve shifts
         let curve_ids = instrument.required_discount_curves();
-        
+
         let mut total_shift = 0.0;
         let mut curve_count = 0;
-        
+
         for curve_id in curve_ids {
             if let Ok(shift) = measure_discount_curve_shift(
                 curve_id.as_str(),
@@ -153,23 +153,30 @@ pub fn attribute_pnl_metrics_based(
                 curve_count += 1;
             }
         }
-        
+
         let avg_shift = if curve_count > 0 {
             total_shift / curve_count as f64
         } else {
             0.0
         };
-        
+
         let rates_amount = dv01 * avg_shift;
         attribution.rates_curves_pnl = Money::new(rates_amount, val_t1.value.currency());
-        
+
         // 2b. Rates curves convexity (second-order)
         // For Bond: check Convexity; for IRS: check IrConvexity
         // Prioritize non-zero convexity metric
-        let convexity_opt = val_t0.measures.get(MetricId::Convexity.as_str())
+        let convexity_opt = val_t0
+            .measures
+            .get(MetricId::Convexity.as_str())
             .filter(|&&v| v.abs() > 1e-10)
-            .or_else(|| val_t0.measures.get(MetricId::IrConvexity.as_str()).filter(|&&v| v.abs() > 1e-10));
-        
+            .or_else(|| {
+                val_t0
+                    .measures
+                    .get(MetricId::IrConvexity.as_str())
+                    .filter(|&&v| v.abs() > 1e-10)
+            });
+
         if let Some(&convexity) = convexity_opt {
             // Convexity term: ½ × P × Convexity × (Δr)²
             // where P is the instrument value/price
@@ -177,7 +184,7 @@ pub fn attribute_pnl_metrics_based(
             let shift_decimal = avg_shift / 10_000.0;
             let p0 = val_t0.value.amount();
             let convexity_pnl = 0.5 * p0 * convexity * shift_decimal * shift_decimal;
-            
+
             attribution.rates_curves_pnl = Money::new(
                 attribution.rates_curves_pnl.amount() + convexity_pnl,
                 val_t1.value.currency(),
@@ -189,10 +196,10 @@ pub fn attribute_pnl_metrics_based(
     if let Some(cs01) = val_t0.measures.get(MetricId::Cs01.as_str()) {
         // CS01 is per 1bp spread move - measure actual spread shifts
         let curve_ids = instrument.required_hazard_curves();
-        
+
         let mut total_shift = 0.0;
         let mut curve_count = 0;
-        
+
         for curve_id in curve_ids {
             if let Ok(shift) = measure_hazard_curve_shift(
                 curve_id.as_str(),
@@ -204,23 +211,23 @@ pub fn attribute_pnl_metrics_based(
                 curve_count += 1;
             }
         }
-        
+
         let avg_shift = if curve_count > 0 {
             total_shift / curve_count as f64
         } else {
             0.0
         };
-        
+
         let credit_amount = cs01 * avg_shift;
         attribution.credit_curves_pnl = Money::new(credit_amount, val_t1.value.currency());
-        
+
         // 3b. Credit curves gamma (second-order)
         if let Some(cs_gamma) = val_t0.measures.get(MetricId::CsGamma.as_str()) {
             // CS-Gamma term: ½ × CS-Gamma × (Δs)²
             // avg_shift is in basis points, convert to decimal
             let shift_decimal = avg_shift / 10_000.0;
             let gamma_pnl = 0.5 * cs_gamma * shift_decimal * shift_decimal;
-            
+
             attribution.credit_curves_pnl = Money::new(
                 attribution.credit_curves_pnl.amount() + gamma_pnl,
                 val_t1.value.currency(),
@@ -232,8 +239,7 @@ pub fn attribute_pnl_metrics_based(
     if let Some(fx01) = val_t0.measures.get(MetricId::Fx01.as_str()) {
         // FX01 × spot change
         if let Some((base_ccy, quote_ccy)) = instrument.fx_exposure() {
-            if let Ok(fx_shift_pct) = measure_fx_shift(base_ccy, quote_ccy, market_t0, market_t1)
-            {
+            if let Ok(fx_shift_pct) = measure_fx_shift(base_ccy, quote_ccy, market_t0, market_t1) {
                 // FX01 is typically per 1% move
                 let fx_amount = fx01 * fx_shift_pct;
                 attribution.fx_pnl = Money::new(fx_amount, val_t1.value.currency());
@@ -251,18 +257,18 @@ pub fn attribute_pnl_metrics_based(
                 // vol_shift is already in percentage points
                 let vol_amount = vega * vol_shift;
                 attribution.vol_pnl = Money::new(vol_amount, val_t1.value.currency());
-                
+
                 // 5b. Volatility convexity (Volga - second-order)
                 if let Some(volga) = val_t0.measures.get(MetricId::Volga.as_str()) {
                     // Volga term: ½ × Volga × (Δσ)²
                     let volga_pnl = 0.5 * volga * vol_shift * vol_shift;
-                    
+
                     attribution.vol_pnl = Money::new(
                         attribution.vol_pnl.amount() + volga_pnl,
                         val_t1.value.currency(),
                     );
                 }
-                
+
                 // 5c. Cross-gamma: Vanna (spot-vol cross effect)
                 if let Some(vanna) = val_t0.measures.get(MetricId::Vanna.as_str()) {
                     // Vanna term: Vanna × Δspot × Δσ
@@ -272,7 +278,7 @@ pub fn attribute_pnl_metrics_based(
                         // Try to find the spot price shift
                         // This is approximate - would need instrument metadata for exact spot ID
                         let vanna_pnl = vanna * vol_shift * 0.01; // Placeholder: assumes 1% spot shift
-                        
+
                         attribution.vol_pnl = Money::new(
                             attribution.vol_pnl.amount() + vanna_pnl,
                             val_t1.value.currency(),
@@ -291,26 +297,26 @@ pub fn attribute_pnl_metrics_based(
         let spot_shift_pct = 0.0; // Would measure from market_t0/market_t1
         let delta_amount = delta * spot_shift_pct;
         attribution.market_scalars_pnl = Money::new(delta_amount, val_t1.value.currency());
-        
+
         // 6b. Market scalars gamma (second-order for options)
         if let Some(gamma) = val_t0.measures.get(MetricId::Gamma.as_str()) {
             // Gamma term: ½ × Gamma × (Δspot)²
             // Spot shift would be measured from actual market data
             let gamma_pnl = 0.5 * gamma * spot_shift_pct * spot_shift_pct;
-            
+
             attribution.market_scalars_pnl = Money::new(
                 attribution.market_scalars_pnl.amount() + gamma_pnl,
                 val_t1.value.currency(),
             );
         }
     }
-    
+
     // 7. Model parameters (various 01 metrics)
     // Prepayment01, Default01, Recovery01, etc.
     if let Some(prepayment01) = val_t0.measures.get("prepayment01") {
         let prepay_change_bp = 0.0; // Would measure from instrument params
         let prepay_amount = prepayment01 * prepay_change_bp;
-        
+
         let model_params = ModelParamsAttribution {
             prepayment: Some(Money::new(prepay_amount, val_t1.value.currency())),
             default_rate: None,
@@ -318,9 +324,9 @@ pub fn attribute_pnl_metrics_based(
             conversion_ratio: None,
             other: indexmap::IndexMap::new(),
         };
-        
+
         attribution.model_params_detail = Some(model_params);
-        
+
         // Sum model params for total
         attribution.model_params_pnl = Money::new(prepay_amount, val_t1.value.currency());
     }
@@ -332,28 +338,26 @@ pub fn attribute_pnl_metrics_based(
                 // Dividend01 is per basis point shift
                 let div_amount = dividend01 * div_shift;
                 let current_scalar_pnl = attribution.market_scalars_pnl.amount();
-                attribution.market_scalars_pnl = Money::new(
-                    current_scalar_pnl + div_amount, 
-                    val_t1.value.currency()
-                );
+                attribution.market_scalars_pnl =
+                    Money::new(current_scalar_pnl + div_amount, val_t1.value.currency());
             }
         }
     }
-    
+
     // 9. Inflation sensitivity (first and second-order)
     if let Some(inflation01) = val_t0.measures.get(MetricId::Inflation01.as_str()) {
         // Would need to measure inflation curve shifts
         // Placeholder for now - real implementation would measure from market data
         let inflation_shift_bp = 0.0;
         let inflation_amount = inflation01 * inflation_shift_bp;
-        
+
         // Add to model params or create separate inflation bucket
         let current_model_pnl = attribution.model_params_pnl.amount();
         attribution.model_params_pnl = Money::new(
             current_model_pnl + inflation_amount,
             val_t1.value.currency(),
         );
-        
+
         // 9b. Inflation convexity (second-order)
         if let Some(infl_convexity) = val_t0.measures.get(MetricId::InflationConvexity.as_str()) {
             let convexity_pnl = 0.5 * infl_convexity * inflation_shift_bp * inflation_shift_bp;
@@ -396,14 +400,15 @@ mod tests {
 
         let meta = finstack_core::config::results_meta(&FinstackConfig::default());
 
-        let _val_t0 = ValuationResult::stamped_with_meta("TEST-001", as_of_t0, val_t0_value, meta.clone())
-            .with_measures(measures_t0);
+        let _val_t0 =
+            ValuationResult::stamped_with_meta("TEST-001", as_of_t0, val_t0_value, meta.clone())
+                .with_measures(measures_t0);
 
         let _val_t1 = ValuationResult::stamped_with_meta("TEST-001", as_of_t1, val_t1_value, meta);
 
         // Note: would normally pass actual instrument and markets, but for testing just use placeholders
         // The function doesn't actually use instrument for metrics-based (just val results)
-        
+
         // For test purposes, we'll verify that the attribution structure is created correctly
         // Actual attribution would require valid instrument and markets
     }
@@ -412,7 +417,7 @@ mod tests {
     fn test_metrics_based_requires_valuations() {
         // Metrics-based attribution requires pre-computed ValuationResults
         // This test verifies the signature and basic structure
-        
+
         let as_of_t0 = date!(2025 - 01 - 15);
         let as_of_t1 = date!(2025 - 01 - 16);
 
@@ -421,7 +426,8 @@ mod tests {
 
         let meta = finstack_core::config::results_meta(&FinstackConfig::default());
 
-        let val_t0 = ValuationResult::stamped_with_meta("TEST-001", as_of_t0, val_t0_value, meta.clone());
+        let val_t0 =
+            ValuationResult::stamped_with_meta("TEST-001", as_of_t0, val_t0_value, meta.clone());
         let val_t1 = ValuationResult::stamped_with_meta("TEST-001", as_of_t1, val_t1_value, meta);
 
         // Verify that ValuationResult structure is correct
@@ -434,14 +440,14 @@ mod tests {
         // Test that second-order metrics can be added to ValuationResults
         let as_of = date!(2025 - 01 - 15);
         let value = Money::new(1000.0, Currency::USD);
-        
+
         let mut measures = IndexMap::new();
         // First-order metrics
         measures.insert(MetricId::Theta.as_str().to_string(), -5.0);
         measures.insert(MetricId::Dv01.as_str().to_string(), -400.0);
         measures.insert(MetricId::Cs01.as_str().to_string(), -50.0);
         measures.insert(MetricId::Vega.as_str().to_string(), 10.0);
-        
+
         // Second-order metrics
         measures.insert(MetricId::Convexity.as_str().to_string(), 200.0);
         measures.insert(MetricId::IrConvexity.as_str().to_string(), 180.0);
@@ -450,11 +456,11 @@ mod tests {
         measures.insert(MetricId::Gamma.as_str().to_string(), 0.02);
         measures.insert(MetricId::Vanna.as_str().to_string(), 0.1);
         measures.insert(MetricId::InflationConvexity.as_str().to_string(), 15.0);
-        
+
         let meta = finstack_core::config::results_meta(&FinstackConfig::default());
         let val = ValuationResult::stamped_with_meta("TEST-CONV", as_of, value, meta)
             .with_measures(measures);
-        
+
         // Verify second-order metrics are stored
         assert!(val.measures.contains_key(MetricId::Convexity.as_str()));
         assert!(val.measures.contains_key(MetricId::IrConvexity.as_str()));
@@ -462,50 +468,59 @@ mod tests {
         assert!(val.measures.contains_key(MetricId::Volga.as_str()));
         assert!(val.measures.contains_key(MetricId::Gamma.as_str()));
         assert!(val.measures.contains_key(MetricId::Vanna.as_str()));
-        assert!(val.measures.contains_key(MetricId::InflationConvexity.as_str()));
-        
+        assert!(val
+            .measures
+            .contains_key(MetricId::InflationConvexity.as_str()));
+
         // Verify values
-        assert_eq!(*val.measures.get(MetricId::Convexity.as_str()).unwrap(), 200.0);
-        assert_eq!(*val.measures.get(MetricId::IrConvexity.as_str()).unwrap(), 180.0);
+        assert_eq!(
+            *val.measures.get(MetricId::Convexity.as_str()).unwrap(),
+            200.0
+        );
+        assert_eq!(
+            *val.measures.get(MetricId::IrConvexity.as_str()).unwrap(),
+            180.0
+        );
         assert_eq!(*val.measures.get(MetricId::CsGamma.as_str()).unwrap(), 5.0);
     }
-    
+
     #[test]
     fn test_graceful_degradation_without_second_order() {
         // Test that attribution works when only first-order metrics are available
         let as_of_t0 = date!(2025 - 01 - 15);
         let as_of_t1 = date!(2025 - 01 - 16);
-        
+
         let val_t0_value = Money::new(1000.0, Currency::USD);
         let val_t1_value = Money::new(990.0, Currency::USD);
-        
+
         // Only first-order metrics (no convexity)
         let mut measures_t0 = IndexMap::new();
         measures_t0.insert(MetricId::Theta.as_str().to_string(), -2.0);
         measures_t0.insert(MetricId::Dv01.as_str().to_string(), -500.0);
-        
+
         let meta = finstack_core::config::results_meta(&FinstackConfig::default());
-        
-        let val_t0 = ValuationResult::stamped_with_meta("TEST-FIRST", as_of_t0, val_t0_value, meta.clone())
-            .with_measures(measures_t0);
-        let _val_t1 = ValuationResult::stamped_with_meta("TEST-FIRST", as_of_t1, val_t1_value, meta);
-        
+
+        let val_t0 =
+            ValuationResult::stamped_with_meta("TEST-FIRST", as_of_t0, val_t0_value, meta.clone())
+                .with_measures(measures_t0);
+        let _val_t1 =
+            ValuationResult::stamped_with_meta("TEST-FIRST", as_of_t1, val_t1_value, meta);
+
         // Should work without second-order metrics (graceful degradation)
         // In real use would need actual instrument and market - this just tests structure
         assert!(val_t0.measures.contains_key(MetricId::Dv01.as_str()));
         assert!(!val_t0.measures.contains_key(MetricId::Convexity.as_str()));
     }
-    
+
     #[test]
     fn test_metric_id_new_variants() {
         // Test that new MetricId variants exist and serialize correctly
         assert_eq!(MetricId::IrConvexity.as_str(), "ir_convexity");
         assert_eq!(MetricId::CsGamma.as_str(), "cs_gamma");
         assert_eq!(MetricId::InflationConvexity.as_str(), "inflation_convexity");
-        
+
         // Test that they're distinct from existing metrics
         assert_ne!(MetricId::IrConvexity.as_str(), MetricId::Convexity.as_str());
         assert_ne!(MetricId::CsGamma.as_str(), MetricId::Gamma.as_str());
     }
 }
-

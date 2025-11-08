@@ -153,7 +153,7 @@ impl PyWaterfallTier {
 
         let recipient = RustRecipient::new(recipient_id, rust_recipient, rust_calculation);
         inner.recipients.push(recipient);
-        
+
         Python::with_gil(|py| Py::new(py, Self { inner }))
     }
 
@@ -179,11 +179,8 @@ impl PyWaterfallTier {
         let curr: Currency = currency
             .parse()
             .map_err(|e| PyValueError::new_err(format!("Invalid currency: {:?}", e)))?;
-        let recipient = RustRecipient::fixed_fee(
-            recipient_id,
-            provider_name,
-            Money::new(amount, curr),
-        );
+        let recipient =
+            RustRecipient::fixed_fee(recipient_id, provider_name, Money::new(amount, curr));
         inner.recipients.push(recipient);
         Python::with_gil(|py| Py::new(py, Self { inner }))
     }
@@ -236,10 +233,7 @@ impl PyWaterfallTier {
     /// Returns:
     ///     WaterfallTier: Self for method chaining
     #[pyo3(text_signature = "(self, mode)")]
-    fn set_allocation_mode(
-        slf: PyRefMut<'_, Self>,
-        mode: PyAllocationMode,
-    ) -> PyResult<Py<Self>> {
+    fn set_allocation_mode(slf: PyRefMut<'_, Self>, mode: PyAllocationMode) -> PyResult<Py<Self>> {
         let mut inner = slf.inner.clone();
         inner.allocation_mode = mode.into();
         Python::with_gil(|py| Py::new(py, Self { inner }))
@@ -391,13 +385,11 @@ fn get_waterfall_template(template_name: String, currency: String) -> PyResult<P
         .parse()
         .map_err(|e| PyValueError::new_err(format!("Invalid currency: {:?}", e)))?;
 
-    let waterfall = finstack_valuations::instruments::structured_credit::get_template(
-        &template_name,
-        curr,
-    )
-    .ok_or_else(|| {
-        PyValueError::new_err(format!("Template '{}' not found", template_name))
-    })?;
+    let waterfall =
+        finstack_valuations::instruments::structured_credit::get_template(&template_name, curr)
+            .ok_or_else(|| {
+                PyValueError::new_err(format!("Template '{}' not found", template_name))
+            })?;
 
     Python::with_gil(|py| {
         let json = serde_json::to_string(&waterfall)
@@ -461,4 +453,3 @@ pub(crate) fn register<'py>(
         "available_waterfall_templates",
     ])
 }
-

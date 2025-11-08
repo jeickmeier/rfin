@@ -36,8 +36,12 @@ impl MetricCalculator for CdsDv01Calculator {
 
         // Market standard: Use risky PV01 from the CDS pricer
         let pricer = CDSPricer::new();
-        let disc = context.curves.get_discount_ref(&cds.premium.discount_curve_id)?;
-        let surv = context.curves.get_hazard_ref(&cds.protection.credit_curve_id)?;
+        let disc = context
+            .curves
+            .get_discount_ref(&cds.premium.discount_curve_id)?;
+        let surv = context
+            .curves
+            .get_hazard_ref(&cds.protection.credit_curve_id)?;
 
         pricer.risky_pv01(cds, disc, surv, as_of)
     }

@@ -18,17 +18,18 @@ impl MetricCalculator for YtmCalculator {
             as_of,
         )?;
 
-        let mut flows: Vec<(finstack_core::dates::Date, Money)> = Vec::with_capacity(sched.flows.len() + 1);
+        let mut flows: Vec<(finstack_core::dates::Date, Money)> =
+            Vec::with_capacity(sched.flows.len() + 1);
         // Add initial outflow equal to -PV at as_of to emulate market price
         let base_pv = context.base_value;
         flows.push((as_of, Money::new(-base_pv.amount(), base_pv.currency())));
         for cf in &sched.flows {
-            if cf.date <= as_of { continue; }
+            if cf.date <= as_of {
+                continue;
+            }
             flows.push((cf.date, cf.amount));
         }
 
         crate::instruments::private_markets_fund::metrics::calculate_irr(&flows, loan.day_count)
     }
 }
-
-

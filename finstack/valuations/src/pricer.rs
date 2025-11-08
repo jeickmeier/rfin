@@ -811,9 +811,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     // Term Loan (including DDTL)
     registry.register_pricer(
         PricerKey::new(InstrumentType::TermLoan, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::term_loan::pricing::TermLoanDiscountingPricer,
-        ),
+        Box::new(crate::instruments::term_loan::pricing::TermLoanDiscountingPricer),
     );
     #[cfg(feature = "mc")]
     registry.register_pricer(

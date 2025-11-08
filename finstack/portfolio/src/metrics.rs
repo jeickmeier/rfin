@@ -181,11 +181,11 @@ fn aggregate_metrics_serial(valuation: &PortfolioValuation) -> Result<PortfolioM
 #[cfg(feature = "parallel")]
 fn aggregate_metrics_parallel(valuation: &PortfolioValuation) -> Result<PortfolioMetrics> {
     use rayon::prelude::*;
-    
+
     // Phase 1: Collect metrics from each position in parallel
     // Convert to Vec for parallel iteration
     let position_entries: Vec<_> = valuation.position_values.iter().collect();
-    
+
     let position_metrics: Vec<_> = position_entries
         .par_iter()
         .filter_map(|(position_id, position_value)| {

@@ -41,7 +41,8 @@ impl MetricCalculator for Cs01Calculator {
         // Note: This assumes the discount curve includes credit spread component
         let bump_bp = 0.0001; // 1bp for credit spread (0.0001)
 
-        let curves_bumped = bump_discount_curve_parallel(&context.curves, &bond.discount_curve_id, bump_bp)?;
+        let curves_bumped =
+            bump_discount_curve_parallel(&context.curves, &bond.discount_curve_id, bump_bp)?;
 
         // Reprice with bumped curve
         let pv_bumped = bond.npv(&curves_bumped, as_of)?.amount();

@@ -37,9 +37,11 @@
 //! - Altman, E. I., & Saunders, A. (1998). "Credit risk measurement:
 //!   Developments over the last 20 years." *Journal of Banking & Finance*, 21(11-12).
 
-use crate::instruments::common::models::monte_carlo::payoff::default_calculator::{DefaultEvent, FirstPassageCalculator};
 use crate::instruments::common::mc::paths::CashflowType;
 use crate::instruments::common::mc::traits::{state_keys, PathState, RandomStream};
+use crate::instruments::common::models::monte_carlo::payoff::default_calculator::{
+    DefaultEvent, FirstPassageCalculator,
+};
 use crate::instruments::common::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
@@ -73,11 +75,7 @@ pub struct FeeStructure {
 
 impl FeeStructure {
     /// Create a new fee structure.
-    pub fn new(
-        commitment_fee_bp: f64,
-        usage_fee_bp: f64,
-        facility_fee_bp: f64,
-    ) -> Self {
+    pub fn new(commitment_fee_bp: f64, usage_fee_bp: f64, facility_fee_bp: f64) -> Self {
         Self {
             commitment_fee_bp,
             usage_fee_bp,
@@ -189,7 +187,7 @@ impl RevolvingCreditPayoff {
         match &self.rate_spec {
             RateSpec::Fixed { rate } => *rate,
             RateSpec::Floating { margin_bp } => {
-            // Floating: short_rate + margin
+                // Floating: short_rate + margin
                 short_rate + (margin_bp * 1e-4)
             }
         }
@@ -227,7 +225,9 @@ impl Payoff for RevolvingCreditPayoff {
         let credit_spread = state.get("credit_spread").unwrap_or(0.0).max(0.0);
 
         // 2. Check for default
-        let default_event = self.default_calculator.update(credit_spread, dt, current_time);
+        let default_event = self
+            .default_calculator
+            .update(credit_spread, dt, current_time);
 
         if let DefaultEvent::DefaultOccurred {
             time,
@@ -238,9 +238,11 @@ impl Payoff for RevolvingCreditPayoff {
             let recovery = self.outstanding_principal * recovery_fraction;
             if recovery > 1e-10 {
                 state.add_typed_cashflow(time, recovery, CashflowType::Recovery);
-                
+
                 // Add discounted recovery to accumulated PV
-                let step = state.step.min(self.discount_factors.len().saturating_sub(1));
+                let step = state
+                    .step
+                    .min(self.discount_factors.len().saturating_sub(1));
                 let df = self.discount_factors[step];
                 self.accumulated_pv += recovery * df;
             }
@@ -257,11 +259,7 @@ impl Payoff for RevolvingCreditPayoff {
             // Sign convention (lender perspective):
             // - Draw (principal_change > 0): negative cashflow (deployment to borrower)
             // - Repay (principal_change < 0): positive cashflow (receipt from borrower)
-            state.add_typed_cashflow(
-                current_time,
-                -principal_change,
-                CashflowType::Principal,
-            );
+            state.add_typed_cashflow(current_time, -principal_change, CashflowType::Principal);
             self.outstanding_principal = new_balance;
         }
 
@@ -272,7 +270,9 @@ impl Payoff for RevolvingCreditPayoff {
             let rate = self.compute_rate(short_rate);
 
             // Get discount factor for this step
-            let step = state.step.min(self.discount_factors.len().saturating_sub(1));
+            let step = state
+                .step
+                .min(self.discount_factors.len().saturating_sub(1));
             let df = self.discount_factors[step];
 
             // Interest on drawn amount
@@ -285,11 +285,7 @@ impl Payoff for RevolvingCreditPayoff {
             // Commitment fee on undrawn
             let commitment_fee = undrawn * (self.fees.commitment_fee_bp * 1e-4) * dt;
             if commitment_fee.abs() > 1e-10 {
-                state.add_typed_cashflow(
-                    current_time,
-                    commitment_fee,
-                    CashflowType::CommitmentFee,
-                );
+                state.add_typed_cashflow(current_time, commitment_fee, CashflowType::CommitmentFee);
                 self.accumulated_pv += commitment_fee * df;
             }
 
@@ -303,11 +299,7 @@ impl Payoff for RevolvingCreditPayoff {
             // Facility fee on total commitment
             let facility_fee = self.commitment_amount * (self.fees.facility_fee_bp * 1e-4) * dt;
             if facility_fee.abs() > 1e-10 {
-                state.add_typed_cashflow(
-                    current_time,
-                    facility_fee,
-                    CashflowType::FacilityFee,
-                );
+                state.add_typed_cashflow(current_time, facility_fee, CashflowType::FacilityFee);
                 self.accumulated_pv += facility_fee * df;
             }
         }
@@ -319,12 +311,14 @@ impl Payoff for RevolvingCreditPayoff {
                 self.outstanding_principal,
                 CashflowType::Principal,
             );
-            
+
             // Add discounted terminal repayment to PV
-            let step = state.step.min(self.discount_factors.len().saturating_sub(1));
+            let step = state
+                .step
+                .min(self.discount_factors.len().saturating_sub(1));
             let df = self.discount_factors[step];
             self.accumulated_pv += self.outstanding_principal * df;
-            
+
             self.outstanding_principal = 0.0;
         }
 
@@ -485,7 +479,7 @@ mod tests {
 
         // Initially zero
         assert_eq!(payoff.value(Currency::USD).amount(), 0.0);
-        
+
         // After accumulating PV
         payoff.accumulated_pv = 123_456.78;
         assert_eq!(payoff.value(Currency::USD).amount(), 123_456.78);

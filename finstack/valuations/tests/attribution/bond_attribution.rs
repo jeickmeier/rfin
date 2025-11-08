@@ -123,6 +123,8 @@ fn test_bond_attribution_structure() {
     assert_eq!(attribution.meta.instrument_id, "US-BOND-001");
     assert_eq!(attribution.meta.t0, as_of_t0);
     assert_eq!(attribution.meta.t1, as_of_t1);
-    assert!(matches!(attribution.meta.method, AttributionMethod::Parallel));
+    assert!(matches!(
+        attribution.meta.method,
+        AttributionMethod::Parallel
+    ));
 }
-

@@ -7,10 +7,13 @@
 //! - Realized losses allocated from bottom up
 
 use super::super::components::{
-    AllocationMode, PaymentCalculation, PaymentRecipient, PaymentType, Recipient,
-    WaterfallBuilder, WaterfallEngine, WaterfallTier,
+    AllocationMode, PaymentCalculation, PaymentRecipient, PaymentType, Recipient, WaterfallBuilder,
+    WaterfallEngine, WaterfallTier,
 };
-use super::super::config::{BASIS_POINTS_DIVISOR, CMBS_MASTER_SERVICER_FEE_BPS, CMBS_SPECIAL_SERVICER_FEE_BPS, CMBS_TRUSTEE_FEE_ANNUAL};
+use super::super::config::{
+    BASIS_POINTS_DIVISOR, CMBS_MASTER_SERVICER_FEE_BPS, CMBS_SPECIAL_SERVICER_FEE_BPS,
+    CMBS_TRUSTEE_FEE_ANNUAL,
+};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -90,11 +93,31 @@ pub fn cmbs_standard_template(currency: Currency) -> WaterfallEngine {
             WaterfallTier::new("principal_payments", 3, PaymentType::Principal)
                 .allocation_mode(AllocationMode::Sequential)
                 .divertible(false) // CMBS doesn't divert principal
-                .add_recipient(Recipient::tranche_principal("class_a_prin", "CLASS_A", None))
-                .add_recipient(Recipient::tranche_principal("class_b_prin", "CLASS_B", None))
-                .add_recipient(Recipient::tranche_principal("class_c_prin", "CLASS_C", None))
-                .add_recipient(Recipient::tranche_principal("class_d_prin", "CLASS_D", None))
-                .add_recipient(Recipient::tranche_principal("class_e_prin", "CLASS_E", None)),
+                .add_recipient(Recipient::tranche_principal(
+                    "class_a_prin",
+                    "CLASS_A",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_b_prin",
+                    "CLASS_B",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_c_prin",
+                    "CLASS_C",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_d_prin",
+                    "CLASS_D",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_e_prin",
+                    "CLASS_E",
+                    None,
+                )),
         )
         // Tier 4: Equity Distribution
         .add_tier(
@@ -156,4 +179,3 @@ mod tests {
         assert_eq!(interest_tier.recipients[4].id, "class_e_int");
     }
 }
-

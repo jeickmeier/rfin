@@ -1,7 +1,7 @@
 //! Tree visualization utilities.
 
-use crate::explain::DependencyTree;
 use crate::evaluator::Results;
+use crate::explain::DependencyTree;
 use finstack_core::dates::PeriodId;
 
 /// Render dependency tree as ASCII art.
@@ -90,23 +90,14 @@ pub fn render_tree_ascii(tree: &DependencyTree) -> String {
 /// # Ok(())
 /// # }
 /// ```
-pub fn render_tree_detailed(
-    tree: &DependencyTree,
-    results: &Results,
-    period: &PeriodId,
-) -> String {
+pub fn render_tree_detailed(tree: &DependencyTree, results: &Results, period: &PeriodId) -> String {
     let mut output = String::new();
     render_tree_with_values(tree, results, period, &mut output, "", true);
     output
 }
 
 // Recursive helper for ASCII rendering
-fn render_tree_recursive(
-    tree: &DependencyTree,
-    output: &mut String,
-    prefix: &str,
-    is_last: bool,
-) {
+fn render_tree_recursive(tree: &DependencyTree, output: &mut String, prefix: &str, is_last: bool) {
     // Render current node
     let connector = if is_last { "└── " } else { "├── " };
     let node_name = if prefix.is_empty() {
@@ -129,11 +120,7 @@ fn render_tree_recursive(
         let new_prefix = if prefix.is_empty() {
             String::new()
         } else {
-            format!(
-                "{}{}",
-                prefix,
-                if is_last { "    " } else { "│   " }
-            )
+            format!("{}{}", prefix, if is_last { "    " } else { "│   " })
         };
 
         render_tree_recursive(child, output, &new_prefix, is_last_child);
@@ -180,11 +167,7 @@ fn render_tree_with_values(
         let new_prefix = if prefix.is_empty() {
             String::new()
         } else {
-            format!(
-                "{}{}",
-                prefix,
-                if is_last { "    " } else { "│   " }
-            )
+            format!("{}{}", prefix, if is_last { "    " } else { "│   " })
         };
 
         render_tree_with_values(child, results, period, output, &new_prefix, is_last_child);
@@ -272,4 +255,3 @@ mod tests {
         assert_eq!(ascii.lines().count(), 1); // Just the root node
     }
 }
-

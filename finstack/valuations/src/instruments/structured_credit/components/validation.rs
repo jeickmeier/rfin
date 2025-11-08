@@ -9,7 +9,7 @@
 //! - Circular diversion dependencies
 
 use super::diversion::{DiversionCondition, DiversionEngine, DiversionRule};
-use super::waterfall::{WaterfallTier, PaymentType};
+use super::waterfall::{PaymentType, WaterfallTier};
 use finstack_core::Result;
 use std::collections::HashSet;
 
@@ -100,7 +100,11 @@ impl std::fmt::Display for ValidationError {
                 recipient_id, tier_id
             ),
             ValidationError::InvalidPriority { tier_id, priority } => {
-                write!(f, "Invalid priority {} for tier '{}' (must be > 0)", priority, tier_id)
+                write!(
+                    f,
+                    "Invalid priority {} for tier '{}' (must be > 0)",
+                    priority, tier_id
+                )
             }
             ValidationError::EmptyTier { tier_id } => {
                 write!(f, "Tier '{}' has no recipients", tier_id)
@@ -377,8 +381,7 @@ pub fn get_validation_errors(
 mod tests {
     use super::super::diversion::{DiversionCondition, DiversionRule};
     use super::super::waterfall::{
-        AllocationMode, PaymentCalculation, PaymentRecipient, PaymentType, Recipient,
-        WaterfallTier,
+        AllocationMode, PaymentCalculation, PaymentRecipient, PaymentType, Recipient, WaterfallTier,
     };
     use super::*;
     use finstack_core::currency::Currency;
@@ -396,10 +399,7 @@ mod tests {
 
     #[test]
     fn test_valid_waterfall_spec() {
-        let tiers = vec![
-            create_valid_tier("tier1", 1),
-            create_valid_tier("tier2", 2),
-        ];
+        let tiers = vec![create_valid_tier("tier1", 1), create_valid_tier("tier2", 2)];
         let rules = vec![];
         let tests = vec![];
 
@@ -416,10 +416,7 @@ mod tests {
 
         let errors = validate_tiers(&tiers);
         assert_eq!(errors.len(), 1);
-        assert!(matches!(
-            errors[0],
-            ValidationError::DuplicateTierId { .. }
-        ));
+        assert!(matches!(errors[0], ValidationError::DuplicateTierId { .. }));
     }
 
     #[test]
@@ -473,10 +470,7 @@ mod tests {
 
         let errors = validate_tiers(&[tier]);
         assert_eq!(errors.len(), 1);
-        assert!(matches!(
-            errors[0],
-            ValidationError::InvalidWeight { .. }
-        ));
+        assert!(matches!(errors[0], ValidationError::InvalidWeight { .. }));
     }
 
     #[test]
@@ -565,11 +559,7 @@ mod tests {
         assert!(is_valid_waterfall_spec(&tiers, &rules, &tests));
 
         // Test with duplicate tier IDs
-        let invalid_tiers = vec![
-            create_valid_tier("tier1", 1),
-            create_valid_tier("tier1", 2),
-        ];
+        let invalid_tiers = vec![create_valid_tier("tier1", 1), create_valid_tier("tier1", 2)];
         assert!(!is_valid_waterfall_spec(&invalid_tiers, &rules, &tests));
     }
 }
-

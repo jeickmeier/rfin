@@ -757,13 +757,8 @@ mod tests {
         let market_t1 = MarketContext::new().insert_discount(curve_t1);
 
         let tenors = vec![1.0, 5.0, 10.0];
-        let shifts = measure_bucketed_discount_shift(
-            "USD-OIS",
-            &market_t0,
-            &market_t1,
-            &tenors,
-        )
-        .unwrap();
+        let shifts =
+            measure_bucketed_discount_shift("USD-OIS", &market_t0, &market_t1, &tenors).unwrap();
 
         assert_eq!(shifts.len(), 3);
 
@@ -797,13 +792,9 @@ mod tests {
         assert_eq!(shift_std, 0.0); // Same market → zero shift
 
         // Dynamic
-        let shift_dyn = measure_discount_curve_shift(
-            "USD-OIS",
-            &market,
-            &market,
-            TenorSamplingMethod::Dynamic,
-        )
-        .unwrap();
+        let shift_dyn =
+            measure_discount_curve_shift("USD-OIS", &market, &market, TenorSamplingMethod::Dynamic)
+                .unwrap();
         assert_eq!(shift_dyn, 0.0);
 
         // Custom
@@ -817,4 +808,3 @@ mod tests {
         assert_eq!(shift_custom, 0.0);
     }
 }
-

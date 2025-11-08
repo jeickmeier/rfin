@@ -37,10 +37,26 @@ impl MetricCalculator for YtcCalculator {
         )?;
         let out_path = schedule.outstanding_path();
         let mut outstanding_at = Money::new(0.0, loan.currency);
-        for (d, amt) in &out_path { if *d <= call.date { outstanding_at = *amt; } else { break; } }
-        let redemption = Money::new(outstanding_at.amount() * (call.price_pct_of_par / 100.0), loan.currency);
+        for (d, amt) in &out_path {
+            if *d <= call.date {
+                outstanding_at = *amt;
+            } else {
+                break;
+            }
+        }
+        let redemption = Money::new(
+            outstanding_at.amount() * (call.price_pct_of_par / 100.0),
+            loan.currency,
+        );
 
-    solve_irr_to_exercise(loan, &schedule, as_of, context.base_value, call.date, redemption)
+        solve_irr_to_exercise(
+            loan,
+            &schedule,
+            as_of,
+            context.base_value,
+            call.date,
+            redemption,
+        )
     }
 }
 
@@ -53,13 +69,16 @@ fn solve_irr_to_exercise(
     redemption: Money,
 ) -> finstack_core::Result<f64> {
     let mut flows: Vec<(Date, Money)> = Vec::new();
-    flows.push((as_of, Money::new(-target_price.amount(), target_price.currency())));
+    flows.push((
+        as_of,
+        Money::new(-target_price.amount(), target_price.currency()),
+    ));
     for cf in &schedule.flows {
-        if cf.date <= as_of || cf.date > exercise_date { continue; }
+        if cf.date <= as_of || cf.date > exercise_date {
+            continue;
+        }
         flows.push((cf.date, cf.amount));
     }
     flows.push((exercise_date, redemption));
     crate::instruments::private_markets_fund::metrics::calculate_irr(&flows, loan.day_count)
 }
-
-

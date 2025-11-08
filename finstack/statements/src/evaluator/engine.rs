@@ -177,14 +177,19 @@ impl Evaluator {
         for (node_id, node_spec) in &model.nodes {
             // Check if node has explicit value_type
             if let Some(value_type) = &node_spec.value_type {
-                results.node_value_types.insert(node_id.clone(), *value_type);
-                
+                results
+                    .node_value_types
+                    .insert(node_id.clone(), *value_type);
+
                 // Populate monetary_nodes if this is a monetary type
                 if let NodeValueType::Monetary { currency } = value_type {
                     if let Some(period_map) = results.nodes.get(node_id) {
                         let mut money_map = IndexMap::new();
                         for (period_id, &f64_value) in period_map {
-                            money_map.insert(*period_id, finstack_core::money::Money::new(f64_value, *currency));
+                            money_map.insert(
+                                *period_id,
+                                finstack_core::money::Money::new(f64_value, *currency),
+                            );
                         }
                         results.monetary_nodes.insert(node_id.clone(), money_map);
                     }
@@ -199,25 +204,34 @@ impl Evaluator {
                                 currency: money.currency(),
                             },
                         );
-                        
+
                         // Populate monetary_nodes from Money values
                         if let Some(period_map) = results.nodes.get(node_id) {
                             let mut money_map = IndexMap::new();
                             for (period_id, &f64_value) in period_map {
-                                money_map.insert(*period_id, finstack_core::money::Money::new(f64_value, money.currency()));
+                                money_map.insert(
+                                    *period_id,
+                                    finstack_core::money::Money::new(f64_value, money.currency()),
+                                );
                             }
                             results.monetary_nodes.insert(node_id.clone(), money_map);
                         }
                     } else {
-                        results.node_value_types.insert(node_id.clone(), NodeValueType::Scalar);
+                        results
+                            .node_value_types
+                            .insert(node_id.clone(), NodeValueType::Scalar);
                     }
                 } else {
                     // No values, default to scalar
-                    results.node_value_types.insert(node_id.clone(), NodeValueType::Scalar);
+                    results
+                        .node_value_types
+                        .insert(node_id.clone(), NodeValueType::Scalar);
                 }
             } else {
                 // No explicit value_type and no values, default to scalar
-                results.node_value_types.insert(node_id.clone(), NodeValueType::Scalar);
+                results
+                    .node_value_types
+                    .insert(node_id.clone(), NodeValueType::Scalar);
             }
         }
 
@@ -230,7 +244,7 @@ impl Evaluator {
             num_nodes: model.nodes.len(),
             num_periods: model.periods.len(),
             numeric_mode: crate::evaluator::NumericMode::Float64,
-            rounding_context: None,  // Not implemented yet
+            rounding_context: None, // Not implemented yet
             parallel: false,
         };
 

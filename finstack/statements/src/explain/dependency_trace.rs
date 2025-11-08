@@ -175,11 +175,7 @@ impl<'a> DependencyTracer<'a> {
     }
 
     // Internal helper to build dependency tree
-    fn build_tree(
-        &self,
-        node_id: &str,
-        visited: &mut IndexSet<String>,
-    ) -> Result<DependencyTree> {
+    fn build_tree(&self, node_id: &str, visited: &mut IndexSet<String>) -> Result<DependencyTree> {
         // Get node spec for formula
         let node_spec = self
             .model
@@ -398,4 +394,3 @@ mod tests {
         assert!(result.is_err());
     }
 }
-

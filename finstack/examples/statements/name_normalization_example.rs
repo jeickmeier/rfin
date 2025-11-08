@@ -20,10 +20,7 @@ fn main() -> Result<()> {
 
     println!("1. Exact Alias Matching\n");
     println!("  'rev' normalizes to: {:?}", registry.normalize("rev"));
-    println!(
-        "  'sales' normalizes to: {:?}",
-        registry.normalize("sales")
-    );
+    println!("  'sales' normalizes to: {:?}", registry.normalize("sales"));
     println!("  'cos' normalizes to: {:?}", registry.normalize("cos"));
 
     // Fuzzy matching
@@ -66,4 +63,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-

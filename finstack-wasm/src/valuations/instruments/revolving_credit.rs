@@ -54,5 +54,3 @@ impl JsRevolvingCredit {
         JsRevolvingCredit::from_inner(self.0.clone())
     }
 }
-
-

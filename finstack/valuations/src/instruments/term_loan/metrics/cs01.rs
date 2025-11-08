@@ -12,7 +12,9 @@ impl MetricCalculator for Cs01Calculator {
         let loan: &TermLoan = context.instrument_as()?;
         let as_of = context.as_of;
 
-        let disc = context.curves.get_discount_ref(loan.discount_curve_id.as_str())?;
+        let disc = context
+            .curves
+            .get_discount_ref(loan.discount_curve_id.as_str())?;
         let disc_dc = disc.day_count();
         let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(
             loan,
@@ -24,7 +26,9 @@ impl MetricCalculator for Cs01Calculator {
         let mut pv_up = 0.0;
         let mut pv_down = 0.0;
         for cf in &schedule.flows {
-            if cf.date <= as_of { continue; }
+            if cf.date <= as_of {
+                continue;
+            }
             let t = disc_dc.year_fraction(disc.base_date(), cf.date, DayCountCtx::default())?;
             let df_base = disc.df(t);
             let df_up = df_base * (-bump_bp * t).exp();
@@ -35,5 +39,3 @@ impl MetricCalculator for Cs01Calculator {
         Ok((pv_up - pv_down) / 2.0)
     }
 }
-
-

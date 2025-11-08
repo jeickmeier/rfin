@@ -459,7 +459,10 @@ mod tests {
         point.add_cashflow(0.25, 1000.0);
         point.add_cashflow(0.25, 500.0);
         assert_eq!(point.cashflows.len(), 2);
-        assert_eq!(point.get_cashflows()[0], (0.25, 1000.0, CashflowType::Other));
+        assert_eq!(
+            point.get_cashflows()[0],
+            (0.25, 1000.0, CashflowType::Other)
+        );
         assert_eq!(point.get_cashflows()[1], (0.25, 500.0, CashflowType::Other));
         assert_eq!(point.total_cashflow(), 1500.0);
 

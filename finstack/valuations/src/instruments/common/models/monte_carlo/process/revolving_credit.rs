@@ -148,7 +148,11 @@ impl RevolvingCreditProcessParams {
             InterestRateSpec::Fixed { rate } => *rate,
             InterestRateSpec::Floating { initial, .. } => *initial,
             InterestRateSpec::DeterministicForward { times, rates } => {
-                if times.is_empty() { 0.0 } else { rates[0] }
+                if times.is_empty() {
+                    0.0
+                } else {
+                    rates[0]
+                }
             }
         };
 

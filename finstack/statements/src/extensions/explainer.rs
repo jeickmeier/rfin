@@ -71,4 +71,3 @@ impl Extension for ExplainerExtension {
             .with_data("node_count", serde_json::json!(tree.node_count())))
     }
 }
-

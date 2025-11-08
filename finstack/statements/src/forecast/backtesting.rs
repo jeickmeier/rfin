@@ -117,9 +117,7 @@ pub fn backtest_forecast(actual: &[f64], forecast: &[f64]) -> Result<ForecastMet
     }
 
     if actual.is_empty() {
-        return Err(Error::forecast(
-            "Cannot compute metrics on empty arrays",
-        ));
+        return Err(Error::forecast("Cannot compute metrics on empty arrays"));
     }
 
     let n = actual.len();
@@ -160,12 +158,7 @@ pub fn backtest_forecast(actual: &[f64], forecast: &[f64]) -> Result<ForecastMet
 
     let rmse = mse.sqrt();
 
-    Ok(ForecastMetrics {
-        mae,
-        mape,
-        rmse,
-        n,
-    })
+    Ok(ForecastMetrics { mae, mape, rmse, n })
 }
 
 #[cfg(test)]
@@ -253,4 +246,3 @@ mod tests {
         assert!(!metrics.mape.is_infinite());
     }
 }
-

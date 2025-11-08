@@ -1,11 +1,11 @@
 //! Cashflow generation for Term Loans (placeholder for v1 wiring).
 
 use crate::cashflow::builder::schedule::CashFlowSchedule;
-use crate::cashflow::primitives::{CashFlow, CFKind, Notional};
+use crate::cashflow::primitives::{CFKind, CashFlow, Notional};
 use crate::cashflow::traits::DatedFlows;
-use finstack_core::dates::{DayCount, Date};
-use finstack_core::money::Money;
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
 
 use super::types::TermLoan;
 // use crate::instruments::pricing_overrides::TermLoanOverrides; // not directly used here
@@ -51,7 +51,8 @@ pub fn generate_cashflows(
                 match oid {
                     super::spec::OidPolicy::WithheldPct(bp) => {
                         let pct = (*bp as f64) * 1e-4;
-                        cash_inflow = Money::new(ev.amount.amount() * (1.0 - pct), ev.amount.currency());
+                        cash_inflow =
+                            Money::new(ev.amount.amount() * (1.0 - pct), ev.amount.currency());
                     }
                     super::spec::OidPolicy::WithheldAmount(m) => {
                         cash_inflow = ev.amount.checked_sub(*m)?;
@@ -74,7 +75,10 @@ pub fn generate_cashflows(
         _commitment_limit_opt = Some(ddtl.commitment_limit);
     } else {
         // Plain term loan: treat as fully funded at issue
-        flows.push(CashFlow::principal_exchange(loan.issue, loan.notional_limit)?);
+        flows.push(CashFlow::principal_exchange(
+            loan.issue,
+            loan.notional_limit,
+        )?);
         outstanding = outstanding.checked_add(loan.notional_limit)?;
     }
 
@@ -97,13 +101,25 @@ pub fn generate_cashflows(
         let step = loan
             .covenants
             .as_ref()
-            .map(|c| c.margin_stepups.iter().filter(|m| m.date <= d).map(|m| m.delta_bp).sum::<i32>())
+            .map(|c| {
+                c.margin_stepups
+                    .iter()
+                    .filter(|m| m.date <= d)
+                    .map(|m| m.delta_bp)
+                    .sum::<i32>()
+            })
             .unwrap_or(0);
         let override_add = loan
             .pricing_overrides
             .term_loan
             .as_ref()
-            .map(|ov| ov.margin_add_bp_by_date.iter().filter(|(dt, _)| *dt <= d).map(|(_, bp)| *bp).sum::<i32>())
+            .map(|ov| {
+                ov.margin_add_bp_by_date
+                    .iter()
+                    .filter(|(dt, _)| *dt <= d)
+                    .map(|(_, bp)| *bp)
+                    .sum::<i32>()
+            })
             .unwrap_or(0);
         base_margin + step + override_add
     };
@@ -112,16 +128,23 @@ pub fn generate_cashflows(
     let dc = loan.day_count;
     let mut prev = dates[0];
     for &d in dates.iter().skip(1) {
-        if d <= as_of { prev = d; continue; }
+        if d <= as_of {
+            prev = d;
+            continue;
+        }
         let yf = dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
 
         // Base rate
         let base_rate = match &loan.rate {
             super::types::RateSpec::Fixed { rate_bp } => (*rate_bp as f64) * 1e-4,
-            super::types::RateSpec::Floating { index_id, floor_bp, .. } => {
+            super::types::RateSpec::Floating {
+                index_id, floor_bp, ..
+            } => {
                 let fwd = market.get_forward_ref(index_id.as_str())?;
                 let mut r = fwd.rate(yf);
-                if let Some(floor) = floor_bp { r = r.max((*floor as f64) * 1e-4); }
+                if let Some(floor) = floor_bp {
+                    r = r.max((*floor as f64) * 1e-4);
+                }
                 r
             }
         };
@@ -162,7 +185,9 @@ pub fn generate_cashflows(
                 }
             }
         }
-        if cash_interest.amount() != 0.0 { flows.push(CashFlow::fixed_cf(d, cash_interest)?); }
+        if cash_interest.amount() != 0.0 {
+            flows.push(CashFlow::fixed_cf(d, cash_interest)?);
+        }
         if pik_interest.amount() != 0.0 {
             flows.push(CashFlow::pik_cf(d, pik_interest)?);
             outstanding = outstanding.checked_add(pik_interest)?;
@@ -172,15 +197,32 @@ pub fn generate_cashflows(
         if let Some(ddtl) = &loan.ddtl {
             // Commitment limit with step-downs
             let mut limit = ddtl.commitment_limit;
-            for sd in &ddtl.commitment_step_downs { if sd.date <= d { limit = sd.new_limit; } }
-            let undrawn = Money::new((limit.amount() - outstanding.amount()).max(0.0), loan.currency);
+            for sd in &ddtl.commitment_step_downs {
+                if sd.date <= d {
+                    limit = sd.new_limit;
+                }
+            }
+            let undrawn = Money::new(
+                (limit.amount() - outstanding.amount()).max(0.0),
+                loan.currency,
+            );
             if ddtl.commitment_fee_bp != 0 {
-                let cf_amt = Money::new(undrawn.amount() * (ddtl.commitment_fee_bp as f64) * 1e-4 * yf, loan.currency);
-                if cf_amt.amount() != 0.0 { flows.push(CashFlow::fee(d, cf_amt)?); }
+                let cf_amt = Money::new(
+                    undrawn.amount() * (ddtl.commitment_fee_bp as f64) * 1e-4 * yf,
+                    loan.currency,
+                );
+                if cf_amt.amount() != 0.0 {
+                    flows.push(CashFlow::fee(d, cf_amt)?);
+                }
             }
             if ddtl.usage_fee_bp != 0 {
-                let uf_amt = Money::new(outstanding.amount() * (ddtl.usage_fee_bp as f64) * 1e-4 * yf, loan.currency);
-                if uf_amt.amount() != 0.0 { flows.push(CashFlow::fee(d, uf_amt)?); }
+                let uf_amt = Money::new(
+                    outstanding.amount() * (ddtl.usage_fee_bp as f64) * 1e-4 * yf,
+                    loan.currency,
+                );
+                if uf_amt.amount() != 0.0 {
+                    flows.push(CashFlow::fee(d, uf_amt)?);
+                }
             }
         }
 
@@ -212,7 +254,10 @@ pub fn generate_cashflows(
             }
             super::spec::AmortizationSpec::PercentPerPeriod { bp } => {
                 let pct = (*bp as f64) * 1e-4;
-                let pay = Money::new((loan.notional_limit.amount() * pct).min(outstanding.amount()), loan.currency);
+                let pay = Money::new(
+                    (loan.notional_limit.amount() * pct).min(outstanding.amount()),
+                    loan.currency,
+                );
                 if pay.amount() > 0.0 {
                     flows.push(CashFlow::amort_cf(d, pay)?);
                     outstanding = outstanding.checked_sub(pay)?;
@@ -222,8 +267,13 @@ pub fn generate_cashflows(
                 if d >= *start && d <= *end {
                     // Count remaining coupon dates including current within [start,end]
                     // For simplicity, assume regular spacing as in dates vector
-                    let remaining = dates.iter().filter(|&&dt| dt >= d && dt <= *end).count().max(1);
-                    let pay_amt = (outstanding.amount() / (remaining as f64)).min(outstanding.amount());
+                    let remaining = dates
+                        .iter()
+                        .filter(|&&dt| dt >= d && dt <= *end)
+                        .count()
+                        .max(1);
+                    let pay_amt =
+                        (outstanding.amount() / (remaining as f64)).min(outstanding.amount());
                     let pay = Money::new(pay_amt, loan.currency);
                     if pay.amount() > 0.0 {
                         flows.push(CashFlow::amort_cf(d, pay)?);
@@ -270,5 +320,3 @@ pub fn build_dated_flows(schedule: &CashFlowSchedule) -> DatedFlows {
         .map(|cf| (cf.date, cf.amount))
         .collect()
 }
-
-

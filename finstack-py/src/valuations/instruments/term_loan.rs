@@ -18,7 +18,7 @@ use std::fmt;
 ///     >>> from finstack.valuations.instruments import TermLoan
 ///     >>> from finstack.core.money import Money
 ///     >>> from datetime import date
-///     >>> 
+///     >>>
 ///     >>> # Create a simple fixed-rate term loan
 ///     >>> loan = TermLoan.from_json('''{
 ///     ...     "id": "loan_001",
@@ -176,4 +176,3 @@ pub(crate) fn register<'py>(
     module.add_class::<PyTermLoan>()?;
     Ok(vec!["TermLoan"])
 }
-

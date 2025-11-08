@@ -200,9 +200,11 @@ impl ModelBuilder<Ready> {
             .collect();
 
         // Get currency from first value for type tracking
-        let value_type = values.first().map(|(_, money)| crate::types::NodeValueType::Monetary {
-            currency: money.currency(),
-        });
+        let value_type = values
+            .first()
+            .map(|(_, money)| crate::types::NodeValueType::Monetary {
+                currency: money.currency(),
+            });
 
         let mut node = NodeSpec::new(node_id.clone(), NodeType::Value).with_values(values_map);
         node.value_type = value_type;
@@ -237,11 +239,7 @@ impl ModelBuilder<Ready> {
     /// # }
     /// ```
     #[must_use = "builder methods must be chained"]
-    pub fn value_scalar(
-        mut self,
-        node_id: impl Into<String>,
-        values: &[(PeriodId, f64)],
-    ) -> Self {
+    pub fn value_scalar(mut self, node_id: impl Into<String>, values: &[(PeriodId, f64)]) -> Self {
         let node_id = node_id.into();
         let values_map: IndexMap<PeriodId, AmountOrScalar> = values
             .iter()

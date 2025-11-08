@@ -5,10 +5,10 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, Stu
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
+use super::spec::{AmortizationSpec, CovenantSpec, DdtlSpec, LoanCallSchedule};
+use crate::cashflow::builder::types::CouponType;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::pricing_overrides::PricingOverrides;
-use crate::cashflow::builder::types::CouponType;
-use super::spec::{AmortizationSpec, CovenantSpec, DdtlSpec, LoanCallSchedule};
 
 /// Minimal rate spec placeholder (extended in later tasks)
 #[derive(Clone, Debug)]
@@ -122,7 +122,9 @@ impl crate::instruments::common::traits::Instrument for TermLoan {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         // Delegate to discounting pricer (deterministic v1)
-        crate::instruments::term_loan::pricing::TermLoanDiscountingPricer::price(self, curves, as_of)
+        crate::instruments::term_loan::pricing::TermLoanDiscountingPricer::price(
+            self, curves, as_of,
+        )
     }
 
     fn price_with_metrics(
@@ -139,22 +141,25 @@ impl crate::instruments::common::traits::Instrument for TermLoan {
 }
 
 impl crate::cashflow::traits::CashflowProvider for TermLoan {
-	fn build_schedule(
-		&self,
-		curves: &finstack_core::market_data::MarketContext,
-		as_of: finstack_core::dates::Date,
-	) -> finstack_core::Result<crate::cashflow::DatedFlows> {
-		let sched = crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)?;
-		Ok(crate::instruments::term_loan::cashflows::build_dated_flows(&sched))
-	}
+    fn build_schedule(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
+        let sched =
+            crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)?;
+        Ok(crate::instruments::term_loan::cashflows::build_dated_flows(
+            &sched,
+        ))
+    }
 
-	fn build_full_schedule(
-		&self,
-		curves: &finstack_core::market_data::MarketContext,
-		as_of: finstack_core::dates::Date,
-	) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-		crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)
-	}
+    fn build_full_schedule(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)
+    }
 }
 
 // Allow generic metric calculators to fetch discount curve id
@@ -163,5 +168,3 @@ impl crate::instruments::common::pricing::HasDiscountCurve for TermLoan {
         &self.discount_curve_id
     }
 }
-
-

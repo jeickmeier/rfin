@@ -248,7 +248,7 @@ impl PyResults {
     /// # └─────────────┴───────────┴────────────┴──────────────┴──────────┴────────────┘
     fn to_polars_long(&self) -> PyResult<pyo3_polars::PyDataFrame> {
         use finstack_statements::results::to_polars_long;
-        
+
         let df = to_polars_long(&self.inner).map_err(stmt_to_py)?;
         Ok(pyo3_polars::PyDataFrame(df))
     }
@@ -275,7 +275,7 @@ impl PyResults {
     /// # └───────────┴────────────┴──────────┘
     fn to_polars_wide(&self) -> PyResult<pyo3_polars::PyDataFrame> {
         use finstack_statements::results::to_polars_wide;
-        
+
         let df = to_polars_wide(&self.inner).map_err(stmt_to_py)?;
         Ok(pyo3_polars::PyDataFrame(df))
     }
@@ -299,9 +299,12 @@ impl PyResults {
     /// --------
     /// >>> df = results.to_polars_long_filtered(["revenue", "cogs"])
     /// >>> print(df)
-    fn to_polars_long_filtered(&self, node_filter: Vec<String>) -> PyResult<pyo3_polars::PyDataFrame> {
+    fn to_polars_long_filtered(
+        &self,
+        node_filter: Vec<String>,
+    ) -> PyResult<pyo3_polars::PyDataFrame> {
         use finstack_statements::results::to_polars_long_filtered;
-        
+
         let node_filter_refs: Vec<&str> = node_filter.iter().map(|s| s.as_str()).collect();
         let df = to_polars_long_filtered(&self.inner, &node_filter_refs).map_err(stmt_to_py)?;
         Ok(pyo3_polars::PyDataFrame(df))
@@ -448,13 +451,13 @@ impl PyEvaluatorWithContext {
         as_of: &Bound<'_, PyAny>,
     ) -> PyResult<Self> {
         use crate::core::utils::py_to_date;
-        
+
         let as_of_date = py_to_date(as_of)?;
         let inner = finstack_statements::evaluator::Evaluator::with_market_context(
             &market_ctx.inner,
             as_of_date,
         );
-        
+
         Ok(Self { inner })
     }
 

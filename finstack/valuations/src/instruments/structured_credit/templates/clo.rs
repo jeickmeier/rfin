@@ -7,12 +7,15 @@
 //! - Principal payments with OC/IC test triggers
 //! - Equity distribution
 
-use super::super::components::{
-    AllocationMode, ManagementFeeType, PaymentCalculation, PaymentRecipient,
-    PaymentType, Recipient, WaterfallBuilder, WaterfallEngine, WaterfallTier,
-};
 use super::super::components::waterfall::CoverageTrigger;
-use super::super::config::{BASIS_POINTS_DIVISOR, CLO_SENIOR_MGMT_FEE_BPS, CLO_SUBORDINATED_MGMT_FEE_BPS, CLO_TRUSTEE_FEE_ANNUAL};
+use super::super::components::{
+    AllocationMode, ManagementFeeType, PaymentCalculation, PaymentRecipient, PaymentType,
+    Recipient, WaterfallBuilder, WaterfallEngine, WaterfallTier,
+};
+use super::super::config::{
+    BASIS_POINTS_DIVISOR, CLO_SENIOR_MGMT_FEE_BPS, CLO_SUBORDINATED_MGMT_FEE_BPS,
+    CLO_TRUSTEE_FEE_ANNUAL,
+};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -107,10 +110,26 @@ pub fn clo_2_0_template(currency: Currency) -> WaterfallEngine {
             WaterfallTier::new("principal_payments", 4, PaymentType::Principal)
                 .allocation_mode(AllocationMode::Sequential)
                 .divertible(true)
-                .add_recipient(Recipient::tranche_principal("class_a_prin", "CLASS_A", None))
-                .add_recipient(Recipient::tranche_principal("class_b_prin", "CLASS_B", None))
-                .add_recipient(Recipient::tranche_principal("class_c_prin", "CLASS_C", None))
-                .add_recipient(Recipient::tranche_principal("class_d_prin", "CLASS_D", None)),
+                .add_recipient(Recipient::tranche_principal(
+                    "class_a_prin",
+                    "CLASS_A",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_b_prin",
+                    "CLASS_B",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_c_prin",
+                    "CLASS_C",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_d_prin",
+                    "CLASS_D",
+                    None,
+                )),
         )
         // Tier 5: Equity Distribution
         .add_tier(
@@ -182,4 +201,3 @@ mod tests {
         assert_eq!(interest_tier.recipients[3].id, "class_d_int");
     }
 }
-

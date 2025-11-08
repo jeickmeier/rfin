@@ -66,7 +66,7 @@ impl MetricCalculator for ConvexityCalculator {
 
         // Convexity = (P+ + P- - 2*P0) / (P0 * dy^2)
         let convexity = (p_up + p_dn - 2.0 * p0) / (p0 * dy * dy);
-        
+
         Ok(convexity)
     }
 }

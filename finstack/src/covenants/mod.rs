@@ -132,5 +132,3 @@ pub fn to_polars(forecast: &CovenantForecast) -> polars::prelude::DataFrame {
     ]
     .expect("dataframe build")
 }
-
-

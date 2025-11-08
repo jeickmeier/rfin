@@ -3,15 +3,18 @@
 //! Provides the canonical `CashFlowSchedule` type and helpers for sorting and
 //! deriving schedule metadata. Downstream pricing/risk code consumes this shape.
 
+use crate::cashflow::aggregation::{pv_by_period, pv_by_period_credit_adjusted};
 use crate::cashflow::primitives::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
-use crate::cashflow::aggregation::{pv_by_period, pv_by_period_credit_adjusted};
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::money::Money;
-use finstack_core::market_data::{MarketContext, traits::{Discounting, Survival}};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::types::CurveId;
+use finstack_core::market_data::{
+    traits::{Discounting, Survival},
+    MarketContext,
+};
+use finstack_core::money::Money;
 use finstack_core::prelude::*;
+use finstack_core::types::CurveId;
 use indexmap::IndexMap;
 use std::sync::Arc;
 
@@ -85,6 +88,17 @@ pub struct CashFlowSchedule {
     pub notional: Notional,
     pub day_count: DayCount,
     pub meta: CashflowMeta,
+}
+
+/// Options for period-aligned DataFrame exports.
+#[derive(Debug, Clone, Default)]
+pub struct PeriodDataFrameOptions<'a> {
+    pub hazard_curve_id: Option<&'a str>,
+    pub forward_curve_id: Option<&'a str>,
+    pub as_of: Option<Date>,
+    pub day_count: Option<DayCount>,
+    pub facility_limit: Option<Money>,
+    pub include_floating_decomposition: bool,
 }
 
 impl CashFlowSchedule {
@@ -273,7 +287,7 @@ impl CashFlowSchedule {
         dc: DayCount,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
-        
+
         // Get discount curve
         let disc_arc = market.get_discount(disc_curve_id.as_str())?;
         let disc: &dyn Discounting = disc_arc.as_ref();
@@ -286,9 +300,13 @@ impl CashFlowSchedule {
             None
         };
 
-        let hazard: Option<&dyn Survival> = hazard_arc_opt.as_ref().map(|arc| arc.as_ref() as &dyn Survival);
+        let hazard: Option<&dyn Survival> = hazard_arc_opt
+            .as_ref()
+            .map(|arc| arc.as_ref() as &dyn Survival);
 
-        Ok(pv_by_period_credit_adjusted(&flows, periods, disc, hazard, base, dc))
+        Ok(pv_by_period_credit_adjusted(
+            &flows, periods, disc, hazard, base, dc,
+        ))
     }
 
     /// Period-aligned DataFrame-like export with optional credit and floating decomposition.
@@ -296,35 +314,35 @@ impl CashFlowSchedule {
     /// This computes all derived columns (discount factors, survival probabilities,
     /// base rate, spread, all-in rate, unfunded amounts) in Rust for consistency
     /// across language bindings. Bindings should only perform type conversion.
+    /// * `options` - Additional configuration (hazard/forward IDs, overrides, facility limits).
     pub fn to_period_dataframe(
         &self,
         periods: &[finstack_core::dates::Period],
         market: &MarketContext,
         discount_curve_id: &str,
-        hazard_curve_id: Option<&str>,
-        forward_curve_id: Option<&str>,
-        as_of: Option<Date>,
-        day_count: Option<DayCount>,
-        facility_limit: Option<Money>,
-        include_floating_decomposition: bool,
+        options: PeriodDataFrameOptions<'_>,
     ) -> finstack_core::Result<PeriodDataFrame> {
         use finstack_core::dates::DayCountCtx;
-        let dc = day_count.unwrap_or(self.day_count);
+        let dc = options.day_count.unwrap_or(self.day_count);
 
         let disc_arc = market.get_discount(discount_curve_id)?;
-        let base = as_of.unwrap_or_else(|| disc_arc.base_date());
+        let base = options.as_of.unwrap_or_else(|| disc_arc.base_date());
 
-        let has_hazard = hazard_curve_id.is_some();
-        let hazard_arc_opt = if let Some(hz) = hazard_curve_id {
+        let has_hazard = options.hazard_curve_id.is_some();
+        let hazard_arc_opt = if let Some(hz) = options.hazard_curve_id {
             Some(market.get_hazard(hz)?)
         } else {
             None
         };
-        let forward_arc_opt = if include_floating_decomposition {
-            forward_curve_id.and_then(|fid| market.get_forward(fid).ok())
+        let forward_arc_opt = if options.include_floating_decomposition {
+            options
+                .forward_curve_id
+                .and_then(|fid| market.get_forward(fid).ok())
         } else {
             None
         };
+
+        let facility_limit = options.facility_limit;
 
         // Columns
         let mut start_dates: Vec<Date> = Vec::new();
@@ -337,12 +355,23 @@ impl CashFlowSchedule {
         let mut days: Vec<i64> = Vec::new();
         let mut amounts: Vec<f64> = Vec::new();
         let mut discount_factors: Vec<f64> = Vec::new();
-        let mut survival_probs: Option<Vec<Option<f64>>> = if has_hazard { Some(Vec::new()) } else { None };
+        let mut survival_probs: Option<Vec<Option<f64>>> =
+            if has_hazard { Some(Vec::new()) } else { None };
         let mut pvs: Vec<f64> = Vec::new();
-        let mut unfunded_amounts: Option<Vec<Option<f64>>> = facility_limit.as_ref().map(|_| Vec::new());
-        let mut commitment_amounts: Option<Vec<Option<f64>>> = facility_limit.as_ref().map(|_| Vec::new());
-        let mut base_rates: Option<Vec<Option<f64>>> = if include_floating_decomposition { Some(Vec::new()) } else { None };
-        let mut spreads: Option<Vec<Option<f64>>> = if include_floating_decomposition { Some(Vec::new()) } else { None };
+        let mut unfunded_amounts: Option<Vec<Option<f64>>> =
+            facility_limit.as_ref().map(|_| Vec::new());
+        let mut commitment_amounts: Option<Vec<Option<f64>>> =
+            facility_limit.as_ref().map(|_| Vec::new());
+        let mut base_rates: Option<Vec<Option<f64>>> = if options.include_floating_decomposition {
+            Some(Vec::new())
+        } else {
+            None
+        };
+        let mut spreads: Option<Vec<Option<f64>>> = if options.include_floating_decomposition {
+            Some(Vec::new())
+        } else {
+            None
+        };
         let mut allin_rates: Vec<Option<f64>> = Vec::new();
 
         // Track outstanding drawn balance for Notional column
@@ -350,7 +379,9 @@ impl CashFlowSchedule {
 
         for cf in &self.flows {
             // Find containing period (inclusive end)
-            let period_opt = periods.iter().find(|p| cf.date >= p.start && cf.date <= p.end);
+            let period_opt = periods
+                .iter()
+                .find(|p| cf.date >= p.start && cf.date <= p.end);
             if period_opt.is_none() {
                 continue;
             }
@@ -381,15 +412,20 @@ impl CashFlowSchedule {
             amounts.push(cf.amount.amount());
 
             // Notional for interest-like rows
-            let notional_val = if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset) || cf.accrual_factor > 0.0 {
-                Some(outstanding_pre.amount())
-            } else {
-                None
-            };
+            let notional_val =
+                if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset)
+                    || cf.accrual_factor > 0.0
+                {
+                    Some(outstanding_pre.amount())
+                } else {
+                    None
+                };
             notionals.push(notional_val);
 
             // YrFraq and Days
-            let yr_fraq = dc.year_fraction(period.start, cf.date, DayCountCtx::default()).unwrap_or(0.0);
+            let yr_fraq = dc
+                .year_fraction(period.start, cf.date, DayCountCtx::default())
+                .unwrap_or(0.0);
             yr_fraqs.push(yr_fraq);
             days.push((cf.date - period.start).whole_days());
 
@@ -397,24 +433,30 @@ impl CashFlowSchedule {
             let t = if cf.date == base {
                 0.0
             } else if cf.date > base {
-                dc.year_fraction(base, cf.date, DayCountCtx::default()).unwrap_or(0.0)
+                dc.year_fraction(base, cf.date, DayCountCtx::default())
+                    .unwrap_or(0.0)
             } else {
-                -dc.year_fraction(cf.date, base, DayCountCtx::default()).unwrap_or(0.0)
+                -dc.year_fraction(cf.date, base, DayCountCtx::default())
+                    .unwrap_or(0.0)
             };
             let df = disc_arc.df(t);
             discount_factors.push(df);
 
             // Survival probability
-            if let (Some(ref h), Some(ref mut spv)) = (hazard_arc_opt.as_ref(), survival_probs.as_mut()) {
+            if let (Some(h), Some(spv)) = (hazard_arc_opt.as_ref(), survival_probs.as_mut()) {
                 spv.push(Some(h.sp(t)));
             }
 
             // PV
-            let sp_mult = if let Some(ref spv) = survival_probs { spv.last().copied().flatten().unwrap_or(1.0) } else { 1.0 };
+            let sp_mult = if let Some(ref spv) = survival_probs {
+                spv.last().copied().flatten().unwrap_or(1.0)
+            } else {
+                1.0
+            };
             pvs.push(cf.amount.amount() * df * sp_mult);
 
             // Unfunded and commitment amounts
-            if let Some(limit) = facility_limit {
+            if let Some(limit) = facility_limit.as_ref() {
                 if let Some(ref mut unfunded_vec) = unfunded_amounts {
                     if limit.currency() == cf.amount.currency() {
                         let val = (limit.amount() - outstanding_pre.amount()).max(0.0);
@@ -435,18 +477,24 @@ impl CashFlowSchedule {
             // Floating decomposition
             let mut base_rate_opt: Option<f64> = None;
             let mut spread_opt: Option<f64> = None;
-            if include_floating_decomposition && matches!(cf.kind, CFKind::FloatReset) {
+            if options.include_floating_decomposition && matches!(cf.kind, CFKind::FloatReset) {
                 if let Some(ref fwd) = forward_arc_opt {
                     let reset_t = if let Some(reset_date) = cf.reset_date {
                         if reset_date == base {
                             0.0
                         } else if reset_date > base {
-                            fwd.day_count().year_fraction(base, reset_date, DayCountCtx::default()).unwrap_or(0.0)
+                            fwd.day_count()
+                                .year_fraction(base, reset_date, DayCountCtx::default())
+                                .unwrap_or(0.0)
                         } else {
-                            -fwd.day_count().year_fraction(reset_date, base, DayCountCtx::default()).unwrap_or(0.0)
+                            -fwd.day_count()
+                                .year_fraction(reset_date, base, DayCountCtx::default())
+                                .unwrap_or(0.0)
                         }
                     } else {
-                        fwd.day_count().year_fraction(base, period.start, DayCountCtx::default()).unwrap_or(0.0)
+                        fwd.day_count()
+                            .year_fraction(base, period.start, DayCountCtx::default())
+                            .unwrap_or(0.0)
                     };
                     let b = fwd.rate(reset_t);
                     base_rate_opt = Some(b);

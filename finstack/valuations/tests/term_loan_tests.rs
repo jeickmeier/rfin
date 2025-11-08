@@ -4,10 +4,10 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use finstack_valuations::cashflow::primitives::CFKind;
+use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::term_loan::{self, DdtlSpec, DrawEvent, OidPolicy, TermLoan};
 use finstack_valuations::pricer::Pricer;
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::cashflow::primitives::CFKind;
 
 fn mc() -> MarketContext {
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
@@ -45,8 +45,14 @@ fn term_loan_fixed_with_draws_and_fees() {
             availability_start: issue,
             availability_end: Date::from_calendar_date(2026, time::Month::January, 1).unwrap(),
             draws: vec![
-                DrawEvent { date: issue, amount: Money::new(3_000_000.0, Currency::USD) },
-                DrawEvent { date: Date::from_calendar_date(2025, time::Month::July, 1).unwrap(), amount: Money::new(2_000_000.0, Currency::USD) },
+                DrawEvent {
+                    date: issue,
+                    amount: Money::new(3_000_000.0, Currency::USD),
+                },
+                DrawEvent {
+                    date: Date::from_calendar_date(2025, time::Month::July, 1).unwrap(),
+                    amount: Money::new(2_000_000.0, Currency::USD),
+                },
             ],
             commitment_step_downs: vec![],
             usage_fee_bp: 10,
@@ -86,8 +92,14 @@ fn term_loan_pik_toggle_and_cash_sweep() {
 
     let cov = term_loan::CovenantSpec {
         margin_stepups: vec![],
-        pik_toggles: vec![term_loan::PikToggle { date: Date::from_calendar_date(2025, time::Month::July, 1).unwrap(), enable_pik: true }],
-        cash_sweeps: vec![term_loan::CashSweepEvent { date: Date::from_calendar_date(2025, time::Month::October, 1).unwrap(), amount: Money::new(500_000.0, Currency::USD) }],
+        pik_toggles: vec![term_loan::PikToggle {
+            date: Date::from_calendar_date(2025, time::Month::July, 1).unwrap(),
+            enable_pik: true,
+        }],
+        cash_sweeps: vec![term_loan::CashSweepEvent {
+            date: Date::from_calendar_date(2025, time::Month::October, 1).unwrap(),
+            amount: Money::new(500_000.0, Currency::USD),
+        }],
         draw_stop_dates: vec![],
     };
 
@@ -121,5 +133,3 @@ fn term_loan_pik_toggle_and_cash_sweep() {
     let has_pik = sched.flows.iter().any(|cf| cf.kind == CFKind::PIK);
     assert!(has_pik);
 }
-
-

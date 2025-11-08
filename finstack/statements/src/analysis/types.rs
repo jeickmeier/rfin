@@ -143,4 +143,3 @@ impl SensitivityResult {
         self.scenarios.is_empty()
     }
 }
-

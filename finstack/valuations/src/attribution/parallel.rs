@@ -72,7 +72,7 @@ use std::sync::Arc;
 /// println!("Total P&L: {}", attribution.total_pnl);
 /// println!("Carry: {}", attribution.carry);
 /// println!("Rates: {}", attribution.rates_curves_pnl);
-/// println!("Residual: {} ({:.2}%)", 
+/// println!("Residual: {} ({:.2}%)",
 ///     attribution.residual,
 ///     attribution.meta.residual_pct
 /// );
@@ -186,8 +186,13 @@ pub fn attribute_pnl_parallel(
         let val_with_t0_fx = reprice_instrument(instrument, &market_with_t0_fx, as_of_t1)?;
         num_repricings += 1;
 
-        attribution.fx_pnl =
-            compute_pnl(val_with_t0_fx, val_t1, val_t1.currency(), market_t1, as_of_t1)?;
+        attribution.fx_pnl = compute_pnl(
+            val_with_t0_fx,
+            val_t1,
+            val_t1.currency(),
+            market_t1,
+            as_of_t1,
+        )?;
     }
 
     // Step 8: Volatility attribution
@@ -197,18 +202,28 @@ pub fn attribute_pnl_parallel(
         let val_with_t0_vol = reprice_instrument(instrument, &market_with_t0_vol, as_of_t1)?;
         num_repricings += 1;
 
-        attribution.vol_pnl =
-            compute_pnl(val_with_t0_vol, val_t1, val_t1.currency(), market_t1, as_of_t1)?;
+        attribution.vol_pnl = compute_pnl(
+            val_with_t0_vol,
+            val_t1,
+            val_t1.currency(),
+            market_t1,
+            as_of_t1,
+        )?;
     }
 
     // Step 9: Model parameters attribution
     let params_t0 = crate::attribution::model_params::extract_model_params(instrument);
-    if !matches!(params_t0, crate::attribution::model_params::ModelParamsSnapshot::None) {
+    if !matches!(
+        params_t0,
+        crate::attribution::model_params::ModelParamsSnapshot::None
+    ) {
         // Create instrument with T₀ parameters
         match crate::attribution::model_params::with_model_params(instrument, &params_t0) {
             Ok(instrument_with_t0_params) => {
                 // Reprice with T₁ market
-                if let Ok(val_with_t0_params) = reprice_instrument(&instrument_with_t0_params, market_t1, as_of_t1) {
+                if let Ok(val_with_t0_params) =
+                    reprice_instrument(&instrument_with_t0_params, market_t1, as_of_t1)
+                {
                     num_repricings += 1;
 
                     attribution.model_params_pnl = compute_pnl(
@@ -299,7 +314,8 @@ mod tests {
         fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
             // Return a static empty attributes for test purposes
             use std::sync::OnceLock;
-            static ATTRS: OnceLock<crate::instruments::common::traits::Attributes> = OnceLock::new();
+            static ATTRS: OnceLock<crate::instruments::common::traits::Attributes> =
+                OnceLock::new();
             ATTRS.get_or_init(crate::instruments::common::traits::Attributes::default)
         }
 
@@ -326,7 +342,11 @@ mod tests {
             _metrics: &[crate::metrics::MetricId],
         ) -> Result<crate::results::ValuationResult> {
             let value = self.value(market, as_of)?;
-            Ok(crate::results::ValuationResult::stamped(self.id(), as_of, value))
+            Ok(crate::results::ValuationResult::stamped(
+                self.id(),
+                as_of,
+                value,
+            ))
         }
     }
 
@@ -397,4 +417,3 @@ mod tests {
         assert!(restored.get_discount("USD-OIS").is_ok());
     }
 }
-

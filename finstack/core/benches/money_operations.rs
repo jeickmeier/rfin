@@ -181,5 +181,3 @@ criterion_group!(
     bench_money_formatting,
 );
 criterion_main!(benches);
-
-

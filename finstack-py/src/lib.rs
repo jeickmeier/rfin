@@ -141,7 +141,14 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
         if let Ok(val_mod) = valuations_mod.downcast::<PyModule>() {
             if let Ok(cov_mod) = val_mod.getattr("covenants") {
                 let cov_mod = cov_mod.downcast::<PyModule>()?;
-                for attr in ["CovenantType", "Covenant", "CovenantSpec", "CovenantForecastConfig", "CovenantForecast", "forecast_covenant"] {
+                for attr in [
+                    "CovenantType",
+                    "Covenant",
+                    "CovenantSpec",
+                    "CovenantForecastConfig",
+                    "CovenantForecast",
+                    "forecast_covenant",
+                ] {
                     if let Ok(value) = cov_mod.getattr(attr) {
                         m.setattr(attr, &value)?;
                     }

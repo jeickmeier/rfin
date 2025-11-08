@@ -218,25 +218,42 @@ fn apply_factor_to_t1(
     if matches!(factor, AttributionFactor::ModelParameters) {
         // Extract T₁ parameters and create modified instrument
         let params_t1 = crate::attribution::model_params::extract_model_params(instrument);
-        
-        if !matches!(params_t1, crate::attribution::model_params::ModelParamsSnapshot::None) {
+
+        if !matches!(
+            params_t1,
+            crate::attribution::model_params::ModelParamsSnapshot::None
+        ) {
             match crate::attribution::model_params::with_model_params(instrument, &params_t1) {
                 Ok(instrument_with_t1_params) => {
                     // Reprice with T₁ parameters
-                    if let Ok(new_val) = reprice_instrument(&instrument_with_t1_params, current_market, as_of_t1) {
+                    if let Ok(new_val) =
+                        reprice_instrument(&instrument_with_t1_params, current_market, as_of_t1)
+                    {
                         *num_repricings += 1;
-                        let factor_pnl = compute_pnl(current_val, new_val, current_val.currency(), current_market, as_of_t1)?;
+                        let factor_pnl = compute_pnl(
+                            current_val,
+                            new_val,
+                            current_val.currency(),
+                            current_market,
+                            as_of_t1,
+                        )?;
                         return Ok((current_market.clone(), factor_pnl));
                     }
                 }
                 Err(_) => {
                     // If modification fails, return zero P&L
-                    return Ok((current_market.clone(), Money::new(0.0, current_val.currency())));
+                    return Ok((
+                        current_market.clone(),
+                        Money::new(0.0, current_val.currency()),
+                    ));
                 }
             }
         }
         // If no params or extraction fails, return zero P&L
-        return Ok((current_market.clone(), Money::new(0.0, current_val.currency())));
+        return Ok((
+            current_market.clone(),
+            Money::new(0.0, current_val.currency()),
+        ));
     }
 
     // For all other factors, modify the market
@@ -293,7 +310,13 @@ fn apply_factor_to_t1(
     *num_repricings += 1;
 
     // Compute P&L from this factor
-    let factor_pnl = compute_pnl(current_val, new_val, current_val.currency(), &new_market, as_of_t1)?;
+    let factor_pnl = compute_pnl(
+        current_val,
+        new_val,
+        current_val.currency(),
+        &new_market,
+        as_of_t1,
+    )?;
 
     Ok((new_market, factor_pnl))
 }
@@ -336,7 +359,8 @@ mod tests {
         fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
             // Return a static empty attributes for test purposes
             use std::sync::OnceLock;
-            static ATTRS: OnceLock<crate::instruments::common::traits::Attributes> = OnceLock::new();
+            static ATTRS: OnceLock<crate::instruments::common::traits::Attributes> =
+                OnceLock::new();
             ATTRS.get_or_init(crate::instruments::common::traits::Attributes::default)
         }
 
@@ -363,7 +387,11 @@ mod tests {
             _metrics: &[crate::metrics::MetricId],
         ) -> Result<crate::results::ValuationResult> {
             let value = self.value(market, as_of)?;
-            Ok(crate::results::ValuationResult::stamped(self.id(), as_of, value))
+            Ok(crate::results::ValuationResult::stamped(
+                self.id(),
+                as_of,
+                value,
+            ))
         }
     }
 
@@ -380,10 +408,9 @@ mod tests {
         let as_of_t0 = date!(2025 - 01 - 15);
         let as_of_t1 = date!(2025 - 01 - 16);
 
-        let instrument: Arc<dyn crate::instruments::common::traits::Instrument> = Arc::new(TestInstrument::new(
-            "TEST-001",
-            Money::new(1000.0, Currency::USD),
-        ));
+        let instrument: Arc<dyn crate::instruments::common::traits::Instrument> = Arc::new(
+            TestInstrument::new("TEST-001", Money::new(1000.0, Currency::USD)),
+        );
 
         let market_t0 = MarketContext::new();
         let market_t1 = MarketContext::new();
@@ -403,4 +430,3 @@ mod tests {
         assert!(result.is_err());
     }
 }
-

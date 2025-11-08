@@ -7,12 +7,12 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::{
-    AllocationMode, AssetPool, DealType, ManagementFeeType, PaymentCalculation,
-    PaymentRecipient, PaymentType, Recipient, Tranche, TrancheCoupon, TrancheSeniority,
-    TrancheStructure, WaterfallBuilder, WaterfallTier,
-};
 use finstack_valuations::instruments::structured_credit::components::waterfall::CoverageTrigger;
+use finstack_valuations::instruments::structured_credit::{
+    AllocationMode, AssetPool, DealType, ManagementFeeType, PaymentCalculation, PaymentRecipient,
+    PaymentType, Recipient, Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure,
+    WaterfallBuilder, WaterfallTier,
+};
 
 /// Helper to create a simple market context for testing
 fn create_test_market() -> MarketContext {
@@ -21,15 +21,15 @@ fn create_test_market() -> MarketContext {
 
 /// Helper to create a test asset pool
 fn create_test_pool(balance: f64, currency: Currency) -> AssetPool {
-    use finstack_valuations::instruments::structured_credit::{AssetType, CreditRating, PoolAsset};
     use finstack_core::types::InstrumentId;
-    
+    use finstack_valuations::instruments::structured_credit::{AssetType, CreditRating, PoolAsset};
+
     let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, currency);
-    
+
     // Add assets to match the specified balance
     let num_assets = 10;
     let asset_balance = balance / num_assets as f64;
-    
+
     for i in 0..num_assets {
         let asset = PoolAsset {
             id: InstrumentId::new(format!("ASSET_{}", i)),
@@ -51,7 +51,7 @@ fn create_test_pool(balance: f64, currency: Currency) -> AssetPool {
         };
         pool.assets.push(asset);
     }
-    
+
     pool
 }
 
@@ -108,11 +108,11 @@ fn create_test_tranches(currency: Currency) -> TrancheStructure {
 fn test_golden_clo_2_0_full_payment() {
     // Scenario: Standard CLO 2.0 with sufficient cash to pay all obligations
     // Based on typical CLO structure with $250M collateral
-    
+
     let currency = Currency::USD;
     let pool = create_test_pool(250_000_000.0, currency);
     let tranches = create_test_tranches(currency);
-    
+
     // Build waterfall matching CLO 2.0 template
     let mut waterfall = WaterfallBuilder::new(currency)
         // Tier 1: Fees
@@ -130,7 +130,7 @@ fn test_golden_clo_2_0_full_payment() {
                     "senior_mgmt",
                     PaymentRecipient::ManagerFee(ManagementFeeType::Senior),
                     PaymentCalculation::PercentageOfCollateral {
-                        rate: 0.004,      // 40 bps
+                        rate: 0.004, // 40 bps
                         annualized: true,
                     },
                 )),
@@ -148,9 +148,21 @@ fn test_golden_clo_2_0_full_payment() {
             WaterfallTier::new("principal", 3, PaymentType::Principal)
                 .allocation_mode(AllocationMode::Sequential)
                 .divertible(true)
-                .add_recipient(Recipient::tranche_principal("class_a_prin", "CLASS_A", None))
-                .add_recipient(Recipient::tranche_principal("class_b_prin", "CLASS_B", None))
-                .add_recipient(Recipient::tranche_principal("class_c_prin", "CLASS_C", None)),
+                .add_recipient(Recipient::tranche_principal(
+                    "class_a_prin",
+                    "CLASS_A",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_b_prin",
+                    "CLASS_B",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_c_prin",
+                    "CLASS_C",
+                    None,
+                )),
         )
         // Tier 4: Equity
         .add_tier(
@@ -189,7 +201,7 @@ fn test_golden_clo_2_0_full_payment() {
 
     // Verify tier allocations
     assert_eq!(result.tier_allocations.len(), 4);
-    
+
     // Tier 1: Fees
     let (tier_id, amount) = &result.tier_allocations[0];
     assert_eq!(tier_id, "fees");
@@ -199,7 +211,7 @@ fn test_golden_clo_2_0_full_payment() {
     // Tier 2: Interest payments
     let (tier_id, _) = &result.tier_allocations[1];
     assert_eq!(tier_id, "interest");
-    
+
     // Expected quarterly interest:
     // Class A: $175M * 5% / 4 = $2,187,500
     // Class B: $37.5M * 6.5% / 4 = $609,375
@@ -208,7 +220,7 @@ fn test_golden_clo_2_0_full_payment() {
 
     // Coverage tests should pass (sufficient collateral)
     assert!(!result.had_diversions);
-    
+
     // No cash should be diverted
     assert_eq!(result.diverted_cash.amount(), 0.0);
 
@@ -226,16 +238,16 @@ fn test_golden_clo_2_0_full_payment() {
 fn test_golden_clo_oc_breach_diversion() {
     // Scenario: CLO with OC test breach causing principal diversion
     // Similar to 2008 crisis scenarios where subordinated cash diverts to senior
-    
+
     let currency = Currency::USD;
-    
+
     // Create impaired pool (lower collateral value)
     let mut pool = create_test_pool(200_000_000.0, currency); // Down from $250M
     pool.cumulative_defaults = Money::new(30_000_000.0, currency);
     pool.cumulative_recoveries = Money::new(15_000_000.0, currency);
-    
+
     let tranches = create_test_tranches(currency);
-    
+
     let mut waterfall = WaterfallBuilder::new(currency)
         .add_tier(
             WaterfallTier::new("fees", 1, PaymentType::Fee)
@@ -258,16 +270,23 @@ fn test_golden_clo_oc_breach_diversion() {
             WaterfallTier::new("principal", 3, PaymentType::Principal)
                 .allocation_mode(AllocationMode::Sequential)
                 .divertible(true)
-                .add_recipient(Recipient::tranche_principal("class_a_prin", "CLASS_A", None))
-                .add_recipient(Recipient::tranche_principal("class_b_prin", "CLASS_B", None)),
+                .add_recipient(Recipient::tranche_principal(
+                    "class_a_prin",
+                    "CLASS_A",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_b_prin",
+                    "CLASS_B",
+                    None,
+                )),
         )
         .add_tier(
-            WaterfallTier::new("equity", 4, PaymentType::Residual)
-                .add_recipient(Recipient::new(
-                    "equity",
-                    PaymentRecipient::Equity,
-                    PaymentCalculation::ResidualCash,
-                )),
+            WaterfallTier::new("equity", 4, PaymentType::Residual).add_recipient(Recipient::new(
+                "equity",
+                PaymentRecipient::Equity,
+                PaymentCalculation::ResidualCash,
+            )),
         )
         .add_coverage_trigger(CoverageTrigger {
             tranche_id: "CLASS_A".into(),
@@ -296,21 +315,24 @@ fn test_golden_clo_oc_breach_diversion() {
 
     // With impaired collateral, OC test should fail
     // OC ratio = $200M / ($175M) = 1.14 < 1.25 required
-    
+
     // Verify coverage test failure
     let oc_test = result
         .coverage_tests
         .iter()
         .find(|(name, _, _)| name.contains("OC_CLASS_A"));
-    
+
     if let Some((_, ratio, passed)) = oc_test {
         assert!(*ratio < 1.25, "OC ratio should be below trigger");
         assert!(!passed, "OC test should have failed");
     }
 
     // Verify diversion was triggered
-    assert!(result.had_diversions, "OC breach should trigger diversion flag");
-    
+    assert!(
+        result.had_diversions,
+        "OC breach should trigger diversion flag"
+    );
+
     // Note: diverted_cash tracking is currently limited to tiers that actually redirect
     // For now, just verify the flag is set
     // TODO: Enhance diversion tracking to capture all diverted amounts
@@ -320,10 +342,10 @@ fn test_golden_clo_oc_breach_diversion() {
 fn test_golden_cmbs_sequential_pay() {
     // Scenario: CMBS with strict sequential principal paydown
     // No OC/IC tests, principal follows strict seniority
-    
+
     let currency = Currency::USD;
     let pool = create_test_pool(500_000_000.0, currency);
-    
+
     // CMBS typically has 5 classes
     let class_a = Tranche::new(
         "CLASS_A",
@@ -362,15 +384,14 @@ fn test_golden_cmbs_sequential_pay() {
 
     let mut waterfall = WaterfallBuilder::new(currency)
         .add_tier(
-            WaterfallTier::new("servicing", 1, PaymentType::Fee)
-                .add_recipient(Recipient::new(
-                    "master_servicer",
-                    PaymentRecipient::ServiceProvider("MasterServicer".into()),
-                    PaymentCalculation::PercentageOfCollateral {
-                        rate: 0.0025,     // 25 bps
-                        annualized: true,
-                    },
-                )),
+            WaterfallTier::new("servicing", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                "master_servicer",
+                PaymentRecipient::ServiceProvider("MasterServicer".into()),
+                PaymentCalculation::PercentageOfCollateral {
+                    rate: 0.0025, // 25 bps
+                    annualized: true,
+                },
+            )),
         )
         .add_tier(
             WaterfallTier::new("interest", 2, PaymentType::Interest)
@@ -383,9 +404,21 @@ fn test_golden_cmbs_sequential_pay() {
             WaterfallTier::new("principal", 3, PaymentType::Principal)
                 .allocation_mode(AllocationMode::Sequential)
                 .divertible(false) // CMBS doesn't divert
-                .add_recipient(Recipient::tranche_principal("class_a_prin", "CLASS_A", None))
-                .add_recipient(Recipient::tranche_principal("class_b_prin", "CLASS_B", None))
-                .add_recipient(Recipient::tranche_principal("class_c_prin", "CLASS_C", None)),
+                .add_recipient(Recipient::tranche_principal(
+                    "class_a_prin",
+                    "CLASS_A",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_b_prin",
+                    "CLASS_B",
+                    None,
+                ))
+                .add_recipient(Recipient::tranche_principal(
+                    "class_c_prin",
+                    "CLASS_C",
+                    None,
+                )),
         )
         .build();
 
@@ -409,7 +442,7 @@ fn test_golden_cmbs_sequential_pay() {
 
     // CMBS should NOT have coverage tests
     assert_eq!(result.coverage_tests.len(), 0);
-    
+
     // No diversions in CMBS
     assert!(!result.had_diversions);
     assert_eq!(result.diverted_cash.amount(), 0.0);
@@ -420,7 +453,7 @@ fn test_golden_cmbs_sequential_pay() {
         .tier_allocations
         .iter()
         .find(|(id, _)| id == "principal");
-    
+
     assert!(principal_tier.is_some());
 }
 
@@ -428,10 +461,10 @@ fn test_golden_cmbs_sequential_pay() {
 fn test_golden_cre_pro_rata_distribution() {
     // Scenario: CRE operating company with pro-rata preferred return
     // 8% pref to LP/GP, then promote structure
-    
+
     let currency = Currency::USD;
     let pool = create_test_pool(50_000_000.0, currency); // Property value
-    
+
     // LP/GP structure
     let lp = Tranche::new(
         "LP",
@@ -460,14 +493,13 @@ fn test_golden_cre_pro_rata_distribution() {
     let mut waterfall = WaterfallBuilder::new(currency)
         // Operating expenses
         .add_tier(
-            WaterfallTier::new("opex", 1, PaymentType::Fee)
-                .add_recipient(Recipient::new(
-                    "operating",
-                    PaymentRecipient::ServiceProvider("Operating".into()),
-                    PaymentCalculation::FixedAmount {
-                        amount: Money::new(100_000.0, currency),
-                    },
-                )),
+            WaterfallTier::new("opex", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                "operating",
+                PaymentRecipient::ServiceProvider("Operating".into()),
+                PaymentCalculation::FixedAmount {
+                    amount: Money::new(100_000.0, currency),
+                },
+            )),
         )
         // Preferred return (pro-rata by ownership)
         .add_tier(
@@ -540,10 +572,10 @@ fn test_golden_cre_pro_rata_distribution() {
         .tier_allocations
         .iter()
         .find(|(id, _)| id == "preferred_return");
-    
+
     assert!(pref_tier.is_some());
     let (_, pref_amount) = pref_tier.unwrap();
-    
+
     // Expected: 8% pref on $50M / 4 = $1M quarterly
     assert!((pref_amount.amount() - 1_000_000.0).abs() < 10_000.0);
 
@@ -561,14 +593,14 @@ fn test_golden_cre_pro_rata_distribution() {
     let gp_dist = result
         .distributions
         .get(&PaymentRecipient::ManagerFee(ManagementFeeType::Incentive));
-    
+
     if let (Some(_lp), Some(gp)) = (lp_dist, gp_dist) {
         // Total residual after opex and pref
         let residual = available_cash.amount() - 100_000.0 - 1_000_000.0;
-        
+
         // GP should get ~20% of residual (promote)
         let _expected_gp_residual = residual * 0.20;
-        
+
         // Note: GP also got preferred return, so total will be higher
         // Just verify GP got some promote
         assert!(gp.amount() > 50_000.0); // More than just 5% of pref
@@ -579,21 +611,20 @@ fn test_golden_cre_pro_rata_distribution() {
 fn test_golden_cash_conservation() {
     // Property test: Total distributed + remaining = available cash
     // This should hold for ANY valid waterfall execution
-    
+
     let currency = Currency::USD;
     let pool = create_test_pool(100_000_000.0, currency);
     let tranches = create_test_tranches(currency);
 
     let mut waterfall = WaterfallBuilder::new(currency)
         .add_tier(
-            WaterfallTier::new("fees", 1, PaymentType::Fee)
-                .add_recipient(Recipient::new(
-                    "fee1",
-                    PaymentRecipient::ServiceProvider("Provider".into()),
-                    PaymentCalculation::FixedAmount {
-                        amount: Money::new(10_000.0, currency),
-                    },
-                )),
+            WaterfallTier::new("fees", 1, PaymentType::Fee).add_recipient(Recipient::new(
+                "fee1",
+                PaymentRecipient::ServiceProvider("Provider".into()),
+                PaymentCalculation::FixedAmount {
+                    amount: Money::new(10_000.0, currency),
+                },
+            )),
         )
         .add_tier(
             WaterfallTier::new("interest", 2, PaymentType::Interest)
@@ -623,9 +654,9 @@ fn test_golden_cash_conservation() {
         .iter()
         .map(|(_, amt)| amt.amount())
         .sum();
-    
+
     let total = total_allocated + result.remaining_cash.amount();
-    
+
     assert!(
         (total - available_cash.amount()).abs() < 0.01,
         "Cash conservation violated: {} != {}",
@@ -633,4 +664,3 @@ fn test_golden_cash_conservation() {
         available_cash.amount()
     );
 }
-

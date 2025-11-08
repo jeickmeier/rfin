@@ -64,8 +64,13 @@ where
             )
         };
 
-        let total =
-            crate::metrics::compute_key_rate_dv01_series(context, &discount_curve_id, buckets, 1.0, reval)?;
+        let total = crate::metrics::compute_key_rate_dv01_series(
+            context,
+            &discount_curve_id,
+            buckets,
+            1.0,
+            reval,
+        )?;
 
         Ok(total)
     }
@@ -107,7 +112,11 @@ where
         };
 
         let total = crate::metrics::compute_key_rate_dv01_series_with_context(
-            context, &discount_curve_id, buckets, 1.0, reval,
+            context,
+            &discount_curve_id,
+            buckets,
+            1.0,
+            reval,
         )?;
 
         Ok(total)

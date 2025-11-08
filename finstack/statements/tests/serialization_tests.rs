@@ -54,10 +54,22 @@ fn test_capital_structure_cashflows_serialization() {
 
     // Add breakdown for an instrument
     let breakdown = CashflowBreakdown {
-        interest_expense_cash: finstack_core::money::Money::new(5_000.0, finstack_core::currency::Currency::USD),
-        interest_expense_pik: finstack_core::money::Money::new(0.0, finstack_core::currency::Currency::USD),
-        principal_payment: finstack_core::money::Money::new(10_000.0, finstack_core::currency::Currency::USD),
-        debt_balance: finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
+        interest_expense_cash: finstack_core::money::Money::new(
+            5_000.0,
+            finstack_core::currency::Currency::USD,
+        ),
+        interest_expense_pik: finstack_core::money::Money::new(
+            0.0,
+            finstack_core::currency::Currency::USD,
+        ),
+        principal_payment: finstack_core::money::Money::new(
+            10_000.0,
+            finstack_core::currency::Currency::USD,
+        ),
+        debt_balance: finstack_core::money::Money::new(
+            100_000.0,
+            finstack_core::currency::Currency::USD,
+        ),
         fees: finstack_core::money::Money::new(500.0, finstack_core::currency::Currency::USD),
     };
 
@@ -280,10 +292,22 @@ fn test_results_to_json_file() {
 fn test_capital_structure_json_roundtrip() {
     // Test CashflowBreakdown JSON serialization
     let breakdown = CashflowBreakdown {
-        interest_expense_cash: finstack_core::money::Money::new(5_000.0, finstack_core::currency::Currency::USD),
-        interest_expense_pik: finstack_core::money::Money::new(0.0, finstack_core::currency::Currency::USD),
-        principal_payment: finstack_core::money::Money::new(10_000.0, finstack_core::currency::Currency::USD),
-        debt_balance: finstack_core::money::Money::new(100_000.0, finstack_core::currency::Currency::USD),
+        interest_expense_cash: finstack_core::money::Money::new(
+            5_000.0,
+            finstack_core::currency::Currency::USD,
+        ),
+        interest_expense_pik: finstack_core::money::Money::new(
+            0.0,
+            finstack_core::currency::Currency::USD,
+        ),
+        principal_payment: finstack_core::money::Money::new(
+            10_000.0,
+            finstack_core::currency::Currency::USD,
+        ),
+        debt_balance: finstack_core::money::Money::new(
+            100_000.0,
+            finstack_core::currency::Currency::USD,
+        ),
         fees: finstack_core::money::Money::new(500.0, finstack_core::currency::Currency::USD),
     };
 

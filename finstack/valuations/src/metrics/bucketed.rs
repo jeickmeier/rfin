@@ -35,7 +35,9 @@ where
     RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
 {
     let base_pv = context.base_value;
-    let disc = context.curves.get_discount_ref(discount_curve_id.as_str())?;
+    let disc = context
+        .curves
+        .get_discount_ref(discount_curve_id.as_str())?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {
@@ -104,7 +106,9 @@ where
     RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
 {
     let base_pv = context.base_value;
-    let disc = context.curves.get_discount_ref(discount_curve_id.as_str())?;
+    let disc = context
+        .curves
+        .get_discount_ref(discount_curve_id.as_str())?;
 
     let mut series: Vec<(String, f64)> = Vec::new();
     for t in bucket_times_years.into_iter() {

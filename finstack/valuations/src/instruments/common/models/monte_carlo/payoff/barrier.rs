@@ -284,7 +284,7 @@ mod tests {
         for step in 0..=10 {
             let spot = 105.0;
             let mut s4 = create_path_state(step, spot);
-        barrier_call.on_event(&mut s4);
+            barrier_call.on_event(&mut s4);
         }
 
         // Should get zero (never knocked in)

@@ -43,4 +43,3 @@ pub trait Report {
         self.to_string() // Default implementation - subclasses can override
     }
 }
-

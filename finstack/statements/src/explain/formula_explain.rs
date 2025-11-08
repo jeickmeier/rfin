@@ -76,15 +76,12 @@ impl<'a> FormulaExplainer<'a> {
             .ok_or_else(|| Error::invalid_input(format!("Node '{}' not found", node_id)))?;
 
         // Get final value
-        let final_value = self
-            .results
-            .get(node_id, period)
-            .ok_or_else(|| {
-                Error::invalid_input(format!(
-                    "No result for node '{}' in period '{}'",
-                    node_id, period
-                ))
-            })?;
+        let final_value = self.results.get(node_id, period).ok_or_else(|| {
+            Error::invalid_input(format!(
+                "No result for node '{}' in period '{}'",
+                node_id, period
+            ))
+        })?;
 
         // Build breakdown
         let breakdown = self.build_breakdown(node_id, period, &node_spec.formula_text)?;
@@ -237,10 +234,13 @@ mod tests {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
             .unwrap()
-            .value("revenue", &[
-                (period, AmountOrScalar::scalar(100_000.0)),
-                (period2, AmountOrScalar::scalar(110_000.0)),
-            ])
+            .value(
+                "revenue",
+                &[
+                    (period, AmountOrScalar::scalar(100_000.0)),
+                    (period2, AmountOrScalar::scalar(110_000.0)),
+                ],
+            )
             .build()
             .unwrap();
 
@@ -264,10 +264,13 @@ mod tests {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
             .unwrap()
-            .value("revenue", &[
-                (period, AmountOrScalar::scalar(100_000.0)),
-                (period2, AmountOrScalar::scalar(110_000.0)),
-            ])
+            .value(
+                "revenue",
+                &[
+                    (period, AmountOrScalar::scalar(100_000.0)),
+                    (period2, AmountOrScalar::scalar(110_000.0)),
+                ],
+            )
             .compute("cogs", "revenue * 0.4")
             .unwrap()
             .compute("gross_profit", "revenue - cogs")
@@ -295,10 +298,13 @@ mod tests {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
             .unwrap()
-            .value("revenue", &[
-                (period, AmountOrScalar::scalar(100_000.0)),
-                (period2, AmountOrScalar::scalar(110_000.0)),
-            ])
+            .value(
+                "revenue",
+                &[
+                    (period, AmountOrScalar::scalar(100_000.0)),
+                    (period2, AmountOrScalar::scalar(110_000.0)),
+                ],
+            )
             .compute("cogs", "revenue * 0.4")
             .unwrap()
             .build()
@@ -323,10 +329,13 @@ mod tests {
         let model = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
             .unwrap()
-            .value("revenue", &[
-                (period, AmountOrScalar::scalar(100_000.0)),
-                (period2, AmountOrScalar::scalar(110_000.0)),
-            ])
+            .value(
+                "revenue",
+                &[
+                    (period, AmountOrScalar::scalar(100_000.0)),
+                    (period2, AmountOrScalar::scalar(110_000.0)),
+                ],
+            )
             .build()
             .unwrap();
 
@@ -339,4 +348,3 @@ mod tests {
         assert!(result.is_err());
     }
 }
-

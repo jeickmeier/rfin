@@ -12,7 +12,10 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 
 /// Register the Monte Carlo submodule with all classes at the mc level.
-pub(crate) fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
+pub(crate) fn register(
+    py: Python<'_>,
+    parent: &Bound<'_, PyModule>,
+) -> PyResult<Vec<&'static str>> {
     let mc_module = PyModule::new(py, "mc")?;
     mc_module.setattr(
         "__doc__",
@@ -44,4 +47,3 @@ pub(crate) fn register(py: Python<'_>, parent: &Bound<'_, PyModule>) -> PyResult
 
     Ok(exports)
 }
-

@@ -15,12 +15,12 @@ fn test_equity_price_scalar_attribution() {
     // requirements for market scalar lookup (AAPL, AAPL-SPOT, EQUITY-SPOT).
     // The test demonstrates the structure but doesn't verify full attribution
     // until equity pricing is enhanced for scalar attribution.
-    
+
     // The test infrastructure is in place:
     // 1. extract_scalars() correctly extracts prices
     // 2. restore_scalars() correctly restores prices
     // 3. Attribution will automatically detect scalar changes
-    
+
     // TODO: Update this test once equity pricing uses price_id correctly
 }
 
@@ -90,4 +90,3 @@ fn test_market_scalar_freeze_restore() {
         assert_eq!(money.amount(), 180.0); // Should be T₀ value
     }
 }
-

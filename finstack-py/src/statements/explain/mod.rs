@@ -83,11 +83,7 @@ impl PyExplanationStep {
 }
 
 /// Detailed explanation of a node's calculation.
-#[pyclass(
-    module = "finstack.statements.explain",
-    name = "Explanation",
-    frozen
-)]
+#[pyclass(module = "finstack.statements.explain", name = "Explanation", frozen)]
 #[derive(Clone)]
 pub struct PyExplanation {
     inner: Explanation,
@@ -220,7 +216,9 @@ impl PyFormulaExplainer {
         period: &crate::core::dates::periods::PyPeriodId,
     ) -> PyResult<PyExplanation> {
         let explainer = FormulaExplainer::new(&self.model.inner, &self.results.inner);
-        let explanation = explainer.explain(node_id, &period.inner).map_err(stmt_to_py)?;
+        let explanation = explainer
+            .explain(node_id, &period.inner)
+            .map_err(stmt_to_py)?;
         Ok(PyExplanation { inner: explanation })
     }
 
@@ -503,4 +501,3 @@ pub(crate) fn register<'py>(
         "render_tree_detailed",
     ])
 }
-

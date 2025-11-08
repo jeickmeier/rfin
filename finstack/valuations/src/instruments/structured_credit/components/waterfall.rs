@@ -245,18 +245,18 @@ pub struct WaterfallResult {
     pub payment_date: Date,
     /// Total available cash at start
     pub total_available: Money,
-    
+
     /// Tier-level allocations
     pub tier_allocations: Vec<(String, Money)>,
-    
+
     /// Distributions by recipient
     pub distributions: HashMap<PaymentRecipient, Money>,
     /// Detailed payment records
     pub payment_records: Vec<PaymentRecord>,
-    
+
     /// Coverage test results (test_name, value, passed)
     pub coverage_tests: Vec<(String, f64, bool)>,
-    
+
     /// Total diverted cash
     pub diverted_cash: Money,
     /// Remaining undistributed cash
@@ -265,7 +265,7 @@ pub struct WaterfallResult {
     pub had_diversions: bool,
     /// Diversion reason if applicable
     pub diversion_reason: Option<String>,
-    
+
     /// Optional explanation trace (enabled via ExplainOpts)
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub explanation: Option<ExplanationTrace>,
@@ -427,9 +427,7 @@ impl WaterfallEngine {
         )?;
 
         // Check if diversions are active
-        let diversion_active = coverage_test_results
-            .iter()
-            .any(|(_, _, passed)| !passed);
+        let diversion_active = coverage_test_results.iter().any(|(_, _, passed)| !passed);
         if diversion_active {
             had_diversions = true;
             diversion_reason = Some("OC or IC test failed".to_string());
@@ -437,14 +435,15 @@ impl WaterfallEngine {
 
         // Process tiers in priority order (all tiers processed, even if cash exhausted)
         for tier in &self.tiers {
-
             // Determine if this tier should be diverted
             let (target_recipients, tier_diverted) = if tier.divertible && diversion_active {
                 // Find senior tier to divert to
                 let senior_tier = self
                     .tiers
                     .iter()
-                    .filter(|t| t.priority < tier.priority && t.payment_type == PaymentType::Principal)
+                    .filter(|t| {
+                        t.priority < tier.priority && t.payment_type == PaymentType::Principal
+                    })
                     .min_by_key(|t| t.priority);
 
                 if let Some(senior) = senior_tier {
@@ -458,40 +457,36 @@ impl WaterfallEngine {
 
             // Allocate cash to tier based on mode
             let tier_cash = match tier.allocation_mode {
-                AllocationMode::Sequential => {
-                    self.allocate_sequential(
-                        tier,
-                        &target_recipients,
-                        remaining,
-                        tranches,
-                        &tranche_index,
-                        pool_balance,
-                        payment_date,
-                        market,
-                        tier_diverted,
-                        &mut distributions,
-                        &mut payment_records,
-                        &mut trace,
-                        &explain,
-                    )?
-                }
-                AllocationMode::ProRata => {
-                    self.allocate_pro_rata(
-                        tier,
-                        &target_recipients,
-                        remaining,
-                        tranches,
-                        &tranche_index,
-                        pool_balance,
-                        payment_date,
-                        market,
-                        tier_diverted,
-                        &mut distributions,
-                        &mut payment_records,
-                        &mut trace,
-                        &explain,
-                    )?
-                }
+                AllocationMode::Sequential => self.allocate_sequential(
+                    tier,
+                    &target_recipients,
+                    remaining,
+                    tranches,
+                    &tranche_index,
+                    pool_balance,
+                    payment_date,
+                    market,
+                    tier_diverted,
+                    &mut distributions,
+                    &mut payment_records,
+                    &mut trace,
+                    &explain,
+                )?,
+                AllocationMode::ProRata => self.allocate_pro_rata(
+                    tier,
+                    &target_recipients,
+                    remaining,
+                    tranches,
+                    &tranche_index,
+                    pool_balance,
+                    payment_date,
+                    market,
+                    tier_diverted,
+                    &mut distributions,
+                    &mut payment_records,
+                    &mut trace,
+                    &explain,
+                )?,
             };
 
             if tier_diverted {
@@ -591,7 +586,10 @@ impl WaterfallEngine {
                 t.push(
                     TraceEntry::WaterfallStep {
                         period: 0,
-                        step_name: format!("{}/{} - {:?}", tier.id, recipient.id, recipient.recipient_type),
+                        step_name: format!(
+                            "{}/{} - {:?}",
+                            tier.id, recipient.id, recipient.recipient_type
+                        ),
                         cash_in_amount: requested.amount(),
                         cash_in_currency: requested.currency().to_string(),
                         cash_out_amount: paid.amount(),
@@ -659,10 +657,7 @@ impl WaterfallEngine {
         }
 
         // Calculate total weight
-        let total_weight: f64 = recipients
-            .iter()
-            .map(|r| r.weight.unwrap_or(1.0))
-            .sum();
+        let total_weight: f64 = recipients.iter().map(|r| r.weight.unwrap_or(1.0)).sum();
 
         let tier_available = if total_requested.amount() <= available.amount() {
             total_requested
@@ -681,10 +676,8 @@ impl WaterfallEngine {
                 1.0 / recipients.len() as f64
             };
 
-            let allocated = Money::new(
-                tier_available.amount() * pro_rata_share,
-                self.base_currency,
-            );
+            let allocated =
+                Money::new(tier_available.amount() * pro_rata_share, self.base_currency);
 
             let paid = if allocated.amount() <= requested.amount() {
                 allocated
@@ -924,7 +917,9 @@ impl WaterfallEngine {
                 .allocation_mode(AllocationMode::Sequential);
             let interest_tier = interest_recipients
                 .into_iter()
-                .fold(interest_tier, |tier, recipient| tier.add_recipient(recipient));
+                .fold(interest_tier, |tier, recipient| {
+                    tier.add_recipient(recipient)
+                });
             engine.tiers.push(interest_tier);
             priority += 1;
         }
@@ -966,7 +961,6 @@ impl WaterfallEngine {
 
         engine
     }
-
 }
 
 /// Builder for waterfall engine

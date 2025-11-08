@@ -103,7 +103,7 @@ pub enum AttributionFactor {
 /// )?;
 ///
 /// println!("Total P&L: {}", attribution.total_pnl);
-/// println!("Carry: {} ({:.1}%)", 
+/// println!("Carry: {} ({:.1}%)",
 ///     attribution.carry,
 ///     attribution.carry.amount() / attribution.total_pnl.amount() * 100.0
 /// );
@@ -392,16 +392,35 @@ impl PnlAttribution {
         // Sum all attributed factors
         // Note: checked_add returns Result, so we need to handle it
         let mut attributed_sum = self.carry;
-        attributed_sum = attributed_sum.checked_add(self.rates_curves_pnl).expect("Currency mismatch in rates curves P&L");
-        attributed_sum = attributed_sum.checked_add(self.credit_curves_pnl).expect("Currency mismatch in credit curves P&L");
-        attributed_sum = attributed_sum.checked_add(self.inflation_curves_pnl).expect("Currency mismatch in inflation curves P&L");
-        attributed_sum = attributed_sum.checked_add(self.correlations_pnl).expect("Currency mismatch in correlations P&L");
-        attributed_sum = attributed_sum.checked_add(self.fx_pnl).expect("Currency mismatch in FX P&L");
-        attributed_sum = attributed_sum.checked_add(self.vol_pnl).expect("Currency mismatch in vol P&L");
-        attributed_sum = attributed_sum.checked_add(self.model_params_pnl).expect("Currency mismatch in model params P&L");
-        attributed_sum = attributed_sum.checked_add(self.market_scalars_pnl).expect("Currency mismatch in market scalars P&L");
+        attributed_sum = attributed_sum
+            .checked_add(self.rates_curves_pnl)
+            .expect("Currency mismatch in rates curves P&L");
+        attributed_sum = attributed_sum
+            .checked_add(self.credit_curves_pnl)
+            .expect("Currency mismatch in credit curves P&L");
+        attributed_sum = attributed_sum
+            .checked_add(self.inflation_curves_pnl)
+            .expect("Currency mismatch in inflation curves P&L");
+        attributed_sum = attributed_sum
+            .checked_add(self.correlations_pnl)
+            .expect("Currency mismatch in correlations P&L");
+        attributed_sum = attributed_sum
+            .checked_add(self.fx_pnl)
+            .expect("Currency mismatch in FX P&L");
+        attributed_sum = attributed_sum
+            .checked_add(self.vol_pnl)
+            .expect("Currency mismatch in vol P&L");
+        attributed_sum = attributed_sum
+            .checked_add(self.model_params_pnl)
+            .expect("Currency mismatch in model params P&L");
+        attributed_sum = attributed_sum
+            .checked_add(self.market_scalars_pnl)
+            .expect("Currency mismatch in market scalars P&L");
 
-        self.residual = self.total_pnl.checked_sub(attributed_sum).expect("Currency mismatch in total P&L");
+        self.residual = self
+            .total_pnl
+            .checked_sub(attributed_sum)
+            .expect("Currency mismatch in total P&L");
 
         // Compute residual percentage (handle zero total_pnl)
         self.meta.residual_pct = if self.total_pnl.amount().abs() > 1e-10 {
@@ -559,7 +578,6 @@ impl PnlAttribution {
     }
 }
 
-
 impl std::fmt::Display for AttributionMethod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -654,4 +672,3 @@ mod tests {
         assert!(attr.residual_within_tolerance(0.01, 100.0));
     }
 }
-

@@ -11,11 +11,7 @@ use pyo3::types::PyModule;
 use pyo3::Bound;
 
 /// Alignment options for table columns.
-#[pyclass(
-    module = "finstack.statements.reports",
-    name = "Alignment",
-    frozen
-)]
+#[pyclass(module = "finstack.statements.reports", name = "Alignment", frozen)]
 #[derive(Clone, Copy)]
 pub struct PyAlignment {
     inner: Alignment,
@@ -44,10 +40,7 @@ impl PyAlignment {
 }
 
 /// Builder for ASCII and Markdown tables.
-#[pyclass(
-    module = "finstack.statements.reports",
-    name = "TableBuilder"
-)]
+#[pyclass(module = "finstack.statements.reports", name = "TableBuilder")]
 pub struct PyTableBuilder {
     inner: TableBuilder,
 }
@@ -130,10 +123,7 @@ impl PyTableBuilder {
 }
 
 /// P&L summary report.
-#[pyclass(
-    module = "finstack.statements.reports",
-    name = "PLSummaryReport"
-)]
+#[pyclass(module = "finstack.statements.reports", name = "PLSummaryReport")]
 pub struct PyPLSummaryReport {
     results: PyResults,
     line_items: Vec<String>,
@@ -179,7 +169,11 @@ impl PyPLSummaryReport {
     /// str
     ///     Formatted report
     fn to_string(&self) -> String {
-        let report = PLSummaryReport::new(&self.results.inner, self.line_items.clone(), self.periods.clone());
+        let report = PLSummaryReport::new(
+            &self.results.inner,
+            self.line_items.clone(),
+            self.periods.clone(),
+        );
         report.to_string()
     }
 
@@ -191,14 +185,22 @@ impl PyPLSummaryReport {
     /// str
     ///     Markdown formatted report
     fn to_markdown(&self) -> String {
-        let report = PLSummaryReport::new(&self.results.inner, self.line_items.clone(), self.periods.clone());
+        let report = PLSummaryReport::new(
+            &self.results.inner,
+            self.line_items.clone(),
+            self.periods.clone(),
+        );
         report.to_markdown()
     }
 
     #[pyo3(signature = ())]
     /// Print report to stdout.
     fn print(&self) {
-        let report = PLSummaryReport::new(&self.results.inner, self.line_items.clone(), self.periods.clone());
+        let report = PLSummaryReport::new(
+            &self.results.inner,
+            self.line_items.clone(),
+            self.periods.clone(),
+        );
         report.print();
     }
 
@@ -290,10 +292,7 @@ impl PyCreditAssessmentReport {
 }
 
 /// Debt summary report.
-#[pyclass(
-    module = "finstack.statements.reports",
-    name = "DebtSummaryReport"
-)]
+#[pyclass(module = "finstack.statements.reports", name = "DebtSummaryReport")]
 pub struct PyDebtSummaryReport {
     model: PyFinancialModelSpec,
     results: PyResults,
@@ -396,10 +395,7 @@ pub(crate) fn register<'py>(
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     let module = PyModule::new(_py, "reports")?;
-    module.setattr(
-        "__doc__",
-        "Convenience reporting for financial statements.",
-    )?;
+    module.setattr("__doc__", "Convenience reporting for financial statements.")?;
 
     module.add_class::<PyAlignment>()?;
     module.add_class::<PyTableBuilder>()?;
@@ -420,4 +416,3 @@ pub(crate) fn register<'py>(
         "print_debt_summary",
     ])
 }
-
