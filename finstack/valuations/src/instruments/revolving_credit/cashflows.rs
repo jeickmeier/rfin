@@ -15,6 +15,9 @@ use crate::cashflow::builder::CashFlowSchedule;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 
 use super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCredit};
+use finstack_core::config::{RoundingContext, ZeroKind};
+
+// Use centralized rounding context thresholds instead of magic numbers.
 
 /// Generate deterministic cashflows for a revolving credit facility.
 ///
@@ -27,9 +30,13 @@ use super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCredit};
 /// **Key Feature**: Properly processes draw/repay events to adjust outstanding
 /// balance over time, affecting interest and fee calculations.
 ///
-/// # Arguments
+/// # Arguments and as_of rules
 /// * `facility` - The revolving credit facility
-/// * `as_of` - Valuation date (for filtering future cashflows)
+/// * `as_of` - Valuation date
+///   - Non‑principal cashflows (interest/fees) are included only if `payment_end > as_of`
+///   - Principal events (draw/repay) are included only if `event.date > as_of`
+///   - Initial draw is included only if `commitment_date > as_of`
+///   - Terminal repayment is included only if `maturity_date > as_of`
 ///
 /// # Returns
 /// A cashflow schedule with all cashflows and their kinds
@@ -63,7 +70,9 @@ fn generate_deterministic_cashflows_internal(
     let draw_repay_events = match &facility.draw_repay_spec {
         DrawRepaySpec::Deterministic(events) => events,
         DrawRepaySpec::Stochastic(_) => {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::Error::Validation(
+                "Deterministic cashflows require DrawRepaySpec::Deterministic".to_string(),
+            ));
         }
     };
 
@@ -91,7 +100,7 @@ fn generate_deterministic_cashflows_internal(
     let payment_dates: Vec<Date> = payment_schedule.into_iter().collect();
 
     if payment_dates.len() < 2 {
-        return Err(finstack_core::error::InputError::Invalid.into());
+        return Err(finstack_core::error::InputError::TooFewPoints.into());
     }
 
     // Step 2: Calculate balance schedule (balance at start of each period)
@@ -103,11 +112,16 @@ fn generate_deterministic_cashflows_internal(
 
     // Step 3: Generate cashflows based on actual balances
     let mut flows = Vec::new();
+    // Rounding context for zero checks and currency scale
+    let rc = RoundingContext::default();
+    let ccy = facility.commitment_amount.currency();
 
     // Add initial draw at commitment_date (from lender perspective: negative cashflow - capital deployment)
     // Include if commitment_date is after as_of (future cashflow). If commitment_date == as_of,
     // the draw happens "today" and should be handled separately in the pricer.
-    if facility.drawn_amount.amount() > 1e-6 && facility.commitment_date > as_of {
+    if facility.commitment_date > as_of
+        && !rc.is_effectively_zero(facility.drawn_amount.amount(), ZeroKind::Money(ccy))
+    {
         flows.push(CashFlow {
             date: facility.commitment_date,
             reset_date: None,
@@ -118,9 +132,17 @@ fn generate_deterministic_cashflows_internal(
     }
 
     // Add interest and fee cashflows for each period
+    // Reserve a reasonable capacity: 4 flow types per period + events + terminal
+    flows.reserve((payment_dates.len().saturating_sub(1)) * 4 + draw_repay_events.len() + 2);
     for i in 0..(payment_dates.len() - 1) {
         let period_start = payment_dates[i];
         let period_end = payment_dates[i + 1];
+
+        // Apply as_of filtering for non-principal cashflows: only future-dated payments
+        if period_end <= as_of {
+            continue;
+        }
+
         let balance_start = balance_schedule[i];
         let undrawn_start = facility.commitment_amount.checked_sub(balance_start)?;
 
@@ -135,7 +157,7 @@ fn generate_deterministic_cashflows_internal(
         match &facility.base_rate_spec {
             BaseRateSpec::Fixed { rate } => {
                 let interest = balance_start * (*rate * accrual);
-                if interest.amount().abs() > 1e-10 {
+                if !rc.is_effectively_zero_money(interest.amount(), ccy) {
                     flows.push(CashFlow {
                         date: period_end,
                         reset_date: None,
@@ -155,21 +177,18 @@ fn generate_deterministic_cashflows_internal(
                         if let Ok(fwd) = market.get_forward_ref(index_id.as_str()) {
                             // Use period start as reset date (reset frequency is typically aligned
                             // with payment frequency in this deterministic path).
-                            let t_reset = fwd
-                                .day_count()
-                                .year_fraction(
-                                    fwd.base_date(),
-                                    period_start,
-                                    finstack_core::dates::DayCountCtx::default(),
-                                )
-                                .unwrap_or(0.0);
-                            let base_rate = fwd.rate(t_reset).max(0.0);
+                            let t_reset = fwd.day_count().year_fraction(
+                                fwd.base_date(),
+                                period_start,
+                                finstack_core::dates::DayCountCtx::default(),
+                            )?;
+                            let base_rate = fwd.rate(t_reset);
                             coupon_rate += base_rate;
                         }
                     }
                 }
                 let interest = balance_start * (coupon_rate * accrual);
-                if interest.amount().abs() > 1e-10 {
+                if !rc.is_effectively_zero_money(interest.amount(), ccy) {
                     flows.push(CashFlow {
                         date: period_end,
                         reset_date: Some(period_start),
@@ -184,7 +203,7 @@ fn generate_deterministic_cashflows_internal(
         // Commitment fee on undrawn amount
         if facility.fees.commitment_fee_bp > 0.0 {
             let commitment_fee = undrawn_start * (facility.fees.commitment_fee_bp * 1e-4 * accrual);
-            if commitment_fee.amount().abs() > 1e-10 {
+            if !rc.is_effectively_zero_money(commitment_fee.amount(), ccy) {
                 flows.push(CashFlow {
                     date: period_end,
                     reset_date: None,
@@ -198,7 +217,7 @@ fn generate_deterministic_cashflows_internal(
         // Usage fee on drawn amount
         if facility.fees.usage_fee_bp > 0.0 {
             let usage_fee = balance_start * (facility.fees.usage_fee_bp * 1e-4 * accrual);
-            if usage_fee.amount().abs() > 1e-10 {
+            if !rc.is_effectively_zero_money(usage_fee.amount(), ccy) {
                 flows.push(CashFlow {
                     date: period_end,
                     reset_date: None,
@@ -213,7 +232,7 @@ fn generate_deterministic_cashflows_internal(
         if facility.fees.facility_fee_bp > 0.0 {
             let facility_fee =
                 facility.commitment_amount * (facility.fees.facility_fee_bp * 1e-4 * accrual);
-            if facility_fee.amount().abs() > 1e-10 {
+            if !rc.is_effectively_zero_money(facility_fee.amount(), ccy) {
                 flows.push(CashFlow {
                     date: period_end,
                     reset_date: None,
@@ -244,11 +263,24 @@ fn generate_deterministic_cashflows_internal(
     }
 
     // Step 5: Add terminal repayment (if balance outstanding at maturity)
-    let final_balance = balance_schedule
+    // Adjust for any events that occur exactly on maturity (to avoid double-count with event flows).
+    let mut final_balance = balance_schedule
         .last()
         .copied()
         .unwrap_or(facility.drawn_amount);
-    if final_balance.amount() > 1e-6 {
+    // Apply same-day maturity events to the final balance for terminal calculation context only.
+    for event in draw_repay_events {
+        if event.date == facility.maturity_date {
+            final_balance = if event.is_draw {
+                final_balance.checked_add(event.amount)?
+            } else {
+                final_balance.checked_sub(event.amount)?
+            };
+        }
+    }
+    if facility.maturity_date > as_of
+        && !rc.is_effectively_zero(final_balance.amount(), ZeroKind::Money(ccy))
+    {
         flows.push(CashFlow {
             date: facility.maturity_date,
             reset_date: None,
@@ -358,7 +390,9 @@ pub fn calculate_drawn_balance_at_date(
     let draw_repay_events = match &facility.draw_repay_spec {
         DrawRepaySpec::Deterministic(events) => events,
         DrawRepaySpec::Stochastic(_) => {
-            return Err(finstack_core::error::InputError::Invalid.into());
+            return Err(finstack_core::Error::Validation(
+                "calculate_drawn_balance_at_date requires DrawRepaySpec::Deterministic".to_string(),
+            ));
         }
     };
 
@@ -627,6 +661,132 @@ mod tests {
         assert!(
             !has_upfront,
             "Upfront fee should not be in cashflow schedule"
+        );
+    }
+
+    #[test]
+    fn test_as_of_filters_non_principal_flows() {
+        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let q1_end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
+        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        let facility = RevolvingCredit::builder()
+            .id("RC-004".into())
+            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+            .commitment_date(start)
+            .maturity_date(end)
+            .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
+            .day_count(DayCount::Act360)
+            .payment_frequency(Frequency::quarterly())
+            .fees(Default::default())
+            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+            .discount_curve_id("USD-OIS".into())
+            .build()
+            .unwrap();
+
+        // As-of at Q1 end: no interest/fee cashflows should have date <= as_of
+        let schedule = generate_deterministic_cashflows(&facility, q1_end).unwrap();
+        assert!(
+            schedule
+                .flows
+                .iter()
+                .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::FloatReset | CFKind::Fee))
+                .all(|cf| cf.date > q1_end),
+            "Non-principal flows should be strictly after as_of"
+        );
+    }
+
+    #[test]
+    fn test_negative_forward_rates_are_respected() {
+        use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+        use finstack_core::market_data::MarketContext;
+
+        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        // Build a simple forward curve with small positive rates
+        let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(start)
+            .knots([(0.0, 0.0010), (1.0, 0.0010)])
+            .build()
+            .unwrap();
+        let market = MarketContext::new().insert_forward(fwd);
+
+        let facility = RevolvingCredit::builder()
+            .id("RC-005".into())
+            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+            .commitment_date(start)
+            .maturity_date(end)
+            .base_rate_spec(BaseRateSpec::Floating {
+                index_id: "USD-SOFR-3M".into(),
+                // Negative margin big enough to make net coupon negative
+                margin_bp: -20.0,
+                reset_freq: Frequency::quarterly(),
+            })
+            .day_count(DayCount::Act360)
+            .payment_frequency(Frequency::quarterly())
+            .fees(Default::default())
+            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+            .discount_curve_id("USD-OIS".into())
+            .build()
+            .unwrap();
+
+        let schedule =
+            generate_deterministic_cashflows_with_curves(&facility, &market, start).unwrap();
+
+        // Expect at least one negative interest cashflow (FloatReset)
+        let has_negative_interest = schedule.flows.iter().any(|cf| {
+            cf.kind == CFKind::FloatReset && cf.amount.amount() < 0.0
+        });
+        assert!(
+            has_negative_interest,
+            "Negative net coupons (from margin + forward) should produce negative interest flows"
+        );
+    }
+
+    #[test]
+    fn test_maturity_day_event_no_double_count_terminal() {
+        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        // Start drawn 5M, repay full 5M on maturity date → terminal should be suppressed
+        let facility = RevolvingCredit::builder()
+            .id("RC-006".into())
+            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+            .commitment_date(start)
+            .maturity_date(end)
+            .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
+            .day_count(DayCount::Act360)
+            .payment_frequency(Frequency::quarterly())
+            .fees(Default::default())
+            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![DrawRepayEvent {
+                date: end,
+                amount: Money::new(5_000_000.0, Currency::USD),
+                is_draw: false,
+            }]))
+            .discount_curve_id("USD-OIS".into())
+            .build()
+            .unwrap();
+
+        let schedule = generate_deterministic_cashflows(&facility, start).unwrap();
+
+        // Count notional flows at maturity: should be only the repayment event, no extra terminal
+        let maturity_flows: Vec<_> = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.date == end && cf.kind == CFKind::Notional)
+            .collect();
+        assert_eq!(
+            maturity_flows.len(),
+            1,
+            "Should not double-count terminal repayment when full repay occurs on maturity date"
+        );
+        assert!(
+            maturity_flows[0].amount.amount() > 0.0,
+            "Maturity notional flow should be the explicit repayment (positive to lender)"
         );
     }
 }

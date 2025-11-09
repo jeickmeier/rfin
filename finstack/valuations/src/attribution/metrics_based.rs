@@ -49,6 +49,7 @@ use finstack_core::market_data::diff::{
     measure_scalar_shift, measure_vol_surface_shift, TenorSamplingMethod,
 };
 use finstack_core::prelude::*;
+use finstack_core::config::{RoundingContext, ZeroKind};
 use std::sync::Arc;
 
 /// Perform metrics-based P&L attribution for an instrument.
@@ -166,15 +167,16 @@ pub fn attribute_pnl_metrics_based(
         // 2b. Rates curves convexity (second-order)
         // For Bond: check Convexity; for IRS: check IrConvexity
         // Prioritize non-zero convexity metric
+        let rc = RoundingContext::default();
         let convexity_opt = val_t0
             .measures
             .get(MetricId::Convexity.as_str())
-            .filter(|&&v| v.abs() > 1e-10)
+            .filter(|&&v| !rc.is_effectively_zero(v, ZeroKind::Generic))
             .or_else(|| {
                 val_t0
                     .measures
                     .get(MetricId::IrConvexity.as_str())
-                    .filter(|&&v| v.abs() > 1e-10)
+                    .filter(|&&v| !rc.is_effectively_zero(v, ZeroKind::Generic))
             });
 
         if let Some(&convexity) = convexity_opt {

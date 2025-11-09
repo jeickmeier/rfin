@@ -6,6 +6,7 @@
 
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
+use finstack_core::config::{RoundingContext, ZeroKind};
 use indexmap::IndexMap;
 
 #[cfg(feature = "serde")]
@@ -422,8 +423,12 @@ impl PnlAttribution {
             .checked_sub(attributed_sum)
             .expect("Currency mismatch in total P&L");
 
-        // Compute residual percentage (handle zero total_pnl)
-        self.meta.residual_pct = if self.total_pnl.amount().abs() > 1e-10 {
+        // Compute residual percentage (handle zero total_pnl) via RoundingContext
+        let rc = RoundingContext::default();
+        self.meta.residual_pct = if !rc.is_effectively_zero_money(
+            self.total_pnl.amount(),
+            self.total_pnl.currency(),
+        ) {
             (self.residual.amount() / self.total_pnl.amount()) * 100.0
         } else {
             0.0
@@ -484,7 +489,8 @@ impl PnlAttribution {
 
         // Helper to format money and percentage
         let fmt = |amount: &Money, total: &Money| -> String {
-            let pct = if total.amount().abs() > 1e-10 {
+            let rc = RoundingContext::default();
+            let pct = if !rc.is_effectively_zero_money(total.amount(), total.currency()) {
                 (amount.amount() / total.amount()) * 100.0
             } else {
                 0.0
@@ -492,16 +498,21 @@ impl PnlAttribution {
             format!("{} ({:.1}%)", amount, pct)
         };
 
+        let rc = RoundingContext::default();
+
         // Total P&L
         lines.push(format!("Total P&L: {}", self.total_pnl));
 
         // Carry
-        if self.carry.amount().abs() > 1e-10 {
+        if !rc.is_effectively_zero_money(self.carry.amount(), self.carry.currency()) {
             lines.push(format!("  ├─ Carry: {}", fmt(&self.carry, &self.total_pnl)));
         }
 
         // Rates curves
-        if self.rates_curves_pnl.amount().abs() > 1e-10 {
+        if !rc.is_effectively_zero_money(
+            self.rates_curves_pnl.amount(),
+            self.rates_curves_pnl.currency(),
+        ) {
             lines.push(format!(
                 "  ├─ Rates Curves: {}",
                 fmt(&self.rates_curves_pnl, &self.total_pnl)
@@ -514,7 +525,10 @@ impl PnlAttribution {
         }
 
         // Credit curves
-        if self.credit_curves_pnl.amount().abs() > 1e-10 {
+        if !rc.is_effectively_zero_money(
+            self.credit_curves_pnl.amount(),
+            self.credit_curves_pnl.currency(),
+        ) {
             lines.push(format!(
                 "  ├─ Credit Curves: {}",
                 fmt(&self.credit_curves_pnl, &self.total_pnl)
@@ -527,7 +541,10 @@ impl PnlAttribution {
         }
 
         // Inflation curves
-        if self.inflation_curves_pnl.amount().abs() > 1e-10 {
+        if !rc.is_effectively_zero_money(
+            self.inflation_curves_pnl.amount(),
+            self.inflation_curves_pnl.currency(),
+        ) {
             lines.push(format!(
                 "  ├─ Inflation Curves: {}",
                 fmt(&self.inflation_curves_pnl, &self.total_pnl)
@@ -535,7 +552,10 @@ impl PnlAttribution {
         }
 
         // Correlations
-        if self.correlations_pnl.amount().abs() > 1e-10 {
+        if !rc.is_effectively_zero_money(
+            self.correlations_pnl.amount(),
+            self.correlations_pnl.currency(),
+        ) {
             lines.push(format!(
                 "  ├─ Correlations: {}",
                 fmt(&self.correlations_pnl, &self.total_pnl)
@@ -543,17 +563,20 @@ impl PnlAttribution {
         }
 
         // FX
-        if self.fx_pnl.amount().abs() > 1e-10 {
+        if !rc.is_effectively_zero_money(self.fx_pnl.amount(), self.fx_pnl.currency()) {
             lines.push(format!("  ├─ FX: {}", fmt(&self.fx_pnl, &self.total_pnl)));
         }
 
         // Volatility
-        if self.vol_pnl.amount().abs() > 1e-10 {
+        if !rc.is_effectively_zero_money(self.vol_pnl.amount(), self.vol_pnl.currency()) {
             lines.push(format!("  ├─ Vol: {}", fmt(&self.vol_pnl, &self.total_pnl)));
         }
 
         // Model parameters
-        if self.model_params_pnl.amount().abs() > 1e-10 {
+        if !rc.is_effectively_zero_money(
+            self.model_params_pnl.amount(),
+            self.model_params_pnl.currency(),
+        ) {
             lines.push(format!(
                 "  ├─ Model Params: {}",
                 fmt(&self.model_params_pnl, &self.total_pnl)
@@ -561,7 +584,10 @@ impl PnlAttribution {
         }
 
         // Market scalars
-        if self.market_scalars_pnl.amount().abs() > 1e-10 {
+        if !rc.is_effectively_zero_money(
+            self.market_scalars_pnl.amount(),
+            self.market_scalars_pnl.currency(),
+        ) {
             lines.push(format!(
                 "  ├─ Market Scalars: {}",
                 fmt(&self.market_scalars_pnl, &self.total_pnl)

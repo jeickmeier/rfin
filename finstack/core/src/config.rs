@@ -166,6 +166,65 @@ pub struct RoundingContext {
     pub version: u32,
 }
 
+/// Zero-kind classification for tolerance checks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[non_exhaustive]
+pub enum ZeroKind {
+    /// Money-like magnitudes (use currency scale).
+    Money(crate::currency::Currency),
+    /// Interest rates or small numeric ratios.
+    Rate,
+    /// Generic floating-point comparisons.
+    Generic,
+}
+
+impl Default for RoundingContext {
+    fn default() -> Self {
+        rounding_context_from(&FinstackConfig::default())
+    }
+}
+
+impl RoundingContext {
+    /// Effective output scale for the provided currency within this context.
+    #[inline]
+    pub fn output_scale(&self, ccy: crate::currency::Currency) -> u32 {
+        if let Some(&s) = self.output_scale_by_ccy.get(&ccy) {
+            return s;
+        }
+        ccy.decimals() as u32
+    }
+
+    /// Money epsilon derived from the currency output scale (half ULP at that scale).
+    #[inline]
+    pub fn money_epsilon(&self, ccy: crate::currency::Currency) -> f64 {
+        let scale = self.output_scale(ccy) as i32;
+        // Half of one unit in the last place at the configured scale.
+        0.5 * 10f64.powi(-scale)
+    }
+
+    /// Returns true if a money amount (in the given currency) is effectively zero under this context.
+    #[inline]
+    pub fn is_effectively_zero_money(&self, amount: f64, ccy: crate::currency::Currency) -> bool {
+        amount.abs() <= self.money_epsilon(ccy)
+    }
+
+    /// Returns true if a floating value is effectively zero for the specified kind.
+    ///
+    /// Heuristics:
+    /// - Rate: 1e-12
+    /// - Generic: 1e-10
+    /// - Money: uses [`money_epsilon`]
+    #[inline]
+    pub fn is_effectively_zero(&self, x: f64, kind: ZeroKind) -> bool {
+        match kind {
+            ZeroKind::Money(ccy) => self.is_effectively_zero_money(x, ccy),
+            ZeroKind::Rate => x.abs() <= 1e-12,
+            ZeroKind::Generic => x.abs() <= 1e-10,
+        }
+    }
+}
+
 /// Numeric engine mode compiled into the crate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

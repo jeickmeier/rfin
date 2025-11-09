@@ -46,6 +46,7 @@ use crate::instruments::common::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
+use finstack_core::config::{RoundingContext, ZeroKind};
 
 /// Rate specification for revolving credit facility.
 #[derive(Clone, Debug)]
@@ -208,6 +209,7 @@ impl Payoff for RevolvingCreditPayoff {
     }
 
     fn on_event(&mut self, state: &mut PathState) {
+        let rc = RoundingContext::default();
         let current_time = state.time;
         let dt = current_time - self.prev_time;
 
@@ -236,7 +238,7 @@ impl Payoff for RevolvingCreditPayoff {
         {
             // Emit recovery cashflow and stop all further processing
             let recovery = self.outstanding_principal * recovery_fraction;
-            if recovery > 1e-10 {
+            if !rc.is_effectively_zero(recovery, ZeroKind::Generic) {
                 state.add_typed_cashflow(time, recovery, CashflowType::Recovery);
 
                 // Add discounted recovery to accumulated PV
@@ -277,28 +279,28 @@ impl Payoff for RevolvingCreditPayoff {
 
             // Interest on drawn amount
             let interest = drawn * rate * dt;
-            if interest.abs() > 1e-10 {
+            if !rc.is_effectively_zero(interest, ZeroKind::Generic) {
                 state.add_typed_cashflow(current_time, interest, CashflowType::Interest);
                 self.accumulated_pv += interest * df;
             }
 
             // Commitment fee on undrawn
             let commitment_fee = undrawn * (self.fees.commitment_fee_bp * 1e-4) * dt;
-            if commitment_fee.abs() > 1e-10 {
+            if !rc.is_effectively_zero(commitment_fee, ZeroKind::Generic) {
                 state.add_typed_cashflow(current_time, commitment_fee, CashflowType::CommitmentFee);
                 self.accumulated_pv += commitment_fee * df;
             }
 
             // Usage fee on drawn
             let usage_fee = drawn * (self.fees.usage_fee_bp * 1e-4) * dt;
-            if usage_fee.abs() > 1e-10 {
+            if !rc.is_effectively_zero(usage_fee, ZeroKind::Generic) {
                 state.add_typed_cashflow(current_time, usage_fee, CashflowType::UsageFee);
                 self.accumulated_pv += usage_fee * df;
             }
 
             // Facility fee on total commitment
             let facility_fee = self.commitment_amount * (self.fees.facility_fee_bp * 1e-4) * dt;
-            if facility_fee.abs() > 1e-10 {
+            if !rc.is_effectively_zero(facility_fee, ZeroKind::Generic) {
                 state.add_typed_cashflow(current_time, facility_fee, CashflowType::FacilityFee);
                 self.accumulated_pv += facility_fee * df;
             }

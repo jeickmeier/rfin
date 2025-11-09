@@ -1,6 +1,20 @@
 //! Internal Rate of Return (IRR) calculations for revolving credit facilities.
 //!
-//! Provides IRR calculation for Monte Carlo paths using cashflows from lender perspective.
+//! Provides IRR calculation utility functions for cashflow analysis. These are not
+//! auto-calculated metrics (unlike DV01, CS01, etc.) because IRR calculation depends
+//! on the cashflow perspective (lender vs borrower) and should be explicitly controlled
+//! by the user.
+//!
+//! # Usage
+//!
+//! These functions are intended for manual IRR calculation on cashflow schedules:
+//!
+//! ```rust,ignore
+//! use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
+//!
+//! let cashflows = vec![(0.0, -1_000_000.0), (1.0, 1_050_000.0)];
+//! let irr = calculate_path_irr(&cashflows, base_date, day_count);
+//! ```
 
 use finstack_core::cashflow::xirr::xirr;
 use finstack_core::dates::{Date, DayCount};

@@ -12,6 +12,121 @@ use finstack_core::money::Money;
 use super::cashflows::generate_deterministic_cashflows;
 use super::types::RevolvingCredit;
 
+/// Compute the present value of upfront fee paid at commitment.
+///
+/// The upfront fee is a one-time payment from the lender's perspective (outflow),
+/// paid at the commitment date and discounted to the valuation date.
+///
+/// # Arguments
+///
+/// * `upfront_fee_opt` - Optional upfront fee amount
+/// * `commitment_date` - Date when facility becomes available
+/// * `as_of` - Valuation date
+/// * `disc_curve` - Discount curve for PV calculation
+/// * `disc_dc` - Day count convention of the discount curve
+///
+/// # Returns
+///
+/// Present value of upfront fee (0.0 if no fee), discounted to `as_of` date
+fn compute_upfront_fee_pv(
+    upfront_fee_opt: Option<Money>,
+    commitment_date: Date,
+    as_of: Date,
+    disc_curve: &dyn finstack_core::market_data::traits::Discounting,
+    disc_dc: finstack_core::dates::DayCount,
+) -> finstack_core::Result<f64> {
+    let upfront_fee = match upfront_fee_opt {
+        Some(fee) => fee,
+        None => return Ok(0.0),
+    };
+
+    if commitment_date > as_of {
+        // Discount from commitment date to as_of
+        let base_date = disc_curve.base_date();
+        let t_commitment = disc_dc.year_fraction(
+            base_date,
+            commitment_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        let t_as_of = disc_dc.year_fraction(
+            base_date,
+            as_of,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+
+        let df_commitment = disc_curve.df(t_commitment);
+        let df_as_of = disc_curve.df(t_as_of);
+        let df = if df_as_of > 0.0 {
+            df_commitment / df_as_of
+        } else {
+            1.0
+        };
+
+        Ok(upfront_fee.amount() * df)
+    } else {
+        // Commitment date in past or today - no discounting needed
+        Ok(upfront_fee.amount())
+    }
+}
+
+/// Compute terminal repayment adjustment for commitment_date == as_of scenario.
+///
+/// When the commitment date equals the valuation date, the initial draw happens "today"
+/// and needs special handling to avoid double-counting with the terminal repayment.
+///
+/// # Returns
+///
+/// Adjustment to apply to final PV (terminal_pv - initial_draw)
+fn compute_terminal_adjustment(
+    schedule: &crate::cashflow::builder::CashFlowSchedule,
+    facility: &RevolvingCredit,
+    disc: &dyn finstack_core::market_data::traits::Discounting,
+    disc_dc: finstack_core::dates::DayCount,
+    as_of: Date,
+    ccy: finstack_core::currency::Currency,
+) -> finstack_core::Result<f64> {
+    // Find terminal repayment flow
+    let terminal_flow = schedule.flows.iter().find(|cf| {
+        cf.date == facility.maturity_date
+            && cf.kind == finstack_core::cashflow::primitives::CFKind::Notional
+            && cf.amount.amount() > 0.0
+    });
+
+    let terminal_pv = if let Some(flow) = terminal_flow {
+        // Calculate discount factor from maturity to as_of
+        let t_maturity = disc_dc.year_fraction(
+            disc.base_date(),
+            facility.maturity_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        let t_as_of = disc_dc.year_fraction(
+            disc.base_date(),
+            as_of,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+
+        let df_maturity = disc.df(t_maturity);
+        let df_as_of = disc.df(t_as_of);
+        let df = if df_as_of > 0.0 {
+            df_maturity / df_as_of
+        } else {
+            1.0
+        };
+
+        if flow.amount.currency() == ccy {
+            flow.amount.amount() * df
+        } else {
+            0.0
+        }
+    } else {
+        0.0
+    };
+
+    // Return adjustment: terminal PV - initial draw
+    // (Mathematically, this is what both branches were computing)
+    Ok(terminal_pv - facility.drawn_amount.amount())
+}
+
 /// Build periods from payment schedule dates for PV aggregation.
 ///
 /// Creates Period objects with synthetic IDs based on payment frequency.
@@ -108,6 +223,9 @@ impl RevolvingCreditDiscountingPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
+        // Centralized rounding context for zero checks
+        let rc = finstack_core::config::RoundingContext::default();
+        let ccy = facility.commitment_amount.currency();
         // Generate cashflows (excludes upfront fee - handled below)
         let schedule = generate_deterministic_cashflows(facility, as_of)?;
 
@@ -137,7 +255,12 @@ impl RevolvingCreditDiscountingPricer {
         }
 
         let payment_schedule = builder.build()?;
-        let payment_dates: Vec<Date> = payment_schedule.into_iter().collect();
+        let mut payment_dates: Vec<Date> = payment_schedule.into_iter().collect();
+        // Ensure flows exactly on maturity are captured by PV aggregation (exclusive end semantics).
+        // Append a sentinel date one day after maturity so the final period includes maturity flows.
+        if let Some(&last) = payment_dates.last() {
+            payment_dates.push(last + time::Duration::days(1));
+        }
 
         // Build periods from payment dates
         let periods = build_periods_from_payment_dates(&payment_dates, facility.payment_frequency);
@@ -161,121 +284,30 @@ impl RevolvingCreditDiscountingPricer {
 
         // Handle upfront fee at pricer level (consistent with MC pricer)
         // Upfront fee is paid by lender at commitment, so it reduces facility value
-        let upfront_fee_pv = if let Some(upfront_fee) = facility.fees.upfront_fee {
-            if facility.commitment_date > as_of {
-                // Discount upfront fee from commitment date to as_of
-                let t_commitment = disc_dc.year_fraction(
-                    disc.base_date(),
-                    facility.commitment_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )?;
-                let t_as_of = disc_dc.year_fraction(
-                    disc.base_date(),
-                    as_of,
-                    finstack_core::dates::DayCountCtx::default(),
-                )?;
-
-                let df_commitment = disc.df(t_commitment);
-                let df_as_of = disc.df(t_as_of);
-                let df = if df_as_of > 0.0 {
-                    df_commitment / df_as_of
-                } else {
-                    1.0
-                };
-
-                upfront_fee.amount() * df
-            } else {
-                // Commitment date in the past or today - no discounting needed
-                upfront_fee.amount()
-            }
-        } else {
-            0.0
-        };
+        let upfront_fee_pv = compute_upfront_fee_pv(
+            facility.fees.upfront_fee,
+            facility.commitment_date,
+            as_of,
+            disc as &dyn finstack_core::market_data::traits::Discounting,
+            disc_dc,
+        )?;
 
         // Lender perspective: upfront fee is an outflow, so subtract from PV
         let mut final_pv = total_pv - upfront_fee_pv;
 
-        // If commitment_date == as_of, the initial draw happens "today" and is not included
-        // in the cashflow schedule. Check if terminal repayment is excluded (if last period ends at maturity_date).
-        // If excluded, it's already accounted for by subtracting initial draw.
-        // If included, we need to subtract net cost: initial draw - terminal repayment PV.
+        // Handle initial draw adjustment when commitment_date == as_of
+        // The initial draw happens "today" and isn't in the cashflow schedule, so we need
+        // to adjust for it along with the terminal repayment to avoid double-counting.
         if facility.commitment_date == as_of && facility.drawn_amount.amount() > 1e-6 {
-            let last_period_ends_at_maturity = periods
-                .last()
-                .map(|p| p.end == facility.maturity_date)
-                .unwrap_or(false);
-
-            if last_period_ends_at_maturity {
-                // Terminal repayment is excluded from period PVs, so we need to:
-                // 1. Add terminal repayment PV
-                // 2. Subtract initial draw
-                if let Some(terminal_flow) = schedule.flows.iter().find(|cf| {
-                    cf.date == facility.maturity_date
-                        && cf.kind == finstack_core::cashflow::primitives::CFKind::Notional
-                        && cf.amount.amount() > 0.0
-                }) {
-                    let t_maturity = disc_dc.year_fraction(
-                        disc.base_date(),
-                        facility.maturity_date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )?;
-                    let t_as_of = disc_dc.year_fraction(
-                        disc.base_date(),
-                        as_of,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )?;
-                    let df_maturity = disc.df(t_maturity);
-                    let df_as_of = disc.df(t_as_of);
-                    let df = if df_as_of > 0.0 {
-                        df_maturity / df_as_of
-                    } else {
-                        1.0
-                    };
-                    if terminal_flow.amount.currency() == ccy {
-                        let terminal_pv = terminal_flow.amount.amount() * df;
-                        // Add terminal repayment PV and subtract initial draw
-                        final_pv += terminal_pv - facility.drawn_amount.amount();
-                    } else {
-                        final_pv -= facility.drawn_amount.amount();
-                    }
-                } else {
-                    final_pv -= facility.drawn_amount.amount();
-                }
-            } else {
-                // Terminal repayment is included in period PVs, so subtract net cost
-                if let Some(terminal_flow) = schedule.flows.iter().find(|cf| {
-                    cf.date == facility.maturity_date
-                        && cf.kind == finstack_core::cashflow::primitives::CFKind::Notional
-                        && cf.amount.amount() > 0.0
-                }) {
-                    let t_maturity = disc_dc.year_fraction(
-                        disc.base_date(),
-                        facility.maturity_date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )?;
-                    let t_as_of = disc_dc.year_fraction(
-                        disc.base_date(),
-                        as_of,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )?;
-                    let df_maturity = disc.df(t_maturity);
-                    let df_as_of = disc.df(t_as_of);
-                    let df = if df_as_of > 0.0 {
-                        df_maturity / df_as_of
-                    } else {
-                        1.0
-                    };
-                    if terminal_flow.amount.currency() == ccy {
-                        let terminal_pv = terminal_flow.amount.amount() * df;
-                        // Subtract net cost: initial draw - terminal repayment PV
-                        final_pv -= facility.drawn_amount.amount() - terminal_pv;
-                    } else {
-                        final_pv -= facility.drawn_amount.amount();
-                    }
-                } else {
-                    final_pv -= facility.drawn_amount.amount();
-                }
-            }
+            let adjustment = compute_terminal_adjustment(
+                &schedule,
+                facility,
+                disc as &dyn finstack_core::market_data::traits::Discounting,
+                disc_dc,
+                as_of,
+                ccy,
+            )?;
+            final_pv += adjustment;
         }
 
         Ok(Money::new(final_pv, ccy))
@@ -383,6 +415,9 @@ impl RevolvingCreditMcPricer {
         use crate::cashflow::builder::schedule::CashFlowSchedule;
         use crate::cashflow::primitives::{CFKind, CashFlow, Notional};
         use finstack_core::dates::DayCountCtx;
+        // Centralized rounding context for zero checks
+        let rc = finstack_core::config::RoundingContext::default();
+        let ccy = facility.commitment_amount.currency();
 
         // Extract mean-reverting parameters
         let (target_rate, speed, volatility) = match &stoch_spec.utilization_process {
@@ -419,7 +454,7 @@ impl RevolvingCreditMcPricer {
         let dt = 0.25; // 3 months
         let num_steps = (time_horizon / dt).ceil() as usize;
 
-        // Build payment schedule dates and periods (reused across paths)
+        // Build payment schedule dates and periods ONCE (reused across all paths for efficiency)
         use finstack_core::dates::ScheduleBuilder;
         let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
             .frequency(facility.payment_frequency)
@@ -441,7 +476,11 @@ impl RevolvingCreditMcPricer {
         }
 
         let payment_schedule = builder.build()?;
-        let payment_dates: Vec<Date> = payment_schedule.into_iter().collect();
+        let mut payment_dates: Vec<Date> = payment_schedule.into_iter().collect();
+        // Ensure flows exactly on maturity are captured by PV aggregation (exclusive end semantics).
+        if let Some(&last) = payment_dates.last() {
+            payment_dates.push(last + time::Duration::days(1));
+        }
         let periods = build_periods_from_payment_dates(&payment_dates, facility.payment_frequency);
 
         // Initialize RNG
@@ -560,7 +599,7 @@ impl RevolvingCreditMcPricer {
                 } else {
                     let fwd = fwd_opt.expect("forward curve available");
                     let m = margin_bp_opt.unwrap_or(0.0) * 1e-4;
-                    fwd.rate(actual_dt).max(0.0) + m
+                    fwd.rate(actual_dt) + m
                 };
                 let interest = Money::new(drawn * period_rate * actual_dt, ccy);
 
@@ -595,7 +634,7 @@ impl RevolvingCreditMcPricer {
                     .unwrap_or(actual_dt);
 
                 // Add interest cashflow
-                if interest.amount().abs() > 1e-10 {
+                if !rc.is_effectively_zero_money(interest.amount(), ccy) {
                     path_flows.push(CashFlow {
                         date: date_next,
                         reset_date: if fixed_rate_opt.is_none() {
@@ -614,7 +653,7 @@ impl RevolvingCreditMcPricer {
                 }
 
                 // Add fee cashflows
-                if commitment_fee.amount().abs() > 1e-10 {
+                if !rc.is_effectively_zero_money(commitment_fee.amount(), ccy) {
                     path_flows.push(CashFlow {
                         date: date_next,
                         reset_date: None,
@@ -624,7 +663,7 @@ impl RevolvingCreditMcPricer {
                     });
                 }
 
-                if usage_fee.amount().abs() > 1e-10 {
+                if !rc.is_effectively_zero_money(usage_fee.amount(), ccy) {
                     path_flows.push(CashFlow {
                         date: date_next,
                         reset_date: None,
@@ -634,7 +673,7 @@ impl RevolvingCreditMcPricer {
                     });
                 }
 
-                if facility_fee.amount().abs() > 1e-10 {
+                if !rc.is_effectively_zero_money(facility_fee.amount(), ccy) {
                     path_flows.push(CashFlow {
                         date: date_next,
                         reset_date: None,
@@ -647,7 +686,7 @@ impl RevolvingCreditMcPricer {
                 // Add terminal repayment of outstanding principal at maturity
                 if step == num_steps - 1 && !defaulted {
                     path_flows.push(CashFlow {
-                        date: date_next,
+                        date: facility.maturity_date,
                         reset_date: None,
                         amount: Money::new(drawn, ccy),
                         kind: CFKind::Notional,
@@ -698,30 +737,13 @@ impl RevolvingCreditMcPricer {
         let mut mean_pv = sum_pv / (num_paths as f64);
 
         // Handle upfront fee at pricer level (consistent with deterministic pricer)
-        let upfront_fee_pv = if let Some(upfront_fee) = facility.fees.upfront_fee {
-            if facility.commitment_date > as_of {
-                let t_commitment = disc_dc.year_fraction(
-                    base_date,
-                    facility.commitment_date,
-                    DayCountCtx::default(),
-                )?;
-                let t_as_of = disc_dc.year_fraction(base_date, as_of, DayCountCtx::default())?;
-
-                let df_commitment = disc.df(t_commitment);
-                let df_as_of = disc.df(t_as_of);
-                let df = if df_as_of > 0.0 {
-                    df_commitment / df_as_of
-                } else {
-                    1.0
-                };
-
-                upfront_fee.amount() * df
-            } else {
-                upfront_fee.amount()
-            }
-        } else {
-            0.0
-        };
+        let upfront_fee_pv = compute_upfront_fee_pv(
+            facility.fees.upfront_fee,
+            facility.commitment_date,
+            as_of,
+            disc as &dyn finstack_core::market_data::traits::Discounting,
+            disc_dc,
+        )?;
 
         // Lender perspective: upfront fee is an outflow, so subtract from PV
         // Note: Cashflows include all principal flows (draws/repays and terminal repayment),
@@ -1015,24 +1037,13 @@ impl RevolvingCreditMcPricer {
 
         // Handle upfront fee at pricer level (one-time cashflow, not path-dependent)
         // Upfront fee is paid by lender at commitment, so it reduces facility value
-        let upfront_fee_pv = if let Some(upfront_fee) = facility.fees.upfront_fee {
-            // Discount upfront fee from commitment date to as_of
-            let t_as_of = disc_dc.year_fraction(
-                base_date,
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let df_as_of = disc_curve.df(t_as_of);
-            let df_commitment = disc_curve.df(t_start);
-            let df = if df_as_of > 0.0 {
-                df_commitment / df_as_of
-            } else {
-                1.0
-            };
-            upfront_fee.amount() * df
-        } else {
-            0.0
-        };
+        let upfront_fee_pv = compute_upfront_fee_pv(
+            facility.fees.upfront_fee,
+            facility.commitment_date,
+            as_of,
+            disc_curve as &dyn finstack_core::market_data::traits::Discounting,
+            disc_dc,
+        )?;
 
         // Combine path-dependent PV with upfront fee
         // Lender perspective: upfront fee is an outflow, so subtract from PV
