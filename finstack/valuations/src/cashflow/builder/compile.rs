@@ -126,15 +126,36 @@ pub(super) fn build_fee_schedules(
                 calendar_id,
                 stub,
             } => {
-                let sched = crate::cashflow::builder::build_dates(
-                    issue,
-                    maturity,
-                    *freq,
-                    *stub,
-                    *bdc,
-                    calendar_id.as_deref(),
-                );
-                let dates = sched.dates;
+                let sched = if calendar_id.is_some() {
+                    match crate::cashflow::builder::schedule_utils::build_dates_checked(
+                        issue,
+                        maturity,
+                        *freq,
+                        *stub,
+                        *bdc,
+                        calendar_id.as_deref(),
+                    ) {
+                        Ok(s) => s,
+                        Err(_) => crate::cashflow::builder::build_dates(
+                            issue,
+                            maturity,
+                            *freq,
+                            *stub,
+                            *bdc,
+                            calendar_id.as_deref(),
+                        ),
+                    }
+                } else {
+                    crate::cashflow::builder::build_dates(
+                        issue,
+                        maturity,
+                        *freq,
+                        *stub,
+                        *bdc,
+                        calendar_id.as_deref(),
+                    )
+                };
+                let dates = sched.dates.clone();
                 if dates.len() < 2 {
                     return Err(InputError::TooFewPoints.into());
                 }
@@ -390,15 +411,36 @@ pub(super) fn compute_coupon_schedules(
         }
         let split = chosen.map(|(_, sp)| sp).unwrap_or(CouponType::Cash);
 
-        let sched = crate::cashflow::builder::build_dates(
-            s,
-            e,
-            chosen_coupon.schedule.freq,
-            chosen_coupon.schedule.stub,
-            chosen_coupon.schedule.bdc,
-            chosen_coupon.schedule.calendar_id.as_deref(),
-        );
-        let dates = sched.dates;
+        let sched = if chosen_coupon.schedule.calendar_id.is_some() {
+            match crate::cashflow::builder::schedule_utils::build_dates_checked(
+                s,
+                e,
+                chosen_coupon.schedule.freq,
+                chosen_coupon.schedule.stub,
+                chosen_coupon.schedule.bdc,
+                chosen_coupon.schedule.calendar_id.as_deref(),
+            ) {
+                Ok(s) => s,
+                Err(_) => crate::cashflow::builder::build_dates(
+                    s,
+                    e,
+                    chosen_coupon.schedule.freq,
+                    chosen_coupon.schedule.stub,
+                    chosen_coupon.schedule.bdc,
+                    chosen_coupon.schedule.calendar_id.as_deref(),
+                ),
+            }
+        } else {
+            crate::cashflow::builder::build_dates(
+                s,
+                e,
+                chosen_coupon.schedule.freq,
+                chosen_coupon.schedule.stub,
+                chosen_coupon.schedule.bdc,
+                chosen_coupon.schedule.calendar_id.as_deref(),
+            )
+        };
+        let dates = sched.dates.clone();
         if dates.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }

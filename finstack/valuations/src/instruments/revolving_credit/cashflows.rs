@@ -104,6 +104,19 @@ fn generate_deterministic_cashflows_internal(
     // Step 3: Generate cashflows based on actual balances
     let mut flows = Vec::new();
 
+    // Add initial draw at commitment_date (from lender perspective: negative cashflow - capital deployment)
+    // Include if commitment_date is after as_of (future cashflow). If commitment_date == as_of,
+    // the draw happens "today" and should be handled separately in the pricer.
+    if facility.drawn_amount.amount() > 1e-6 && facility.commitment_date > as_of {
+        flows.push(CashFlow {
+            date: facility.commitment_date,
+            reset_date: None,
+            amount: facility.drawn_amount * -1.0,
+            kind: CFKind::Notional,
+            accrual_factor: 0.0,
+        });
+    }
+
     // Add interest and fee cashflows for each period
     for i in 0..(payment_dates.len() - 1) {
         let period_start = payment_dates[i];
@@ -544,7 +557,9 @@ mod tests {
             .filter(|cf| cf.kind == CFKind::Notional)
             .collect();
 
-        // Should have 3 principal flows: draw (negative), repay (positive), terminal (positive)
+        // Should have 3 principal flows: draw event (negative), repay (positive), terminal (positive)
+        // Note: Initial draw at commitment_date is not included when commitment_date == as_of
+        // (it happens "today" and is handled separately in the pricer)
         assert_eq!(principal_flows.len(), 3);
 
         // Draw should be negative (lender deploys capital)

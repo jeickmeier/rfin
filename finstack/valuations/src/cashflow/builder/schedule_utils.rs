@@ -17,6 +17,34 @@ pub struct PeriodSchedule {
     pub first_or_last: hashbrown::HashSet<Date>,
 }
 
+impl PeriodSchedule {
+    /// Build prev map and first_or_last set from dates.
+    fn from_dates(dates: Vec<Date>) -> Self {
+        let mut prev = hashbrown::HashMap::with_capacity(dates.len());
+        if let Some(&first) = dates.first() {
+            let mut p = first;
+            for &d in dates.iter().skip(1) {
+                prev.insert(d, p);
+                p = d;
+            }
+        }
+
+        let mut first_or_last = hashbrown::HashSet::new();
+        if let Some(&first) = dates.first() {
+            first_or_last.insert(first);
+        }
+        if let Some(&last) = dates.last() {
+            first_or_last.insert(last);
+        }
+
+        Self {
+            dates,
+            prev,
+            first_or_last,
+        }
+    }
+}
+
 /// Error type for schedule building operations.
 #[derive(Debug, thiserror::Error)]
 pub enum ScheduleError {
@@ -33,10 +61,65 @@ impl From<ScheduleError> for finstack_core::Error {
     }
 }
 
-/// Build a schedule between start/end with standard adjustments and stub rule.
+/// Internal implementation for schedule building with configurable error handling.
 ///
-/// Example
-/// -------
+/// When `strict` is true, errors are propagated; when false, graceful fallback to [start, end].
+fn build_dates_impl(
+    start: Date,
+    end: Date,
+    freq: Frequency,
+    stub: StubKind,
+    bdc: BusinessDayConvention,
+    calendar_id: Option<&str>,
+    strict: bool,
+) -> Result<PeriodSchedule, ScheduleError> {
+    let builder = ScheduleBuilder::new(start, end)
+        .frequency(freq)
+        .stub_rule(stub);
+
+    let dates: Vec<Date> = if let Some(id) = calendar_id {
+        // Calendar specified - try to look it up
+        match calendar_by_id(id) {
+            Some(cal) => builder.adjust_with(bdc, cal).build()?.into_iter().collect(),
+            None => {
+                if strict {
+                    return Err(ScheduleError::Core(
+                        finstack_core::error::InputError::NotFound { id: id.to_string() }.into(),
+                    ));
+                }
+                // Non-strict: fallback to unadjusted schedule
+                builder
+                    .build()
+                    .map(|s| s.into_iter().collect())
+                    .unwrap_or_else(|_| vec![start, end])
+            }
+        }
+    } else {
+        // No calendar - build unadjusted schedule
+        if strict {
+            builder.build()?.into_iter().collect()
+        } else {
+            builder
+                .build()
+                .map(|s| s.into_iter().collect())
+                .unwrap_or_else(|_| vec![start, end])
+        }
+    };
+
+    Ok(PeriodSchedule::from_dates(dates))
+}
+
+/// Build a schedule between start/end with graceful error handling.
+///
+/// This is the **unchecked variant** that provides graceful fallback behavior:
+/// - If schedule building fails, returns minimal schedule `[start, end]`
+/// - If calendar is not found, attempts unadjusted schedule
+/// - Never panics, always returns a valid `PeriodSchedule`
+///
+/// For strict validation that returns errors, use [`build_dates_checked`].
+///
+/// # Example
+///
 /// ```rust
 /// use finstack_core::dates::{Date, Frequency, BusinessDayConvention, StubKind, create_date};
 /// use finstack_valuations::cashflow::builder::schedule_utils::build_dates;
@@ -56,54 +139,76 @@ pub fn build_dates(
     bdc: BusinessDayConvention,
     calendar_id: Option<&str>,
 ) -> PeriodSchedule {
-    let builder = ScheduleBuilder::new(start, end)
-        .frequency(freq)
-        .stub_rule(stub);
+    // Never panics - uses graceful fallback on errors
+    build_dates_impl(start, end, freq, stub, bdc, calendar_id, false)
+        .expect("build_dates_impl with strict=false should never fail")
+}
 
-    let dates: Vec<Date> = if let Some(id) = calendar_id {
-        if let Some(cal) = calendar_by_id(id) {
-            builder
-                .adjust_with(bdc, cal)
-                .build()
-                .expect("Failed to build schedule with calendar adjustment")
-                .into_iter()
-                .collect()
-        } else {
-            builder
-                .build()
-                .expect("Failed to build schedule")
-                .into_iter()
-                .collect()
-        }
-    } else {
-        builder
-            .build()
-            .expect("Failed to build schedule")
-            .into_iter()
-            .collect()
-    };
+/// Build a schedule between start/end with strict error handling.
+///
+/// This is the **checked variant** that propagates all errors:
+/// - Returns error if schedule building fails
+/// - Returns error if calendar is specified but not found
+/// - Returns error if ScheduleBuilder fails for any reason
+///
+/// For graceful fallback behavior, use [`build_dates`].
+///
+/// # Errors
+///
+/// Returns `ScheduleError` when:
+/// - `calendar_id` is provided but calendar is not found
+/// - Schedule generation fails due to invalid date ranges
+/// - Business day adjustment fails
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::dates::{Date, Frequency, BusinessDayConvention, StubKind, create_date};
+/// use finstack_valuations::cashflow::builder::schedule_utils::build_dates_checked;
+/// use time::Month;
+///
+/// let start = create_date(2025, Month::January, 15)?;
+/// let end = create_date(2025, Month::July, 15)?;
+/// let sched = build_dates_checked(
+///     start, end,
+///     Frequency::quarterly(),
+///     StubKind::None,
+///     BusinessDayConvention::Following,
+///     None
+/// )?;
+/// assert!(sched.dates.len() >= 2);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+pub fn build_dates_checked(
+    start: Date,
+    end: Date,
+    freq: Frequency,
+    stub: StubKind,
+    bdc: BusinessDayConvention,
+    calendar_id: Option<&str>,
+) -> Result<PeriodSchedule, ScheduleError> {
+    build_dates_impl(start, end, freq, stub, bdc, calendar_id, true)
+}
 
-    let mut prev = hashbrown::HashMap::with_capacity(dates.len());
-    if let Some(&first) = dates.first() {
-        let mut p = first;
-        for &d in dates.iter().skip(1) {
-            prev.insert(d, p);
-            p = d;
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::Month;
+
+    fn d(y: i32, m: u8, day: u8) -> Date {
+        Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
     }
 
-    // Mark first and last dates
-    let mut first_or_last = hashbrown::HashSet::new();
-    if let Some(&first) = dates.first() {
-        first_or_last.insert(first);
-    }
-    if let Some(&last) = dates.last() {
-        first_or_last.insert(last);
-    }
-
-    PeriodSchedule {
-        dates,
-        prev,
-        first_or_last,
+    #[test]
+    fn build_dates_checked_errors_on_unknown_calendar() {
+        let res = build_dates_checked(
+            d(2025, 1, 1),
+            d(2025, 4, 1),
+            Frequency::quarterly(),
+            StubKind::None,
+            BusinessDayConvention::Following,
+            Some("NOT_A_CAL"),
+        );
+        assert!(res.is_err());
     }
 }

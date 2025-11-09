@@ -719,6 +719,7 @@ impl PyCashFlowSchedule {
                     forward_curve_id,
                     as_of: Some(as_of_date),
                     day_count: Some(dc),
+                    discount_day_count: None,
                     facility_limit: facility_limit_money,
                     include_floating_decomposition,
                 },

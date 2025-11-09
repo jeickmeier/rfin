@@ -617,6 +617,27 @@ impl CashflowBuilder {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Helper: Get issue and maturity with clear panic message if not set.
+    ///
+    /// Builder methods that add coupon windows require issue/maturity to be set first
+    /// via `principal()`. This helper provides a single validation point with clear
+    /// error messages indicating which method was called.
+    fn get_issue_maturity(&self, method_name: &str) -> (Date, Date) {
+        let issue = self.issue.unwrap_or_else(|| {
+            panic!(
+                "CashflowBuilder::{}: issue date must be set via principal() before calling this method",
+                method_name
+            )
+        });
+        let maturity = self.maturity.unwrap_or_else(|| {
+            panic!(
+                "CashflowBuilder::{}: maturity date must be set via principal() before calling this method",
+                method_name
+            )
+        });
+        (issue, maturity)
+    }
     /// Sets principal details and instrument horizon.
     pub fn principal(&mut self, initial: Money, issue_date: Date, maturity: Date) -> &mut Self {
         self.notional = Some(Notional {
@@ -649,12 +670,7 @@ impl CashflowBuilder {
 
     /// Adds a fixed coupon specification.
     pub fn fixed_cf(&mut self, spec: FixedCouponSpec) -> &mut Self {
-        let issue = self
-            .issue
-            .expect("issue must be set before adding fixed coupons");
-        let maturity = self
-            .maturity
-            .expect("maturity must be set before adding fixed coupons");
+        let (issue, maturity) = self.get_issue_maturity("fixed_cf");
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow {
                 start: issue,
@@ -681,12 +697,7 @@ impl CashflowBuilder {
 
     /// Adds a floating coupon specification.
     pub fn floating_cf(&mut self, spec: FloatingCouponSpec) -> &mut Self {
-        let issue = self
-            .issue
-            .expect("issue must be set before adding floating coupons");
-        let maturity = self
-            .maturity
-            .expect("maturity must be set before adding floating coupons");
+        let (issue, maturity) = self.get_issue_maturity("floating_cf");
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow {
                 start: issue,
@@ -779,15 +790,63 @@ impl CashflowBuilder {
     }
 
     /// Convenience: fixed step-up program using boundary dates.
-    /// Steps must be ordered by boundary end date; the last date should equal maturity.
+    ///
+    /// Creates a series of fixed-rate coupon windows where the rate changes at
+    /// specified boundary dates. Common for step-up bonds where the coupon rate
+    /// increases over time to compensate for credit deterioration risk.
+    ///
+    /// # Arguments
+    ///
+    /// * `steps` - Boundary dates and rates: `&[(end_date, rate)]`
+    /// * `schedule` - Common schedule parameters (frequency, day count, etc.)
+    /// * `default_split` - Payment type (Cash, PIK, or Split) for all windows
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, ScheduleParams, CouponType};
+    /// use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let issue = Date::from_calendar_date(2025, Month::January, 1)?;
+    /// let maturity = Date::from_calendar_date(2028, Month::January, 1)?;
+    ///
+    /// // Step-up bond: 4% for first year, 5% for second year, 6% thereafter
+    /// let steps = [
+    ///     (Date::from_calendar_date(2026, Month::January, 1)?, 0.04),
+    ///     (Date::from_calendar_date(2027, Month::January, 1)?, 0.05),
+    ///     (maturity, 0.06),
+    /// ];
+    ///
+    /// let schedule = CashFlowSchedule::builder()
+    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+    ///     .fixed_stepup(
+    ///         &steps,
+    ///         ScheduleParams::quarterly_act360(),
+    ///         CouponType::Cash,
+    ///     )
+    ///     .build()?;
+    ///
+    /// assert!(schedule.flows.len() > 0);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - Steps must be ordered by end date
+    /// - If the last step doesn't reach maturity, the last rate is extended
+    /// - All windows use the same schedule parameters
     pub fn fixed_stepup(
         &mut self,
         steps: &[(Date, f64)],
         schedule: ScheduleParams,
         default_split: CouponType,
     ) -> &mut Self {
-        let issue = self.issue.expect("issue must be set before stepup");
-        let maturity = self.maturity.expect("maturity must be set before stepup");
+        let (issue, maturity) = self.get_issue_maturity("fixed_stepup");
         let mut prev = issue;
         for &(end, rate) in steps {
             self.add_fixed_coupon_window(prev, end, rate, schedule.clone(), default_split);
@@ -803,7 +862,62 @@ impl CashflowBuilder {
     }
 
     /// Convenience: floating margin step-up program.
-    /// Steps must be ordered by boundary end date; the last date should equal maturity.
+    ///
+    /// Creates a series of floating-rate coupon windows where the margin over
+    /// the floating index changes at specified boundary dates. Common for loans
+    /// where the credit spread increases over time.
+    ///
+    /// # Arguments
+    ///
+    /// * `steps` - Boundary dates and margins: `&[(end_date, margin_bps)]`
+    /// * `base_params` - Base floating parameters (index, gearing, reset lag)
+    /// * `schedule` - Common schedule parameters
+    /// * `default_split` - Payment type for all windows
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
+    /// use finstack_core::money::Money;
+    /// use finstack_core::types::CurveId;
+    /// use finstack_valuations::cashflow::builder::{
+    ///     CashFlowSchedule, ScheduleParams, FloatCouponParams, CouponType
+    /// };
+    /// use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let issue = Date::from_calendar_date(2025, Month::January, 1)?;
+    /// let maturity = Date::from_calendar_date(2028, Month::January, 1)?;
+    ///
+    /// // Floating rate loan: SOFR + 200bps, stepping up to +300bps, then +400bps
+    /// let steps = [
+    ///     (Date::from_calendar_date(2026, Month::January, 1)?, 200.0),
+    ///     (Date::from_calendar_date(2027, Month::January, 1)?, 300.0),
+    ///     (maturity, 400.0),
+    /// ];
+    ///
+    /// let base = FloatCouponParams {
+    ///     index_id: CurveId::new("USD-SOFR"),
+    ///     margin_bp: 0.0,  // Will be overridden by steps
+    ///     gearing: 1.0,
+    ///     reset_lag_days: 2,
+    /// };
+    ///
+    /// let schedule = CashFlowSchedule::builder()
+    ///     .principal(Money::new(5_000_000.0, Currency::USD), issue, maturity)
+    ///     .float_margin_stepup(
+    ///         &steps,
+    ///         base,
+    ///         ScheduleParams::quarterly_act360(),
+    ///         CouponType::Cash,
+    ///     )
+    ///     .build()?;
+    ///
+    /// assert!(schedule.flows.len() > 0);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn float_margin_stepup(
         &mut self,
         steps: &[(Date, f64)],
@@ -811,8 +925,7 @@ impl CashflowBuilder {
         schedule: ScheduleParams,
         default_split: CouponType,
     ) -> &mut Self {
-        let issue = self.issue.expect("issue must be set before stepup");
-        let maturity = self.maturity.expect("maturity must be set before stepup");
+        let (issue, maturity) = self.get_issue_maturity("float_margin_stepup");
         let mut prev = issue;
         for &(end, margin_bp) in steps {
             let mut params = base_params.clone();
@@ -837,6 +950,61 @@ impl CashflowBuilder {
     }
 
     /// Convenience: fixed-to-float switch at `switch` date.
+    ///
+    /// Creates a hybrid instrument that pays fixed coupons until a switch date,
+    /// then converts to floating coupons. Common for convertible/callable bonds
+    /// and structured products with changing payment profiles.
+    ///
+    /// # Arguments
+    ///
+    /// * `switch` - Date when coupon switches from fixed to floating
+    /// * `fixed_win` - Fixed rate and schedule for pre-switch period
+    /// * `float_win` - Floating parameters and schedule for post-switch period
+    /// * `default_split` - Payment type for both periods
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
+    /// use finstack_core::money::Money;
+    /// use finstack_core::types::CurveId;
+    /// use finstack_valuations::cashflow::builder::{
+    ///     CashFlowSchedule, ScheduleParams, FixedWindow, FloatWindow,
+    ///     FloatCouponParams, CouponType
+    /// };
+    /// use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let issue = Date::from_calendar_date(2025, Month::January, 1)?;
+    /// let switch = Date::from_calendar_date(2027, Month::January, 1)?;
+    /// let maturity = Date::from_calendar_date(2030, Month::January, 1)?;
+    ///
+    /// // Pay 5% fixed for 2 years, then SOFR + 250bps floating
+    /// let fixed_win = FixedWindow {
+    ///     rate: 0.05,
+    ///     schedule: ScheduleParams::semiannual_30360(),
+    /// };
+    ///
+    /// let float_win = FloatWindow {
+    ///     params: FloatCouponParams {
+    ///         index_id: CurveId::new("USD-SOFR"),
+    ///         margin_bp: 250.0,
+    ///         gearing: 1.0,
+    ///         reset_lag_days: 2,
+    ///     },
+    ///     schedule: ScheduleParams::quarterly_act360(),
+    /// };
+    ///
+    /// let schedule = CashFlowSchedule::builder()
+    ///     .principal(Money::new(10_000_000.0, Currency::USD), issue, maturity)
+    ///     .fixed_to_float(switch, fixed_win, float_win, CouponType::Cash)
+    ///     .build()?;
+    ///
+    /// assert!(schedule.flows.len() > 0);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn fixed_to_float(
         &mut self,
         switch: Date,
@@ -844,10 +1012,7 @@ impl CashflowBuilder {
         float_win: FloatWindow,
         default_split: CouponType,
     ) -> &mut Self {
-        let issue = self.issue.expect("issue must be set before fixed_to_float");
-        let maturity = self
-            .maturity
-            .expect("maturity must be set before fixed_to_float");
+        let (issue, maturity) = self.get_issue_maturity("fixed_to_float");
         self.add_fixed_coupon_window(
             issue,
             switch,
@@ -866,14 +1031,70 @@ impl CashflowBuilder {
     }
 
     /// Convenience: payment split program with boundary dates (PIK toggle windows).
-    /// Provide a list of `(end, split)`; default outside windows is Cash.
+    ///
+    /// Creates a payment profile where the coupon payment type (Cash, PIK, or Split)
+    /// changes over time. Common for PIK toggle bonds and mezzanine loans where
+    /// the borrower can elect to capitalize interest during specific periods.
+    ///
+    /// # Arguments
+    ///
+    /// * `steps` - Boundary dates and payment splits: `&[(end_date, split)]`
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::cashflow::builder::{
+    ///     CashFlowSchedule, FixedCouponSpec, CouponType
+    /// };
+    /// use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let issue = Date::from_calendar_date(2025, Month::January, 1)?;
+    /// let maturity = Date::from_calendar_date(2030, Month::January, 1)?;
+    ///
+    /// // PIK toggle: 100% PIK for first 2 years, 50/50 split for next 2 years, then all cash
+    /// let payment_steps = [
+    ///     (Date::from_calendar_date(2027, Month::January, 1)?, CouponType::PIK),
+    ///     (Date::from_calendar_date(2029, Month::January, 1)?, CouponType::Split {
+    ///         cash_pct: 0.5,
+    ///         pik_pct: 0.5
+    ///     }),
+    ///     (maturity, CouponType::Cash),
+    /// ];
+    ///
+    /// let fixed_spec = FixedCouponSpec {
+    ///     coupon_type: CouponType::Cash,  // Will be overridden by payment program
+    ///     rate: 0.10,  // 10% PIK toggle
+    ///     freq: Frequency::semi_annual(),
+    ///     dc: DayCount::Thirty360,
+    ///     bdc: BusinessDayConvention::Following,
+    ///     calendar_id: None,
+    ///     stub: StubKind::None,
+    /// };
+    ///
+    /// let schedule = CashFlowSchedule::builder()
+    ///     .principal(Money::new(25_000_000.0, Currency::USD), issue, maturity)
+    ///     .fixed_cf(fixed_spec)
+    ///     .payment_split_program(&payment_steps)
+    ///     .build()?;
+    ///
+    /// // Check that PIK flows increase outstanding balance
+    /// let outstanding_path = schedule.outstanding_path();
+    /// assert!(outstanding_path.len() > 0);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - Periods not covered by steps default to `Cash`
+    /// - Steps must be ordered by end date
+    /// - Works with both fixed and floating coupons
     pub fn payment_split_program(&mut self, steps: &[(Date, CouponType)]) -> &mut Self {
-        let issue = self
-            .issue
-            .expect("issue must be set before payment program");
-        let maturity = self
-            .maturity
-            .expect("maturity must be set before payment program");
+        let (issue, maturity) = self.get_issue_maturity("payment_split_program");
         let mut prev = issue;
         for &(end, split) in steps {
             if prev < end {

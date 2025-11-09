@@ -97,6 +97,10 @@ pub struct PeriodDataFrameOptions<'a> {
     pub forward_curve_id: Option<&'a str>,
     pub as_of: Option<Date>,
     pub day_count: Option<DayCount>,
+    /// Optional override for discounting time calculation basis.
+    /// When provided, the discounting time 't' will be computed using this
+    /// day-count instead of `day_count`/schedule DC.
+    pub discount_day_count: Option<DayCount>,
     pub facility_limit: Option<Money>,
     pub include_floating_decomposition: bool,
 }
@@ -231,6 +235,46 @@ impl CashFlowSchedule {
         result
     }
 
+    /// End-of-date outstanding path including Notional draws/repays.
+    ///
+    /// Applies Amortization (reduces), PIK (increases), and Notional
+    /// (draws negative, repays positive) to compute outstanding after
+    /// all flows on each date have been processed.
+    pub fn outstanding_by_date_including_notional(&self) -> Vec<(Date, Money)> {
+        let mut result: Vec<(Date, Money)> = Vec::new();
+        if self.flows.is_empty() {
+            return result;
+        }
+
+        let mut outstanding = self.notional.initial;
+
+        let mut i = 0usize;
+        while i < self.flows.len() {
+            let d = self.flows[i].date;
+            // Process all flows on this date in their deterministic order
+            let mut j = i;
+            while j < self.flows.len() && self.flows[j].date == d {
+                match self.flows[j].kind {
+                    CFKind::Amortization => {
+                        outstanding = outstanding.checked_sub(self.flows[j].amount).unwrap();
+                    }
+                    CFKind::PIK => {
+                        outstanding = outstanding.checked_add(self.flows[j].amount).unwrap();
+                    }
+                    CFKind::Notional => {
+                        // Draws negative, repays positive -> subtract to apply sign
+                        outstanding = outstanding.checked_sub(self.flows[j].amount).unwrap();
+                    }
+                    _ => {}
+                }
+                j += 1;
+            }
+            result.push((d, outstanding));
+            i = j;
+        }
+
+        result
+    }
     /// Compute pre-period present values aggregated by period.
     ///
     /// Groups cashflows by period and computes the present value of each cashflow
@@ -314,6 +358,8 @@ impl CashFlowSchedule {
     /// This computes all derived columns (discount factors, survival probabilities,
     /// base rate, spread, all-in rate, unfunded amounts) in Rust for consistency
     /// across language bindings. Bindings should only perform type conversion.
+    /// Historical cashflows (`date <= as_of/base`) are included in the table for
+    /// auditability but contribute zero PV by convention.
     /// * `options` - Additional configuration (hazard/forward IDs, overrides, facility limits).
     pub fn to_period_dataframe(
         &self,
@@ -429,14 +475,17 @@ impl CashFlowSchedule {
             yr_fraqs.push(yr_fraq);
             days.push((cf.date - period.start).whole_days());
 
-            // Discount factor using schedule dc for consistency with legacy outputs
+            // Discount factor using configured discounting basis
+            let dc_for_discounting = options.discount_day_count.unwrap_or(dc);
             let t = if cf.date == base {
                 0.0
             } else if cf.date > base {
-                dc.year_fraction(base, cf.date, DayCountCtx::default())
+                dc_for_discounting
+                    .year_fraction(base, cf.date, DayCountCtx::default())
                     .unwrap_or(0.0)
             } else {
-                -dc.year_fraction(cf.date, base, DayCountCtx::default())
+                -dc_for_discounting
+                    .year_fraction(cf.date, base, DayCountCtx::default())
                     .unwrap_or(0.0)
             };
             let df = disc_arc.df(t);
@@ -453,7 +502,12 @@ impl CashFlowSchedule {
             } else {
                 1.0
             };
-            pvs.push(cf.amount.amount() * df * sp_mult);
+            let pv_amt = if cf.date > base {
+                cf.amount.amount() * df * sp_mult
+            } else {
+                0.0
+            };
+            pvs.push(pv_amt);
 
             // Unfunded and commitment amounts
             if let Some(limit) = facility_limit.as_ref() {
@@ -562,4 +616,135 @@ pub struct PeriodDataFrame {
     pub base_rates: Option<Vec<Option<f64>>>,
     pub spreads: Option<Vec<Option<f64>>>,
     pub allin_rates: Vec<Option<f64>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Period, PeriodId};
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::math::interp::InterpStyle;
+    use time::Month;
+
+    fn d(y: i32, m: u8, day: u8) -> Date {
+        Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
+    }
+
+    fn quarters_2025() -> Vec<Period> {
+        vec![
+            Period {
+                id: PeriodId::quarter(2025, 1),
+                start: d(2025, 1, 1),
+                end: d(2025, 4, 1),
+                is_actual: true,
+            },
+            Period {
+                id: PeriodId::quarter(2025, 2),
+                start: d(2025, 4, 1),
+                end: d(2025, 7, 1),
+                is_actual: false,
+            },
+        ]
+    }
+
+    #[test]
+    fn dataframe_sets_zero_pv_for_historical_rows() {
+        // Build a simple schedule with one historical and one future cashflow
+        let base = d(2025, 4, 1);
+        let flows = vec![
+            CashFlow {
+                date: d(2025, 3, 15), // historical
+                reset_date: None,
+                amount: Money::new(100.0, Currency::USD),
+                kind: CFKind::Fixed,
+                accrual_factor: 0.25,
+            },
+            CashFlow {
+                date: d(2025, 5, 15), // future
+                reset_date: None,
+                amount: Money::new(200.0, Currency::USD),
+                kind: CFKind::Fixed,
+                accrual_factor: 0.25,
+            },
+        ];
+        let schedule = CashFlowSchedule {
+            flows,
+            notional: Notional::par(1_000.0, Currency::USD),
+            day_count: DayCount::Act365F,
+            meta: CashflowMeta::default(),
+        };
+
+        // Market context with flat discount curve (df = 1.0)
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (30.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+        let market = MarketContext::new().insert_discount(curve);
+
+        let periods = quarters_2025();
+        let options = PeriodDataFrameOptions {
+            hazard_curve_id: None,
+            forward_curve_id: None,
+            as_of: Some(base),
+            day_count: Some(DayCount::Act365F),
+            discount_day_count: None,
+            facility_limit: None,
+            include_floating_decomposition: false,
+        };
+
+        let df = schedule
+            .to_period_dataframe(&periods, &market, "USD-OIS", options)
+            .unwrap();
+        // Find PVs aligned with input cashflows
+        // Historical row should be 0.0 PV; future row should be amount * DF
+        assert_eq!(df.pvs.len(), 2);
+        assert!((df.pvs[0] - 0.0).abs() < 1e-12);
+        assert!((df.pvs[1] - 200.0 * df.discount_factors[1]).abs() < 1e-12);
+    }
+
+    #[test]
+    fn outstanding_path_including_notional_applies_draws_and_repays() {
+        let base = d(2025, 1, 1);
+        let notional = Notional::par(100.0, Currency::USD);
+        let flows = vec![
+            // Amortization of 10 (reduces outstanding to 90)
+            CashFlow {
+                date: base,
+                reset_date: None,
+                amount: Money::new(10.0, Currency::USD),
+                kind: CFKind::Amortization,
+                accrual_factor: 0.0,
+            },
+            // Draw of 20 represented as negative Notional -> outstanding 110
+            CashFlow {
+                date: base,
+                reset_date: None,
+                amount: Money::new(-20.0, Currency::USD),
+                kind: CFKind::Notional,
+                accrual_factor: 0.0,
+            },
+            // Repay of 15 represented as positive Notional -> outstanding 95
+            CashFlow {
+                date: base,
+                reset_date: None,
+                amount: Money::new(15.0, Currency::USD),
+                kind: CFKind::Notional,
+                accrual_factor: 0.0,
+            },
+        ];
+        let sched = CashFlowSchedule {
+            flows,
+            notional,
+            day_count: DayCount::Act365F,
+            meta: CashflowMeta::default(),
+        };
+        let path = sched.outstanding_by_date_including_notional();
+        assert_eq!(path.len(), 1);
+        // 100 - 10 - (-20) - 15 => 95
+        assert!((path[0].1.amount() - 95.0).abs() < 1e-12);
+    }
 }
