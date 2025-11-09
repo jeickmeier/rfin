@@ -98,33 +98,8 @@ impl RevolvingCreditDiscountingPricer {
         let disc_dc = disc.day_count();
 
         // Build payment schedule dates to create periods
-        use finstack_core::dates::ScheduleBuilder;
-        let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
-            .frequency(facility.payment_frequency)
-            .stub_rule(finstack_core::dates::StubKind::None);
-
-        if let Some(cal_code) = facility
-            .attributes
-            .get_meta("calendar_id")
-            .or_else(|| facility.attributes.get_meta("calendar"))
-        {
-            if let Some(cal) =
-                finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code)
-            {
-                builder = builder.adjust_with(
-                    finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                    cal,
-                );
-            }
-        }
-
-        let payment_schedule = builder.build()?;
-        let mut payment_dates: Vec<Date> = payment_schedule.into_iter().collect();
-        // Ensure flows exactly on maturity are captured by PV aggregation (exclusive end semantics).
-        // Append a sentinel date one day after maturity so the final period includes maturity flows.
-        if let Some(&last) = payment_dates.last() {
-            payment_dates.push(last + time::Duration::days(1));
-        }
+        // Include sentinel (one day after last payment) to ensure terminal flows are captured
+        let payment_dates = super::utils::build_payment_dates(facility, true)?;
 
         // Build periods from payment dates
         let periods = build_periods_from_payment_dates(&payment_dates, facility.payment_frequency);
@@ -190,14 +165,11 @@ impl Pricer for RevolvingCreditDiscountingPricer {
         }
 
         // Extract valuation date from discount curve
-        let disc = market
-            .get_discount_ref(facility.discount_curve_id.as_str())
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        let disc = market.get_discount_ref(facility.discount_curve_id.as_str())?;
         let as_of = disc.base_date();
 
         // Price the facility
-        let pv = Self::price_deterministic(facility, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        let pv = Self::price_deterministic(facility, market, as_of)?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(facility.id(), as_of, pv))
@@ -509,23 +481,8 @@ impl RevolvingCreditMcPricer {
             let fwd_base = fwd.base_date();
             
             // Build reset schedule from commitment to maturity
-            use finstack_core::dates::ScheduleBuilder;
-            let mut reset_builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
-                .frequency(*reset_freq)
-                .stub_rule(finstack_core::dates::StubKind::None);
-            
-            if let Some(cal_code) = facility.attributes.get_meta("calendar_id")
-                .or_else(|| facility.attributes.get_meta("calendar")) {
-                if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
-                    reset_builder = reset_builder.adjust_with(
-                        finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                        cal,
-                    );
-                }
-            }
-            
-            let reset_schedule = reset_builder.build()?;
-            let reset_dates: Vec<Date> = reset_schedule.into_iter().collect();
+            let reset_dates: Vec<Date> = super::utils::build_reset_dates(facility)?
+                .expect("floating rate facility must have reset dates");
             
             // Map each MC step to its locked all-in rate
             let mut rates_by_step = Vec::with_capacity(num_steps + 1);
@@ -542,43 +499,17 @@ impl RevolvingCreditMcPricer {
                     .copied()
                     .unwrap_or(facility.commitment_date);
                 
-                // Compute reset period end
-                let mut reset_end = reset_date;
-                match reset_freq {
-                    Frequency::Months(m) => {
-                        reset_end = finstack_core::dates::utils::add_months(reset_date, *m as i32);
-                    }
-                    Frequency::Days(d) => {
-                        reset_end = reset_date + time::Duration::days(*d as i64);
-                    }
-                    _ => {}
-                }
+                // Project floating rate for this step using helper
+                let all_in_rate = super::utils::project_floating_rate(
+                    reset_date,
+                    reset_freq,
+                    index_id.as_str(),
+                    *margin_bp,
+                    *floor_bp,
+                    market,
+                    &facility.attributes,
+                )?;
                 
-                // Apply calendar adjustment if configured
-                if let Some(cal_code) = facility.attributes.get_meta("calendar_id")
-                    .or_else(|| facility.attributes.get_meta("calendar")) {
-                    if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
-                        reset_end = finstack_core::dates::adjust(
-                            reset_end,
-                            finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                            cal,
-                        )?;
-                    }
-                }
-                
-                // Compute period forward
-                let t0 = fwd_dc.year_fraction(fwd_base, reset_date, finstack_core::dates::DayCountCtx::default())?;
-                let t1 = fwd_dc.year_fraction(fwd_base, reset_end, finstack_core::dates::DayCountCtx::default())?;
-                let mut index_rate = fwd.rate_period(t0, t1);
-                
-                // Apply floor to index rate
-                if let Some(floor) = floor_bp {
-                    let floor_rate = floor * 1e-4;
-                    index_rate = index_rate.max(floor_rate);
-                }
-                
-                // Add margin to get all-in rate
-                let all_in_rate = index_rate + (margin_bp * 1e-4);
                 rates_by_step.push(all_in_rate);
             }
             
@@ -694,14 +625,11 @@ impl Pricer for RevolvingCreditMcPricer {
         }
 
         // Extract valuation date from discount curve
-        let disc = market
-            .get_discount_ref(facility.discount_curve_id.as_str())
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        let disc = market.get_discount_ref(facility.discount_curve_id.as_str())?;
         let as_of = disc.base_date();
 
         // Price the facility using MC
-        let pv = Self::price_stochastic(facility, market, as_of)
-            .map_err(|e| PricingError::model_failure(e.to_string()))?;
+        let pv = Self::price_stochastic(facility, market, as_of)?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(facility.id(), as_of, pv))
@@ -1038,5 +966,133 @@ mod tests {
             "MC with term-locked projection should match deterministic, diff: {}, relative: {:.2}%",
             diff, relative_error * 100.0
         );
+    }
+
+    #[test]
+    fn test_payment_dates_parity_with_utils() {
+        // Test that our refactored code using utils produces identical payment dates
+        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        let facility = create_test_facility(
+            "RC-PARITY-TEST",
+            start,
+            end,
+            10_000_000.0,
+            5_000_000.0,
+            BaseRateSpec::Fixed { rate: 0.05 },
+            RevolvingCreditFees::default(),
+        );
+
+        // Without sentinel for cashflow generation
+        let dates_no_sentinel = super::super::utils::build_payment_dates(&facility, false).unwrap();
+        assert!(dates_no_sentinel.len() >= 2);
+        
+        // Last date should be at or before maturity
+        assert!(*dates_no_sentinel.last().unwrap() <= end);
+
+        // With sentinel for PV aggregation
+        let dates_with_sentinel = super::super::utils::build_payment_dates(&facility, true).unwrap();
+        assert_eq!(dates_with_sentinel.len(), dates_no_sentinel.len() + 1);
+        
+        // Sentinel should be one day after last payment
+        let last_payment = dates_no_sentinel.last().unwrap();
+        let sentinel = dates_with_sentinel.last().unwrap();
+        assert_eq!(*sentinel, *last_payment + time::Duration::days(1));
+    }
+
+    #[test]
+    fn test_reset_dates_parity_fixed_vs_floating() {
+        // Test that fixed returns None and floating returns Some with correct dates
+        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        // Fixed facility
+        let facility_fixed = create_test_facility(
+            "RC-FIXED",
+            start,
+            end,
+            10_000_000.0,
+            5_000_000.0,
+            BaseRateSpec::Fixed { rate: 0.05 },
+            RevolvingCreditFees::default(),
+        );
+
+        let reset_dates_fixed = super::super::utils::build_reset_dates(&facility_fixed).unwrap();
+        assert!(reset_dates_fixed.is_none(), "Fixed rate should return None");
+
+        // Floating facility
+        let facility_floating = RevolvingCredit::builder()
+            .id("RC-FLOAT".into())
+            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+            .commitment_date(start)
+            .maturity_date(end)
+            .base_rate_spec(BaseRateSpec::Floating {
+                index_id: "USD-SOFR-3M".into(),
+                margin_bp: 200.0,
+                reset_freq: Frequency::quarterly(),
+                floor_bp: None,
+            })
+            .day_count(DayCount::Act360)
+            .payment_frequency(Frequency::quarterly())
+            .fees(RevolvingCreditFees::default())
+            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+            .discount_curve_id("USD-OIS".into())
+            .build()
+            .unwrap();
+
+        let reset_dates_floating = super::super::utils::build_reset_dates(&facility_floating).unwrap();
+        assert!(reset_dates_floating.is_some(), "Floating rate should return Some");
+        
+        let dates = reset_dates_floating.unwrap();
+        assert!(dates.len() >= 2, "Should have at least 2 reset dates");
+    }
+
+    #[test]
+    fn test_period_pv_parity_with_helper_periods() {
+        // Test that total PV using helper-generated payment dates matches expectations
+        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        let facility = create_test_facility(
+            "RC-PV-PARITY",
+            start,
+            end,
+            10_000_000.0,
+            5_000_000.0,
+            BaseRateSpec::Fixed { rate: 0.05 },
+            RevolvingCreditFees::flat(25.0, 10.0, 5.0),
+        );
+
+        let base_date = start;
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .day_count(DayCount::Act365F)
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-0.03f64).exp()),
+                (5.0, (-0.03f64 * 5.0).exp()),
+            ])
+            .build()
+            .unwrap();
+        let market = MarketContext::new().insert_discount(disc_curve);
+
+        // Price using deterministic pricer (which uses our helpers internally)
+        let pv = RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start)
+            .unwrap();
+
+        // PV should be finite and reasonable
+        assert!(pv.amount().is_finite());
+        assert!(
+            pv.amount().abs() < facility.commitment_amount.amount(),
+            "PV magnitude should be less than commitment"
+        );
+
+        // Price a second time to ensure consistency
+        let pv2 = RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start)
+            .unwrap();
+        
+        assert_eq!(pv.amount(), pv2.amount(), "Multiple calls should produce identical PVs");
     }
 }

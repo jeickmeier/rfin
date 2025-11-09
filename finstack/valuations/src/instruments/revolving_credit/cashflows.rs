@@ -77,57 +77,10 @@ fn generate_deterministic_cashflows_internal(
     };
 
     // Step 1: Build payment schedule dates
-    use finstack_core::dates::ScheduleBuilder;
-
-    let mut builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
-        .frequency(facility.payment_frequency)
-        .stub_rule(finstack_core::dates::StubKind::None);
-
-    if let Some(cal_code) = facility
-        .attributes
-        .get_meta("calendar_id")
-        .or_else(|| facility.attributes.get_meta("calendar"))
-    {
-        if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
-            builder = builder.adjust_with(
-                finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                cal,
-            );
-        }
-    }
-
-    let payment_schedule = builder.build()?;
-    let payment_dates: Vec<Date> = payment_schedule.into_iter().collect();
-
-    if payment_dates.len() < 2 {
-        return Err(finstack_core::error::InputError::TooFewPoints.into());
-    }
+    let payment_dates = super::utils::build_payment_dates(facility, false)?;
 
     // Step 2: Build reset date grid for floating rates (if applicable)
-    let reset_dates: Option<Vec<Date>> = match &facility.base_rate_spec {
-        BaseRateSpec::Floating { reset_freq, .. } => {
-            // Build reset schedule from commitment_date to maturity_date
-            let mut reset_builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
-                .frequency(*reset_freq)
-                .stub_rule(finstack_core::dates::StubKind::None);
-            
-            if let Some(cal_code) = facility
-                .attributes
-                .get_meta("calendar_id")
-                .or_else(|| facility.attributes.get_meta("calendar"))
-            {
-                if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
-                    reset_builder = reset_builder.adjust_with(
-                        finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                        cal,
-                    );
-                }
-            }
-            
-            Some(reset_builder.build()?.into_iter().collect())
-        }
-        BaseRateSpec::Fixed { .. } => None,
-    };
+    let reset_dates = super::utils::build_reset_dates(facility)?;
 
     // Step 3: Generate cashflows based on actual balances with intra-period event slicing
     let mut flows = Vec::new();
@@ -254,57 +207,18 @@ fn generate_deterministic_cashflows_internal(
                 BaseRateSpec::Floating { margin_bp, index_id, reset_freq, floor_bp, .. } => {
                     let mut coupon_rate = *margin_bp * 1e-4;
                     if let Some(market) = market_opt {
-                        if let Ok(fwd) = market.get_forward_ref(index_id.as_str()) {
-                            if let Some(reset_d) = sub_reset_date {
-                                // Compute period forward for the reset window using forward curve basis
-                                let fwd_dc = fwd.day_count();
-                                let fwd_base = fwd.base_date();
-                                let t0 = fwd_dc.year_fraction(
-                                    fwd_base,
-                                    reset_d,
-                                    finstack_core::dates::DayCountCtx::default(),
-                                )?;
-                                
-                                // Compute reset period end date using reset_freq and facility calendar
-                                let mut reset_end = reset_d;
-                                match reset_freq {
-                                    Frequency::Months(m) => {
-                                        reset_end = finstack_core::dates::utils::add_months(reset_d, *m as i32);
-                                    }
-                                    Frequency::Days(d) => {
-                                        reset_end = reset_d + time::Duration::days(*d as i64);
-                                    }
-                                    _ => {}
-                                }
-                                
-                                // Apply calendar adjustment if configured
-                                if let Some(cal_code) = facility.attributes.get_meta("calendar_id")
-                                    .or_else(|| facility.attributes.get_meta("calendar")) {
-                                    if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
-                                        reset_end = finstack_core::dates::adjust(
-                                            reset_end,
-                                            finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                                            cal,
-                                        )?;
-                                    }
-                                }
-                                
-                                let t1 = fwd_dc.year_fraction(
-                                    fwd_base,
-                                    reset_end,
-                                    finstack_core::dates::DayCountCtx::default(),
-                                )?;
-                                
-                                // Get period forward rate
-                                let mut index_rate = fwd.rate_period(t0, t1);
-                                
-                                // Apply floor to index rate only (before adding margin)
-                                if let Some(floor) = floor_bp {
-                                    let floor_rate = floor * 1e-4;
-                                    index_rate = index_rate.max(floor_rate);
-                                }
-                                
-                                coupon_rate += index_rate;
+                        if let Some(reset_d) = sub_reset_date {
+                            // Use helper to project floating rate
+                            if let Ok(rate) = super::utils::project_floating_rate(
+                                reset_d,
+                                reset_freq,
+                                index_id.as_str(),
+                                *margin_bp,
+                                *floor_bp,
+                                market,
+                                &facility.attributes,
+                            ) {
+                                coupon_rate = rate;
                             }
                         }
                     }
@@ -334,19 +248,11 @@ fn generate_deterministic_cashflows_internal(
             // Apply events that occur at sub_end to update balance for next sub-period
             for event in draw_repay_events {
                 if event.date == sub_end {
-                    current_balance = if event.is_draw {
-                        let new_balance = current_balance.checked_add(event.amount)?;
-                        // Validate draw does not exceed commitment
-                        if new_balance.amount() > facility.commitment_amount.amount() {
-                            return Err(finstack_core::Error::Validation(format!(
-                                "Draw on {} would exceed commitment: {} > {}",
-                                event.date, new_balance, facility.commitment_amount
-                            )));
-                        }
-                        new_balance
-                    } else {
-                        current_balance.checked_sub(event.amount)?
-                    };
+                    current_balance = super::utils::apply_draw_repay_event(
+                        current_balance,
+                        event,
+                        facility.commitment_amount,
+                    )?;
                 }
             }
         }
@@ -494,12 +400,16 @@ fn generate_deterministic_cashflows_internal(
 /// This helper function simulates the drawn balance evolution based on the
 /// deterministic schedule of draws and repayments.
 ///
+/// **Note**: This is primarily intended for testing and property-based validation.
+/// It is not considered a stable public API surface.
+///
 /// # Arguments
 /// * `facility` - The revolving credit facility
 /// * `target_date` - The date at which to calculate the balance
 ///
 /// # Returns
 /// The outstanding drawn balance at the target date
+#[doc(hidden)]
 pub fn calculate_drawn_balance_at_date(
     facility: &RevolvingCredit,
     target_date: Date,
@@ -518,11 +428,11 @@ pub fn calculate_drawn_balance_at_date(
     // Apply all events up to the target date
     for event in draw_repay_events {
         if event.date <= target_date {
-            if event.is_draw {
-                balance = balance.checked_add(event.amount)?;
-            } else {
-                balance = balance.checked_sub(event.amount)?;
-            }
+            balance = super::utils::apply_draw_repay_event(
+                balance,
+                event,
+                facility.commitment_amount,
+            )?;
         }
     }
 

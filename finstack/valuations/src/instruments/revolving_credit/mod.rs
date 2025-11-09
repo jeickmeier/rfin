@@ -56,6 +56,8 @@ pub mod metrics;
 pub mod pricer;
 pub mod types;
 
+mod utils;
+
 // Re-export main types
 pub use types::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,

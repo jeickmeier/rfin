@@ -144,26 +144,37 @@ impl RevolvingCreditFees {
     ///
     /// Convenience constructor for simple fee structures without utilization tiers.
     pub fn flat(commitment_fee_bp: f64, usage_fee_bp: f64, facility_fee_bp: f64) -> Self {
+        let make_tier = |bps: f64| -> Vec<FeeTier> {
+            if bps > 0.0 {
+                vec![FeeTier {
+                    threshold: 0.0,
+                    bps,
+                }]
+            } else {
+                Vec::new()
+            }
+        };
+        
         Self {
             upfront_fee: None,
-            commitment_fee_tiers: if commitment_fee_bp > 0.0 {
-                vec![FeeTier {
-                    threshold: 0.0,
-                    bps: commitment_fee_bp,
-                }]
-            } else {
-                Vec::new()
-            },
-            usage_fee_tiers: if usage_fee_bp > 0.0 {
-                vec![FeeTier {
-                    threshold: 0.0,
-                    bps: usage_fee_bp,
-                }]
-            } else {
-                Vec::new()
-            },
+            commitment_fee_tiers: make_tier(commitment_fee_bp),
+            usage_fee_tiers: make_tier(usage_fee_bp),
             facility_fee_bp,
         }
+    }
+
+    /// Evaluate fee tiers to find the applicable rate for a given utilization.
+    ///
+    /// Returns the fee rate from the highest tier where utilization >= threshold.
+    /// Tiers should be sorted by threshold ascending.
+    /// If no tiers match or tiers are empty, returns 0.0.
+    fn fee_bps_for_tier(tiers: &[FeeTier], utilization: f64) -> f64 {
+        tiers
+            .iter()
+            .rev()
+            .find(|tier| utilization >= tier.threshold)
+            .map(|tier| tier.bps)
+            .unwrap_or(0.0)
     }
 
     /// Get commitment fee bps for given utilization (evaluates tiers).
@@ -172,13 +183,7 @@ impl RevolvingCreditFees {
     /// Tiers should be sorted by threshold ascending.
     /// If no tiers match or tiers are empty, returns 0.0.
     pub fn commitment_fee_bps(&self, utilization: f64) -> f64 {
-        // Find highest tier where utilization >= threshold (tiers sorted ascending)
-        self.commitment_fee_tiers
-            .iter()
-            .rev()
-            .find(|tier| utilization >= tier.threshold)
-            .map(|tier| tier.bps)
-            .unwrap_or(0.0)
+        Self::fee_bps_for_tier(&self.commitment_fee_tiers, utilization)
     }
 
     /// Get usage fee bps for given utilization (evaluates tiers).
@@ -187,13 +192,7 @@ impl RevolvingCreditFees {
     /// Tiers should be sorted by threshold ascending.
     /// If no tiers match or tiers are empty, returns 0.0.
     pub fn usage_fee_bps(&self, utilization: f64) -> f64 {
-        // Find highest tier where utilization >= threshold (tiers sorted ascending)
-        self.usage_fee_tiers
-            .iter()
-            .rev()
-            .find(|tier| utilization >= tier.threshold)
-            .map(|tier| tier.bps)
-            .unwrap_or(0.0)
+        Self::fee_bps_for_tier(&self.usage_fee_tiers, utilization)
     }
 }
 
