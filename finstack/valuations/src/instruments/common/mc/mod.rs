@@ -214,11 +214,10 @@ pub mod rng;
 pub mod time_grid;
 pub mod traits;
 
-// Backwards-compatible aliases (to be removed in a later release)
+// Re-export aliases for internal use (used by models/monte_carlo)
 pub use estimate as results;
 pub use online_stats as stats;
 pub use paths as path_data;
-// Pricing-specific modules moved to instruments::common::models::monte_carlo
 
 /// Prelude for convenient imports
 pub mod prelude {

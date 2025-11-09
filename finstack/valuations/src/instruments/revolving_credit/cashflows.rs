@@ -489,51 +489,6 @@ fn generate_deterministic_cashflows_internal(
     })
 }
 
-/// Calculate the outstanding balance schedule at each payment date.
-///
-/// Processes draw/repay events chronologically to determine the balance
-/// at the start of each period.
-///
-/// # Arguments
-/// * `initial_drawn` - Initial drawn amount
-/// * `events` - Chronologically ordered draw/repay events
-/// * `payment_dates` - Payment schedule dates
-///
-/// # Returns
-/// Vector of balances at the start of each period (same length as payment_dates)
-#[allow(dead_code)] // Kept for potential future use
-fn calculate_balance_schedule_internal(
-    initial_drawn: Money,
-    events: &[super::types::DrawRepayEvent],
-    payment_dates: &[Date],
-) -> Result<Vec<Money>> {
-    let mut balances = Vec::with_capacity(payment_dates.len());
-    let mut current_balance = initial_drawn;
-
-    // Sort events by date (should already be sorted, but ensure it)
-    let mut sorted_events: Vec<_> = events.iter().collect();
-    sorted_events.sort_by_key(|e| e.date);
-
-    let mut event_idx = 0;
-
-    for &date in payment_dates {
-        // Apply all events that occur before this date
-        while event_idx < sorted_events.len() && sorted_events[event_idx].date < date {
-            let event = sorted_events[event_idx];
-            if event.is_draw {
-                current_balance = current_balance.checked_add(event.amount)?;
-            } else {
-                current_balance = current_balance.checked_sub(event.amount)?;
-            }
-            event_idx += 1;
-        }
-
-        balances.push(current_balance);
-    }
-
-    Ok(balances)
-}
-
 /// Calculate the outstanding drawn balance at a given date considering draw/repay events.
 ///
 /// This helper function simulates the drawn balance evolution based on the
@@ -664,50 +619,6 @@ mod tests {
         // After repayment
         let balance_after_repay = calculate_drawn_balance_at_date(&facility, repay_date).unwrap();
         assert_eq!(balance_after_repay.amount(), 6_000_000.0);
-    }
-
-    #[test]
-    fn test_balance_schedule_with_events() {
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let q1_end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
-        let q2_end = Date::from_calendar_date(2025, Month::July, 1).unwrap();
-        let q3_end = Date::from_calendar_date(2025, Month::October, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-
-        let initial_drawn = Money::new(5_000_000.0, Currency::USD);
-        let draw_amount = Money::new(2_000_000.0, Currency::USD);
-        let repay_amount = Money::new(1_000_000.0, Currency::USD);
-
-        let events = vec![
-            DrawRepayEvent {
-                date: Date::from_calendar_date(2025, Month::February, 15).unwrap(),
-                amount: draw_amount,
-                is_draw: true,
-            },
-            DrawRepayEvent {
-                date: Date::from_calendar_date(2025, Month::May, 15).unwrap(),
-                amount: repay_amount,
-                is_draw: false,
-            },
-        ];
-
-        let payment_dates = vec![start, q1_end, q2_end, q3_end, end];
-
-        let balances =
-            calculate_balance_schedule_internal(initial_drawn, &events, &payment_dates).unwrap();
-
-        // Q1 (start): initial = 5M
-        assert_eq!(balances[0].amount(), 5_000_000.0);
-
-        // Q1 end (Apr 1): draw occurred Feb 15, so 5M + 2M = 7M
-        assert_eq!(balances[1].amount(), 7_000_000.0);
-
-        // Q2 end (Jul 1): repay occurred May 15, so 7M - 1M = 6M
-        assert_eq!(balances[2].amount(), 6_000_000.0);
-
-        // Q3 end and maturity: no more events, stays at 6M
-        assert_eq!(balances[3].amount(), 6_000_000.0);
-        assert_eq!(balances[4].amount(), 6_000_000.0);
     }
 
     #[test]

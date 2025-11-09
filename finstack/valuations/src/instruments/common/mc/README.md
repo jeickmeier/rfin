@@ -100,11 +100,12 @@ mc/
 
 ## Compatibility
 
-Recent file renames and aliases (kept for a transition period):
+Module aliases for internal use:
 - `mc::results` → `mc::estimate`
 - `mc::stats` → `mc::online_stats`
 - `mc::path_data` → `mc::paths`
-- `mc::discretization::exact_gbm_div` → `mc::discretization::exact_gbm_dividends`
+
+These aliases are maintained for compatibility with `models/monte_carlo` and should be accessed through the `prelude` module in external code.
 
 ## Feature flags
 
