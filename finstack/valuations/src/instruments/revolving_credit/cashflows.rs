@@ -7,7 +7,7 @@
 //! - Facility fees on total commitment
 //! - Upfront fees
 
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -251,17 +251,59 @@ fn generate_deterministic_cashflows_internal(
                     let interest = current_balance * (*rate * dt);
                     total_interest = total_interest.checked_add(interest)?;
                 }
-                BaseRateSpec::Floating { margin_bp, index_id, .. } => {
+                BaseRateSpec::Floating { margin_bp, index_id, reset_freq, floor_bp, .. } => {
                     let mut coupon_rate = *margin_bp * 1e-4;
                     if let Some(market) = market_opt {
                         if let Ok(fwd) = market.get_forward_ref(index_id.as_str()) {
                             if let Some(reset_d) = sub_reset_date {
-                                let t_reset = fwd.day_count().year_fraction(
-                                    fwd.base_date(),
+                                // Compute period forward for the reset window using forward curve basis
+                                let fwd_dc = fwd.day_count();
+                                let fwd_base = fwd.base_date();
+                                let t0 = fwd_dc.year_fraction(
+                                    fwd_base,
                                     reset_d,
                                     finstack_core::dates::DayCountCtx::default(),
                                 )?;
-                                let base_rate = fwd.rate(t_reset);
+                                
+                                // Compute reset period end date using reset_freq and facility calendar
+                                let mut reset_end = reset_d;
+                                match reset_freq {
+                                    Frequency::Months(m) => {
+                                        reset_end = finstack_core::dates::utils::add_months(reset_d, *m as i32);
+                                    }
+                                    Frequency::Days(d) => {
+                                        reset_end = reset_d + time::Duration::days(*d as i64);
+                                    }
+                                    _ => {}
+                                }
+                                
+                                // Apply calendar adjustment if configured
+                                if let Some(cal_code) = facility.attributes.get_meta("calendar_id")
+                                    .or_else(|| facility.attributes.get_meta("calendar")) {
+                                    if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
+                                        reset_end = finstack_core::dates::adjust(
+                                            reset_end,
+                                            finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                                            cal,
+                                        )?;
+                                    }
+                                }
+                                
+                                let t1 = fwd_dc.year_fraction(
+                                    fwd_base,
+                                    reset_end,
+                                    finstack_core::dates::DayCountCtx::default(),
+                                )?;
+                                
+                                // Get period forward rate
+                                let mut base_rate = fwd.rate_period(t0, t1);
+                                
+                                // Apply floor to base rate only (before adding margin)
+                                if let Some(floor) = floor_bp {
+                                    let floor_rate = floor * 1e-4;
+                                    base_rate = base_rate.max(floor_rate);
+                                }
+                                
                                 coupon_rate += base_rate;
                             }
                         }
@@ -293,7 +335,15 @@ fn generate_deterministic_cashflows_internal(
             for event in draw_repay_events {
                 if event.date == sub_end {
                     current_balance = if event.is_draw {
-                        current_balance.checked_add(event.amount)?
+                        let new_balance = current_balance.checked_add(event.amount)?;
+                        // Validate draw does not exceed commitment
+                        if new_balance.amount() > facility.commitment_amount.amount() {
+                            return Err(finstack_core::Error::Validation(format!(
+                                "Draw on {} would exceed commitment: {} > {}",
+                                event.date, new_balance, facility.commitment_amount
+                            )));
+                        }
+                        new_balance
                     } else {
                         current_balance.checked_sub(event.amount)?
                     };
@@ -834,6 +884,7 @@ mod tests {
                 // Negative margin big enough to make net coupon negative
                 margin_bp: -20.0,
                 reset_freq: Frequency::quarterly(),
+                floor_bp: None,
             })
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())

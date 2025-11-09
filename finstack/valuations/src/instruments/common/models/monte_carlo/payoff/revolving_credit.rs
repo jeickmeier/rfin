@@ -48,6 +48,19 @@ use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
 use finstack_core::config::{RoundingContext, ZeroKind};
 
+/// Rate projection mode for floating-rate facilities.
+#[derive(Clone, Debug)]
+pub enum RateProjection {
+    /// Integrate short rate + margin at each step (OIS-style compounding).
+    ShortRateIntegral,
+    /// Use term-locked rates per step (locked at reset for the period).
+    /// Each entry is the all-in rate (base + margin, with floor applied) for that step.
+    TermLocked {
+        /// Locked all-in rates by step index.
+        rates_by_step: Vec<f64>,
+    },
+}
+
 /// Rate specification for revolving credit facility.
 #[derive(Clone, Debug)]
 pub enum RateSpec {
@@ -60,6 +73,8 @@ pub enum RateSpec {
     Floating {
         /// Margin in basis points over short rate
         margin_bp: f64,
+        /// Rate projection mode
+        projection: RateProjection,
     },
 }
 
@@ -150,6 +165,7 @@ impl RevolvingCreditPayoff {
     /// * `recovery_rate` - Recovery rate on default (e.g., 0.4 for 40%)
     /// * `maturity_time` - Maturity time in years
     /// * `discount_factors` - Precomputed discount factors at each step
+    /// * `rate_projection` - Rate projection mode for floating rates
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         commitment_amount: f64,
@@ -161,11 +177,12 @@ impl RevolvingCreditPayoff {
         recovery_rate: f64,
         maturity_time: f64,
         discount_factors: Vec<f64>,
+        rate_projection: RateProjection,
     ) -> Self {
         let rate_spec = if is_fixed_rate {
             RateSpec::Fixed { rate: fixed_rate }
         } else {
-            RateSpec::Floating { margin_bp }
+            RateSpec::Floating { margin_bp, projection: rate_projection }
         };
 
         Self {
@@ -184,12 +201,20 @@ impl RevolvingCreditPayoff {
     }
 
     /// Compute the current interest rate from short rate and rate spec.
-    fn compute_rate(&self, short_rate: f64) -> f64 {
+    fn compute_rate(&self, short_rate: f64, step: usize) -> f64 {
         match &self.rate_spec {
             RateSpec::Fixed { rate } => *rate,
-            RateSpec::Floating { margin_bp } => {
-                // Floating: short_rate + margin
-                short_rate + (margin_bp * 1e-4)
+            RateSpec::Floating { margin_bp, projection } => {
+                match projection {
+                    RateProjection::ShortRateIntegral => {
+                        // Floating: short_rate + margin (OIS-style compounding)
+                        short_rate + (margin_bp * 1e-4)
+                    }
+                    RateProjection::TermLocked { rates_by_step } => {
+                        // Use pre-locked all-in rate for this step
+                        rates_by_step.get(step).copied().unwrap_or(0.0)
+                    }
+                }
             }
         }
     }
@@ -269,7 +294,7 @@ impl Payoff for RevolvingCreditPayoff {
         if dt > 0.0 {
             let drawn = self.outstanding_principal;
             let undrawn = self.commitment_amount - drawn;
-            let rate = self.compute_rate(short_rate);
+            let rate = self.compute_rate(short_rate, state.step);
 
             // Get discount factor for this step
             let step = state
@@ -363,6 +388,7 @@ mod tests {
             0.4,
             1.0,
             discounts,
+            RateProjection::ShortRateIntegral, // For fixed rate, projection is ignored
         );
 
         assert_eq!(payoff.commitment_amount, 10_000_000.0);
@@ -384,9 +410,10 @@ mod tests {
             0.4,
             1.0,
             discounts,
+            RateProjection::ShortRateIntegral,
         );
 
-        assert_eq!(payoff.compute_rate(0.03), 0.05); // Short rate ignored for fixed
+        assert_eq!(payoff.compute_rate(0.03, 0), 0.05); // Short rate ignored for fixed
     }
 
     #[test]
@@ -403,11 +430,12 @@ mod tests {
             0.4,
             1.0,
             discounts,
+            RateProjection::ShortRateIntegral,
         );
 
-        // Floating: short_rate + margin
+        // Floating: short_rate + margin (ShortRateIntegral mode)
         // 0.03 + 50bp = 0.03 + 0.005 = 0.035
-        assert!((payoff.compute_rate(0.03) - 0.035).abs() < 1e-10);
+        assert!((payoff.compute_rate(0.03, 0) - 0.035).abs() < 1e-10);
     }
 
     #[test]
@@ -424,6 +452,7 @@ mod tests {
             0.4,
             1.0,
             discounts,
+            RateProjection::ShortRateIntegral,
         );
 
         assert!(payoff.is_maturity(1.0));
@@ -446,6 +475,7 @@ mod tests {
             0.4,
             1.0,
             discounts,
+            RateProjection::ShortRateIntegral,
         );
 
         // Set some state
@@ -477,6 +507,7 @@ mod tests {
             0.4,
             1.0,
             discounts,
+            RateProjection::ShortRateIntegral,
         );
 
         // Initially zero

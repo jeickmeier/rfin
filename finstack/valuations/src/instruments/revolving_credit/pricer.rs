@@ -5,7 +5,8 @@
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, Period, PeriodId, PeriodKind};
+use crate::cashflow::builder::schedule_utils::build_periods_from_payment_dates;
+use finstack_core::dates::{Date, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 
@@ -69,82 +70,6 @@ fn compute_upfront_fee_pv(
     }
 }
 
-/// Build periods from payment schedule dates for PV aggregation.
-///
-/// Creates Period objects with synthetic IDs based on payment frequency.
-/// Each period spans from one payment date (exclusive start) to the next (inclusive end).
-fn build_periods_from_payment_dates(
-    payment_dates: &[Date],
-    frequency: finstack_core::dates::Frequency,
-) -> Vec<Period> {
-    if payment_dates.len() < 2 {
-        return Vec::new();
-    }
-
-    let mut periods = Vec::with_capacity(payment_dates.len() - 1);
-
-    // Determine period kind from frequency
-    let period_kind = match frequency {
-        finstack_core::dates::Frequency::Months(12) => PeriodKind::Annual,
-        finstack_core::dates::Frequency::Months(6) => PeriodKind::SemiAnnual,
-        finstack_core::dates::Frequency::Months(3) => PeriodKind::Quarterly,
-        finstack_core::dates::Frequency::Months(1) => PeriodKind::Monthly,
-        finstack_core::dates::Frequency::Days(7) => PeriodKind::Weekly,
-        _ => PeriodKind::Quarterly, // Default fallback
-    };
-
-    for i in 0..(payment_dates.len() - 1) {
-        let start = payment_dates[i];
-        let end = payment_dates[i + 1];
-
-        // Create a synthetic PeriodId based on the start date and frequency
-        let period_id = match period_kind {
-            PeriodKind::Quarterly => {
-                let year = start.year();
-                let month = start.month() as u8;
-                let quarter = match month {
-                    1..=3 => 1,
-                    4..=6 => 2,
-                    7..=9 => 3,
-                    _ => 4,
-                };
-                PeriodId::quarter(year, quarter)
-            }
-            PeriodKind::Monthly => {
-                let year = start.year();
-                let month = start.month() as u8;
-                PeriodId::month(year, month)
-            }
-            PeriodKind::SemiAnnual => {
-                let year = start.year();
-                let month = start.month() as u8;
-                let half = if month <= 6 { 1 } else { 2 };
-                PeriodId::half(year, half)
-            }
-            PeriodKind::Annual => {
-                let year = start.year();
-                PeriodId::annual(year)
-            }
-            PeriodKind::Weekly => {
-                // For weekly, use a simple week number based on days since start of year
-                let year = start.year();
-                let year_start = Date::from_calendar_date(year, time::Month::January, 1).unwrap();
-                let days = (start - year_start).whole_days();
-                let week = ((days / 7) + 1).min(52) as u8;
-                PeriodId::week(year, week)
-            }
-        };
-
-        periods.push(Period {
-            id: period_id,
-            start,
-            end,
-            is_actual: false, // All periods are forecast for pricing
-        });
-    }
-
-    periods
-}
 
 /// Discounting pricer for revolving credit facilities with deterministic cashflows.
 ///
@@ -301,15 +226,14 @@ impl RevolvingCreditMcPricer {
     /// Simulates the utilization rate evolution using a mean-reverting OU process,
     /// generates cashflows for each path, and returns the average discounted value.
     ///
-    /// If `mc_config` is present in the stochastic spec, uses multi-factor modeling
-    /// with credit spread and interest rate dynamics. Otherwise, uses simple
-    /// utilization-only simulation.
+    /// Always uses the multi-factor modeling path with credit spread and interest rate dynamics.
+    /// If `mc_config` is None, synthesizes a minimal configuration with zero credit spread.
     pub fn price_stochastic(
         facility: &RevolvingCredit,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        use super::types::DrawRepaySpec;
+        use super::types::{DrawRepaySpec, CreditSpreadProcessSpec, McConfig};
 
         // Extract stochastic spec
         let stoch_spec = match &facility.draw_repay_spec {
@@ -317,17 +241,39 @@ impl RevolvingCreditMcPricer {
             _ => return Err(finstack_core::error::InputError::Invalid.into()),
         };
 
-        // Check if advanced MC config is present
+        // Always use multi-factor path. If no mc_config, synthesize a minimal one.
         #[cfg(feature = "mc")]
-        if let Some(ref mc_config) = stoch_spec.mc_config {
-            return Self::price_multi_factor(facility, market, as_of, stoch_spec, mc_config);
+        {
+            let mc_config_to_use;
+            let mc_config_ref = if let Some(ref mc_config) = stoch_spec.mc_config {
+                mc_config
+            } else {
+                // Synthesize minimal McConfig with zero credit spread
+                let recovery = stoch_spec.default_model.as_ref()
+                    .map(|d| d.recovery_rate)
+                    .unwrap_or(0.0);
+                mc_config_to_use = McConfig {
+                    correlation_matrix: None,
+                    recovery_rate: recovery,
+                    credit_spread_process: CreditSpreadProcessSpec::Constant(0.0),
+                    interest_rate_process: None, // Will use deterministic forward
+                    util_credit_corr: None,
+                };
+                &mc_config_to_use
+            };
+            Self::price_multi_factor(facility, market, as_of, stoch_spec, mc_config_ref)
         }
 
-        // Fall back to simple utilization-only simulation
-        Self::price_simple_utilization(facility, market, as_of, stoch_spec)
+        #[cfg(not(feature = "mc"))]
+        {
+            let _ = (facility, market, as_of, stoch_spec);
+            Err(finstack_core::error::InputError::Invalid.into())
+        }
     }
 
     /// Simple utilization-only Monte Carlo pricing (legacy implementation).
+    /// DEPRECATED: Replaced by price_multi_factor which uses term-locked projection.
+    #[allow(dead_code)]
     #[cfg(feature = "mc")]
     fn price_simple_utilization(
         facility: &RevolvingCredit,
@@ -907,6 +853,94 @@ impl RevolvingCreditMcPricer {
             BaseRateSpec::Floating { margin_bp, .. } => (0.0, *margin_bp),
         };
 
+        // Build locked rates for floating rate facilities
+        use crate::instruments::common::models::monte_carlo::payoff::revolving_credit::RateProjection;
+        let rate_projection = if let BaseRateSpec::Floating { index_id, margin_bp, reset_freq, floor_bp, .. } = &facility.base_rate_spec {
+            // Get forward curve
+            let fwd = market.get_forward_ref(index_id.as_str())?;
+            let fwd_dc = fwd.day_count();
+            let fwd_base = fwd.base_date();
+            
+            // Build reset schedule from commitment to maturity
+            use finstack_core::dates::ScheduleBuilder;
+            let mut reset_builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
+                .frequency(*reset_freq)
+                .stub_rule(finstack_core::dates::StubKind::None);
+            
+            if let Some(cal_code) = facility.attributes.get_meta("calendar_id")
+                .or_else(|| facility.attributes.get_meta("calendar")) {
+                if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
+                    reset_builder = reset_builder.adjust_with(
+                        finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                        cal,
+                    );
+                }
+            }
+            
+            let reset_schedule = reset_builder.build()?;
+            let reset_dates: Vec<Date> = reset_schedule.into_iter().collect();
+            
+            // Map each MC step to its locked all-in rate
+            let mut rates_by_step = Vec::with_capacity(num_steps + 1);
+            
+            for step in 0..=num_steps {
+                let t_step = t_start + time_grid.time(step.min(num_steps));
+                
+                // Find the reset period containing this step
+                // Use the most recent reset date <= t_step
+                let step_date = base_date + time::Duration::days((t_step * 365.0) as i64);
+                let reset_date = reset_dates.iter()
+                    .rev()
+                    .find(|&&d| d <= step_date)
+                    .copied()
+                    .unwrap_or(facility.commitment_date);
+                
+                // Compute reset period end
+                let mut reset_end = reset_date;
+                match reset_freq {
+                    Frequency::Months(m) => {
+                        reset_end = finstack_core::dates::utils::add_months(reset_date, *m as i32);
+                    }
+                    Frequency::Days(d) => {
+                        reset_end = reset_date + time::Duration::days(*d as i64);
+                    }
+                    _ => {}
+                }
+                
+                // Apply calendar adjustment if configured
+                if let Some(cal_code) = facility.attributes.get_meta("calendar_id")
+                    .or_else(|| facility.attributes.get_meta("calendar")) {
+                    if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
+                        reset_end = finstack_core::dates::adjust(
+                            reset_end,
+                            finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                            cal,
+                        )?;
+                    }
+                }
+                
+                // Compute period forward
+                let t0 = fwd_dc.year_fraction(fwd_base, reset_date, finstack_core::dates::DayCountCtx::default())?;
+                let t1 = fwd_dc.year_fraction(fwd_base, reset_end, finstack_core::dates::DayCountCtx::default())?;
+                let mut base_rate = fwd.rate_period(t0, t1);
+                
+                // Apply floor to base rate
+                if let Some(floor) = floor_bp {
+                    let floor_rate = floor * 1e-4;
+                    base_rate = base_rate.max(floor_rate);
+                }
+                
+                // Add margin to get all-in rate
+                let all_in_rate = base_rate + (margin_bp * 1e-4);
+                rates_by_step.push(all_in_rate);
+            }
+            
+            RateProjection::TermLocked { rates_by_step }
+        } else {
+            // For fixed rate, use ShortRateIntegral (will be ignored)
+            RateProjection::ShortRateIntegral
+        };
+
         let payoff = RevolvingCreditPayoff::new(
             facility.commitment_amount.amount(),
             facility.day_count,
@@ -917,6 +951,7 @@ impl RevolvingCreditMcPricer {
             mc_config.recovery_rate,
             time_horizon,
             discount_factors,
+            rate_projection,
         );
 
         // Initial state
@@ -1183,10 +1218,10 @@ mod tests {
                 super::super::types::StochasticUtilizationSpec {
                     utilization_process: super::super::types::UtilizationProcess::MeanReverting {
                         target_rate: 0.5,
-                        speed: 1.0,
-                        volatility: 0.0, // Zero volatility = deterministic
+                        speed: 100.0, // High speed = stays at target
+                        volatility: 1e-6, // Effectively zero volatility
                     },
-                    num_paths: 1, // Single path
+                    num_paths: 100, // Average over multiple paths for stability
                     seed: Some(42),
                     antithetic: false,
                     use_sobol_qmc: false,
@@ -1220,10 +1255,120 @@ mod tests {
 
         // With zero volatility and single path, MC should match deterministic (within numerical tolerance)
         let diff = (pv_det.amount() - pv_mc.amount()).abs();
+        let relative_error = diff / pv_det.amount().abs().max(1.0);
         assert!(
-            diff < 200_000.0,
-            "MC with zero volatility should match deterministic, diff: {}",
-            diff
+            relative_error < 0.005, // 0.5% relative tolerance
+            "MC with zero volatility should match deterministic (tighter tolerance with term-locked), diff: {}, relative: {:.2}%",
+            diff, relative_error * 100.0
+        );
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn test_mc_parity_floating_term_locked() {
+        // Test that MC with term-locked projection matches deterministic for floating rate
+        use finstack_core::market_data::term_structures::ForwardCurve;
+        
+        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        // Deterministic facility
+        let facility_det = RevolvingCredit::builder()
+            .id("RC-DET-FLOAT".into())
+            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+            .commitment_date(start)
+            .maturity_date(end)
+            .base_rate_spec(BaseRateSpec::Floating {
+                index_id: "USD-SOFR-3M".into(),
+                margin_bp: 200.0, // 200 bps = 2%
+                reset_freq: Frequency::quarterly(),
+                floor_bp: Some(0.0), // 0% floor
+            })
+            .day_count(DayCount::Act360)
+            .payment_frequency(Frequency::quarterly())
+            .fees(RevolvingCreditFees::default())
+            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+            .discount_curve_id("USD-OIS".into())
+            .build()
+            .unwrap();
+
+        // MC facility with zero volatility
+        let facility_mc = RevolvingCredit::builder()
+            .id("RC-MC-FLOAT".into())
+            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+            .commitment_date(start)
+            .maturity_date(end)
+            .base_rate_spec(BaseRateSpec::Floating {
+                index_id: "USD-SOFR-3M".into(),
+                margin_bp: 200.0,
+                reset_freq: Frequency::quarterly(),
+                floor_bp: Some(0.0),
+            })
+            .day_count(DayCount::Act360)
+            .payment_frequency(Frequency::quarterly())
+            .fees(RevolvingCreditFees::default())
+            .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
+                super::super::types::StochasticUtilizationSpec {
+                    utilization_process: super::super::types::UtilizationProcess::MeanReverting {
+                        target_rate: 0.5,
+                        speed: 100.0, // High speed = stays at target
+                        volatility: 1e-6, // Effectively zero volatility
+                    },
+                    num_paths: 100, // Use many paths for stable average
+                    seed: Some(42),
+                    antithetic: false,
+                    use_sobol_qmc: false,
+                    default_model: None,
+                    #[cfg(feature = "mc")]
+                    mc_config: None, // Will synthesize minimal config with term-locked projection
+                },
+            )))
+            .discount_curve_id("USD-OIS".into())
+            .build()
+            .unwrap();
+
+        let base_date = start;
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .day_count(DayCount::Act365F)
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-0.03f64).exp()),
+                (5.0, (-0.03f64 * 5.0).exp()),
+            ])
+            .build()
+            .unwrap();
+        
+        let fwd_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(base_date)
+            .day_count(DayCount::Act360)
+            .knots([
+                (0.0, 0.03),  // 3%
+                (1.0, 0.03),
+                (5.0, 0.03),
+            ])
+            .build()
+            .unwrap();
+            
+        let market = MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve);
+
+        let pv_det =
+            RevolvingCreditDiscountingPricer::price_deterministic(&facility_det, &market, start)
+                .unwrap();
+        let pv_mc =
+            RevolvingCreditMcPricer::price_stochastic(&facility_mc, &market, start).unwrap();
+
+        // With term-locked projection and zero volatility, MC should closely match deterministic
+        let diff = (pv_det.amount() - pv_mc.amount()).abs();
+        let relative_error = diff / pv_det.amount().abs().max(1.0);
+        assert!(
+            relative_error < 0.01, // 1% relative tolerance
+            "MC with term-locked projection should match deterministic, diff: {}, relative: {:.2}%",
+            diff, relative_error * 100.0
         );
     }
 }

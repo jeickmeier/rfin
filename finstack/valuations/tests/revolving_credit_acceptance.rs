@@ -157,6 +157,7 @@ fn test_floating_vs_margin_only() {
             index_id: "USD-SOFR-3M".into(),
             margin_bp: 100.0, // 100 bps margin
             reset_freq: Frequency::quarterly(),
+            floor_bp: None,
         })
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
@@ -226,6 +227,7 @@ fn test_reset_frequency_mismatch() {
             index_id: "USD-SOFR-1M".into(),
             margin_bp: 0.0, // No margin to isolate reset effect
             reset_freq: Frequency::monthly(), // Monthly resets
+            floor_bp: None,
         })
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly()) // Quarterly payments

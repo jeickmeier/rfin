@@ -108,10 +108,14 @@ impl PyRevolvingCredit {
                         .get_item("reset_freq")?
                         .and_then(|v| v.extract::<String>().ok());
                     let reset_freq = parse_frequency(reset_freq_str.as_deref())?;
+                    let floor_bp = dict
+                        .get_item("floor_bp")?
+                        .and_then(|v| v.extract::<f64>().ok());
                     BaseRateSpec::Floating {
                         index_id: finstack_core::types::CurveId::new(&index_id_str),
                         margin_bp,
                         reset_freq,
+                        floor_bp,
                     }
                 }
                 other => {
@@ -683,6 +687,12 @@ impl PyRevolvingCredit {
             RcBase::Fixed { rate } => (*rate, 0.0),
             RcBase::Floating { margin_bp, .. } => (0.0, *margin_bp),
         };
+        
+        // Build rate projection for floating rates (simplified - always use ShortRateIntegral for Python)
+        // Full term-locked projection requires substantial date manipulation; defer to future enhancement
+        use finstack_valuations::instruments::common::models::monte_carlo::payoff::revolving_credit::RateProjection;
+        let rate_projection = RateProjection::ShortRateIntegral;
+        
         let payoff = RevolvingCreditPayoff::new(
             self.inner.commitment_amount.amount(),
             self.inner.day_count,
@@ -693,6 +703,7 @@ impl PyRevolvingCredit {
             mc_config.recovery_rate,
             time_horizon,
             discount_factors,
+            rate_projection,
         );
 
         // Engine with path capture (payoffs enabled)

@@ -300,3 +300,125 @@ fn test_revolving_credit_helpers() {
     let undrawn = facility.undrawn_amount().unwrap();
     assert_eq!(undrawn.amount(), 2_500_000.0);
 }
+
+#[test]
+fn test_term_forward_with_floor() {
+    use finstack_core::market_data::term_structures::ForwardCurve;
+    
+    let val_date = date!(2025 - 01 - 01);
+    let commitment_date = date!(2025 - 01 - 01);
+    let maturity_date = date!(2025 - 07 - 01);
+
+    // Build forward curve with very low rates that will be affected by floor
+    // Use small positive rates that become negative after subtracting margin
+    let fwd_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(val_date)
+        .day_count(DayCount::Act360)
+        .knots([
+            (0.0, 0.0001),  // 1 bp (very low)
+            (0.5, 0.0001),
+            (1.0, 0.0002),
+        ])
+        .build()
+        .unwrap();
+
+    let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
+    
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    // Facility with floor at 0 bps
+    let facility_with_floor = RevolvingCredit::builder()
+        .id("RC-FLOOR".into())
+        .commitment_amount(Money::new(1_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(1_000_000.0, Currency::USD))
+        .commitment_date(commitment_date)
+        .maturity_date(maturity_date)
+        .base_rate_spec(BaseRateSpec::Floating {
+            index_id: "USD-SOFR-3M".into(),
+            margin_bp: 500.0, // +500 bps margin = +5%
+            reset_freq: Frequency::quarterly(),
+            floor_bp: Some(100.0), // 1% floor on base rate (floors 1bp to 1%)
+        })
+        .day_count(DayCount::Act360)
+        .payment_frequency(Frequency::quarterly())
+        .fees(RevolvingCreditFees::default())
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+
+    // Facility without floor
+    let facility_no_floor = RevolvingCredit::builder()
+        .id("RC-NO-FLOOR".into())
+        .commitment_amount(Money::new(1_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(1_000_000.0, Currency::USD))
+        .commitment_date(commitment_date)
+        .maturity_date(maturity_date)
+        .base_rate_spec(BaseRateSpec::Floating {
+            index_id: "USD-SOFR-3M".into(),
+            margin_bp: 500.0, // +500 bps margin = +5%
+            reset_freq: Frequency::quarterly(),
+            floor_bp: None, // No floor, so 1bp base passes through
+        })
+        .day_count(DayCount::Act360)
+        .payment_frequency(Frequency::quarterly())
+        .fees(RevolvingCreditFees::default())
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+
+    let pv_with_floor = facility_with_floor.value(&market, val_date).unwrap();
+    let pv_no_floor = facility_no_floor.value(&market, val_date).unwrap();
+
+    // With floor: max(0.01%, 1%) + 5% margin = 1% + 5% = 6% (borrower pays 6%)
+    // Without floor: 0.01% + 5% margin = 5.01% (borrower pays 5.01%)
+    // With floor, the borrower pays more interest, so from lender perspective PV is higher
+    assert!(pv_with_floor.amount() > pv_no_floor.amount(), 
+        "Floor should increase PV (lender receives more interest). With floor: {}, Without floor: {}",
+        pv_with_floor.amount(), pv_no_floor.amount());
+}
+
+#[test]
+fn test_overdraw_validation() {
+    let val_date = date!(2025 - 01 - 01);
+    let commitment_date = date!(2025 - 01 - 01);
+    let maturity_date = date!(2026 - 01 - 01);
+
+    let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
+    let market = MarketContext::new().insert_discount(disc_curve);
+
+    // Create a facility with a draw that would exceed commitment
+    let facility = RevolvingCredit::builder()
+        .id("RC-OVERDRAW".into())
+        .commitment_amount(Money::new(1_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(500_000.0, Currency::USD))
+        .commitment_date(commitment_date)
+        .maturity_date(maturity_date)
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
+        .day_count(DayCount::Act360)
+        .payment_frequency(Frequency::quarterly())
+        .fees(RevolvingCreditFees::default())
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![
+            DrawRepayEvent {
+                date: date!(2025 - 03 - 01),
+                amount: Money::new(600_000.0, Currency::USD), // This would take us to 1.1M > 1M commitment
+                is_draw: true,
+            },
+        ]))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+
+    // This should error due to overdraw
+    let result = facility.value(&market, val_date);
+    assert!(result.is_err(), "Should error on overdraw");
+    
+    if let Err(e) = result {
+        let err_msg = format!("{}", e);
+        assert!(err_msg.contains("exceed commitment") || err_msg.contains("Validation"),
+            "Error should mention exceeding commitment, got: {}", err_msg);
+    }
+}

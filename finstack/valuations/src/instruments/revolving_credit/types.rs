@@ -78,6 +78,10 @@ pub enum BaseRateSpec {
         margin_bp: f64,
         /// Reset frequency for rate fixings.
         reset_freq: Frequency,
+        /// Optional floor on the base rate in basis points (applies to base only, before margin).
+        /// E.g., floor_bp = Some(0.0) enforces a 0% floor on the index rate.
+        #[cfg_attr(feature = "serde", serde(default))]
+        floor_bp: Option<f64>,
     },
 }
 
