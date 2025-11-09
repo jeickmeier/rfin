@@ -569,16 +569,16 @@ impl RevolvingCreditMcPricer {
                 // Compute period forward
                 let t0 = fwd_dc.year_fraction(fwd_base, reset_date, finstack_core::dates::DayCountCtx::default())?;
                 let t1 = fwd_dc.year_fraction(fwd_base, reset_end, finstack_core::dates::DayCountCtx::default())?;
-                let mut base_rate = fwd.rate_period(t0, t1);
+                let mut index_rate = fwd.rate_period(t0, t1);
                 
-                // Apply floor to base rate
+                // Apply floor to index rate
                 if let Some(floor) = floor_bp {
                     let floor_rate = floor * 1e-4;
-                    base_rate = base_rate.max(floor_rate);
+                    index_rate = index_rate.max(floor_rate);
                 }
                 
                 // Add margin to get all-in rate
-                let all_in_rate = base_rate + (margin_bp * 1e-4);
+                let all_in_rate = index_rate + (margin_bp * 1e-4);
                 rates_by_step.push(all_in_rate);
             }
             
@@ -717,6 +717,32 @@ mod tests {
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
 
+    /// Helper to create a standard test facility with common defaults
+    fn create_test_facility(
+        id: &str,
+        start: Date,
+        end: Date,
+        commitment: f64,
+        drawn: f64,
+        base_rate_spec: BaseRateSpec,
+        fees: RevolvingCreditFees,
+    ) -> RevolvingCredit {
+        RevolvingCredit::builder()
+            .id(id.into())
+            .commitment_amount(Money::new(commitment, Currency::USD))
+            .drawn_amount(Money::new(drawn, Currency::USD))
+            .commitment_date(start)
+            .maturity_date(end)
+            .base_rate_spec(base_rate_spec)
+            .day_count(DayCount::Act360)
+            .payment_frequency(Frequency::quarterly())
+            .fees(fees)
+            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+            .discount_curve_id("USD-OIS".into())
+            .build()
+            .unwrap()
+    }
+
     #[test]
     fn test_pricer_key() {
         let pricer = RevolvingCreditDiscountingPricer::new();
@@ -742,20 +768,15 @@ mod tests {
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
-        let facility = RevolvingCredit::builder()
-            .id("RC-TEST".into())
-            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
-            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
-            .commitment_date(start)
-            .maturity_date(end)
-            .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
-            .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
-            .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
-            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-            .discount_curve_id("USD-OIS".into())
-            .build()
-            .unwrap();
+        let facility = create_test_facility(
+            "RC-TEST",
+            start,
+            end,
+            10_000_000.0,
+            5_000_000.0,
+            BaseRateSpec::Fixed { rate: 0.05 },
+            RevolvingCreditFees::flat(25.0, 10.0, 5.0),
+        );
 
         // Create a simple flat discount curve
         let base_date = start;

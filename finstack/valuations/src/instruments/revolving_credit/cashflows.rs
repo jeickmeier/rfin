@@ -296,15 +296,15 @@ fn generate_deterministic_cashflows_internal(
                                 )?;
                                 
                                 // Get period forward rate
-                                let mut base_rate = fwd.rate_period(t0, t1);
+                                let mut index_rate = fwd.rate_period(t0, t1);
                                 
-                                // Apply floor to base rate only (before adding margin)
+                                // Apply floor to index rate only (before adding margin)
                                 if let Some(floor) = floor_bp {
                                     let floor_rate = floor * 1e-4;
-                                    base_rate = base_rate.max(floor_rate);
+                                    index_rate = index_rate.max(floor_rate);
                                 }
                                 
-                                coupon_rate += base_rate;
+                                coupon_rate += index_rate;
                             }
                         }
                     }
@@ -537,6 +537,32 @@ mod tests {
     use finstack_core::dates::{DayCount, Frequency};
     use time::Month;
 
+    /// Helper to create a standard test facility with common defaults
+    fn create_test_facility(
+        id: &str,
+        start: Date,
+        end: Date,
+        commitment: f64,
+        drawn: f64,
+        base_rate_spec: BaseRateSpec,
+        events: Vec<DrawRepayEvent>,
+    ) -> RevolvingCredit {
+        RevolvingCredit::builder()
+            .id(id.into())
+            .commitment_amount(Money::new(commitment, Currency::USD))
+            .drawn_amount(Money::new(drawn, Currency::USD))
+            .commitment_date(start)
+            .maturity_date(end)
+            .base_rate_spec(base_rate_spec)
+            .day_count(DayCount::Act360)
+            .payment_frequency(Frequency::quarterly())
+            .fees(Default::default())
+            .draw_repay_spec(DrawRepaySpec::Deterministic(events))
+            .discount_curve_id("USD-OIS".into())
+            .build()
+            .unwrap()
+    }
+
     #[test]
     fn test_generate_deterministic_cashflows_fixed() {
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -582,17 +608,14 @@ mod tests {
         let draw_date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
         let repay_date = Date::from_calendar_date(2025, Month::June, 1).unwrap();
 
-        let facility = RevolvingCredit::builder()
-            .id("RC-001".into())
-            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
-            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
-            .commitment_date(start)
-            .maturity_date(end)
-            .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
-            .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
-            .fees(Default::default())
-            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![
+        let facility = create_test_facility(
+            "RC-001",
+            start,
+            end,
+            10_000_000.0,
+            5_000_000.0,
+            BaseRateSpec::Fixed { rate: 0.05 },
+            vec![
                 DrawRepayEvent {
                     date: draw_date,
                     amount: Money::new(2_000_000.0, Currency::USD),
@@ -603,10 +626,8 @@ mod tests {
                     amount: Money::new(1_000_000.0, Currency::USD),
                     is_draw: false,
                 },
-            ]))
-            .discount_curve_id("USD-OIS".into())
-            .build()
-            .unwrap();
+            ],
+        );
 
         // Before draw
         let balance_before = calculate_drawn_balance_at_date(&facility, start).unwrap();
@@ -628,17 +649,14 @@ mod tests {
         let draw_date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
         let repay_date = Date::from_calendar_date(2025, Month::June, 1).unwrap();
 
-        let facility = RevolvingCredit::builder()
-            .id("RC-002".into())
-            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
-            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
-            .commitment_date(start)
-            .maturity_date(end)
-            .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
-            .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
-            .fees(Default::default())
-            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![
+        let facility = create_test_facility(
+            "RC-002",
+            start,
+            end,
+            10_000_000.0,
+            5_000_000.0,
+            BaseRateSpec::Fixed { rate: 0.05 },
+            vec![
                 DrawRepayEvent {
                     date: draw_date,
                     amount: Money::new(2_000_000.0, Currency::USD),
@@ -649,10 +667,8 @@ mod tests {
                     amount: Money::new(1_000_000.0, Currency::USD),
                     is_draw: false,
                 },
-            ]))
-            .discount_curve_id("USD-OIS".into())
-            .build()
-            .unwrap();
+            ],
+        );
 
         let schedule = generate_deterministic_cashflows(&facility, start).unwrap();
 
@@ -741,20 +757,15 @@ mod tests {
         let q1_end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
         let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
-        let facility = RevolvingCredit::builder()
-            .id("RC-004".into())
-            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
-            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
-            .commitment_date(start)
-            .maturity_date(end)
-            .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
-            .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
-            .fees(Default::default())
-            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-            .discount_curve_id("USD-OIS".into())
-            .build()
-            .unwrap();
+        let facility = create_test_facility(
+            "RC-004",
+            start,
+            end,
+            10_000_000.0,
+            5_000_000.0,
+            BaseRateSpec::Fixed { rate: 0.05 },
+            vec![],
+        );
 
         // As-of at Q1 end: no interest/fee cashflows should have date <= as_of
         let schedule = generate_deterministic_cashflows(&facility, q1_end).unwrap();
