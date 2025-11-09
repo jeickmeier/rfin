@@ -6,7 +6,7 @@ use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use crate::cashflow::builder::schedule_utils::build_periods_from_payment_dates;
-use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 
@@ -475,10 +475,8 @@ impl RevolvingCreditMcPricer {
         // Build locked rates for floating rate facilities
         use crate::instruments::common::models::monte_carlo::payoff::revolving_credit::RateProjection;
         let rate_projection = if let BaseRateSpec::Floating { index_id, margin_bp, reset_freq, floor_bp, .. } = &facility.base_rate_spec {
-            // Get forward curve
-            let fwd = market.get_forward_ref(index_id.as_str())?;
-            let fwd_dc = fwd.day_count();
-            let fwd_base = fwd.base_date();
+            // Get forward curve (validate it exists)
+            let _fwd = market.get_forward_ref(index_id.as_str())?;
             
             // Build reset schedule from commitment to maturity
             let reset_dates: Vec<Date> = super::utils::build_reset_dates(facility)?

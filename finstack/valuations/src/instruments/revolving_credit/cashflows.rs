@@ -7,7 +7,7 @@
 //! - Facility fees on total commitment
 //! - Upfront fees
 
-use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
