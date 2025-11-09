@@ -42,11 +42,10 @@ fn test_revolving_credit_basic_pricing() {
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
-        .fees(RevolvingCreditFees {
-            upfront_fee: Some(Money::new(50_000.0, Currency::USD)),
-            commitment_fee_bp: 25.0,
-            usage_fee_bp: 10.0,
-            facility_fee_bp: 5.0,
+        .fees({
+            let mut fees = RevolvingCreditFees::flat(25.0, 10.0, 5.0);
+            fees.upfront_fee = Some(Money::new(50_000.0, Currency::USD));
+            fees
         })
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
@@ -91,12 +90,7 @@ fn test_revolving_credit_with_draws_and_repayments() {
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.04 })
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
-        .fees(RevolvingCreditFees {
-            upfront_fee: None,
-            commitment_fee_bp: 20.0,
-            usage_fee_bp: 0.0,
-            facility_fee_bp: 0.0,
-        })
+        .fees(RevolvingCreditFees::flat(20.0, 0.0, 0.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![
             DrawRepayEvent {
                 date: date!(2025 - 04 - 01),
@@ -143,12 +137,7 @@ fn test_revolving_credit_utilization_metrics() {
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
-        .fees(RevolvingCreditFees {
-            upfront_fee: None,
-            commitment_fee_bp: 25.0,
-            usage_fee_bp: 10.0,
-            facility_fee_bp: 5.0,
-        })
+        .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
@@ -204,12 +193,7 @@ fn test_revolving_credit_standard_metrics() {
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.06 })
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
-        .fees(RevolvingCreditFees {
-            upfront_fee: None,
-            commitment_fee_bp: 30.0,
-            usage_fee_bp: 15.0,
-            facility_fee_bp: 10.0,
-        })
+        .fees(RevolvingCreditFees::flat(30.0, 15.0, 10.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
@@ -265,12 +249,7 @@ fn test_revolving_credit_bucketed_dv01() {
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 })
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
-        .fees(RevolvingCreditFees {
-            upfront_fee: None,
-            commitment_fee_bp: 25.0,
-            usage_fee_bp: 10.0,
-            facility_fee_bp: 5.0,
-        })
+        .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()

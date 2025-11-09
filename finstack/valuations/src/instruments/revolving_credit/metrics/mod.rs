@@ -13,7 +13,10 @@ pub use available_capacity::AvailableCapacityCalculator;
 pub use irr::{calculate_path_irr, calculate_periodic_irr};
 pub use spread_sensitivity::SpreadSensitivityCalculator;
 pub use utilization_rate::UtilizationRateCalculator;
-pub use weighted_average_cost::WeightedAverageCostCalculator;
+pub use weighted_average_cost::ApproxWeightedAverageCostCalculator;
+
+// Backwards compatibility alias
+pub type WeightedAverageCostCalculator = ApproxWeightedAverageCostCalculator;
 
 // Type aliases for backwards compatibility and semantic clarity
 /// DV01 calculator (discount curve sensitivity)
@@ -62,7 +65,7 @@ pub fn register_revolving_credit_metrics(registry: &mut MetricRegistry) {
 
     registry.register_metric(
         MetricId::custom("weighted_average_cost"),
-        Arc::new(WeightedAverageCostCalculator),
+        Arc::new(ApproxWeightedAverageCostCalculator),
         &["RevolvingCredit"],
     );
 }

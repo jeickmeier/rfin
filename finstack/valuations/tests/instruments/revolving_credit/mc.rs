@@ -45,12 +45,7 @@ fn test_mc_pricer_stochastic_utilization() {
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 }) // 5% interest
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
-        .fees(RevolvingCreditFees {
-            upfront_fee: None,
-            commitment_fee_bp: 25.0, // 25 bps on undrawn
-            usage_fee_bp: 10.0,      // 10 bps on drawn
-            facility_fee_bp: 5.0,    // 5 bps on total commitment
-        })
+        .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
         .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
             StochasticUtilizationSpec {
                 utilization_process: UtilizationProcess::MeanReverting {
@@ -132,12 +127,7 @@ fn test_mc_pricer_market_anchored_zero_vol_and_vol_sensitivity() {
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 })
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
-        .fees(RevolvingCreditFees {
-            upfront_fee: None,
-            commitment_fee_bp: 25.0,
-            usage_fee_bp: 50.0,
-            facility_fee_bp: 0.0,
-        })
+        .fees(RevolvingCreditFees::flat(25.0, 50.0, 0.0))
         .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
             StochasticUtilizationSpec {
                 utilization_process: UtilizationProcess::MeanReverting {
@@ -181,12 +171,7 @@ fn test_mc_pricer_market_anchored_zero_vol_and_vol_sensitivity() {
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 })
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
-        .fees(RevolvingCreditFees {
-            upfront_fee: None,
-            commitment_fee_bp: 25.0,
-            usage_fee_bp: 50.0,
-            facility_fee_bp: 0.0,
-        })
+        .fees(RevolvingCreditFees::flat(25.0, 50.0, 0.0))
         .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
             StochasticUtilizationSpec {
                 utilization_process: UtilizationProcess::MeanReverting {
@@ -239,12 +224,7 @@ fn test_mc_pricer_deterministic_reproducibility() {
         .base_rate_spec(BaseRateSpec::Fixed { rate: 0.04 })
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
-        .fees(RevolvingCreditFees {
-            upfront_fee: None,
-            commitment_fee_bp: 20.0,
-            usage_fee_bp: 5.0,
-            facility_fee_bp: 3.0,
-        })
+        .fees(RevolvingCreditFees::flat(20.0, 5.0, 3.0))
         .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
             StochasticUtilizationSpec {
                 utilization_process: UtilizationProcess::MeanReverting {
@@ -303,12 +283,7 @@ fn test_mc_pricer_convergence() {
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.06 })
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
-            .fees(RevolvingCreditFees {
-                upfront_fee: None,
-                commitment_fee_bp: 30.0,
-                usage_fee_bp: 15.0,
-                facility_fee_bp: 10.0,
-            })
+            .fees(RevolvingCreditFees::flat(30.0, 15.0, 10.0))
             .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
                 StochasticUtilizationSpec {
                     utilization_process: UtilizationProcess::MeanReverting {

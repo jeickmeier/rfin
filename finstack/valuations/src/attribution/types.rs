@@ -6,7 +6,7 @@
 
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
-use finstack_core::config::{RoundingContext, ZeroKind};
+use finstack_core::config::RoundingContext;
 use indexmap::IndexMap;
 
 #[cfg(feature = "serde")]

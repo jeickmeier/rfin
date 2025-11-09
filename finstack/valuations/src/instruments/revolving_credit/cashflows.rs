@@ -103,14 +103,33 @@ fn generate_deterministic_cashflows_internal(
         return Err(finstack_core::error::InputError::TooFewPoints.into());
     }
 
-    // Step 2: Calculate balance schedule (balance at start of each period)
-    let balance_schedule = calculate_balance_schedule_internal(
-        facility.drawn_amount,
-        draw_repay_events,
-        &payment_dates,
-    )?;
+    // Step 2: Build reset date grid for floating rates (if applicable)
+    let reset_dates: Option<Vec<Date>> = match &facility.base_rate_spec {
+        BaseRateSpec::Floating { reset_freq, .. } => {
+            // Build reset schedule from commitment_date to maturity_date
+            let mut reset_builder = ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
+                .frequency(*reset_freq)
+                .stub_rule(finstack_core::dates::StubKind::None);
+            
+            if let Some(cal_code) = facility
+                .attributes
+                .get_meta("calendar_id")
+                .or_else(|| facility.attributes.get_meta("calendar"))
+            {
+                if let Some(cal) = finstack_core::dates::CalendarRegistry::global().resolve_str(cal_code) {
+                    reset_builder = reset_builder.adjust_with(
+                        finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                        cal,
+                    );
+                }
+            }
+            
+            Some(reset_builder.build()?.into_iter().collect())
+        }
+        BaseRateSpec::Fixed { .. } => None,
+    };
 
-    // Step 3: Generate cashflows based on actual balances
+    // Step 3: Generate cashflows based on actual balances with intra-period event slicing
     let mut flows = Vec::new();
     // Rounding context for zero checks and currency scale
     let rc = RoundingContext::default();
@@ -131,9 +150,10 @@ fn generate_deterministic_cashflows_internal(
         });
     }
 
-    // Add interest and fee cashflows for each period
+    // Step 4: Generate interest and fee cashflows with intra-period event slicing
     // Reserve a reasonable capacity: 4 flow types per period + events + terminal
     flows.reserve((payment_dates.len().saturating_sub(1)) * 4 + draw_repay_events.len() + 2);
+    
     for i in 0..(payment_dates.len() - 1) {
         let period_start = payment_dates[i];
         let period_end = payment_dates[i + 1];
@@ -143,104 +163,186 @@ fn generate_deterministic_cashflows_internal(
             continue;
         }
 
-        let balance_start = balance_schedule[i];
-        let undrawn_start = facility.commitment_amount.checked_sub(balance_start)?;
+        // Build sub-period timeline: [period_start, events in (start, end], period_end]
+        let mut timeline = vec![period_start];
+        
+        // Add events that occur strictly within (period_start, period_end]
+        for event in draw_repay_events {
+            if event.date > period_start && event.date <= period_end {
+                timeline.push(event.date);
+            }
+        }
+        timeline.push(period_end);
+        timeline.sort();
+        timeline.dedup();
 
-        // Calculate accrual factor
-        let accrual = facility.day_count.year_fraction(
-            period_start,
-            period_end,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        // Interest on drawn amount (based on balance at period start)
-        match &facility.base_rate_spec {
-            BaseRateSpec::Fixed { rate } => {
-                let interest = balance_start * (*rate * accrual);
-                if !rc.is_effectively_zero_money(interest.amount(), ccy) {
-                    flows.push(CashFlow {
-                        date: period_end,
-                        reset_date: None,
-                        amount: interest,
-                        kind: CFKind::Fixed,
-                        accrual_factor: accrual,
-                    });
+        // Track balance through sub-periods
+        let mut current_balance = if i == 0 {
+            facility.drawn_amount
+        } else {
+            // Apply all events up to period_start to get starting balance
+            let mut balance = facility.drawn_amount;
+            for event in draw_repay_events {
+                if event.date <= period_start {
+                    balance = if event.is_draw {
+                        balance.checked_add(event.amount)?
+                    } else {
+                        balance.checked_sub(event.amount)?
+                    };
                 }
             }
-            BaseRateSpec::Floating { margin_bp, .. } => {
-                // For floating, include forward-looking base rate if market is provided,
-                // otherwise fall back to margin-only (legacy behavior).
-                let mut coupon_rate = *margin_bp * 1e-4;
-                if let Some(market) = market_opt {
-                    // Resolve forward curve from index_id
-                    if let BaseRateSpec::Floating { index_id, .. } = &facility.base_rate_spec {
-                        if let Ok(fwd) = market.get_forward_ref(index_id.as_str()) {
-                            // Use period start as reset date (reset frequency is typically aligned
-                            // with payment frequency in this deterministic path).
-                            let t_reset = fwd.day_count().year_fraction(
-                                fwd.base_date(),
-                                period_start,
-                                finstack_core::dates::DayCountCtx::default(),
-                            )?;
-                            let base_rate = fwd.rate(t_reset);
-                            coupon_rate += base_rate;
-                        }
+            balance
+        };
+
+        // Accumulators for aggregated accruals
+        let mut total_interest = Money::new(0.0, ccy);
+        let mut total_commitment_fee = Money::new(0.0, ccy);
+        let mut total_usage_fee = Money::new(0.0, ccy);
+        let mut total_facility_fee = Money::new(0.0, ccy);
+        let mut total_accrual = 0.0;
+        let mut reset_date_opt: Option<Date> = None;
+
+        // Process each sub-period
+        for window in timeline.windows(2) {
+            let sub_start = window[0];
+            let sub_end = window[1];
+
+            // Calculate sub-period accrual
+            let dt = facility.day_count.year_fraction(
+                sub_start,
+                sub_end,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            total_accrual += dt;
+
+            let current_undrawn = facility.commitment_amount.checked_sub(current_balance)?;
+            let utilization = if facility.commitment_amount.amount() > 0.0 {
+                current_balance.amount() / facility.commitment_amount.amount()
+            } else {
+                0.0
+            };
+
+            // Determine reset date for floating rates
+            let sub_reset_date = match &facility.base_rate_spec {
+                BaseRateSpec::Floating { .. } => {
+                    if let Some(ref reset_grid) = reset_dates {
+                        // Find most recent reset date <= sub_start
+                        reset_grid
+                            .iter()
+                            .rev()
+                            .find(|&&d| d <= sub_start)
+                            .copied()
+                            .or(Some(period_start))
+                    } else {
+                        Some(period_start)
                     }
                 }
-                let interest = balance_start * (coupon_rate * accrual);
-                if !rc.is_effectively_zero_money(interest.amount(), ccy) {
-                    flows.push(CashFlow {
-                        date: period_end,
-                        reset_date: Some(period_start),
-                        amount: interest,
-                        kind: CFKind::FloatReset,
-                        accrual_factor: accrual,
-                    });
+                BaseRateSpec::Fixed { .. } => None,
+            };
+            
+            // Track reset date for cashflow (use first sub-period's reset date)
+            if reset_date_opt.is_none() {
+                reset_date_opt = sub_reset_date;
+            }
+
+            // Calculate interest for this sub-period
+            match &facility.base_rate_spec {
+                BaseRateSpec::Fixed { rate } => {
+                    let interest = current_balance * (*rate * dt);
+                    total_interest = total_interest.checked_add(interest)?;
+                }
+                BaseRateSpec::Floating { margin_bp, index_id, .. } => {
+                    let mut coupon_rate = *margin_bp * 1e-4;
+                    if let Some(market) = market_opt {
+                        if let Ok(fwd) = market.get_forward_ref(index_id.as_str()) {
+                            if let Some(reset_d) = sub_reset_date {
+                                let t_reset = fwd.day_count().year_fraction(
+                                    fwd.base_date(),
+                                    reset_d,
+                                    finstack_core::dates::DayCountCtx::default(),
+                                )?;
+                                let base_rate = fwd.rate(t_reset);
+                                coupon_rate += base_rate;
+                            }
+                        }
+                    }
+                    let interest = current_balance * (coupon_rate * dt);
+                    total_interest = total_interest.checked_add(interest)?;
+                }
+            }
+
+            // Calculate fees for this sub-period (evaluating tiers based on utilization)
+            let commitment_fee_bps = facility.fees.commitment_fee_bps(utilization);
+            if commitment_fee_bps > 0.0 {
+                let commitment_fee = current_undrawn * (commitment_fee_bps * 1e-4 * dt);
+                total_commitment_fee = total_commitment_fee.checked_add(commitment_fee)?;
+            }
+
+            let usage_fee_bps = facility.fees.usage_fee_bps(utilization);
+            if usage_fee_bps > 0.0 {
+                let usage_fee = current_balance * (usage_fee_bps * 1e-4 * dt);
+                total_usage_fee = total_usage_fee.checked_add(usage_fee)?;
+            }
+
+            if facility.fees.facility_fee_bp > 0.0 {
+                let facility_fee = facility.commitment_amount * (facility.fees.facility_fee_bp * 1e-4 * dt);
+                total_facility_fee = total_facility_fee.checked_add(facility_fee)?;
+            }
+
+            // Apply events that occur at sub_end to update balance for next sub-period
+            for event in draw_repay_events {
+                if event.date == sub_end {
+                    current_balance = if event.is_draw {
+                        current_balance.checked_add(event.amount)?
+                    } else {
+                        current_balance.checked_sub(event.amount)?
+                    };
                 }
             }
         }
 
-        // Commitment fee on undrawn amount
-        if facility.fees.commitment_fee_bp > 0.0 {
-            let commitment_fee = undrawn_start * (facility.fees.commitment_fee_bp * 1e-4 * accrual);
-            if !rc.is_effectively_zero_money(commitment_fee.amount(), ccy) {
-                flows.push(CashFlow {
-                    date: period_end,
-                    reset_date: None,
-                    amount: commitment_fee,
-                    kind: CFKind::Fee,
-                    accrual_factor: accrual,
-                });
-            }
+        // Post aggregated cashflows at period_end
+        if !rc.is_effectively_zero_money(total_interest.amount(), ccy) {
+            flows.push(CashFlow {
+                date: period_end,
+                reset_date: reset_date_opt,
+                amount: total_interest,
+                kind: match &facility.base_rate_spec {
+                    BaseRateSpec::Fixed { .. } => CFKind::Fixed,
+                    BaseRateSpec::Floating { .. } => CFKind::FloatReset,
+                },
+                accrual_factor: total_accrual,
+            });
         }
 
-        // Usage fee on drawn amount
-        if facility.fees.usage_fee_bp > 0.0 {
-            let usage_fee = balance_start * (facility.fees.usage_fee_bp * 1e-4 * accrual);
-            if !rc.is_effectively_zero_money(usage_fee.amount(), ccy) {
-                flows.push(CashFlow {
-                    date: period_end,
-                    reset_date: None,
-                    amount: usage_fee,
-                    kind: CFKind::Fee,
-                    accrual_factor: accrual,
-                });
-            }
+        if !rc.is_effectively_zero_money(total_commitment_fee.amount(), ccy) {
+            flows.push(CashFlow {
+                date: period_end,
+                reset_date: None,
+                amount: total_commitment_fee,
+                kind: CFKind::Fee,
+                accrual_factor: total_accrual,
+            });
         }
 
-        // Facility fee on total commitment
-        if facility.fees.facility_fee_bp > 0.0 {
-            let facility_fee =
-                facility.commitment_amount * (facility.fees.facility_fee_bp * 1e-4 * accrual);
-            if !rc.is_effectively_zero_money(facility_fee.amount(), ccy) {
-                flows.push(CashFlow {
-                    date: period_end,
-                    reset_date: None,
-                    amount: facility_fee,
-                    kind: CFKind::Fee,
-                    accrual_factor: accrual,
-                });
-            }
+        if !rc.is_effectively_zero_money(total_usage_fee.amount(), ccy) {
+            flows.push(CashFlow {
+                date: period_end,
+                reset_date: None,
+                amount: total_usage_fee,
+                kind: CFKind::Fee,
+                accrual_factor: total_accrual,
+            });
+        }
+
+        if !rc.is_effectively_zero_money(total_facility_fee.amount(), ccy) {
+            flows.push(CashFlow {
+                date: period_end,
+                reset_date: None,
+                amount: total_facility_fee,
+                kind: CFKind::Fee,
+                accrual_factor: total_accrual,
+            });
         }
     }
 
@@ -263,14 +365,10 @@ fn generate_deterministic_cashflows_internal(
     }
 
     // Step 5: Add terminal repayment (if balance outstanding at maturity)
-    // Adjust for any events that occur exactly on maturity (to avoid double-count with event flows).
-    let mut final_balance = balance_schedule
-        .last()
-        .copied()
-        .unwrap_or(facility.drawn_amount);
-    // Apply same-day maturity events to the final balance for terminal calculation context only.
+    // Calculate final balance by applying all events strictly before maturity
+    let mut final_balance = facility.drawn_amount;
     for event in draw_repay_events {
-        if event.date == facility.maturity_date {
+        if event.date < facility.maturity_date {
             final_balance = if event.is_draw {
                 final_balance.checked_add(event.amount)?
             } else {
@@ -278,13 +376,26 @@ fn generate_deterministic_cashflows_internal(
             };
         }
     }
+    // Apply same-day maturity events to the final balance for terminal calculation context only.
+    // This adjusts the balance that would be outstanding after maturity-day events are processed.
+    let mut final_balance_for_terminal = final_balance;
+    for event in draw_repay_events {
+        if event.date == facility.maturity_date {
+            final_balance_for_terminal = if event.is_draw {
+                final_balance_for_terminal.checked_add(event.amount)?
+            } else {
+                final_balance_for_terminal.checked_sub(event.amount)?
+            };
+        }
+    }
+    // Only add terminal repayment if there's a balance remaining after all maturity-day events
     if facility.maturity_date > as_of
-        && !rc.is_effectively_zero(final_balance.amount(), ZeroKind::Money(ccy))
+        && !rc.is_effectively_zero(final_balance_for_terminal.amount(), ZeroKind::Money(ccy))
     {
         flows.push(CashFlow {
             date: facility.maturity_date,
             reset_date: None,
-            amount: final_balance,
+            amount: final_balance_for_terminal,
             kind: CFKind::Notional,
             accrual_factor: 0.0,
         });
@@ -340,6 +451,7 @@ fn generate_deterministic_cashflows_internal(
 ///
 /// # Returns
 /// Vector of balances at the start of each period (same length as payment_dates)
+#[allow(dead_code)] // Kept for potential future use
 fn calculate_balance_schedule_internal(
     initial_drawn: Money,
     events: &[super::types::DrawRepayEvent],
@@ -434,11 +546,10 @@ mod tests {
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
-            .fees(super::super::types::RevolvingCreditFees {
-                upfront_fee: Some(Money::new(50_000.0, Currency::USD)),
-                commitment_fee_bp: 25.0, // 25 bps
-                usage_fee_bp: 10.0,      // 10 bps
-                facility_fee_bp: 5.0,    // 5 bps
+            .fees({
+                let mut fees = super::super::types::RevolvingCreditFees::flat(25.0, 10.0, 5.0);
+                fees.upfront_fee = Some(Money::new(50_000.0, Currency::USD));
+                fees
             })
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
@@ -639,11 +750,10 @@ mod tests {
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
-            .fees(super::super::types::RevolvingCreditFees {
-                upfront_fee: Some(Money::new(50_000.0, Currency::USD)),
-                commitment_fee_bp: 25.0,
-                usage_fee_bp: 10.0,
-                facility_fee_bp: 5.0,
+            .fees({
+                let mut fees = super::super::types::RevolvingCreditFees::flat(25.0, 10.0, 5.0);
+                fees.upfront_fee = Some(Money::new(50_000.0, Currency::USD));
+                fees
             })
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())

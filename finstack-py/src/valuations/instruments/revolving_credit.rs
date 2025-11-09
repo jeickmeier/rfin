@@ -131,23 +131,26 @@ impl PyRevolvingCredit {
 
         // Parse fees
         let fees_struct = if let Ok(dict) = fees.downcast::<PyDict>() {
-            RevolvingCreditFees {
-                upfront_fee: dict
-                    .get_item("upfront_fee")?
-                    .and_then(|v| extract_money(&v).ok()),
-                commitment_fee_bp: dict
-                    .get_item("commitment_fee_bp")?
-                    .and_then(|v| v.extract::<f64>().ok())
-                    .unwrap_or(0.0),
-                usage_fee_bp: dict
-                    .get_item("usage_fee_bp")?
-                    .and_then(|v| v.extract::<f64>().ok())
-                    .unwrap_or(0.0),
-                facility_fee_bp: dict
-                    .get_item("facility_fee_bp")?
-                    .and_then(|v| v.extract::<f64>().ok())
-                    .unwrap_or(0.0),
-            }
+            let commitment_fee_bp = dict
+                .get_item("commitment_fee_bp")?
+                .and_then(|v| v.extract::<f64>().ok())
+                .unwrap_or(0.0);
+            let usage_fee_bp = dict
+                .get_item("usage_fee_bp")?
+                .and_then(|v| v.extract::<f64>().ok())
+                .unwrap_or(0.0);
+            let facility_fee_bp = dict
+                .get_item("facility_fee_bp")?
+                .and_then(|v| v.extract::<f64>().ok())
+                .unwrap_or(0.0);
+            
+            let mut fees = RevolvingCreditFees::flat(commitment_fee_bp, usage_fee_bp, facility_fee_bp);
+            fees.upfront_fee = dict
+                .get_item("upfront_fee")?
+                .and_then(|v| extract_money(&v).ok());
+            
+            // TODO: Support tiered fees in Python bindings via fee_tiers list
+            fees
         } else {
             RevolvingCreditFees::default()
         };
@@ -669,9 +672,10 @@ impl PyRevolvingCredit {
         }
 
         // Payoff
+        let initial_utilization = self.inner.utilization_rate();
         let fees = FeeStructure::new(
-            self.inner.fees.commitment_fee_bp,
-            self.inner.fees.usage_fee_bp,
+            self.inner.fees.commitment_fee_bps(initial_utilization),
+            self.inner.fees.usage_fee_bps(initial_utilization),
             self.inner.fees.facility_fee_bp,
         );
         let is_fixed_rate = matches!(self.inner.base_rate_spec, RcBase::Fixed { .. });

@@ -13,6 +13,7 @@ use proptest::prelude::*;
 use time::Month;
 
 /// Strategy for generating valid dates for revolving credit facilities
+#[allow(dead_code)]
 fn date_strategy() -> impl Strategy<Value = Date> {
     (2020i32..=2030, 1u8..=12, 1u8..=28).prop_map(|(year, month, day)| {
         Date::from_calendar_date(
@@ -38,6 +39,7 @@ fn date_strategy() -> impl Strategy<Value = Date> {
 }
 
 /// Strategy for generating valid utilization process parameters
+#[allow(dead_code)]
 fn utilization_process_strategy() -> impl Strategy<Value = UtilizationProcess> {
     (0.1f64..0.9, 0.1f64..5.0, 0.01f64..0.5).prop_map(|(target, speed, vol)| {
         UtilizationProcess::MeanReverting {
@@ -65,7 +67,7 @@ proptest! {
         // Process should be constructible
         match process {
             UtilizationProcess::MeanReverting { target_rate: t, speed: s, volatility: v } => {
-                prop_assert!(t >= 0.0 && t <= 1.0, "Target rate should be in [0, 1]");
+                prop_assert!((0.0..=1.0).contains(&t), "Target rate should be in [0, 1]");
                 prop_assert!(s > 0.0, "Speed should be positive");
                 prop_assert!(v >= 0.0, "Volatility should be non-negative");
             }
@@ -97,7 +99,7 @@ proptest! {
 
         let util_rate = facility.utilization_rate();
 
-        prop_assert!(util_rate >= 0.0 && util_rate <= 1.0,
+        prop_assert!((0.0..=1.0).contains(&util_rate),
             "Utilization rate {} should be in [0, 1]", util_rate);
         // Allow for floating point precision errors
         prop_assert!((util_rate - utilization_pct).abs() < 1e-6,
@@ -241,12 +243,7 @@ proptest! {
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
-            .fees(RevolvingCreditFees {
-                upfront_fee: None,
-                commitment_fee_bp,
-                usage_fee_bp,
-                facility_fee_bp,
-            })
+            .fees(RevolvingCreditFees::flat(commitment_fee_bp, usage_fee_bp, facility_fee_bp))
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
             .build()
@@ -297,7 +294,7 @@ proptest! {
 
         match spec.utilization_process {
             UtilizationProcess::MeanReverting { target_rate: t, .. } => {
-                prop_assert!(t >= 0.0 && t <= 1.0, "Target rate should be in [0, 1]");
+                prop_assert!((0.0..=1.0).contains(&t), "Target rate should be in [0, 1]");
             }
         }
     }

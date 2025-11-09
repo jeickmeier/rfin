@@ -9,12 +9,12 @@ use finstack_core::dates::{Date, Period, PeriodId, PeriodKind};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 
-use super::cashflows::generate_deterministic_cashflows;
+use super::cashflows::generate_deterministic_cashflows_with_curves;
 use super::types::RevolvingCredit;
 
 /// Compute the present value of upfront fee paid at commitment.
 ///
-/// The upfront fee is a one-time payment from the lender's perspective (outflow),
+/// The upfront fee is a one-time payment from the borrower to the lender (inflow to lender),
 /// paid at the commitment date and discounted to the valuation date.
 ///
 /// # Arguments
@@ -67,64 +67,6 @@ fn compute_upfront_fee_pv(
         // Commitment date in past or today - no discounting needed
         Ok(upfront_fee.amount())
     }
-}
-
-/// Compute terminal repayment adjustment for commitment_date == as_of scenario.
-///
-/// When the commitment date equals the valuation date, the initial draw happens "today"
-/// and needs special handling to avoid double-counting with the terminal repayment.
-///
-/// # Returns
-///
-/// Adjustment to apply to final PV (terminal_pv - initial_draw)
-fn compute_terminal_adjustment(
-    schedule: &crate::cashflow::builder::CashFlowSchedule,
-    facility: &RevolvingCredit,
-    disc: &dyn finstack_core::market_data::traits::Discounting,
-    disc_dc: finstack_core::dates::DayCount,
-    as_of: Date,
-    ccy: finstack_core::currency::Currency,
-) -> finstack_core::Result<f64> {
-    // Find terminal repayment flow
-    let terminal_flow = schedule.flows.iter().find(|cf| {
-        cf.date == facility.maturity_date
-            && cf.kind == finstack_core::cashflow::primitives::CFKind::Notional
-            && cf.amount.amount() > 0.0
-    });
-
-    let terminal_pv = if let Some(flow) = terminal_flow {
-        // Calculate discount factor from maturity to as_of
-        let t_maturity = disc_dc.year_fraction(
-            disc.base_date(),
-            facility.maturity_date,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let t_as_of = disc_dc.year_fraction(
-            disc.base_date(),
-            as_of,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        let df_maturity = disc.df(t_maturity);
-        let df_as_of = disc.df(t_as_of);
-        let df = if df_as_of > 0.0 {
-            df_maturity / df_as_of
-        } else {
-            1.0
-        };
-
-        if flow.amount.currency() == ccy {
-            flow.amount.amount() * df
-        } else {
-            0.0
-        }
-    } else {
-        0.0
-    };
-
-    // Return adjustment: terminal PV - initial draw
-    // (Mathematically, this is what both branches were computing)
-    Ok(terminal_pv - facility.drawn_amount.amount())
 }
 
 /// Build periods from payment schedule dates for PV aggregation.
@@ -223,11 +165,8 @@ impl RevolvingCreditDiscountingPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        // Centralized rounding context for zero checks
-        let rc = finstack_core::config::RoundingContext::default();
-        let ccy = facility.commitment_amount.currency();
         // Generate cashflows (excludes upfront fee - handled below)
-        let schedule = generate_deterministic_cashflows(facility, as_of)?;
+        let schedule = generate_deterministic_cashflows_with_curves(facility, market, as_of)?;
 
         // Get discount curve
         let disc = market.get_discount_ref(facility.discount_curve_id.as_str())?;
@@ -283,7 +222,7 @@ impl RevolvingCreditDiscountingPricer {
         }
 
         // Handle upfront fee at pricer level (consistent with MC pricer)
-        // Upfront fee is paid by lender at commitment, so it reduces facility value
+        // Upfront fee is paid by borrower to lender at commitment, so it increases facility value (inflow)
         let upfront_fee_pv = compute_upfront_fee_pv(
             facility.fees.upfront_fee,
             facility.commitment_date,
@@ -292,23 +231,8 @@ impl RevolvingCreditDiscountingPricer {
             disc_dc,
         )?;
 
-        // Lender perspective: upfront fee is an outflow, so subtract from PV
-        let mut final_pv = total_pv - upfront_fee_pv;
-
-        // Handle initial draw adjustment when commitment_date == as_of
-        // The initial draw happens "today" and isn't in the cashflow schedule, so we need
-        // to adjust for it along with the terminal repayment to avoid double-counting.
-        if facility.commitment_date == as_of && facility.drawn_amount.amount() > 1e-6 {
-            let adjustment = compute_terminal_adjustment(
-                &schedule,
-                facility,
-                disc as &dyn finstack_core::market_data::traits::Discounting,
-                disc_dc,
-                as_of,
-                ccy,
-            )?;
-            final_pv += adjustment;
-        }
+        // Lender perspective: upfront fee is an inflow, so add to PV
+        let final_pv = total_pv + upfront_fee_pv;
 
         Ok(Money::new(final_pv, ccy))
     }
@@ -417,7 +341,7 @@ impl RevolvingCreditMcPricer {
         use finstack_core::dates::DayCountCtx;
         // Centralized rounding context for zero checks
         let rc = finstack_core::config::RoundingContext::default();
-        let ccy = facility.commitment_amount.currency();
+        let _ccy = facility.commitment_amount.currency();
 
         // Extract mean-reverting parameters
         let (target_rate, speed, volatility) = match &stoch_spec.utilization_process {
@@ -603,15 +527,16 @@ impl RevolvingCreditMcPricer {
                 };
                 let interest = Money::new(drawn * period_rate * actual_dt, ccy);
 
-                // Commitment fee on undrawn
+                // Commitment fee on undrawn (evaluating tiers)
+                let commitment_fee_bps = facility.fees.commitment_fee_bps(utilization);
                 let commitment_fee = Money::new(
-                    undrawn * (facility.fees.commitment_fee_bp * 1e-4) * actual_dt,
+                    undrawn * (commitment_fee_bps * 1e-4) * actual_dt,
                     ccy,
                 );
 
-                // Usage fee on drawn
-                let usage_fee =
-                    Money::new(drawn * (facility.fees.usage_fee_bp * 1e-4) * actual_dt, ccy);
+                // Usage fee on drawn (evaluating tiers)
+                let usage_fee_bps = facility.fees.usage_fee_bps(utilization);
+                let usage_fee = Money::new(drawn * (usage_fee_bps * 1e-4) * actual_dt, ccy);
 
                 // Facility fee on total commitment
                 let facility_fee = Money::new(
@@ -745,10 +670,10 @@ impl RevolvingCreditMcPricer {
             disc_dc,
         )?;
 
-        // Lender perspective: upfront fee is an outflow, so subtract from PV
+        // Lender perspective: upfront fee is an inflow (borrower pays lender), so add to PV
         // Note: Cashflows include all principal flows (draws/repays and terminal repayment),
         // so we don't need to separately account for initial capital deployment.
-        mean_pv -= upfront_fee_pv;
+        mean_pv += upfront_fee_pv;
 
         Ok(Money::new(mean_pv, ccy))
     }
@@ -966,9 +891,13 @@ impl RevolvingCreditMcPricer {
         }
 
         // Build payoff (NOTE: upfront fee handled separately below, not in payoff)
+        // Evaluate tiered fees at initial utilization (approximation; payoff recalculates per step)
+        let initial_utilization = facility.utilization_rate();
+        let commitment_fee_bps = facility.fees.commitment_fee_bps(initial_utilization);
+        let usage_fee_bps = facility.fees.usage_fee_bps(initial_utilization);
         let fees = FeeStructure::new(
-            facility.fees.commitment_fee_bp,
-            facility.fees.usage_fee_bp,
+            commitment_fee_bps,
+            usage_fee_bps,
             facility.fees.facility_fee_bp,
         );
 
@@ -1036,7 +965,7 @@ impl RevolvingCreditMcPricer {
         };
 
         // Handle upfront fee at pricer level (one-time cashflow, not path-dependent)
-        // Upfront fee is paid by lender at commitment, so it reduces facility value
+        // Upfront fee is paid by borrower to lender at commitment, so it increases facility value (inflow)
         let upfront_fee_pv = compute_upfront_fee_pv(
             facility.fees.upfront_fee,
             facility.commitment_date,
@@ -1046,10 +975,10 @@ impl RevolvingCreditMcPricer {
         )?;
 
         // Combine path-dependent PV with upfront fee
-        // Lender perspective: upfront fee is an outflow, so subtract from PV
+        // Lender perspective: upfront fee is an inflow (borrower pays lender), so add to PV
         // Note: Cashflows include all principal flows (draws/repays and terminal repayment),
         // so we don't need to separately account for initial capital deployment.
-        let total_pv = estimate.mean.amount() - upfront_fee_pv;
+        let total_pv = estimate.mean.amount() + upfront_fee_pv;
 
         Ok(Money::new(total_pv, facility.commitment_amount.currency()))
     }
@@ -1140,12 +1069,7 @@ mod tests {
             .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
-            .fees(RevolvingCreditFees {
-                upfront_fee: None,
-                commitment_fee_bp: 25.0,
-                usage_fee_bp: 10.0,
-                facility_fee_bp: 5.0,
-            })
+            .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
             .build()

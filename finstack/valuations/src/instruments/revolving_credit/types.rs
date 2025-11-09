@@ -81,27 +81,116 @@ pub enum BaseRateSpec {
     },
 }
 
+/// Fee tier for utilization-based fee structures.
+///
+/// Tiers are evaluated in order: the first tier where utilization >= threshold applies.
+/// Tiers should be sorted by threshold (ascending).
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct FeeTier {
+    /// Utilization threshold (0.0 to 1.0). Fee applies when utilization >= this threshold.
+    pub threshold: f64,
+    /// Fee rate in basis points for this tier.
+    pub bps: f64,
+}
+
 /// Fee structure for a revolving credit facility.
 ///
 /// Contains the various fees charged on the facility:
 /// - Upfront: one-time fee at commitment
-/// - Commitment: annual fee on undrawn amount
-/// - Usage: annual fee on drawn amount
+/// - Commitment: annual fee on undrawn amount (can be tiered by utilization)
+/// - Usage: annual fee on drawn amount (can be tiered by utilization)
 /// - Facility: annual fee on total commitment
-#[derive(Clone, Debug, Default)]
+///
+/// For backwards compatibility, flat fees can be represented as single-tier vectors.
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RevolvingCreditFees {
-    /// One-time upfront fee paid at commitment.
+    /// One-time upfront fee paid by borrower to lender at commitment.
     pub upfront_fee: Option<Money>,
 
-    /// Annual commitment fee rate on undrawn amount (basis points).
-    pub commitment_fee_bp: f64,
+    /// Commitment fee tiers (utilization-based). Empty vector means no commitment fee.
+    /// Tiers should be sorted by threshold ascending.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub commitment_fee_tiers: Vec<FeeTier>,
 
-    /// Annual usage fee rate on drawn amount (basis points).
-    pub usage_fee_bp: f64,
+    /// Usage fee tiers (utilization-based). Empty vector means no usage fee.
+    /// Tiers should be sorted by threshold ascending.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub usage_fee_tiers: Vec<FeeTier>,
 
     /// Annual facility fee rate on total commitment (basis points).
+    /// Facility fee is not tiered (applies to total commitment regardless of utilization).
     pub facility_fee_bp: f64,
+}
+
+impl Default for RevolvingCreditFees {
+    fn default() -> Self {
+        Self {
+            upfront_fee: None,
+            commitment_fee_tiers: Vec::new(),
+            usage_fee_tiers: Vec::new(),
+            facility_fee_bp: 0.0,
+        }
+    }
+}
+
+impl RevolvingCreditFees {
+    /// Create fees with flat (non-tiered) commitment and usage fees.
+    ///
+    /// Convenience constructor for simple fee structures without utilization tiers.
+    pub fn flat(commitment_fee_bp: f64, usage_fee_bp: f64, facility_fee_bp: f64) -> Self {
+        Self {
+            upfront_fee: None,
+            commitment_fee_tiers: if commitment_fee_bp > 0.0 {
+                vec![FeeTier {
+                    threshold: 0.0,
+                    bps: commitment_fee_bp,
+                }]
+            } else {
+                Vec::new()
+            },
+            usage_fee_tiers: if usage_fee_bp > 0.0 {
+                vec![FeeTier {
+                    threshold: 0.0,
+                    bps: usage_fee_bp,
+                }]
+            } else {
+                Vec::new()
+            },
+            facility_fee_bp,
+        }
+    }
+
+    /// Get commitment fee bps for given utilization (evaluates tiers).
+    ///
+    /// Returns the fee rate from the highest tier where utilization >= threshold.
+    /// Tiers should be sorted by threshold ascending.
+    /// If no tiers match or tiers are empty, returns 0.0.
+    pub fn commitment_fee_bps(&self, utilization: f64) -> f64 {
+        // Find highest tier where utilization >= threshold (tiers sorted ascending)
+        self.commitment_fee_tiers
+            .iter()
+            .rev()
+            .find(|tier| utilization >= tier.threshold)
+            .map(|tier| tier.bps)
+            .unwrap_or(0.0)
+    }
+
+    /// Get usage fee bps for given utilization (evaluates tiers).
+    ///
+    /// Returns the fee rate from the highest tier where utilization >= threshold.
+    /// Tiers should be sorted by threshold ascending.
+    /// If no tiers match or tiers are empty, returns 0.0.
+    pub fn usage_fee_bps(&self, utilization: f64) -> f64 {
+        // Find highest tier where utilization >= threshold (tiers sorted ascending)
+        self.usage_fee_tiers
+            .iter()
+            .rev()
+            .find(|tier| utilization >= tier.threshold)
+            .map(|tier| tier.bps)
+            .unwrap_or(0.0)
+    }
 }
 
 /// Draw and repayment specification.
