@@ -6,7 +6,7 @@
 //! For each path with shocks Z, simulate a paired path with -Z.
 //! The average of the two payoffs has lower variance than either alone.
 
-use crate::instruments::common::mc::stats::OnlineStats;
+use crate::instruments::common::mc::online_stats::OnlineStats;
 use crate::instruments::common::mc::traits::{Discretization, RandomStream, StochasticProcess};
 use crate::instruments::common::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;

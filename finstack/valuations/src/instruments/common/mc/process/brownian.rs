@@ -3,7 +3,7 @@
 //! Provides additive Gaussian processes that are useful beyond financial pricing,
 //! e.g., generic diffusion dynamics for continuous time series.
 
-use super::super::path_data::ProcessParams;
+use super::super::paths::ProcessParams;
 use super::super::traits::StochasticProcess;
 use super::metadata::ProcessMetadata;
 

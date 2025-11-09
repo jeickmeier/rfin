@@ -98,15 +98,6 @@ mc/
 - Prefer vectorized generation and pre‑allocated work buffers for high throughput
 - Parallel performance depends on path count and chunk sizing upstream
 
-## Compatibility
-
-Module aliases for internal use:
-- `mc::results` → `mc::estimate`
-- `mc::stats` → `mc::online_stats`
-- `mc::path_data` → `mc::paths`
-
-These aliases are maintained for compatibility with `models/monte_carlo` and should be accessed through the `prelude` module in external code.
-
 ## Feature flags
 
 - `mc` enables Monte Carlo features in this crate. Build with: `--features mc`

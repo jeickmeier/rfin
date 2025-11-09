@@ -3,7 +3,7 @@
 use super::paths::JsPathDataset;
 use crate::core::error::js_error;
 use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
-use finstack_valuations::instruments::common::mc::path_data::{
+use finstack_valuations::instruments::common::mc::paths::{
     PathDataset, PathPoint, PathSamplingMethod, SimulatedPath,
 };
 use finstack_valuations::instruments::common::mc::process::gbm::GbmProcess;

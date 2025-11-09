@@ -1,6 +1,6 @@
 //! Python bindings for Monte Carlo process parameters.
 
-use finstack_valuations::instruments::common::mc::path_data::ProcessParams;
+use finstack_valuations::instruments::common::mc::paths::ProcessParams;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 

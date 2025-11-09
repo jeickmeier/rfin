@@ -214,11 +214,6 @@ pub mod rng;
 pub mod time_grid;
 pub mod traits;
 
-// Re-export aliases for internal use (used by models/monte_carlo)
-pub use estimate as results;
-pub use online_stats as stats;
-pub use paths as path_data;
-
 /// Prelude for convenient imports
 pub mod prelude {
     // Generic path data

@@ -4,7 +4,7 @@
 //! dX_i = κ_i (θ_i - X_i) dt + σ_i dW_i
 //! with optional correlation across the driving Brownian motions.
 
-use super::super::path_data::ProcessParams;
+use super::super::paths::ProcessParams;
 use super::super::traits::StochasticProcess;
 use super::metadata::ProcessMetadata;
 

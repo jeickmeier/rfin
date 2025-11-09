@@ -1,6 +1,6 @@
 //! Python bindings for Monte Carlo path data structures.
 
-use finstack_valuations::instruments::common::mc::path_data::{
+use finstack_valuations::instruments::common::mc::paths::{
     CashflowType, PathDataset, PathPoint, SimulatedPath,
 };
 use pyo3::exceptions::PyValueError;

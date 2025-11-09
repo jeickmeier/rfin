@@ -10,7 +10,7 @@
 //! where Y is the control (BS price), E[Y] is known analytically,
 //! and β is the optimal coefficient.
 
-use crate::instruments::common::mc::results::Estimate;
+use crate::instruments::common::mc::estimate::Estimate;
 use finstack_core::math::special_functions::norm_cdf;
 
 /// Black-Scholes formula for European call option.

@@ -254,7 +254,7 @@ impl PathDependentPricer {
                             payoff,
                             &cfg,
                         );
-                        let est = crate::instruments::common::mc::results::Estimate::new(
+                        let est = crate::instruments::common::mc::estimate::Estimate::new(
                             stats.mean(),
                             stats.stderr(),
                             stats.ci_95(),
@@ -263,7 +263,7 @@ impl PathDependentPricer {
                         Ok(MoneyEstimate::from_estimate(est, currency))
                     } else if self.config.use_brownian_bridge {
                         use crate::instruments::common::mc::rng::brownian_bridge::BrownianBridge;
-                        use crate::instruments::common::mc::stats::OnlineStats;
+                        use crate::instruments::common::mc::online_stats::OnlineStats;
 
                         let time_grid =
                             crate::instruments::common::mc::time_grid::TimeGrid::uniform(
@@ -316,7 +316,7 @@ impl PathDependentPricer {
                             stats.update(payoff_money.amount() * discount_factor);
                         }
 
-                        let est = crate::instruments::common::mc::results::Estimate::new(
+                        let est = crate::instruments::common::mc::estimate::Estimate::new(
                             stats.mean(),
                             stats.stderr(),
                             stats.ci_95(),
@@ -372,7 +372,7 @@ impl PathDependentPricer {
                         payoff,
                         &cfg,
                     );
-                    let est = crate::instruments::common::mc::results::Estimate::new(
+                    let est = crate::instruments::common::mc::estimate::Estimate::new(
                         stats.mean(),
                         stats.stderr(),
                         stats.ci_95(),

@@ -1,6 +1,6 @@
 //! WASM bindings for Monte Carlo process parameters.
 
-use finstack_valuations::instruments::common::mc::path_data::ProcessParams;
+use finstack_valuations::instruments::common::mc::paths::ProcessParams;
 use js_sys::{Array, Object, Reflect};
 use wasm_bindgen::prelude::*;
 

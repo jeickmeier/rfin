@@ -3,7 +3,7 @@
 use super::paths::PyPathDataset;
 use crate::core::error::core_to_py;
 use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
-use finstack_valuations::instruments::common::mc::path_data::{
+use finstack_valuations::instruments::common::mc::paths::{
     PathDataset, PathPoint, PathSamplingMethod, SimulatedPath,
 };
 use finstack_valuations::instruments::common::mc::process::gbm::GbmProcess;
