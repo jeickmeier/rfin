@@ -308,6 +308,89 @@ pub struct McConfig {
     pub util_credit_corr: Option<f64>,
 }
 
+#[cfg(feature = "mc")]
+impl McConfig {
+    /// Validate the configuration parameters.
+    ///
+    /// Checks that:
+    /// - Correlation matrix (if provided) is positive semi-definite
+    /// - Recovery rate is in [0, 1]
+    /// - CIR parameters satisfy Feller condition if applicable
+    /// - Credit spread parameters are valid
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if all parameters are valid, otherwise returns an error
+    /// describing the validation failure.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        use finstack_core::error::InputError;
+        
+        // Validate recovery rate
+        if self.recovery_rate < 0.0 || self.recovery_rate > 1.0 {
+            return Err(InputError::Invalid.into());
+        }
+        
+        // Validate correlation matrix if provided
+        if let Some(corr) = self.correlation_matrix {
+            // Check positive semi-definiteness
+            finstack_core::math::linalg::validate_correlation_matrix(
+                &corr.iter().flatten().copied().collect::<Vec<_>>(),
+                3,
+            )?;
+        }
+        
+        // Validate util_credit_corr if provided
+        if let Some(rho) = self.util_credit_corr {
+            if rho.abs() > 1.0 {
+                return Err(InputError::Invalid.into());
+            }
+        }
+        
+        // Validate credit spread process parameters
+        match &self.credit_spread_process {
+            CreditSpreadProcessSpec::Cir { kappa, theta, sigma, initial } => {
+                // All parameters must be non-negative
+                if *kappa <= 0.0 || *theta < 0.0 || *sigma < 0.0 || *initial < 0.0 {
+                    return Err(InputError::Invalid.into());
+                }
+                
+                // Check Feller condition: 2*kappa*theta >= sigma^2
+                // This ensures the CIR process stays positive
+                let feller_ratio = 2.0 * kappa * theta / (sigma * sigma);
+                if feller_ratio < 1.0 && *sigma > 1e-8 {
+                    // Log warning but don't fail - some models may intentionally violate this
+                    // for calibration purposes (with appropriate numerical safeguards)
+                    eprintln!("Warning: CIR Feller condition violated (2κθ/σ² = {:.3} < 1). Process may hit zero.", feller_ratio);
+                }
+            }
+            CreditSpreadProcessSpec::Constant(spread) => {
+                if *spread < 0.0 {
+                    return Err(InputError::Invalid.into());
+                }
+            }
+            CreditSpreadProcessSpec::MarketAnchored { kappa, implied_vol, tenor_years, .. } => {
+                if *kappa <= 0.0 || *implied_vol < 0.0 {
+                    return Err(InputError::Invalid.into());
+                }
+                if let Some(tenor) = tenor_years {
+                    if *tenor <= 0.0 {
+                        return Err(InputError::Invalid.into());
+                    }
+                }
+            }
+        }
+        
+        // Validate interest rate process if provided
+        if let Some(InterestRateProcessSpec::HullWhite1F { kappa, sigma, .. }) = &self.interest_rate_process {
+            if *kappa <= 0.0 || *sigma < 0.0 {
+                return Err(InputError::Invalid.into());
+            }
+        }
+        
+        Ok(())
+    }
+}
+
 /// Credit spread process specification.
 #[cfg(feature = "mc")]
 #[derive(Clone, Debug)]

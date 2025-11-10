@@ -73,21 +73,22 @@ pub enum RateSpec {
 /// Fee structure for revolving credit facility.
 #[derive(Clone, Debug)]
 pub struct FeeStructure {
-    /// Commitment fee (bps, annual, on undrawn)
-    pub commitment_fee_bp: f64,
-    /// Usage fee (bps, annual, on drawn)
-    pub usage_fee_bp: f64,
-    /// Facility fee (bps, annual, on total commitment)
-    pub facility_fee_bp: f64,
+    /// Full fee specification with tiers from the facility
+    pub fees: crate::instruments::revolving_credit::types::RevolvingCreditFees,
 }
 
 impl FeeStructure {
-    /// Create a new fee structure.
+    /// Create a new fee structure from the facility's fee specification.
+    pub fn from_fees(fees: crate::instruments::revolving_credit::types::RevolvingCreditFees) -> Self {
+        Self { fees }
+    }
+    
+    /// Create a new fee structure (deprecated - use from_fees).
+    #[deprecated(note = "Use from_fees to support tiered fees")]
     pub fn new(commitment_fee_bp: f64, usage_fee_bp: f64, facility_fee_bp: f64) -> Self {
+        use crate::instruments::revolving_credit::types::RevolvingCreditFees;
         Self {
-            commitment_fee_bp,
-            usage_fee_bp,
-            facility_fee_bp,
+            fees: RevolvingCreditFees::flat(commitment_fee_bp, usage_fee_bp, facility_fee_bp),
         }
     }
 }
@@ -279,22 +280,31 @@ impl Payoff for RevolvingCreditPayoff {
                 self.accumulated_pv += interest * df * sp;
             }
 
-            // Commitment fee on undrawn
-            let commitment_fee = undrawn * (self.fees.commitment_fee_bp * 1e-4) * dt;
+            // Calculate current utilization for fee tier evaluation
+            let current_utilization = if self.commitment_amount > 0.0 {
+                drawn / self.commitment_amount
+            } else {
+                0.0
+            };
+
+            // Commitment fee on undrawn (evaluate tiers dynamically)
+            let commitment_fee_bp = self.fees.fees.commitment_fee_bps(current_utilization);
+            let commitment_fee = undrawn * (commitment_fee_bp * 1e-4) * dt;
             if !rc.is_effectively_zero(commitment_fee, ZeroKind::Generic) {
                 state.add_typed_cashflow(current_time, commitment_fee, CashflowType::CommitmentFee);
                 self.accumulated_pv += commitment_fee * df * sp;
             }
 
-            // Usage fee on drawn
-            let usage_fee = drawn * (self.fees.usage_fee_bp * 1e-4) * dt;
+            // Usage fee on drawn (evaluate tiers dynamically)
+            let usage_fee_bp = self.fees.fees.usage_fee_bps(current_utilization);
+            let usage_fee = drawn * (usage_fee_bp * 1e-4) * dt;
             if !rc.is_effectively_zero(usage_fee, ZeroKind::Generic) {
                 state.add_typed_cashflow(current_time, usage_fee, CashflowType::UsageFee);
                 self.accumulated_pv += usage_fee * df * sp;
             }
 
-            // Facility fee on total commitment
-            let facility_fee = self.commitment_amount * (self.fees.facility_fee_bp * 1e-4) * dt;
+            // Facility fee on total commitment (not tiered)
+            let facility_fee = self.commitment_amount * (self.fees.fees.facility_fee_bp * 1e-4) * dt;
             if !rc.is_effectively_zero(facility_fee, ZeroKind::Generic) {
                 state.add_typed_cashflow(current_time, facility_fee, CashflowType::FacilityFee);
                 self.accumulated_pv += facility_fee * df * sp;
@@ -346,7 +356,8 @@ mod tests {
 
     #[test]
     fn test_payoff_creation() {
-        let fees = FeeStructure::new(25.0, 10.0, 5.0);
+        use crate::instruments::revolving_credit::types::RevolvingCreditFees;
+        let fees = FeeStructure::from_fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0));
         let discounts = vec![1.0, 0.99, 0.98, 0.97, 0.96];
         let payoff = RevolvingCreditPayoff::new(
             10_000_000.0,
@@ -368,7 +379,8 @@ mod tests {
 
     #[test]
     fn test_fixed_rate_computation() {
-        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        use crate::instruments::revolving_credit::types::RevolvingCreditFees;
+        let fees = FeeStructure::from_fees(RevolvingCreditFees::flat(0.0, 0.0, 0.0));
         let discounts = vec![1.0];
         let payoff = RevolvingCreditPayoff::new(
             10_000_000.0,
@@ -388,7 +400,8 @@ mod tests {
 
     #[test]
     fn test_floating_rate_computation() {
-        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        use crate::instruments::revolving_credit::types::RevolvingCreditFees;
+        let fees = FeeStructure::from_fees(RevolvingCreditFees::flat(0.0, 0.0, 0.0));
         let discounts = vec![1.0];
         let payoff = RevolvingCreditPayoff::new(
             10_000_000.0,
@@ -410,7 +423,8 @@ mod tests {
 
     #[test]
     fn test_maturity_check() {
-        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        use crate::instruments::revolving_credit::types::RevolvingCreditFees;
+        let fees = FeeStructure::from_fees(RevolvingCreditFees::flat(0.0, 0.0, 0.0));
         let discounts = vec![1.0];
         let payoff = RevolvingCreditPayoff::new(
             10_000_000.0,
@@ -433,7 +447,8 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        use crate::instruments::revolving_credit::types::RevolvingCreditFees;
+        let fees = FeeStructure::from_fees(RevolvingCreditFees::flat(0.0, 0.0, 0.0));
         let discounts = vec![1.0];
         let mut payoff = RevolvingCreditPayoff::new(
             10_000_000.0,
@@ -465,7 +480,8 @@ mod tests {
 
     #[test]
     fn test_value_returns_accumulated_pv() {
-        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        use crate::instruments::revolving_credit::types::RevolvingCreditFees;
+        let fees = FeeStructure::from_fees(RevolvingCreditFees::flat(0.0, 0.0, 0.0));
         let discounts = vec![1.0];
         let mut payoff = RevolvingCreditPayoff::new(
             10_000_000.0,
@@ -492,7 +508,8 @@ mod tests {
     fn test_survival_weights_scale_discounted_pv() {
         use crate::instruments::common::mc::traits::state_keys;
 
-        let fees = FeeStructure::new(0.0, 0.0, 0.0);
+        use crate::instruments::revolving_credit::types::RevolvingCreditFees;
+        let fees = FeeStructure::from_fees(RevolvingCreditFees::flat(0.0, 0.0, 0.0));
         let discounts = vec![1.0, 0.95];
         let survival = Some(vec![1.0, 0.6]);
 

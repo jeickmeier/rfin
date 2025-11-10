@@ -125,6 +125,8 @@ impl RevolvingCreditMcPricer {
         {
             let mc_config_to_use;
             let mc_config_ref = if let Some(ref mc_config) = stoch_spec.mc_config {
+                // Validate configuration early to fail fast
+                mc_config.validate()?;
                 mc_config
             } else {
                 // Synthesize minimal McConfig with zero credit spread
@@ -135,6 +137,8 @@ impl RevolvingCreditMcPricer {
                     interest_rate_process: None, // Will use deterministic forward
                     util_credit_corr: None,
                 };
+                // Validate even the synthesized config
+                mc_config_to_use.validate()?;
                 &mc_config_to_use
             };
             Self::price_multi_factor(facility, market, as_of, stoch_spec, mc_config_ref, path_capture)
@@ -267,17 +271,33 @@ impl RevolvingCreditMcPricer {
             }
         };
 
-        // Build credit spread parameters
+        // Build credit spread parameters with stability guards
         let credit_spread_params = match &mc_config.credit_spread_process {
             CreditSpreadProcessSpec::Cir {
                 kappa,
                 theta,
                 sigma,
                 initial,
-            } => CreditSpreadParams::new(*kappa, *theta, *sigma, *initial),
+            } => {
+                // Apply stability guards for CIR parameters
+                const MIN_SPREAD: f64 = 1e-8;  // 0.01 bps floor for numerical stability
+                let stable_initial = initial.max(MIN_SPREAD);
+                let stable_theta = theta.max(MIN_SPREAD);
+                
+                // Check and potentially adjust for Feller condition
+                let feller_ratio = 2.0 * kappa * stable_theta / (sigma * sigma);
+                if feller_ratio < 1.0 && *sigma > 1e-8 {
+                    // Adjust sigma to maintain stability (99% of Feller boundary)
+                    let adjusted_sigma = (2.0 * kappa * stable_theta).sqrt() * 0.99;
+                    CreditSpreadParams::new(*kappa, stable_theta, adjusted_sigma, stable_initial)
+                } else {
+                    CreditSpreadParams::new(*kappa, stable_theta, *sigma, stable_initial)
+                }
+            }
             CreditSpreadProcessSpec::Constant(spread) => {
                 // Use constant spread with minimal dynamics (very low vol)
-                CreditSpreadParams::new(0.01, *spread, 0.001, *spread)
+                let stable_spread = spread.max(0.0);
+                CreditSpreadParams::new(0.01, stable_spread, 0.001, stable_spread)
             }
             CreditSpreadProcessSpec::MarketAnchored {
                 hazard_curve_id,
@@ -310,9 +330,11 @@ impl RevolvingCreditMcPricer {
                 let lambda0 = first_lambda.unwrap_or(avg_lambda).max(0.0);
 
                 // Map hazard ↔ spread using s ≈ (1 − R) · λ
+                // Apply minimum spread floor for numerical stability
+                const MIN_SPREAD: f64 = 1e-8;  // 0.01 bps
                 let one_minus_r = (1.0 - mc_config.recovery_rate).max(1e-6);
-                let s0 = one_minus_r * lambda0;
-                let s_bar = one_minus_r * avg_lambda;
+                let s0 = (one_minus_r * lambda0).max(MIN_SPREAD);
+                let s_bar = (one_minus_r * avg_lambda).max(MIN_SPREAD);
 
                 // Mean-anchored CIR params on spread space
                 let k = *kappa;
@@ -324,13 +346,21 @@ impl RevolvingCreditMcPricer {
                 let theta = if (1.0 - a).abs() < 1e-12 {
                     s_bar
                 } else {
-                    ((s_bar - a * s0) / (1.0 - a)).max(0.0)
+                    ((s_bar - a * s0) / (1.0 - a)).max(MIN_SPREAD)
                 };
 
                 // Volatility scaled to match fractional vol near mean: σ ≈ implied_vol * sqrt(s̄)
                 let sigma = (*implied_vol) * s_bar.max(1e-12).sqrt();
-
-                CreditSpreadParams::new(k, theta, sigma, s0)
+                
+                // Ensure Feller condition for stability
+                let feller_ratio = 2.0 * k * theta / (sigma * sigma);
+                if feller_ratio < 1.0 && sigma > 1e-8 {
+                    // Adjust sigma to maintain stability
+                    let adjusted_sigma = (2.0 * k * theta).sqrt() * 0.99;
+                    CreditSpreadParams::new(k, theta, adjusted_sigma, s0)
+                } else {
+                    CreditSpreadParams::new(k, theta, sigma, s0)
+                }
             }
         };
 
@@ -372,12 +402,8 @@ impl RevolvingCreditMcPricer {
 
         // Set correlation: prefer provided matrix, else use util–credit correlation if supplied
         // Default to identity (independent factors) when no correlation is specified
+        // Note: correlation matrix already validated in price_stochastic
         if let Some(corr) = mc_config.correlation_matrix {
-            // Validate correlation matrix is PSD
-            finstack_core::math::linalg::validate_correlation_matrix(
-                &corr.iter().flatten().copied().collect::<Vec<_>>(),
-                3,
-            )?;
             process_params = process_params.with_correlation(corr);
         } else if let Some(rho) = mc_config.util_credit_corr {
             let correlation = [[1.0, 0.0, rho], [0.0, 1.0, 0.0], [rho, 0.0, 1.0]];
@@ -392,9 +418,57 @@ impl RevolvingCreditMcPricer {
         // Build discretization
         let disc = RevolvingCreditDiscretization::from_process(&process)?;
 
-        // Create time grid (quarterly steps)
-        let num_steps = ((time_horizon / 0.25).ceil() as usize).max(1);
-        let time_grid = TimeGrid::uniform(time_horizon, num_steps)?;
+        // Use actual payment schedule dates for time grid to ensure parity with deterministic
+        let payment_dates = super::super::utils::build_payment_dates(facility, false)?;
+        
+        // Convert payment dates to year fractions from base_date
+        // Note: We use disc_dc for the MC time axis to align with discount factor calculations.
+        // The payoff will need to handle any day count adjustments for accrual if facility.day_count differs.
+        let mut time_points = Vec::with_capacity(payment_dates.len());
+        time_points.push(0.0); // Start at t=0
+        
+        // TODO: For exact parity when facility.day_count differs from disc_curve.day_count(),
+        // we would need to pass pre-computed accrual factors to the payoff. Currently, the
+        // payoff uses raw time differences which align with disc_dc, not facility.day_count.
+        // This is acceptable when both use the same convention (the common case).
+        
+        for &payment_date in payment_dates.iter().skip(1) {
+            // Time point for MC grid (using discount curve day count)
+            let t_payment = disc_dc.year_fraction(
+                base_date,
+                payment_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            // Convert to time relative to t_start
+            let relative_t = (t_payment - t_start).max(0.0);
+            if relative_t <= time_horizon {
+                time_points.push(relative_t);
+            }
+        }
+        
+        // Ensure we have maturity as the last point
+        if time_points.last().map(|&t| (t - time_horizon).abs() > 1e-6).unwrap_or(true) {
+            time_points.push(time_horizon);
+        }
+        
+        // Remove any duplicates and ensure monotonicity
+        time_points.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        
+        // Remove near-duplicates
+        let mut deduped: Vec<f64> = Vec::with_capacity(time_points.len());
+        for &t in &time_points {
+            if deduped.is_empty() || (t - deduped.last().unwrap()).abs() >= 1e-10 {
+                deduped.push(t);
+            }
+        }
+        time_points = deduped;
+        
+        let num_steps = time_points.len().saturating_sub(1);
+        if num_steps < 2 {
+            return Err(finstack_core::error::InputError::TooFewPoints.into());
+        }
+        
+        let time_grid = TimeGrid::from_times(time_points)?;
 
         // Precompute discount factors for each step (for payoff internal PV accumulation)
         let t_as_of = disc_dc.year_fraction(
@@ -420,14 +494,8 @@ impl RevolvingCreditMcPricer {
             });
         }
 
-        use time::Duration;
-        let mut step_dates = Vec::with_capacity(num_steps + 1);
-        for step in 0..=num_steps {
-            let t_abs = t_start + time_grid.time(step);
-            let days = (t_abs * 365.0).round() as i64;
-            let date = base_date + Duration::days(days);
-            step_dates.push(date);
-        }
+        // Use the exact payment dates for survival probability computation
+        let step_dates = payment_dates;
 
         let survival_weights = if let Some(hazard_id) = facility.hazard_curve_id.as_ref() {
             let hazard = market.get_hazard_ref(hazard_id.as_str())?;
@@ -437,15 +505,8 @@ impl RevolvingCreditMcPricer {
         };
 
         // Build payoff (NOTE: upfront fee handled separately below, not in payoff)
-        // Evaluate tiered fees at initial utilization (approximation; payoff recalculates per step)
-        let initial_utilization = facility.utilization_rate();
-        let commitment_fee_bps = facility.fees.commitment_fee_bps(initial_utilization);
-        let usage_fee_bps = facility.fees.usage_fee_bps(initial_utilization);
-        let fees = FeeStructure::new(
-            commitment_fee_bps,
-            usage_fee_bps,
-            facility.fees.facility_fee_bp,
-        );
+        // Pass full fee structure to enable dynamic tier evaluation
+        let fees = FeeStructure::from_fees(facility.fees.clone());
 
         let is_fixed_rate = matches!(facility.base_rate_spec, BaseRateSpec::Fixed { .. });
         let (fixed_rate, margin_bp) = match &facility.base_rate_spec {
@@ -456,39 +517,64 @@ impl RevolvingCreditMcPricer {
         // Build locked rates for floating rate facilities
         use crate::instruments::common::models::monte_carlo::payoff::revolving_credit::RateProjection;
         let rate_projection = if let BaseRateSpec::Floating { index_id, margin_bp, reset_freq, floor_bp, .. } = &facility.base_rate_spec {
-            // Get forward curve (validate it exists)
-            let _fwd = market.get_forward_ref(index_id.as_str())?;
+            // Get forward curve for batch operations
+            let fwd_curve = market.get_forward_ref(index_id.as_str())?;
+            let fwd_dc = fwd_curve.day_count();
+            let fwd_base = fwd_curve.base_date();
 
             // Build reset schedule from commitment to maturity
             let reset_dates: Vec<Date> = super::super::utils::build_reset_dates(facility)?
                 .expect("floating rate facility must have reset dates");
 
-            // Map each MC step to its locked all-in rate
+            // Use the actual payment dates for reset period mapping
+            let reset_periods: Vec<(Date, Date)> = step_dates.iter()
+                .map(|&step_date| {
+                    // Find the reset date for this step
+                    let reset_date = reset_dates.iter()
+                        .rev()
+                        .find(|&&d| d <= step_date)
+                        .copied()
+                        .unwrap_or(facility.commitment_date);
+                    
+                    // Compute reset period end using helper
+                    let reset_end = super::super::utils::compute_reset_period_end(
+                        reset_date,
+                        reset_freq,
+                        &facility.attributes,
+                    ).unwrap_or(reset_date + time::Duration::days(90)); // Fallback to 3 months
+                    
+                    (reset_date, reset_end)
+                })
+                .collect();
+
+            // Batch compute forward rates for all periods
             let mut rates_by_step = Vec::with_capacity(num_steps + 1);
+            let margin_rate = margin_bp / 10000.0;
+            let floor_rate = floor_bp.map(|f| f / 10000.0);
 
-            for step in 0..=num_steps {
-                let t_step = t_start + time_grid.time(step.min(num_steps));
-
-                // Find the reset period containing this step
-                // Use the most recent reset date <= t_step
-                let step_date = base_date + time::Duration::days((t_step * 365.0).round() as i64);
-                let reset_date = reset_dates.iter()
-                    .rev()
-                    .find(|&&d| d <= step_date)
-                    .copied()
-                    .unwrap_or(facility.commitment_date);
-
-                // Project floating rate for this step using helper
-                let all_in_rate = super::super::utils::project_floating_rate(
-                    reset_date,
-                    reset_freq,
-                    index_id.as_str(),
-                    *margin_bp,
-                    *floor_bp,
-                    market,
-                    &facility.attributes,
+            for (reset_start, reset_end) in reset_periods {
+                // Compute year fractions for the period
+                let t0 = fwd_dc.year_fraction(
+                    fwd_base,
+                    reset_start,
+                    finstack_core::dates::DayCountCtx::default(),
                 )?;
-
+                let t1 = fwd_dc.year_fraction(
+                    fwd_base,
+                    reset_end,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
+                
+                // Get period forward rate
+                let mut index_rate = fwd_curve.rate_period(t0, t1);
+                
+                // Apply floor to index rate (before adding margin)
+                if let Some(floor) = floor_rate {
+                    index_rate = index_rate.max(floor);
+                }
+                
+                // Add margin to get all-in rate
+                let all_in_rate = index_rate + margin_rate;
                 rates_by_step.push(all_in_rate);
             }
 
