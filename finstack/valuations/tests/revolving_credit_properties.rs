@@ -12,6 +12,17 @@ use finstack_valuations::instruments::revolving_credit::{
 use proptest::prelude::*;
 use time::Month;
 
+/// Helper function to generate deterministic cashflows using the new engine
+fn _generate_deterministic_cashflows_replaced(
+    facility: &RevolvingCredit,
+    as_of: Date,
+) -> finstack_core::Result<finstack_valuations::cashflow::builder::CashFlowSchedule> {
+    use finstack_valuations::instruments::revolving_credit::cashflow_engine::CashflowEngine;
+    let engine = CashflowEngine::new(facility, None, as_of)?;
+    let path_schedule = engine.generate_deterministic()?;
+    Ok(path_schedule.schedule)
+}
+
 /// Strategy for generating valid dates for revolving credit facilities
 #[allow(dead_code)]
 fn date_strategy() -> impl Strategy<Value = Date> {
@@ -174,10 +185,8 @@ proptest! {
             .unwrap();
 
         // Calculate balance after draw
-        let balance_after = finstack_valuations::instruments::revolving_credit::cashflows::calculate_drawn_balance_at_date(
-            &facility,
-            draw_date,
-        ).unwrap();
+        use finstack_valuations::instruments::revolving_credit::cashflow_engine::calculate_drawn_balance_at_date;
+        let balance_after = calculate_drawn_balance_at_date(&facility, draw_date).unwrap();
 
         let expected_balance = initial_drawn + draw_amount;
 
@@ -212,7 +221,7 @@ proptest! {
             .build()
             .unwrap();
 
-        let schedule = finstack_valuations::instruments::revolving_credit::cashflows::generate_deterministic_cashflows(
+        let schedule = _generate_deterministic_cashflows_replaced(
             &facility,
             start,
         ).unwrap();
@@ -249,7 +258,7 @@ proptest! {
             .build()
             .unwrap();
 
-        let schedule = finstack_valuations::instruments::revolving_credit::cashflows::generate_deterministic_cashflows(
+        let schedule = _generate_deterministic_cashflows_replaced(
             &facility,
             start,
         ).unwrap();

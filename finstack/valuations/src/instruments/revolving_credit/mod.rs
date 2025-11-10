@@ -51,7 +51,7 @@
 //! - [`RevolvingCreditFees`] for fee specifications
 //! - [`UtilizationProcess`] for stochastic modeling
 
-pub mod cashflows;
+pub mod cashflow_engine;
 pub mod metrics;
 pub mod pricer;
 pub mod types;
@@ -59,6 +59,7 @@ pub mod types;
 mod utils;
 
 // Re-export main types
+pub use cashflow_engine::{PathAwareCashflowSchedule, ThreeFactorPathData};
 pub use types::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
     StochasticUtilizationSpec, UtilizationProcess,

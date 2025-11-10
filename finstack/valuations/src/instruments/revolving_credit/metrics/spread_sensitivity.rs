@@ -29,10 +29,10 @@ impl MetricCalculator for SpreadSensitivityCalculator {
         let disc_dc = disc.day_count();
 
         // Generate cashflows
-        let schedule =
-            crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves(
-                facility, context.curves.as_ref(), as_of,
-            )?;
+        use crate::instruments::revolving_credit::cashflow_engine::CashflowEngine;
+        let engine = CashflowEngine::new(facility, Some(context.curves.as_ref()), as_of)?;
+        let path_schedule = engine.generate_deterministic()?;
+        let schedule = path_schedule.schedule;
 
         // Compute PV with spread bumps
         let bump_bp = 0.0001; // 1bp

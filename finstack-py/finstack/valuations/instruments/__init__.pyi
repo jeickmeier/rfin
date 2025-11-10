@@ -24,7 +24,12 @@ from .basket import Basket
 from .structured_credit import StructuredCredit
 from .private_markets_fund import PrivateMarketsFund
 from .term_loan import TermLoan
-from .revolving_credit import RevolvingCredit
+from .revolving_credit import (
+    RevolvingCredit,
+    EnhancedMonteCarloResult,
+    PathResult,
+    ThreeFactorPathData,
+)
 
 __all__ = [
     # Fixed Income
@@ -60,4 +65,7 @@ __all__ = [
     "PrivateMarketsFund",
     "TermLoan",
     "RevolvingCredit",
+    "EnhancedMonteCarloResult",
+    "PathResult",
+    "ThreeFactorPathData",
 ]

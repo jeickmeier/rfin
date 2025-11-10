@@ -71,6 +71,7 @@ pub trait CashflowProvider: Send + Sync {
                 amount,
                 kind: CFKind::Fixed, // Generic - precise instruments should override
                 accrual_factor: 0.0,
+                rate: None,
             })
             .collect();
 

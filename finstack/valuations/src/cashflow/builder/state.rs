@@ -63,6 +63,47 @@ use smallvec::SmallVec;
 
 // Removed over-engineered CouponEmissionCtx and generic emit_coupons_on function
 
+/// Helper: Add a PIK cashflow if the amount is nonzero.
+/// Returns the PIK amount for outstanding balance tracking.
+#[inline]
+fn add_pik_flow_if_nonzero(
+    flows: &mut Vec<CashFlow>,
+    date: Date,
+    pik_amt: f64,
+    ccy: Currency,
+) -> f64 {
+    if pik_amt > 0.0 {
+        flows.push(CashFlow {
+            date,
+            reset_date: None,
+            amount: Money::new(pik_amt, ccy),
+            kind: CFKind::PIK,
+            accrual_factor: 0.0,
+            rate: None,
+        });
+        pik_amt
+    } else {
+        0.0
+    }
+}
+
+/// Helper: Compute reset date with calendar adjustment.
+#[inline]
+fn compute_reset_date(
+    payment_date: Date,
+    reset_lag_days: i32,
+    bdc: finstack_core::dates::BusinessDayConvention,
+    calendar_id: &Option<String>,
+) -> finstack_core::Result<Date> {
+    let mut reset_date = payment_date - Duration::days(reset_lag_days as i64);
+    if let Some(id) = calendar_id {
+        if let Some(cal) = calendar_by_id(id) {
+            reset_date = adjust(reset_date, bdc, cal)?;
+        }
+    }
+    Ok(reset_date)
+}
+
 fn emit_fixed_coupons_on(
     d: Date,
     fixed_schedules: &[FixedSchedule],
@@ -100,19 +141,11 @@ fn emit_fixed_coupons_on(
                     amount: Money::new(cash_amt, ccy),
                     kind,
                     accrual_factor: yf,
+                    rate: Some(spec.rate),
                 });
             }
 
-            if pik_amt > 0.0 {
-                new_flows.push(CashFlow {
-                    date: d,
-                    reset_date: None,
-                    amount: Money::new(pik_amt, ccy),
-                    kind: CFKind::PIK,
-                    accrual_factor: 0.0,
-                });
-                pik_to_add += pik_amt;
-            }
+            pik_to_add += add_pik_flow_if_nonzero(&mut new_flows, d, pik_amt, ccy);
         }
     }
     Ok((pik_to_add, new_flows))
@@ -139,16 +172,13 @@ fn emit_float_coupons_on(
                 spec.dc
                     .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
 
+            // Compute reset date once
+            let reset_date = compute_reset_date(d, spec.reset_lag_days, spec.bdc, &spec.calendar_id)?;
+
             // Compute total rate: forward_rate * gearing + margin
             let total_rate = if let Some(ctx) = curves {
                 // If curves are available, look up the forward rate
                 if let Ok(fwd) = ctx.get_forward_ref(&spec.index_id) {
-                    let mut reset_date = d - Duration::days(spec.reset_lag_days as i64);
-                    if let Some(id) = &spec.calendar_id {
-                        if let Some(cal) = calendar_by_id(id) {
-                            reset_date = adjust(reset_date, spec.bdc, cal)?;
-                        }
-                    }
                     let t_reset = fwd
                         .day_count()
                         .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())
@@ -166,13 +196,6 @@ fn emit_float_coupons_on(
 
             let coupon_total = base_out * (total_rate * yf);
 
-            let mut reset_date = d - Duration::days(spec.reset_lag_days as i64);
-            if let Some(id) = &spec.calendar_id {
-                if let Some(cal) = calendar_by_id(id) {
-                    reset_date = adjust(reset_date, spec.bdc, cal)?;
-                }
-            }
-
             let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
             let cash_amt = coupon_total * cash_pct;
             let pik_amt = coupon_total * pik_pct;
@@ -184,19 +207,11 @@ fn emit_float_coupons_on(
                     amount: Money::new(cash_amt, ccy),
                     kind: CFKind::FloatReset,
                     accrual_factor: yf,
+                    rate: Some(total_rate),
                 });
             }
 
-            if pik_amt > 0.0 {
-                new_flows.push(CashFlow {
-                    date: d,
-                    reset_date: None,
-                    amount: Money::new(pik_amt, ccy),
-                    kind: CFKind::PIK,
-                    accrual_factor: 0.0,
-                });
-                pik_to_add += pik_amt;
-            }
+            pik_to_add += add_pik_flow_if_nonzero(&mut new_flows, d, pik_amt, ccy);
         }
     }
     Ok((pik_to_add, new_flows))
@@ -231,6 +246,7 @@ fn emit_amortization_on(
                             amount: Money::new(pay, params.ccy),
                             kind: CFKind::Amortization,
                             accrual_factor: 0.0,
+                            rate: None,
                         });
                         *outstanding -= pay;
                     }
@@ -249,6 +265,7 @@ fn emit_amortization_on(
                             amount: Money::new(pay, params.ccy),
                             kind: CFKind::Amortization,
                             accrual_factor: 0.0,
+                            rate: None,
                         });
                         *outstanding -= pay;
                     }
@@ -266,6 +283,7 @@ fn emit_amortization_on(
                             amount: Money::new(pay, params.ccy),
                             kind: CFKind::Amortization,
                             accrual_factor: 0.0,
+                            rate: None,
                         });
                         *outstanding -= pay;
                     }
@@ -283,6 +301,7 @@ fn emit_amortization_on(
                             amount: Money::new(pay, params.ccy),
                             kind: CFKind::Amortization,
                             accrual_factor: 0.0,
+                            rate: None,
                         });
                         *outstanding -= pay;
                     }
@@ -323,6 +342,7 @@ fn emit_fees_on(
                     amount: Money::new(fee_amt, ccy),
                     kind: CFKind::Fee,
                     accrual_factor: 0.0,
+                    rate: Some(pf.bps * 1e-4),
                 });
             }
         }
@@ -336,19 +356,12 @@ fn emit_fees_on(
                 amount: *amt,
                 kind: CFKind::Fee,
                 accrual_factor: 0.0,
+                rate: None,
             });
         }
     }
     Ok(new_flows)
 }
-
-// -------------------------------------------------------------------------
-// Tiny pass helpers — used by build() for clarity and determinism
-// -------------------------------------------------------------------------
-
-// Removed emit_coupons wrapper - logic inlined directly
-
-// Removed trivial helper functions - logic inlined directly where used
 
 // -------------------------------------------------------------------------
 // Pipeline scaffolding — pure-ish stages and fold state
@@ -487,6 +500,7 @@ fn initialize_build_state(issue: Date, notional: &Notional) -> BuildState {
         amount: notional.initial * -1.0,
         kind: CFKind::Notional,
         accrual_factor: 0.0,
+        rate: None,
     }];
 
     let mut outstanding_after: hashbrown::HashMap<Date, f64> = hashbrown::HashMap::new();
@@ -587,6 +601,7 @@ fn process_one_date(
             amount: Money::new(state.outstanding, ctx.ccy),
             kind: CFKind::Notional,
             accrual_factor: 0.0,
+            rate: None,
         });
         state.outstanding = 0.0;
     }

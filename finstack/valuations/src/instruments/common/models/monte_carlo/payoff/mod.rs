@@ -45,12 +45,6 @@ pub mod range_accrual;
 pub mod fx_barrier;
 
 #[cfg(feature = "mc")]
-pub mod revolving_credit;
-
-#[cfg(feature = "mc")]
-pub use revolving_credit::{FeeStructure, RateSpec, RevolvingCreditPayoff};
-
-#[cfg(feature = "mc")]
 pub use rates::*;
 
 #[cfg(feature = "mc")]

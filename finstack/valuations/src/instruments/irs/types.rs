@@ -814,6 +814,7 @@ impl CashflowProvider for InterestRateSwap {
                     amount: amt,
                     kind: cf.kind, // Preserve precise CFKind
                     accrual_factor: cf.accrual_factor,
+                    rate: cf.rate,
                 });
             }
         }
@@ -831,6 +832,7 @@ impl CashflowProvider for InterestRateSwap {
                     amount: amt,
                     kind: cf.kind, // Preserve precise CFKind
                     accrual_factor: cf.accrual_factor,
+                    rate: cf.rate,
                 });
             }
         }

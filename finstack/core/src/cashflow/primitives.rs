@@ -36,14 +36,27 @@ pub enum CFKind {
     Fixed,
     /// Floating-rate reset (index fixing).
     FloatReset,
+
+    /// Up-front fee or cost.
+    Fee,
+    /// Generic fee cash-flow.
+    CommitmentFee,
+    /// Usage fee on drawn balance.
+    UsageFee,
+    /// Facility fee on total commitment.
+    FacilityFee,
+
     /// Principal exchange / notional flow.
     Notional,
     /// Payment-in-kind interest capitalization (adds to principal).
     PIK,
     /// Amortization principal repayment (reduces principal).
     Amortization,
-    /// Up-front fee or cost.
-    Fee,
+    /// Revolving Draw 
+    RevolvingDraw,
+    /// Revolving Repayment
+    RevolvingRepayment,
+
     /// Irregular stub period.
     Stub,
 }
@@ -65,6 +78,16 @@ pub struct CashFlow {
     pub kind: CFKind,
     /// Accrual factor used for coupon amount and sensitivity.
     pub accrual_factor: f64,
+    /// Effective rate used to calculate this cashflow (None if not rate-based or unknown).
+    ///
+    /// For interest/fees: the annual rate used in the calculation
+    /// For notional/amortization/PIK: typically None
+    ///
+    /// This is stored at cashflow creation time when available.
+    /// For instruments with intra-period events (e.g., revolving credit with draws/repays),
+    /// this may represent a time-weighted average rate across sub-periods.
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    pub rate: Option<f64>,
 }
 
 impl CashFlow {
@@ -82,6 +105,7 @@ impl CashFlow {
             amount,
             kind: CFKind::Fixed,
             accrual_factor: 0.0,
+            rate: None,
         })
     }
 
@@ -99,6 +123,7 @@ impl CashFlow {
             amount,
             kind: CFKind::FloatReset,
             accrual_factor: 0.0,
+            rate: None,
         })
     }
 
@@ -116,6 +141,7 @@ impl CashFlow {
             amount,
             kind: CFKind::PIK,
             accrual_factor: 0.0,
+            rate: None,
         })
     }
 
@@ -133,6 +159,7 @@ impl CashFlow {
             amount,
             kind: CFKind::Amortization,
             accrual_factor: 0.0,
+            rate: None,
         })
     }
 
@@ -148,6 +175,7 @@ impl CashFlow {
             amount,
             kind: CFKind::Notional,
             accrual_factor: 0.0,
+            rate: None,
         })
     }
 
@@ -163,8 +191,12 @@ impl CashFlow {
             amount,
             kind: CFKind::Fee,
             accrual_factor: 0.0,
+            rate: None,
         })
     }
+
+
+    
 }
 
 /// Amortization specification for principal over time.
@@ -325,7 +357,15 @@ mod tests {
 
     #[test]
     fn cashflow_size_is_reasonable() {
-        assert!(size_of::<CashFlow>() <= 48);
+        // With simplified structure (removed rate_base field): 56 bytes
+        // - date: 4 bytes (Date is i32 internally)
+        // - reset_date: Option<Date> = 8 bytes (4 + 1 discriminant + padding)
+        // - amount: Money = 16 bytes (f64 + Currency enum)
+        // - kind: CFKind = 2 bytes (enum)
+        // - accrual_factor: f64 = 8 bytes
+        // - rate: Option<f64> = 16 bytes (8 + 1 discriminant + padding)
+        // Total with alignment: 56 bytes
+        assert!(size_of::<CashFlow>() <= 56);
     }
 
     #[test]

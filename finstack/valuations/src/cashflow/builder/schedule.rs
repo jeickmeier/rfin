@@ -45,20 +45,17 @@ pub(crate) fn finalize_flows(
         }
     });
 
-    let mut cals: Vec<String> = Vec::new();
-    for s in fixed {
-        if let Some(id) = &s.calendar_id {
-            cals.push(id.clone());
-        }
-    }
-    for s in floating {
-        if let Some(id) = &s.calendar_id {
-            cals.push(id.clone());
-        }
-    }
+    let mut cals: Vec<String> = fixed
+        .iter()
+        .filter_map(|s| s.calendar_id.clone())
+        .chain(floating.iter().filter_map(|s| s.calendar_id.clone()))
+        .collect();
     cals.sort_unstable();
     cals.dedup();
-    let meta = CashflowMeta { calendar_ids: cals };
+    let meta = CashflowMeta {
+        calendar_ids: cals,
+        facility_limit: None,
+    };
 
     let out_dc = if let Some(s) = fixed.first() {
         s.dc
@@ -76,6 +73,8 @@ pub(crate) fn finalize_flows(
 #[derive(Debug, Clone, Default)]
 pub struct CashflowMeta {
     pub calendar_ids: Vec<String>,
+    /// Optional facility limit/commitment for instruments like RCFs
+    pub facility_limit: Option<Money>,
 }
 
 /// Cashflow schedule output from the composable builder.
@@ -151,8 +150,8 @@ impl CashFlowSchedule {
     /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     /// let notional = Notional { initial: Money::new(100.0, Currency::USD), amort: Default::default() };
     /// let flows = vec![
-    ///   CashFlow { date: base, reset_date: None, amount: Money::new(10.0, Currency::USD), kind: CFKind::Amortization, accrual_factor: 0.0 },
-    ///   CashFlow { date: base, reset_date: None, amount: Money::new(5.0, Currency::USD), kind: CFKind::PIK, accrual_factor: 0.0 },
+    ///   CashFlow { date: base, reset_date: None, amount: Money::new(10.0, Currency::USD), kind: CFKind::Amortization, accrual_factor: 0.0, rate: None },
+    ///   CashFlow { date: base, reset_date: None, amount: Money::new(5.0, Currency::USD), kind: CFKind::PIK, accrual_factor: 0.0, rate: None },
     /// ];
     /// let s = CashFlowSchedule { flows, notional, day_count: finstack_core::dates::DayCount::Act365F, meta: CashflowMeta::default() };
     /// let path = s.outstanding_path();
@@ -388,7 +387,10 @@ impl CashFlowSchedule {
             None
         };
 
-        let facility_limit = options.facility_limit;
+        // Prefer explicit facility_limit; fallback to schedule meta (e.g., RCF commitment)
+        let facility_limit = options
+            .facility_limit
+            .or(self.meta.facility_limit);
 
         // Columns
         let mut start_dates: Vec<Date> = Vec::new();
@@ -397,6 +399,7 @@ impl CashFlowSchedule {
         let mut cf_types: Vec<CFKind> = Vec::new();
         let mut currencies: Vec<Currency> = Vec::new();
         let mut notionals: Vec<Option<f64>> = Vec::new();
+        let mut undrawn_notionals: Vec<Option<f64>> = Vec::new();
         let mut yr_fraqs: Vec<f64> = Vec::new();
         let mut days: Vec<i64> = Vec::new();
         let mut amounts: Vec<f64> = Vec::new();
@@ -457,16 +460,29 @@ impl CashFlowSchedule {
             currencies.push(cf.amount.currency());
             amounts.push(cf.amount.amount());
 
-            // Notional for interest-like rows
-            let notional_val =
-                if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset)
+            // Notional balances for interest/fee-like rows
+            let (notional_drawn, notional_undrawn) =
+                if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset
+                    | CFKind::CommitmentFee | CFKind::UsageFee | CFKind::FacilityFee)
                     || cf.accrual_factor > 0.0
                 {
-                    Some(outstanding_pre.amount())
+                    let drawn = Some(outstanding_pre.amount());
+                    // Undrawn only available when facility_limit (commitment) is provided
+                    let undrawn = if let Some(limit) = facility_limit.as_ref() {
+                        if limit.currency() == cf.amount.currency() {
+                            Some((limit.amount() - outstanding_pre.amount()).max(0.0))
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+                    (drawn, undrawn)
                 } else {
-                    None
+                    (None, None)
                 };
-            notionals.push(notional_val);
+            notionals.push(notional_drawn);
+            undrawn_notionals.push(notional_undrawn);
 
             // YrFraq and Days
             let yr_fraq = dc
@@ -552,7 +568,7 @@ impl CashFlowSchedule {
                     };
                     let b = fwd.rate(reset_t);
                     base_rate_opt = Some(b);
-                    if let (Some(not), true) = (notional_val, yr_fraq > 0.0) {
+                    if let (Some(not), true) = (notional_drawn, yr_fraq > 0.0) {
                         let eff = cf.amount.amount() / (not * yr_fraq);
                         spread_opt = Some(eff - b);
                     }
@@ -566,7 +582,7 @@ impl CashFlowSchedule {
             }
 
             // All-in rate from amounts when notional and yr_fraq available
-            let allin = if let (Some(not), true) = (notional_val, yr_fraq > 0.0) {
+            let allin = if let (Some(not), true) = (notional_drawn, yr_fraq > 0.0) {
                 Some(cf.amount.amount() / (not * yr_fraq))
             } else {
                 None
@@ -581,6 +597,7 @@ impl CashFlowSchedule {
             cf_types,
             currencies,
             notionals,
+            undrawn_notionals: Some(undrawn_notionals),
             yr_fraqs,
             days,
             amounts,
@@ -605,6 +622,7 @@ pub struct PeriodDataFrame {
     pub cf_types: Vec<CFKind>,
     pub currencies: Vec<Currency>,
     pub notionals: Vec<Option<f64>>,
+    pub undrawn_notionals: Option<Vec<Option<f64>>>,
     pub yr_fraqs: Vec<f64>,
     pub days: Vec<i64>,
     pub amounts: Vec<f64>,
@@ -660,6 +678,7 @@ mod tests {
                 amount: Money::new(100.0, Currency::USD),
                 kind: CFKind::Fixed,
                 accrual_factor: 0.25,
+                rate: None,
             },
             CashFlow {
                 date: d(2025, 5, 15), // future
@@ -667,6 +686,7 @@ mod tests {
                 amount: Money::new(200.0, Currency::USD),
                 kind: CFKind::Fixed,
                 accrual_factor: 0.25,
+                rate: None,
             },
         ];
         let schedule = CashFlowSchedule {
@@ -718,6 +738,7 @@ mod tests {
                 amount: Money::new(10.0, Currency::USD),
                 kind: CFKind::Amortization,
                 accrual_factor: 0.0,
+                rate: None,
             },
             // Draw of 20 represented as negative Notional -> outstanding 110
             CashFlow {
@@ -726,6 +747,7 @@ mod tests {
                 amount: Money::new(-20.0, Currency::USD),
                 kind: CFKind::Notional,
                 accrual_factor: 0.0,
+                rate: None,
             },
             // Repay of 15 represented as positive Notional -> outstanding 95
             CashFlow {
@@ -734,6 +756,7 @@ mod tests {
                 amount: Money::new(15.0, Currency::USD),
                 kind: CFKind::Notional,
                 accrual_factor: 0.0,
+                rate: None,
             },
         ];
         let sched = CashFlowSchedule {

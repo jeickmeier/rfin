@@ -1,29 +1,52 @@
-use crate::core::error::core_to_py;
+use crate::core::currency::PyCurrency;
 use crate::core::market_data::PyMarketContext;
-use crate::core::money::{extract_money, PyMoney};
-use crate::core::utils::{date_to_py, py_to_date};
+use crate::core::money::PyMoney;
+use crate::core::utils::date_to_py;
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
-use crate::valuations::common::mc::result::PyMonteCarloResult;
-use crate::valuations::common::{extract_curve_id, extract_instrument_id, parse_frequency_label};
-use finstack_valuations::instruments::revolving_credit::types::{
-    CreditSpreadProcessSpec, InterestRateProcessSpec, McConfig,
-};
-use finstack_valuations::instruments::revolving_credit::{
-    BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
-    StochasticUtilizationSpec, UtilizationProcess,
-};
-use pyo3::exceptions::PyValueError;
+use crate::valuations::common::PyInstrumentType;
+use crate::valuations::results::PyValuationResult;
+use finstack_valuations::instruments::revolving_credit::RevolvingCredit;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
+use pyo3::types::{PyModule, PyType};
 use pyo3::Bound;
-use std::collections::HashMap;
-use finstack_valuations::instruments::common::traits::Instrument;
+use std::fmt;
 
-/// Revolving credit facility instrument.
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "RevolvingCredit"
-)]
+/// Revolving credit facility instrument with deterministic and stochastic pricing.
+///
+/// Models a credit facility with draws/repayments, interest payments on drawn
+/// amounts, and fees (commitment, usage, facility, upfront). Supports both
+/// deterministic schedules and stochastic utilization via Monte Carlo.
+///
+/// Examples:
+///     >>> from finstack.valuations.instruments import RevolvingCredit
+///     >>> import json
+///     ///
+///     >>> # Create a simple fixed-rate revolver
+///     >>> facility_spec = {
+///     ...     "id": "RC001",
+///     ...     "commitment_amount": {"amount": 100_000_000, "currency": "USD"},
+///     ...     "drawn_amount": {"amount": 50_000_000, "currency": "USD"},
+///     ...     "commitment_date": "2025-01-01",
+///     ...     "maturity_date": "2030-01-01",
+///     ...     "base_rate_spec": {"Fixed": {"rate": 0.055}},
+///     ...     "day_count": "Act360",
+///     ...     "payment_frequency": {"months": 3},
+///     ...     "fees": {
+///     ...         "upfront_fee": {"amount": 500_000, "currency": "USD"},
+///     ...         "commitment_fee_tiers": [{"threshold": 0.0, "bps": 35}],
+///     ...         "usage_fee_tiers": [],
+///     ...         "facility_fee_bp": 10
+///     ...     },
+///     ...     "draw_repay_spec": {"Deterministic": []},
+///     ...     "discount_curve_id": "USD-OIS",
+///     ...     "attributes": {}
+///     ... }
+///     >>> rc = RevolvingCredit.from_json(json.dumps(facility_spec))
+///     >>> rc.instrument_id
+///     'RC001'
+///     >>> rc.utilization_rate()
+///     0.5
+#[pyclass(module = "finstack.valuations.instruments", name = "RevolvingCredit", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyRevolvingCredit {
     pub(crate) inner: RevolvingCredit,
@@ -37,1002 +60,634 @@ impl PyRevolvingCredit {
 
 #[pymethods]
 impl PyRevolvingCredit {
-    /// Set the pricing model override for .value()/.npv() via instrument attributes.
-    ///
-    /// This sets a metadata key "pricing_model" which the Rust instrument reads to
-    /// dispatch through the pricer registry (e.g., "discounting", "monte_carlo_gbm").
-    ///
-    /// Args:
-    ///     model: Model key string (e.g., "discounting", "monte_carlo_gbm")
-    fn set_pricing_model(&mut self, model: &str) {
-        // Safe to mutate inner attributes even with #[pyclass(frozen)]
-        let attrs = self.inner.attributes_mut();
-        attrs
-            .meta
-            .insert("pricing_model".to_string(), model.to_string());
-    }
     #[classmethod]
-    #[pyo3(
-        signature = (instrument_id, commitment_amount, drawn_amount, commitment_date, maturity_date, base_rate_spec, payment_frequency, fees, draw_repay_spec, discount_curve, hazard_curve=None, recovery_rate=0.0),
-        text_signature = "(cls, instrument_id, commitment_amount, drawn_amount, commitment_date, maturity_date, base_rate_spec, payment_frequency, fees, draw_repay_spec, discount_curve, hazard_curve=None, recovery_rate=0.0)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create a revolving credit facility.
+    #[pyo3(text_signature = "(cls, json_str)")]
+    /// Create a revolving credit facility from a JSON string specification.
+    ///
+    /// The JSON should match the RevolvingCredit schema from finstack-valuations.
+    /// This is the recommended way to create facilities with complex features like
+    /// stochastic utilization, tiered fees, and multi-factor Monte Carlo.
     ///
     /// Args:
-    ///     instrument_id: Instrument identifier.
-    ///     commitment_amount: Total committed amount as :class:`finstack.core.money.Money`.
-    ///     drawn_amount: Initial drawn amount as :class:`finstack.core.money.Money`.
-    ///     commitment_date: Date when facility becomes available.
-    ///     maturity_date: Date when facility expires.
-    ///     base_rate_spec: Base rate specification (dict with 'type' and params).
-    ///     payment_frequency: Payment frequency (e.g., 'quarterly').
-    ///     fees: Fee structure dict.
-    ///     draw_repay_spec: Draw/repayment specification (dict).
-    ///     discount_curve: Discount curve identifier.
-    ///     hazard_curve: Optional hazard curve identifier for credit risk (e.g., 'BORROWER-A'). Defaults to None.
-    ///     recovery_rate: Recovery rate on default (e.g., 0.40 for 40%). Defaults to 0.0.
+    ///     json_str: JSON string matching the RevolvingCredit schema.
     ///
     /// Returns:
-    ///     RevolvingCredit: Configured revolving credit instrument.
-    fn builder(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        commitment_amount: Bound<'_, PyAny>,
-        drawn_amount: Bound<'_, PyAny>,
-        commitment_date: Bound<'_, PyAny>,
-        maturity_date: Bound<'_, PyAny>,
-        base_rate_spec: Bound<'_, PyAny>,
-        payment_frequency: Option<&str>,
-        fees: Bound<'_, PyAny>,
-        draw_repay_spec: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        hazard_curve: Option<String>,
-        recovery_rate: Option<f64>,
-    ) -> PyResult<Self> {
-        use finstack_core::dates::DayCount;
-
-        let id = extract_instrument_id(&instrument_id)?;
-        let commitment = extract_money(&commitment_amount)?;
-        let drawn = extract_money(&drawn_amount)?;
-        let commit_date = py_to_date(&commitment_date)?;
-        let mat_date = py_to_date(&maturity_date)?;
-        let discount_curve_id = extract_curve_id(&discount_curve)?;
-
-        // Parse base rate spec
-        let base_rate = if let Ok(dict) = base_rate_spec.downcast::<PyDict>() {
-            let py_type_item = dict
-                .get_item("type")?
-                .ok_or_else(|| PyValueError::new_err("Missing 'type' key in base_rate_spec"))?;
-            let py_type = py_type_item.extract::<String>()?;
-
-            match py_type.to_lowercase().as_str() {
-                "fixed" => {
-                    let rate = dict
-                        .get_item("rate")?
-                        .ok_or_else(|| PyValueError::new_err("Missing 'rate' for fixed rate"))?
-                        .extract::<f64>()?;
-                    BaseRateSpec::Fixed { rate }
-                }
-                "floating" => {
-                    let index_id_item = dict.get_item("index_id")?.ok_or_else(|| {
-                        PyValueError::new_err("Missing 'index_id' for floating rate")
-                    })?;
-                    let index_id_str = index_id_item.extract::<String>()?;
-                    let margin_bp = dict
-                        .get_item("margin_bp")?
-                        .and_then(|v| v.extract::<f64>().ok())
-                        .unwrap_or(0.0);
-                    let reset_freq_str = dict
-                        .get_item("reset_freq")?
-                        .and_then(|v| v.extract::<String>().ok());
-                    let reset_freq = parse_frequency(reset_freq_str.as_deref())?;
-                    let floor_bp = dict
-                        .get_item("floor_bp")?
-                        .and_then(|v| v.extract::<f64>().ok());
-                    BaseRateSpec::Floating {
-                        index_id: finstack_core::types::CurveId::new(&index_id_str),
-                        margin_bp,
-                        reset_freq,
-                        floor_bp,
-                    }
-                }
-                other => {
-                    return Err(PyValueError::new_err(format!(
-                        "Unknown base rate type: {other}"
-                    )))
-                }
-            }
-        } else {
-            return Err(PyValueError::new_err(
-                "base_rate_spec must be a dict with 'type' key",
-            ));
-        };
-
-        // Parse payment frequency
-        let pay_freq = parse_frequency(payment_frequency)?;
-
-        // Parse fees
-        let fees_struct = if let Ok(dict) = fees.downcast::<PyDict>() {
-            let commitment_fee_bp = dict
-                .get_item("commitment_fee_bp")?
-                .and_then(|v| v.extract::<f64>().ok())
-                .unwrap_or(0.0);
-            let usage_fee_bp = dict
-                .get_item("usage_fee_bp")?
-                .and_then(|v| v.extract::<f64>().ok())
-                .unwrap_or(0.0);
-            let facility_fee_bp = dict
-                .get_item("facility_fee_bp")?
-                .and_then(|v| v.extract::<f64>().ok())
-                .unwrap_or(0.0);
-            
-            let mut fees = RevolvingCreditFees::flat(commitment_fee_bp, usage_fee_bp, facility_fee_bp);
-            fees.upfront_fee = dict
-                .get_item("upfront_fee")?
-                .and_then(|v| extract_money(&v).ok());
-            
-            // TODO: Support tiered fees in Python bindings via fee_tiers list
-            fees
-        } else {
-            RevolvingCreditFees::default()
-        };
-
-        // Parse draw/repay spec
-        let draw_repay = if let Ok(dict) = draw_repay_spec.downcast::<PyDict>() {
-            if let Ok(Some(deterministic)) = dict.get_item("deterministic") {
-                let events_list = deterministic
-                    .downcast::<PyList>()
-                    .map_err(|_| PyValueError::new_err("deterministic must be a list"))?;
-                let mut events = Vec::new();
-                for item in events_list.iter() {
-                    let event_dict = item.downcast::<PyDict>()?;
-                    let date = py_to_date(
-                        &event_dict
-                            .get_item("date")?
-                            .ok_or_else(|| PyValueError::new_err("Missing 'date' in event"))?,
-                    )?;
-                    let amount = extract_money(
-                        &event_dict
-                            .get_item("amount")?
-                            .ok_or_else(|| PyValueError::new_err("Missing 'amount' in event"))?,
-                    )?;
-                    let is_draw = event_dict
-                        .get_item("is_draw")?
-                        .and_then(|v| v.extract::<bool>().ok())
-                        .unwrap_or(true);
-                    events.push(DrawRepayEvent {
-                        date,
-                        amount,
-                        is_draw,
-                    });
-                }
-                DrawRepaySpec::Deterministic(events)
-            } else if let Ok(Some(stochastic)) = dict.get_item("stochastic") {
-                let stoch_dict = stochastic
-                    .downcast::<PyDict>()
-                    .map_err(|_| PyValueError::new_err("stochastic must be a dict"))?;
-                let process_dict_item = stoch_dict
-                    .get_item("utilization_process")?
-                    .ok_or_else(|| PyValueError::new_err("Missing 'utilization_process'"))?;
-                let process_dict = process_dict_item.downcast::<PyDict>()?;
-                let process_type_val = process_dict.get_item("type")?.ok_or_else(|| {
-                    PyValueError::new_err("Missing 'type' in utilization_process")
-                })?;
-                let process_type = process_type_val.extract::<String>()?;
-
-                let utilization_process = match process_type.to_lowercase().as_str() {
-                    "mean_reverting" | "meanreverting" => {
-                        let target_rate = process_dict
-                            .get_item("target_rate")?
-                            .ok_or_else(|| PyValueError::new_err("Missing 'target_rate'"))?
-                            .extract::<f64>()?;
-                        let speed = process_dict
-                            .get_item("speed")?
-                            .ok_or_else(|| PyValueError::new_err("Missing 'speed'"))?
-                            .extract::<f64>()?;
-                        let volatility = process_dict
-                            .get_item("volatility")?
-                            .ok_or_else(|| PyValueError::new_err("Missing 'volatility'"))?
-                            .extract::<f64>()?;
-                        UtilizationProcess::MeanReverting {
-                            target_rate,
-                            speed,
-                            volatility,
-                        }
-                    }
-                    other => {
-                        return Err(PyValueError::new_err(format!(
-                            "Unknown utilization process: {other}"
-                        )))
-                    }
-                };
-
-                let num_paths = stoch_dict
-                    .get_item("num_paths")?
-                    .ok_or_else(|| PyValueError::new_err("Missing 'num_paths'"))?
-                    .extract::<usize>()?;
-                let seed = stoch_dict
-                    .get_item("seed")?
-                    .and_then(|v| v.extract::<Option<u64>>().ok())
-                    .flatten();
-
-                // Optional Monte Carlo config (utilization + credit, correlation, etc.)
-                let mc_config_opt: Option<McConfig> = if let Some(mc_obj) =
-                    stoch_dict.get_item("mc_config")?
-                {
-                    let mc = mc_obj
-                        .downcast::<PyDict>()
-                        .map_err(|_| PyValueError::new_err("mc_config must be a dict"))?;
-
-                    // recovery_rate (required)
-                    let recovery_rate = mc
-                        .get_item("recovery_rate")?
-                        .ok_or_else(|| {
-                            PyValueError::new_err("mc_config.recovery_rate is required")
-                        })?
-                        .extract::<f64>()?;
-
-                    // credit_spread_process (required): one-of keys
-                    let csp_item = mc.get_item("credit_spread_process")?.ok_or_else(|| {
-                        PyValueError::new_err("mc_config.credit_spread_process is required")
-                    })?;
-                    let csp_dict = csp_item.downcast::<PyDict>().map_err(|_| {
-                        PyValueError::new_err("credit_spread_process must be a dict")
-                    })?;
-
-                    let credit_spread_process = if let Ok(Some(cir_any)) = csp_dict.get_item("cir")
-                    {
-                        let cir = cir_any.downcast::<PyDict>()?;
-                        let kappa = cir
-                            .get_item("kappa")?
-                            .ok_or_else(|| PyValueError::new_err("cir.kappa is required"))?
-                            .extract::<f64>()?;
-                        let theta = cir
-                            .get_item("theta")?
-                            .ok_or_else(|| PyValueError::new_err("cir.theta is required"))?
-                            .extract::<f64>()?;
-                        let sigma = cir
-                            .get_item("sigma")?
-                            .ok_or_else(|| PyValueError::new_err("cir.sigma is required"))?
-                            .extract::<f64>()?;
-                        let initial = cir
-                            .get_item("initial")?
-                            .ok_or_else(|| PyValueError::new_err("cir.initial is required"))?
-                            .extract::<f64>()?;
-                        CreditSpreadProcessSpec::Cir {
-                            kappa,
-                            theta,
-                            sigma,
-                            initial,
-                        }
-                    } else if let Ok(Some(const_any)) = csp_dict.get_item("constant") {
-                        let spread = const_any
-                            .downcast::<PyAny>()
-                            .map_err(|_| PyValueError::new_err("constant must be a float"))?
-                            .extract::<f64>()?;
-                        CreditSpreadProcessSpec::Constant(spread)
-                    } else if let Ok(Some(ma_any)) = csp_dict.get_item("market_anchored") {
-                        let ma = ma_any.downcast::<PyDict>()?;
-                        let hazard_curve_id = ma
-                            .get_item("hazard_curve_id")?
-                            .ok_or_else(|| {
-                                PyValueError::new_err("market_anchored.hazard_curve_id is required")
-                            })?
-                            .extract::<String>()?;
-                        let kappa = ma
-                            .get_item("kappa")?
-                            .ok_or_else(|| {
-                                PyValueError::new_err("market_anchored.kappa is required")
-                            })?
-                            .extract::<f64>()?;
-                        let implied_vol = ma
-                            .get_item("implied_vol")?
-                            .ok_or_else(|| {
-                                PyValueError::new_err("market_anchored.implied_vol is required")
-                            })?
-                            .extract::<f64>()?;
-                        let tenor_years = ma
-                            .get_item("tenor_years")?
-                            .and_then(|v| v.extract::<Option<f64>>().ok())
-                            .flatten();
-                        CreditSpreadProcessSpec::MarketAnchored {
-                            hazard_curve_id: finstack_core::types::CurveId::new(&hazard_curve_id),
-                            kappa,
-                            implied_vol,
-                            tenor_years,
-                        }
-                    } else {
-                        return Err(PyValueError::new_err(
-                                "credit_spread_process must contain one of: 'cir', 'constant', 'market_anchored'",
-                            ));
-                    };
-
-                    // interest_rate_process (optional)
-                    let irp = if let Some(irp_any) = mc.get_item("interest_rate_process")? {
-                        let irp_dict = irp_any.downcast::<PyDict>().map_err(|_| {
-                            PyValueError::new_err("interest_rate_process must be a dict")
-                        })?;
-                        if let Ok(Some(hw_any)) = irp_dict.get_item("hull_white_1f") {
-                            let hw = hw_any.downcast::<PyDict>()?;
-                            let kappa = hw
-                                .get_item("kappa")?
-                                .ok_or_else(|| {
-                                    PyValueError::new_err("hull_white_1f.kappa is required")
-                                })?
-                                .extract::<f64>()?;
-                            let sigma = hw
-                                .get_item("sigma")?
-                                .ok_or_else(|| {
-                                    PyValueError::new_err("hull_white_1f.sigma is required")
-                                })?
-                                .extract::<f64>()?;
-                            let initial = hw
-                                .get_item("initial")?
-                                .ok_or_else(|| {
-                                    PyValueError::new_err("hull_white_1f.initial is required")
-                                })?
-                                .extract::<f64>()?;
-                            let theta = hw
-                                .get_item("theta")?
-                                .ok_or_else(|| {
-                                    PyValueError::new_err("hull_white_1f.theta is required")
-                                })?
-                                .extract::<f64>()?;
-                            Some(InterestRateProcessSpec::HullWhite1F {
-                                kappa,
-                                sigma,
-                                initial,
-                                theta,
-                            })
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    };
-
-                    // correlation: either full 3x3 matrix or util_credit_corr
-                    let correlation_matrix =
-                        if let Some(corr_any) = mc.get_item("correlation_matrix")? {
-                            let corr_list = corr_any.downcast::<PyList>().map_err(|_| {
-                                PyValueError::new_err("correlation_matrix must be a 3x3 list")
-                            })?;
-                            if corr_list.len() != 3 {
-                                return Err(PyValueError::new_err(
-                                    "correlation_matrix must have 3 rows",
-                                ));
-                            }
-                            let mut mat = [[0.0_f64; 3]; 3];
-                            for (i, row_any) in corr_list.iter().enumerate() {
-                                let row = row_any.downcast::<PyList>()?;
-                                if row.len() != 3 {
-                                    return Err(PyValueError::new_err(
-                                        "each correlation_matrix row must have 3 elements",
-                                    ));
-                                }
-                                for (j, val_any) in row.iter().enumerate() {
-                                    mat[i][j] = val_any.extract::<f64>()?;
-                                }
-                            }
-                            Some(mat)
-                        } else {
-                            None
-                        };
-                    let util_credit_corr = mc
-                        .get_item("util_credit_corr")?
-                        .and_then(|v| v.extract::<Option<f64>>().ok())
-                        .flatten();
-
-                    Some(McConfig {
-                        correlation_matrix,
-                        recovery_rate,
-                        credit_spread_process,
-                        interest_rate_process: irp,
-                        util_credit_corr,
-                    })
-                } else {
-                    None
-                };
-
-                // Construct StochasticUtilizationSpec
-                let spec = StochasticUtilizationSpec {
-                    utilization_process,
-                    num_paths,
-                    seed,
-                    antithetic: false,
-                    use_sobol_qmc: false,
-                    mc_config: mc_config_opt,
-                };
-                DrawRepaySpec::Stochastic(Box::new(spec))
-            } else {
-                return Err(PyValueError::new_err(
-                    "draw_repay_spec must have 'deterministic' or 'stochastic' key",
-                ));
-            }
-        } else {
-            return Err(PyValueError::new_err("draw_repay_spec must be a dict"));
-        };
-
-        let mut builder = RevolvingCredit::builder();
-        builder = builder.id(id);
-        builder = builder.commitment_amount(commitment);
-        builder = builder.drawn_amount(drawn);
-        builder = builder.commitment_date(commit_date);
-        builder = builder.maturity_date(mat_date);
-        builder = builder.base_rate_spec(base_rate);
-        builder = builder.payment_frequency(pay_freq);
-        builder = builder.fees(fees_struct);
-        builder = builder.draw_repay_spec(draw_repay);
-        builder = builder.discount_curve_id(discount_curve_id);
-
-        // Add optional hazard curve for credit risk
-        if let Some(hc_id) = hazard_curve {
-            builder = builder.hazard_curve_id(finstack_core::types::CurveId::new(&hc_id));
-        }
-        
-        // Add recovery rate (defaults to 0.0 if not provided)
-        builder = builder.recovery_rate(recovery_rate.unwrap_or(0.0));
-        builder = builder.day_count(DayCount::Act365F);
-        let rev_credit = builder.build().map_err(|e| {
-            pyo3::exceptions::PyRuntimeError::new_err(format!(
-                "Failed to build RevolvingCredit: {e}"
-            ))
-        })?;
-        Ok(Self::new(rev_credit))
+    ///     RevolvingCredit: Configured revolving credit facility.
+    ///
+    /// Raises:
+    ///     ValueError: If JSON cannot be parsed or is invalid.
+    ///
+    /// Examples:
+    ///     >>> import json
+    ///     >>> spec = {
+    ///     ...     "id": "RC001",
+    ///     ...     "commitment_amount": {"amount": 100_000_000, "currency": "USD"},
+    ///     ...     "drawn_amount": {"amount": 0, "currency": "USD"},
+    ///     ...     "commitment_date": "2025-01-01",
+    ///     ...     "maturity_date": "2027-01-01",
+    ///     ...     "base_rate_spec": {"Fixed": {"rate": 0.05}},
+    ///     ...     "day_count": "Act360",
+    ///     ...     "payment_frequency": {"months": 3},
+    ///     ...     "fees": {"facility_fee_bp": 25},
+    ///     ...     "draw_repay_spec": {"Deterministic": []},
+    ///     ...     "discount_curve_id": "USD-OIS",
+    ///     ...     "attributes": {}
+    ///     ... }
+    ///     >>> rc = RevolvingCredit.from_json(json.dumps(spec))
+    fn from_json(_cls: &Bound<'_, PyType>, json_str: &str) -> PyResult<Self> {
+        serde_json::from_str(json_str)
+            .map(Self::new)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    #[pyo3(
-        signature = (market, as_of=None, capture_mode="sample", sample_count=100, seed=42),
-        text_signature = "(self, market, as_of=None, capture_mode='sample', sample_count=100, seed=42)"
-    )]
-    /// Run Monte Carlo for this facility and return paths (sampled) with cumulative payoff.
-    ///
-    /// Args:
-    ///     market: MarketContext with discount/forward/hazard curves.
-    ///     as_of: Optional valuation date; defaults to discount curve base date.
-    ///     capture_mode: 'sample' or 'all' for path capture.
-    ///     sample_count: Number of paths to capture when mode='sample'.
-    ///     seed: RNG seed.
+    /// Serialize the revolving credit facility to a JSON string.
     ///
     /// Returns:
-    ///     MonteCarloResult: Contains estimate and captured PathDataset (if configured).
-    fn mc_paths(
-        &self,
-        py: pyo3::Python<'_>,
-        market: &PyMarketContext,
-        as_of: Option<pyo3::Bound<'_, pyo3::PyAny>>,
-        capture_mode: &str,
-        sample_count: usize,
-        seed: u64,
-    ) -> pyo3::PyResult<PyMonteCarloResult> {
-        use finstack_valuations::instruments::common::models::monte_carlo::engine::PathCaptureConfig;
-
-        // Resolve as_of date from discount curve if not provided
-        let disc = market
-            .inner
-            .get_discount_ref(self.inner.discount_curve_id.as_str())
-            .map_err(core_to_py)?;
-        let as_of_date = match as_of {
-            Some(d) => crate::core::utils::py_to_date(&d)?,
-            None => disc.base_date(),
-        };
-
-        // Configure path capture (payoffs enabled)
-        let path_capture = match capture_mode {
-            "all" => PathCaptureConfig::all().with_payoffs(),
-            _ => PathCaptureConfig::sample(sample_count, seed).with_payoffs(),
-        };
-
-        // Delegate full MC logic to Rust instrument method
-        let result = py.allow_threads(|| {
-            self.inner
-                .mc_paths_with_capture(&market.inner, Some(as_of_date), path_capture, seed)
-                .map_err(core_to_py)
-        })?;
-
-        Ok(PyMonteCarloResult::new(result))
+    ///     str: JSON representation of the facility.
+    ///
+    /// Examples:
+    ///     >>> json_str = rc.to_json()
+    ///     >>> # Can be saved to file or transmitted
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the facility.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
-    /// Commitment amount.
+    /// Total commitment amount (maximum drawable).
+    ///
+    /// Returns:
+    ///     Money: Total commitment as :class:`finstack.core.money.Money`.
     #[getter]
     fn commitment_amount(&self) -> PyMoney {
         PyMoney::new(self.inner.commitment_amount)
     }
 
-    /// Drawn amount.
+    /// Current drawn amount (initial utilization).
+    ///
+    /// Returns:
+    ///     Money: Currently drawn amount as :class:`finstack.core.money.Money`.
     #[getter]
     fn drawn_amount(&self) -> PyMoney {
         PyMoney::new(self.inner.drawn_amount)
     }
 
-    /// Commitment date.
+    /// Commitment date (facility start date).
+    ///
+    /// Returns:
+    ///     datetime.date: Commitment date converted to Python.
     #[getter]
     fn commitment_date(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.commitment_date)
     }
 
-    /// Maturity date.
+    /// Maturity date (facility expiration).
+    ///
+    /// Returns:
+    ///     datetime.date: Maturity date converted to Python.
     #[getter]
     fn maturity_date(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.maturity_date)
     }
 
-    /// Price the facility using the appropriate method (deterministic or MC).
-    ///
-    /// Args:
-    ///     market: MarketContext with curves
-    ///     as_of: Valuation date
+    /// Currency for all cashflows.
     ///
     /// Returns:
-    ///     Money: Present value of the facility
-    fn value(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
-        use crate::core::error::core_to_py;
-        use finstack_valuations::instruments::common::traits::Instrument;
-
-        let date = py_to_date(&as_of)?;
-        let pv = self.inner.value(&market.inner, date).map_err(core_to_py)?;
-        Ok(PyMoney::new(pv))
+    ///     Currency: Currency object.
+    #[getter]
+    fn currency(&self) -> PyCurrency {
+        PyCurrency::new(self.inner.commitment_amount.currency())
     }
 
-    /// Alias for value() - compute NPV of the facility.
-    ///
-    /// Args:
-    ///     market: MarketContext with curves
-    ///     as_of: Valuation date
+    /// Discount curve identifier.
     ///
     /// Returns:
-    ///     Money: Net present value of the facility
-    fn npv(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
-        self.value(market, as_of)
+    ///     str: Identifier for the discount curve.
+    #[getter]
+    fn discount_curve(&self) -> String {
+        self.inner.discount_curve_id.as_str().to_string()
     }
 
-    /// Get utilization rate (drawn / commitment).
+    /// Optional hazard curve identifier for credit risk modeling.
     ///
     /// Returns:
-    ///     float: Current utilization rate (0.0 to 1.0)
+    ///     Optional[str]: Hazard curve ID if present, None otherwise.
+    #[getter]
+    fn hazard_curve(&self) -> Option<String> {
+        self.inner
+            .hazard_curve_id
+            .as_ref()
+            .map(|id| id.as_str().to_string())
+    }
+
+    /// Recovery rate on default.
+    ///
+    /// Returns:
+    ///     float: Recovery rate (0.0 to 1.0).
+    #[getter]
+    fn recovery_rate(&self) -> f64 {
+        self.inner.recovery_rate
+    }
+
+    /// Instrument type enum (``InstrumentType.REVOLVING_CREDIT``).
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value identifying the instrument family.
+    #[getter]
+    fn instrument_type(&self) -> PyInstrumentType {
+        PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::RevolvingCredit)
+    }
+
+    /// Calculate current utilization rate (drawn / commitment).
+    ///
+    /// Returns:
+    ///     float: Utilization rate between 0.0 and 1.0.
+    ///
+    /// Examples:
+    ///     >>> rc.utilization_rate()
+    ///     0.5  # 50% utilized
     fn utilization_rate(&self) -> f64 {
         self.inner.utilization_rate()
     }
 
-    /// Get undrawn amount.
+    /// Calculate current undrawn amount (available capacity).
     ///
     /// Returns:
-    ///     Money: Undrawn commitment amount
+    ///     Money: Undrawn amount as :class:`finstack.core.money.Money`.
+    ///
+    /// Raises:
+    ///     ValueError: If drawn amount exceeds commitment.
+    ///
+    /// Examples:
+    ///     >>> undrawn = rc.undrawn_amount()
+    ///     >>> print(f"Available: {undrawn}")
     fn undrawn_amount(&self) -> PyResult<PyMoney> {
-        use crate::core::error::core_to_py;
-        let amount = self.inner.undrawn_amount().map_err(core_to_py)?;
-        Ok(PyMoney::new(amount))
+        self.inner
+            .undrawn_amount()
+            .map(PyMoney::new)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    /// Check if facility uses deterministic cashflows.
+    /// Check if the facility uses deterministic cashflows.
     ///
     /// Returns:
-    ///     bool: True if deterministic, False if stochastic
+    ///     bool: True if using deterministic draw/repay schedule.
     fn is_deterministic(&self) -> bool {
         self.inner.is_deterministic()
     }
 
-    /// Check if facility uses stochastic utilization.
+    /// Check if the facility uses stochastic utilization.
     ///
     /// Returns:
-    ///     bool: True if stochastic, False if deterministic
+    ///     bool: True if using Monte Carlo simulation.
     fn is_stochastic(&self) -> bool {
         self.inner.is_stochastic()
     }
 
-    /// Extract cashflows from Monte Carlo paths as a pandas DataFrame.
+    /// Price the facility using the standard value() method.
     ///
-    /// Convenience method that runs mc_paths() and extracts cashflows into
-    /// a pandas DataFrame for easy analysis.
+    /// For deterministic facilities, prices directly. For stochastic facilities,
+    /// falls back to deterministic pricing with empty draw schedule (for fast path).
+    /// Use price_with_paths() for full Monte Carlo with path capture.
     ///
     /// Args:
-    ///     market: MarketContext with curves
-    ///     as_of: Optional valuation date
-    ///     num_paths: Number of paths to simulate (default: 1000)
-    ///     capture_mode: 'all' or 'sample' (default: 'all')
-    ///     seed: RNG seed for reproducibility (default: 42)
+    ///     market: Market context with required curves.
+    ///     as_of: Valuation date.
     ///
     /// Returns:
-    ///     pd.DataFrame: Cashflows with columns:
-    ///         - path_id: path identifier
-    ///         - step: timestep index
-    ///         - time_years: time in years
-    ///         - amount: cashflow amount
-    ///         - cashflow_type: type of cashflow (Principal, Interest, etc.)
+    ///     Money: Present value as :class:`finstack.core.money.Money`.
     ///
-    /// Example:
-    ///     >>> df = revolver.cashflows_df(market, as_of)
-    ///     >>> principal_flows = df[df['cashflow_type'] == 'Principal']
-    ///     >>> interest_flows = df[df['cashflow_type'] == 'Interest']
-    #[pyo3(signature = (market, as_of=None, num_paths=None, capture_mode="all", seed=42))]
-    fn cashflows_df(
-        &self,
-        py: Python,
-        market: &PyMarketContext,
-        as_of: Option<Bound<'_, PyAny>>,
-        num_paths: Option<usize>,
-        capture_mode: &str,
-        seed: u64,
-    ) -> PyResult<PyObject> {
-        // Determine sample count (all paths when capture_mode="all")
-        let sample_count = num_paths.unwrap_or(1000);
+    /// Raises:
+    ///     ValueError: If required curves are missing or valuation fails.
+    ///
+    /// Examples:
+    ///     >>> from datetime import date
+    ///     >>> pv = rc.value(market, date.today())
+    ///     >>> print(f"PV: {pv}")
+    fn value(&self, market: &PyMarketContext, as_of: Bound<'_, pyo3::PyAny>) -> PyResult<PyMoney> {
+        use crate::core::utils::py_to_date;
+        use finstack_valuations::instruments::common::traits::Instrument;
 
-        // Run MC simulation with path capture
-        let mc_result = self.mc_paths(py, market, as_of, capture_mode, sample_count, seed)?;
-
-        // Extract paths from result
-        let path_dataset_inner = mc_result
-            .inner
-            .paths
-            .as_ref()
-            .ok_or_else(|| PyValueError::new_err("No paths captured in MC result"))?;
-
-        // Create Python wrapper for PathDataset
-        use crate::valuations::common::mc::paths::PyPathDataset;
-        let py_paths = Py::new(
-            py,
-            PyPathDataset {
-                inner: path_dataset_inner.clone(),
-            },
-        )?;
-
-        // Call the method on the Python object
-        let df = py_paths.call_method1(py, "cashflows_to_dataframe", ())?;
-        Ok(df)
+        let as_of_date = py_to_date(&as_of)?;
+        self.inner
+            .value(&market.inner, as_of_date)
+            .map(PyMoney::new)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    /// Calculate IRR distribution from Monte Carlo paths.
+    /// Price with requested risk metrics.
     ///
-    /// Computes the Internal Rate of Return for each simulated path using
-    /// the path's principal cashflows (deployments and repayments).
+    /// Calculates present value along with requested metrics like DV01, CS01, etc.
     ///
     /// Args:
-    ///     market: MarketContext with curves
-    ///     as_of: Optional valuation date
-    ///     num_paths: Number of paths to simulate (default: 1000)
-    ///     seed: RNG seed (default: 42)
+    ///     market: Market context with required curves.
+    ///     as_of: Valuation date.
+    ///     metrics: List of metric identifiers (e.g., ["DV01", "CS01"]).
     ///
     /// Returns:
-    ///     dict: Dictionary with keys:
-    ///         - irrs: list of IRR values for each path (None if no sign change)
-    ///         - mean: mean IRR across paths
-    ///         - std: standard deviation of IRRs
-    ///         - percentiles: dict with p10, p25, p50, p75, p90
+    ///     ValuationResult: Result with value and computed metrics.
     ///
-    /// Example:
-    ///     >>> irr_stats = revolver.irr_distribution(market, as_of)
-    ///     >>> print(f"Mean IRR: {irr_stats['mean']:.2%}")
-    ///     >>> print(f"Median IRR: {irr_stats['percentiles']['p50']:.2%}")
-    #[pyo3(signature = (market, as_of=None, num_paths=1000, seed=42))]
-    fn irr_distribution(
+    /// Raises:
+    ///     ValueError: If required curves are missing or valuation fails.
+    ///
+    /// Examples:
+    ///     >>> result = rc.price_with_metrics(market, date.today(), ["DV01", "CS01"])
+    ///     >>> print(f"PV: {result.value}")
+    ///     >>> print(f"DV01: {result.metrics['DV01']}")
+    fn price_with_metrics(
         &self,
-        py: Python,
         market: &PyMarketContext,
-        as_of: Option<Bound<'_, PyAny>>,
-        num_paths: usize,
-        seed: u64,
-    ) -> PyResult<PyObject> {
-        use crate::core::error::core_to_py;
+        as_of: Bound<'_, pyo3::PyAny>,
+        metrics: Vec<String>,
+    ) -> PyResult<PyValuationResult> {
+        use crate::core::utils::py_to_date;
+        use finstack_valuations::instruments::common::traits::Instrument;
+        use finstack_valuations::metrics::MetricId;
 
-        // Run MC simulation with all paths captured
-        let mc_result = self.mc_paths(py, market, as_of.clone(), "all", num_paths, seed)?;
+        let as_of_date = py_to_date(&as_of)?;
+        let metric_ids: Vec<MetricId> = metrics
+            .iter()
+            .map(|s| s.parse().unwrap_or_else(|_| MetricId::custom(s)))
+            .collect();
 
-        // Extract paths (access inner field directly)
-        let path_dataset = mc_result
-            .inner
-            .paths
-            .as_ref()
-            .ok_or_else(|| PyValueError::new_err("No paths captured in MC result"))?;
-
-        // Get base date for IRR calculation
-        let disc = market
-            .inner
-            .get_discount_ref(self.inner.discount_curve_id.as_str())
-            .map_err(core_to_py)?;
-        let base_date = disc.base_date();
-
-        // Calculate IRR for each path
-        let mut irrs = Vec::new();
-
-        for path in &path_dataset.paths {
-            // Collect all cashflows for this path
-            let mut path_cashflows: Vec<(f64, f64)> = Vec::new();
-
-            for point in &path.points {
-                for (time, amount, _cf_type) in &point.cashflows {
-                    path_cashflows.push((*time, *amount));
-                }
-            }
-
-            // Aggregate cashflows by time (sum amounts at same time)
-            let mut time_map = std::collections::HashMap::new();
-            for (time, amount) in path_cashflows {
-                *time_map
-                    .entry((time * 1000.0).round() as i64)
-                    .or_insert(0.0) += amount;
-            }
-
-            let mut aggregated: Vec<(f64, f64)> = time_map
-                .into_iter()
-                .map(|(time_key, amount)| (time_key as f64 / 1000.0, amount))
-                .collect();
-            aggregated.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-
-            // Calculate IRR using core XIRR
-            use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
-            let irr = calculate_path_irr(&aggregated, base_date, self.inner.day_count);
-
-            irrs.push(irr);
-        }
-
-        // Calculate statistics
-        let valid_irrs: Vec<f64> = irrs.iter().filter_map(|&x| x).collect();
-
-        if valid_irrs.is_empty() {
-            return Err(PyValueError::new_err(
-                "No valid IRRs calculated (all paths may have same-sign cashflows)",
-            ));
-        }
-
-        let mean = valid_irrs.iter().sum::<f64>() / valid_irrs.len() as f64;
-        let variance =
-            valid_irrs.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / valid_irrs.len() as f64;
-        let std = variance.sqrt();
-
-        // Calculate percentiles
-        let mut sorted = valid_irrs.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-        let percentile = |p: f64| -> f64 {
-            let idx = ((p / 100.0) * (sorted.len() - 1) as f64).round() as usize;
-            sorted[idx.min(sorted.len() - 1)]
-        };
-
-        // Create result dictionary
-        use pyo3::types::PyDict;
-        let result = PyDict::new(py);
-        result.set_item("irrs", irrs)?;
-        result.set_item("mean", mean)?;
-        result.set_item("std", std)?;
-
-        let percentiles = PyDict::new(py);
-        percentiles.set_item("p10", percentile(10.0))?;
-        percentiles.set_item("p25", percentile(25.0))?;
-        percentiles.set_item("p50", percentile(50.0))?;
-        percentiles.set_item("p75", percentile(75.0))?;
-        percentiles.set_item("p90", percentile(90.0))?;
-        result.set_item("percentiles", percentiles)?;
-
-        Ok(result.into())
+        self.inner
+            .price_with_metrics(&market.inner, as_of_date, &metric_ids)
+            .map(PyValuationResult::new)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    /// Build the cashflow schedule for this facility (deterministic only).
+    /// Build cashflow schedule for deterministic facilities.
+    ///
+    /// Generates the complete cashflow schedule including interest payments,
+    /// fees, draws, and repayments. Only works for deterministic specifications.
     ///
     /// Args:
-    ///     market: MarketContext (not used for deterministic, but required for API consistency)
-    ///     as_of: Optional valuation date; defaults to discount curve base date
+    ///     market: Market context with required curves.
+    ///     as_of: Valuation date.
     ///
     /// Returns:
-    ///     CashFlowSchedule: The generated cashflow schedule
-    #[pyo3(
-        signature = (market, as_of=None),
-        text_signature = "(self, market, as_of=None)"
-    )]
-    #[allow(unused_variables)]
+    ///     CashFlowSchedule: Detailed cashflow schedule.
+    ///
+    /// Raises:
+    ///     ValueError: If facility is stochastic or valuation fails.
+    ///
+    /// Examples:
+    ///     >>> schedule = rc.build_schedule(market, date.today())
+    ///     >>> for flow in schedule.flows:
+    ///     ...     print(f"{flow.date}: {flow.amount} - {flow.description}")
     fn build_schedule(
         &self,
         market: &PyMarketContext,
-        as_of: Option<Bound<'_, PyAny>>,
+        as_of: Bound<'_, pyo3::PyAny>,
     ) -> PyResult<PyCashFlowSchedule> {
-        // Only works for deterministic specs
-        if !self.inner.is_deterministic() {
-            return Err(PyValueError::new_err(
-                "build_schedule only works for deterministic draw_repay_spec",
-            ));
-        }
+        use crate::core::utils::py_to_date;
+        use finstack_valuations::cashflow::traits::CashflowProvider;
 
-        // Resolve as_of date
-        let as_of_date = if let Some(as_of_obj) = as_of {
-            py_to_date(&as_of_obj)?
-        } else {
-            // Default to commitment_date
-            self.inner.commitment_date
-        };
-
-        // Generate cashflow schedule with curves (include floating base-rate projections)
-        use finstack_valuations::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves;
-        let schedule =
-            generate_deterministic_cashflows_with_curves(&self.inner, &market.inner, as_of_date)
-                .map_err(core_to_py)?;
-
-        Ok(PyCashFlowSchedule::new(schedule))
+        let as_of_date = py_to_date(&as_of)?;
+        self.inner
+            .build_full_schedule(&market.inner, as_of_date)
+            .map(PyCashFlowSchedule::new)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    /// Compute per-period present values for this facility's cashflows.
+    /// Price deterministically (explicit method for API clarity).
+    ///
+    /// Forces deterministic pricing even if the facility has a stochastic spec
+    /// (treats as empty draw schedule). For true Monte Carlo, use price_with_paths().
     ///
     /// Args:
-    ///     periods: PeriodPlan, list[Period], or period range string
-    ///     market: MarketContext with discount/forward/hazard curves
-    ///     discount_curve_id: Optional curve ID (defaults to facility's discount_curve_id)
-    ///     hazard_curve_id: Optional hazard curve ID for credit adjustment
-    ///     as_of: Optional valuation date (defaults to discount curve base_date)
-    ///     day_count: Optional day count convention (defaults to discount curve day_count)
+    ///     market: Market context with required curves.
+    ///     as_of: Valuation date.
     ///
     /// Returns:
-    ///     dict[str, float]: Map from period code to PV amount
-    #[pyo3(
-        signature = (periods, market, *, discount_curve_id=None, hazard_curve_id=None, as_of=None, day_count=None),
-        text_signature = "(periods, market, /, *, discount_curve_id=None, hazard_curve_id=None, as_of=None, day_count=None)"
-    )]
-    fn per_period_pv(
+    ///     Money: Present value as :class:`finstack.core.money.Money`.
+    ///
+    /// Raises:
+    ///     ValueError: If required curves are missing or valuation fails.
+    fn price_deterministic(
         &self,
-        py: Python<'_>,
-        periods: Bound<'_, PyAny>,
         market: &PyMarketContext,
-        discount_curve_id: Option<&str>,
-        hazard_curve_id: Option<&str>,
-        as_of: Option<Bound<'_, PyAny>>,
-        day_count: Option<Bound<'_, PyAny>>,
-    ) -> PyResult<HashMap<String, f64>> {
-        // Build schedule first
-        let schedule = self.build_schedule(market, as_of.clone())?;
+        as_of: Bound<'_, pyo3::PyAny>,
+    ) -> PyResult<PyMoney> {
+        use crate::core::utils::py_to_date;
+        use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
 
-        // Delegate to schedule's per_period_pv method
-        // Need to convert PyMarketContext reference to Bound<PyAny>
-        let disc_id = discount_curve_id.unwrap_or_else(|| self.inner.discount_curve_id.as_str());
-        let market_py = Py::new(py, market.clone())?;
-        let market_bound_temp = market_py.into_bound(py);
-        let market_bound: Bound<'_, PyAny> = unsafe {
-            <Bound<'_, PyAny> as Clone>::clone(&market_bound_temp).downcast_into_unchecked()
-        };
-        schedule.per_period_pv(
-            py,
-            periods,
-            market_bound,
-            Some(disc_id),
-            hazard_curve_id,
-            as_of,
-            day_count,
-        )
+        let as_of_date = py_to_date(&as_of)?;
+        RevolvingCreditPricer::price_deterministic(&self.inner, &market.inner, as_of_date)
+            .map(PyMoney::new)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    /// Convert cashflow schedule to a period-aligned DataFrame.
+    /// Price with full Monte Carlo path capture for distribution analysis.
     ///
-    /// Returns a dict-of-arrays suitable for pandas/Polars with columns:
-    /// Start Date, End Date, PayDate, CFType, Currency, Notional, YrFraq,
-    /// Days, Amount, DiscountFactor, SurvivalProb (optional), PV,
-    /// Unfunded Amount (optional), Commitment Amount (optional),
-    /// Base Rate (optional), Spread (optional), allin_rate.
+    /// Runs Monte Carlo simulation and returns detailed results including
+    /// individual path PVs, cashflows, and 3-factor path data for analysis.
     ///
-    /// Note: For revolving credit, Notional represents the drawn amount at each period,
-    /// and Commitment Amount (when provided) represents the total facility commitment.
+    /// Only available when the facility uses a Stochastic draw/repay specification.
     ///
     /// Args:
-    ///     periods: PeriodPlan, list[Period], or period range string
-    ///     market: MarketContext with discount/forward/hazard curves
-    ///     discount_curve_id: Optional curve ID (defaults to facility's discount_curve_id)
-    ///     hazard_curve_id: Optional hazard curve ID for credit adjustment (adds SurvivalProb column)
-    ///     forward_curve_id: Optional forward curve ID for floating rate decomposition
-    ///     as_of: Optional valuation date (defaults to discount curve base_date)
-    ///     day_count: Optional day count convention (defaults to schedule.day_count)
-    ///     facility_limit: Optional facility limit Money for Unfunded Amount column
-    ///     include_floating_decomposition: If True, adds Base Rate and Spread columns for floating cashflows
+    ///     market: Market context with required curves.
+    ///     as_of: Valuation date.
     ///
     /// Returns:
-    ///     dict: Dictionary with column names as keys and lists as values
-    #[pyo3(
-        signature = (periods, market, *, discount_curve_id=None, hazard_curve_id=None, forward_curve_id=None, as_of=None, day_count=None, facility_limit=None, include_floating_decomposition=false),
-        text_signature = "(periods, market, /, *, discount_curve_id=None, hazard_curve_id=None, forward_curve_id=None, as_of=None, day_count=None, facility_limit=None, include_floating_decomposition=False)"
-    )]
-    fn to_period_dataframe(
+    ///     EnhancedMonteCarloResult: Full MC results with path details.
+    ///
+    /// Raises:
+    ///     ValueError: If facility is not stochastic or MC fails.
+    ///
+    /// Examples:
+    ///     >>> result = rc.price_with_paths(market, date.today())
+    ///     >>> print(f"Mean PV: {result.mean}")
+    ///     >>> print(f"Std Error: {result.std_error}")
+    ///     >>> # Analyze individual paths
+    ///     >>> for path in result.path_results[:10]:
+    ///     ...     print(f"Path PV: {path.pv}")
+    fn price_with_paths(
         &self,
-        py: Python<'_>,
-        periods: Bound<'_, PyAny>,
         market: &PyMarketContext,
-        discount_curve_id: Option<&str>,
-        hazard_curve_id: Option<&str>,
-        forward_curve_id: Option<&str>,
-        as_of: Option<Bound<'_, PyAny>>,
-        day_count: Option<Bound<'_, PyAny>>,
-        facility_limit: Option<Bound<'_, PyAny>>,
-        include_floating_decomposition: bool,
-    ) -> PyResult<PyObject> {
-        // Build schedule first
-        let schedule = self.build_schedule(market, as_of.clone())?;
+        as_of: Bound<'_, pyo3::PyAny>,
+    ) -> PyResult<PyEnhancedMonteCarloResult> {
+        use crate::core::utils::py_to_date;
+        use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
 
-        // Delegate to schedule's to_period_dataframe method
-        let disc_id = discount_curve_id.unwrap_or_else(|| self.inner.discount_curve_id.as_str());
-
-        // For floating rate decomposition, use forward_curve_id if provided, otherwise try to extract from base_rate_spec
-        let fwd_id = if include_floating_decomposition {
-            forward_curve_id.or_else(|| match &self.inner.base_rate_spec {
-                finstack_valuations::instruments::revolving_credit::BaseRateSpec::Floating {
-                    index_id,
-                    ..
-                } => Some(index_id.as_str()),
-                _ => None,
-            })
-        } else {
-            forward_curve_id
-        };
-
-        // Need to convert PyMarketContext reference to Bound<PyAny>
-        let market_py = Py::new(py, market.clone())?;
-        let market_bound_temp = market_py.into_bound(py);
-        let market_bound: Bound<'_, PyAny> = unsafe {
-            <Bound<'_, PyAny> as Clone>::clone(&market_bound_temp).downcast_into_unchecked()
-        };
-        let out = schedule.to_period_dataframe(
-            py,
-            periods,
-            market_bound,
-            Some(disc_id),
-            hazard_curve_id,
-            fwd_id,
-            as_of,
-            day_count,
-            facility_limit,
-            include_floating_decomposition,
-        )?;
-
-        // Post-process columns:
-        // - allin_rate: effective coupon (Fixed rate, or Base Rate + Spread for FloatReset)
-        // - Drop 'Rate' to avoid duplication when Base Rate/Spread are present
-        let out_bound = out.into_bound(py);
-        if let Ok(dict) = out_bound.clone().downcast_into::<PyDict>() {
-            // Extract existing columns
-            let cf_any = dict.get_item("CFType")?;
-            let rate_any = dict.get_item("Rate")?;
-            if let (Some(cf_any), Some(rate_any)) = (cf_any, rate_any) {
-                if let (Ok(cf_list), Ok(rate_list)) =
-                    (cf_any.downcast::<PyList>(), rate_any.downcast::<PyList>())
-                {
-                    let n = cf_list.len();
-                    // Build allin_rate from existing 'Rate'
-                    let mut allin_vals: Vec<PyObject> = Vec::with_capacity(n);
-                    for i in 0..n {
-                        allin_vals.push(rate_list.get_item(i).unwrap().clone().unbind());
-                    }
-
-                    // Set new column and drop 'Rate'
-                    dict.set_item("allin_rate", PyList::new(py, allin_vals)?)?;
-                    let _ = dict.del_item("Rate");
-                    return Ok(dict.into_any().into());
-                }
-            }
-            // If structure differs, fall through and return original
-            return Ok(dict.into_any().into());
-        }
-        // Default return if not a dict
-        Ok(out_bound.into())
+        let as_of_date = py_to_date(&as_of)?;
+        RevolvingCreditPricer::price_with_paths(&self.inner, &market.inner, as_of_date)
+            .map(PyEnhancedMonteCarloResult::new)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    fn __repr__(&self) -> String {
-        format!(
-            "RevolvingCredit(id='{}', commitment={}, drawn={}, util={:.1}%)",
-            self.inner.id.as_str(),
-            self.inner.commitment_amount.amount(),
-            self.inner.drawn_amount.amount(),
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!(
+            "RevolvingCredit(id='{}', commitment={}, drawn={}, commitment_date='{}', maturity='{}')",
+            self.inner.id,
+            self.inner.commitment_amount,
+            self.inner.drawn_amount,
+            self.inner.commitment_date,
+            self.inner.maturity_date
+        ))
+    }
+}
+
+impl fmt::Display for PyRevolvingCredit {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RevolvingCredit({}, {} -> {}, util={:.1}%)",
+            self.inner.id,
+            self.inner.commitment_date,
+            self.inner.maturity_date,
             self.inner.utilization_rate() * 100.0
         )
     }
 }
 
-fn parse_frequency(freq_str: Option<&str>) -> PyResult<finstack_core::dates::Frequency> {
-    parse_frequency_label(freq_str)
+/// Enhanced Monte Carlo result with full path details.
+///
+/// Contains Monte Carlo statistics (mean, std error, confidence interval)
+/// along with individual path results for distribution analysis and visualization.
+#[pyclass(module = "finstack.valuations.instruments", name = "EnhancedMonteCarloResult")]
+pub struct PyEnhancedMonteCarloResult {
+    inner: finstack_valuations::instruments::revolving_credit::pricer::EnhancedMonteCarloResult,
+}
+
+impl PyEnhancedMonteCarloResult {
+    pub(crate) fn new(
+        inner: finstack_valuations::instruments::revolving_credit::pricer::EnhancedMonteCarloResult,
+    ) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyEnhancedMonteCarloResult {
+    /// Mean present value across all paths.
+    ///
+    /// Returns:
+    ///     Money: Mean PV estimate.
+    #[getter]
+    fn mean(&self) -> PyMoney {
+        PyMoney::new(self.inner.mc_result.estimate.mean)
+    }
+
+    /// Standard error of the mean.
+    ///
+    /// Returns:
+    ///     float: Standard error in currency units.
+    #[getter]
+    fn std_error(&self) -> f64 {
+        self.inner.mc_result.estimate.stderr
+    }
+
+    /// Lower bound of 95% confidence interval.
+    ///
+    /// Returns:
+    ///     Money: Lower confidence bound.
+    #[getter]
+    fn ci_lower(&self) -> PyMoney {
+        PyMoney::new(self.inner.mc_result.estimate.ci_95.0)
+    }
+
+    /// Upper bound of 95% confidence interval.
+    ///
+    /// Returns:
+    ///     Money: Upper confidence bound.
+    #[getter]
+    fn ci_upper(&self) -> PyMoney {
+        PyMoney::new(self.inner.mc_result.estimate.ci_95.1)
+    }
+
+    /// Number of simulated paths.
+    ///
+    /// Returns:
+    ///     int: Path count.
+    #[getter]
+    fn num_paths(&self) -> usize {
+        self.inner.path_results.len()
+    }
+
+    /// Individual path results for distribution analysis.
+    ///
+    /// Returns:
+    ///     List[PathResult]: List of path results with PV, cashflows, and factor data.
+    #[getter]
+    fn path_results(&self) -> Vec<PyPathResult> {
+        self.inner
+            .path_results
+            .iter()
+            .map(|pr| PyPathResult::new(pr.clone()))
+            .collect()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "EnhancedMonteCarloResult(mean={}, stderr={}, paths={})",
+            self.inner.mc_result.estimate.mean,
+            self.inner.mc_result.estimate.stderr,
+            self.inner.path_results.len()
+        )
+    }
+}
+
+/// Individual path result from Monte Carlo simulation.
+///
+/// Contains the present value, optional 3-factor path data, and cashflow schedule
+/// for a single simulated path.
+#[pyclass(module = "finstack.valuations.instruments", name = "PathResult")]
+#[derive(Clone)]
+pub struct PyPathResult {
+    inner: finstack_valuations::instruments::revolving_credit::pricer::PathResult,
+}
+
+impl PyPathResult {
+    pub(crate) fn new(
+        inner: finstack_valuations::instruments::revolving_credit::pricer::PathResult,
+    ) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyPathResult {
+    /// Present value for this path.
+    ///
+    /// Returns:
+    ///     Money: Path PV.
+    #[getter]
+    fn pv(&self) -> PyMoney {
+        PyMoney::new(self.inner.pv)
+    }
+
+    /// Cashflow schedule for this path.
+    ///
+    /// Returns:
+    ///     CashFlowSchedule: Detailed cashflows.
+    #[getter]
+    fn cashflows(&self) -> PyCashFlowSchedule {
+        PyCashFlowSchedule::new(self.inner.cashflows.clone())
+    }
+
+    /// Optional 3-factor path data (utilization, credit spread, short rate).
+    ///
+    /// Returns:
+    ///     Optional[ThreeFactorPathData]: Path data if available.
+    #[getter]
+    fn path_data(&self) -> Option<PyThreeFactorPathData> {
+        self.inner
+            .path_data
+            .as_ref()
+            .map(|pd| PyThreeFactorPathData::new(pd.clone()))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PathResult(pv={}, num_flows={})",
+            self.inner.pv,
+            self.inner.cashflows.flows.len()
+        )
+    }
+}
+
+/// Three-factor path data from Monte Carlo simulation.
+///
+/// Contains the simulated time series for utilization rate, credit spread,
+/// and short rate factors, along with time points and payment dates.
+#[pyclass(module = "finstack.valuations.instruments", name = "ThreeFactorPathData")]
+#[derive(Clone)]
+pub struct PyThreeFactorPathData {
+    inner: finstack_valuations::instruments::revolving_credit::ThreeFactorPathData,
+}
+
+impl PyThreeFactorPathData {
+    pub(crate) fn new(
+        inner: finstack_valuations::instruments::revolving_credit::ThreeFactorPathData,
+    ) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyThreeFactorPathData {
+    /// Utilization rate path (0.0 to 1.0).
+    ///
+    /// Returns:
+    ///     List[float]: Utilization rates at each time point.
+    #[getter]
+    fn utilization_path(&self) -> Vec<f64> {
+        self.inner.utilization_path.clone()
+    }
+
+    /// Credit spread path (annualized).
+    ///
+    /// Returns:
+    ///     List[float]: Credit spreads at each time point.
+    #[getter]
+    fn credit_spread_path(&self) -> Vec<f64> {
+        self.inner.credit_spread_path.clone()
+    }
+
+    /// Short rate path (annualized).
+    ///
+    /// Returns:
+    ///     List[float]: Short rates at each time point.
+    #[getter]
+    fn short_rate_path(&self) -> Vec<f64> {
+        self.inner.short_rate_path.clone()
+    }
+
+    /// Time points (in years from as_of date).
+    ///
+    /// Returns:
+    ///     List[float]: Time points for factor values.
+    #[getter]
+    fn time_points(&self) -> Vec<f64> {
+        self.inner.time_points.clone()
+    }
+
+    /// Payment dates corresponding to time points.
+    ///
+    /// Returns:
+    ///     List[date]: Payment dates.
+    #[getter]
+    fn payment_dates(&self, py: Python<'_>) -> PyResult<Vec<PyObject>> {
+        self.inner
+            .payment_dates
+            .iter()
+            .map(|d| date_to_py(py, *d))
+            .collect()
+    }
+
+    fn __repr__(&self) -> String {
+        let avg_util = self.inner.utilization_path.iter().sum::<f64>() / self.inner.utilization_path.len() as f64;
+        let avg_spread = self.inner.credit_spread_path.iter().sum::<f64>() / self.inner.credit_spread_path.len() as f64;
+        format!(
+            "ThreeFactorPathData(time_points={}, avg_util={:.1}%, avg_spread={:.2}%)",
+            self.inner.time_points.len(),
+            avg_util * 100.0,
+            avg_spread * 100.0
+        )
+    }
 }
 
 pub(crate) fn register<'py>(
     _py: Python<'py>,
-    parent: &Bound<'py, PyModule>,
+    module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
-    parent.add_class::<PyRevolvingCredit>()?;
-    Ok(vec!["RevolvingCredit"])
+    module.add_class::<PyRevolvingCredit>()?;
+    module.add_class::<PyEnhancedMonteCarloResult>()?;
+    module.add_class::<PyPathResult>()?;
+    module.add_class::<PyThreeFactorPathData>()?;
+    Ok(vec![
+        "RevolvingCredit",
+        "EnhancedMonteCarloResult",
+        "PathResult",
+        "ThreeFactorPathData",
+    ])
 }

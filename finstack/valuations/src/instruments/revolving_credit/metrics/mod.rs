@@ -15,14 +15,19 @@ pub use spread_sensitivity::SpreadSensitivityCalculator;
 pub use utilization_rate::UtilizationRateCalculator;
 pub use weighted_average_cost::ApproxWeightedAverageCostCalculator;
 
-// Backwards compatibility alias
+/// Backward compatibility alias for weighted average cost calculator.
+///
+/// Prefer using `ApproxWeightedAverageCostCalculator` directly for new code.
 pub type WeightedAverageCostCalculator = ApproxWeightedAverageCostCalculator;
 
-// Type aliases for backwards compatibility and semantic clarity
-/// DV01 calculator (discount curve sensitivity)
+/// DV01 calculator (discount curve sensitivity).
+///
+/// Type alias for `SpreadSensitivityCalculator` used for interest rate risk metrics.
 pub type Dv01Calculator = SpreadSensitivityCalculator;
 
-/// CS01 calculator (credit spread sensitivity)
+/// CS01 calculator (credit spread sensitivity).
+///
+/// Type alias for `SpreadSensitivityCalculator` used for credit risk metrics.
 pub type Cs01Calculator = SpreadSensitivityCalculator;
 
 use crate::metrics::MetricRegistry;

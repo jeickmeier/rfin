@@ -352,17 +352,8 @@ impl McConfig {
                 // All parameters must be non-negative
                 if *kappa <= 0.0 || *theta < 0.0 || *sigma < 0.0 || *initial < 0.0 {
                     return Err(InputError::Invalid.into());
-                }
-                
-                // Check Feller condition: 2*kappa*theta >= sigma^2
-                // This ensures the CIR process stays positive
-                let feller_ratio = 2.0 * kappa * theta / (sigma * sigma);
-                if feller_ratio < 1.0 && *sigma > 1e-8 {
-                    // Log warning but don't fail - some models may intentionally violate this
-                    // for calibration purposes (with appropriate numerical safeguards)
-                    eprintln!("Warning: CIR Feller condition violated (2κθ/σ² = {:.3} < 1). Process may hit zero.", feller_ratio);
-                }
-            }
+                }             
+             }
             CreditSpreadProcessSpec::Constant(spread) => {
                 if *spread < 0.0 {
                     return Err(InputError::Invalid.into());
@@ -544,7 +535,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
 
         // Route to appropriate pricer based on spec type
         if self.is_deterministic() {
-            crate::instruments::revolving_credit::pricer::deterministic::RevolvingCreditDiscountingPricer::price_deterministic(
+            crate::instruments::revolving_credit::pricer::unified::RevolvingCreditPricer::price_deterministic(
                 self, curves, as_of,
             )
         } else {
@@ -566,7 +557,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
             }
             // Ensure deterministic schedule for pricing.
             fallback.draw_repay_spec = super::types::DrawRepaySpec::Deterministic(Vec::new());
-            crate::instruments::revolving_credit::pricer::deterministic::RevolvingCreditDiscountingPricer::price_deterministic(
+            crate::instruments::revolving_credit::pricer::unified::RevolvingCreditPricer::price_deterministic(
                 &fallback, curves, as_of,
             )
         }
@@ -604,11 +595,12 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
             return Err(finstack_core::error::InputError::Invalid.into());
         }
 
-        let schedule = crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves(
-            self, curves, as_of,
-        )?;
+        use crate::instruments::revolving_credit::cashflow_engine::CashflowEngine;
+        let engine = CashflowEngine::new(self, Some(curves), as_of)?;
+        let path_schedule = engine.generate_deterministic()?;
 
-        Ok(schedule
+        Ok(path_schedule
+            .schedule
             .flows
             .into_iter()
             .map(|cf| (cf.date, cf.amount))
@@ -625,8 +617,9 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
             return Err(finstack_core::error::InputError::Invalid.into());
         }
 
-        crate::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves(
-            self, curves, as_of,
-        )
+        use crate::instruments::revolving_credit::cashflow_engine::CashflowEngine;
+        let engine = CashflowEngine::new(self, Some(curves), as_of)?;
+        let path_schedule = engine.generate_deterministic()?;
+        Ok(path_schedule.schedule)
     }
 }

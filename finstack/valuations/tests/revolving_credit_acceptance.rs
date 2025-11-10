@@ -17,8 +17,20 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
-use finstack_valuations::instruments::revolving_credit::pricer::deterministic::RevolvingCreditDiscountingPricer;
+use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
 use time::Month;
+
+/// Helper function to generate deterministic cashflows with curves using the new engine
+fn _generate_deterministic_cashflows_with_curves_replaced(
+    facility: &RevolvingCredit,
+    market: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<finstack_valuations::cashflow::builder::CashFlowSchedule> {
+    use finstack_valuations::instruments::revolving_credit::cashflow_engine::CashflowEngine;
+    let engine = CashflowEngine::new(facility, Some(market), as_of)?;
+    let path_schedule = engine.generate_deterministic()?;
+    Ok(path_schedule.schedule)
+}
 
 #[test]
 fn test_upfront_fee_sign() {
@@ -54,7 +66,7 @@ fn test_upfront_fee_sign() {
         .unwrap();
     let market = MarketContext::new().insert_discount(disc_curve);
 
-    let pv = RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start)
+    let pv = RevolvingCreditPricer::price_deterministic(&facility, &market, start)
         .unwrap();
 
     // PV should equal upfront fee (positive, lender receives fee)
@@ -102,7 +114,7 @@ fn test_mid_period_draw_accrual() {
         .unwrap();
     let market = MarketContext::new().insert_discount(disc_curve);
 
-    let schedule = finstack_valuations::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves(
+    let schedule = _generate_deterministic_cashflows_with_curves_replaced(
         &facility, &market, start,
     )
     .unwrap();
@@ -179,7 +191,7 @@ fn test_floating_vs_margin_only() {
         .insert_forward(fwd_curve);
 
     // Price with curves (should include forward rates)
-    let pv_with_curves = RevolvingCreditDiscountingPricer::price_deterministic(
+    let pv_with_curves = RevolvingCreditPricer::price_deterministic(
         &facility,
         &market_with_curve,
         start,
@@ -248,7 +260,7 @@ fn test_reset_frequency_mismatch() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let schedule = finstack_valuations::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves(
+    let schedule = _generate_deterministic_cashflows_with_curves_replaced(
         &facility, &market, start,
     )
     .unwrap();
@@ -339,12 +351,12 @@ fn test_utilization_tier() {
         .unwrap();
     let market = MarketContext::new().insert_discount(disc_curve);
 
-    let schedule_low = finstack_valuations::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves(
+    let schedule_low = _generate_deterministic_cashflows_with_curves_replaced(
         &facility_low_util, &market, start,
     )
     .unwrap();
 
-    let schedule_high = finstack_valuations::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves(
+    let schedule_high = _generate_deterministic_cashflows_with_curves_replaced(
         &facility_high_util, &market, start,
     )
     .unwrap();
@@ -405,7 +417,7 @@ fn test_as_of_filtering() {
     let market = MarketContext::new().insert_discount(disc_curve);
 
     // As-of at Q1 end: no interest/fee cashflows should have date <= as_of
-    let schedule = finstack_valuations::instruments::revolving_credit::cashflows::generate_deterministic_cashflows_with_curves(
+    let schedule = _generate_deterministic_cashflows_with_curves_replaced(
         &facility, &market, q1_end,
     )
     .unwrap();

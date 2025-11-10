@@ -242,33 +242,33 @@ pub(super) fn collect_dates(
     set.insert(issue);
     set.insert(maturity);
 
+    // Collect all fixed coupon dates
     for (_, ds, _, _) in fixed_schedules {
-        for &d in ds.iter() {
-            set.insert(d);
-        }
+        set.extend(ds.iter().copied());
     }
+
+    // Collect all floating coupon dates
     for (_, ds, _) in float_schedules {
-        for &d in ds.iter() {
-            set.insert(d);
-        }
+        set.extend(ds.iter().copied());
     }
+
+    // Collect all periodic fee dates
     for dates in periodic_fee_date_slices {
-        for &d in dates.iter() {
-            set.insert(d);
-        }
+        set.extend(dates.iter().copied());
     }
-    for (d, _) in fixed_fees {
-        set.insert(*d);
-    }
-    if let AmortizationSpec::CustomPrincipal { items } = &notional.amort {
-        for (d, _) in items {
-            set.insert(*d);
+
+    // Collect all fixed fee dates
+    set.extend(fixed_fees.iter().map(|(d, _)| *d));
+
+    // Collect amortization dates
+    match &notional.amort {
+        AmortizationSpec::CustomPrincipal { items } => {
+            set.extend(items.iter().map(|(d, _)| *d));
         }
-    }
-    if let AmortizationSpec::StepRemaining { schedule } = &notional.amort {
-        for (d, _) in schedule {
-            set.insert(*d);
+        AmortizationSpec::StepRemaining { schedule } => {
+            set.extend(schedule.iter().map(|(d, _)| *d));
         }
+        _ => {}
     }
 
     set.into_iter().collect()

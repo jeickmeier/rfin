@@ -8,9 +8,8 @@ use finstack_core::dates::Period;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder as val_builder;
-use finstack_valuations::cashflow::builder::schedule::PeriodDataFrameOptions;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
+use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
 use std::collections::HashMap;
 
@@ -409,6 +408,37 @@ impl PyCashFlowSchedule {
     }
 }
 
+// Internal helpers to reduce duplication across methods
+fn extract_periods(periods: &Bound<'_, PyAny>) -> PyResult<Vec<Period>> {
+    if let Ok(plan) = periods.extract::<PyRef<PyPeriodPlan>>() {
+        Ok(plan.periods.clone())
+    } else if let Ok(periods_list) = periods.extract::<Vec<PyRef<PyPeriod>>>() {
+        Ok(periods_list.iter().map(|p| p.inner.clone()).collect())
+    } else {
+        Err(pyo3::exceptions::PyTypeError::new_err(
+            "periods must be PeriodPlan or list[Period]",
+        ))
+    }
+}
+
+fn extract_day_count(
+    day_count: Option<Bound<'_, PyAny>>,
+    default_dc: finstack_core::dates::DayCount,
+) -> PyResult<finstack_core::dates::DayCount> {
+    use crate::core::dates::daycount::PyDayCount;
+    if let Some(dc_obj) = day_count {
+        if let Ok(py_dc) = dc_obj.extract::<PyRef<PyDayCount>>() {
+            Ok(py_dc.inner)
+        } else {
+            Err(pyo3::exceptions::PyTypeError::new_err(
+                "day_count must be DayCount",
+            ))
+        }
+    } else {
+        Ok(default_dc)
+    }
+}
+
 #[pymethods]
 impl PyCashFlowSchedule {
     #[getter]
@@ -433,58 +463,131 @@ impl PyCashFlowSchedule {
         Ok(PyList::new(py, items)?.into())
     }
 
-    #[pyo3(text_signature = "(self)")]
-    /// Convert the schedule into a dict-of-arrays suitable for constructing a Polars DataFrame.
+    #[pyo3(
+        signature = (*, market=None, discount_curve_id=None, as_of=None),
+        text_signature = "(*, market=None, discount_curve_id=None, as_of=None)"
+    )]
+    /// Convert the cashflow schedule to a Polars DataFrame.
     ///
-    /// Returns a Python dict with keys: "date", "kind", "amount", "accrual_factor",
-    /// "reset_date", and "outstanding". Amounts and outstanding are numeric floats.
-    fn to_dataframe(&self, py: Python<'_>) -> PyResult<PyObject> {
-        let flows = &self.inner.flows;
-        let mut dates: Vec<PyObject> = Vec::with_capacity(flows.len());
-        let mut kinds: Vec<String> = Vec::with_capacity(flows.len());
-        let mut amounts: Vec<f64> = Vec::with_capacity(flows.len());
-        let mut accruals: Vec<f64> = Vec::with_capacity(flows.len());
-        let mut reset_dates: Vec<Option<PyObject>> = Vec::with_capacity(flows.len());
-        let mut outstanding_series: Vec<f64> = Vec::with_capacity(flows.len());
+    /// Returns a Polars DataFrame with columns: "start_date", "end_date", "kind", "amount", 
+    /// "accrual_factor", "reset_date", "outstanding", "rate", and optionally 
+    /// "outstanding_undrawn" (if facility limit exists), "discount_factor", "pv" (if market provided).
+    ///
+    /// All cashflow amounts are computed in Rust for deterministic, fast processing.
+    /// Outstanding balances track drawn amounts using standard conventions:
+    /// - Amortization reduces outstanding
+    /// - PIK increases outstanding  
+    /// - Notional flows: draws (negative) increase outstanding, repays (positive) decrease
+    /// - The outstanding balance shown is AFTER applying the cashflow and will be used for
+    ///   interest/fee calculations in the NEXT period (step function approach)
+    ///
+    /// For revolving credit facilities with a facility limit, an additional "outstanding_undrawn"
+    /// column shows the unused commitment (facility_limit - outstanding).
+    ///
+    /// Args:
+    ///     market: Optional MarketContext for discount factor and PV calculations
+    ///     discount_curve_id: Curve ID to use (required if market provided)
+    ///     as_of: Valuation date (defaults to curve base_date if not provided)
+    ///
+    /// Returns:
+    ///     PyDataFrame: Polars DataFrame with cashflow data
+    ///
+    /// Examples:
+    ///     >>> # Basic usage (no pricing)
+    ///     >>> df = schedule.to_dataframe()
+    ///     >>>
+    ///     >>> # With pricing
+    ///     >>> df = schedule.to_dataframe(market=market, discount_curve_id="USD-OIS")
+    fn to_dataframe(
+        &self,
+        market: Option<PyRef<PyMarketContext>>,
+        discount_curve_id: Option<&str>,
+        as_of: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<pyo3_polars::PyDataFrame> {
+        use polars::prelude::*;
 
-        let mut outstanding = self.inner.notional.initial.amount();
+        // Determine if we need market pricing
+        let frame = if let Some(mkt) = market {
+            // Validate discount_curve_id is provided
+            let curve_id = discount_curve_id.ok_or_else(|| {
+                pyo3::exceptions::PyValueError::new_err(
+                    "discount_curve_id required when market is provided"
+                )
+            })?;
+            
+            // Parse as_of if provided
+            let as_of_date = as_of.map(|d| py_to_date(&d)).transpose()?;
+            
+            // Call with_market variant
+            self.inner
+                .to_flow_frame_with_market(&mkt.inner, curve_id, as_of_date)
+                .map_err(core_to_py)?
+        } else {
+            // Use basic variant (no DF/PV)
+            self.inner.to_flow_frame()
+        };
 
-        for cf in flows.iter() {
-            dates.push(crate::core::utils::date_to_py(py, cf.date)?);
-            let kind_label = crate::core::cashflow::primitives::PyCFKind::new(cf.kind).name();
-            kinds.push(kind_label.to_string());
-            amounts.push(cf.amount.amount());
-            accruals.push(cf.accrual_factor);
-            let reset = match cf.reset_date {
-                Some(d) => Some(crate::core::utils::date_to_py(py, d)?),
-                None => None,
-            };
-            reset_dates.push(reset);
+        // Convert dates to strings for Polars
+        let start_dates: Vec<String> = frame.start_dates.iter().map(|d| d.to_string()).collect();
+        let end_dates: Vec<String> = frame.end_dates.iter().map(|d| d.to_string()).collect();
 
-            // Outstanding convention: amortization reduces; PIK increases; notional exchange does not change
-            if kind_label == "amortization" {
-                outstanding -= cf.amount.amount();
-            } else if kind_label == "pik" {
-                outstanding += cf.amount.amount();
-            }
-            outstanding_series.push(outstanding);
+        // Convert kinds to string labels
+        let kinds: Vec<String> = frame
+            .kinds
+            .iter()
+            .map(|k| crate::core::cashflow::primitives::PyCFKind::new(*k).name().to_string())
+            .collect();
+
+        // Convert reset dates to Option<String>
+        let reset_dates: Vec<Option<String>> = frame
+            .reset_dates
+            .iter()
+            .map(|opt_d| opt_d.map(|d| d.to_string()))
+            .collect();
+
+        // Build base DataFrame with core columns
+        let mut df = df![
+            "start_date" => start_dates,
+            "end_date" => end_dates,
+            "kind" => kinds,
+            "amount" => frame.amounts,
+            "accrual_factor" => frame.accrual_factors,
+            "reset_date" => reset_dates,
+            "outstanding" => frame.outstanding,
+            "rate" => frame.rates
+        ]
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+
+        // Add optional columns
+        if let Some(undrawn) = frame.outstanding_undrawn {
+            let col = Series::new("outstanding_undrawn".into(), undrawn);
+            df.with_column(col)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
         }
 
-        let out = PyDict::new(py);
-        out.set_item("date", PyList::new(py, dates)?)?;
-        out.set_item("kind", PyList::new(py, kinds)?)?;
-        out.set_item("amount", PyList::new(py, amounts)?)?;
-        out.set_item("accrual_factor", PyList::new(py, accruals)?)?;
-        out.set_item("reset_date", PyList::new(py, reset_dates)?)?;
-        out.set_item("outstanding", PyList::new(py, outstanding_series)?)?;
-        Ok(out.into())
+        if let Some(dfs) = frame.discount_factors {
+            let col = Series::new("discount_factor".into(), dfs);
+            df.with_column(col)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        }
+
+        if let Some(pvs) = frame.pvs {
+            let col = Series::new("pv".into(), pvs);
+            df.with_column(col)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        }
+
+        Ok(pyo3_polars::PyDataFrame(df))
     }
 
-    /// Compute pre-period present values aggregated by period.
+    /// Compute present values aggregated by period.
     ///
     /// Groups cashflows by period and computes the present value of each cashflow
     /// discounted back to the base date. Returns a dictionary mapping period codes
     /// to PV values (for single-currency schedules).
+    ///
+    /// This method is kept for compatibility with period-based analysis workflows.
+    /// For full cashflow details, use `to_dataframe()` and group/aggregate in Polars/pandas.
     ///
     /// Args:
     ///     periods: List of Period objects or PeriodPlan
@@ -510,31 +613,11 @@ impl PyCashFlowSchedule {
         as_of: Option<Bound<'_, PyAny>>,
         day_count: Option<Bound<'_, PyAny>>,
     ) -> PyResult<HashMap<String, f64>> {
-        use crate::core::dates::daycount::PyDayCount;
-
         // Extract periods
-        let periods_vec: Vec<Period> = if let Ok(plan) = periods.extract::<PyRef<PyPeriodPlan>>() {
-            plan.periods.clone()
-        } else if let Ok(periods_list) = periods.extract::<Vec<PyRef<PyPeriod>>>() {
-            periods_list.iter().map(|p| p.inner.clone()).collect()
-        } else {
-            return Err(pyo3::exceptions::PyTypeError::new_err(
-                "periods must be PeriodPlan or list[Period]",
-            ));
-        };
+        let periods_vec: Vec<Period> = extract_periods(&periods)?;
 
         // Determine day count
-        let dc = if let Some(dc_obj) = day_count {
-            if let Ok(py_dc) = dc_obj.extract::<PyRef<PyDayCount>>() {
-                py_dc.inner
-            } else {
-                return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "day_count must be DayCount",
-                ));
-            }
-        } else {
-            self.inner.day_count
-        };
+        let dc = extract_day_count(day_count, self.inner.day_count)?;
 
         // Handle MarketContext vs DiscountCurve
         let pv_map = if let Ok(market) = market_or_curve.extract::<PyRef<PyMarketContext>>() {
@@ -601,186 +684,6 @@ impl PyCashFlowSchedule {
         }
 
         Ok(result)
-    }
-
-    /// Convert cashflow schedule to a period-aligned DataFrame.
-    ///
-    /// Returns a dict-of-arrays suitable for pandas/Polars with columns:
-    /// Start Date, End Date, PayDate, CFType, Currency, Notional, Rate, YrFraq,
-    /// Days, Amount, DiscountFactor, SurvivalProb (optional), PV, Unfunded Amount (optional),
-    /// Base Rate (optional), Spread (optional).
-    ///
-    /// Args:
-    ///     periods: List of Period objects or PeriodPlan
-    ///     market_or_curve: Either MarketContext (when using curve IDs) or DiscountCurve (backwards compat)
-    ///     discount_curve_id: Optional curve ID when using MarketContext
-    ///     hazard_curve_id: Optional hazard curve ID for credit adjustment (adds SurvivalProb column)
-    ///     forward_curve_id: Optional forward curve ID for floating rate decomposition
-    ///     as_of: Optional valuation date (defaults to curve base_date)
-    ///     day_count: Optional day count convention (defaults to schedule.day_count)
-    ///     facility_limit: Optional facility limit Money for Unfunded Amount column
-    ///     include_floating_decomposition: If True, adds Base Rate and Spread columns for floating cashflows
-    ///
-    /// Returns:
-    ///     dict: Dictionary with column names as keys and lists as values
-    #[pyo3(
-        signature = (periods, market_or_curve, *, discount_curve_id=None, hazard_curve_id=None, forward_curve_id=None, as_of=None, day_count=None, facility_limit=None, include_floating_decomposition=false),
-        text_signature = "(periods, market_or_curve, /, *, discount_curve_id=None, hazard_curve_id=None, forward_curve_id=None, as_of=None, day_count=None, facility_limit=None, include_floating_decomposition=False)"
-    )]
-    pub(crate) fn to_period_dataframe(
-        &self,
-        py: Python<'_>,
-        periods: Bound<'_, PyAny>,
-        market_or_curve: Bound<'_, PyAny>,
-        discount_curve_id: Option<&str>,
-        hazard_curve_id: Option<&str>,
-        forward_curve_id: Option<&str>,
-        as_of: Option<Bound<'_, PyAny>>,
-        day_count: Option<Bound<'_, PyAny>>,
-        facility_limit: Option<Bound<'_, PyAny>>,
-        include_floating_decomposition: bool,
-    ) -> PyResult<PyObject> {
-        use crate::core::cashflow::primitives::PyCFKind;
-        use crate::core::dates::daycount::PyDayCount;
-
-        // Extract periods
-        let periods_vec: Vec<Period> = if let Ok(plan) = periods.extract::<PyRef<PyPeriodPlan>>() {
-            plan.periods.clone()
-        } else if let Ok(periods_list) = periods.extract::<Vec<PyRef<PyPeriod>>>() {
-            periods_list.iter().map(|p| p.inner.clone()).collect()
-        } else {
-            return Err(pyo3::exceptions::PyTypeError::new_err(
-                "periods must be PeriodPlan or list[Period]",
-            ));
-        };
-
-        // Determine day count
-        let dc = if let Some(dc_obj) = day_count {
-            if let Ok(py_dc) = dc_obj.extract::<PyRef<PyDayCount>>() {
-                py_dc.inner
-            } else {
-                return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "day_count must be DayCount",
-                ));
-            }
-        } else {
-            self.inner.day_count
-        };
-
-        // Extract facility_limit if provided
-        let facility_limit_money = if let Some(limit_obj) = facility_limit {
-            Some(crate::core::money::extract_money(&limit_obj)?)
-        } else {
-            None
-        };
-
-        // Build MarketContext and discount curve id
-        let (market_ctx, disc_id_owned, as_of_date) =
-            if let Ok(market) = market_or_curve.extract::<PyRef<PyMarketContext>>() {
-                let disc_id = discount_curve_id.ok_or_else(|| {
-                    pyo3::exceptions::PyValueError::new_err(
-                        "discount_curve_id required when using MarketContext",
-                    )
-                })?;
-                let disc_arc = market.inner.get_discount(disc_id).map_err(core_to_py)?;
-                let base = if let Some(as_of_obj) = as_of {
-                    py_to_date(&as_of_obj)?
-                } else {
-                    disc_arc.base_date()
-                };
-                (Some(market.inner.clone()), Some(disc_id.to_string()), base)
-            } else if let Ok(disc_curve) = market_or_curve.extract::<PyRef<PyDiscountCurve>>() {
-                // Build a minimal MarketContext with just the discount curve
-                use finstack_core::market_data::MarketContext as CoreMarketContext;
-                let ctx = CoreMarketContext::new().insert_discount_arc(disc_curve.inner.clone());
-                let disc_id = disc_curve.inner.id().to_string();
-                let base = if let Some(as_of_obj) = as_of {
-                    py_to_date(&as_of_obj)?
-                } else {
-                    disc_curve.inner.base_date()
-                };
-                (Some(ctx), Some(disc_id), base)
-            } else {
-                return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "market_or_curve must be MarketContext or DiscountCurve",
-                ));
-            };
-        // Build frame in Rust valuations crate
-        let market_ctx = market_ctx.expect("market context always present here");
-        let disc_id = disc_id_owned.expect("discount curve id present");
-        let frame = self
-            .inner
-            .to_period_dataframe(
-                &periods_vec,
-                &market_ctx,
-                disc_id.as_str(),
-                PeriodDataFrameOptions {
-                    hazard_curve_id,
-                    forward_curve_id,
-                    as_of: Some(as_of_date),
-                    day_count: Some(dc),
-                    discount_day_count: None,
-                    facility_limit: facility_limit_money,
-                    include_floating_decomposition,
-                },
-            )
-            .map_err(core_to_py)?;
-
-        // Convert to Python dict
-        let out = PyDict::new(py);
-        // Dates
-        let start_dates: Vec<PyObject> = frame
-            .start_dates
-            .iter()
-            .map(|d| crate::core::utils::date_to_py(py, *d))
-            .collect::<PyResult<Vec<_>>>()?;
-        let end_dates: Vec<PyObject> = frame
-            .end_dates
-            .iter()
-            .map(|d| crate::core::utils::date_to_py(py, *d))
-            .collect::<PyResult<Vec<_>>>()?;
-        let pay_dates: Vec<PyObject> = frame
-            .pay_dates
-            .iter()
-            .map(|d| crate::core::utils::date_to_py(py, *d))
-            .collect::<PyResult<Vec<_>>>()?;
-        out.set_item("Start Date", PyList::new(py, start_dates)?)?;
-        out.set_item("End Date", PyList::new(py, end_dates)?)?;
-        out.set_item("PayDate", PyList::new(py, pay_dates)?)?;
-        // CFType and Currency
-        let cf_types: Vec<String> = frame
-            .cf_types
-            .iter()
-            .map(|k| PyCFKind::new(*k).name().to_string())
-            .collect();
-        let currencies: Vec<String> = frame.currencies.iter().map(|c| c.to_string()).collect();
-        out.set_item("CFType", PyList::new(py, cf_types)?)?;
-        out.set_item("Currency", PyList::new(py, currencies)?)?;
-        // Core numeric columns
-        out.set_item("Notional", PyList::new(py, frame.notionals)?)?;
-        out.set_item("YrFraq", PyList::new(py, frame.yr_fraqs)?)?;
-        out.set_item("Days", PyList::new(py, frame.days)?)?;
-        out.set_item("Amount", PyList::new(py, frame.amounts)?)?;
-        out.set_item("DiscountFactor", PyList::new(py, frame.discount_factors)?)?;
-        if let Some(sp) = frame.survival_probs {
-            out.set_item("SurvivalProb", PyList::new(py, sp)?)?;
-        }
-        out.set_item("PV", PyList::new(py, frame.pvs)?)?;
-        if let Some(unf) = frame.unfunded_amounts {
-            out.set_item("Unfunded Amount", PyList::new(py, unf)?)?;
-        }
-        if let Some(comm) = frame.commitment_amounts {
-            out.set_item("Commitment Amount", PyList::new(py, comm)?)?;
-        }
-        if let Some(baser) = frame.base_rates {
-            out.set_item("Base Rate", PyList::new(py, baser)?)?;
-        }
-        if let Some(spreads) = frame.spreads {
-            out.set_item("Spread", PyList::new(py, spreads)?)?;
-        }
-        out.set_item("allin_rate", PyList::new(py, frame.allin_rates)?)?;
-
-        Ok(out.into())
     }
 }
 

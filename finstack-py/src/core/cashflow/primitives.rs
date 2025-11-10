@@ -35,6 +35,9 @@ impl PyCFKind {
         match self.inner {
             CFKind::Fixed => "fixed",
             CFKind::FloatReset => "float_reset",
+            CFKind::CommitmentFee => "commitment_fee",
+            CFKind::UsageFee => "usage_fee",
+            CFKind::FacilityFee => "facility_fee",
             CFKind::Notional => "notional",
             CFKind::PIK => "pik",
             CFKind::Amortization => "amortization",
@@ -49,6 +52,9 @@ impl PyCFKind {
         match normalized.as_str() {
             "fixed" => Some(CFKind::Fixed),
             "float_reset" => Some(CFKind::FloatReset),
+            "commitment_fee" => Some(CFKind::CommitmentFee),
+            "usage_fee" => Some(CFKind::UsageFee),
+            "facility_fee" => Some(CFKind::FacilityFee),
             "notional" => Some(CFKind::Notional),
             "pik" => Some(CFKind::PIK),
             "amortization" | "amort" => Some(CFKind::Amortization),
@@ -65,6 +71,12 @@ impl PyCFKind {
     const FIXED: Self = Self::new(CFKind::Fixed);
     #[classattr]
     const FLOAT_RESET: Self = Self::new(CFKind::FloatReset);
+    #[classattr]
+    const COMMITMENT_FEE: Self = Self::new(CFKind::CommitmentFee);
+    #[classattr]
+    const USAGE_FEE: Self = Self::new(CFKind::UsageFee);
+    #[classattr]
+    const FACILITY_FEE: Self = Self::new(CFKind::FacilityFee);
     #[classattr]
     const NOTIONAL: Self = Self::new(CFKind::Notional);
     #[classattr]

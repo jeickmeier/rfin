@@ -35,6 +35,7 @@
 //! ```
 
 mod compile;
+pub mod frame;
 pub mod schedule;
 pub mod schedule_utils;
 mod state;
@@ -46,6 +47,7 @@ pub mod types;
 pub use state::CashflowBuilder;
 
 // Re-export common types
+pub use frame::FlowFrame;
 pub use schedule::{CashFlowSchedule, CashflowMeta};
 pub use schedule_utils::{build_dates, PeriodSchedule};
 pub use types::{
