@@ -17,7 +17,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
-use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditDiscountingPricer;
+use finstack_valuations::instruments::revolving_credit::pricer::deterministic::RevolvingCreditDiscountingPricer;
 use time::Month;
 
 #[test]

@@ -461,7 +461,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
 
         // Route to appropriate pricer based on spec type
         if self.is_deterministic() {
-            crate::instruments::revolving_credit::pricer::RevolvingCreditDiscountingPricer::price_deterministic(
+            crate::instruments::revolving_credit::pricer::deterministic::RevolvingCreditDiscountingPricer::price_deterministic(
                 self, curves, as_of,
             )
         } else {
@@ -483,7 +483,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
             }
             // Ensure deterministic schedule for pricing.
             fallback.draw_repay_spec = super::types::DrawRepaySpec::Deterministic(Vec::new());
-            crate::instruments::revolving_credit::pricer::RevolvingCreditDiscountingPricer::price_deterministic(
+            crate::instruments::revolving_credit::pricer::deterministic::RevolvingCreditDiscountingPricer::price_deterministic(
                 &fallback, curves, as_of,
             )
         }

@@ -1,6 +1,40 @@
-//! Pricing engine for revolving credit facilities.
+//! Monte Carlo pricing engine for revolving credit facilities.
 //!
-//! Provides both deterministic and Monte Carlo pricing implementations.
+//! This module provides stochastic pricing capabilities for revolving credit facilities
+//! using Monte Carlo simulation. It supports multi-factor models including utilization
+//! rate dynamics, credit spread processes, and interest rate processes.
+//!
+//! # Key Features
+//!
+//! - **Multi-Factor Models**: Correlated utilization, credit spread, and interest rate processes
+//! - **Path-Dependent Pricing**: Captures non-linear effects of stochastic utilization
+//! - **Credit Risk Integration**: Market-anchored or CIR credit spread processes
+//! - **Interest Rate Dynamics**: Hull-White 1F or deterministic forward curves
+//! - **Path Capture**: Optional detailed path recording for analysis
+//!
+//! # Supported Processes
+//!
+//! - **Utilization**: Mean-reverting OU process
+//! - **Credit Spread**: CIR process or market-anchored hazard rate mapping
+//! - **Interest Rate**: Hull-White 1F or deterministic forward curves
+//!
+//! # Pricing Methodology
+//!
+//! The Monte Carlo pricer:
+//! 1. Simulates correlated paths for utilization, spreads, and rates
+//! 2. Generates cashflows along each path using the stochastic schedule
+//! 3. Applies survival probabilities if hazard curves are provided
+//! 4. Discounts and averages across all simulation paths
+//! 5. Adds upfront fee PV as a separate deterministic inflow
+//!
+//! # Example Usage
+//!
+//! ```rust,ignore
+//! use finstack_valuations::instruments::revolving_credit::pricer::stochastic::RevolvingCreditMcPricer;
+//!
+//! let pricer = RevolvingCreditMcPricer::new();
+//! let pv = pricer.price_stochastic(&facility, &market, as_of)?;
+//! ```
 
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
@@ -9,211 +43,29 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 
-use super::cashflows::generate_deterministic_cashflows_with_curves;
-use super::types::RevolvingCredit;
-
-/// Compute the present value of upfront fee paid at commitment.
-///
-/// The upfront fee is a one-time payment from the borrower to the lender (inflow to lender),
-/// paid at the commitment date and discounted to the valuation date.
-///
-/// # Arguments
-///
-/// * `upfront_fee_opt` - Optional upfront fee amount
-/// * `commitment_date` - Date when facility becomes available
-/// * `as_of` - Valuation date
-/// * `disc_curve` - Discount curve for PV calculation
-/// * `disc_dc` - Day count convention of the discount curve
-///
-/// # Returns
-///
-/// Present value of upfront fee (0.0 if no fee), discounted to `as_of` date
-fn compute_upfront_fee_pv(
-    upfront_fee_opt: Option<Money>,
-    commitment_date: Date,
-    as_of: Date,
-    disc_curve: &dyn finstack_core::market_data::traits::Discounting,
-    disc_dc: finstack_core::dates::DayCount,
-) -> finstack_core::Result<f64> {
-    let upfront_fee = match upfront_fee_opt {
-        Some(fee) => fee,
-        None => return Ok(0.0),
-    };
-
-    if commitment_date > as_of {
-        // Discount from commitment date to as_of
-        let base_date = disc_curve.base_date();
-        let t_commitment = disc_dc.year_fraction(
-            base_date,
-            commitment_date,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let t_as_of = disc_dc.year_fraction(
-            base_date,
-            as_of,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        let df_commitment = disc_curve.df(t_commitment);
-        let df_as_of = disc_curve.df(t_as_of);
-        let df = if df_as_of > 0.0 {
-            df_commitment / df_as_of
-        } else {
-            1.0
-        };
-
-        Ok(upfront_fee.amount() * df)
-    } else {
-        // Commitment date in past or today - no discounting needed
-        Ok(upfront_fee.amount())
-    }
-}
-
-
-/// Discounting pricer for revolving credit facilities with deterministic cashflows.
-///
-/// This pricer generates cashflows using the facility's deterministic schedule
-/// and discounts them using the discount curve.
-#[derive(Default)]
-pub struct RevolvingCreditDiscountingPricer;
-
-impl RevolvingCreditDiscountingPricer {
-    /// Create a new revolving credit discounting pricer.
-    pub fn new() -> Self {
-        Self
-    }
-
-    /// Price a revolving credit facility using deterministic cashflows.
-    pub fn price_deterministic(
-        facility: &RevolvingCredit,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<Money> {
-        // Generate cashflows (excludes upfront fee - handled below)
-        let schedule = generate_deterministic_cashflows_with_curves(facility, market, as_of)?;
-
-        // Get discount curve
-        let disc = market.get_discount_ref(facility.discount_curve_id.as_str())?;
-        let disc_dc = disc.day_count();
-        let base_date = disc.base_date();
-
-        // Get optional hazard curve for credit risk
-        let hazard_opt = facility
-            .hazard_curve_id
-            .as_ref()
-            .and_then(|hid| market.get_hazard_ref(hid.as_str()).ok());
-
-        // Compute PV of each cashflow with optional credit adjustment
-        // When hazard curve is present, apply survival probability: PV = amount * df(t) * sp(t)
-        let mut total_pv = 0.0;
-        let ccy = facility.commitment_amount.currency();
-
-        let mut future_dates = Vec::new();
-        for cf in &schedule.flows {
-            if cf.date > as_of {
-                future_dates.push(cf.date);
-            }
-        }
-
-        let hazard_survival = if let Some(hazard) = hazard_opt.as_ref() {
-            Some(hazard.survival_at_dates(&future_dates)?)
-        } else {
-            None
-        };
-
-        let mut sp_index = 0usize;
-
-        for cf in &schedule.flows {
-            if cf.date <= as_of {
-                continue; // Skip past cashflows
-            }
-
-            let t_df = disc_dc.year_fraction(
-                base_date,
-                cf.date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let df = disc.df(t_df);
-
-            // Apply survival probability if hazard curve is present
-            let sp = hazard_survival
-                .as_ref()
-                .map(|weights| {
-                    let value = weights
-                        .get(sp_index)
-                        .copied()
-                        .unwrap_or(1.0);
-                    value
-                })
-                .unwrap_or(1.0);
-
-            sp_index += 1;
-
-            let pv = cf.amount.amount() * df * sp;
-            total_pv += pv;
-        }
-
-        // Handle upfront fee at pricer level (consistent with MC pricer)
-        // Upfront fee is paid by borrower to lender at commitment, so it increases facility value (inflow)
-        let upfront_fee_pv = compute_upfront_fee_pv(
-            facility.fees.upfront_fee,
-            facility.commitment_date,
-            as_of,
-            disc as &dyn finstack_core::market_data::traits::Discounting,
-            disc_dc,
-        )?;
-
-        // Lender perspective: upfront fee is an inflow, so add to PV
-        let final_pv = total_pv + upfront_fee_pv;
-
-        Ok(Money::new(final_pv, ccy))
-    }
-}
-
-impl Pricer for RevolvingCreditDiscountingPricer {
-    fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::Discounting)
-    }
-
-    fn price_dyn(
-        &self,
-        instrument: &dyn Instrument,
-        market: &MarketContext,
-        _as_of: finstack_core::dates::Date,
-    ) -> Result<ValuationResult, PricingError> {
-        // Type-safe downcasting
-        let facility = instrument
-            .as_any()
-            .downcast_ref::<RevolvingCredit>()
-            .ok_or_else(|| {
-                PricingError::type_mismatch(InstrumentType::RevolvingCredit, instrument.key())
-            })?;
-
-        // Validate that we have a deterministic spec
-        if !facility.is_deterministic() {
-            return Err(PricingError::model_failure(
-                "RevolvingCreditDiscountingPricer requires deterministic cashflows".to_string(),
-            ));
-        }
-
-        // Extract valuation date from discount curve
-        let disc = market.get_discount_ref(facility.discount_curve_id.as_str())?;
-        let as_of = disc.base_date();
-
-        // Price the facility
-        let pv = Self::price_deterministic(facility, market, as_of)?;
-
-        // Return stamped result
-        Ok(ValuationResult::stamped(facility.id(), as_of, pv))
-    }
-}
+use super::super::types::RevolvingCredit;
+use super::super::pricer::deterministic::compute_upfront_fee_pv;
 
 /// Monte Carlo pricer for revolving credit facilities with stochastic utilization.
 ///
 /// This pricer simulates utilization paths using a mean-reverting process and
 /// averages the discounted cashflows across all paths to compute the expected PV.
+/// It supports multi-factor models with correlated utilization, credit spread,
+/// and interest rate dynamics.
 ///
 /// **Note**: Requires the `mc` feature to be enabled.
+///
+/// # Supported Models
+///
+/// - **Utilization Process**: Mean-reverting Ornstein-Uhlenbeck
+/// - **Credit Spread Process**: CIR or market-anchored hazard mapping
+/// - **Interest Rate Process**: Hull-White 1F or deterministic forward
+/// - **Correlation**: Full correlation matrix between factors
+///
+/// # Path Generation
+///
+/// The pricer uses either Philox or Sobol quasi-Monte Carlo sequences
+/// with optional antithetic sampling for variance reduction.
 #[cfg(feature = "mc")]
 #[derive(Default)]
 pub struct RevolvingCreditMcPricer;
@@ -232,12 +84,30 @@ impl RevolvingCreditMcPricer {
     ///
     /// Always uses the multi-factor modeling path with credit spread and interest rate dynamics.
     /// If `mc_config` is None, synthesizes a minimal configuration with zero credit spread.
+    ///
+    /// # Arguments
+    ///
+    /// * `facility` - The revolving credit facility to price
+    /// * `market` - Market data context containing curves and surfaces
+    /// * `as_of` - Valuation date
+    ///
+    /// # Returns
+    ///
+    /// Expected present value across all simulation paths.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Required market data is missing
+    /// - Stochastic specification is invalid
+    /// - Correlation matrix is not positive definite
+    /// - Path generation fails
     pub fn price_stochastic(
         facility: &RevolvingCredit,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        use super::types::{DrawRepaySpec, CreditSpreadProcessSpec, McConfig};
+        use super::super::types::{DrawRepaySpec, CreditSpreadProcessSpec, McConfig};
 
         // Extract stochastic spec
         let stoch_spec = match &facility.draw_repay_spec {
@@ -273,15 +143,33 @@ impl RevolvingCreditMcPricer {
     }
 
     /// Multi-factor Monte Carlo pricing with credit spread and interest rate dynamics.
+    ///
+    /// This is the core pricing implementation that handles the full stochastic model
+    /// with correlated factors. It automatically falls back to deterministic pricing
+    /// when all volatilities are effectively zero.
+    ///
+    /// # Process Details
+    ///
+    /// - **Utilization**: Mean-reverting OU with configurable speed, target, and volatility
+    /// - **Credit Spread**: CIR process or market-anchored mapping from hazard curves
+    /// - **Interest Rate**: Hull-White 1F with mean reversion and volatility
+    /// - **Correlation**: 3x3 correlation matrix between (utilization, credit spread, interest rate)
+    ///
+    /// # Performance Optimizations
+    ///
+    /// - Early exit for zero-volatility cases
+    /// - Efficient discount factor pre-computation
+    /// - Vectorized payoff evaluation
+    /// - Parallel path generation when `parallel` feature is enabled
     #[cfg(feature = "mc")]
     fn price_multi_factor(
         facility: &RevolvingCredit,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
-        stoch_spec: &super::types::StochasticUtilizationSpec,
-        mc_config: &super::types::McConfig,
+        stoch_spec: &super::super::types::StochasticUtilizationSpec,
+        mc_config: &super::super::types::McConfig,
     ) -> finstack_core::Result<Money> {
-        use super::types::{
+        use super::super::types::{
             BaseRateSpec, CreditSpreadProcessSpec, DrawRepaySpec, InterestRateProcessSpec,
             UtilizationProcess,
         };
@@ -315,7 +203,7 @@ impl RevolvingCreditMcPricer {
         if util_zero && credit_zero && rate_zero {
             let mut deterministic_facility = facility.clone();
             deterministic_facility.draw_repay_spec = DrawRepaySpec::Deterministic(Vec::new());
-            return RevolvingCreditDiscountingPricer::price_deterministic(
+            return super::deterministic::RevolvingCreditDiscountingPricer::price_deterministic(
                 &deterministic_facility,
                 market,
                 as_of,
@@ -546,17 +434,17 @@ impl RevolvingCreditMcPricer {
         let rate_projection = if let BaseRateSpec::Floating { index_id, margin_bp, reset_freq, floor_bp, .. } = &facility.base_rate_spec {
             // Get forward curve (validate it exists)
             let _fwd = market.get_forward_ref(index_id.as_str())?;
-            
+
             // Build reset schedule from commitment to maturity
-            let reset_dates: Vec<Date> = super::utils::build_reset_dates(facility)?
+            let reset_dates: Vec<Date> = super::super::utils::build_reset_dates(facility)?
                 .expect("floating rate facility must have reset dates");
-            
+
             // Map each MC step to its locked all-in rate
             let mut rates_by_step = Vec::with_capacity(num_steps + 1);
-            
+
             for step in 0..=num_steps {
                 let t_step = t_start + time_grid.time(step.min(num_steps));
-                
+
                 // Find the reset period containing this step
                 // Use the most recent reset date <= t_step
                 let step_date = base_date + time::Duration::days((t_step * 365.0).round() as i64);
@@ -565,9 +453,9 @@ impl RevolvingCreditMcPricer {
                     .find(|&&d| d <= step_date)
                     .copied()
                     .unwrap_or(facility.commitment_date);
-                
+
                 // Project floating rate for this step using helper
-                let all_in_rate = super::utils::project_floating_rate(
+                let all_in_rate = super::super::utils::project_floating_rate(
                     reset_date,
                     reset_freq,
                     index_id.as_str(),
@@ -576,10 +464,10 @@ impl RevolvingCreditMcPricer {
                     market,
                     &facility.attributes,
                 )?;
-                
+
                 rates_by_step.push(all_in_rate);
             }
-            
+
             RateProjection::TermLocked { rates_by_step }
         } else {
             // For fixed rate, use ShortRateIntegral (will be ignored)
@@ -709,7 +597,7 @@ impl Pricer for RevolvingCreditMcPricer {
 /// logic in Rust. It returns a `MonteCarloResult` that may include captured paths
 /// depending on the provided `PathCaptureConfig`.
 #[cfg(feature = "mc")]
-impl super::types::RevolvingCredit {
+impl super::super::types::RevolvingCredit {
     #[allow(clippy::too_many_arguments)]
     pub fn mc_paths_with_capture(
         &self,
@@ -720,7 +608,7 @@ impl super::types::RevolvingCredit {
     ) -> finstack_core::Result<
         crate::instruments::common::models::monte_carlo::results::MonteCarloResult,
     > {
-        use super::types::{
+        use super::super::types::{
             BaseRateSpec, CreditSpreadProcessSpec, DrawRepaySpec, InterestRateProcessSpec,
             UtilizationProcess,
         };
@@ -801,7 +689,7 @@ impl super::types::RevolvingCredit {
         let mc_cfg = if let Some(cfg) = stoch_spec.mc_config.as_ref() {
             cfg
         } else {
-            mc_cfg_synth = super::types::McConfig {
+            mc_cfg_synth = super::super::types::McConfig {
                 correlation_matrix: None,
                 recovery_rate: self.recovery_rate,
                 credit_spread_process: CreditSpreadProcessSpec::Constant(0.0),
@@ -966,7 +854,7 @@ impl super::types::RevolvingCredit {
             let _ = market.get_forward_ref(index_id.as_str())?;
             // Build reset schedule and map to locked all-in rates
             let reset_dates =
-                super::utils::build_reset_dates(self)?.expect("floating rate should have reset dates");
+                super::super::utils::build_reset_dates(self)?.expect("floating rate should have reset dates");
             let mut rates_by_step = Vec::with_capacity(num_steps + 1);
             for step in 0..=num_steps {
                 let t_step = t_start + time_grid.time(step.min(num_steps));
@@ -977,7 +865,7 @@ impl super::types::RevolvingCredit {
                     .find(|&&d| d <= step_date)
                     .copied()
                     .unwrap_or(self.commitment_date);
-                let all_in_rate = super::utils::project_floating_rate(
+                let all_in_rate = super::super::utils::project_floating_rate(
                     reset_date,
                     reset_freq,
                     index_id.as_str(),
@@ -1064,8 +952,9 @@ impl super::types::RevolvingCredit {
 }
 
 #[cfg(test)]
+#[cfg(feature = "mc")]
 mod tests {
-    use super::super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCreditFees};
+    use super::super::super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCreditFees};
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Frequency};
@@ -1075,6 +964,7 @@ mod tests {
     use time::Month;
 
     /// Helper to create a standard test facility with common defaults
+    #[allow(dead_code)]
     fn create_test_facility(
         id: &str,
         start: Date,
@@ -1094,23 +984,26 @@ mod tests {
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
             .fees(fees)
-            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+            .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
+                super::super::super::types::StochasticUtilizationSpec {
+                    utilization_process: super::super::super::types::UtilizationProcess::MeanReverting {
+                        target_rate: 0.5,
+                        speed: 1.0,
+                        volatility: 0.1,
+                    },
+                    num_paths: 100,
+                    seed: Some(42),
+                    antithetic: false,
+                    use_sobol_qmc: false,
+                    mc_config: None,
+                },
+            )))
             .discount_curve_id("USD-OIS".into())
             .recovery_rate(0.0)
             .build()
             .unwrap()
     }
 
-    #[test]
-    fn test_pricer_key() {
-        let pricer = RevolvingCreditDiscountingPricer::new();
-        assert_eq!(
-            pricer.key(),
-            PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::Discounting)
-        );
-    }
-
-    #[cfg(feature = "mc")]
     #[test]
     fn test_mc_pricer_key() {
         let pricer = RevolvingCreditMcPricer::new();
@@ -1120,114 +1013,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_deterministic_period_pv_consistency() {
-        // Test that sum of per-period PVs equals total NPV
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-
-        let facility = create_test_facility(
-            "RC-TEST",
-            start,
-            end,
-            10_000_000.0,
-            5_000_000.0,
-            BaseRateSpec::Fixed { rate: 0.05 },
-            RevolvingCreditFees::flat(25.0, 10.0, 5.0),
-        );
-
-        // Create a simple flat discount curve
-        let base_date = start;
-        let disc_curve = DiscountCurve::builder("USD-OIS")
-            .base_date(base_date)
-            .day_count(DayCount::Act365F)
-            .knots([
-                (0.0, 1.0),
-                (1.0, (-0.03f64).exp()),
-                (5.0, (-0.03f64 * 5.0).exp()),
-            ])
-            .build()
-            .unwrap();
-        let hazard_curve = HazardCurve::builder("TEST-HZD")
-            .base_date(base_date)
-            .day_count(DayCount::Act365F)
-            .knots([(0.0, 0.0)])
-            .build()
-            .unwrap();
-        let market = MarketContext::new()
-            .insert_discount(disc_curve)
-            .insert_hazard(hazard_curve);
-
-        let pv = match RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start) {
-            Ok(value) => value,
-            Err(err) => panic!("deterministic pricing failed: {:?}", err),
-        };
-
-        // Verify we get a reasonable PV magnitude
-        assert!(
-            pv.amount().abs() < 10_000_000.0,
-            "PV magnitude should be reasonable"
-        );
-    }
-
-    #[test]
-    fn test_deterministic_with_draw_repay() {
-        // Test deterministic pricing with draw/repay events
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-        let draw_date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
-
-        let facility = RevolvingCredit::builder()
-            .id("RC-TEST-2".into())
-            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
-            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
-            .commitment_date(start)
-            .maturity_date(end)
-            .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
-            .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
-            .fees(RevolvingCreditFees::default())
-            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![
-                super::super::types::DrawRepayEvent {
-                    date: draw_date,
-                    amount: Money::new(2_000_000.0, Currency::USD),
-                    is_draw: true,
-                },
-            ]))
-            .discount_curve_id("USD-OIS".into())
-            .recovery_rate(0.0)
-            .build()
-            .unwrap();
-
-        let base_date = start;
-        let disc_curve = DiscountCurve::builder("USD-OIS")
-            .base_date(base_date)
-            .day_count(DayCount::Act365F)
-            .knots([
-                (0.0, 1.0),
-                (1.0, (-0.03f64).exp()),
-                (5.0, (-0.03f64 * 5.0).exp()),
-            ])
-            .build()
-            .unwrap();
-        let hazard_curve = HazardCurve::builder("TEST-HZD")
-            .base_date(base_date)
-            .day_count(DayCount::Act365F)
-            .knots([(0.0, 0.0)])
-            .build()
-            .unwrap();
-        let market = MarketContext::new()
-            .insert_discount(disc_curve)
-            .insert_hazard(hazard_curve);
-
-        let pv = RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start)
-            .unwrap();
-
-        // Should price successfully
-        assert!(pv.currency() == Currency::USD);
-    }
-
-    #[cfg(feature = "mc")]
     #[test]
     fn test_mc_zero_volatility_matches_deterministic() {
         // Test that MC with zero volatility (single deterministic path) matches deterministic pricing
@@ -1262,8 +1047,8 @@ mod tests {
             .payment_frequency(Frequency::quarterly())
             .fees(RevolvingCreditFees::default())
             .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
-                super::super::types::StochasticUtilizationSpec {
-                    utilization_process: super::super::types::UtilizationProcess::MeanReverting {
+                super::super::super::types::StochasticUtilizationSpec {
+                    utilization_process: super::super::super::types::UtilizationProcess::MeanReverting {
                         target_rate: 0.5,
                         speed: 100.0, // High speed = stays at target
                         volatility: 1e-6, // Effectively zero volatility
@@ -1272,7 +1057,6 @@ mod tests {
                     seed: Some(42),
                     antithetic: false,
                     use_sobol_qmc: false,
-                    #[cfg(feature = "mc")]
                     mc_config: None,
                 },
             )))
@@ -1310,7 +1094,7 @@ mod tests {
             .insert_hazard(hazard_curve);
 
         let pv_det =
-            RevolvingCreditDiscountingPricer::price_deterministic(&facility_det, &market, start)
+            crate::instruments::revolving_credit::pricer::deterministic::RevolvingCreditDiscountingPricer::price_deterministic(&facility_det, &market, start)
                 .unwrap();
         let pv_mc =
             RevolvingCreditMcPricer::price_stochastic(&facility_mc, &market, start).unwrap();
@@ -1326,100 +1110,10 @@ mod tests {
     }
 
     #[test]
-    fn test_deterministic_survival_uses_hazard_axis() {
-        use time::Duration;
-
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-
-        let facility = RevolvingCredit::builder()
-            .id("RC-HZD".into())
-            .commitment_amount(Money::new(8_000_000.0, Currency::USD))
-            .drawn_amount(Money::new(4_000_000.0, Currency::USD))
-            .commitment_date(start)
-            .maturity_date(end)
-            .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
-            .day_count(DayCount::Act360)
-            .payment_frequency(Frequency::quarterly())
-            .fees(RevolvingCreditFees::flat(20.0, 10.0, 5.0))
-            .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
-            .discount_curve_id("USD-OIS".into())
-            .hazard_curve_id(CurveId::from("BORROWER-HZD"))
-            .recovery_rate(0.4)
-            .build()
-            .unwrap();
-
-        let disc_curve = DiscountCurve::builder("USD-OIS")
-            .base_date(start)
-            .day_count(DayCount::Act365F)
-            .knots([
-                (0.0, 1.0),
-                (1.0, (-0.025f64).exp()),
-                (5.0, (-0.025f64 * 5.0).exp()),
-            ])
-            .build()
-            .unwrap();
-        let disc_curve_shifted = DiscountCurve::builder("USD-OIS")
-            .base_date(start)
-            .day_count(DayCount::Act365F)
-            .knots([
-                (0.0, 1.0),
-                (1.0, (-0.025f64).exp()),
-                (5.0, (-0.025f64 * 5.0).exp()),
-            ])
-            .build()
-            .unwrap();
-
-        let hazard_same_axis = HazardCurve::builder("BORROWER-HZD")
-            .base_date(start)
-            .day_count(DayCount::Act365F)
-            .knots([
-                (0.0, 0.01),
-                (1.0, 0.012),
-                (5.0, 0.015),
-            ])
-            .build()
-            .unwrap();
-
-        let hazard_shifted_axis = HazardCurve::builder("BORROWER-HZD")
-            .base_date(start + Duration::days(60))
-            .day_count(DayCount::Act360)
-            .knots([
-                (0.0, 0.01),
-                (1.0, 0.012),
-                (5.0, 0.015),
-            ])
-            .build()
-            .unwrap();
-
-        let market_same = MarketContext::new()
-            .insert_discount(disc_curve)
-            .insert_hazard(hazard_same_axis);
-        let market_shifted = MarketContext::new()
-            .insert_discount(disc_curve_shifted)
-            .insert_hazard(hazard_shifted_axis);
-
-        let pv_same =
-            RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market_same, start)
-                .unwrap();
-        let pv_shifted =
-            RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market_shifted, start)
-                .unwrap();
-
-        assert!(
-            (pv_same.amount() - pv_shifted.amount()).abs() > 1e-4,
-            "Changing the hazard curve axis should change survival weighting (same={}, shifted={})",
-            pv_same.amount(),
-            pv_shifted.amount()
-        );
-    }
-
-    #[cfg(feature = "mc")]
-    #[test]
     fn test_mc_parity_floating_term_locked() {
         // Test that MC with term-locked projection matches deterministic for floating rate
         use finstack_core::market_data::term_structures::ForwardCurve;
-        
+
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
@@ -1463,8 +1157,8 @@ mod tests {
             .payment_frequency(Frequency::quarterly())
             .fees(RevolvingCreditFees::default())
             .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
-                super::super::types::StochasticUtilizationSpec {
-                    utilization_process: super::super::types::UtilizationProcess::MeanReverting {
+                super::super::super::types::StochasticUtilizationSpec {
+                    utilization_process: super::super::super::types::UtilizationProcess::MeanReverting {
                         target_rate: 0.5,
                         speed: 100.0, // High speed = stays at target
                         volatility: 1e-6, // Effectively zero volatility
@@ -1473,7 +1167,6 @@ mod tests {
                     seed: Some(42),
                     antithetic: false,
                     use_sobol_qmc: false,
-                    #[cfg(feature = "mc")]
                     mc_config: None, // Will synthesize minimal config with term-locked projection
                 },
             )))
@@ -1494,7 +1187,7 @@ mod tests {
             ])
             .build()
             .unwrap();
-        
+
         let fwd_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(base_date)
             .day_count(DayCount::Act360)
@@ -1505,7 +1198,7 @@ mod tests {
             ])
             .build()
             .unwrap();
-            
+
         let hazard_curve = HazardCurve::builder("USD-HZD")
             .base_date(base_date)
             .day_count(DayCount::Act360)
@@ -1518,7 +1211,7 @@ mod tests {
             .insert_hazard(hazard_curve);
 
         let pv_det =
-            RevolvingCreditDiscountingPricer::price_deterministic(&facility_det, &market, start)
+            crate::instruments::revolving_credit::pricer::deterministic::RevolvingCreditDiscountingPricer::price_deterministic(&facility_det, &market, start)
                 .unwrap();
         let pv_mc =
             RevolvingCreditMcPricer::price_stochastic(&facility_mc, &market, start).unwrap();
@@ -1531,131 +1224,5 @@ mod tests {
             "MC with term-locked projection should match deterministic, diff: {}, relative: {:.2}%",
             diff, relative_error * 100.0
         );
-    }
-
-    #[test]
-    fn test_payment_dates_parity_with_utils() {
-        // Test that our refactored code using utils produces identical payment dates
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-
-        let facility = create_test_facility(
-            "RC-PARITY-TEST",
-            start,
-            end,
-            10_000_000.0,
-            5_000_000.0,
-            BaseRateSpec::Fixed { rate: 0.05 },
-            RevolvingCreditFees::default(),
-        );
-
-        // Without sentinel for cashflow generation
-        let dates_no_sentinel = super::super::utils::build_payment_dates(&facility, false).unwrap();
-        assert!(dates_no_sentinel.len() >= 2);
-        
-        // Last date should be at or before maturity
-        assert!(*dates_no_sentinel.last().unwrap() <= end);
-
-        // With sentinel for PV aggregation
-        let dates_with_sentinel = super::super::utils::build_payment_dates(&facility, true).unwrap();
-        assert_eq!(dates_with_sentinel.len(), dates_no_sentinel.len() + 1);
-        
-        // Sentinel should be one day after last payment
-        let last_payment = dates_no_sentinel.last().unwrap();
-        let sentinel = dates_with_sentinel.last().unwrap();
-        assert_eq!(*sentinel, *last_payment + time::Duration::days(1));
-    }
-
-    #[test]
-    fn test_reset_dates_parity_fixed_vs_floating() {
-        // Test that fixed returns None and floating returns Some with correct dates
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-
-        // Fixed facility
-        let facility_fixed = create_test_facility(
-            "RC-FIXED",
-            start,
-            end,
-            10_000_000.0,
-            5_000_000.0,
-            BaseRateSpec::Fixed { rate: 0.05 },
-            RevolvingCreditFees::default(),
-        );
-
-        let reset_dates_fixed = super::super::utils::build_reset_dates(&facility_fixed).unwrap();
-        assert!(reset_dates_fixed.is_none(), "Fixed rate should return None");
-
-        // Floating facility
-        let facility_floating = create_test_facility(
-            "RC-FLOAT",
-            start,
-            end,
-            10_000_000.0,
-            5_000_000.0,
-            BaseRateSpec::Floating {
-                index_id: "USD-SOFR-3M".into(),
-                margin_bp: 200.0,
-                reset_freq: Frequency::quarterly(),
-                floor_bp: None,
-            },
-            RevolvingCreditFees::default(),
-        );
-
-        let reset_dates_floating = match super::super::utils::build_reset_dates(&facility_floating) {
-            Ok(dates) => dates,
-            Err(err) => panic!("failed to build reset dates: {:?}", err),
-        };
-        assert!(reset_dates_floating.is_some(), "Floating rate should return Some");
-        
-        let dates = reset_dates_floating.unwrap();
-        assert!(dates.len() >= 2, "Should have at least 2 reset dates");
-    }
-
-    #[test]
-    fn test_period_pv_parity_with_helper_periods() {
-        // Test that total PV using helper-generated payment dates matches expectations
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-
-        let facility = create_test_facility(
-            "RC-PV-PARITY",
-            start,
-            end,
-            10_000_000.0,
-            5_000_000.0,
-            BaseRateSpec::Fixed { rate: 0.05 },
-            RevolvingCreditFees::flat(25.0, 10.0, 5.0),
-        );
-
-        let base_date = start;
-        let disc_curve = DiscountCurve::builder("USD-OIS")
-            .base_date(base_date)
-            .day_count(DayCount::Act365F)
-            .knots([
-                (0.0, 1.0),
-                (1.0, (-0.03f64).exp()),
-                (5.0, (-0.03f64 * 5.0).exp()),
-            ])
-            .build()
-            .unwrap();
-        let market = MarketContext::new().insert_discount(disc_curve);
-
-        // Price using deterministic pricer (which uses our helpers internally)
-        let pv = RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start)
-            .unwrap();
-
-        // PV should be finite and reasonable
-        assert!(pv.amount().is_finite());
-        assert!(
-            pv.amount().abs() < facility.commitment_amount.amount(),
-            "PV magnitude should be less than commitment"
-        );
-
-        // Price a second time to ensure consistency
-        let pv2 = RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, start)
-            .unwrap();
-        
-        assert_eq!(pv.amount(), pv2.amount(), "Multiple calls should produce identical PVs");
     }
 }
