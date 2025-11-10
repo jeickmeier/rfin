@@ -72,6 +72,7 @@ mod tests {
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::MarketContext;
     use finstack_core::money::Money;
+    use finstack_core::types::CurveId;
     use time::Month;
 
     #[test]
@@ -91,6 +92,8 @@ mod tests {
             .fees(RevolvingCreditFees::default())
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
+            .hazard_curve_id(CurveId::from("TEST-HZD"))
+            .recovery_rate(0.0)
             .build()
             .unwrap();
 
@@ -148,6 +151,8 @@ mod tests {
             .fees(RevolvingCreditFees::default())
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
+            .hazard_curve_id(CurveId::from("TEST-HZD"))
+            .recovery_rate(0.0)
             .build()
             .unwrap();
 
@@ -163,6 +168,8 @@ mod tests {
             .fees(RevolvingCreditFees::default())
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
+            .hazard_curve_id(CurveId::from("TEST-HZD"))
+            .recovery_rate(0.0)
             .build()
             .unwrap();
 

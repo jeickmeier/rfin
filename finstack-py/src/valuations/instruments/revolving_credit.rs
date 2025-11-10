@@ -17,12 +17,12 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
 use pyo3::Bound;
 use std::collections::HashMap;
+use finstack_valuations::instruments::common::traits::Instrument;
 
 /// Revolving credit facility instrument.
 #[pyclass(
     module = "finstack.valuations.instruments",
-    name = "RevolvingCredit",
-    frozen
+    name = "RevolvingCredit"
 )]
 #[derive(Clone, Debug)]
 pub struct PyRevolvingCredit {
@@ -37,9 +37,24 @@ impl PyRevolvingCredit {
 
 #[pymethods]
 impl PyRevolvingCredit {
+    /// Set the pricing model override for .value()/.npv() via instrument attributes.
+    ///
+    /// This sets a metadata key "pricing_model" which the Rust instrument reads to
+    /// dispatch through the pricer registry (e.g., "discounting", "monte_carlo_gbm").
+    ///
+    /// Args:
+    ///     model: Model key string (e.g., "discounting", "monte_carlo_gbm")
+    fn set_pricing_model(&mut self, model: &str) {
+        // Safe to mutate inner attributes even with #[pyclass(frozen)]
+        let attrs = self.inner.attributes_mut();
+        attrs
+            .meta
+            .insert("pricing_model".to_string(), model.to_string());
+    }
     #[classmethod]
     #[pyo3(
-        text_signature = "(cls, instrument_id, commitment_amount, drawn_amount, commitment_date, maturity_date, base_rate_spec, payment_frequency, fees, draw_repay_spec, discount_curve)"
+        signature = (instrument_id, commitment_amount, drawn_amount, commitment_date, maturity_date, base_rate_spec, payment_frequency, fees, draw_repay_spec, discount_curve, hazard_curve=None, recovery_rate=0.0),
+        text_signature = "(cls, instrument_id, commitment_amount, drawn_amount, commitment_date, maturity_date, base_rate_spec, payment_frequency, fees, draw_repay_spec, discount_curve, hazard_curve=None, recovery_rate=0.0)"
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a revolving credit facility.
@@ -55,6 +70,8 @@ impl PyRevolvingCredit {
     ///     fees: Fee structure dict.
     ///     draw_repay_spec: Draw/repayment specification (dict).
     ///     discount_curve: Discount curve identifier.
+    ///     hazard_curve: Optional hazard curve identifier for credit risk (e.g., 'BORROWER-A'). Defaults to None.
+    ///     recovery_rate: Recovery rate on default (e.g., 0.40 for 40%). Defaults to 0.0.
     ///
     /// Returns:
     ///     RevolvingCredit: Configured revolving credit instrument.
@@ -70,6 +87,8 @@ impl PyRevolvingCredit {
         fees: Bound<'_, PyAny>,
         draw_repay_spec: Bound<'_, PyAny>,
         discount_curve: Bound<'_, PyAny>,
+        hazard_curve: Option<String>,
+        recovery_rate: Option<f64>,
     ) -> PyResult<Self> {
         use finstack_core::dates::DayCount;
 
@@ -423,7 +442,6 @@ impl PyRevolvingCredit {
                     seed,
                     antithetic: false,
                     use_sobol_qmc: false,
-                    default_model: None,
                     mc_config: mc_config_opt,
                 };
                 DrawRepaySpec::Stochastic(Box::new(spec))
@@ -447,6 +465,14 @@ impl PyRevolvingCredit {
         builder = builder.fees(fees_struct);
         builder = builder.draw_repay_spec(draw_repay);
         builder = builder.discount_curve_id(discount_curve_id);
+
+        // Add optional hazard curve for credit risk
+        if let Some(hc_id) = hazard_curve {
+            builder = builder.hazard_curve_id(finstack_core::types::CurveId::new(&hc_id));
+        }
+        
+        // Add recovery rate (defaults to 0.0 if not provided)
+        builder = builder.recovery_rate(recovery_rate.unwrap_or(0.0));
         builder = builder.day_count(DayCount::Act365F);
         let rev_credit = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!(
@@ -480,335 +506,32 @@ impl PyRevolvingCredit {
         sample_count: usize,
         seed: u64,
     ) -> pyo3::PyResult<PyMonteCarloResult> {
-        use finstack_valuations::instruments::common::mc::process::ProcessMetadata;
-        use finstack_valuations::instruments::common::mc::traits::StochasticProcess;
-        use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
-        use finstack_valuations::instruments::common::mc::rng::sobol::SobolRng;
-        use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
-        use finstack_valuations::instruments::common::models::monte_carlo::discretization::revolving_credit::RevolvingCreditDiscretization;
-        use finstack_valuations::instruments::common::models::monte_carlo::engine::{McEngineBuilder, PathCaptureConfig};
-        use finstack_valuations::instruments::common::models::monte_carlo::payoff::revolving_credit::{FeeStructure, RevolvingCreditPayoff};
-        use finstack_valuations::instruments::common::models::monte_carlo::process::revolving_credit::{
-            CreditSpreadParams, InterestRateSpec, RevolvingCreditProcess, RevolvingCreditProcessParams, UtilizationParams,
-        };
+        use finstack_valuations::instruments::common::models::monte_carlo::engine::PathCaptureConfig;
 
-        // Ensure stochastic spec with mc_config exists
-        let stoch_spec = match &self.inner.draw_repay_spec {
-            finstack_valuations::instruments::revolving_credit::types::DrawRepaySpec::Stochastic(spec) => spec.as_ref(),
-            _ => {
-                return Err(PyValueError::new_err(
-                    "mc_paths requires a stochastic draw_repay_spec with mc_config",
-                ))
-            }
-        };
-        let mc_config = stoch_spec.mc_config.as_ref().ok_or_else(|| {
-            PyValueError::new_err("mc_paths requires mc_config in stochastic specification")
-        })?;
-
-        // Resolve valuation date from discount curve if not provided
+        // Resolve as_of date from discount curve if not provided
         let disc = market
             .inner
             .get_discount_ref(self.inner.discount_curve_id.as_str())
-            .map_err(crate::core::error::core_to_py)?;
+            .map_err(core_to_py)?;
         let as_of_date = match as_of {
             Some(d) => crate::core::utils::py_to_date(&d)?,
             None => disc.base_date(),
         };
 
-        // Utilization params
-        let util_params = match &stoch_spec.utilization_process {
-            finstack_valuations::instruments::revolving_credit::types::UtilizationProcess::MeanReverting { target_rate, speed, volatility } => {
-                UtilizationParams::new(*speed, *target_rate, *volatility)
-            }
-        };
-
-        // Interest rate spec
-        use finstack_valuations::instruments::revolving_credit::types::BaseRateSpec as RcBase;
-        let interest_rate_spec = match &self.inner.base_rate_spec {
-            RcBase::Fixed { rate } => InterestRateSpec::Fixed { rate: *rate },
-            RcBase::Floating { .. } => {
-                match &mc_config.interest_rate_process {
-                    Some(finstack_valuations::instruments::revolving_credit::types::InterestRateProcessSpec::HullWhite1F{ kappa, sigma, initial, theta }) => {
-                        use finstack_valuations::instruments::common::mc::process::ou::HullWhite1FParams;
-                        InterestRateSpec::Floating { params: HullWhite1FParams::new(*kappa, *sigma, *theta), initial: *initial }
-                    }
-                    None => {
-                        // Deterministic forward curve fallback
-                        let fwd = market
-                            .inner
-                            .get_forward_ref(match &self.inner.base_rate_spec { RcBase::Floating { index_id, .. } => index_id.as_str(), _ => unreachable!() })
-                            .map_err(crate::core::error::core_to_py)?;
-                        let times = fwd.knots().to_vec();
-                        let rates = fwd.forwards().to_vec();
-                        InterestRateSpec::DeterministicForward { times, rates }
-                    }
-                }
-            }
-        };
-
-        // Credit spread params (supports MarketAnchored and others)
-        use finstack_valuations::instruments::revolving_credit::types::CreditSpreadProcessSpec as CsSpec;
-        let credit_spread_params = match &mc_config.credit_spread_process {
-            CsSpec::Cir {
-                kappa,
-                theta,
-                sigma,
-                initial,
-            } => CreditSpreadParams::new(*kappa, *theta, *sigma, *initial),
-            CsSpec::Constant(spread) => CreditSpreadParams::new(0.01, *spread, 0.001, *spread),
-            CsSpec::MarketAnchored {
-                hazard_curve_id,
-                kappa,
-                implied_vol,
-                tenor_years,
-            } => {
-                let hazard = market
-                    .inner
-                    .get_hazard_ref(hazard_curve_id.as_str())
-                    .map_err(crate::core::error::core_to_py)?;
-                let dc = hazard.day_count();
-                let base_date = hazard.base_date();
-                let t_maturity = dc
-                    .year_fraction(
-                        base_date,
-                        self.inner.maturity_date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .map_err(crate::core::error::core_to_py)?;
-                let t = tenor_years.unwrap_or_else(|| t_maturity.max(1e-8));
-                let sp_t = hazard.sp(t);
-                let avg_lambda = if t > 0.0 { (-sp_t.ln()) / t } else { 0.0 };
-                let mut first_lambda = None;
-                if let Some((_, lambda)) = hazard.knot_points().next() {
-                    first_lambda = Some(lambda.max(0.0));
-                }
-                let lambda0 = first_lambda.unwrap_or(avg_lambda).max(0.0);
-                let one_minus_r = (1.0 - mc_config.recovery_rate).max(1e-6);
-                let s0 = one_minus_r * lambda0;
-                let s_bar = one_minus_r * avg_lambda;
-                let k = *kappa;
-                let a = if (k * t).abs() < 1e-8 {
-                    1.0 - 0.5 * k * t
-                } else {
-                    (1.0 - (-k * t).exp()) / (k * t)
-                };
-                let theta = if (1.0 - a).abs() < 1e-12 {
-                    s_bar
-                } else {
-                    ((s_bar - a * s0) / (1.0 - a)).max(0.0)
-                };
-                let sigma = (*implied_vol) * s_bar.max(1e-12).sqrt();
-                CreditSpreadParams::new(k, theta, sigma, s0)
-            }
-        };
-
-        // Time grid setup (quarterly)
-        let disc_curve = disc; // alias
-        let disc_dc = disc_curve.day_count();
-        let base_date = disc_curve.base_date();
-        let t_start = disc_dc
-            .year_fraction(
-                base_date,
-                self.inner.commitment_date.max(as_of_date),
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .map_err(crate::core::error::core_to_py)?;
-        let t_end = disc_dc
-            .year_fraction(
-                base_date,
-                self.inner.maturity_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .map_err(crate::core::error::core_to_py)?;
-        let time_horizon = (t_end - t_start).max(0.0);
-        let num_steps = ((time_horizon / 0.25).ceil() as usize).max(1);
-        let time_grid =
-            TimeGrid::uniform(time_horizon, num_steps).map_err(crate::core::error::core_to_py)?;
-
-        // Build process and discretization
-        let mut process_params = RevolvingCreditProcessParams::new(
-            util_params,
-            interest_rate_spec,
-            credit_spread_params,
-        );
-        if let Some(corr) = mc_config.correlation_matrix {
-            process_params = process_params.with_correlation(corr);
-        } else if let Some(rho) = mc_config.util_credit_corr.or(Some(0.8)) {
-            let correlation = [[1.0, 0.0, rho], [0.0, 1.0, 0.0], [rho, 0.0, 1.0]];
-            process_params = process_params.with_correlation(correlation);
-        }
-        process_params = process_params.with_time_offset(t_start);
-        let process = RevolvingCreditProcess::new(process_params);
-        let discz = RevolvingCreditDiscretization::from_process(&process)
-            .map_err(crate::core::error::core_to_py)?;
-
-        // Precompute discount factors for payoff (needed for internal PV accumulation)
-        let disc_curve = market
-            .inner
-            .get_discount_ref(self.inner.discount_curve_id.as_str())
-            .map_err(crate::core::error::core_to_py)?;
-        let disc_dc = disc_curve.day_count();
-        let base_date = disc_curve.base_date();
-
-        let t_as_of = disc_dc
-            .year_fraction(
-                base_date,
-                as_of_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .map_err(crate::core::error::core_to_py)?;
-        let df_as_of = disc_curve.df(t_as_of);
-
-        let mut discount_factors = Vec::with_capacity(num_steps + 1);
-        discount_factors.push(if df_as_of > 0.0 {
-            disc_curve.df(t_start) / df_as_of
-        } else {
-            1.0
-        });
-        for i in 0..num_steps {
-            let t_abs = t_start + time_grid.time(i + 1);
-            let df_abs = disc_curve.df(t_abs);
-            discount_factors.push(if df_as_of > 0.0 {
-                df_abs / df_as_of
-            } else {
-                1.0
-            });
-        }
-
-        // Payoff
-        let initial_utilization = self.inner.utilization_rate();
-        let fees = FeeStructure::new(
-            self.inner.fees.commitment_fee_bps(initial_utilization),
-            self.inner.fees.usage_fee_bps(initial_utilization),
-            self.inner.fees.facility_fee_bp,
-        );
-        let is_fixed_rate = matches!(self.inner.base_rate_spec, RcBase::Fixed { .. });
-        let (fixed_rate, margin_bp) = match &self.inner.base_rate_spec {
-            RcBase::Fixed { rate } => (*rate, 0.0),
-            RcBase::Floating { margin_bp, .. } => (0.0, *margin_bp),
-        };
-        
-        // Build rate projection for floating rates (simplified - always use ShortRateIntegral for Python)
-        // Full term-locked projection requires substantial date manipulation; defer to future enhancement
-        use finstack_valuations::instruments::common::models::monte_carlo::payoff::revolving_credit::RateProjection;
-        let rate_projection = RateProjection::ShortRateIntegral;
-        
-        let payoff = RevolvingCreditPayoff::new(
-            self.inner.commitment_amount.amount(),
-            self.inner.day_count,
-            is_fixed_rate,
-            fixed_rate,
-            margin_bp,
-            fees,
-            mc_config.recovery_rate,
-            time_horizon,
-            discount_factors,
-            rate_projection,
-        );
-
-        // Engine with path capture (payoffs enabled)
+        // Configure path capture (payoffs enabled)
         let path_capture = match capture_mode {
             "all" => PathCaptureConfig::all().with_payoffs(),
             _ => PathCaptureConfig::sample(sample_count, seed).with_payoffs(),
         };
-        let engine = McEngineBuilder::new()
-            .num_paths(stoch_spec.num_paths)
-            .seed(stoch_spec.seed.unwrap_or(seed))
-            .time_grid(time_grid)
-            .parallel(false) // Controlled by user; parallel feature must be enabled separately
-            .antithetic(stoch_spec.antithetic)
-            .path_capture(path_capture)
-            .build()
-            .map_err(crate::core::error::core_to_py)?;
 
-        // RNGs
-        let rng_philox = PhiloxRng::new(seed);
-        let sobol_dim = process.num_factors();
-        let rng_sobol = SobolRng::new(sobol_dim, seed);
-        let use_sobol = stoch_spec.use_sobol_qmc;
-
-        // Initial state
-        let initial_utilization = self.inner.utilization_rate();
-        let initial_state = process.params().initial_state(initial_utilization);
-
-        // Run with capture and return MonteCarloResult
-        let mc_result = py.allow_threads(|| {
-            if use_sobol {
-                engine
-                    .price_with_capture::<SobolRng, _, _, _>(
-                        &rng_sobol,
-                        &process,
-                        &discz,
-                        &initial_state,
-                        &payoff,
-                        self.inner.commitment_amount.currency(),
-                        1.0,
-                        process.metadata(),
-                    )
-                    .map_err(crate::core::error::core_to_py)
-            } else {
-                engine
-                    .price_with_capture::<PhiloxRng, _, _, _>(
-                        &rng_philox,
-                        &process,
-                        &discz,
-                        &initial_state,
-                        &payoff,
-                        self.inner.commitment_amount.currency(),
-                        1.0,
-                        process.metadata(),
-                    )
-                    .map_err(crate::core::error::core_to_py)
-            }
+        // Delegate full MC logic to Rust instrument method
+        let result = py.allow_threads(|| {
+            self.inner
+                .mc_paths_with_capture(&market.inner, Some(as_of_date), path_capture, seed)
+                .map_err(core_to_py)
         })?;
 
-        // Handle upfront fee at pricer level (one-time cashflow, not path-dependent)
-        // Upfront fee is paid by lender at commitment, so it reduces facility value
-        let upfront_fee_pv = if let Some(upfront_fee) = self.inner.fees.upfront_fee {
-            // Recompute discount factors for upfront fee adjustment
-            let disc_curve = market
-                .inner
-                .get_discount_ref(self.inner.discount_curve_id.as_str())
-                .map_err(crate::core::error::core_to_py)?;
-            let base_date = disc_curve.base_date();
-            let disc_dc = disc_curve.day_count();
-
-            let t_start = disc_dc
-                .year_fraction(
-                    base_date,
-                    self.inner.commitment_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .map_err(crate::core::error::core_to_py)?;
-            let t_as_of = disc_dc
-                .year_fraction(
-                    base_date,
-                    as_of_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .map_err(crate::core::error::core_to_py)?;
-
-            let df_as_of = disc_curve.df(t_as_of);
-            let df_commitment = disc_curve.df(t_start);
-            let df = if df_as_of > 0.0 {
-                df_commitment / df_as_of
-            } else {
-                1.0
-            };
-            upfront_fee.amount() * df
-        } else {
-            0.0
-        };
-
-        // Adjust the PV: lender pays upfront fee (outflow), so subtract from PV
-        let mut adjusted_result = mc_result;
-        let adjusted_mean = adjusted_result.estimate.mean.amount() - upfront_fee_pv;
-        adjusted_result.estimate.mean = finstack_core::money::Money::new(
-            adjusted_mean,
-            self.inner.commitment_amount.currency(),
-        );
-
-        Ok(PyMonteCarloResult::new(adjusted_result))
+        Ok(PyMonteCarloResult::new(result))
     }
 
     /// Instrument identifier.

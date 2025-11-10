@@ -445,6 +445,7 @@ mod tests {
     use crate::instruments::revolving_credit::DrawRepayEvent;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::types::CurveId;
     use time::Month;
 
     /// Helper to create a standard test facility with common defaults
@@ -469,6 +470,8 @@ mod tests {
             .fees(Default::default())
             .draw_repay_spec(DrawRepaySpec::Deterministic(events))
             .discount_curve_id("USD-OIS".into())
+            .hazard_curve_id(CurveId::from("TEST-HZD"))
+            .recovery_rate(0.0)
             .build()
             .unwrap()
     }
@@ -494,6 +497,8 @@ mod tests {
             })
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
+            .hazard_curve_id(CurveId::from("TEST-HZD"))
+            .recovery_rate(0.0)
             .build()
             .unwrap();
 
@@ -644,6 +649,8 @@ mod tests {
             })
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
+            .hazard_curve_id(CurveId::from("TEST-HZD"))
+            .recovery_rate(0.0)
             .build()
             .unwrap();
 
@@ -723,6 +730,8 @@ mod tests {
             .fees(Default::default())
             .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
             .discount_curve_id("USD-OIS".into())
+            .hazard_curve_id(CurveId::from("TEST-HZD"))
+            .recovery_rate(0.0)
             .build()
             .unwrap();
 
@@ -761,6 +770,8 @@ mod tests {
                 is_draw: false,
             }]))
             .discount_curve_id("USD-OIS".into())
+            .hazard_curve_id(CurveId::from("TEST-HZD"))
+            .recovery_rate(0.0)
             .build()
             .unwrap();
 

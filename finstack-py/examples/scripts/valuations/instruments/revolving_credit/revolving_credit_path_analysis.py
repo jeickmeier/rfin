@@ -169,7 +169,6 @@ def create_stochastic_facility(
                 "seed": seed,
                 "antithetic": True,
                 "use_sobol_qmc": False,
-                "default_model": None,
                 # Enable multi-factor MC with credit spread and interest rate dynamics
                 "mc_config": {
                     "recovery_rate": 0.40,

@@ -303,6 +303,8 @@ mod tests {
             fees: super::super::types::RevolvingCreditFees::default(),
             draw_repay_spec: super::super::types::DrawRepaySpec::Deterministic(vec![]),
             discount_curve_id: "USD-OIS".into(),
+            hazard_curve_id: None,
+            recovery_rate: 0.0,
             attributes: attrs,
         }
     }

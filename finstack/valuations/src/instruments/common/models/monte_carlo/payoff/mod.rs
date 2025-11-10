@@ -45,13 +45,7 @@ pub mod range_accrual;
 pub mod fx_barrier;
 
 #[cfg(feature = "mc")]
-pub mod default_calculator;
-
-#[cfg(feature = "mc")]
 pub mod revolving_credit;
-
-#[cfg(feature = "mc")]
-pub use default_calculator::{DefaultEvent, FirstPassageCalculator};
 
 #[cfg(feature = "mc")]
 pub use revolving_credit::{FeeStructure, RateSpec, RevolvingCreditPayoff};

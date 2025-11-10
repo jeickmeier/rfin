@@ -283,7 +283,6 @@ proptest! {
             seed: Some(42),
             antithetic: false,
             use_sobol_qmc: false,
-            default_model: None,
             #[cfg(feature = "mc")]
             mc_config: None,
         };

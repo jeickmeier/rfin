@@ -53,6 +53,22 @@ pub struct RevolvingCredit {
     /// Discount curve identifier for pricing.
     pub discount_curve_id: CurveId,
 
+    /// Optional hazard curve identifier for credit risk modeling.
+    ///
+    /// When provided, survival probabilities from the hazard curve are applied
+    /// to discount cashflows, adjusting for default risk.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub hazard_curve_id: Option<CurveId>,
+
+    /// Recovery rate on default (used when hazard_curve_id is present).
+    ///
+    /// Represents the fraction of exposure recovered in the event of default.
+    /// Typical values: 0.30-0.50 for senior secured facilities.
+    /// Defaults to 0.0 if not specified.
+    #[builder(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub recovery_rate: f64,
+
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
 }
@@ -227,7 +243,8 @@ pub struct DrawRepayEvent {
 /// Specification for stochastic utilization modeling.
 ///
 /// Defines the stochastic process and simulation parameters for
-/// Monte Carlo pricing with uncertain draw/repayment patterns.
+/// Monte Carlo pricing with uncertain draw/repayment patterns. Credit risk is
+/// incorporated via hazard-rate survival weighting (no explicit default events).
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StochasticUtilizationSpec {
@@ -248,31 +265,12 @@ pub struct StochasticUtilizationSpec {
     #[cfg_attr(feature = "serde", serde(default))]
     pub use_sobol_qmc: bool,
 
-    /// Optional simple default model used when `mc_config` is None.
-    /// If provided, integrates a constant hazard/spread with recovery into simple MC.
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub default_model: Option<SimpleDefaultSpec>,
-
     /// Advanced Monte Carlo configuration (optional).
     ///
     /// When present, enables multi-factor modeling with credit spread
     /// and interest rate dynamics, correlation, and default modeling.
     #[cfg(feature = "mc")]
     pub mc_config: Option<McConfig>,
-}
-
-/// Simple default model for utilization-only Monte Carlo.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct SimpleDefaultSpec {
-    /// Annual hazard rate (e.g., 0.02). If None, derived from `annual_spread` and `recovery_rate`.
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub annual_hazard: Option<f64>,
-    /// Annual credit spread (decimal, e.g., 0.012). Used if `annual_hazard` is None.
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub annual_spread: Option<f64>,
-    /// Recovery rate (e.g., 0.40).
-    pub recovery_rate: f64,
 }
 
 /// Advanced Monte Carlo configuration for revolving credit facilities.
@@ -450,22 +448,44 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        // Optional model override via attributes metadata (e.g., meta["pricing_model"] = "monte_carlo_gbm")
+        if let Some(model_str) = self.get_meta("pricing_model") {
+            if let Ok(model) = <crate::pricer::ModelKey as ::std::str::FromStr>::from_str(model_str) {
+                let registry = crate::pricer::create_standard_registry();
+                let result = registry
+                    .price_with_registry(self, model, curves, as_of)
+                    .map_err(|e| finstack_core::error::Error::Validation(e.to_string()))?;
+                return Ok(result.value);
+            }
+        }
+
         // Route to appropriate pricer based on spec type
         if self.is_deterministic() {
             crate::instruments::revolving_credit::pricer::RevolvingCreditDiscountingPricer::price_deterministic(
                 self, curves, as_of,
             )
         } else {
+            // For the value() fast path, route stochastic specs to deterministic pricing.
+            // MC remains available via explicit pricer APIs/bindings (e.g., mc_paths_with_capture).
+            let mut fallback = self.clone();
+            // If the stochastic spec carried a market-anchored hazard reference in its MC config,
+            // propagate that to the deterministic fallback so survival weighting is preserved.
             #[cfg(feature = "mc")]
-            {
-                crate::instruments::revolving_credit::pricer::RevolvingCreditMcPricer::price_stochastic(
-                    self, curves, as_of,
-                )
+            if let super::types::DrawRepaySpec::Stochastic(spec) = &self.draw_repay_spec {
+                if let Some(mc_cfg) = &spec.mc_config {
+                    if let super::types::CreditSpreadProcessSpec::MarketAnchored { hazard_curve_id, .. } =
+                        &mc_cfg.credit_spread_process
+                    {
+                        fallback.hazard_curve_id = Some(hazard_curve_id.clone());
+                        fallback.recovery_rate = mc_cfg.recovery_rate;
+                    }
+                }
             }
-            #[cfg(not(feature = "mc"))]
-            {
-                Err(finstack_core::error::InputError::Invalid.into())
-            }
+            // Ensure deterministic schedule for pricing.
+            fallback.draw_repay_spec = super::types::DrawRepaySpec::Deterministic(Vec::new());
+            crate::instruments::revolving_credit::pricer::RevolvingCreditDiscountingPricer::price_deterministic(
+                &fallback, curves, as_of,
+            )
         }
     }
 

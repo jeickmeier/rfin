@@ -72,7 +72,7 @@
 
 use crate::{
     currency::Currency,
-    dates::{Date, DayCount},
+    dates::{Date, DayCount, DayCountCtx},
     error::InputError,
     market_data::traits::{Survival, TermStructure},
     types::CurveId,
@@ -200,6 +200,21 @@ impl HazardCurve {
         let sp1 = self.sp(t1);
         let sp2 = self.sp(t2);
         sp1 - sp2
+    }
+
+    /// Evaluate survival probabilities at the provided dates using this curve's time axis.
+    pub fn survival_at_dates(&self, dates: &[Date]) -> crate::Result<Vec<f64>> {
+        let base = self.base_date();
+        let dc = self.day_count();
+        let mut survival = Vec::with_capacity(dates.len());
+
+        for &date in dates {
+            let t = dc.year_fraction(base, date, DayCountCtx::default())?;
+            let sp = self.sp(t).clamp(0.0, 1.0);
+            survival.push(sp);
+        }
+
+        Ok(survival)
     }
 
     /// Accessors

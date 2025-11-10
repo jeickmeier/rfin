@@ -57,7 +57,6 @@ fn test_mc_pricer_stochastic_utilization() {
                 seed: Some(42),   // Fixed seed for reproducibility
                 antithetic: false,
                 use_sobol_qmc: false,
-                default_model: None,
                 mc_config: None,
             },
         )))
@@ -139,7 +138,6 @@ fn test_mc_pricer_market_anchored_zero_vol_and_vol_sensitivity() {
                 seed: Some(42),
                 antithetic: false,
                 use_sobol_qmc: false,
-                default_model: None,
                 mc_config: Some(McConfig {
                     correlation_matrix: None,
                     recovery_rate: 0.40,
@@ -183,7 +181,6 @@ fn test_mc_pricer_market_anchored_zero_vol_and_vol_sensitivity() {
                 seed: Some(42),
                 antithetic: false,
                 use_sobol_qmc: false,
-                default_model: None,
                 mc_config: Some(McConfig {
                     correlation_matrix: None,
                     recovery_rate: 0.40,
@@ -236,7 +233,6 @@ fn test_mc_pricer_deterministic_reproducibility() {
                 seed: Some(12345),
                 antithetic: false,
                 use_sobol_qmc: false,
-                default_model: None,
                 mc_config: None,
             },
         )))
@@ -295,7 +291,6 @@ fn test_mc_pricer_convergence() {
                     seed: Some(99999),
                     antithetic: false,
                     use_sobol_qmc: false,
-                    default_model: None,
                     mc_config: None,
                 },
             )))
@@ -350,7 +345,6 @@ fn test_mc_utilization_mean_reversion() {
                 seed: Some(54321),
                 antithetic: false,
                 use_sobol_qmc: false,
-                default_model: None,
                 mc_config: None,
             },
         )))
@@ -389,7 +383,6 @@ fn test_mc_utilization_mean_reversion() {
                 seed: Some(54321),
                 antithetic: false,
                 use_sobol_qmc: false,
-                default_model: None,
                 mc_config: None,
             },
         )))

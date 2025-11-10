@@ -422,3 +422,210 @@ fn test_overdraw_validation() {
             "Error should mention exceeding commitment, got: {}", err_msg);
     }
 }
+
+#[test]
+fn test_deterministic_with_credit_risk() {
+    use finstack_core::market_data::term_structures::HazardCurve;
+    
+    let val_date = date!(2025 - 01 - 01);
+    let commitment_date = date!(2025 - 01 - 01);
+    let maturity_date = date!(2030 - 01 - 01); // 5 year term
+    
+    // Create facility WITH hazard curve
+    let facility_risky = RevolvingCredit::builder()
+        .id("RC-RISKY".into())
+        .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(3_000_000.0, Currency::USD)) // 30% utilization
+        .commitment_date(commitment_date)
+        .maturity_date(maturity_date)
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
+        .day_count(DayCount::Act365F)
+        .payment_frequency(Frequency::quarterly())
+        .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0)) // 50bp commitment fee
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+        .discount_curve_id("USD-OIS".into())
+        .hazard_curve_id(finstack_core::types::CurveId::from("BORROWER-A")) // Add credit risk
+        .recovery_rate(0.40) // 40% recovery
+        .build()
+        .unwrap();
+    
+    // Create same facility WITHOUT hazard curve (risk-free)
+    let facility_risk_free = RevolvingCredit::builder()
+        .id("RC-RISK-FREE".into())
+        .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(3_000_000.0, Currency::USD))
+        .commitment_date(commitment_date)
+        .maturity_date(maturity_date)
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
+        .day_count(DayCount::Act365F)
+        .payment_frequency(Frequency::quarterly())
+        .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+        .discount_curve_id("USD-OIS".into())
+        // No hazard curve - risk-free pricing
+        .build()
+        .unwrap();
+    
+    // Create market with discount and hazard curves
+    let disc_curve = build_flat_discount_curve(0.04, val_date, "USD-OIS");
+    
+    // Hazard curve: 99% survival at 1Y, 92% at 5Y (moderate credit quality)
+    let hazard_curve = HazardCurve::builder("BORROWER-A")
+        .base_date(val_date)
+        .recovery_rate(0.40)
+        .knots(vec![
+            (0.0, 1.0),
+            (1.0, 0.99),
+            (2.0, 0.975),
+            (3.0, 0.96),
+            (5.0, 0.92),
+        ])
+        .build()
+        .unwrap();
+    
+    let mut market = MarketContext::new();
+    market = market.insert_discount(disc_curve);
+    market = market.insert_hazard(hazard_curve);
+    
+    // Price both facilities
+    let npv_risky = facility_risky.value(&market, val_date).unwrap();
+    let npv_risk_free = facility_risk_free.value(&market, val_date).unwrap();
+    
+    // Credit-risky NPV should be lower than risk-free NPV
+    assert!(
+        npv_risky.amount() < npv_risk_free.amount(),
+        "Risky NPV ({}) should be less than risk-free NPV ({})",
+        npv_risky.amount(),
+        npv_risk_free.amount()
+    );
+    
+    // The difference should be material (at least 5% reduction due to 8% default prob over 5Y)
+    let credit_adjustment_pct = (npv_risk_free.amount() - npv_risky.amount()) / npv_risk_free.amount() * 100.0;
+    assert!(
+        credit_adjustment_pct > 3.0,
+        "Credit adjustment should be material (>3%), got {:.2}%",
+        credit_adjustment_pct
+    );
+    
+    println!("Risk-free NPV: ${:.2}", npv_risk_free.amount());
+    println!("Risky NPV: ${:.2}", npv_risky.amount());
+    println!("Credit adjustment: {:.2}%", credit_adjustment_pct);
+}
+
+#[cfg(feature = "mc")]
+#[test]
+fn test_deterministic_stochastic_convergence_with_credit_risk() {
+    use finstack_core::market_data::term_structures::HazardCurve;
+    use finstack_valuations::instruments::revolving_credit::{
+        StochasticUtilizationSpec, UtilizationProcess,
+    };
+    use finstack_valuations::instruments::revolving_credit::types::{
+        McConfig, CreditSpreadProcessSpec,
+    };
+    
+    let val_date = date!(2025 - 01 - 01);
+    let commitment_date = date!(2025 - 01 - 01);
+    let maturity_date = date!(2030 - 01 - 01); // 5 year term
+    let commitment_amount = Money::new(10_000_000.0, Currency::USD);
+    let drawn_amount = Money::new(3_000_000.0, Currency::USD); // 30% utilization
+    let initial_util = drawn_amount.amount() / commitment_amount.amount();
+    
+    // Create deterministic facility with hazard curve
+    let facility_det = RevolvingCredit::builder()
+        .id("RC-DET".into())
+        .commitment_amount(commitment_amount)
+        .drawn_amount(drawn_amount)
+        .commitment_date(commitment_date)
+        .maturity_date(maturity_date)
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 }) // 5.5% fixed
+        .day_count(DayCount::Act365F)
+        .payment_frequency(Frequency::quarterly())
+        .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
+        .discount_curve_id("USD-OIS".into())
+        .hazard_curve_id(finstack_core::types::CurveId::from("BORROWER-A"))
+        .hazard_curve_id(finstack_core::types::CurveId::from("BORROWER-A"))
+        .recovery_rate(0.40)
+        .build()
+        .unwrap();
+    
+    // Create stochastic facility with near-zero volatility and same hazard curve
+    let mc_config = McConfig {
+        correlation_matrix: None,
+        recovery_rate: 0.40,
+        credit_spread_process: CreditSpreadProcessSpec::MarketAnchored {
+            hazard_curve_id: "BORROWER-A".into(),
+            kappa: 0.3,
+            implied_vol: 0.50,
+            tenor_years: None,
+        },
+        interest_rate_process: None, // Use fixed rate (no stochastic dynamics)
+        util_credit_corr: Some(0.6),
+    };
+    
+    let stoch_spec = StochasticUtilizationSpec {
+        utilization_process: UtilizationProcess::MeanReverting {
+            target_rate: initial_util,
+            speed: 100.0, // Very high speed = stays at target
+            volatility: 1e-6, // Near-zero volatility
+        },
+        num_paths: 2000, // Use many paths for stable average
+        seed: Some(42),
+        antithetic: true,
+        use_sobol_qmc: false,
+        mc_config: Some(mc_config),
+    };
+    
+    let facility_stoch = RevolvingCredit::builder()
+        .id("RC-STOCH".into())
+        .commitment_amount(commitment_amount)
+        .drawn_amount(drawn_amount)
+        .commitment_date(commitment_date)
+        .maturity_date(maturity_date)
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.055 })
+        .day_count(DayCount::Act365F)
+        .payment_frequency(Frequency::quarterly())
+        .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0))
+        .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(stoch_spec)))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+    
+    // Create market
+    let disc_curve = build_flat_discount_curve(0.04, val_date, "USD-OIS");
+    let hazard_curve = HazardCurve::builder("BORROWER-A")
+        .base_date(val_date)
+        .recovery_rate(0.40)
+        .knots(vec![
+            (0.0, 1.0),
+            (1.0, 0.99),
+            (2.0, 0.975),
+            (3.0, 0.96),
+            (5.0, 0.92),
+        ])
+        .build()
+        .unwrap();
+    
+    let mut market = MarketContext::new();
+    market = market.insert_discount(disc_curve);
+    market = market.insert_hazard(hazard_curve);
+    
+    // Price both facilities
+    let npv_det = facility_det.value(&market, val_date).unwrap();
+    let npv_stoch = facility_stoch.value(&market, val_date).unwrap();
+    
+    // Calculate difference
+    let diff = (npv_stoch.amount() - npv_det.amount()).abs();
+    let pct_diff = diff / npv_det.amount() * 100.0;
+    
+    println!("Deterministic NPV: ${:.2}", npv_det.amount());
+    println!("Stochastic NPV (0 vol): ${:.2}", npv_stoch.amount());
+    println!("Difference: ${:.2} ({:.2}%)", diff, pct_diff);
+    
+    // Should converge within 2.5% (allowing for MC noise)
+    assert!(
+        pct_diff < 2.5,
+        "Deterministic and stochastic should converge at 0% vol (got {:.2}% difference)",
+        pct_diff
+    );
+}
