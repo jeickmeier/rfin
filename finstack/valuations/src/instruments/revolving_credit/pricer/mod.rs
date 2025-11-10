@@ -16,7 +16,8 @@
 //!
 //! // Direct access to specific engines
 //! let pv_det = pricer::deterministic::RevolvingCreditDiscountingPricer::price_deterministic(&facility, &market, as_of)?;
-//! let pv_mc = pricer::stochastic::RevolvingCreditMcPricer::price_stochastic(&facility, &market, as_of)?;
+//! let result_mc = pricer::stochastic::RevolvingCreditMcPricer::price_stochastic(&facility, &market, as_of, None)?;
+//! let pv_mc = result_mc.estimate.mean;
 //! ```
 
 use crate::instruments::common::traits::Instrument;
@@ -101,7 +102,8 @@ impl RevolvingCreditPricer {
             super::types::DrawRepaySpec::Stochastic(_) => {
                 #[cfg(feature = "mc")]
                 {
-                    stochastic::RevolvingCreditMcPricer::price_stochastic(facility, market, as_of)
+                    let result = stochastic::RevolvingCreditMcPricer::price_stochastic(facility, market, as_of, None)?;
+                    Ok(result.estimate.mean)
                 }
                 #[cfg(not(feature = "mc"))]
                 {
@@ -261,10 +263,11 @@ mod tests {
         let pv_unified = RevolvingCreditPricer::price(&facility, &market, start).unwrap();
 
         // Test direct stochastic pricing for comparison
-        let pv_direct = stochastic::RevolvingCreditMcPricer::price_stochastic(
-            &facility, &market, start,
+        let result_direct = stochastic::RevolvingCreditMcPricer::price_stochastic(
+            &facility, &market, start, None,
         )
         .unwrap();
+        let pv_direct = result_direct.estimate.mean;
 
         assert_eq!(pv_unified.amount(), pv_direct.amount());
         assert!(pv_unified.currency() == Currency::USD);
