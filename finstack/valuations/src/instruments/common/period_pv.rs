@@ -10,8 +10,8 @@
 //! - `periodized_pv`: Basic discounting with discount curve only
 //! - `periodized_pv_credit_adjusted`: Optional credit adjustment via hazard curve
 //!
-//! These methods delegate to the instrument's `build_full_schedule` implementation
-//! and leverage `CashFlowSchedule::pre_period_pv_with_market` for the actual
+//! These methods delegate to the instrument's `build_schedule` implementation
+//! and leverage cashflow aggregation utilities for the actual
 //! aggregation and discounting.
 //!
 //! # Example
@@ -94,10 +94,10 @@ use indexmap::IndexMap;
 /// # Design
 ///
 /// This trait serves as a bridge between instrument-level APIs and the lower-level
-/// `CashFlowSchedule::pre_period_pv_with_market` aggregation. It handles:
-/// - Building the full cashflow schedule with CFKind metadata
+/// cashflow aggregation utilities. It handles:
+/// - Building the simplified cashflow schedule via `build_schedule`
 /// - Extracting the discount curve ID from the instrument
-/// - Delegating to the schedule's periodized PV method
+/// - Delegating to the aggregation utilities for periodized PV calculation
 ///
 /// # Currency Safety
 ///

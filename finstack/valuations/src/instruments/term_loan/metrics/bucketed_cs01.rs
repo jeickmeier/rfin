@@ -2,7 +2,7 @@
 
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::TermLoan;
-use crate::metrics::{bucketed::standard_ir_dv01_buckets, MetricCalculator, MetricContext};
+use crate::metrics::{bucketed_dv01::standard_ir_dv01_buckets, MetricCalculator, MetricContext};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct BucketedCs01Calculator;
@@ -21,7 +21,7 @@ impl MetricCalculator for BucketedCs01Calculator {
             inst_clone.value(temp_ctx, as_of)
         };
 
-        crate::metrics::bucketed::compute_key_rate_series_with_context_for_id(
+        crate::metrics::bucketed_dv01::compute_key_rate_series_with_context_for_id(
             context,
             crate::metrics::MetricId::BucketedCs01,
             &discount_curve_id,

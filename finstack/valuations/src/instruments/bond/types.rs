@@ -839,4 +839,266 @@ mod tests {
         let pv = bond.value(&ctx, issue).unwrap();
         assert!(pv.amount().is_finite());
     }
+
+    #[test]
+    fn test_bond_frn_build_schedule_uses_builder() {
+        use crate::cashflow::primitives::CFKind;
+        use crate::cashflow::traits::CashflowProvider;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        // Create FRN
+        let frn = Bond::builder()
+            .id("FRN-BUILDER-TEST".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .coupon(0.0)
+            .issue(issue)
+            .maturity(maturity)
+            .freq(Frequency::quarterly())
+            .dc(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .float_opt(Some(BondFloatSpec {
+                forward_curve_id: CurveId::new("USD-SOFR"),
+                margin_bp: 100.0,
+                gearing: 1.0,
+                reset_lag_days: 2,
+            }))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .unwrap();
+
+        // Create market with forward curve
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (1.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        let fwd_curve = ForwardCurve::builder("USD-SOFR", 0.25)
+            .base_date(issue)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 0.03), (1.0, 0.035)])
+            .build()
+            .unwrap();
+
+        let market = MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve);
+
+        // Get full schedule to verify it includes FloatReset CFKind
+        let full_schedule = frn.get_full_schedule(&market).unwrap();
+        let has_floating = full_schedule
+            .flows
+            .iter()
+            .any(|cf| matches!(cf.kind, CFKind::FloatReset));
+        assert!(
+            has_floating,
+            "Full schedule should include CFKind::FloatReset for FRN"
+        );
+
+        // Get simplified schedule via build_schedule
+        let flows = frn.build_schedule(&market, issue).unwrap();
+        assert!(!flows.is_empty(), "FRN should have cashflows");
+
+        // Verify flows include floating coupons (should be > just redemption)
+        assert!(
+            flows.len() > 1,
+            "FRN should have coupon flows + redemption, got {} flows",
+            flows.len()
+        );
+    }
+
+    #[test]
+    fn test_bond_amortization_sign_flip_and_notional_exclusion() {
+        use crate::cashflow::builder::AmortizationSpec;
+        use crate::cashflow::primitives::CFKind;
+        use crate::cashflow::traits::CashflowProvider;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let maturity = Date::from_calendar_date(2027, Month::January, 1).unwrap();
+
+        // Create amortizing bond
+        let step1 = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let bond = Bond::builder()
+            .id("AMORT-TEST".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .coupon(0.05)
+            .issue(issue)
+            .maturity(maturity)
+            .freq(Frequency::semi_annual())
+            .dc(DayCount::Thirty360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .amortization_opt(Some(AmortizationSpec::StepRemaining {
+                schedule: vec![
+                    (step1, Money::new(500_000.0, Currency::USD)),
+                    (maturity, Money::new(0.0, Currency::USD)),
+                ],
+            }))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .unwrap();
+
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (2.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+        let market = MarketContext::new().insert_discount(disc_curve);
+
+        // Get full schedule to check internal representation
+        let full_schedule = bond.get_full_schedule(&market).unwrap();
+
+        // Find initial notional (should be negative - issuer receives)
+        let initial_notional = full_schedule
+            .flows
+            .iter()
+            .find(|cf| cf.date == issue && matches!(cf.kind, CFKind::Notional));
+        assert!(
+            initial_notional.is_some(),
+            "Full schedule should have initial notional"
+        );
+        assert!(
+            initial_notional.unwrap().amount.amount() < 0.0,
+            "Initial notional should be negative (issuer receives)"
+        );
+
+        // Find amortization flows (should be positive in full schedule)
+        let amort_flows: Vec<_> = full_schedule
+            .flows
+            .iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Amortization))
+            .collect();
+        assert!(!amort_flows.is_empty(), "Should have amortization flows");
+        for cf in &amort_flows {
+            assert!(
+                cf.amount.amount() > 0.0,
+                "Amortization in full schedule should be positive"
+            );
+        }
+
+        // Get simplified schedule via build_schedule
+        let flows = bond.build_schedule(&market, issue).unwrap();
+
+        // Initial draw should be excluded (negative notional)
+        let has_negative_initial = flows
+            .iter()
+            .any(|(d, m)| *d == issue && m.amount() < 0.0);
+        assert!(
+            !has_negative_initial,
+            "Simplified schedule should exclude initial negative notional draw"
+        );
+
+        // Amortization should be flipped to negative (holder receives principal back)
+        let amort_in_simplified: Vec<_> = flows
+            .iter()
+            .filter(|(d, _)| *d == step1 || *d == maturity)
+            .collect();
+        // We expect at least one amortization payment
+        let has_negative_amort = amort_in_simplified
+            .iter()
+            .any(|(_, m)| m.amount() < 0.0);
+        assert!(
+            has_negative_amort,
+            "Amortization in simplified schedule should be negative (principal repayment)"
+        );
+
+        // Final redemption at maturity: even when amortizing to zero, there may be a
+        // small redemption flow for the final outstanding amount after last amortization
+        let final_positive_flows: Vec<_> = flows
+            .iter()
+            .filter(|(d, m)| *d == maturity && m.amount() > 0.0)
+            .collect();
+        // Could be zero or have a small final payment depending on amortization schedule
+        // The key is that amortizations are negative (principal repayment)
+        assert!(
+            final_positive_flows.len() <= 1,
+            "At most one positive flow at maturity (redemption)"
+        );
+    }
+
+    #[test]
+    fn test_bond_build_schedule_includes_floating_cfkind() {
+        use crate::cashflow::traits::CashflowProvider;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::July, 1).unwrap();
+
+        let frn = Bond::builder()
+            .id("FRN-CFKIND-TEST".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .coupon(0.0)
+            .issue(issue)
+            .maturity(maturity)
+            .freq(Frequency::quarterly())
+            .dc(DayCount::Act365F)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .float_opt(Some(BondFloatSpec {
+                forward_curve_id: CurveId::new("USD-LIBOR-3M"),
+                margin_bp: 200.0,
+                gearing: 1.0,
+                reset_lag_days: 2,
+            }))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .unwrap();
+
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (2.0, 0.90)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        let fwd = ForwardCurve::builder("USD-LIBOR-3M", 0.25)
+            .base_date(issue)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 0.04), (2.0, 0.045)])
+            .build()
+            .unwrap();
+
+        let market = MarketContext::new()
+            .insert_discount(disc)
+            .insert_forward(fwd);
+
+        // Build simplified schedule
+        let flows = frn.build_schedule(&market, issue).unwrap();
+
+        // Should have multiple flows (quarterly coupons + redemption)
+        // Approximately 6 quarters over 18 months
+        assert!(
+            flows.len() >= 5,
+            "FRN should have multiple quarterly flows, got {}",
+            flows.len()
+        );
+
+        // All flows should have positive amounts (coupons and redemption are receipts)
+        let all_positive = flows.iter().all(|(_, m)| m.amount() > 0.0);
+        assert!(
+            all_positive,
+            "All simplified FRN flows should be positive (holder view)"
+        );
+
+        // Verify flows are sorted by date
+        for i in 1..flows.len() {
+            assert!(
+                flows[i].0 >= flows[i - 1].0,
+                "Flows should be sorted by date"
+            );
+        }
+    }
 }

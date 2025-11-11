@@ -27,8 +27,8 @@
 //! Comprehensive documentation on all metrics, including formulas, conventions, and units,
 //! is available in `METRICS.md` in this directory.
 
-/// bucketed module.
-pub mod bucketed;
+/// bucketed_dv01 module.
+pub mod bucketed_dv01;
 /// bucketed_cs01 module.
 pub mod bucketed_cs01;
 /// bucketed_vega module.
@@ -44,7 +44,7 @@ pub mod registry;
 /// traits module.
 pub mod traits;
 
-pub use bucketed::{
+pub use bucketed_dv01::{
     compute_key_rate_dv01_series, compute_key_rate_dv01_series_with_context,
     compute_key_rate_series_for_id, compute_key_rate_series_with_context_for_id,
     standard_ir_dv01_buckets,
