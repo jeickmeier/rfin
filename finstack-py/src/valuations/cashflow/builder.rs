@@ -474,8 +474,8 @@ impl PyCashFlowSchedule {
     )]
     /// Convert the cashflow schedule to a Polars DataFrame.
     ///
-    /// Returns a Polars DataFrame with columns: "start_date", "end_date", "kind", "amount", 
-    /// "accrual_factor", "reset_date", "outstanding", "rate", and optionally 
+    /// Returns a Polars DataFrame with columns: "start_date", "end_date", "kind", "amount",
+    /// "accrual_factor", "reset_date", "outstanding", "rate", and optionally
     /// "outstanding_undrawn" (if facility limit exists), "discount_factor", "pv" (if market provided).
     ///
     /// All cashflow amounts are computed in Rust for deterministic, fast processing.
@@ -513,20 +513,18 @@ impl PyCashFlowSchedule {
 
         // Market context is required for DataFrame export
         let mkt = market.ok_or_else(|| {
-            pyo3::exceptions::PyValueError::new_err(
-                "market context required for DataFrame export"
-            )
+            pyo3::exceptions::PyValueError::new_err("market context required for DataFrame export")
         })?;
-        
+
         let curve_id = discount_curve_id.ok_or_else(|| {
             pyo3::exceptions::PyValueError::new_err(
-                "discount_curve_id required when market is provided"
+                "discount_curve_id required when market is provided",
             )
         })?;
-        
+
         // Parse as_of if provided
         let as_of_date = as_of.map(|d| py_to_date(&d)).transpose()?;
-        
+
         let options = val_builder::PeriodDataFrameOptions {
             hazard_curve_id: None,
             forward_curve_id: None,
@@ -536,8 +534,9 @@ impl PyCashFlowSchedule {
             facility_limit: None,
             include_floating_decomposition: false,
         };
-        
-        let frame = self.inner
+
+        let frame = self
+            .inner
             .to_dataframe(&mkt.inner, curve_id, options)
             .map_err(core_to_py)?;
 
@@ -550,7 +549,11 @@ impl PyCashFlowSchedule {
         let kinds: Vec<String> = frame
             .cf_types
             .iter()
-            .map(|k| crate::core::cashflow::primitives::PyCFKind::new(*k).name().to_string())
+            .map(|k| {
+                crate::core::cashflow::primitives::PyCFKind::new(*k)
+                    .name()
+                    .to_string()
+            })
             .collect();
 
         // Convert reset dates to Option<String>
@@ -586,10 +589,7 @@ impl PyCashFlowSchedule {
 
         // Add optional columns
         if let Some(undrawn) = frame.undrawn_notionals {
-            let undrawn_f64: Vec<f64> = undrawn
-                .iter()
-                .map(|opt| opt.unwrap_or(f64::NAN))
-                .collect();
+            let undrawn_f64: Vec<f64> = undrawn.iter().map(|opt| opt.unwrap_or(f64::NAN)).collect();
             let col = Series::new("undrawn_notional".into(), undrawn_f64);
             df.with_column(col)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;

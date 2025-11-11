@@ -804,9 +804,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
     // Revolving Credit
     registry.register_pricer(
         PricerKey::new(InstrumentType::RevolvingCredit, ModelKey::Discounting),
-        Box::new(
-            crate::instruments::revolving_credit::pricer::RevolvingCreditPricer,
-        ),
+        Box::new(crate::instruments::revolving_credit::pricer::RevolvingCreditPricer),
     );
     // Term Loan (including DDTL)
     registry.register_pricer(

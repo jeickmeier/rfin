@@ -93,7 +93,6 @@ pub struct CashFlowSchedule {
     pub meta: CashflowMeta,
 }
 
-
 impl CashFlowSchedule {
     /// Create a new cashflow builder (standard Rust pattern).
     ///
@@ -341,5 +340,4 @@ impl CashFlowSchedule {
             &flows, periods, disc, hazard, base, dc,
         ))
     }
-
 }

@@ -101,4 +101,3 @@ mod tests {
         assert!((monthly_prepay - monthly_default).abs() < 1e-15);
     }
 }
-

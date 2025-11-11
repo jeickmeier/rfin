@@ -304,7 +304,7 @@ fn test_revolving_credit_helpers() {
 #[test]
 fn test_term_forward_with_floor() {
     use finstack_core::market_data::term_structures::ForwardCurve;
-    
+
     let val_date = date!(2025 - 01 - 01);
     let commitment_date = date!(2025 - 01 - 01);
     let maturity_date = date!(2025 - 07 - 01);
@@ -315,7 +315,7 @@ fn test_term_forward_with_floor() {
         .base_date(val_date)
         .day_count(DayCount::Act360)
         .knots([
-            (0.0, 0.0001),  // 1 bp (very low)
+            (0.0, 0.0001), // 1 bp (very low)
             (0.5, 0.0001),
             (1.0, 0.0002),
         ])
@@ -323,7 +323,7 @@ fn test_term_forward_with_floor() {
         .unwrap();
 
     let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
-    
+
     let market = MarketContext::new()
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
@@ -392,7 +392,7 @@ fn test_term_forward_with_floor() {
     // With floor: max(0.01%, 1%) + 5% margin = 1% + 5% = 6% (borrower pays 6%)
     // Without floor: 0.01% + 5% margin = 5.01% (borrower pays 5.01%)
     // With floor, the borrower pays more interest, so from lender perspective PV is higher
-    assert!(pv_with_floor.amount() > pv_no_floor.amount(), 
+    assert!(pv_with_floor.amount() > pv_no_floor.amount(),
         "Floor should increase PV (lender receives more interest). With floor: {}, Without floor: {}",
         pv_with_floor.amount(), pv_no_floor.amount());
 }
@@ -417,13 +417,11 @@ fn test_overdraw_validation() {
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
         .fees(RevolvingCreditFees::default())
-        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![
-            DrawRepayEvent {
-                date: date!(2025 - 03 - 01),
-                amount: Money::new(600_000.0, Currency::USD), // This would take us to 1.1M > 1M commitment
-                is_draw: true,
-            },
-        ]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![DrawRepayEvent {
+            date: date!(2025 - 03 - 01),
+            amount: Money::new(600_000.0, Currency::USD), // This would take us to 1.1M > 1M commitment
+            is_draw: true,
+        }]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -431,22 +429,25 @@ fn test_overdraw_validation() {
     // This should error due to overdraw
     let result = facility.value(&market, val_date);
     assert!(result.is_err(), "Should error on overdraw");
-    
+
     if let Err(e) = result {
         let err_msg = format!("{}", e);
-        assert!(err_msg.contains("exceed commitment") || err_msg.contains("Validation"),
-            "Error should mention exceeding commitment, got: {}", err_msg);
+        assert!(
+            err_msg.contains("exceed commitment") || err_msg.contains("Validation"),
+            "Error should mention exceeding commitment, got: {}",
+            err_msg
+        );
     }
 }
 
 #[test]
 fn test_deterministic_with_credit_risk() {
     use finstack_core::market_data::term_structures::HazardCurve;
-    
+
     let val_date = date!(2025 - 01 - 01);
     let commitment_date = date!(2025 - 01 - 01);
     let maturity_date = date!(2030 - 01 - 01); // 5 year term
-    
+
     // Create facility WITH hazard curve
     let facility_risky = RevolvingCredit::builder()
         .id("RC-RISKY".into())
@@ -464,7 +465,7 @@ fn test_deterministic_with_credit_risk() {
         .recovery_rate(0.40) // 40% recovery
         .build()
         .unwrap();
-    
+
     // Create same facility WITHOUT hazard curve (risk-free)
     let facility_risk_free = RevolvingCredit::builder()
         .id("RC-RISK-FREE".into())
@@ -481,10 +482,10 @@ fn test_deterministic_with_credit_risk() {
         // No hazard curve - risk-free pricing
         .build()
         .unwrap();
-    
+
     // Create market with discount and hazard curves
     let disc_curve = build_flat_discount_curve(0.04, val_date, "USD-OIS");
-    
+
     // Hazard curve: 99% survival at 1Y, 92% at 5Y (moderate credit quality)
     let hazard_curve = HazardCurve::builder("BORROWER-A")
         .base_date(val_date)
@@ -498,15 +499,15 @@ fn test_deterministic_with_credit_risk() {
         ])
         .build()
         .unwrap();
-    
+
     let mut market = MarketContext::new();
     market = market.insert_discount(disc_curve);
     market = market.insert_hazard(hazard_curve);
-    
+
     // Price both facilities
     let npv_risky = facility_risky.value(&market, val_date).unwrap();
     let npv_risk_free = facility_risk_free.value(&market, val_date).unwrap();
-    
+
     // Credit-risky NPV should be lower than risk-free NPV
     assert!(
         npv_risky.amount() < npv_risk_free.amount(),
@@ -514,15 +515,16 @@ fn test_deterministic_with_credit_risk() {
         npv_risky.amount(),
         npv_risk_free.amount()
     );
-    
+
     // The difference should be material (at least 5% reduction due to 8% default prob over 5Y)
-    let credit_adjustment_pct = (npv_risk_free.amount() - npv_risky.amount()) / npv_risk_free.amount() * 100.0;
+    let credit_adjustment_pct =
+        (npv_risk_free.amount() - npv_risky.amount()) / npv_risk_free.amount() * 100.0;
     assert!(
         credit_adjustment_pct > 3.0,
         "Credit adjustment should be material (>3%), got {:.2}%",
         credit_adjustment_pct
     );
-    
+
     println!("Risk-free NPV: ${:.2}", npv_risk_free.amount());
     println!("Risky NPV: ${:.2}", npv_risky.amount());
     println!("Credit adjustment: {:.2}%", credit_adjustment_pct);
@@ -532,20 +534,20 @@ fn test_deterministic_with_credit_risk() {
 #[test]
 fn test_deterministic_stochastic_convergence_with_credit_risk() {
     use finstack_core::market_data::term_structures::HazardCurve;
+    use finstack_valuations::instruments::revolving_credit::types::{
+        CreditSpreadProcessSpec, McConfig,
+    };
     use finstack_valuations::instruments::revolving_credit::{
         StochasticUtilizationSpec, UtilizationProcess,
     };
-    use finstack_valuations::instruments::revolving_credit::types::{
-        McConfig, CreditSpreadProcessSpec,
-    };
-    
+
     let val_date = date!(2025 - 01 - 01);
     let commitment_date = date!(2025 - 01 - 01);
     let maturity_date = date!(2030 - 01 - 01); // 5 year term
     let commitment_amount = Money::new(10_000_000.0, Currency::USD);
     let drawn_amount = Money::new(3_000_000.0, Currency::USD); // 30% utilization
     let initial_util = drawn_amount.amount() / commitment_amount.amount();
-    
+
     // Create deterministic facility with hazard curve
     let facility_det = RevolvingCredit::builder()
         .id("RC-DET".into())
@@ -564,7 +566,7 @@ fn test_deterministic_stochastic_convergence_with_credit_risk() {
         .recovery_rate(0.40)
         .build()
         .unwrap();
-    
+
     // Create stochastic facility with near-zero volatility and same hazard curve
     let mc_config = McConfig {
         correlation_matrix: None,
@@ -578,11 +580,11 @@ fn test_deterministic_stochastic_convergence_with_credit_risk() {
         interest_rate_process: None, // Use fixed rate (no stochastic dynamics)
         util_credit_corr: Some(0.6),
     };
-    
+
     let stoch_spec = StochasticUtilizationSpec {
         utilization_process: UtilizationProcess::MeanReverting {
             target_rate: initial_util,
-            speed: 100.0, // Very high speed = stays at target
+            speed: 100.0,     // Very high speed = stays at target
             volatility: 1e-6, // Near-zero volatility
         },
         num_paths: 2000, // Use many paths for stable average
@@ -591,7 +593,7 @@ fn test_deterministic_stochastic_convergence_with_credit_risk() {
         use_sobol_qmc: false,
         mc_config: Some(mc_config),
     };
-    
+
     let facility_stoch = RevolvingCredit::builder()
         .id("RC-STOCH".into())
         .commitment_amount(commitment_amount)
@@ -606,7 +608,7 @@ fn test_deterministic_stochastic_convergence_with_credit_risk() {
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
-    
+
     // Create market
     let disc_curve = build_flat_discount_curve(0.04, val_date, "USD-OIS");
     let hazard_curve = HazardCurve::builder("BORROWER-A")
@@ -621,23 +623,23 @@ fn test_deterministic_stochastic_convergence_with_credit_risk() {
         ])
         .build()
         .unwrap();
-    
+
     let mut market = MarketContext::new();
     market = market.insert_discount(disc_curve);
     market = market.insert_hazard(hazard_curve);
-    
+
     // Price both facilities
     let npv_det = facility_det.value(&market, val_date).unwrap();
     let npv_stoch = facility_stoch.value(&market, val_date).unwrap();
-    
+
     // Calculate difference
     let diff = (npv_stoch.amount() - npv_det.amount()).abs();
     let pct_diff = diff / npv_det.amount() * 100.0;
-    
+
     println!("Deterministic NPV: ${:.2}", npv_det.amount());
     println!("Stochastic NPV (0 vol): ${:.2}", npv_stoch.amount());
     println!("Difference: ${:.2} ({:.2}%)", diff, pct_diff);
-    
+
     // Should converge within 2.5% (allowing for MC noise)
     assert!(
         pct_diff < 2.5,

@@ -236,16 +236,16 @@ pub use types::{BehaviorOverrides, DealMetadata, StructuredCredit};
 // ============================================================================
 
 pub use components::{
+    // Rate conversion utilities (from builder)
+    annual_to_monthly,
     calculate_pool_stats,
     calculate_tranche_cs01,
     calculate_tranche_duration,
     calculate_tranche_wal,
     calculate_tranche_z_spread,
-    // Rate conversion utilities (from builder)
-    annual_to_monthly,
-    monthly_to_annual,
     get_validation_errors,
     is_valid_waterfall_spec,
+    monthly_to_annual,
     AllocationMode,
     // Pool
     AssetPool,
@@ -264,9 +264,6 @@ pub use components::{
     // Behavioral models
     DefaultCurve,
     DefaultModelSpec,
-    PrepaymentCurve,
-    PrepaymentModelSpec,
-    RecoveryModelSpec,
     // Diversion system
     DiversionCondition,
     DiversionEngine,
@@ -282,7 +279,10 @@ pub use components::{
     PaymentType,
     PoolAsset,
     PoolStats,
+    PrepaymentCurve,
+    PrepaymentModelSpec,
     Recipient,
+    RecoveryModelSpec,
     ReinvestmentCriteria,
     ReinvestmentPeriod,
     TestContext,

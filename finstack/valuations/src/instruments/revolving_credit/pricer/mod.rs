@@ -31,9 +31,9 @@ pub mod unified;
 
 // Re-export key types and functions
 pub use components::{DiscountFactors, FeeCalculator, RateProjector, SurvivalWeights};
-pub use unified::{PathResult, RevolvingCreditPricer};
 #[cfg(feature = "mc")]
 pub use unified::EnhancedMonteCarloResult;
+pub use unified::{PathResult, RevolvingCreditPricer};
 
 #[cfg(test)]
 mod tests {
@@ -104,8 +104,8 @@ mod tests {
     #[cfg(feature = "mc")]
     #[test]
     fn test_unified_pricer_stochastic() {
-        use super::super::types::{McConfig, CreditSpreadProcessSpec};
-        
+        use super::super::types::{CreditSpreadProcessSpec, McConfig};
+
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 

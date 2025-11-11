@@ -21,7 +21,9 @@ use finstack_core::Result;
 /// # Returns
 ///
 /// Reference to a `HolidayCalendar` if calendar metadata is present and resolvable, `None` otherwise.
-pub(super) fn resolve_facility_calendar(attrs: &Attributes) -> Option<&'static dyn HolidayCalendar> {
+pub(super) fn resolve_facility_calendar(
+    attrs: &Attributes,
+) -> Option<&'static dyn HolidayCalendar> {
     let cal_code = attrs
         .get_meta("calendar_id")
         .or_else(|| attrs.get_meta("calendar"))?;
@@ -142,16 +144,11 @@ pub(super) fn project_floating_rate(
 ) -> Result<f64> {
     // Compute reset period end using facility calendar
     let reset_end = compute_reset_period_end(reset_date, reset_freq, attrs)?;
-    
+
     // Delegate to centralized projection (revolving credit doesn't use caps or gearing)
     crate::cashflow::builder::project_floating_rate(
-        reset_date,
-        reset_end,
-        index_id,
-        spread_bp,
-        1.0,          // gearing = 1.0
-        floor_bp,
-        None,         // revolving credit doesn't use caps
+        reset_date, reset_end, index_id, spread_bp, 1.0, // gearing = 1.0
+        floor_bp, None, // revolving credit doesn't use caps
         market,
     )
 }
@@ -220,7 +217,7 @@ pub(super) fn compute_reset_period_end(
     attrs: &Attributes,
 ) -> Result<Date> {
     use finstack_core::dates::Frequency;
-    
+
     // Compute unadjusted end date based on frequency
     let mut reset_end = reset_date;
     match reset_freq {
@@ -232,16 +229,13 @@ pub(super) fn compute_reset_period_end(
         }
         _ => {}
     }
-    
+
     // Apply calendar adjustment if configured
     if let Some(cal) = resolve_facility_calendar(attrs) {
-        reset_end = finstack_core::dates::adjust(
-            reset_end,
-            BusinessDayConvention::ModifiedFollowing,
-            cal,
-        )?;
+        reset_end =
+            finstack_core::dates::adjust(reset_end, BusinessDayConvention::ModifiedFollowing, cal)?;
     }
-    
+
     Ok(reset_end)
 }
 
@@ -420,13 +414,10 @@ mod tests {
     fn test_compute_reset_period_end_monthly() {
         let reset_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let attrs = Attributes::new();
-        
-        let reset_end = compute_reset_period_end(
-            reset_date,
-            &Frequency::Months(3),
-            &attrs,
-        ).unwrap();
-        
+
+        let reset_end =
+            compute_reset_period_end(reset_date, &Frequency::Months(3), &attrs).unwrap();
+
         // 3 months from Jan 15 should be Apr 15
         let expected = Date::from_calendar_date(2025, Month::April, 15).unwrap();
         assert_eq!(reset_end, expected);
@@ -436,13 +427,9 @@ mod tests {
     fn test_compute_reset_period_end_daily() {
         let reset_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let attrs = Attributes::new();
-        
-        let reset_end = compute_reset_period_end(
-            reset_date,
-            &Frequency::Days(90),
-            &attrs,
-        ).unwrap();
-        
+
+        let reset_end = compute_reset_period_end(reset_date, &Frequency::Days(90), &attrs).unwrap();
+
         // 90 days from Jan 15
         let expected = reset_date + time::Duration::days(90);
         assert_eq!(reset_end, expected);
@@ -454,19 +441,13 @@ mod tests {
         // Test mechanism - calendar adjustment is calendar-dependent
         let attrs_no_cal = Attributes::new();
         let attrs_with_cal = Attributes::new().with_meta("calendar_id", "WMR");
-        
-        let end_no_cal = compute_reset_period_end(
-            reset_date,
-            &Frequency::Months(1),
-            &attrs_no_cal,
-        ).unwrap();
-        
-        let end_with_cal = compute_reset_period_end(
-            reset_date,
-            &Frequency::Months(1),
-            &attrs_with_cal,
-        ).unwrap();
-        
+
+        let end_no_cal =
+            compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_no_cal).unwrap();
+
+        let end_with_cal =
+            compute_reset_period_end(reset_date, &Frequency::Months(1), &attrs_with_cal).unwrap();
+
         // Both should succeed (calendar adjustment may or may not change date)
         assert!(end_no_cal.year() == 2025);
         assert!(end_with_cal.year() == 2025);
@@ -475,17 +456,17 @@ mod tests {
     #[test]
     fn test_apply_draw_repay_event_draw() {
         use super::super::types::DrawRepayEvent;
-        
+
         let balance = Money::new(5_000_000.0, Currency::USD);
         let commitment = Money::new(10_000_000.0, Currency::USD);
         let draw_date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
-        
+
         let event = DrawRepayEvent {
             date: draw_date,
             amount: Money::new(2_000_000.0, Currency::USD),
             is_draw: true,
         };
-        
+
         let new_balance = apply_draw_repay_event(balance, &event, commitment).unwrap();
         assert_eq!(new_balance.amount(), 7_000_000.0);
     }
@@ -493,17 +474,17 @@ mod tests {
     #[test]
     fn test_apply_draw_repay_event_repay() {
         use super::super::types::DrawRepayEvent;
-        
+
         let balance = Money::new(5_000_000.0, Currency::USD);
         let commitment = Money::new(10_000_000.0, Currency::USD);
         let repay_date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
-        
+
         let event = DrawRepayEvent {
             date: repay_date,
             amount: Money::new(1_000_000.0, Currency::USD),
             is_draw: false,
         };
-        
+
         let new_balance = apply_draw_repay_event(balance, &event, commitment).unwrap();
         assert_eq!(new_balance.amount(), 4_000_000.0);
     }
@@ -511,30 +492,33 @@ mod tests {
     #[test]
     fn test_apply_draw_repay_event_exceeds_commitment() {
         use super::super::types::DrawRepayEvent;
-        
+
         let balance = Money::new(8_000_000.0, Currency::USD);
         let commitment = Money::new(10_000_000.0, Currency::USD);
         let draw_date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
-        
+
         let event = DrawRepayEvent {
             date: draw_date,
             amount: Money::new(3_000_000.0, Currency::USD), // Would exceed commitment
             is_draw: true,
         };
-        
+
         let result = apply_draw_repay_event(balance, &event, commitment);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("exceed commitment"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("exceed commitment"));
     }
 
     #[test]
     fn test_project_floating_rate_parity() {
         use finstack_core::market_data::term_structures::ForwardCurve;
         use finstack_core::market_data::MarketContext;
-        
+
         let reset_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let attrs = Attributes::new();
-        
+
         // Create a simple forward curve
         let fwd_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(reset_date)
@@ -546,60 +530,69 @@ mod tests {
             ])
             .build()
             .unwrap();
-        
+
         let market = MarketContext::new().insert_forward(fwd_curve);
-        
+
         // Test rate projection
         let rate = project_floating_rate(
             reset_date,
             &Frequency::Months(3),
             "USD-SOFR-3M",
-            200.0, // 200 bps margin
+            200.0,     // 200 bps margin
             Some(0.0), // 0% floor
             &market,
             &attrs,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Rate should be forward rate + margin
         // Forward rate should be ~3% (from curve), plus 200bps = ~5%
-        assert!(rate > 0.04 && rate < 0.06, "Rate should be approximately 5%: {}", rate);
+        assert!(
+            rate > 0.04 && rate < 0.06,
+            "Rate should be approximately 5%: {}",
+            rate
+        );
     }
 
     #[test]
     fn test_project_floating_rate_with_floor() {
         use finstack_core::market_data::term_structures::ForwardCurve;
         use finstack_core::market_data::MarketContext;
-        
+
         let reset_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let attrs = Attributes::new();
-        
+
         // Create a low forward curve (below floor)
         let fwd_curve = ForwardCurve::builder("USD-LIBOR-3M", 0.25)
             .base_date(reset_date)
             .day_count(DayCount::Act360)
             .knots([
-                (0.0, 0.001),  // 0.1% (below 1% floor)
+                (0.0, 0.001), // 0.1% (below 1% floor)
                 (1.0, 0.001),
                 (5.0, 0.001),
             ])
             .build()
             .unwrap();
-        
+
         let market = MarketContext::new().insert_forward(fwd_curve);
-        
+
         // Test rate projection with floor
         let rate = project_floating_rate(
             reset_date,
             &Frequency::Months(3),
             "USD-LIBOR-3M",
-            100.0, // 100 bps margin
+            100.0,       // 100 bps margin
             Some(100.0), // 1% floor on index
             &market,
             &attrs,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Floor should lift index to 1%, plus 100bps margin = 2%
-        assert!((rate - 0.02).abs() < 0.001, "Rate should be ~2% (floor + margin): {}", rate);
+        assert!(
+            (rate - 0.02).abs() < 0.001,
+            "Rate should be ~2% (floor + margin): {}",
+            rate
+        );
     }
 }
-

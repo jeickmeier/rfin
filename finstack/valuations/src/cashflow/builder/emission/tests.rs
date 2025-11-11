@@ -2,8 +2,8 @@
 
 #[cfg(test)]
 mod credit_emission_tests {
-    use super::super::credit::{emit_default_on, emit_prepayment_on};
     use super::super::super::specs::DefaultEvent;
+    use super::super::credit::{emit_default_on, emit_prepayment_on};
     use crate::cashflow::primitives::CFKind;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
@@ -42,8 +42,8 @@ mod credit_emission_tests {
     #[test]
     fn test_coupon_on_reduced_outstanding_after_default() {
         // CRITICAL TEST: Verify coupon uses reduced outstanding after default
-        use super::super::coupons::emit_fixed_coupons_on;
         use super::super::super::specs::{CouponType, FixedCouponSpec};
+        use super::super::coupons::emit_fixed_coupons_on;
         use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 
         let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -211,7 +211,10 @@ mod credit_emission_tests {
         let flows = emit_default_on(d, &events, &mut outstanding, Currency::USD).unwrap();
 
         // Net loss: 50K × 0.6 + 30K × 0.5 = 30K + 15K = 45K
-        assert_eq!(outstanding, 1_000_000.0 - 50_000.0 + 20_000.0 - 30_000.0 + 15_000.0);
+        assert_eq!(
+            outstanding,
+            1_000_000.0 - 50_000.0 + 20_000.0 - 30_000.0 + 15_000.0
+        );
         assert_eq!(flows.len(), 4); // 2 defaults + 2 recoveries
     }
 
@@ -291,4 +294,3 @@ mod credit_emission_tests {
         assert!(early > 0.0, "Early should be positive");
     }
 }
-

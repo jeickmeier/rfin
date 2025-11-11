@@ -156,187 +156,27 @@ impl PyCashFlow {
 
 #[pymethods]
 impl PyCashFlow {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, date, amount, *, accrual_factor=0.0)",
-        signature = (date, amount, *, accrual_factor=0.0)
-    )]
-    /// Create a fixed coupon cash-flow.
+    /// Validate cashflow amount and fields.
     ///
-    /// Parameters
-    /// ----------
-    /// date : datetime.date
-    ///     Payment date for the fixed coupon.
-    /// amount : Money or tuple[float, Currency]
-    ///     Coupon amount with currency.
-    /// accrual_factor : float, default 0.0
-    ///     Accrual fraction associated with the coupon for analytics.
-    ///
-    /// Returns
-    /// -------
-    /// CashFlow
-    ///     Cash-flow tagged as :attr:`CFKind.FIXED`.
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If the cashflow amount is zero.
     ///
     /// Examples
     /// --------
     /// >>> from finstack import Money
-    /// >>> from finstack.core.cashflow import CashFlow
-    /// >>> cf = CashFlow.fixed(date(2025, 6, 15), Money(2500, "USD"), accrual_factor=0.25)
-    pub fn fixed(
-        _cls: &Bound<'_, PyType>,
-        date: Bound<'_, PyAny>,
-        amount: Bound<'_, PyAny>,
-        accrual_factor: f64,
-    ) -> PyResult<Self> {
-        let pay_date = py_to_date(&date)?;
-        let money = extract_money(&amount)?;
-        let mut inner = CashFlow::fixed_cf(pay_date, money).map_err(core_to_py)?;
-        inner.accrual_factor = accrual_factor;
-        Ok(Self::new(inner))
-    }
-
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, date, amount, *, reset_date=None, accrual_factor=0.0)",
-        signature = (date, amount, *, reset_date=None, accrual_factor=0.0)
-    )]
-    /// Create a floating-rate cash-flow with optional reset date.
-    ///
-    /// Parameters
-    /// ----------
-    /// date : datetime.date
-    ///     Coupon payment date.
-    /// amount : Money or tuple[float, Currency]
-    ///     Floating coupon amount.
-    /// reset_date : datetime.date, optional
-    ///     Index reset date; defaults to the payment date when omitted.
-    /// accrual_factor : float, default 0.0
-    ///     Accrual fraction associated with the coupon.
-    ///
-    /// Returns
-    /// -------
-    /// CashFlow
-    ///     Cash-flow tagged as :attr:`CFKind.FLOAT_RESET`.
-    pub fn floating(
-        _cls: &Bound<'_, PyType>,
-        date: Bound<'_, PyAny>,
-        amount: Bound<'_, PyAny>,
-        reset_date: Option<Bound<'_, PyAny>>,
-        accrual_factor: f64,
-    ) -> PyResult<Self> {
-        let pay_date = py_to_date(&date)?;
-        let money = extract_money(&amount)?;
-        let reset = match reset_date {
-            Some(value) => Some(py_to_date(&value)?),
-            None => None,
-        };
-        let mut inner = CashFlow::floating_cf(pay_date, money, reset).map_err(core_to_py)?;
-        inner.accrual_factor = accrual_factor;
-        Ok(Self::new(inner))
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, date, amount)")]
-    /// Create a payment-in-kind (PIK) cash-flow.
-    ///
-    /// Parameters
-    /// ----------
-    /// date : datetime.date
-    ///     Date on which the PIK amount capitalizes.
-    /// amount : Money or tuple[float, Currency]
-    ///     Amount added to principal.
-    ///
-    /// Returns
-    /// -------
-    /// CashFlow
-    ///     Cash-flow tagged as :attr:`CFKind.PIK`.
-    pub fn pik(
-        _cls: &Bound<'_, PyType>,
-        date: Bound<'_, PyAny>,
-        amount: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        let pay_date = py_to_date(&date)?;
-        let money = extract_money(&amount)?;
-        let inner = CashFlow::pik_cf(pay_date, money).map_err(core_to_py)?;
-        Ok(Self::new(inner))
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, date, amount)")]
-    /// Create an amortization principal cash-flow.
-    ///
-    /// Parameters
-    /// ----------
-    /// date : datetime.date
-    ///     Date of the principal reduction.
-    /// amount : Money or tuple[float, Currency]
-    ///     Principal amount paid.
-    ///
-    /// Returns
-    /// -------
-    /// CashFlow
-    ///     Cash-flow tagged as :attr:`CFKind.AMORTIZATION`.
-    pub fn amortization(
-        _cls: &Bound<'_, PyType>,
-        date: Bound<'_, PyAny>,
-        amount: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        let pay_date = py_to_date(&date)?;
-        let money = extract_money(&amount)?;
-        let inner = CashFlow::amort_cf(pay_date, money).map_err(core_to_py)?;
-        Ok(Self::new(inner))
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, date, amount)")]
-    /// Create a principal exchange cash-flow.
-    ///
-    /// Parameters
-    /// ----------
-    /// date : datetime.date
-    ///     Settlement date for the notional exchange.
-    /// amount : Money or tuple[float, Currency]
-    ///     Principal amount exchanged.
-    ///
-    /// Returns
-    /// -------
-    /// CashFlow
-    ///     Cash-flow tagged as :attr:`CFKind.NOTIONAL`.
-    pub fn principal_exchange(
-        _cls: &Bound<'_, PyType>,
-        date: Bound<'_, PyAny>,
-        amount: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        let pay_date = py_to_date(&date)?;
-        let money = extract_money(&amount)?;
-        let inner = CashFlow::principal_exchange(pay_date, money).map_err(core_to_py)?;
-        Ok(Self::new(inner))
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, date, amount)")]
-    /// Create a fee cash-flow.
-    ///
-    /// Parameters
-    /// ----------
-    /// date : datetime.date
-    ///     Fee payment date.
-    /// amount : Money or tuple[float, Currency]
-    ///     Fee amount.
-    ///
-    /// Returns
-    /// -------
-    /// CashFlow
-    ///     Cash-flow tagged as :attr:`CFKind.FEE`.
-    pub fn fee(
-        _cls: &Bound<'_, PyType>,
-        date: Bound<'_, PyAny>,
-        amount: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        let pay_date = py_to_date(&date)?;
-        let money = extract_money(&amount)?;
-        let inner = CashFlow::fee(pay_date, money).map_err(core_to_py)?;
-        Ok(Self::new(inner))
+    /// >>> from finstack.core.cashflow import CashFlow, CFKind
+    /// >>> from datetime import date
+    /// >>> cf = CashFlow(
+    /// ...     date=date(2025, 6, 15),
+    /// ...     amount=Money(2500, "USD"),
+    /// ...     kind=CFKind.FIXED,
+    /// ...     accrual_factor=0.25
+    /// ... )
+    /// >>> cf.validate()  # Should pass
+    pub fn validate(&self) -> PyResult<()> {
+        self.inner.validate().map_err(core_to_py)
     }
 
     #[getter]

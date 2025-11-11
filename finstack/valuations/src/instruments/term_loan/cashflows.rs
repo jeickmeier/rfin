@@ -23,7 +23,16 @@ pub fn generate_cashflows(
 
     // Upfront fee at issue (if any)
     if let Some(fee) = loan.upfront_fee {
-        flows.push(CashFlow::fee(loan.issue, fee)?);
+        if fee.amount() > 0.0 {
+            flows.push(CashFlow {
+                date: loan.issue,
+                reset_date: None,
+                amount: fee,
+                kind: CFKind::Fee,
+                accrual_factor: 0.0,
+                rate: None,
+            });
+        }
     }
 
     // Simple DDTL draw handling (availability window + optional step-down enforcement)
@@ -60,25 +69,58 @@ pub fn generate_cashflows(
                     super::spec::OidPolicy::SeparatePct(bp) => {
                         let pct = (*bp as f64) * 1e-4;
                         let fee_amt = Money::new(ev.amount.amount() * pct, ev.amount.currency());
-                        flows.push(CashFlow::fee(ev.date, fee_amt)?);
+                        if fee_amt.amount() > 0.0 {
+                            flows.push(CashFlow {
+                                date: ev.date,
+                                reset_date: None,
+                                amount: fee_amt,
+                                kind: CFKind::Fee,
+                                accrual_factor: 0.0,
+                                rate: None,
+                            });
+                        }
                     }
                     super::spec::OidPolicy::SeparateAmount(m) => {
-                        flows.push(CashFlow::fee(ev.date, *m)?);
+                        if m.amount() > 0.0 {
+                            flows.push(CashFlow {
+                                date: ev.date,
+                                reset_date: None,
+                                amount: *m,
+                                kind: CFKind::Fee,
+                                accrual_factor: 0.0,
+                                rate: None,
+                            });
+                        }
                     }
                 }
             }
             // Funding inflow to borrower
-            flows.push(CashFlow::principal_exchange(ev.date, cash_inflow)?);
+            if cash_inflow.amount() != 0.0 {
+                flows.push(CashFlow {
+                    date: ev.date,
+                    reset_date: None,
+                    amount: cash_inflow,
+                    kind: CFKind::Notional,
+                    accrual_factor: 0.0,
+                    rate: None,
+                });
+            }
             // Principal increases by full draw amount
             outstanding = outstanding.checked_add(ev.amount)?;
         }
         _commitment_limit_opt = Some(ddtl.commitment_limit);
     } else {
         // Plain term loan: treat as fully funded at issue
-        flows.push(CashFlow::principal_exchange(
-            loan.issue,
-            loan.notional_limit,
-        )?);
+        if loan.notional_limit.amount() != 0.0 {
+            flows.push(CashFlow {
+                date: loan.issue,
+                reset_date: None,
+                amount: loan.notional_limit,
+                kind: CFKind::Notional,
+                accrual_factor: 0.0,
+                rate: None,
+            });
+        }
         outstanding = outstanding.checked_add(loan.notional_limit)?;
     }
 
@@ -188,10 +230,24 @@ pub fn generate_cashflows(
             }
         }
         if cash_interest.amount() != 0.0 {
-            flows.push(CashFlow::fixed_cf(d, cash_interest)?);
+            flows.push(CashFlow {
+                date: d,
+                reset_date: None,
+                amount: cash_interest,
+                kind: CFKind::Fixed,
+                accrual_factor: yf,
+                rate: Some(period_rate),
+            });
         }
         if pik_interest.amount() != 0.0 {
-            flows.push(CashFlow::pik_cf(d, pik_interest)?);
+            flows.push(CashFlow {
+                date: d,
+                reset_date: None,
+                amount: pik_interest,
+                kind: CFKind::PIK,
+                accrual_factor: yf,
+                rate: Some(period_rate),
+            });
             outstanding = outstanding.checked_add(pik_interest)?;
         }
 
@@ -205,7 +261,7 @@ pub fn generate_cashflows(
                 }
             }
             let undrawn = (limit.amount() - outstanding.amount()).max(0.0);
-            
+
             // Emit commitment fee using centralized function
             if ddtl.commitment_fee_bp != 0 {
                 flows.extend(crate::cashflow::builder::emit_commitment_fee_on(
@@ -216,7 +272,7 @@ pub fn generate_cashflows(
                     loan.currency,
                 ));
             }
-            
+
             // Emit usage fee using centralized function
             if ddtl.usage_fee_bp != 0 {
                 flows.extend(crate::cashflow::builder::emit_usage_fee_on(
@@ -232,14 +288,32 @@ pub fn generate_cashflows(
         // Cash sweeps
         if let Some(cov) = &loan.covenants {
             for sweep in cov.cash_sweeps.iter().filter(|s| s.date == d) {
-                flows.push(CashFlow::amort_cf(d, sweep.amount)?);
-                outstanding = outstanding.checked_sub(sweep.amount)?;
+                if sweep.amount.amount() > 0.0 {
+                    flows.push(CashFlow {
+                        date: d,
+                        reset_date: None,
+                        amount: sweep.amount,
+                        kind: CFKind::Amortization,
+                        accrual_factor: 0.0,
+                        rate: None,
+                    });
+                    outstanding = outstanding.checked_sub(sweep.amount)?;
+                }
             }
         }
         if let Some(ov) = &loan.pricing_overrides.term_loan {
             for (dt, amt) in ov.extra_cash_sweeps.iter().filter(|(dt, _)| *dt == d) {
-                flows.push(CashFlow::amort_cf(*dt, *amt)?);
-                outstanding = outstanding.checked_sub(*amt)?;
+                if amt.amount() > 0.0 {
+                    flows.push(CashFlow {
+                        date: *dt,
+                        reset_date: None,
+                        amount: *amt,
+                        kind: CFKind::Amortization,
+                        accrual_factor: 0.0,
+                        rate: None,
+                    });
+                    outstanding = outstanding.checked_sub(*amt)?;
+                }
             }
         }
 
@@ -250,7 +324,14 @@ pub fn generate_cashflows(
                 for (adt, amt) in items.iter().filter(|(adt, _)| *adt == d) {
                     let pay = Money::new(amt.amount().min(outstanding.amount()), loan.currency);
                     if pay.amount() > 0.0 {
-                        flows.push(CashFlow::amort_cf(*adt, pay)?);
+                        flows.push(CashFlow {
+                            date: *adt,
+                            reset_date: None,
+                            amount: pay,
+                            kind: CFKind::Amortization,
+                            accrual_factor: 0.0,
+                            rate: None,
+                        });
                         outstanding = outstanding.checked_sub(pay)?;
                     }
                 }
@@ -262,7 +343,14 @@ pub fn generate_cashflows(
                     loan.currency,
                 );
                 if pay.amount() > 0.0 {
-                    flows.push(CashFlow::amort_cf(d, pay)?);
+                    flows.push(CashFlow {
+                        date: d,
+                        reset_date: None,
+                        amount: pay,
+                        kind: CFKind::Amortization,
+                        accrual_factor: 0.0,
+                        rate: None,
+                    });
                     outstanding = outstanding.checked_sub(pay)?;
                 }
             }
@@ -279,7 +367,14 @@ pub fn generate_cashflows(
                         (outstanding.amount() / (remaining as f64)).min(outstanding.amount());
                     let pay = Money::new(pay_amt, loan.currency);
                     if pay.amount() > 0.0 {
-                        flows.push(CashFlow::amort_cf(d, pay)?);
+                        flows.push(CashFlow {
+                            date: d,
+                            reset_date: None,
+                            amount: pay,
+                            kind: CFKind::Amortization,
+                            accrual_factor: 0.0,
+                            rate: None,
+                        });
                         outstanding = outstanding.checked_sub(pay)?;
                     }
                 }
@@ -292,7 +387,14 @@ pub fn generate_cashflows(
     // Final redemption of remaining principal at maturity (outflow)
     if outstanding.amount() != 0.0 {
         let redemption = Money::new(-outstanding.amount(), outstanding.currency());
-        flows.push(CashFlow::principal_exchange(loan.maturity, redemption)?);
+        flows.push(CashFlow {
+            date: loan.maturity,
+            reset_date: None,
+            amount: redemption,
+            kind: CFKind::Notional,
+            accrual_factor: 0.0,
+            rate: None,
+        });
     }
 
     // Sort by date then kind rank (match builder's ordering)

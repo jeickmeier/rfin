@@ -6,8 +6,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PoolAsset, PrepaymentCurve, StructuredCredit,
-    Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
+    AssetPool, DealType, PoolAsset, PrepaymentCurve, StructuredCredit, Tranche, TrancheCoupon,
+    TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
 use time::Month;
 
@@ -80,7 +80,10 @@ fn test_clo_default_prepayment_model() {
 
     // Assert: CLO should use constant CPR
     assert_eq!(clo.prepayment_spec.cpr, 0.15); // 15% CPR standard
-    assert!(clo.prepayment_spec.curve.is_none() || matches!(clo.prepayment_spec.curve, Some(PrepaymentCurve::Constant)));
+    assert!(
+        clo.prepayment_spec.curve.is_none()
+            || matches!(clo.prepayment_spec.curve, Some(PrepaymentCurve::Constant))
+    );
 }
 
 #[test]

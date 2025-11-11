@@ -104,7 +104,10 @@ fn test_fx_shock_preserves_other_quotes() {
     let fx = market.fx.as_ref().unwrap();
     let gbp_query = finstack_core::money::fx::FxQuery::new(Currency::GBP, Currency::USD, base_date);
     let gbp_rate = fx.rate(gbp_query).unwrap().rate;
-    assert!((gbp_rate - 1.25).abs() < 1e-6, "Expected unchanged GBP/USD quote");
+    assert!(
+        (gbp_rate - 1.25).abs() < 1e-6,
+        "Expected unchanged GBP/USD quote"
+    );
 }
 
 #[test]

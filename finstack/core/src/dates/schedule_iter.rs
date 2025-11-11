@@ -550,6 +550,7 @@ pub struct ScheduleBuilder<'a> {
     cal: Option<&'a dyn HolidayCalendar>,
     eom: bool,
     cds_imm_mode: bool,
+    graceful: bool,
 }
 
 impl<'a> ScheduleBuilder<'a> {
@@ -571,6 +572,7 @@ impl<'a> ScheduleBuilder<'a> {
             cal: None,
             eom: false,
             cds_imm_mode: false,
+            graceful: false,
         }
     }
 
@@ -627,8 +629,99 @@ impl<'a> ScheduleBuilder<'a> {
         self.cds_imm_mode = true;
         self
     }
+
+    /// Enable graceful fallback mode.
+    ///
+    /// When enabled, [`build()`](Self::build) returns an empty schedule on errors
+    /// instead of propagating them. This is useful for instrument pricing where
+    /// you want to avoid panics but can handle empty schedules gracefully.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::{ScheduleBuilder, Frequency};
+    /// use time::{Date, Month};
+    ///
+    /// let start = Date::from_calendar_date(2025, Month::December, 31).unwrap();
+    /// let end = Date::from_calendar_date(2025, Month::January, 1).unwrap(); // Invalid: end before start
+    ///
+    /// // Without graceful mode: returns error
+    /// let result = ScheduleBuilder::new(start, end)
+    ///     .frequency(Frequency::monthly())
+    ///     .build();
+    /// assert!(result.is_err());
+    ///
+    /// // With graceful mode: returns empty schedule
+    /// let schedule = ScheduleBuilder::new(start, end)
+    ///     .frequency(Frequency::monthly())
+    ///     .graceful_fallback(true)
+    ///     .build()
+    ///     .unwrap();
+    /// assert_eq!(schedule.dates.len(), 0);
+    /// ```
+    #[must_use]
+    pub fn graceful_fallback(mut self, enabled: bool) -> Self {
+        self.graceful = enabled;
+        self
+    }
+
+    /// Configure business-day adjustment using calendar ID string lookup.
+    ///
+    /// This is a convenience method that combines calendar lookup with adjustment
+    /// configuration. If the calendar is not found:
+    /// - In strict mode (graceful=false): schedule generation will proceed without adjustment
+    /// - In graceful mode (graceful=true): schedule generation will proceed without adjustment
+    ///
+    /// # Arguments
+    ///
+    /// * `conv` - Business day convention (Following, Modified Following, etc.)
+    /// * `calendar_id` - Calendar identifier string (e.g., "nyse", "target2", "gblo")
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention};
+    /// use time::{Date, Month};
+    ///
+    /// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    /// let end = Date::from_calendar_date(2025, Month::December, 15).unwrap();
+    ///
+    /// let schedule = ScheduleBuilder::new(start, end)
+    ///     .frequency(Frequency::monthly())
+    ///     .adjust_with_id(BusinessDayConvention::Following, "nyse")
+    ///     .build()
+    ///     .unwrap();
+    /// # assert!(schedule.dates.len() > 0);
+    /// ```
+    #[must_use]
+    pub fn adjust_with_id(mut self, conv: BusinessDayConvention, calendar_id: &str) -> Self {
+        use super::calendar::calendar_by_id;
+
+        if let Some(cal) = calendar_by_id(calendar_id) {
+            self.conv = Some(conv);
+            self.cal = Some(cal);
+        }
+        // If calendar not found, silently skip adjustment
+        // The schedule will be generated without business day adjustment
+        self
+    }
+
     /// Build a concrete schedule (adjusted if configured).
+    ///
+    /// When graceful fallback mode is enabled via [`graceful_fallback(true)`](Self::graceful_fallback),
+    /// this method returns an empty schedule on errors instead of propagating them.
     pub fn build(self) -> crate::Result<Schedule> {
+        let result = self.build_impl();
+
+        if self.graceful && result.is_err() {
+            return Ok(Schedule { dates: Vec::new() });
+        }
+
+        result
+    }
+
+    /// Internal implementation of schedule building.
+    fn build_impl(self) -> crate::Result<Schedule> {
         if self.start > self.end {
             return Err(crate::error::InputError::InvalidDateRange.into());
         }
@@ -795,6 +888,122 @@ fn enforce_monotonic_and_dedup(dates: &mut Vec<Date>) {
         // Else: skip duplicates and non-increasing values
     }
     *dates = out;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::Month;
+
+    fn d(y: i32, m: u8, day: u8) -> Date {
+        Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
+    }
+
+    #[test]
+    fn test_graceful_fallback_returns_empty_on_invalid_range() {
+        // Invalid: end before start
+        let start = d(2025, 12, 31);
+        let end = d(2025, 1, 1);
+
+        // Without graceful mode: should error
+        let result = ScheduleBuilder::new(start, end)
+            .frequency(Frequency::monthly())
+            .build();
+        assert!(result.is_err());
+
+        // With graceful mode: should return empty schedule
+        let schedule = ScheduleBuilder::new(start, end)
+            .frequency(Frequency::monthly())
+            .graceful_fallback(true)
+            .build()
+            .unwrap();
+        assert_eq!(schedule.dates.len(), 0);
+    }
+
+    #[test]
+    fn test_adjust_with_id_valid_calendar() {
+        let start = d(2025, 1, 15);
+        let end = d(2025, 3, 15);
+
+        // Use a known calendar (target2)
+        let schedule = ScheduleBuilder::new(start, end)
+            .frequency(Frequency::monthly())
+            .adjust_with_id(BusinessDayConvention::Following, "target2")
+            .build()
+            .unwrap();
+
+        // Should have generated a schedule
+        assert!(schedule.dates.len() >= 2);
+    }
+
+    #[test]
+    fn test_adjust_with_id_invalid_calendar_strict_mode() {
+        let start = d(2025, 1, 15);
+        let end = d(2025, 3, 15);
+
+        // Invalid calendar with strict mode (graceful=false)
+        // Should succeed but without adjustment since calendar not found
+        let schedule = ScheduleBuilder::new(start, end)
+            .frequency(Frequency::monthly())
+            .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
+            .build()
+            .unwrap();
+
+        // Should still generate schedule (unadjusted)
+        assert!(schedule.dates.len() >= 2);
+    }
+
+    #[test]
+    fn test_adjust_with_id_invalid_calendar_graceful_mode() {
+        let start = d(2025, 1, 15);
+        let end = d(2025, 3, 15);
+
+        // Invalid calendar with graceful mode
+        // Should succeed and return schedule without adjustment
+        let schedule = ScheduleBuilder::new(start, end)
+            .frequency(Frequency::monthly())
+            .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
+            .graceful_fallback(true)
+            .build()
+            .unwrap();
+
+        // Should generate schedule (unadjusted)
+        assert!(schedule.dates.len() >= 2);
+    }
+
+    #[test]
+    fn test_graceful_mode_with_valid_inputs() {
+        let start = d(2025, 1, 15);
+        let end = d(2025, 4, 15);
+
+        // Valid inputs with graceful mode should work normally
+        let schedule = ScheduleBuilder::new(start, end)
+            .frequency(Frequency::monthly())
+            .graceful_fallback(true)
+            .build()
+            .unwrap();
+
+        assert_eq!(schedule.dates.len(), 4);
+        assert_eq!(schedule.dates[0], start);
+        assert_eq!(schedule.dates[3], end);
+    }
+
+    #[test]
+    fn test_adjust_with_id_combined_with_other_options() {
+        let start = d(2025, 1, 31);
+        let end = d(2025, 4, 30);
+
+        // Combine adjust_with_id with end_of_month
+        let schedule = ScheduleBuilder::new(start, end)
+            .frequency(Frequency::monthly())
+            .end_of_month(true)
+            .adjust_with_id(BusinessDayConvention::Following, "target2")
+            .build()
+            .unwrap();
+
+        // Should generate a valid schedule
+        assert!(schedule.dates.len() >= 2);
+    }
 }
 
 #[cfg(all(test, feature = "serde"))]

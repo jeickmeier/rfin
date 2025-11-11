@@ -22,7 +22,9 @@ use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 
-use super::super::cashflow_engine::{CashflowEngine, PathAwareCashflowSchedule, ThreeFactorPathData};
+use super::super::cashflow_engine::{
+    CashflowEngine, PathAwareCashflowSchedule, ThreeFactorPathData,
+};
 use super::super::types::{DrawRepaySpec, RevolvingCredit};
 use super::components::compute_upfront_fee_pv;
 
@@ -92,7 +94,12 @@ impl RevolvingCreditPricer {
         let survival_probs = if let Some(ref path_data) = path_schedule.path_data {
             // Dynamic survival from credit spread path
             // Need to compute survival at each cashflow date, not just time points
-            let cashflow_dates: Vec<Date> = path_schedule.schedule.flows.iter().map(|cf| cf.date).collect();
+            let cashflow_dates: Vec<Date> = path_schedule
+                .schedule
+                .flows
+                .iter()
+                .map(|cf| cf.date)
+                .collect();
             Self::compute_dynamic_survival_at_dates(
                 &path_data.credit_spread_path,
                 &path_data.time_points,
@@ -104,7 +111,14 @@ impl RevolvingCreditPricer {
         } else if let Some(ref hazard_id) = facility.hazard_curve_id {
             // Static survival from hazard curve
             let hazard = market.get_hazard_ref(hazard_id.as_str())?;
-            hazard.survival_at_dates(&path_schedule.schedule.flows.iter().map(|cf| cf.date).collect::<Vec<_>>())?
+            hazard.survival_at_dates(
+                &path_schedule
+                    .schedule
+                    .flows
+                    .iter()
+                    .map(|cf| cf.date)
+                    .collect::<Vec<_>>(),
+            )?
         } else {
             // No credit risk
             vec![1.0; path_schedule.schedule.flows.len()]
@@ -114,7 +128,11 @@ impl RevolvingCreditPricer {
         let mut total_pv = 0.0;
         let base_date = disc_curve.base_date();
         for (i, cf) in path_schedule.schedule.flows.iter().enumerate() {
-            let t = disc_dc.year_fraction(base_date, cf.date, finstack_core::dates::DayCountCtx::default())?;
+            let t = disc_dc.year_fraction(
+                base_date,
+                cf.date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
             let df = disc_curve.df(t);
             let survival = survival_probs.get(i).copied().unwrap_or(1.0);
             total_pv += cf.amount.amount() * df * survival;
@@ -152,11 +170,7 @@ impl RevolvingCreditPricer {
     /// # Returns
     ///
     /// Present value as `Money`
-    pub fn price(
-        facility: &RevolvingCredit,
-        market: &MarketContext,
-        as_of: Date,
-    ) -> Result<Money> {
+    pub fn price(facility: &RevolvingCredit, market: &MarketContext, as_of: Date) -> Result<Money> {
         match &facility.draw_repay_spec {
             DrawRepaySpec::Deterministic(_) => {
                 // Single deterministic path
@@ -266,7 +280,7 @@ impl RevolvingCreditPricer {
             } else {
                 CreditSpreadProcessSpec::Constant(0.0)
             };
-            
+
             mc_config_to_use = McConfig {
                 correlation_matrix: None,
                 recovery_rate: facility.recovery_rate,
@@ -283,7 +297,8 @@ impl RevolvingCreditPricer {
         let payment_dates = super::super::utils::build_payment_dates(facility, false)?;
 
         // Generate 3-factor paths
-        let paths = generate_three_factor_paths(stoch_spec, mc_config, facility, market, &payment_dates)?;
+        let paths =
+            generate_three_factor_paths(stoch_spec, mc_config, facility, market, &payment_dates)?;
 
         // Price each path
         let mut path_results = Vec::with_capacity(paths.len());
@@ -296,11 +311,7 @@ impl RevolvingCreditPricer {
         // Compute MC statistics
         let pvs: Vec<f64> = path_results.iter().map(|r| r.pv.amount()).collect();
         let mean = pvs.iter().sum::<f64>() / pvs.len() as f64;
-        let variance = pvs
-            .iter()
-            .map(|&x| (x - mean).powi(2))
-            .sum::<f64>()
-            / pvs.len() as f64;
+        let variance = pvs.iter().map(|&x| (x - mean).powi(2)).sum::<f64>() / pvs.len() as f64;
         let stderr = (variance / pvs.len() as f64).sqrt();
 
         // Compute 95% confidence interval (assuming normality)
@@ -360,7 +371,7 @@ impl RevolvingCreditPricer {
         for &cf_date in cashflow_dates {
             // Find the interval containing cf_date
             let t_cf = dc.year_fraction(commitment_date, cf_date, DayCountCtx::default())?;
-            
+
             // Find the bracketing payment dates
             let hazard_at_cf = if let Some(idx) = time_points.iter().position(|&t| t >= t_cf) {
                 if idx == 0 || (time_points[idx] - t_cf).abs() < 1e-10 {
@@ -372,7 +383,7 @@ impl RevolvingCreditPricer {
                     let t1 = time_points[idx];
                     let h0 = cumulative_hazards[idx - 1];
                     let h1 = cumulative_hazards[idx];
-                    
+
                     let alpha = (t_cf - t0) / (t1 - t0).max(1e-10);
                     h0 + alpha * (h1 - h0)
                 }
@@ -380,7 +391,7 @@ impl RevolvingCreditPricer {
                 // After last point - use last cumulative hazard
                 cumulative_hazards.last().copied().unwrap_or(0.0)
             };
-            
+
             survival_probs.push((-hazard_at_cf).exp());
         }
 
@@ -408,7 +419,8 @@ impl Pricer for RevolvingCreditPricer {
             })?;
 
         // Extract valuation date from discount curve
-        let disc = market.get_discount_ref(&facility.discount_curve_id)
+        let disc = market
+            .get_discount_ref(&facility.discount_curve_id)
             .map_err(|e| PricingError::MissingMarketData(e.to_string()))?;
         let as_of = disc.base_date();
 
@@ -488,4 +500,3 @@ mod tests {
         }
     }
 }
-

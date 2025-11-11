@@ -10,9 +10,13 @@ use proptest::prelude::*;
 // that the parser tries to match before identifiers
 fn valid_identifier() -> impl Strategy<Value = String> {
     "[a-z][a-z0-9_]{0,15}"
-        .prop_filter("must not start with 'nan' followed by digit", |s: &String| {
-            !s.starts_with("nan") || (s.len() > 3 && !s.chars().nth(3).unwrap().is_ascii_digit())
-        })
+        .prop_filter(
+            "must not start with 'nan' followed by digit",
+            |s: &String| {
+                !s.starts_with("nan")
+                    || (s.len() > 3 && !s.chars().nth(3).unwrap().is_ascii_digit())
+            },
+        )
         .prop_map(|s: String| s)
 }
 

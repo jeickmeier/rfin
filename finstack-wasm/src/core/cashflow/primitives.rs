@@ -146,149 +146,23 @@ impl JsCashFlow {
 
 #[wasm_bindgen(js_class = CashFlow)]
 impl JsCashFlow {
-    /// Create a fixed coupon cashflow.
+    /// Validate cashflow amount and fields.
     ///
-    /// @param {Date} date - Payment date
-    /// @param {Money} amount - Payment amount
-    /// @param {number} [accrualFactor] - Optional accrual factor (default: calculated)
-    /// @returns {CashFlow} Fixed coupon cashflow
-    /// @throws {Error} If date or amount is invalid
+    /// @throws {Error} If the cashflow amount is zero
     ///
     /// @example
     /// ```javascript
-    /// const paymentDate = new Date(2025, 2, 15); // March 15, 2025
-    /// const coupon = new Money(50000, new Currency("USD"));
-    /// const fixedCf = CashFlow.fixed(paymentDate, coupon, 0.25); // 3-month accrual
-    /// console.log(fixedCf.kind.name); // "fixed"
+    /// const cf = new CashFlow(
+    ///     new Date(2025, 2, 15),
+    ///     new Money(50000, new Currency("USD")),
+    ///     CFKind.Fixed(),
+    ///     0.25
+    /// );
+    /// cf.validate(); // Should pass
     /// ```
-    #[wasm_bindgen(js_name = fixed)]
-    pub fn fixed(
-        date: &JsDate,
-        amount: &JsMoney,
-        accrual_factor: Option<f64>,
-    ) -> Result<JsCashFlow, JsValue> {
-        let mut cf = CashFlow::fixed_cf(date.inner(), amount.inner())
-            .map_err(|e| js_error(e.to_string()))?;
-        if let Some(value) = accrual_factor {
-            cf.accrual_factor = value;
-        }
-        Ok(Self::from_inner(cf))
-    }
-
-    /// Create a floating rate cashflow with reset date.
-    ///
-    /// @param {Date} date - Payment date
-    /// @param {Money} amount - Payment amount
-    /// @param {Date} [resetDate] - Optional reset date for rate determination
-    /// @param {number} [accrualFactor] - Optional accrual factor
-    /// @returns {CashFlow} Floating rate cashflow
-    /// @throws {Error} If date or amount is invalid
-    ///
-    /// @example
-    /// ```javascript
-    /// const paymentDate = new Date(2025, 5, 15);
-    /// const resetDate = new Date(2025, 2, 15); // 3 months before payment
-    /// const floatCf = CashFlow.floating(paymentDate, coupon, resetDate, 0.25);
-    /// console.log(floatCf.kind.name); // "float_reset"
-    /// ```
-    #[wasm_bindgen(js_name = floating)]
-    pub fn floating(
-        date: &JsDate,
-        amount: &JsMoney,
-        reset_date: Option<JsDate>,
-        accrual_factor: Option<f64>,
-    ) -> Result<JsCashFlow, JsValue> {
-        let reset = reset_date.map(|d| d.inner());
-        let mut cf = CashFlow::floating_cf(date.inner(), amount.inner(), reset)
-            .map_err(|e| js_error(e.to_string()))?;
-        if let Some(value) = accrual_factor {
-            cf.accrual_factor = value;
-        }
-        Ok(Self::from_inner(cf))
-    }
-
-    /// Create a payment-in-kind (PIK) cashflow.
-    ///
-    /// @param {Date} date - Payment date
-    /// @param {Money} amount - PIK amount to be capitalized
-    /// @returns {CashFlow} PIK cashflow
-    /// @throws {Error} If date or amount is invalid
-    ///
-    /// @example
-    /// ```javascript
-    /// const pikDate = new Date(2025, 5, 15);
-    /// const pikAmount = new Money(25000, new Currency("USD"));
-    /// const pikCf = CashFlow.pik(pikDate, pikAmount);
-    /// console.log(pikCf.kind.name); // "pik"
-    /// ```
-    #[wasm_bindgen(js_name = pik)]
-    pub fn pik(date: &JsDate, amount: &JsMoney) -> Result<JsCashFlow, JsValue> {
-        CashFlow::pik_cf(date.inner(), amount.inner())
-            .map(Self::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
-    /// Create an amortization cashflow.
-    ///
-    /// @param {Date} date - Payment date
-    /// @param {Money} amount - Amortization amount
-    /// @returns {CashFlow} Amortization cashflow
-    /// @throws {Error} If date or amount is invalid
-    ///
-    /// @example
-    /// ```javascript
-    /// const amortDate = new Date(2025, 5, 15);
-    /// const amortAmount = new Money(100000, new Currency("USD"));
-    /// const amortCf = CashFlow.amortization(amortDate, amortAmount);
-    /// console.log(amortCf.kind.name); // "amortization"
-    /// ```
-    #[wasm_bindgen(js_name = amortization)]
-    pub fn amortization(date: &JsDate, amount: &JsMoney) -> Result<JsCashFlow, JsValue> {
-        CashFlow::amort_cf(date.inner(), amount.inner())
-            .map(Self::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
-    /// Create a principal exchange cashflow.
-    ///
-    /// @param {Date} date - Exchange date
-    /// @param {Money} amount - Principal amount (negative for repayment)
-    /// @returns {CashFlow} Principal exchange cashflow
-    /// @throws {Error} If date or amount is invalid
-    ///
-    /// @example
-    /// ```javascript
-    /// const exchangeDate = new Date(2025, 11, 15);
-    /// const principal = new Money(-1000000, new Currency("USD")); // Negative for repayment
-    /// const principalCf = CashFlow.principalExchange(exchangeDate, principal);
-    /// console.log(principalCf.kind.name); // "notional"
-    /// ```
-    #[wasm_bindgen(js_name = principalExchange)]
-    pub fn principal_exchange(date: &JsDate, amount: &JsMoney) -> Result<JsCashFlow, JsValue> {
-        CashFlow::principal_exchange(date.inner(), amount.inner())
-            .map(Self::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
-    /// Create a fee cashflow.
-    ///
-    /// @param {Date} date - Fee payment date
-    /// @param {Money} amount - Fee amount
-    /// @returns {CashFlow} Fee cashflow
-    /// @throws {Error} If date or amount is invalid
-    ///
-    /// @example
-    /// ```javascript
-    /// const feeDate = new Date(2025, 0, 15); // Upfront fee
-    /// const feeAmount = new Money(50000, new Currency("USD"));
-    /// const feeCf = CashFlow.fee(feeDate, feeAmount);
-    /// console.log(feeCf.kind.name); // "fee"
-    /// ```
-    #[wasm_bindgen(js_name = fee)]
-    pub fn fee(date: &JsDate, amount: &JsMoney) -> Result<JsCashFlow, JsValue> {
-        CashFlow::fee(date.inner(), amount.inner())
-            .map(Self::from_inner)
-            .map_err(|e| js_error(e.to_string()))
+    #[wasm_bindgen]
+    pub fn validate(&self) -> Result<(), JsValue> {
+        self.inner.validate().map_err(|e| js_error(e.to_string()))
     }
 
     /// Cashflow kind (Fixed, FloatReset, PIK, etc.).

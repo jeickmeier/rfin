@@ -38,11 +38,11 @@ impl DiscountFactors {
         as_of: Date,
     ) -> Result<Self> {
         let base_date = curve.base_date();
-        
+
         // Get discount factor at as_of for relative discounting
         let t_as_of = day_count.year_fraction(base_date, as_of, DayCountCtx::default())?;
         let df_as_of = curve.df(t_as_of);
-        
+
         // Compute discount factors relative to as_of
         let mut factors = Vec::with_capacity(dates.len());
         for &date in dates {
@@ -61,10 +61,10 @@ impl DiscountFactors {
                 factors.push(df_rel);
             }
         }
-        
+
         Ok(Self { factors })
     }
-    
+
     /// Create discount factors for a time grid (MC engine usage).
     ///
     /// # Arguments
@@ -82,11 +82,11 @@ impl DiscountFactors {
         as_of: Date,
     ) -> Result<Self> {
         let base_date = curve.base_date();
-        
+
         // Get discount factor at as_of for relative discounting
         let t_as_of = day_count.year_fraction(base_date, as_of, DayCountCtx::default())?;
         let df_as_of = curve.df(t_as_of);
-        
+
         // Compute discount factors for each time point
         let mut factors = Vec::with_capacity(time_points.len());
         for &t_rel in time_points {
@@ -99,27 +99,27 @@ impl DiscountFactors {
             };
             factors.push(df_rel);
         }
-        
+
         Ok(Self { factors })
     }
-    
+
     /// Get discount factor at a specific index.
     ///
     /// Returns 1.0 if index is out of bounds (conservative default).
     pub fn get(&self, index: usize) -> f64 {
         self.factors.get(index).copied().unwrap_or(1.0)
     }
-    
+
     /// Get all discount factors.
     pub fn factors(&self) -> &[f64] {
         &self.factors
     }
-    
+
     /// Get the number of discount factors.
     pub fn len(&self) -> usize {
         self.factors.len()
     }
-    
+
     /// Check if empty.
     pub fn is_empty(&self) -> bool {
         self.factors.is_empty()
@@ -154,19 +154,19 @@ impl SurvivalWeights {
         day_count: DayCount,
     ) -> Result<Self> {
         let mut weights = Vec::with_capacity(dates.len());
-        
+
         for &date in dates {
             let t = day_count.year_fraction(base_date, date, DayCountCtx::default())?;
             let sp = hazard.sp(t).clamp(0.0, 1.0);
             weights.push(sp);
         }
-        
+
         Ok(Self {
             weights,
             recovery_rate: 0.0, // Not used for static hazard curves
         })
     }
-    
+
     /// Create constant survival weights (no credit risk).
     ///
     /// Returns a vector of 1.0 values for the specified length.
@@ -176,19 +176,19 @@ impl SurvivalWeights {
             recovery_rate: 0.0,
         }
     }
-    
+
     /// Get survival weight at a specific index.
     ///
     /// Returns 1.0 if index is out of bounds (no credit risk default).
     pub fn get(&self, index: usize) -> f64 {
         self.weights.get(index).copied().unwrap_or(1.0)
     }
-    
+
     /// Get all survival weights.
     pub fn weights(&self) -> &[f64] {
         &self.weights
     }
-    
+
     /// Get recovery rate.
     pub fn recovery_rate(&self) -> f64 {
         self.recovery_rate
@@ -208,7 +208,7 @@ pub trait RateProjector: Send + Sync {
     /// * `t1` - End time of the interest period (year fraction)
     /// * `step` - Step index (for pre-computed rates)
     fn project_rate(&self, t0: f64, t1: f64, step: usize) -> Result<f64>;
-    
+
     /// Clone the projector into a boxed trait object.
     fn clone_box(&self) -> Box<dyn RateProjector>;
 }
@@ -233,7 +233,7 @@ impl RateProjector for FixedRateProjector {
     fn project_rate(&self, _t0: f64, _t1: f64, _step: usize) -> Result<f64> {
         Ok(self.rate)
     }
-    
+
     fn clone_box(&self) -> Box<dyn RateProjector> {
         Box::new(self.clone())
     }
@@ -265,21 +265,21 @@ impl FloatingRateProjector {
             floor_bp,
         }
     }
-    
+
     /// Project rate for a period using forward curve.
     fn project_internal(&self, t0: f64, t1: f64) -> Result<f64> {
         // Get forward rate for the period
         let mut index_rate = self.forward_curve.rate_period(t0, t1);
-        
+
         // Apply floor if specified (before adding margin)
         if let Some(floor_bp) = self.floor_bp {
             let floor_rate = floor_bp / 10000.0;
             index_rate = index_rate.max(floor_rate);
         }
-        
+
         // Add margin
         let all_in_rate = index_rate + (self.margin_bp / 10000.0);
-        
+
         Ok(all_in_rate)
     }
 }
@@ -288,7 +288,7 @@ impl RateProjector for FloatingRateProjector {
     fn project_rate(&self, t0: f64, t1: f64, _step: usize) -> Result<f64> {
         self.project_internal(t0, t1)
     }
-    
+
     fn clone_box(&self) -> Box<dyn RateProjector> {
         Box::new(self.clone())
     }
@@ -315,7 +315,7 @@ impl RateProjector for TermLockedRateProjector {
     fn project_rate(&self, _t0: f64, _t1: f64, step: usize) -> Result<f64> {
         Ok(self.rates_by_step.get(step).copied().unwrap_or(0.0))
     }
-    
+
     fn clone_box(&self) -> Box<dyn RateProjector> {
         Box::new(self.clone())
     }
@@ -343,7 +343,7 @@ impl FeeCalculator {
             facility_fee_bp,
         }
     }
-    
+
     /// Calculate all fees for a period.
     ///
     /// Returns (commitment_fee, usage_fee, facility_fee) tuple.
@@ -354,16 +354,16 @@ impl FeeCalculator {
         accrual_factor: f64,
     ) -> (f64, f64, f64) {
         let undrawn_amount = (commitment_amount - drawn_amount).max(0.0);
-        
+
         // Commitment fee on undrawn
         let commitment_fee = undrawn_amount * (self.commitment_fee_bp / 10000.0) * accrual_factor;
-        
+
         // Usage fee on drawn
         let usage_fee = drawn_amount * (self.usage_fee_bp / 10000.0) * accrual_factor;
-        
+
         // Facility fee on total commitment
         let facility_fee = commitment_amount * (self.facility_fee_bp / 10000.0) * accrual_factor;
-        
+
         (commitment_fee, usage_fee, facility_fee)
     }
 }
@@ -386,17 +386,10 @@ pub fn compute_upfront_fee_pv(
     if commitment_date > as_of {
         // Discount from commitment date to as_of
         let base_date = disc_curve.base_date();
-        
-        let t_commitment = day_count.year_fraction(
-            base_date,
-            commitment_date,
-            DayCountCtx::default(),
-        )?;
-        let t_as_of = day_count.year_fraction(
-            base_date,
-            as_of,
-            DayCountCtx::default(),
-        )?;
+
+        let t_commitment =
+            day_count.year_fraction(base_date, commitment_date, DayCountCtx::default())?;
+        let t_as_of = day_count.year_fraction(base_date, as_of, DayCountCtx::default())?;
 
         let df_commitment = disc_curve.df(t_commitment);
         let df_as_of = disc_curve.df(t_as_of);
@@ -424,56 +417,53 @@ mod tests {
     fn test_discount_factors_from_curve() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let as_of = base_date;
-        
+
         let curve = DiscountCurve::builder("TEST")
             .base_date(base_date)
             .day_count(DayCount::Act365F)
-            .knots([
-                (0.0, 1.0),
-                (1.0, 0.97),
-                (2.0, 0.94),
-            ])
+            .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94)])
             .build()
             .unwrap();
-        
+
         let dates = vec![
             base_date,
             base_date + time::Duration::days(365),
             base_date + time::Duration::days(730),
         ];
-        
-        let factors = DiscountFactors::from_curve(&curve, &dates, DayCount::Act365F, as_of).unwrap();
-        
+
+        let factors =
+            DiscountFactors::from_curve(&curve, &dates, DayCount::Act365F, as_of).unwrap();
+
         assert_eq!(factors.len(), 3);
         assert!((factors.get(0) - 1.0).abs() < 1e-10);
         assert!((factors.get(1) - 0.97).abs() < 1e-10);
         assert!((factors.get(2) - 0.94).abs() < 1e-10);
     }
-    
+
     #[test]
     fn test_fixed_rate_projector() {
         let projector = FixedRateProjector::new(0.05);
-        
+
         let rate = projector.project_rate(0.0, 0.25, 0).unwrap();
         assert!((rate - 0.05).abs() < 1e-10);
     }
-    
+
     #[test]
     fn test_fee_calculator() {
         let calculator = FeeCalculator::flat(25.0, 10.0, 5.0);
-        
+
         let (commitment, usage, facility) = calculator.calculate_fees(
             5_000_000.0,  // drawn
             10_000_000.0, // commitment
             0.25,         // quarter year
         );
-        
+
         // Commitment fee: 5M * 25bp * 0.25 = 3125
         assert!((commitment - 3125.0).abs() < 1e-6);
-        
+
         // Usage fee: 5M * 10bp * 0.25 = 1250
         assert!((usage - 1250.0).abs() < 1e-6);
-        
+
         // Facility fee: 10M * 5bp * 0.25 = 1250
         assert!((facility - 1250.0).abs() < 1e-6);
     }

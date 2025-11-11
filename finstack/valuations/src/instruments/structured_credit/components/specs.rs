@@ -69,11 +69,7 @@ mod tests {
 
         for spec in specs {
             let smm = spec.smm(12);
-            assert!(
-                (0.0..=1.0).contains(&smm),
-                "SMM should be valid: {}",
-                smm
-            );
+            assert!((0.0..=1.0).contains(&smm), "SMM should be valid: {}", smm);
         }
     }
 

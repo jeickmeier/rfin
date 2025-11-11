@@ -91,4 +91,3 @@ pub struct DefaultEvent {
     /// Recovery lag in months
     pub recovery_lag: u32,
 }
-

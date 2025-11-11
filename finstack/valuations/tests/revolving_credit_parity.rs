@@ -7,17 +7,17 @@
 mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount, Frequency};
-    use finstack_core::market_data::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve, HazardCurve};
+    use finstack_core::market_data::MarketContext;
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
     use finstack_valuations::cashflow::builder::FeeTier;
     use finstack_valuations::instruments::revolving_credit::{
-        types::{
-            BaseRateSpec, DrawRepaySpec, DrawRepayEvent, RevolvingCredit,
-            RevolvingCreditFees, StochasticUtilizationSpec, UtilizationProcess,
-        },
         pricer::RevolvingCreditPricer,
+        types::{
+            BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
+            StochasticUtilizationSpec, UtilizationProcess,
+        },
     };
     use time::Month;
 
@@ -60,10 +60,10 @@ mod tests {
             .base_date(base_date)
             .day_count(DayCount::Act360)
             .knots([
-                (0.0, 0.01),   // 100 bps
-                (1.0, 0.012),  // 120 bps
-                (2.0, 0.015),  // 150 bps
-                (5.0, 0.02),   // 200 bps
+                (0.0, 0.01),  // 100 bps
+                (1.0, 0.012), // 120 bps
+                (2.0, 0.015), // 150 bps
+                (5.0, 0.02),  // 200 bps
             ])
             .build()
             .unwrap();
@@ -79,10 +79,10 @@ mod tests {
         Box::new(StochasticUtilizationSpec {
             utilization_process: UtilizationProcess::MeanReverting {
                 target_rate: initial_utilization,
-                speed: 100.0,     // Very high speed to stay at target
-                volatility: 0.0,  // Zero volatility
+                speed: 100.0,    // Very high speed to stay at target
+                volatility: 0.0, // Zero volatility
             },
-            num_paths: 1000,     // Use many paths for stable average
+            num_paths: 1000, // Use many paths for stable average
             seed: Some(42),
             antithetic: false,
             use_sobol_qmc: false,
@@ -124,34 +124,26 @@ mod tests {
             .payment_frequency(Frequency::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
             .draw_repay_spec(DrawRepaySpec::Stochastic(
-                create_zero_vol_stochastic(0.5) // 50% utilization
+                create_zero_vol_stochastic(0.5), // 50% utilization
             ))
             .discount_curve_id("USD-OIS".into())
             .build()
             .unwrap();
 
         // Price both
-        let pv_det = RevolvingCreditPricer::price_deterministic(
-            &facility_det,
-            &market,
-            start,
-        )
-        .unwrap();
+        let pv_det =
+            RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
 
-        let result_stoch = RevolvingCreditPricer::price_with_paths(
-            &facility_stoch,
-            &market,
-            start,
-        )
-        .unwrap();
+        let result_stoch =
+            RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
         let pv_stoch = result_stoch.mc_result.estimate.mean;
 
         // Assert parity within tight tolerance
         let diff = (pv_det.amount() - pv_stoch.amount()).abs();
         let relative_error = diff / pv_det.amount().abs().max(1.0);
-        
+
         assert!(
-            relative_error < 1e-4,  // 0.01% tolerance
+            relative_error < 1e-4, // 0.01% tolerance
             "Fixed rate parity failed: det={}, stoch={}, diff={}, rel_err={:.6}",
             pv_det.amount(),
             pv_stoch.amount(),
@@ -219,33 +211,23 @@ mod tests {
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
-            .draw_repay_spec(DrawRepaySpec::Stochastic(
-                create_zero_vol_stochastic(0.5)
-            ))
+            .draw_repay_spec(DrawRepaySpec::Stochastic(create_zero_vol_stochastic(0.5)))
             .discount_curve_id("USD-OIS".into())
             .build()
             .unwrap();
 
         // Price both
-        let pv_det = RevolvingCreditPricer::price_deterministic(
-            &facility_det,
-            &market,
-            start,
-        )
-        .unwrap();
+        let pv_det =
+            RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
 
-        let result_stoch = RevolvingCreditPricer::price_with_paths(
-            &facility_stoch,
-            &market,
-            start,
-        )
-        .unwrap();
+        let result_stoch =
+            RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
         let pv_stoch = result_stoch.mc_result.estimate.mean;
 
         // Assert parity
         let diff = (pv_det.amount() - pv_stoch.amount()).abs();
         let relative_error = diff / pv_det.amount().abs().max(1.0);
-        
+
         // Slightly relaxed tolerance for MC vs deterministic (0.05% vs 0.01%)
         // Small differences arise from spot rate interpolation vs period rate projection
         assert!(
@@ -292,9 +274,7 @@ mod tests {
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
-            .draw_repay_spec(DrawRepaySpec::Stochastic(
-                create_zero_vol_stochastic(0.5)
-            ))
+            .draw_repay_spec(DrawRepaySpec::Stochastic(create_zero_vol_stochastic(0.5)))
             .discount_curve_id("USD-OIS".into())
             .hazard_curve_id(CurveId::from("BORROWER-HZ"))
             .recovery_rate(0.4)
@@ -302,25 +282,17 @@ mod tests {
             .unwrap();
 
         // Price both
-        let pv_det = RevolvingCreditPricer::price_deterministic(
-            &facility_det,
-            &market,
-            start,
-        )
-        .unwrap();
+        let pv_det =
+            RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
 
-        let result_stoch = RevolvingCreditPricer::price_with_paths(
-            &facility_stoch,
-            &market,
-            start,
-        )
-        .unwrap();
+        let result_stoch =
+            RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
         let pv_stoch = result_stoch.mc_result.estimate.mean;
 
         // Assert parity
         let diff = (pv_det.amount() - pv_stoch.amount()).abs();
         let relative_error = diff / pv_det.amount().abs().max(1.0);
-        
+
         // Relaxed tolerance for MC vs deterministic (0.5%)
         // Small differences arise from survival probability interpolation and credit spread discretization
         assert!(
@@ -343,15 +315,36 @@ mod tests {
         let fees = RevolvingCreditFees {
             upfront_fee: Some(Money::new(50_000.0, Currency::USD)),
             commitment_fee_tiers: vec![
-                FeeTier { threshold: 0.0, bps: 50.0 },
-                FeeTier { threshold: 0.25, bps: 40.0 },
-                FeeTier { threshold: 0.5, bps: 30.0 },
-                FeeTier { threshold: 0.75, bps: 20.0 },
+                FeeTier {
+                    threshold: 0.0,
+                    bps: 50.0,
+                },
+                FeeTier {
+                    threshold: 0.25,
+                    bps: 40.0,
+                },
+                FeeTier {
+                    threshold: 0.5,
+                    bps: 30.0,
+                },
+                FeeTier {
+                    threshold: 0.75,
+                    bps: 20.0,
+                },
             ],
             usage_fee_tiers: vec![
-                FeeTier { threshold: 0.0, bps: 10.0 },
-                FeeTier { threshold: 0.5, bps: 15.0 },
-                FeeTier { threshold: 0.75, bps: 20.0 },
+                FeeTier {
+                    threshold: 0.0,
+                    bps: 10.0,
+                },
+                FeeTier {
+                    threshold: 0.5,
+                    bps: 15.0,
+                },
+                FeeTier {
+                    threshold: 0.75,
+                    bps: 20.0,
+                },
             ],
             facility_fee_bp: 5.0,
         };
@@ -361,7 +354,7 @@ mod tests {
 
         for utilization in utilization_levels {
             let drawn = 10_000_000.0 * utilization;
-            
+
             let facility_det = RevolvingCredit::builder()
                 .id(format!("RC-DET-TIER-{}", utilization).into())
                 .commitment_amount(Money::new(10_000_000.0, Currency::USD))
@@ -387,33 +380,25 @@ mod tests {
                 .day_count(DayCount::Act360)
                 .payment_frequency(Frequency::quarterly())
                 .fees(fees.clone())
-                .draw_repay_spec(DrawRepaySpec::Stochastic(
-                    create_zero_vol_stochastic(utilization)
-                ))
+                .draw_repay_spec(DrawRepaySpec::Stochastic(create_zero_vol_stochastic(
+                    utilization,
+                )))
                 .discount_curve_id("USD-OIS".into())
                 .build()
                 .unwrap();
 
             // Price both
-            let pv_det = RevolvingCreditPricer::price_deterministic(
-                &facility_det,
-                &market,
-                start,
-            )
-            .unwrap();
+            let pv_det =
+                RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
 
-            let result_stoch = RevolvingCreditPricer::price_with_paths(
-                &facility_stoch,
-                &market,
-                start,
-            )
-            .unwrap();
+            let result_stoch =
+                RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
             let pv_stoch = result_stoch.mc_result.estimate.mean;
 
             // Assert parity
             let diff = (pv_det.amount() - pv_stoch.amount()).abs();
             let relative_error = diff / pv_det.amount().abs().max(1.0);
-            
+
             assert!(
                 relative_error < 1e-4,
                 "Tiered fee parity failed at {}% utilization: det={}, stoch={}, diff={}, rel_err={:.6}",
@@ -479,27 +464,17 @@ mod tests {
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
-            .draw_repay_spec(DrawRepaySpec::Stochastic(
-                create_zero_vol_stochastic(0.45)
-            ))
+            .draw_repay_spec(DrawRepaySpec::Stochastic(create_zero_vol_stochastic(0.45)))
             .discount_curve_id("USD-OIS".into())
             .build()
             .unwrap();
 
         // Price both
-        let pv_det = RevolvingCreditPricer::price_deterministic(
-            &facility_det,
-            &market,
-            start,
-        )
-        .unwrap();
+        let pv_det =
+            RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
 
-        let result_stoch = RevolvingCreditPricer::price_with_paths(
-            &facility_stoch,
-            &market,
-            start,
-        )
-        .unwrap();
+        let result_stoch =
+            RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
         let pv_stoch = result_stoch.mc_result.estimate.mean;
 
         // Note: These won't match exactly because draw/repay events change utilization
@@ -548,33 +523,23 @@ mod tests {
                 .day_count(DayCount::Act360)
                 .payment_frequency(freq)
                 .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
-                .draw_repay_spec(DrawRepaySpec::Stochastic(
-                    create_zero_vol_stochastic(0.5)
-                ))
+                .draw_repay_spec(DrawRepaySpec::Stochastic(create_zero_vol_stochastic(0.5)))
                 .discount_curve_id("USD-OIS".into())
                 .build()
                 .unwrap();
 
             // Price both
-            let pv_det = RevolvingCreditPricer::price_deterministic(
-                &facility_det,
-                &market,
-                start,
-            )
-            .unwrap();
+            let pv_det =
+                RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
 
-            let result_stoch = RevolvingCreditPricer::price_with_paths(
-                &facility_stoch,
-                &market,
-                start,
-            )
-            .unwrap();
+            let result_stoch =
+                RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
             let pv_stoch = result_stoch.mc_result.estimate.mean;
 
             // Assert parity
             let diff = (pv_det.amount() - pv_stoch.amount()).abs();
             let relative_error = diff / pv_det.amount().abs().max(1.0);
-            
+
             assert!(
                 relative_error < 1e-4,
                 "Payment frequency parity failed for {:?}: det={}, stoch={}, diff={}, rel_err={:.6}",

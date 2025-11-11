@@ -185,4 +185,3 @@ pub struct FloatingCouponSpec {
     /// Stub rule for payment schedule generation.
     pub stub: StubKind,
 }
-

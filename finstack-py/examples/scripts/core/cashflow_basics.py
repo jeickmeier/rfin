@@ -7,6 +7,8 @@ Run after installing the extension in editable mode, for example:
 
 The script constructs several cash-flow primitives (fixed, floating, fees,
 principal exchanges) and shows how to inspect their metadata from Python.
+Note: CashFlow primitives are typically created via the CashflowBuilder for
+scheduled flows. This example shows direct construction for illustration.
 """
 
 from __future__ import annotations
@@ -18,22 +20,34 @@ import finstack
 
 def main() -> None:
     cashflow = finstack.core.cashflow.CashFlow
+    cfkind = finstack.core.cashflow.CFKind
     money = finstack.Money
 
     print("=== Cashflow primitives ===")
-    fixed_cf = cashflow.fixed(
-        date(2025, 3, 15),
-        money(12_500.0, "USD"),
+    # Note: For production use, prefer CashflowBuilder for scheduled flows
+    fixed_cf = cashflow(
+        date=date(2025, 3, 15),
+        amount=money(12_500.0, "USD"),
+        kind=cfkind.from_name("Fixed"),
         accrual_factor=0.25,
     )
-    float_cf = cashflow.floating(
-        date(2025, 6, 15),
-        (13_750.0, finstack.Currency("USD")),
+    float_cf = cashflow(
+        date=date(2025, 6, 15),
+        amount=money(13_750.0, "USD"),
+        kind=cfkind.from_name("FloatReset"),
         reset_date=date(2025, 3, 15),
         accrual_factor=0.25,
     )
-    fee_cf = cashflow.fee(date(2025, 1, 15), money(150_000.0, "USD"))
-    principal_cf = cashflow.principal_exchange(date(2030, 3, 15), money(-5_000_000.0, "USD"))
+    fee_cf = cashflow(
+        date=date(2025, 1, 15),
+        amount=money(150_000.0, "USD"),
+        kind=cfkind.from_name("Fee"),
+    )
+    principal_cf = cashflow(
+        date=date(2030, 3, 15),
+        amount=money(-5_000_000.0, "USD"),
+        kind=cfkind.from_name("Notional"),
+    )
 
     for label, cf in [
         ("Fixed coupon", fixed_cf),

@@ -1,6 +1,6 @@
 //! Fee cashflow emission (periodic, commitment, usage, facility).
 
-use crate::cashflow::primitives::{CashFlow, CFKind};
+use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::error::InputError;
@@ -180,4 +180,3 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
     }
     Ok(new_flows)
 }
-

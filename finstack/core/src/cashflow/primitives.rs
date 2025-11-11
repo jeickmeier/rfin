@@ -16,14 +16,6 @@ use crate::dates::Date;
 use crate::error::InputError;
 use crate::money::Money;
 
-#[inline]
-fn ensure_nonzero(amount: &Money) -> crate::Result<()> {
-    if amount.amount() == 0.0 {
-        return Err(InputError::Invalid.into());
-    }
-    Ok(())
-}
-
 /// Enumeration of cash-flow kinds for classification and ordering.
 ///
 /// Used to distinguish between different types of cashflows for
@@ -54,7 +46,7 @@ pub enum CFKind {
     Amortization,
     /// Prepayment of principal (early return of principal in structured credit).
     PrePayment,
-    /// Revolving Draw 
+    /// Revolving Draw
     RevolvingDraw,
     /// Revolving Repayment
     RevolvingRepayment,
@@ -93,117 +85,55 @@ pub struct CashFlow {
     /// This is stored at cashflow creation time when available.
     /// For instruments with intra-period events (e.g., revolving credit with draws/repays),
     /// this may represent a time-weighted average rate across sub-periods.
-    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "Option::is_none"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
     pub rate: Option<f64>,
 }
 
 impl CashFlow {
-    /// Create a fixed coupon cash-flow (`CFKind::Fixed`).
+    /// Validate cashflow amount and fields.
     ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
     ///
-    /// See unit tests and `examples/` for usage.
-    pub fn fixed_cf(date: Date, amount: Money) -> crate::Result<Self> {
-        ensure_nonzero(&amount)?;
-        Ok(Self {
-            date,
-            reset_date: None,
-            amount,
-            kind: CFKind::Fixed,
-            accrual_factor: 0.0,
-            rate: None,
-        })
+    /// # Example
+    /// ```rust
+    /// use finstack_core::cashflow::primitives::{CashFlow, CFKind};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use finstack_core::money::Money;
+    /// use time::Month;
+    ///
+    /// let date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    /// let amount = Money::new(100.0, Currency::USD);
+    /// let cf = CashFlow {
+    ///     date,
+    ///     reset_date: None,
+    ///     amount,
+    ///     kind: CFKind::Fixed,
+    ///     accrual_factor: 0.0,
+    ///     rate: None,
+    /// };
+    /// assert!(cf.validate().is_ok());
+    ///
+    /// let zero_cf = CashFlow {
+    ///     date,
+    ///     reset_date: None,
+    ///     amount: Money::new(0.0, Currency::USD),
+    ///     kind: CFKind::Fixed,
+    ///     accrual_factor: 0.0,
+    ///     rate: None,
+    /// };
+    /// assert!(zero_cf.validate().is_err());
+    /// ```
+    pub fn validate(&self) -> crate::Result<()> {
+        if self.amount.amount() == 0.0 {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(())
     }
-
-    /// Create a floating coupon cash-flow (stored as `CFKind::FloatReset`).
-    ///
-    /// If no explicit reset date is provided, it defaults to the payment `date`.
-    ///
-    /// # Errors
-    /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn floating_cf(date: Date, amount: Money, reset_date: Option<Date>) -> crate::Result<Self> {
-        ensure_nonzero(&amount)?;
-        Ok(Self {
-            date,
-            reset_date: Some(reset_date.unwrap_or(date)),
-            amount,
-            kind: CFKind::FloatReset,
-            accrual_factor: 0.0,
-            rate: None,
-        })
-    }
-
-    /// Create a Payment-in-Kind cash-flow (`CFKind::PIK`).
-    ///
-    /// PIK increases outstanding principal in principal accounting.
-    ///
-    /// # Errors
-    /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn pik_cf(date: Date, amount: Money) -> crate::Result<Self> {
-        ensure_nonzero(&amount)?;
-        Ok(Self {
-            date,
-            reset_date: None,
-            amount,
-            kind: CFKind::PIK,
-            accrual_factor: 0.0,
-            rate: None,
-        })
-    }
-
-    /// Create an amortization principal cash-flow (`CFKind::Amortization`).
-    ///
-    /// Amortization reduces outstanding principal in principal accounting.
-    ///
-    /// # Errors
-    /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn amort_cf(date: Date, amount: Money) -> crate::Result<Self> {
-        ensure_nonzero(&amount)?;
-        Ok(Self {
-            date,
-            reset_date: None,
-            amount,
-            kind: CFKind::Amortization,
-            accrual_factor: 0.0,
-            rate: None,
-        })
-    }
-
-    /// Create a **principal exchange** (`CFKind::Notional`) cash-flow.
-    ///
-    /// # Errors
-    /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn principal_exchange(date: Date, amount: Money) -> crate::Result<Self> {
-        ensure_nonzero(&amount)?;
-        Ok(Self {
-            date,
-            reset_date: None,
-            amount,
-            kind: CFKind::Notional,
-            accrual_factor: 0.0,
-            rate: None,
-        })
-    }
-
-    /// Create a **fee** cash-flow (`CFKind::Fee`).
-    ///
-    /// # Errors
-    /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn fee(date: Date, amount: Money) -> crate::Result<Self> {
-        ensure_nonzero(&amount)?;
-        Ok(Self {
-            date,
-            reset_date: None,
-            amount,
-            kind: CFKind::Fee,
-            accrual_factor: 0.0,
-            rate: None,
-        })
-    }
-
-
-    
 }
 
 /// Amortization specification for principal over time.
@@ -376,41 +306,86 @@ mod tests {
     }
 
     #[test]
-    fn fixed_cf_constructor_stores_fields() {
+    fn cashflow_validation_works() {
         let date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let amount = Money::new(100.0, Currency::USD);
-        let cf = CashFlow::fixed_cf(date, amount).unwrap();
+
+        let cf = CashFlow {
+            date,
+            reset_date: None,
+            amount,
+            kind: CFKind::Fixed,
+            accrual_factor: 0.0,
+            rate: None,
+        };
         assert_eq!(cf.date, date);
         assert_eq!(cf.amount, amount);
         assert_eq!(cf.kind, CFKind::Fixed);
         assert!(cf.reset_date.is_none());
         assert_eq!(cf.accrual_factor, 0.0);
+        assert!(cf.validate().is_ok());
     }
 
     #[test]
-    fn factory_helpers_work() {
+    fn cashflow_kinds_construct_correctly() {
         let date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
         let amt = Money::new(1_000.0, Currency::EUR);
 
-        let princ = CashFlow::principal_exchange(date, amt).unwrap();
+        let princ = CashFlow {
+            date,
+            reset_date: None,
+            amount: amt,
+            kind: CFKind::Notional,
+            accrual_factor: 0.0,
+            rate: None,
+        };
         assert_eq!(princ.kind, CFKind::Notional);
+        assert!(princ.validate().is_ok());
 
-        let fee = CashFlow::fee(date, amt).unwrap();
+        let fee = CashFlow {
+            date,
+            reset_date: None,
+            amount: amt,
+            kind: CFKind::Fee,
+            accrual_factor: 0.0,
+            rate: None,
+        };
         assert_eq!(fee.kind, CFKind::Fee);
+        assert!(fee.validate().is_ok());
 
-        let pik = CashFlow::pik_cf(date, amt).unwrap();
+        let pik = CashFlow {
+            date,
+            reset_date: None,
+            amount: amt,
+            kind: CFKind::PIK,
+            accrual_factor: 0.0,
+            rate: None,
+        };
         assert_eq!(pik.kind, CFKind::PIK);
+        assert!(pik.validate().is_ok());
 
-        let amort = CashFlow::amort_cf(date, amt).unwrap();
+        let amort = CashFlow {
+            date,
+            reset_date: None,
+            amount: amt,
+            kind: CFKind::Amortization,
+            accrual_factor: 0.0,
+            rate: None,
+        };
         assert_eq!(amort.kind, CFKind::Amortization);
+        assert!(amort.validate().is_ok());
 
-        // Zero amount returns error
+        // Zero amount returns error on validation
         let zero = Money::new(0.0, Currency::EUR);
-        assert!(CashFlow::fee(date, zero).is_err());
-        assert!(CashFlow::fixed_cf(date, zero).is_err());
-        assert!(CashFlow::floating_cf(date, zero, None).is_err());
-        assert!(CashFlow::pik_cf(date, zero).is_err());
-        assert!(CashFlow::amort_cf(date, zero).is_err());
+        let zero_cf = CashFlow {
+            date,
+            reset_date: None,
+            amount: zero,
+            kind: CFKind::Fixed,
+            accrual_factor: 0.0,
+            rate: None,
+        };
+        assert!(zero_cf.validate().is_err());
     }
 
     #[test]

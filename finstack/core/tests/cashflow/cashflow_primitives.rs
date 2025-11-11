@@ -12,12 +12,26 @@ fn date(day: u8) -> Date {
 fn floating_cf_defaults_reset_date() {
     let payment = date(10);
     let amount = Money::new(50.0, Currency::USD);
-    let cf = CashFlow::floating_cf(payment, amount, None).unwrap();
+    let cf = CashFlow {
+        date: payment,
+        reset_date: Some(payment),
+        amount,
+        kind: CFKind::FloatReset,
+        accrual_factor: 0.0,
+        rate: None,
+    };
     assert_eq!(cf.kind, CFKind::FloatReset);
     assert_eq!(cf.reset_date, Some(payment));
 
     let reset = date(5);
-    let cf = CashFlow::floating_cf(payment, amount, Some(reset)).unwrap();
+    let cf = CashFlow {
+        date: payment,
+        reset_date: Some(reset),
+        amount,
+        kind: CFKind::FloatReset,
+        accrual_factor: 0.0,
+        rate: None,
+    };
     assert_eq!(cf.reset_date, Some(reset));
 }
 

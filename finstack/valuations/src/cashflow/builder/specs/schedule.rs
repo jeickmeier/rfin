@@ -128,4 +128,3 @@ pub struct FloatWindow {
     /// schedule.
     pub schedule: ScheduleParams,
 }
-

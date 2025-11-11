@@ -72,17 +72,25 @@ pub fn generate_three_factor_paths(
                     sigma,
                     initial,
                     theta,
-                }) => (InterestRateSpec::Floating {
-                    params: HullWhite1FParams::new(*kappa, *sigma, *theta),
-                    initial: *initial,
-                }, None),
+                }) => (
+                    InterestRateSpec::Floating {
+                        params: HullWhite1FParams::new(*kappa, *sigma, *theta),
+                        initial: *initial,
+                    },
+                    None,
+                ),
                 None => {
                     // Use deterministic forward curve
                     let fwd = market.get_forward_ref(spec.index_id.as_str())?;
                     let times = fwd.knots().to_vec();
                     let rates = fwd.forwards().to_vec();
-                    (InterestRateSpec::DeterministicForward { times: times.clone(), rates: rates.clone() }, 
-                     Some((times, rates)))
+                    (
+                        InterestRateSpec::DeterministicForward {
+                            times: times.clone(),
+                            rates: rates.clone(),
+                        },
+                        Some((times, rates)),
+                    )
                 }
             }
         }
@@ -92,11 +100,8 @@ pub fn generate_three_factor_paths(
     let credit_spread_params = build_credit_spread_params(mc_config, facility, market)?;
 
     // Create 3-factor process with correlation
-    let mut process_params = RevolvingCreditProcessParams::new(
-        util_params,
-        interest_rate_spec,
-        credit_spread_params,
-    );
+    let mut process_params =
+        RevolvingCreditProcessParams::new(util_params, interest_rate_spec, credit_spread_params);
 
     if let Some(corr_matrix) = &mc_config.correlation_matrix {
         process_params = process_params.with_correlation(*corr_matrix);
@@ -106,7 +111,8 @@ pub fn generate_three_factor_paths(
     let disc_curve = market.get_discount_ref(facility.discount_curve_id.as_str())?;
     let disc_dc = disc_curve.day_count();
     let base_date = disc_curve.base_date();
-    let t_start = disc_dc.year_fraction(base_date, facility.commitment_date, DayCountCtx::default())?;
+    let t_start =
+        disc_dc.year_fraction(base_date, facility.commitment_date, DayCountCtx::default())?;
     process_params = process_params.with_time_offset(t_start);
 
     let process = RevolvingCreditProcess::new(process_params);
@@ -117,13 +123,13 @@ pub fn generate_three_factor_paths(
 
     // Set up discretization scheme
     let disc = RevolvingCreditDiscretization::new(process.correlation())?;
-    
+
     // Prepare buffers for simulation
     let num_paths = stoch_spec.num_paths;
     let num_steps = time_grid.num_steps();
     let num_factors = process.num_factors();
     let initial_state = process.params().initial_state(facility.utilization_rate());
-    
+
     let mut paths = Vec::with_capacity(num_paths);
     let seed = stoch_spec.seed.unwrap_or(42);
     let use_sobol = stoch_spec.use_sobol_qmc;
@@ -134,7 +140,7 @@ pub fn generate_three_factor_paths(
 
     if use_sobol {
         let mut rng = SobolRng::new(num_factors, seed);
-        
+
         for _path_idx in 0..num_paths {
             let mut state = initial_state.to_vec();
             let mut utilization_path = Vec::with_capacity(num_steps + 1);
@@ -154,19 +160,19 @@ pub fn generate_three_factor_paths(
             // Evolve through time
             for i in 0..num_steps {
                 let t_next = time_grid.times()[i + 1];
-                
+
                 if !is_zero_vol {
                     let t = time_grid.times()[i];
                     let dt = t_next - t;
-                    
+
                     // Generate random normal variates
                     rng.fill_std_normals(&mut z);
-                    
+
                     // Apply discretization scheme to evolve state
                     disc.step(&process, t, dt, &mut state, &z, &mut work);
                 }
                 // else: keep state constant for zero volatility
-                
+
                 // For deterministic forward, manually update short rate from curve
                 if let Some((ref times, ref rates)) = rate_curve_opt {
                     state[1] = interpolate_rate(t_next, times, rates);
@@ -188,7 +194,7 @@ pub fn generate_three_factor_paths(
         }
     } else {
         let mut rng = PhiloxRng::new(seed);
-        
+
         for _path_idx in 0..num_paths {
             let mut state = initial_state.to_vec();
             let mut utilization_path = Vec::with_capacity(num_steps + 1);
@@ -208,14 +214,14 @@ pub fn generate_three_factor_paths(
             // Evolve through time
             for i in 0..num_steps {
                 let t_next = time_grid.times()[i + 1];
-                
+
                 if !is_zero_vol {
                     let t = time_grid.times()[i];
                     let dt = t_next - t;
-                    
+
                     // Generate random normal variates
                     rng.fill_std_normals(&mut z);
-                    
+
                     // Apply discretization scheme to evolve state
                     disc.step(&process, t, dt, &mut state, &z, &mut work);
                 }
@@ -269,7 +275,7 @@ fn build_credit_spread_params(
             Ok(CreditSpreadParams::new(
                 *kappa,
                 stable_theta,
-                *sigma,  // Use actual volatility, don't cap it
+                *sigma, // Use actual volatility, don't cap it
                 stable_initial,
             ))
         }
@@ -294,11 +300,8 @@ fn build_credit_spread_params(
             let dc = hazard.day_count();
             let base_date = hazard.base_date();
 
-            let t_maturity = dc.year_fraction(
-                base_date,
-                facility.maturity_date,
-                DayCountCtx::default(),
-            )?;
+            let t_maturity =
+                dc.year_fraction(base_date, facility.maturity_date, DayCountCtx::default())?;
             let t = tenor_years.unwrap_or_else(|| t_maturity.max(1e-8));
 
             // Survival and average hazard over [0,T]
@@ -345,7 +348,7 @@ fn build_credit_spread_params(
 fn dates_to_times(payment_dates: &[Date], commitment_date: Date) -> Result<Vec<f64>> {
     use finstack_core::dates::DayCount;
     let dc = DayCount::Act365F;
-    
+
     payment_dates
         .iter()
         .map(|&date| dc.year_fraction(commitment_date, date, DayCountCtx::default()))
@@ -361,7 +364,7 @@ fn interpolate_rate(t: f64, times: &[f64], rates: &[f64]) -> f64 {
     if times.len() == 1 {
         return rates[0];
     }
-    
+
     // Find bracketing interval
     if t <= times[0] {
         return rates[0];
@@ -369,7 +372,7 @@ fn interpolate_rate(t: f64, times: &[f64], rates: &[f64]) -> f64 {
     if t >= times[times.len() - 1] {
         return rates[rates.len() - 1];
     }
-    
+
     // Binary search for interval
     for i in 0..(times.len() - 1) {
         if t >= times[i] && t <= times[i + 1] {
@@ -377,7 +380,7 @@ fn interpolate_rate(t: f64, times: &[f64], rates: &[f64]) -> f64 {
             return rates[i] + alpha * (rates[i + 1] - rates[i]);
         }
     }
-    
+
     rates[rates.len() - 1]
 }
 
@@ -394,4 +397,3 @@ pub fn generate_three_factor_paths(
         "MC feature required for path generation".to_string(),
     ))
 }
-

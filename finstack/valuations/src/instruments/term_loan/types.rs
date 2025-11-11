@@ -19,7 +19,7 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 pub enum RateSpec {
     /// Fixed annual rate in basis points
     Fixed { rate_bp: i32 },
-    
+
     /// Floating rate using canonical FloatingRateSpec.
     ///
     /// Uses the standard floating rate specification with full support

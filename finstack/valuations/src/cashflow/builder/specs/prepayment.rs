@@ -76,4 +76,3 @@ impl PrepaymentModelSpec {
         Self::constant_cpr(0.06)
     }
 }
-

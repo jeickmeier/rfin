@@ -46,7 +46,11 @@ use std::fmt;
 ///     'RC001'
 ///     >>> rc.utilization_rate()
 ///     0.5
-#[pyclass(module = "finstack.valuations.instruments", name = "RevolvingCredit", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "RevolvingCredit",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyRevolvingCredit {
     pub(crate) inner: RevolvingCredit,
@@ -453,7 +457,10 @@ impl fmt::Display for PyRevolvingCredit {
 ///
 /// Contains Monte Carlo statistics (mean, std error, confidence interval)
 /// along with individual path results for distribution analysis and visualization.
-#[pyclass(module = "finstack.valuations.instruments", name = "EnhancedMonteCarloResult")]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "EnhancedMonteCarloResult"
+)]
 pub struct PyEnhancedMonteCarloResult {
     inner: finstack_valuations::instruments::revolving_credit::pricer::EnhancedMonteCarloResult,
 }
@@ -599,7 +606,10 @@ impl PyPathResult {
 ///
 /// Contains the simulated time series for utilization rate, credit spread,
 /// and short rate factors, along with time points and payment dates.
-#[pyclass(module = "finstack.valuations.instruments", name = "ThreeFactorPathData")]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "ThreeFactorPathData"
+)]
 #[derive(Clone)]
 pub struct PyThreeFactorPathData {
     inner: finstack_valuations::instruments::revolving_credit::ThreeFactorPathData,
@@ -665,8 +675,10 @@ impl PyThreeFactorPathData {
     }
 
     fn __repr__(&self) -> String {
-        let avg_util = self.inner.utilization_path.iter().sum::<f64>() / self.inner.utilization_path.len() as f64;
-        let avg_spread = self.inner.credit_spread_path.iter().sum::<f64>() / self.inner.credit_spread_path.len() as f64;
+        let avg_util = self.inner.utilization_path.iter().sum::<f64>()
+            / self.inner.utilization_path.len() as f64;
+        let avg_spread = self.inner.credit_spread_path.iter().sum::<f64>()
+            / self.inner.credit_spread_path.len() as f64;
         format!(
             "ThreeFactorPathData(time_points={}, avg_util={:.1}%, avg_spread={:.2}%)",
             self.inner.time_points.len(),

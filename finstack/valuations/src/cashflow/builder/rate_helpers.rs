@@ -147,14 +147,7 @@ pub fn project_floating_rate_simple(
     let period_end = reset_date + time::Duration::days(days);
 
     project_floating_rate(
-        reset_date,
-        period_end,
-        index_id,
-        spread_bp,
-        gearing,
-        floor_bp,
-        cap_bp,
-        market,
+        reset_date, period_end, index_id, spread_bp, gearing, floor_bp, cap_bp, market,
     )
 }
 
@@ -216,7 +209,7 @@ mod tests {
             reset,
             period_end,
             "USD-LIBOR-3M",
-            100.0,       // 100 bps spread
+            100.0, // 100 bps spread
             1.0,
             Some(100.0), // 1% floor on index
             None,
@@ -250,7 +243,7 @@ mod tests {
             reset,
             period_end,
             "USD-LIBOR-3M",
-            200.0,       // 200 bps spread
+            200.0, // 200 bps spread
             1.0,
             None,
             Some(500.0), // 5% cap on all-in
@@ -284,7 +277,7 @@ mod tests {
             reset,
             period_end,
             "TEST-INDEX",
-            100.0,       // 100 bps spread
+            100.0, // 100 bps spread
             1.0,
             Some(100.0), // 1% floor on index (100 bps)
             None,
@@ -317,8 +310,8 @@ mod tests {
             reset,
             period_end,
             "TEST-INDEX",
-            100.0,       // 100 bps spread
-            2.0,         // 2x gearing
+            100.0, // 100 bps spread
+            2.0,   // 2x gearing
             None,
             Some(600.0), // 6% cap
             &market,
@@ -373,9 +366,9 @@ mod tests {
 
         let rate = project_floating_rate_simple(
             reset,
-            0.25,   // 3 month tenor
+            0.25, // 3 month tenor
             "USD-SOFR-3M",
-            150.0,  // 150 bps
+            150.0, // 150 bps
             1.0,
             None,
             None,
@@ -384,7 +377,10 @@ mod tests {
         .unwrap();
 
         // Should project forward rate + spread
-        assert!(rate > 0.03 && rate < 0.06, "Rate should be reasonable: {}", rate);
+        assert!(
+            rate > 0.03 && rate < 0.06,
+            "Rate should be reasonable: {}",
+            rate
+        );
     }
 }
-

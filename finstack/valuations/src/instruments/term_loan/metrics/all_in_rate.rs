@@ -79,7 +79,7 @@ impl MetricCalculator for AllInRateCalculator {
                         })
                         .unwrap_or(0.0);
                     let total_spread = spec.spread_bp + step_ups;
-                    
+
                     crate::cashflow::builder::project_floating_rate_simple(
                         prev,
                         yf,

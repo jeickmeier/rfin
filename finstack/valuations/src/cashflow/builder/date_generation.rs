@@ -12,7 +12,6 @@
 //! - Build period definitions from payment dates for PV aggregation
 //! - Apply business day adjustments using calendars
 
-use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{BusinessDayConvention, Date, Frequency, ScheduleBuilder, StubKind};
 
 /// Period schedule with helper maps/flags for coupon generation.
@@ -70,7 +69,7 @@ impl From<ScheduleError> for finstack_core::Error {
 
 /// Internal implementation for schedule building with configurable error handling.
 ///
-/// When `strict` is true, errors are propagated; when false, graceful fallback to [start, end].
+/// When `strict` is true, errors are propagated; when false, graceful fallback to empty schedule.
 fn build_dates_impl(
     start: Date,
     end: Date,
@@ -80,47 +79,38 @@ fn build_dates_impl(
     calendar_id: Option<&str>,
     strict: bool,
 ) -> Result<PeriodSchedule, ScheduleError> {
-    let builder = ScheduleBuilder::new(start, end)
+    let mut builder = ScheduleBuilder::new(start, end)
         .frequency(freq)
         .stub_rule(stub);
 
-    let dates: Vec<Date> = if let Some(id) = calendar_id {
-        // Calendar specified - try to look it up
-        match calendar_by_id(id) {
-            Some(cal) => builder.adjust_with(bdc, cal).build()?.into_iter().collect(),
-            None => {
-                if strict {
-                    return Err(ScheduleError::Core(
-                        finstack_core::error::InputError::NotFound { id: id.to_string() }.into(),
-                    ));
-                }
-                // Non-strict: fallback to unadjusted schedule
-                builder
-                    .build()
-                    .map(|s| s.into_iter().collect())
-                    .unwrap_or_else(|_| vec![start, end])
+    // Configure calendar adjustment if provided
+    if let Some(id) = calendar_id {
+        // In strict mode, verify calendar exists before proceeding
+        if strict {
+            use finstack_core::dates::calendar::calendar_by_id;
+            if calendar_by_id(id).is_none() {
+                return Err(ScheduleError::Core(
+                    finstack_core::error::InputError::NotFound { id: id.to_string() }.into(),
+                ));
             }
         }
-    } else {
-        // No calendar - build unadjusted schedule
-        if strict {
-            builder.build()?.into_iter().collect()
-        } else {
-            builder
-                .build()
-                .map(|s| s.into_iter().collect())
-                .unwrap_or_else(|_| vec![start, end])
-        }
-    };
+        builder = builder.adjust_with_id(bdc, id);
+    }
 
-    Ok(PeriodSchedule::from_dates(dates))
+    // Enable graceful mode for non-strict builds
+    if !strict {
+        builder = builder.graceful_fallback(true);
+    }
+
+    let schedule = builder.build()?;
+    Ok(PeriodSchedule::from_dates(schedule.dates))
 }
 
 /// Build a schedule between start/end with graceful error handling.
 ///
 /// This is the **unchecked variant** that provides graceful fallback behavior:
-/// - If schedule building fails, returns minimal schedule `[start, end]`
-/// - If calendar is not found, attempts unadjusted schedule
+/// - If schedule building fails, returns empty schedule `[]`
+/// - If calendar is not found, generates schedule without business day adjustment
 /// - Never panics, always returns a valid `PeriodSchedule`
 ///
 /// For strict validation that returns errors, use [`build_dates_checked`].

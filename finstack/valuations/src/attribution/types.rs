@@ -4,9 +4,9 @@
 //! constituent factors: carry, curve shifts, credit spreads, FX, volatility,
 //! model parameters, and market scalars.
 
+use finstack_core::config::RoundingContext;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
-use finstack_core::config::RoundingContext;
 use indexmap::IndexMap;
 
 #[cfg(feature = "serde")]
@@ -425,14 +425,12 @@ impl PnlAttribution {
 
         // Compute residual percentage (handle zero total_pnl) via RoundingContext
         let rc = RoundingContext::default();
-        self.meta.residual_pct = if !rc.is_effectively_zero_money(
-            self.total_pnl.amount(),
-            self.total_pnl.currency(),
-        ) {
-            (self.residual.amount() / self.total_pnl.amount()) * 100.0
-        } else {
-            0.0
-        };
+        self.meta.residual_pct =
+            if !rc.is_effectively_zero_money(self.total_pnl.amount(), self.total_pnl.currency()) {
+                (self.residual.amount() / self.total_pnl.amount()) * 100.0
+            } else {
+                0.0
+            };
     }
 
     /// Check if residual is within tolerance.

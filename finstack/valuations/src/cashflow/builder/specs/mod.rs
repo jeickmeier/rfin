@@ -37,4 +37,3 @@ pub use fees::{evaluate_fee_tiers, FeeBase, FeeSpec, FeeTier};
 pub use prepayment::{PrepaymentCurve, PrepaymentModelSpec};
 pub use recovery::RecoveryModelSpec;
 pub use schedule::{FixedWindow, FloatCouponParams, FloatWindow, ScheduleParams};
-

@@ -26,4 +26,3 @@ impl RecoveryModelSpec {
         Self::with_lag(0.70, 0)
     }
 }
-

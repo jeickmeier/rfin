@@ -55,11 +55,11 @@ pub mod prelude {
     pub use super::variance_reduction::control_variate::{black_scholes_call, black_scholes_put};
 
     // Useful generic MC items
+    pub use crate::instruments::common::mc::estimate::Estimate;
+    pub use crate::instruments::common::mc::online_stats::OnlineStats;
     pub use crate::instruments::common::mc::paths::{
         PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
     };
-    pub use crate::instruments::common::mc::estimate::Estimate;
-    pub use crate::instruments::common::mc::online_stats::OnlineStats;
     pub use crate::instruments::common::mc::time_grid::TimeGrid;
     pub use crate::instruments::common::mc::traits::{
         Discretization, PathState, RandomStream, StochasticProcess,

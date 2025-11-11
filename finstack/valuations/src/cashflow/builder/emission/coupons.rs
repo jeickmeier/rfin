@@ -1,6 +1,6 @@
 //! Coupon cashflow emission (fixed and floating).
 
-use crate::cashflow::primitives::{CashFlow, CFKind};
+use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -88,10 +88,11 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 .get(&prev)
                 .unwrap_or(&outstanding_fallback);
 
-            let yf = spec
-                .rate_spec
-                .dc
-                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let yf = spec.rate_spec.dc.year_fraction(
+                prev,
+                d,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
 
             // Compute reset date once
             let reset_date = compute_reset_date(
@@ -147,4 +148,3 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
     }
     Ok((pik_to_add, new_flows))
 }
-

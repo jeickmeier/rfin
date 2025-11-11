@@ -262,8 +262,8 @@ impl PathDependentPricer {
                         );
                         Ok(MoneyEstimate::from_estimate(est, currency))
                     } else if self.config.use_brownian_bridge {
-                        use crate::instruments::common::mc::rng::brownian_bridge::BrownianBridge;
                         use crate::instruments::common::mc::online_stats::OnlineStats;
+                        use crate::instruments::common::mc::rng::brownian_bridge::BrownianBridge;
 
                         let time_grid =
                             crate::instruments::common::mc::time_grid::TimeGrid::uniform(

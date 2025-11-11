@@ -150,7 +150,7 @@ impl RevolvingCreditFees {
                 Vec::new()
             }
         };
-        
+
         Self {
             upfront_fee: None,
             commitment_fee_tiers: make_tier(commitment_fee_bp),
@@ -290,12 +290,12 @@ impl McConfig {
     /// describing the validation failure.
     pub fn validate(&self) -> finstack_core::Result<()> {
         use finstack_core::error::InputError;
-        
+
         // Validate recovery rate
         if self.recovery_rate < 0.0 || self.recovery_rate > 1.0 {
             return Err(InputError::Invalid.into());
         }
-        
+
         // Validate correlation matrix if provided
         if let Some(corr) = self.correlation_matrix {
             // Check positive semi-definiteness
@@ -304,28 +304,38 @@ impl McConfig {
                 3,
             )?;
         }
-        
+
         // Validate util_credit_corr if provided
         if let Some(rho) = self.util_credit_corr {
             if rho.abs() > 1.0 {
                 return Err(InputError::Invalid.into());
             }
         }
-        
+
         // Validate credit spread process parameters
         match &self.credit_spread_process {
-            CreditSpreadProcessSpec::Cir { kappa, theta, sigma, initial } => {
+            CreditSpreadProcessSpec::Cir {
+                kappa,
+                theta,
+                sigma,
+                initial,
+            } => {
                 // All parameters must be non-negative
                 if *kappa <= 0.0 || *theta < 0.0 || *sigma < 0.0 || *initial < 0.0 {
                     return Err(InputError::Invalid.into());
-                }             
-             }
+                }
+            }
             CreditSpreadProcessSpec::Constant(spread) => {
                 if *spread < 0.0 {
                     return Err(InputError::Invalid.into());
                 }
             }
-            CreditSpreadProcessSpec::MarketAnchored { kappa, implied_vol, tenor_years, .. } => {
+            CreditSpreadProcessSpec::MarketAnchored {
+                kappa,
+                implied_vol,
+                tenor_years,
+                ..
+            } => {
                 if *kappa <= 0.0 || *implied_vol < 0.0 {
                     return Err(InputError::Invalid.into());
                 }
@@ -336,14 +346,16 @@ impl McConfig {
                 }
             }
         }
-        
+
         // Validate interest rate process if provided
-        if let Some(InterestRateProcessSpec::HullWhite1F { kappa, sigma, .. }) = &self.interest_rate_process {
+        if let Some(InterestRateProcessSpec::HullWhite1F { kappa, sigma, .. }) =
+            &self.interest_rate_process
+        {
             if *kappa <= 0.0 || *sigma < 0.0 {
                 return Err(InputError::Invalid.into());
             }
         }
-        
+
         Ok(())
     }
 }
@@ -490,7 +502,8 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Optional model override via attributes metadata (e.g., meta["pricing_model"] = "monte_carlo_gbm")
         if let Some(model_str) = self.get_meta("pricing_model") {
-            if let Ok(model) = <crate::pricer::ModelKey as ::std::str::FromStr>::from_str(model_str) {
+            if let Ok(model) = <crate::pricer::ModelKey as ::std::str::FromStr>::from_str(model_str)
+            {
                 let registry = crate::pricer::create_standard_registry();
                 let result = registry
                     .price_with_registry(self, model, curves, as_of)
@@ -513,8 +526,10 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
             #[cfg(feature = "mc")]
             if let super::types::DrawRepaySpec::Stochastic(spec) = &self.draw_repay_spec {
                 if let Some(mc_cfg) = &spec.mc_config {
-                    if let super::types::CreditSpreadProcessSpec::MarketAnchored { hazard_curve_id, .. } =
-                        &mc_cfg.credit_spread_process
+                    if let super::types::CreditSpreadProcessSpec::MarketAnchored {
+                        hazard_curve_id,
+                        ..
+                    } = &mc_cfg.credit_spread_process
                     {
                         fallback.hazard_curve_id = Some(hazard_curve_id.clone());
                         fallback.recovery_rate = mc_cfg.recovery_rate;

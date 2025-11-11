@@ -81,7 +81,9 @@ pub use validation::{
 pub use market_context::{CreditFactors, MarketConditions, MarketFactors};
 
 // Behavioral model specifications (re-exported from builder)
-pub use specs::{DefaultCurve, DefaultModelSpec, PrepaymentCurve, PrepaymentModelSpec, RecoveryModelSpec};
+pub use specs::{
+    DefaultCurve, DefaultModelSpec, PrepaymentCurve, PrepaymentModelSpec, RecoveryModelSpec,
+};
 
 // Rate conversion utilities
 pub use crate::cashflow::builder::credit_rates::{annual_to_monthly, monthly_to_annual};

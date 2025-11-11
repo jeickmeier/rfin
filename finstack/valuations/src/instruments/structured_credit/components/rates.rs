@@ -261,4 +261,3 @@ mod tests {
         assert!((psa_to_cpr(1.5, 30) - 0.09).abs() < 0.0001);
     }
 }
-

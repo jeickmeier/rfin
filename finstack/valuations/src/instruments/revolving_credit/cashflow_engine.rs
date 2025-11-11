@@ -16,10 +16,10 @@
 //! - **Short Rate**: Interest rate dynamics (fixed or floating)
 //! - **Credit Spread**: Default risk premium
 
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
-use finstack_core::money::Money;
 use finstack_core::config::{RoundingContext, ZeroKind};
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
 use finstack_core::Result;
 
 use crate::cashflow::builder::CashFlowSchedule;
@@ -186,7 +186,9 @@ impl<'a> CashflowEngine<'a> {
         }
 
         // Generate interest and fee cashflows with intra-period event slicing
-        flows.reserve((self.payment_dates.len().saturating_sub(1)) * 4 + draw_repay_events.len() + 2);
+        flows.reserve(
+            (self.payment_dates.len().saturating_sub(1)) * 4 + draw_repay_events.len() + 2,
+        );
 
         for i in 0..(self.payment_dates.len() - 1) {
             let period_start = self.payment_dates[i];
@@ -233,21 +235,26 @@ impl<'a> CashflowEngine<'a> {
             let mut total_facility_fee = Money::new(0.0, ccy);
             let mut total_accrual = 0.0;
             let mut reset_date_opt: Option<Date> = None;
-            
+
             // Track weighted average rates for this period
             let mut weighted_interest_rate = 0.0;
             let mut weighted_commitment_fee_rate = 0.0;
             let mut weighted_usage_fee_rate = 0.0;
-            
+
             // Process each sub-period
             for window in timeline.windows(2) {
                 let sub_start = window[0];
                 let sub_end = window[1];
 
-                let dt = self.day_count.year_fraction(sub_start, sub_end, DayCountCtx::default())?;
+                let dt =
+                    self.day_count
+                        .year_fraction(sub_start, sub_end, DayCountCtx::default())?;
                 total_accrual += dt;
 
-                let current_undrawn = self.facility.commitment_amount.checked_sub(current_balance)?;
+                let current_undrawn = self
+                    .facility
+                    .commitment_amount
+                    .checked_sub(current_balance)?;
                 let utilization = if self.facility.commitment_amount.amount() > 0.0 {
                     current_balance.amount() / self.facility.commitment_amount.amount()
                 } else {
@@ -258,7 +265,12 @@ impl<'a> CashflowEngine<'a> {
                 let sub_reset_date = match &self.facility.base_rate_spec {
                     BaseRateSpec::Floating(_) => {
                         if let Some(ref reset_grid) = self.reset_dates {
-                            reset_grid.iter().rev().find(|&&d| d <= sub_start).copied().or(Some(period_start))
+                            reset_grid
+                                .iter()
+                                .rev()
+                                .find(|&&d| d <= sub_start)
+                                .copied()
+                                .or(Some(period_start))
                         } else {
                             Some(period_start)
                         }
@@ -317,7 +329,8 @@ impl<'a> CashflowEngine<'a> {
                 }
 
                 if self.facility.fees.facility_fee_bp > 0.0 {
-                    let facility_fee = self.facility.commitment_amount * (self.facility.fees.facility_fee_bp * 1e-4 * dt);
+                    let facility_fee = self.facility.commitment_amount
+                        * (self.facility.fees.facility_fee_bp * 1e-4 * dt);
                     total_facility_fee = total_facility_fee.checked_add(facility_fee)?;
                 }
 
@@ -344,17 +357,18 @@ impl<'a> CashflowEngine<'a> {
             } else {
                 None
             };
-            let avg_commitment_fee_rate = if total_accrual > 0.0 && weighted_commitment_fee_rate > 0.0 {
-                Some(weighted_commitment_fee_rate / total_accrual)
-            } else {
-                None
-            };
+            let avg_commitment_fee_rate =
+                if total_accrual > 0.0 && weighted_commitment_fee_rate > 0.0 {
+                    Some(weighted_commitment_fee_rate / total_accrual)
+                } else {
+                    None
+                };
             let avg_usage_fee_rate = if total_accrual > 0.0 && weighted_usage_fee_rate > 0.0 {
                 Some(weighted_usage_fee_rate / total_accrual)
             } else {
                 None
             };
-            
+
             if !rc.is_effectively_zero_money(total_interest.amount(), ccy) {
                 flows.push(CashFlow {
                     date: period_end,
@@ -541,7 +555,7 @@ impl<'a> CashflowEngine<'a> {
             // Interest and fees are based on the balance at the start of the period
             let drawn_balance = self.facility.commitment_amount * utilization_start;
             let undrawn_balance = self.facility.commitment_amount * (1.0 - utilization_start);
-            
+
             // Calculate period interest using path's short rate
             let interest_rate = match &self.facility.base_rate_spec {
                 BaseRateSpec::Fixed { rate } => *rate,
@@ -554,7 +568,9 @@ impl<'a> CashflowEngine<'a> {
                 }
             };
 
-            let dt = self.day_count.year_fraction(period_start, period_end, DayCountCtx::default())?;
+            let dt =
+                self.day_count
+                    .year_fraction(period_start, period_end, DayCountCtx::default())?;
             let interest = drawn_balance * (interest_rate * dt);
 
             // Add interest cashflows if non-zero
@@ -600,7 +616,7 @@ impl<'a> CashflowEngine<'a> {
             ));
 
             // Handle principal flows from utilization changes
-            // At period_end, utilization changes from start to end value for use in the next period    
+            // At period_end, utilization changes from start to end value for use in the next period
             let utilization_change = utilization_end - prev_utilization;
             if utilization_change.abs() > 1e-6 {
                 let principal_change = self.facility.commitment_amount * utilization_change;
@@ -619,9 +635,14 @@ impl<'a> CashflowEngine<'a> {
         }
 
         // Terminal repayment of outstanding balance
-        let final_utilization = path.utilization_path.last().copied().unwrap_or(0.0).clamp(0.0, 1.0);
+        let final_utilization = path
+            .utilization_path
+            .last()
+            .copied()
+            .unwrap_or(0.0)
+            .clamp(0.0, 1.0);
         let final_balance = self.facility.commitment_amount * final_utilization;
-        
+
         if self.facility.maturity_date > self.as_of
             && !rc.is_effectively_zero(final_balance.amount(), ZeroKind::Money(ccy))
         {
@@ -638,18 +659,16 @@ impl<'a> CashflowEngine<'a> {
         // Sort flows
         flows.sort_by(|a, b| {
             a.date.cmp(&b.date).then_with(|| {
-                let rank = |kind: &CFKind| {
-                    match kind {
-                        CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
-                        CFKind::CommitmentFee => 1,
-                        CFKind::FacilityFee => 2,
-                        CFKind::UsageFee => 3,
-                        CFKind::Fee => 4,
-                        CFKind::Amortization => 4,
-                        CFKind::PIK => 6,
-                        CFKind::Notional => 7,
-                        _ => 9,
-                    }
+                let rank = |kind: &CFKind| match kind {
+                    CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
+                    CFKind::CommitmentFee => 1,
+                    CFKind::FacilityFee => 2,
+                    CFKind::UsageFee => 3,
+                    CFKind::Fee => 4,
+                    CFKind::Amortization => 4,
+                    CFKind::PIK => 6,
+                    CFKind::Notional => 7,
+                    _ => 9,
                 };
                 let rank_a = rank(&a.kind);
                 let rank_b = rank(&b.kind);
@@ -701,14 +720,10 @@ pub fn calculate_drawn_balance_at_date(
     // Apply all events up to the target date
     for event in draw_repay_events.iter() {
         if event.date <= target_date {
-            balance = super::utils::apply_draw_repay_event(
-                balance,
-                event,
-                facility.commitment_amount,
-            )?;
+            balance =
+                super::utils::apply_draw_repay_event(balance, event, facility.commitment_amount)?;
         }
     }
 
     Ok(balance)
 }
-

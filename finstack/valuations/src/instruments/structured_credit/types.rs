@@ -309,8 +309,8 @@ impl StructuredCredit {
                     .unwrap(),
                 payment_frequency: Frequency::monthly(),
                 prepayment_spec: PrepaymentModelSpec::constant_cpr(0.18), // Auto ABS standard
-                default_spec: DefaultModelSpec::constant_cdr(0.015), // Consumer standard
-                recovery_spec: RecoveryModelSpec::with_lag(0.70, 12), // Collateral-backed
+                default_spec: DefaultModelSpec::constant_cdr(0.015),      // Consumer standard
+                recovery_spec: RecoveryModelSpec::with_lag(0.70, 12),     // Collateral-backed
                 credit_factors: CreditFactors::default(),
                 deal_metadata: DealMetadata::default(),
                 behavior_overrides: BehaviorOverrides::default(),
@@ -384,8 +384,8 @@ impl StructuredCredit {
                     .unwrap(),
                 payment_frequency: Frequency::monthly(),
                 prepayment_spec: PrepaymentModelSpec::constant_cpr(0.10), // CMBS standard
-                default_spec: DefaultModelSpec::constant_cdr(0.01), // Commercial real estate
-                recovery_spec: RecoveryModelSpec::with_lag(0.60, 24), // Commercial collateral
+                default_spec: DefaultModelSpec::constant_cdr(0.01),       // Commercial real estate
+                recovery_spec: RecoveryModelSpec::with_lag(0.60, 24),     // Commercial collateral
                 credit_factors: CreditFactors::default(),
                 deal_metadata: DealMetadata::default(),
                 behavior_overrides: BehaviorOverrides::default(),

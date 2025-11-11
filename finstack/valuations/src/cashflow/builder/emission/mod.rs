@@ -29,11 +29,11 @@
 //! appropriate cashflows for that date, and returns both the flows and any PIK
 //! amount that should capitalize into the outstanding balance.
 
-mod helpers;
-mod coupons;
 mod amortization;
-mod fees;
+mod coupons;
 mod credit;
+mod fees;
+mod helpers;
 #[cfg(test)]
 mod tests;
 
@@ -47,7 +47,7 @@ pub(super) use amortization::{emit_amortization_on, AmortizationParams};
 pub(super) use fees::emit_fees_on;
 
 // Re-export public fee emission functions
-pub use fees::{emit_commitment_fee_on, emit_usage_fee_on, emit_facility_fee_on};
+pub use fees::{emit_commitment_fee_on, emit_facility_fee_on, emit_usage_fee_on};
 
 // Re-export public credit event emission
 pub use credit::{emit_default_on, emit_prepayment_on};

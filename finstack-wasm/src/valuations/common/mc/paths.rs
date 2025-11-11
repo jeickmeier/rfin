@@ -1,8 +1,6 @@
 //! WASM bindings for Monte Carlo path data structures.
 
-use finstack_valuations::instruments::common::mc::paths::{
-    PathDataset, PathPoint, SimulatedPath,
-};
+use finstack_valuations::instruments::common::mc::paths::{PathDataset, PathPoint, SimulatedPath};
 use js_sys::{Array, Object, Reflect};
 use wasm_bindgen::prelude::*;
 

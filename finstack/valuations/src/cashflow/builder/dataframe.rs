@@ -149,7 +149,7 @@ impl CashFlowSchedule {
         if self.flows.is_empty() {
             return Ok(PeriodDataFrame::empty());
         }
-        
+
         // Create single period spanning all flows
         let first = self.flows.first().unwrap().date;
         let last = self.flows.last().unwrap().date;
@@ -159,7 +159,7 @@ impl CashFlowSchedule {
             end: last,
             is_actual: true,
         };
-        
+
         self.to_period_dataframe(&[period], market, discount_curve_id, options)
     }
 
@@ -216,9 +216,7 @@ impl CashFlowSchedule {
         };
 
         // Prefer explicit facility_limit; fallback to schedule meta (e.g., RCF commitment)
-        let facility_limit = options
-            .facility_limit
-            .or(self.meta.facility_limit);
+        let facility_limit = options.facility_limit.or(self.meta.facility_limit);
 
         // Columns
         let mut start_dates: Vec<Date> = Vec::new();
@@ -294,26 +292,31 @@ impl CashFlowSchedule {
             rates.push(cf.rate.unwrap_or(0.0));
 
             // Notional balances for interest/fee-like rows
-            let (notional_drawn, notional_undrawn) =
-                if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset
-                    | CFKind::CommitmentFee | CFKind::UsageFee | CFKind::FacilityFee)
-                    || cf.accrual_factor > 0.0
-                {
-                    let drawn = Some(outstanding_pre.amount());
-                    // Undrawn only available when facility_limit (commitment) is provided
-                    let undrawn = if let Some(limit) = facility_limit.as_ref() {
-                        if limit.currency() == cf.amount.currency() {
-                            Some((limit.amount() - outstanding_pre.amount()).max(0.0))
-                        } else {
-                            None
-                        }
+            let (notional_drawn, notional_undrawn) = if matches!(
+                cf.kind,
+                CFKind::Fixed
+                    | CFKind::Stub
+                    | CFKind::FloatReset
+                    | CFKind::CommitmentFee
+                    | CFKind::UsageFee
+                    | CFKind::FacilityFee
+            ) || cf.accrual_factor > 0.0
+            {
+                let drawn = Some(outstanding_pre.amount());
+                // Undrawn only available when facility_limit (commitment) is provided
+                let undrawn = if let Some(limit) = facility_limit.as_ref() {
+                    if limit.currency() == cf.amount.currency() {
+                        Some((limit.amount() - outstanding_pre.amount()).max(0.0))
                     } else {
                         None
-                    };
-                    (drawn, undrawn)
+                    }
                 } else {
-                    (None, None)
+                    None
                 };
+                (drawn, undrawn)
+            } else {
+                (None, None)
+            };
             notionals.push(notional_drawn);
             undrawn_notionals.push(notional_undrawn);
 
@@ -532,4 +535,3 @@ mod tests {
         assert!((df.pvs[1] - 200.0 * df.discount_factors[1]).abs() < 1e-12);
     }
 }
-

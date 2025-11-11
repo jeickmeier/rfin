@@ -1,9 +1,9 @@
 //! Helper functions for cashflow emission.
 
-use crate::cashflow::primitives::{CashFlow, CFKind};
+use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{adjust, Date};
 use finstack_core::dates::calendar::calendar_by_id;
+use finstack_core::dates::{adjust, Date};
 use finstack_core::money::Money;
 use time::Duration;
 
@@ -51,4 +51,3 @@ pub(in crate::cashflow::builder) fn compute_reset_date(
     }
     Ok(reset_date)
 }
-

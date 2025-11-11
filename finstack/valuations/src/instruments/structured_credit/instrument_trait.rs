@@ -110,9 +110,7 @@ pub(crate) trait StructuredCreditInstrument {
             return override_rate;
         }
 
-        self.prepayment_spec()
-            .smm(seasoning_months)
-            .max(0.0)
+        self.prepayment_spec().smm(seasoning_months).max(0.0)
     }
 
     /// Calculate default rate (MDR)
@@ -121,9 +119,7 @@ pub(crate) trait StructuredCreditInstrument {
             return override_rate;
         }
 
-        self.default_spec_ref()
-            .mdr(seasoning_months)
-            .max(0.0)
+        self.default_spec_ref().mdr(seasoning_months).max(0.0)
     }
 
     /// Calculate period interest collections from pool assets
@@ -360,12 +356,28 @@ pub(crate) trait StructuredCreditInstrument {
                 .unwrap_or(Money::new(0.0, base_ccy));
 
             for (date, amount) in &res.interest_flows {
-                if let Ok(cf) = finstack_core::cashflow::CashFlow::fixed_cf(*date, *amount) {
+                if amount.amount() > 0.0 {
+                    let cf = finstack_core::cashflow::CashFlow {
+                        date: *date,
+                        reset_date: None,
+                        amount: *amount,
+                        kind: finstack_core::cashflow::CFKind::Fixed,
+                        accrual_factor: 0.0,
+                        rate: None,
+                    };
                     res.detailed_flows.push(cf);
                 }
             }
             for (date, amount) in &res.principal_flows {
-                if let Ok(cf) = finstack_core::cashflow::CashFlow::amort_cf(*date, *amount) {
+                if amount.amount() > 0.0 {
+                    let cf = finstack_core::cashflow::CashFlow {
+                        date: *date,
+                        reset_date: None,
+                        amount: *amount,
+                        kind: finstack_core::cashflow::CFKind::Amortization,
+                        accrual_factor: 0.0,
+                        rate: None,
+                    };
                     res.detailed_flows.push(cf);
                 }
             }

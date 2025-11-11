@@ -8,10 +8,10 @@
 use super::super::results::MoneyEstimate;
 use super::lsq::regression_with_basis;
 use crate::instruments::common::mc::discretization::exact::ExactGbm;
-use crate::instruments::common::mc::process::gbm::GbmProcess;
 use crate::instruments::common::mc::estimate::Estimate;
-use crate::instruments::common::mc::rng::philox::PhiloxRng;
 use crate::instruments::common::mc::online_stats::OnlineStats;
+use crate::instruments::common::mc::process::gbm::GbmProcess;
+use crate::instruments::common::mc::rng::philox::PhiloxRng;
 use crate::instruments::common::mc::time_grid::TimeGrid;
 use crate::instruments::common::mc::traits::{Discretization, RandomStream};
 use finstack_core::currency::Currency;

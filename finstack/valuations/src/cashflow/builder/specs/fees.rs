@@ -80,4 +80,3 @@ pub fn evaluate_fee_tiers(tiers: &[FeeTier], utilization: f64) -> f64 {
         .map(|tier| tier.bps)
         .unwrap_or(0.0)
 }
-

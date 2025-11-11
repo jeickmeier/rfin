@@ -4,9 +4,9 @@
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
 #[cfg(test)]
 use finstack_core::types::CurveId;
+use finstack_core::types::InstrumentId;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -108,7 +108,7 @@ impl Default for CreditEnhancement {
 pub enum TrancheCoupon {
     /// Fixed rate coupon (rate as decimal, e.g., 0.05 for 5%)
     Fixed { rate: f64 },
-    
+
     /// Floating rate coupon using canonical FloatingRateSpec.
     ///
     /// Uses the standard floating rate specification with all rates in basis points.
@@ -144,10 +144,10 @@ impl TrancheCoupon {
                     Ok(f) => f,
                     Err(_) => return spec.spread_bp / 10_000.0, // Fallback to spread only
                 };
-                
+
                 let tenor = fwd.tenor();
                 let period_end_approx = date + time::Duration::days((tenor * 365.25) as i64);
-                
+
                 crate::cashflow::builder::project_floating_rate(
                     date,
                     period_end_approx,

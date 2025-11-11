@@ -61,20 +61,20 @@ impl DiscountMarginCalculator {
                     // Then apply spread on top
                     let fwd = curves.get_forward_ref(spec.index_id.as_str())?;
                     let mut index_with_dm = fwd.rate(yf) + dm;
-                    
+
                     // Apply floor to index+DM
                     if let Some(floor) = spec.floor_bp {
                         index_with_dm = index_with_dm.max(floor * 1e-4);
                     }
-                    
+
                     // Add spread
                     let mut all_in = (index_with_dm + spec.spread_bp * 1e-4) * spec.gearing;
-                    
+
                     // Apply cap
                     if let Some(cap) = spec.cap_bp {
                         all_in = all_in.min(cap * 1e-4);
                     }
-                    
+
                     all_in
                 }
             };

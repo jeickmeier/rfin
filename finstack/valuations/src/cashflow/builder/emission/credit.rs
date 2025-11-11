@@ -1,6 +1,6 @@
 //! Credit event cashflow emission (defaults, prepayments, recoveries).
 
-use crate::cashflow::primitives::{CashFlow, CFKind};
+use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -76,7 +76,8 @@ pub fn emit_default_on(
         // Recovery cashflow (on future date)
         let recovery_amt = event.defaulted_amount * event.recovery_rate;
         if recovery_amt > 0.0 {
-            let recovery_date = finstack_core::dates::utils::add_months(d, event.recovery_lag as i32);
+            let recovery_date =
+                finstack_core::dates::utils::add_months(d, event.recovery_lag as i32);
             flows.push(CashFlow {
                 date: recovery_date,
                 reset_date: None,
@@ -149,4 +150,3 @@ pub fn emit_prepayment_on(
         vec![]
     }
 }
-

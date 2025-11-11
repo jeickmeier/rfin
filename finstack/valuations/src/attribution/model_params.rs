@@ -176,23 +176,28 @@ pub fn measure_prepayment_shift(
             },
         ) => {
             use crate::cashflow::builder::specs::PrepaymentCurve;
-            
+
             match (&prep_t0.curve, &prep_t1.curve) {
                 (
-                    Some(PrepaymentCurve::Psa { speed_multiplier: mult_t0 }),
-                    Some(PrepaymentCurve::Psa { speed_multiplier: mult_t1 }),
+                    Some(PrepaymentCurve::Psa {
+                        speed_multiplier: mult_t0,
+                    }),
+                    Some(PrepaymentCurve::Psa {
+                        speed_multiplier: mult_t1,
+                    }),
                 ) => {
                     // PSA multiplier change (convert to CPR change approximation)
                     // PSA 100% ≈ 6% CPR terminal, so multiply difference by 6%
                     (mult_t1 - mult_t0) * 600.0 // Convert to basis points
                 }
-                (None, None) | (Some(PrepaymentCurve::Constant), Some(PrepaymentCurve::Constant)) => {
+                (None, None)
+                | (Some(PrepaymentCurve::Constant), Some(PrepaymentCurve::Constant)) => {
                     // Direct CPR difference in basis points
                     (prep_t1.cpr - prep_t0.cpr) * 10000.0
                 }
                 _ => 0.0, // Mixed or unsupported model types
             }
-        },
+        }
         _ => 0.0,
     }
 }
@@ -217,7 +222,7 @@ pub fn measure_default_shift(
         ) => {
             // CDR difference in basis points (works for both constant and SDA curves)
             (def_t1.cdr - def_t0.cdr) * 10000.0
-        },
+        }
         _ => 0.0,
     }
 }
@@ -242,7 +247,7 @@ pub fn measure_recovery_shift(
         ) => {
             // Direct recovery rate difference in percentage points
             (rec_t1.rate - rec_t0.rate) * 100.0
-        },
+        }
         _ => 0.0,
     }
 }

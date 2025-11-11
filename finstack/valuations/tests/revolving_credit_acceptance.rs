@@ -14,10 +14,10 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
 use finstack_valuations::instruments::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
-use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
 use time::Month;
 
 /// Helper function to generate deterministic cashflows with curves using the new engine
@@ -66,8 +66,7 @@ fn test_upfront_fee_sign() {
         .unwrap();
     let market = MarketContext::new().insert_discount(disc_curve);
 
-    let pv = RevolvingCreditPricer::price_deterministic(&facility, &market, start)
-        .unwrap();
+    let pv = RevolvingCreditPricer::price_deterministic(&facility, &market, start).unwrap();
 
     // PV should equal upfront fee (positive, lender receives fee)
     assert!(
@@ -114,16 +113,16 @@ fn test_mid_period_draw_accrual() {
         .unwrap();
     let market = MarketContext::new().insert_discount(disc_curve);
 
-    let schedule = _generate_deterministic_cashflows_with_curves_replaced(
-        &facility, &market, start,
-    )
-    .unwrap();
+    let schedule =
+        _generate_deterministic_cashflows_with_curves_replaced(&facility, &market, start).unwrap();
 
     // Find interest cashflow at period end (Apr-1)
     let interest_flow = schedule
         .flows
         .iter()
-        .find(|cf| cf.date == end && matches!(cf.kind, finstack_core::cashflow::primitives::CFKind::Fixed))
+        .find(|cf| {
+            cf.date == end && matches!(cf.kind, finstack_core::cashflow::primitives::CFKind::Fixed)
+        })
         .expect("Should have interest flow at period end");
 
     // Interest should be:
@@ -199,12 +198,8 @@ fn test_floating_vs_margin_only() {
         .insert_forward(fwd_curve);
 
     // Price with curves (should include forward rates)
-    let pv_with_curves = RevolvingCreditPricer::price_deterministic(
-        &facility,
-        &market_with_curve,
-        start,
-    )
-    .unwrap();
+    let pv_with_curves =
+        RevolvingCreditPricer::price_deterministic(&facility, &market_with_curve, start).unwrap();
 
     // Price without curves (margin-only, legacy behavior)
     // This would use generate_deterministic_cashflows instead of _with_curves
@@ -276,16 +271,20 @@ fn test_reset_frequency_mismatch() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let schedule = _generate_deterministic_cashflows_with_curves_replaced(
-        &facility, &market, start,
-    )
-    .unwrap();
+    let schedule =
+        _generate_deterministic_cashflows_with_curves_replaced(&facility, &market, start).unwrap();
 
     // Should have interest flow at quarter end
     let interest_flow = schedule
         .flows
         .iter()
-        .find(|cf| cf.date == end && matches!(cf.kind, finstack_core::cashflow::primitives::CFKind::FloatReset))
+        .find(|cf| {
+            cf.date == end
+                && matches!(
+                    cf.kind,
+                    finstack_core::cashflow::primitives::CFKind::FloatReset
+                )
+        })
         .expect("Should have floating interest flow");
 
     // Verify reset_date is set (should be Jan 1, first reset)
@@ -367,27 +366,35 @@ fn test_utilization_tier() {
         .unwrap();
     let market = MarketContext::new().insert_discount(disc_curve);
 
-    let schedule_low = _generate_deterministic_cashflows_with_curves_replaced(
-        &facility_low_util, &market, start,
-    )
-    .unwrap();
+    let schedule_low =
+        _generate_deterministic_cashflows_with_curves_replaced(&facility_low_util, &market, start)
+            .unwrap();
 
-    let schedule_high = _generate_deterministic_cashflows_with_curves_replaced(
-        &facility_high_util, &market, start,
-    )
-    .unwrap();
+    let schedule_high =
+        _generate_deterministic_cashflows_with_curves_replaced(&facility_high_util, &market, start)
+            .unwrap();
 
     let fee_low: f64 = schedule_low
         .flows
         .iter()
-        .filter(|cf| matches!(cf.kind, finstack_core::cashflow::primitives::CFKind::UsageFee))
+        .filter(|cf| {
+            matches!(
+                cf.kind,
+                finstack_core::cashflow::primitives::CFKind::UsageFee
+            )
+        })
         .map(|cf| cf.amount.amount())
         .sum();
 
     let fee_high: f64 = schedule_high
         .flows
         .iter()
-        .filter(|cf| matches!(cf.kind, finstack_core::cashflow::primitives::CFKind::UsageFee))
+        .filter(|cf| {
+            matches!(
+                cf.kind,
+                finstack_core::cashflow::primitives::CFKind::UsageFee
+            )
+        })
         .map(|cf| cf.amount.amount())
         .sum();
 
@@ -433,10 +440,8 @@ fn test_as_of_filtering() {
     let market = MarketContext::new().insert_discount(disc_curve);
 
     // As-of at Q1 end: no interest/fee cashflows should have date <= as_of
-    let schedule = _generate_deterministic_cashflows_with_curves_replaced(
-        &facility, &market, q1_end,
-    )
-    .unwrap();
+    let schedule =
+        _generate_deterministic_cashflows_with_curves_replaced(&facility, &market, q1_end).unwrap();
 
     let non_principal_flows: Vec<_> = schedule
         .flows
@@ -456,4 +461,3 @@ fn test_as_of_filtering() {
         "All non-principal flows should be strictly after as_of date"
     );
 }
-
