@@ -73,3 +73,6 @@ EOF < /dev/null
 
 # Temp files
 concatenated_code.txt
+
+# Script Outputs
+finstack-py/examples/outputs/
