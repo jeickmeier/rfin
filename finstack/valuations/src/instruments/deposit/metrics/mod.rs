@@ -44,10 +44,10 @@ pub fn register_deposit_metrics(registry: &mut MetricRegistry) {
             (DfEndFromQuote, DfEndFromQuoteCalculator),
             (QuoteRate, QuoteRateCalculator),
             (Dv01, DepositDv01Calculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
+            (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::Deposit,
             >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
+            (BucketedDv01, crate::metrics::GenericBucketedDv01::<
                 crate::instruments::Deposit,
             >::default()),
         ]

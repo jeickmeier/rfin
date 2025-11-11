@@ -1,7 +1,7 @@
 //! Trait implementations for LookbackOption
 
-use crate::instruments::common::metrics::has_equity_underlying::HasEquityUnderlying;
-use crate::instruments::common::metrics::has_pricing_overrides::HasPricingOverrides;
+use crate::metrics::has_equity_underlying::HasEquityUnderlying;
+use crate::metrics::has_pricing_overrides::HasPricingOverrides;
 use crate::instruments::lookback_option::LookbackOption;
 
 impl HasEquityUnderlying for LookbackOption {

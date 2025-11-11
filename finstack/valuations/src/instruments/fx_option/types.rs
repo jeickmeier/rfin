@@ -35,6 +35,14 @@ pub struct FxOption {
     pub attributes: Attributes,
 }
 
+// Implement HasDiscountCurve for GenericParallelDv01
+// Uses domestic curve as the primary discount curve
+impl crate::metrics::HasDiscountCurve for FxOption {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.domestic_discount_curve_id
+    }
+}
+
 impl FxOption {
     /// Create a European call option on an FX pair with standard conventions.
     pub fn european_call(

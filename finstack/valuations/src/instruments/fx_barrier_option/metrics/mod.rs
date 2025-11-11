@@ -38,7 +38,7 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
                 (Dv01, dv01::Dv01Calculator),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator),
-                (Theta, crate::instruments::common::metrics::GenericTheta::<
+                (Theta, crate::metrics::GenericTheta::<
                     crate::instruments::FxBarrierOption,
                 >::default()),
             ]

@@ -25,6 +25,13 @@ pub struct CliquetOption {
     pub attributes: Attributes,
 }
 
+// Implement HasDiscountCurve for GenericParallelDv01
+impl crate::metrics::HasDiscountCurve for CliquetOption {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.discount_curve_id
+    }
+}
+
 impl CliquetOption {
     /// Calculate the net present value of this cliquet option.
     #[cfg(feature = "mc")]

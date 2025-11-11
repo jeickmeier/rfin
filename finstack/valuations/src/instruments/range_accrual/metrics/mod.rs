@@ -4,8 +4,7 @@
 //! finite difference methods. Delta and Gamma use generic FD calculators.
 //! Includes bucketed DV01 for detailed interest rate risk analysis.
 
-#[cfg(feature = "mc")]
-mod dv01;
+// mod dv01; // removed - using GenericParallelDv01
 #[cfg(feature = "mc")]
 mod rho;
 #[cfg(feature = "mc")]
@@ -23,7 +22,7 @@ use std::sync::Arc;
 /// Register range accrual metrics with the registry.
 #[cfg(feature = "mc")]
 pub fn register_range_accrual_metrics(registry: &mut MetricRegistry) {
-    use crate::instruments::common::metrics::{GenericFdDelta, GenericFdGamma};
+    use crate::metrics::{GenericFdDelta, GenericFdGamma};
 
     // Use generic FD calculators for Delta and Gamma
     registry.register_metric(
@@ -47,13 +46,13 @@ pub fn register_range_accrual_metrics(registry: &mut MetricRegistry) {
             metrics: [
                 (Vega, vega::VegaCalculator::default()),
                 (Rho, rho::RhoCalculator),
-                (Dv01, dv01::Dv01Calculator),
+                (Dv01, crate::metrics::GenericParallelDv01::<
+                    crate::instruments::range_accrual::RangeAccrual,
+                >::default()),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator::default()),
-                (Theta, crate::instruments::common::metrics::GenericTheta::<
-                    crate::instruments::RangeAccrual,
-                >::default()),
-                (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+                // Theta is now registered universally in metrics::standard_registry()
+                (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                     crate::instruments::RangeAccrual,
                 >::default()),
             ]

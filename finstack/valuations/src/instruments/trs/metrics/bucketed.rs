@@ -1,4 +1,4 @@
-use crate::instruments::common::metrics::bucketed_dv01::GenericBucketedDv01WithContext;
+use crate::metrics::bucketed_dv01::GenericBucketedDv01WithContext;
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{error::InputError, Error, Result};

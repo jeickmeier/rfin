@@ -3,7 +3,7 @@
 //! Returns the PV value in the quote currency as a scalar.
 //! Now uses the generic PV calculator from common metrics.
 
-use crate::instruments::common::metrics::GenericPv;
+use crate::metrics::GenericPv;
 
 /// Returns the quote amount (PV in quote currency).
 /// This is now a type alias to GenericPv for consistency.
@@ -42,7 +42,7 @@ mod tests {
     #[test]
     fn calculator_returns_base_value_amount() {
         let mut ctx = context();
-        let calc = crate::instruments::common::metrics::GenericPv;
+        let calc = crate::metrics::GenericPv;
         let value = calc.calculate(&mut ctx).unwrap();
         assert!((value - ctx.base_value.amount()).abs() < 1e-12);
     }

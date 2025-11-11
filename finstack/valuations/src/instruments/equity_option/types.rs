@@ -34,6 +34,13 @@ pub struct EquityOption {
     pub attributes: Attributes,
 }
 
+// Implement HasDiscountCurve for GenericParallelDv01
+impl crate::metrics::HasDiscountCurve for EquityOption {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.discount_curve_id
+    }
+}
+
 impl EquityOption {
     /// Create a European call option with standard conventions.
     ///

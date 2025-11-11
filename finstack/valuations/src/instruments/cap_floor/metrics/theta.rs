@@ -4,7 +4,7 @@
 //! at `as_of + period` (default 1D) holding market curves and vol surface fixed.
 
 use crate::instruments::cap_floor::InterestRateOption;
-use crate::instruments::common::metrics::theta_utils;
+use crate::metrics::theta_utils;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 
@@ -69,3 +69,4 @@ impl MetricCalculator for ThetaCalculator {
         &[]
     }
 }
+

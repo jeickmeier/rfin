@@ -56,6 +56,13 @@ pub struct CdsOption {
     pub forward_spread_adjust_bp: f64,
 }
 
+// Implement HasCreditCurve for generic CS01 calculator
+impl crate::metrics::HasCreditCurve for CdsOption {
+    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.credit_curve_id
+    }
+}
+
 impl CdsOption {
     /// Create a new credit option using parameter structs.
     ///

@@ -16,6 +16,57 @@ pub fn standard_ir_dv01_buckets() -> Vec<f64> {
     vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0]
 }
 
+/// Compute parallel DV01 by bumping the entire discount curve uniformly.
+///
+/// Returns the DV01 as a single scalar value (PV change per 1bp parallel shift).
+/// Does not store bucketed series in the context.
+pub fn compute_parallel_dv01<RevalFn>(
+    context: &mut MetricContext,
+    discount_curve_id: &CurveId,
+    bump_bp: f64,
+    mut revalue_with_disc: RevalFn,
+) -> finstack_core::Result<f64>
+where
+    RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
+{
+    let base_pv = context.base_value;
+    let disc = context
+        .curves
+        .get_discount_ref(discount_curve_id.as_str())?;
+
+    // Parallel bump the entire curve
+    let bumped = disc.with_parallel_bump(bump_bp);
+    let pv_bumped = revalue_with_disc(&bumped)?;
+    let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+
+    Ok(dv01)
+}
+
+/// Compute parallel DV01 using full MarketContext revaluation.
+///
+/// Returns the DV01 as a single scalar value.
+pub fn compute_parallel_dv01_with_context<RevalFn>(
+    context: &mut MetricContext,
+    discount_curve_id: &CurveId,
+    bump_bp: f64,
+    mut revalue_with_context: RevalFn,
+) -> finstack_core::Result<f64>
+where
+    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
+{
+    let base_pv = context.base_value;
+    let base_ctx = context.curves.as_ref();
+    let disc = base_ctx.get_discount_ref(discount_curve_id.as_str())?;
+
+    // Parallel bump the entire curve
+    let bumped_disc = disc.with_parallel_bump(bump_bp);
+    let temp_ctx = base_ctx.clone().insert_discount(bumped_disc);
+    let pv_bumped = revalue_with_context(&temp_ctx)?;
+    let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+
+    Ok(dv01)
+}
+
 // Note: prior versions supported “parallel bump” DV01 per label; this was incorrect.
 // All bucketed DV01 now uses key‑rate bumps at per-bucket maturities.
 
@@ -162,4 +213,155 @@ where
     context.store_bucketed_series(base_metric_id, series.clone());
     let total: f64 = series.iter().map(|(_, v)| *v).sum();
     Ok(total)
+}
+
+// ===== Generic Calculators =====
+
+use crate::instruments::common::traits::Instrument;
+use crate::metrics::traits::MetricCalculator;
+use std::marker::PhantomData;
+
+// Re-export HasDiscountCurve from pricing for convenience
+pub use crate::instruments::common::pricing::HasDiscountCurve;
+
+/// Generic BucketedDv01 calculator that works for any instrument implementing
+/// the required traits.
+///
+/// Requires the instrument to implement `HasDiscountCurve`.
+pub struct GenericBucketedDv01<I> {
+    _phantom: PhantomData<I>,
+}
+
+impl<I> Default for GenericBucketedDv01<I> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<I> MetricCalculator for GenericBucketedDv01<I>
+where
+    I: Instrument + crate::cashflow::traits::CashflowProvider + HasDiscountCurve + Clone + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let instrument: &I = context.instrument_as()?;
+        let discount_curve_id = instrument.discount_curve_id().clone();
+
+        // Standard bucket times (years) - shared across all instruments
+        let buckets = standard_ir_dv01_buckets();
+
+        // Generic revaluation using cashflow building and discounting
+        let inst_clone = instrument.clone();
+        let curves = context.curves.clone();
+        let as_of = context.as_of;
+
+        let reval = move |
+            bumped_disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve|
+         {
+            // Build flows using original curves (preserves forward projections)
+            let flows = inst_clone.build_schedule(&curves, as_of)?;
+            let base = bumped_disc.base_date();
+            let dc = bumped_disc.day_count();
+
+            // Discount using bumped curve
+            crate::instruments::common::discountable::npv_static(
+                bumped_disc,
+                base,
+                dc,
+                &flows,
+            )
+        };
+
+        let total = compute_key_rate_dv01_series(
+            context,
+            &discount_curve_id,
+            buckets,
+            1.0,
+            reval,
+        )?;
+
+        Ok(total)
+    }
+}
+
+/// Alternative generic calculator for instruments that need full MarketContext revaluation.
+///
+/// Use this for instruments whose pricing requires access to multiple curves or
+/// complex pricing models that can't be reduced to simple cashflow discounting.
+pub struct GenericBucketedDv01WithContext<I> {
+    _phantom: PhantomData<I>,
+}
+
+/// Generic parallel DV01 calculator that returns a scalar (not bucketed).
+///
+/// Computes DV01 by applying a parallel bump to the entire discount curve.
+pub struct GenericParallelDv01<I> {
+    _phantom: PhantomData<I>,
+}
+
+impl<I> Default for GenericParallelDv01<I> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<I> MetricCalculator for GenericParallelDv01<I>
+where
+    I: Instrument + HasDiscountCurve + Clone + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let instrument: &I = context.instrument_as()?;
+        let discount_curve_id = instrument.discount_curve_id().clone();
+
+        let inst_clone = instrument.clone();
+        let as_of = context.as_of;
+
+        let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
+            inst_clone.value(temp_ctx, as_of)
+        };
+
+        compute_parallel_dv01_with_context(context, &discount_curve_id, 1.0, reval)
+    }
+}
+
+impl<I> Default for GenericBucketedDv01WithContext<I> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<I> MetricCalculator for GenericBucketedDv01WithContext<I>
+where
+    I: Instrument + HasDiscountCurve + Clone + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let instrument: &I = context.instrument_as()?;
+        let discount_curve_id = instrument.discount_curve_id().clone();
+
+        // Standard bucket times
+        let buckets = standard_ir_dv01_buckets();
+
+        // Revaluation using full MarketContext (for complex pricers)
+        let inst_clone = instrument.clone();
+        let as_of = context.as_of;
+
+        let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
+            inst_clone.value(temp_ctx, as_of)
+        };
+
+        let total = compute_key_rate_dv01_series_with_context(
+            context,
+            &discount_curve_id,
+            buckets,
+            1.0,
+            reval,
+        )?;
+
+        Ok(total)
+    }
 }

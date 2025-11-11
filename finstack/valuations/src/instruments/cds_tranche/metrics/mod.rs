@@ -21,7 +21,6 @@ mod par_spread;
 mod recovery01;
 // risk_bucketed_dv01 - now using generic implementation
 mod spread_dv01;
-mod theta;
 mod upfront;
 
 use crate::metrics::MetricRegistry;
@@ -64,8 +63,8 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
             (Dv01, dv01::CdsTrancheDv01Calculator),
-            (Theta, theta::ThetaCalculator),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            // Theta is now registered universally in metrics::standard_registry()
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::CdsTranche,
             >::default()),
         ]

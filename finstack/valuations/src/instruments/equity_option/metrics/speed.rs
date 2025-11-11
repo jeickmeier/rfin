@@ -6,7 +6,7 @@
 //!
 //! Where Gamma(S) is computed at current spot, and Gamma(S±h) at bumped spots.
 
-use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
 use crate::instruments::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

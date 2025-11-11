@@ -1,6 +1,6 @@
 //! Volga calculator for lookback options (generic FD).
 
-use crate::instruments::common::metrics::GenericFdVolga;
+use crate::metrics::GenericFdVolga;
 use crate::instruments::lookback_option::LookbackOption;
 
 /// Type alias to the generic finite-difference volga implementation.

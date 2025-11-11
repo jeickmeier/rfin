@@ -67,10 +67,10 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (ParRate, par_rate::ParRateCalculator),
             (Dv01, dv01::InflationSwapDv01Calculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
+            (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::InflationSwap,
             >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::InflationSwap,
             >::default()),
         ]

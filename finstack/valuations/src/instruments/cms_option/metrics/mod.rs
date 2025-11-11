@@ -27,10 +27,10 @@ pub fn register_cms_option_metrics(registry: &mut MetricRegistry) {
             (Dv01, dv01::Dv01Calculator),
             (Vanna, vanna::VannaCalculator),
             (Volga, volga::VolgaCalculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
+            (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::CmsOption,
             >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::CmsOption,
             >::default()),
         ]

@@ -8,13 +8,13 @@
 
 use std::marker::PhantomData;
 
-use crate::instruments::common::metrics::finite_difference::{
+use crate::metrics::finite_difference::{
     adaptive_spot_bump, bump_scalar_price, bump_sizes, central_mixed, get_bump_overrides,
     scale_surface,
 };
-use crate::instruments::common::metrics::has_equity_underlying::HasEquityUnderlying;
-use crate::instruments::common::metrics::has_pricing_overrides::HasPricingOverrides;
-use crate::instruments::common::metrics::vol_expiry_helpers::{
+use crate::metrics::has_equity_underlying::HasEquityUnderlying;
+use crate::metrics::has_pricing_overrides::HasPricingOverrides;
+use crate::metrics::vol_expiry_helpers::{
     get_instrument_day_count, get_instrument_expiry_for_adaptive, get_instrument_vol_id,
 };
 use crate::instruments::common::traits::Instrument;

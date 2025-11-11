@@ -22,7 +22,7 @@ use std::sync::Arc;
 /// Register cliquet option metrics with the registry.
 #[cfg(feature = "mc")]
 pub fn register_cliquet_option_metrics(registry: &mut MetricRegistry) {
-    use crate::instruments::common::metrics::{GenericFdDelta, GenericFdGamma};
+    use crate::metrics::{GenericFdDelta, GenericFdGamma};
 
     // Use generic FD calculators for Delta and Gamma
     registry.register_metric(
@@ -49,7 +49,7 @@ pub fn register_cliquet_option_metrics(registry: &mut MetricRegistry) {
                 (Dv01, dv01::Dv01Calculator),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator::default()),
-                (Theta, crate::instruments::common::metrics::GenericTheta::<
+                (Theta, crate::metrics::GenericTheta::<
                     crate::instruments::CliquetOption,
                 >::default()),
             ]

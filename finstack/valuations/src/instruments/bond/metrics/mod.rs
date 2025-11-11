@@ -7,7 +7,7 @@ pub mod cs01;
 pub mod dm;
 pub mod duration_macaulay;
 pub mod duration_modified;
-pub mod dv01;
+pub mod dv01; // Keep analytical DV01 using modified duration formula
 pub mod i_spread;
 pub mod oas;
 pub mod prices;
@@ -58,10 +58,8 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (Cs01, Cs01Calculator),
             (Dv01, BondDv01Calculator),
             (Pv01, BondDv01Calculator), // Alias for DV01 (credit convention)
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
-                crate::instruments::Bond,
-            >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
+            // Theta is now registered universally in metrics::standard_registry()
+            (BucketedDv01, crate::metrics::GenericBucketedDv01::<
                 crate::instruments::Bond,
             >::default()),
         ]

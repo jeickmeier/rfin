@@ -2,7 +2,7 @@
 //!
 //! Computes volga (∂²V/∂σ²) using finite differences.
 
-use crate::instruments::common::metrics::finite_difference::bump_sizes;
+use crate::metrics::finite_difference::bump_sizes;
 use crate::instruments::fx_barrier_option::FxBarrierOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

@@ -4,7 +4,7 @@
 //! bump discount curve by 1bp, reprice, and compute PV_change.
 
 use crate::instruments::cliquet_option::CliquetOption;
-use crate::instruments::common::metrics::finite_difference::bump_discount_curve_parallel;
+use crate::metrics::finite_difference::bump_discount_curve_parallel;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

@@ -4,7 +4,7 @@
 //! bump equity volatility surface, reprice, and compute (PV_vol_up - PV_base) / bump_size.
 //! Vega is per 1% volatility move.
 
-use crate::instruments::common::metrics::finite_difference::bump_sizes;
+use crate::metrics::finite_difference::bump_sizes;
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

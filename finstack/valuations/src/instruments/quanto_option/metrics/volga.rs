@@ -2,7 +2,7 @@
 //!
 //! Computes volga (equity volatility sensitivity) using finite differences.
 
-use crate::instruments::common::metrics::finite_difference::bump_sizes;
+use crate::metrics::finite_difference::bump_sizes;
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

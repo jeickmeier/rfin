@@ -10,7 +10,7 @@ mod inflation01;
 mod inflation_convexity;
 mod real_duration;
 mod real_yield;
-mod theta;
+// mod theta; // removed - using GenericThetaAny
 // risk_bucketed_dv01 - now using generic implementation
 
 pub use breakeven_inflation::BreakevenInflationCalculator;
@@ -19,7 +19,7 @@ pub use inflation01::Inflation01Calculator;
 pub use inflation_convexity::InflationConvexityCalculator;
 pub use real_duration::RealDurationCalculator;
 pub use real_yield::RealYieldCalculator;
-pub use theta::ThetaCalculator;
+// pub use theta::ThetaCalculator; // removed - using GenericThetaAny
 // BucketedDv01Calculator now using generic implementation
 
 use crate::metrics::MetricId;
@@ -51,8 +51,8 @@ pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
             (RealDuration, RealDurationCalculator),
             (BreakevenInflation, BreakevenInflationCalculator),
             (Dv01, dv01::InflationLinkedBondDv01Calculator),
-            (Theta, ThetaCalculator),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01::<
+            // Theta is now registered universally in metrics::standard_registry()
+            (BucketedDv01, crate::metrics::GenericBucketedDv01::<
                 crate::instruments::InflationLinkedBond,
             >::default()),
         ]

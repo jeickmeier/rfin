@@ -16,6 +16,57 @@ pub fn standard_credit_cs01_buckets() -> Vec<f64> {
     vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0]
 }
 
+/// Compute parallel CS01 by bumping the entire hazard curve uniformly.
+///
+/// Returns the CS01 as a single scalar value (PV change per 1bp parallel shift).
+/// Does not store bucketed series in the context.
+pub fn compute_parallel_cs01<RevalFn>(
+    context: &mut MetricContext,
+    hazard_id: &CurveId,
+    bump_bp: f64,
+    mut revalue_with_hazard: RevalFn,
+) -> finstack_core::Result<f64>
+where
+    RevalFn: FnMut(&HazardCurve) -> finstack_core::Result<Money>,
+{
+    let base_pv = context.base_value;
+    let hazard = context.curves.get_hazard_ref(hazard_id.as_str())?;
+
+    // Parallel bump the entire hazard curve (convert bp to decimal)
+    let bump_decimal = bump_bp * 1e-4;
+    let bumped_hazard = hazard.with_hazard_shift(bump_decimal)?;
+    let pv_bumped = revalue_with_hazard(&bumped_hazard)?;
+    let cs01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+
+    Ok(cs01)
+}
+
+/// Compute parallel CS01 using full MarketContext revaluation.
+///
+/// Returns the CS01 as a single scalar value.
+pub fn compute_parallel_cs01_with_context<RevalFn>(
+    context: &mut MetricContext,
+    hazard_id: &CurveId,
+    bump_bp: f64,
+    mut revalue_with_context: RevalFn,
+) -> finstack_core::Result<f64>
+where
+    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
+{
+    let base_pv = context.base_value;
+    let base_ctx = context.curves.as_ref();
+    let hazard = base_ctx.get_hazard_ref(hazard_id.as_str())?;
+
+    // Parallel bump the entire hazard curve
+    let bump_decimal = bump_bp * 1e-4;
+    let bumped_hazard = hazard.with_hazard_shift(bump_decimal)?;
+    let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
+    let pv_bumped = revalue_with_context(&temp_ctx)?;
+    let cs01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+
+    Ok(cs01)
+}
+
 /// Compute key-rate CS01 series by bumping hazard rates at specific tenors.
 ///
 /// - `bucket_times_years` are maturities in years (e.g., 0.25, 0.5, 1.0, ...)
@@ -158,4 +209,94 @@ fn with_key_rate_hazard_bump(
     builder
         .build()
         .map_err(|_e| finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+}
+
+// ===== Generic Calculators =====
+
+use crate::instruments::common::traits::Instrument;
+use crate::metrics::traits::MetricCalculator;
+use std::marker::PhantomData;
+
+/// Trait for instruments that have a primary credit curve.
+///
+/// Used by generic bucketed CS01 calculators to identify which credit curve
+/// to bump for credit spread sensitivity calculations.
+pub trait HasCreditCurve {
+    /// Returns the ID of the primary credit curve used for credit spread sensitivity.
+    fn credit_curve_id(&self) -> &finstack_core::types::CurveId;
+}
+
+/// Generic BucketedCs01 calculator that works for any instrument implementing
+/// the required traits.
+pub struct GenericBucketedCs01<I> {
+    _phantom: PhantomData<I>,
+}
+
+/// Generic parallel CS01 calculator that returns a scalar (not bucketed).
+///
+/// Computes CS01 by applying a parallel bump to the entire hazard curve.
+pub struct GenericParallelCs01<I> {
+    _phantom: PhantomData<I>,
+}
+
+impl<I> Default for GenericParallelCs01<I> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<I> MetricCalculator for GenericParallelCs01<I>
+where
+    I: Instrument + HasCreditCurve + Clone + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let instrument: &I = context.instrument_as()?;
+        let hazard_id = instrument.credit_curve_id().clone();
+
+        let inst_clone = instrument.clone();
+        let as_of = context.as_of;
+
+        let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
+            inst_clone.value(temp_ctx, as_of)
+        };
+
+        compute_parallel_cs01_with_context(context, &hazard_id, 1.0, reval)
+    }
+}
+
+impl<I> Default for GenericBucketedCs01<I> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<I> MetricCalculator for GenericBucketedCs01<I>
+where
+    I: Instrument + HasCreditCurve + Clone + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let instrument: &I = context.instrument_as()?;
+        let hazard_id = instrument.credit_curve_id().clone();
+
+        // Standard credit bucket times
+        let buckets = standard_credit_cs01_buckets();
+
+        // Generic revaluation using full MarketContext (for complex pricers)
+        let inst_clone = instrument.clone();
+        let as_of = context.as_of;
+
+        let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
+            inst_clone.value(temp_ctx, as_of)
+        };
+
+        let total = compute_key_rate_cs01_series_with_context(
+            context, &hazard_id, buckets, 1.0, reval,
+        )?;
+
+        Ok(total)
+    }
 }

@@ -3,8 +3,9 @@
 use super::super::common::*;
 use finstack_core::{currency::Currency, dates::Date, money::Money};
 use finstack_valuations::{
+    metrics::GenericTheta,
     instruments::{
-        common::{metrics::GenericTheta, traits::Instrument},
+        common::traits::Instrument,
         fx_spot::FxSpot,
     },
     metrics::{traits::MetricCalculator, MetricContext},

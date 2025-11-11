@@ -85,6 +85,13 @@ pub struct CdsTranche {
     pub attributes: Attributes,
 }
 
+// Implement HasCreditCurve for generic CS01 calculator
+impl crate::metrics::HasCreditCurve for CdsTranche {
+    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.credit_index_id
+    }
+}
+
 impl CdsTranche {
     /// Create a new CDS tranche using parameter structs
     pub fn new(

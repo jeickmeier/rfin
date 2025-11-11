@@ -24,7 +24,7 @@ pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
     // Custom metric using GenericPv
     registry.register_metric(
         MetricId::custom("ir_future_pv"),
-        Arc::new(crate::instruments::common::metrics::GenericPv),
+        Arc::new(crate::metrics::GenericPv),
         &["InterestRateFuture"],
     );
 
@@ -34,10 +34,8 @@ pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
         instrument: "InterestRateFuture",
         metrics: [
             (Dv01, IrFutureDv01Calculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
-                crate::instruments::InterestRateFuture,
-            >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            // Theta is now registered universally in metrics::standard_registry()
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::InterestRateFuture,
             >::default()),
         ]

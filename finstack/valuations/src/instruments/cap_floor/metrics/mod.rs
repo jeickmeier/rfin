@@ -39,7 +39,7 @@ pub fn register_interest_rate_option_metrics(registry: &mut MetricRegistry) {
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (ForwardPv01, forward_pv01::ForwardPv01Calculator),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::cap_floor::InterestRateOption,
             >::default()),
         ]

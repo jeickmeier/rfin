@@ -1,8 +1,8 @@
 //! Trait implementations for CliquetOption
 
 use crate::instruments::cliquet_option::CliquetOption;
-use crate::instruments::common::metrics::has_equity_underlying::HasEquityUnderlying;
-use crate::instruments::common::metrics::has_pricing_overrides::HasPricingOverrides;
+use crate::metrics::has_equity_underlying::HasEquityUnderlying;
+use crate::metrics::has_pricing_overrides::HasPricingOverrides;
 
 impl HasEquityUnderlying for CliquetOption {
     fn spot_id(&self) -> &str {

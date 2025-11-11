@@ -3,7 +3,7 @@
 //! Computes delta (equity spot sensitivity) using finite differences:
 //! bump equity spot price up and down, reprice, and compute (PV_up - PV_down) / (2 * bump_size).
 
-use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

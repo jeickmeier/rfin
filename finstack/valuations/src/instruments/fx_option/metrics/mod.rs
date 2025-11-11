@@ -10,7 +10,6 @@ mod gamma;
 mod implied_vol;
 mod rho;
 mod risk_bucketed_dv01;
-mod theta;
 mod vanna;
 mod vega;
 mod volga;
@@ -43,7 +42,7 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
             (Dv01, dv01::FxOptionDv01Calculator),
-            (Theta, theta::ThetaCalculator),
+            // Theta is now registered universally in metrics::standard_registry()
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (BucketedDv01, risk_bucketed_dv01::BucketedDv01Calculator),
             (Vanna, vanna::VannaCalculator),

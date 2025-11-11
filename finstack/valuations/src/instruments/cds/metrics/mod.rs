@@ -57,10 +57,10 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
             (Dv01, dv01::CdsDv01Calculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
+            (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::CreditDefaultSwap,
             >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::CreditDefaultSwap,
             >::default()),
         ]

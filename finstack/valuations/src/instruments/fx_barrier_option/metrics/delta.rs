@@ -8,7 +8,7 @@
 //! FX barrier options exhibit discontinuous deltas near the barrier level,
 //! similar to standard barrier options.
 
-use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
 use crate::instruments::fx_barrier_option::FxBarrierOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

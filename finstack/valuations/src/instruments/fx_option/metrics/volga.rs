@@ -3,7 +3,7 @@
 //! Computes volga (∂²V/∂σ²) using finite differences.
 //! Volga measures how vega changes with volatility.
 
-use crate::instruments::common::metrics::finite_difference::bump_sizes;
+use crate::metrics::finite_difference::bump_sizes;
 use crate::instruments::fx_option::FxOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

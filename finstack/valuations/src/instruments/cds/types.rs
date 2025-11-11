@@ -126,6 +126,13 @@ pub struct CreditDefaultSwap {
     pub attributes: Attributes,
 }
 
+// Implement HasCreditCurve for generic CS01 calculator
+impl crate::metrics::HasCreditCurve for CreditDefaultSwap {
+    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.protection.credit_curve_id
+    }
+}
+
 impl CreditDefaultSwap {
     /// Create a standard CDS with ISDA conventions (buy protection).
     #[allow(clippy::too_many_arguments)]

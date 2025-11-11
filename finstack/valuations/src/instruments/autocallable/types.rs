@@ -41,6 +41,13 @@ pub struct Autocallable {
     pub attributes: Attributes,
 }
 
+// Implement HasDiscountCurve for GenericParallelDv01
+impl crate::metrics::HasDiscountCurve for Autocallable {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.discount_curve_id
+    }
+}
+
 impl Autocallable {
     /// Calculate the net present value of this autocallable.
     #[cfg(feature = "mc")]

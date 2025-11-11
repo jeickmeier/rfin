@@ -14,7 +14,7 @@
 //! with separate domestic and foreign discount curves, separate rho metrics
 //! would be implemented.
 
-use crate::instruments::common::metrics::finite_difference::bump_discount_curve_parallel;
+use crate::metrics::finite_difference::bump_discount_curve_parallel;
 use crate::instruments::fx_barrier_option::FxBarrierOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

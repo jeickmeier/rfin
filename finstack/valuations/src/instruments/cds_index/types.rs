@@ -76,6 +76,13 @@ pub struct CDSIndex {
     pub attributes: Attributes,
 }
 
+// Implement HasCreditCurve for generic CS01 calculator
+impl crate::metrics::HasCreditCurve for CDSIndex {
+    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.protection.credit_curve_id
+    }
+}
+
 impl CDSIndex {
     /// Create a new CDS Index with standard ISDA conventions using parameter structs
     #[allow(clippy::too_many_arguments)]

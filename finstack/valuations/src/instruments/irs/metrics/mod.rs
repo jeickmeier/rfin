@@ -21,10 +21,10 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (ParRate, par_rate::ParRateCalculator),
             (Dv01, dv01::Dv01Calculator),
             (IrConvexity, convexity::ConvexityCalculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
+            (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::InterestRateSwap,
             >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::InterestRateSwap,
             >::default()),
             (PvFixed, pv_fixed::FixedLegPvCalculator),

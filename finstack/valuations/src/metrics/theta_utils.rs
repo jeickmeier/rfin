@@ -403,3 +403,177 @@ fn get_instrument_expiry(instrument: &dyn Any) -> Option<Date> {
     // No expiry for: equity, basket, convertible, structured_credit, private_markets_fund
     None
 }
+
+/// Universal theta calculator that works with any instrument via the Instrument trait.
+///
+/// Computes theta as the total carry from rolling the valuation date forward:
+///   Theta = PV(end_date) - PV(start_date) + Sum(Cashflows from start to end)
+///
+/// This calculator works with `dyn Instrument` directly, using the trait's `value()` method,
+/// and is registered as the default theta calculator for all instruments.
+pub struct GenericThetaAny;
+
+impl Default for GenericThetaAny {
+    fn default() -> Self {
+        Self
+    }
+}
+
+impl crate::metrics::MetricCalculator for GenericThetaAny {
+    fn calculate(&self, context: &mut crate::metrics::MetricContext) -> Result<f64> {
+        // Get theta period from pricing overrides, default to "1D"
+        let period_str = context
+            .pricing_overrides
+            .as_ref()
+            .and_then(|po| po.theta_period.as_deref())
+            .unwrap_or("1D");
+
+        // Get expiry date if available (instrument-specific via as_any downcast)
+        let expiry_date = get_instrument_expiry(context.instrument.as_any());
+
+        // Calculate rolled date
+        let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;
+
+        // If already expired or rolling to same date, theta is zero
+        if rolled_date <= context.as_of {
+            return Ok(0.0);
+        }
+
+        // Base PV from context
+        let base_pv = context.base_value.amount();
+
+        // Reprice at rolled date with same market context using the trait method directly
+        let bumped_value = context.instrument.value(&context.curves, rolled_date)?;
+        let pv_change = bumped_value.amount() - base_pv;
+
+        // Collect cashflows during the period (using helper that does downcasting internally)
+        let cashflows_during_period = collect_cashflows_in_period_any(
+            context.instrument.as_ref(),
+            &context.curves,
+            context.as_of,
+            rolled_date,
+        )?;
+
+        // Theta = PV change + cashflows received
+        Ok(pv_change + cashflows_during_period)
+    }
+
+    fn dependencies(&self) -> &[crate::metrics::MetricId] {
+        &[]
+    }
+}
+
+/// Collect cashflows from any instrument during a time period.
+///
+/// This is a wrapper around the existing `collect_cashflows_in_period` function
+/// that works with `dyn Instrument`.
+fn collect_cashflows_in_period_any(
+    instrument: &dyn crate::instruments::common::traits::Instrument,
+    curves: &finstack_core::market_data::MarketContext,
+    start_date: Date,
+    end_date: Date,
+) -> Result<f64> {
+    // Use as_any to get &dyn Any, then delegate to the existing helper
+    let any_ref = instrument.as_any();
+    
+    // The existing collect_cashflows_in_period takes &dyn Any directly
+    use crate::cashflow::traits::CashflowProvider;
+    use crate::instruments::*;
+
+    // Try to downcast to known CashflowProvider implementors
+    let cashflows: Option<Vec<(Date, finstack_core::money::Money)>> =
+        // Bonds
+        if let Some(bond) = any_ref.downcast_ref::<Bond>() {
+            bond.build_schedule(curves, start_date).ok()
+        }
+        // Interest Rate Swaps
+        else if let Some(irs) = any_ref.downcast_ref::<InterestRateSwap>() {
+            irs.build_schedule(curves, start_date).ok()
+        }
+        // Deposits
+        else if let Some(deposit) = any_ref.downcast_ref::<deposit::Deposit>() {
+            deposit.build_schedule(curves, start_date).ok()
+        }
+        // FRAs
+        else if let Some(fra) = any_ref.downcast_ref::<fra::ForwardRateAgreement>() {
+            fra.build_schedule(curves, start_date).ok()
+        }
+        // IR Futures
+        else if let Some(ir_fut) = any_ref.downcast_ref::<ir_future::InterestRateFuture>() {
+            ir_fut.build_schedule(curves, start_date).ok()
+        }
+        // Equity
+        else if let Some(equity) = any_ref.downcast_ref::<equity::Equity>() {
+            equity.build_schedule(curves, start_date).ok()
+        }
+        // FX Spot
+        else if let Some(fx_spot) = any_ref.downcast_ref::<fx_spot::FxSpot>() {
+            fx_spot.build_schedule(curves, start_date).ok()
+        }
+        // Inflation-Linked Bonds
+        else if let Some(inf_bond) =
+            any_ref.downcast_ref::<inflation_linked_bond::InflationLinkedBond>()
+        {
+            inf_bond.build_schedule(curves, start_date).ok()
+        }
+        // Repos
+        else if let Some(repo) = any_ref.downcast_ref::<repo::Repo>() {
+            repo.build_schedule(curves, start_date).ok()
+        }
+        // Structured Credit
+        else if let Some(sc) = any_ref.downcast_ref::<structured_credit::StructuredCredit>() {
+            sc.build_schedule(curves, start_date).ok()
+        }
+        // TRS (both types)
+        else if let Some(eq_trs) = any_ref.downcast_ref::<trs::EquityTotalReturnSwap>() {
+            eq_trs.build_schedule(curves, start_date).ok()
+        } else if let Some(fi_trs) =
+            any_ref.downcast_ref::<trs::FIIndexTotalReturnSwap>()
+        {
+            fi_trs.build_schedule(curves, start_date).ok()
+        }
+        // Private Markets Fund
+        else if let Some(pmf) =
+            any_ref.downcast_ref::<private_markets_fund::PrivateMarketsFund>()
+        {
+            pmf.build_schedule(curves, start_date).ok()
+        }
+        // Variance Swap
+        else if let Some(var_swap) = any_ref.downcast_ref::<variance_swap::VarianceSwap>() {
+            var_swap.build_schedule(curves, start_date).ok()
+        }
+        // CDS - use premium schedule for cashflows
+        else if let Some(cds) = any_ref.downcast_ref::<cds::CreditDefaultSwap>() {
+            cds.build_premium_schedule(curves, start_date).ok()
+        }
+        // FX Swap - has explicit cashflows at near and far dates
+        else if let Some(_fx_swap) = any_ref.downcast_ref::<fx_swap::FxSwap>() {
+            // FX swaps don't have interim cashflows, only near/far settlement
+            // Theta comes purely from PV change, not cashflows
+            None
+        }
+        // Inflation-Linked Bonds (duplicate check above, keeping for completeness)
+        else if let Some(ilb) = any_ref.downcast_ref::<inflation_linked_bond::InflationLinkedBond>() {
+            ilb.build_schedule(curves, start_date).ok()
+        }
+        // Instruments without CashflowProvider implementation:
+        // - BasisSwap, CDSIndex, CdsTranche, ConvertibleBond, InflationSwap
+        // - Cap/Floor, Options, Basket
+        // These don't have interim cashflows or don't implement the trait
+        else {
+            None
+        };
+
+    // Sum cashflows in (start_date, end_date]
+    if let Some(flows) = cashflows {
+        let cashflow_sum: f64 = flows
+            .iter()
+            .filter(|(date, _)| *date > start_date && *date <= end_date)
+            .map(|(_, money)| money.amount())
+            .sum();
+        Ok(cashflow_sum)
+    } else {
+        // No cashflows for this instrument type
+        Ok(0.0)
+    }
+}

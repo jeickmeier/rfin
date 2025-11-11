@@ -29,7 +29,7 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
             (EquityDividendYield, dividend_yield::DividendYieldCalculator),
             (EquityForwardPrice, forward_price::ForwardPricePerShareCalculator),
             (Dv01, dv01::EquityDv01Calculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
+            (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::Equity,
             >::default()),
         ]

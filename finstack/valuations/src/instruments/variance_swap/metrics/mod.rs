@@ -8,7 +8,6 @@ pub mod expected_variance;
 pub mod notional;
 pub mod realized_variance;
 pub mod strike_vol;
-pub mod theta;
 pub mod time_to_maturity;
 pub mod variance_vega;
 pub mod vega;

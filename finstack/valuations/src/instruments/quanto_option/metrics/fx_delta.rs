@@ -9,7 +9,7 @@
 //! settled in another currency. FX delta measures sensitivity to changes
 //! in the FX exchange rate between these currencies.
 
-use crate::instruments::common::metrics::finite_difference::{bump_scalar_price, bump_sizes};
+use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

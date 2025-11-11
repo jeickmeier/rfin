@@ -6,8 +6,6 @@ mod delta;
 mod dividend_risk;
 mod dv01;
 mod par_spread;
-mod theta;
-// risk_bucketed_dv01 - now using generic implementation
 
 pub use annuity::FinancingAnnuityCalculator;
 pub use bucketed::TrsBucketedDv01Calculator;
@@ -45,7 +43,7 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
             (FinancingAnnuity, FinancingAnnuityCalculator),
             (Dv01, TrsDv01Calculator),
             (IndexDelta, IndexDeltaCalculator),
-            (Theta, theta::EquityTrsThetaCalculator),
+            // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, TrsBucketedDv01Calculator),
         ]
     }

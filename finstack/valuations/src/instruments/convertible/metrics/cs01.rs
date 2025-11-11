@@ -13,7 +13,7 @@
 //! it directly captures CS01. If a separate credit curve exists, it should
 //! be used instead.
 
-use crate::instruments::common::metrics::finite_difference::bump_discount_curve_parallel;
+use crate::metrics::finite_difference::bump_discount_curve_parallel;
 use crate::instruments::convertible::ConvertibleBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

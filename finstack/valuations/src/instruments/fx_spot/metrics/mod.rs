@@ -38,10 +38,10 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (SpotRate, spot_rate::SpotRateCalculator),
             (BaseAmount, base_amount::BaseAmountCalculator),
-            (QuoteAmount, crate::instruments::common::metrics::GenericPv),
+            (QuoteAmount, crate::metrics::GenericPv),
             (InverseRate, inverse_rate::InverseRateCalculator),
             (Dv01, dv01::FxSpotDv01Calculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
+            (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::FxSpot,
             >::default()),
         ]
@@ -97,7 +97,7 @@ mod tests {
         let as_of = d(2025, 1, 15);
         let base_value = fx.npv(&MarketContext::new(), as_of).unwrap();
         let mut ctx = context_for(fx, as_of);
-        let calc = crate::instruments::common::metrics::GenericPv;
+        let calc = crate::metrics::GenericPv;
         let value = calc.calculate(&mut ctx).unwrap();
         assert!((value - base_value.amount()).abs() < 1e-6);
     }

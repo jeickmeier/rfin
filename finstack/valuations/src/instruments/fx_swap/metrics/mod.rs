@@ -60,10 +60,10 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
         instrument: "FxSwap",
         metrics: [
             (Dv01, dv01::FxSwapDv01Calculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
+            (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::FxSwap,
             >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::FxSwap,
             >::default()),
         ]

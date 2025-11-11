@@ -42,6 +42,13 @@ pub struct AsianOption {
     pub attributes: Attributes,
 }
 
+// Implement HasDiscountCurve for GenericParallelDv01
+impl crate::metrics::HasDiscountCurve for AsianOption {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.discount_curve_id
+    }
+}
+
 impl AsianOption {
     /// Calculate the net present value of this Asian option using Monte Carlo.
     #[cfg(feature = "mc")]

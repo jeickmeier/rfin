@@ -40,6 +40,37 @@ pub fn standard_strike_ratios() -> Vec<f64> {
     vec![0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5]
 }
 
+/// Compute parallel Vega by bumping the entire volatility surface uniformly.
+///
+/// Returns the Vega as a single scalar value (PV change per 1% vol shift).
+/// Does not store bucketed series in the context.
+pub fn compute_parallel_vega<RevalFn>(
+    context: &mut MetricContext,
+    vol_surface_id: &CurveId,
+    bump_pct: f64,
+    mut revalue_with_context: RevalFn,
+) -> finstack_core::Result<f64>
+where
+    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
+{
+    let base_pv = context.base_value;
+    let base_ctx = context.curves.as_ref();
+    let vol_surface = base_ctx.surface(vol_surface_id.as_str())?;
+
+    // Parallel bump the entire surface by scaling it
+    // bump_pct of 0.01 means 1% increase, so scale factor is (1 + bump_pct)
+    let scale_factor = 1.0 + bump_pct;
+    let bumped_surface = vol_surface.scaled(scale_factor);
+    let temp_ctx = base_ctx.clone().insert_surface(bumped_surface);
+    let pv_bumped = revalue_with_context(&temp_ctx)?;
+
+    // Vega = (PV_bumped - PV_base) / bump_pct
+    // Result is per 1% vol move
+    let vega = (pv_bumped.amount() - base_pv.amount()) / bump_pct;
+
+    Ok(vega)
+}
+
 /// Compute bucketed Vega by bumping individual vol surface points.
 ///
 /// For each (expiry, strike) pair in `buckets`), this function:
@@ -135,4 +166,90 @@ where
     );
 
     Ok(total_vega)
+}
+
+// ===== Generic Calculators =====
+
+use crate::instruments::common::traits::Instrument;
+use crate::metrics::traits::MetricCalculator;
+use crate::metrics::ShockMode;
+use std::marker::PhantomData;
+
+/// Generic Vega calculator that works for any instrument implementing
+/// the Instrument trait with a vol_surface_id.
+///
+/// Supports both parallel and key-rate (bucketed) shock modes.
+pub struct GenericVega<I> {
+    mode: ShockMode,
+    _phantom: PhantomData<I>,
+}
+
+impl<I> GenericVega<I> {
+    /// Create a new GenericVega calculator with the specified shock mode.
+    pub fn new(mode: ShockMode) -> Self {
+        Self {
+            mode,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Create a parallel shock calculator.
+    pub fn parallel() -> Self {
+        Self::new(ShockMode::Parallel)
+    }
+
+    /// Create a key-rate (bucketed) shock calculator.
+    pub fn key_rate() -> Self {
+        Self::new(ShockMode::KeyRate)
+    }
+}
+
+impl<I> Default for GenericVega<I> {
+    fn default() -> Self {
+        Self::key_rate()
+    }
+}
+
+impl<I> MetricCalculator for GenericVega<I>
+where
+    I: Instrument + Clone + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let instrument: &I = context.instrument_as()?;
+        
+        // Get vol surface ID from instrument (returns Option<CurveId>)
+        let vol_surface_id = instrument
+            .vol_surface_id()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+
+        let inst_clone = instrument.clone();
+        let as_of = context.as_of;
+        let reval = move |temp_ctx: &MarketContext| inst_clone.value(temp_ctx, as_of);
+
+        match self.mode {
+            ShockMode::Parallel => {
+                // Parallel shock: bump entire surface uniformly
+                compute_parallel_vega(context, &vol_surface_id, VOL_BUMP_PCT, reval)
+            }
+            ShockMode::KeyRate => {
+                // Key-rate shock: bump individual (expiry, strike) points
+                let expiries = standard_equity_expiry_buckets();
+                let strikes = standard_strike_ratios();
+
+                // For now, pass None for spot price (compute_bucketed_vega_matrix handles this)
+                // TODO: Extract spot price from instrument if it implements HasEquityUnderlying
+                let spot_price = None;
+
+                compute_bucketed_vega_matrix(
+                    context,
+                    &vol_surface_id,
+                    expiries,
+                    strikes,
+                    spot_price,
+                    VOL_BUMP_PCT,
+                    reval,
+                )
+            }
+        }
+    }
 }

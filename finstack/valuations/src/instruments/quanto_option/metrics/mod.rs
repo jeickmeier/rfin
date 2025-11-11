@@ -7,8 +7,7 @@
 mod correlation01;
 #[cfg(feature = "mc")]
 mod delta;
-#[cfg(feature = "mc")]
-mod dv01;
+// mod dv01; // removed - using GenericParallelDv01
 #[cfg(feature = "mc")]
 mod fx_delta;
 #[cfg(feature = "mc")]
@@ -43,12 +42,12 @@ pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
                 (Gamma, gamma::GammaCalculator),
                 (Vega, vega::VegaCalculator),
                 (Rho, rho::RhoCalculator),
-                (Dv01, dv01::Dv01Calculator),
+                (Dv01, crate::metrics::GenericParallelDv01::<
+                    crate::instruments::quanto_option::QuantoOption,
+                >::default()),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator),
-                (Theta, crate::instruments::common::metrics::GenericTheta::<
-                    crate::instruments::QuantoOption,
-                >::default()),
+                // Theta is now registered universally in metrics::standard_registry()
             ]
         }
 

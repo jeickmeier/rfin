@@ -443,6 +443,18 @@ pub enum UtilizationProcess {
     },
 }
 
+// Implement HasCreditCurve for generic CS01 calculator (when hazard curve is present)
+// Note: This will return an error if hazard_curve_id is None
+impl crate::metrics::HasCreditCurve for RevolvingCredit {
+    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
+        // Return the hazard curve id if present, otherwise panic  
+        // (CS01 calculator will fail gracefully if this field is None)
+        self.hazard_curve_id
+            .as_ref()
+            .expect("RevolvingCredit::hazard_curve_id must be set for CS01 calculation")
+    }
+}
+
 impl RevolvingCredit {
     /// Get the current undrawn amount.
     pub fn undrawn_amount(&self) -> finstack_core::Result<Money> {

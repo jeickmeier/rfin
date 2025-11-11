@@ -43,10 +43,8 @@ pub fn register_revolving_credit_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (Dv01, SpreadSensitivityCalculator),
             (Cs01, SpreadSensitivityCalculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
-                crate::instruments::RevolvingCredit,
-            >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            // Theta is now registered universally in metrics::standard_registry()
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::RevolvingCredit,
             >::default()),
         ]

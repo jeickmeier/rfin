@@ -30,10 +30,10 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (Dv01, Dv01Calculator),
             (Cs01, Cs01Calculator),
-            (Theta, crate::instruments::common::metrics::GenericTheta::<
+            (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::TermLoan,
             >::default()),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::TermLoan,
             >::default()),
             // Bucketed CS01 via discount curve bumps

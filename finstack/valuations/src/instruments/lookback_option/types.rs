@@ -37,6 +37,13 @@ pub struct LookbackOption {
     pub attributes: Attributes,
 }
 
+// Implement HasDiscountCurve for GenericParallelDv01
+impl crate::metrics::HasDiscountCurve for LookbackOption {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.discount_curve_id
+    }
+}
+
 impl LookbackOption {
     /// Calculate the net present value using Monte Carlo.
     #[cfg(feature = "mc")]

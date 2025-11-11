@@ -23,7 +23,7 @@ pub fn register_fra_metrics(registry: &mut MetricRegistry) {
     // Custom metrics using GenericPv
     registry.register_metric(
         MetricId::custom("fra_pv"),
-        Arc::new(crate::instruments::common::metrics::GenericPv),
+        Arc::new(crate::metrics::GenericPv),
         &["FRA"],
     );
 
@@ -34,7 +34,7 @@ pub fn register_fra_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (Dv01, FraDv01Calculator),
             (ParRate, FraParRateCalculator),
-            (BucketedDv01, crate::instruments::common::GenericBucketedDv01WithContext::<
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::ForwardRateAgreement,
             >::default()),
         ]
