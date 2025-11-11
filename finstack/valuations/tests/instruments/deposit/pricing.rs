@@ -352,7 +352,12 @@ fn test_generic_dv01_works_with_cashflows() {
         .build();
 
     // Compute DV01 using the metric registry
-    let dv01 = compute_metric(&dep, &ctx, base, finstack_valuations::metrics::MetricId::Dv01);
+    let dv01 = compute_metric(
+        &dep,
+        &ctx,
+        base,
+        finstack_valuations::metrics::MetricId::Dv01,
+    );
 
     // Verify it's reasonable (roughly duration * notional * 1bp)
     // For a 6-month deposit on $1M notional, DV01 magnitude should be around $50

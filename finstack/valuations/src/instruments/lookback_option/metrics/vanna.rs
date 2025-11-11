@@ -3,8 +3,8 @@
 //! Computes vanna (∂²V/∂S∂σ) using finite differences.
 //! Vanna measures how delta changes with volatility.
 
-use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
 use crate::instruments::lookback_option::LookbackOption;
+use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

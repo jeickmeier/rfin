@@ -8,8 +8,8 @@
 //! - Rho = PV(rate + 1bp) − PV(base)
 //! - Positive Rho means the instrument gains value when rates go up
 
-use crate::metrics::finite_difference::bump_discount_curve_parallel;
 use crate::instruments::quanto_option::QuantoOption;
+use crate::metrics::finite_difference::bump_discount_curve_parallel;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

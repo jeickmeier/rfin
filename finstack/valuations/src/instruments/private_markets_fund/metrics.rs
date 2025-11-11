@@ -264,9 +264,7 @@ pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        crate::metrics::theta_utils::generic_theta_calculator::<
-            PrivateMarketsFund,
-        >(context)
+        crate::metrics::theta_utils::generic_theta_calculator::<PrivateMarketsFund>(context)
     }
 
     fn dependencies(&self) -> &[crate::metrics::MetricId] {

@@ -9,7 +9,11 @@ use crate::core::money::extract_money;
 use crate::core::utils::py_to_date;
 
 /// Amortization specification for principal over time.
-#[pyclass(name = "AmortizationSpec", module = "finstack.valuations.cashflow.builder", frozen)]
+#[pyclass(
+    name = "AmortizationSpec",
+    module = "finstack.valuations.cashflow.builder",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyAmortizationSpec {
     pub(crate) inner: AmortizationSpec,
@@ -111,4 +115,3 @@ pub(crate) fn register<'py>(
     module.add_class::<PyAmortizationSpec>()?;
     Ok(vec!["AmortizationSpec"])
 }
-

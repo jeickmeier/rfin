@@ -216,7 +216,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        
+
         // Get vol surface ID from instrument (returns Option<CurveId>)
         let vol_surface_id = instrument
             .vol_surface_id()

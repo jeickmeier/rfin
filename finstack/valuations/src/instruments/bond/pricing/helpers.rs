@@ -382,7 +382,10 @@ pub fn price_from_dm(
     dm: f64,
 ) -> finstack_core::Result<f64> {
     // Check if it's a floating rate bond
-    let is_floating = matches!(&bond.cashflow_spec, crate::instruments::bond::CashflowSpec::Floating(_));
+    let is_floating = matches!(
+        &bond.cashflow_spec,
+        crate::instruments::bond::CashflowSpec::Floating(_)
+    );
     if !is_floating {
         return Ok(bond.value(curves, as_of)?.amount());
     }
@@ -445,20 +448,24 @@ pub fn compute_accrued_interest(
         crate::instruments::bond::CashflowSpec::Fixed(spec) => {
             (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
         }
-        crate::instruments::bond::CashflowSpec::Floating(spec) => {
-            (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
-        }
-        crate::instruments::bond::CashflowSpec::Amortizing { base, .. } => {
-            match &**base {
-                crate::instruments::bond::CashflowSpec::Fixed(spec) => {
-                    (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
-                }
-                crate::instruments::bond::CashflowSpec::Floating(spec) => {
-                    (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
-                }
-                _ => return Err(finstack_core::error::InputError::Invalid.into()),
+        crate::instruments::bond::CashflowSpec::Floating(spec) => (
+            spec.freq,
+            spec.stub,
+            spec.rate_spec.bdc,
+            spec.rate_spec.calendar_id.as_deref(),
+        ),
+        crate::instruments::bond::CashflowSpec::Amortizing { base, .. } => match &**base {
+            crate::instruments::bond::CashflowSpec::Fixed(spec) => {
+                (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
             }
-        }
+            crate::instruments::bond::CashflowSpec::Floating(spec) => (
+                spec.freq,
+                spec.stub,
+                spec.rate_spec.bdc,
+                spec.rate_spec.calendar_id.as_deref(),
+            ),
+            _ => return Err(finstack_core::error::InputError::Invalid.into()),
+        },
     };
     let sched = crate::cashflow::builder::build_dates(
         bond.issue,
@@ -508,26 +515,30 @@ pub fn compute_accrued_interest_with_context(
     as_of: finstack_core::dates::Date,
 ) -> finstack_core::Result<f64> {
     // If fixed or custom flows exist, fall back to standard helper and return
-    let is_floating = matches!(&bond.cashflow_spec, crate::instruments::bond::CashflowSpec::Floating(_));
+    let is_floating = matches!(
+        &bond.cashflow_spec,
+        crate::instruments::bond::CashflowSpec::Floating(_)
+    );
     if !is_floating || bond.custom_cashflows.is_some() {
         return compute_accrued_interest(bond, as_of);
     }
 
     // FRN path: approximate accrual using forward rate fixed at last reset
-    let (index_id, margin_bp, gearing, reset_lag_days, freq, stub, bdc, calendar_id, dc) = match &bond.cashflow_spec {
-        crate::instruments::bond::CashflowSpec::Floating(spec) => (
-            spec.rate_spec.index_id.as_str(),
-            spec.rate_spec.spread_bp,
-            spec.rate_spec.gearing,
-            spec.rate_spec.reset_lag_days,
-            spec.freq,
-            spec.stub,
-            spec.rate_spec.bdc,
-            spec.rate_spec.calendar_id.as_deref(),
-            spec.rate_spec.dc,
-        ),
-        _ => return compute_accrued_interest(bond, as_of),
-    };
+    let (index_id, margin_bp, gearing, reset_lag_days, freq, stub, bdc, calendar_id, dc) =
+        match &bond.cashflow_spec {
+            crate::instruments::bond::CashflowSpec::Floating(spec) => (
+                spec.rate_spec.index_id.as_str(),
+                spec.rate_spec.spread_bp,
+                spec.rate_spec.gearing,
+                spec.rate_spec.reset_lag_days,
+                spec.freq,
+                spec.stub,
+                spec.rate_spec.bdc,
+                spec.rate_spec.calendar_id.as_deref(),
+                spec.rate_spec.dc,
+            ),
+            _ => return compute_accrued_interest(bond, as_of),
+        };
     let fwd = curves.get_forward_ref(index_id)?;
 
     // Build schedule with instrument conventions to locate current coupon window

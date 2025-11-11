@@ -293,9 +293,8 @@ where
             inst_clone.value(temp_ctx, as_of)
         };
 
-        let total = compute_key_rate_cs01_series_with_context(
-            context, &hazard_id, buckets, 1.0, reval,
-        )?;
+        let total =
+            compute_key_rate_cs01_series_with_context(context, &hazard_id, buckets, 1.0, reval)?;
 
         Ok(total)
     }

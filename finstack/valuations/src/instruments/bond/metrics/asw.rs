@@ -203,20 +203,24 @@ impl MetricCalculator for AssetSwapParCalculator {
             super::super::CashflowSpec::Fixed(spec) => {
                 (spec.freq, spec.bdc, spec.calendar_id.as_deref(), spec.stub)
             }
-            super::super::CashflowSpec::Floating(spec) => {
-                (spec.freq, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref(), spec.stub)
-            }
-            super::super::CashflowSpec::Amortizing { base, .. } => {
-                match &**base {
-                    super::super::CashflowSpec::Fixed(spec) => {
-                        (spec.freq, spec.bdc, spec.calendar_id.as_deref(), spec.stub)
-                    }
-                    super::super::CashflowSpec::Floating(spec) => {
-                        (spec.freq, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref(), spec.stub)
-                    }
-                    _ => return Err(finstack_core::error::InputError::Invalid.into()),
+            super::super::CashflowSpec::Floating(spec) => (
+                spec.freq,
+                spec.rate_spec.bdc,
+                spec.rate_spec.calendar_id.as_deref(),
+                spec.stub,
+            ),
+            super::super::CashflowSpec::Amortizing { base, .. } => match &**base {
+                super::super::CashflowSpec::Fixed(spec) => {
+                    (spec.freq, spec.bdc, spec.calendar_id.as_deref(), spec.stub)
                 }
-            }
+                super::super::CashflowSpec::Floating(spec) => (
+                    spec.freq,
+                    spec.rate_spec.bdc,
+                    spec.rate_spec.calendar_id.as_deref(),
+                    spec.stub,
+                ),
+                _ => return Err(finstack_core::error::InputError::Invalid.into()),
+            },
         };
 
         // Market standard: Par swap rate via discount ratio on bond's actual payment schedule
@@ -338,20 +342,24 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 super::super::CashflowSpec::Fixed(spec) => {
                     (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
                 }
-                super::super::CashflowSpec::Floating(spec) => {
-                    (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
-                }
-                super::super::CashflowSpec::Amortizing { base, .. } => {
-                    match &**base {
-                        super::super::CashflowSpec::Fixed(spec) => {
-                            (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
-                        }
-                        super::super::CashflowSpec::Floating(spec) => {
-                            (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
-                        }
-                        _ => return Err(finstack_core::error::InputError::Invalid.into()),
+                super::super::CashflowSpec::Floating(spec) => (
+                    spec.freq,
+                    spec.stub,
+                    spec.rate_spec.bdc,
+                    spec.rate_spec.calendar_id.as_deref(),
+                ),
+                super::super::CashflowSpec::Amortizing { base, .. } => match &**base {
+                    super::super::CashflowSpec::Fixed(spec) => {
+                        (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
                     }
-                }
+                    super::super::CashflowSpec::Floating(spec) => (
+                        spec.freq,
+                        spec.stub,
+                        spec.rate_spec.bdc,
+                        spec.rate_spec.calendar_id.as_deref(),
+                    ),
+                    _ => return Err(finstack_core::error::InputError::Invalid.into()),
+                },
             };
             let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
                 context.as_of,
@@ -374,20 +382,24 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             super::super::CashflowSpec::Fixed(spec) => {
                 (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
             }
-            super::super::CashflowSpec::Floating(spec) => {
-                (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
-            }
-            super::super::CashflowSpec::Amortizing { base, .. } => {
-                match &**base {
-                    super::super::CashflowSpec::Fixed(spec) => {
-                        (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
-                    }
-                    super::super::CashflowSpec::Floating(spec) => {
-                        (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
-                    }
-                    _ => return Err(finstack_core::error::InputError::Invalid.into()),
+            super::super::CashflowSpec::Floating(spec) => (
+                spec.freq,
+                spec.stub,
+                spec.rate_spec.bdc,
+                spec.rate_spec.calendar_id.as_deref(),
+            ),
+            super::super::CashflowSpec::Amortizing { base, .. } => match &**base {
+                super::super::CashflowSpec::Fixed(spec) => {
+                    (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
                 }
-            }
+                super::super::CashflowSpec::Floating(spec) => (
+                    spec.freq,
+                    spec.stub,
+                    spec.rate_spec.bdc,
+                    spec.rate_spec.calendar_id.as_deref(),
+                ),
+                _ => return Err(finstack_core::error::InputError::Invalid.into()),
+            },
         };
         let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
             context.as_of,
@@ -430,21 +442,17 @@ impl MetricCalculator for AssetSwapParFwdCalculator {
             .get_discount_ref(bond.discount_curve_id.as_str())?;
         let as_of = disc.base_date();
         match &bond.cashflow_spec {
-            super::super::CashflowSpec::Floating(spec) => {
-                asw_par_with_forward(
-                    bond,
-                    &context.curves,
-                    as_of,
-                    spec.rate_spec.index_id.as_str(),
-                    spec.rate_spec.spread_bp,
-                )
+            super::super::CashflowSpec::Floating(spec) => asw_par_with_forward(
+                bond,
+                &context.curves,
+                as_of,
+                spec.rate_spec.index_id.as_str(),
+                spec.rate_spec.spread_bp,
+            ),
+            _ => Err(finstack_core::error::InputError::NotFound {
+                id: "bond.cashflow_spec.floating".to_string(),
             }
-            _ => {
-                Err(finstack_core::error::InputError::NotFound {
-                    id: "bond.cashflow_spec.floating".to_string(),
-                }
-                .into())
-            }
+            .into()),
         }
     }
 }
@@ -477,12 +485,10 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
                     dirty,
                 )
             }
-            _ => {
-                Err(finstack_core::error::InputError::NotFound {
-                    id: "bond.cashflow_spec.floating".to_string(),
-                }
-                .into())
+            _ => Err(finstack_core::error::InputError::NotFound {
+                id: "bond.cashflow_spec.floating".to_string(),
             }
+            .into()),
         }
     }
 }

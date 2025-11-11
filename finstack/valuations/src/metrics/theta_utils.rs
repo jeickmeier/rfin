@@ -475,7 +475,7 @@ fn collect_cashflows_in_period_any(
 ) -> Result<f64> {
     // Use as_any to get &dyn Any, then delegate to the existing helper
     let any_ref = instrument.as_any();
-    
+
     // The existing collect_cashflows_in_period takes &dyn Any directly
     use crate::cashflow::traits::CashflowProvider;
     use crate::instruments::*;

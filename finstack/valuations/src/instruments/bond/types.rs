@@ -8,8 +8,8 @@ use crate::instruments::PricingOverrides;
 use finstack_core::types::{CurveId, InstrumentId};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
-pub use crate::cashflow::builder::AmortizationSpec;
 pub use super::cashflow_spec::CashflowSpec;
+pub use crate::cashflow::builder::AmortizationSpec;
 
 /// Bond instrument with fixed, floating, or amortizing cashflows.
 ///
@@ -653,7 +653,11 @@ mod tests {
             .notional(Money::new(1_000_000.0, Currency::USD))
             .issue(issue)
             .maturity(maturity)
-            .cashflow_spec(CashflowSpec::fixed(0.04, Frequency::semi_annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.04,
+                Frequency::semi_annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
@@ -698,7 +702,11 @@ mod tests {
             .notional(Money::new(1_000_000.0, Currency::USD))
             .issue(issue)
             .maturity(maturity)
-            .cashflow_spec(CashflowSpec::fixed(0.03, Frequency::annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.03,
+                Frequency::annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
@@ -869,7 +877,7 @@ mod tests {
         };
         let base_spec = CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Thirty360);
         let cashflow_spec = CashflowSpec::amortizing(base_spec, amort_spec);
-        
+
         let bond = Bond::builder()
             .id("AMORT-TEST".into())
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -925,9 +933,7 @@ mod tests {
         let flows = bond.build_schedule(&market, issue).unwrap();
 
         // Initial draw should be excluded (negative notional)
-        let has_negative_initial = flows
-            .iter()
-            .any(|(d, m)| *d == issue && m.amount() < 0.0);
+        let has_negative_initial = flows.iter().any(|(d, m)| *d == issue && m.amount() < 0.0);
         assert!(
             !has_negative_initial,
             "Simplified schedule should exclude initial negative notional draw"
@@ -939,9 +945,7 @@ mod tests {
             .filter(|(d, _)| *d == step1 || *d == maturity)
             .collect();
         // We expect at least one amortization payment
-        let has_negative_amort = amort_in_simplified
-            .iter()
-            .any(|(_, m)| m.amount() < 0.0);
+        let has_negative_amort = amort_in_simplified.iter().any(|(_, m)| m.amount() < 0.0);
         assert!(
             has_negative_amort,
             "Amortization in simplified schedule should be negative (principal repayment)"

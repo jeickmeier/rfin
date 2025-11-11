@@ -1,8 +1,8 @@
 //! Trait implementations for RangeAccrual
 
+use crate::instruments::range_accrual::RangeAccrual;
 use crate::metrics::has_equity_underlying::HasEquityUnderlying;
 use crate::metrics::has_pricing_overrides::HasPricingOverrides;
-use crate::instruments::range_accrual::RangeAccrual;
 
 impl HasEquityUnderlying for RangeAccrual {
     fn spot_id(&self) -> &str {

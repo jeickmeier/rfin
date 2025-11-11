@@ -198,7 +198,11 @@ impl Pricer for QuantoOptionMcPricer {
 
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
-pub fn npv(inst: &QuantoOption, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+pub fn npv(
+    inst: &QuantoOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<Money> {
     let pricer = QuantoOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }

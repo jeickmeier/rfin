@@ -191,4 +191,3 @@ mod tests {
         assert!(ngt.validate().is_err());
     }
 }
-

@@ -2,8 +2,8 @@
 
 use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::cashflow::builder::Notional;
-use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use crate::cashflow::traits::DatedFlows;
+use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;

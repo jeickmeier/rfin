@@ -1,15 +1,17 @@
-use crate::valuations::cashflow::JsAmortizationSpec;
 use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::{JsDayCount, JsFrequency};
 use crate::core::dates::schedule::JsStubKind;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::valuations::cashflow::JsAmortizationSpec;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::Date as CoreDate;
-use finstack_valuations::instruments::bond::{Bond, CashflowSpec, CallPut, CallPutSchedule};
-use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec};
+use finstack_valuations::cashflow::builder::specs::{
+    CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
+};
+use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule, CashflowSpec};
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::{Array, Reflect};
@@ -163,26 +165,44 @@ impl JsBond {
                     gearing: float_gearing.unwrap_or(1.0),
                     floor_bp: None,
                     cap_bp: None,
-                    reset_freq: frequency.map(|f| f.inner()).unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
+                    reset_freq: frequency
+                        .map(|f| f.inner())
+                        .unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
                     reset_lag_days: float_reset_lag_days.unwrap_or(2),
-                    dc: day_count.map(|dc| dc.inner()).unwrap_or(finstack_core::dates::DayCount::Act360),
-                    bdc: business_day_convention.map(|c| c.into()).unwrap_or(finstack_core::dates::BusinessDayConvention::Following),
+                    dc: day_count
+                        .map(|dc| dc.inner())
+                        .unwrap_or(finstack_core::dates::DayCount::Act360),
+                    bdc: business_day_convention
+                        .map(|c| c.into())
+                        .unwrap_or(finstack_core::dates::BusinessDayConvention::Following),
                     calendar_id: calendar_id.clone(),
                 },
                 coupon_type: CouponType::Cash,
-                freq: frequency.map(|f| f.inner()).unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
-                stub: stub_kind.map(|s| s.inner()).unwrap_or(finstack_core::dates::StubKind::None),
+                freq: frequency
+                    .map(|f| f.inner())
+                    .unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
+                stub: stub_kind
+                    .map(|s| s.inner())
+                    .unwrap_or(finstack_core::dates::StubKind::None),
             })
         } else {
             // Fixed rate bond
             CashflowSpec::Fixed(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
                 rate: coupon_rate.unwrap_or(0.0),
-                freq: frequency.map(|f| f.inner()).unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
-                dc: day_count.map(|dc| dc.inner()).unwrap_or(finstack_core::dates::DayCount::Thirty360),
-                bdc: business_day_convention.map(|c| c.into()).unwrap_or(finstack_core::dates::BusinessDayConvention::Following),
+                freq: frequency
+                    .map(|f| f.inner())
+                    .unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
+                dc: day_count
+                    .map(|dc| dc.inner())
+                    .unwrap_or(finstack_core::dates::DayCount::Thirty360),
+                bdc: business_day_convention
+                    .map(|c| c.into())
+                    .unwrap_or(finstack_core::dates::BusinessDayConvention::Following),
                 calendar_id: calendar_id.clone(),
-                stub: stub_kind.map(|s| s.inner()).unwrap_or(finstack_core::dates::StubKind::None),
+                stub: stub_kind
+                    .map(|s| s.inner())
+                    .unwrap_or(finstack_core::dates::StubKind::None),
             })
         };
 
@@ -578,7 +598,9 @@ impl JsBond {
                     // Classify stub based on bond type
                     let is_floating = match &self.0.cashflow_spec {
                         CashflowSpec::Floating(_) => true,
-                        CashflowSpec::Amortizing { base, .. } => matches!(**base, CashflowSpec::Floating(_)),
+                        CashflowSpec::Amortizing { base, .. } => {
+                            matches!(**base, CashflowSpec::Floating(_))
+                        }
                         _ => false,
                     };
                     if is_floating {

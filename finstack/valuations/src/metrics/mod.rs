@@ -27,10 +27,10 @@
 //! Comprehensive documentation on all metrics, including formulas, conventions, and units,
 //! is available in `METRICS.md` in this directory.
 
-/// bucketed_dv01 module.
-pub mod bucketed_dv01;
 /// bucketed_cs01 module.
 pub mod bucketed_cs01;
+/// bucketed_dv01 module.
+pub mod bucketed_dv01;
 /// bucketed_vega module.
 pub mod bucketed_vega;
 /// helpers module.
@@ -45,20 +45,20 @@ pub mod registry;
 pub mod traits;
 
 // Moved from instruments/common/metrics
-/// finite_difference module.
-pub mod finite_difference;
 /// fd_greeks module.
 pub mod fd_greeks;
+/// finite_difference module.
+pub mod finite_difference;
+/// has_equity_underlying module.
+pub mod has_equity_underlying;
+/// has_pricing_overrides module.
+pub mod has_pricing_overrides;
 /// pv module.
 pub mod pv;
 /// theta_utils module.
 pub mod theta_utils;
 /// vol_expiry_helpers module.
 pub mod vol_expiry_helpers;
-/// has_equity_underlying module.
-pub mod has_equity_underlying;
-/// has_pricing_overrides module.
-pub mod has_pricing_overrides;
 
 /// shock_mode module - defines ShockMode and BucketSelector enums.
 pub mod shock_mode;
@@ -66,22 +66,24 @@ pub mod shock_mode;
 #[cfg(test)]
 mod tests;
 
+pub use bucketed_cs01::{
+    compute_key_rate_cs01_series, compute_key_rate_cs01_series_with_context, compute_parallel_cs01,
+    compute_parallel_cs01_with_context, standard_credit_cs01_buckets, GenericBucketedCs01,
+    GenericParallelCs01, HasCreditCurve,
+};
 pub use bucketed_dv01::{
     compute_key_rate_dv01_series, compute_key_rate_dv01_series_with_context,
     compute_key_rate_series_for_id, compute_key_rate_series_with_context_for_id,
     compute_parallel_dv01, compute_parallel_dv01_with_context, standard_ir_dv01_buckets,
     GenericBucketedDv01, GenericBucketedDv01WithContext, GenericParallelDv01, HasDiscountCurve,
 };
-pub use bucketed_cs01::{
-    compute_key_rate_cs01_series, compute_key_rate_cs01_series_with_context,
-    compute_parallel_cs01, compute_parallel_cs01_with_context, standard_credit_cs01_buckets,
-    GenericBucketedCs01, GenericParallelCs01, HasCreditCurve,
-};
 pub use bucketed_vega::{
     compute_bucketed_vega_matrix, compute_parallel_vega, standard_equity_expiry_buckets,
     standard_strike_ratios, GenericVega, VOL_BUMP_PCT,
 };
-pub use fd_greeks::{GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga};
+pub use fd_greeks::{
+    GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga,
+};
 pub use finite_difference::bump_sizes;
 pub use has_equity_underlying::HasEquityUnderlying;
 pub use has_pricing_overrides::HasPricingOverrides;
@@ -119,32 +121,42 @@ pub fn standard_registry() -> MetricRegistry {
     // Uses GenericBucketedCs01 which computes key-rate CS01 by default
     registry.register_metric(
         MetricId::BucketedCs01,
-        std::sync::Arc::new(GenericBucketedCs01::<crate::instruments::CreditDefaultSwap>::default()),
+        std::sync::Arc::new(
+            GenericBucketedCs01::<crate::instruments::CreditDefaultSwap>::default(),
+        ),
         &["CreditDefaultSwap"],
     );
     registry.register_metric(
         MetricId::BucketedCs01,
-        std::sync::Arc::new(GenericBucketedCs01::<crate::instruments::cds_index::CDSIndex>::default()),
+        std::sync::Arc::new(
+            GenericBucketedCs01::<crate::instruments::cds_index::CDSIndex>::default(),
+        ),
         &["CDSIndex"],
     );
     registry.register_metric(
         MetricId::BucketedCs01,
-        std::sync::Arc::new(GenericBucketedCs01::<crate::instruments::cds_tranche::CdsTranche>::default()),
+        std::sync::Arc::new(GenericBucketedCs01::<
+            crate::instruments::cds_tranche::CdsTranche,
+        >::default()),
         &["CdsTranche"],
     );
     registry.register_metric(
         MetricId::BucketedCs01,
-        std::sync::Arc::new(GenericBucketedCs01::<crate::instruments::cds_option::CdsOption>::default()),
+        std::sync::Arc::new(GenericBucketedCs01::<
+            crate::instruments::cds_option::CdsOption,
+        >::default()),
         &["CdsOption"],
     );
     registry.register_metric(
         MetricId::BucketedCs01,
-        std::sync::Arc::new(GenericBucketedCs01::<crate::instruments::revolving_credit::RevolvingCredit>::default()),
+        std::sync::Arc::new(GenericBucketedCs01::<
+            crate::instruments::revolving_credit::RevolvingCredit,
+        >::default()),
         &["RevolvingCredit"],
     );
-    
+
     // TODO: Add CS01 for Bond once hazard-rate pricing is implemented
-    // TODO: Add CS01 for StructuredCredit once hazard-rate pricing is added  
+    // TODO: Add CS01 for StructuredCredit once hazard-rate pricing is added
     // TODO: Add CS01 for Convertible when priced with credit risk (implement HasCreditCurve)
 
     crate::instruments::equity::metrics::register_equity_metrics(&mut registry);

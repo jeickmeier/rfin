@@ -5,8 +5,8 @@
 //!
 //! Note: This complements fx01 (which is per 1bp). FX delta is per 1% move.
 
-use crate::metrics::finite_difference::bump_sizes;
 use crate::instruments::fx_swap::FxSwap;
+use crate::metrics::finite_difference::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::FxQuery;
 use finstack_core::Result;

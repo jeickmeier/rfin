@@ -83,7 +83,11 @@ fn test_zero_coupon_bond_ytm() {
     let bond_result = Bond::builder()
         .id("ZERO-COUPON".into())
         .notional(Money::new(1_000.0, Currency::USD))
-        .cashflow_spec(CashflowSpec::fixed(0.0, Frequency::annual(), DayCount::Thirty360))
+        .cashflow_spec(CashflowSpec::fixed(
+            0.0,
+            Frequency::annual(),
+            DayCount::Thirty360,
+        ))
         .issue(issue)
         .maturity(maturity)
         .discount_curve_id("USD-OIS".into())
@@ -185,7 +189,11 @@ fn test_eom_february_maturity_ytm() {
     let bond_result = Bond::builder()
         .id("EOM-FEB".into())
         .notional(Money::new(1_000.0, Currency::USD))
-        .cashflow_spec(CashflowSpec::fixed(0.04, Frequency::annual(), DayCount::Thirty360))
+        .cashflow_spec(CashflowSpec::fixed(
+            0.04,
+            Frequency::annual(),
+            DayCount::Thirty360,
+        ))
         .issue(issue)
         .maturity(maturity)
         .discount_curve_id("USD-OIS".into())

@@ -17,9 +17,17 @@ fn test_dv01_negative_for_long_deposits() {
     let dv01 = compute_metric(&dep, &ctx, base, MetricId::Dv01);
 
     // Validate - DV01 should be negative for long positions (standard convention)
-    assert!(dv01 < 0.0, "DV01 should be negative (rates up → PV down): {}", dv01);
+    assert!(
+        dv01 < 0.0,
+        "DV01 should be negative (rates up → PV down): {}",
+        dv01
+    );
     // Magnitude check: for 6m deposit with $1M notional, should be around -$50
-    assert!(dv01.abs() > 40.0 && dv01.abs() < 60.0, "DV01 magnitude: {}", dv01);
+    assert!(
+        dv01.abs() > 40.0 && dv01.abs() < 60.0,
+        "DV01 magnitude: {}",
+        dv01
+    );
 }
 
 #[test]

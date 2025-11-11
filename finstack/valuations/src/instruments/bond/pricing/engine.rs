@@ -53,14 +53,16 @@ impl BondEngine {
             let sd: i32 = sd_u32 as i32;
             let (calendar_id, bdc) = match &bond.cashflow_spec {
                 CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
-                CashflowSpec::Floating(spec) => (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc),
-                CashflowSpec::Amortizing { base, .. } => {
-                    match &**base {
-                        CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
-                        CashflowSpec::Floating(spec) => (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc),
-                        _ => (None, finstack_core::dates::BusinessDayConvention::Following),
-                    }
+                CashflowSpec::Floating(spec) => {
+                    (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc)
                 }
+                CashflowSpec::Amortizing { base, .. } => match &**base {
+                    CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
+                    CashflowSpec::Floating(spec) => {
+                        (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc)
+                    }
+                    _ => (None, finstack_core::dates::BusinessDayConvention::Following),
+                },
             };
             if let Some(id) = calendar_id {
                 if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {

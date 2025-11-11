@@ -3,8 +3,8 @@
 //! Computes DV01 (dollar value of a basis point) using finite differences:
 //! bump discount curve by 1bp, reprice, and compute PV_change.
 
-use crate::metrics::finite_difference::bump_discount_curve_parallel;
 use crate::instruments::fx_barrier_option::FxBarrierOption;
+use crate::metrics::finite_difference::bump_discount_curve_parallel;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

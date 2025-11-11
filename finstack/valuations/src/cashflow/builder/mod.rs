@@ -59,9 +59,9 @@ pub use date_generation::{build_dates, PeriodSchedule};
 pub use rate_helpers::{project_floating_rate, project_floating_rate_simple};
 pub use schedule::{CashFlowSchedule, CashflowMeta};
 pub use specs::{
-    AmortizationSpec, Notional, evaluate_fee_tiers, CouponType, DefaultCurve, DefaultEvent,
-    DefaultModelSpec, FeeBase, FeeSpec, FeeTier, FixedCouponSpec, FixedWindow, FloatCouponParams,
-    FloatWindow, FloatingCouponSpec, FloatingRateSpec, PrepaymentCurve, PrepaymentModelSpec,
+    evaluate_fee_tiers, AmortizationSpec, CouponType, DefaultCurve, DefaultEvent, DefaultModelSpec,
+    FeeBase, FeeSpec, FeeTier, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
+    FloatingCouponSpec, FloatingRateSpec, Notional, PrepaymentCurve, PrepaymentModelSpec,
     RecoveryModelSpec, ScheduleParams,
 };
 

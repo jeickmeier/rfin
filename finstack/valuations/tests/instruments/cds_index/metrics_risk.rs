@@ -386,7 +386,10 @@ fn test_dv01_reasonable_magnitude() {
     // DV01 computed via bump-and-reprice; magnitude should be meaningful but not a simple closed-form
     assert!(dv01.is_finite(), "DV01 should be finite");
     // DV01 can be small for credit instruments where protection leg dominates premium leg
-    assert!(dv01.abs() > 1.0, "DV01 magnitude should be non-trivial for $10MM notional");
+    assert!(
+        dv01.abs() > 1.0,
+        "DV01 magnitude should be non-trivial for $10MM notional"
+    );
 }
 
 #[test]

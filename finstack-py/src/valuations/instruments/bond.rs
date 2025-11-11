@@ -229,13 +229,17 @@ impl PyBond {
         use finstack_valuations::cashflow::builder::specs::{
             CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
         };
-        
-        let freq = frequency.map(|f| f.inner).unwrap_or(Frequency::semi_annual());
+
+        let freq = frequency
+            .map(|f| f.inner)
+            .unwrap_or(Frequency::semi_annual());
         let dc = day_count.map(|d| d.inner).unwrap_or(DayCount::Thirty360);
-        let bdc_val = bdc.map(|b| b.inner).unwrap_or(BusinessDayConvention::Following);
+        let bdc_val = bdc
+            .map(|b| b.inner)
+            .unwrap_or(BusinessDayConvention::Following);
         let stub_val = stub.map(|s| s.inner).unwrap_or(StubKind::None);
         let calendar_str = calendar_id.map(|s| s.to_string());
-        
+
         let cashflow_spec = if let Some(fwd) = forward_curve {
             // Floating-rate bond
             let forward_curve_id = extract_curve_id(&fwd)?;
@@ -284,7 +288,7 @@ impl PyBond {
                 })
             }
         };
-        
+
         let mut builder = Bond::builder()
             .id(id)
             .notional(amt)
@@ -369,11 +373,11 @@ impl PyBond {
             use finstack_valuations::cashflow::builder::specs::{
                 CouponType, FloatingCouponSpec, FloatingRateSpec,
             };
-            
+
             let forward_curve_id = extract_curve_id(&fwd)?;
             let freq = bond.cashflow_spec.frequency();
             let dc = bond.cashflow_spec.day_count();
-            
+
             bond.cashflow_spec = CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
                     index_id: forward_curve_id,
@@ -431,7 +435,7 @@ impl PyBond {
             DayCount::Act360,
             disc,
         );
-        
+
         Ok(Self::new(bond))
     }
 
@@ -461,12 +465,10 @@ impl PyBond {
     fn coupon(&self) -> f64 {
         match &self.inner.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.rate,
-            CashflowSpec::Amortizing { base, .. } => {
-                match &**base {
-                    CashflowSpec::Fixed(spec) => spec.rate,
-                    _ => 0.0,
-                }
-            }
+            CashflowSpec::Amortizing { base, .. } => match &**base {
+                CashflowSpec::Fixed(spec) => spec.rate,
+                _ => 0.0,
+            },
             _ => 0.0,
         }
     }
@@ -537,11 +539,7 @@ impl fmt::Display for PyBond {
             CashflowSpec::Fixed(spec) => spec.rate,
             _ => 0.0,
         };
-        write!(
-            f,
-            "Bond({}, coupon={:.4})",
-            self.inner.id, coupon_rate
-        )
+        write!(f, "Bond({}, coupon={:.4})", self.inner.id, coupon_rate)
     }
 }
 

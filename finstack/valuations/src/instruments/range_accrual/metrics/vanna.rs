@@ -2,8 +2,8 @@
 //!
 //! Computes vanna (∂²V/∂S∂σ) using finite differences.
 
-use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
 use crate::instruments::range_accrual::RangeAccrual;
+use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

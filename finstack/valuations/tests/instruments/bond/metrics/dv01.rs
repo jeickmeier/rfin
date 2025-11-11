@@ -31,5 +31,9 @@ fn test_dv01_signed_negative_for_bond() {
         .unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
     // Signed convention: bonds lose value when rates rise ⇒ DV01 < 0
-    assert!(dv01 < 0.0 && dv01 > -1.0, "DV01 = {}, expected negative between 0 and -1", dv01); // Reasonable magnitude for 5Y bond
+    assert!(
+        dv01 < 0.0 && dv01 > -1.0,
+        "DV01 = {}, expected negative between 0 and -1",
+        dv01
+    ); // Reasonable magnitude for 5Y bond
 }

@@ -36,12 +36,22 @@ impl BarrierOptionMcPricer {
         }
     }
 
-    fn convert_barrier_type(bt: crate::instruments::barrier_option::types::BarrierType) -> McBarrierType {
+    fn convert_barrier_type(
+        bt: crate::instruments::barrier_option::types::BarrierType,
+    ) -> McBarrierType {
         match bt {
-            crate::instruments::barrier_option::types::BarrierType::UpAndOut => McBarrierType::UpAndOut,
-            crate::instruments::barrier_option::types::BarrierType::UpAndIn => McBarrierType::UpAndIn,
-            crate::instruments::barrier_option::types::BarrierType::DownAndOut => McBarrierType::DownAndOut,
-            crate::instruments::barrier_option::types::BarrierType::DownAndIn => McBarrierType::DownAndIn,
+            crate::instruments::barrier_option::types::BarrierType::UpAndOut => {
+                McBarrierType::UpAndOut
+            }
+            crate::instruments::barrier_option::types::BarrierType::UpAndIn => {
+                McBarrierType::UpAndIn
+            }
+            crate::instruments::barrier_option::types::BarrierType::DownAndOut => {
+                McBarrierType::DownAndOut
+            }
+            crate::instruments::barrier_option::types::BarrierType::DownAndIn => {
+                McBarrierType::DownAndIn
+            }
         }
     }
 
@@ -323,7 +333,11 @@ impl Pricer for BarrierOptionMcPricer {
 
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
-pub fn npv(inst: &BarrierOption, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+pub fn npv(
+    inst: &BarrierOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<Money> {
     let pricer = BarrierOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }

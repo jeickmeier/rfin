@@ -199,7 +199,9 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         let disc: &dyn finstack_core::market_data::traits::Discounting = disc_arc.as_ref();
 
         // Get hazard curve if provided
-        let hazard_arc_opt: Option<std::sync::Arc<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>> = if let Some(hazard_id) = hazard_curve_id {
+        let hazard_arc_opt: Option<
+            std::sync::Arc<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>,
+        > = if let Some(hazard_id) = hazard_curve_id {
             Some(market.get_hazard(hazard_id.as_str())?)
         } else {
             None
@@ -211,7 +213,9 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
 
         // Use credit-adjusted aggregation directly on filtered flows
         use crate::cashflow::aggregation::pv_by_period_credit_adjusted;
-        Ok(pv_by_period_credit_adjusted(&flows, periods, disc, hazard, base, dc))
+        Ok(pv_by_period_credit_adjusted(
+            &flows, periods, disc, hazard, base, dc,
+        ))
     }
 }
 
@@ -311,7 +315,14 @@ mod tests {
 
         // Compute straight NPV for comparison
         use crate::instruments::common::helpers::schedule_pv_impl;
-        let straight_npv = schedule_pv_impl(&bond, &market, base, bond.discount_curve_id(), DayCount::Act365F).unwrap();
+        let straight_npv = schedule_pv_impl(
+            &bond,
+            &market,
+            base,
+            bond.discount_curve_id(),
+            DayCount::Act365F,
+        )
+        .unwrap();
 
         // Sum of periodized PVs should match straight NPV (within rounding tolerance)
         let diff = (total_pv - straight_npv.amount()).abs();
@@ -388,7 +399,14 @@ mod tests {
         }
 
         use crate::instruments::common::helpers::schedule_pv_impl;
-        let straight_npv = schedule_pv_impl(&frn, &market, issue, frn.discount_curve_id(), DayCount::Act365F).unwrap();
+        let straight_npv = schedule_pv_impl(
+            &frn,
+            &market,
+            issue,
+            frn.discount_curve_id(),
+            DayCount::Act365F,
+        )
+        .unwrap();
 
         let diff = (total_pv - straight_npv.amount()).abs();
         assert!(
@@ -429,7 +447,13 @@ mod tests {
         // Compute credit-adjusted periodized PV
         let hazard_id = CurveId::new("CORP-HAZARD");
         let pv_with_credit = bond
-            .periodized_pv_credit_adjusted(&periods, &market, Some(&hazard_id), base, DayCount::Act365F)
+            .periodized_pv_credit_adjusted(
+                &periods,
+                &market,
+                Some(&hazard_id),
+                base,
+                DayCount::Act365F,
+            )
             .unwrap();
 
         // Compute without credit adjustment
@@ -541,4 +565,3 @@ mod tests {
         }
     }
 }
-

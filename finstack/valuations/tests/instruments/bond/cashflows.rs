@@ -13,10 +13,10 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use finstack_valuations::cashflow::builder::AmortizationSpec;
 use finstack_valuations::cashflow::builder::{
     CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams,
 };
-use finstack_valuations::cashflow::builder::AmortizationSpec;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::PricingOverrides;
@@ -114,7 +114,11 @@ fn test_quarterly_coupon_frequency() {
         .notional(Money::new(1000.0, Currency::USD))
         .issue(as_of)
         .maturity(maturity)
-        .cashflow_spec(CashflowSpec::fixed(0.04, Frequency::quarterly(), DayCount::Act365F))
+        .cashflow_spec(CashflowSpec::fixed(
+            0.04,
+            Frequency::quarterly(),
+            DayCount::Act365F,
+        ))
         .discount_curve_id("USD-OIS".into())
         .pricing_overrides(PricingOverrides::default())
         .build()

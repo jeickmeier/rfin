@@ -177,7 +177,10 @@ impl AsianOptionMcPricer {
 
         // If arithmetic averaging, apply geometric-Asian control variate for variance reduction
         let result_money = match (inst.averaging_method, inst.option_type) {
-            (crate::instruments::asian_option::types::AveragingMethod::Arithmetic, crate::instruments::OptionType::Call) => {
+            (
+                crate::instruments::asian_option::types::AveragingMethod::Arithmetic,
+                crate::instruments::OptionType::Call,
+            ) => {
                 // Use path capture to get per-path discounted payoffs for covariance
                 let mut cfg_cap = config.clone();
                 cfg_cap.path_capture = PathCaptureConfig::all().with_payoffs();
@@ -275,7 +278,10 @@ impl AsianOptionMcPricer {
                 );
                 MoneyEstimate::from_estimate(adj, inst.strike.currency()).mean
             }
-            (crate::instruments::asian_option::types::AveragingMethod::Arithmetic, crate::instruments::OptionType::Put) => {
+            (
+                crate::instruments::asian_option::types::AveragingMethod::Arithmetic,
+                crate::instruments::OptionType::Put,
+            ) => {
                 let mut cfg_cap = config.clone();
                 cfg_cap.path_capture = PathCaptureConfig::all().with_payoffs();
                 let pricer_cap = PathDependentPricer::new(cfg_cap);
@@ -605,7 +611,11 @@ impl Pricer for AsianOptionMcPricer {
 
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
-pub fn npv(inst: &AsianOption, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+pub fn npv(
+    inst: &AsianOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<Money> {
     let pricer = AsianOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }

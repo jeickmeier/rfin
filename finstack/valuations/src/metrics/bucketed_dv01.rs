@@ -55,10 +55,9 @@ pub fn compute_parallel_dv01_with_context<RevalFn>(
 where
     RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
 {
-    
     use finstack_core::market_data::context::BumpSpec;
     use hashbrown::HashMap;
-    
+
     let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
 
@@ -66,7 +65,7 @@ where
     let mut bumps = HashMap::new();
     bumps.insert(discount_curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
     let temp_ctx = base_ctx.bump(bumps)?;
-    
+
     let pv_bumped = revalue_with_context(&temp_ctx)?;
     // DV01 = PV change per 1bp move. If bump is N bp, divide by N to get per-bp sensitivity
     let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
@@ -145,7 +144,10 @@ where
         // Create bumped curve, then rebuild it with the ORIGINAL ID so instruments can find it
         // Note: We lose the original interpolation style but use safe defaults (Linear)
         let bumped_tmp = disc.with_key_rate_bump_years(t, bump_bp);
-        let bumped_points: Vec<(f64, f64)> = bumped_tmp.knots().iter().copied()
+        let bumped_points: Vec<(f64, f64)> = bumped_tmp
+            .knots()
+            .iter()
+            .copied()
             .zip(bumped_tmp.dfs().iter().copied())
             .collect();
         let bumped_disc = DiscountCurve::builder(discount_curve_id.clone())
@@ -154,7 +156,7 @@ where
             .knots(bumped_points)
             .build()?;
         let temp_ctx = base_ctx.clone().insert_discount(bumped_disc);
-        
+
         let pv_bumped = revalue_with_context(&temp_ctx)?;
         // DV01 per bucket: PV change per 1bp move in this bucket
         let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
@@ -297,13 +299,7 @@ where
             )
         };
 
-        let total = compute_key_rate_dv01_series(
-            context,
-            &discount_curve_id,
-            buckets,
-            1.0,
-            reval,
-        )?;
+        let total = compute_key_rate_dv01_series(context, &discount_curve_id, buckets, 1.0, reval)?;
 
         Ok(total)
     }

@@ -6,8 +6,8 @@
 //! Uses four-point finite difference:
 //! Vanna = [Δ(S+ΔS, σ+Δσ) - Δ(S+ΔS, σ-Δσ) - Δ(S-ΔS, σ+Δσ) + Δ(S-ΔS, σ-Δσ)] / (4 * ΔS * Δσ)
 
-use crate::metrics::finite_difference::bump_sizes;
 use crate::instruments::fx_option::FxOption;
+use crate::metrics::finite_difference::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

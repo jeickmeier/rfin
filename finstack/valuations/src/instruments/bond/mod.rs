@@ -82,7 +82,11 @@ mod tests {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                Frequency::semi_annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -125,8 +129,14 @@ mod tests {
         );
 
         assert_eq!(bond.id.as_str(), "UST-10Y");
-        assert_eq!(bond.cashflow_spec.frequency(), BondConvention::USTreasury.frequency());
-        assert_eq!(bond.cashflow_spec.day_count(), BondConvention::USTreasury.day_count());
+        assert_eq!(
+            bond.cashflow_spec.frequency(),
+            BondConvention::USTreasury.frequency()
+        );
+        assert_eq!(
+            bond.cashflow_spec.day_count(),
+            BondConvention::USTreasury.day_count()
+        );
     }
 
     #[test]
@@ -141,8 +151,14 @@ mod tests {
             "GBP-GILTS",
         );
 
-        assert_eq!(bond.cashflow_spec.frequency(), BondConvention::UKGilt.frequency());
-        assert_eq!(bond.cashflow_spec.day_count(), BondConvention::UKGilt.day_count());
+        assert_eq!(
+            bond.cashflow_spec.frequency(),
+            BondConvention::UKGilt.frequency()
+        );
+        assert_eq!(
+            bond.cashflow_spec.day_count(),
+            BondConvention::UKGilt.day_count()
+        );
     }
 
     #[test]
@@ -156,7 +172,11 @@ mod tests {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .cashflow_spec(CashflowSpec::fixed(0.06, Frequency::annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.06,
+                Frequency::annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(overrides)
             .attributes(Attributes::new())
@@ -174,7 +194,11 @@ mod tests {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                Frequency::semi_annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .settlement_days_opt(Some(2))
@@ -200,7 +224,11 @@ mod tests {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                Frequency::semi_annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(attrs)
@@ -221,7 +249,11 @@ mod tests {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .cashflow_spec(CashflowSpec::fixed(0.0, Frequency::annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.0,
+                Frequency::annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -243,7 +275,11 @@ mod tests {
             .notional(Money::new(1000.0, Currency::USD))
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2027 - 01 - 01))
-            .cashflow_spec(CashflowSpec::fixed(0.06, Frequency::monthly(), DayCount::Act360))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.06,
+                Frequency::monthly(),
+                DayCount::Act360,
+            ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -255,8 +291,8 @@ mod tests {
 
     #[test]
     fn test_bond_with_calendar() {
-        use crate::cashflow::builder::specs::{FixedCouponSpec, CouponType};
-        
+        use crate::cashflow::builder::specs::{CouponType, FixedCouponSpec};
+
         let spec = FixedCouponSpec {
             coupon_type: CouponType::Cash,
             rate: 0.05,
@@ -266,7 +302,7 @@ mod tests {
             calendar_id: Some("USGS".to_string()),
             stub: StubKind::None,
         };
-        
+
         let bond = Bond::builder()
             .id("BOND_CAL".into())
             .notional(Money::new(1000.0, Currency::USD))
@@ -289,8 +325,8 @@ mod tests {
 
     #[test]
     fn test_bond_stub_conventions() {
-        use crate::cashflow::builder::specs::{FixedCouponSpec, CouponType};
-        
+        use crate::cashflow::builder::specs::{CouponType, FixedCouponSpec};
+
         // Short front stub
         let spec_short = FixedCouponSpec {
             coupon_type: CouponType::Cash,
@@ -301,7 +337,7 @@ mod tests {
             calendar_id: None,
             stub: StubKind::ShortFront,
         };
-        
+
         let bond_short_front = Bond::builder()
             .id("STUB_SHORT_FRONT".into())
             .notional(Money::new(1000.0, Currency::USD))
@@ -328,7 +364,7 @@ mod tests {
             calendar_id: None,
             stub: StubKind::LongBack,
         };
-        
+
         let bond_long_back = Bond::builder()
             .id("STUB_LONG_BACK".into())
             .notional(Money::new(1000.0, Currency::USD))
@@ -362,7 +398,11 @@ mod tests {
                 .notional(Money::new(1000.0, ccy))
                 .issue(date!(2025 - 01 - 01))
                 .maturity(date!(2030 - 01 - 01))
-                .cashflow_spec(CashflowSpec::fixed(0.04, Frequency::annual(), DayCount::Act365F))
+                .cashflow_spec(CashflowSpec::fixed(
+                    0.04,
+                    Frequency::annual(),
+                    DayCount::Act365F,
+                ))
                 .discount_curve_id(CurveId::new(format!("{}-OIS", code)))
                 .pricing_overrides(PricingOverrides::default())
                 .attributes(Attributes::new())
@@ -453,7 +493,11 @@ mod tests {
             .notional(Money::new(100.0, Currency::USD))
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .cashflow_spec(CashflowSpec::fixed(0.08, Frequency::semi_annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.08,
+                Frequency::semi_annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default().with_clean_price(105.0))
             .attributes(Attributes::new())
@@ -468,7 +512,11 @@ mod tests {
             .notional(Money::new(100.0, Currency::USD))
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .cashflow_spec(CashflowSpec::fixed(0.03, Frequency::semi_annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.03,
+                Frequency::semi_annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default().with_clean_price(95.0))
             .attributes(Attributes::new())
@@ -483,7 +531,11 @@ mod tests {
             .notional(Money::new(100.0, Currency::USD))
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                Frequency::semi_annual(),
+                DayCount::Act365F,
+            ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default().with_clean_price(100.0))
             .attributes(Attributes::new())

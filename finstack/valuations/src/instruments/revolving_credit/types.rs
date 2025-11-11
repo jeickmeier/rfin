@@ -447,7 +447,7 @@ pub enum UtilizationProcess {
 // Note: This will return an error if hazard_curve_id is None
 impl crate::metrics::HasCreditCurve for RevolvingCredit {
     fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        // Return the hazard curve id if present, otherwise panic  
+        // Return the hazard curve id if present, otherwise panic
         // (CS01 calculator will fail gracefully if this field is None)
         self.hazard_curve_id
             .as_ref()

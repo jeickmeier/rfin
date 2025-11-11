@@ -3,11 +3,8 @@
 use super::super::common::*;
 use finstack_core::{currency::Currency, dates::Date, money::Money};
 use finstack_valuations::{
+    instruments::{common::traits::Instrument, fx_spot::FxSpot},
     metrics::GenericTheta,
-    instruments::{
-        common::traits::Instrument,
-        fx_spot::FxSpot,
-    },
     metrics::{traits::MetricCalculator, MetricContext},
 };
 use std::sync::Arc;

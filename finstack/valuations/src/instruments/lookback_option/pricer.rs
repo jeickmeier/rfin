@@ -215,7 +215,11 @@ impl Pricer for LookbackOptionMcPricer {
 
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
-pub fn npv(inst: &LookbackOption, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+pub fn npv(
+    inst: &LookbackOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<Money> {
     let pricer = LookbackOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }

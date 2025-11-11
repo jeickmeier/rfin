@@ -389,10 +389,10 @@ mod tests {
     use time::Month;
     fn create_test_bond() -> Bond {
         use crate::instruments::bond::CashflowSpec;
-        
+
         let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-        
+
         Bond::builder()
             .id("TEST_BOND".into())
             .notional(Money::new(1000.0, finstack_core::currency::Currency::USD))

@@ -7,8 +7,8 @@
 //!
 //! Where Delta(σ) is computed by bumping both spot and vol.
 
-use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
 use crate::instruments::equity_option::EquityOption;
+use crate::metrics::finite_difference::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
