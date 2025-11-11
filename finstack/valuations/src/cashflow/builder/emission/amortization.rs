@@ -1,6 +1,7 @@
 //! Amortization cashflow emission.
 
-use crate::cashflow::primitives::{AmortizationSpec, CFKind, CashFlow, Notional};
+use crate::cashflow::builder::{AmortizationSpec, Notional};
+use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;

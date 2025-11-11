@@ -1,7 +1,8 @@
 //! Cashflow generation for Term Loans (placeholder for v1 wiring).
 
 use crate::cashflow::builder::schedule::CashFlowSchedule;
-use crate::cashflow::primitives::{CFKind, CashFlow, Notional};
+use crate::cashflow::builder::Notional;
+use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use crate::cashflow::traits::DatedFlows;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;

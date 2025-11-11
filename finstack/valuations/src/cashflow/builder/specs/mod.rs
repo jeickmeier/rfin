@@ -23,6 +23,7 @@
 //! - Behavioral models for credit instruments (prepayment, default, recovery)
 //! - Helper constructors for common market conventions (USD, EUR, GBP, etc.)
 
+mod amortization;
 mod coupon;
 mod default;
 mod fees;
@@ -31,6 +32,7 @@ mod recovery;
 mod schedule;
 
 // Re-export all public types to maintain the same API
+pub use amortization::{AmortizationSpec, Notional};
 pub use coupon::{CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec};
 pub use default::{DefaultCurve, DefaultEvent, DefaultModelSpec};
 pub use fees::{evaluate_fee_tiers, FeeBase, FeeSpec, FeeTier};

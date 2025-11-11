@@ -1,8 +1,8 @@
 use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use crate::core::error::core_to_py;
-use crate::core::money::{extract_money, PyMoney};
-use crate::core::utils::{date_to_py, py_to_date};
-use finstack_core::cashflow::primitives::{AmortizationSpec, CFKind, CashFlow};
+use crate::core::money::PyMoney;
+use crate::core::utils::date_to_py;
+use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -297,102 +297,13 @@ impl PyCashFlow {
     }
 }
 
-/// Amortization specification for principal over time.
-#[pyclass(name = "AmortizationSpec", module = "finstack.core.cashflow", frozen)]
-#[derive(Clone, Debug)]
-pub struct PyAmortizationSpec {
-    pub(crate) inner: AmortizationSpec,
-}
-
-#[pymethods]
-impl PyAmortizationSpec {
-    #[classmethod]
-    #[pyo3(text_signature = "(cls)")]
-    /// No amortization: principal remains until redemption.
-    fn none(_cls: &Bound<'_, PyType>) -> Self {
-        Self {
-            inner: AmortizationSpec::None,
-        }
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, final_notional)")]
-    /// Linear amortization towards a target final notional.
-    fn linear_to(_cls: &Bound<'_, PyType>, final_notional: Bound<'_, PyAny>) -> PyResult<Self> {
-        let m = extract_money(&final_notional)?;
-        Ok(Self {
-            inner: AmortizationSpec::LinearTo { final_notional: m },
-        })
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, schedule)")]
-    /// Step schedule of remaining principal after dates.
-    /// ``schedule`` is a sequence of ``(date, Money)`` pairs ordered by date.
-    fn step_remaining(
-        _cls: &Bound<'_, PyType>,
-        schedule: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)>,
-    ) -> PyResult<Self> {
-        let mut items = Vec::with_capacity(schedule.len());
-        for (d, m) in schedule {
-            items.push((py_to_date(&d)?, extract_money(&m)?));
-        }
-        Ok(Self {
-            inner: AmortizationSpec::StepRemaining { schedule: items },
-        })
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, pct)")]
-    /// Fixed percentage of original notional paid each period (e.g., 0.05 = 5%).
-    fn percent_per_period(_cls: &Bound<'_, PyType>, pct: f64) -> Self {
-        Self {
-            inner: AmortizationSpec::PercentPerPeriod { pct },
-        }
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, items)")]
-    /// Custom principal exchanges as absolute cash amounts.
-    /// ``items`` is a sequence of ``(date, Money)`` pairs.
-    fn custom_principal(
-        _cls: &Bound<'_, PyType>,
-        items: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)>,
-    ) -> PyResult<Self> {
-        let mut out = Vec::with_capacity(items.len());
-        for (d, m) in items {
-            out.push((py_to_date(&d)?, extract_money(&m)?));
-        }
-        Ok(Self {
-            inner: AmortizationSpec::CustomPrincipal { items: out },
-        })
-    }
-
-    fn __repr__(&self) -> String {
-        match &self.inner {
-            AmortizationSpec::None => "AmortizationSpec.none()".to_string(),
-            AmortizationSpec::LinearTo { .. } => "AmortizationSpec.linear_to(...)".to_string(),
-            AmortizationSpec::StepRemaining { .. } => {
-                "AmortizationSpec.step_remaining(...)".to_string()
-            }
-            AmortizationSpec::PercentPerPeriod { pct } => {
-                format!("AmortizationSpec.percent_per_period({pct})")
-            }
-            AmortizationSpec::CustomPrincipal { .. } => {
-                "AmortizationSpec.custom_principal(...)".to_string()
-            }
-        }
-    }
-}
-
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyCFKind>()?;
     module.add_class::<PyCashFlow>()?;
-    module.add_class::<PyAmortizationSpec>()?;
-    Ok(vec!["CFKind", "CashFlow", "AmortizationSpec"])
+    Ok(vec!["CFKind", "CashFlow"])
 }
 
 pub(crate) fn extract_cf_kind(value: &Bound<'_, PyAny>) -> PyResult<CFKind> {

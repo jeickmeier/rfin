@@ -44,8 +44,7 @@
 //! ```
 
 use super::schedule::{finalize_flows, CashFlowSchedule};
-use crate::cashflow::primitives::AmortizationSpec;
-use crate::cashflow::primitives::Notional;
+use crate::cashflow::builder::{AmortizationSpec, Notional};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;

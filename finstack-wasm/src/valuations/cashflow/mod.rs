@@ -1,4 +1,7 @@
 pub mod builder;
+pub mod specs;
+
+pub use specs::JsAmortizationSpec;
 
 pub use builder::{
     JsCashFlowSchedule as CashFlowSchedule, JsCashflowBuilder as CashflowBuilder,

@@ -3,7 +3,8 @@
 use super::schedule::kind_rank;
 use super::specs::{CouponType, FixedCouponSpec};
 use super::CashFlowSchedule;
-use crate::cashflow::primitives::{AmortizationSpec, CFKind, CashFlow};
+use crate::cashflow::builder::AmortizationSpec;
+use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use crate::instruments::common::discountable::Discountable;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};

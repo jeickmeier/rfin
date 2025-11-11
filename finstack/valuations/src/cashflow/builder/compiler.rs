@@ -20,8 +20,7 @@
 //! pieces without containment), and every produced schedule must contain at
 //! least two dates.
 
-use crate::cashflow::primitives::AmortizationSpec;
-use crate::cashflow::primitives::Notional;
+use crate::cashflow::builder::{AmortizationSpec, Notional};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;

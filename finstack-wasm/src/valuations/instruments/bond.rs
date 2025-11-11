@@ -1,4 +1,4 @@
-use crate::core::cashflow::primitives::JsAmortizationSpec;
+use crate::valuations::cashflow::JsAmortizationSpec;
 use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::{JsDayCount, JsFrequency};

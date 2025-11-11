@@ -307,7 +307,7 @@ impl PyCashflowBuilder {
     #[pyo3(text_signature = "(self, amortization)")]
     fn amortization(
         &mut self,
-        amortization: Option<crate::core::cashflow::primitives::PyAmortizationSpec>,
+        amortization: Option<super::specs::PyAmortizationSpec>,
     ) -> Self {
         if let Some(spec) = amortization {
             self.inner.amortization(spec.inner);

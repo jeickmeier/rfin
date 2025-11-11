@@ -770,8 +770,8 @@ impl CashflowProvider for InterestRateSwap {
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        use crate::cashflow::builder::{CashFlowSchedule, FloatingCouponSpec};
-        use crate::cashflow::primitives::{CFKind, CashFlow, Notional};
+        use crate::cashflow::builder::{CashFlowSchedule, FloatingCouponSpec, Notional};
+        use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 
         // Build both legs using the builder to get proper CFKind classification
         let mut fixed_b = CashFlowSchedule::builder();

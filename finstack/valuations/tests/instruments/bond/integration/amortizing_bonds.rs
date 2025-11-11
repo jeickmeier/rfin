@@ -6,7 +6,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::primitives::AmortizationSpec;
+use finstack_valuations::cashflow::builder::AmortizationSpec;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::common::traits::Instrument;
 use time::macros::date;

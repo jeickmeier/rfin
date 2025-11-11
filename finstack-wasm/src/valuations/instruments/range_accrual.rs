@@ -54,3 +54,4 @@ impl JsRangeAccrual {
         JsRangeAccrual::from_inner(self.0.clone())
     }
 }
+

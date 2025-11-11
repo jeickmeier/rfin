@@ -210,7 +210,7 @@ impl PyBond {
         bdc: Option<crate::core::dates::calendar::PyBusinessDayConvention>,
         calendar_id: Option<&str>,
         stub: Option<crate::core::dates::schedule::PyStubKind>,
-        amortization: Option<crate::core::cashflow::primitives::PyAmortizationSpec>,
+        amortization: Option<crate::valuations::cashflow::specs::PyAmortizationSpec>,
         call_schedule: Option<Vec<(Bound<'_, PyAny>, f64)>>,
         put_schedule: Option<Vec<(Bound<'_, PyAny>, f64)>>,
         quoted_clean_price: Option<f64>,

@@ -5,7 +5,7 @@
 //! optional fields that could conflict.
 
 use crate::cashflow::builder::CashFlowSchedule;
-use crate::cashflow::primitives::AmortizationSpec;
+use crate::cashflow::builder::AmortizationSpec;
 use finstack_core::dates::{DayCount, Frequency};
 use finstack_core::types::CurveId;
 

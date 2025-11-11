@@ -4,7 +4,7 @@
 //! deriving schedule metadata. Downstream pricing/risk code consumes this shape.
 
 use crate::cashflow::aggregation::{pv_by_period, pv_by_period_credit_adjusted};
-use crate::cashflow::primitives::Notional;
+use crate::cashflow::builder::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;

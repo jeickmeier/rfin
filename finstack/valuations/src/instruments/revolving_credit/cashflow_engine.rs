@@ -23,7 +23,8 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 use crate::cashflow::builder::CashFlowSchedule;
-use crate::cashflow::primitives::{CFKind, CashFlow, Notional};
+use crate::cashflow::builder::Notional;
+use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 
 use super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCredit};
 

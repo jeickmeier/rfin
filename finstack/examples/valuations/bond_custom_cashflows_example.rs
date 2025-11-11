@@ -10,7 +10,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 
-use finstack_core::cashflow::primitives::AmortizationSpec;
+use finstack_valuations::cashflow::builder::AmortizationSpec;
 use finstack_valuations::cashflow::builder::{
     CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams,
 };

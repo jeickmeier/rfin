@@ -1,4 +1,4 @@
-use finstack_core::cashflow::primitives::{AmortizationSpec, CFKind, CashFlow, Notional};
+use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -35,44 +35,4 @@ fn floating_cf_defaults_reset_date() {
     assert_eq!(cf.reset_date, Some(reset));
 }
 
-#[test]
-fn notional_validate_linear_and_percent() {
-    let mut notional = Notional::par(1_000_000.0, Currency::USD);
-    notional.amort = AmortizationSpec::LinearTo {
-        final_notional: Money::new(500_000.0, Currency::USD),
-    };
-    assert!(notional.validate().is_ok());
-
-    notional.amort = AmortizationSpec::LinearTo {
-        final_notional: Money::new(1_500_000.0, Currency::USD),
-    };
-    assert!(notional.validate().is_err());
-
-    notional.amort = AmortizationSpec::PercentPerPeriod { pct: 0.05 };
-    assert!(notional.validate().is_ok());
-}
-
-#[test]
-fn notional_validate_step_and_custom_rules() {
-    let mut notional = Notional::par(1_000_000.0, Currency::USD);
-    notional.amort = AmortizationSpec::StepRemaining {
-        schedule: vec![
-            (date(15), Money::new(800_000.0, Currency::USD)),
-            (date(30), Money::new(600_000.0, Currency::USD)),
-        ],
-    };
-    assert!(notional.validate().is_ok());
-
-    notional.amort = AmortizationSpec::StepRemaining {
-        schedule: vec![
-            (date(30), Money::new(700_000.0, Currency::USD)),
-            (date(15), Money::new(800_000.0, Currency::USD)),
-        ],
-    };
-    assert!(notional.validate().is_err());
-
-    notional.amort = AmortizationSpec::CustomPrincipal {
-        items: vec![(date(10), Money::new(10_000.0, Currency::EUR))],
-    };
-    assert!(notional.validate().is_err());
-}
+// Note: Notional and AmortizationSpec tests moved to finstack/valuations/tests/cashflow/amortization_spec.rs

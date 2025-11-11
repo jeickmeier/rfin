@@ -7,8 +7,63 @@ from ...core.money import Money
 from ...core.dates.schedule import Frequency, StubKind
 from ...core.dates.daycount import DayCount
 from ...core.dates.calendar import BusinessDayConvention
-from ...core.cashflow.primitives import AmortizationSpec, CashFlow
+from ...core.cashflow.primitives import CashFlow
 from ...core.market_data import MarketContext
+
+class AmortizationSpec:
+    """Amortization specification for principal payments.
+
+    Use class methods to create specific types.
+    """
+
+    @classmethod
+    def none(cls) -> AmortizationSpec:
+        """No amortization: principal remains until redemption."""
+        ...
+
+    @classmethod
+    def linear_to(cls, final_notional: Money) -> AmortizationSpec:
+        """Linear amortization to final notional.
+        
+        Args:
+            final_notional: Final notional amount.
+        """
+        ...
+
+    @classmethod
+    def step_remaining(
+        cls,
+        schedule: List[Tuple[date | str, Money]],
+    ) -> AmortizationSpec:
+        """Step amortization with remaining notional.
+        
+        Args:
+            schedule: List of (date, remaining_notional) pairs.
+        """
+        ...
+
+    @classmethod
+    def percent_per_period(cls, pct: float) -> AmortizationSpec:
+        """Percentage amortization per period.
+        
+        Args:
+            pct: Percentage per period (e.g., 0.05 = 5%).
+        """
+        ...
+
+    @classmethod
+    def custom_principal(
+        cls,
+        items: List[Tuple[date | str, Money]],
+    ) -> AmortizationSpec:
+        """Custom principal amortization.
+        
+        Args:
+            items: List of (date, principal_amount) pairs.
+        """
+        ...
+
+    def __repr__(self) -> str: ...
 
 class CouponType:
     """Coupon split type (cash, PIK, split) mirroring valuations builder."""

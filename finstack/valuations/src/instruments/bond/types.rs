@@ -9,7 +9,7 @@ use crate::instruments::PricingOverrides;
 use finstack_core::types::{CurveId, InstrumentId};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
-pub use crate::cashflow::primitives::AmortizationSpec;
+pub use crate::cashflow::builder::AmortizationSpec;
 
 /// Fixed-rate bond instrument with optional features.
 ///

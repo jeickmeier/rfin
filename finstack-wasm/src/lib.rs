@@ -9,7 +9,7 @@ mod statements;
 mod valuations;
 
 pub use core::cashflow::{
-    JsAmortizationSpec as AmortizationSpec, JsCFKind as CFKind, JsCashFlow as CashFlow,
+    JsCFKind as CFKind, JsCashFlow as CashFlow,
 };
 pub use core::config::{JsFinstackConfig as FinstackConfig, JsRoundingMode as RoundingMode};
 pub use core::currency::JsCurrency as Currency;
@@ -73,8 +73,8 @@ pub use valuations::calibration::validation::{
     validate_market_context as validateMarketContext, validate_vol_surface as validateVolSurface,
 };
 pub use valuations::cashflow::{
-    CashFlowSchedule, CashflowBuilder, CouponType, FixedCouponSpec, FloatCouponParams,
-    FloatingCouponSpec, ScheduleParams,
+    JsAmortizationSpec as AmortizationSpec, CashFlowSchedule, CashflowBuilder, CouponType,
+    FixedCouponSpec, FloatCouponParams, FloatingCouponSpec, ScheduleParams,
 };
 pub use valuations::metrics::{JsMetricId as MetricId, JsMetricRegistry as MetricRegistry};
 // Instruments and their helper types

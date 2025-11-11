@@ -5,7 +5,7 @@ specifications, and analytics (XIRR) for building payment schedules.
 """
 
 from datetime import date
-from .primitives import CashFlow, CFKind, AmortizationSpec
+from .primitives import CashFlow, CFKind
 
 def xirr(cash_flows: list[tuple[date, float]], guess: float | None = None) -> float:
     """Calculate XIRR (Extended Internal Rate of Return) for irregular cash flows.
@@ -53,6 +53,5 @@ def xirr(cash_flows: list[tuple[date, float]], guess: float | None = None) -> fl
 __all__ = [
     "CashFlow",
     "CFKind",
-    "AmortizationSpec",
     "xirr",
 ]

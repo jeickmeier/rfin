@@ -447,7 +447,8 @@ impl CashFlowSchedule {
 mod tests {
     use super::*;
     use crate::cashflow::builder::schedule::{CashFlowSchedule, CashflowMeta};
-    use crate::cashflow::primitives::{CashFlow, Notional};
+    use crate::cashflow::builder::Notional;
+    use finstack_core::cashflow::primitives::CashFlow;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Period, PeriodId};
     use finstack_core::market_data::context::MarketContext;

@@ -1,4 +1,5 @@
 pub mod builder;
+pub mod specs;
 
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -17,6 +18,9 @@ pub(crate) fn register<'py>(
 
     let builder_exports = builder::register(py, &module)?;
     exports.extend(builder_exports.iter().copied());
+
+    let specs_exports = specs::register(py, &module)?;
+    exports.extend(specs_exports.iter().copied());
 
     exports.sort_unstable();
     exports.dedup();

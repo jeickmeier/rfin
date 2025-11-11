@@ -7,7 +7,7 @@
 //! - Step-up coupon programs
 //! - Payment split programs (cash-to-PIK transitions)
 
-use crate::core::cashflow::primitives::JsAmortizationSpec;
+use super::JsAmortizationSpec;
 use crate::core::cashflow::primitives::JsCashFlow;
 use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
