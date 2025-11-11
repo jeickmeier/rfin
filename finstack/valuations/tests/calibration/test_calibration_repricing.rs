@@ -14,7 +14,7 @@ use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::deposit::Deposit;
 use finstack_valuations::instruments::fra::ForwardRateAgreement;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
-use finstack_valuations::metrics::{MetricCalculator, MetricId};
+use finstack_valuations::metrics::MetricCalculator;
 use time::Month;
 
 const NOTIONAL: f64 = 1_000_000.0; // $1M notional
@@ -32,15 +32,9 @@ fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date
         base_pv,
     );
 
-    // Calculate annuity first (dependency of DV01)
-    use finstack_valuations::instruments::irs::metrics::annuity::AnnuityCalculator;
-    let annuity_calc = AnnuityCalculator;
-    let annuity = annuity_calc.calculate(&mut metric_ctx).unwrap();
-    metric_ctx.computed.insert(MetricId::Annuity, annuity);
-
-    // Now calculate DV01
-    use finstack_valuations::instruments::irs::metrics::dv01::Dv01Calculator;
-    let dv01_calc = Dv01Calculator;
+    // Calculate DV01 using generic parallel DV01 calculator
+    use finstack_valuations::metrics::GenericParallelDv01;
+    let dv01_calc = GenericParallelDv01::<finstack_valuations::instruments::irs::InterestRateSwap>::default();
     dv01_calc.calculate(&mut metric_ctx).unwrap()
 }
 

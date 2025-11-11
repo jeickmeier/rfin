@@ -5,11 +5,9 @@
 //! into the shared `MetricRegistry`.
 
 mod delta;
-mod dv01;
 mod gamma;
 mod implied_vol;
 mod rho;
-// risk_bucketed_dv01 and theta now using generic implementations
 mod vega;
 
 pub use delta::DeltaCalculator;
@@ -29,7 +27,9 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
             (Delta, DeltaCalculator),
             (Gamma, GammaCalculator),
             (Vega, VegaCalculator),
-            (Dv01, dv01::SwaptionDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::Swaption,
+            >::default()),
             // Theta is now registered universally in metrics::standard_registry()
             (Rho, RhoCalculator),
             (ImpliedVol, ImpliedVolCalculator),

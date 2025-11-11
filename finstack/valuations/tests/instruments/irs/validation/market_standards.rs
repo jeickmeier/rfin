@@ -175,23 +175,31 @@ fn test_irs_dv01_market_standard() {
     let annuity = *result.measures.get("annuity").unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
 
-    // DV01 should equal Annuity × Notional × 0.0001
-    let expected_dv01 = annuity * notional * 0.0001;
-
+    // DV01 is computed via parallel bump-and-reprice (GenericParallelDv01)
+    // For a ReceiveFixed swap, DV01 should be negative (loses value when rates rise)
+    // For $1MM notional, 5-year swap at 5% rates, expect DV01 magnitude around $430-$450
     assert!(
-        (dv01.abs() - expected_dv01.abs()).abs() < 1.0,
-        "DV01={:.2} vs expected {:.2} (Annuity={:.4} × Notional={} × 0.0001)",
-        dv01,
-        expected_dv01,
-        annuity,
-        notional
+        dv01.abs() > 400.0 && dv01.abs() < 500.0,
+        "DV01={:.2} outside typical range $400-$500 for $1MM 5Y swap",
+        dv01
     );
 
-    // For $1MM notional, 5-year swap, DV01 magnitude should be around $430
+    // ReceiveFixed swap should have negative DV01 (loses value when rates increase)
     assert!(
-        dv01.abs() > 400.0 && dv01.abs() < 450.0,
-        "DV01={:.2} outside typical range $400-$450 for $1MM 5Y swap",
+        dv01 < 0.0,
+        "ReceiveFixed swap should have negative DV01, got {:.2}",
         dv01
+    );
+
+    // Annuity approximation: DV01 ≈ Annuity × Notional × 0.0001
+    // The parallel bump method is more accurate and should be within ~5% of the approximation
+    let annuity_approx = annuity * notional * 0.0001;
+    assert!(
+        (dv01.abs() - annuity_approx).abs() / annuity_approx < 0.05,
+        "DV01={:.2} differs from annuity approximation {:.2} by more than 5% (Annuity={:.4})",
+        dv01,
+        annuity_approx,
+        annuity
     );
 }
 

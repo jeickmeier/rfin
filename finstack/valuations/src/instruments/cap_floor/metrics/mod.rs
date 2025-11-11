@@ -14,12 +14,11 @@
 
 mod common;
 mod delta;
-mod dv01;
 mod forward_pv01;
 mod gamma;
 mod implied_vol;
 mod rho;
-// risk_bucketed_dv01 - now using generic implementation
+// risk_bucketed_dv01 and dv01 - now using generic implementation
 mod theta;
 mod vega;
 
@@ -34,7 +33,9 @@ pub fn register_interest_rate_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
-            (Dv01, dv01::CapFloorDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::cap_floor::InterestRateOption,
+            >::default()),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),

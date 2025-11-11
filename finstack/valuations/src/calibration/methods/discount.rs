@@ -1226,7 +1226,7 @@ mod tests {
     #[test]
     fn test_swap_repricing_under_bootstrap() {
         use crate::instruments::irs::{InterestRateSwap, PayReceive};
-        use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+        use crate::metrics::{MetricCalculator, MetricContext};
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
@@ -1326,15 +1326,9 @@ mod tests {
             pv,
         );
 
-        // Calculate annuity first (dependency of DV01)
-        use crate::instruments::irs::metrics::annuity::AnnuityCalculator;
-        let annuity_calc = AnnuityCalculator;
-        let annuity = annuity_calc.calculate(&mut metric_ctx).unwrap();
-        metric_ctx.computed.insert(MetricId::Annuity, annuity);
-
-        // Calculate DV01
-        use crate::instruments::irs::metrics::dv01::Dv01Calculator;
-        let dv01_calc = Dv01Calculator;
+        // Calculate DV01 using generic parallel DV01 calculator
+        use crate::metrics::GenericParallelDv01;
+        let dv01_calc = GenericParallelDv01::<crate::instruments::InterestRateSwap>::default();
         let dv01 = dv01_calc.calculate(&mut metric_ctx).unwrap();
 
         // Tolerance: 0.1bp * |DV01|, minimum $1
