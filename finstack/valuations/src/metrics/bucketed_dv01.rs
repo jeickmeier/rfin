@@ -362,9 +362,9 @@ where
             // Check if the curve exists before trying to bump it
             // Discount curves we know exist (required by HasDiscountCurve)
             // Forward curves might not exist in all market setups
-            if curve_id == &discount_curve_id {
-                bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(1.0));
-            } else if base_ctx.get_forward_ref(curve_id.as_str()).is_ok() {
+            if curve_id == &discount_curve_id
+                || base_ctx.get_forward_ref(curve_id.as_str()).is_ok()
+            {
                 bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(1.0));
             }
             // Silently skip curves that don't exist in market context

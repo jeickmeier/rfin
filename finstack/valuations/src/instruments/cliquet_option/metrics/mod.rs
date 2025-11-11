@@ -4,8 +4,6 @@
 //! Delta and Gamma use generic FD calculators.
 
 #[cfg(feature = "mc")]
-mod dv01;
-#[cfg(feature = "mc")]
 mod rho;
 #[cfg(feature = "mc")]
 mod vanna;
@@ -46,7 +44,9 @@ pub fn register_cliquet_option_metrics(registry: &mut MetricRegistry) {
             metrics: [
                 (Vega, vega::VegaCalculator::default()),
                 (Rho, rho::RhoCalculator),
-                (Dv01, dv01::Dv01Calculator),
+                (Dv01, crate::metrics::GenericParallelDv01::<
+                    crate::instruments::CliquetOption,
+                >::default()),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator::default()),
                 (Theta, crate::metrics::GenericTheta::<

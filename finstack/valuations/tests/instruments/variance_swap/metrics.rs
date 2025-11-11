@@ -366,7 +366,7 @@ fn test_vega_decreases_as_maturity_approaches() {
 // ============================================================================
 
 #[test]
-fn test_dv01_matches_pv_times_duration_approximation() {
+fn test_dv01_matches_bump_and_reprice() {
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
     let as_of = date(2025, 1, 10);
@@ -378,15 +378,20 @@ fn test_dv01_matches_pv_times_duration_approximation() {
         .unwrap();
     let dv01 = *result.measures.get(MetricId::Dv01.as_str()).unwrap();
 
-    // Assert
-    let pv = swap.value(&ctx, as_of).unwrap().amount();
-    let t = swap
-        .day_count
-        .year_fraction(as_of, swap.maturity, Default::default())
-        .unwrap();
-    let approx = -pv * t * 1e-4;
-
-    assert!((dv01 - approx).abs() < LOOSE_EPSILON);
+    // Assert - use bump-and-reprice validation
+    // Bump the discount curve by 1bp and verify DV01 matches the PV change
+    use finstack_core::market_data::context::BumpSpec;
+    use hashbrown::HashMap;
+    
+    let base_pv = swap.value(&ctx, as_of).unwrap().amount();
+    let mut bumps = HashMap::new();
+    bumps.insert(swap.discount_curve_id.clone(), BumpSpec::parallel_bp(1.0));
+    let bumped_ctx = ctx.bump(bumps).unwrap();
+    let bumped_pv = swap.value(&bumped_ctx, as_of).unwrap().amount();
+    let expected_dv01 = bumped_pv - base_pv;
+    
+    // DV01 should match the actual PV change from a 1bp bump
+    assert!((dv01 - expected_dv01).abs() < LOOSE_EPSILON);
 }
 
 #[test]

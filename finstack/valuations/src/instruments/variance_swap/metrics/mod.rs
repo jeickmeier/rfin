@@ -3,7 +3,6 @@
 //! Split into focused calculators similar to other instruments. This `mod.rs`
 //! re-exports the calculators and provides a registry hookup.
 
-pub mod dv01;
 pub mod expected_variance;
 pub mod notional;
 pub mod realized_variance;
@@ -12,7 +11,6 @@ pub mod time_to_maturity;
 pub mod variance_vega;
 pub mod vega;
 
-pub use dv01::Dv01Calculator;
 pub use expected_variance::ExpectedVarianceCalculator;
 pub use notional::VarianceNotionalCalculator;
 pub use realized_variance::RealizedVarianceCalculator;
@@ -30,7 +28,9 @@ pub fn register_variance_swap_metrics(registry: &mut MetricRegistry) {
         instrument: "VarianceSwap",
         metrics: [
             (Vega, VegaCalculator),
-            (Dv01, Dv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::VarianceSwap,
+            >::default()),
             (VarianceVega, VarianceVegaCalculator),
             (ExpectedVariance, ExpectedVarianceCalculator),
             (RealizedVariance, RealizedVarianceCalculator),

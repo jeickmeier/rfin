@@ -6,7 +6,6 @@
 
 mod convexity_adjustment_risk;
 mod delta;
-mod dv01;
 mod rho;
 mod vanna;
 mod vega;
@@ -24,7 +23,9 @@ pub fn register_cms_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Vega, vega::VegaCalculator),
             (Rho, rho::RhoCalculator),
-            (Dv01, dv01::Dv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::CmsOption,
+            >::default()),
             (Vanna, vanna::VannaCalculator),
             (Volga, volga::VolgaCalculator),
             (Theta, crate::metrics::GenericTheta::<
