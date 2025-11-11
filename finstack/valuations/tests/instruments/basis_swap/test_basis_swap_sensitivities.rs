@@ -63,8 +63,8 @@ fn market() -> MarketContext {
 }
 
 #[test]
-fn dv01_net_equals_difference() {
-    // Test that net DV01 = DV01_primary - DV01_reference
+fn dv01_per_curve_breakdown() {
+    // Test that DV01 provides per-curve breakdown via bucketed series
     let ctx = market();
     let as_of = d(2025, 1, 2);
     let _sched = ScheduleParams::quarterly_act360();
@@ -92,28 +92,29 @@ fn dv01_net_equals_difference() {
     );
 
     let res = swap
-        .price_with_metrics(
-            &ctx,
-            as_of,
-            &[
-                MetricId::Dv01,
-                MetricId::Dv01Primary,
-                MetricId::Dv01Reference,
-            ],
-        )
+        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
         .unwrap();
 
-    let dv01_net = res.measures[MetricId::Dv01.as_str()];
-    let dv01_primary = res.measures[MetricId::Dv01Primary.as_str()];
-    let dv01_reference = res.measures[MetricId::Dv01Reference.as_str()];
-
-    let computed_net = dv01_primary - dv01_reference;
+    let dv01_total = res.measures[MetricId::Dv01.as_str()];
+    
+    // Extract per-curve DV01s from measures using composite keys (note: sanitized with underscores)
+    let dv01_discount = res.measures.get("bucketed_dv01::usd_ois").copied().unwrap_or(0.0);
+    let dv01_primary_fwd = res.measures.get("bucketed_dv01::usd_sofr_3m").copied().unwrap_or(0.0);
+    let dv01_reference_fwd = res.measures.get("bucketed_dv01::usd_sofr_1m").copied().unwrap_or(0.0);
+    
+    // Total DV01 should equal sum of curve sensitivities
+    let computed_total = dv01_discount + dv01_primary_fwd + dv01_reference_fwd;
     assert!(
-        (dv01_net - computed_net).abs() < 1e-6,
-        "Net DV01 should equal primary - reference: {} vs {}",
-        dv01_net,
-        computed_net
+        (dv01_total - computed_total).abs() < 1e-6,
+        "Total DV01 should equal sum of curve sensitivities: {} vs {}",
+        dv01_total,
+        computed_total
     );
+    
+    // All components should be finite
+    assert!(dv01_discount.is_finite());
+    assert!(dv01_primary_fwd.is_finite());
+    assert!(dv01_reference_fwd.is_finite());
 }
 
 #[test]
@@ -150,9 +151,11 @@ fn dv01_scales_with_notional() {
         );
 
         let res = swap
-            .price_with_metrics(&ctx, as_of, &[MetricId::Dv01Primary])
+            .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
             .unwrap();
-        let dv01 = res.measures[MetricId::Dv01Primary.as_str()];
+        
+        // Extract primary forward curve DV01 from measures using composite key
+        let dv01 = res.measures.get("bucketed_dv01::usd_sofr_3m").copied().unwrap_or(0.0);
         dv01s.push(dv01);
     }
 
@@ -202,21 +205,18 @@ fn dv01_sign_convention() {
     );
 
     let res = swap
-        .price_with_metrics(
-            &ctx,
-            as_of,
-            &[MetricId::Dv01Primary, MetricId::Dv01Reference],
-        )
+        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
         .unwrap();
 
-    let dv01_primary = res.measures[MetricId::Dv01Primary.as_str()];
-    let dv01_reference = res.measures[MetricId::Dv01Reference.as_str()];
+    // Extract per-curve DV01s from measures using composite keys
+    let dv01_primary = res.measures.get("bucketed_dv01::usd_sofr_3m").copied().unwrap_or(0.0);
+    let dv01_reference = res.measures.get("bucketed_dv01::usd_sofr_1m").copied().unwrap_or(0.0);
 
-    // Both legs receive floating, so both should have positive DV01
-    assert!(dv01_primary > 0.0, "Primary leg DV01 should be positive");
+    // Basis swap receives primary leg (positive DV01) and pays reference leg (negative DV01)
+    assert!(dv01_primary > 0.0, "Primary forward DV01 should be positive (receive floating)");
     assert!(
-        dv01_reference > 0.0,
-        "Reference leg DV01 should be positive"
+        dv01_reference < 0.0,
+        "Reference forward DV01 should be negative (pay floating)"
     );
 }
 
@@ -251,11 +251,11 @@ fn dv01_vs_numerical_bump() {
         CurveId::new("USD-OIS"),
     );
 
-    // Calculate DV01 using metric (use primary leg to avoid zero net DV01)
+    // Calculate DV01 using metric (use primary forward curve sensitivity)
     let res_base = swap
-        .price_with_metrics(&ctx_base, as_of, &[MetricId::Dv01Primary])
+        .price_with_metrics(&ctx_base, as_of, &[MetricId::Dv01])
         .unwrap();
-    let dv01_metric = res_base.measures[MetricId::Dv01Primary.as_str()];
+    let dv01_metric = res_base.measures.get("bucketed_dv01::usd_sofr_3m").copied().unwrap_or(0.0);
 
     // For basis swap with symmetric legs, DV01 measures forward rate sensitivity
     // The numerical bump changes both discount and forward curves, so comparison
@@ -396,26 +396,28 @@ fn dv01_leg_components_reasonable() {
             &ctx,
             as_of,
             &[
-                MetricId::Dv01Primary,
-                MetricId::Dv01Reference,
+                MetricId::Dv01,
                 MetricId::AnnuityPrimary,
                 MetricId::AnnuityReference,
             ],
         )
         .unwrap();
 
-    let dv01_primary = res.measures[MetricId::Dv01Primary.as_str()];
-    let dv01_reference = res.measures[MetricId::Dv01Reference.as_str()];
+    // Extract per-curve DV01s from measures using composite keys
+    let dv01_primary = res.measures.get("bucketed_dv01::usd_sofr_3m").copied().unwrap_or(0.0);
+    let dv01_reference = res.measures.get("bucketed_dv01::usd_sofr_1m").copied().unwrap_or(0.0);
 
     // DV01 is now FD-based; check sign, finiteness, and scaling with notional
-    assert!(dv01_primary > 0.0, "Primary DV01 should be positive");
-    assert!(dv01_reference > 0.0, "Reference DV01 should be positive");
+    // Basis swap receives primary leg (positive DV01) and pays reference leg (negative DV01)
+    assert!(dv01_primary > 0.0, "Primary forward DV01 should be positive (receive floating)");
+    assert!(dv01_reference < 0.0, "Reference forward DV01 should be negative (pay floating)");
     assert!(dv01_primary.is_finite(), "Primary DV01 should be finite");
     assert!(dv01_reference.is_finite(), "Reference DV01 should be finite");
     
     // DV01s should be reasonable relative to notional (order of magnitude check)
+    // Use absolute value for reference since it's negative
     let dv01_ratio_primary = dv01_primary / notional;
-    let dv01_ratio_reference = dv01_reference / notional;
+    let dv01_ratio_reference = dv01_reference.abs() / notional;
     assert!(
         dv01_ratio_primary > 1e-6 && dv01_ratio_primary < 0.01,
         "Primary DV01 ratio to notional should be reasonable: {}",

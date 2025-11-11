@@ -10,13 +10,12 @@
 //! - DV01 (domestic) and DV01 (foreign)
 
 mod carry_pv;
-mod dv01;
 mod forward_points;
 mod fx01;
 mod fx_delta;
 mod ir01_domestic;
 mod ir01_foreign;
-// risk_bucketed_dv01 and theta now using generic implementations
+// dv01, risk_bucketed_dv01 and theta now using generic implementations
 
 use crate::metrics::MetricRegistry;
 

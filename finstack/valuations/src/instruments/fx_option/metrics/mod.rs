@@ -5,14 +5,13 @@
 //! helpers to ensure consistency between PV and greeks.
 
 mod delta;
-mod dv01;
 mod gamma;
 mod implied_vol;
 mod rho;
-mod risk_bucketed_dv01;
 mod vanna;
 mod vega;
 mod volga;
+// dv01 and bucketed_dv01 now using generic implementations
 
 use crate::metrics::MetricRegistry;
 
@@ -46,7 +45,9 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
             >::default()),
             // Theta is now registered universally in metrics::standard_registry()
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
-            (BucketedDv01, risk_bucketed_dv01::BucketedDv01Calculator),
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                crate::instruments::FxOption,
+            >::default()),
             (Vanna, vanna::VannaCalculator),
             (Volga, volga::VolgaCalculator),
         ]

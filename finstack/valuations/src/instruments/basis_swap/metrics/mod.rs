@@ -4,20 +4,14 @@
 //! DV01s, and par spread calculations for basis swap instruments.
 
 pub mod annuity;
-pub mod dv01;
-pub mod net_dv01;
 pub mod par_spread;
 pub mod pv;
-// risk_bucketed_dv01 and theta now using generic implementations
 
 pub use annuity::AnnuityCalculator;
-pub use dv01::Dv01Calculator;
-pub use net_dv01::NetDv01Calculator;
 pub use par_spread::ParSpreadCalculator;
 pub use pv::PvCalculator;
-// BucketedDv01Calculator now using generic implementation
 
-use crate::metrics::{MetricId, MetricRegistry};
+use crate::metrics::{MetricId, MetricRegistry, ParallelDv01Mode};
 use std::sync::Arc;
 
 /// Registers all basis swap metrics in the standard metric registry.
@@ -28,7 +22,7 @@ use std::sync::Arc;
 /// # Arguments
 /// * `registry` — The metric registry to register the calculators with
 pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
-    // Leg-specific metrics with primary/reference constructors (consistent with IRS)
+    // Leg-specific metrics with primary/reference constructors
     registry
         .register_metric(
             MetricId::AnnuityPrimary,
@@ -38,16 +32,6 @@ pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::AnnuityReference,
             Arc::new(AnnuityCalculator::reference()),
-            &["BasisSwap"],
-        )
-        .register_metric(
-            MetricId::Dv01Primary,
-            Arc::new(Dv01Calculator::primary()),
-            &["BasisSwap"],
-        )
-        .register_metric(
-            MetricId::Dv01Reference,
-            Arc::new(Dv01Calculator::reference()),
             &["BasisSwap"],
         )
         .register_metric(
@@ -61,12 +45,14 @@ pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
             &["BasisSwap"],
         );
 
-    // Net metrics using macro
+    // DV01 using GenericParallelDv01 in PerCurve mode
+    // This bumps each curve individually (discount, primary forward, reference forward)
+    // and stores the results in a bucketed series under BucketedDv01
     crate::register_metrics! {
         registry: registry,
         instrument: "BasisSwap",
         metrics: [
-            (Dv01, NetDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<crate::instruments::BasisSwap>::with_mode(ParallelDv01Mode::PerCurve)),
             (BasisParSpread, ParSpreadCalculator),
             // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<

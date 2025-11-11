@@ -41,7 +41,8 @@ fn test_full_metrics_suite() {
         .unwrap();
 
     // Verify all metrics computed successfully
-    assert_eq!(result.measures.len(), 8, "Should calculate all 8 metrics");
+    // Note: Result may contain more than 8 entries due to bucketed series composite keys
+    assert!(result.measures.len() >= 8, "Should calculate at least the 8 requested metrics (found {})", result.measures.len());
 
     // Sanity checks on values
     let fwd_pts = *result.measures.get("forward_points").unwrap();
