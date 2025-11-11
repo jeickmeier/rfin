@@ -506,34 +506,44 @@ impl PyCashFlowSchedule {
     ) -> PyResult<pyo3_polars::PyDataFrame> {
         use polars::prelude::*;
 
-        // Determine if we need market pricing
-        let frame = if let Some(mkt) = market {
-            // Validate discount_curve_id is provided
-            let curve_id = discount_curve_id.ok_or_else(|| {
-                pyo3::exceptions::PyValueError::new_err(
-                    "discount_curve_id required when market is provided"
-                )
-            })?;
-            
-            // Parse as_of if provided
-            let as_of_date = as_of.map(|d| py_to_date(&d)).transpose()?;
-            
-            // Call with_market variant
-            self.inner
-                .to_flow_frame_with_market(&mkt.inner, curve_id, as_of_date)
-                .map_err(core_to_py)?
-        } else {
-            // Use basic variant (no DF/PV)
-            self.inner.to_flow_frame()
+        // Market context is required for DataFrame export
+        let mkt = market.ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err(
+                "market context required for DataFrame export"
+            )
+        })?;
+        
+        let curve_id = discount_curve_id.ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err(
+                "discount_curve_id required when market is provided"
+            )
+        })?;
+        
+        // Parse as_of if provided
+        let as_of_date = as_of.map(|d| py_to_date(&d)).transpose()?;
+        
+        let options = val_builder::PeriodDataFrameOptions {
+            hazard_curve_id: None,
+            forward_curve_id: None,
+            as_of: as_of_date,
+            day_count: None,
+            discount_day_count: None,
+            facility_limit: None,
+            include_floating_decomposition: false,
         };
+        
+        let frame = self.inner
+            .to_dataframe(&mkt.inner, curve_id, options)
+            .map_err(core_to_py)?;
 
         // Convert dates to strings for Polars
         let start_dates: Vec<String> = frame.start_dates.iter().map(|d| d.to_string()).collect();
         let end_dates: Vec<String> = frame.end_dates.iter().map(|d| d.to_string()).collect();
+        let pay_dates: Vec<String> = frame.pay_dates.iter().map(|d| d.to_string()).collect();
 
         // Convert kinds to string labels
         let kinds: Vec<String> = frame
-            .kinds
+            .cf_types
             .iter()
             .map(|k| crate::core::cashflow::primitives::PyCFKind::new(*k).name().to_string())
             .collect();
@@ -545,34 +555,37 @@ impl PyCashFlowSchedule {
             .map(|opt_d| opt_d.map(|d| d.to_string()))
             .collect();
 
+        // Convert notionals from Option<f64> to f64 (None -> NaN)
+        let notionals_f64: Vec<f64> = frame
+            .notionals
+            .iter()
+            .map(|opt| opt.unwrap_or(f64::NAN))
+            .collect();
+
         // Build base DataFrame with core columns
         let mut df = df![
             "start_date" => start_dates,
             "end_date" => end_dates,
+            "pay_date" => pay_dates,
+            "reset_date" => reset_dates,
             "kind" => kinds,
             "amount" => frame.amounts,
             "accrual_factor" => frame.accrual_factors,
-            "reset_date" => reset_dates,
-            "outstanding" => frame.outstanding,
-            "rate" => frame.rates
+            "rate" => frame.rates,
+            "notional" => notionals_f64,
+            "yr_fraq" => frame.yr_fraqs,
+            "discount_factor" => frame.discount_factors,
+            "pv" => frame.pvs,
         ]
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         // Add optional columns
-        if let Some(undrawn) = frame.outstanding_undrawn {
-            let col = Series::new("outstanding_undrawn".into(), undrawn);
-            df.with_column(col)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        }
-
-        if let Some(dfs) = frame.discount_factors {
-            let col = Series::new("discount_factor".into(), dfs);
-            df.with_column(col)
-                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
-        }
-
-        if let Some(pvs) = frame.pvs {
-            let col = Series::new("pv".into(), pvs);
+        if let Some(undrawn) = frame.undrawn_notionals {
+            let undrawn_f64: Vec<f64> = undrawn
+                .iter()
+                .map(|opt| opt.unwrap_or(f64::NAN))
+                .collect();
+            let col = Series::new("undrawn_notional".into(), undrawn_f64);
             df.with_column(col)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
         }

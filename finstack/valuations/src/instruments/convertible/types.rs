@@ -7,7 +7,7 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
+use crate::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::bond::CallPutSchedule;
 use crate::instruments::common::traits::Attributes;
 

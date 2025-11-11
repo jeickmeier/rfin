@@ -1,4 +1,4 @@
-//! Cashflow Builder: compilation of high‑level program/state into concrete schedules.
+//! Cashflow schedule compiler: transforms high-level programs into concrete schedules.
 //!
 //! This module takes the cashflow builder inputs (fixed/floating coupon specs,
 //! optional coupon/payment programs, fees, and notional behavior) and produces
@@ -26,7 +26,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
 
-use super::types::{
+use super::specs::{
     CouponType, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec, ScheduleParams,
 };
 
@@ -127,7 +127,7 @@ pub(super) fn build_fee_schedules(
                 stub,
             } => {
                 let sched = if calendar_id.is_some() {
-                    match crate::cashflow::builder::schedule_utils::build_dates_checked(
+                    match crate::cashflow::builder::date_generation::build_dates_checked(
                         issue,
                         maturity,
                         *freq,
@@ -136,7 +136,7 @@ pub(super) fn build_fee_schedules(
                         calendar_id.as_deref(),
                     ) {
                         Ok(s) => s,
-                        Err(_) => crate::cashflow::builder::build_dates(
+                        Err(_) => crate::cashflow::builder::date_generation::build_dates(
                             issue,
                             maturity,
                             *freq,
@@ -146,7 +146,7 @@ pub(super) fn build_fee_schedules(
                         ),
                     }
                 } else {
-                    crate::cashflow::builder::build_dates(
+                    crate::cashflow::builder::date_generation::build_dates(
                         issue,
                         maturity,
                         *freq,
@@ -275,7 +275,7 @@ pub(super) fn collect_dates(
 }
 
 pub(super) fn compute_coupon_schedules(
-    builder: &crate::cashflow::builder::state::CashflowBuilder,
+    builder: &crate::cashflow::builder::builder::CashflowBuilder,
     issue: Date,
     maturity: Date,
 ) -> finstack_core::Result<CompiledSchedules> {
@@ -412,7 +412,7 @@ pub(super) fn compute_coupon_schedules(
         let split = chosen.map(|(_, sp)| sp).unwrap_or(CouponType::Cash);
 
         let sched = if chosen_coupon.schedule.calendar_id.is_some() {
-            match crate::cashflow::builder::schedule_utils::build_dates_checked(
+            match crate::cashflow::builder::date_generation::build_dates_checked(
                 s,
                 e,
                 chosen_coupon.schedule.freq,
@@ -421,7 +421,7 @@ pub(super) fn compute_coupon_schedules(
                 chosen_coupon.schedule.calendar_id.as_deref(),
             ) {
                 Ok(s) => s,
-                Err(_) => crate::cashflow::builder::build_dates(
+                Err(_) => crate::cashflow::builder::date_generation::build_dates(
                     s,
                     e,
                     chosen_coupon.schedule.freq,
@@ -431,7 +431,7 @@ pub(super) fn compute_coupon_schedules(
                 ),
             }
         } else {
-            crate::cashflow::builder::build_dates(
+            crate::cashflow::builder::date_generation::build_dates(
                 s,
                 e,
                 chosen_coupon.schedule.freq,

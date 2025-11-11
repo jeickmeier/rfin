@@ -1,6 +1,6 @@
 //! Core types and common engine for Total Return Swaps.
 
-use crate::cashflow::builder::schedule_utils::build_dates;
+use crate::cashflow::builder::date_generation::build_dates;
 use crate::cashflow::builder::ScheduleParams;
 use finstack_core::dates::Date;
 
@@ -77,7 +77,7 @@ impl TrsScheduleSpec {
     }
 
     /// Builds the period date schedule in a canonical way.
-    pub fn period_schedule(&self) -> crate::cashflow::builder::schedule_utils::PeriodSchedule {
+    pub fn period_schedule(&self) -> crate::cashflow::builder::date_generation::PeriodSchedule {
         build_dates(
             self.start,
             self.end,

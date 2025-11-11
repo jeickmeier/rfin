@@ -8,6 +8,7 @@ use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
+use crate::cashflow::builder::{evaluate_fee_tiers, FeeTier};
 use crate::instruments::common::traits::Attributes;
 
 /// Revolving credit facility instrument.
@@ -101,19 +102,6 @@ pub enum BaseRateSpec {
     },
 }
 
-/// Fee tier for utilization-based fee structures.
-///
-/// Tiers are evaluated in order: the first tier where utilization >= threshold applies.
-/// Tiers should be sorted by threshold (ascending).
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct FeeTier {
-    /// Utilization threshold (0.0 to 1.0). Fee applies when utilization >= this threshold.
-    pub threshold: f64,
-    /// Fee rate in basis points for this tier.
-    pub bps: f64,
-}
-
 /// Fee structure for a revolving credit facility.
 ///
 /// Contains the various fees charged on the facility:
@@ -179,27 +167,13 @@ impl RevolvingCreditFees {
         }
     }
 
-    /// Evaluate fee tiers to find the applicable rate for a given utilization.
-    ///
-    /// Returns the fee rate from the highest tier where utilization >= threshold.
-    /// Tiers should be sorted by threshold ascending.
-    /// If no tiers match or tiers are empty, returns 0.0.
-    fn fee_bps_for_tier(tiers: &[FeeTier], utilization: f64) -> f64 {
-        tiers
-            .iter()
-            .rev()
-            .find(|tier| utilization >= tier.threshold)
-            .map(|tier| tier.bps)
-            .unwrap_or(0.0)
-    }
-
     /// Get commitment fee bps for given utilization (evaluates tiers).
     ///
     /// Returns the fee rate from the highest tier where utilization >= threshold.
     /// Tiers should be sorted by threshold ascending.
     /// If no tiers match or tiers are empty, returns 0.0.
     pub fn commitment_fee_bps(&self, utilization: f64) -> f64 {
-        Self::fee_bps_for_tier(&self.commitment_fee_tiers, utilization)
+        evaluate_fee_tiers(&self.commitment_fee_tiers, utilization)
     }
 
     /// Get usage fee bps for given utilization (evaluates tiers).
@@ -208,7 +182,7 @@ impl RevolvingCreditFees {
     /// Tiers should be sorted by threshold ascending.
     /// If no tiers match or tiers are empty, returns 0.0.
     pub fn usage_fee_bps(&self, utilization: f64) -> f64 {
-        Self::fee_bps_for_tier(&self.usage_fee_tiers, utilization)
+        evaluate_fee_tiers(&self.usage_fee_tiers, utilization)
     }
 }
 

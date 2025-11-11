@@ -13,7 +13,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use time::Month;
 
-use finstack_valuations::cashflow::builder::types::{
+use finstack_valuations::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec,
 };
 use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};

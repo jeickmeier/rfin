@@ -38,7 +38,7 @@ fn term_loan_fixed_with_draws_and_fees() {
         .stub(finstack_core::dates::StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .amortization(term_loan::AmortizationSpec::None)
-        .coupon_type(finstack_valuations::cashflow::builder::types::CouponType::Cash)
+        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
         .upfront_fee_opt(Some(Money::new(25_000.0, Currency::USD)))
         .ddtl_opt(Some(DdtlSpec {
             commitment_limit: Money::new(10_000_000.0, Currency::USD),
@@ -117,7 +117,7 @@ fn term_loan_pik_toggle_and_cash_sweep() {
         .stub(finstack_core::dates::StubKind::None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .amortization(term_loan::AmortizationSpec::None)
-        .coupon_type(finstack_valuations::cashflow::builder::types::CouponType::Cash)
+        .coupon_type(finstack_valuations::cashflow::builder::specs::CouponType::Cash)
         .upfront_fee_opt(None)
         .ddtl_opt(None)
         .covenants_opt(Some(cov))

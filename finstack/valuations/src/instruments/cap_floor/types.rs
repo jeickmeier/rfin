@@ -206,7 +206,7 @@ impl InterestRateOption {
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::cashflow::builder::schedule_utils::build_dates;
+        use crate::cashflow::builder::date_generation::build_dates;
         use crate::instruments::cap_floor::pricing::black as black_ir;
 
         // Get market curves

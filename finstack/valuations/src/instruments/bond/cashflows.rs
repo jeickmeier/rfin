@@ -35,7 +35,7 @@ impl CashflowProvider for Bond {
 
         // Floating-rate path: compute coupons off forward index, and source amortization via builder
         if let Some(ref fl) = self.float {
-            use crate::cashflow::builder::schedule_utils::build_dates as build_periods;
+            use crate::cashflow::builder::date_generation::build_dates as build_periods;
 
             let fwd = _curves.get_forward_ref(&fl.forward_curve_id)?;
 

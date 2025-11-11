@@ -1,9 +1,16 @@
-//! Utilities for building schedules.
+//! Date and schedule generation utilities.
 //!
-//! `build_dates` creates a period schedule between start/end using a frequency
-//! and stub rule, with optional business-day adjustment by calendar.
-//! It returns `PeriodSchedule` with helper maps for previous date lookups and
-//! flags for first/last periods to aid stub classification.
+//! This module provides functions for generating payment date schedules based on
+//! frequency, stub rules, and business day conventions. It supports both strict
+//! and graceful error handling modes.
+//!
+//! ## Responsibilities
+//!
+//! - Generate period schedules with `build_dates` (graceful fallback)
+//! - Generate period schedules with `build_dates_checked` (strict validation)
+//! - Create `PeriodSchedule` with helper maps for previous date lookups
+//! - Build period definitions from payment dates for PV aggregation
+//! - Apply business day adjustments using calendars
 
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{BusinessDayConvention, Date, Frequency, ScheduleBuilder, StubKind};

@@ -28,7 +28,7 @@ impl MetricCalculator for ThetaCalculator {
             Some(option.start_date)
         } else {
             // Cap has already started, find next fixing date
-            use crate::cashflow::builder::schedule_utils::build_dates;
+            use crate::cashflow::builder::date_generation::build_dates;
             let schedule = build_dates(
                 option.start_date,
                 option.end_date,

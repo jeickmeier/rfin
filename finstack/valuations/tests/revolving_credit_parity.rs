@@ -11,9 +11,10 @@ mod tests {
     use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve, HazardCurve};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
+    use finstack_valuations::cashflow::builder::FeeTier;
     use finstack_valuations::instruments::revolving_credit::{
         types::{
-            BaseRateSpec, DrawRepaySpec, DrawRepayEvent, FeeTier, RevolvingCredit,
+            BaseRateSpec, DrawRepaySpec, DrawRepayEvent, RevolvingCredit,
             RevolvingCreditFees, StochasticUtilizationSpec, UtilizationProcess,
         },
         pricer::RevolvingCreditPricer,

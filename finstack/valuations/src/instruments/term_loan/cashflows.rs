@@ -170,11 +170,11 @@ pub fn generate_cashflows(
             .unwrap_or(false);
         let force_pik = force_pik_cov || force_pik_ov;
         match loan.coupon_type {
-            crate::cashflow::builder::types::CouponType::PIK => {
+            crate::cashflow::builder::specs::CouponType::PIK => {
                 pik_interest = interest_amt;
                 cash_interest = Money::new(0.0, loan.currency);
             }
-            crate::cashflow::builder::types::CouponType::Split { cash_pct, pik_pct } => {
+            crate::cashflow::builder::specs::CouponType::Split { cash_pct, pik_pct } => {
                 pik_interest = Money::new(interest_amt.amount() * pik_pct, loan.currency);
                 cash_interest = Money::new(interest_amt.amount() * cash_pct, loan.currency);
             }
@@ -202,27 +202,28 @@ pub fn generate_cashflows(
                     limit = sd.new_limit;
                 }
             }
-            let undrawn = Money::new(
-                (limit.amount() - outstanding.amount()).max(0.0),
-                loan.currency,
-            );
+            let undrawn = (limit.amount() - outstanding.amount()).max(0.0);
+            
+            // Emit commitment fee using centralized function
             if ddtl.commitment_fee_bp != 0 {
-                let cf_amt = Money::new(
-                    undrawn.amount() * (ddtl.commitment_fee_bp as f64) * 1e-4 * yf,
+                flows.extend(crate::cashflow::builder::emit_commitment_fee_on(
+                    d,
+                    undrawn,
+                    ddtl.commitment_fee_bp as f64,
+                    yf,
                     loan.currency,
-                );
-                if cf_amt.amount() != 0.0 {
-                    flows.push(CashFlow::fee(d, cf_amt)?);
-                }
+                ));
             }
+            
+            // Emit usage fee using centralized function
             if ddtl.usage_fee_bp != 0 {
-                let uf_amt = Money::new(
-                    outstanding.amount() * (ddtl.usage_fee_bp as f64) * 1e-4 * yf,
+                flows.extend(crate::cashflow::builder::emit_usage_fee_on(
+                    d,
+                    outstanding.amount(),
+                    ddtl.usage_fee_bp as f64,
+                    yf,
                     loan.currency,
-                );
-                if uf_amt.amount() != 0.0 {
-                    flows.push(CashFlow::fee(d, uf_amt)?);
-                }
+                ));
             }
         }
 

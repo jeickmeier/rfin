@@ -4,7 +4,7 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::cashflow::builder::{PyFixedCouponSpec, PyFloatingCouponSpec};
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
-use finstack_valuations::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
+use finstack_valuations::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};
 use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::convertible::{

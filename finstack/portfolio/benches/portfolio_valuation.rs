@@ -31,7 +31,7 @@ use finstack_core::money::Money;
 use finstack_core::prelude::FinstackConfig;
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::{value_portfolio, PortfolioBuilder, Position, PositionUnit};
-use finstack_valuations::cashflow::builder::types::{CouponType, FixedCouponSpec};
+use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::cds::{

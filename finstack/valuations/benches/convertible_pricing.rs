@@ -19,7 +19,7 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::types::{CouponType, FixedCouponSpec};
+use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::convertible::pricer::{

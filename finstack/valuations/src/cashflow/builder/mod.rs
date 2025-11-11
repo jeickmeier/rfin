@@ -34,23 +34,31 @@
 //! assert!(schedule.flows.len() > 0);
 //! ```
 
-mod compile;
-pub mod frame;
-pub mod schedule;
-pub mod schedule_utils;
-mod state;
+// Internal modules
+#[allow(clippy::module_inception)]
+mod builder;
+mod compiler;
+mod emission;
 #[cfg(test)]
 mod tests;
-pub mod types;
+
+// Public modules
+pub mod dataframe;
+pub mod date_generation;
+pub mod schedule;
+pub mod specs;
 
 // Export the builder as CashflowBuilder
-pub use state::CashflowBuilder;
+pub use builder::CashflowBuilder;
 
 // Re-export common types
-pub use frame::FlowFrame;
+pub use dataframe::{PeriodDataFrame, PeriodDataFrameOptions};
+pub use date_generation::{build_dates, PeriodSchedule};
 pub use schedule::{CashFlowSchedule, CashflowMeta};
-pub use schedule_utils::{build_dates, PeriodSchedule};
-pub use types::{
-    CouponType, FeeBase, FeeSpec, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
-    FloatingCouponSpec, ScheduleParams,
+pub use specs::{
+    evaluate_fee_tiers, CouponType, FeeBase, FeeTier, FeeSpec, FixedCouponSpec, FixedWindow,
+    FloatCouponParams, FloatWindow, FloatingCouponSpec, ScheduleParams,
 };
+
+// Re-export specialized fee emission functions
+pub use emission::{emit_commitment_fee_on, emit_facility_fee_on, emit_usage_fee_on};

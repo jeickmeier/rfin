@@ -16,7 +16,7 @@ use crate::core::dates::schedule::JsStubKind;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::curve_id_from_str;
-use finstack_valuations::cashflow::builder::types::{
+use finstack_valuations::cashflow::builder::specs::{
     CouponType as CoreCouponType, FixedCouponSpec as CoreFixedCouponSpec,
     FloatCouponParams as CoreFloatCouponParams, FloatingCouponSpec as CoreFloatingCouponSpec,
     ScheduleParams as CoreScheduleParams,

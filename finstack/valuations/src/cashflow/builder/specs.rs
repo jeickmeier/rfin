@@ -1,7 +1,16 @@
-//! Types for the cashflow builder.
+//! Specification types for the cashflow builder.
 //!
-//! These types describe coupon, fee, and scheduling specifications used by
-//! `CashflowBuilder` to produce deterministic schedules.
+//! This module contains type definitions for coupon, fee, and scheduling specifications
+//! that configure the `CashflowBuilder`. These are the primary input types that users
+//! interact with when building cashflow schedules.
+//!
+//! ## Responsibilities
+//!
+//! - Type definitions for fixed and floating coupon specifications
+//! - Fee specification types (fixed and periodic)
+//! - Schedule parameter types (frequency, day count, business day conventions)
+//! - Coupon type enums (Cash, PIK, Split)
+//! - Helper constructors for common market conventions (USD, EUR, GBP, etc.)
 
 use finstack_core::dates::BusinessDayConvention;
 use finstack_core::dates::{Date, DayCount, Frequency, StubKind};
@@ -19,7 +28,7 @@ use finstack_core::types::CurveId;
 pub enum CouponType {
     /// Cash variant.
     Cash,
-    /// P I K variant.
+    /// PIK variant.
     PIK,
     /// Split variant.
     Split {
@@ -145,6 +154,41 @@ pub enum FeeBase {
         /// Facility limit.
         facility_limit: Money,
     },
+}
+
+/// Fee tier for utilization-based fee structures.
+///
+/// Tiers are evaluated in order: the first tier where utilization >= threshold applies.
+/// Tiers should be sorted by threshold (ascending).
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct FeeTier {
+    /// Utilization threshold (0.0 to 1.0). Fee applies when utilization >= this threshold.
+    pub threshold: f64,
+    /// Fee rate in basis points for this tier.
+    pub bps: f64,
+}
+
+/// Evaluate fee tiers to find the applicable rate for a given utilization.
+///
+/// Returns the fee rate from the highest tier where utilization >= threshold.
+/// If no tiers match or tiers are empty, returns 0.0.
+///
+/// # Arguments
+///
+/// * `tiers` - Slice of fee tiers, should be sorted by threshold ascending
+/// * `utilization` - Current utilization rate (0.0 to 1.0)
+///
+/// # Returns
+///
+/// The fee rate in basis points for the applicable tier, or 0.0 if no tier matches
+pub fn evaluate_fee_tiers(tiers: &[FeeTier], utilization: f64) -> f64 {
+    tiers
+        .iter()
+        .rev()
+        .find(|tier| utilization >= tier.threshold)
+        .map(|tier| tier.bps)
+        .unwrap_or(0.0)
 }
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

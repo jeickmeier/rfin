@@ -3,7 +3,7 @@
 //! A basis swap exchanges two floating rate payments with different tenors,
 //! capturing the basis spread between them (e.g., 3M vs 6M).
 
-use crate::cashflow::builder::schedule_utils::{build_dates, PeriodSchedule};
+use crate::cashflow::builder::date_generation::{build_dates, PeriodSchedule};
 #[allow(unused_imports)] // Used in doc examples and tests
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_core::{

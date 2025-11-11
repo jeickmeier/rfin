@@ -675,7 +675,7 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cashflow::builder::types::{CouponType, FixedCouponSpec};
+    use crate::cashflow::builder::specs::{CouponType, FixedCouponSpec};
     use crate::instruments::convertible::{
         AntiDilutionPolicy, ConversionPolicy, ConversionSpec, DividendAdjustment,
     };

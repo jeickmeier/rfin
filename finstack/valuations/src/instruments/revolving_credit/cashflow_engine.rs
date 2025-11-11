@@ -557,15 +557,6 @@ impl<'a> CashflowEngine<'a> {
             let dt = self.day_count.year_fraction(period_start, period_end, DayCountCtx::default())?;
             let interest = drawn_balance * (interest_rate * dt);
 
-            // Calculate fees based on utilization tiers (using period start utilization)
-            let commitment_fee_bp = self.facility.fees.commitment_fee_bps(utilization_start);
-            let commitment_fee = undrawn_balance * (commitment_fee_bp * 1e-4 * dt);
-
-            let usage_fee_bp = self.facility.fees.usage_fee_bps(utilization_start);
-            let usage_fee = drawn_balance * (usage_fee_bp * 1e-4 * dt);
-
-            let facility_fee = self.facility.commitment_amount * (self.facility.fees.facility_fee_bp * 1e-4 * dt);
-
             // Add interest cashflows if non-zero
             if !rc.is_effectively_zero_money(interest.amount(), ccy) {
                 flows.push(CashFlow {
@@ -581,41 +572,32 @@ impl<'a> CashflowEngine<'a> {
                 });
             }
 
-            // Add commitment fee cashflows if non-zero
-            if !rc.is_effectively_zero_money(commitment_fee.amount(), ccy) {
-                flows.push(CashFlow {
-                    date: period_end,
-                    reset_date: None,
-                    amount: commitment_fee,
-                    kind: CFKind::CommitmentFee,
-                    accrual_factor: dt,
-                    rate: Some(commitment_fee_bp * 1e-4),
-                });
-            }
+            // Calculate and emit fee cashflows using centralized functions
+            let commitment_fee_bp = self.facility.fees.commitment_fee_bps(utilization_start);
+            flows.extend(crate::cashflow::builder::emit_commitment_fee_on(
+                period_end,
+                undrawn_balance.amount(),
+                commitment_fee_bp,
+                dt,
+                ccy,
+            ));
 
-            // Add usage fee cashflows if non-zero
-            if !rc.is_effectively_zero_money(usage_fee.amount(), ccy) {
-                flows.push(CashFlow {
-                    date: period_end,
-                    reset_date: None,
-                    amount: usage_fee,
-                    kind: CFKind::UsageFee,
-                    accrual_factor: dt,
-                    rate: Some(usage_fee_bp * 1e-4),
-                });
-            }
+            let usage_fee_bp = self.facility.fees.usage_fee_bps(utilization_start);
+            flows.extend(crate::cashflow::builder::emit_usage_fee_on(
+                period_end,
+                drawn_balance.amount(),
+                usage_fee_bp,
+                dt,
+                ccy,
+            ));
 
-            // Add facility fee cashflows if non-zero
-            if !rc.is_effectively_zero_money(facility_fee.amount(), ccy) {
-                flows.push(CashFlow {
-                    date: period_end,
-                    reset_date: None,
-                    amount: facility_fee,
-                    kind: CFKind::FacilityFee,
-                    accrual_factor: dt,
-                    rate: Some(self.facility.fees.facility_fee_bp * 1e-4),
-                });
-            }
+            flows.extend(crate::cashflow::builder::emit_facility_fee_on(
+                period_end,
+                self.facility.commitment_amount.amount(),
+                self.facility.fees.facility_fee_bp,
+                dt,
+                ccy,
+            ));
 
             // Handle principal flows from utilization changes
             // At period_end, utilization changes from start to end value for use in the next period    

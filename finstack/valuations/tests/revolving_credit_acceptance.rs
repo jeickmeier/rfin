@@ -293,7 +293,7 @@ fn test_utilization_tier() {
     let end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
 
     // Create tiered usage fees: 10 bps below 50%, 20 bps above 50%
-    use finstack_valuations::instruments::revolving_credit::types::FeeTier;
+    use finstack_valuations::cashflow::builder::FeeTier;
     let usage_tiers = vec![
         FeeTier {
             threshold: 0.0,
@@ -364,14 +364,14 @@ fn test_utilization_tier() {
     let fee_low: f64 = schedule_low
         .flows
         .iter()
-        .filter(|cf| matches!(cf.kind, finstack_core::cashflow::primitives::CFKind::Fee))
+        .filter(|cf| matches!(cf.kind, finstack_core::cashflow::primitives::CFKind::UsageFee))
         .map(|cf| cf.amount.amount())
         .sum();
 
     let fee_high: f64 = schedule_high
         .flows
         .iter()
-        .filter(|cf| matches!(cf.kind, finstack_core::cashflow::primitives::CFKind::Fee))
+        .filter(|cf| matches!(cf.kind, finstack_core::cashflow::primitives::CFKind::UsageFee))
         .map(|cf| cf.amount.amount())
         .sum();
 

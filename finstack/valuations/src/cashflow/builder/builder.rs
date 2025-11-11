@@ -1,7 +1,16 @@
-//! Cashflow builder state and main entry point.
+//! Cashflow builder API and build orchestration.
 //!
-//! The `CashflowBuilder` accumulates principal, amortization, coupon windows,
-//! and fees, and compiles them into a deterministic `CashFlowSchedule`.
+//! This module contains the main `CashflowBuilder` API that accumulates principal,
+//! amortization, coupon windows, and fees, then orchestrates the compilation into
+//! a deterministic `CashFlowSchedule`.
+//!
+//! ## Responsibilities
+//!
+//! - `CashflowBuilder` struct and its public builder methods
+//! - Build orchestration (validation, compilation, date collection, state management)
+//! - Pipeline stages: validate inputs, compile schedules, initialize state, process dates
+//! - Amortization setup and parameter derivation
+//! - Integration with emission, compiler, and date generation modules
 //!
 //! Quick start
 //! -----------
@@ -39,329 +48,24 @@ use crate::cashflow::primitives::AmortizationSpec;
 use crate::cashflow::primitives::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::adjust;
-use finstack_core::dates::calendar::calendar_by_id;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
-use time::Duration;
 
-use super::compile::{
+use super::compiler::{
     build_fee_schedules, collect_dates, compute_coupon_schedules, CompiledSchedules,
     CouponProgramPiece, CouponSpec, DateWindow, FixedSchedule, FloatSchedule, PaymentProgramPiece,
     PeriodicFee,
 };
-use super::types::{
-    CouponType, FeeBase, FeeSpec, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
+use super::emission::{
+    emit_amortization_on, emit_fees_on, emit_fixed_coupons_on, emit_float_coupons_on,
+    AmortizationParams,
+};
+use super::specs::{
+    CouponType, FeeSpec, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
     FloatingCouponSpec, ScheduleParams,
 };
 use smallvec::SmallVec;
-
-// -------------------------------------------------------------------------
-// Helper emitters - cashflow emission
-// -------------------------------------------------------------------------
-
-// Removed over-engineered CouponEmissionCtx and generic emit_coupons_on function
-
-/// Helper: Add a PIK cashflow if the amount is nonzero.
-/// Returns the PIK amount for outstanding balance tracking.
-#[inline]
-fn add_pik_flow_if_nonzero(
-    flows: &mut Vec<CashFlow>,
-    date: Date,
-    pik_amt: f64,
-    ccy: Currency,
-) -> f64 {
-    if pik_amt > 0.0 {
-        flows.push(CashFlow {
-            date,
-            reset_date: None,
-            amount: Money::new(pik_amt, ccy),
-            kind: CFKind::PIK,
-            accrual_factor: 0.0,
-            rate: None,
-        });
-        pik_amt
-    } else {
-        0.0
-    }
-}
-
-/// Helper: Compute reset date with calendar adjustment.
-#[inline]
-fn compute_reset_date(
-    payment_date: Date,
-    reset_lag_days: i32,
-    bdc: finstack_core::dates::BusinessDayConvention,
-    calendar_id: &Option<String>,
-) -> finstack_core::Result<Date> {
-    let mut reset_date = payment_date - Duration::days(reset_lag_days as i64);
-    if let Some(id) = calendar_id {
-        if let Some(cal) = calendar_by_id(id) {
-            reset_date = adjust(reset_date, bdc, cal)?;
-        }
-    }
-    Ok(reset_date)
-}
-
-fn emit_fixed_coupons_on(
-    d: Date,
-    fixed_schedules: &[FixedSchedule],
-    outstanding_after: &hashbrown::HashMap<Date, f64>,
-    outstanding_fallback: f64,
-    ccy: Currency,
-) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
-    let mut pik_to_add = 0.0;
-    let mut new_flows: Vec<CashFlow> = Vec::new();
-
-    for (spec, _dates, prev_map, first_last) in fixed_schedules {
-        if let Some(prev) = prev_map.get(&d).copied() {
-            let base_out = *outstanding_after
-                .get(&prev)
-                .unwrap_or(&outstanding_fallback);
-
-            let yf =
-                spec.dc
-                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
-            let coupon_total = base_out * (spec.rate * yf);
-            let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
-
-            let cash_amt = coupon_total * cash_pct;
-            let pik_amt = coupon_total * pik_pct;
-
-            if cash_amt > 0.0 {
-                let kind = if first_last.contains(&d) {
-                    CFKind::Stub
-                } else {
-                    CFKind::Fixed
-                };
-                new_flows.push(CashFlow {
-                    date: d,
-                    reset_date: None,
-                    amount: Money::new(cash_amt, ccy),
-                    kind,
-                    accrual_factor: yf,
-                    rate: Some(spec.rate),
-                });
-            }
-
-            pik_to_add += add_pik_flow_if_nonzero(&mut new_flows, d, pik_amt, ccy);
-        }
-    }
-    Ok((pik_to_add, new_flows))
-}
-
-fn emit_float_coupons_on(
-    d: Date,
-    float_schedules: &[FloatSchedule],
-    outstanding_after: &hashbrown::HashMap<Date, f64>,
-    outstanding_fallback: f64,
-    ccy: Currency,
-    curves: Option<&finstack_core::market_data::MarketContext>,
-) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
-    let mut pik_to_add = 0.0;
-    let mut new_flows: Vec<CashFlow> = Vec::new();
-
-    for (spec, _dates, prev_map) in float_schedules {
-        if let Some(prev) = prev_map.get(&d).copied() {
-            let base_out = *outstanding_after
-                .get(&prev)
-                .unwrap_or(&outstanding_fallback);
-
-            let yf =
-                spec.dc
-                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
-
-            // Compute reset date once
-            let reset_date = compute_reset_date(d, spec.reset_lag_days, spec.bdc, &spec.calendar_id)?;
-
-            // Compute total rate: forward_rate * gearing + margin
-            let total_rate = if let Some(ctx) = curves {
-                // If curves are available, look up the forward rate
-                if let Ok(fwd) = ctx.get_forward_ref(&spec.index_id) {
-                    let t_reset = fwd
-                        .day_count()
-                        .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())
-                        .unwrap_or(0.0);
-                    let forward_rate = fwd.rate(t_reset);
-                    forward_rate * spec.gearing + spec.margin_bp * 1e-4
-                } else {
-                    // Curve not found, fall back to margin only
-                    (spec.margin_bp * 1e-4) * spec.gearing
-                }
-            } else {
-                // No curves provided, use margin only
-                (spec.margin_bp * 1e-4) * spec.gearing
-            };
-
-            let coupon_total = base_out * (total_rate * yf);
-
-            let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
-            let cash_amt = coupon_total * cash_pct;
-            let pik_amt = coupon_total * pik_pct;
-
-            if cash_amt > 0.0 {
-                new_flows.push(CashFlow {
-                    date: d,
-                    reset_date: Some(reset_date),
-                    amount: Money::new(cash_amt, ccy),
-                    kind: CFKind::FloatReset,
-                    accrual_factor: yf,
-                    rate: Some(total_rate),
-                });
-            }
-
-            pik_to_add += add_pik_flow_if_nonzero(&mut new_flows, d, pik_amt, ccy);
-        }
-    }
-    Ok((pik_to_add, new_flows))
-}
-
-#[derive(Debug, Clone)]
-struct AmortizationParams<'a> {
-    ccy: Currency,
-    amort_dates: &'a hashbrown::HashSet<Date>,
-    linear_delta: Option<f64>,
-    percent_per: Option<f64>,
-    step_remaining_map: &'a Option<hashbrown::HashMap<Date, Money>>,
-}
-
-fn emit_amortization_on(
-    d: Date,
-    notional: &Notional,
-    outstanding: &mut f64,
-    params: &AmortizationParams,
-) -> finstack_core::Result<Vec<CashFlow>> {
-    let mut new_flows: Vec<CashFlow> = Vec::new();
-    match &notional.amort {
-        AmortizationSpec::None => {}
-        AmortizationSpec::LinearTo { .. } => {
-            if params.amort_dates.contains(&d) {
-                if let Some(delta) = params.linear_delta {
-                    let pay = delta.min(*outstanding);
-                    if pay > 0.0 {
-                        new_flows.push(CashFlow {
-                            date: d,
-                            reset_date: None,
-                            amount: Money::new(pay, params.ccy),
-                            kind: CFKind::Amortization,
-                            accrual_factor: 0.0,
-                            rate: None,
-                        });
-                        *outstanding -= pay;
-                    }
-                }
-            }
-        }
-        AmortizationSpec::StepRemaining { .. } => {
-            if let Some(map) = params.step_remaining_map {
-                if let Some(rem_after) = map.get(&d) {
-                    let target = rem_after.amount();
-                    let pay = (*outstanding - target).max(0.0).min(*outstanding);
-                    if pay > 0.0 {
-                        new_flows.push(CashFlow {
-                            date: d,
-                            reset_date: None,
-                            amount: Money::new(pay, params.ccy),
-                            kind: CFKind::Amortization,
-                            accrual_factor: 0.0,
-                            rate: None,
-                        });
-                        *outstanding -= pay;
-                    }
-                }
-            }
-        }
-        AmortizationSpec::PercentPerPeriod { .. } => {
-            if params.amort_dates.contains(&d) {
-                if let Some(per) = params.percent_per {
-                    let pay = per.min(*outstanding);
-                    if pay > 0.0 {
-                        new_flows.push(CashFlow {
-                            date: d,
-                            reset_date: None,
-                            amount: Money::new(pay, params.ccy),
-                            kind: CFKind::Amortization,
-                            accrual_factor: 0.0,
-                            rate: None,
-                        });
-                        *outstanding -= pay;
-                    }
-                }
-            }
-        }
-        AmortizationSpec::CustomPrincipal { items } => {
-            for (dd, amt) in items {
-                if *dd == d {
-                    let pay = amt.amount().max(0.0).min(*outstanding);
-                    if pay > 0.0 {
-                        new_flows.push(CashFlow {
-                            date: d,
-                            reset_date: None,
-                            amount: Money::new(pay, params.ccy),
-                            kind: CFKind::Amortization,
-                            accrual_factor: 0.0,
-                            rate: None,
-                        });
-                        *outstanding -= pay;
-                    }
-                }
-            }
-        }
-    }
-    Ok(new_flows)
-}
-
-fn emit_fees_on(
-    d: Date,
-    periodic_fees: &[PeriodicFee],
-    fixed_fees: &[(Date, Money)],
-    outstanding: f64,
-    ccy: Currency,
-) -> finstack_core::Result<Vec<CashFlow>> {
-    let mut new_flows: Vec<CashFlow> = Vec::new();
-    for pf in periodic_fees {
-        if let Some(&prev) = pf.prev.get(&d) {
-            let yf = pf
-                .dc
-                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
-            let base_amt = match &pf.base {
-                FeeBase::Drawn => outstanding,
-                FeeBase::Undrawn { facility_limit } => {
-                    if facility_limit.currency() != ccy {
-                        return Err(InputError::Invalid.into());
-                    }
-                    (facility_limit.amount() - outstanding).max(0.0)
-                }
-            };
-            let fee_amt = base_amt * (pf.bps * 1e-4 * yf);
-            if fee_amt > 0.0 {
-                new_flows.push(CashFlow {
-                    date: d,
-                    reset_date: None,
-                    amount: Money::new(fee_amt, ccy),
-                    kind: CFKind::Fee,
-                    accrual_factor: 0.0,
-                    rate: Some(pf.bps * 1e-4),
-                });
-            }
-        }
-    }
-
-    for (fd, amt) in fixed_fees {
-        if *fd == d && amt.amount() != 0.0 {
-            new_flows.push(CashFlow {
-                date: d,
-                reset_date: None,
-                amount: *amt,
-                kind: CFKind::Fee,
-                accrual_factor: 0.0,
-                rate: None,
-            });
-        }
-    }
-    Ok(new_flows)
-}
 
 // -------------------------------------------------------------------------
 // Pipeline scaffolding — pure-ish stages and fold state

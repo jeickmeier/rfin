@@ -6,7 +6,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 use super::spec::{AmortizationSpec, CovenantSpec, DdtlSpec, LoanCallSchedule};
-use crate::cashflow::builder::types::CouponType;
+use crate::cashflow::builder::specs::CouponType;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::pricing_overrides::PricingOverrides;
 

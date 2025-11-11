@@ -142,7 +142,7 @@ pub struct TermLoanSpec {
     pub calendar_id: Option<String>,
     pub stub: StubKind,
     pub amortization: AmortizationSpec,
-    pub coupon_type: crate::cashflow::builder::types::CouponType,
+    pub coupon_type: crate::cashflow::builder::specs::CouponType,
     pub upfront_fee: Option<Money>,
     pub ddtl: Option<DdtlSpec>,
     pub covenants: Option<CovenantSpec>,

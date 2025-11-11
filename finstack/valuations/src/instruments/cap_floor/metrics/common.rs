@@ -74,7 +74,7 @@ where
     }
 
     // Cap/floor: iterate schedule
-    use crate::cashflow::builder::schedule_utils::build_dates;
+    use crate::cashflow::builder::date_generation::build_dates;
     let schedule = build_dates(
         option.start_date,
         option.end_date,
