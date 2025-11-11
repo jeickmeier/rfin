@@ -5,13 +5,11 @@
 
 pub mod available_capacity;
 pub mod irr;
-pub mod spread_sensitivity;
 pub mod utilization_rate;
 pub mod weighted_average_cost;
 
 pub use available_capacity::AvailableCapacityCalculator;
 pub use irr::{calculate_path_irr, calculate_periodic_irr};
-pub use spread_sensitivity::SpreadSensitivityCalculator;
 pub use utilization_rate::UtilizationRateCalculator;
 pub use weighted_average_cost::ApproxWeightedAverageCostCalculator;
 
@@ -19,16 +17,6 @@ pub use weighted_average_cost::ApproxWeightedAverageCostCalculator;
 ///
 /// Prefer using `ApproxWeightedAverageCostCalculator` directly for new code.
 pub type WeightedAverageCostCalculator = ApproxWeightedAverageCostCalculator;
-
-/// DV01 calculator (discount curve sensitivity).
-///
-/// Type alias for `SpreadSensitivityCalculator` used for interest rate risk metrics.
-pub type Dv01Calculator = SpreadSensitivityCalculator;
-
-/// CS01 calculator (credit spread sensitivity).
-///
-/// Type alias for `SpreadSensitivityCalculator` used for credit risk metrics.
-pub type Cs01Calculator = SpreadSensitivityCalculator;
 
 use crate::metrics::MetricRegistry;
 
@@ -41,8 +29,12 @@ pub fn register_revolving_credit_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: "RevolvingCredit",
         metrics: [
-            (Dv01, SpreadSensitivityCalculator),
-            (Cs01, SpreadSensitivityCalculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::RevolvingCredit,
+            >::default()),
+            (Cs01, crate::metrics::GenericParallelCs01::<
+                crate::instruments::RevolvingCredit,
+            >::default()),
             // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::RevolvingCredit,
