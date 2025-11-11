@@ -7,7 +7,6 @@ pub mod cs01;
 pub mod dm;
 pub mod duration_macaulay;
 pub mod duration_modified;
-pub mod dv01; // Keep analytical DV01 using modified duration formula
 pub mod i_spread;
 pub mod oas;
 pub mod prices;
@@ -25,7 +24,6 @@ pub use cs01::Cs01Calculator;
 pub use dm::DiscountMarginCalculator;
 pub use duration_macaulay::MacaulayDurationCalculator;
 pub use duration_modified::ModifiedDurationCalculator;
-pub use dv01::BondDv01Calculator;
 pub use i_spread::ISpreadCalculator;
 pub use oas::OasCalculator;
 pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
@@ -56,8 +54,12 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             (ASWParFwd, AssetSwapParFwdCalculator),
             (ASWMarketFwd, AssetSwapMarketFwdCalculator),
             (Cs01, Cs01Calculator),
-            (Dv01, BondDv01Calculator),
-            (Pv01, BondDv01Calculator), // Alias for DV01 (credit convention)
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::Bond,
+            >::default()),
+            (Pv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::Bond,
+            >::default()), // Alias for DV01 (credit convention)
             // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, crate::metrics::GenericBucketedDv01::<
                 crate::instruments::Bond,

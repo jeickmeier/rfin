@@ -4,7 +4,6 @@ mod all_in_rate;
 mod bucketed_cs01;
 mod cs01;
 mod discount_margin;
-mod dv01;
 mod ytc;
 mod ytm;
 mod ytn;
@@ -14,7 +13,6 @@ pub use all_in_rate::AllInRateCalculator;
 pub use bucketed_cs01::BucketedCs01Calculator;
 pub use cs01::Cs01Calculator;
 pub use discount_margin::DiscountMarginCalculator;
-pub use dv01::Dv01Calculator;
 pub use ytc::YtcCalculator;
 pub use ytm::YtmCalculator;
 pub use ytn::{Yt2yCalculator, Yt3yCalculator, Yt4yCalculator};
@@ -28,7 +26,9 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
         registry: registry,
     instrument: "TermLoan",
         metrics: [
-            (Dv01, Dv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::TermLoan,
+            >::default()),
             (Cs01, Cs01Calculator),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::TermLoan,
