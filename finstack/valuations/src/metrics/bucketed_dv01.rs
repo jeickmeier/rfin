@@ -247,8 +247,8 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::traits::MetricCalculator;
 use std::marker::PhantomData;
 
-// Re-export HasDiscountCurve from pricing for convenience
-pub use crate::instruments::common::pricing::HasDiscountCurve;
+// Re-export traits from pricing for convenience
+pub use crate::instruments::common::pricing::{HasDiscountCurve, HasForwardCurves};
 
 /// Generic BucketedDv01 calculator that works for any instrument implementing
 /// the required traits.
@@ -338,13 +338,81 @@ where
 
         let inst_clone = instrument.clone();
         let as_of = context.as_of;
+        let base_pv = context.base_value;
+        let base_ctx = context.curves.as_ref();
 
-        let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
-            inst_clone.value(temp_ctx, as_of)
-        };
+        // Collect all curves to bump: discount curve + forward curves (if any)
+        let mut curves_to_bump = vec![discount_curve_id.clone()];
+        
+        // Check if instrument has forward curves and add them
+        if let Some(inst_with_fwd) = (instrument as &dyn std::any::Any).downcast_ref::<I>() {
+            // Try to get forward curves using a helper that checks if I implements HasForwardCurves
+            if let Some(fwd_curves) = get_forward_curves_if_available(inst_with_fwd) {
+                curves_to_bump.extend(fwd_curves);
+            }
+        }
 
-        compute_parallel_dv01_with_context(context, &discount_curve_id, 1.0, reval)
+        // Bump all curves with the same parallel shift
+        // Only bump curves that exist in the market context
+        use finstack_core::market_data::context::BumpSpec;
+        use hashbrown::HashMap;
+        
+        let mut bumps = HashMap::new();
+        for curve_id in &curves_to_bump {
+            // Check if the curve exists before trying to bump it
+            // Discount curves we know exist (required by HasDiscountCurve)
+            // Forward curves might not exist in all market setups
+            if curve_id == &discount_curve_id {
+                bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(1.0));
+            } else if base_ctx.get_forward_ref(curve_id.as_str()).is_ok() {
+                bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(1.0));
+            }
+            // Silently skip curves that don't exist in market context
+        }
+        
+        let temp_ctx = base_ctx.bump(bumps)?;
+        let pv_bumped = inst_clone.value(&temp_ctx, as_of)?;
+        let dv01 = pv_bumped.amount() - base_pv.amount();
+
+        Ok(dv01)
     }
+}
+
+/// Helper function to extract forward curves if the instrument implements HasForwardCurves.
+/// Returns None if the instrument doesn't implement the trait.
+fn get_forward_curves_if_available<I: 'static>(instrument: &I) -> Option<Vec<CurveId>> {
+    // This is a bit of a workaround - we try to downcast to &dyn HasForwardCurves
+    // If it succeeds, the instrument implements the trait
+    let any_inst = instrument as &dyn std::any::Any;
+    
+    // We need to check each concrete type that implements both HasDiscountCurve and HasForwardCurves
+    // This is not ideal but necessary without specialization
+    
+    // Try FRA
+    if let Some(fra) = any_inst.downcast_ref::<crate::instruments::ForwardRateAgreement>() {
+        return Some(fra.forward_curve_ids());
+    }
+    
+    // Try IRS
+    if let Some(irs) = any_inst.downcast_ref::<crate::instruments::InterestRateSwap>() {
+        return Some(irs.forward_curve_ids());
+    }
+    
+    // Try IR Future
+    if let Some(irf) = any_inst.downcast_ref::<crate::instruments::InterestRateFuture>() {
+        return Some(irf.forward_curve_ids());
+    }
+    
+    // Try TRS variants
+    if let Some(trs) = any_inst.downcast_ref::<crate::instruments::trs::EquityTotalReturnSwap>() {
+        return Some(trs.forward_curve_ids());
+    }
+    if let Some(trs) = any_inst.downcast_ref::<crate::instruments::trs::FIIndexTotalReturnSwap>() {
+        return Some(trs.forward_curve_ids());
+    }
+    
+    // No forward curves
+    None
 }
 
 impl<I> Default for GenericBucketedDv01WithContext<I> {

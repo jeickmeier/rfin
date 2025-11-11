@@ -103,7 +103,7 @@ pub fn create_standard_fra() -> ForwardRateAgreement {
         fixing_date: fixing,
         start_date: start,
         end_date: end,
-        fixed_rate: 0.05,
+        fixed_rate: 0.05, // At-market: 5% = forward rate
         day_count: DayCount::Act360,
         reset_lag: 2,
         discount_curve_id: "USD_OIS".into(),
@@ -138,7 +138,7 @@ impl Default for TestFraBuilder {
             fixing_date: fixing,
             start_date: start,
             end_date: end,
-            fixed_rate: 0.05,
+            fixed_rate: 0.05, // At-market: 5% = forward rate
             day_count: DayCount::Act360,
             reset_lag: 2,
             discount_curve_id: "USD_OIS".to_string(),

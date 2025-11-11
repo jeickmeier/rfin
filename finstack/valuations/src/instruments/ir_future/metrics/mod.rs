@@ -6,13 +6,9 @@
 //!
 //! Exposed metrics:
 //! - PV passthrough (currency units)
-//! - DV01 (per 1bp change in rate)
+//! - DV01 (parallel rate sensitivity via generic calculator)
 
-mod dv01;
-// risk_bucketed_dv01 and theta now using generic implementations
-
-pub use dv01::IrFutureDv01Calculator;
-// PV and BucketedDv01 now using generic implementations
+// All metrics now using generic implementations
 
 use crate::metrics::MetricRegistry;
 
@@ -33,7 +29,9 @@ pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: "InterestRateFuture",
         metrics: [
-            (Dv01, IrFutureDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::InterestRateFuture,
+            >::default()),
             // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::InterestRateFuture,

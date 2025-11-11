@@ -194,6 +194,12 @@ impl crate::instruments::common::pricing::HasDiscountCurve for ForwardRateAgreem
     }
 }
 
+impl crate::instruments::common::pricing::HasForwardCurves for ForwardRateAgreement {
+    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
+        vec![self.forward_id.clone()]
+    }
+}
+
 impl CashflowProvider for ForwardRateAgreement {
     fn build_schedule(
         &self,

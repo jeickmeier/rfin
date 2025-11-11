@@ -78,6 +78,17 @@ pub trait HasDiscountCurve {
     fn discount_curve_id(&self) -> &CurveId;
 }
 
+/// Trait for instruments that reference forward/projection curves.
+///
+/// This trait is used by generic DV01 calculators to identify all forward curves
+/// that should be bumped alongside the discount curve for parallel rate shifts.
+/// Instruments with floating rate legs (FRAs, swaps, floating bonds, etc.) should
+/// implement this trait.
+pub trait HasForwardCurves {
+    /// Get all forward curve IDs referenced by this instrument.
+    fn forward_curve_ids(&self) -> Vec<CurveId>;
+}
+
 /// Generic discounting pricer for instruments that can be valued via simple discounting.
 ///
 /// This pricer derives the valuation date from the instrument's discount curve

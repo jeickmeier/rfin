@@ -76,6 +76,7 @@ pub use bucketed_dv01::{
     compute_key_rate_series_for_id, compute_key_rate_series_with_context_for_id,
     compute_parallel_dv01, compute_parallel_dv01_with_context, standard_ir_dv01_buckets,
     GenericBucketedDv01, GenericBucketedDv01WithContext, GenericParallelDv01, HasDiscountCurve,
+    HasForwardCurves,
 };
 pub use bucketed_vega::{
     compute_bucketed_vega_matrix, compute_parallel_vega, standard_equity_expiry_buckets,

@@ -84,12 +84,11 @@ fn test_dv01_finite_difference() {
         .unwrap();
     let dv01_analytical = *result.measures.get("dv01").unwrap();
 
-    // Finite difference should be negative (rates up => price down for long)
-    // Analytical DV01 is positive by convention (directional sensitivity)
-    // They should have opposite signs
+    // Both finite difference and analytical should have the same sign
+    // (both measure the same parallel rate sensitivity)
     assert!(
-        dv01_fd.signum() != dv01_analytical.signum(),
-        "Finite difference DV01 {} and analytical {} should have opposite signs",
+        dv01_fd.signum() == dv01_analytical.signum(),
+        "Finite difference DV01 {} and analytical {} should have same sign",
         dv01_fd,
         dv01_analytical
     );

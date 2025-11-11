@@ -185,3 +185,10 @@ impl crate::instruments::common::pricing::HasDiscountCurve for FIIndexTotalRetur
         &self.financing.discount_curve_id
     }
 }
+
+impl crate::instruments::common::pricing::HasForwardCurves for FIIndexTotalReturnSwap {
+    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
+        // TRS financing leg typically uses the same curve for projection
+        vec![self.financing.discount_curve_id.clone()]
+    }
+}

@@ -1,9 +1,9 @@
 //! FRA DV01 metric tests.
 //!
 //! DV01 (Dollar Value of 01 basis point) measures the sensitivity
-//! of FRA value to a 1bp parallel shift in rates.
+//! of FRA value to a 1bp parallel shift in both discount and forward curves.
 //!
-//! Analytic formula: DV01 ≈ Notional × tau × DF(start) × 1bp
+//! Note: Uses GenericParallelDv01 which bumps all referenced curves.
 
 use crate::fra::common::*;
 use finstack_core::currency::Currency;

@@ -3,15 +3,13 @@
 //! Provides metric calculators for FRAs, split into focused files for clarity
 //! and parity with other instruments. Metrics include:
 //! - PV passthrough (base value)
-//! - Analytic DV01 approximation
+//! - DV01 (parallel rate sensitivity via generic calculator)
 //!
 //! See unit tests and `examples/` for usage.
 
-mod dv01;
 mod par_rate;
 
 use crate::metrics::{MetricId, MetricRegistry};
-pub use dv01::FraDv01Calculator;
 pub use par_rate::FraParRateCalculator;
 use std::sync::Arc;
 
@@ -32,7 +30,9 @@ pub fn register_fra_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: "FRA",
         metrics: [
-            (Dv01, FraDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::ForwardRateAgreement,
+            >::default()),
             (ParRate, FraParRateCalculator),
             (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::ForwardRateAgreement,

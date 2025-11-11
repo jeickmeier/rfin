@@ -894,3 +894,9 @@ impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateSwap 
         &self.fixed.discount_curve_id
     }
 }
+
+impl crate::instruments::common::pricing::HasForwardCurves for InterestRateSwap {
+    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
+        vec![self.float.forward_curve_id.clone()]
+    }
+}
