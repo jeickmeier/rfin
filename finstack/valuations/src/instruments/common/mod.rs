@@ -33,6 +33,9 @@ pub mod metrics;
 // Common pricing patterns and infrastructure
 pub mod pricing;
 
+// Periodized present value calculations
+pub mod period_pv;
+
 // Common constants
 pub mod constants;
 
@@ -54,5 +57,6 @@ pub use parameters::{
     OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec,
     SettlementType, TotalReturnLegSpec, UnderlyingParams,
 };
+pub use period_pv::PeriodizedPvExt;
 pub use pricing::{GenericDiscountingPricer, GenericInstrumentPricer};
 pub use traits::{Attributes, Instrument};

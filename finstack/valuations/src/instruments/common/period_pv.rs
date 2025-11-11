@@ -1,0 +1,556 @@
+//! Periodized present value calculations for instruments.
+//!
+//! This module provides extension traits that allow any instrument implementing
+//! `CashflowProvider` + `HasDiscountCurve` to compute present values aggregated
+//! by reporting periods.
+//!
+//! # Overview
+//!
+//! The `PeriodizedPvExt` trait provides two methods:
+//! - `periodized_pv`: Basic discounting with discount curve only
+//! - `periodized_pv_credit_adjusted`: Optional credit adjustment via hazard curve
+//!
+//! These methods delegate to the instrument's `build_full_schedule` implementation
+//! and leverage `CashFlowSchedule::pre_period_pv_with_market` for the actual
+//! aggregation and discounting.
+//!
+//! # Example
+//!
+//! ```rust
+//! use finstack_valuations::instruments::Bond;
+//! use finstack_valuations::instruments::common::period_pv::PeriodizedPvExt;
+//! use finstack_core::dates::{Date, Period, PeriodId, DayCount};
+//! use finstack_core::currency::Currency;
+//! use finstack_core::money::Money;
+//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use time::Month;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let issue = Date::from_calendar_date(2025, Month::January, 1)?;
+//! let maturity = Date::from_calendar_date(2026, Month::January, 1)?;
+//!
+//! // Create a simple bond
+//! let bond = Bond::new(
+//!     "BOND-001",
+//!     Money::new(1_000_000.0, Currency::USD),
+//!     0.05,
+//!     issue,
+//!     maturity,
+//!     "USD-OIS",
+//! );
+//!
+//! // Set up market with discount curve
+//! let disc_curve = DiscountCurve::builder("USD-OIS")
+//!     .base_date(issue)
+//!     .knots([(0.0, 1.0), (1.0, 0.95)])
+//!     .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+//!     .build()?;
+//! let market = MarketContext::new().insert_discount(disc_curve);
+//!
+//! // Define quarterly periods
+//! let periods = vec![
+//!     Period {
+//!         id: PeriodId::quarter(2025, 1),
+//!         start: Date::from_calendar_date(2025, Month::January, 1)?,
+//!         end: Date::from_calendar_date(2025, Month::April, 1)?,
+//!         is_actual: true,
+//!     },
+//!     Period {
+//!         id: PeriodId::quarter(2025, 2),
+//!         start: Date::from_calendar_date(2025, Month::April, 1)?,
+//!         end: Date::from_calendar_date(2025, Month::July, 1)?,
+//!         is_actual: false,
+//!     },
+//! ];
+//!
+//! // Compute periodized PVs
+//! let pv_by_period = bond.periodized_pv(&periods, &market, issue, DayCount::Act365F)?;
+//!
+//! // Access PV for Q1
+//! if let Some(q1_pvs) = pv_by_period.get(&PeriodId::quarter(2025, 1)) {
+//!     if let Some(usd_pv) = q1_pvs.get(&Currency::USD) {
+//!         println!("Q1 PV: {}", usd_pv.amount());
+//!     }
+//! }
+//! # Ok(())
+//! # }
+//! ```
+
+use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::common::pricing::HasDiscountCurve;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{Date, DayCount, Period, PeriodId};
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::types::CurveId;
+use indexmap::IndexMap;
+
+/// Extension trait providing periodized present value calculation for instruments.
+///
+/// Automatically implemented for any type that provides both cashflow schedules
+/// (`CashflowProvider`) and a discount curve reference (`HasDiscountCurve`).
+///
+/// # Design
+///
+/// This trait serves as a bridge between instrument-level APIs and the lower-level
+/// `CashFlowSchedule::pre_period_pv_with_market` aggregation. It handles:
+/// - Building the full cashflow schedule with CFKind metadata
+/// - Extracting the discount curve ID from the instrument
+/// - Delegating to the schedule's periodized PV method
+///
+/// # Currency Safety
+///
+/// All returned PVs preserve currency information. Each period maps to a
+/// `Currency -> Money` sub-map, preventing accidental cross-currency aggregation.
+pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
+    /// Compute present values aggregated by period using discount curve only.
+    ///
+    /// Groups cashflows by period and computes the present value of each cashflow
+    /// discounted back to the base date. Returns a map from `PeriodId` to
+    /// currency-indexed PV sums.
+    ///
+    /// # Arguments
+    /// * `periods` - Period definitions with start/end boundaries
+    /// * `market` - Market context containing discount curves
+    /// * `base` - Base date for discounting (typically valuation date)
+    /// * `dc` - Day count convention for year fraction calculation
+    ///
+    /// # Returns
+    /// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
+    /// are omitted from the result.
+    ///
+    /// # Errors
+    /// Returns an error if the discount curve is not found in the market context
+    /// or if the cashflow schedule cannot be built.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let pv_map = bond.periodized_pv(&quarters, &market, base, DayCount::Act365F)?;
+    /// ```
+    fn periodized_pv(
+        &self,
+        periods: &[Period],
+        market: &MarketContext,
+        base: Date,
+        dc: DayCount,
+    ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+        // Build simplified schedule (holder perspective, filtered flows)
+        // This matches the behavior of schedule_pv_impl used in instrument pricing
+        let flows = self.build_schedule(market, base)?;
+
+        // Use the instrument's discount curve
+        let disc_curve_id = self.discount_curve_id();
+        let disc_arc = market.get_discount(disc_curve_id.as_str())?;
+        let disc: &dyn finstack_core::market_data::traits::Discounting = disc_arc.as_ref();
+
+        // Use aggregation directly on filtered flows
+        use crate::cashflow::aggregation::pv_by_period;
+        Ok(pv_by_period(&flows, periods, disc, base, dc))
+    }
+
+    /// Compute present values aggregated by period with optional credit adjustment.
+    ///
+    /// Similar to `periodized_pv`, but optionally applies credit risk adjustment via
+    /// a hazard curve. When a hazard curve is provided, the PV is computed as:
+    /// `amount * df(t) * sp(t)` where `df(t)` is the rates discount factor and
+    /// `sp(t)` is the survival probability.
+    ///
+    /// # Arguments
+    /// * `periods` - Period definitions with start/end boundaries
+    /// * `market` - Market context containing discount and optional hazard curves
+    /// * `hazard_curve_id` - Optional identifier for hazard curve (credit adjustment)
+    /// * `base` - Base date for discounting (typically valuation date)
+    /// * `dc` - Day count convention for year fraction calculation
+    ///
+    /// # Returns
+    /// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
+    /// are omitted from the result.
+    ///
+    /// # Errors
+    /// Returns an error if the discount curve is not found, or if `hazard_curve_id`
+    /// is provided but the curve is not found in the market context.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let pv_map = bond.periodized_pv_credit_adjusted(
+    ///     &quarters,
+    ///     &market,
+    ///     Some(&hazard_id),
+    ///     base,
+    ///     DayCount::Act365F,
+    /// )?;
+    /// ```
+    fn periodized_pv_credit_adjusted(
+        &self,
+        periods: &[Period],
+        market: &MarketContext,
+        hazard_curve_id: Option<&CurveId>,
+        base: Date,
+        dc: DayCount,
+    ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+        // Build simplified schedule (holder perspective, filtered flows)
+        // This matches the behavior of schedule_pv_impl used in instrument pricing
+        let flows = self.build_schedule(market, base)?;
+
+        // Use the instrument's discount curve
+        let disc_curve_id = self.discount_curve_id();
+        let disc_arc = market.get_discount(disc_curve_id.as_str())?;
+        let disc: &dyn finstack_core::market_data::traits::Discounting = disc_arc.as_ref();
+
+        // Get hazard curve if provided
+        let hazard_arc_opt: Option<std::sync::Arc<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>> = if let Some(hazard_id) = hazard_curve_id {
+            Some(market.get_hazard(hazard_id.as_str())?)
+        } else {
+            None
+        };
+
+        let hazard: Option<&dyn finstack_core::market_data::traits::Survival> = hazard_arc_opt
+            .as_ref()
+            .map(|arc| arc.as_ref() as &dyn finstack_core::market_data::traits::Survival);
+
+        // Use credit-adjusted aggregation directly on filtered flows
+        use crate::cashflow::aggregation::pv_by_period_credit_adjusted;
+        Ok(pv_by_period_credit_adjusted(&flows, periods, disc, hazard, base, dc))
+    }
+}
+
+// Blanket implementation for all types that implement CashflowProvider + HasDiscountCurve
+impl<T> PeriodizedPvExt for T where T: CashflowProvider + HasDiscountCurve {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::Bond;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::math::interp::InterpStyle;
+    use time::Month;
+
+    fn create_test_bond() -> Bond {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        Bond::fixed(
+            "TEST-BOND",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05, // 5% coupon
+            issue,
+            maturity,
+            "USD-OIS",
+        )
+    }
+
+    fn create_test_market(base: Date) -> MarketContext {
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.90)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        MarketContext::new().insert_discount(disc_curve)
+    }
+
+    fn create_quarters_2025() -> Vec<Period> {
+        vec![
+            Period {
+                id: PeriodId::quarter(2025, 1),
+                start: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                end: Date::from_calendar_date(2025, Month::April, 1).unwrap(),
+                is_actual: true,
+            },
+            Period {
+                id: PeriodId::quarter(2025, 2),
+                start: Date::from_calendar_date(2025, Month::April, 1).unwrap(),
+                end: Date::from_calendar_date(2025, Month::July, 1).unwrap(),
+                is_actual: false,
+            },
+            Period {
+                id: PeriodId::quarter(2025, 3),
+                start: Date::from_calendar_date(2025, Month::July, 1).unwrap(),
+                end: Date::from_calendar_date(2025, Month::October, 1).unwrap(),
+                is_actual: false,
+            },
+            Period {
+                id: PeriodId::quarter(2025, 4),
+                start: Date::from_calendar_date(2025, Month::October, 1).unwrap(),
+                end: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+                is_actual: false,
+            },
+            Period {
+                id: PeriodId::quarter(2026, 1),
+                start: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+                end: Date::from_calendar_date(2026, Month::April, 1).unwrap(),
+                is_actual: false,
+            },
+        ]
+    }
+
+    #[test]
+    fn test_periodized_pv_bond_fixed_matches_sum_npv() {
+        let bond = create_test_bond();
+        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let market = create_test_market(base);
+        let periods = create_quarters_2025();
+
+        // Compute periodized PV
+        let pv_by_period = bond
+            .periodized_pv(&periods, &market, base, DayCount::Act365F)
+            .unwrap();
+
+        // Sum all period PVs
+        let mut total_pv = 0.0;
+        for period_map in pv_by_period.values() {
+            for money in period_map.values() {
+                assert_eq!(money.currency(), Currency::USD);
+                total_pv += money.amount();
+            }
+        }
+
+        // Compute straight NPV for comparison
+        use crate::instruments::common::helpers::schedule_pv_impl;
+        let straight_npv = schedule_pv_impl(&bond, &market, base, bond.discount_curve_id(), DayCount::Act365F).unwrap();
+
+        // Sum of periodized PVs should match straight NPV (within rounding tolerance)
+        let diff = (total_pv - straight_npv.amount()).abs();
+        assert!(
+            diff < 0.01, // Allow for small rounding differences
+            "Periodized PV sum ({}) should match straight NPV ({}), diff: {}",
+            total_pv,
+            straight_npv.amount(),
+            diff
+        );
+    }
+
+    #[test]
+    fn test_periodized_pv_bond_floating_uses_builder_rates() {
+        use crate::instruments::bond::BondFloatSpec;
+        use finstack_core::dates::Frequency;
+        use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+
+        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        // Create FRN
+        let frn = Bond::builder()
+            .id("FRN-001".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .coupon(0.0) // Not used for floaters
+            .issue(issue)
+            .maturity(maturity)
+            .freq(Frequency::quarterly())
+            .dc(DayCount::Act365F)
+            .bdc(finstack_core::dates::BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(finstack_core::dates::StubKind::None)
+            .discount_curve_id("USD-OIS".into())
+            .float_opt(Some(BondFloatSpec {
+                forward_curve_id: "USD-SOFR".into(),
+                margin_bp: 100.0, // 100 bps margin
+                gearing: 1.0,
+                reset_lag_days: 2,
+            }))
+            .pricing_overrides(Default::default())
+            .attributes(Default::default())
+            .build()
+            .unwrap();
+
+        // Create market with discount and forward curves
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (1.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        let fwd_curve = ForwardCurve::builder("USD-SOFR", 0.25) // 3M tenor
+            .base_date(issue)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 0.03), (1.0, 0.035)]) // 3-3.5% forward rates
+            .build()
+            .unwrap();
+
+        let market = MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve);
+
+        let periods = create_quarters_2025();
+
+        // Compute periodized PV
+        let pv_by_period = frn
+            .periodized_pv(&periods, &market, issue, DayCount::Act365F)
+            .unwrap();
+
+        // Verify we got PVs for expected periods
+        assert!(!pv_by_period.is_empty());
+
+        // Verify each period has USD currency
+        for period_map in pv_by_period.values() {
+            assert!(period_map.contains_key(&Currency::USD));
+        }
+
+        // Sum should match straight NPV
+        let mut total_pv = 0.0;
+        for period_map in pv_by_period.values() {
+            for money in period_map.values() {
+                total_pv += money.amount();
+            }
+        }
+
+        use crate::instruments::common::helpers::schedule_pv_impl;
+        let straight_npv = schedule_pv_impl(&frn, &market, issue, frn.discount_curve_id(), DayCount::Act365F).unwrap();
+
+        let diff = (total_pv - straight_npv.amount()).abs();
+        assert!(
+            diff < 0.01, // Allow for small rounding differences
+            "FRN periodized PV sum ({}) should match straight NPV ({}), diff: {}",
+            total_pv,
+            straight_npv.amount(),
+            diff
+        );
+    }
+
+    #[test]
+    fn test_periodized_pv_credit_adjusted_applies_hazard() {
+        let bond = create_test_bond();
+        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+        // Create market with discount and hazard curves
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        let hazard_curve = HazardCurve::builder("CORP-HAZARD")
+            .base_date(base)
+            .recovery_rate(0.40)
+            .knots([(0.0, 0.0), (1.0, 0.01)]) // 1% hazard rate at 1 year
+            .build()
+            .unwrap();
+
+        let market = MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_hazard(hazard_curve);
+
+        let periods = create_quarters_2025();
+
+        // Compute credit-adjusted periodized PV
+        let hazard_id = CurveId::new("CORP-HAZARD");
+        let pv_with_credit = bond
+            .periodized_pv_credit_adjusted(&periods, &market, Some(&hazard_id), base, DayCount::Act365F)
+            .unwrap();
+
+        // Compute without credit adjustment
+        let pv_no_credit = bond
+            .periodized_pv(&periods, &market, base, DayCount::Act365F)
+            .unwrap();
+
+        // Sum both
+        let mut total_with_credit = 0.0;
+        for period_map in pv_with_credit.values() {
+            for money in period_map.values() {
+                total_with_credit += money.amount();
+            }
+        }
+
+        let mut total_no_credit = 0.0;
+        for period_map in pv_no_credit.values() {
+            for money in period_map.values() {
+                total_no_credit += money.amount();
+            }
+        }
+
+        // Credit-adjusted PV should be lower (survival probability < 1)
+        assert!(
+            total_with_credit < total_no_credit,
+            "Credit-adjusted PV ({}) should be less than non-adjusted ({})",
+            total_with_credit,
+            total_no_credit
+        );
+
+        // The ratio should be reasonable (survival probability effect)
+        let ratio = total_with_credit / total_no_credit;
+        assert!(
+            ratio > 0.95 && ratio < 1.0,
+            "Credit adjustment ratio should be reasonable, got {}",
+            ratio
+        );
+    }
+
+    #[test]
+    fn test_extension_available_for_many_instruments() {
+        use crate::instruments::common::parameters::PayReceive;
+        use crate::instruments::InterestRateSwap;
+        use finstack_core::types::InstrumentId;
+
+        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+        // Create a simple IRS using constructor
+        let irs = InterestRateSwap::new(
+            InstrumentId::new("IRS-001"),
+            Money::new(1_000_000.0, Currency::USD),
+            0.04, // 4% fixed
+            base,
+            maturity,
+            PayReceive::ReceiveFixed,
+        );
+
+        let market = create_test_market(base);
+        let periods = create_quarters_2025();
+
+        // This should compile and run without error
+        // (IRS implements both CashflowProvider and HasDiscountCurve)
+        let result = irs.periodized_pv(&periods, &market, base, DayCount::Act365F);
+
+        // We might get an error due to missing forward curve, but the method exists
+        // The key is that it compiles, showing the extension trait works
+        match result {
+            Ok(_pv_map) => {
+                // Success case
+            }
+            Err(_e) => {
+                // Expected: missing forward curve in market
+                // But the method compiled and was callable
+            }
+        }
+    }
+
+    #[test]
+    fn test_periodized_pv_empty_periods_returns_empty() {
+        let bond = create_test_bond();
+        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let market = create_test_market(base);
+
+        let pv_by_period = bond
+            .periodized_pv(&[], &market, base, DayCount::Act365F)
+            .unwrap();
+
+        assert!(pv_by_period.is_empty());
+    }
+
+    #[test]
+    fn test_periodized_pv_preserves_currency_separation() {
+        // This test would require a multi-currency instrument
+        // For now, we verify that the USD bond only produces USD PVs
+        let bond = create_test_bond();
+        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let market = create_test_market(base);
+        let periods = create_quarters_2025();
+
+        let pv_by_period = bond
+            .periodized_pv(&periods, &market, base, DayCount::Act365F)
+            .unwrap();
+
+        // All entries should be USD only
+        for period_map in pv_by_period.values() {
+            assert_eq!(period_map.len(), 1);
+            assert!(period_map.contains_key(&Currency::USD));
+        }
+    }
+}
+

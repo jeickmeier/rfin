@@ -73,10 +73,71 @@
 //! # }
 //! ```
 //!
-//! ## Pre-Period Present Value Aggregation
+//! ## Periodized Present Value Aggregation
 //!
-//! Compute present values aggregated by reporting period for debugging and reconciliation.
-//! See [`builder::CashFlowSchedule::pre_period_pv`] for details and working examples.
+//! Compute present values aggregated by reporting period for analysis and reconciliation.
+//!
+//! ### From an Instrument (Recommended)
+//!
+//! Any instrument implementing [`CashflowProvider`] + [`crate::instruments::common::pricing::HasDiscountCurve`]
+//! automatically gains periodized PV methods via the [`crate::instruments::common::period_pv::PeriodizedPvExt`] trait:
+//!
+//! ```rust
+//! use finstack_valuations::instruments::Bond;
+//! use finstack_valuations::instruments::common::period_pv::PeriodizedPvExt;
+//! use finstack_core::dates::{Date, Period, PeriodId, DayCount};
+//! use finstack_core::currency::Currency;
+//! use finstack_core::money::Money;
+//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use time::Month;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let issue = Date::from_calendar_date(2025, Month::January, 1)?;
+//! let maturity = Date::from_calendar_date(2026, Month::January, 1)?;
+//!
+//! let bond = Bond::fixed(
+//!     "BOND-001",
+//!     Money::new(1_000_000.0, Currency::USD),
+//!     0.05,
+//!     issue,
+//!     maturity,
+//!     "USD-OIS",
+//! );
+//!
+//! let disc_curve = DiscountCurve::builder("USD-OIS")
+//!     .base_date(issue)
+//!     .knots([(0.0, 1.0), (1.0, 0.95)])
+//!     .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+//!     .build()?;
+//! let market = MarketContext::new().insert_discount(disc_curve);
+//!
+//! let periods = vec![
+//!     Period {
+//!         id: PeriodId::quarter(2025, 1),
+//!         start: Date::from_calendar_date(2025, Month::January, 1)?,
+//!         end: Date::from_calendar_date(2025, Month::April, 1)?,
+//!         is_actual: true,
+//!     },
+//! ];
+//!
+//! // Compute periodized PV using the extension trait
+//! let pv_by_period = bond.periodized_pv(&periods, &market, issue, DayCount::Act365F)?;
+//!
+//! // Access PV for a specific period
+//! if let Some(q1_pvs) = pv_by_period.get(&PeriodId::quarter(2025, 1)) {
+//!     if let Some(usd_pv) = q1_pvs.get(&Currency::USD) {
+//!         println!("Q1 PV: ${:.2}", usd_pv.amount());
+//!     }
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### From a Schedule Directly
+//!
+//! For lower-level control, use [`builder::CashFlowSchedule::pre_period_pv`] or
+//! [`builder::CashFlowSchedule::pre_period_pv_with_market`] directly.
 //!
 //! # See Also
 //!
