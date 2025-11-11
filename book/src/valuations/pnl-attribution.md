@@ -117,6 +117,30 @@ let attribution = attribute_pnl_metrics_based(
 )?;
 ```
 
+### DV01, RiskyPv01, and CS01: Key Differences
+
+For credit instruments (CDS, CDS Index, CDS Option, CDS Tranche), three distinct risk metrics measure different sensitivities:
+
+**DV01 (Dollar Value of 1 Basis Point)**:
+- Measures sensitivity to interest rate (discount curve) changes
+- Computed as: `DV01 = PV(discount_rate + 1bp) − PV(base)`
+- Applies parallel +1bp bump to the discount curve used for present value calculations
+- Sign depends on instrument structure (can be positive or negative)
+
+**RiskyPv01** (Credit-Specific):
+- Measures sensitivity to the running premium/coupon spread
+- Represents the present value of a 1bp premium stream, survival-weighted
+- Computed using risky annuity calculation from the CDS pricer
+- Always positive for standard protection buyer/seller relationships
+
+**CS01 (Credit Spread 01)**:
+- Measures sensitivity to credit spread (hazard curve) changes
+- Computed by bumping the underlying credit/hazard curve by +1bp
+- Captures default probability and loss-given-default impacts
+- Sign depends on whether buying or selling protection
+
+These metrics are complementary and capture different aspects of credit instrument risk.
+
 ## Factor Definitions
 
 ### Carry

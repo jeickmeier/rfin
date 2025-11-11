@@ -15,7 +15,6 @@
 
 mod cs01;
 mod cs_gamma;
-mod dv01;
 mod expected_loss;
 mod jump_to_default;
 mod par_spread;
@@ -56,7 +55,9 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
             (PremiumLegPv, pv_premium::PremiumLegPvCalculator),
             (ExpectedLoss, expected_loss::ExpectedLossCalculator),
             (JumpToDefault, jump_to_default::JumpToDefaultCalculator),
-            (Dv01, dv01::CdsDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::CreditDefaultSwap,
+            >::default()),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::CreditDefaultSwap,
             >::default()),

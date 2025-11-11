@@ -11,7 +11,6 @@
 
 mod cs01;
 mod delta;
-mod dv01;
 mod gamma;
 mod implied_vol;
 mod recovery01;
@@ -41,7 +40,9 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
             (Cs01, cs01::Cs01Calculator),
-            (Dv01, dv01::CdsOptionDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::CdsOption,
+            >::default()),
             // Theta is now registered universally in metrics::standard_registry()
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
