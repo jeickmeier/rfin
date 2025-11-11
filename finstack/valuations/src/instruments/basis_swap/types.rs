@@ -371,6 +371,15 @@ impl crate::instruments::common::pricing::HasDiscountCurve for BasisSwap {
     }
 }
 
+impl crate::instruments::common::pricing::HasForwardCurves for BasisSwap {
+    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
+        vec![
+            self.primary_leg.forward_curve_id.clone(),
+            self.reference_leg.forward_curve_id.clone(),
+        ]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

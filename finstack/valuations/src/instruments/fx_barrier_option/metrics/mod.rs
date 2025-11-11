@@ -19,7 +19,6 @@ mod vega;
 #[cfg(feature = "mc")]
 mod volga;
 
-#[cfg(feature = "mc")]
 use crate::metrics::MetricRegistry;
 
 /// Register FX barrier option metrics with the registry.
@@ -43,5 +42,22 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
                 >::default()),
             ]
         }
+    }
+}
+
+/// Register FX barrier option metrics when MC feature is not available.
+#[cfg(not(feature = "mc"))]
+pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
+    crate::register_metrics! {
+        registry: registry,
+        instrument: "FxBarrierOption",
+        metrics: [
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::FxBarrierOption,
+            >::default()),
+            (Theta, crate::metrics::GenericTheta::<
+                crate::instruments::FxBarrierOption,
+            >::default()),
+        ]
     }
 }

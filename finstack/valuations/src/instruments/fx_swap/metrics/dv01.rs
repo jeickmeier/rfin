@@ -13,6 +13,9 @@ use finstack_core::Result;
 use hashbrown::HashMap;
 
 /// DV01 calculator for FX swaps using domestic discount curve bump-and-reprice.
+/// 
+/// Deprecated: Use GenericParallelDv01<FxSwap> instead.
+#[allow(dead_code)]
 pub struct FxSwapDv01Calculator;
 
 impl MetricCalculator for FxSwapDv01Calculator {

@@ -12,6 +12,9 @@ use finstack_core::Result;
 use hashbrown::HashMap;
 
 /// DV01 calculator for FX Option instruments using dual-curve bump-and-reprice.
+/// 
+/// Deprecated: Use GenericParallelDv01<FxOption> instead.
+#[allow(dead_code)]
 pub struct FxOptionDv01Calculator;
 
 impl MetricCalculator for FxOptionDv01Calculator {

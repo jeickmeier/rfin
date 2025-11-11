@@ -12,7 +12,6 @@
 //! - `inverse_rate`
 
 pub mod base_amount;
-pub mod dv01;
 pub mod fx_delta;
 pub mod inverse_rate;
 pub mod quote_amount;
@@ -40,7 +39,9 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
             (BaseAmount, base_amount::BaseAmountCalculator),
             (QuoteAmount, crate::metrics::GenericPv),
             (InverseRate, inverse_rate::InverseRateCalculator),
-            (Dv01, dv01::FxSpotDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::FxSpot,
+            >::default()),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::FxSpot,
             >::default()),
@@ -100,5 +101,15 @@ mod tests {
         let calc = crate::metrics::GenericPv;
         let value = calc.calculate(&mut ctx).unwrap();
         assert!((value - base_value.amount()).abs() < 1e-6);
+    }
+
+    #[test]
+    fn dv01_is_zero() {
+        // FX Spot has no discount or forward curves, so generic DV01 returns 0
+        let fx = sample_fx();
+        let mut ctx = context_for(fx, d(2025, 1, 15));
+        let calc = crate::metrics::GenericParallelDv01::<crate::instruments::FxSpot>::default();
+        let value = calc.calculate(&mut ctx).unwrap();
+        assert_eq!(value, 0.0, "FxSpot DV01 should be exactly 0.0");
     }
 }

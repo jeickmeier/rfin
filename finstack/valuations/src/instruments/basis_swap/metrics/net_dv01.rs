@@ -2,7 +2,7 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{error::InputError, Error, Result};
 
 /// Net DV01 calculator (primary leg DV01 minus reference leg DV01).
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct NetDv01Calculator;
 
 impl MetricCalculator for NetDv01Calculator {

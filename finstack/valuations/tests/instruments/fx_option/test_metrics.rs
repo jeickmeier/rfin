@@ -223,6 +223,26 @@ fn test_bucketed_dv01_metric() {
 }
 
 #[test]
+fn test_combined_dv01_bumps_both_curves() {
+    // Test that Combined mode (default) bumps both domestic and foreign discount curves
+    let as_of = date!(2024 - 01 - 01);
+    let expiry = date!(2025 - 01 - 01);
+    let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
+    let market = build_market_context(as_of, MarketParams::atm());
+
+    // Compute DV01 using Combined mode (default)
+    let result = call
+        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .unwrap();
+
+    let dv01_combined = *result.measures.get("dv01").unwrap();
+
+    // DV01 should be positive (value decreases when both discount rates increase)
+    assert!(dv01_combined > 0.0, "Combined DV01 should be positive for call option");
+    assert!(dv01_combined.is_finite(), "Combined DV01 should be finite");
+}
+
+#[test]
 fn test_result_includes_instrument_id() {
     // Arrange
     let as_of = date!(2024 - 01 - 01);

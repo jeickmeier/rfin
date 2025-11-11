@@ -41,7 +41,9 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
             (Delta, delta::DeltaCalculator),
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
-            (Dv01, dv01::FxOptionDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::FxOption,
+            >::default()),
             // Theta is now registered universally in metrics::standard_registry()
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (BucketedDv01, risk_bucketed_dv01::BucketedDv01Calculator),

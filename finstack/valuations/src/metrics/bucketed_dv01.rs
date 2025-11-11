@@ -250,6 +250,23 @@ use std::marker::PhantomData;
 // Re-export traits from pricing for convenience
 pub use crate::instruments::common::pricing::{HasDiscountCurve, HasForwardCurves};
 
+/// Mode for parallel DV01 calculation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParallelDv01Mode {
+    /// Combined: bump all relevant curves (discount + forward + extra discount for FX) together; return scalar.
+    Combined,
+    /// Per-curve: bump each curve individually; store series under BucketedDv01; return sum.
+    /// 
+    /// TODO: Consider making DV01 return a series in a future major release (breaking change).
+    PerCurve,
+}
+
+impl Default for ParallelDv01Mode {
+    fn default() -> Self {
+        Self::Combined
+    }
+}
+
 /// Generic BucketedDv01 calculator that works for any instrument implementing
 /// the required traits.
 ///
@@ -316,13 +333,26 @@ pub struct GenericBucketedDv01WithContext<I> {
 /// Generic parallel DV01 calculator that returns a scalar (not bucketed).
 ///
 /// Computes DV01 by applying a parallel bump to the entire discount curve.
+/// Supports Combined (default) and Per-curve modes.
 pub struct GenericParallelDv01<I> {
+    mode: ParallelDv01Mode,
     _phantom: PhantomData<I>,
 }
 
 impl<I> Default for GenericParallelDv01<I> {
     fn default() -> Self {
         Self {
+            mode: ParallelDv01Mode::Combined,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<I> GenericParallelDv01<I> {
+    /// Create with specified mode.
+    pub fn with_mode(mode: ParallelDv01Mode) -> Self {
+        Self {
+            mode,
             _phantom: PhantomData,
         }
     }
@@ -335,46 +365,92 @@ where
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let discount_curve_id = instrument.discount_curve_id().clone();
-
-        let inst_clone = instrument.clone();
         let as_of = context.as_of;
         let base_pv = context.base_value;
         let base_ctx = context.curves.as_ref();
 
-        // Collect all curves to bump: discount curve + forward curves (if any)
+        // Get bump size from pricing overrides or default to 1.0 bp
+        let bump_bp = context
+            .pricing_overrides
+            .as_ref()
+            .and_then(|po| po.rate_bump_bp)
+            .unwrap_or(1.0);
+
+        // Collect all curves to bump: primary discount + additional discount (FX) + forward curves
         let mut curves_to_bump = vec![discount_curve_id.clone()];
         
-        // Check if instrument has forward curves and add them
-        if let Some(inst_with_fwd) = (instrument as &dyn std::any::Any).downcast_ref::<I>() {
-            // Try to get forward curves using a helper that checks if I implements HasForwardCurves
-            if let Some(fwd_curves) = get_forward_curves_if_available(inst_with_fwd) {
+        // Add additional discount curves (FX multi-curve)
+        if let Some(inst_any) = (instrument as &dyn std::any::Any).downcast_ref::<I>() {
+            let extra_discount = get_additional_discount_curves_if_available(inst_any);
+            curves_to_bump.extend(extra_discount);
+        }
+        
+        // Add forward curves if available
+        if let Some(inst_any) = (instrument as &dyn std::any::Any).downcast_ref::<I>() {
+            if let Some(fwd_curves) = get_forward_curves_if_available(inst_any) {
                 curves_to_bump.extend(fwd_curves);
             }
         }
 
-        // Bump all curves with the same parallel shift
-        // Only bump curves that exist in the market context
+        // Filter curves that actually exist in market context
         use finstack_core::market_data::context::BumpSpec;
         use hashbrown::HashMap;
         
-        let mut bumps = HashMap::new();
+        let mut existing_curves = Vec::new();
         for curve_id in &curves_to_bump {
-            // Check if the curve exists before trying to bump it
-            // Discount curves we know exist (required by HasDiscountCurve)
-            // Forward curves might not exist in all market setups
-            if curve_id == &discount_curve_id
+            // Check if curve exists (either discount or forward)
+            if base_ctx.get_discount_ref(curve_id.as_str()).is_ok()
                 || base_ctx.get_forward_ref(curve_id.as_str()).is_ok()
             {
-                bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(1.0));
+                existing_curves.push(curve_id.clone());
             }
-            // Silently skip curves that don't exist in market context
+            // Silently skip curves that don't exist
         }
-        
-        let temp_ctx = base_ctx.bump(bumps)?;
-        let pv_bumped = inst_clone.value(&temp_ctx, as_of)?;
-        let dv01 = pv_bumped.amount() - base_pv.amount();
 
-        Ok(dv01)
+        // If no curves exist, return DV01 = 0
+        if existing_curves.is_empty() {
+            return Ok(0.0);
+        }
+
+        match self.mode {
+            ParallelDv01Mode::Combined => {
+                // Bump all existing curves together
+                let mut bumps = HashMap::new();
+                for curve_id in &existing_curves {
+                    bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
+                }
+                
+                let temp_ctx = base_ctx.bump(bumps)?;
+                let inst_clone = instrument.clone();
+                let pv_bumped = inst_clone.value(&temp_ctx, as_of)?;
+                let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
+
+                Ok(dv01)
+            }
+            ParallelDv01Mode::PerCurve => {
+                // Bump each curve individually and store series
+                let mut series = Vec::new();
+                let mut total_dv01 = 0.0;
+
+                for curve_id in &existing_curves {
+                    let mut bumps = HashMap::new();
+                    bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
+                    
+                    let temp_ctx = base_ctx.bump(bumps)?;
+                    let inst_clone = instrument.clone();
+                    let pv_bumped = inst_clone.value(&temp_ctx, as_of)?;
+                    let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
+
+                    series.push((curve_id.as_str().to_string(), dv01));
+                    total_dv01 += dv01;
+                }
+
+                // Store per-curve series under BucketedDv01
+                context.store_bucketed_series(MetricId::BucketedDv01, series);
+
+                Ok(total_dv01)
+            }
+        }
     }
 }
 
@@ -411,8 +487,33 @@ fn get_forward_curves_if_available<I: 'static>(instrument: &I) -> Option<Vec<Cur
         return Some(trs.forward_curve_ids());
     }
     
+    // Try BasisSwap
+    if let Some(bs) = any_inst.downcast_ref::<crate::instruments::BasisSwap>() {
+        return Some(bs.forward_curve_ids());
+    }
+    
     // No forward curves
     None
+}
+
+/// Helper function to extract additional discount curves for multi-curve instruments (FX).
+/// Returns empty vec if the instrument doesn't have extra discount curves.
+fn get_additional_discount_curves_if_available<I: 'static>(instrument: &I) -> Vec<CurveId> {
+    let any_inst = instrument as &dyn std::any::Any;
+    
+    // FxSwap has foreign discount curve in addition to domestic (primary)
+    if let Some(fx_swap) = any_inst.downcast_ref::<crate::instruments::FxSwap>() {
+        return vec![fx_swap.foreign_discount_curve_id.clone()];
+    }
+    
+    // FxOption has foreign discount curve in addition to domestic (primary)
+    if let Some(fx_option) = any_inst.downcast_ref::<crate::instruments::FxOption>() {
+        return vec![fx_option.foreign_discount_curve_id.clone()];
+    }
+    
+    // FxBarrierOption only has one discount curve (already the primary)
+    // No additional curves for most instruments
+    vec![]
 }
 
 impl<I> Default for GenericBucketedDv01WithContext<I> {
