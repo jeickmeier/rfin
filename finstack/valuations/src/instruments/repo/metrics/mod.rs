@@ -19,14 +19,13 @@ pub mod accrued_interest;
 pub mod collateral_coverage;
 pub mod collateral_price01;
 pub mod collateral_value;
-pub mod dv01;
 pub mod effective_rate;
 pub mod funding_risk;
 pub mod haircut01;
 pub mod implied_collateral_return;
 pub mod repo_interest;
 pub mod required_collateral;
-// risk_bucketed_dv01 and theta now using generic implementations
+// risk_bucketed_dv01, dv01, and theta now using generic implementations
 pub mod time_to_maturity;
 
 use crate::metrics::MetricRegistry;
@@ -67,7 +66,9 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
             (RequiredCollateral, required_collateral::RequiredCollateralCalculator),
             (CollateralCoverage, collateral_coverage::CollateralCoverageCalculator),
             (RepoInterest, repo_interest::RepoInterestCalculator),
-            (Dv01, dv01::RepoDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::Repo,
+            >::default()),
             (FundingRisk, funding_risk::FundingRiskCalculator),
             (EffectiveRate, effective_rate::EffectiveRateCalculator),
             (TimeToMaturity, time_to_maturity::TimeToMaturityCalculator),
@@ -179,7 +180,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dv01_positive_when_rates_rise_price_falls() {
+    fn test_dv01_negative_when_rates_rise_price_falls() {
         use crate::metrics::{standard_registry, MetricId};
         let as_of = test_date(2025, 1, 10);
         let disc = DiscountCurve::builder("USD-OIS")
@@ -197,12 +198,12 @@ mod tests {
             as_of,
             pv,
         );
-        // Compute, but tolerate current DV01 stub returning 0.0; don't fail on compute errors
+        // DV01 = PV(bumped) - PV(base); when rates rise, PV falls, so DV01 should be negative
         let res = reg
             .compute(&[MetricId::Dv01], &mut mctx)
-            .unwrap_or_default();
-        let dv01 = *res.get(&MetricId::Dv01).unwrap_or(&0.0);
-        assert!(dv01 >= 0.0);
+            .unwrap();
+        let dv01 = *res.get(&MetricId::Dv01).unwrap();
+        assert!(dv01 <= 0.0);
     }
 
     #[test]

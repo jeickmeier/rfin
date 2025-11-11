@@ -208,8 +208,8 @@ fn test_dv01_metric() {
 
     let dv01 = results.get(&MetricId::Dv01).unwrap();
 
-    // DV01 should be positive (rates up -> PV down for long position)
-    assert!(*dv01 >= 0.0);
+    // DV01 = PV(bumped) - PV(base); when rates rise, PV falls, so DV01 is negative
+    assert!(*dv01 <= 0.0);
 
     // Should be reasonable magnitude for 1M notional, 3-month repo
     assert!(dv01.abs() < 1000.0);

@@ -12,13 +12,12 @@
 //! - Inflation01 (approximate)
 
 mod breakeven;
-mod dv01;
 mod fixed_leg_pv;
 mod inflation01;
 mod inflation_convexity;
 mod inflation_leg_pv;
 mod par_rate;
-// risk_bucketed_dv01 and theta now using generic implementations
+// risk_bucketed_dv01, dv01, and theta now using generic implementations
 
 use crate::metrics::MetricRegistry;
 
@@ -56,7 +55,9 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::Npv01,
-            Arc::new(dv01::InflationSwapDv01Calculator),
+            Arc::new(crate::metrics::GenericParallelDv01::<
+                crate::instruments::InflationSwap,
+            >::default()),
             &["InflationSwap"],
         );
 
@@ -66,7 +67,9 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
         instrument: "InflationSwap",
         metrics: [
             (ParRate, par_rate::ParRateCalculator),
-            (Dv01, dv01::InflationSwapDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::InflationSwap,
+            >::default()),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::InflationSwap,
             >::default()),

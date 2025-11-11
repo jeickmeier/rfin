@@ -4,14 +4,13 @@
 //! registers them with the shared metrics framework.
 
 mod breakeven_inflation;
-mod dv01;
 mod index_ratio;
 mod inflation01;
 mod inflation_convexity;
 mod real_duration;
 mod real_yield;
 // mod theta; // removed - using GenericThetaAny
-// risk_bucketed_dv01 - now using generic implementation
+// risk_bucketed_dv01 and dv01 - now using generic implementations
 
 pub use breakeven_inflation::BreakevenInflationCalculator;
 pub use index_ratio::IndexRatioCalculator;
@@ -50,7 +49,9 @@ pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
             (IndexRatio, IndexRatioCalculator),
             (RealDuration, RealDurationCalculator),
             (BreakevenInflation, BreakevenInflationCalculator),
-            (Dv01, dv01::InflationLinkedBondDv01Calculator),
+            (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::InflationLinkedBond,
+            >::default()),
             // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, crate::metrics::GenericBucketedDv01::<
                 crate::instruments::InflationLinkedBond,

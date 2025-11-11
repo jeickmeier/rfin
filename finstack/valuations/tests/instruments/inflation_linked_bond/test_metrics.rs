@@ -103,7 +103,8 @@ fn test_price_with_metrics_dv01() {
     // Assert
     assert!(result.measures.contains_key(MetricId::Dv01.as_str()));
     let dv01 = result.measures[MetricId::Dv01.as_str()];
-    assert!(dv01 > 0.0);
+    // DV01 = PV(bumped) - PV(base); when real rates rise, PV falls, so DV01 is negative
+    assert!(dv01 <= 0.0);
 }
 
 #[test]
