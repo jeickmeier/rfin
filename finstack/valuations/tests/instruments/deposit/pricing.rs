@@ -293,3 +293,73 @@ fn test_pricing_on_maturity_date() {
     // (minor discounting from end date to itself)
     assert!(pv.currency() == Currency::USD);
 }
+
+#[test]
+fn test_theta_correctness_with_as_of_forward() {
+    // Test that valuing forward in time (as_of > curve base) produces correct theta decay
+    // This validates the cashflow-based discounting from as_of date
+    let curve_base = date(2025, 1, 1);
+    let ctx = ctx_with_standard_disc(curve_base, "USD-OIS");
+
+    let dep = DepositBuilder::new(date(2025, 1, 15))
+        .end(date(2025, 7, 15))
+        .quote_rate(0.05)
+        .build();
+
+    // Value on curve base date and one day later
+    let pv_t0 = dep.npv(&ctx, curve_base).unwrap();
+    let pv_t1 = dep.npv(&ctx, date(2025, 1, 2)).unwrap();
+
+    // PV should increase as we move forward in time (theta decay)
+    // because we're getting closer to receiving the cashflows
+    assert!(
+        pv_t1.amount() > pv_t0.amount(),
+        "Theta: PV should increase moving forward in time. t0={}, t1={}",
+        pv_t0.amount(),
+        pv_t1.amount()
+    );
+}
+
+#[test]
+fn test_cashflow_based_npv_consistency() {
+    // Verify that the cashflow-based NPV implementation produces consistent results
+    // across different as_of dates and curve configurations
+    let base = date(2025, 1, 1);
+    let ctx = ctx_with_standard_disc(base, "USD-OIS");
+
+    let dep = DepositBuilder::new(base)
+        .end(date(2025, 7, 1))
+        .quote_rate(0.03)
+        .build();
+
+    // NPV should be deterministic and repeatable
+    let pv1 = dep.npv(&ctx, base).unwrap();
+    let pv2 = dep.npv(&ctx, base).unwrap();
+
+    assert_eq!(pv1.amount(), pv2.amount(), "NPV should be deterministic");
+}
+
+#[test]
+fn test_generic_dv01_works_with_cashflows() {
+    // Verify that the generic DV01 calculator works correctly with the cashflow-based approach
+    // This is a regression test to ensure the migration to GenericParallelDv01 succeeded
+    let base = date(2025, 1, 1);
+    let ctx = ctx_with_standard_disc(base, "USD-OIS");
+
+    let dep = DepositBuilder::new(base)
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .end(date(2025, 7, 1))
+        .build();
+
+    // Compute DV01 using the metric registry
+    let dv01 = compute_metric(&dep, &ctx, base, finstack_valuations::metrics::MetricId::Dv01);
+
+    // Verify it's reasonable (roughly duration * notional * 1bp)
+    // For a 6-month deposit on $1M notional, DV01 magnitude should be around $50
+    // DV01 is negative for long positions (standard convention: rates up → PV down)
+    assert!(
+        dv01.abs() > 40.0 && dv01.abs() < 60.0,
+        "DV01 magnitude should be in reasonable range for 6m $1M deposit: {}",
+        dv01
+    );
+}

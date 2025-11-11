@@ -40,78 +40,22 @@ pub struct Deposit {
 }
 
 impl Deposit {
-    /// Calculate the net present value of this deposit
+    /// Calculate the net present value of this deposit using standard cashflow discounting.
+    ///
+    /// Builds the cashflow schedule (principal out at start, principal + interest at end)
+    /// and discounts to the as_of date using the assigned discount curve.
     pub fn npv(
         &self,
         context: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        let disc = context.get_discount_ref(&self.discount_curve_id)?;
-
-        // Accrual factor (instrument basis)
-        let yf = self
-            .day_count
-            .year_fraction(
-                self.start,
-                self.end,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
-
-        // Quoted simple rate (default to 0 when not provided)
-        let r = self.quote_rate.unwrap_or(0.0);
-
-        // Redemption amount at maturity
-        let redemption = self.notional * (1.0 + r * yf);
-
-        // Discount cashflows from as_of date (not from curve base_date)
-        // This ensures theta correctly captures time decay
-        let dc = self.day_count;
-        let t_start = dc
-            .year_fraction(
-                as_of,
-                self.start,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t_end = dc
-            .year_fraction(
-                as_of,
-                self.end,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        // Get discount factors relative to curve base, then adjust to as_of
-        let curve_base = disc.base_date();
-        let t_as_of = dc
-            .year_fraction(
-                curve_base,
-                as_of,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        let df_as_of = disc.df(t_as_of);
-        let df_start_abs = disc.df(t_as_of + t_start);
-        let df_end_abs = disc.df(t_as_of + t_end);
-
-        // Discount factors relative to as_of
-        let df_start = if df_as_of != 0.0 {
-            df_start_abs / df_as_of
-        } else {
-            1.0
-        };
-        let df_end = if df_as_of != 0.0 {
-            df_end_abs / df_as_of
-        } else {
-            1.0
-        };
-
-        // PV = -Notional * DF(start) + Redemption * DF(end)
-        let currency = self.notional.currency();
-        let pv = -self.notional.amount() * df_start + redemption.amount() * df_end;
-        Ok(Money::new(pv, currency))
+        crate::instruments::common::helpers::schedule_pv_impl(
+            self,
+            context,
+            as_of,
+            &self.discount_curve_id,
+            self.day_count,
+        )
     }
 }
 

@@ -37,7 +37,8 @@ where
     // Parallel bump the entire curve
     let bumped = disc.with_parallel_bump(bump_bp);
     let pv_bumped = revalue_with_disc(&bumped)?;
-    let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+    // DV01 = PV change per 1bp move. If bump is N bp, divide by N to get per-bp sensitivity
+    let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
 
     Ok(dv01)
 }
@@ -54,15 +55,21 @@ pub fn compute_parallel_dv01_with_context<RevalFn>(
 where
     RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
 {
+    
+    use finstack_core::market_data::context::BumpSpec;
+    use hashbrown::HashMap;
+    
     let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
-    let disc = base_ctx.get_discount_ref(discount_curve_id.as_str())?;
 
-    // Parallel bump the entire curve
-    let bumped_disc = disc.with_parallel_bump(bump_bp);
-    let temp_ctx = base_ctx.clone().insert_discount(bumped_disc);
+    // Use the MarketContext.bump() method which correctly replaces curves under original IDs
+    let mut bumps = HashMap::new();
+    bumps.insert(discount_curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
+    let temp_ctx = base_ctx.bump(bumps)?;
+    
     let pv_bumped = revalue_with_context(&temp_ctx)?;
-    let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+    // DV01 = PV change per 1bp move. If bump is N bp, divide by N to get per-bp sensitivity
+    let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
 
     Ok(dv01)
 }
@@ -99,7 +106,8 @@ where
         };
         let bumped = disc.with_key_rate_bump_years(t, bump_bp);
         let pv_bumped = revalue_with_disc(&bumped)?;
-        let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+        // DV01 per bucket: PV change per 1bp move in this bucket
+        let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
         series.push((label, dv01));
     }
 
@@ -109,6 +117,9 @@ where
 }
 
 /// Key-rate DV01 series using full MarketContext revaluation per bucket time.
+///
+/// Note: This function uses a workaround - it creates a new MarketContext with the bumped
+/// curve using the original curve ID. This requires using the bump() method with a temporary ID.
 pub fn compute_key_rate_dv01_series_with_context<I, RevalFn>(
     context: &mut MetricContext,
     discount_curve_id: &CurveId,
@@ -131,10 +142,22 @@ where
         } else {
             format!("{:.0}y", t)
         };
-        let bumped_disc = disc.with_key_rate_bump_years(t, bump_bp);
+        // Create bumped curve, then rebuild it with the ORIGINAL ID so instruments can find it
+        // Note: We lose the original interpolation style but use safe defaults (Linear)
+        let bumped_tmp = disc.with_key_rate_bump_years(t, bump_bp);
+        let bumped_points: Vec<(f64, f64)> = bumped_tmp.knots().iter().copied()
+            .zip(bumped_tmp.dfs().iter().copied())
+            .collect();
+        let bumped_disc = DiscountCurve::builder(discount_curve_id.clone())
+            .base_date(bumped_tmp.base_date())
+            .day_count(bumped_tmp.day_count())
+            .knots(bumped_points)
+            .build()?;
         let temp_ctx = base_ctx.clone().insert_discount(bumped_disc);
+        
         let pv_bumped = revalue_with_context(&temp_ctx)?;
-        let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+        // DV01 per bucket: PV change per 1bp move in this bucket
+        let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
         series.push((label, dv01));
     }
 
@@ -206,7 +229,8 @@ where
         let bumped_disc = disc.with_key_rate_bump_years(t, bump_bp);
         let temp_ctx = base_ctx.clone().insert_discount(bumped_disc);
         let pv_bumped = revalue_with_context(&temp_ctx)?;
-        let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+        // DV01 per bucket: PV change per 1bp move in this bucket
+        let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
         series.push((label, dv01));
     }
 
