@@ -1,7 +1,7 @@
 use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use crate::core::error::core_to_py;
-use crate::core::money::PyMoney;
-use crate::core::utils::date_to_py;
+use crate::core::money::{extract_money, PyMoney};
+use crate::core::utils::{date_to_py, py_to_date};
 use finstack_core::cashflow::primitives::{CFKind, CashFlow};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -156,6 +156,63 @@ impl PyCashFlow {
 
 #[pymethods]
 impl PyCashFlow {
+    #[new]
+    #[pyo3(signature = (date, amount, kind, accrual_factor=0.0, reset_date=None))]
+    /// Create a new cashflow.
+    ///
+    /// Parameters
+    /// ----------
+    /// date : date or str
+    ///     Cashflow payment date.
+    /// amount : Money
+    ///     Cashflow amount.
+    /// kind : CFKind
+    ///     Cashflow kind.
+    /// accrual_factor : float, optional
+    ///     Accrual factor (default: 0.0).
+    /// reset_date : date or str, optional
+    ///     Reset date for floating cashflows (default: None).
+    ///
+    /// Returns
+    /// -------
+    /// CashFlow
+    ///     A new cashflow instance.
+    ///
+    /// Examples
+    /// --------
+    /// >>> from finstack import Money
+    /// >>> from finstack.core.cashflow import CashFlow, CFKind
+    /// >>> from datetime import date
+    /// >>> cf = CashFlow(
+    /// ...     date=date(2025, 6, 15),
+    /// ...     amount=Money(2500, "USD"),
+    /// ...     kind=CFKind.from_name("Fixed"),
+    /// ...     accrual_factor=0.25
+    /// ... )
+    pub fn __new__(
+        date: &Bound<'_, PyAny>,
+        amount: &Bound<'_, PyAny>,
+        kind: &Bound<'_, PyAny>,
+        accrual_factor: f64,
+        reset_date: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        let date = py_to_date(date)?;
+        let amount = extract_money(amount)?;
+        let kind = extract_cf_kind(kind)?;
+        let reset_date = reset_date.map(py_to_date).transpose()?;
+
+        Ok(Self {
+            inner: CashFlow {
+                date,
+                amount,
+                kind,
+                accrual_factor,
+                reset_date,
+                rate: None,
+            },
+        })
+    }
+
     /// Validate cashflow amount and fields.
     ///
     /// Raises

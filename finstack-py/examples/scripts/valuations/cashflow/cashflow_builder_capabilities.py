@@ -35,7 +35,7 @@ from finstack.core.currency import USD, EUR
 from finstack.core.dates.schedule import Frequency, StubKind
 from finstack.core.dates.daycount import DayCount
 from finstack.core.dates import BusinessDayConvention
-from finstack.core.cashflow import AmortizationSpec, CFKind
+from finstack.valuations.cashflow import AmortizationSpec
 from finstack.core.market_data import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.cashflow import (

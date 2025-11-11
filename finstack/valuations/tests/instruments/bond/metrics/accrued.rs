@@ -83,32 +83,26 @@ fn test_accrued_frn_uses_forward_rate() {
         .insert_discount(disc)
         .insert_forward(fwd);
 
-    // Floating-rate bond with SOFR 3M (build with BondFloatSpec)
-    use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
+    // Floating-rate bond with SOFR 3M (using new CashflowSpec)
+    use finstack_core::dates::Frequency;
     use finstack_core::types::CurveId;
-    use finstack_valuations::instruments::bond::BondFloatSpec;
+    use finstack_valuations::instruments::bond::CashflowSpec;
     use finstack_valuations::instruments::common::traits::Attributes;
     use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
     let bond = Bond::builder()
         .id("FRN1".into())
         .notional(Money::new(100.0, Currency::USD))
-        .coupon(0.0)
         .issue(issue)
         .maturity(date!(2026 - 01 - 01))
-        .freq(Frequency::quarterly())
-        .dc(DayCount::Act360)
-        .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(StubKind::None)
+        .cashflow_spec(CashflowSpec::floating(
+            CurveId::new("USD-SOFR-3M"),
+            0.0,
+            Frequency::quarterly(),
+            DayCount::Act360,
+        ))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .credit_curve_id_opt(None)
         .pricing_overrides(PricingOverrides::default())
-        .float_opt(Some(BondFloatSpec {
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            margin_bp: 0.0,
-            gearing: 1.0,
-            reset_lag_days: 2,
-        }))
         .attributes(Attributes::new())
         .build()
         .unwrap();

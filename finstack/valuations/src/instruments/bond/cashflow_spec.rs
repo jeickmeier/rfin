@@ -1,48 +1,30 @@
-//! Simplified cashflow specification for bonds.
+//! Thin facade for bond cashflow specification.
 //!
-//! This module provides a cleaner API for specifying bond cashflows by making
-//! mutually exclusive options explicit through an enum instead of multiple
-//! optional fields that could conflict.
+//! This module provides a clean, ergonomic API for bonds by wrapping the canonical
+//! builder coupon specs (`FixedCouponSpec`, `FloatingCouponSpec`) with convenience
+//! constructors that apply sensible defaults.
 
-use crate::cashflow::builder::CashFlowSchedule;
+use crate::cashflow::builder::specs::{
+    CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
+};
 use crate::cashflow::builder::AmortizationSpec;
-use finstack_core::dates::{DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_core::types::CurveId;
 
-/// Specification for how bond cashflows should be generated.
+/// Thin facade over canonical builder coupon specs for bond cashflows.
 ///
-/// This enum makes it clear which cashflow generation methods are mutually exclusive,
-/// eliminating confusion about which fields should be set together.
+/// Wraps `FixedCouponSpec` and `FloatingCouponSpec` from the cashflow builder,
+/// providing convenience constructors with sensible defaults for common bond use cases.
+/// This ensures parity with all builder features (floors/caps, BDC, calendars, PIK, etc.)
+/// while keeping the bond API simple.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CashflowSpec {
-    /// Standard fixed-rate bond with regular coupon payments.
-    Fixed {
-        /// Annual coupon rate (e.g., 0.05 for 5%).
-        coupon: f64,
-        /// Payment frequency.
-        freq: Frequency,
-        /// Day count convention for accrual.
-        dc: DayCount,
-    },
+    /// Fixed-rate bond using the canonical `FixedCouponSpec`.
+    Fixed(FixedCouponSpec),
 
-    /// Floating-rate note with index-linked coupons.
-    Floating {
-        /// Forward curve identifier for the floating index.
-        index_id: CurveId,
-        /// Margin over the index in basis points.
-        margin_bp: f64,
-        /// Gearing multiplier on the index rate.
-        gearing: f64,
-        /// Reset lag in days.
-        reset_lag_days: i32,
-        /// Payment frequency.
-        freq: Frequency,
-        /// Day count convention for accrual.
-        dc: DayCount,
-    },
-
-    /// User-provided custom cashflow schedule.
-    Custom(CashFlowSchedule),
+    /// Floating-rate note using the canonical `FloatingCouponSpec`.
+    Floating(FloatingCouponSpec),
 
     /// Amortizing bond (principal payments during life).
     Amortizing {
@@ -54,29 +36,66 @@ pub enum CashflowSpec {
 }
 
 impl CashflowSpec {
-    /// Create a standard fixed-rate specification.
+    /// Create a fixed-rate specification with sensible defaults.
+    ///
+    /// Defaults:
+    /// - `coupon_type`: Cash (100% cash payment)
+    /// - `bdc`: Following
+    /// - `stub`: None
+    /// - `calendar_id`: None
+    ///
+    /// For full control, construct `FixedCouponSpec` directly and wrap in `CashflowSpec::Fixed(...)`.
     pub fn fixed(coupon: f64, freq: Frequency, dc: DayCount) -> Self {
-        Self::Fixed { coupon, freq, dc }
-    }
-
-    /// Create a floating-rate specification.
-    pub fn floating(index_id: CurveId, margin_bp: f64, freq: Frequency, dc: DayCount) -> Self {
-        Self::Floating {
-            index_id,
-            margin_bp,
-            gearing: 1.0,
-            reset_lag_days: 2,
+        Self::Fixed(FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: coupon,
             freq,
             dc,
-        }
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        })
     }
 
-    /// Create a custom cashflow specification.
-    pub fn custom(schedule: CashFlowSchedule) -> Self {
-        Self::Custom(schedule)
+    /// Create a floating-rate specification with sensible defaults.
+    ///
+    /// Defaults:
+    /// - `coupon_type`: Cash (100% cash payment)
+    /// - `gearing`: 1.0
+    /// - `reset_lag_days`: 2 (T-2 convention)
+    /// - `floor_bp`: None
+    /// - `cap_bp`: None
+    /// - `reset_freq`: Same as payment frequency
+    /// - `bdc`: Following
+    /// - `stub`: None
+    /// - `calendar_id`: None
+    ///
+    /// For full control (floors/caps/gearing), construct `FloatingCouponSpec` directly
+    /// and wrap in `CashflowSpec::Floating(...)`.
+    pub fn floating(index_id: CurveId, margin_bp: f64, freq: Frequency, dc: DayCount) -> Self {
+        Self::Floating(FloatingCouponSpec {
+            rate_spec: FloatingRateSpec {
+                index_id,
+                spread_bp: margin_bp,
+                gearing: 1.0,
+                floor_bp: None,
+                cap_bp: None,
+                reset_freq: freq,
+                reset_lag_days: 2,
+                dc,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+            },
+            coupon_type: CouponType::Cash,
+            freq,
+            stub: StubKind::None,
+        })
     }
 
     /// Create an amortizing bond specification.
+    ///
+    /// The base spec (fixed or floating) determines the coupon payments,
+    /// while the amortization schedule specifies principal reductions.
     pub fn amortizing(base: CashflowSpec, schedule: AmortizationSpec) -> Self {
         Self::Amortizing {
             base: Box::new(base),
@@ -85,33 +104,27 @@ impl CashflowSpec {
     }
 
     /// Get the payment frequency from this specification.
-    pub fn frequency(&self) -> Option<Frequency> {
+    pub fn frequency(&self) -> Frequency {
         match self {
-            Self::Fixed { freq, .. } => Some(*freq),
-            Self::Floating { freq, .. } => Some(*freq),
-            Self::Custom(_) => None, // Custom schedules don't have regular frequency
+            Self::Fixed(spec) => spec.freq,
+            Self::Floating(spec) => spec.freq,
             Self::Amortizing { base, .. } => base.frequency(),
         }
     }
 
     /// Get the day count convention from this specification.
-    pub fn day_count(&self) -> Option<DayCount> {
+    pub fn day_count(&self) -> DayCount {
         match self {
-            Self::Fixed { dc, .. } => Some(*dc),
-            Self::Floating { dc, .. } => Some(*dc),
-            Self::Custom(_) => None, // Custom schedules may have mixed day counts
+            Self::Fixed(spec) => spec.dc,
+            Self::Floating(spec) => spec.rate_spec.dc,
             Self::Amortizing { base, .. } => base.day_count(),
         }
     }
 }
 
 impl Default for CashflowSpec {
-    /// Default to semi-annual fixed bond with 30/360 day count.
+    /// Default to semi-annual fixed bond with 30/360 day count (US convention).
     fn default() -> Self {
-        Self::Fixed {
-            coupon: 0.0,
-            freq: Frequency::semi_annual(),
-            dc: DayCount::Thirty360,
-        }
+        Self::fixed(0.0, Frequency::semi_annual(), DayCount::Thirty360)
     }
 }

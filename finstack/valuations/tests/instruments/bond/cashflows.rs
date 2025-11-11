@@ -18,7 +18,7 @@ use finstack_valuations::cashflow::builder::{
 };
 use finstack_valuations::cashflow::builder::AmortizationSpec;
 use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::bond::{Bond, BondFloatSpec};
+use finstack_valuations::instruments::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::PricingOverrides;
 use time::macros::date;
 
@@ -112,14 +112,9 @@ fn test_quarterly_coupon_frequency() {
     let bond = Bond::builder()
         .id("QUARTERLY".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .coupon(0.04)
         .issue(as_of)
         .maturity(maturity)
-        .freq(Frequency::quarterly())
-        .dc(DayCount::Act365F)
-        .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(StubKind::None)
+        .cashflow_spec(CashflowSpec::fixed(0.04, Frequency::quarterly(), DayCount::Act365F))
         .discount_curve_id("USD-OIS".into())
         .pricing_overrides(PricingOverrides::default())
         .build()
@@ -140,21 +135,15 @@ fn test_floating_rate_cashflows() {
     let bond = Bond::builder()
         .id("FRN".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .coupon(0.0) // Unused for FRN
         .issue(as_of)
         .maturity(maturity)
-        .freq(Frequency::quarterly())
-        .dc(DayCount::Act360)
-        .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(StubKind::None)
+        .cashflow_spec(CashflowSpec::floating(
+            CurveId::new("USD-SOFR-3M"),
+            150.0,
+            Frequency::quarterly(),
+            DayCount::Act360,
+        ))
         .discount_curve_id(CurveId::new("USD-OIS"))
-        .float_opt(Some(BondFloatSpec {
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            margin_bp: 150.0,
-            gearing: 1.0,
-            reset_lag_days: 2,
-        }))
         .pricing_overrides(PricingOverrides::default())
         .build()
         .unwrap();
@@ -179,18 +168,15 @@ fn test_amortizing_bond_linear() {
     let bond = Bond::builder()
         .id("AMORT_LINEAR".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .coupon(0.05)
         .issue(as_of)
         .maturity(maturity)
-        .freq(Frequency::semi_annual())
-        .dc(DayCount::Act365F)
-        .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(StubKind::None)
+        .cashflow_spec(CashflowSpec::amortizing(
+            CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F),
+            AmortizationSpec::LinearTo {
+                final_notional: Money::new(400.0, Currency::USD),
+            },
+        ))
         .discount_curve_id("USD-OIS".into())
-        .amortization_opt(Some(AmortizationSpec::LinearTo {
-            final_notional: Money::new(400.0, Currency::USD),
-        }))
         .pricing_overrides(PricingOverrides::default())
         .build()
         .unwrap();
@@ -318,17 +304,21 @@ fn test_cashflows_with_short_front_stub() {
     let as_of = date!(2025 - 01 - 15); // Mid-month start
     let maturity = date!(2027 - 01 - 01);
 
+    use finstack_valuations::cashflow::builder::specs::CouponType;
     let bond = Bond::builder()
         .id("STUB_SHORT".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .coupon(0.05)
         .issue(as_of)
         .maturity(maturity)
-        .freq(Frequency::semi_annual())
-        .dc(DayCount::Act365F)
-        .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(StubKind::ShortFront)
+        .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.05,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+        }))
         .discount_curve_id("USD-OIS".into())
         .pricing_overrides(PricingOverrides::default())
         .build()
@@ -435,21 +425,15 @@ fn test_get_full_schedule_floating() {
     let bond = Bond::builder()
         .id("FULL_FRN".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .coupon(0.0)
         .issue(as_of)
         .maturity(maturity)
-        .freq(Frequency::quarterly())
-        .dc(DayCount::Act360)
-        .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(StubKind::None)
+        .cashflow_spec(CashflowSpec::floating(
+            CurveId::new("USD-SOFR-3M"),
+            100.0,
+            Frequency::quarterly(),
+            DayCount::Act360,
+        ))
         .discount_curve_id(CurveId::new("USD-OIS"))
-        .float_opt(Some(BondFloatSpec {
-            forward_curve_id: CurveId::new("USD-SOFR-3M"),
-            margin_bp: 100.0,
-            gearing: 1.0,
-            reset_lag_days: 2,
-        }))
         .pricing_overrides(PricingOverrides::default())
         .build()
         .unwrap();
@@ -476,14 +460,9 @@ fn test_cashflows_day_count_conventions() {
         let bond = Bond::builder()
             .id(format!("DC_{:?}", dc).into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.05)
             .issue(as_of)
             .maturity(maturity)
-            .freq(Frequency::semi_annual())
-            .dc(dc)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), dc))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .build()
@@ -505,18 +484,15 @@ fn test_amortizing_full_redemption() {
     let bond = Bond::builder()
         .id("AMORT_FULL".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .coupon(0.05)
         .issue(as_of)
         .maturity(maturity)
-        .freq(Frequency::semi_annual())
-        .dc(DayCount::Act365F)
-        .bdc(BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(StubKind::None)
+        .cashflow_spec(CashflowSpec::amortizing(
+            CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F),
+            AmortizationSpec::LinearTo {
+                final_notional: Money::new(0.0, Currency::USD),
+            },
+        ))
         .discount_curve_id("USD-OIS".into())
-        .amortization_opt(Some(AmortizationSpec::LinearTo {
-            final_notional: Money::new(0.0, Currency::USD),
-        }))
         .pricing_overrides(PricingOverrides::default())
         .build()
         .unwrap();

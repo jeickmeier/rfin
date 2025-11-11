@@ -3,8 +3,7 @@ use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::bond::BondFloatSpec;
-use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};
+use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule, CashflowSpec};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
@@ -225,50 +224,79 @@ impl PyBond {
         let maturity_date = py_to_date(&maturity)?;
         let disc = extract_curve_id(&discount_curve)?;
 
+        // Build the cashflow_spec from the provided parameters
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        use finstack_valuations::cashflow::builder::specs::{
+            CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
+        };
+        
+        let freq = frequency.map(|f| f.inner).unwrap_or(Frequency::semi_annual());
+        let dc = day_count.map(|d| d.inner).unwrap_or(DayCount::Thirty360);
+        let bdc_val = bdc.map(|b| b.inner).unwrap_or(BusinessDayConvention::Following);
+        let stub_val = stub.map(|s| s.inner).unwrap_or(StubKind::None);
+        let calendar_str = calendar_id.map(|s| s.to_string());
+        
+        let cashflow_spec = if let Some(fwd) = forward_curve {
+            // Floating-rate bond
+            let forward_curve_id = extract_curve_id(&fwd)?;
+            CashflowSpec::Floating(FloatingCouponSpec {
+                rate_spec: FloatingRateSpec {
+                    index_id: forward_curve_id,
+                    spread_bp: float_margin_bp.unwrap_or(0.0),
+                    gearing: float_gearing.unwrap_or(1.0),
+                    floor_bp: None,
+                    cap_bp: None,
+                    reset_freq: freq,
+                    reset_lag_days: float_reset_lag_days.unwrap_or(2),
+                    dc,
+                    bdc: bdc_val,
+                    calendar_id: calendar_str.clone(),
+                },
+                coupon_type: CouponType::Cash,
+                freq,
+                stub: stub_val,
+            })
+        } else {
+            // Fixed-rate bond
+            let rate = coupon_rate.unwrap_or(0.0);
+            if let Some(am) = amortization.as_ref() {
+                CashflowSpec::amortizing(
+                    CashflowSpec::Fixed(FixedCouponSpec {
+                        coupon_type: CouponType::Cash,
+                        rate,
+                        freq,
+                        dc,
+                        bdc: bdc_val,
+                        calendar_id: calendar_str.clone(),
+                        stub: stub_val,
+                    }),
+                    am.inner.clone(),
+                )
+            } else {
+                CashflowSpec::Fixed(FixedCouponSpec {
+                    coupon_type: CouponType::Cash,
+                    rate,
+                    freq,
+                    dc,
+                    bdc: bdc_val,
+                    calendar_id: calendar_str.clone(),
+                    stub: stub_val,
+                })
+            }
+        };
+        
         let mut builder = Bond::builder()
             .id(id)
             .notional(amt)
             .issue(issue_date)
             .maturity(maturity_date)
-            .discount_curve_id(disc);
+            .discount_curve_id(disc)
+            .cashflow_spec(cashflow_spec);
 
         if let Some(px) = quoted_clean_price {
             builder = builder.pricing_overrides(
                 finstack_valuations::instruments::PricingOverrides::default().with_clean_price(px),
             );
-        }
-        if let Some(am) = amortization.as_ref() {
-            builder = builder.amortization(am.inner.clone());
-        }
-        if let Some(dc) = day_count {
-            builder = builder.dc(dc.inner);
-        }
-        if let Some(f) = frequency {
-            builder = builder.freq(f.inner);
-        }
-        if let Some(rule) = stub {
-            builder = builder.stub(rule.inner);
-        }
-        if let Some(conv) = bdc {
-            builder = builder.bdc(conv.inner);
-        }
-        if let Some(cal) = calendar_id {
-            builder = builder.calendar_id_opt(Some(cal.to_string()));
-        }
-        if let Some(c) = coupon_rate {
-            builder = builder.coupon(c);
-        }
-
-        // Optional floating-rate configuration
-        if let Some(fwd) = forward_curve {
-            let forward_curve_id = extract_curve_id(&fwd)?;
-            let spec = BondFloatSpec {
-                forward_curve_id,
-                margin_bp: float_margin_bp.unwrap_or(0.0),
-                gearing: float_gearing.unwrap_or(1.0),
-                reset_lag_days: float_reset_lag_days.unwrap_or(2),
-            };
-            builder = builder.float_opt(Some(spec));
         }
 
         if call_schedule.is_some() || put_schedule.is_some() {
@@ -337,14 +365,32 @@ impl PyBond {
         .map_err(crate::core::error::core_to_py)?;
 
         if let Some(fwd) = forward_curve {
-            let forward_curve_id = extract_curve_id(&fwd)?;
-            let spec = BondFloatSpec {
-                forward_curve_id,
-                margin_bp: float_margin_bp.unwrap_or(0.0),
-                gearing: float_gearing.unwrap_or(1.0),
-                reset_lag_days: float_reset_lag_days.unwrap_or(2),
+            // Update cashflow_spec to floating if forward curve is provided
+            use finstack_valuations::cashflow::builder::specs::{
+                CouponType, FloatingCouponSpec, FloatingRateSpec,
             };
-            bond.float = Some(spec);
+            
+            let forward_curve_id = extract_curve_id(&fwd)?;
+            let freq = bond.cashflow_spec.frequency();
+            let dc = bond.cashflow_spec.day_count();
+            
+            bond.cashflow_spec = CashflowSpec::Floating(FloatingCouponSpec {
+                rate_spec: FloatingRateSpec {
+                    index_id: forward_curve_id,
+                    spread_bp: float_margin_bp.unwrap_or(0.0),
+                    gearing: float_gearing.unwrap_or(1.0),
+                    floor_bp: None,
+                    cap_bp: None,
+                    reset_freq: freq,
+                    reset_lag_days: float_reset_lag_days.unwrap_or(2),
+                    dc,
+                    bdc: finstack_core::dates::BusinessDayConvention::Following,
+                    calendar_id: None,
+                },
+                coupon_type: CouponType::Cash,
+                freq,
+                stub: finstack_core::dates::StubKind::None,
+            });
         }
 
         Ok(Self::new(bond))
@@ -372,34 +418,21 @@ impl PyBond {
         let disc = extract_curve_id(&discount_curve)?;
         let fwd = extract_curve_id(&forward_curve)?;
 
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-        use finstack_valuations::instruments::bond::BondFloatSpec;
-        use finstack_valuations::instruments::common::traits::Attributes;
+        use finstack_core::dates::{DayCount, Frequency};
 
-        Bond::builder()
-            .id(id)
-            .notional(amt)
-            .coupon(0.0)
-            .issue(issue_date)
-            .maturity(maturity_date)
-            .freq(Frequency::quarterly())
-            .dc(DayCount::Act360)
-            .bdc(BusinessDayConvention::Following)
-            .stub(StubKind::None)
-            .calendar_id_opt(None)
-            .discount_curve_id(disc)
-            .credit_curve_id_opt(None)
-            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
-            .float_opt(Some(BondFloatSpec {
-                forward_curve_id: fwd,
-                margin_bp,
-                gearing: 1.0,
-                reset_lag_days: 2,
-            }))
-            .attributes(Attributes::new())
-            .build()
-            .map(Self::new)
-            .map_err(crate::core::error::core_to_py)
+        let bond = finstack_valuations::instruments::bond::Bond::floating(
+            id,
+            amt,
+            fwd,
+            margin_bp,
+            issue_date,
+            maturity_date,
+            Frequency::quarterly(),
+            DayCount::Act360,
+            disc,
+        );
+        
+        Ok(Self::new(bond))
     }
 
     /// Instrument identifier.
@@ -420,13 +453,22 @@ impl PyBond {
         PyMoney::new(self.inner.notional)
     }
 
-    /// Annual coupon rate in decimal form.
+    /// Annual coupon rate in decimal form (for fixed bonds only).
     ///
     /// Returns:
-    ///     float: Annual coupon rate.
+    ///     float: Annual coupon rate, or 0.0 for non-fixed bonds.
     #[getter]
     fn coupon(&self) -> f64 {
-        self.inner.coupon
+        match &self.inner.cashflow_spec {
+            CashflowSpec::Fixed(spec) => spec.rate,
+            CashflowSpec::Amortizing { base, .. } => {
+                match &**base {
+                    CashflowSpec::Fixed(spec) => spec.rate,
+                    _ => 0.0,
+                }
+            }
+            _ => 0.0,
+        }
     }
 
     /// Issue date for the bond.
@@ -478,19 +520,27 @@ impl PyBond {
     }
 
     fn __repr__(&self) -> PyResult<String> {
+        let coupon_rate = match &self.inner.cashflow_spec {
+            CashflowSpec::Fixed(spec) => spec.rate,
+            _ => 0.0,
+        };
         Ok(format!(
             "Bond(id='{}', coupon={:.4}, maturity='{}')",
-            self.inner.id, self.inner.coupon, self.inner.maturity
+            self.inner.id, coupon_rate, self.inner.maturity
         ))
     }
 }
 
 impl fmt::Display for PyBond {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let coupon_rate = match &self.inner.cashflow_spec {
+            CashflowSpec::Fixed(spec) => spec.rate,
+            _ => 0.0,
+        };
         write!(
             f,
             "Bond({}, coupon={:.4})",
-            self.inner.id, self.inner.coupon
+            self.inner.id, coupon_rate
         )
     }
 }

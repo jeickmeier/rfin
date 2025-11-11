@@ -97,6 +97,7 @@ pub trait ModelTimeSeries {
 }
 
 /// Forecast a covenant using a generic time-series model adapter.
+#[allow(unused_variables)]
 pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     covenant: &CovenantSpec,
     model: &MTS,
@@ -146,7 +147,10 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         })
         .collect();
 
+    #[cfg(feature = "mc")]
     let mut breach_probability = deterministic_breach_prob.clone();
+    #[cfg(not(feature = "mc"))]
+    let breach_probability = deterministic_breach_prob.clone();
 
     // Optional MC overlay (multiplicative shock to metric value)
     #[cfg(feature = "mc")]
@@ -370,6 +374,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "mc")]
     fn stochastic_breach_probability_moves_with_vol() {
         // Debt/EBITDA <= 1.0, base ~ 1.0; with high vol, breach prob should be material
         let spec = CovenantSpec::with_metric(

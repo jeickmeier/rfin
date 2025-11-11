@@ -17,6 +17,10 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+# Set up output directory for artifacts
+OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / "outputs"
+OUTPUT_DIR.mkdir(exist_ok=True)
+
 try:
     import finstack
     from finstack import Money
@@ -212,8 +216,9 @@ def demo_visualization():
     ax.grid(True, alpha=0.3, axis='y')
     
     plt.tight_layout()
-    plt.savefig('mc_paths_visualization.png', dpi=150, bbox_inches='tight')
-    print("Saved visualization to mc_paths_visualization.png")
+    output_file = OUTPUT_DIR / 'mc_paths_visualization.png'
+    plt.savefig(output_file, dpi=150, bbox_inches='tight')
+    print(f"Saved visualization to {output_file}")
     """)
 
 
@@ -265,8 +270,9 @@ def demo_correlation_analysis():
         
         ax.set_title('Process Correlation Matrix')
         plt.tight_layout()
-        plt.savefig('correlation_matrix.png', dpi=150)
-        print("Saved correlation matrix to correlation_matrix.png")
+        output_file = OUTPUT_DIR / 'correlation_matrix.png'
+        plt.savefig(output_file, dpi=150)
+        print(f"Saved correlation matrix to {output_file}")
     """)
 
 
@@ -323,8 +329,9 @@ def demo_path_specific_analysis():
     ax.legend()
     ax.grid(True, alpha=0.3)
     
-    plt.savefig('specific_paths.png', dpi=150)
-    print("Saved specific path analysis to specific_paths.png")
+    output_file = OUTPUT_DIR / 'specific_paths.png'
+    plt.savefig(output_file, dpi=150)
+    print(f"Saved specific path analysis to {output_file}")
     """)
 
 

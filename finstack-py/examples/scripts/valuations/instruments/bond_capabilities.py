@@ -5,7 +5,7 @@ from finstack.core.currency import USD
 from finstack.core.dates.schedule import Frequency, StubKind
 from finstack.core.dates.daycount import DayCount, DayCountContext
 from finstack.core.dates import BusinessDayConvention
-from finstack.core.cashflow import AmortizationSpec
+from finstack.valuations.cashflow import AmortizationSpec
 from finstack.valuations.cashflow import (
     CashflowBuilder,
     ScheduleParams,

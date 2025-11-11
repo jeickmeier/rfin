@@ -130,19 +130,19 @@ fn test_time_roll_with_bond_carry() {
     let mut market = MarketContext::new().insert_discount(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
+    use finstack_valuations::instruments::bond::CashflowSpec;
     // Create a bond instrument
     let mut instruments: Vec<Box<dyn Instrument>> = vec![Box::new(
         Bond::builder()
             .id("BOND1".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-            .coupon(0.05)
             .issue(base_date)
             .maturity(base_date + time::Duration::days(730))
-            .freq(finstack_core::dates::Frequency::annual())
-            .dc(finstack_core::dates::DayCount::Thirty360)
-            .bdc(finstack_core::dates::BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(finstack_core::dates::StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                finstack_core::dates::Frequency::annual(),
+                finstack_core::dates::DayCount::Thirty360,
+            ))
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())

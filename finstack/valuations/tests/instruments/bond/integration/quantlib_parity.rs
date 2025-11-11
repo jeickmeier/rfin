@@ -22,7 +22,7 @@ use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule};
+use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule, CashflowSpec};
 use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
@@ -114,18 +114,18 @@ fn quantlib_parity_par_bond() {
     let notional = 100.0;
     let coupon_rate = 0.05; // 5% annual
 
+    use finstack_valuations::instruments::bond::CashflowSpec;
     // Use builder to explicitly set annual frequency to match QuantLib
     let bond = Bond::builder()
         .id("PAR001".into())
         .notional(Money::new(notional, Currency::USD))
-        .coupon(coupon_rate)
         .issue(base)
         .maturity(maturity)
-        .freq(finstack_core::dates::Frequency::annual()) // Annual payments for exact QuantLib parity
-        .dc(DayCount::Act365F)
-        .bdc(finstack_core::dates::BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(finstack_core::dates::StubKind::None)
+        .cashflow_spec(CashflowSpec::fixed(
+            coupon_rate,
+            finstack_core::dates::Frequency::annual(), // Annual payments for exact QuantLib parity
+            DayCount::Act365F,
+        ))
         .discount_curve_id("PAR".into())
         .credit_curve_id_opt(None)
         .pricing_overrides(PricingOverrides::default())
@@ -673,14 +673,13 @@ fn quantlib_parity_day_count_conventions() {
     let bond_act365 = Bond::builder()
         .id("DC_ACT365".into())
         .notional(Money::new(notional, Currency::USD))
-        .coupon(coupon_rate)
         .issue(issue_date)
         .maturity(maturity)
-        .freq(finstack_core::dates::Frequency::annual()) // Use consistent frequency
-        .dc(DayCount::Act365F)
-        .bdc(finstack_core::dates::BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(finstack_core::dates::StubKind::None)
+        .cashflow_spec(CashflowSpec::fixed(
+            coupon_rate,
+            finstack_core::dates::Frequency::annual(), // Use consistent frequency
+            DayCount::Act365F,
+        ))
         .discount_curve_id("USD-OIS".into())
         .credit_curve_id_opt(None)
         .pricing_overrides(PricingOverrides::default())
@@ -692,14 +691,13 @@ fn quantlib_parity_day_count_conventions() {
     let bond_30360 = Bond::builder()
         .id("DC_30360".into())
         .notional(Money::new(notional, Currency::USD))
-        .coupon(coupon_rate)
         .issue(issue_date)
         .maturity(maturity)
-        .freq(finstack_core::dates::Frequency::annual()) // Same frequency
-        .dc(DayCount::Thirty360)
-        .bdc(finstack_core::dates::BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(finstack_core::dates::StubKind::None)
+        .cashflow_spec(CashflowSpec::fixed(
+            coupon_rate,
+            finstack_core::dates::Frequency::annual(), // Same frequency
+            DayCount::Thirty360,
+        ))
         .discount_curve_id("USD-OIS".into())
         .credit_curve_id_opt(None)
         .pricing_overrides(PricingOverrides::default())

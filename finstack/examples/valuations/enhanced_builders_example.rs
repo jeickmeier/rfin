@@ -49,7 +49,12 @@ fn main() -> finstack_core::Result<()> {
         maturity_5y,
         "USD-OIS",
     );
-    println!("✓ Bond created: {} coupon", bond.coupon);
+    use finstack_valuations::instruments::bond::CashflowSpec;
+    let coupon = match &bond.cashflow_spec {
+        CashflowSpec::Fixed(spec) => spec.rate,
+        _ => 0.0,
+    };
+    println!("✓ Bond created: {} coupon", coupon);
 
     // Loan and revolver examples removed
 

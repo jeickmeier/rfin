@@ -374,7 +374,13 @@ mod tests {
         let deserialized_bond = build_bond_from_spec(&spec).unwrap();
         assert_eq!(deserialized_bond.id.as_str(), "BOND-001");
         assert_eq!(deserialized_bond.notional.currency(), Currency::USD);
-        assert_eq!(deserialized_bond.coupon, 0.05);
+        // Check coupon from cashflow_spec
+        use finstack_valuations::instruments::bond::CashflowSpec;
+        if let CashflowSpec::Fixed(spec) = &deserialized_bond.cashflow_spec {
+            assert_eq!(spec.rate, 0.05);
+        } else {
+            panic!("Expected fixed cashflow spec");
+        }
     }
 
     #[test]

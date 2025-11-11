@@ -18,20 +18,20 @@ fn test_instrument_type_price_shock_matching() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
+    use finstack_valuations::instruments::bond::CashflowSpec;
     // Create test instruments
     let mut instruments: Vec<Box<dyn Instrument>> = vec![
         Box::new(
             Bond::builder()
                 .id("BOND1".into())
                 .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .coupon(0.05)
                 .issue(base_date)
                 .maturity(base_date + time::Duration::days(365))
-                .freq(finstack_core::dates::Frequency::annual())
-                .dc(finstack_core::dates::DayCount::Thirty360)
-                .bdc(finstack_core::dates::BusinessDayConvention::Following)
-                .calendar_id_opt(None)
-                .stub(finstack_core::dates::StubKind::None)
+                .cashflow_spec(CashflowSpec::fixed(
+                    0.05,
+                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::DayCount::Thirty360,
+                ))
                 .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
                 .credit_curve_id_opt(None)
                 .pricing_overrides(PricingOverrides::default())
@@ -43,14 +43,13 @@ fn test_instrument_type_price_shock_matching() {
             Bond::builder()
                 .id("BOND2".into())
                 .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .coupon(0.04)
                 .issue(base_date)
                 .maturity(base_date + time::Duration::days(730))
-                .freq(finstack_core::dates::Frequency::annual())
-                .dc(finstack_core::dates::DayCount::Thirty360)
-                .bdc(finstack_core::dates::BusinessDayConvention::Following)
-                .calendar_id_opt(None)
-                .stub(finstack_core::dates::StubKind::None)
+                .cashflow_spec(CashflowSpec::fixed(
+                    0.04,
+                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::DayCount::Thirty360,
+                ))
                 .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
                 .credit_curve_id_opt(None)
                 .pricing_overrides(PricingOverrides::default())
@@ -93,6 +92,7 @@ fn test_instrument_type_price_shock_matching() {
 
 #[test]
 fn test_instrument_type_spread_shock_matching() {
+    use finstack_valuations::instruments::bond::CashflowSpec;
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -101,14 +101,13 @@ fn test_instrument_type_spread_shock_matching() {
         Bond::builder()
             .id("BOND1".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-            .coupon(0.05)
             .issue(base_date)
             .maturity(base_date + time::Duration::days(365))
-            .freq(finstack_core::dates::Frequency::annual())
-            .dc(finstack_core::dates::DayCount::Thirty360)
-            .bdc(finstack_core::dates::BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(finstack_core::dates::StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                finstack_core::dates::Frequency::annual(),
+                finstack_core::dates::DayCount::Thirty360,
+            ))
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
@@ -180,6 +179,7 @@ fn test_instrument_shock_empty_list() {
 
 #[test]
 fn test_instrument_shock_no_matching_types() {
+    use finstack_valuations::instruments::bond::CashflowSpec;
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -188,14 +188,13 @@ fn test_instrument_shock_no_matching_types() {
         Bond::builder()
             .id("BOND1".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-            .coupon(0.05)
             .issue(base_date)
             .maturity(base_date + time::Duration::days(365))
-            .freq(finstack_core::dates::Frequency::annual())
-            .dc(finstack_core::dates::DayCount::Thirty360)
-            .bdc(finstack_core::dates::BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(finstack_core::dates::StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                finstack_core::dates::Frequency::annual(),
+                finstack_core::dates::DayCount::Thirty360,
+            ))
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
@@ -262,6 +261,7 @@ fn test_instrument_shock_without_instruments_provided() {
 
 #[test]
 fn test_instrument_shock_multiple_types() {
+    use finstack_valuations::instruments::bond::CashflowSpec;
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -271,14 +271,13 @@ fn test_instrument_shock_multiple_types() {
             Bond::builder()
                 .id("BOND1".into())
                 .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .coupon(0.05)
                 .issue(base_date)
                 .maturity(base_date + time::Duration::days(365))
-                .freq(finstack_core::dates::Frequency::annual())
-                .dc(finstack_core::dates::DayCount::Thirty360)
-                .bdc(finstack_core::dates::BusinessDayConvention::Following)
-                .calendar_id_opt(None)
-                .stub(finstack_core::dates::StubKind::None)
+                .cashflow_spec(CashflowSpec::fixed(
+                    0.05,
+                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::DayCount::Thirty360,
+                ))
                 .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
                 .credit_curve_id_opt(None)
                 .pricing_overrides(PricingOverrides::default())
@@ -290,14 +289,13 @@ fn test_instrument_shock_multiple_types() {
             Bond::builder()
                 .id("BOND2".into())
                 .notional(finstack_core::money::Money::new(100.0, Currency::USD))
-                .coupon(0.04)
                 .issue(base_date)
                 .maturity(base_date + time::Duration::days(730))
-                .freq(finstack_core::dates::Frequency::annual())
-                .dc(finstack_core::dates::DayCount::Thirty360)
-                .bdc(finstack_core::dates::BusinessDayConvention::Following)
-                .calendar_id_opt(None)
-                .stub(finstack_core::dates::StubKind::None)
+                .cashflow_spec(CashflowSpec::fixed(
+                    0.04,
+                    finstack_core::dates::Frequency::annual(),
+                    finstack_core::dates::DayCount::Thirty360,
+                ))
                 .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
                 .credit_curve_id_opt(None)
                 .pricing_overrides(PricingOverrides::default())

@@ -8,7 +8,8 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::Date as CoreDate;
-use finstack_valuations::instruments::bond::{Bond, BondFloatSpec, CallPut, CallPutSchedule};
+use finstack_valuations::instruments::bond::{Bond, CashflowSpec, CallPut, CallPutSchedule};
+use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec};
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::{Array, Reflect};
@@ -152,40 +153,62 @@ impl JsBond {
         float_reset_lag_days: Option<i32>,
         hazard_curve: Option<String>,
     ) -> Result<JsBond, JsValue> {
+        // Build CashflowSpec based on whether it's floating or fixed
+        let base_spec = if let Some(curve) = &forward_curve {
+            // Floating rate bond
+            CashflowSpec::Floating(FloatingCouponSpec {
+                rate_spec: FloatingRateSpec {
+                    index_id: curve_id_from_str(curve),
+                    spread_bp: float_margin_bp.unwrap_or(0.0),
+                    gearing: float_gearing.unwrap_or(1.0),
+                    floor_bp: None,
+                    cap_bp: None,
+                    reset_freq: frequency.map(|f| f.inner()).unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
+                    reset_lag_days: float_reset_lag_days.unwrap_or(2),
+                    dc: day_count.map(|dc| dc.inner()).unwrap_or(finstack_core::dates::DayCount::Act360),
+                    bdc: business_day_convention.map(|c| c.into()).unwrap_or(finstack_core::dates::BusinessDayConvention::Following),
+                    calendar_id: calendar_id.clone(),
+                },
+                coupon_type: CouponType::Cash,
+                freq: frequency.map(|f| f.inner()).unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
+                stub: stub_kind.map(|s| s.inner()).unwrap_or(finstack_core::dates::StubKind::None),
+            })
+        } else {
+            // Fixed rate bond
+            CashflowSpec::Fixed(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: coupon_rate.unwrap_or(0.0),
+                freq: frequency.map(|f| f.inner()).unwrap_or_else(finstack_core::dates::Frequency::semi_annual),
+                dc: day_count.map(|dc| dc.inner()).unwrap_or(finstack_core::dates::DayCount::Thirty360),
+                bdc: business_day_convention.map(|c| c.into()).unwrap_or(finstack_core::dates::BusinessDayConvention::Following),
+                calendar_id: calendar_id.clone(),
+                stub: stub_kind.map(|s| s.inner()).unwrap_or(finstack_core::dates::StubKind::None),
+            })
+        };
+
+        // Wrap in amortization if present
+        let cashflow_spec = if let Some(amort) = amortization {
+            CashflowSpec::Amortizing {
+                base: Box::new(base_spec),
+                schedule: amort.inner(),
+            }
+        } else {
+            base_spec
+        };
+
         let mut builder = Bond::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
             .issue(issue.inner())
             .maturity(maturity.inner())
+            .cashflow_spec(cashflow_spec)
             .discount_curve_id(curve_id_from_str(discount_curve));
-
-        if let Some(rate) = coupon_rate {
-            builder = builder.coupon(rate);
-        }
-        if let Some(freq) = frequency {
-            builder = builder.freq(freq.inner());
-        }
-        if let Some(dc) = day_count {
-            builder = builder.dc(dc.inner());
-        }
-        if let Some(conv) = business_day_convention {
-            builder = builder.bdc(conv.into());
-        }
-        if let Some(stub) = stub_kind {
-            builder = builder.stub(stub.inner());
-        }
-        if let Some(amort) = amortization {
-            builder = builder.amortization(amort.inner());
-        }
         if let Some(price) = quoted_clean_price {
             builder =
                 builder.pricing_overrides(PricingOverrides::default().with_clean_price(price));
         }
         if let Some(hazard) = hazard_curve {
             builder = builder.credit_curve_id_opt(Some(curve_id_from_str(&hazard)));
-        }
-        if let Some(cal) = calendar_id {
-            builder = builder.calendar_id_opt(Some(cal));
         }
 
         if call_schedule.is_some() || put_schedule.is_some() {
@@ -197,16 +220,6 @@ impl JsBond {
                 schedule.puts = puts;
             }
             builder = builder.call_put_opt(Some(schedule));
-        }
-
-        if let Some(curve) = forward_curve {
-            let spec = BondFloatSpec {
-                forward_curve_id: curve_id_from_str(&curve),
-                margin_bp: float_margin_bp.unwrap_or(0.0),
-                gearing: float_gearing.unwrap_or(1.0),
-                reset_lag_days: float_reset_lag_days.unwrap_or(2),
-            };
-            builder = builder.float_opt(Some(spec));
         }
 
         builder
@@ -301,9 +314,7 @@ impl JsBond {
         margin_bp: f64,
         quoted_clean_price: Option<f64>,
     ) -> Result<JsBond, JsValue> {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-        use finstack_valuations::instruments::bond::BondFloatSpec;
-        use finstack_valuations::instruments::common::traits::Attributes;
+        use finstack_core::dates::{DayCount, Frequency};
 
         let pricing_overrides = if let Some(price) = quoted_clean_price {
             PricingOverrides::default().with_clean_price(price)
@@ -311,27 +322,18 @@ impl JsBond {
             PricingOverrides::default()
         };
 
-        let bond = Bond::builder()
-            .id(instrument_id_from_str(instrument_id))
-            .notional(notional.inner())
-            .coupon(0.0)
-            .issue(issue.inner())
-            .maturity(maturity.inner())
-            .freq(Frequency::quarterly())
-            .dc(DayCount::Act360)
-            .bdc(BusinessDayConvention::Following)
-            .stub(StubKind::None)
-            .discount_curve_id(curve_id_from_str(discount_curve))
-            .pricing_overrides(pricing_overrides)
-            .float_opt(Some(BondFloatSpec {
-                forward_curve_id: curve_id_from_str(forward_curve),
-                margin_bp,
-                gearing: 1.0,
-                reset_lag_days: 2,
-            }))
-            .attributes(Attributes::new())
-            .build()
-            .map_err(|e| js_error(format!("Floating bond construction failed: {}", e)))?;
+        let mut bond = Bond::floating(
+            instrument_id,
+            notional.inner(),
+            curve_id_from_str(forward_curve),
+            margin_bp,
+            issue.inner(),
+            maturity.inner(),
+            Frequency::quarterly(),
+            DayCount::Act360,
+            curve_id_from_str(discount_curve),
+        );
+        bond.pricing_overrides = pricing_overrides;
         Ok(JsBond::from_inner(bond))
     }
 
@@ -466,22 +468,49 @@ impl JsBond {
 
     #[wasm_bindgen(getter)]
     pub fn coupon(&self) -> f64 {
-        self.0.coupon
+        // Extract coupon from cashflow_spec - return 0 for floating or amortizing
+        match &self.0.cashflow_spec {
+            CashflowSpec::Fixed(spec) => spec.rate,
+            CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
+                CashflowSpec::Fixed(spec) => spec.rate,
+                _ => 0.0,
+            },
+            _ => 0.0,
+        }
     }
 
     #[wasm_bindgen(getter)]
     pub fn frequency(&self) -> JsFrequency {
-        JsFrequency::from_inner(self.0.freq)
+        let freq = match &self.0.cashflow_spec {
+            CashflowSpec::Fixed(spec) => spec.freq,
+            CashflowSpec::Floating(spec) => spec.freq,
+            CashflowSpec::Amortizing { base, .. } => base.frequency(),
+        };
+        JsFrequency::from_inner(freq)
     }
 
     #[wasm_bindgen(getter, js_name = dayCount)]
     pub fn day_count(&self) -> String {
-        format!("{:?}", self.0.dc)
+        let dc = match &self.0.cashflow_spec {
+            CashflowSpec::Fixed(spec) => spec.dc,
+            CashflowSpec::Floating(spec) => spec.rate_spec.dc,
+            CashflowSpec::Amortizing { base, .. } => base.day_count(),
+        };
+        format!("{:?}", dc)
     }
 
     #[wasm_bindgen(getter, js_name = businessDayConvention)]
     pub fn business_day_convention(&self) -> JsBusinessDayConvention {
-        self.0.bdc.into()
+        let bdc = match &self.0.cashflow_spec {
+            CashflowSpec::Fixed(spec) => spec.bdc,
+            CashflowSpec::Floating(spec) => spec.rate_spec.bdc,
+            CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
+                CashflowSpec::Fixed(spec) => spec.bdc,
+                CashflowSpec::Floating(spec) => spec.rate_spec.bdc,
+                _ => finstack_core::dates::BusinessDayConvention::Following,
+            },
+        };
+        bdc.into()
     }
 
     #[wasm_bindgen(getter)]
@@ -547,7 +576,12 @@ impl JsBond {
             let kind_str = match cf.kind {
                 CFKind::Fixed | CFKind::Stub => {
                     // Classify stub based on bond type
-                    if self.0.float.is_some() {
+                    let is_floating = match &self.0.cashflow_spec {
+                        CashflowSpec::Floating(_) => true,
+                        CashflowSpec::Amortizing { base, .. } => matches!(**base, CashflowSpec::Floating(_)),
+                        _ => false,
+                    };
+                    if is_floating {
                         "Float"
                     } else {
                         "Fixed"
@@ -581,9 +615,10 @@ impl JsBond {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
+        let coupon = self.coupon(); // Use the getter method
         format!(
             "Bond(id='{}', coupon={:.4}, maturity='{}')",
-            self.0.id, self.0.coupon, self.0.maturity
+            self.0.id, coupon, self.0.maturity
         )
     }
 

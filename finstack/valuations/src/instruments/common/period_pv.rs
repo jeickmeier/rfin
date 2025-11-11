@@ -326,36 +326,24 @@ mod tests {
 
     #[test]
     fn test_periodized_pv_bond_floating_uses_builder_rates() {
-        use crate::instruments::bond::BondFloatSpec;
         use finstack_core::dates::Frequency;
         use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 
         let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
-        // Create FRN
-        let frn = Bond::builder()
-            .id("FRN-001".into())
-            .notional(Money::new(1_000_000.0, Currency::USD))
-            .coupon(0.0) // Not used for floaters
-            .issue(issue)
-            .maturity(maturity)
-            .freq(Frequency::quarterly())
-            .dc(DayCount::Act365F)
-            .bdc(finstack_core::dates::BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(finstack_core::dates::StubKind::None)
-            .discount_curve_id("USD-OIS".into())
-            .float_opt(Some(BondFloatSpec {
-                forward_curve_id: "USD-SOFR".into(),
-                margin_bp: 100.0, // 100 bps margin
-                gearing: 1.0,
-                reset_lag_days: 2,
-            }))
-            .pricing_overrides(Default::default())
-            .attributes(Default::default())
-            .build()
-            .unwrap();
+        // Create FRN using the new floating constructor
+        let frn = Bond::floating(
+            "FRN-001",
+            Money::new(1_000_000.0, Currency::USD),
+            "USD-SOFR",
+            100.0, // 100 bps margin
+            issue,
+            maturity,
+            Frequency::quarterly(),
+            DayCount::Act365F,
+            "USD-OIS",
+        );
 
         // Create market with discount and forward curves
         let disc_curve = DiscountCurve::builder("USD-OIS")

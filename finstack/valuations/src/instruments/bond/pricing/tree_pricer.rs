@@ -80,7 +80,8 @@ impl BondValuator {
         for (date, amount) in &flows {
             if *date > base_date {
                 let time_frac = bond
-                    .dc
+                    .cashflow_spec
+                    .day_count()
                     .year_fraction(
                         base_date,
                         *date,
@@ -106,7 +107,8 @@ impl BondValuator {
             for call in &call_put.calls {
                 if call.date > base_date && call.date <= bond.maturity {
                     let time_frac = bond
-                        .dc
+                        .cashflow_spec
+                        .day_count()
                         .year_fraction(
                             base_date,
                             call.date,
@@ -128,7 +130,8 @@ impl BondValuator {
             for put in &call_put.puts {
                 if put.date > base_date && put.date <= bond.maturity {
                     let time_frac = bond
-                        .dc
+                        .cashflow_spec
+                        .day_count()
                         .year_fraction(
                             base_date,
                             put.date,
@@ -241,7 +244,8 @@ impl TreePricer {
         let accrued_ccy = self.calculate_accrued_interest(bond, market_context, as_of)?;
         let dirty_target = (clean_price_pct_of_par * bond.notional.amount() / 100.0) + accrued_ccy;
         let time_to_maturity = bond
-            .dc
+            .cashflow_spec
+            .day_count()
             .year_fraction(
                 as_of,
                 bond.maturity,
@@ -384,30 +388,31 @@ mod tests {
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
     fn create_test_bond() -> Bond {
+        use crate::instruments::bond::CashflowSpec;
+        
         let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-        Bond {
-            id: "TEST_BOND".to_string().into(),
-            notional: Money::new(1000.0, finstack_core::currency::Currency::USD),
-            coupon: 0.05,
-            freq: finstack_core::dates::Frequency::semi_annual(),
-            dc: finstack_core::dates::DayCount::Act365F,
-            bdc: finstack_core::dates::BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: finstack_core::dates::StubKind::None,
-            issue,
-            maturity,
-            settlement_days: Some(2),
-            ex_coupon_days: Some(0),
-            discount_curve_id: "USD-OIS".into(),
-            credit_curve_id: None,
-            pricing_overrides: PricingOverrides::default().with_clean_price(98.5),
-            call_put: None,
-            amortization: None,
-            custom_cashflows: None,
-            float: None,
-            attributes: Default::default(),
-        }
+        
+        Bond::builder()
+            .id("TEST_BOND".into())
+            .notional(Money::new(1000.0, finstack_core::currency::Currency::USD))
+            .issue(issue)
+            .maturity(maturity)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                finstack_core::dates::Frequency::semi_annual(),
+                finstack_core::dates::DayCount::Act365F,
+            ))
+            .discount_curve_id("USD-OIS".into())
+            .credit_curve_id_opt(None)
+            .pricing_overrides(PricingOverrides::default().with_clean_price(98.5))
+            .call_put_opt(None)
+            .custom_cashflows_opt(None)
+            .attributes(Default::default())
+            .settlement_days_opt(Some(2))
+            .ex_coupon_days_opt(Some(0))
+            .build()
+            .unwrap()
     }
     fn create_callable_bond() -> Bond {
         let mut bond = create_test_bond();
@@ -542,7 +547,8 @@ mod tests {
         // Time grid
         let as_of = base_date;
         let time_to_maturity = bond
-            .dc
+            .cashflow_spec
+            .day_count()
             .year_fraction(
                 as_of,
                 bond.maturity,

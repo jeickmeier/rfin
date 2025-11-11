@@ -58,7 +58,10 @@ impl PoolAsset {
                 industry: industry.clone(),
             },
             balance: bond.notional,
-            rate: bond.coupon,
+            rate: match &bond.cashflow_spec {
+                crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate,
+                _ => 0.0,
+            },
             spread_bps: None, // Bond doesn't track spread separately
             index_id: None,
             maturity: bond.maturity,

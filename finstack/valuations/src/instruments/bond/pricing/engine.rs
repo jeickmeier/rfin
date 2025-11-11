@@ -9,6 +9,7 @@ use crate::cashflow::traits::CashflowProvider;
 // Discountable trait not required after switching to curve day-count path
 
 use super::super::types::Bond;
+use super::super::CashflowSpec;
 
 /// Bond pricing engine providing core valuation methods.
 pub struct BondEngine;
@@ -50,7 +51,18 @@ impl BondEngine {
         // Settlement PV: start discounting from settlement date if provided
         let settle_date = if let Some(sd_u32) = bond.settlement_days {
             let sd: i32 = sd_u32 as i32;
-            if let Some(id) = &bond.calendar_id {
+            let (calendar_id, bdc) = match &bond.cashflow_spec {
+                CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
+                CashflowSpec::Floating(spec) => (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc),
+                CashflowSpec::Amortizing { base, .. } => {
+                    match &**base {
+                        CashflowSpec::Fixed(spec) => (spec.calendar_id.as_deref(), spec.bdc),
+                        CashflowSpec::Floating(spec) => (spec.rate_spec.calendar_id.as_deref(), spec.rate_spec.bdc),
+                        _ => (None, finstack_core::dates::BusinessDayConvention::Following),
+                    }
+                }
+            };
+            if let Some(id) = calendar_id {
                 if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
                     // Walk business days using the provided calendar
                     let mut d = as_of;
@@ -62,7 +74,7 @@ impl BondEngine {
                             remaining -= step;
                         }
                     }
-                    finstack_core::dates::adjust(d, bond.bdc, cal)?
+                    finstack_core::dates::adjust(d, bdc, cal)?
                 } else {
                     as_of.add_weekdays(sd)
                 }

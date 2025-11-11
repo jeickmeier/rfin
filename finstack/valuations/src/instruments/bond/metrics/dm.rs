@@ -13,7 +13,7 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 /// Notes:
 /// - Requires quoted clean price or falls back to base PV as target.
 /// - Uses the FRN path: coupons are projected off the forward curve at reset
-///   with margin and gearing from `BondFloatSpec`, then discounted with the
+///   with margin and gearing from `FloatingCouponSpec`, then discounted with the
 ///   discount curve. The DM is added to the projected index rate.
 pub struct DiscountMarginCalculator;
 
@@ -49,7 +49,7 @@ impl MetricCalculator for DiscountMarginCalculator {
         };
 
         // If no floating spec, DM is zero by definition here
-        if bond.float.is_none() {
+        if !matches!(&bond.cashflow_spec, super::super::CashflowSpec::Floating(_)) {
             return Ok(0.0);
         }
 

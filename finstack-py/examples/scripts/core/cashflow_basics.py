@@ -34,7 +34,7 @@ def main() -> None:
     float_cf = cashflow(
         date=date(2025, 6, 15),
         amount=money(13_750.0, "USD"),
-        kind=cfkind.from_name("FloatReset"),
+        kind=cfkind.from_name("float_reset"),
         reset_date=date(2025, 3, 15),
         accrual_factor=0.25,
     )

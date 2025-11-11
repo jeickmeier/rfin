@@ -96,7 +96,7 @@ pub fn asw_par_with_forward(
         return Ok(0.0);
     }
 
-    let ann = fixed_leg_annuity(disc, bond.dc, &sched);
+    let ann = fixed_leg_annuity(disc, bond.cashflow_spec.day_count(), &sched);
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
@@ -123,7 +123,11 @@ pub fn asw_par_with_forward(
         let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, as_of);
         pv_coupon / (bond.notional.amount() * ann)
     } else {
-        bond.coupon
+        // Extract fixed coupon rate from cashflow_spec
+        match &bond.cashflow_spec {
+            super::super::CashflowSpec::Fixed(spec) => spec.rate,
+            _ => return Err(finstack_core::error::InputError::Invalid.into()),
+        }
     };
     Ok(eq_coupon - par_rate)
 }
@@ -143,7 +147,7 @@ pub fn asw_market_with_forward(
     if sched.len() < 2 {
         return Ok(0.0);
     }
-    let ann = fixed_leg_annuity(disc, bond.dc, &sched);
+    let ann = fixed_leg_annuity(disc, bond.cashflow_spec.day_count(), &sched);
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
@@ -170,35 +174,59 @@ impl MetricCalculator for AssetSwapParCalculator {
         // If the bond has custom cashflows, compute ASW using a forward-based
         // custom-swap constructed on the same schedule. Requires a float spec.
         if bond.custom_cashflows.is_some() {
-            if let Some(fl) = &bond.float {
-                return asw_par_with_forward(
-                    bond,
-                    &context.curves,
-                    context.as_of,
-                    fl.forward_curve_id.as_str(),
-                    fl.margin_bp,
-                );
-            } else {
-                return Err(finstack_core::error::InputError::NotFound {
-                    id: "bond.float_spec.forward_curve".to_string(),
+            match &bond.cashflow_spec {
+                super::super::CashflowSpec::Floating(spec) => {
+                    return asw_par_with_forward(
+                        bond,
+                        &context.curves,
+                        context.as_of,
+                        spec.rate_spec.index_id.as_str(),
+                        spec.rate_spec.spread_bp,
+                    );
                 }
-                .into());
+                _ => {
+                    return Err(finstack_core::error::InputError::NotFound {
+                        id: "bond.cashflow_spec.floating".to_string(),
+                    }
+                    .into());
+                }
             }
         }
 
         let discount_curve_id = bond.discount_curve_id.to_owned();
         let maturity = bond.maturity;
-        let dc = bond.dc;
+        let dc = bond.cashflow_spec.day_count();
         let disc = context.curves.get_discount_ref(&discount_curve_id)?;
+
+        // Extract schedule params from cashflow_spec
+        let (freq, bdc, calendar_id, stub) = match &bond.cashflow_spec {
+            super::super::CashflowSpec::Fixed(spec) => {
+                (spec.freq, spec.bdc, spec.calendar_id.as_deref(), spec.stub)
+            }
+            super::super::CashflowSpec::Floating(spec) => {
+                (spec.freq, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref(), spec.stub)
+            }
+            super::super::CashflowSpec::Amortizing { base, .. } => {
+                match &**base {
+                    super::super::CashflowSpec::Fixed(spec) => {
+                        (spec.freq, spec.bdc, spec.calendar_id.as_deref(), spec.stub)
+                    }
+                    super::super::CashflowSpec::Floating(spec) => {
+                        (spec.freq, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref(), spec.stub)
+                    }
+                    _ => return Err(finstack_core::error::InputError::Invalid.into()),
+                }
+            }
+        };
 
         // Market standard: Par swap rate via discount ratio on bond's actual payment schedule
         let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
             context.as_of,
             maturity,
-            bond.freq,
-            bond.stub,
-            bond.bdc,
-            bond.calendar_id.as_deref(),
+            freq,
+            stub,
+            bdc,
+            calendar_id,
         );
         if sched.len() < 2 {
             return Ok(0.0);
@@ -212,7 +240,11 @@ impl MetricCalculator for AssetSwapParCalculator {
         }
         let par_rate = num / ann;
         // Use stated coupon for non-custom bonds; for custom bonds, this branch is not reached
-        Ok(bond.coupon - par_rate)
+        let coupon = match &bond.cashflow_spec {
+            super::super::CashflowSpec::Fixed(spec) => spec.rate,
+            _ => return Err(finstack_core::error::InputError::Invalid.into()),
+        };
+        Ok(coupon - par_rate)
     }
 }
 
@@ -224,14 +256,18 @@ impl MetricCalculator for AssetSwapMarketCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let (discount_curve_id, maturity, dc, notional_amt, quoted_clean, is_custom, coupon) = {
             let b: &Bond = context.instrument_as()?;
+            let coupon_rate = match &b.cashflow_spec {
+                super::super::CashflowSpec::Fixed(spec) => spec.rate,
+                _ => 0.0, // Will be handled later if needed
+            };
             (
                 b.discount_curve_id.to_owned(),
                 b.maturity,
-                b.dc,
+                b.cashflow_spec.day_count(),
                 b.notional.amount(),
                 b.pricing_overrides.quoted_clean_price,
                 b.custom_cashflows.is_some(),
-                b.coupon,
+                coupon_rate,
             )
         };
         let disc = context.curves.get_discount_ref(&discount_curve_id)?;
@@ -252,20 +288,23 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         // bond's float spec on the same (custom) schedule. Requires a float spec.
         if is_custom {
             let bond: &Bond = context.instrument_as()?;
-            if let Some(fl) = &bond.float {
-                return asw_market_with_forward(
-                    bond,
-                    &context.curves,
-                    context.as_of,
-                    fl.forward_curve_id.as_str(),
-                    fl.margin_bp,
-                    Some(dirty_ccy),
-                );
-            } else {
-                return Err(finstack_core::error::InputError::NotFound {
-                    id: "bond.float_spec.forward_curve".to_string(),
+            match &bond.cashflow_spec {
+                super::super::CashflowSpec::Floating(spec) => {
+                    return asw_market_with_forward(
+                        bond,
+                        &context.curves,
+                        context.as_of,
+                        spec.rate_spec.index_id.as_str(),
+                        spec.rate_spec.spread_bp,
+                        Some(dirty_ccy),
+                    );
                 }
-                .into());
+                _ => {
+                    return Err(finstack_core::error::InputError::NotFound {
+                        id: "bond.cashflow_spec.floating".to_string(),
+                    }
+                    .into());
+                }
             }
         }
 
@@ -275,7 +314,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 let b: &Bond = context.instrument_as()?;
                 (
                     b.discount_curve_id.to_owned(),
-                    b.dc,
+                    b.cashflow_spec.day_count(),
                     b.build_schedule(&context.curves, context.as_of)?,
                 )
             };
@@ -295,13 +334,32 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         } else {
             // For standard bonds, coupon PV uses bond's actual payment schedule
             let bond: &Bond = context.instrument_as()?;
+            let (freq, stub, bdc, calendar_id) = match &bond.cashflow_spec {
+                super::super::CashflowSpec::Fixed(spec) => {
+                    (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
+                }
+                super::super::CashflowSpec::Floating(spec) => {
+                    (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
+                }
+                super::super::CashflowSpec::Amortizing { base, .. } => {
+                    match &**base {
+                        super::super::CashflowSpec::Fixed(spec) => {
+                            (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
+                        }
+                        super::super::CashflowSpec::Floating(spec) => {
+                            (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
+                        }
+                        _ => return Err(finstack_core::error::InputError::Invalid.into()),
+                    }
+                }
+            };
             let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
                 context.as_of,
                 maturity,
-                bond.freq,
-                bond.stub,
-                bond.bdc,
-                bond.calendar_id.as_deref(),
+                freq,
+                stub,
+                bdc,
+                calendar_id,
             );
             let ann = fixed_leg_annuity(disc, dc, &sched);
             notional_amt * coupon * ann
@@ -312,13 +370,32 @@ impl MetricCalculator for AssetSwapMarketCalculator {
 
         // Market standard: discount-ratio using bond's payment schedule
         let bond: &Bond = context.instrument_as()?;
+        let (freq, stub, bdc, calendar_id) = match &bond.cashflow_spec {
+            super::super::CashflowSpec::Fixed(spec) => {
+                (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
+            }
+            super::super::CashflowSpec::Floating(spec) => {
+                (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
+            }
+            super::super::CashflowSpec::Amortizing { base, .. } => {
+                match &**base {
+                    super::super::CashflowSpec::Fixed(spec) => {
+                        (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
+                    }
+                    super::super::CashflowSpec::Floating(spec) => {
+                        (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
+                    }
+                    _ => return Err(finstack_core::error::InputError::Invalid.into()),
+                }
+            }
+        };
         let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
             context.as_of,
             maturity,
-            bond.freq,
-            bond.stub,
-            bond.bdc,
-            bond.calendar_id.as_deref(),
+            freq,
+            stub,
+            bdc,
+            calendar_id,
         );
         let ann = fixed_leg_annuity(disc, dc, &sched);
         if ann == 0.0 || notional_amt == 0.0 {
@@ -352,19 +429,23 @@ impl MetricCalculator for AssetSwapParFwdCalculator {
             .curves
             .get_discount_ref(bond.discount_curve_id.as_str())?;
         let as_of = disc.base_date();
-        if let Some(fl) = &bond.float {
-            return asw_par_with_forward(
-                bond,
-                &context.curves,
-                as_of,
-                fl.forward_curve_id.as_str(),
-                fl.margin_bp,
-            );
+        match &bond.cashflow_spec {
+            super::super::CashflowSpec::Floating(spec) => {
+                asw_par_with_forward(
+                    bond,
+                    &context.curves,
+                    as_of,
+                    spec.rate_spec.index_id.as_str(),
+                    spec.rate_spec.spread_bp,
+                )
+            }
+            _ => {
+                Err(finstack_core::error::InputError::NotFound {
+                    id: "bond.cashflow_spec.floating".to_string(),
+                }
+                .into())
+            }
         }
-        Err(finstack_core::error::InputError::NotFound {
-            id: "bond.float_spec.forward_curve".to_string(),
-        }
-        .into())
     }
 }
 
@@ -379,25 +460,29 @@ impl MetricCalculator for AssetSwapMarketFwdCalculator {
             .curves
             .get_discount_ref(bond.discount_curve_id.as_str())?;
         let as_of = disc.base_date();
-        if let Some(fl) = &bond.float {
-            let dirty = if let Some(clean) = bond.pricing_overrides.quoted_clean_price {
-                let accrued = *context.computed.get(&MetricId::Accrued).unwrap_or(&0.0);
-                Some(clean * bond.notional.amount() / 100.0 + accrued)
-            } else {
-                Some(context.base_value.amount())
-            };
-            return asw_market_with_forward(
-                bond,
-                &context.curves,
-                as_of,
-                fl.forward_curve_id.as_str(),
-                fl.margin_bp,
-                dirty,
-            );
+        match &bond.cashflow_spec {
+            super::super::CashflowSpec::Floating(spec) => {
+                let dirty = if let Some(clean) = bond.pricing_overrides.quoted_clean_price {
+                    let accrued = *context.computed.get(&MetricId::Accrued).unwrap_or(&0.0);
+                    Some(clean * bond.notional.amount() / 100.0 + accrued)
+                } else {
+                    Some(context.base_value.amount())
+                };
+                asw_market_with_forward(
+                    bond,
+                    &context.curves,
+                    as_of,
+                    spec.rate_spec.index_id.as_str(),
+                    spec.rate_spec.spread_bp,
+                    dirty,
+                )
+            }
+            _ => {
+                Err(finstack_core::error::InputError::NotFound {
+                    id: "bond.cashflow_spec.floating".to_string(),
+                }
+                .into())
+            }
         }
-        Err(finstack_core::error::InputError::NotFound {
-            id: "bond.float_spec.forward_curve".to_string(),
-        }
-        .into())
     }
 }

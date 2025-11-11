@@ -1,14 +1,13 @@
 //! Barrier option pricers (Monte Carlo and analytical).
 
 // Common imports for all pricers
-use crate::instruments::barrier_option::types::{BarrierOption, BarrierType};
+use crate::instruments::barrier_option::types::BarrierOption;
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingResult};
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::Result;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
@@ -37,12 +36,12 @@ impl BarrierOptionMcPricer {
         }
     }
 
-    fn convert_barrier_type(bt: BarrierType) -> McBarrierType {
+    fn convert_barrier_type(bt: crate::instruments::barrier_option::types::BarrierType) -> McBarrierType {
         match bt {
-            BarrierType::UpAndOut => McBarrierType::UpAndOut,
-            BarrierType::UpAndIn => McBarrierType::UpAndIn,
-            BarrierType::DownAndOut => McBarrierType::DownAndOut,
-            BarrierType::DownAndIn => McBarrierType::DownAndIn,
+            crate::instruments::barrier_option::types::BarrierType::UpAndOut => McBarrierType::UpAndOut,
+            crate::instruments::barrier_option::types::BarrierType::UpAndIn => McBarrierType::UpAndIn,
+            crate::instruments::barrier_option::types::BarrierType::DownAndOut => McBarrierType::DownAndOut,
+            crate::instruments::barrier_option::types::BarrierType::DownAndIn => McBarrierType::DownAndIn,
         }
     }
 
@@ -52,7 +51,7 @@ impl BarrierOptionMcPricer {
         inst: &BarrierOption,
         curves: &MarketContext,
         as_of: Date,
-    ) -> Result<finstack_core::money::Money> {
+    ) -> finstack_core::Result<finstack_core::money::Money> {
         // Get time to maturity
         let t = inst
             .day_count
@@ -181,7 +180,7 @@ impl BarrierOptionMcPricer {
         inst: &BarrierOption,
         curves: &MarketContext,
         as_of: Date,
-    ) -> Result<finstack_core::money::Money> {
+    ) -> finstack_core::Result<finstack_core::money::Money> {
         // Time to maturity
         let t = inst
             .day_count
@@ -324,7 +323,7 @@ impl Pricer for BarrierOptionMcPricer {
 
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
-pub fn npv(inst: &BarrierOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
+pub fn npv(inst: &BarrierOption, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
     let pricer = BarrierOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }
@@ -335,7 +334,7 @@ pub fn npv_with_lrm_greeks(
     inst: &BarrierOption,
     curves: &MarketContext,
     as_of: Date,
-) -> Result<Money> {
+) -> finstack_core::Result<Money> {
     let pricer = BarrierOptionMcPricer::new();
     pricer.price_with_lrm_greeks_internal(inst, curves, as_of)
 }

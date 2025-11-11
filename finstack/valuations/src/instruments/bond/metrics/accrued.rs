@@ -35,7 +35,7 @@ impl MetricCalculator for AccruedInterestCalculator {
             (
                 accrued_amt,
                 bond.discount_curve_id.to_owned(),
-                bond.dc,
+                bond.cashflow_spec.day_count(),
                 maybe_flows,
             )
         };

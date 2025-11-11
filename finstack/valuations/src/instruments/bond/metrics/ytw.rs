@@ -17,7 +17,7 @@ impl MetricCalculator for YtwCalculator {
                 let bond: &Bond = context.instrument_as()?;
                 (
                     bond.discount_curve_id.to_owned(),
-                    bond.dc,
+                    bond.cashflow_spec.day_count(),
                     bond.build_schedule(&context.curves, context.as_of)?,
                 )
             };
@@ -106,11 +106,14 @@ impl YtwCalculator {
             as_of,
             target_price,
             crate::instruments::bond::pricing::ytm_solver::YtmPricingSpec {
-                day_count: bond.dc,
+                day_count: bond.cashflow_spec.day_count(),
                 notional: bond.notional,
-                coupon_rate: bond.coupon,
+                coupon_rate: match &bond.cashflow_spec {
+                    super::super::CashflowSpec::Fixed(spec) => spec.rate,
+                    _ => 0.0,
+                },
                 compounding: crate::instruments::bond::pricing::helpers::YieldCompounding::Street,
-                frequency: bond.freq,
+                frequency: bond.cashflow_spec.frequency(),
             },
         )
     }

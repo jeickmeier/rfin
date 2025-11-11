@@ -14,7 +14,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, Stu
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
@@ -79,14 +79,11 @@ fn test_zero_coupon_bond_ytm() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
+    use finstack_valuations::instruments::bond::CashflowSpec;
     let bond_result = Bond::builder()
         .id("ZERO-COUPON".into())
         .notional(Money::new(1_000.0, Currency::USD))
-        .coupon(0.0) // Zero coupon
-        .freq(Frequency::annual()) // Frequency doesn't matter for zero coupon
-        .dc(DayCount::Thirty360)
-        .bdc(BusinessDayConvention::Following)
-        .stub(StubKind::None)
+        .cashflow_spec(CashflowSpec::fixed(0.0, Frequency::annual(), DayCount::Thirty360))
         .issue(issue)
         .maturity(maturity)
         .discount_curve_id("USD-OIS".into())
@@ -131,14 +128,20 @@ fn test_odd_first_coupon_ytm() {
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
+    use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
+    use finstack_valuations::instruments::bond::CashflowSpec;
     let bond_result = Bond::builder()
         .id("ODD-FIRST".into())
         .notional(Money::new(1_000.0, Currency::USD))
-        .coupon(0.05)
-        .freq(Frequency::semi_annual())
-        .dc(DayCount::Thirty360)
-        .bdc(BusinessDayConvention::Following)
-        .stub(StubKind::ShortFront) // Short stub at front
+        .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.05,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::ShortFront, // Short stub at front
+        }))
         .issue(issue)
         .maturity(maturity)
         .discount_curve_id("USD-OIS".into())
@@ -182,11 +185,7 @@ fn test_eom_february_maturity_ytm() {
     let bond_result = Bond::builder()
         .id("EOM-FEB".into())
         .notional(Money::new(1_000.0, Currency::USD))
-        .coupon(0.04)
-        .freq(Frequency::annual())
-        .dc(DayCount::Thirty360) // 30/360 handles EOM specially
-        .bdc(BusinessDayConvention::Following)
-        .stub(StubKind::None)
+        .cashflow_spec(CashflowSpec::fixed(0.04, Frequency::annual(), DayCount::Thirty360))
         .issue(issue)
         .maturity(maturity)
         .discount_curve_id("USD-OIS".into())
@@ -227,6 +226,8 @@ fn test_eom_february_maturity_ytm() {
 
 #[test]
 fn test_long_first_coupon_ytm() {
+    use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
+    use finstack_valuations::instruments::bond::CashflowSpec;
     // Bond with long first coupon period
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
@@ -234,11 +235,15 @@ fn test_long_first_coupon_ytm() {
     let bond_result = Bond::builder()
         .id("LONG-FIRST".into())
         .notional(Money::new(1_000.0, Currency::USD))
-        .coupon(0.06)
-        .freq(Frequency::semi_annual())
-        .dc(DayCount::Act365F)
-        .bdc(BusinessDayConvention::ModifiedFollowing)
-        .stub(StubKind::LongFront) // Long stub at front
+        .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.06,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::LongFront, // Long stub at front
+        }))
         .issue(issue)
         .maturity(maturity)
         .discount_curve_id("USD-OIS".into())

@@ -175,12 +175,21 @@ fn main() -> Result<()> {
         for instr in &cs.debt_instruments {
             match instr {
                 finstack_statements::types::DebtInstrumentSpec::Bond { id, spec } => {
+                    use finstack_valuations::instruments::bond::CashflowSpec;
                     if let Ok(bond) = serde_json::from_value::<Bond>(spec.clone()) {
+                        let coupon_rate = match &bond.cashflow_spec {
+                            CashflowSpec::Fixed(spec) => spec.rate,
+                            CashflowSpec::Floating(_) => 0.0, // Floating bonds don't have a fixed coupon
+                            CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
+                                CashflowSpec::Fixed(spec) => spec.rate,
+                                _ => 0.0,
+                            },
+                        };
                         println!(
                             "   • Bond {}: ${:.0}M @ {:.1}% coupon",
                             id,
                             bond.notional.amount() / 1_000_000.0,
-                            bond.coupon * 100.0
+                            coupon_rate * 100.0
                         );
                     }
                 }
@@ -212,15 +221,24 @@ fn main() -> Result<()> {
         let cs = model_full_cs.capital_structure.as_ref().unwrap();
 
         println!("   Stored Instruments:");
+        use finstack_valuations::instruments::bond::CashflowSpec;
         for instr in &cs.debt_instruments {
             match instr {
                 DebtInstrumentSpec::Bond { id, spec } => {
                     if let Ok(bond) = serde_json::from_value::<Bond>(spec.clone()) {
+                        let coupon_rate = match &bond.cashflow_spec {
+                            CashflowSpec::Fixed(spec) => spec.rate,
+                            CashflowSpec::Floating(_) => 0.0,
+                            CashflowSpec::Amortizing { base, .. } => match base.as_ref() {
+                                CashflowSpec::Fixed(spec) => spec.rate,
+                                _ => 0.0,
+                            },
+                        };
                         println!(
                             "   • Bond {}: ${:.0}M @ {:.1}%, {} to {}",
                             id,
                             bond.notional.amount() / 1_000_000.0,
-                            bond.coupon * 100.0,
+                            coupon_rate * 100.0,
                             bond.issue,
                             bond.maturity
                         );

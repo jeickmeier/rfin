@@ -155,9 +155,9 @@ define_metrics! {
     ASWPar => "asw_par",
     /// Market (price) asset swap spread
     ASWMarket => "asw_market",
-    /// Par asset swap spread using forward curve (requires BondFloatSpec or explicit forward)
+    /// Par asset swap spread using forward curve (requires FloatingCouponSpec or explicit forward)
     ASWParFwd => "asw_par_fwd",
-    /// Market asset swap spread using forward curve (requires BondFloatSpec or explicit forward)
+    /// Market asset swap spread using forward curve (requires FloatingCouponSpec or explicit forward)
     ASWMarketFwd => "asw_market_fwd",
 
     // IRS metrics

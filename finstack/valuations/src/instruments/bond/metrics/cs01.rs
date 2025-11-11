@@ -38,7 +38,8 @@ impl MetricCalculator for Cs01Calculator {
         for (date, amount) in flows {
             if *date > context.as_of {
                 let yf = bond
-                    .dc
+                    .cashflow_spec
+                    .day_count()
                     .year_fraction(
                         disc_curve.base_date(),
                         *date,

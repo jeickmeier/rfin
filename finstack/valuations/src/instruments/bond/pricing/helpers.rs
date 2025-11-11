@@ -144,7 +144,14 @@ pub fn price_from_ytm_compounded(
     ytm: f64,
     comp: YieldCompounding,
 ) -> finstack_core::Result<f64> {
-    price_from_ytm_compounded_params(bond.dc, bond.freq, flows, as_of, ytm, comp)
+    price_from_ytm_compounded_params(
+        bond.cashflow_spec.day_count(),
+        bond.cashflow_spec.frequency(),
+        flows,
+        as_of,
+        ytm,
+        comp,
+    )
 }
 
 /// Price from Yield-To-Worst by scanning call/put candidates and selecting the lowest yield path
@@ -186,16 +193,20 @@ pub fn price_from_ytw(
         }
         ex_flows.push((exercise_date, redemption));
         // Solve yield that matches target dirty price, then compute price from that yield
+        let coupon_rate = match &bond.cashflow_spec {
+            crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate,
+            _ => 0.0,
+        };
         let y = crate::instruments::bond::pricing::ytm_solver::solve_ytm(
             &ex_flows,
             as_of,
             dirty_price_target,
             crate::instruments::bond::pricing::ytm_solver::YtmPricingSpec {
-                day_count: bond.dc,
+                day_count: bond.cashflow_spec.day_count(),
                 notional: bond.notional,
-                coupon_rate: bond.coupon,
+                coupon_rate,
                 compounding: YieldCompounding::Street,
-                frequency: bond.freq,
+                frequency: bond.cashflow_spec.frequency(),
             },
         )?;
         if y < best_yield {
@@ -231,7 +242,8 @@ pub fn price_from_z_spread(
             continue;
         }
         let t_from_as_of = bond
-            .dc
+            .cashflow_spec
+            .day_count()
             .year_fraction(as_of, *d, DayCountCtx::default())
             .unwrap_or(0.0);
 
@@ -264,7 +276,8 @@ pub fn price_from_oas(
         short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     };
     let time_to_maturity = bond
-        .dc
+        .cashflow_spec
+        .day_count()
         .year_fraction(as_of, bond.maturity, DayCountCtx::default())
         .unwrap_or(0.0);
     if time_to_maturity <= 0.0 {
@@ -321,7 +334,8 @@ fn price_from_annuity_spread(
     for w in dates.windows(2) {
         let (a, b) = (w[0], w[1]);
         let alpha = bond
-            .dc
+            .cashflow_spec
+            .day_count()
             .year_fraction(a, b, DayCountCtx::default())
             .unwrap_or(0.0);
         // Discount from as_of
@@ -367,12 +381,14 @@ pub fn price_from_dm(
     as_of: Date,
     dm: f64,
 ) -> finstack_core::Result<f64> {
-    if bond.float.is_none() {
+    // Check if it's a floating rate bond
+    let is_floating = matches!(&bond.cashflow_spec, crate::instruments::bond::CashflowSpec::Floating(_));
+    if !is_floating {
         return Ok(bond.value(curves, as_of)?.amount());
     }
     let mut b = bond.clone();
-    if let Some(ref mut fl) = b.float {
-        fl.margin_bp += dm * 1e4;
+    if let crate::instruments::bond::CashflowSpec::Floating(spec) = &mut b.cashflow_spec {
+        spec.rate_spec.spread_bp += dm * 1e4;
     }
     Ok(b.value(curves, as_of)?.amount())
 }
@@ -407,12 +423,11 @@ pub fn compute_accrued_interest(
             let (start_date, _) = window[0];
             let (end_date, coupon_amount) = window[1];
             if start_date <= as_of && as_of < end_date {
-                let total_period = bond
-                    .dc
+                let dc = bond.cashflow_spec.day_count();
+                let total_period = dc
                     .year_fraction(start_date, end_date, DayCountCtx::default())
                     .unwrap_or(0.0);
-                let elapsed = bond
-                    .dc
+                let elapsed = dc
                     .year_fraction(start_date, as_of, DayCountCtx::default())
                     .unwrap_or(0.0)
                     .max(0.0);
@@ -425,14 +440,33 @@ pub fn compute_accrued_interest(
     }
 
     // Fallback to canonical schedule using bond fields
-    // Use instrument schedule conventions
+    // Extract schedule params from cashflow_spec
+    let (freq, stub, bdc, calendar_id) = match &bond.cashflow_spec {
+        crate::instruments::bond::CashflowSpec::Fixed(spec) => {
+            (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
+        }
+        crate::instruments::bond::CashflowSpec::Floating(spec) => {
+            (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
+        }
+        crate::instruments::bond::CashflowSpec::Amortizing { base, .. } => {
+            match &**base {
+                crate::instruments::bond::CashflowSpec::Fixed(spec) => {
+                    (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
+                }
+                crate::instruments::bond::CashflowSpec::Floating(spec) => {
+                    (spec.freq, spec.stub, spec.rate_spec.bdc, spec.rate_spec.calendar_id.as_deref())
+                }
+                _ => return Err(finstack_core::error::InputError::Invalid.into()),
+            }
+        }
+    };
     let sched = crate::cashflow::builder::build_dates(
         bond.issue,
         bond.maturity,
-        bond.freq,
-        bond.stub,
-        bond.bdc,
-        bond.calendar_id.as_deref(),
+        freq,
+        stub,
+        bdc,
+        calendar_id,
     );
     for window in sched.dates.windows(2) {
         let start_date = window[0];
@@ -445,13 +479,16 @@ pub fn compute_accrued_interest(
             }
         }
         if start_date <= as_of && as_of < end_date {
-            let yf = bond
-                .dc
+            let dc = bond.cashflow_spec.day_count();
+            let yf = dc
                 .year_fraction(start_date, end_date, DayCountCtx::default())
                 .unwrap_or(0.0);
-            let period_coupon = bond.notional.amount() * bond.coupon * yf;
-            let elapsed = bond
-                .dc
+            let coupon_rate = match &bond.cashflow_spec {
+                crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.rate,
+                _ => 0.0,
+            };
+            let period_coupon = bond.notional.amount() * coupon_rate * yf;
+            let elapsed = dc
                 .year_fraction(start_date, as_of, DayCountCtx::default())
                 .unwrap_or(0.0)
                 .max(0.0);
@@ -471,22 +508,36 @@ pub fn compute_accrued_interest_with_context(
     as_of: finstack_core::dates::Date,
 ) -> finstack_core::Result<f64> {
     // If fixed or custom flows exist, fall back to standard helper and return
-    if bond.float.is_none() || bond.custom_cashflows.is_some() {
+    let is_floating = matches!(&bond.cashflow_spec, crate::instruments::bond::CashflowSpec::Floating(_));
+    if !is_floating || bond.custom_cashflows.is_some() {
         return compute_accrued_interest(bond, as_of);
     }
 
     // FRN path: approximate accrual using forward rate fixed at last reset
-    let fl = bond.float.as_ref().expect("Operation succeeded");
-    let fwd = curves.get_forward_ref(fl.forward_curve_id.as_str())?;
+    let (index_id, margin_bp, gearing, reset_lag_days, freq, stub, bdc, calendar_id, dc) = match &bond.cashflow_spec {
+        crate::instruments::bond::CashflowSpec::Floating(spec) => (
+            spec.rate_spec.index_id.as_str(),
+            spec.rate_spec.spread_bp,
+            spec.rate_spec.gearing,
+            spec.rate_spec.reset_lag_days,
+            spec.freq,
+            spec.stub,
+            spec.rate_spec.bdc,
+            spec.rate_spec.calendar_id.as_deref(),
+            spec.rate_spec.dc,
+        ),
+        _ => return compute_accrued_interest(bond, as_of),
+    };
+    let fwd = curves.get_forward_ref(index_id)?;
 
     // Build schedule with instrument conventions to locate current coupon window
     let sched = crate::cashflow::builder::build_dates(
         bond.issue,
         bond.maturity,
-        bond.freq,
-        bond.stub,
-        bond.bdc,
-        bond.calendar_id.as_deref(),
+        freq,
+        stub,
+        bdc,
+        calendar_id,
     );
     let dates = sched.dates;
     for w in dates.windows(2) {
@@ -494,29 +545,27 @@ pub fn compute_accrued_interest_with_context(
         let end = w[1];
         if start <= as_of && as_of < end {
             // Determine reset date and forward time
-            let mut reset_date = start - Duration::days(fl.reset_lag_days as i64);
-            if let Some(id) = &bond.calendar_id {
+            let mut reset_date = start - Duration::days(reset_lag_days as i64);
+            if let Some(id) = calendar_id {
                 if let Some(cal) = calendar_by_id(id) {
-                    reset_date = adjust(reset_date, bond.bdc, cal)?;
+                    reset_date = adjust(reset_date, bdc, cal)?;
                 }
             }
             let t_reset = fwd
                 .day_count()
                 .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())
                 .unwrap_or(0.0);
-            let yf_total = bond
-                .dc
+            let yf_total = dc
                 .year_fraction(start, end, DayCountCtx::default())
                 .unwrap_or(0.0);
-            let yf_elapsed = bond
-                .dc
+            let yf_elapsed = dc
                 .year_fraction(start, as_of, DayCountCtx::default())
                 .unwrap_or(0.0)
                 .max(0.0);
             if yf_total <= 0.0 {
                 return Ok(0.0);
             }
-            let rate = fl.gearing * fwd.rate(t_reset) + fl.margin_bp * 1e-4;
+            let rate = gearing * fwd.rate(t_reset) + margin_bp * 1e-4;
             // Use current outstanding approximation as full notional for accrual
             let coupon_total = bond.notional.amount() * rate * yf_total;
             return Ok(coupon_total * (yf_elapsed / yf_total));

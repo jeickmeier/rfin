@@ -53,7 +53,8 @@ impl MetricCalculator for MacaulayDurationCalculator {
                     continue;
                 }
                 let t = bond
-                    .dc
+                    .cashflow_spec
+                    .day_count()
                     .year_fraction(
                         context.as_of,
                         date,
@@ -65,7 +66,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
                     ytm,
                     t,
                     crate::instruments::bond::pricing::helpers::YieldCompounding::Street,
-                    bond.freq,
+                    bond.cashflow_spec.frequency(),
                 )
                 .unwrap_or(0.0);
                 weighted_time += t * amount.amount() * df;

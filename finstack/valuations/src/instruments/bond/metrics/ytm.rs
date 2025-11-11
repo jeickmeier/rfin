@@ -31,10 +31,13 @@ impl MetricCalculator for YtmCalculator {
                     })
                 })?,
                 bond.notional,
-                bond.dc,
+                bond.cashflow_spec.day_count(),
                 bond.discount_curve_id.to_owned(),
-                bond.coupon,
-                bond.freq,
+                match &bond.cashflow_spec {
+                    super::super::CashflowSpec::Fixed(spec) => spec.rate,
+                    _ => 0.0,
+                },
+                bond.cashflow_spec.frequency(),
             )
         };
 

@@ -263,7 +263,7 @@ def base_deal_payload(instrument_id: str, deal_type: str, asset_kind: str) -> di
         # Required defaults for behavioral models and market/credit context
         "prepayment_spec": {"type": "constant_cpr", "cpr": 0.15},
         "default_spec": {"type": "constant_cdr", "cdr": 0.02},
-        "recovery_spec": {"type": "constant", "rate": 0.4},
+        "recovery_spec": {"type": "constant", "rate": 0.4, "recovery_lag": 12},
         "market_conditions": {"refi_rate": 0.04, "original_rate": None, "hpa": None, "unemployment": None, "seasonal_factor": 1.0, "custom_factors": {}},
         "credit_factors": {"credit_score": None, "dti": None, "ltv": None, "delinquency_days": 0, "unemployment_rate": None, "custom_factors": {}},
         "deal_metadata": {},

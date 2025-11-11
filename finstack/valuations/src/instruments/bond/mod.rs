@@ -46,7 +46,7 @@
 //!
 //! - [`Bond`] for the main bond struct and factory methods
 //! - [`CallPutSchedule`] for embedded option schedules
-//! - [`BondFloatSpec`] for floating-rate specifications
+//! - [`CashflowSpec`] for fixed/floating/amortizing specifications
 //! - [`AmortizationSpec`] for amortizing bonds
 //! - [`metrics`] for bond-specific risk metrics
 
@@ -59,13 +59,12 @@ mod types;
 pub use cashflow_spec::CashflowSpec;
 pub use types::AmortizationSpec;
 pub use types::Bond;
-pub use types::BondFloatSpec;
 pub use types::CallPut;
 pub use types::CallPutSchedule;
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::bond::Bond;
+    use crate::instruments::bond::{Bond, CashflowSpec};
     use crate::instruments::common::parameters::BondConvention;
     use crate::instruments::common::traits::{Attributes, Instrument};
     use crate::instruments::PricingOverrides;
@@ -81,14 +80,9 @@ mod tests {
         let bond = Bond::builder()
             .id("BOND_MIN".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.05)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .freq(Frequency::semi_annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -97,7 +91,6 @@ mod tests {
         assert!(bond.is_ok());
         let bond = bond.unwrap();
         assert_eq!(bond.id.as_str(), "BOND_MIN");
-        assert_eq!(bond.coupon, 0.05);
         assert_eq!(bond.notional.amount(), 1000.0);
         assert_eq!(bond.discount_curve_id.as_str(), "USD-OIS");
     }
@@ -114,9 +107,8 @@ mod tests {
         );
 
         assert_eq!(bond.id.as_str(), "BOND_FIXED");
-        assert_eq!(bond.coupon, 0.04);
-        assert_eq!(bond.freq, Frequency::semi_annual());
-        assert_eq!(bond.dc, DayCount::Thirty360);
+        assert_eq!(bond.cashflow_spec.frequency(), Frequency::semi_annual());
+        assert_eq!(bond.cashflow_spec.day_count(), DayCount::Thirty360);
         assert_eq!(bond.discount_curve_id.as_str(), "USD-TREASURY");
     }
 
@@ -133,9 +125,8 @@ mod tests {
         );
 
         assert_eq!(bond.id.as_str(), "UST-10Y");
-        assert_eq!(bond.coupon, 0.03);
-        assert_eq!(bond.freq, BondConvention::USTreasury.frequency());
-        assert_eq!(bond.dc, BondConvention::USTreasury.day_count());
+        assert_eq!(bond.cashflow_spec.frequency(), BondConvention::USTreasury.frequency());
+        assert_eq!(bond.cashflow_spec.day_count(), BondConvention::USTreasury.day_count());
     }
 
     #[test]
@@ -150,8 +141,8 @@ mod tests {
             "GBP-GILTS",
         );
 
-        assert_eq!(bond.freq, BondConvention::UKGilt.frequency());
-        assert_eq!(bond.dc, BondConvention::UKGilt.day_count());
+        assert_eq!(bond.cashflow_spec.frequency(), BondConvention::UKGilt.frequency());
+        assert_eq!(bond.cashflow_spec.day_count(), BondConvention::UKGilt.day_count());
     }
 
     #[test]
@@ -163,14 +154,9 @@ mod tests {
         let bond = Bond::builder()
             .id("BOND_OVERRIDE".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.06)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .freq(Frequency::annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(0.06, Frequency::annual(), DayCount::Act365F))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(overrides)
             .attributes(Attributes::new())
@@ -186,14 +172,9 @@ mod tests {
         let bond = Bond::builder()
             .id("BOND_SETTLE".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.05)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .freq(Frequency::semi_annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .settlement_days_opt(Some(2))
@@ -217,14 +198,9 @@ mod tests {
         let bond = Bond::builder()
             .id("BOND_ATTRS".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.05)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .freq(Frequency::semi_annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(attrs)
@@ -243,21 +219,21 @@ mod tests {
         let bond = Bond::builder()
             .id("ZERO_COUPON".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.0)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .freq(Frequency::annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(0.0, Frequency::annual(), DayCount::Act365F))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
             .unwrap();
 
-        assert_eq!(bond.coupon, 0.0);
+        // Zero coupon bond
+        if let CashflowSpec::Fixed(spec) = &bond.cashflow_spec {
+            assert_eq!(spec.rate, 0.0);
+        } else {
+            panic!("Expected Fixed cashflow spec");
+        }
     }
 
     #[test]
@@ -265,87 +241,109 @@ mod tests {
         let bond = Bond::builder()
             .id("MONTHLY".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.06)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2027 - 01 - 01))
-            .freq(Frequency::monthly())
-            .dc(DayCount::Act360)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(0.06, Frequency::monthly(), DayCount::Act360))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
             .unwrap();
 
-        assert_eq!(bond.freq, Frequency::monthly());
+        assert_eq!(bond.cashflow_spec.frequency(), Frequency::monthly());
     }
 
     #[test]
     fn test_bond_with_calendar() {
+        use crate::cashflow::builder::specs::{FixedCouponSpec, CouponType};
+        
+        let spec = FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.05,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("USGS".to_string()),
+            stub: StubKind::None,
+        };
+        
         let bond = Bond::builder()
             .id("BOND_CAL".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.05)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .freq(Frequency::semi_annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::ModifiedFollowing)
-            .calendar_id_opt(Some("USGS".to_string()))
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::Fixed(spec.clone()))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
             .unwrap();
 
-        assert_eq!(bond.calendar_id, Some("USGS".to_string()));
-        assert_eq!(bond.bdc, BusinessDayConvention::ModifiedFollowing);
+        if let CashflowSpec::Fixed(s) = &bond.cashflow_spec {
+            assert_eq!(s.calendar_id, Some("USGS".to_string()));
+            assert_eq!(s.bdc, BusinessDayConvention::ModifiedFollowing);
+        } else {
+            panic!("Expected Fixed cashflow spec");
+        }
     }
 
     #[test]
     fn test_bond_stub_conventions() {
+        use crate::cashflow::builder::specs::{FixedCouponSpec, CouponType};
+        
         // Short front stub
+        let spec_short = FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.05,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+        };
+        
         let bond_short_front = Bond::builder()
             .id("STUB_SHORT_FRONT".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.05)
             .issue(date!(2025 - 01 - 15))
             .maturity(date!(2030 - 01 - 01))
-            .freq(Frequency::semi_annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::ShortFront)
+            .cashflow_spec(CashflowSpec::Fixed(spec_short.clone()))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
             .unwrap();
 
-        assert_eq!(bond_short_front.stub, StubKind::ShortFront);
+        if let CashflowSpec::Fixed(s) = &bond_short_front.cashflow_spec {
+            assert_eq!(s.stub, StubKind::ShortFront);
+        }
 
         // Long back stub
+        let spec_long = FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.05,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::LongBack,
+        };
+        
         let bond_long_back = Bond::builder()
             .id("STUB_LONG_BACK".into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.05)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 02 - 15))
-            .freq(Frequency::semi_annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::LongBack)
+            .cashflow_spec(CashflowSpec::Fixed(spec_long.clone()))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
             .unwrap();
 
-        assert_eq!(bond_long_back.stub, StubKind::LongBack);
+        if let CashflowSpec::Fixed(s) = &bond_long_back.cashflow_spec {
+            assert_eq!(s.stub, StubKind::LongBack);
+        }
     }
 
     #[test]
@@ -362,14 +360,9 @@ mod tests {
             let bond = Bond::builder()
                 .id(format!("BOND_{}", code).into())
                 .notional(Money::new(1000.0, ccy))
-                .coupon(0.04)
                 .issue(date!(2025 - 01 - 01))
                 .maturity(date!(2030 - 01 - 01))
-                .freq(Frequency::annual())
-                .dc(DayCount::Act365F)
-                .bdc(BusinessDayConvention::Following)
-                .calendar_id_opt(None)
-                .stub(StubKind::None)
+                .cashflow_spec(CashflowSpec::fixed(0.04, Frequency::annual(), DayCount::Act365F))
                 .discount_curve_id(CurveId::new(format!("{}-OIS", code)))
                 .pricing_overrides(PricingOverrides::default())
                 .attributes(Attributes::new())
@@ -411,7 +404,6 @@ mod tests {
         let bond2 = bond1.clone();
 
         assert_eq!(bond1.id.as_str(), bond2.id.as_str());
-        assert_eq!(bond1.coupon, bond2.coupon);
         assert_eq!(bond1.notional.amount(), bond2.notional.amount());
         assert_eq!(bond1.maturity, bond2.maturity);
     }
@@ -459,14 +451,9 @@ mod tests {
         let premium = Bond::builder()
             .id("PREMIUM".into())
             .notional(Money::new(100.0, Currency::USD))
-            .coupon(0.08)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .freq(Frequency::semi_annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(0.08, Frequency::semi_annual(), DayCount::Act365F))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default().with_clean_price(105.0))
             .attributes(Attributes::new())
@@ -479,14 +466,9 @@ mod tests {
         let discount = Bond::builder()
             .id("DISCOUNT".into())
             .notional(Money::new(100.0, Currency::USD))
-            .coupon(0.03)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .freq(Frequency::semi_annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(0.03, Frequency::semi_annual(), DayCount::Act365F))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default().with_clean_price(95.0))
             .attributes(Attributes::new())
@@ -499,14 +481,9 @@ mod tests {
         let par = Bond::builder()
             .id("PAR".into())
             .notional(Money::new(100.0, Currency::USD))
-            .coupon(0.05)
             .issue(date!(2025 - 01 - 01))
             .maturity(date!(2030 - 01 - 01))
-            .freq(Frequency::semi_annual())
-            .dc(DayCount::Act365F)
-            .bdc(BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(PricingOverrides::default().with_clean_price(100.0))
             .attributes(Attributes::new())

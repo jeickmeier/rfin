@@ -11,7 +11,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::common::traits::Instrument;
 use time::macros::date;
 
@@ -220,18 +220,18 @@ fn test_bond_settlement_date_impact() {
     let as_of = date!(2025 - 01 - 01);
     let maturity = date!(2030 - 01 - 01);
 
+    use finstack_valuations::instruments::bond::CashflowSpec;
     // No settlement lag
     let bond_t0 = Bond::builder()
         .id("SETTLE_T0".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .coupon(0.05)
         .issue(as_of)
         .maturity(maturity)
-        .freq(finstack_core::dates::Frequency::semi_annual())
-        .dc(DayCount::Act365F)
-        .bdc(finstack_core::dates::BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(finstack_core::dates::StubKind::None)
+        .cashflow_spec(CashflowSpec::fixed(
+            0.05,
+            finstack_core::dates::Frequency::semi_annual(),
+            DayCount::Act365F,
+        ))
         .discount_curve_id("USD-OIS".into())
         .settlement_days_opt(None)
         .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
@@ -242,14 +242,13 @@ fn test_bond_settlement_date_impact() {
     let bond_t2 = Bond::builder()
         .id("SETTLE_T2".into())
         .notional(Money::new(1000.0, Currency::USD))
-        .coupon(0.05)
         .issue(as_of)
         .maturity(maturity)
-        .freq(finstack_core::dates::Frequency::semi_annual())
-        .dc(DayCount::Act365F)
-        .bdc(finstack_core::dates::BusinessDayConvention::Following)
-        .calendar_id_opt(None)
-        .stub(finstack_core::dates::StubKind::None)
+        .cashflow_spec(CashflowSpec::fixed(
+            0.05,
+            finstack_core::dates::Frequency::semi_annual(),
+            DayCount::Act365F,
+        ))
         .discount_curve_id("USD-OIS".into())
         .settlement_days_opt(Some(2))
         .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
@@ -435,14 +434,13 @@ fn test_bond_different_day_counts() {
         let bond = Bond::builder()
             .id(format!("DC_{:?}", dc).into())
             .notional(Money::new(1000.0, Currency::USD))
-            .coupon(0.05)
             .issue(as_of)
             .maturity(maturity)
-            .freq(finstack_core::dates::Frequency::semi_annual())
-            .dc(dc)
-            .bdc(finstack_core::dates::BusinessDayConvention::Following)
-            .calendar_id_opt(None)
-            .stub(finstack_core::dates::StubKind::None)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                finstack_core::dates::Frequency::semi_annual(),
+                dc,
+            ))
             .discount_curve_id("USD-OIS".into())
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
             .build()

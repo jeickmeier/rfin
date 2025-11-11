@@ -13,8 +13,13 @@ Key analyses:
 from datetime import date, timedelta
 import json
 import sys
+from pathlib import Path
 from typing import List, Tuple, Dict, Any, Optional
 import numpy as np
+
+# Set up output directory for artifacts
+OUTPUT_DIR = Path(__file__).parent.parent.parent.parent.parent / "outputs"
+OUTPUT_DIR.mkdir(exist_ok=True)
 
 try:
     from finstack.core.market_data import MarketContext
@@ -373,8 +378,10 @@ def analyze_single_scenario(
     }
 
 
-def plot_single_scenario_analysis(results: Dict[str, Any], output_file: str = "irr_single_scenario.png"):
+def plot_single_scenario_analysis(results: Dict[str, Any], output_file: Optional[Path] = None):
     """Create comprehensive visualization for single scenario analysis."""
+    if output_file is None:
+        output_file = OUTPUT_DIR / "irr_single_scenario.png"
     fig = plt.figure(figsize=(16, 10))
     gs = GridSpec(3, 2, figure=fig, height_ratios=[2, 1.5, 1.5])
     
@@ -958,7 +965,7 @@ def save_cashflow_schedules_to_csv(
 
 def plot_extreme_paths_analysis(
     path_irr_pairs: List[Tuple[Any, float]], 
-    output_file: str = "irr_extreme_paths.png"
+    output_file: Optional[Path] = None
 ):
     """Analyze and visualize cashflow patterns for top 5 and bottom 5 IRR paths.
     Each path gets two panels: cashflow bars and cumulative cashflows.
@@ -967,6 +974,8 @@ def plot_extreme_paths_analysis(
         path_irr_pairs: List of (path_result, irr) tuples
         output_file: Output filename for the chart
     """
+    if output_file is None:
+        output_file = OUTPUT_DIR / "irr_extreme_paths.png"
     if not path_irr_pairs:
         print("No path data available for extreme paths analysis")  # noqa: T201
         return
@@ -1254,9 +1263,11 @@ def plot_extreme_paths_analysis(
 
 def plot_volatility_grid_comparison(
     grid_results: Dict[Tuple[float, float], List[float]],
-    output_file: str = "irr_volatility_grid.png"
+    output_file: Optional[Path] = None
 ):
     """Create overlay plot of IRR distributions for different volatility combinations."""
+    if output_file is None:
+        output_file = OUTPUT_DIR / "irr_volatility_grid.png"
     fig, axes = plt.subplots(2, 2, figsize=(16, 12))
     fig.suptitle('IRR Distributions Across Volatility Grid', fontsize=16, fontweight='bold')
     
@@ -1427,15 +1438,13 @@ def main() -> int:
             print("\n" + "=" * 80)  # noqa: T201
             print("Exporting Raw Polars Cashflows (Top 1 & Bottom 1)")  # noqa: T201
             print("=" * 80)  # noqa: T201
-            import os
-            script_dir = os.path.dirname(os.path.abspath(__file__))
             
             export_raw_polars_cashflows(
                 single_results["path_irr_pairs"],
                 market,
                 as_of,
                 num_paths=1,
-                output_dir=script_dir
+                output_dir=str(OUTPUT_DIR)
             )
             
             # Save RAW cashflow schedules for PV debugging
@@ -1447,7 +1456,7 @@ def main() -> int:
                 market,
                 as_of,
                 num_paths=5,
-                output_dir=script_dir
+                output_dir=str(OUTPUT_DIR)
             )
             
             # Save detailed cashflow schedules with MC path data to CSV
@@ -1455,7 +1464,7 @@ def main() -> int:
             save_cashflow_schedules_to_csv(
                 single_results["path_irr_pairs"], 
                 num_paths=5,
-                output_dir=script_dir
+                output_dir=str(OUTPUT_DIR)
             )
         
         # Part 2: Volatility grid analysis

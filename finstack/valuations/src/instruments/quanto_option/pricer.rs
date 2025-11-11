@@ -8,7 +8,6 @@ use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::Result;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
@@ -43,7 +42,7 @@ impl QuantoOptionMcPricer {
         inst: &QuantoOption,
         curves: &MarketContext,
         as_of: Date,
-    ) -> Result<finstack_core::money::Money> {
+    ) -> finstack_core::Result<finstack_core::money::Money> {
         let t = inst
             .day_count
             .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
@@ -199,7 +198,7 @@ impl Pricer for QuantoOptionMcPricer {
 
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
-pub fn npv(inst: &QuantoOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
+pub fn npv(inst: &QuantoOption, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
     let pricer = QuantoOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }

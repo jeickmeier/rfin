@@ -22,19 +22,23 @@ fn create_curve(base_date: Date) -> MarketContext {
 
 #[test]
 fn test_linear_amortization() {
+    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_valuations::instruments::bond::CashflowSpec;
     let as_of = date!(2025 - 01 - 01);
-    let mut bond = Bond::fixed(
-        "AMORT_LINEAR",
-        Money::new(1000.0, Currency::USD),
-        0.05,
-        as_of,
-        date!(2030 - 01 - 01),
-        "USD-OIS",
-    );
-
-    bond.amortization = Some(AmortizationSpec::LinearTo {
-        final_notional: Money::new(400.0, Currency::USD),
-    });
+    let bond = Bond::builder()
+        .id("AMORT_LINEAR".into())
+        .notional(Money::new(1000.0, Currency::USD))
+        .issue(as_of)
+        .maturity(date!(2030 - 01 - 01))
+        .cashflow_spec(CashflowSpec::amortizing(
+            CashflowSpec::fixed(0.05, Frequency::semi_annual(), DayCount::Act365F),
+            AmortizationSpec::LinearTo {
+                final_notional: Money::new(400.0, Currency::USD),
+            },
+        ))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
 
     let market = create_curve(as_of);
     let pv = bond.value(&market, as_of);
@@ -50,19 +54,23 @@ fn test_linear_amortization() {
 
 #[test]
 fn test_full_amortization() {
+    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_valuations::instruments::bond::CashflowSpec;
     let as_of = date!(2025 - 01 - 01);
-    let mut bond = Bond::fixed(
-        "AMORT_FULL",
-        Money::new(1000.0, Currency::USD),
-        0.06,
-        as_of,
-        date!(2030 - 01 - 01),
-        "USD-OIS",
-    );
-
-    bond.amortization = Some(AmortizationSpec::LinearTo {
-        final_notional: Money::new(0.0, Currency::USD),
-    });
+    let bond = Bond::builder()
+        .id("AMORT_FULL".into())
+        .notional(Money::new(1000.0, Currency::USD))
+        .issue(as_of)
+        .maturity(date!(2030 - 01 - 01))
+        .cashflow_spec(CashflowSpec::amortizing(
+            CashflowSpec::fixed(0.06, Frequency::semi_annual(), DayCount::Act365F),
+            AmortizationSpec::LinearTo {
+                final_notional: Money::new(0.0, Currency::USD),
+            },
+        ))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
 
     let market = create_curve(as_of);
     let pv = bond.value(&market, as_of);
