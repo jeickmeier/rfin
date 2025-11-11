@@ -36,6 +36,8 @@ from finstack.core.dates.schedule import Frequency, StubKind
 from finstack.core.dates.daycount import DayCount
 from finstack.core.dates import BusinessDayConvention
 from finstack.core.cashflow import AmortizationSpec, CFKind
+from finstack.core.market_data import MarketContext
+from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.cashflow import (
     CashflowBuilder,
     ScheduleParams,
@@ -57,8 +59,23 @@ def format_cashflow_table(cf_schedule, max_rows=None):
         All calculations (rates, outstanding) are done in Rust for performance.
         DataFrame includes separate cash_rate_pct and pik_rate_pct columns.
     """
+    # Create minimal market context for DataFrame export
+    market = MarketContext()
+    # Use first flow date as discount curve base date (or default to 2025-01-01)
+    flows = list(cf_schedule.flows())
+    if flows:
+        base_date = flows[0].date
+    else:
+        base_date = date(2025, 1, 1)
+    discount_curve = DiscountCurve(
+        "DISCOUNT",
+        base_date,
+        [(0.0, 1.0), (10.0, 0.7)]  # Simple flat curve
+    )
+    market.insert_discount(discount_curve)
+    
     # Get DataFrame from Rust (all calculations done there)
-    df_dict = cf_schedule.to_dataframe()
+    df_dict = cf_schedule.to_dataframe(market=market, discount_curve_id="DISCOUNT")
     df = pl.DataFrame(df_dict)
     
     # Limit rows if specified

@@ -14,7 +14,7 @@ use finstack_core::money::Money;
 use time::Month;
 
 use finstack_valuations::cashflow::builder::specs::{
-    CouponType, FixedCouponSpec, FloatingCouponSpec,
+    CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
 use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};
 use finstack_valuations::instruments::convertible::{
@@ -236,16 +236,21 @@ pub fn create_floating_convertible() -> ConvertibleBond {
     };
 
     let floating = FloatingCouponSpec {
-        index_id: "USD-SOFR-3M".into(),
-        margin_bp: 0.0,
-        gearing: 1.0,
+        rate_spec: FloatingRateSpec {
+            index_id: "USD-SOFR-3M".into(),
+            spread_bp: 0.0,
+            gearing: 1.0,
+            floor_bp: None,
+            cap_bp: None,
+            reset_freq: Frequency::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+        },
         coupon_type: CouponType::Cash,
         freq: Frequency::quarterly(),
-        dc: DayCount::Act360,
-        bdc: BusinessDayConvention::Following,
-        calendar_id: None,
         stub: StubKind::None,
-        reset_lag_days: 2,
     };
 
     ConvertibleBond {

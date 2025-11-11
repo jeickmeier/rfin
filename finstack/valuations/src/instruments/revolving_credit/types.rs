@@ -8,7 +8,7 @@ use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-use crate::cashflow::builder::{evaluate_fee_tiers, FeeTier};
+use crate::cashflow::builder::{evaluate_fee_tiers, FeeTier, FloatingRateSpec};
 use crate::instruments::common::traits::Attributes;
 
 /// Revolving credit facility instrument.
@@ -87,19 +87,11 @@ pub enum BaseRateSpec {
         rate: f64,
     },
 
-    /// Floating rate linked to an index.
-    Floating {
-        /// Forward curve identifier for the floating index (e.g., USD-SOFR-3M).
-        index_id: CurveId,
-        /// Margin over the index in basis points.
-        margin_bp: f64,
-        /// Reset frequency for rate fixings.
-        reset_freq: Frequency,
-        /// Optional floor on the base rate in basis points (applies to base only, before margin).
-        /// E.g., floor_bp = Some(0.0) enforces a 0% floor on the index rate.
-        #[cfg_attr(feature = "serde", serde(default))]
-        floor_bp: Option<f64>,
-    },
+    /// Floating rate using canonical FloatingRateSpec.
+    ///
+    /// Composes the standard floating rate specification with full support
+    /// for floors, caps, and gearing.
+    Floating(FloatingRateSpec),
 }
 
 /// Fee structure for a revolving credit facility.

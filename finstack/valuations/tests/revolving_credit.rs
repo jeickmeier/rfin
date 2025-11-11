@@ -335,12 +335,20 @@ fn test_term_forward_with_floor() {
         .drawn_amount(Money::new(1_000_000.0, Currency::USD))
         .commitment_date(commitment_date)
         .maturity_date(maturity_date)
-        .base_rate_spec(BaseRateSpec::Floating {
-            index_id: "USD-SOFR-3M".into(),
-            margin_bp: 500.0, // +500 bps margin = +5%
-            reset_freq: Frequency::quarterly(),
-            floor_bp: Some(100.0), // 1% floor on base rate (floors 1bp to 1%)
-        })
+        .base_rate_spec(BaseRateSpec::Floating(
+            finstack_valuations::cashflow::builder::FloatingRateSpec {
+                index_id: "USD-SOFR-3M".into(),
+                spread_bp: 500.0, // +500 bps margin = +5%
+                gearing: 1.0,
+                floor_bp: Some(100.0), // 1% floor on base rate (floors 1bp to 1%)
+                cap_bp: None,
+                reset_freq: Frequency::quarterly(),
+                reset_lag_days: 2,
+                dc: DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+            },
+        ))
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
         .fees(RevolvingCreditFees::default())
@@ -356,12 +364,20 @@ fn test_term_forward_with_floor() {
         .drawn_amount(Money::new(1_000_000.0, Currency::USD))
         .commitment_date(commitment_date)
         .maturity_date(maturity_date)
-        .base_rate_spec(BaseRateSpec::Floating {
-            index_id: "USD-SOFR-3M".into(),
-            margin_bp: 500.0, // +500 bps margin = +5%
-            reset_freq: Frequency::quarterly(),
-            floor_bp: None, // No floor, so 1bp base passes through
-        })
+        .base_rate_spec(BaseRateSpec::Floating(
+            finstack_valuations::cashflow::builder::FloatingRateSpec {
+                index_id: "USD-SOFR-3M".into(),
+                spread_bp: 500.0, // +500 bps margin = +5%
+                gearing: 1.0,
+                floor_bp: None, // No floor, so 1bp base passes through
+                cap_bp: None,
+                reset_freq: Frequency::quarterly(),
+                reset_lag_days: 2,
+                dc: DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+            },
+        ))
         .day_count(DayCount::Act360)
         .payment_frequency(Frequency::quarterly())
         .fees(RevolvingCreditFees::default())

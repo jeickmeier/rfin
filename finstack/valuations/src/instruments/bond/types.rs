@@ -3,7 +3,7 @@
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 use finstack_core::prelude::*;
 
-use crate::cashflow::builder::CashFlowSchedule;
+use crate::cashflow::builder::{CashFlowSchedule, FloatingRateSpec};
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -352,15 +352,20 @@ impl Bond {
         if let Some(ref fl) = self.float {
             // Floating rate bond
             b.floating_cf(FloatingCouponSpec {
-                index_id: fl.forward_curve_id.to_owned(),
-                margin_bp: fl.margin_bp,
-                gearing: fl.gearing,
-                reset_lag_days: fl.reset_lag_days,
+                rate_spec: FloatingRateSpec {
+                    index_id: fl.forward_curve_id.to_owned(),
+                    spread_bp: fl.margin_bp,
+                    gearing: fl.gearing,
+                    floor_bp: None,
+                    cap_bp: None,
+                    reset_freq: self.freq,
+                    reset_lag_days: fl.reset_lag_days,
+                    dc: self.dc,
+                    bdc: self.bdc,
+                    calendar_id: self.calendar_id.clone(),
+                },
                 coupon_type: CouponType::Cash,
                 freq: self.freq,
-                dc: self.dc,
-                bdc: self.bdc,
-                calendar_id: self.calendar_id.clone(),
                 stub: self.stub,
             });
         } else {

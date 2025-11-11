@@ -87,30 +87,117 @@ pub struct FixedCouponSpec {
     pub stub: StubKind,
 }
 
-/// Floating coupon specification.
+/// Default gearing for floating rates.
+fn default_gearing() -> f64 {
+    1.0
+}
+
+/// Default reset lag for floating rates (T-2 standard).
+fn default_reset_lag() -> i32 {
+    2
+}
+
+/// Canonical floating rate specification for all instruments.
+///
+/// Used by bonds, swaps, credit facilities, and structured products.
+/// All instruments should compose this type rather than defining their own
+/// floating rate specifications.
+///
+/// # Rate Calculation
+///
+/// The all-in rate is computed as:
+/// 1. Look up forward rate from `index_id` curve for the accrual period
+/// 2. Apply `floor_bp` to index rate (if specified) - applied BEFORE adding spread
+/// 3. Add `spread_bp` to get base rate
+/// 4. Multiply by `gearing` (typically 1.0)
+/// 5. Apply `cap_bp` to final rate (if specified) - applied AFTER spread and gearing
+///
+/// Formula: `cap(gearing * (floor(index) + spread))`
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::dates::{DayCount, Frequency, BusinessDayConvention};
+/// use finstack_valuations::cashflow::builder::FloatingRateSpec;
+///
+/// // 3M SOFR + 200bps with 0% floor
+/// let spec = FloatingRateSpec {
+///     index_id: "USD-SOFR-3M".into(),
+///     spread_bp: 200.0,
+///     gearing: 1.0,
+///     floor_bp: Some(0.0),
+///     cap_bp: None,
+///     reset_freq: Frequency::quarterly(),
+///     reset_lag_days: 2,
+///     dc: DayCount::Act360,
+///     bdc: BusinessDayConvention::ModifiedFollowing,
+///     calendar_id: None,
+/// };
+/// ```
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct FloatingRateSpec {
+    /// Forward curve identifier (e.g., "USD-SOFR-3M", "EUR-EURIBOR-6M").
+    pub index_id: CurveId,
+
+    /// Spread/margin over index in basis points.
+    pub spread_bp: f64,
+
+    /// Gearing/leverage multiplier applied to the all-in rate (default: 1.0).
+    ///
+    /// Example: gearing = 2.0 means the rate is doubled.
+    #[cfg_attr(feature = "serde", serde(default = "default_gearing"))]
+    pub gearing: f64,
+
+    /// Floor on index rate in basis points (applied before adding spread).
+    ///
+    /// Example: floor_bp = Some(0.0) ensures index rate >= 0%.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub floor_bp: Option<f64>,
+
+    /// Cap on all-in rate in basis points (applied after spread and gearing).
+    ///
+    /// Example: cap_bp = Some(1000.0) ensures all-in rate <= 10%.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub cap_bp: Option<f64>,
+
+    /// Reset frequency for rate fixings.
+    pub reset_freq: Frequency,
+
+    /// Reset lag in business days (e.g., 2 for T-2 SOFR convention).
+    #[cfg_attr(feature = "serde", serde(default = "default_reset_lag"))]
+    pub reset_lag_days: i32,
+
+    /// Day count convention for accrual calculations.
+    pub dc: DayCount,
+
+    /// Business day convention for date adjustments.
+    pub bdc: BusinessDayConvention,
+
+    /// Optional calendar for business day adjustments.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub calendar_id: Option<String>,
+}
+
+/// Floating coupon specification (composes FloatingRateSpec).
+///
+/// Used by the cashflow builder for instruments with floating rate coupons.
+/// Embeds the canonical `FloatingRateSpec` for rate projection and adds
+/// coupon-specific settings like payment frequency and PIK behavior.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FloatingCouponSpec {
-    /// index id.
-    pub index_id: CurveId,
-    /// margin bp.
-    pub margin_bp: f64,
-    /// gearing.
-    pub gearing: f64,
-    /// coupon type.
+    /// Floating rate specification (contains index, spread, floor, cap, etc).
+    pub rate_spec: FloatingRateSpec,
+
+    /// Coupon type (Cash/PIK/Split).
     pub coupon_type: CouponType,
-    /// freq.
+
+    /// Payment frequency (may differ from reset frequency in rate_spec).
     pub freq: Frequency,
-    /// dc.
-    pub dc: DayCount,
-    /// bdc.
-    pub bdc: BusinessDayConvention,
-    /// calendar id.
-    pub calendar_id: Option<String>,
-    /// stub.
+
+    /// Stub rule for payment schedule generation.
     pub stub: StubKind,
-    /// reset lag days.
-    pub reset_lag_days: i32,
 }
 
 /// Fee specification.

@@ -111,9 +111,12 @@ def create_deterministic_facility(
         "base_rate_spec": {
             "Floating": {
                 "index_id": "USD-SOFR-3M",
-                "margin_bp": 250,  # 250 bps over SOFR
+                "spread_bp": 250.0,  # 250 bps over SOFR
+                "gearing": 1.0,
                 "reset_freq": {"Months": 3},
-                "floor_bp": 0,
+                "floor_bp": 0.0,
+                "dc": "Act360",
+                "bdc": "modified_following"
             }
         },
         "day_count": "Act360",
@@ -159,9 +162,12 @@ def create_stochastic_facility(
         "base_rate_spec": {
             "Floating": {
                 "index_id": "USD-SOFR-3M",
-                "margin_bp": 250,
+                "spread_bp": 250.0,
+                "gearing": 1.0,
                 "reset_freq": {"Months": 3},
-                "floor_bp": 0,
+                "floor_bp": 0.0,
+                "dc": "Act360",
+                "bdc": "modified_following"
             }
         },
         "day_count": "Act360",
@@ -684,8 +690,12 @@ def save_cashflow_schedules_with_pv_to_csv(
     
     # Process bottom performers
     for idx, (path_result, irr) in enumerate(bottom_n, 1):
-        # Use Rust's to_dataframe() - returns Polars DataFrame
-        df = path_result.cashflows.to_dataframe()
+        # Use Rust's to_dataframe() with market - returns Polars DataFrame
+        df = path_result.cashflows.to_dataframe(
+            market=market,
+            discount_curve_id="USD-OIS",
+            as_of=as_of_date
+        )
         
         # Convert to pandas and add metadata
         df_pandas = df.to_pandas()
@@ -699,8 +709,12 @@ def save_cashflow_schedules_with_pv_to_csv(
     
     # Process top performers  
     for idx, (path_result, irr) in enumerate(top_n, 1):
-        # Use Rust's to_dataframe() - returns Polars DataFrame
-        df = path_result.cashflows.to_dataframe()
+        # Use Rust's to_dataframe() with market - returns Polars DataFrame
+        df = path_result.cashflows.to_dataframe(
+            market=market,
+            discount_curve_id="USD-OIS",
+            as_of=as_of_date
+        )
         
         # Convert to pandas and add metadata
         df_pandas = df.to_pandas()
@@ -1413,12 +1427,15 @@ def main() -> int:
             print("\n" + "=" * 80)  # noqa: T201
             print("Exporting Raw Polars Cashflows (Top 1 & Bottom 1)")  # noqa: T201
             print("=" * 80)  # noqa: T201
+            import os
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            
             export_raw_polars_cashflows(
                 single_results["path_irr_pairs"],
                 market,
                 as_of,
                 num_paths=1,
-                output_dir="finstack-py/examples/scripts/valuations/instruments/revolving_credit"
+                output_dir=script_dir
             )
             
             # Save RAW cashflow schedules for PV debugging
@@ -1430,7 +1447,7 @@ def main() -> int:
                 market,
                 as_of,
                 num_paths=5,
-                output_dir="finstack-py/examples/scripts/valuations/instruments/revolving_credit"
+                output_dir=script_dir
             )
             
             # Save detailed cashflow schedules with MC path data to CSV
@@ -1438,7 +1455,7 @@ def main() -> int:
             save_cashflow_schedules_to_csv(
                 single_results["path_irr_pairs"], 
                 num_paths=5,
-                output_dir="finstack-py/examples/scripts/valuations/instruments/revolving_credit"
+                output_dir=script_dir
             )
         
         # Part 2: Volatility grid analysis

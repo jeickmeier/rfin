@@ -245,18 +245,23 @@ impl PyFloatingCouponSpec {
     ) -> Self {
         Self {
             inner: val_builder::FloatingCouponSpec {
-                index_id: params.inner.index_id.clone(),
-                margin_bp: params.inner.margin_bp,
-                gearing: params.inner.gearing,
+                rate_spec: val_builder::FloatingRateSpec {
+                    index_id: params.inner.index_id.clone(),
+                    spread_bp: params.inner.margin_bp,
+                    gearing: params.inner.gearing,
+                    floor_bp: None,
+                    cap_bp: None,
+                    reset_freq: schedule.inner.freq,
+                    reset_lag_days: params.inner.reset_lag_days,
+                    dc: schedule.inner.dc,
+                    bdc: schedule.inner.bdc,
+                    calendar_id: schedule.inner.calendar_id,
+                },
                 coupon_type: coupon_type
                     .map(|c| c.inner)
                     .unwrap_or(val_builder::CouponType::Cash),
                 freq: schedule.inner.freq,
-                dc: schedule.inner.dc,
-                bdc: schedule.inner.bdc,
-                calendar_id: schedule.inner.calendar_id,
                 stub: schedule.inner.stub,
-                reset_lag_days: params.inner.reset_lag_days,
             },
         }
     }

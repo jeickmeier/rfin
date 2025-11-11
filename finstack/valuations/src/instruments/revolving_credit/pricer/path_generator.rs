@@ -65,7 +65,7 @@ pub fn generate_three_factor_paths(
     // Build interest rate specification
     let (interest_rate_spec, rate_curve_opt) = match &facility.base_rate_spec {
         BaseRateSpec::Fixed { rate } => (InterestRateSpec::Fixed { rate: *rate }, None),
-        BaseRateSpec::Floating { .. } => {
+        BaseRateSpec::Floating(spec) => {
             match &mc_config.interest_rate_process {
                 Some(InterestRateProcessSpec::HullWhite1F {
                     kappa,
@@ -78,10 +78,7 @@ pub fn generate_three_factor_paths(
                 }, None),
                 None => {
                     // Use deterministic forward curve
-                    let fwd = market.get_forward_ref(match &facility.base_rate_spec {
-                        BaseRateSpec::Floating { index_id, .. } => index_id.as_str(),
-                        _ => unreachable!(),
-                    })?;
+                    let fwd = market.get_forward_ref(spec.index_id.as_str())?;
                     let times = fwd.knots().to_vec();
                     let rates = fwd.forwards().to_vec();
                     (InterestRateSpec::DeterministicForward { times: times.clone(), rates: rates.clone() }, 

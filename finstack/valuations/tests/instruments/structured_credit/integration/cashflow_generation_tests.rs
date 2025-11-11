@@ -80,12 +80,18 @@ fn create_test_tranches() -> TrancheStructure {
         100.0,
         TrancheSeniority::Senior,
         Money::new(135_000_000.0, Currency::USD),
-        TrancheCoupon::Floating {
-            forward_curve_id: finstack_core::types::CurveId::new("SOFR-3M".to_string()),
+        TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
+            index_id: finstack_core::types::CurveId::new("SOFR-3M".to_string()),
             spread_bp: 200.0,
-            floor: None,
-            cap: None,
-        },
+            gearing: 1.0,
+            floor_bp: None,
+            cap_bp: None,
+            reset_freq: finstack_core::dates::Frequency::quarterly(),
+            reset_lag_days: 2,
+            dc: finstack_core::dates::DayCount::Act360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+        }),
         maturity_date(),
     )
     .expect("Failed to create senior tranche");

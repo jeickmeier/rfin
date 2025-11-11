@@ -4,7 +4,9 @@
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::types::InstrumentId;
+#[cfg(test)]
+use finstack_core::types::CurveId;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -104,19 +106,13 @@ impl Default for CreditEnhancement {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TrancheCoupon {
-    /// Fixed rate coupon
+    /// Fixed rate coupon (rate as decimal, e.g., 0.05 for 5%)
     Fixed { rate: f64 },
-    /// Floating rate coupon with index reference
-    Floating {
-        /// Forward curve identifier for index rate
-        forward_curve_id: CurveId,
-        /// Spread over index in basis points
-        spread_bp: f64,
-        /// Interest rate floor (optional)
-        floor: Option<f64>,
-        /// Interest rate cap (optional)
-        cap: Option<f64>,
-    },
+    
+    /// Floating rate coupon using canonical FloatingRateSpec.
+    ///
+    /// Uses the standard floating rate specification with all rates in basis points.
+    Floating(crate::cashflow::builder::FloatingRateSpec),
 }
 
 impl TrancheCoupon {
@@ -127,14 +123,14 @@ impl TrancheCoupon {
     pub fn current_rate(&self, _date: Date) -> f64 {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,
-            TrancheCoupon::Floating { spread_bp, .. } => *spread_bp / 10_000.0,
+            TrancheCoupon::Floating(spec) => spec.spread_bp / 10_000.0,
         }
     }
 
     /// Compute current rate including index forward where applicable.
     ///
     /// For Fixed coupons, returns the fixed rate.
-    /// For Floating coupons, looks up the index rate from market context and adds spread.
+    /// For Floating coupons, uses centralized projection with floor/cap support.
     pub fn current_rate_with_index(
         &self,
         date: Date,
@@ -142,42 +138,27 @@ impl TrancheCoupon {
     ) -> f64 {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,
-            TrancheCoupon::Floating {
-                forward_curve_id,
-                spread_bp,
-                floor,
-                cap,
-            } => {
-                // Look up forward rate from market context
-                let idx_rate = context
-                    .get_forward_ref(forward_curve_id.as_str())
-                    .map(|fwd| {
-                        let base = fwd.base_date();
-                        let dc = fwd.day_count();
-                        let t2 = dc
-                            .year_fraction(base, date, finstack_core::dates::DayCountCtx::default())
-                            .unwrap_or(0.0);
-                        // Approximate 3M forward rate
-                        let t1 = (t2 - 0.25).max(0.0);
-                        fwd.rate_period(t1, t2)
-                    })
-                    .unwrap_or(0.0);
-
-                // Add spread
-                let all_in_rate = idx_rate + (*spread_bp / 10_000.0);
-
-                // Apply caps/floors
-                let capped = if let Some(c) = cap {
-                    all_in_rate.min(*c)
-                } else {
-                    all_in_rate
+            TrancheCoupon::Floating(spec) => {
+                // Use centralized projection
+                let fwd = match context.get_forward_ref(spec.index_id.as_str()) {
+                    Ok(f) => f,
+                    Err(_) => return spec.spread_bp / 10_000.0, // Fallback to spread only
                 };
-
-                if let Some(f) = floor {
-                    capped.max(*f)
-                } else {
-                    capped
-                }
+                
+                let tenor = fwd.tenor();
+                let period_end_approx = date + time::Duration::days((tenor * 365.25) as i64);
+                
+                crate::cashflow::builder::project_floating_rate(
+                    date,
+                    period_end_approx,
+                    spec.index_id.as_str(),
+                    spec.spread_bp,
+                    spec.gearing,
+                    spec.floor_bp,
+                    spec.cap_bp,
+                    context,
+                )
+                .unwrap_or(spec.spread_bp / 10_000.0)
             }
         }
     }
@@ -683,12 +664,20 @@ mod tests {
             .attachment_detachment(10.0, 100.0)
             .seniority(TrancheSeniority::Senior)
             .balance(Money::new(900_000_000.0, Currency::USD))
-            .coupon(TrancheCoupon::Floating {
-                forward_curve_id: CurveId::new("SOFR-3M".to_string()),
-                spread_bp: 150.0,
-                floor: None,
-                cap: None,
-            })
+            .coupon(TrancheCoupon::Floating(
+                crate::cashflow::builder::FloatingRateSpec {
+                    index_id: CurveId::new("SOFR-3M".to_string()),
+                    spread_bp: 150.0,
+                    gearing: 1.0,
+                    floor_bp: None,
+                    cap_bp: None,
+                    reset_freq: finstack_core::dates::Frequency::quarterly(),
+                    reset_lag_days: 2,
+                    dc: finstack_core::dates::DayCount::Act360,
+                    bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                },
+            ))
             .legal_maturity(test_date())
             .build()
             .unwrap();

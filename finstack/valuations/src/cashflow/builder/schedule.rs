@@ -48,7 +48,11 @@ pub(crate) fn finalize_flows(
     let mut cals: Vec<String> = fixed
         .iter()
         .filter_map(|s| s.calendar_id.clone())
-        .chain(floating.iter().filter_map(|s| s.calendar_id.clone()))
+        .chain(
+            floating
+                .iter()
+                .filter_map(|s| s.rate_spec.calendar_id.clone()),
+        )
         .collect();
     cals.sort_unstable();
     cals.dedup();
@@ -60,7 +64,7 @@ pub(crate) fn finalize_flows(
     let out_dc = if let Some(s) = fixed.first() {
         s.dc
     } else if let Some(s) = floating.first() {
-        s.dc
+        s.rate_spec.dc
     } else {
         DayCount::Act365F
     };

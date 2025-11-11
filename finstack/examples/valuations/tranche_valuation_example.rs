@@ -7,7 +7,7 @@
 //! 4. Compare metrics across different tranches
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -167,12 +167,18 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         100.0, // detachment (100%)
         TrancheSeniority::Senior,
         Money::new(400_000_000.0, base_currency),
-        TrancheCoupon::Floating {
-            forward_curve_id: CurveId::new("SOFR-3M".to_string()),
+        TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
+            index_id: CurveId::new("SOFR-3M".to_string()),
             spread_bp: 150.0,
-            floor: Some(0.0),
-            cap: None,
-        },
+            gearing: 1.0,
+            floor_bp: Some(0.0), // 0 bps floor
+            cap_bp: None,
+            reset_freq: Frequency::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+        }),
         date!(2034 - 01 - 01),
     )?;
 
@@ -182,12 +188,18 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
         20.0, // detachment (20%)
         TrancheSeniority::Mezzanine,
         Money::new(50_000_000.0, base_currency),
-        TrancheCoupon::Floating {
-            forward_curve_id: CurveId::new("SOFR-3M".to_string()),
+        TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
+            index_id: CurveId::new("SOFR-3M".to_string()),
             spread_bp: 300.0,
-            floor: Some(0.0),
-            cap: None,
-        },
+            gearing: 1.0,
+            floor_bp: Some(0.0), // 0 bps floor
+            cap_bp: None,
+            reset_freq: Frequency::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+        }),
         date!(2034 - 01 - 01),
     )?;
 

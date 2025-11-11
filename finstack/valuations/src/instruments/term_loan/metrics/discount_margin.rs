@@ -52,30 +52,32 @@ impl DiscountMarginCalculator {
             let yf = loan
                 .day_count
                 .year_fraction(prev, d, DayCountCtx::default())?;
-            let base_rate = match &loan.rate {
+            let rate = match &loan.rate {
                 crate::instruments::term_loan::types::RateSpec::Fixed { rate_bp } => {
                     (*rate_bp as f64) * 1e-4
                 }
-                crate::instruments::term_loan::types::RateSpec::Floating {
-                    index_id,
-                    floor_bp,
-                    ..
-                } => {
-                    let fwd = curves.get_forward_ref(index_id.as_str())?;
-                    let mut r = fwd.rate(yf) + dm;
-                    if let Some(floor) = floor_bp {
-                        r = r.max((*floor as f64) * 1e-4);
+                crate::instruments::term_loan::types::RateSpec::Floating(spec) => {
+                    // For discount margin calculation, we add DM to the forward rate
+                    // Then apply spread on top
+                    let fwd = curves.get_forward_ref(spec.index_id.as_str())?;
+                    let mut index_with_dm = fwd.rate(yf) + dm;
+                    
+                    // Apply floor to index+DM
+                    if let Some(floor) = spec.floor_bp {
+                        index_with_dm = index_with_dm.max(floor * 1e-4);
                     }
-                    r
+                    
+                    // Add spread
+                    let mut all_in = (index_with_dm + spec.spread_bp * 1e-4) * spec.gearing;
+                    
+                    // Apply cap
+                    if let Some(cap) = spec.cap_bp {
+                        all_in = all_in.min(cap * 1e-4);
+                    }
+                    
+                    all_in
                 }
             };
-            let margin_add = match &loan.rate {
-                crate::instruments::term_loan::types::RateSpec::Floating { margin_bp, .. } => {
-                    (*margin_bp as f64) * 1e-4
-                }
-                _ => 0.0,
-            };
-            let rate = base_rate + margin_add;
             let interest = outstanding.amount() * rate * yf;
 
             // Discount to as_of

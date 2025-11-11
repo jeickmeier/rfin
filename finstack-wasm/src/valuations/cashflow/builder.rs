@@ -229,16 +229,21 @@ impl JsFloatingCouponSpec {
         let sched = schedule.inner();
         JsFloatingCouponSpec {
             inner: CoreFloatingCouponSpec {
-                index_id: params.inner.index_id.clone(),
-                margin_bp: params.inner.margin_bp,
-                gearing: params.inner.gearing,
+                rate_spec: finstack_valuations::cashflow::builder::FloatingRateSpec {
+                    index_id: params.inner.index_id.clone(),
+                    spread_bp: params.inner.margin_bp,
+                    gearing: params.inner.gearing,
+                    floor_bp: None,
+                    cap_bp: None,
+                    reset_freq: sched.freq,
+                    reset_lag_days: params.inner.reset_lag_days,
+                    dc: sched.dc,
+                    bdc: sched.bdc,
+                    calendar_id: sched.calendar_id,
+                },
                 coupon_type: coupon_type.inner(),
                 freq: sched.freq,
-                dc: sched.dc,
-                bdc: sched.bdc,
-                calendar_id: sched.calendar_id,
                 stub: sched.stub,
-                reset_lag_days: params.inner.reset_lag_days,
             },
         }
     }

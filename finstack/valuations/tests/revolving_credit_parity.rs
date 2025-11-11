@@ -173,12 +173,20 @@ mod tests {
             .drawn_amount(Money::new(5_000_000.0, Currency::USD))
             .commitment_date(start)
             .maturity_date(end)
-            .base_rate_spec(BaseRateSpec::Floating {
-                index_id: "USD-SOFR-3M".into(),
-                margin_bp: 200.0,
-                reset_freq: Frequency::quarterly(),
-                floor_bp: Some(100.0),
-            })
+            .base_rate_spec(BaseRateSpec::Floating(
+                finstack_valuations::cashflow::builder::FloatingRateSpec {
+                    index_id: "USD-SOFR-3M".into(),
+                    spread_bp: 200.0,
+                    gearing: 1.0,
+                    floor_bp: Some(100.0),
+                    cap_bp: None,
+                    reset_freq: Frequency::quarterly(),
+                    reset_lag_days: 2,
+                    dc: DayCount::Act360,
+                    bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                },
+            ))
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
@@ -194,12 +202,20 @@ mod tests {
             .drawn_amount(Money::new(5_000_000.0, Currency::USD))
             .commitment_date(start)
             .maturity_date(end)
-            .base_rate_spec(BaseRateSpec::Floating {
-                index_id: "USD-SOFR-3M".into(),
-                margin_bp: 200.0,
-                reset_freq: Frequency::quarterly(),
-                floor_bp: Some(100.0),
-            })
+            .base_rate_spec(BaseRateSpec::Floating(
+                finstack_valuations::cashflow::builder::FloatingRateSpec {
+                    index_id: "USD-SOFR-3M".into(),
+                    spread_bp: 200.0,
+                    gearing: 1.0,
+                    floor_bp: Some(100.0),
+                    cap_bp: None,
+                    reset_freq: Frequency::quarterly(),
+                    reset_lag_days: 2,
+                    dc: DayCount::Act360,
+                    bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                },
+            ))
             .day_count(DayCount::Act360)
             .payment_frequency(Frequency::quarterly())
             .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))

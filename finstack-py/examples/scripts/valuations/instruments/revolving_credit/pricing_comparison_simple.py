@@ -68,9 +68,12 @@ def create_facility(util=0.5, is_stochastic=False, util_vol=0.0, num_paths=5000)
         "base_rate_spec": {
             "Floating": {
                 "index_id": "USD-SOFR-3M",
-                "margin_bp": 250,
+                "spread_bp": 250.0,
+                "gearing": 1.0,
                 "reset_freq": {"Months": 3},
-                "floor_bp": 0
+                "floor_bp": 0.0,
+                "dc": "Act360",
+                "bdc": "modified_following"
             }
         },
         "day_count": "Act360",

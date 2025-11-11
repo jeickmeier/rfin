@@ -60,45 +60,38 @@ impl MetricCalculator for AllInRateCalculator {
             }
             let yf = dc.year_fraction(prev, d, DayCountCtx::default())?;
 
-            // Base rate
-            let base_rate = match &loan.rate {
+            // Compute period rate with centralized projection
+            let rate = match &loan.rate {
                 crate::instruments::term_loan::types::RateSpec::Fixed { rate_bp } => {
                     (*rate_bp as f64) * 1e-4
                 }
-                crate::instruments::term_loan::types::RateSpec::Floating {
-                    index_id,
-                    floor_bp,
-                    ..
-                } => {
-                    let fwd = market.get_forward_ref(index_id.as_str())?;
-                    let mut r = fwd.rate(yf);
-                    if let Some(floor) = floor_bp {
-                        r = r.max((*floor as f64) * 1e-4);
-                    }
-                    r
+                crate::instruments::term_loan::types::RateSpec::Floating(spec) => {
+                    // Calculate total margin including step-ups
+                    let step_ups: f64 = loan
+                        .covenants
+                        .as_ref()
+                        .map(|c| {
+                            c.margin_stepups
+                                .iter()
+                                .filter(|m| m.date <= d)
+                                .map(|m| m.delta_bp as f64)
+                                .sum::<f64>()
+                        })
+                        .unwrap_or(0.0);
+                    let total_spread = spec.spread_bp + step_ups;
+                    
+                    crate::cashflow::builder::project_floating_rate_simple(
+                        prev,
+                        yf,
+                        spec.index_id.as_str(),
+                        total_spread,
+                        spec.gearing,
+                        spec.floor_bp,
+                        spec.cap_bp,
+                        market,
+                    )?
                 }
             };
-            // Margin including step-ups
-            let margin_bp = loan
-                .covenants
-                .as_ref()
-                .map(|c| {
-                    c.margin_stepups
-                        .iter()
-                        .filter(|m| m.date <= d)
-                        .map(|m| m.delta_bp)
-                        .sum::<i32>()
-                })
-                .unwrap_or(0)
-                + match &loan.rate {
-                    crate::instruments::term_loan::types::RateSpec::Floating {
-                        margin_bp, ..
-                    } => *margin_bp,
-                    _ => 0,
-                };
-            let margin = (margin_bp as f64) * 1e-4;
-
-            let rate = base_rate + margin;
             let cash_interest = outstanding.amount() * rate * yf; // ignore PIK for all-in cash cost
 
             // Fees

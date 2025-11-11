@@ -424,16 +424,16 @@ impl CashflowBuilder {
             },
             schedule: ScheduleParams {
                 freq: spec.freq,
-                dc: spec.dc,
-                bdc: spec.bdc,
-                calendar_id: spec.calendar_id,
+                dc: spec.rate_spec.dc,
+                bdc: spec.rate_spec.bdc,
+                calendar_id: spec.rate_spec.calendar_id.clone(),
                 stub: spec.stub,
             },
             coupon: CouponSpec::Float {
-                index_id: spec.index_id,
-                margin_bp: spec.margin_bp,
-                gearing: spec.gearing,
-                reset_lag_days: spec.reset_lag_days,
+                index_id: spec.rate_spec.index_id,
+                margin_bp: spec.rate_spec.spread_bp,
+                gearing: spec.rate_spec.gearing,
+                reset_lag_days: spec.rate_spec.reset_lag_days,
             },
         });
         self.payment_program.push(PaymentProgramPiece {

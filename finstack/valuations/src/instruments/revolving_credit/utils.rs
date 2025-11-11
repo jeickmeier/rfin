@@ -95,10 +95,10 @@ pub(super) fn build_payment_dates(
 /// Returns an error if the schedule builder fails for floating rate facilities.
 pub(super) fn build_reset_dates(facility: &RevolvingCredit) -> Result<Option<Vec<Date>>> {
     match &facility.base_rate_spec {
-        BaseRateSpec::Floating { reset_freq, .. } => {
+        BaseRateSpec::Floating(spec) => {
             let mut reset_builder =
                 ScheduleBuilder::new(facility.commitment_date, facility.maturity_date)
-                    .frequency(*reset_freq)
+                    .frequency(spec.reset_freq)
                     .stub_rule(finstack_core::dates::StubKind::None);
 
             if let Some(cal) = resolve_facility_calendar(&facility.attributes) {
@@ -113,72 +113,47 @@ pub(super) fn build_reset_dates(facility: &RevolvingCredit) -> Result<Option<Vec
     }
 }
 
-/// Project floating rate for a given reset date using forward curve.
+/// Project floating rate for revolving credit facility.
 ///
-/// Computes period forward rate from reset date to reset period end, applies
-/// floor to the index rate, and adds margin to get the all-in coupon rate.
+/// Wrapper around centralized `project_floating_rate` that handles
+/// revolving credit's attribute-based calendar resolution.
 ///
 /// # Arguments
 ///
 /// * `reset_date` - Start date of the reset period
 /// * `reset_freq` - Frequency determining the period length
 /// * `index_id` - Forward curve identifier (e.g., "USD-SOFR-3M")
-/// * `margin_bp` - Margin over index in basis points
-/// * `floor_bp` - Optional floor on index rate in basis points (applied before adding margin)
+/// * `spread_bp` - Spread/margin over index in basis points
+/// * `floor_bp` - Optional floor on index rate in basis points
 /// * `market` - Market context containing forward curves
 /// * `attrs` - Facility attributes (for calendar resolution)
 ///
 /// # Returns
 ///
-/// All-in coupon rate (index + margin, with floor applied to index only).
-///
-/// # Errors
-///
-/// Returns an error if:
-/// - Forward curve not found in market
-/// - Reset period end calculation fails
-/// - Year fraction calculation fails
+/// All-in coupon rate (index + spread, with floor applied).
 pub(super) fn project_floating_rate(
     reset_date: finstack_core::dates::Date,
     reset_freq: &finstack_core::dates::Frequency,
     index_id: &str,
-    margin_bp: f64,
+    spread_bp: f64,
     floor_bp: Option<f64>,
     market: &finstack_core::market_data::MarketContext,
     attrs: &Attributes,
 ) -> Result<f64> {
-    // Get forward curve
-    let fwd = market.get_forward_ref(index_id)?;
-    let fwd_dc = fwd.day_count();
-    let fwd_base = fwd.base_date();
-    
-    // Compute reset period end date
+    // Compute reset period end using facility calendar
     let reset_end = compute_reset_period_end(reset_date, reset_freq, attrs)?;
     
-    // Compute period forward rate
-    let t0 = fwd_dc.year_fraction(
-        fwd_base,
+    // Delegate to centralized projection (revolving credit doesn't use caps or gearing)
+    crate::cashflow::builder::project_floating_rate(
         reset_date,
-        finstack_core::dates::DayCountCtx::default(),
-    )?;
-    let t1 = fwd_dc.year_fraction(
-        fwd_base,
         reset_end,
-        finstack_core::dates::DayCountCtx::default(),
-    )?;
-    
-    let mut index_rate = fwd.rate_period(t0, t1);
-    
-    // Apply floor to index rate (before adding margin)
-    if let Some(floor) = floor_bp {
-        let floor_rate = floor * 1e-4;
-        index_rate = index_rate.max(floor_rate);
-    }
-    
-    // Add margin to get all-in rate
-    let all_in_rate = index_rate + (margin_bp * 1e-4);
-    
-    Ok(all_in_rate)
+        index_id,
+        spread_bp,
+        1.0,          // gearing = 1.0
+        floor_bp,
+        None,         // revolving credit doesn't use caps
+        market,
+    )
 }
 
 /// Apply a draw/repay event to current balance with commitment limit validation.
@@ -391,12 +366,18 @@ mod tests {
             start,
             end,
             Frequency::quarterly(),
-            BaseRateSpec::Floating {
+            BaseRateSpec::Floating(crate::cashflow::builder::FloatingRateSpec {
                 index_id: "USD-SOFR-3M".into(),
-                margin_bp: 200.0,
-                reset_freq: Frequency::quarterly(),
+                spread_bp: 200.0,
+                gearing: 1.0,
                 floor_bp: None,
-            },
+                cap_bp: None,
+                reset_freq: Frequency::quarterly(),
+                reset_lag_days: 2,
+                dc: DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+            }),
             None,
         );
 

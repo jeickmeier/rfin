@@ -45,6 +45,7 @@ mod tests;
 // Public modules
 pub mod dataframe;
 pub mod date_generation;
+pub mod rate_helpers;
 pub mod schedule;
 pub mod specs;
 
@@ -54,10 +55,11 @@ pub use builder::CashflowBuilder;
 // Re-export common types
 pub use dataframe::{PeriodDataFrame, PeriodDataFrameOptions};
 pub use date_generation::{build_dates, PeriodSchedule};
+pub use rate_helpers::{project_floating_rate, project_floating_rate_simple};
 pub use schedule::{CashFlowSchedule, CashflowMeta};
 pub use specs::{
     evaluate_fee_tiers, CouponType, FeeBase, FeeTier, FeeSpec, FixedCouponSpec, FixedWindow,
-    FloatCouponParams, FloatWindow, FloatingCouponSpec, ScheduleParams,
+    FloatCouponParams, FloatWindow, FloatingCouponSpec, FloatingRateSpec, ScheduleParams,
 };
 
 // Re-export specialized fee emission functions

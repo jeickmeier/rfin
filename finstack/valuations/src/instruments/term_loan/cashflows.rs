@@ -93,10 +93,10 @@ pub fn generate_cashflows(
     }
 
     // Helper to compute margin including step-ups and overrides
-    let margin_bp_at = |d: Date| -> i32 {
+    let margin_bp_at = |d: Date| -> f64 {
         let base_margin = match &loan.rate {
-            super::types::RateSpec::Fixed { .. } => 0,
-            super::types::RateSpec::Floating { margin_bp, .. } => *margin_bp,
+            super::types::RateSpec::Fixed { .. } => 0.0,
+            super::types::RateSpec::Floating(spec) => spec.spread_bp,
         };
         let step = loan
             .covenants
@@ -105,10 +105,10 @@ pub fn generate_cashflows(
                 c.margin_stepups
                     .iter()
                     .filter(|m| m.date <= d)
-                    .map(|m| m.delta_bp)
-                    .sum::<i32>()
+                    .map(|m| m.delta_bp as f64)
+                    .sum::<f64>()
             })
-            .unwrap_or(0);
+            .unwrap_or(0.0);
         let override_add = loan
             .pricing_overrides
             .term_loan
@@ -117,10 +117,10 @@ pub fn generate_cashflows(
                 ov.margin_add_bp_by_date
                     .iter()
                     .filter(|(dt, _)| *dt <= d)
-                    .map(|(_, bp)| *bp)
-                    .sum::<i32>()
+                    .map(|(_, bp)| *bp as f64)
+                    .sum::<f64>()
             })
-            .unwrap_or(0);
+            .unwrap_or(0.0);
         base_margin + step + override_add
     };
 
@@ -134,22 +134,24 @@ pub fn generate_cashflows(
         }
         let yf = dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
 
-        // Base rate
-        let base_rate = match &loan.rate {
+        // Period rate with centralized projection for floating rates
+        let period_rate = match &loan.rate {
             super::types::RateSpec::Fixed { rate_bp } => (*rate_bp as f64) * 1e-4,
-            super::types::RateSpec::Floating {
-                index_id, floor_bp, ..
-            } => {
-                let fwd = market.get_forward_ref(index_id.as_str())?;
-                let mut r = fwd.rate(yf);
-                if let Some(floor) = floor_bp {
-                    r = r.max((*floor as f64) * 1e-4);
-                }
-                r
+            super::types::RateSpec::Floating(spec) => {
+                // Use centralized projection with total margin (base + step-ups + overrides)
+                let total_spread = margin_bp_at(d);
+                crate::cashflow::builder::project_floating_rate_simple(
+                    prev,
+                    yf,
+                    spec.index_id.as_str(),
+                    total_spread,
+                    spec.gearing,
+                    spec.floor_bp,
+                    spec.cap_bp,
+                    market,
+                )?
             }
         };
-        let margin = (margin_bp_at(d) as f64) * 1e-4;
-        let period_rate = base_rate + margin;
 
         // Interest on outstanding
         let interest_amt = Money::new(outstanding.amount() * period_rate * yf, loan.currency);

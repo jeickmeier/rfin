@@ -118,9 +118,12 @@ def create_deterministic_facility(
         "base_rate_spec": {
             "Floating": {
                 "index_id": "USD-SOFR-3M",
-                "margin_bp": 250,  # 250 bps over SOFR
+                "spread_bp": 250.0,  # 250 bps over SOFR
+                "gearing": 1.0,
                 "reset_freq": {"Months": 3},
-                "floor_bp": 0,
+                "floor_bp": 0.0,
+                "dc": "Act360",
+                "bdc": "modified_following"
             }
         },
         "day_count": "Act360",
@@ -179,7 +182,7 @@ def create_stochastic_facility(
         "commitment_date": "2025-01-01",
         "maturity_date": "2027-01-01",
         "base_rate_spec": {
-            "Floating": {"index_id": "USD-SOFR-3M", "margin_bp": 250, "reset_freq": {"Months": 3}, "floor_bp": 0}
+            "Floating": {"index_id": "USD-SOFR-3M", "spread_bp": 250.0, "gearing": 1.0, "reset_freq": {"Months": 3}, "floor_bp": 0.0, "dc": "Act360", "bdc": "modified_following"}
         },
         "day_count": "Act360",
         "payment_frequency": {"Months": 3},

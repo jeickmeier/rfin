@@ -20,7 +20,7 @@
 
 use crate::cashflow::primitives::{AmortizationSpec, Notional, CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{adjust, Date, DayCountCtx};
+use finstack_core::dates::{adjust, Date};
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
@@ -162,30 +162,41 @@ pub(super) fn emit_float_coupons_on(
                 .get(&prev)
                 .unwrap_or(&outstanding_fallback);
 
-            let yf =
-                spec.dc
-                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let yf = spec
+                .rate_spec
+                .dc
+                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
 
             // Compute reset date once
-            let reset_date = compute_reset_date(d, spec.reset_lag_days, spec.bdc, &spec.calendar_id)?;
+            let reset_date = compute_reset_date(
+                d,
+                spec.rate_spec.reset_lag_days,
+                spec.rate_spec.bdc,
+                &spec.rate_spec.calendar_id,
+            )?;
 
-            // Compute total rate: forward_rate * gearing + margin
+            // Compute total rate using centralized projection with floor/cap support
             let total_rate = if let Some(ctx) = curves {
-                // If curves are available, look up the forward rate
-                if let Ok(fwd) = ctx.get_forward_ref(&spec.index_id) {
-                    let t_reset = fwd
-                        .day_count()
-                        .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())
-                        .unwrap_or(0.0);
-                    let forward_rate = fwd.rate(t_reset);
-                    forward_rate * spec.gearing + spec.margin_bp * 1e-4
-                } else {
-                    // Curve not found, fall back to margin only
-                    (spec.margin_bp * 1e-4) * spec.gearing
+                // Use centralized floating rate projection
+                match super::rate_helpers::project_floating_rate(
+                    reset_date,
+                    d, // Use payment date as period end approximation
+                    spec.rate_spec.index_id.as_str(),
+                    spec.rate_spec.spread_bp,
+                    spec.rate_spec.gearing,
+                    spec.rate_spec.floor_bp,
+                    spec.rate_spec.cap_bp,
+                    ctx,
+                ) {
+                    Ok(rate) => rate,
+                    Err(_) => {
+                        // Curve not found, fall back to spread only with gearing
+                        (spec.rate_spec.spread_bp * 1e-4) * spec.rate_spec.gearing
+                    }
                 }
             } else {
-                // No curves provided, use margin only
-                (spec.margin_bp * 1e-4) * spec.gearing
+                // No curves provided, use spread only with gearing
+                (spec.rate_spec.spread_bp * 1e-4) * spec.rate_spec.gearing
             };
 
             let coupon_total = base_out * (total_rate * yf);

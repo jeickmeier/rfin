@@ -7,23 +7,24 @@ use finstack_core::types::{CurveId, InstrumentId};
 
 use super::spec::{AmortizationSpec, CovenantSpec, DdtlSpec, LoanCallSchedule};
 use crate::cashflow::builder::specs::CouponType;
+use crate::cashflow::builder::FloatingRateSpec;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::pricing_overrides::PricingOverrides;
 
-/// Minimal rate spec placeholder (extended in later tasks)
+/// Rate specification for term loans.
+///
+/// Defines whether the loan uses fixed or floating rate interest.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RateSpec {
     /// Fixed annual rate in basis points
     Fixed { rate_bp: i32 },
-    /// Floating index with margin; full shape added later
-    Floating {
-        index_id: CurveId,
-        margin_bp: i32,
-        floor_bp: Option<i32>,
-        reset_freq: Frequency,
-        reset_lag_days: i32,
-    },
+    
+    /// Floating rate using canonical FloatingRateSpec.
+    ///
+    /// Uses the standard floating rate specification with full support
+    /// for floors, caps, and gearing.
+    Floating(FloatingRateSpec),
 }
 
 /// Term Loan instrument (DDTL features added via later tasks)

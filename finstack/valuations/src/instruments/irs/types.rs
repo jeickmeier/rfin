@@ -14,7 +14,9 @@ use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 use finstack_core::{dates::Date, Result};
 
-use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
+use crate::cashflow::builder::{
+    CashFlowSchedule, CouponType, FixedCouponSpec, FloatingRateSpec, ScheduleParams,
+};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 // discountable helpers not used after switching to curve-based df_on_date_curve
 use crate::instruments::common::traits::Attributes;
@@ -717,16 +719,21 @@ impl CashflowProvider for InterestRateSwap {
         float_b
             .principal(self.notional, self.float.start, self.float.end)
             .floating_cf(crate::cashflow::builder::FloatingCouponSpec {
-                index_id: self.float.forward_curve_id.to_owned(),
-                margin_bp: self.float.spread_bp,
-                gearing: 1.0,
+                rate_spec: crate::cashflow::builder::FloatingRateSpec {
+                    index_id: self.float.forward_curve_id.to_owned(),
+                    spread_bp: self.float.spread_bp,
+                    gearing: 1.0,
+                    floor_bp: None,
+                    cap_bp: None,
+                    reset_freq: self.float.freq,
+                    reset_lag_days: self.float.reset_lag_days,
+                    dc: self.float.dc,
+                    bdc: self.float.bdc,
+                    calendar_id: self.float.calendar_id.clone(),
+                },
                 coupon_type: CouponType::Cash,
                 freq: self.float.freq,
-                dc: self.float.dc,
-                bdc: self.float.bdc,
-                calendar_id: self.float.calendar_id.clone(),
                 stub: self.float.stub,
-                reset_lag_days: self.float.reset_lag_days,
             });
         let float_sched = float_b.build()?;
 
@@ -785,16 +792,21 @@ impl CashflowProvider for InterestRateSwap {
         float_b
             .principal(self.notional, self.float.start, self.float.end)
             .floating_cf(FloatingCouponSpec {
-                index_id: self.float.forward_curve_id.to_owned(),
-                margin_bp: self.float.spread_bp,
-                gearing: 1.0,
+                rate_spec: FloatingRateSpec {
+                    index_id: self.float.forward_curve_id.to_owned(),
+                    spread_bp: self.float.spread_bp,
+                    gearing: 1.0,
+                    floor_bp: None,
+                    cap_bp: None,
+                    reset_freq: self.float.freq,
+                    reset_lag_days: self.float.reset_lag_days,
+                    dc: self.float.dc,
+                    bdc: self.float.bdc,
+                    calendar_id: self.float.calendar_id.clone(),
+                },
                 coupon_type: CouponType::Cash,
                 freq: self.float.freq,
-                dc: self.float.dc,
-                bdc: self.float.bdc,
-                calendar_id: self.float.calendar_id.clone(),
                 stub: self.float.stub,
-                reset_lag_days: self.float.reset_lag_days,
             });
         let float_sched = float_b.build()?;
 

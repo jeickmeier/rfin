@@ -130,27 +130,28 @@ fn test_tranche_floating_coupon() {
         100.0,
         TrancheSeniority::Senior,
         Money::new(90_000_000.0, Currency::USD),
-        TrancheCoupon::Floating {
-            forward_curve_id: CurveId::new("SOFR-3M".to_string()),
+        TrancheCoupon::Floating(finstack_valuations::cashflow::builder::FloatingRateSpec {
+            index_id: CurveId::new("SOFR-3M".to_string()),
             spread_bp: 150.0,
-            floor: Some(0.0),
-            cap: None,
-        },
+            gearing: 1.0,
+            floor_bp: Some(0.0), // 0 bps floor
+            cap_bp: None,
+            reset_freq: finstack_core::dates::Frequency::quarterly(),
+            reset_lag_days: 2,
+            dc: finstack_core::dates::DayCount::Act360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+        }),
         maturity_date(),
     )
     .unwrap();
 
     // Assert
-    match tranche.coupon {
-        TrancheCoupon::Floating {
-            spread_bp,
-            floor,
-            cap,
-            ..
-        } => {
-            assert_eq!(spread_bp, 150.0);
-            assert_eq!(floor, Some(0.0));
-            assert_eq!(cap, None);
+    match &tranche.coupon {
+        TrancheCoupon::Floating(spec) => {
+            assert_eq!(spec.spread_bp, 150.0);
+            assert_eq!(spec.floor_bp, Some(0.0));
+            assert_eq!(spec.cap_bp, None);
         }
         _ => panic!("Expected floating coupon"),
     }

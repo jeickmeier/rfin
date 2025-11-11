@@ -9,35 +9,27 @@ use super::tranches::TrancheCoupon;
 pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketContext) -> f64 {
     match coupon {
         TrancheCoupon::Fixed { rate } => *rate,
-        TrancheCoupon::Floating {
-            forward_curve_id,
-            spread_bp,
-            floor,
-            cap,
-        } => {
-            // Look up forward curve
-            let fwd = match market.get_forward_ref(forward_curve_id.as_str()) {
+        TrancheCoupon::Floating(spec) => {
+            // Use centralized projection
+            let fwd = match market.get_forward_ref(spec.index_id.as_str()) {
                 Ok(c) => c,
-                Err(_) => return *spread_bp / 10_000.0,
+                Err(_) => return spec.spread_bp / 10_000.0,
             };
 
-            let base = fwd.base_date();
-            let dc = fwd.day_count();
-            let t2 = dc
-                .year_fraction(base, date, DayCountCtx::default())
-                .unwrap_or(0.0);
             let tenor = fwd.tenor();
-            let t1 = (t2 - tenor).max(0.0);
-            let idx_rate = fwd.rate_period(t1, t2);
+            let period_end = date + time::Duration::days((tenor * 365.25) as i64);
 
-            let mut all_in = idx_rate + (*spread_bp / 10_000.0);
-            if let Some(c) = cap {
-                all_in = all_in.min(*c);
-            }
-            if let Some(f) = floor {
-                all_in = all_in.max(*f);
-            }
-            all_in
+            crate::cashflow::builder::project_floating_rate(
+                date,
+                period_end,
+                spec.index_id.as_str(),
+                spec.spread_bp,
+                spec.gearing,
+                spec.floor_bp,
+                spec.cap_bp,
+                market,
+            )
+            .unwrap_or(spec.spread_bp / 10_000.0)
         }
     }
 }

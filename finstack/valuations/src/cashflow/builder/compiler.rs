@@ -27,7 +27,8 @@ use finstack_core::error::InputError;
 use finstack_core::money::Money;
 
 use super::specs::{
-    CouponType, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec, ScheduleParams,
+    CouponType, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
+    ScheduleParams,
 };
 
 pub(super) type FixedSchedule = (
@@ -466,16 +467,21 @@ pub(super) fn compute_coupon_schedules(
                 reset_lag_days,
             } => {
                 let spec = FloatingCouponSpec {
-                    index_id: index_id.clone(),
-                    margin_bp: *margin_bp,
-                    gearing: *gearing,
+                    rate_spec: FloatingRateSpec {
+                        index_id: index_id.clone(),
+                        spread_bp: *margin_bp,
+                        gearing: *gearing,
+                        floor_bp: None,
+                        cap_bp: None,
+                        reset_freq: chosen_coupon.schedule.freq,
+                        reset_lag_days: *reset_lag_days,
+                        dc: chosen_coupon.schedule.dc,
+                        bdc: chosen_coupon.schedule.bdc,
+                        calendar_id: chosen_coupon.schedule.calendar_id.clone(),
+                    },
                     coupon_type: split,
                     freq: chosen_coupon.schedule.freq,
-                    dc: chosen_coupon.schedule.dc,
-                    bdc: chosen_coupon.schedule.bdc,
-                    calendar_id: chosen_coupon.schedule.calendar_id.clone(),
                     stub: chosen_coupon.schedule.stub,
-                    reset_lag_days: *reset_lag_days,
                 };
                 used_float_specs.push(spec.clone());
                 float_schedules.push((spec, dates, sched.prev));

@@ -256,7 +256,7 @@ impl<'a> CashflowEngine<'a> {
 
                 // Determine reset date for floating rates
                 let sub_reset_date = match &self.facility.base_rate_spec {
-                    BaseRateSpec::Floating { .. } => {
+                    BaseRateSpec::Floating(_) => {
                         if let Some(ref reset_grid) = self.reset_dates {
                             reset_grid.iter().rev().find(|&&d| d <= sub_start).copied().or(Some(period_start))
                         } else {
@@ -277,16 +277,16 @@ impl<'a> CashflowEngine<'a> {
                         total_interest = total_interest.checked_add(interest)?;
                         *rate
                     }
-                    BaseRateSpec::Floating { margin_bp, index_id, reset_freq, floor_bp, .. } => {
-                        let mut coupon_rate = *margin_bp * 1e-4;
+                    BaseRateSpec::Floating(spec) => {
+                        let mut coupon_rate = spec.spread_bp * 1e-4;
                         if let Some(market) = self.market {
                             if let Some(reset_d) = sub_reset_date {
                                 if let Ok(rate) = super::utils::project_floating_rate(
                                     reset_d,
-                                    reset_freq,
-                                    index_id.as_str(),
-                                    *margin_bp,
-                                    *floor_bp,
+                                    &spec.reset_freq,
+                                    spec.index_id.as_str(),
+                                    spec.spread_bp,
+                                    spec.floor_bp,
                                     market,
                                     &self.facility.attributes,
                                 ) {
@@ -362,7 +362,7 @@ impl<'a> CashflowEngine<'a> {
                     amount: total_interest,
                     kind: match &self.facility.base_rate_spec {
                         BaseRateSpec::Fixed { .. } => CFKind::Fixed,
-                        BaseRateSpec::Floating { .. } => CFKind::FloatReset,
+                        BaseRateSpec::Floating(_) => CFKind::FloatReset,
                     },
                     accrual_factor: total_accrual,
                     rate: avg_interest_rate,
@@ -545,10 +545,10 @@ impl<'a> CashflowEngine<'a> {
             // Calculate period interest using path's short rate
             let interest_rate = match &self.facility.base_rate_spec {
                 BaseRateSpec::Fixed { rate } => *rate,
-                BaseRateSpec::Floating { margin_bp, floor_bp, .. } => {
-                    let mut rate = short_rate + (*margin_bp * 1e-4);
-                    if let Some(floor) = floor_bp {
-                        rate = rate.max(*floor * 1e-4);
+                BaseRateSpec::Floating(spec) => {
+                    let mut rate = short_rate + (spec.spread_bp * 1e-4);
+                    if let Some(floor) = spec.floor_bp {
+                        rate = rate.max(floor * 1e-4);
                     }
                     rate
                 }
@@ -565,7 +565,7 @@ impl<'a> CashflowEngine<'a> {
                     amount: interest,
                     kind: match &self.facility.base_rate_spec {
                         BaseRateSpec::Fixed { .. } => CFKind::Fixed,
-                        BaseRateSpec::Floating { .. } => CFKind::FloatReset,
+                        BaseRateSpec::Floating(_) => CFKind::FloatReset,
                     },
                     accrual_factor: dt,
                     rate: Some(interest_rate),
