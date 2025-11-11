@@ -270,9 +270,9 @@ fn create_sample_clo() -> Result<StructuredCredit, Box<dyn Error>> {
     );
 
     // Set conservative prepayment/default assumptions for better pricing
-    clo.prepayment_spec = PrepaymentModelSpec::ConstantCpr { cpr: 0.10 }; // 10% CPR (lower)
-    clo.default_spec = DefaultModelSpec::ConstantCdr { cdr: 0.01 }; // 1% CDR (lower default)
-    clo.recovery_spec = RecoveryModelSpec::Constant { rate: 0.70 }; // 70% recovery
+    clo.prepayment_spec = PrepaymentModelSpec::constant_cpr(0.10); // 10% CPR (lower)
+    clo.default_spec = DefaultModelSpec::constant_cdr(0.01); // 1% CDR (lower default)
+    clo.recovery_spec = RecoveryModelSpec::with_lag(0.70, 0); // 70% recovery
 
     Ok(clo)
 }

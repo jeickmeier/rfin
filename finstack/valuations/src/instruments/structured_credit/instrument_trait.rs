@@ -4,11 +4,11 @@
 //! to generate cashflows using a consistent waterfall engine.
 
 use super::components::{
-    AssetPool, CreditFactors, DefaultModelSpec, MarketConditions, MarketFactors, PaymentRecipient,
+    AssetPool, CreditFactors, DefaultModelSpec, MarketConditions, PaymentRecipient,
     PrepaymentModelSpec, RecoveryModelSpec, TrancheCashflowResult, TrancheStructure,
     WaterfallEngine,
 };
-use super::config::{DEFAULT_RESOLUTION_LAG_MONTHS, POOL_BALANCE_CLEANUP_THRESHOLD};
+use super::config::POOL_BALANCE_CLEANUP_THRESHOLD;
 use super::utils::months_between;
 use crate::cashflow::traits::DatedFlows;
 use finstack_core::dates::{Date, Frequency, ScheduleBuilder};
@@ -80,12 +80,15 @@ pub(crate) trait StructuredCreditInstrument {
     fn recovery_spec_ref(&self) -> &RecoveryModelSpec;
 
     /// Get market conditions
+    #[allow(dead_code)]
     fn market_conditions(&self) -> &MarketConditions;
 
     /// Get credit factors
+    #[allow(dead_code)]
     fn credit_factors(&self) -> &CreditFactors;
 
     /// Get default behavioral assumptions
+    #[allow(dead_code)]
     fn default_assumptions(&self) -> &super::config::DefaultAssumptions;
 
     /// Create instrument-specific waterfall engine
@@ -108,13 +111,7 @@ pub(crate) trait StructuredCreditInstrument {
         }
 
         self.prepayment_spec()
-            .prepayment_rate_with_assumptions(
-                self.default_assumptions(),
-                pay_date,
-                self.closing_date(),
-                seasoning_months,
-                self.market_conditions(),
-            )
+            .smm(seasoning_months)
             .max(0.0)
     }
 
@@ -125,13 +122,7 @@ pub(crate) trait StructuredCreditInstrument {
         }
 
         self.default_spec_ref()
-            .default_rate_with_assumptions(
-                self.default_assumptions(),
-                pay_date,
-                self.closing_date(),
-                seasoning_months,
-                self.credit_factors(),
-            )
+            .mdr(seasoning_months)
             .max(0.0)
     }
 
@@ -198,14 +189,7 @@ pub(crate) trait StructuredCreditInstrument {
         let prepay_amt = Money::new(pool_outstanding.amount() * period_smm, base_ccy);
         let default_amt = Money::new(pool_outstanding.amount() * period_mdr, base_ccy);
 
-        let recovery_rate = self.recovery_spec_ref().recovery_rate_with_assumptions(
-            self.default_assumptions(),
-            pay_date,
-            DEFAULT_RESOLUTION_LAG_MONTHS,
-            None,
-            default_amt,
-            &MarketFactors::default(),
-        );
+        let recovery_rate = self.recovery_spec_ref().rate;
         let recovery_amt = Money::new(default_amt.amount() * recovery_rate, base_ccy);
 
         Ok((prepay_amt, default_amt, recovery_amt))

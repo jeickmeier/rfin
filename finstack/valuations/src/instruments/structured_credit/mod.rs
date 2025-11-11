@@ -241,14 +241,11 @@ pub use components::{
     calculate_tranche_duration,
     calculate_tranche_wal,
     calculate_tranche_z_spread,
-    cdr_to_mdr,
-    // Rate conversion utilities
-    cpr_to_smm,
+    // Rate conversion utilities (from builder)
+    annual_to_monthly,
+    monthly_to_annual,
     get_validation_errors,
     is_valid_waterfall_spec,
-    mdr_to_cdr,
-    psa_to_cpr,
-    smm_to_cpr,
     AllocationMode,
     // Pool
     AssetPool,
@@ -264,7 +261,12 @@ pub use components::{
     CreditFactors,
     CreditRating,
     DealType,
+    // Behavioral models
+    DefaultCurve,
     DefaultModelSpec,
+    PrepaymentCurve,
+    PrepaymentModelSpec,
+    RecoveryModelSpec,
     // Diversion system
     DiversionCondition,
     DiversionEngine,
@@ -280,10 +282,7 @@ pub use components::{
     PaymentType,
     PoolAsset,
     PoolStats,
-    // Behavioral model specs (single source of truth)
-    PrepaymentModelSpec,
     Recipient,
-    RecoveryModelSpec,
     ReinvestmentCriteria,
     ReinvestmentPeriod,
     TestContext,

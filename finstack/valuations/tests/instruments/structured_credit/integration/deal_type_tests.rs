@@ -6,8 +6,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::structured_credit::{
-    AssetPool, DealType, PoolAsset, PrepaymentModelSpec, StructuredCredit, Tranche, TrancheCoupon,
-    TrancheSeniority, TrancheStructure, WaterfallEngine,
+    AssetPool, DealType, PoolAsset, PrepaymentCurve, StructuredCredit,
+    Tranche, TrancheCoupon, TrancheSeniority, TrancheStructure, WaterfallEngine,
 };
 use time::Month;
 
@@ -79,12 +79,8 @@ fn test_clo_default_prepayment_model() {
     );
 
     // Assert: CLO should use constant CPR
-    match clo.prepayment_spec {
-        PrepaymentModelSpec::ConstantCpr { cpr } => {
-            assert_eq!(cpr, 0.15); // 15% CPR standard
-        }
-        _ => panic!("Expected ConstantCpr for CLO"),
-    }
+    assert_eq!(clo.prepayment_spec.cpr, 0.15); // 15% CPR standard
+    assert!(clo.prepayment_spec.curve.is_none() || matches!(clo.prepayment_spec.curve, Some(PrepaymentCurve::Constant)));
 }
 
 #[test]
@@ -181,11 +177,12 @@ fn test_rmbs_default_prepayment_model() {
     );
 
     // Assert: RMBS should use PSA model
-    match rmbs.prepayment_spec {
-        PrepaymentModelSpec::Psa { multiplier } => {
-            assert_eq!(multiplier, 1.0); // 100% PSA
+    assert_eq!(rmbs.prepayment_spec.cpr, 0.06); // 100% PSA terminal = 6% CPR
+    match rmbs.prepayment_spec.curve {
+        Some(PrepaymentCurve::Psa { speed_multiplier }) => {
+            assert_eq!(speed_multiplier, 1.0); // 100% PSA
         }
-        _ => panic!("Expected PSA for RMBS"),
+        _ => panic!("Expected PSA curve for RMBS"),
     }
 }
 

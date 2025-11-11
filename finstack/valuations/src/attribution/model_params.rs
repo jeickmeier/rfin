@@ -174,27 +174,24 @@ pub fn measure_prepayment_shift(
                 prepayment_spec: prep_t1,
                 ..
             },
-        ) => match (prep_t0, prep_t1) {
-            (
-                PrepaymentModelSpec::Psa {
-                    multiplier: mult_t0,
-                },
-                PrepaymentModelSpec::Psa {
-                    multiplier: mult_t1,
-                },
-            ) => {
-                // PSA multiplier change (convert to CPR change approximation)
-                // PSA 100% ≈ 6% CPR terminal, so multiply difference by 6%
-                (mult_t1 - mult_t0) * 600.0 // Convert to basis points
+        ) => {
+            use crate::cashflow::builder::specs::PrepaymentCurve;
+            
+            match (&prep_t0.curve, &prep_t1.curve) {
+                (
+                    Some(PrepaymentCurve::Psa { speed_multiplier: mult_t0 }),
+                    Some(PrepaymentCurve::Psa { speed_multiplier: mult_t1 }),
+                ) => {
+                    // PSA multiplier change (convert to CPR change approximation)
+                    // PSA 100% ≈ 6% CPR terminal, so multiply difference by 6%
+                    (mult_t1 - mult_t0) * 600.0 // Convert to basis points
+                }
+                (None, None) | (Some(PrepaymentCurve::Constant), Some(PrepaymentCurve::Constant)) => {
+                    // Direct CPR difference in basis points
+                    (prep_t1.cpr - prep_t0.cpr) * 10000.0
+                }
+                _ => 0.0, // Mixed or unsupported model types
             }
-            (
-                PrepaymentModelSpec::ConstantCpr { cpr: cpr_t0 },
-                PrepaymentModelSpec::ConstantCpr { cpr: cpr_t1 },
-            ) => {
-                // Direct CPR difference in basis points
-                (cpr_t1 - cpr_t0) * 10000.0
-            }
-            _ => 0.0, // Mixed or unsupported model types
         },
         _ => 0.0,
     }
@@ -217,15 +214,9 @@ pub fn measure_default_shift(
                 default_spec: def_t1,
                 ..
             },
-        ) => match (def_t0, def_t1) {
-            (
-                DefaultModelSpec::ConstantCdr { cdr: cdr_t0 },
-                DefaultModelSpec::ConstantCdr { cdr: cdr_t1 },
-            ) => {
-                // CDR difference in basis points
-                (cdr_t1 - cdr_t0) * 10000.0
-            }
-            _ => 0.0,
+        ) => {
+            // CDR difference in basis points (works for both constant and SDA curves)
+            (def_t1.cdr - def_t0.cdr) * 10000.0
         },
         _ => 0.0,
     }
@@ -248,15 +239,9 @@ pub fn measure_recovery_shift(
                 recovery_spec: rec_t1,
                 ..
             },
-        ) => match (rec_t0, rec_t1) {
-            (
-                RecoveryModelSpec::Constant { rate: rate_t0 },
-                RecoveryModelSpec::Constant { rate: rate_t1 },
-            ) => {
-                // Direct recovery rate difference in percentage points
-                (rate_t1 - rate_t0) * 100.0
-            }
-            _ => 0.0,
+        ) => {
+            // Direct recovery rate difference in percentage points
+            (rec_t1.rate - rec_t0.rate) * 100.0
         },
         _ => 0.0,
     }
@@ -303,15 +288,15 @@ mod tests {
     #[test]
     fn test_measure_prepayment_shift_psa() {
         let params_t0 = ModelParamsSnapshot::StructuredCredit {
-            prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-            default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-            recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+            prepayment_spec: PrepaymentModelSpec::psa(1.0),
+            default_spec: DefaultModelSpec::constant_cdr(0.02),
+            recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
         };
 
         let params_t1 = ModelParamsSnapshot::StructuredCredit {
-            prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.5 },
-            default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-            recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+            prepayment_spec: PrepaymentModelSpec::psa(1.5),
+            default_spec: DefaultModelSpec::constant_cdr(0.02),
+            recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
         };
 
         let shift = measure_prepayment_shift(&params_t0, &params_t1);
@@ -322,15 +307,15 @@ mod tests {
     #[test]
     fn test_measure_default_shift_cdr() {
         let params_t0 = ModelParamsSnapshot::StructuredCredit {
-            prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-            default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-            recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+            prepayment_spec: PrepaymentModelSpec::psa(1.0),
+            default_spec: DefaultModelSpec::constant_cdr(0.02),
+            recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
         };
 
         let params_t1 = ModelParamsSnapshot::StructuredCredit {
-            prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-            default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.03 },
-            recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+            prepayment_spec: PrepaymentModelSpec::psa(1.0),
+            default_spec: DefaultModelSpec::constant_cdr(0.03),
+            recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
         };
 
         let shift = measure_default_shift(&params_t0, &params_t1);
@@ -341,15 +326,15 @@ mod tests {
     #[test]
     fn test_measure_recovery_shift() {
         let params_t0 = ModelParamsSnapshot::StructuredCredit {
-            prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-            default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-            recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+            prepayment_spec: PrepaymentModelSpec::psa(1.0),
+            default_spec: DefaultModelSpec::constant_cdr(0.02),
+            recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
         };
 
         let params_t1 = ModelParamsSnapshot::StructuredCredit {
-            prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-            default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-            recovery_spec: RecoveryModelSpec::Constant { rate: 0.65 },
+            prepayment_spec: PrepaymentModelSpec::psa(1.0),
+            default_spec: DefaultModelSpec::constant_cdr(0.02),
+            recovery_spec: RecoveryModelSpec::with_lag(0.65, 12),
         };
 
         let shift = measure_recovery_shift(&params_t0, &params_t1);

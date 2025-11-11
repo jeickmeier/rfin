@@ -24,12 +24,8 @@ fn maturity_date() -> Date {
 fn test_prepayment_spec_all_variants_serialize() {
     // Arrange
     let specs = vec![
-        PrepaymentModelSpec::Psa { multiplier: 100.0 },
-        PrepaymentModelSpec::ConstantCpr { cpr: 0.15 },
-        PrepaymentModelSpec::ConstantSmm { smm: 0.012 },
-        PrepaymentModelSpec::AssetDefault {
-            asset_type: "auto".to_string(),
-        },
+        PrepaymentModelSpec::psa(100.0),
+        PrepaymentModelSpec::constant_cpr(0.15),
     ];
 
     for spec in specs {
@@ -47,11 +43,8 @@ fn test_prepayment_spec_all_variants_serialize() {
 fn test_default_spec_all_variants_serialize() {
     // Arrange
     let specs = vec![
-        DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-        DefaultModelSpec::Sda { multiplier: 100.0 },
-        DefaultModelSpec::AssetDefault {
-            asset_type: "corporate".to_string(),
-        },
+        DefaultModelSpec::constant_cdr(0.02),
+        DefaultModelSpec::sda(100.0),
     ];
 
     for spec in specs {
@@ -69,10 +62,8 @@ fn test_default_spec_all_variants_serialize() {
 fn test_recovery_spec_all_variants_serialize() {
     // Arrange
     let specs = vec![
-        RecoveryModelSpec::Constant { rate: 0.70 },
-        RecoveryModelSpec::AssetDefault {
-            asset_type: "collateral".to_string(),
-        },
+        RecoveryModelSpec::with_lag(0.70, 12),
+        RecoveryModelSpec::with_lag(0.40, 18),
     ];
 
     for spec in specs {
@@ -186,29 +177,28 @@ fn test_rmbs_with_overrides_serialization() {
 #[test]
 fn test_prepayment_spec_json_format() {
     // Arrange
-    let spec = PrepaymentModelSpec::Psa { multiplier: 150.0 };
+    let spec = PrepaymentModelSpec::psa(150.0);
 
     // Act
     let json = serde_json::to_string(&spec).unwrap();
 
     // Assert: Check JSON structure (wire format stability)
-    assert!(json.contains("\"type\""));
+    assert!(json.contains("\"cpr\""));
+    assert!(json.contains("\"curve\""));
     assert!(json.contains("\"psa\""));
-    assert!(json.contains("\"multiplier\""));
+    assert!(json.contains("\"speed_multiplier\""));
     assert!(json.contains("150"));
 }
 
 #[test]
 fn test_default_spec_json_format() {
     // Arrange
-    let spec = DefaultModelSpec::ConstantCdr { cdr: 0.02 };
+    let spec = DefaultModelSpec::constant_cdr(0.02);
 
     // Act
     let json = serde_json::to_string(&spec).unwrap();
 
     // Assert: Check JSON structure
-    assert!(json.contains("\"type\""));
-    assert!(json.contains("\"constant_cdr\""));
     assert!(json.contains("\"cdr\""));
     assert!(json.contains("0.02"));
 }
@@ -216,14 +206,14 @@ fn test_default_spec_json_format() {
 #[test]
 fn test_recovery_spec_json_format() {
     // Arrange
-    let spec = RecoveryModelSpec::Constant { rate: 0.70 };
+    let spec = RecoveryModelSpec::with_lag(0.70, 12);
 
     // Act
     let json = serde_json::to_string(&spec).unwrap();
 
     // Assert: Check JSON structure
-    assert!(json.contains("\"type\""));
-    assert!(json.contains("\"constant\""));
     assert!(json.contains("\"rate\""));
+    assert!(json.contains("\"recovery_lag\""));
     assert!(json.contains("0.7"));
+    assert!(json.contains("12"));
 }

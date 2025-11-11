@@ -308,15 +308,9 @@ impl StructuredCredit {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
                     .unwrap(),
                 payment_frequency: Frequency::monthly(),
-                prepayment_spec: PrepaymentModelSpec::AssetDefault {
-                    asset_type: "auto".to_string(),
-                },
-                default_spec: DefaultModelSpec::AssetDefault {
-                    asset_type: "consumer".to_string(),
-                },
-                recovery_spec: RecoveryModelSpec::AssetDefault {
-                    asset_type: "collateral".to_string(),
-                },
+                prepayment_spec: PrepaymentModelSpec::constant_cpr(0.18), // Auto ABS standard
+                default_spec: DefaultModelSpec::constant_cdr(0.015), // Consumer standard
+                recovery_spec: RecoveryModelSpec::with_lag(0.70, 12), // Collateral-backed
                 credit_factors: CreditFactors::default(),
                 deal_metadata: DealMetadata::default(),
                 behavior_overrides: BehaviorOverrides::default(),
@@ -351,13 +345,9 @@ impl StructuredCredit {
             DealConfig {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1).unwrap(),
                 payment_frequency: Frequency::quarterly(),
-                prepayment_spec: PrepaymentModelSpec::ConstantCpr { cpr: 0.15 },
-                default_spec: DefaultModelSpec::AssetDefault {
-                    asset_type: "corporate".to_string(),
-                },
-                recovery_spec: RecoveryModelSpec::AssetDefault {
-                    asset_type: "corporate".to_string(),
-                },
+                prepayment_spec: PrepaymentModelSpec::constant_cpr(0.15),
+                default_spec: DefaultModelSpec::constant_cdr(0.025), // Corporate standard
+                recovery_spec: RecoveryModelSpec::with_lag(0.40, 18), // Corporate unsecured
                 credit_factors: CreditFactors::default(),
                 deal_metadata: DealMetadata::default(),
                 behavior_overrides: BehaviorOverrides::default(),
@@ -393,15 +383,9 @@ impl StructuredCredit {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
                     .unwrap(),
                 payment_frequency: Frequency::monthly(),
-                prepayment_spec: PrepaymentModelSpec::AssetDefault {
-                    asset_type: "cmbs".to_string(),
-                },
-                default_spec: DefaultModelSpec::AssetDefault {
-                    asset_type: "commercial".to_string(),
-                },
-                recovery_spec: RecoveryModelSpec::AssetDefault {
-                    asset_type: "commercial".to_string(),
-                },
+                prepayment_spec: PrepaymentModelSpec::constant_cpr(0.10), // CMBS standard
+                default_spec: DefaultModelSpec::constant_cdr(0.01), // Commercial real estate
+                recovery_spec: RecoveryModelSpec::with_lag(0.60, 24), // Commercial collateral
                 credit_factors: CreditFactors::default(),
                 deal_metadata: DealMetadata::default(),
                 behavior_overrides: BehaviorOverrides::default(),
@@ -437,13 +421,9 @@ impl StructuredCredit {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
                     .unwrap(),
                 payment_frequency: Frequency::monthly(),
-                prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-                default_spec: DefaultModelSpec::AssetDefault {
-                    asset_type: "rmbs".to_string(),
-                },
-                recovery_spec: RecoveryModelSpec::AssetDefault {
-                    asset_type: "mortgage".to_string(),
-                },
+                prepayment_spec: PrepaymentModelSpec::psa(1.0), // 100% PSA
+                default_spec: DefaultModelSpec::constant_cdr(0.005), // RMBS standard
+                recovery_spec: RecoveryModelSpec::with_lag(0.70, 18), // Mortgage collateral
                 credit_factors: CreditFactors {
                     ltv: Some(0.80),
                     ..Default::default()
@@ -476,23 +456,17 @@ impl StructuredCredit {
 
     #[cfg(feature = "serde")]
     fn default_prepayment_spec() -> PrepaymentModelSpec {
-        PrepaymentModelSpec::AssetDefault {
-            asset_type: "generic".to_string(),
-        }
+        PrepaymentModelSpec::constant_cpr(0.10) // Generic 10% CPR
     }
 
     #[cfg(feature = "serde")]
     fn default_default_spec() -> DefaultModelSpec {
-        DefaultModelSpec::AssetDefault {
-            asset_type: "generic".to_string(),
-        }
+        DefaultModelSpec::constant_cdr(0.02) // Generic 2% CDR
     }
 
     #[cfg(feature = "serde")]
     fn default_recovery_spec() -> RecoveryModelSpec {
-        RecoveryModelSpec::AssetDefault {
-            asset_type: "generic".to_string(),
-        }
+        RecoveryModelSpec::with_lag(0.40, 12) // Generic 40% recovery, 12 month lag
     }
 
     /// Create waterfall engine based on deal type
@@ -707,7 +681,7 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
     }
 
     fn prepayment_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
-        use super::components::cpr_to_smm;
+        use super::components::annual_to_monthly;
 
         // Check overrides in priority order
         if let Some(abs_speed) = self.behavior_overrides.abs_speed {
@@ -715,11 +689,12 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
         }
 
         if let Some(cpr) = self.behavior_overrides.cpr_annual {
-            return Some(cpr_to_smm(cpr));
+            return Some(annual_to_monthly(cpr));
         }
 
         if let Some(psa_mult) = self.behavior_overrides.psa_speed_multiplier {
             // Inline PSA calculation
+            use super::components::annual_to_monthly;
             let psa_ramp_months = 30;
             let psa_terminal_cpr = 0.06;
             let base_cpr = if seasoning <= psa_ramp_months {
@@ -728,18 +703,18 @@ impl super::instrument_trait::StructuredCreditInstrument for StructuredCredit {
                 psa_terminal_cpr
             };
             let cpr = base_cpr * psa_mult;
-            return Some(cpr_to_smm(cpr));
+            return Some(annual_to_monthly(cpr));
         }
 
         None
     }
 
     fn default_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
-        use super::components::cdr_to_mdr;
+        use super::components::annual_to_monthly;
 
         // Check overrides in priority order
         if let Some(cdr) = self.behavior_overrides.cdr_annual {
-            return Some(cdr_to_mdr(cdr));
+            return Some(annual_to_monthly(cdr));
         }
 
         if let Some(sda_mult) = self.behavior_overrides.sda_speed_multiplier {

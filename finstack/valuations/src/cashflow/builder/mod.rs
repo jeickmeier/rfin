@@ -43,6 +43,7 @@ mod emission;
 mod tests;
 
 // Public modules
+pub mod credit_rates;
 pub mod dataframe;
 pub mod date_generation;
 pub mod rate_helpers;
@@ -58,9 +59,17 @@ pub use date_generation::{build_dates, PeriodSchedule};
 pub use rate_helpers::{project_floating_rate, project_floating_rate_simple};
 pub use schedule::{CashFlowSchedule, CashflowMeta};
 pub use specs::{
-    evaluate_fee_tiers, CouponType, FeeBase, FeeTier, FeeSpec, FixedCouponSpec, FixedWindow,
-    FloatCouponParams, FloatWindow, FloatingCouponSpec, FloatingRateSpec, ScheduleParams,
+    evaluate_fee_tiers, CouponType, DefaultCurve, DefaultEvent, DefaultModelSpec, FeeBase,
+    FeeTier, FeeSpec, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
+    FloatingCouponSpec, FloatingRateSpec, PrepaymentCurve, PrepaymentModelSpec, RecoveryModelSpec,
+    ScheduleParams,
 };
 
-// Re-export specialized fee emission functions
-pub use emission::{emit_commitment_fee_on, emit_facility_fee_on, emit_usage_fee_on};
+// Re-export credit rate conversions
+pub use credit_rates::{annual_to_monthly, monthly_to_annual};
+
+// Re-export emission functions
+pub use emission::{
+    emit_commitment_fee_on, emit_default_on, emit_facility_fee_on, emit_prepayment_on,
+    emit_usage_fee_on,
+};

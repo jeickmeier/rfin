@@ -17,15 +17,15 @@ use finstack_valuations::instruments::structured_credit::components::specs::{
 #[test]
 fn test_prepayment_shift_measurement_psa() {
     let params_t0 = ModelParamsSnapshot::StructuredCredit {
-        prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-        default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-        recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+        prepayment_spec: PrepaymentModelSpec::psa(1.0),
+        default_spec: DefaultModelSpec::constant_cdr(0.02),
+        recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
     };
 
     let params_t1 = ModelParamsSnapshot::StructuredCredit {
-        prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.5 },
-        default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-        recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+        prepayment_spec: PrepaymentModelSpec::psa(1.5),
+        default_spec: DefaultModelSpec::constant_cdr(0.02),
+        recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
     };
 
     let shift = measure_prepayment_shift(&params_t0, &params_t1);
@@ -38,15 +38,15 @@ fn test_prepayment_shift_measurement_psa() {
 #[test]
 fn test_prepayment_shift_measurement_cpr() {
     let params_t0 = ModelParamsSnapshot::StructuredCredit {
-        prepayment_spec: PrepaymentModelSpec::ConstantCpr { cpr: 0.06 },
-        default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-        recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+        prepayment_spec: PrepaymentModelSpec::constant_cpr(0.06),
+        default_spec: DefaultModelSpec::constant_cdr(0.02),
+        recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
     };
 
     let params_t1 = ModelParamsSnapshot::StructuredCredit {
-        prepayment_spec: PrepaymentModelSpec::ConstantCpr { cpr: 0.08 },
-        default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-        recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+        prepayment_spec: PrepaymentModelSpec::constant_cpr(0.08),
+        default_spec: DefaultModelSpec::constant_cdr(0.02),
+        recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
     };
 
     let shift = measure_prepayment_shift(&params_t0, &params_t1);
@@ -58,15 +58,15 @@ fn test_prepayment_shift_measurement_cpr() {
 #[test]
 fn test_default_shift_measurement() {
     let params_t0 = ModelParamsSnapshot::StructuredCredit {
-        prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-        default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-        recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+        prepayment_spec: PrepaymentModelSpec::psa(1.0),
+        default_spec: DefaultModelSpec::constant_cdr(0.02),
+        recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
     };
 
     let params_t1 = ModelParamsSnapshot::StructuredCredit {
-        prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-        default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.03 },
-        recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+        prepayment_spec: PrepaymentModelSpec::psa(1.0),
+        default_spec: DefaultModelSpec::constant_cdr(0.03),
+        recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
     };
 
     let shift = measure_default_shift(&params_t0, &params_t1);
@@ -78,15 +78,15 @@ fn test_default_shift_measurement() {
 #[test]
 fn test_recovery_shift_measurement() {
     let params_t0 = ModelParamsSnapshot::StructuredCredit {
-        prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-        default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-        recovery_spec: RecoveryModelSpec::Constant { rate: 0.60 },
+        prepayment_spec: PrepaymentModelSpec::psa(1.0),
+        default_spec: DefaultModelSpec::constant_cdr(0.02),
+        recovery_spec: RecoveryModelSpec::with_lag(0.60, 12),
     };
 
     let params_t1 = ModelParamsSnapshot::StructuredCredit {
-        prepayment_spec: PrepaymentModelSpec::Psa { multiplier: 1.0 },
-        default_spec: DefaultModelSpec::ConstantCdr { cdr: 0.02 },
-        recovery_spec: RecoveryModelSpec::Constant { rate: 0.65 },
+        prepayment_spec: PrepaymentModelSpec::psa(1.0),
+        default_spec: DefaultModelSpec::constant_cdr(0.02),
+        recovery_spec: RecoveryModelSpec::with_lag(0.65, 12),
     };
 
     let shift = measure_recovery_shift(&params_t0, &params_t1);

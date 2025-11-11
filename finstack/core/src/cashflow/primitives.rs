@@ -52,10 +52,17 @@ pub enum CFKind {
     PIK,
     /// Amortization principal repayment (reduces principal).
     Amortization,
+    /// Prepayment of principal (early return of principal in structured credit).
+    PrePayment,
     /// Revolving Draw 
     RevolvingDraw,
     /// Revolving Repayment
     RevolvingRepayment,
+
+    /// Defaulted notional (principal that has defaulted).
+    DefaultedNotional,
+    /// Recovery cashflow (amount recovered from defaulted principal).
+    Recovery,
 
     /// Irregular stub period.
     Stub,

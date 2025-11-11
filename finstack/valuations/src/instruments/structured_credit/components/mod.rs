@@ -80,10 +80,11 @@ pub use validation::{
 // Market context structures
 pub use market_context::{CreditFactors, MarketConditions, MarketFactors};
 
-// Behavioral model specifications (single source of truth)
-pub use specs::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
+// Behavioral model specifications (re-exported from builder)
+pub use specs::{DefaultCurve, DefaultModelSpec, PrepaymentCurve, PrepaymentModelSpec, RecoveryModelSpec};
 
 // Rate conversion utilities
+pub use crate::cashflow::builder::credit_rates::{annual_to_monthly, monthly_to_annual};
 pub use rates::{cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, smm_to_cpr};
 
 // ============================================================================
