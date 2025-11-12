@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test test-slow test-doc doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook
+.PHONY: help setup-python build build-prod test test-slow test-doc doc clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare
 
 help:
 	@echo "Available targets:"
@@ -10,6 +10,12 @@ help:
 	@echo "  test           - Run all tests (cargo-nextest)"
 	@echo "  test-slow      - Run all tests incl. slow (cargo-nextest)"
 	@echo "  test-doc       - Run documentation tests only"
+	@echo ""
+	@echo "Benchmarking & Profiling:"
+	@echo "  bench-perf         - Run all benchmarks with optimized profile"
+	@echo "  bench-baseline     - Save benchmark baseline for comparison"
+	@echo "  bench-compare      - Compare benchmarks against baseline"
+	@echo "  bench-flamegraph   - Generate CPU flamegraph for MC pricing"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  doc            - Generate rustdoc documentation (workspace crates only, no deps)"
@@ -184,3 +190,21 @@ coverage-open:
 coverage-lcov:
 	@echo "Generating LCOV coverage report for CI (finstack Rust library only)..."
 	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --lcov --output-path coverage.lcov --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
+
+# Performance profiling targets
+bench-perf:
+	@echo "Running benchmarks with performance profile..."
+	cargo bench --profile bench
+
+bench-baseline:
+	@echo "Saving benchmark baseline..."
+	cargo bench -- --save-baseline main
+
+bench-flamegraph:
+	@echo "Generating flamegraph for MC pricing benchmark..."
+	@command -v flamegraph >/dev/null 2>&1 || { echo "Installing flamegraph..."; cargo install flamegraph; }
+	cargo flamegraph --bench mc_pricing --profile bench --features mc -- --bench
+
+bench-compare:
+	@echo "Comparing benchmarks against baseline..."
+	cargo bench -- --baseline main

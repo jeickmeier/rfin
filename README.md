@@ -39,6 +39,32 @@ cargo build
 cargo test
 ```
 
+## Build Profiles
+
+Finstack provides optimized build profiles for different use cases:
+
+- **`dev`** (default) - Fast compilation, full debug info
+  ```bash
+  cargo build
+  ```
+
+- **`release`** - Optimized for **size** (WASM deployments)
+  ```bash
+  cargo build --release
+  ```
+
+- **`release-perf`** - Optimized for **speed** (CPU-intensive workloads)
+  ```bash
+  cargo build --profile release-perf
+  ```
+
+- **`bench`** - Optimized for benchmarking with profiling support
+  ```bash
+  cargo bench
+  ```
+
+For detailed information about build profiles and performance optimization, see [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+
 ## Python Development with uv
 
 We use `uv` for fast Python package management and virtual environment handling.

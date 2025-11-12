@@ -159,9 +159,13 @@ fn very_large_notional() {
     let res = swap
         .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
         .unwrap();
-    
+
     // Extract primary forward curve DV01 from measures using composite key (note: sanitized with underscores)
-    let dv01 = res.measures.get("bucketed_dv01::usd_sofr_3m").copied().unwrap_or(0.0);
+    let dv01 = res
+        .measures
+        .get("bucketed_dv01::usd_sofr_3m")
+        .copied()
+        .unwrap_or(0.0);
 
     assert!(dv01.is_finite());
     assert!(

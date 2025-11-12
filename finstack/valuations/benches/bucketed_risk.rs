@@ -12,7 +12,9 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve, HazardCurve, Seniority};
+use finstack_core::market_data::term_structures::{
+    DiscountCurve, ForwardCurve, HazardCurve, Seniority,
+};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::bond::Bond;
@@ -354,7 +356,7 @@ fn bench_combined_metrics(c: &mut Criterion) {
 
     // Bond: parallel DV01 vs bucketed DV01 vs both
     let bond = create_bond(10);
-    
+
     group.bench_function("bond_parallel_only", |b| {
         b.iter(|| {
             bond.price_with_metrics(
@@ -387,7 +389,7 @@ fn bench_combined_metrics(c: &mut Criterion) {
 
     // CDS: parallel CS01 vs bucketed CS01 vs both
     let cds = create_cds(10);
-    
+
     group.bench_function("cds_parallel_only", |b| {
         b.iter(|| {
             cds.price_with_metrics(
@@ -435,4 +437,3 @@ criterion_group!(
     bench_combined_metrics,
 );
 criterion_main!(benches);
-

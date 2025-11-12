@@ -682,7 +682,13 @@ mod tests {
             metrics: &[crate::metrics::MetricId],
         ) -> finstack_core::Result<crate::results::ValuationResult> {
             let base_value = self.value(curves, as_of)?;
-            helpers::build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
+            helpers::build_with_metrics_dyn(
+                std::sync::Arc::new(self.clone()),
+                std::sync::Arc::new(curves.clone()),
+                as_of,
+                base_value,
+                metrics,
+            )
         }
     }
 

@@ -224,7 +224,7 @@ fn test_bucketed_dv01_per_curve() {
         result.measures.contains_key("bucketed_dv01"),
         "Standard BucketedDv01 scalar should be present for BC"
     );
-    
+
     // Verify per-bucket keys exist for primary discount curve (BC)
     assert!(
         result.measures.contains_key("bucketed_dv01::1y"),
@@ -234,7 +234,7 @@ fn test_bucketed_dv01_per_curve() {
     // Verify per-curve series exist
     let mut discount_curve_buckets = 0;
     let mut forward_curve_buckets = 0;
-    
+
     for key in result.measures.keys() {
         if key.starts_with("bucketed_dv01::USD_OIS::") {
             discount_curve_buckets += 1;
@@ -256,10 +256,10 @@ fn test_bucketed_dv01_per_curve() {
 
     // Verify totals: sum of per-curve buckets should equal the total
     let total_dv01 = *result.measures.get("bucketed_dv01").unwrap();
-    
+
     let mut sum_disc = 0.0;
     let mut sum_fwd = 0.0;
-    
+
     for (key, val) in &result.measures {
         if key.starts_with("bucketed_dv01::USD_OIS::") {
             sum_disc += val;

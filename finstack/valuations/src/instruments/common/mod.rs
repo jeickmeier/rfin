@@ -35,7 +35,7 @@ pub mod period_pv;
 
 // Re-export commonly used types for convenience
 pub use discountable::Discountable;
-pub use helpers::{build_with_metrics_dyn, validate_currency_consistency};
+pub use helpers::{build_with_metrics_dyn, instrument_to_arc, validate_currency_consistency};
 pub use models::{
     d1, d2, norm_cdf, norm_pdf, short_rate_keys, single_factor_equity_state, state_keys,
     two_factor_equity_rates_state, BinomialTree, EvolutionParams, NodeState, SABRCalibrator,

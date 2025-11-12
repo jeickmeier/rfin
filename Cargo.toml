@@ -64,3 +64,20 @@ opt-level = "z"     # Optimize for size
 lto = true          # Link-time optimization
 codegen-units = 1   # Better optimization (slower compile, smaller output)
 strip = true        # Strip symbols from binary
+
+[profile.release-perf]
+# Performance-optimized profile for CPU-intensive workloads
+# Use: cargo build --profile release-perf
+inherits = "release"
+opt-level = 3       # Optimize for speed instead of size
+lto = "thin"        # Link-time optimization (faster than full LTO)
+codegen-units = 8   # Balance compile time vs optimization
+strip = true
+
+[profile.bench]
+# Optimized profile for benchmarking
+# Automatically used by `cargo bench`
+inherits = "release"
+opt-level = 3       # Optimize for speed
+lto = "thin"        # Link-time optimization
+debug = 1           # Line info for profiling tools (flamegraph, perf)

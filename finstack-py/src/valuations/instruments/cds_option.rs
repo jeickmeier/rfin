@@ -112,9 +112,8 @@ impl PyCdsOption {
         let discount = extract_curve_id(&discount_curve)?;
         let credit = extract_curve_id(&credit_curve)?;
         let option_type_value = parse_option_type(option_type)?;
-        let recovery = recovery_rate.unwrap_or(
-            finstack_valuations::constants::isda::STANDARD_RECOVERY_SENIOR,
-        );
+        let recovery =
+            recovery_rate.unwrap_or(finstack_valuations::constants::isda::STANDARD_RECOVERY_SENIOR);
         if !(0.0..=1.0).contains(&recovery) {
             return Err(PyValueError::new_err(
                 "recovery_rate must be between 0 and 1",

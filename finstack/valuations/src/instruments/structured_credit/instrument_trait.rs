@@ -398,8 +398,14 @@ pub(crate) trait StructuredCreditInstrument {
         let full_results = self.run_full_simulation(context, as_of)?;
 
         // Aggregate all tranche cashflows into a single schedule
-        let mut all_flows: DatedFlows = Vec::new();
-        let mut flow_map: HashMap<Date, Money> = HashMap::new();
+        // Pre-allocate based on estimated number of unique payment dates
+        let estimated_dates = full_results
+            .values()
+            .next()
+            .map(|r| r.cashflows.len())
+            .unwrap_or(0);
+        let mut all_flows: DatedFlows = Vec::with_capacity(estimated_dates);
+        let mut flow_map: HashMap<Date, Money> = HashMap::with_capacity(estimated_dates);
 
         for (_tranche_id, result) in full_results {
             for (date, amount) in result.cashflows {

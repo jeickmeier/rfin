@@ -8,12 +8,13 @@ use crate::valuations::results::PyValuationResult;
 use finstack_valuations::instruments::bond::metrics::asw::{
     asw_market_with_forward, asw_par_with_forward,
 };
-use finstack_valuations::instruments::common::helpers::build_with_metrics_dyn;
+use finstack_valuations::instruments::common::helpers::{build_with_metrics_dyn, instrument_to_arc};
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::{create_standard_registry, PricerRegistry};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
+use std::sync::Arc;
 
 /// Default pricing date used when no explicit `as_of` parameter is provided.
 ///
@@ -170,8 +171,8 @@ impl PyPricerRegistry {
 
             // Compute requested metrics using helper
             let with_metrics = build_with_metrics_dyn(
-                inst.as_ref(),
-                &market.inner,
+                instrument_to_arc(inst.as_ref()),
+                Arc::new(market.inner.clone()),
                 base.as_of,
                 base.value,
                 &metric_ids,

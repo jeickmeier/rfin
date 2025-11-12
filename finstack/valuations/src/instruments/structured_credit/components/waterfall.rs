@@ -397,8 +397,11 @@ impl WaterfallEngine {
     ) -> Result<WaterfallResult> {
         let mut remaining = available_cash;
         let mut tier_allocations = Vec::with_capacity(self.tiers.len());
-        let mut distributions: HashMap<PaymentRecipient, Money> = HashMap::new();
-        let mut payment_records = Vec::new();
+        // Pre-allocate distributions based on estimated unique recipients across tiers
+        let estimated_recipients = self.tiers.iter().map(|t| t.recipients.len()).sum::<usize>();
+        let mut distributions: HashMap<PaymentRecipient, Money> =
+            HashMap::with_capacity(estimated_recipients);
+        let mut payment_records = Vec::with_capacity(estimated_recipients);
         let mut total_diverted = Money::new(0.0, self.base_currency);
         let mut had_diversions = false;
         let mut diversion_reason = None;
@@ -436,30 +439,29 @@ impl WaterfallEngine {
         // Process tiers in priority order (all tiers processed, even if cash exhausted)
         for tier in &self.tiers {
             // Determine if this tier should be diverted
-            let (target_recipients, tier_diverted) = if tier.divertible && diversion_active {
-                // Find senior tier to divert to
-                let senior_tier = self
-                    .tiers
-                    .iter()
-                    .filter(|t| {
-                        t.priority < tier.priority && t.payment_type == PaymentType::Principal
-                    })
-                    .min_by_key(|t| t.priority);
+            let (target_recipients, tier_diverted): (&[Recipient], bool) =
+                if tier.divertible && diversion_active {
+                    // Find senior tier to divert to
+                    let senior_tier = self
+                        .tiers
+                        .iter()
+                        .filter(|t| {
+                            t.priority < tier.priority && t.payment_type == PaymentType::Principal
+                        })
+                        .min_by_key(|t| t.priority);
 
-                if let Some(senior) = senior_tier {
-                    (senior.recipients.clone(), true)
+                    senior_tier
+                        .map(|s| (&s.recipients[..], true))
+                        .unwrap_or((&tier.recipients[..], false))
                 } else {
-                    (tier.recipients.clone(), false)
-                }
-            } else {
-                (tier.recipients.clone(), false)
-            };
+                    (&tier.recipients[..], false)
+                };
 
             // Allocate cash to tier based on mode
             let tier_cash = match tier.allocation_mode {
                 AllocationMode::Sequential => self.allocate_sequential(
                     tier,
-                    &target_recipients,
+                    target_recipients,
                     remaining,
                     tranches,
                     &tranche_index,
@@ -474,7 +476,7 @@ impl WaterfallEngine {
                 )?,
                 AllocationMode::ProRata => self.allocate_pro_rata(
                     tier,
-                    &target_recipients,
+                    target_recipients,
                     remaining,
                     tranches,
                     &tranche_index,
@@ -640,7 +642,7 @@ impl WaterfallEngine {
 
         // Calculate total requested across all recipients
         let mut total_requested = Money::new(0.0, self.base_currency);
-        let mut recipient_requests = Vec::new();
+        let mut recipient_requests = Vec::with_capacity(recipients.len());
 
         for recipient in recipients {
             let requested = self.calculate_payment_amount(
@@ -759,7 +761,8 @@ impl WaterfallEngine {
         available_cash: Money,
         interest_collections: Money,
     ) -> Result<Vec<(String, f64, bool)>> {
-        let mut results = Vec::new();
+        // Pre-allocate for OC + IC tests per trigger (2 tests per trigger)
+        let mut results = Vec::with_capacity(self.coverage_triggers.len() * 2);
 
         for trigger in &self.coverage_triggers {
             if let Some(oc_trigger_level) = trigger.oc_trigger {

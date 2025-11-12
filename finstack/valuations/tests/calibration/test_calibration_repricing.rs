@@ -34,7 +34,8 @@ fn calculate_swap_dv01(swap: &InterestRateSwap, ctx: &MarketContext, as_of: Date
 
     // Calculate DV01 using generic parallel DV01 calculator
     use finstack_valuations::metrics::GenericParallelDv01;
-    let dv01_calc = GenericParallelDv01::<finstack_valuations::instruments::irs::InterestRateSwap>::default();
+    let dv01_calc =
+        GenericParallelDv01::<finstack_valuations::instruments::irs::InterestRateSwap>::default();
     dv01_calc.calculate(&mut metric_ctx).unwrap()
 }
 

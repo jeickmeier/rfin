@@ -16,7 +16,8 @@ pub struct TrsDv01Calculator;
 impl MetricCalculator for TrsDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // Try Equity TRS first
-        if let Ok(result) = GenericParallelDv01::<EquityTotalReturnSwap>::default().calculate(context)
+        if let Ok(result) =
+            GenericParallelDv01::<EquityTotalReturnSwap>::default().calculate(context)
         {
             return Ok(result);
         }

@@ -3,12 +3,12 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
 use crate::valuations::instruments::cds::normalize_cds_side;
+use finstack_valuations::constants::isda;
 use finstack_valuations::instruments::cds::{CDSConvention, PayReceive};
 use finstack_valuations::instruments::cds_index::parameters::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
 use finstack_valuations::instruments::cds_index::CDSIndex;
-use finstack_valuations::constants::isda;
 use finstack_valuations::instruments::common::parameters::CreditParams;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

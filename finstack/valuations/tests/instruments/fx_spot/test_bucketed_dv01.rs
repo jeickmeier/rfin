@@ -27,4 +27,3 @@ fn test_fx_spot_bucketed_dv01_computed() {
         bucketed_dv01
     );
 }
-

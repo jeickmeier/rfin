@@ -202,7 +202,7 @@ fn test_revolving_credit_standard_metrics() {
         .unwrap();
 
     let disc_curve = build_flat_discount_curve(0.04, val_date, "USD-OIS");
-    
+
     // Create hazard curve for CS01 calculation
     let hazard_curve = HazardCurve::builder("BORROWER-A")
         .base_date(val_date)
@@ -216,7 +216,7 @@ fn test_revolving_credit_standard_metrics() {
         ])
         .build()
         .unwrap();
-    
+
     let market = MarketContext::new()
         .insert_discount(disc_curve)
         .insert_hazard(hazard_curve);
@@ -234,8 +234,16 @@ fn test_revolving_credit_standard_metrics() {
     let dv01 = result.measures.get("dv01").unwrap();
     println!("DV01: {}", dv01);
     println!("Base PV: {}", result.value.amount());
-    assert!(*dv01 < 0.0, "DV01 should be negative for lender position, got {}", dv01);
-    assert!(dv01.abs() > 50.0, "DV01 magnitude should be significant, got {}", dv01);
+    assert!(
+        *dv01 < 0.0,
+        "DV01 should be negative for lender position, got {}",
+        dv01
+    );
+    assert!(
+        dv01.abs() > 50.0,
+        "DV01 magnitude should be significant, got {}",
+        dv01
+    );
 
     // CS01 should be non-zero (PV changes when credit spreads widen)
     // For a lender position, CS01 should be negative (PV decreases when spreads widen)
@@ -244,7 +252,11 @@ fn test_revolving_credit_standard_metrics() {
     assert!(cs01.is_finite(), "CS01 should be finite, got {}", cs01);
     // CS01 should be negative for lender position, but allow for very small values
     if cs01.abs() > 1e-6 {
-        assert!(*cs01 < 0.0, "CS01 should be negative for lender position when non-zero, got {}", cs01);
+        assert!(
+            *cs01 < 0.0,
+            "CS01 should be negative for lender position when non-zero, got {}",
+            cs01
+        );
         // CS01 magnitude should be similar to DV01 (both measure sensitivity to rate/spread changes)
         assert!(
             (dv01.abs() - cs01.abs()).abs() < 200.0,
@@ -254,7 +266,10 @@ fn test_revolving_credit_standard_metrics() {
         );
     } else {
         // If CS01 is very small, just verify it's computed
-        println!("CS01 is very small ({}), which may be expected for low credit risk", cs01);
+        println!(
+            "CS01 is very small ({}), which may be expected for low credit risk",
+            cs01
+        );
     }
 
     // Theta (1-day time decay) - for a lending position with positive carry,

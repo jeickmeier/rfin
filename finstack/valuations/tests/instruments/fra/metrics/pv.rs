@@ -12,9 +12,7 @@ fn test_pv_result_matches_value() {
     let fra = TestFraBuilder::new().fixed_rate(0.06).build();
 
     let direct_pv = fra.value(&market, BASE_DATE).unwrap();
-    let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[])
-        .unwrap();
+    let result = fra.price_with_metrics(&market, BASE_DATE, &[]).unwrap();
 
     let result_pv = result.value.amount();
 
@@ -31,9 +29,7 @@ fn test_pv_at_market() {
     let market = standard_market();
     let fra = create_standard_fra();
 
-    let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[])
-        .unwrap();
+    let result = fra.price_with_metrics(&market, BASE_DATE, &[]).unwrap();
 
     let pv = result.value.amount();
 
@@ -48,9 +44,7 @@ fn test_pv_off_market_positive() {
         .pay_fixed(true) // true = receive fixed
         .build();
 
-    let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[])
-        .unwrap();
+    let result = fra.price_with_metrics(&market, BASE_DATE, &[]).unwrap();
 
     let pv = result.value.amount();
 
@@ -65,9 +59,7 @@ fn test_pv_off_market_negative() {
         .pay_fixed(true) // true = receive fixed
         .build();
 
-    let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[])
-        .unwrap();
+    let result = fra.price_with_metrics(&market, BASE_DATE, &[]).unwrap();
 
     let pv = result.value.amount();
 

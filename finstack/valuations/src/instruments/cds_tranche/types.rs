@@ -220,7 +220,13 @@ impl Instrument for CdsTranche {
         metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
+        build_with_metrics_dyn(
+            std::sync::Arc::new(self.clone()),
+            std::sync::Arc::new(curves.clone()),
+            as_of,
+            base_value,
+            metrics,
+        )
     }
 }
 

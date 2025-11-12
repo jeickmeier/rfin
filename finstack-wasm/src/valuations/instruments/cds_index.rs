@@ -4,12 +4,12 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
+use finstack_valuations::constants::isda;
 use finstack_valuations::instruments::cds::{CDSConvention, PayReceive as CdsPayReceive};
 use finstack_valuations::instruments::cds_index::parameters::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
 use finstack_valuations::instruments::cds_index::CDSIndex;
-use finstack_valuations::constants::isda;
 use finstack_valuations::instruments::common::parameters::CreditParams;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;

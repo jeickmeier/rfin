@@ -564,7 +564,11 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
-            self, curves, as_of, base_value, metrics,
+            std::sync::Arc::new(self.clone()),
+            std::sync::Arc::new(curves.clone()),
+            as_of,
+            base_value,
+            metrics,
         )
     }
 }

@@ -134,7 +134,11 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
-            self, market, as_of, base_value, metrics,
+            std::sync::Arc::new(self.clone()),
+            std::sync::Arc::new(market.clone()),
+            as_of,
+            base_value,
+            metrics,
         )
     }
 }

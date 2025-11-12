@@ -335,6 +335,26 @@ pub struct McEngine {
     config: McEngineConfig,
 }
 
+/// Calculate adaptive chunk size for parallel MC execution.
+///
+/// Balances load distribution across cores with cache efficiency.
+/// Target: 4 chunks per thread for good load balancing.
+fn adaptive_chunk_size(num_paths: usize) -> usize {
+    #[cfg(feature = "parallel")]
+    {
+        let num_cpus = rayon::current_num_threads();
+        // Target 4 chunks per thread for load balancing
+        // Min 100 paths per chunk to amortize overhead
+        // Max 10_000 paths to avoid cache thrashing
+        (num_paths / (num_cpus * 4)).clamp(100, 10_000)
+    }
+    #[cfg(not(feature = "parallel"))]
+    {
+        // Serial execution - use full batch
+        num_paths
+    }
+}
+
 impl McEngine {
     /// Create a builder for the engine.
     pub fn builder() -> McEngineBuilder {
@@ -575,10 +595,17 @@ impl McEngine {
         F: Payoff,
     {
         // Split paths into chunks for parallel processing
+        // Use adaptive chunk size if default (1000), otherwise use configured size
+        let effective_chunk_size = if self.config.chunk_size == 1000 {
+            adaptive_chunk_size(self.config.num_paths)
+        } else {
+            self.config.chunk_size
+        };
+
         let chunks: Vec<_> = (0..self.config.num_paths)
-            .step_by(self.config.chunk_size)
+            .step_by(effective_chunk_size)
             .map(|start| {
-                let end = (start + self.config.chunk_size).min(self.config.num_paths);
+                let end = (start + effective_chunk_size).min(self.config.num_paths);
                 start..end
             })
             .collect();
@@ -879,10 +906,17 @@ impl McEngine {
         let captured_paths: Mutex<Vec<SimulatedPath>> = Mutex::new(Vec::new());
 
         // Split paths into chunks for parallel processing
+        // Use adaptive chunk size if default (1000), otherwise use configured size
+        let effective_chunk_size = if self.config.chunk_size == 1000 {
+            adaptive_chunk_size(self.config.num_paths)
+        } else {
+            self.config.chunk_size
+        };
+
         let chunks: Vec<_> = (0..self.config.num_paths)
-            .step_by(self.config.chunk_size)
+            .step_by(effective_chunk_size)
             .map(|start| {
-                let end = (start + self.config.chunk_size).min(self.config.num_paths);
+                let end = (start + effective_chunk_size).min(self.config.num_paths);
                 start..end
             })
             .collect();

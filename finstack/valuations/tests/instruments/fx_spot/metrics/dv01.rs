@@ -7,11 +7,8 @@ use super::super::common::*;
 use finstack_core::types::InstrumentId;
 use finstack_core::{currency::Currency, dates::Date, market_data::MarketContext, money::Money};
 use finstack_valuations::{
-    instruments::{
-        common::traits::Instrument,
-        fx_spot::FxSpot,
-    },
-    metrics::{traits::MetricCalculator, MetricContext, GenericParallelDv01},
+    instruments::{common::traits::Instrument, fx_spot::FxSpot},
+    metrics::{traits::MetricCalculator, GenericParallelDv01, MetricContext},
 };
 use std::sync::Arc;
 

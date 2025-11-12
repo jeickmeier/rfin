@@ -370,8 +370,13 @@ impl PathDataset {
         sampling_method: PathSamplingMethod,
         process_params: ProcessParams,
     ) -> Self {
+        // Pre-allocate based on sampling method
+        let estimated_capacity = match sampling_method {
+            PathSamplingMethod::All => num_paths_total,
+            PathSamplingMethod::RandomSample { count, .. } => count,
+        };
         Self {
-            paths: Vec::new(),
+            paths: Vec::with_capacity(estimated_capacity),
             num_paths_total,
             sampling_method,
             process_params,

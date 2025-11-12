@@ -25,6 +25,7 @@ rand_core = { version = "0.6", optional = true }
 nalgebra = { version = "0.33", optional = true }
 tracing = { version = "0.1", default-features = false }
 thiserror = "1.0"
+dhat = { version = "0.3", optional = true }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
@@ -41,6 +42,7 @@ stochastic = ["dep:rand", "dep:rand_pcg", "dep:rand_distr", "dep:rand_core"]
 mc = ["stochastic", "dep:nalgebra"]
 slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)
 strict_validation = []  # Enforce no-arbitrage checks as hard errors in validators
+dhat-heap = ["dep:dhat"]  # Enable heap profiling with dhat
 
 [[bench]]
 name = "bond_pricing"

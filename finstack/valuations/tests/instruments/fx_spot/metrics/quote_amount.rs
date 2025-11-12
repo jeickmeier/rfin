@@ -5,7 +5,7 @@
 
 use super::super::common::*;
 use finstack_core::{currency::Currency, market_data::MarketContext, money::Money};
-use finstack_valuations::instruments::{common::traits::Instrument};
+use finstack_valuations::instruments::common::traits::Instrument;
 
 #[test]
 fn test_quote_amount_basic() {
@@ -70,7 +70,9 @@ fn test_quote_amount_various_currencies() {
         .try_with_notional(Money::new(500_000.0, Currency::GBP))
         .unwrap()
         .with_rate(1.40);
-    let gbp_result = gbp_fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+    let gbp_result = gbp_fx
+        .price_with_metrics(&market, test_date(), &[])
+        .unwrap();
     assert_approx_eq(
         gbp_result.value.amount(),
         700_000.0,
@@ -83,7 +85,9 @@ fn test_quote_amount_various_currencies() {
         .try_with_notional(Money::new(100_000.0, Currency::USD))
         .unwrap()
         .with_rate(110.0);
-    let jpy_result = jpy_fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+    let jpy_result = jpy_fx
+        .price_with_metrics(&market, test_date(), &[])
+        .unwrap();
     assert_approx_eq(
         jpy_result.value.amount(),
         11_000_000.0,
@@ -143,7 +147,7 @@ fn test_quote_amount_conversion_relationship() {
 
     let quote_amt = result.value.amount();
     let spot_rate = fx.spot_rate.unwrap();
-    
+
     // Base amount is the notional
     let base_amt = fx.notional.unwrap().amount();
 

@@ -21,10 +21,12 @@ use crate::valuations::instruments::{
 };
 use crate::valuations::results::JsValuationResult;
 use finstack_valuations::instruments::build_with_metrics_dyn;
+use finstack_valuations::instruments::common::helpers::instrument_to_arc;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::{create_standard_registry, ModelKey, PricerRegistry};
 use std::str::FromStr;
+use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -83,8 +85,8 @@ fn price_with_optional_metrics(
             return Ok(JsValuationResult::new(base));
         }
         return build_with_metrics_dyn(
-            instrument,
-            market.inner(),
+            instrument_to_arc(instrument),
+            Arc::new(market.inner().clone()),
             base.as_of,
             base.value,
             &metric_ids,

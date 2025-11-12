@@ -254,7 +254,9 @@ pub use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga,
 };
 pub use sensitivities::shock_mode::{BucketSelector, ShockMode};
-pub use sensitivities::theta::{calculate_theta_date, parse_period_days, GenericTheta, GenericThetaAny};
+pub use sensitivities::theta::{
+    calculate_theta_date, parse_period_days, GenericTheta, GenericThetaAny,
+};
 pub use sensitivities::utils::dv01_from_modified_duration;
 pub use sensitivities::vega::{
     compute_bucketed_vega_matrix, compute_parallel_vega, standard_equity_expiry_buckets,

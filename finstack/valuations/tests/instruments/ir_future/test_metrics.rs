@@ -240,10 +240,7 @@ fn test_all_metrics_together() {
     let future = create_standard_future(start, end);
     let market = build_standard_market(as_of, 0.05);
 
-    let metrics = vec![
-        MetricId::Dv01,
-        MetricId::Theta,
-    ];
+    let metrics = vec![MetricId::Dv01, MetricId::Theta];
 
     let result = future.price_with_metrics(&market, as_of, &metrics).unwrap();
 
@@ -319,9 +316,7 @@ fn test_metrics_consistency() {
     let market = build_standard_market(as_of, 0.05);
 
     // Request metrics separately
-    let result_basic = future
-        .price_with_metrics(&market, as_of, &[])
-        .unwrap();
+    let result_basic = future.price_with_metrics(&market, as_of, &[]).unwrap();
     let result_dv01 = future
         .price_with_metrics(&market, as_of, &[MetricId::Dv01])
         .unwrap();

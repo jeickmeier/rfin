@@ -40,7 +40,10 @@ fn test_bucketed_dv01_computed() {
 
     let bucketed_dv01 = *result.measures.get("bucketed_dv01").unwrap();
 
-    eprintln!("test_bucketed_dv01_computed: bucketed_dv01 = {}", bucketed_dv01);
+    eprintln!(
+        "test_bucketed_dv01_computed: bucketed_dv01 = {}",
+        bucketed_dv01
+    );
 
     // Bucketed DV01 should be finite
     assert!(bucketed_dv01.is_finite(), "Bucketed DV01 should be finite");
@@ -73,7 +76,7 @@ fn test_bucketed_dv01_reasonable_magnitude() {
 
     let bucketed_dv01_raw = *result.measures.get("bucketed_dv01").unwrap();
     let dv01_raw = *result.measures.get("dv01").unwrap();
-    
+
     let bucketed_dv01 = bucketed_dv01_raw.abs();
     let dv01 = dv01_raw.abs();
 
@@ -82,14 +85,14 @@ fn test_bucketed_dv01_reasonable_magnitude() {
     // The analytical DV01 works because it uses a different calculation method.
     // This is a known limitation and doesn't affect other instrument types.
     // TODO: Fix inflation swap bucketed DV01 to properly respond to discount curve bumps
-    
+
     // For now, just verify DV01 is positive
     assert!(
         dv01 > 0.0,
         "Analytical DV01 should be positive, got {}",
         dv01_raw
     );
-    
+
     // Bucketed DV01 is expected to be 0 for inflation swaps (known limitation)
     assert_eq!(
         bucketed_dv01, 0.0,

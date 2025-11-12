@@ -415,8 +415,8 @@ impl Instrument for Repo {
 
         // Use existing utility function to build metrics
         crate::instruments::common::helpers::build_with_metrics_dyn(
-            self as &dyn Instrument,
-            context,
+            std::sync::Arc::new(self.clone()),
+            std::sync::Arc::new(context.clone()),
             as_of,
             base_value,
             metrics,

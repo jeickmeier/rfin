@@ -239,7 +239,12 @@ fn test_dv01_combined_bumps_both_curves() {
     let dates = TestDates::standard();
     let market = setup_standard_market(dates.as_of);
 
-    let swap = create_standard_fx_swap("DV01_COMBINED", dates.near_date, dates.far_date_1y, 1_000_000.0);
+    let swap = create_standard_fx_swap(
+        "DV01_COMBINED",
+        dates.near_date,
+        dates.far_date_1y,
+        1_000_000.0,
+    );
 
     // Compute DV01 using Combined mode (default via generic calculator)
     let result = swap
@@ -250,23 +255,27 @@ fn test_dv01_combined_bumps_both_curves() {
 
     // DV01 should be finite
     assert!(dv01_combined.is_finite(), "Combined DV01 should be finite");
-    
+
     // The combined DV01 should approximately equal the sum of domestic and foreign components
     let result_split = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01Domestic, MetricId::Dv01Foreign])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Dv01Domestic, MetricId::Dv01Foreign],
+        )
         .unwrap();
-    
+
     let dv01_dom = *result_split.measures.get("dv01_domestic").unwrap();
     let dv01_for = *result_split.measures.get("dv01_foreign").unwrap();
     let dv01_sum = dv01_dom + dv01_for;
-    
+
     // Combined should approximately equal sum (within 5% due to cross-curve effects)
     let diff_pct = if dv01_sum.abs() > 1e-6 {
         ((dv01_combined - dv01_sum).abs() / dv01_sum.abs()) * 100.0
     } else {
         ((dv01_combined - dv01_sum).abs()) * 100.0
     };
-    
+
     assert!(
         diff_pct < 10.0 || (dv01_combined - dv01_sum).abs() < 0.1,
         "Combined DV01 ({}) should approximate sum of components ({}), diff: {:.1}%",
@@ -298,7 +307,11 @@ fn test_dv01_zero_after_maturity() {
     let dv01 = *result.measures.get("dv01").unwrap();
 
     // Generic DV01 may return small non-zero values due to FD numerical precision
-    assert!(dv01.abs() < 1.0, "DV01 should be near zero after maturity, got: {}", dv01);
+    assert!(
+        dv01.abs() < 1.0,
+        "DV01 should be near zero after maturity, got: {}",
+        dv01
+    );
 }
 
 #[test]
@@ -404,7 +417,12 @@ fn test_bucketed_dv01_per_curve() {
     let dates = TestDates::standard();
     let market = setup_standard_market(dates.as_of);
 
-    let swap = create_standard_fx_swap("BUCKETED_DV01", dates.near_date, dates.far_date_1y, 1_000_000.0);
+    let swap = create_standard_fx_swap(
+        "BUCKETED_DV01",
+        dates.near_date,
+        dates.far_date_1y,
+        1_000_000.0,
+    );
 
     let result = swap
         .price_with_metrics(&market, dates.as_of, &[MetricId::BucketedDv01])
@@ -415,7 +433,7 @@ fn test_bucketed_dv01_per_curve() {
         result.measures.contains_key("bucketed_dv01"),
         "Standard BucketedDv01 scalar should be present for BC"
     );
-    
+
     // Verify per-bucket keys exist for primary discount curve (BC)
     assert!(
         result.measures.contains_key("bucketed_dv01::1y"),
@@ -425,7 +443,7 @@ fn test_bucketed_dv01_per_curve() {
     // Count per-curve series buckets (domestic USD and foreign EUR)
     let mut domestic_buckets = 0;
     let mut foreign_buckets = 0;
-    
+
     for key in result.measures.keys() {
         if key.starts_with("bucketed_dv01::USD-OIS::") {
             domestic_buckets += 1;
@@ -447,10 +465,10 @@ fn test_bucketed_dv01_per_curve() {
 
     // Verify totals: sum of per-curve buckets should equal the total
     let total_dv01 = *result.measures.get("bucketed_dv01").unwrap();
-    
+
     let mut sum_domestic = 0.0;
     let mut sum_foreign = 0.0;
-    
+
     for (key, val) in &result.measures {
         if key.starts_with("bucketed_dv01::USD-OIS::") {
             sum_domestic += val;

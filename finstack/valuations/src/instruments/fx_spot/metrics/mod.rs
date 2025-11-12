@@ -100,7 +100,9 @@ mod tests {
         let fx = sample_fx();
         let as_of = d(2025, 1, 15);
         let base_value = fx.npv(&MarketContext::new(), as_of).unwrap();
-        let result = fx.price_with_metrics(&MarketContext::new(), as_of, &[]).unwrap();
+        let result = fx
+            .price_with_metrics(&MarketContext::new(), as_of, &[])
+            .unwrap();
         // Quote amount is just the result.value (PV in quote currency)
         assert!((result.value.amount() - base_value.amount()).abs() < 1e-6);
     }

@@ -84,19 +84,31 @@ fn dv01_metrics() {
         .unwrap();
 
     let dv01 = res.measures[MetricId::Dv01.as_str()];
-    
+
     // Dv01 is now configured in PerCurve mode, so it returns the sum of individual curve sensitivities
     // and stores the breakdown in measures with composite keys "bucketed_dv01::curve_id"
     // Note: Curve IDs are sanitized (hyphens become underscores) in composite keys
-    
+
     // Extract per-curve DV01s from measures using composite keys
-    let dv01_discount = res.measures.get("bucketed_dv01::usd_ois").copied().unwrap_or(0.0);
-    let dv01_primary_fwd = res.measures.get("bucketed_dv01::usd_sofr_3m").copied().unwrap_or(0.0);
-    let dv01_reference_fwd = res.measures.get("bucketed_dv01::usd_sofr_1m").copied().unwrap_or(0.0);
-    
+    let dv01_discount = res
+        .measures
+        .get("bucketed_dv01::usd_ois")
+        .copied()
+        .unwrap_or(0.0);
+    let dv01_primary_fwd = res
+        .measures
+        .get("bucketed_dv01::usd_sofr_3m")
+        .copied()
+        .unwrap_or(0.0);
+    let dv01_reference_fwd = res
+        .measures
+        .get("bucketed_dv01::usd_sofr_1m")
+        .copied()
+        .unwrap_or(0.0);
+
     // Total DV01 should equal sum of individual curve sensitivities
     assert!((dv01 - (dv01_discount + dv01_primary_fwd + dv01_reference_fwd)).abs() < 1e-6);
-    
+
     // All DV01 components should be finite
     assert!(dv01.is_finite());
     assert!(dv01_discount.is_finite());

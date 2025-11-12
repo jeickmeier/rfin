@@ -199,9 +199,7 @@ mod tests {
             pv,
         );
         // DV01 = PV(bumped) - PV(base); when rates rise, PV falls, so DV01 should be negative
-        let res = reg
-            .compute(&[MetricId::Dv01], &mut mctx)
-            .unwrap();
+        let res = reg.compute(&[MetricId::Dv01], &mut mctx).unwrap();
         let dv01 = *res.get(&MetricId::Dv01).unwrap();
         assert!(dv01 <= 0.0);
     }
