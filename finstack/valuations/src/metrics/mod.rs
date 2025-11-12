@@ -27,77 +27,131 @@
 //! Comprehensive documentation on all metrics, including formulas, conventions, and units,
 //! is available in `METRICS.md` in this directory.
 
-/// bucketed_cs01 module.
-pub mod bucketed_cs01;
-/// bucketed_dv01 module.
-pub mod bucketed_dv01;
-/// bucketed_vega module.
-pub mod bucketed_vega;
-/// helpers module.
-pub mod helpers;
-/// ids module.
-pub mod ids;
-/// registration macro module.
-pub mod registration_macro;
-/// registry module.
-pub mod registry;
-/// traits module.
-pub mod traits;
-
-// Moved from instruments/common/metrics
-/// fd_greeks module.
-pub mod fd_greeks;
-/// finite_difference module.
-pub mod finite_difference;
-/// has_equity_underlying module.
-pub mod has_equity_underlying;
-/// has_pricing_overrides module.
-pub mod has_pricing_overrides;
-/// pv module.
-pub mod pv;
-/// theta_utils module.
-pub mod theta_utils;
-/// vol_expiry_helpers module.
-pub mod vol_expiry_helpers;
-
-/// shock_mode module - defines ShockMode and BucketSelector enums.
-pub mod shock_mode;
+// Internal submodules (organized by concern)
+mod calculators;
+mod core;
+mod sensitivities;
 
 #[cfg(test)]
 mod tests;
 
-pub use bucketed_cs01::{
+// Re-export all public items at the root level for backward compatibility
+pub use calculators::pv::GenericPv;
+pub use core::finite_difference::bump_sizes;
+pub use core::has_equity_underlying::HasEquityUnderlying;
+pub use core::has_pricing_overrides::HasPricingOverrides;
+pub use core::ids::MetricId;
+pub use core::registry::MetricRegistry;
+pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
+pub use sensitivities::cs01::{
     compute_key_rate_cs01_series, compute_key_rate_cs01_series_with_context, compute_parallel_cs01,
     compute_parallel_cs01_with_context, standard_credit_cs01_buckets, GenericBucketedCs01,
     GenericParallelCs01, HasCreditCurve,
 };
-pub use bucketed_dv01::{
+pub use sensitivities::dv01::{
     compute_key_rate_dv01_series, compute_key_rate_dv01_series_with_context,
     compute_key_rate_series_for_id, compute_key_rate_series_with_context_for_id,
     compute_parallel_dv01, compute_parallel_dv01_with_context, standard_ir_dv01_buckets,
     GenericBucketedDv01, GenericBucketedDv01WithContext, GenericParallelDv01, HasDiscountCurve,
     HasForwardCurves, ParallelDv01Mode,
 };
-pub use bucketed_vega::{
+pub use sensitivities::fd_greeks::{
+    GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga,
+};
+pub use sensitivities::shock_mode::{BucketSelector, ShockMode};
+pub use sensitivities::theta::{calculate_theta_date, parse_period_days, GenericTheta, GenericThetaAny};
+pub use sensitivities::utils::dv01_from_modified_duration;
+pub use sensitivities::vega::{
     compute_bucketed_vega_matrix, compute_parallel_vega, standard_equity_expiry_buckets,
     standard_strike_ratios, GenericVega, VOL_BUMP_PCT,
 };
-pub use fd_greeks::{
-    GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga,
-};
-pub use finite_difference::bump_sizes;
-pub use has_equity_underlying::HasEquityUnderlying;
-pub use has_pricing_overrides::HasPricingOverrides;
-pub use helpers::dv01_from_modified_duration;
-pub use ids::MetricId;
-pub use pv::GenericPv;
-pub use registry::MetricRegistry;
-pub use shock_mode::{BucketSelector, ShockMode};
-pub use theta_utils::{calculate_theta_date, parse_period_days, GenericTheta, GenericThetaAny};
-pub use traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
-pub use vol_expiry_helpers::{
+pub use sensitivities::vol::{
     get_instrument_day_count, get_instrument_expiry_for_adaptive, get_instrument_vol_id,
 };
+
+// Compatibility shims for legacy module paths
+// These allow existing code using `crate::metrics::bucketed_dv01::*` to continue working
+
+/// Legacy module for bucketed DV01. Use `sensitivities::dv01` internally.
+pub mod bucketed_dv01 {
+    pub use super::sensitivities::dv01::*;
+}
+
+/// Legacy module for bucketed CS01. Use `sensitivities::cs01` internally.
+pub mod bucketed_cs01 {
+    pub use super::sensitivities::cs01::*;
+}
+
+/// Legacy module for bucketed vega. Use `sensitivities::vega` internally.
+pub mod bucketed_vega {
+    pub use super::sensitivities::vega::*;
+}
+
+/// Legacy module for finite difference Greeks. Use `sensitivities::fd_greeks` internally.
+pub mod fd_greeks {
+    pub use super::sensitivities::fd_greeks::*;
+}
+
+/// Legacy module for finite difference utilities. Use `core::finite_difference` internally.
+pub mod finite_difference {
+    pub use super::core::finite_difference::*;
+}
+
+/// Legacy module for volatility helpers. Use `sensitivities::vol` internally.
+pub mod vol_expiry_helpers {
+    pub use super::sensitivities::vol::*;
+}
+
+/// Legacy module for equity underlying trait. Use `core::has_equity_underlying` internally.
+pub mod has_equity_underlying {
+    pub use super::core::has_equity_underlying::*;
+}
+
+/// Legacy module for pricing overrides trait. Use `core::has_pricing_overrides` internally.
+pub mod has_pricing_overrides {
+    pub use super::core::has_pricing_overrides::*;
+}
+
+/// Legacy module for theta utilities. Use `sensitivities::theta` internally.
+pub mod theta_utils {
+    pub use super::sensitivities::theta::*;
+}
+
+/// Legacy module for helper utilities. Use `sensitivities::utils` internally.
+pub mod helpers {
+    pub use super::sensitivities::utils::*;
+}
+
+/// Legacy module for shock mode. Use `sensitivities::shock_mode` internally.
+pub mod shock_mode {
+    pub use super::sensitivities::shock_mode::*;
+}
+
+/// Legacy module for metric IDs. Use `core::ids` internally.
+pub mod ids {
+    pub use super::core::ids::*;
+}
+
+/// Legacy module for metric registry. Use `core::registry` internally.
+pub mod registry {
+    pub use super::core::registry::*;
+}
+
+/// Legacy module for metric traits. Use `core::traits` internally.
+pub mod traits {
+    pub use super::core::traits::*;
+}
+
+/// Legacy module for registration macro. Use `core::registration_macro` internally.
+#[allow(unused_imports)]
+pub mod registration_macro {
+    pub use super::core::registration_macro::*;
+}
+
+/// Legacy module for PV calculator. Use `calculators::pv` internally.
+pub mod pv {
+    pub use super::calculators::pv::*;
+}
 
 /// Creates a standard metric registry with all built-in metrics.
 ///
