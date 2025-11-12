@@ -8,7 +8,7 @@ use finstack_valuations::instruments::cds_index::parameters::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
 use finstack_valuations::instruments::cds_index::CDSIndex;
-use finstack_valuations::instruments::common::constants::isda_constants;
+use finstack_valuations::constants::isda;
 use finstack_valuations::instruments::common::parameters::CreditParams;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -113,7 +113,7 @@ impl PyCdsIndex {
         let disc_curve = extract_curve_id(&discount_curve)?;
         let credit_curve_id = extract_curve_id(&credit_curve)?;
         let side_value = normalize_cds_side(side.unwrap_or("pay_protection"))?;
-        let recovery = recovery_rate.unwrap_or(isda_constants::STANDARD_RECOVERY_SENIOR);
+        let recovery = recovery_rate.unwrap_or(isda::STANDARD_RECOVERY_SENIOR);
         if !(0.0..=1.0).contains(&recovery) {
             return Err(PyValueError::new_err(
                 "recovery_rate must be between 0 and 1",

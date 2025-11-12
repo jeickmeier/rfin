@@ -9,8 +9,8 @@
 //! bootstrapping helper for hazard curves. Heavy numerics are kept here to
 //! isolate pricing policy from instrument data shapes.
 
+use crate::constants::{isda, time as time_constants, NUMERICAL_TOLERANCE};
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
-use crate::instruments::common::constants::isda_constants;
 use finstack_core::currency::Currency;
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
@@ -71,23 +71,23 @@ impl CDSPricerConfig {
     /// Create an ISDA 2014 standard compliant configuration (North America/US market)
     pub fn isda_standard() -> Self {
         Self {
-            steps_per_year: isda_constants::STANDARD_INTEGRATION_POINTS,
+            steps_per_year: isda::STANDARD_INTEGRATION_POINTS,
             include_accrual: true,
             exact_daycount: true,
-            tolerance: isda_constants::NUMERICAL_TOLERANCE,
+            tolerance: NUMERICAL_TOLERANCE,
             integration_method: IntegrationMethod::IsdaExact,
             use_isda_coupon_dates: true,
             par_spread_uses_full_premium: false,
             gl_order: 8,
             adaptive_max_depth: 12,
-            business_days_per_year: isda_constants::BUSINESS_DAYS_PER_YEAR_US,
+            business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_US,
         }
     }
 
     /// Create an ISDA configuration for European markets (UK conventions)
     pub fn isda_europe() -> Self {
         Self {
-            business_days_per_year: isda_constants::BUSINESS_DAYS_PER_YEAR_UK,
+            business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_UK,
             ..Self::isda_standard()
         }
     }
@@ -95,7 +95,7 @@ impl CDSPricerConfig {
     /// Create an ISDA configuration for Asian markets (Japan conventions)
     pub fn isda_asia() -> Self {
         Self {
-            business_days_per_year: isda_constants::BUSINESS_DAYS_PER_YEAR_JP,
+            business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_JP,
             ..Self::isda_standard()
         }
     }
@@ -112,7 +112,7 @@ impl CDSPricerConfig {
             par_spread_uses_full_premium: false,
             gl_order: 4,
             adaptive_max_depth: 10,
-            business_days_per_year: isda_constants::BUSINESS_DAYS_PER_YEAR_US,
+            business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_US,
         }
     }
 }
@@ -354,7 +354,7 @@ impl CDSPricer {
         disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<f64> {
-        let steps = isda_constants::STANDARD_INTEGRATION_POINTS;
+        let steps = isda::STANDARD_INTEGRATION_POINTS;
         let dt = period_length / steps as f64;
         let mut accrual_pv = 0.0;
         for i in 0..steps {
@@ -461,7 +461,7 @@ impl CDSPricer {
             return Err(Error::Internal);
         }
         let lgd = 1.0 - recovery;
-        let steps_per_period = isda_constants::STANDARD_INTEGRATION_POINTS;
+        let steps_per_period = isda::STANDARD_INTEGRATION_POINTS;
         let dt = (t_end - t_start) / steps_per_period as f64;
         let mut integral = 0.0;
         for i in 0..steps_per_period {

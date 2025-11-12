@@ -33,9 +33,6 @@ pub mod pricing;
 // Periodized present value calculations
 pub mod period_pv;
 
-// Common constants
-pub mod constants;
-
 // Re-export commonly used types for convenience
 pub use discountable::Discountable;
 pub use helpers::{build_with_metrics_dyn, validate_currency_consistency};

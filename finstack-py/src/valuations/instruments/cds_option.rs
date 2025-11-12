@@ -113,7 +113,7 @@ impl PyCdsOption {
         let credit = extract_curve_id(&credit_curve)?;
         let option_type_value = parse_option_type(option_type)?;
         let recovery = recovery_rate.unwrap_or(
-            finstack_valuations::instruments::common::constants::isda_constants::STANDARD_RECOVERY_SENIOR,
+            finstack_valuations::constants::isda::STANDARD_RECOVERY_SENIOR,
         );
         if !(0.0..=1.0).contains(&recovery) {
             return Err(PyValueError::new_err(
