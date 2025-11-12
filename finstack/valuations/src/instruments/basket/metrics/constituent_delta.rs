@@ -116,6 +116,10 @@ fn bump_and_measure_delta(
             // For now, return 0 - this would require instrument cloning and price override
             // which is complex. In practice, constituent_delta for instrument references
             // might need special handling or the instrument itself should expose delta.
+            tracing::warn!(
+                constituent_id = %constituent.id,
+                "Basket ConstituentDelta: Instrument-based constituents not yet supported, returning 0.0"
+            );
             return Ok(0.0);
         }
         crate::instruments::basket::types::ConstituentReference::MarketData {

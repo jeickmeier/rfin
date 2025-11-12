@@ -94,3 +94,7 @@ harness = false
 name = "mc_pricing"
 harness = false
 required-features = ["mc"]
+
+[[bench]]
+name = "bucketed_risk"
+harness = false

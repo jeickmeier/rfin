@@ -2,6 +2,209 @@
 //!
 //! Provides period parsing, date rolling, and a generic theta calculator that
 //! works for any instrument implementing the `Instrument` trait.
+//!
+//! # Quick Start
+//!
+//! ## Example 1: Computing 1-Day Theta for an Equity Option
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::EquityOption;
+//! use finstack_valuations::metrics::{standard_registry, MetricId};
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::Currency;
+//! use finstack_core::money::Money;
+//! use finstack_core::market_data::MarketContext;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! let as_of = create_date(2024, Month::January, 1)?;
+//! let expiry = create_date(2024, Month::July, 1)?; // 6 months to expiry
+//!
+//! let option = EquityOption::builder("OPT-001")
+//!     .strike(Money::new(100.0, Currency::USD))
+//!     .expiry(expiry)
+//!     .is_call(true)
+//!     .build()?;
+//!
+//! // Setup market (abbreviated)
+//! # let market = MarketContext::new(as_of);
+//!
+//! let registry = standard_registry();
+//! let metrics = vec![MetricId::Theta];
+//!
+//! let result = option.price_with_metrics(&market, as_of, &metrics)?;
+//!
+//! if let Some(theta) = result.measures.get(&MetricId::Theta) {
+//!     println!("Option value: ${:.2}", result.value.amount());
+//!     println!("1-day theta: ${:.2}", theta);
+//!     // Negative theta indicates time decay (option loses value each day)
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Example 2: Computing Custom Period Theta (1 Week)
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::{EquityOption, PricingOverrides};
+//! use finstack_valuations::metrics::{standard_registry, MetricId};
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::Currency;
+//! use finstack_core::money::Money;
+//! use finstack_core::market_data::MarketContext;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! let as_of = create_date(2024, Month::January, 1)?;
+//! let option = EquityOption::builder("OPT-001")
+//!     .strike(Money::new(100.0, Currency::USD))
+//!     .expiry(create_date(2024, Month::July, 1)?)
+//!     .is_call(true)
+//!     .build()?;
+//!
+//! // Setup market
+//! # let market = MarketContext::new(as_of);
+//!
+//! let registry = standard_registry();
+//! let metrics = vec![MetricId::Theta];
+//!
+//! // Customize theta period - supported formats:
+//! // "1D", "2D", ... (days)
+//! // "1W", "2W", ... (weeks)
+//! // "1M", "3M", "6M", ... (months)
+//! // "1Y", "2Y", ... (years)
+//! let mut overrides = PricingOverrides::default();
+//! overrides.theta_period = Some("1W".to_string());
+//!
+//! let result = option.price_with_metrics_and_overrides(
+//!     &market, as_of, &metrics, &overrides
+//! )?;
+//!
+//! if let Some(theta) = result.measures.get(&MetricId::Theta) {
+//!     println!("1-week theta: ${:.2}", theta);
+//!     println!("This is the expected P&L from holding the option for 1 week");
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Example 3: Bond Carry (Theta with Coupon Accrual)
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::{Bond, PricingOverrides};
+//! use finstack_valuations::metrics::{standard_registry, MetricId};
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::{Rate, Currency};
+//! use finstack_core::money::Money;
+//! use finstack_core::market_data::MarketContext;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! let as_of = create_date(2024, Month::January, 1)?;
+//! let bond = Bond::builder("BOND-001")
+//!     .issue_date(as_of)
+//!     .maturity(create_date(2029, Month::January, 1)?)
+//!     .coupon_rate(Rate::from_bps(500)) // 5% annual coupon
+//!     .face_value(Money::new(100_000.0, Currency::USD))
+//!     .build()?;
+//!
+//! // Setup market
+//! # let market = MarketContext::new(as_of);
+//!
+//! let registry = standard_registry();
+//! let metrics = vec![MetricId::Theta];
+//!
+//! // Measure 1-month carry
+//! let mut overrides = PricingOverrides::default();
+//! overrides.theta_period = Some("1M".to_string());
+//!
+//! let result = bond.price_with_metrics_and_overrides(
+//!     &market, as_of, &metrics, &overrides
+//! )?;
+//!
+//! if let Some(theta) = result.measures.get(&MetricId::Theta) {
+//!     println!("Bond value: ${:.2}", result.value.amount());
+//!     println!("1-month carry: ${:.2}", theta);
+//!     // Theta includes both:
+//!     // 1. PV change (pull-to-par effect)
+//!     // 2. Coupon payments during the period
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Example 4: Computing Theta Near Expiry
+//!
+//! When an instrument expires before the theta period ends, theta is automatically
+//! capped at the expiry date:
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::{EquityOption, PricingOverrides};
+//! use finstack_valuations::metrics::{standard_registry, MetricId};
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::Currency;
+//! use finstack_core::money::Money;
+//! use finstack_core::market_data::MarketContext;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! let as_of = create_date(2024, Month::June, 25)?;
+//! let expiry = create_date(2024, Month::July, 1)?; // Only 6 days to expiry
+//!
+//! let option = EquityOption::builder("OPT-001")
+//!     .strike(Money::new(100.0, Currency::USD))
+//!     .expiry(expiry)
+//!     .is_call(true)
+//!     .build()?;
+//!
+//! // Setup market
+//! # let market = MarketContext::new(as_of);
+//!
+//! let registry = standard_registry();
+//! let metrics = vec![MetricId::Theta];
+//!
+//! // Request 1-week theta, but only 6 days remain
+//! let mut overrides = PricingOverrides::default();
+//! overrides.theta_period = Some("1W".to_string()); // 7 days
+//!
+//! let result = option.price_with_metrics_and_overrides(
+//!     &market, as_of, &metrics, &overrides
+//! )?;
+//!
+//! if let Some(theta) = result.measures.get(&MetricId::Theta) {
+//!     println!("Theta to expiry (6 days): ${:.2}", theta);
+//!     // Theta is computed only to expiry, not the full 7-day period
+//!     // This equals: PV(expiry) - PV(today)
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # How Theta is Calculated
+//!
+//! Theta represents the total carry (profit/loss) from holding an instrument over a time period:
+//!
+//! ```text
+//! Theta = PV(t + period) - PV(t) + Cashflows(t, t + period)
+//! ```
+//!
+//! Where:
+//! - `PV(t)` = present value at valuation date (base value)
+//! - `PV(t + period)` = present value at rolled forward date
+//! - `Cashflows(t, t + period)` = sum of cashflows received during the period
+//!
+//! ## Components
+//!
+//! 1. **Pull-to-par effect**: Change in present value due to passage of time
+//!    - For bonds: Price converges to par as maturity approaches
+//!    - For options: Time value decays (typically negative theta)
+//!
+//! 2. **Cashflows**: Interest, coupons, or other payments during the period
+//!    - Bonds: Accrued interest, coupon payments
+//!    - Swaps: Net interest payments
+//!    - Options: Usually zero (no interim cashflows)
+//!
+//! ## Sign Convention
+//!
+//! - **Negative theta**: Instrument loses value over time (e.g., long options)
+//! - **Positive theta**: Instrument gains value over time (e.g., short options, carry trades)
+//! - **Zero theta**: No time-dependent value change (rare)
 
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -139,6 +342,12 @@ where
 
     // If already expired or rolling to same date, theta is zero
     if rolled_date <= context.as_of {
+        tracing::warn!(
+            instrument_type = std::any::type_name::<I>(),
+            as_of = %context.as_of,
+            rolled_date = %rolled_date,
+            "Theta: Instrument already expired or rolling to same date, returning 0.0"
+        );
         return Ok(0.0);
     }
 
@@ -436,6 +645,11 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
 
         // If already expired or rolling to same date, theta is zero
         if rolled_date <= context.as_of {
+            tracing::warn!(
+                as_of = %context.as_of,
+                rolled_date = %rolled_date,
+                "GenericThetaAny: Instrument already expired or rolling to same date, returning 0.0"
+            );
             return Ok(0.0);
         }
 

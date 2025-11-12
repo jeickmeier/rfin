@@ -274,6 +274,10 @@ where
 
         // Resolve vol surface id
         let Some(vol_surface_id) = get_instrument_vol_id(instrument.as_any()) else {
+            tracing::warn!(
+                instrument_type = std::any::type_name::<I>(),
+                "GenericFdVega: No vol surface ID found for instrument, returning 0.0"
+            );
             return Ok(0.0);
         };
 
@@ -319,6 +323,10 @@ where
         let base_pv = context.base_value.amount();
 
         let Some(vol_surface_id) = get_instrument_vol_id(instrument.as_any()) else {
+            tracing::warn!(
+                instrument_type = std::any::type_name::<I>(),
+                "GenericFdVolga: No vol surface ID found for instrument, returning 0.0"
+            );
             return Ok(0.0);
         };
 
@@ -372,6 +380,10 @@ where
         };
 
         let Some(vol_surface_id) = get_instrument_vol_id(instrument.as_any()) else {
+            tracing::warn!(
+                instrument_type = std::any::type_name::<I>(),
+                "GenericFdVanna: No vol surface ID found for instrument, returning 0.0"
+            );
             return Ok(0.0);
         };
 

@@ -3,6 +3,226 @@
 //! Provides a generic function to compute bucketed DV01 for instruments that
 //! can be valued with discount and/or forward curves. Results are stored into
 //! `MetricContext` via structured series using stable composite keys.
+//!
+//! # Quick Start
+//!
+//! ## Example 1: Computing Key-Rate DV01 for a Bond
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::Bond;
+//! use finstack_valuations::metrics::{
+//!     compute_key_rate_dv01_series, standard_ir_dv01_buckets, MetricContext, MetricId
+//! };
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::{CurveId, Rate, Currency};
+//! use finstack_core::money::Money;
+//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use finstack_core::dates::day_count::DayCount;
+//! use std::sync::Arc;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! // Setup: Create a 5-year bond
+//! let as_of = create_date(2024, Month::January, 1)?;
+//! let bond = Bond::builder("BOND-001")
+//!     .issue_date(as_of)
+//!     .maturity(create_date(2029, Month::January, 1)?)
+//!     .coupon_rate(Rate::from_bps(500)) // 5.00% coupon
+//!     .face_value(Money::new(100_000.0, Currency::USD))
+//!     .build()?;
+//!
+//! // Create discount curve
+//! let curve_id = CurveId::from("USD-OIS");
+//! let discount_curve = DiscountCurve::builder(curve_id.clone())
+//!     .base_date(as_of)
+//!     .day_count(DayCount::Act365F)
+//!     .knots(vec![
+//!         (0.0, 1.0),
+//!         (1.0, 0.96),
+//!         (2.0, 0.93),
+//!         (5.0, 0.85),
+//!         (10.0, 0.70),
+//!     ])
+//!     .build()?;
+//!
+//! let market = MarketContext::new(as_of)
+//!     .insert_discount(discount_curve);
+//!
+//! // Price the bond to get base PV
+//! let base_value = bond.value(&market, as_of)?;
+//!
+//! // Create metric context
+//! let mut context = MetricContext {
+//!     instrument: &bond as &dyn finstack_valuations::instruments::common::traits::Instrument,
+//!     curves: Arc::new(market),
+//!     as_of,
+//!     base_value,
+//!     pricing_overrides: None,
+//!     bucketed_series: Default::default(),
+//!     structured_2d: Default::default(),
+//!     structured_3d: Default::default(),
+//! };
+//!
+//! // Standard buckets: [3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y]
+//! let buckets = standard_ir_dv01_buckets();
+//!
+//! // Compute key-rate DV01 series
+//! let total_dv01 = compute_key_rate_dv01_series(
+//!     &mut context,
+//!     &curve_id,
+//!     buckets,
+//!     1.0, // 1bp bump
+//!     |bumped_curve| {
+//!         // Rebuild cashflows with original market, discount with bumped curve
+//!         use finstack_valuations::cashflow::traits::CashflowProvider;
+//!         let flows = bond.build_schedule(context.curves.as_ref(), as_of)?;
+//!         finstack_valuations::instruments::common::discountable::npv_static(
+//!             bumped_curve,
+//!             bumped_curve.base_date(),
+//!             bumped_curve.day_count(),
+//!             &flows,
+//!         )
+//!     }
+//! )?;
+//!
+//! println!("Total DV01: ${:.2} per bp", total_dv01);
+//!
+//! // Access bucketed series
+//! if let Some(series) = context.bucketed_series.get(&MetricId::BucketedDv01) {
+//!     println!("\nKey-Rate DV01 Breakdown:");
+//!     for (bucket, dv01) in series {
+//!         println!("  {}: ${:.2} per bp", bucket, dv01);
+//!     }
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Example 2: Computing Parallel DV01 (Full Curve Bump)
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::Bond;
+//! use finstack_valuations::metrics::{compute_parallel_dv01, MetricContext};
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::{CurveId, Rate, Currency};
+//! use finstack_core::money::Money;
+//! use finstack_core::market_data::MarketContext;
+//! use std::sync::Arc;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! let as_of = create_date(2024, Month::January, 1)?;
+//! let bond = Bond::builder("BOND-001")
+//!     .issue_date(as_of)
+//!     .maturity(create_date(2029, Month::January, 1)?)
+//!     .coupon_rate(Rate::from_bps(500))
+//!     .face_value(Money::new(100_000.0, Currency::USD))
+//!     .build()?;
+//!
+//! // Setup market (abbreviated)
+//! # use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! # use finstack_core::dates::day_count::DayCount;
+//! # let curve_id = CurveId::from("USD-OIS");
+//! # let discount_curve = DiscountCurve::builder(curve_id.clone())
+//! #     .base_date(as_of)
+//! #     .day_count(DayCount::Act365F)
+//! #     .knots(vec![(0.0, 1.0), (5.0, 0.85)])
+//! #     .build()?;
+//! # let market = MarketContext::new(as_of).insert_discount(discount_curve);
+//! let base_value = bond.value(&market, as_of)?;
+//!
+//! let mut context = MetricContext {
+//!     instrument: &bond as &dyn finstack_valuations::instruments::common::traits::Instrument,
+//!     curves: Arc::new(market),
+//!     as_of,
+//!     base_value,
+//!     pricing_overrides: None,
+//!     bucketed_series: Default::default(),
+//!     structured_2d: Default::default(),
+//!     structured_3d: Default::default(),
+//! };
+//!
+//! // Parallel bump the entire curve by 1bp
+//! let parallel_dv01 = compute_parallel_dv01(
+//!     &mut context,
+//!     &curve_id,
+//!     1.0, // 1bp bump
+//!     |bumped_curve| {
+//!         // Reprice with bumped curve
+//!         use finstack_valuations::cashflow::traits::CashflowProvider;
+//!         let flows = bond.build_schedule(context.curves.as_ref(), as_of)?;
+//!         finstack_valuations::instruments::common::discountable::npv_static(
+//!             bumped_curve,
+//!             bumped_curve.base_date(),
+//!             bumped_curve.day_count(),
+//!             &flows,
+//!         )
+//!     }
+//! )?;
+//!
+//! println!("Parallel DV01: ${:.2} per bp", parallel_dv01);
+//! // For a bond, DV01 is typically negative (price falls as rates rise)
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Example 3: Multi-Curve DV01 (Interest Rate Swap)
+//!
+//! For instruments with multiple rate curves (e.g., IRS with separate discount and forward curves),
+//! the `GenericBucketedDv01WithContext` calculator automatically computes DV01 for all relevant curves:
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::InterestRateSwap;
+//! use finstack_valuations::metrics::{standard_registry, MetricId};
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::{Rate, Currency};
+//! use finstack_core::money::Money;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! let as_of = create_date(2024, Month::January, 1)?;
+//! let swap = InterestRateSwap::builder("SWAP-001")
+//!     .start_date(as_of)
+//!     .maturity(create_date(2029, Month::January, 1)?)
+//!     .notional(Money::new(10_000_000.0, Currency::USD))
+//!     .fixed_rate(Rate::from_bps(300))
+//!     .is_receive_fixed(true)
+//!     .build()?;
+//!
+//! // Setup market with discount and forward curves (abbreviated)
+//! # use finstack_core::market_data::MarketContext;
+//! # let market = MarketContext::new(as_of);
+//!
+//! let registry = standard_registry();
+//! let metrics = vec![MetricId::BucketedDv01];
+//!
+//! let result = swap.price_with_metrics(&market, as_of, &metrics)?;
+//!
+//! // Total DV01 (sum across all curves and buckets)
+//! if let Some(total) = result.measures.get(&MetricId::BucketedDv01) {
+//!     println!("Total DV01: ${:.2} per bp", total);
+//! }
+//!
+//! // Access per-curve bucketed series
+//! // Example: "bucketed_dv01::USD-OIS::1y" for discount curve 1-year bucket
+//! // Example: "bucketed_dv01::USD-LIBOR-3M::5y" for forward curve 5-year bucket
+//! for (key, series) in &result.bucketed_series {
+//!     println!("\n{}: {} entries", key, series.len());
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Key-Rate vs Parallel DV01
+//!
+//! - **Parallel DV01** (`compute_parallel_dv01`): Bumps the entire curve uniformly.
+//!   - Use when measuring overall interest rate exposure.
+//!   - Returns a single scalar value.
+//!   - Faster to compute (single bump).
+//!
+//! - **Key-Rate DV01** (`compute_key_rate_dv01_series`): Bumps individual maturity points.
+//!   - Use for hedging and understanding where risk is concentrated.
+//!   - Returns a series of values (one per bucket).
+//!   - More granular risk breakdown.
+//!   - Sum of key-rate DV01s ≈ parallel DV01 (not exact due to curve interpolation).
 
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -522,6 +742,10 @@ where
 
         // If no curves exist, return DV01 = 0
         if existing_curves.is_empty() {
+            tracing::warn!(
+                instrument_type = std::any::type_name::<I>(),
+                "GenericParallelDv01: No rate curves found in market context for instrument, returning 0.0"
+            );
             return Ok(0.0);
         }
 
@@ -704,6 +928,11 @@ where
 
         // If no curves exist, return DV01 = 0
         if curves_to_bump.is_empty() {
+            tracing::warn!(
+                instrument_type = std::any::type_name::<I>(),
+                discount_curve = %discount_curve_id,
+                "GenericBucketedDv01WithContext: No rate curves found in market context for instrument, returning 0.0"
+            );
             return Ok(0.0);
         }
 

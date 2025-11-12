@@ -22,6 +22,7 @@ cargo bench --package finstack-valuations --bench cds_index_pricing
 cargo bench --package finstack-valuations --bench structured_credit_pricing
 cargo bench --package finstack-valuations --bench convertible_pricing
 cargo bench --package finstack-valuations --bench calibration
+cargo bench --package finstack-valuations --bench bucketed_risk
 
 # Quick mode (fewer samples)
 cargo bench --package finstack-valuations -- --quick
@@ -112,6 +113,14 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 - **convertible_metrics**: Price with metrics (delta, gamma, vega, rho, theta)
 - **convertible_parity**: Parity calculation by moneyness
 - **convertible_convergence**: Tree convergence (10-500 steps)
+
+### bucketed_risk.rs - Bucketed Risk Metrics (15+ scenarios)
+- **bond_bucketed_dv01**: Bond bucketed DV01 (11 buckets) vs parallel DV01
+- **swap_bucketed_dv01**: Swap bucketed DV01 by tenor (5Y, 10Y, 30Y)
+- **bond_bucketed_dv01_by_tenor**: Bond bucketed DV01 scaling with maturity (2Y-30Y)
+- **cds_bucketed_cs01**: CDS bucketed CS01 (11 buckets) vs parallel CS01
+- **cds_bucketed_cs01_by_tenor**: CDS bucketed CS01 scaling with maturity (2Y-30Y)
+- **combined_metrics**: Parallel vs bucketed vs both (bond/CDS)
 
 ### calibration.rs - Market Data Calibration (45+ scenarios)
 - **discount_curve_small**: Discount curve bootstrap (8 instruments)

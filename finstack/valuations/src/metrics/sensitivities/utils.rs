@@ -13,6 +13,11 @@ use crate::constants::ONE_BASIS_POINT;
 #[inline]
 pub fn dv01_from_modified_duration(price_amount: f64, modified_duration: f64) -> f64 {
     if price_amount == 0.0 || modified_duration == 0.0 {
+        tracing::warn!(
+            price_amount,
+            modified_duration,
+            "dv01_from_modified_duration: Zero price or duration, returning 0.0"
+        );
         return 0.0;
     }
     // Signed convention consistent with DV01 = PV(rate + 1bp) − PV(base):

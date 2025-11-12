@@ -30,6 +30,12 @@ impl MetricCalculator for Cs01Calculator {
         let as_of = context.as_of;
 
         if as_of >= cds_option.expiry {
+            tracing::warn!(
+                instrument_id = %cds_option.id,
+                as_of = %as_of,
+                expiry = %cds_option.expiry,
+                "CDS Option CS01: Instrument already expired, returning 0.0"
+            );
             return Ok(0.0);
         }
 
@@ -97,6 +103,10 @@ fn use_approximation(
     option_value: f64,
 ) -> f64 {
     if time_to_expiry <= 0.0 {
+        tracing::warn!(
+            time_to_expiry,
+            "CDS Option CS01 approximation: time_to_expiry <= 0, returning 0.0"
+        );
         return 0.0;
     }
 

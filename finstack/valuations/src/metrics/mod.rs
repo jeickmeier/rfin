@@ -12,7 +12,199 @@
 //! - **Instrument-specific**: Metrics can be registered for specific instrument types
 //! - **Standard registry**: Pre-configured registry with common financial metrics
 //!
-//! See unit tests and `examples/` for usage.
+//! # Quick Start Examples
+//!
+//! ## Example 1: Computing Bucketed DV01 for a Bond
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::Bond;
+//! use finstack_valuations::metrics::{standard_registry, MetricId};
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::{CurveId, Rate, Currency};
+//! use finstack_core::money::Money;
+//! use finstack_core::market_data::MarketContext;
+//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use finstack_core::dates::day_count::DayCount;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! // Setup: Create a 5-year bond
+//! let as_of = create_date(2024, Month::January, 1)?;
+//! let maturity = create_date(2029, Month::January, 1)?;
+//! let bond = Bond::builder("BOND-001")
+//!     .issue_date(as_of)
+//!     .maturity(maturity)
+//!     .coupon_rate(Rate::from_bps(500)) // 5.00% coupon
+//!     .face_value(Money::new(100_000.0, Currency::USD))
+//!     .build()?;
+//!
+//! // Create discount curve
+//! let curve_id = CurveId::from("USD-OIS");
+//! let discount_curve = DiscountCurve::builder(curve_id.clone())
+//!     .base_date(as_of)
+//!     .day_count(DayCount::Act365F)
+//!     .knots(vec![
+//!         (0.0, 1.0),
+//!         (1.0, 0.96),
+//!         (2.0, 0.93),
+//!         (5.0, 0.85),
+//!         (10.0, 0.70),
+//!     ])
+//!     .build()?;
+//!
+//! let market = MarketContext::new(as_of)
+//!     .insert_discount(discount_curve);
+//!
+//! // Create registry and request bucketed DV01
+//! let registry = standard_registry();
+//! let metrics = vec![MetricId::BucketedDv01];
+//!
+//! // Price with metrics
+//! let result = bond.price_with_metrics(&market, as_of, &metrics)?;
+//!
+//! // Access results
+//! let pv = result.value.amount();
+//! println!("Bond PV: ${:.2}", pv);
+//!
+//! // Get total DV01 (scalar)
+//! if let Some(total_dv01) = result.measures.get(&MetricId::BucketedDv01) {
+//!     println!("Total DV01: ${:.2} per bp", total_dv01);
+//! }
+//!
+//! // Access bucketed series (key-rate DV01 by maturity)
+//! if let Some(bucketed) = result.bucketed_series.get(&MetricId::BucketedDv01) {
+//!     println!("\nBucketed DV01 breakdown:");
+//!     for (bucket, dv01) in bucketed {
+//!         println!("  {} bucket: ${:.2} per bp", bucket, dv01);
+//!     }
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Example 2: Computing Parallel DV01 for an Interest Rate Swap
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::InterestRateSwap;
+//! use finstack_valuations::metrics::{standard_registry, MetricId};
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::{CurveId, Rate, Currency};
+//! use finstack_core::money::Money;
+//! use finstack_core::market_data::MarketContext;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! let as_of = create_date(2024, Month::January, 1)?;
+//!
+//! // Create a 5-year receiver swap (receive fixed, pay floating)
+//! let swap = InterestRateSwap::builder("SWAP-001")
+//!     .start_date(as_of)
+//!     .maturity(create_date(2029, Month::January, 1)?)
+//!     .notional(Money::new(10_000_000.0, Currency::USD))
+//!     .fixed_rate(Rate::from_bps(300)) // 3.00% fixed
+//!     .is_receive_fixed(true)
+//!     .build()?;
+//!
+//! // Setup market with discount and forward curves
+//! // (market setup omitted for brevity)
+//! # let market = MarketContext::new(as_of);
+//!
+//! let registry = standard_registry();
+//! let metrics = vec![MetricId::Dv01]; // Parallel DV01
+//!
+//! let result = swap.price_with_metrics(&market, as_of, &metrics)?;
+//!
+//! if let Some(dv01) = result.measures.get(&MetricId::Dv01) {
+//!     println!("Swap DV01: ${:.2} per bp", dv01);
+//!     // Negative DV01 means swap loses value when rates rise
+//!     // (typical for receiver swaps)
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Example 3: Computing Theta (Time Decay) for an Option
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::{EquityOption, PricingOverrides};
+//! use finstack_valuations::metrics::{standard_registry, MetricId};
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::Currency;
+//! use finstack_core::money::Money;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! let as_of = create_date(2024, Month::January, 1)?;
+//! let expiry = create_date(2024, Month::July, 1)?; // 6-month option
+//!
+//! let option = EquityOption::builder("OPT-001")
+//!     .strike(Money::new(100.0, Currency::USD))
+//!     .expiry(expiry)
+//!     .is_call(true)
+//!     .build()?;
+//!
+//! // Setup market (omitted for brevity)
+//! # use finstack_core::market_data::MarketContext;
+//! # let market = MarketContext::new(as_of);
+//!
+//! let registry = standard_registry();
+//! let metrics = vec![MetricId::Theta];
+//!
+//! // Customize theta period (default is "1D" = 1 day)
+//! let mut overrides = PricingOverrides::default();
+//! overrides.theta_period = Some("1W".to_string()); // 1-week time decay
+//!
+//! let result = option.price_with_metrics_and_overrides(
+//!     &market, as_of, &metrics, &overrides
+//! )?;
+//!
+//! if let Some(theta) = result.measures.get(&MetricId::Theta) {
+//!     println!("Option 1-week theta: ${:.2}", theta);
+//!     // Negative theta = option loses value over time (time decay)
+//! }
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ## Example 4: Computing Multiple Greeks for an Option
+//!
+//! ```ignore
+//! use finstack_valuations::instruments::EquityOption;
+//! use finstack_valuations::metrics::{standard_registry, MetricId};
+//! use finstack_core::dates::{create_date, Month};
+//! use finstack_core::types::Currency;
+//! use finstack_core::money::Money;
+//!
+//! # fn main() -> finstack_core::Result<()> {
+//! let as_of = create_date(2024, Month::January, 1)?;
+//! let option = EquityOption::builder("OPT-001")
+//!     .strike(Money::new(100.0, Currency::USD))
+//!     .expiry(create_date(2024, Month::July, 1)?)
+//!     .is_call(true)
+//!     .build()?;
+//!
+//! // Setup market
+//! # use finstack_core::market_data::MarketContext;
+//! # let market = MarketContext::new(as_of);
+//!
+//! let registry = standard_registry();
+//! let metrics = vec![
+//!     MetricId::Delta,
+//!     MetricId::Gamma,
+//!     MetricId::Vega,
+//!     MetricId::Theta,
+//!     MetricId::Rho,
+//! ];
+//!
+//! let result = option.price_with_metrics(&market, as_of, &metrics)?;
+//!
+//! println!("Option Greeks:");
+//! println!("  PV:    ${:.2}", result.value.amount());
+//! println!("  Delta: {:.4}", result.measures.get(&MetricId::Delta).unwrap_or(&0.0));
+//! println!("  Gamma: {:.4}", result.measures.get(&MetricId::Gamma).unwrap_or(&0.0));
+//! println!("  Vega:  {:.4}", result.measures.get(&MetricId::Vega).unwrap_or(&0.0));
+//! println!("  Theta: {:.4}", result.measures.get(&MetricId::Theta).unwrap_or(&0.0));
+//! println!("  Rho:   {:.4}", result.measures.get(&MetricId::Rho).unwrap_or(&0.0));
+//! # Ok(())
+//! # }
+//! ```
 //!
 //! # Architecture
 //!
@@ -35,6 +227,9 @@ mod sensitivities;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod property_tests;
 
 // Re-export all public items at the root level for backward compatibility
 pub use core::finite_difference::bump_sizes;
