@@ -193,6 +193,26 @@ The following table shows which metrics are implemented for each instrument type
 - **Implementation**: Each bucket bumps one key rate while others held constant
 - **Output**: Bucketed series stored in `MetricContext`
 
+**Per-Curve Bucketed DV01** (new feature):
+
+For instruments using multiple rate curves (discount and/or forward), BucketedDV01 now provides separate bucketed series for each curve:
+
+- **Discount Curves**: Key-rate DV01 computed by bumping each bucket in the discount curve
+- **Forward Curves**: Key-rate DV01 computed by bumping each bucket in the forward curve (using segment-localized bumps similar to discount curves)
+
+**Output Keys**:
+- Primary discount curve (backward compatible): `bucketed_dv01::<bucket>` (e.g., `bucketed_dv01::1y`)
+- Per-curve series: `bucketed_dv01::<curve_id>::<bucket>` (e.g., `bucketed_dv01::USD_LIBOR_3M::1y`)
+
+**Examples**:
+- **IRS**: Produces `bucketed_dv01::USD_OIS::<bucket>` (discount) and `bucketed_dv01::USD_LIBOR_3M::<bucket>` (forward)
+- **Basis Swap**: Produces `bucketed_dv01::USD-OIS::<bucket>` (discount), `bucketed_dv01::USD-SOFR-3M::<bucket>` (forward 1), `bucketed_dv01::USD-SOFR-1M::<bucket>` (forward 2)
+- **FX Swap**: Produces `bucketed_dv01::USD-OIS::<bucket>` (domestic discount), `bucketed_dv01::EUR-OIS::<bucket>` (foreign discount)
+
+**Backward Compatibility**: The primary discount curve's bucketed series is also stored under the standard `bucketed_dv01::<bucket>` keys for backward compatibility.
+
+**Total DV01**: The scalar `bucketed_dv01` metric returns the sum of all per-curve bucketed DV01s across all buckets.
+
 ### Dv01Domestic / Dv01Foreign
 
 **Domestic and foreign currency interest rate sensitivity (FX Swap only)**

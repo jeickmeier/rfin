@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
@@ -30,6 +30,23 @@ fn build_flat_discount_curve(rate: f64, base_date: Date) -> DiscountCurve {
     }
 
     builder.build().unwrap()
+}
+
+fn build_flat_forward_curve(rate: f64, base_date: Date, id: &str) -> ForwardCurve {
+    ForwardCurve::builder(id, 0.25) // 3M tenor
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots(vec![
+            (0.0, rate),
+            (1.0, rate),
+            (2.0, rate),
+            (3.0, rate),
+            (5.0, rate),
+            (7.0, rate),
+            (10.0, rate),
+        ])
+        .build()
+        .unwrap()
 }
 
 fn create_swap(as_of: Date, end: Date) -> InterestRateSwap {
@@ -183,4 +200,81 @@ fn test_bucketed_vs_parallel_dv01_sanity() {
     // Allow small numerical tolerance
     // Allow wider tolerance for simple discount-only context
     assert!((sum_bucketed - parallel).abs() < 500.0);
+}
+
+#[test]
+fn test_bucketed_dv01_per_curve() {
+    // Test per-curve bucketed DV01 for IRS with separate discount and forward curves
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let swap = create_swap(as_of, end);
+    let disc_curve = build_flat_discount_curve(0.05, as_of);
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    let result = swap
+        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .unwrap();
+
+    // Verify backward-compatible primary discount curve series exists under standard key
+    assert!(
+        result.measures.contains_key("bucketed_dv01"),
+        "Standard BucketedDv01 scalar should be present for BC"
+    );
+    
+    // Verify per-bucket keys exist for primary discount curve (BC)
+    assert!(
+        result.measures.contains_key("bucketed_dv01::1y"),
+        "Primary discount curve bucketed series should be present under standard key"
+    );
+
+    // Verify per-curve series exist
+    let mut discount_curve_buckets = 0;
+    let mut forward_curve_buckets = 0;
+    
+    for key in result.measures.keys() {
+        if key.starts_with("bucketed_dv01::USD_OIS::") {
+            discount_curve_buckets += 1;
+        }
+        if key.starts_with("bucketed_dv01::USD_LIBOR_3M::") {
+            forward_curve_buckets += 1;
+        }
+    }
+
+    // Should have buckets for both curves (0.25y, 0.5y, 1y, 2y, 3y, 5y, 7y, 10y, etc.)
+    assert!(
+        discount_curve_buckets > 0,
+        "Should have discount curve bucketed DV01s under bucketed_dv01::USD_OIS::*"
+    );
+    assert!(
+        forward_curve_buckets > 0,
+        "Should have forward curve bucketed DV01s under bucketed_dv01::USD_LIBOR_3M::*"
+    );
+
+    // Verify totals: sum of per-curve buckets should equal the total
+    let total_dv01 = *result.measures.get("bucketed_dv01").unwrap();
+    
+    let mut sum_disc = 0.0;
+    let mut sum_fwd = 0.0;
+    
+    for (key, val) in &result.measures {
+        if key.starts_with("bucketed_dv01::USD_OIS::") {
+            sum_disc += val;
+        }
+        if key.starts_with("bucketed_dv01::USD_LIBOR_3M::") {
+            sum_fwd += val;
+        }
+    }
+
+    // Total should approximately equal sum of both curves' contributions
+    let sum_both = sum_disc + sum_fwd;
+    assert!(
+        (total_dv01 - sum_both).abs() < 1.0,
+        "Total DV01 ({}) should equal sum of per-curve DV01s ({})",
+        total_dv01,
+        sum_both
+    );
 }

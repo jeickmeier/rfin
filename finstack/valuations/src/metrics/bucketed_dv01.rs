@@ -6,9 +6,19 @@
 
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+
+/// Identifies the type of rate curve for bucketed DV01 calculations.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RatesCurveKind {
+    /// Discount curve (used for present value discounting).
+    Discount,
+    /// Forward curve (used for floating rate projection).
+    Forward,
+}
 
 /// Standard IR key-rate buckets in years used for quick demos/tests.
 /// Example: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
@@ -241,6 +251,109 @@ where
     Ok(total)
 }
 
+/// Compute key-rate DV01 series for a forward curve using full MarketContext revaluation.
+///
+/// This function applies segment-localized key-rate bumps to a forward curve, similar to
+/// how discount curves are bumped. For each bucket time, the forward rates at and beyond
+/// the segment containing that time are shifted by the bump amount.
+pub fn compute_key_rate_forward_series_with_context_for_id<I, RevalFn>(
+    context: &mut MetricContext,
+    base_metric_id: MetricId,
+    forward_curve_id: &CurveId,
+    bucket_times_years: I,
+    bump_bp: f64,
+    mut revalue_with_context: RevalFn,
+) -> finstack_core::Result<f64>
+where
+    I: IntoIterator<Item = f64>,
+    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
+{
+    let base_pv = context.base_value;
+    let base_ctx = context.curves.as_ref();
+    let fwd = base_ctx.get_forward_ref(forward_curve_id.as_str())?;
+
+    let mut series: Vec<(String, f64)> = Vec::new();
+    let bump_rate = bump_bp / 10_000.0; // Convert bp to fraction
+
+    for t in bucket_times_years.into_iter() {
+        let label = if t < 1.0 {
+            format!("{:.0}m", (t * 12.0).round())
+        } else {
+            format!("{:.0}y", t)
+        };
+
+        // Apply key-rate bump to forward curve
+        // Similar to discount curve logic: find segment containing t, bump rates at and beyond
+        let knots = fwd.knots();
+        let forwards = fwd.forwards();
+
+        if knots.len() < 2 {
+            // Fallback to parallel bump for degenerate curves
+            let bumped_rates: Vec<(f64, f64)> = knots
+                .iter()
+                .zip(forwards.iter())
+                .map(|(&time, &rate)| (time, rate + bump_rate))
+                .collect();
+
+            let bumped_fwd = ForwardCurve::builder(forward_curve_id.clone(), fwd.tenor())
+                .base_date(fwd.base_date())
+                .reset_lag(fwd.reset_lag())
+                .day_count(fwd.day_count())
+                .knots(bumped_rates)
+                .build()?;
+
+            let temp_ctx = base_ctx.clone().insert_forward(bumped_fwd);
+            let pv_bumped = revalue_with_context(&temp_ctx)?;
+            let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
+            series.push((label, dv01));
+            continue;
+        }
+
+        // Find segment [t_i, t_{i+1}] containing t
+        let mut seg_idx = 0usize;
+        if t <= knots[0] {
+            seg_idx = 0;
+        } else if t >= knots[knots.len() - 1] {
+            seg_idx = knots.len() - 2;
+        } else {
+            for idx in 0..knots.len() - 1 {
+                if t > knots[idx] && t <= knots[idx + 1] {
+                    seg_idx = idx;
+                    break;
+                }
+            }
+        }
+
+        // Bump forward rates at and beyond the segment end (seg_idx+1 onwards)
+        let bumped_rates: Vec<(f64, f64)> = knots
+            .iter()
+            .zip(forwards.iter())
+            .enumerate()
+            .map(|(idx, (&time, &rate))| {
+                let new_rate = if idx > seg_idx { rate + bump_rate } else { rate };
+                (time, new_rate)
+            })
+            .collect();
+
+        let bumped_fwd = ForwardCurve::builder(forward_curve_id.clone(), fwd.tenor())
+            .base_date(fwd.base_date())
+            .reset_lag(fwd.reset_lag())
+            .day_count(fwd.day_count())
+            .knots(bumped_rates)
+            .build()?;
+
+        let temp_ctx = base_ctx.clone().insert_forward(bumped_fwd);
+        let pv_bumped = revalue_with_context(&temp_ctx)?;
+        // DV01 per bucket: PV change per 1bp move in this bucket
+        let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
+        series.push((label, dv01));
+    }
+
+    context.store_bucketed_series(base_metric_id, series.clone());
+    let total: f64 = series.iter().map(|(_, v)| *v).sum();
+    Ok(total)
+}
+
 // ===== Generic Calculators =====
 
 use crate::instruments::common::traits::Instrument;
@@ -454,6 +567,42 @@ where
     }
 }
 
+/// Collect all rate curves (discount and forward) relevant to an instrument.
+///
+/// Returns a vector of (CurveId, RatesCurveKind) tuples, filtered to only include
+/// curves that exist in the provided MarketContext.
+fn collect_rate_curves_for_instrument<I: 'static>(
+    instrument: &I,
+    primary_discount: &CurveId,
+    market_ctx: &MarketContext,
+) -> Vec<(CurveId, RatesCurveKind)> {
+    let mut curves = Vec::new();
+
+    // Primary discount curve
+    if market_ctx.get_discount_ref(primary_discount.as_str()).is_ok() {
+        curves.push((primary_discount.clone(), RatesCurveKind::Discount));
+    }
+
+    // Additional discount curves (FX instruments)
+    let extra_discount = get_additional_discount_curves_if_available(instrument);
+    for curve_id in extra_discount {
+        if market_ctx.get_discount_ref(curve_id.as_str()).is_ok() {
+            curves.push((curve_id, RatesCurveKind::Discount));
+        }
+    }
+
+    // Forward curves
+    if let Some(fwd_curves) = get_forward_curves_if_available(instrument) {
+        for curve_id in fwd_curves {
+            if market_ctx.get_forward_ref(curve_id.as_str()).is_ok() {
+                curves.push((curve_id, RatesCurveKind::Forward));
+            }
+        }
+    }
+
+    curves
+}
+
 /// Helper function to extract forward curves if the instrument implements HasForwardCurves.
 /// Returns None if the instrument doesn't implement the trait.
 fn get_forward_curves_if_available<I: 'static>(instrument: &I) -> Option<Vec<CurveId>> {
@@ -531,26 +680,79 @@ where
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let discount_curve_id = instrument.discount_curve_id().clone();
+        let as_of = context.as_of;
+
+        // Get bump size from pricing overrides or default to 1.0 bp
+        let bump_bp = context
+            .pricing_overrides
+            .as_ref()
+            .and_then(|po| po.rate_bump_bp)
+            .unwrap_or(1.0);
 
         // Standard bucket times
         let buckets = standard_ir_dv01_buckets();
 
-        // Revaluation using full MarketContext (for complex pricers)
+        // Clone instrument once before collecting curves
         let inst_clone = instrument.clone();
-        let as_of = context.as_of;
 
-        let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
-            inst_clone.value(temp_ctx, as_of)
-        };
-
-        let total = compute_key_rate_dv01_series_with_context(
-            context,
+        // Collect all curves relevant to this instrument
+        let curves_to_bump = collect_rate_curves_for_instrument(
+            instrument,
             &discount_curve_id,
-            buckets,
-            1.0,
-            reval,
-        )?;
+            context.curves.as_ref(),
+        );
 
-        Ok(total)
+        // If no curves exist, return DV01 = 0
+        if curves_to_bump.is_empty() {
+            return Ok(0.0);
+        }
+
+        let mut total_dv01 = 0.0;
+
+        // Compute bucketed DV01 per curve
+        for (curve_id, curve_kind) in curves_to_bump {
+            let inst_for_curve = inst_clone.clone();
+            let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
+                inst_for_curve.value(temp_ctx, as_of)
+            };
+
+            // Create custom metric ID for this curve's series
+            let curve_metric_id = MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str()));
+
+            let curve_total = match curve_kind {
+                RatesCurveKind::Discount => {
+                    compute_key_rate_series_with_context_for_id(
+                        context,
+                        curve_metric_id.clone(),
+                        &curve_id,
+                        buckets.clone(),
+                        bump_bp,
+                        reval,
+                    )?
+                }
+                RatesCurveKind::Forward => {
+                    compute_key_rate_forward_series_with_context_for_id(
+                        context,
+                        curve_metric_id.clone(),
+                        &curve_id,
+                        buckets.clone(),
+                        bump_bp,
+                        reval,
+                    )?
+                }
+            };
+
+            total_dv01 += curve_total;
+
+            // Also store primary discount curve under standard BucketedDv01 key for BC
+            if curve_id == discount_curve_id && curve_kind == RatesCurveKind::Discount {
+                // Retrieve the series we just stored and re-store under standard key
+                if let Some(series) = context.get_series(&curve_metric_id) {
+                    context.store_bucketed_series(MetricId::BucketedDv01, series.clone());
+                }
+            }
+        }
+
+        Ok(total_dv01)
     }
 }

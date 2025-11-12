@@ -397,3 +397,75 @@ fn test_multiple_metrics_together() {
     assert!(result.measures.contains_key("dv01"));
     assert!(result.measures.contains_key("theta"));
 }
+
+#[test]
+fn test_bucketed_dv01_per_curve() {
+    // Test that bucketed DV01 provides per-curve breakdown for both discount curves
+    let dates = TestDates::standard();
+    let market = setup_standard_market(dates.as_of);
+
+    let swap = create_standard_fx_swap("BUCKETED_DV01", dates.near_date, dates.far_date_1y, 1_000_000.0);
+
+    let result = swap
+        .price_with_metrics(&market, dates.as_of, &[MetricId::BucketedDv01])
+        .unwrap();
+
+    // Verify backward-compatible primary discount curve series exists under standard key
+    assert!(
+        result.measures.contains_key("bucketed_dv01"),
+        "Standard BucketedDv01 scalar should be present for BC"
+    );
+    
+    // Verify per-bucket keys exist for primary discount curve (BC)
+    assert!(
+        result.measures.contains_key("bucketed_dv01::1y"),
+        "Primary discount curve bucketed series should be present under standard key"
+    );
+
+    // Count per-curve series buckets (domestic USD and foreign EUR)
+    let mut domestic_buckets = 0;
+    let mut foreign_buckets = 0;
+    
+    for key in result.measures.keys() {
+        if key.starts_with("bucketed_dv01::USD-OIS::") {
+            domestic_buckets += 1;
+        }
+        if key.starts_with("bucketed_dv01::EUR-OIS::") {
+            foreign_buckets += 1;
+        }
+    }
+
+    // Should have buckets for both discount curves
+    assert!(
+        domestic_buckets > 0,
+        "Should have domestic (USD) discount curve bucketed DV01s under bucketed_dv01::USD-OIS::*"
+    );
+    assert!(
+        foreign_buckets > 0,
+        "Should have foreign (EUR) discount curve bucketed DV01s under bucketed_dv01::EUR-OIS::*"
+    );
+
+    // Verify totals: sum of per-curve buckets should equal the total
+    let total_dv01 = *result.measures.get("bucketed_dv01").unwrap();
+    
+    let mut sum_domestic = 0.0;
+    let mut sum_foreign = 0.0;
+    
+    for (key, val) in &result.measures {
+        if key.starts_with("bucketed_dv01::USD-OIS::") {
+            sum_domestic += val;
+        }
+        if key.starts_with("bucketed_dv01::EUR-OIS::") {
+            sum_foreign += val;
+        }
+    }
+
+    // Total should approximately equal sum of both curves' contributions
+    let sum_both = sum_domestic + sum_foreign;
+    assert!(
+        (total_dv01 - sum_both).abs() < 1.0,
+        "Total DV01 ({}) should equal sum of per-curve DV01s ({})",
+        total_dv01,
+        sum_both
+    );
+}

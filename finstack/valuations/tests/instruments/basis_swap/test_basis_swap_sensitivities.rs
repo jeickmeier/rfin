@@ -491,3 +491,107 @@ fn sensitivity_to_spread() {
         ratio
     );
 }
+
+#[test]
+fn test_bucketed_dv01_per_curve() {
+    // Test that bucketed DV01 provides per-curve breakdown for both forward curves
+    let ctx = market();
+    let as_of = d(2025, 1, 2);
+
+    let swap = BasisSwap::new(
+        "BUCKETED-DV01-TEST",
+        Money::new(10_000_000.0, USD),
+        d(2025, 1, 2),
+        d(2027, 1, 2),
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        CurveId::new("USD-OIS"),
+    );
+
+    let res = swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::BucketedDv01])
+        .unwrap();
+
+    // Verify backward-compatible primary discount curve series exists under standard key
+    assert!(
+        res.measures.contains_key("bucketed_dv01"),
+        "Standard BucketedDv01 scalar should be present for BC"
+    );
+    
+    // Verify per-bucket keys exist for primary discount curve (BC)
+    assert!(
+        res.measures.contains_key("bucketed_dv01::1y"),
+        "Primary discount curve bucketed series should be present under standard key"
+    );
+
+    // Count per-curve series buckets
+    let mut disc_buckets = 0;
+    let mut fwd_3m_buckets = 0;
+    let mut fwd_1m_buckets = 0;
+    
+    for key in res.measures.keys() {
+        if key.starts_with("bucketed_dv01::USD-OIS::") {
+            disc_buckets += 1;
+        }
+        if key.starts_with("bucketed_dv01::USD-SOFR-3M::") {
+            fwd_3m_buckets += 1;
+        }
+        if key.starts_with("bucketed_dv01::USD-SOFR-1M::") {
+            fwd_1m_buckets += 1;
+        }
+    }
+
+    // Should have buckets for all three curves (discount + 2 forward curves)
+    assert!(
+        disc_buckets > 0,
+        "Should have discount curve bucketed DV01s under bucketed_dv01::USD-OIS::*"
+    );
+    assert!(
+        fwd_3m_buckets > 0,
+        "Should have 3M forward curve bucketed DV01s under bucketed_dv01::USD-SOFR-3M::*"
+    );
+    assert!(
+        fwd_1m_buckets > 0,
+        "Should have 1M forward curve bucketed DV01s under bucketed_dv01::USD-SOFR-1M::*"
+    );
+
+    // Verify totals: sum of per-curve buckets should equal the total
+    let total_dv01 = *res.measures.get("bucketed_dv01").unwrap();
+    
+    let mut sum_disc = 0.0;
+    let mut sum_fwd_3m = 0.0;
+    let mut sum_fwd_1m = 0.0;
+    
+    for (key, val) in &res.measures {
+        if key.starts_with("bucketed_dv01::USD-OIS::") {
+            sum_disc += val;
+        }
+        if key.starts_with("bucketed_dv01::USD-SOFR-3M::") {
+            sum_fwd_3m += val;
+        }
+        if key.starts_with("bucketed_dv01::USD-SOFR-1M::") {
+            sum_fwd_1m += val;
+        }
+    }
+
+    // Total should approximately equal sum of all curves' contributions
+    let sum_all = sum_disc + sum_fwd_3m + sum_fwd_1m;
+    assert!(
+        (total_dv01 - sum_all).abs() < 1.0,
+        "Total DV01 ({}) should equal sum of per-curve DV01s ({})",
+        total_dv01,
+        sum_all
+    );
+}
