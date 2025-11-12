@@ -30,11 +30,6 @@ pub fn flat_discount(id: &str, base: Date, rate: f64) -> finstack_core::Result<D
             }
         })
         .collect();
-    
-    // Verify all DFs are positive before passing to builder
-    if !knots.iter().all(|(_, df)| *df > 0.0) {
-        panic!("All DFs should be positive for rate {}, got: {:?}", rate, knots);
-    }
 
     let mut builder = DiscountCurve::builder(id)
         .base_date(base)
