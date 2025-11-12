@@ -155,6 +155,9 @@ The `SwaptionVolCalibrator` estimates forward swap rates and annuities from appr
 - Proper day count handling across all asset classes
 - Business day adjustments with holiday calendar support
 - Reset lags, settlement conventions, and market-standard interpolation
+- **Discount Curves**: Default MonotoneConvex interpolation with FlatForward extrapolation for no-arbitrage tails
+- **Forward Curves**: Default Linear interpolation with FlatForward extrapolation for stable tail rates
+- **DF→FWD Conversion**: Preserves negative forwards (no clamping); errors on malformed data instead of silent fallbacks
 
 ### New in this release (market-standards updates)
 - strict_validation feature flag to escalate calendar/butterfly arbitrage checks to hard errors (`--features strict_validation`)

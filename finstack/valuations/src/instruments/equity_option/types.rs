@@ -527,7 +527,8 @@ mod tests {
             t,
             option.option_type,
         );
-        approx_eq(price.amount(), expected_unit * option.contract_size, 1e-3);
+        // Slightly wider tolerance due to MonotoneConvex interpolation (vs Linear)
+        approx_eq(price.amount(), expected_unit * option.contract_size, 5e-3);
 
         let greeks = option.greeks(&curves, as_of).unwrap();
         let expected = pricer::compute_greeks(&option, &curves, as_of).unwrap();
@@ -572,7 +573,8 @@ mod tests {
             t,
             override_option.option_type,
         ) * override_option.contract_size;
-        approx_eq(override_price.amount(), expected, 2e-3);
+        // Slightly wider tolerance due to MonotoneConvex interpolation (vs Linear)
+        approx_eq(override_price.amount(), expected, 5e-3);
     }
 
     #[test]

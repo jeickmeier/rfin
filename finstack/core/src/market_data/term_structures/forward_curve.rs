@@ -132,6 +132,9 @@ pub struct ForwardCurveState {
 
 impl ForwardCurve {
     /// Start building a forward curve for `id` with tenor `tenor_years`.
+    ///
+    /// **Defaults:** Linear interpolation with FlatForward extrapolation maintains
+    /// stable tail forward rates consistent with market practice.
     pub fn builder(id: impl Into<CurveId>, tenor_years: f64) -> ForwardCurveBuilder {
         ForwardCurveBuilder {
             id: id.into(),
@@ -142,6 +145,7 @@ impl ForwardCurve {
             points: Vec::new(),
             style: InterpStyle::Linear,
             min_forward_rate: None,
+            extrapolation: ExtrapolationPolicy::FlatForward,
         }
     }
 
@@ -248,6 +252,7 @@ pub struct ForwardCurveBuilder {
     points: Vec<(f64, f64)>,
     style: InterpStyle,
     min_forward_rate: Option<f64>,
+    extrapolation: ExtrapolationPolicy,
 }
 
 impl ForwardCurveBuilder {
@@ -277,6 +282,12 @@ impl ForwardCurveBuilder {
     /// Select interpolation style for this forward curve.
     pub fn set_interp(mut self, style: InterpStyle) -> Self {
         self.style = style;
+        self
+    }
+
+    /// Set the extrapolation policy for out-of-bounds evaluation.
+    pub fn extrapolation(mut self, policy: ExtrapolationPolicy) -> Self {
+        self.extrapolation = policy;
         self
     }
 
@@ -314,7 +325,7 @@ impl ForwardCurveBuilder {
             self.style,
             knots.clone(),
             forwards.clone(),
-            ExtrapolationPolicy::default(),
+            self.extrapolation,
         )?;
         Ok(ForwardCurve {
             id: self.id,
@@ -390,5 +401,45 @@ mod tests {
     fn interpolates_rate() {
         let fc = sample_forward();
         assert!((fc.rate(0.5) - 0.035).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tail_continuity_with_flatforward_extrapolation() {
+        // Test that FlatForward extrapolation maintains stable tail forwards
+        let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let fc = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(base)
+            .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
+            .set_interp(InterpStyle::Linear)
+            .extrapolation(ExtrapolationPolicy::FlatForward)
+            .build()
+            .unwrap();
+
+        // Rate at last knot and beyond should be continuous
+        let rate_at_last = fc.rate(5.0);
+        let rate_beyond = fc.rate(10.0);
+
+        // FlatForward should maintain the rate (or slope)
+        let abs_diff = (rate_beyond - rate_at_last).abs();
+        assert!(
+            abs_diff < 0.01,
+            "Forward rate tail discontinuity: rate_at_last={:.6}, rate_beyond={:.6}",
+            rate_at_last, rate_beyond
+        );
+    }
+
+    #[test]
+    fn default_uses_flatforward_extrapolation() {
+        // Verify new market-standard default extrapolation
+        let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let fc = ForwardCurve::builder("TEST", 0.25)
+            .base_date(base)
+            .knots([(0.0, 0.03), (1.0, 0.04)])
+            .build()
+            .unwrap();
+
+        // With FlatForward, tail rate should be stable (not zero)
+        let rate_tail = fc.rate(5.0);
+        assert!(rate_tail > 0.02, "Tail forward should remain positive with FlatForward: {:.6}", rate_tail);
     }
 }

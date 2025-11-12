@@ -80,13 +80,6 @@ use crate::{
     types::CurveId,
 };
 
-/// Default forward rate used as fallback when converting discount curves to forward curves.
-///
-/// This value (4.5%) represents a typical mid-cycle interest rate for major currencies
-/// and is used only when insufficient data prevents computing forward rates from
-/// discount factor differences. In normal usage with well-formed curves, this fallback
-/// should rarely be triggered.
-const DEFAULT_FORWARD_RATE_FALLBACK: f64 = 0.045;
 
 /// Piece-wise discount factor curve supporting several interpolation styles.
 #[derive(Debug)]
@@ -396,14 +389,17 @@ impl DiscountCurve {
     /// **Note:** Monotonic discount factor validation is enabled by default to ensure
     /// no-arbitrage conditions. Use `.allow_non_monotonic()` if you need to disable this
     /// validation (not recommended for production use).
+    ///
+    /// **Defaults:** MonotoneConvex interpolation with FlatForward extrapolation follow
+    /// market-standard practices for no-arbitrage discount curves.
     pub fn builder(id: impl Into<CurveId>) -> DiscountCurveBuilder {
         DiscountCurveBuilder {
             id: id.into(),
             base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
             day_count: DayCount::Act365F,
             points: Vec::new(),
-            style: InterpStyle::Linear,
-            extrapolation: ExtrapolationPolicy::default(),
+            style: InterpStyle::MonotoneConvex,
+            extrapolation: ExtrapolationPolicy::FlatForward,
             require_monotonic: true, // Enforced by default for no-arbitrage
             min_forward_rate: None,  // No floor by default
             allow_non_monotonic: false, // Strict validation by default
@@ -446,8 +442,11 @@ impl DiscountCurve {
                 } else if t > 0.0 && df > 0.0 {
                     // Use spot rate
                     (-df.ln()) / t
+                } else if t == 0.0 && dt > 0.0 && df == 1.0 && df_next > 0.0 {
+                    // Special case: t=0 with DF(0)=1, use forward to next point
+                    (-df_next.ln()) / t_next
                 } else {
-                    DEFAULT_FORWARD_RATE_FALLBACK
+                    return Err(crate::error::InputError::Invalid.into());
                 }
             } else if i < self.knots.len() - 1 {
                 // Interior points: use central difference
@@ -461,7 +460,7 @@ impl DiscountCurve {
                 if dt > 0.0 && df_next > 0.0 && df_prev > 0.0 {
                     (df_prev.ln() - df_next.ln()) / dt
                 } else {
-                    DEFAULT_FORWARD_RATE_FALLBACK
+                    return Err(crate::error::InputError::Invalid.into());
                 }
             } else {
                 // Last point: use backward difference
@@ -473,11 +472,11 @@ impl DiscountCurve {
                 if dt > 0.0 && df > 0.0 && df_prev > 0.0 {
                     (df_prev / df - 1.0) / dt
                 } else {
-                    DEFAULT_FORWARD_RATE_FALLBACK
+                    return Err(crate::error::InputError::Invalid.into());
                 }
             };
 
-            forward_rates.push((t, forward_rate.clamp(0.0, 0.5))); // Clamp to reasonable range
+            forward_rates.push((t, forward_rate));
         }
 
         // Build forward curve with linear interpolation (more stable)
@@ -516,8 +515,11 @@ impl DiscountCurve {
                     (df / df_next - 1.0) / dt
                 } else if t > 0.0 && df > 0.0 {
                     (-df.ln()) / t
+                } else if t == 0.0 && dt > 0.0 && df == 1.0 && df_next > 0.0 {
+                    // Special case: t=0 with DF(0)=1, use forward to next point
+                    (-df_next.ln()) / t_next
                 } else {
-                    DEFAULT_FORWARD_RATE_FALLBACK
+                    return Err(crate::error::InputError::Invalid.into());
                 }
             } else if i < self.knots.len() - 1 {
                 let t_prev = self.knots[i - 1];
@@ -529,7 +531,7 @@ impl DiscountCurve {
                 if dt > 0.0 && df_next > 0.0 && df_prev > 0.0 {
                     (df_prev.ln() - df_next.ln()) / dt
                 } else {
-                    DEFAULT_FORWARD_RATE_FALLBACK
+                    return Err(crate::error::InputError::Invalid.into());
                 }
             } else {
                 let t_prev = self.knots[i - 1];
@@ -540,11 +542,11 @@ impl DiscountCurve {
                 if dt > 0.0 && df > 0.0 && df_prev > 0.0 {
                     (df_prev / df - 1.0) / dt
                 } else {
-                    DEFAULT_FORWARD_RATE_FALLBACK
+                    return Err(crate::error::InputError::Invalid.into());
                 }
             };
 
-            forward_rates.push((t, forward_rate.clamp(0.0, 0.5)));
+            forward_rates.push((t, forward_rate));
         }
 
         ForwardCurve::builder(forward_id, tenor_years)
@@ -928,5 +930,111 @@ mod tests {
         let yc = sample_curve_log();
         let mid = yc.df(0.5);
         assert!(mid < 1.0 && mid > 0.98);
+    }
+
+    #[test]
+    fn tail_continuity_with_flatforward_extrapolation() {
+        // Test that FlatForward extrapolation maintains continuous forward rates beyond last pillar
+        let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (0.25, 0.99), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
+            .set_interp(InterpStyle::MonotoneConvex)
+            .extrapolation(ExtrapolationPolicy::FlatForward)
+            .build()
+            .unwrap();
+
+        // Check that tail extrapolation maintains reasonable forward behavior
+        let df_at_10 = curve.df(10.0);
+        let df_at_15 = curve.df(15.0);
+        let df_at_20 = curve.df(20.0);
+
+        // DFs should continue decreasing monotonically
+        assert!(df_at_15 < df_at_10, "Tail DF should decrease: df(15)={:.6} >= df(10)={:.6}", df_at_15, df_at_10);
+        assert!(df_at_20 < df_at_15, "Tail DF should decrease: df(20)={:.6} >= df(15)={:.6}", df_at_20, df_at_15);
+
+        // Calculate forward rates in tail - should be stable with FlatForward
+        let fwd_10_15 = curve.forward(10.0, 15.0);
+        let fwd_15_20 = curve.forward(15.0, 20.0);
+        
+        // Forward rates should be continuous (within reasonable tolerance for finite differences)
+        let fwd_diff = (fwd_15_20 - fwd_10_15).abs();
+        assert!(
+            fwd_diff < 0.01,
+            "Forward rate should be stable in tail with FlatForward: fwd(10-15)={:.4}%, fwd(15-20)={:.4}%",
+            fwd_10_15 * 100.0, fwd_15_20 * 100.0
+        );
+    }
+
+    #[test]
+    fn default_uses_monotone_convex_and_flatforward() {
+        // Verify new market-standard defaults are in place
+        let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let curve = DiscountCurve::builder("TEST")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
+            .build()
+            .unwrap();
+
+        // Defaults should be MonotoneConvex + FlatForward (verified by checking tail DF behavior)
+        // With FlatForward, the tail should extrapolate using the forward rate at the last segment
+        let df_at_last = curve.df(5.0);
+        let df_beyond = curve.df(10.0);
+        
+        // Discount factors should continue decreasing (or remain stable in extreme cases)
+        // The key is that FlatForward doesn't produce zero or increasing DFs
+        assert!(df_beyond <= df_at_last, 
+            "Tail DF should not increase: df(10)={:.6}, df(5)={:.6}", 
+            df_beyond, df_at_last);
+        
+        // Forward rate in tail should be non-negative for this curve
+        let zero_at_last = curve.zero(5.0);
+        assert!(zero_at_last > 0.0, "Zero rate should be positive for decreasing DF curve");
+    }
+
+    #[test]
+    fn df_to_fwd_preserves_low_forwards_no_clamp() {
+        // Test that DF→FWD conversion works with very small forwards
+        // (The old code would clamp to [0, 0.5])
+        let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+
+        // Build a nearly-flat curve implying very low forwards
+        // All DFs very close to 1.0 implies near-zero interest rates
+        let curve = DiscountCurve::builder("EUR-OIS")
+            .base_date(base)
+            .knots([
+                (0.0, 1.0),
+                (1.0, 0.9998),  // ~2bp zero rate
+                (5.0, 0.9990),  // ~2bp zero rate
+            ])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        // Convert to forward curve - should succeed
+        let fwd_curve = curve.to_forward_curve("EUR-FWD", 0.25);
+
+        // Should succeed
+        assert!(fwd_curve.is_ok(), "DF→FWD should work with low forwards");
+        let fwd = fwd_curve.unwrap();
+
+        // All forwards should be very small (< 1%)
+        let rates: Vec<f64> = fwd.knots().iter().map(|&t| fwd.rate(t)).collect();
+        
+        for (i, &rate) in rates.iter().enumerate() {
+            assert!(
+                rate.abs() < 0.01,
+                "Forward rate {} should be very small: {:.4}%",
+                i, rate * 100.0
+            );
+        }
+        
+        // Verify no clamping occurred - rates should accurately reflect the DF curve
+        // The first forward should be approximately (1.0/0.9998 - 1)/1 ≈ 0.0002 = 0.02%
+        assert!(
+            rates[0] >= 0.0 && rates[0] < 0.001,
+            "First forward should be near 0.02%: actual {:.4}%",
+            rates[0] * 100.0
+        );
     }
 }

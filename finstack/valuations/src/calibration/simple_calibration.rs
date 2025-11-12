@@ -213,6 +213,9 @@ impl SimpleCalibration {
                 let curve = DiscountCurve::builder("USD-OIS")
                     .base_date(self.base_date)
                     .knots(knots)
+                    .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
+                    .enforce_no_arbitrage()
+                    .extrapolation(finstack_core::math::interp::ExtrapolationPolicy::FlatForward)
                     .build()?;
 
                 let mut report = CalibrationReport::for_type("yield_curve", BTreeMap::new(), 0)
@@ -793,6 +796,80 @@ mod tests {
 
         if context.get_discount("USD-OIS").is_err() {
             tracing::debug!("No discount curve found; skip verification for now");
+        }
+    }
+
+    #[test]
+    fn test_fallback_calibration_validation_and_repricing() {
+        // Test that deposit-only fallback produces a valid, repriceable curve
+        use crate::calibration::validation::CurveValidator;
+        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::deposit::Deposit;
+        use finstack_core::money::Money;
+
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+        // Create deposit-only quotes
+        let quotes = vec![
+            MarketQuote::Rates(RatesQuote::Deposit {
+                maturity: base_date + time::Duration::days(30),
+                rate: 0.045,
+                day_count: DayCount::Act360,
+            }),
+            MarketQuote::Rates(RatesQuote::Deposit {
+                maturity: base_date + time::Duration::days(90),
+                rate: 0.046,
+                day_count: DayCount::Act360,
+            }),
+            MarketQuote::Rates(RatesQuote::Deposit {
+                maturity: base_date + time::Duration::days(180),
+                rate: 0.047,
+                day_count: DayCount::Act360,
+            }),
+        ];
+
+        let calibration = SimpleCalibration::new(base_date, Currency::USD);
+
+        // Calibrate (this will trigger fallback for deposit-only quotes)
+        let (context, _report) = calibration
+            .calibrate(&quotes)
+            .expect("Fallback calibration should succeed");
+
+        // Get the discount curve
+        let curve = context.get_discount("USD-OIS").expect("Discount curve should exist");
+
+        // Validate the curve passes validation
+        curve.validate().expect("Fallback curve should pass validation");
+
+        // Reprice deposits and verify accuracy
+        for quote in quotes {
+            if let MarketQuote::Rates(RatesQuote::Deposit {
+                maturity,
+                rate,
+                day_count,
+            }) = quote
+            {
+                let dep = Deposit {
+                    id: format!("FALLBACK_DEP_{}", maturity).into(),
+                    notional: Money::new(1_000_000.0, Currency::USD),
+                    start: base_date,
+                    end: maturity,
+                    day_count,
+                    quote_rate: Some(rate),
+                    discount_curve_id: "USD-OIS".into(),
+                    attributes: Default::default(),
+                };
+
+                let pv = dep.value(&context, base_date).expect("Deposit pricing should work");
+
+                // Repricing tolerance: $1 per $1MM (approximately 0.1bp)
+                assert!(
+                    pv.amount().abs() <= 1.0,
+                    "Fallback curve repricing error too large: ${:.2} for deposit maturing {}",
+                    pv.amount(),
+                    maturity
+                );
+            }
         }
     }
 }
