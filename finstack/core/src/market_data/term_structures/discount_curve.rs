@@ -162,6 +162,18 @@ impl DiscountCurve {
         self.day_count
     }
 
+    /// Interpolation style used by this curve.
+    #[inline]
+    pub fn interp_style(&self) -> InterpStyle {
+        self.style
+    }
+
+    /// Extrapolation policy used by this curve.
+    #[inline]
+    pub fn extrapolation(&self) -> ExtrapolationPolicy {
+        self.extrapolation
+    }
+
     /// Continuously-compounded zero rate.
     #[inline]
     pub fn zero(&self, t: f64) -> f64 {
@@ -242,10 +254,12 @@ impl DiscountCurve {
         disc.df(t)
     }
 
-    /// Create a new curve with a parallel rate bump applied in basis points.
+    /// Create a new curve with a parallel rate bump applied in basis points (fallible).
     ///
     /// Uses df_bumped(t) = df_original(t) * exp(-bump * t), where bump = bp / 10_000.
-    pub fn with_parallel_bump(&self, bp: f64) -> Self {
+    ///
+    /// Returns an error if the bumped curve violates validation constraints.
+    pub fn try_with_parallel_bump(&self, bp: f64) -> crate::Result<Self> {
         let bump_rate = bp / 10_000.0;
         let bumped_points: Vec<(f64, f64)> = self
             .knots
@@ -265,10 +279,23 @@ impl DiscountCurve {
             .set_interp(self.style)
             .extrapolation(self.extrapolation)
             .build()
+    }
+
+    /// Create a new curve with a parallel rate bump applied in basis points.
+    ///
+    /// Uses df_bumped(t) = df_original(t) * exp(-bump * t), where bump = bp / 10_000.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the bumped curve violates validation constraints. Use
+    /// [`try_with_parallel_bump`](Self::try_with_parallel_bump) for fallible bumping.
+    #[deprecated(since = "0.1.0", note = "Use try_with_parallel_bump for error handling")]
+    pub fn with_parallel_bump(&self, bp: f64) -> Self {
+        self.try_with_parallel_bump(bp)
             .expect("building bumped discount curve should not fail")
     }
 
-    /// Create a new curve with a key-rate bump applied at a target time `t` (in years).
+    /// Create a new curve with a key-rate bump applied at a target time `t` (in years) (fallible).
     ///
     /// This approximates a classic key-rate DV01 bump by applying an additive rate
     /// shift only to the forward segment that contains `t`. The effect is localized
@@ -277,9 +304,11 @@ impl DiscountCurve {
     /// Upstream interpolation then distributes the effect within the segment.
     ///
     /// If the curve has fewer than 2 knots, falls back to a parallel bump.
-    pub fn with_key_rate_bump_years(&self, t: f64, bp: f64) -> Self {
+    ///
+    /// Returns an error if the bumped curve violates validation constraints.
+    pub fn try_with_key_rate_bump_years(&self, t: f64, bp: f64) -> crate::Result<Self> {
         if self.knots.len() < 2 {
-            return self.with_parallel_bump(bp);
+            return self.try_with_parallel_bump(bp);
         }
 
         // Find segment i such that knots[i] < t <= knots[i+1]
@@ -303,7 +332,7 @@ impl DiscountCurve {
         let dt = (t1 - t0).max(0.0);
         if dt == 0.0 {
             // Degenerate segment, fall back to parallel bump
-            return self.with_parallel_bump(bp);
+            return self.try_with_parallel_bump(bp);
         }
 
         let bump_rate = bp / 10_000.0;
@@ -323,6 +352,25 @@ impl DiscountCurve {
             .set_interp(self.style)
             .extrapolation(self.extrapolation)
             .build()
+    }
+
+    /// Create a new curve with a key-rate bump applied at a target time `t` (in years).
+    ///
+    /// This approximates a classic key-rate DV01 bump by applying an additive rate
+    /// shift only to the forward segment that contains `t`. The effect is localized
+    /// to the bracketed interval [t_i, t_{i+1}] that contains `t` by scaling discount
+    /// factors at and beyond `t_{i+1}` by `exp(-bump * dt)` where `dt = t_{i+1}-t_i`.
+    /// Upstream interpolation then distributes the effect within the segment.
+    ///
+    /// If the curve has fewer than 2 knots, falls back to a parallel bump.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the bumped curve violates validation constraints. Use
+    /// [`try_with_key_rate_bump_years`](Self::try_with_key_rate_bump_years) for fallible bumping.
+    #[deprecated(since = "0.1.0", note = "Use try_with_key_rate_bump_years for error handling")]
+    pub fn with_key_rate_bump_years(&self, t: f64, bp: f64) -> Self {
+        self.try_with_key_rate_bump_years(t, bp)
             .expect("building key-rate bumped discount curve should not fail")
     }
     /// Discount factor at time `t` (helper calling the underlying interpolator).

@@ -193,7 +193,9 @@ The following table shows which metrics are implemented for each instrument type
 **Formula**: `DV01 = PV(rate + 1bp) - PV(base)`
 
 - **Units**: Price units per basis point (bp)
-- **Sign Convention**: Positive when value increases as rates rise (typical fixed‑rate bonds have DV01 < 0)
+- **Sign Convention**: Signed sensitivity. DV01 > 0 means the instrument gains value when rates rise; DV01 < 0 means it loses value when rates rise.
+  - **Typical signs**: Long fixed-rate bonds have DV01 < 0 (lose value as rates rise), while receiver swaps (receive fixed, pay floating) typically have DV01 < 0 as well.
+  - **Formula interpretation**: The formula explicitly uses `PV(rate + 1bp) - PV(base)`, so the sign reflects the actual direction of PV change.
 - **Bump Size**: 1 basis point (0.0001)
 - **Defined in**: `finite_difference::bump_sizes::INTEREST_RATE_BP`
 

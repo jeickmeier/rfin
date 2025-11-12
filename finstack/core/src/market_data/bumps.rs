@@ -155,7 +155,7 @@ pub trait Bumpable: Sized {
 impl Bumpable for DiscountCurve {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
         if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
-            Some(self.with_parallel_bump(spec.value))
+            self.try_with_parallel_bump(spec.value).ok()
         } else {
             None
         }

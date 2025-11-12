@@ -266,7 +266,7 @@ where
         .get_discount_ref(discount_curve_id.as_str())?;
 
     // Parallel bump the entire curve
-    let bumped = disc.with_parallel_bump(bump_bp);
+    let bumped = disc.try_with_parallel_bump(bump_bp)?;
     let pv_bumped = revalue_with_disc(&bumped)?;
     // DV01 = PV change per 1bp move. If bump is N bp, divide by N to get per-bp sensitivity
     let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
@@ -334,7 +334,7 @@ where
         } else {
             format!("{:.0}y", t)
         };
-        let bumped = disc.with_key_rate_bump_years(t, bump_bp);
+        let bumped = disc.try_with_key_rate_bump_years(t, bump_bp)?;
         let pv_bumped = revalue_with_disc(&bumped)?;
         // DV01 per bucket: PV change per 1bp move in this bucket
         let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
@@ -373,8 +373,8 @@ where
             format!("{:.0}y", t)
         };
         // Create bumped curve, then rebuild it with the ORIGINAL ID so instruments can find it
-        // Note: We lose the original interpolation style but use safe defaults (Linear)
-        let bumped_tmp = disc.with_key_rate_bump_years(t, bump_bp);
+        // Preserve interpolation style and extrapolation policy for consistency
+        let bumped_tmp = disc.try_with_key_rate_bump_years(t, bump_bp)?;
         let bumped_points: Vec<(f64, f64)> = bumped_tmp
             .knots()
             .iter()
@@ -385,6 +385,8 @@ where
             .base_date(bumped_tmp.base_date())
             .day_count(bumped_tmp.day_count())
             .knots(bumped_points)
+            .set_interp(disc.interp_style())
+            .extrapolation(disc.extrapolation())
             .build()?;
         let temp_ctx = base_ctx.clone().insert_discount(bumped_disc);
 
@@ -424,9 +426,9 @@ where
         } else {
             format!("{:.0}y", t)
         };
-        let bumped = disc.with_key_rate_bump_years(t, bump_bp);
+        let bumped = disc.try_with_key_rate_bump_years(t, bump_bp)?;
         let pv_bumped = revalue_with_disc(&bumped)?;
-        let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+        let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
         series.push((label, dv01));
     }
 
@@ -459,7 +461,7 @@ where
         } else {
             format!("{:.0}y", t)
         };
-        let bumped_disc = disc.with_key_rate_bump_years(t, bump_bp);
+        let bumped_disc = disc.try_with_key_rate_bump_years(t, bump_bp)?;
         let temp_ctx = base_ctx.clone().insert_discount(bumped_disc);
         let pv_bumped = revalue_with_context(&temp_ctx)?;
         // DV01 per bucket: PV change per 1bp move in this bucket

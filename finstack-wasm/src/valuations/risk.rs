@@ -69,7 +69,8 @@ pub fn krd_dv01_ladder(
         };
 
         // Bump curve at this key rate
-        let bumped = disc.with_key_rate_bump_years(t, bump);
+        let bumped = disc.try_with_key_rate_bump_years(t, bump)
+            .map_err(|e| JsValue::from_str(&format!("Bump failed: {}", e)))?;
         let temp_market = market.inner().clone().insert_discount(bumped);
 
         // Revalue with bumped curve
@@ -77,8 +78,8 @@ pub fn krd_dv01_ladder(
             .value(&temp_market, as_of_date)
             .map_err(|e| JsValue::from_str(&format!("Revaluation failed: {}", e)))?;
 
-        // DV01 = (PV_bumped - PV_base) / 10000
-        let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+        // DV01 = (PV_bumped - PV_base) / bump_bp
+        let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump;
 
         bucket_labels.push(label);
         dv01_values.push(dv01);
@@ -144,7 +145,8 @@ pub fn cs01_ladder(
         };
 
         // Bump curve at this key rate
-        let bumped = disc.with_key_rate_bump_years(t, bump);
+        let bumped = disc.try_with_key_rate_bump_years(t, bump)
+            .map_err(|e| JsValue::from_str(&format!("Bump failed: {}", e)))?;
         let temp_market = market.inner().clone().insert_discount(bumped);
 
         // Revalue
@@ -152,8 +154,8 @@ pub fn cs01_ladder(
             .value(&temp_market, as_of_date)
             .map_err(|e| JsValue::from_str(&format!("Revaluation failed: {}", e)))?;
 
-        // CS01 = (PV_bumped - PV_base) / 10000
-        let cs01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+        // CS01 = (PV_bumped - PV_base) / bump_bp
+        let cs01 = (pv_bumped.amount() - base_pv.amount()) / bump;
 
         bucket_labels.push(label);
         cs01_values.push(cs01);

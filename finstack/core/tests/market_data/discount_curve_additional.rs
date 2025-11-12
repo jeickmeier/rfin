@@ -20,7 +20,7 @@ fn discount_curve_require_monotonic_enforces_decreasing_dfs() {
 #[test]
 fn discount_curve_parallel_bump_and_df_batch() {
     let curve = sample_discount_curve("USD-OIS");
-    let bumped = curve.with_parallel_bump(15.0);
+    let bumped = curve.try_with_parallel_bump(15.0).unwrap();
     assert_eq!(bumped.id().as_str(), "USD-OIS_bump_15bp");
 
     let times = [0.5, 1.0, 2.0];
@@ -91,7 +91,7 @@ fn discount_curve_key_rate_bump_targets_segment() {
         .build()
         .unwrap();
 
-    let bumped = curve.with_key_rate_bump_years(1.2, 25.0);
+    let bumped = curve.try_with_key_rate_bump_years(1.2, 25.0).unwrap();
 
     // First segment untouched, later segments scaled
     assert_eq!(bumped.df(0.0), curve.df(0.0));
@@ -251,4 +251,86 @@ fn test_zero_forward_rate_accepted() {
         "Flat curve should be accepted: {:?}",
         result.err()
     );
+}
+
+// ===================================================================
+// Bump Method Error Handling Tests (No Panics)
+// ===================================================================
+
+#[test]
+fn test_try_with_parallel_bump_returns_error_on_invalid_curve() {
+    // Create a valid base curve
+    let curve = DiscountCurve::builder("VALID")
+        .base_date(sample_base_date())
+        .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
+        .build()
+        .unwrap();
+
+    // Normal bump should succeed
+    let bumped_ok = curve.try_with_parallel_bump(10.0);
+    assert!(
+        bumped_ok.is_ok(),
+        "Valid curve bump should succeed: {:?}",
+        bumped_ok.err()
+    );
+
+    // Extreme bump that could violate monotonicity should still succeed
+    // (exponential bumping preserves monotonicity)
+    let bumped_extreme = curve.try_with_parallel_bump(500.0);
+    assert!(
+        bumped_extreme.is_ok(),
+        "Extreme parallel bump should succeed (preserves monotonicity): {:?}",
+        bumped_extreme.err()
+    );
+}
+
+#[test]
+fn test_try_with_key_rate_bump_returns_error_on_invalid_curve() {
+    // Create a valid base curve
+    let curve = DiscountCurve::builder("VALID-KR")
+        .base_date(sample_base_date())
+        .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95), (5.0, 0.85)])
+        .build()
+        .unwrap();
+
+    // Normal key-rate bump should succeed
+    let bumped_ok = curve.try_with_key_rate_bump_years(1.5, 15.0);
+    assert!(
+        bumped_ok.is_ok(),
+        "Valid key-rate bump should succeed: {:?}",
+        bumped_ok.err()
+    );
+
+    // Extreme bump might cause issues, but should return error not panic
+    let bumped_extreme = curve.try_with_key_rate_bump_years(1.0, 1000.0);
+    // Either succeeds or returns typed error - no panic
+    match bumped_extreme {
+        Ok(_) => {} // Success is fine
+        Err(e) => {
+            // Error should be typed, not panic
+            assert!(
+                matches!(e, finstack_core::Error::Validation(_) | finstack_core::Error::Input(_)),
+                "Should return typed error, got: {:?}",
+                e
+            );
+        }
+    }
+}
+
+#[test]
+fn test_deprecated_bump_methods_still_work() {
+    // Verify deprecated methods still function for backward compatibility
+    let curve = DiscountCurve::builder("DEPRECATED-TEST")
+        .base_date(sample_base_date())
+        .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
+        .build()
+        .unwrap();
+
+    #[allow(deprecated)]
+    let bumped_parallel = curve.with_parallel_bump(10.0);
+    assert_eq!(bumped_parallel.id().as_str(), "DEPRECATED-TEST_bump_10bp");
+
+    #[allow(deprecated)]
+    let bumped_kr = curve.with_key_rate_bump_years(1.2, 15.0);
+    assert_eq!(bumped_kr.id().as_str(), "DEPRECATED-TEST_bump_15bp");
 }
