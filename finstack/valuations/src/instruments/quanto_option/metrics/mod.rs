@@ -45,6 +45,9 @@ pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
                 (Dv01, crate::metrics::GenericParallelDv01::<
                     crate::instruments::quanto_option::QuantoOption,
                 >::default()),
+                (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                    crate::instruments::quanto_option::QuantoOption,
+                >::default()),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator),
                 // Theta is now registered universally in metrics::standard_registry()

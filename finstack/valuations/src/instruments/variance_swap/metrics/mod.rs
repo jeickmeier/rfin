@@ -31,6 +31,9 @@ pub fn register_variance_swap_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::GenericParallelDv01::<
                 crate::instruments::VarianceSwap,
             >::default()),
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                crate::instruments::VarianceSwap,
+            >::default()),
             (VarianceVega, VarianceVegaCalculator),
             (ExpectedVariance, ExpectedVarianceCalculator),
             (RealizedVariance, RealizedVarianceCalculator),

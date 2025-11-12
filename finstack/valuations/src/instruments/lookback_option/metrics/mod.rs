@@ -48,6 +48,9 @@ pub fn register_lookback_option_metrics(registry: &mut MetricRegistry) {
                 (Dv01, crate::metrics::GenericParallelDv01::<
                     crate::instruments::lookback_option::LookbackOption,
                 >::default()),
+                (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                    crate::instruments::lookback_option::LookbackOption,
+                >::default()),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator::default()),
                 // Theta is now registered universally in metrics::standard_registry()

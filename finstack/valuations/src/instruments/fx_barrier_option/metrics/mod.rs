@@ -33,6 +33,9 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::GenericParallelDv01::<
                 crate::instruments::FxBarrierOption,
             >::default()),
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                crate::instruments::FxBarrierOption,
+            >::default()),
             (Vanna, vanna::VannaCalculator),
             (Volga, volga::VolgaCalculator),
             (Theta, crate::metrics::GenericTheta::<
@@ -50,6 +53,9 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
         instrument: "FxBarrierOption",
         metrics: [
             (Dv01, crate::metrics::GenericParallelDv01::<
+                crate::instruments::FxBarrierOption,
+            >::default()),
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
                 crate::instruments::FxBarrierOption,
             >::default()),
             (Theta, crate::metrics::GenericTheta::<

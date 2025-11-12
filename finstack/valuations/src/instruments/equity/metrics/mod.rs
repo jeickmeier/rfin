@@ -30,6 +30,9 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::GenericParallelDv01::<
                 crate::instruments::Equity,
             >::default()),
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                crate::instruments::Equity,
+            >::default()),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::Equity,
             >::default()),

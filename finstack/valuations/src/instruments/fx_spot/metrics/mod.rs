@@ -42,6 +42,9 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::GenericParallelDv01::<
                 crate::instruments::FxSpot,
             >::default()),
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                crate::instruments::FxSpot,
+            >::default()),
             (Theta, crate::metrics::GenericTheta::<
                 crate::instruments::FxSpot,
             >::default()),

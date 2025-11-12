@@ -47,6 +47,9 @@ pub fn register_cliquet_option_metrics(registry: &mut MetricRegistry) {
                 (Dv01, crate::metrics::GenericParallelDv01::<
                     crate::instruments::CliquetOption,
                 >::default()),
+                (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                    crate::instruments::CliquetOption,
+                >::default()),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator::default()),
                 (Theta, crate::metrics::GenericTheta::<

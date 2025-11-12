@@ -41,6 +41,9 @@ pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
             (Dv01, crate::metrics::GenericParallelDv01::<
                 crate::instruments::EquityOption,
             >::default()),
+            (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                crate::instruments::EquityOption,
+            >::default()),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),

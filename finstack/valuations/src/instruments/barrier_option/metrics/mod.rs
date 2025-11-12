@@ -49,6 +49,9 @@ pub fn register_barrier_option_metrics(registry: &mut MetricRegistry) {
                 (Dv01, crate::metrics::GenericParallelDv01::<
                     crate::instruments::BarrierOption,
                 >::default()),
+                (BucketedDv01, crate::metrics::GenericBucketedDv01WithContext::<
+                    crate::instruments::BarrierOption,
+                >::default()),
                 (Vanna, vanna::VannaCalculator),
                 (Volga, volga::VolgaCalculator::default()),
                 // Theta is now registered universally in metrics::standard_registry()

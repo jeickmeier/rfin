@@ -50,3 +50,6 @@ pub mod waterfall_golden;
 
 // Property tests (invariant verification)
 pub mod waterfall_properties;
+
+// BucketedDv01 smoke tests
+pub mod test_bucketed_dv01;
