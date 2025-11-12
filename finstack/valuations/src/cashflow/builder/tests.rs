@@ -265,3 +265,84 @@ fn outstanding_by_date_dedup_and_values() {
         assert!((m.amount() - expected).abs() < 1e-9);
     }
 }
+
+#[test]
+fn strict_schedule_mode_errors_on_unknown_calendar() {
+    // Test that strict mode propagates calendar lookup errors
+    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+
+    let fixed = FixedCouponSpec {
+        coupon_type: CouponType::Cash,
+        rate: 0.05,
+        freq: Frequency::semi_annual(),
+        dc: DayCount::Act365F,
+        bdc: BusinessDayConvention::Following,
+        calendar_id: Some("UNKNOWN_CALENDAR_XYZ".to_string()),
+        stub: StubKind::None,
+    };
+
+    // Strict mode should error
+    let mut builder_strict = CashFlowSchedule::builder();
+    builder_strict
+        .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+        .strict_schedules(true)
+        .fixed_cf(fixed.clone());
+
+    let result_strict = builder_strict.build();
+    assert!(
+        result_strict.is_err(),
+        "Strict mode should error on unknown calendar"
+    );
+
+    // Graceful mode (default) should succeed with fallback
+    let mut builder_graceful = CashFlowSchedule::builder();
+    builder_graceful
+        .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+        .strict_schedules(false)
+        .fixed_cf(fixed);
+
+    let result_graceful = builder_graceful.build();
+    assert!(
+        result_graceful.is_ok(),
+        "Graceful mode should succeed with fallback"
+    );
+
+    // Schedule should have flows despite calendar failure
+    let schedule = result_graceful.unwrap();
+    assert!(!schedule.flows.is_empty());
+}
+
+#[test]
+fn try_builder_methods_error_before_principal() {
+    // Test that try_* builder methods return errors instead of panicking
+    let mut builder = CashFlowSchedule::builder();
+
+    let fixed = FixedCouponSpec {
+        coupon_type: CouponType::Cash,
+        rate: 0.05,
+        freq: Frequency::semi_annual(),
+        dc: DayCount::Act365F,
+        bdc: BusinessDayConvention::Following,
+        calendar_id: None,
+        stub: StubKind::None,
+    };
+
+    // Should error when principal not set
+    let result = builder.try_fixed_cf(fixed.clone());
+    assert!(
+        result.is_err(),
+        "try_fixed_cf should error when principal not set"
+    );
+
+    // After setting principal, should succeed
+    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+    builder.principal(Money::new(1_000_000.0, Currency::USD), issue, maturity);
+
+    let result = builder.try_fixed_cf(fixed);
+    assert!(
+        result.is_ok(),
+        "try_fixed_cf should succeed when principal set"
+    );
+}

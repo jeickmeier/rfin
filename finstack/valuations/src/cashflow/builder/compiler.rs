@@ -69,6 +69,7 @@ pub(super) fn build_fee_schedules(
     issue: Date,
     maturity: Date,
     fees: &[FeeSpec],
+    strict: bool,
 ) -> finstack_core::Result<(PeriodicFees, FixedFees)> {
     //! Build periodic and fixed fee schedules from input `FeeSpec`s.
     //!
@@ -126,7 +127,18 @@ pub(super) fn build_fee_schedules(
                 calendar_id,
                 stub,
             } => {
-                let sched = if calendar_id.is_some() {
+                let sched = if strict {
+                    // Strict mode: propagate errors from checked variant
+                    crate::cashflow::builder::date_generation::build_dates_checked(
+                        issue,
+                        maturity,
+                        *freq,
+                        *stub,
+                        *bdc,
+                        calendar_id.as_deref(),
+                    )?
+                } else if calendar_id.is_some() {
+                    // Graceful mode with calendar: try checked, fall back to unchecked
                     match crate::cashflow::builder::date_generation::build_dates_checked(
                         issue,
                         maturity,
@@ -146,6 +158,7 @@ pub(super) fn build_fee_schedules(
                         ),
                     }
                 } else {
+                    // No calendar: use unchecked
                     crate::cashflow::builder::date_generation::build_dates(
                         issue,
                         maturity,
@@ -278,6 +291,7 @@ pub(super) fn compute_coupon_schedules(
     builder: &crate::cashflow::builder::builder::CashflowBuilder,
     issue: Date,
     maturity: Date,
+    strict: bool,
 ) -> finstack_core::Result<CompiledSchedules> {
     //! Compile coupon and payment programs into concrete date schedules.
     //!
@@ -411,7 +425,18 @@ pub(super) fn compute_coupon_schedules(
         }
         let split = chosen.map(|(_, sp)| sp).unwrap_or(CouponType::Cash);
 
-        let sched = if chosen_coupon.schedule.calendar_id.is_some() {
+        let sched = if strict {
+            // Strict mode: propagate errors from checked variant
+            crate::cashflow::builder::date_generation::build_dates_checked(
+                s,
+                e,
+                chosen_coupon.schedule.freq,
+                chosen_coupon.schedule.stub,
+                chosen_coupon.schedule.bdc,
+                chosen_coupon.schedule.calendar_id.as_deref(),
+            )?
+        } else if chosen_coupon.schedule.calendar_id.is_some() {
+            // Graceful mode with calendar: try checked, fall back to unchecked
             match crate::cashflow::builder::date_generation::build_dates_checked(
                 s,
                 e,
@@ -431,6 +456,7 @@ pub(super) fn compute_coupon_schedules(
                 ),
             }
         } else {
+            // No calendar: use unchecked
             crate::cashflow::builder::date_generation::build_dates(
                 s,
                 e,

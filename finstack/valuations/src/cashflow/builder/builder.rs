@@ -116,9 +116,10 @@ fn compile_schedules_and_fees(
     b: &CashflowBuilder,
     issue: Date,
     maturity: Date,
+    strict: bool,
 ) -> finstack_core::Result<CompiledAndFees> {
-    let compiled = compute_coupon_schedules(b, issue, maturity)?;
-    let (periodic_fees, fixed_fees) = build_fee_schedules(issue, maturity, &b.fees)?;
+    let compiled = compute_coupon_schedules(b, issue, maturity, strict)?;
+    let (periodic_fees, fixed_fees) = build_fee_schedules(issue, maturity, &b.fees, strict)?;
     Ok((compiled, periodic_fees, fixed_fees))
 }
 
@@ -328,6 +329,9 @@ pub struct CashflowBuilder {
     // Segmented programs (optional): coupon program and payment/PIK program
     pub(super) coupon_program: Vec<CouponProgramPiece>,
     pub(super) payment_program: Vec<PaymentProgramPiece>,
+    /// When true, schedule generation errors (e.g., unknown calendar) are propagated
+    /// instead of falling back to unadjusted schedules. Default: false (graceful).
+    schedule_strict: bool,
 }
 
 impl CashflowBuilder {
@@ -386,6 +390,28 @@ impl CashflowBuilder {
         self
     }
 
+    /// Enable strict schedule generation (propagate errors instead of graceful fallback).
+    ///
+    /// When strict mode is enabled, schedule generation will return errors if:
+    /// - A specified calendar is not found
+    /// - Schedule building fails for any reason
+    ///
+    /// Default is graceful mode (strict = false), which falls back to unadjusted
+    /// schedules when calendar lookup or adjustment fails.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let schedule = CashFlowSchedule::builder()
+    ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+    ///     .strict_schedules(true)  // Error on unknown calendar
+    ///     .fixed_cf(spec)
+    ///     .build()?;
+    /// ```
+    pub fn strict_schedules(&mut self, strict: bool) -> &mut Self {
+        self.schedule_strict = strict;
+        self
+    }
+
     /// Adds a fixed coupon specification.
     pub fn fixed_cf(&mut self, spec: FixedCouponSpec) -> &mut Self {
         let (issue, maturity) = self.get_issue_maturity("fixed_cf");
@@ -411,6 +437,16 @@ impl CashflowBuilder {
             split: spec.coupon_type,
         });
         self
+    }
+
+    /// Non-panicking variant of `fixed_cf`. Returns error if principal not set.
+    ///
+    /// Preferred for library code to avoid panics in production.
+    pub fn try_fixed_cf(&mut self, spec: FixedCouponSpec) -> finstack_core::Result<&mut Self> {
+        if self.issue.is_none() || self.maturity.is_none() {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(self.fixed_cf(spec))
     }
 
     /// Adds a floating coupon specification.
@@ -443,6 +479,19 @@ impl CashflowBuilder {
             split: spec.coupon_type,
         });
         self
+    }
+
+    /// Non-panicking variant of `floating_cf`. Returns error if principal not set.
+    ///
+    /// Preferred for library code to avoid panics in production.
+    pub fn try_floating_cf(
+        &mut self,
+        spec: FloatingCouponSpec,
+    ) -> finstack_core::Result<&mut Self> {
+        if self.issue.is_none() || self.maturity.is_none() {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(self.floating_cf(spec))
     }
 
     /// Adds a fee specification.
@@ -505,6 +554,21 @@ impl CashflowBuilder {
             split,
         });
         self
+    }
+
+    /// Non-panicking variant of `fixed_stepup`. Returns error if principal not set.
+    ///
+    /// Preferred for library code to avoid panics in production.
+    pub fn try_fixed_stepup(
+        &mut self,
+        steps: &[(Date, f64)],
+        schedule: ScheduleParams,
+        default_split: CouponType,
+    ) -> finstack_core::Result<&mut Self> {
+        if self.issue.is_none() || self.maturity.is_none() {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(self.fixed_stepup(steps, schedule, default_split))
     }
 
     /// Convenience: fixed step-up program using boundary dates.
@@ -577,6 +641,22 @@ impl CashflowBuilder {
             }
         }
         self
+    }
+
+    /// Non-panicking variant of `float_margin_stepup`. Returns error if principal not set.
+    ///
+    /// Preferred for library code to avoid panics in production.
+    pub fn try_float_margin_stepup(
+        &mut self,
+        steps: &[(Date, f64)],
+        base_params: FloatCouponParams,
+        schedule: ScheduleParams,
+        default_split: CouponType,
+    ) -> finstack_core::Result<&mut Self> {
+        if self.issue.is_none() || self.maturity.is_none() {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(self.float_margin_stepup(steps, base_params, schedule, default_split))
     }
 
     /// Convenience: floating margin step-up program.
@@ -667,6 +747,22 @@ impl CashflowBuilder {
         self
     }
 
+    /// Non-panicking variant of `fixed_to_float`. Returns error if principal not set.
+    ///
+    /// Preferred for library code to avoid panics in production.
+    pub fn try_fixed_to_float(
+        &mut self,
+        switch: Date,
+        fixed_win: FixedWindow,
+        float_win: FloatWindow,
+        default_split: CouponType,
+    ) -> finstack_core::Result<&mut Self> {
+        if self.issue.is_none() || self.maturity.is_none() {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(self.fixed_to_float(switch, fixed_win, float_win, default_split))
+    }
+
     /// Convenience: fixed-to-float switch at `switch` date.
     ///
     /// Creates a hybrid instrument that pays fixed coupons until a switch date,
@@ -746,6 +842,19 @@ impl CashflowBuilder {
             default_split,
         );
         self
+    }
+
+    /// Non-panicking variant of `payment_split_program`. Returns error if principal not set.
+    ///
+    /// Preferred for library code to avoid panics in production.
+    pub fn try_payment_split_program(
+        &mut self,
+        steps: &[(Date, CouponType)],
+    ) -> finstack_core::Result<&mut Self> {
+        if self.issue.is_none() || self.maturity.is_none() {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(self.payment_split_program(steps))
     }
 
     /// Convenience: payment split program with boundary dates (PIK toggle windows).
@@ -855,7 +964,7 @@ impl CashflowBuilder {
             },
             periodic_fees,
             fixed_fees,
-        ) = compile_schedules_and_fees(self, issue, maturity)?;
+        ) = compile_schedules_and_fees(self, issue, maturity, self.schedule_strict)?;
 
         // 3) Collect all relevant dates
         let dates = collect_all_dates(

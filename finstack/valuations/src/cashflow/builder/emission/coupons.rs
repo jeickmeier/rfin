@@ -36,7 +36,7 @@ pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
             let calendar = spec
                 .calendar_id
                 .as_deref()
-                .and_then(|id| finstack_core::dates::CalendarRegistry::global().resolve_str(id));
+                .and_then(finstack_core::dates::calendar::calendar_by_id);
 
             let yf = spec.dc.year_fraction(
                 prev,
@@ -105,7 +105,7 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 .rate_spec
                 .calendar_id
                 .as_deref()
-                .and_then(|id| finstack_core::dates::CalendarRegistry::global().resolve_str(id));
+                .and_then(finstack_core::dates::calendar::calendar_by_id);
 
             let yf = spec.rate_spec.dc.year_fraction(
                 prev,

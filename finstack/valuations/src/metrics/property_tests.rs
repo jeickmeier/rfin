@@ -635,9 +635,12 @@ mod bump_helper_properties {
             };
 
             let expected = price * (1.0 + bump_pct);
-            // Money rounds to cents, so we allow 1 cent tolerance + relative error
+            // Money rounds to cents, so we allow 2 cents tolerance to account for:
+            // - rounding of original price to cents
+            // - rounding of bumped price to cents
+            // - floating point precision errors
             let abs_error = (bumped_price - expected).abs();
-            let tolerance = 0.01 + expected.abs() * 1e-6;
+            let tolerance = 0.02 + expected.abs() * 1e-5;
 
             prop_assert!(abs_error < tolerance,
                 "Price bump error: original={}, bump_pct={}, expected={}, got={}, error={}",

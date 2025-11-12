@@ -666,7 +666,7 @@ fn test_bus252_daycount_with_calendar() {
     // (which it would if calendar wasn't passed to DayCountCtx)
     // The actual total can vary based on calendar holidays and stub handling
     let total_yf: f64 = coupon_flows.iter().map(|cf| cf.accrual_factor).sum();
-    
+
     // Verify total is positive and reasonable (between 0.5 and 1.5 for a year)
     assert!(
         total_yf > 0.5 && total_yf < 1.5,

@@ -1,6 +1,174 @@
 //! Tests for emission functions.
 
 #[cfg(test)]
+mod accrual_context_tests {
+    use super::super::super::compiler::{FixedSchedule, FloatSchedule};
+    use super::super::super::specs::{
+        CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
+    };
+    use super::super::coupons::{emit_fixed_coupons_on, emit_float_coupons_on};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+    use finstack_core::types::CurveId;
+    use time::Month;
+
+    #[test]
+    fn fixed_accrual_with_actact_isma_full_period() {
+        // Test that Act/Act ISMA with frequency context gives accrual = 1.0 for full coupon
+        let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let end = Date::from_calendar_date(2025, Month::July, 15).unwrap();
+
+        let spec = FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.05,
+            freq: Frequency::Months(6), // Semi-annual
+            dc: DayCount::ActActIsma,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        };
+
+        let dates = vec![start, end];
+        let mut prev_map = hashbrown::HashMap::new();
+        prev_map.insert(end, start);
+        let first_last = hashbrown::HashSet::new();
+
+        let schedule: FixedSchedule = (spec, dates, prev_map, first_last);
+        let outstanding_after = hashbrown::HashMap::new();
+        let outstanding_fallback = 1_000_000.0;
+
+        let (pik, flows) = emit_fixed_coupons_on(
+            end,
+            &[schedule],
+            &outstanding_after,
+            outstanding_fallback,
+            Currency::USD,
+        )
+        .unwrap();
+
+        assert_eq!(pik, 0.0);
+        assert_eq!(flows.len(), 1);
+
+        // Accrual factor should be 1.0 for full coupon period in ISMA
+        assert!(
+            (flows[0].accrual_factor - 1.0).abs() < 1e-6,
+            "Expected accrual ~1.0, got {}",
+            flows[0].accrual_factor
+        );
+
+        // Coupon amount: 1M × 5% × 1.0 = 50K
+        assert!((flows[0].amount.amount() - 50_000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn float_accrual_with_actact_isma_quarterly() {
+        // Test quarterly floating with Act/Act ISMA
+        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
+
+        let spec = FloatingCouponSpec {
+            rate_spec: FloatingRateSpec {
+                index_id: CurveId::new("USD-SOFR-3M"),
+                spread_bp: 200.0,
+                gearing: 1.0,
+                floor_bp: None,
+                cap_bp: None,
+                reset_freq: Frequency::Months(3),
+                reset_lag_days: 2,
+                dc: DayCount::ActActIsma,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+            },
+            coupon_type: CouponType::Cash,
+            freq: Frequency::Months(3),
+            stub: StubKind::None,
+        };
+
+        let dates = vec![start, end];
+        let mut prev_map = hashbrown::HashMap::new();
+        prev_map.insert(end, start);
+
+        let schedule: FloatSchedule = (spec, dates, prev_map);
+        let outstanding_after = hashbrown::HashMap::new();
+        let outstanding_fallback = 1_000_000.0;
+
+        let (pik, flows) = emit_float_coupons_on(
+            end,
+            &[schedule],
+            &outstanding_after,
+            outstanding_fallback,
+            Currency::USD,
+            None, // No curves: use spread only
+        )
+        .unwrap();
+
+        assert_eq!(pik, 0.0);
+        assert_eq!(flows.len(), 1);
+
+        // For full quarterly period, ISMA accrual should be 1.0
+        assert!(
+            (flows[0].accrual_factor - 1.0).abs() < 1e-6,
+            "Expected accrual ~1.0 for full ISMA quarter, got {}",
+            flows[0].accrual_factor
+        );
+    }
+
+    #[test]
+    fn bus252_accrual_requires_calendar() {
+        // Bus/252 with calendar should calculate business days
+
+        let start = Date::from_calendar_date(2025, Month::January, 6).unwrap(); // Monday
+        let end = Date::from_calendar_date(2025, Month::January, 13).unwrap(); // Next Monday (5 biz days)
+
+        // This test verifies that the calendar lookup happens in coupons.rs
+        // The actual year fraction calculation is tested in core's day-count tests
+        // Here we just verify no panic/error when using Bus/252 with a valid calendar ID
+
+        let spec = FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.05,
+            freq: Frequency::Days(7),
+            dc: DayCount::Bus252,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: Some("NYSE".to_string()),
+            stub: StubKind::None,
+        };
+
+        let dates = vec![start, end];
+        let mut prev_map = hashbrown::HashMap::new();
+        prev_map.insert(end, start);
+        let first_last = hashbrown::HashSet::new();
+
+        let schedule: FixedSchedule = (spec, dates, prev_map, first_last);
+        let outstanding_after = hashbrown::HashMap::new();
+        let outstanding_fallback = 1_000_000.0;
+
+        let result = emit_fixed_coupons_on(
+            end,
+            &[schedule],
+            &outstanding_after,
+            outstanding_fallback,
+            Currency::USD,
+        );
+
+        // Should succeed with calendar available
+        assert!(result.is_ok());
+        let (pik, flows) = result.unwrap();
+        assert_eq!(pik, 0.0);
+        assert_eq!(flows.len(), 1);
+
+        // Year fraction should be roughly 5 business days / 252
+        let expected_yf = 5.0 / 252.0;
+        assert!(
+            (flows[0].accrual_factor - expected_yf).abs() < 0.01,
+            "Expected accrual ~{}, got {}",
+            expected_yf,
+            flows[0].accrual_factor
+        );
+    }
+}
+
+#[cfg(test)]
 mod credit_emission_tests {
     use super::super::super::specs::DefaultEvent;
     use super::super::credit::{emit_default_on, emit_prepayment_on};

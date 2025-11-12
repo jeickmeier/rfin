@@ -283,12 +283,7 @@ mod dv01_interp_preservation_tests {
         // Test with MonotoneConvex
         let curve_mc = DiscountCurve::builder("USD-OIS")
             .base_date(as_of)
-            .knots([
-                (0.0, 1.0),
-                (1.0, 0.96),
-                (5.0, 0.80),
-                (10.0, 0.60),
-            ])
+            .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.80), (10.0, 0.60)])
             .set_interp(InterpStyle::MonotoneConvex)
             .build()
             .unwrap();
@@ -302,12 +297,7 @@ mod dv01_interp_preservation_tests {
         // Test with Linear
         let curve_linear = DiscountCurve::builder("USD-OIS")
             .base_date(as_of)
-            .knots([
-                (0.0, 1.0),
-                (1.0, 0.96),
-                (5.0, 0.80),
-                (10.0, 0.60),
-            ])
+            .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.80), (10.0, 0.60)])
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
@@ -325,7 +315,7 @@ mod dv01_interp_preservation_tests {
             dv01_mc,
             dv01_linear
         );
-        
+
         // Both should be negative for bonds
         assert!(dv01_mc < 0.0 && dv01_linear < 0.0);
     }

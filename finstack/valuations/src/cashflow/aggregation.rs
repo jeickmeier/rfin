@@ -1,4 +1,15 @@
 //! Currency-preserving aggregation of cashflows into `Period`s.
+//!
+//! # Rounding Policy
+//!
+//! PV aggregation functions (`pv_by_period`, `pv_by_period_with_ctx`, etc.) apply
+//! per-flow rounding: each cashflow's PV is rounded at `Money::new` ingestion
+//! (using currency-specific ISO-4217 minor units and bankers rounding), then
+//! summed using exact currency-safe arithmetic. This ensures determinism and
+//! prevents cross-currency arithmetic errors.
+//!
+//! For reconciliation workflows requiring sum-then-round semantics, compute
+//! PVs in f64, sum, then construct `Money` from the final result.
 
 use finstack_core::prelude::*;
 // use crate::cashflow::DatedFlow; // brought into scope by re-export below
@@ -189,6 +200,10 @@ pub fn aggregate_cashflows_precise_checked(
 /// `PeriodId -> (Currency -> Money)` where Money represents the sum of PVs
 /// for that period and currency.
 ///
+/// Uses default `DayCountCtx` which may fail for conventions requiring
+/// frequency (Act/Act ISMA) or calendar (Bus/252). For full control, use
+/// [`pv_by_period_with_ctx`].
+///
 /// # Arguments
 /// * `flows` - Dated cashflows to aggregate
 /// * `periods` - Period definitions with start/end boundaries
@@ -211,9 +226,111 @@ pub fn pv_by_period(
         return IndexMap::new();
     }
     sorted.sort_unstable_by_key(|(d, _)| *d);
+    // Use unchecked variant for backward compatibility (silent fallback on error)
     pv_by_period_sorted(&sorted, periods, disc, base, dc, None)
 }
 
+/// Currency-preserving aggregation of cashflow present values by period with explicit day-count context.
+///
+/// Like [`pv_by_period`], but accepts a `DayCountCtx` to support conventions
+/// requiring frequency (Act/Act ISMA) or calendar (Bus/252). Propagates
+/// day-count errors instead of swallowing them.
+///
+/// # Arguments
+/// * `flows` - Dated cashflows to aggregate
+/// * `periods` - Period definitions with start/end boundaries
+/// * `disc` - Discount curve for present value calculation
+/// * `base` - Base date for discounting (typically valuation date)
+/// * `dc` - Day count convention for year fraction calculation
+/// * `dc_ctx` - Day count context (frequency, calendar, bus_basis)
+///
+/// # Returns
+/// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
+/// are omitted from the result.
+///
+/// # Errors
+/// Returns error if day-count calculation fails (e.g., missing required context).
+pub fn pv_by_period_with_ctx(
+    flows: &[crate::cashflow::DatedFlow],
+    periods: &[Period],
+    disc: &dyn Discounting,
+    base: Date,
+    dc: DayCount,
+    dc_ctx: DayCountCtx<'_>,
+) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+    let mut sorted: Vec<crate::cashflow::DatedFlow> = flows.to_vec();
+    if sorted.is_empty() || periods.is_empty() {
+        return Ok(IndexMap::new());
+    }
+    sorted.sort_unstable_by_key(|(d, _)| *d);
+    pv_by_period_sorted_checked(&sorted, periods, disc, base, dc, dc_ctx, None)
+}
+
+/// Checked variant that propagates day-count errors and accepts explicit context.
+fn pv_by_period_sorted_checked(
+    sorted: &[crate::cashflow::DatedFlow],
+    periods: &[Period],
+    disc: &dyn Discounting,
+    base: Date,
+    dc: DayCount,
+    dc_ctx: DayCountCtx<'_>,
+    hazard: Option<&dyn Survival>,
+) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+    let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
+
+    // Maintain a moving index across sorted flows for O(n + m) behavior.
+    let mut i = 0usize;
+    let n = sorted.len();
+
+    for p in periods {
+        // Advance i to the first flow with date >= period.start
+        while i < n && sorted[i].0 < p.start {
+            i += 1;
+        }
+
+        let mut per_ccy: IndexMap<Currency, Money> = IndexMap::new();
+        let mut j = i;
+        while j < n {
+            let (d, m) = sorted[j];
+            if d >= p.end {
+                break;
+            }
+
+            // Compute year fraction from base to cashflow date - propagate errors
+            let t = if d == base {
+                0.0
+            } else if d > base {
+                dc.year_fraction(base, d, dc_ctx)?
+            } else {
+                -dc.year_fraction(d, base, dc_ctx)?
+            };
+
+            // Get discount factor
+            let df = disc.df(t);
+
+            // Get survival probability if hazard curve provided
+            let sp = hazard.map(|h| h.sp(t)).unwrap_or(1.0);
+
+            // Compute PV: amount * df * sp
+            let pv_amount = m.amount() * df * sp;
+            let pv = Money::new(pv_amount, m.currency());
+
+            // Accumulate by currency
+            let ccy = m.currency();
+            let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
+            *entry = entry.checked_add(pv).expect("currency must match per key");
+            j += 1;
+        }
+        if !per_ccy.is_empty() {
+            out.insert(p.id, per_ccy);
+        }
+        // Set i to j to avoid re-scanning earlier flows in next period
+        i = j;
+    }
+    Ok(out)
+}
+
+/// Legacy unchecked variant (backward compatibility) - swallows day-count errors with 0.0 fallback.
 fn pv_by_period_sorted(
     sorted: &[crate::cashflow::DatedFlow],
     periods: &[Period],
@@ -284,6 +401,8 @@ fn pv_by_period_sorted(
 /// When a hazard curve is provided, the PV is computed as: `amount * df(t) * sp(t)` where
 /// `df(t)` is the rates discount factor and `sp(t)` is the survival probability.
 ///
+/// Uses default `DayCountCtx`. For full control, use [`pv_by_period_credit_adjusted_with_ctx`].
+///
 /// # Arguments
 /// * `flows` - Dated cashflows to aggregate
 /// * `periods` - Period definitions with start/end boundaries
@@ -308,6 +427,41 @@ pub fn pv_by_period_credit_adjusted(
     }
     sorted.sort_unstable_by_key(|(d, _)| *d);
     pv_by_period_sorted(&sorted, periods, disc, base, dc, hazard)
+}
+
+/// Currency-preserving aggregation of cashflow present values by period with credit adjustment and explicit context.
+///
+/// Like [`pv_by_period_credit_adjusted`], but accepts `DayCountCtx` and propagates errors.
+///
+/// # Arguments
+/// * `flows` - Dated cashflows to aggregate
+/// * `periods` - Period definitions with start/end boundaries
+/// * `disc` - Discount curve for rates discounting
+/// * `hazard` - Optional hazard curve for credit adjustment
+/// * `base` - Base date for discounting (typically valuation date)
+/// * `dc` - Day count convention for year fraction calculation
+/// * `dc_ctx` - Day count context (frequency, calendar, bus_basis)
+///
+/// # Returns
+/// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows are omitted.
+///
+/// # Errors
+/// Returns error if day-count calculation fails.
+pub fn pv_by_period_credit_adjusted_with_ctx(
+    flows: &[crate::cashflow::DatedFlow],
+    periods: &[Period],
+    disc: &dyn Discounting,
+    hazard: Option<&dyn Survival>,
+    base: Date,
+    dc: DayCount,
+    dc_ctx: DayCountCtx<'_>,
+) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+    let mut sorted: Vec<crate::cashflow::DatedFlow> = flows.to_vec();
+    if sorted.is_empty() || periods.is_empty() {
+        return Ok(IndexMap::new());
+    }
+    sorted.sort_unstable_by_key(|(d, _)| *d);
+    pv_by_period_sorted_checked(&sorted, periods, disc, base, dc, dc_ctx, hazard)
 }
 
 #[cfg(test)]
@@ -389,6 +543,170 @@ mod precision_tests {
             .unwrap();
         assert_eq!(total.currency(), Currency::USD);
         assert!((total.amount() - 300.0).abs() < 1e-12);
+    }
+}
+
+#[cfg(test)]
+mod pv_ctx_tests {
+    use super::*;
+    use finstack_core::cashflow::discounting::npv_static;
+    use finstack_core::dates::{DayCount, DayCountCtx, Frequency, Period, PeriodId};
+    use finstack_core::market_data::traits::{Discounting, TermStructure};
+    use finstack_core::types::CurveId;
+    use time::Month;
+
+    struct FlatDiscountCurve {
+        id: CurveId,
+        base: Date,
+        df_const: f64,
+    }
+
+    impl TermStructure for FlatDiscountCurve {
+        fn id(&self) -> &CurveId {
+            &self.id
+        }
+    }
+
+    impl Discounting for FlatDiscountCurve {
+        fn base_date(&self) -> Date {
+            self.base
+        }
+        fn df(&self, _t: f64) -> f64 {
+            self.df_const
+        }
+    }
+
+    fn d(year: i32, month: u8, day: u8) -> Date {
+        Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+    }
+
+    fn quarters_2025() -> Vec<Period> {
+        vec![
+            Period {
+                id: PeriodId::quarter(2025, 1),
+                start: d(2025, 1, 1),
+                end: d(2025, 4, 1),
+                is_actual: true,
+            },
+            Period {
+                id: PeriodId::quarter(2025, 2),
+                start: d(2025, 4, 1),
+                end: d(2025, 7, 1),
+                is_actual: false,
+            },
+        ]
+    }
+
+    #[test]
+    fn pv_with_ctx_sum_matches_direct_calculation() {
+        // Test that PV aggregation with Act365F sums correctly
+        let base = d(2025, 1, 1);
+        let periods = quarters_2025();
+
+        let flows = vec![
+            (d(2025, 2, 15), Money::new(100.0, Currency::USD)),
+            (d(2025, 5, 15), Money::new(200.0, Currency::USD)),
+        ];
+
+        let curve = FlatDiscountCurve {
+            id: CurveId::new("USD-OIS"),
+            base,
+            df_const: 0.95,
+        };
+
+        let dc_ctx = DayCountCtx {
+            frequency: Some(Frequency::quarterly()),
+            calendar: None,
+            bus_basis: None,
+        };
+
+        let pv_map =
+            pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
+                .unwrap();
+
+        // Sum of period PVs
+        let sum_pv: f64 = pv_map
+            .values()
+            .flat_map(|m| m.values())
+            .map(|m| m.amount())
+            .sum();
+
+        // Standalone NPV using default context (Act365F doesn't require special ctx)
+        let total_npv = npv_static(&curve, base, DayCount::Act365F, &flows).unwrap();
+
+        // Should match within tolerance
+        assert!(
+            (sum_pv - total_npv.amount()).abs() < 1e-10,
+            "Sum of period PVs ({}) should match NPV ({})",
+            sum_pv,
+            total_npv.amount()
+        );
+    }
+
+    #[test]
+    fn pv_with_ctx_errors_on_missing_frequency_for_isma() {
+        // Act/Act ISMA requires frequency in context
+        let base = d(2025, 1, 1);
+        let periods = quarters_2025();
+        let flows = vec![(d(2025, 2, 15), Money::new(100.0, Currency::USD))];
+
+        let curve = FlatDiscountCurve {
+            id: CurveId::new("USD-OIS"),
+            base,
+            df_const: 0.95,
+        };
+
+        // Missing frequency for ISMA should error
+        let dc_ctx = DayCountCtx {
+            frequency: None, // Missing!
+            calendar: None,
+            bus_basis: None,
+        };
+
+        let result =
+            pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::ActActIsma, dc_ctx);
+
+        assert!(result.is_err(), "Should error when ISMA frequency missing");
+    }
+
+    #[test]
+    fn pv_by_period_deterministic_multi_currency() {
+        // Multi-currency PV aggregation should preserve currency separation
+        let base = d(2025, 1, 1);
+        let periods = quarters_2025();
+
+        let flows = vec![
+            (d(2025, 2, 15), Money::new(100.0, Currency::USD)),
+            (d(2025, 2, 20), Money::new(200.0, Currency::EUR)),
+            (d(2025, 5, 10), Money::new(50.0, Currency::USD)),
+        ];
+
+        let curve = FlatDiscountCurve {
+            id: CurveId::new("USD-OIS"),
+            base,
+            df_const: 0.95,
+        };
+
+        let dc_ctx = DayCountCtx {
+            frequency: Some(Frequency::quarterly()),
+            calendar: None,
+            bus_basis: None,
+        };
+
+        let pv_map =
+            pv_by_period_with_ctx(&flows, &periods, &curve, base, DayCount::Act365F, dc_ctx)
+                .unwrap();
+
+        // Q1 should have both USD and EUR
+        let q1 = pv_map.get(&PeriodId::quarter(2025, 1)).unwrap();
+        assert_eq!(q1.len(), 2);
+        assert!(q1.contains_key(&Currency::USD));
+        assert!(q1.contains_key(&Currency::EUR));
+
+        // Q2 should have only USD
+        let q2 = pv_map.get(&PeriodId::quarter(2025, 2)).unwrap();
+        assert_eq!(q2.len(), 1);
+        assert!(q2.contains_key(&Currency::USD));
     }
 }
 
