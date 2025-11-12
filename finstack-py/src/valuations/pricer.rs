@@ -8,7 +8,9 @@ use crate::valuations::results::PyValuationResult;
 use finstack_valuations::instruments::bond::metrics::asw::{
     asw_market_with_forward, asw_par_with_forward,
 };
-use finstack_valuations::instruments::common::helpers::{build_with_metrics_dyn, instrument_to_arc};
+use finstack_valuations::instruments::common::helpers::{
+    build_with_metrics_dyn, instrument_to_arc,
+};
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::{create_standard_registry, PricerRegistry};
 use pyo3::prelude::*;

@@ -131,7 +131,7 @@ python-dev:
 	. .venv/bin/activate && \
 	uv pip install maturin pytest pytest-benchmark black mypy ruff ipython jupyter && \
 	cd finstack-py && \
-		CARGO_INCREMENTAL=1 python -m maturin develop --release
+		CARGO_INCREMENTAL=1 python -m maturin develop --profile release-perf
 
 wasm-build:
 	cd finstack-wasm && wasm-pack build --target web
