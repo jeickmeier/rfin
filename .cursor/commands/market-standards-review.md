@@ -1,146 +1,159 @@
-# 🧪 Comprehensive Code Review Prompt — Rust Financial Pricing & Analytics
+# 🧪 Market-Standards Code Review Prompt — Financial Pricing & Analytics Library
 
-**Context**
-You are a senior quant engineer and Rust reviewer. The codebase is a Rust library for **financial instrument pricing**, **financial-statement analysis**, **portfolio analytics**, and **scenario analysis**. Review for **market standards** in conventions, math, algorithms, numerical stability, performance, safety, and overall API/design quality.
-
-## Inputs (fill these)
-
-* **Repository / path:** `{{repo_or_zip}}`
-* **Primary crates / modules to focus:** `{{crates_or_paths}}`
-* **Instruments / models implemented:** `{{e.g., bonds, swaps, swaptions, eq options, credit, rates models, vol models}}`
-* **Target use-cases:** `{{trading, risk, research, backtesting, reporting}}`
-* **Precision & latency targets:** `{{e.g., abs error < 1e-8; p99 < 5ms for vanilla price}}`
+**Role:** You are a senior quant engineer and code reviewer.
+**Objective:** Review the attached financial pricing & analytics library against *market standards* across: **conventions** (e.g., ISDA and exchange norms), **math**, **algorithms**, **numerical stability**, **performance**, **safety**, and **API/design quality**.
+**Important:** Do **not** assume functionality. First *discover* the library’s components (instruments, pricers, models, market-data utilities, schedulers, curves, risk, calibration, IO, etc.) from the code itself, then assess them.
 
 ---
 
-## What to Deliver
+## What to Do
 
-1. **Executive Summary (≤ 10 bullets):** Biggest wins & risks across pricing correctness, conventions, numerics, calibration, concurrency, and API design.
-2. **Standards Compliance Matrix:** Where the library **meets / deviates** from market standards and why it matters. Flag must-fix gaps.
-3. **Defect & Risk List (ranked):** For each item include:
+1. **Inventory & Map the Code**
 
-   * *Area* (e.g., “Day-count in FRA pricing”, “Curve bootstrap extrapolation”)
-   * *Severity* (Critical / High / Medium / Low)
-   * *Impact* (money at risk / accuracy / performance / UX / maintainability)
-   * *How to reproduce* (inputs, seed)
-   * *Suggested fix* (concrete patch or algorithm)
-4. **Patch Suggestions:** Provide small, targeted code diffs (Rust) or pseudocode for key issues.
-5. **Numerical Validation Plan:** Tests/benchmarks we should add; expected tolerances.
-6. **API & Architecture Notes:** Idiomatic Rust improvements, error handling, feature flags, crate structure, naming, and documentation gaps.
+   * Build a high-level map: packages/modules → main types/classes/traits → key functions and data flows.
+   * Identify detected domains (e.g., pricing engines, schedule/curve utilities, stochastic processes, calibration, risk, reporting). If something isn’t present, don’t speculate.
 
----
+2. **Review for Market-Standards Compliance**
+   Evaluate each discovered component against:
 
-## Review Checklist (follow systematically)
+   * **Conventions:** Day-count, business-day adjustment, calendars/holidays, compounding/averaging, accrual rules, quoting/units/scaling, schedule generation, rounding, time bases, instrument lifecycle conventions, exchange/clearing norms.
+   * **Math & Algorithms:** Solver choices & stopping criteria, interpolation/extrapolation monotonicity and arbitrage constraints, curve construction/bootstrapping logic, calibration objective & regularization, simulation/PDE/FD discretizations, RNG properties & seeding, path/time stepping order, payoff logic correctness.
+   * **Numerical Stability:** Conditioning, scaling, overflow/underflow risks, stable reductions (e.g., Kahan/Neumaier), log/exp transforms, bounds/positivity constraints, finite-difference step selection, tolerance strategy, determinism & reproducibility.
+   * **Performance:** Algorithmic complexity, preallocation/zero-copy, memory layout & cache friendliness, vectorization/parallelism, batching, hot-path micro-optimizations, benchmarking coverage, realistic datasets, profiling hooks.
+   * **Safety & Robustness:** Input validation, invariant checks, error handling vs panics/exceptions, concurrency/thread-safety, reproducible randomness, secure defaults, dependency risk, serialization integrity.
+   * **API & Design Quality:** Cohesive modules, separation of concerns, naming clarity, immutability where appropriate, typed units/currencies, extensibility (plugins/traits/interfaces), versioning & deprecation policy, documentation quality, examples & tutorials, test pyramid.
 
-### A) Market Conventions & Data Handling
+3. **Evidence-Based Findings**
 
-* **Day-count & compounding:** Verify ACT/360, ACT/365F, 30/360 (varients), simple/compounded/continuous; correct accrual over EOM, stubs, short/long coupons.
-* **Business-day adjustments:** Following/Modified Following/Preceding; holiday calendars; EOM rules; schedule generation for irregulars.
-* **Curve building:** Robust bootstrapping (instruments, quoting styles), monotonic discount factors/zero rates, **no-arbitrage** checks, interpolation (linear, log-linear DF, natural/monotone cubic), and **sane extrapolation**.
-* **Market data schemas:** Clear units (bp vs decimal), quote conventions (price/yield/vol), time basis, TZ safety; serialization versioning (e.g., `serde` with explicit schema).
-* **Reference standards:** Behavior aligns with common practice (ISDA/FpML/FIX conventions) where applicable. Note any deviations.
+   * For each issue: include **file path**, **symbol/function**, and **line range** (if available) plus a short **code snippet** as evidence.
+   * State **Why it matters** (market-standards rationale) and **What good looks like** (clear expected behavior aligned with industry norms).
 
-### B) Pricing & Greeks
+4. **Actionable Fixes**
 
-* **Vanillas:** Black(-Scholes) parity, put-call parity tests, forward parity. Handle dividends/borrow rates.
-* **Fixed income:** Clean/dirty price; accrued; yield ↔ price inversion; robust root-finding; sensitivity to day-count/settlement.
-* **Exotics / Early exercise (if present):** Binomial/Trinomial/LR lattices, FD/FEM/PDE stability (CFL), policy iteration, **smooth pasting** checks.
-* **Credit / Rates (if present):** Hazard/curve calibration sanity; OIS vs Libor/IBOR fallbacks; compounding conventions for RFRs; multi-curve setup.
-* **Greeks:** Bump-and-revalue consistency vs analytic Greeks; pathwise/likelihood-ratio estimators for MC; central vs forward differences; smoothing/regularization.
-
-### C) Calibration & Optimization
-
-* **Robust solvers:** Bracketing + Newton hybrids; tolerances; safeguards on negative vols/rates; reproducible seeds.
-* **Model sets:** Heston/SABR local/global minima handling; parameter constraints; implied vol/variance routines stable across moneyness/tenor.
-* **Objective functions:** Well-scaled, unit-aware, convexity insights; report residuals & Jacobian conditioning.
-
-### D) Monte Carlo & Scenario Engines
-
-* **RNG & variance reduction:** Philox/PCG; Sobol + Owen scrambling; antithetic/control variates; seed control for reproducibility.
-* **Correlated sampling:** PSD enforcement (Cholesky/PCA); dynamic factor updates; drift/diffusion discretizations (Euler, Milstein).
-* **Scenario analysis:** Historical, hypothetical, and parametric shocks; **shock the right layer** (inputs not outputs); dependency structure (Gaussian/copula); stress boundaries.
-* **Convergence:** CI bands; error vs work curves; stopping criteria.
-
-### E) Portfolio Analytics
-
-* **Return math:** TWR vs MWR (IRR/XIRR) correctness; cash-flow timing; fees/taxes/dividends; benchmark alignment.
-* **Risk & attribution:** Vol, tracking error, beta; factor attribution (Brinson/Brinson-Fachler or factor-model based); contribution to risk (marginal/Component VaR).
-* **Drawdowns & tail:** Max DD, Calmar/Sortino; VaR/ES (historical/MC/parametric) with backtesting (Kupiec/Christoffersen).
-
-### F) Financial-Statement & Fundamental Analysis
-
-* **Linkages:** 3-statement integrity (BS = BS; CFO/CFI/CFF consistency), circulars solved robustly; tax, interest capitalization, minority interest, NCI roll-forward.
-* **Ratios & adjustments:** GAAP/IFRS nuances; non-GAAP adjustments explicit; unit safety (percent vs decimal); period alignment & FX translation.
-
-### G) Numerics & Precision
-
-* **Floating-point:** Use **decimal** for money totals where needed (`rust_decimal`) or compensated summation (Kahan/Neumaier); avoid catastrophic cancellation; ULP/regression tests.
-* **Root finding:** Guard non-convergence; bracket; monotonicity checks.
-* **Interpolation:** Monotone methods for term structures (Hyman filter, PCHIP) to prevent arbitrage humps.
-* **Determinism:** Same inputs + seed ⇒ same outputs on all targets.
-
-### H) Performance, Safety, and Rust Idioms
-
-* **Performance:** `criterion` benches; allocation hotspots; `rayon`/`polars`/SIMD where appropriate; cache-friendly data layouts.
-* **Safety/ergonomics:** No `unsafe` unless justified; `thiserror/anyhow` for errors; no hidden panics; `Result` surfaces; `Send + Sync` where concurrency implied.
-* **API design:** Clear type names, newtypes for units (Years, Bps, Rate); builders for complex structs; feature flags for heavy deps; minimal public surface.
-* **Tooling:** `rustfmt`, `clippy -D warnings`, `cargo deny` (licenses), `cargo audit` (vulns).
-
-### I) Testing, Refs, & Docs
-
-* **Golden tests** vs trusted references (QuantLib, vendor outputs, published examples).
-* **Property tests** (`proptest`) for invariants (no-arb, positivity, monotonicity).
-* **Fuzzing** for parsers & schedulers.
-* **Docs:** Examples for each instrument; state assumptions; edge cases; units; calendar rules. API docs compile (doctests).
+   * Provide specific, minimally invasive **fixes** (pseudocode or patch-style diffs).
+   * Suggest **tests/benchmarks** to validate the fix (inputs, expected behavior/tolerances).
+   * Propose **acceptance criteria** (deterministic, tolerance ≤ X, runtime ≤ Y, memory ≤ Z).
 
 ---
 
-## Quick Mechanical Pass (please run/confirm)
+## Output Format (strict)
 
-* `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`
-* `cargo test --all-features`
-* `cargo bench` (if available)
-* `cargo audit`, `cargo deny`
-* Check `#![forbid(unsafe_code)]` (or justify usages)
-* Ensure reproducible RNG: explicit seeds, document them.
+1. **Executive Summary (≤10 bullets)**
+
+   * Biggest risks & wins across the six dimensions.
+   * Top 5 actions to reach market-standard compliance fastest.
+
+2. **System Map (Discovered)**
+
+   * Diagram or bullet tree of modules → key types → responsibilities.
+
+3. **Findings by Component**
+   For each component with issues, use this template:
+
+   * **Severity:** 🔴 Critical | 🟠 Major | 🟡 Moderate | 🔵 Minor | 🟢 Info
+   * **Area:** Conventions | Math | Algorithms | Numerical | Performance | Safety | API/Design
+   * **Location:** `path/to/file` • `symbol()` • lines `Lx–Ly`
+   * **Problem:** <concise description>
+   * **Why it matters / Market standard:** <short rationale>
+   * **Recommendation:** <actionable fix>
+   * **Test/Benchmark to add:** <inputs, tolerances, dataset size>
+   * **Acceptance criteria:** <determinism, error bounds, speed/memory targets>
+
+4. **Cross-Cutting Gaps & Inconsistencies**
+
+   * Conventions mismatch (e.g., day-count vs accrual vs curve build).
+   * Units/scale inconsistencies, naming drift, duplicated logic.
+
+5. **Quick Wins (≤10)**
+
+   * Small changes with outsized stability/perf/compliance gains.
+
+6. **Refactor Plan (2–4 weeks)**
+
+   * Phased tasks with dependencies, owner roles, risk, rollback plan.
+
+7. **Test & Benchmark Plan**
+
+   * Golden-copy cases; edge cases; stress tests; reproducibility; datasets; CI thresholds (accuracy/perf).
+
+8. **Scorecard (0–5 each)**
+
+   * Conventions, Math, Algorithms, Numerical Stability, Performance, Safety, API/Design, Docs/Tests.
+   * One-line justification per score.
 
 ---
 
-## Output Format
+## Review Checklists (apply only where relevant)
 
-**Return a single markdown report** with:
+**Conventions**
 
-* **Executive Summary**
-* **Standards Compliance Matrix** (✅/⚠️/❌ with one-line notes)
-* **Top 10 Issues (Ranked)** with code pointers & suggested diffs
-* **Validation Plan** (test vectors, tolerances, CI steps)
-* **API/Design Recommendations**
-* **Appendix:** Benchmark table, dependency health, coverage gaps
+* Day-count/BDC/calendar parity across schedule, accrual, discounting.
+* Compounding (simple/periodic/continuous/avg) consistent with quoting.
+* Rounding rules & units documented and enforced.
 
-Where possible, include **inline code blocks** with `diff` patches and **Rust snippets** for tests/benches.
+**Math & Algorithms**
+
+* Solvers bracket or guard roots; tolerances scale-aware; max iterations bounded.
+* Interpolation monotone where required; extrapolation explicit; no-arb checks for curves/surfaces.
+* Calibration: objective defined; penalties/regularization documented; reproducibility guaranteed.
+
+**Numerical Stability**
+
+* Stable summations; log-space where appropriate; guardrails for `exp/log`.
+* Bounds/positivity for vols/hazard rates/discount factors.
+* Deterministic RNG pipelines and seeds.
+
+**Performance**
+
+* Avoid needless alloc/copies; batch operations; precompute invariants.
+* Parallelism is safe and worth it (Amdahl); benchmarks reflect real sizes.
+* Profiling hooks and clear perf budgets.
+
+**Safety**
+
+* Input schemas & validation; invariants; descriptive errors.
+* No unhandled panics/exceptions in library surfaces; timeouts for heavy ops.
+* Thread-safety; safe serialization (no RCE vectors).
+
+**API/Design**
+
+* Clear layering; minimal public surface; stable traits/interfaces.
+* Typed units/currencies; immutability by default; dependency boundaries.
+* Versioning, deprecation notes, migration docs; runnable examples.
 
 ---
 
-## Example Findings (style guide)
+## Constraints & Guidance
 
-* *Severity:* **Critical**
-  *Area:* Yield-to-Price inversion for long-first-coupon bonds
-  *Issue:* Newton without bracketing fails for deep discounts; returns NaN under high convexity.
-  *Fix:* Switch to bracketed Brent; tighten tolerances; add monotonicity checks.
-  *Test:* Add 12 test vectors (odd-first coupon, EOM, 30E/360 vs ACT/365F). Tolerance: price error < 1e-8.
-
----
-
-## Constraints & Principles
-
-* Prefer correctness and explainability over micro-optimizations unless SLAs are violated.
-* Be explicit about **units** and **assumptions**.
-* Every recommendation should be **actionable** with code, tests, or references to a known standard.
+* Do not invent features absent from the code; mark **N/A** when not present.
+* Prefer concrete evidence (paths/lines/snippets) over generalities.
+* When citing standards, reference the *principle* (e.g., “ISDA-style day-count/BDC alignment”) without relying on external documents.
+* Aim for fixes that improve correctness first, then performance.
 
 ---
 
-### (Optional) Auto-Checklist Snippets the reviewer may drop in CI
+## Final Deliverables
 
-* **No-arb check:** DF(t) strictly decreasing; forward rates ≥ floor; spline monotonicity enforced.
-* **Parity checks:** Put-call parity, forward parity; bond clean+accrued=dirty.
-* **Determinism:** Re-run with fixed seed ⇒ identical outputs & greeks.
+* A **Markdown report** following the Output Format.
+* A **machine-readable JSON** list of findings:
+
+```json
+{
+  "findings": [
+    {
+      "severity": "Major",
+      "area": "Numerical",
+      "location": {"path": "src/…", "symbol": "…", "lines": "…"},
+      "problem": "…",
+      "recommendation": "…",
+      "tests": {"inputs": "…", "tolerance": 1e-8},
+      "acceptance": {"deterministic": true, "max_ms": 5}
+    }
+  ],
+  "scorecard": {"Conventions": 3, "Math": 4, "Algorithms": 3, "Numerical": 2, "Performance": 3, "Safety": 3, "API/Design": 3, "Docs/Tests": 2}
+}
+```
+
+---
+
+**Begin by producing the System Map and Executive Summary, then proceed through the findings.**

@@ -32,9 +32,21 @@ pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
                 .get(&prev)
                 .unwrap_or(&outstanding_fallback);
 
-            let yf =
-                spec.dc
-                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            // Resolve calendar if present for Bus/252 and similar conventions
+            let calendar = spec
+                .calendar_id
+                .as_deref()
+                .and_then(|id| finstack_core::dates::CalendarRegistry::global().resolve_str(id));
+
+            let yf = spec.dc.year_fraction(
+                prev,
+                d,
+                finstack_core::dates::DayCountCtx {
+                    calendar,
+                    frequency: Some(spec.freq),
+                    bus_basis: None,
+                },
+            )?;
             let coupon_total = base_out * (spec.rate * yf);
             let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
 
@@ -88,10 +100,21 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 .get(&prev)
                 .unwrap_or(&outstanding_fallback);
 
+            // Resolve calendar if present for Bus/252 and similar conventions
+            let calendar = spec
+                .rate_spec
+                .calendar_id
+                .as_deref()
+                .and_then(|id| finstack_core::dates::CalendarRegistry::global().resolve_str(id));
+
             let yf = spec.rate_spec.dc.year_fraction(
                 prev,
                 d,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountCtx {
+                    calendar,
+                    frequency: Some(spec.rate_spec.reset_freq),
+                    bus_basis: None,
+                },
             )?;
 
             // Compute reset date once

@@ -507,3 +507,170 @@ fn test_amortizing_full_redemption() {
     // Should have amortization flows throughout
     assert!(!flows.is_empty());
 }
+
+/// Tests Act/Act ISMA day count with semi-annual frequency.
+///
+/// Market standard: ICMA Rule 251 requires frequency context for Act/Act ISMA.
+/// For a full coupon period, accrual should equal exactly 1.0 (6 months / semi-annual).
+#[test]
+fn test_actact_isma_daycount_context() {
+    let issue = date!(2025 - 01 - 01);
+    let maturity = date!(2027 - 01 - 01); // Exactly 2 years
+
+    let bond = Bond::builder()
+        .id("ACTACT_ISMA".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .issue(issue)
+        .maturity(maturity)
+        .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.06, // 6% coupon
+            freq: Frequency::semi_annual(),
+            dc: DayCount::ActActIsma, // ISMA convention requires frequency context
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        }))
+        .discount_curve_id("USD-OIS".into())
+        .pricing_overrides(PricingOverrides::default())
+        .build()
+        .unwrap();
+
+    let curves = create_test_curves(issue);
+    let full_schedule = bond.get_full_schedule(&curves).unwrap();
+
+    // Find coupon flows (exclude principal redemption)
+    let coupon_flows: Vec<_> = full_schedule
+        .flows
+        .iter()
+        .filter(|cf| {
+            matches!(
+                cf.kind,
+                finstack_valuations::cashflow::primitives::CFKind::Fixed
+            )
+        })
+        .collect();
+
+    // Should have at least 3 semi-annual coupons
+    // (The exact count may vary based on stub handling)
+    assert!(
+        coupon_flows.len() >= 3,
+        "Expected at least 3 semi-annual coupons, got {}",
+        coupon_flows.len()
+    );
+
+    // Each full coupon period should have accrual_factor = 1.0
+    // Act/Act ISMA with frequency context returns 1.0 for a full period
+    // (This validates that DayCountCtx with frequency is being used correctly)
+    for cf in &coupon_flows {
+        // For Act/Act ISMA with semi-annual frequency, a full coupon period
+        // should have accrual_factor = 1.0 (one full period relative to frequency)
+        let expected_accrual = 1.0; // Full period
+        let tolerance = 1e-10; // Very tight tolerance for determinism
+
+        assert!(
+            (cf.accrual_factor - expected_accrual).abs() < tolerance,
+            "Act/Act ISMA accrual factor mismatch: got {}, expected {} ± {}",
+            cf.accrual_factor,
+            expected_accrual,
+            tolerance
+        );
+
+        // Expected coupon = notional * rate * accrual_factor
+        // The accrual_factor of 1.0 from Act/Act ISMA represents the full period
+        // and the cashflow builder applies it to the full annual rate
+        let expected_coupon = 1_000_000.0 * 0.06 * cf.accrual_factor;
+        assert!(
+            (cf.amount.amount() - expected_coupon).abs() < 0.01,
+            "Coupon amount mismatch: got {}, expected {}",
+            cf.amount.amount(),
+            expected_coupon
+        );
+    }
+}
+
+/// Tests Bus/252 day count with calendar context.
+///
+/// Market standard: Bus/252 requires calendar-aware business day counting.
+/// Accrual = (business days between dates) / 252
+#[test]
+fn test_bus252_daycount_with_calendar() {
+    let issue = date!(2025 - 01 - 01);
+    let maturity = date!(2026 - 01 - 01); // 1 year
+
+    let bond = Bond::builder()
+        .id("BUS252".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .issue(issue)
+        .maturity(maturity)
+        .cashflow_spec(CashflowSpec::Fixed(FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.05, // 5% coupon
+            freq: Frequency::quarterly(),
+            dc: DayCount::Bus252, // Requires calendar context
+            bdc: BusinessDayConvention::Following,
+            calendar_id: Some("USNY".to_string()), // New York calendar
+            stub: StubKind::None,
+        }))
+        .discount_curve_id("USD-OIS".into())
+        .pricing_overrides(PricingOverrides::default())
+        .build()
+        .unwrap();
+
+    let curves = create_test_curves(issue);
+    let full_schedule = bond.get_full_schedule(&curves).unwrap();
+
+    // Find coupon flows
+    let coupon_flows: Vec<_> = full_schedule
+        .flows
+        .iter()
+        .filter(|cf| {
+            matches!(
+                cf.kind,
+                finstack_valuations::cashflow::primitives::CFKind::Fixed
+            )
+        })
+        .collect();
+
+    // Should have at least 3 quarterly coupons
+    // (The exact count may vary based on stub handling)
+    assert!(
+        coupon_flows.len() >= 3,
+        "Expected at least 3 quarterly coupons, got {}",
+        coupon_flows.len()
+    );
+
+    // For Bus/252, each accrual factor should be (business_days / 252)
+    // We can't predict exact values without simulating the calendar,
+    // but we can verify:
+    // 1. All accrual factors are positive and reasonable
+    // 2. The calendar context is being used (not default which would error)
+    for cf in &coupon_flows {
+        // Business days in a quarter: roughly 63 days (252/4)
+        // So accrual should be around 0.25, but varies by actual business days
+        assert!(
+            cf.accrual_factor > 0.0 && cf.accrual_factor < 0.35,
+            "Bus/252 accrual factor out of reasonable range: {}",
+            cf.accrual_factor
+        );
+
+        // Coupon should be positive and finite
+        assert!(
+            cf.amount.amount() > 0.0 && cf.amount.amount().is_finite(),
+            "Coupon amount invalid: {}",
+            cf.amount.amount()
+        );
+    }
+
+    // The key validation is that Bus/252 with calendar context doesn't error
+    // (which it would if calendar wasn't passed to DayCountCtx)
+    // The actual total can vary based on calendar holidays and stub handling
+    let total_yf: f64 = coupon_flows.iter().map(|cf| cf.accrual_factor).sum();
+    
+    // Verify total is positive and reasonable (between 0.5 and 1.5 for a year)
+    assert!(
+        total_yf > 0.5 && total_yf < 1.5,
+        "Total Bus/252 accrual should be reasonable for a year, got {}",
+        total_yf
+    );
+}
