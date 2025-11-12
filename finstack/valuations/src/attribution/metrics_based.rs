@@ -272,110 +272,49 @@ pub fn attribute_pnl_metrics_based(
                 }
 
                 // 5c. Cross-gamma: Vanna (spot-vol cross effect)
-                if let Some(vanna) = val_t0.measures.get(MetricId::Vanna.as_str()) {
-                    // Vanna term: Vanna × Δspot × Δσ
-                    // Need to measure spot shift for options
-                    if val_t0.measures.get(MetricId::Delta.as_str()).is_some() {
-                        // If we have Delta, we likely have an option with spot exposure
-                        // Try to find the spot price shift
-                        // This is approximate - would need instrument metadata for exact spot ID
-                        let vanna_pnl = vanna * vol_shift * 0.01; // Placeholder: assumes 1% spot shift
-
-                        attribution.vol_pnl = Money::new(
-                            attribution.vol_pnl.amount() + vanna_pnl,
-                            val_t1.value.currency(),
-                        );
-                    }
-                }
+                // Only include if we can measure both Δspot and Δσ
+                // For now, skip vanna as it requires instrument-specific spot ID
+                // (would need instrument.underlying_id() or similar)
             }
         }
     }
 
     // 6. Market scalars (spot prices, dividends, etc.)
-    if let Some(delta) = val_t0.measures.get(MetricId::Delta.as_str()) {
-        // For options: Delta × Δspot (first-order)
-        // Would need to measure actual spot shift from market data
-        // Placeholder for now - real implementation would use measure_scalar_shift
-        let spot_shift_pct = 0.0; // Would measure from market_t0/market_t1
-        let delta_amount = delta * spot_shift_pct;
-        attribution.market_scalars_pnl = Money::new(delta_amount, val_t1.value.currency());
+    // For instruments with scalar exposure (equity options, etc.), use Delta/Gamma
+    // Note: Requires instrument to have equity_id() or underlying_id() method
+    // For now, skip spot attribution as it needs instrument-specific metadata
+    // (Instrument trait would need to expose underlying_id())
 
-        // 6b. Market scalars gamma (second-order for options)
-        if let Some(gamma) = val_t0.measures.get(MetricId::Gamma.as_str()) {
-            // Gamma term: ½ × Gamma × (Δspot)²
-            // Spot shift would be measured from actual market data
-            let gamma_pnl = 0.5 * gamma * spot_shift_pct * spot_shift_pct;
+    // 8. Model parameters attribution
+    // Requires measuring parameter shifts from instrument at T0 vs T1
+    // This needs instrument-specific parameter extraction (prepayment, default, recovery)
+    // For now, skip as it requires accessing instrument model parameters
+    // (See model_params.rs for parameter extraction infrastructure)
 
-            attribution.market_scalars_pnl = Money::new(
-                attribution.market_scalars_pnl.amount() + gamma_pnl,
-                val_t1.value.currency(),
-            );
-        }
-    }
-
-    // 7. Model parameters (various 01 metrics)
-    // Prepayment01, Default01, Recovery01, etc.
-    if let Some(prepayment01) = val_t0.measures.get("prepayment01") {
-        let prepay_change_bp = 0.0; // Would measure from instrument params
-        let prepay_amount = prepayment01 * prepay_change_bp;
-
-        let model_params = ModelParamsAttribution {
-            prepayment: Some(Money::new(prepay_amount, val_t1.value.currency())),
-            default_rate: None,
-            recovery_rate: None,
-            conversion_ratio: None,
-            other: indexmap::IndexMap::new(),
-        };
-
-        attribution.model_params_detail = Some(model_params);
-
-        // Sum model params for total
-        attribution.model_params_pnl = Money::new(prepay_amount, val_t1.value.currency());
-    }
-
-    // 8. Dividend scalars
+    // 7. Dividend attribution
     if let Some(dividend01) = val_t0.measures.get(MetricId::Dividend01.as_str()) {
         if let Some(scalar_id) = instrument.dividend_schedule_id() {
-            if let Ok(div_shift) = measure_scalar_shift(scalar_id.as_str(), market_t0, market_t1) {
-                // Dividend01 is per basis point shift
-                let div_amount = dividend01 * div_shift;
-                let current_scalar_pnl = attribution.market_scalars_pnl.amount();
-                attribution.market_scalars_pnl =
-                    Money::new(current_scalar_pnl + div_amount, val_t1.value.currency());
+            // Try to measure dividend shift from market scalars
+            if let Ok(div_shift_pct) = measure_scalar_shift(scalar_id.as_str(), market_t0, market_t1) {
+                // Dividend01 is typically per 1% shift in dividend yield or amount
+                let div_amount = dividend01 * div_shift_pct;
+                attribution.market_scalars_pnl = Money::new(div_amount, val_t1.value.currency());
             }
         }
     }
 
-    // 9. Inflation sensitivity (first and second-order)
-    if let Some(inflation01) = val_t0.measures.get(MetricId::Inflation01.as_str()) {
-        // Would need to measure inflation curve shifts
-        // Placeholder for now - real implementation would measure from market data
-        let inflation_shift_bp = 0.0;
-        let inflation_amount = inflation01 * inflation_shift_bp;
-
-        // Add to model params or create separate inflation bucket
-        let current_model_pnl = attribution.model_params_pnl.amount();
-        attribution.model_params_pnl = Money::new(
-            current_model_pnl + inflation_amount,
-            val_t1.value.currency(),
-        );
-
-        // 9b. Inflation convexity (second-order)
-        if let Some(infl_convexity) = val_t0.measures.get(MetricId::InflationConvexity.as_str()) {
-            let convexity_pnl = 0.5 * infl_convexity * inflation_shift_bp * inflation_shift_bp;
-            attribution.model_params_pnl = Money::new(
-                attribution.model_params_pnl.amount() + convexity_pnl,
-                val_t1.value.currency(),
-            );
-        }
-    }
+    // 9. Inflation sensitivity
+    // Requires measure_inflation_curve_shift() which doesn't exist yet in core/diff.rs
+    // Skip for now until inflation curve diff measurement is implemented
 
     // Compute residual
-    attribution.compute_residual();
+    // Ignore error as notes will be populated
+    let _ = attribution.compute_residual();
 
     // Metadata
     attribution.meta.num_repricings = 0; // Metrics-based doesn't reprice
-    attribution.meta.tolerance = 0.01; // Expect larger residual for metrics-based (1%)
+    attribution.meta.tolerance_abs = 10.0; // Expect larger residual for metrics-based
+    attribution.meta.tolerance_pct = 1.0; // 1%
 
     Ok(attribution)
 }

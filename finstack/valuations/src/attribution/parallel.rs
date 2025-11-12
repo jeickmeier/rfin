@@ -180,12 +180,17 @@ pub fn attribute_pnl_parallel(
     }
 
     // Step 7: FX attribution
+    // Measures internal FX exposure (pricing-side) effects
+    // For cross-currency instruments, this captures how changes in FX rates affect
+    // the instrument's value in its native currency
     let fx_t0 = extract_fx(market_t0);
     if fx_t0.is_some() {
-        let market_with_t0_fx = restore_fx(market_t1, fx_t0);
+        let market_with_t0_fx = restore_fx(market_t1, fx_t0.clone());
         let val_with_t0_fx = reprice_instrument(instrument, &market_with_t0_fx, as_of_t1)?;
         num_repricings += 1;
 
+        // Use instrument currency (no cross-currency translation effect)
+        // This isolates the internal pricing impact of FX rate changes
         attribution.fx_pnl = compute_pnl(
             val_with_t0_fx,
             val_t1,
@@ -193,6 +198,15 @@ pub fn attribute_pnl_parallel(
             market_t1,
             as_of_t1,
         )?;
+        
+        // Stamp FX policy if conversions were applied
+        if attribution.fx_pnl.currency() != val_t1.currency() {
+            attribution.meta.fx_policy = Some(finstack_core::money::fx::FxPolicyMeta {
+                strategy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                target_ccy: Some(val_t1.currency()),
+                notes: "Parallel FX attribution using instrument currency".to_string(),
+            });
+        }
     }
 
     // Step 8: Volatility attribution
@@ -221,23 +235,31 @@ pub fn attribute_pnl_parallel(
         match crate::attribution::model_params::with_model_params(instrument, &params_t0) {
             Ok(instrument_with_t0_params) => {
                 // Reprice with T₁ market
-                if let Ok(val_with_t0_params) =
-                    reprice_instrument(&instrument_with_t0_params, market_t1, as_of_t1)
-                {
-                    num_repricings += 1;
+                match reprice_instrument(&instrument_with_t0_params, market_t1, as_of_t1) {
+                    Ok(val_with_t0_params) => {
+                        num_repricings += 1;
 
-                    attribution.model_params_pnl = compute_pnl(
-                        val_with_t0_params,
-                        val_t1,
-                        val_t1.currency(),
-                        market_t1,
-                        as_of_t1,
-                    )?;
+                        attribution.model_params_pnl = compute_pnl(
+                            val_with_t0_params,
+                            val_t1,
+                            val_t1.currency(),
+                            market_t1,
+                            as_of_t1,
+                        )?;
+                    }
+                    Err(e) => {
+                        attribution.meta.notes.push(format!(
+                            "Model parameters attribution: repricing failed - {}",
+                            e
+                        ));
+                    }
                 }
-                // If repricing fails, model_params_pnl remains zero
             }
-            Err(_) => {
-                // If modification fails, model_params_pnl remains zero
+            Err(e) => {
+                attribution.meta.notes.push(format!(
+                    "Model parameters attribution: parameter modification failed - {}",
+                    e
+                ));
             }
         }
     }
@@ -265,11 +287,14 @@ pub fn attribute_pnl_parallel(
     }
 
     // Step 11: Compute residual
-    attribution.compute_residual();
+    // Ignore error as notes will be populated
+    let _ = attribution.compute_residual();
 
     // Update metadata
     attribution.meta.num_repricings = num_repricings;
-    attribution.meta.tolerance = 0.001; // Default 0.1% tolerance
+    attribution.meta.tolerance_abs = 1.0;
+    attribution.meta.tolerance_pct = 0.1;
+    attribution.meta.rounding = finstack_core::config::rounding_context_from(_config);
 
     Ok(attribution)
 }

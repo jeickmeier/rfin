@@ -150,7 +150,7 @@ Time decay (theta) and accruals between T₀ and T₁. Computed by pricing at T�
 Impact of discount and forward curve shifts on PV. Isolates IR risk by restoring T₀ discount/forward curves.
 
 ### Credit Curves
-Impact of hazard curve shifts on PV. Relevant for CDS, corporate bonds, structured credit.
+Impact of hazard curve shifts on PV. Relevant for CDS,CDS Index, CDS Option, CDS Tranche, corporate bonds, term loans, revolving credit, structured credit.
 
 ### Inflation Curves
 Impact of inflation curve shifts on PV. Relevant for inflation-linked bonds and swaps.
@@ -173,6 +173,75 @@ Impact of model-specific parameter changes:
 
 ### Market Scalars
 Impact of changes in dividends, equity prices, commodity prices, inflation indices.
+
+## FX Attribution Semantics
+
+### Internal FX Exposure vs Translation
+
+The FX attribution factor captures two distinct effects:
+
+1. **Internal FX Exposure (Pricing-Side)**:
+   - How FX rate changes affect the instrument's value in its native currency
+   - Relevant for cross-currency swaps, quanto options, FX-linked instruments
+   - Default behavior when using instrument currency
+
+2. **FX Translation (Reporting-Side)**:
+   - How FX rate changes affect conversion to a base/reporting currency
+   - Relevant when aggregating multi-currency portfolios
+   - Requires explicit base currency parameter (future enhancement)
+
+**Current Implementation**: The FX factor isolates internal FX exposure effects. For single-currency instruments (e.g., USD bond), FX P&L is correctly near-zero since there's no pricing dependency on FX rates.
+
+**Example**: A USD corporate bond has:
+- FX P&L ≈ 0 (no internal FX exposure)
+- If reported in EUR, translation effect would be separate (not currently captured)
+
+For cross-currency instruments (e.g., EUR/USD cross-currency swap):
+- FX P&L captures how EUR/USD rate changes affect the swap's USD value
+- Both legs' present values depend on the FX rate for fair value calculation
+
+### Currency and Units
+
+All P&L values are returned in the **instrument's native currency** by default. For portfolio aggregation, use `portfolio::attribution::attribute_portfolio_pnl()` which converts to a common base currency.
+
+Exported CSVs include explicit `currency` columns to prevent unit ambiguity.
+
+## Attribution Metadata
+
+Each attribution result includes comprehensive metadata in `AttributionMeta`:
+
+```rust
+pub struct AttributionMeta {
+    pub method: AttributionMethod,          // Parallel, Waterfall, or MetricsBased
+    pub t0: Date,                          // Start date
+    pub t1: Date,                          // End date
+    pub instrument_id: String,             // Instrument identifier
+    pub num_repricings: usize,             // Count of repricing operations
+    pub tolerance_abs: f64,                // Absolute tolerance threshold
+    pub tolerance_pct: f64,                // Percentage tolerance threshold
+    pub residual_pct: f64,                 // Actual residual as percentage
+    pub rounding: RoundingContext,         // Rounding policy applied
+    pub fx_policy: Option<FxPolicyMeta>,   // FX conversion policy (if applied)
+    pub notes: Vec<String>,                // Diagnostic notes/warnings
+}
+```
+
+**Rounding Context**: Stamps the numeric mode (Decimal/f64), rounding mode, and scale policies used during computation. This ensures deterministic reproducibility.
+
+**FX Policy**: Records the FX conversion strategy (CashflowDate, PeriodEnd, etc.) and target currency when FX conversions are applied. Enables full audit trails for cross-currency calculations.
+
+**Diagnostic Notes**: Warnings for:
+- Model parameter extraction/modification failures
+- Skipped factors (instrument doesn't support)
+- Currency validation issues
+- Missing market data
+
+**Tolerance Thresholds**: Separate absolute and percentage tolerances provide flexibility:
+- `tolerance_abs`: Dollar/unit threshold (e.g., $1.00)
+- `tolerance_pct`: Percentage of total P&L (e.g., 0.01%)
+- Actual check uses the larger of the two
+
+Use `residual_within_meta_tolerance()` to check against stored thresholds, or `residual_within_tolerance(pct, abs)` for custom thresholds.
 
 ## Portfolio Attribution
 
@@ -272,8 +341,8 @@ For large portfolios, consider:
 ### Supported Instruments
 
 **Structured Credit (ABS, RMBS, CMBS, CLO)**:
-- Prepayment speeds (PSA, CPR, SMM models)
-- Default rates (CDR, SDA models)
+- Prepayment speeds (CPR, constant and time-varying)
+- Default rates (CDR, constant and time-varying)
 - Recovery rates (constant severity, time-varying)
 
 ```rust

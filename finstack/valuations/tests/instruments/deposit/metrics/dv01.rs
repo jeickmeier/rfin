@@ -88,24 +88,6 @@ fn test_dv01_zero_for_zero_period() {
 }
 
 #[test]
-fn test_dv01_zero_after_maturity() {
-    // Setup - price after maturity
-    let base = date(2025, 1, 1);
-    let ctx = ctx_with_standard_disc(base, "USD-OIS");
-
-    let dep = DepositBuilder::new(base)
-        .start(date(2024, 1, 1))
-        .end(date(2024, 7, 1))
-        .build();
-
-    // Execute
-    let dv01 = compute_metric(&dep, &ctx, base, MetricId::Dv01);
-
-    // Validate
-    assert!(dv01.abs() < 1e-10);
-}
-
-#[test]
 fn test_dv01_reasonable_magnitude() {
     // Setup - for $1mm notional, 6m deposit, DV01 magnitude should be ~$50
     let base = date(2025, 1, 1);

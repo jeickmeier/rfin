@@ -1,7 +1,7 @@
 use super::common::{sample_base_date, sample_discount_curve};
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::math::interp::ExtrapolationPolicy;
+use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use time::Month;
 
 #[test]
@@ -161,9 +161,11 @@ fn test_monotonic_df_accepted() {
 #[test]
 fn test_allow_non_monotonic_flag_overrides_validation() {
     // With allow_non_monotonic, the validation should be bypassed
+    // Note: Must use Linear interpolation since MonotoneConvex requires decreasing DFs
     let result = DiscountCurve::builder("OVERRIDE-ALLOWED")
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.96)]) // Non-monotonic
+        .set_interp(InterpStyle::Linear) // Required for non-monotonic DFs
         .allow_non_monotonic()
         .build();
 

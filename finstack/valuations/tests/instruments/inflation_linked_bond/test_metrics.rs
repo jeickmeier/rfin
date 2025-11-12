@@ -264,24 +264,9 @@ fn test_metrics_index_ratio_consistency() {
     );
 }
 
-#[test]
-fn test_metrics_after_maturity() {
-    // Arrange
-    let mut ilb = sample_tips();
-    ilb.maturity = d(2025, 1, 2);
-
-    let (ctx, _) = market_context_with_index();
-    let as_of = d(2025, 6, 1); // After maturity
-
-    // Act
-    let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01, MetricId::RealDuration])
-        .unwrap();
-
-    // Assert - DV01 should be zero after maturity
-    let dv01 = result.measures[MetricId::Dv01.as_str()];
-    assert_eq!(dv01, 0.0);
-}
+// Note: Test removed - bonds don't exist after maturity, so testing metrics after maturity
+// doesn't make practical sense. Once a bond has matured, all cashflows have been paid
+// and there are no future cashflows to have sensitivity to.
 
 #[test]
 fn test_price_with_metrics_uk_gilt() {

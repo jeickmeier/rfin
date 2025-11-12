@@ -1,3 +1,0 @@
-# Calibration
-
-Documentation coming soon.

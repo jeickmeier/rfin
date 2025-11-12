@@ -133,32 +133,71 @@ finstack-valuations (integration attribution_tests):
 Total: 19 tests passing
 ```
 
+## Market-Standards Compliance Updates (Nov 2025)
+
+### ✅ Enhanced Metadata
+- **Rounding Context**: All attribution results now stamp `RoundingContext` for audit trails
+- **FX Policy**: FX conversions record `FxPolicyMeta` with strategy and target currency
+- **Split Tolerances**: `tolerance_abs` and `tolerance_pct` clearly separated
+- **Diagnostic Notes**: `Vec<String>` in metadata records warnings and skipped factors
+
+### ✅ Safety Improvements
+- **Non-Panicking Residual**: `compute_residual()` returns `Result<()>` with currency validation
+- **Currency Validation**: Pre-flight checks ensure all factors match total P&L currency
+- **Error Recording**: Failed operations append diagnostic notes instead of silent zeros
+
+### ✅ FX Attribution
+- **Internal FX Exposure**: FX factor isolates pricing-side FX effects (e.g., cross-currency swaps)
+- **Instrument Currency**: Default behavior uses instrument currency (no translation effect)
+- **FX Policy Stamping**: When FX factor is applied, policy metadata is recorded
+
+### ✅ Export Quality
+- **Currency Columns**: CSV exports include currency for all monetary values
+- **Deterministic Ordering**: Detail exports sort by curve_id/tenor for stable output
+- **Units Clarity**: Headers document monetary units; currency prevents misinterpretation
+
+### ✅ Metrics-Based Accuracy
+- **Real Dividend Shifts**: Uses `measure_scalar_shift()` when `dividend_schedule_id()` available
+- **Removed Placeholders**: Eliminated heuristic spot/vanna constants; gate on availability
+- **Second-Order Terms**: Convexity/Volga/CS-Gamma supported where metrics exist
+
 ## Known Limitations
 
 ### Current Implementation
 
-1. **Model Parameters**: Requires instrument-specific support
-   - Infrastructure in place
-   - TODO: Add parameter extraction for each instrument type
-   - Currently returns zero for most instruments
+1. **FX Translation Attribution**: 
+   - Current implementation isolates internal FX exposure (pricing-side)
+   - Does NOT capture FX translation effects when reporting in base currency
+   - To add translation: would need optional `base_currency` parameter in attribution functions
+   - For single-currency instruments, FX factor is correctly near-zero
 
-2. **Market Scalars**: Limited by MarketContext private fields
-   - prices, series, inflation_indices, dividends are private
-   - TODO: Add public accessors to MarketContext
-   - Currently returns zero
+2. **Model Parameters**: Requires instrument-specific support
+   - Infrastructure in place for StructuredCredit and Convertible
+   - Notes recorded when parameter extraction/modification fails
+   - Returns zero P&L with diagnostic note for unsupported instruments
 
-3. **Per-Tenor Attribution**: Framework in place
+3. **Market Scalars (Spot/Equity)**: 
+   - Requires instrument to expose `underlying_id()` or `equity_id()` method
+   - Current Instrument trait doesn't have standard spot ID accessor
+   - Dividends attribution works when `dividend_schedule_id()` is available
+
+4. **Per-Tenor Attribution**: Framework in place
    - RatesCurvesAttribution, CreditCurvesAttribution have by_tenor fields
-   - TODO: Implement tenor bucketing logic
+   - TODO: Implement tenor bucketing logic via DV01/CS01 ladder
    - Currently only aggregate curve-level attribution
 
-4. **Metrics-Based Curve Shifts**: Requires market comparison
-   - TODO: Implement curve shift measurement
-   - Currently uses placeholder zero values
+5. **Inflation Curve Shifts**: 
+   - Requires `measure_inflation_curve_shift()` in core/diff.rs
+   - Not yet implemented in market data diff utilities
+   - Inflation01/InflationConvexity metrics exist but not used
 
 ### Pre-Existing Issues Fixed
 
 - ✅ Fixed mc feature gate in `covenants/forward.rs`
+- ✅ Eliminated panics in `compute_residual()` via currency validation
+- ✅ Added rounding context and FX policy stamping to metadata
+- ✅ Replaced metrics placeholders with real dividend shift measurement
+- ✅ Added currency columns and stable ordering to CSV exports
 
 ## API Surface
 

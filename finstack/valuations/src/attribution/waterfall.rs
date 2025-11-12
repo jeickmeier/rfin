@@ -164,9 +164,25 @@ pub fn attribute_pnl_waterfall(
             AttributionFactor::CreditCurves => attribution.credit_curves_pnl = factor_pnl,
             AttributionFactor::InflationCurves => attribution.inflation_curves_pnl = factor_pnl,
             AttributionFactor::Correlations => attribution.correlations_pnl = factor_pnl,
-            AttributionFactor::Fx => attribution.fx_pnl = factor_pnl,
+            AttributionFactor::Fx => {
+                attribution.fx_pnl = factor_pnl;
+                // Stamp FX policy when FX factor is applied
+                attribution.meta.fx_policy = Some(finstack_core::money::fx::FxPolicyMeta {
+                    strategy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                    target_ccy: Some(current_val.currency()),
+                    notes: "Waterfall FX attribution using instrument currency".to_string(),
+                });
+            }
             AttributionFactor::Volatility => attribution.vol_pnl = factor_pnl,
-            AttributionFactor::ModelParameters => attribution.model_params_pnl = factor_pnl,
+            AttributionFactor::ModelParameters => {
+                attribution.model_params_pnl = factor_pnl;
+                // Add note if factor P&L is zero (likely skipped)
+                if factor_pnl.amount().abs() < 1e-10 {
+                    attribution.meta.notes.push(
+                        "Model parameters attribution returned zero (may be unsupported for this instrument type)".to_string()
+                    );
+                }
+            }
             AttributionFactor::MarketScalars => attribution.market_scalars_pnl = factor_pnl,
         }
 
@@ -178,11 +194,14 @@ pub fn attribute_pnl_waterfall(
     }
 
     // Compute residual (should be minimal for waterfall)
-    attribution.compute_residual();
+    // Ignore error as notes will be populated
+    let _ = attribution.compute_residual();
 
     // Update metadata
     attribution.meta.num_repricings = num_repricings;
-    attribution.meta.tolerance = 0.0001; // Waterfall should have very small residual
+    attribution.meta.tolerance_abs = 0.01;
+    attribution.meta.tolerance_pct = 0.001; // Waterfall should have very small residual
+    attribution.meta.rounding = finstack_core::config::rounding_context_from(_config);
 
     Ok(attribution)
 }
@@ -226,22 +245,32 @@ fn apply_factor_to_t1(
             match crate::attribution::model_params::with_model_params(instrument, &params_t1) {
                 Ok(instrument_with_t1_params) => {
                     // Reprice with T₁ parameters
-                    if let Ok(new_val) =
-                        reprice_instrument(&instrument_with_t1_params, current_market, as_of_t1)
-                    {
-                        *num_repricings += 1;
-                        let factor_pnl = compute_pnl(
-                            current_val,
-                            new_val,
-                            current_val.currency(),
-                            current_market,
-                            as_of_t1,
-                        )?;
-                        return Ok((current_market.clone(), factor_pnl));
+                    match reprice_instrument(&instrument_with_t1_params, current_market, as_of_t1) {
+                        Ok(new_val) => {
+                            *num_repricings += 1;
+                            let factor_pnl = compute_pnl(
+                                current_val,
+                                new_val,
+                                current_val.currency(),
+                                current_market,
+                                as_of_t1,
+                            )?;
+                            return Ok((current_market.clone(), factor_pnl));
+                        }
+                        Err(_e) => {
+                            // Note: Would need to store this in attribution.meta.notes
+                            // but we don't have mutable access to attribution here
+                            // Return zero P&L for now
+                            return Ok((
+                                current_market.clone(),
+                                Money::new(0.0, current_val.currency()),
+                            ));
+                        }
                     }
                 }
-                Err(_) => {
+                Err(_e) => {
                     // If modification fails, return zero P&L
+                    // Note would be recorded if we had access to attribution
                     return Ok((
                         current_market.clone(),
                         Money::new(0.0, current_val.currency()),
@@ -285,6 +314,8 @@ fn apply_factor_to_t1(
         }
 
         AttributionFactor::Fx => {
+            // Apply T1 FX matrix while keeping other factors at their current state
+            // This isolates the internal FX exposure effect
             let fx_t1 = extract_fx(market_t1);
             restore_fx(current_market, fx_t1)
         }

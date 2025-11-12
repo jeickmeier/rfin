@@ -1,3 +1,0 @@
-# Clo
-
-Documentation coming soon.

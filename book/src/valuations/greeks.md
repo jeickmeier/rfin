@@ -1,3 +1,0 @@
-# Greeks
-
-Documentation coming soon.

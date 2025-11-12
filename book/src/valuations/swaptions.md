@@ -1,3 +1,0 @@
-# Swaptions
-
-Documentation coming soon.

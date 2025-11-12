@@ -102,9 +102,14 @@ impl WasmAttributionMeta {
         self.inner.residual_pct
     }
 
-    #[wasm_bindgen(getter)]
-    pub fn tolerance(&self) -> f64 {
-        self.inner.tolerance
+    #[wasm_bindgen(getter, js_name = toleranceAbs)]
+    pub fn tolerance_abs(&self) -> f64 {
+        self.inner.tolerance_abs
+    }
+
+    #[wasm_bindgen(getter, js_name = tolerancePct)]
+    pub fn tolerance_pct(&self) -> f64 {
+        self.inner.tolerance_pct
     }
 
     /// Get method as string ("Parallel", "Waterfall", or "MetricsBased")

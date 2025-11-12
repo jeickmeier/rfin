@@ -187,7 +187,8 @@ fn test_stress_scenarios() {
 
     for (name, infl_rate, disc_rate) in scenarios {
         let ctx = standard_market(as_of, infl_rate, disc_rate);
-        let pv = swap.value(&ctx, as_of).unwrap();
+        let pv = swap.value(&ctx, as_of)
+            .expect(&format!("Failed to value swap in {} scenario", name));
 
         assert!(
             pv.amount().is_finite(),

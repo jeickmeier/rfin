@@ -55,7 +55,7 @@ build-prod:
 	CARGO_INCREMENTAL=1 RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --exclude finstack-wasm --release
 
 test: install-nextest
-	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc
+	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc --max-fail=10
 
 test-slow: install-nextest
 	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,slow

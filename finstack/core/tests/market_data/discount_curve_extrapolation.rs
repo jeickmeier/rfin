@@ -241,6 +241,7 @@ fn test_edge_cases() {
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95)])
         .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .extrapolation(ExtrapolationPolicy::FlatZero)
         .build()
         .unwrap();
 

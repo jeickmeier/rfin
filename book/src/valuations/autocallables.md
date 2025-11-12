@@ -1,3 +1,0 @@
-# Autocallables
-
-Documentation coming soon.

@@ -1,3 +1,0 @@
-# Credit
-
-Documentation coming soon.

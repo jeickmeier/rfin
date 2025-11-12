@@ -30,7 +30,7 @@ impl PnlAttribution {
     /// # Returns
     ///
     /// CSV string with columns:
-    /// - instrument_id, total, carry, rates_curves, credit_curves,
+    /// - instrument_id, currency, total, carry, rates_curves, credit_curves,
     ///   inflation_curves, correlations, fx, vol, model_params,
     ///   market_scalars, residual, residual_pct
     pub fn to_csv(&self) -> String {
@@ -38,7 +38,7 @@ impl PnlAttribution {
 
         // Header
         lines.push(
-            "instrument_id,total,carry,rates_curves,credit_curves,\
+            "instrument_id,currency,total,carry,rates_curves,credit_curves,\
              inflation_curves,correlations,fx,vol,model_params,\
              market_scalars,residual,residual_pct"
                 .to_string(),
@@ -46,8 +46,9 @@ impl PnlAttribution {
 
         // Data row
         lines.push(format!(
-            "{},{},{},{},{},{},{},{},{},{},{},{},{}",
+            "{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
             self.meta.instrument_id,
+            self.total_pnl.currency(),
             self.total_pnl.amount(),
             self.carry.amount(),
             self.rates_curves_pnl.amount(),
@@ -67,7 +68,7 @@ impl PnlAttribution {
 
     /// Export rates curves detail as CSV string.
     ///
-    /// Returns CSV with columns: instrument_id, curve_id, tenor, pnl
+    /// Returns CSV with columns: instrument_id, curve_id, tenor, pnl, currency
     ///
     /// Returns None if no rates detail available.
     pub fn rates_detail_to_csv(&self) -> Option<String> {
@@ -75,27 +76,42 @@ impl PnlAttribution {
             let mut lines = Vec::new();
 
             // Header
-            lines.push("instrument_id,curve_id,tenor,pnl".to_string());
+            lines.push("instrument_id,curve_id,tenor,pnl,currency".to_string());
 
-            // Per-curve aggregates
-            for (curve_id, pnl) in &detail.by_curve {
+            // Per-curve aggregates (sorted by curve_id for determinism)
+            let mut curve_entries: Vec<_> = detail.by_curve.iter().collect();
+            curve_entries.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+            
+            for (curve_id, pnl) in curve_entries {
                 lines.push(format!(
-                    "{},{},{},{}",
+                    "{},{},{},{},{}",
                     self.meta.instrument_id,
                     curve_id.as_str(),
                     "",
-                    pnl.amount()
+                    pnl.amount(),
+                    pnl.currency()
                 ));
             }
 
-            // Per-tenor details
-            for ((curve_id, tenor), pnl) in &detail.by_tenor {
+            // Per-tenor details (sorted by curve_id then tenor)
+            let mut tenor_entries: Vec<_> = detail.by_tenor.iter().collect();
+            tenor_entries.sort_by(|a, b| {
+                let cmp_curve = a.0.0.as_str().cmp(b.0.0.as_str());
+                if cmp_curve == std::cmp::Ordering::Equal {
+                    a.0.1.cmp(&b.0.1)
+                } else {
+                    cmp_curve
+                }
+            });
+            
+            for ((curve_id, tenor), pnl) in tenor_entries {
                 lines.push(format!(
-                    "{},{},{},{}",
+                    "{},{},{},{},{}",
                     self.meta.instrument_id,
                     curve_id.as_str(),
                     tenor,
-                    pnl.amount()
+                    pnl.amount(),
+                    pnl.currency()
                 ));
             }
 
@@ -124,11 +140,13 @@ mod tests {
 
         attribution.carry = Money::new(100.0, Currency::USD);
         attribution.rates_curves_pnl = Money::new(500.0, Currency::USD);
-        attribution.compute_residual();
+        attribution.compute_residual().unwrap();
 
         let csv = attribution.to_csv();
         assert!(csv.contains("instrument_id"));
+        assert!(csv.contains("currency"));
         assert!(csv.contains("BOND-001"));
+        assert!(csv.contains("USD"));
         assert!(csv.contains("100")); // carry
         assert!(csv.contains("500")); // rates
     }
@@ -148,5 +166,87 @@ mod tests {
         let json = attribution.to_json().unwrap();
         assert!(json.contains("BOND-001"));
         assert!(json.contains("total_pnl"));
+    }
+
+    #[test]
+    fn test_csv_currency_column() {
+        // Test that currency is properly exported
+        let total = Money::new(5000.0, Currency::EUR);
+        let mut attribution = PnlAttribution::new(
+            total,
+            "EUR-BOND-001",
+            date!(2025 - 01 - 15),
+            date!(2025 - 01 - 16),
+            AttributionMethod::Parallel,
+        );
+
+        attribution.carry = Money::new(200.0, Currency::EUR);
+        attribution.rates_curves_pnl = Money::new(300.0, Currency::EUR);
+        attribution.compute_residual().unwrap();
+
+        let csv = attribution.to_csv();
+        
+        // Check header includes currency
+        assert!(csv.contains("currency"));
+        
+        // Check data row includes EUR
+        assert!(csv.contains("EUR"));
+        
+        // Check amounts are correct
+        assert!(csv.contains("5000"));
+        assert!(csv.contains("200"));
+        assert!(csv.contains("300"));
+    }
+
+    #[test]
+    fn test_rates_detail_csv_ordering() {
+        use finstack_core::types::CurveId;
+        use indexmap::IndexMap;
+
+        let total = Money::new(1000.0, Currency::USD);
+        let mut attribution = PnlAttribution::new(
+            total,
+            "BOND-001",
+            date!(2025 - 01 - 15),
+            date!(2025 - 01 - 16),
+            AttributionMethod::Parallel,
+        );
+
+        // Create rates detail with multiple curves in non-alphabetical order
+        let mut by_curve = IndexMap::new();
+        by_curve.insert(CurveId::from("USD-SOFR"), Money::new(100.0, Currency::USD));
+        by_curve.insert(CurveId::from("EUR-OIS"), Money::new(50.0, Currency::USD));
+        by_curve.insert(CurveId::from("GBP-SONIA"), Money::new(75.0, Currency::USD));
+
+        let mut by_tenor = IndexMap::new();
+        by_tenor.insert(
+            (CurveId::from("USD-SOFR"), "5Y".to_string()),
+            Money::new(40.0, Currency::USD),
+        );
+        by_tenor.insert(
+            (CurveId::from("EUR-OIS"), "2Y".to_string()),
+            Money::new(30.0, Currency::USD),
+        );
+
+        attribution.rates_detail = Some(RatesCurvesAttribution {
+            by_curve,
+            by_tenor,
+            discount_total: Money::new(150.0, Currency::USD),
+            forward_total: Money::new(75.0, Currency::USD),
+        });
+
+        let csv = attribution.rates_detail_to_csv().unwrap();
+        
+        // Verify header includes currency
+        assert!(csv.contains("currency"));
+        
+        // Parse lines to check ordering
+        let lines: Vec<&str> = csv.lines().collect();
+        assert!(lines.len() > 1); // Header + data
+        
+        // Check that EUR-OIS comes before USD-SOFR (alphabetical)
+        let eur_pos = csv.find("EUR-OIS").unwrap();
+        let usd_pos = csv.find("USD-SOFR").unwrap();
+        assert!(eur_pos < usd_pos, "Curves should be alphabetically ordered");
     }
 }

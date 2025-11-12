@@ -109,8 +109,13 @@ impl PyAttributionMeta {
     }
 
     #[getter]
-    fn tolerance(&self) -> f64 {
-        self.inner.tolerance
+    fn tolerance_abs(&self) -> f64 {
+        self.inner.tolerance_abs
+    }
+
+    #[getter]
+    fn tolerance_pct(&self) -> f64 {
+        self.inner.tolerance_pct
     }
 
     fn __repr__(&self) -> String {

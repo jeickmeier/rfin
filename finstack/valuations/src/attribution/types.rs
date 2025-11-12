@@ -5,6 +5,7 @@
 //! model parameters, and market scalars.
 
 use finstack_core::config::RoundingContext;
+use finstack_core::money::fx::FxPolicyMeta;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 use indexmap::IndexMap;
@@ -319,11 +320,25 @@ pub struct AttributionMeta {
     /// Number of repricings performed.
     pub num_repricings: usize,
 
-    /// Tolerance for residual validation (absolute).
-    pub tolerance: f64,
+    /// Absolute tolerance for residual validation.
+    pub tolerance_abs: f64,
+
+    /// Percentage tolerance for residual validation.
+    pub tolerance_pct: f64,
 
     /// Residual as percentage of total P&L.
     pub residual_pct: f64,
+
+    /// Rounding context used for calculations.
+    pub rounding: RoundingContext,
+
+    /// FX policy metadata (if FX conversions were applied).
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    pub fx_policy: Option<FxPolicyMeta>,
+
+    /// Diagnostic notes and warnings.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub notes: Vec<String>,
 }
 
 impl PnlAttribution {
@@ -375,62 +390,174 @@ impl PnlAttribution {
                 t1,
                 instrument_id: instrument_id.into(),
                 num_repricings: 0,
-                tolerance: 0.0,
+                tolerance_abs: 1.0,
+                tolerance_pct: 0.01,
                 residual_pct: 100.0,
+                rounding: RoundingContext::default(),
+                fx_policy: None,
+                notes: Vec::new(),
             },
         }
+    }
+
+    /// Create a new P&L attribution with explicit rounding context.
+    ///
+    /// # Arguments
+    ///
+    /// * `total_pnl` - Total P&L (val_t1 - val_t0)
+    /// * `instrument_id` - Instrument identifier
+    /// * `t0` - Start date
+    /// * `t1` - End date
+    /// * `method` - Attribution methodology
+    /// * `rounding` - Rounding context to stamp
+    ///
+    /// # Returns
+    ///
+    /// New `PnlAttribution` with all factor P&Ls initialized to zero.
+    pub fn new_with_rounding(
+        total_pnl: Money,
+        instrument_id: impl Into<String>,
+        t0: Date,
+        t1: Date,
+        method: AttributionMethod,
+        rounding: RoundingContext,
+    ) -> Self {
+        let mut attr = Self::new(total_pnl, instrument_id, t0, t1, method);
+        attr.meta.rounding = rounding;
+        attr
+    }
+
+    /// Validate that all factor currencies match total_pnl currency.
+    ///
+    /// # Returns
+    ///
+    /// Ok(()) if all currencies match, Err otherwise.
+    pub fn validate_currencies(&self) -> Result<()> {
+        let expected = self.total_pnl.currency();
+        
+        let factors = [
+            ("carry", self.carry.currency()),
+            ("rates_curves", self.rates_curves_pnl.currency()),
+            ("credit_curves", self.credit_curves_pnl.currency()),
+            ("inflation_curves", self.inflation_curves_pnl.currency()),
+            ("correlations", self.correlations_pnl.currency()),
+            ("fx", self.fx_pnl.currency()),
+            ("vol", self.vol_pnl.currency()),
+            ("model_params", self.model_params_pnl.currency()),
+            ("market_scalars", self.market_scalars_pnl.currency()),
+        ];
+
+        for (_name, ccy) in &factors {
+            if *ccy != expected {
+                return Err(Error::CurrencyMismatch {
+                    expected,
+                    actual: *ccy,
+                });
+            }
+        }
+
+        Ok(())
     }
 
     /// Compute residual as total_pnl minus sum of all attributed factors.
     ///
     /// Updates both `residual` and `residual_pct` fields.
     ///
-    /// # Panics
+    /// # Returns
     ///
-    /// Panics if currency mismatch occurs (should never happen in practice
-    /// as all factors are initialized in the same currency).
-    pub fn compute_residual(&mut self) {
-        // Sum all attributed factors
-        // Note: checked_add returns Result, so we need to handle it
+    /// Ok(()) on success, Err if currency mismatch detected.
+    ///
+    /// # Notes
+    ///
+    /// On error, sets residual to zero and adds a diagnostic note to metadata.
+    pub fn compute_residual(&mut self) -> Result<()> {
+        // Validate currencies first
+        if let Err(e) = self.validate_currencies() {
+            let note = format!("Currency validation failed during residual computation: {}", e);
+            self.meta.notes.push(note);
+            self.residual = Money::new(0.0, self.total_pnl.currency());
+            self.meta.residual_pct = 0.0;
+            return Err(e);
+        }
+
+        // Sum all attributed factors (safe now that currencies are validated)
         let mut attributed_sum = self.carry;
         attributed_sum = attributed_sum
             .checked_add(self.rates_curves_pnl)
-            .expect("Currency mismatch in rates curves P&L");
+            .map_err(|e| {
+                let note = format!("Failed to add rates curves P&L: {}", e);
+                self.meta.notes.push(note.clone());
+                e
+            })?;
         attributed_sum = attributed_sum
             .checked_add(self.credit_curves_pnl)
-            .expect("Currency mismatch in credit curves P&L");
+            .map_err(|e| {
+                let note = format!("Failed to add credit curves P&L: {}", e);
+                self.meta.notes.push(note.clone());
+                e
+            })?;
         attributed_sum = attributed_sum
             .checked_add(self.inflation_curves_pnl)
-            .expect("Currency mismatch in inflation curves P&L");
+            .map_err(|e| {
+                let note = format!("Failed to add inflation curves P&L: {}", e);
+                self.meta.notes.push(note.clone());
+                e
+            })?;
         attributed_sum = attributed_sum
             .checked_add(self.correlations_pnl)
-            .expect("Currency mismatch in correlations P&L");
+            .map_err(|e| {
+                let note = format!("Failed to add correlations P&L: {}", e);
+                self.meta.notes.push(note.clone());
+                e
+            })?;
         attributed_sum = attributed_sum
             .checked_add(self.fx_pnl)
-            .expect("Currency mismatch in FX P&L");
+            .map_err(|e| {
+                let note = format!("Failed to add FX P&L: {}", e);
+                self.meta.notes.push(note.clone());
+                e
+            })?;
         attributed_sum = attributed_sum
             .checked_add(self.vol_pnl)
-            .expect("Currency mismatch in vol P&L");
+            .map_err(|e| {
+                let note = format!("Failed to add vol P&L: {}", e);
+                self.meta.notes.push(note.clone());
+                e
+            })?;
         attributed_sum = attributed_sum
             .checked_add(self.model_params_pnl)
-            .expect("Currency mismatch in model params P&L");
+            .map_err(|e| {
+                let note = format!("Failed to add model params P&L: {}", e);
+                self.meta.notes.push(note.clone());
+                e
+            })?;
         attributed_sum = attributed_sum
             .checked_add(self.market_scalars_pnl)
-            .expect("Currency mismatch in market scalars P&L");
+            .map_err(|e| {
+                let note = format!("Failed to add market scalars P&L: {}", e);
+                self.meta.notes.push(note.clone());
+                e
+            })?;
 
         self.residual = self
             .total_pnl
             .checked_sub(attributed_sum)
-            .expect("Currency mismatch in total P&L");
+            .map_err(|e| {
+                let note = format!("Failed to compute residual: {}", e);
+                self.meta.notes.push(note.clone());
+                e
+            })?;
 
         // Compute residual percentage (handle zero total_pnl) via RoundingContext
-        let rc = RoundingContext::default();
+        let rc = &self.meta.rounding;
         self.meta.residual_pct =
             if !rc.is_effectively_zero_money(self.total_pnl.amount(), self.total_pnl.currency()) {
                 (self.residual.amount() / self.total_pnl.amount()) * 100.0
             } else {
                 0.0
             };
+
+        Ok(())
     }
 
     /// Check if residual is within tolerance.
@@ -458,6 +585,17 @@ impl PnlAttribution {
         };
 
         abs_residual <= tolerance
+    }
+
+    /// Check if residual is within the stored tolerance thresholds.
+    ///
+    /// Uses the tolerance_abs and tolerance_pct from metadata.
+    ///
+    /// # Returns
+    ///
+    /// `true` if residual is within the stored tolerances.
+    pub fn residual_within_meta_tolerance(&self) -> bool {
+        self.residual_within_tolerance(self.meta.tolerance_pct, self.meta.tolerance_abs)
     }
 
     /// Generate a structured tree explanation of P&L attribution.
@@ -665,7 +803,7 @@ mod tests {
         attr.rates_curves_pnl = Money::new(500.0, Currency::USD);
         attr.fx_pnl = Money::new(390.0, Currency::USD);
 
-        attr.compute_residual();
+        attr.compute_residual().unwrap();
 
         assert_eq!(attr.residual.amount(), 10.0); // 1000 - 100 - 500 - 390
         assert!((attr.meta.residual_pct - 1.0).abs() < 1e-10); // 10/1000 * 100
@@ -683,7 +821,7 @@ mod tests {
         );
 
         attr.carry = Money::new(9990.0, Currency::USD);
-        attr.compute_residual();
+        attr.compute_residual().unwrap();
 
         // Residual is 10.0
         // 0.1% of 10000 = 10, so should pass
@@ -694,5 +832,30 @@ mod tests {
 
         // Absolute tolerance of 100 should pass
         assert!(attr.residual_within_tolerance(0.01, 100.0));
+    }
+
+    #[test]
+    fn test_currency_validation() {
+        let total = Money::new(1000.0, Currency::USD);
+        let mut attr = PnlAttribution::new(
+            total,
+            "BOND-001",
+            date!(2025 - 01 - 15),
+            date!(2025 - 01 - 16),
+            AttributionMethod::Parallel,
+        );
+
+        // Valid - all USD
+        assert!(attr.validate_currencies().is_ok());
+
+        // Invalid - inject EUR
+        attr.fx_pnl = Money::new(100.0, Currency::EUR);
+        assert!(attr.validate_currencies().is_err());
+
+        // Compute residual should handle gracefully
+        let result = attr.compute_residual();
+        assert!(result.is_err());
+        assert!(!attr.meta.notes.is_empty());
+        assert_eq!(attr.residual.amount(), 0.0);
     }
 }

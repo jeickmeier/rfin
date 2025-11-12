@@ -1,3 +1,0 @@
-# Cds
-
-Documentation coming soon.

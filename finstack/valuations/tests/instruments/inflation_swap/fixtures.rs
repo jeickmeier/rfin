@@ -10,7 +10,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, InflationCurve}
 use finstack_core::money::Money;
 
 /// Build a flat discount curve with given rate
-pub fn flat_discount(id: &str, base: Date, rate: f64) -> DiscountCurve {
+pub fn flat_discount(id: &str, base: Date, rate: f64) -> finstack_core::Result<DiscountCurve> {
     let knots = vec![
         (0.0, 1.0),
         (1.0, (-rate).exp()),
@@ -19,33 +19,59 @@ pub fn flat_discount(id: &str, base: Date, rate: f64) -> DiscountCurve {
         (30.0, (-rate * 30.0).exp()),
     ];
 
+    // Ensure all discount factors are positive (handle floating point precision issues)
+    let knots: Vec<(f64, f64)> = knots
+        .into_iter()
+        .map(|(t, df): (f64, f64)| {
+            if t.abs() < 1e-15 {
+                (t, 1.0) // First DF must be exactly 1.0
+            } else {
+                (t, df.max(1e-10)) // Ensure minimum positive value for others
+            }
+        })
+        .collect();
+    
+    // Verify all DFs are positive before passing to builder
+    if !knots.iter().all(|(_, df)| *df > 0.0) {
+        panic!("All DFs should be positive for rate {}, got: {:?}", rate, knots);
+    }
+
     let mut builder = DiscountCurve::builder(id)
         .base_date(base)
         .day_count(DayCount::Act365F)
-        .knots(knots);
+        .knots(knots.clone());
 
     // For zero or negative rates, DFs may be flat or increasing
+    // Use Linear interpolation since MonotoneConvex expects decreasing values
     if rate.abs() < 1e-10 || rate < 0.0 {
-        builder = builder.allow_non_monotonic();
+        builder = builder
+            .allow_non_monotonic()
+            .set_interp(finstack_core::math::interp::InterpStyle::Linear);
     }
 
-    builder.build().unwrap()
+    builder.build()
 }
 
 /// Build a flat inflation curve with constant CPI growth rate
-pub fn flat_inflation_curve(id: &str, base_cpi: f64, annual_inflation_rate: f64) -> InflationCurve {
-    let knots = vec![
+pub fn flat_inflation_curve(id: &str, base_cpi: f64, annual_inflation_rate: f64) -> finstack_core::Result<InflationCurve> {
+    let mut knots = vec![
         (0.0, base_cpi),
         (1.0, base_cpi * (1.0 + annual_inflation_rate)),
         (5.0, base_cpi * (1.0 + annual_inflation_rate).powf(5.0)),
         (10.0, base_cpi * (1.0 + annual_inflation_rate).powf(10.0)),
         (30.0, base_cpi * (1.0 + annual_inflation_rate).powf(30.0)),
     ];
+    
+    // Ensure all CPI values are positive (handle floating point precision issues and extreme deflation)
+    knots = knots
+        .into_iter()
+        .map(|(t, cpi)| (t, cpi.max(1e-10))) // Ensure minimum positive value
+        .collect();
+    
     InflationCurve::builder(id)
-        .base_cpi(base_cpi)
+        .base_cpi(base_cpi.max(1e-10)) // Also ensure base_cpi is positive
         .knots(knots)
         .build()
-        .unwrap()
 }
 
 /// Build a realistic inflation curve with term structure
@@ -93,8 +119,10 @@ pub fn simple_index(
 
 /// Build a comprehensive market context for testing
 pub fn standard_market(as_of: Date, inflation_rate: f64, discount_rate: f64) -> MarketContext {
-    let disc = flat_discount("USD-OIS", as_of, discount_rate);
-    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, inflation_rate);
+    let disc = flat_discount("USD-OIS", as_of, discount_rate)
+        .expect(&format!("Failed to build discount curve with rate {}", discount_rate));
+    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, inflation_rate)
+        .expect(&format!("Failed to build inflation curve with rate {}", inflation_rate));
     let index = simple_index(
         "US-CPI-U",
         as_of,
@@ -111,7 +139,7 @@ pub fn standard_market(as_of: Date, inflation_rate: f64, discount_rate: f64) -> 
 
 /// Build a market with realistic curves
 pub fn realistic_market(as_of: Date) -> MarketContext {
-    let disc = flat_discount("USD-OIS", as_of, 0.045); // 4.5% nominal rate
+    let disc = flat_discount("USD-OIS", as_of, 0.045).unwrap(); // 4.5% nominal rate
     let infl_curve = realistic_inflation_curve("US-CPI-U", 300.0);
     let index = simple_index(
         "US-CPI-U",
