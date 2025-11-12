@@ -120,9 +120,9 @@ pub fn simple_index(
 /// Build a comprehensive market context for testing
 pub fn standard_market(as_of: Date, inflation_rate: f64, discount_rate: f64) -> MarketContext {
     let disc = flat_discount("USD-OIS", as_of, discount_rate)
-        .expect(&format!("Failed to build discount curve with rate {}", discount_rate));
+        .unwrap_or_else(|_| panic!("Failed to build discount curve with rate {}", discount_rate));
     let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, inflation_rate)
-        .expect(&format!("Failed to build inflation curve with rate {}", inflation_rate));
+        .unwrap_or_else(|_| panic!("Failed to build inflation curve with rate {}", inflation_rate));
     let index = simple_index(
         "US-CPI-U",
         as_of,
