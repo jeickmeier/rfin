@@ -230,6 +230,7 @@ use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use std::sync::Arc;
 
 /// Identifies the type of rate curve for bucketed DV01 calculations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -618,7 +619,7 @@ impl<I> Default for GenericBucketedDv01<I> {
 
 impl<I> MetricCalculator for GenericBucketedDv01<I>
 where
-    I: Instrument + crate::cashflow::traits::CashflowProvider + HasDiscountCurve + Clone + 'static,
+    I: Instrument + crate::cashflow::traits::CashflowProvider + HasDiscountCurve + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
@@ -627,16 +628,13 @@ where
         // Standard bucket times (years) - shared across all instruments
         let buckets = standard_ir_dv01_buckets();
 
-        // Generic revaluation using cashflow building and discounting
-        let inst_clone = instrument.clone();
-        let curves = context.curves.clone();
-        let as_of = context.as_of;
+        // Build cashflows once upfront (doesn't depend on bumped curve)
+        let flows = instrument.build_schedule(&context.curves, context.as_of)?;
 
         let reval = move |
             bumped_disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve|
          {
-            // Build flows using original curves (preserves forward projections)
-            let flows = inst_clone.build_schedule(&curves, as_of)?;
+            // Use precomputed flows (forward projections from original curves)
             let base = bumped_disc.base_date();
             let dc = bumped_disc.day_count();
 
@@ -693,7 +691,7 @@ impl<I> GenericParallelDv01<I> {
 
 impl<I> MetricCalculator for GenericParallelDv01<I>
 where
-    I: Instrument + HasDiscountCurve + Clone + 'static,
+    I: Instrument + HasDiscountCurve + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
@@ -701,6 +699,7 @@ where
         let as_of = context.as_of;
         let base_pv = context.base_value;
         let base_ctx = context.curves.as_ref();
+        let inst_arc = Arc::clone(&context.instrument);
 
         // Get bump size from pricing overrides or default to 1.0 bp
         let bump_bp = context
@@ -758,8 +757,7 @@ where
                 }
                 
                 let temp_ctx = base_ctx.bump(bumps)?;
-                let inst_clone = instrument.clone();
-                let pv_bumped = inst_clone.value(&temp_ctx, as_of)?;
+                let pv_bumped = inst_arc.value(&temp_ctx, as_of)?;
                 let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
 
                 Ok(dv01)
@@ -774,8 +772,8 @@ where
                     bumps.insert(curve_id.clone(), BumpSpec::parallel_bp(bump_bp));
                     
                     let temp_ctx = base_ctx.bump(bumps)?;
-                    let inst_clone = instrument.clone();
-                    let pv_bumped = inst_clone.value(&temp_ctx, as_of)?;
+                    let inst_for_curve = Arc::clone(&inst_arc);
+                    let pv_bumped = inst_for_curve.value(&temp_ctx, as_of)?;
                     let dv01 = (pv_bumped.amount() - base_pv.amount()) / bump_bp;
 
                     series.push((curve_id.as_str().to_string(), dv01));
@@ -899,7 +897,7 @@ impl<I> Default for GenericBucketedDv01WithContext<I> {
 
 impl<I> MetricCalculator for GenericBucketedDv01WithContext<I>
 where
-    I: Instrument + HasDiscountCurve + Clone + 'static,
+    I: Instrument + HasDiscountCurve + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
@@ -916,8 +914,8 @@ where
         // Standard bucket times
         let buckets = standard_ir_dv01_buckets();
 
-        // Clone instrument once before collecting curves
-        let inst_clone = instrument.clone();
+        // Use Arc to avoid cloning - instrument is already in an Arc in context
+        let inst_arc = Arc::clone(&context.instrument);
 
         // Collect all curves relevant to this instrument
         let curves_to_bump = collect_rate_curves_for_instrument(
@@ -940,7 +938,7 @@ where
 
         // Compute bucketed DV01 per curve
         for (curve_id, curve_kind) in curves_to_bump {
-            let inst_for_curve = inst_clone.clone();
+            let inst_for_curve = Arc::clone(&inst_arc);
             let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
                 inst_for_curve.value(temp_ctx, as_of)
             };

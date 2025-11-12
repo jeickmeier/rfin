@@ -9,6 +9,7 @@ use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use std::sync::Arc;
 
 /// Standard credit key-rate buckets in years used for CS01.
 /// Example: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
@@ -249,17 +250,17 @@ impl<I> Default for GenericParallelCs01<I> {
 
 impl<I> MetricCalculator for GenericParallelCs01<I>
 where
-    I: Instrument + HasCreditCurve + Clone + 'static,
+    I: Instrument + HasCreditCurve + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let hazard_id = instrument.credit_curve_id().clone();
 
-        let inst_clone = instrument.clone();
+        let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
         let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
-            inst_clone.value(temp_ctx, as_of)
+            inst_arc.value(temp_ctx, as_of)
         };
 
         compute_parallel_cs01_with_context(context, &hazard_id, 1.0, reval)
@@ -276,7 +277,7 @@ impl<I> Default for GenericBucketedCs01<I> {
 
 impl<I> MetricCalculator for GenericBucketedCs01<I>
 where
-    I: Instrument + HasCreditCurve + Clone + 'static,
+    I: Instrument + HasCreditCurve + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
@@ -286,11 +287,11 @@ where
         let buckets = standard_credit_cs01_buckets();
 
         // Generic revaluation using full MarketContext (for complex pricers)
-        let inst_clone = instrument.clone();
+        let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
         let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
-            inst_clone.value(temp_ctx, as_of)
+            inst_arc.value(temp_ctx, as_of)
         };
 
         let total =

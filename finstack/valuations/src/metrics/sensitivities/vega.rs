@@ -16,6 +16,7 @@ use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use std::sync::Arc;
 
 /// Standard volatility bump: 1% relative (0.01)
 pub const VOL_BUMP_PCT: f64 = 0.01;
@@ -212,7 +213,7 @@ impl<I> Default for GenericVega<I> {
 
 impl<I> MetricCalculator for GenericVega<I>
 where
-    I: Instrument + Clone + 'static,
+    I: Instrument + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
@@ -222,9 +223,9 @@ where
             .vol_surface_id()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
 
-        let inst_clone = instrument.clone();
+        let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
-        let reval = move |temp_ctx: &MarketContext| inst_clone.value(temp_ctx, as_of);
+        let reval = move |temp_ctx: &MarketContext| inst_arc.value(temp_ctx, as_of);
 
         match self.mode {
             ShockMode::Parallel => {
