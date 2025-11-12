@@ -21,7 +21,7 @@ use std::marker::PhantomData;
 ///
 /// # Examples
 /// ```
-/// # use finstack_valuations::instruments::common::metrics::theta_utils::parse_period_days;
+/// # use finstack_valuations::metrics::parse_period_days;
 /// assert_eq!(parse_period_days("1D").unwrap(), 1);
 /// assert_eq!(parse_period_days("1W").unwrap(), 7);
 /// assert_eq!(parse_period_days("1M").unwrap(), 30);
@@ -168,7 +168,7 @@ where
 ///
 /// # Examples
 /// ```
-/// use finstack_valuations::instruments::common::metrics::GenericTheta;
+/// use finstack_valuations::metrics::GenericTheta;
 /// use finstack_valuations::instruments::Bond;
 /// use finstack_valuations::metrics::{MetricRegistry, MetricId};
 /// use std::sync::Arc;

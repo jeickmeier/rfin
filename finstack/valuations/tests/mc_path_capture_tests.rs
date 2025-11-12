@@ -1,5 +1,7 @@
 // Tests for Monte Carlo path capture functionality (integration tests).
 
+#![cfg(feature = "mc")]
+
 use finstack_core::currency::Currency;
 use finstack_valuations::instruments::common::mc::process::gbm::GbmProcess;
 use finstack_valuations::instruments::common::mc::process::metadata::ProcessMetadata;

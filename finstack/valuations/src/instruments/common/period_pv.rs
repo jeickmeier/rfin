@@ -27,11 +27,12 @@
 //! use time::Month;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let issue = Date::from_calendar_date(2025, Month::January, 1)?;
-//! let maturity = Date::from_calendar_date(2026, Month::January, 1)?;
+//! use finstack_core::dates::create_date;
+//! let issue = create_date(2025, Month::January, 1)?;
+//! let maturity = create_date(2026, Month::January, 1)?;
 //!
 //! // Create a simple bond
-//! let bond = Bond::new(
+//! let bond = Bond::fixed(
 //!     "BOND-001",
 //!     Money::new(1_000_000.0, Currency::USD),
 //!     0.05,

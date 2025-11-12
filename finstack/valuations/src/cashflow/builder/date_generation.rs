@@ -119,7 +119,7 @@ fn build_dates_impl(
 ///
 /// ```rust
 /// use finstack_core::dates::{Date, Frequency, BusinessDayConvention, StubKind, create_date};
-/// use finstack_valuations::cashflow::builder::schedule_utils::build_dates;
+/// use finstack_valuations::cashflow::builder::date_generation::build_dates;
 /// use time::Month;
 ///
 /// let start = create_date(2025, Month::January, 15)?;
@@ -161,7 +161,7 @@ pub fn build_dates(
 ///
 /// ```rust
 /// use finstack_core::dates::{Date, Frequency, BusinessDayConvention, StubKind, create_date};
-/// use finstack_valuations::cashflow::builder::schedule_utils::build_dates_checked;
+/// use finstack_valuations::cashflow::builder::date_generation::build_dates_checked;
 /// use time::Month;
 ///
 /// let start = create_date(2025, Month::January, 15)?;

@@ -55,8 +55,9 @@ use finstack_core::Result;
 /// use time::Month;
 ///
 /// # fn example() -> finstack_core::Result<()> {
-/// let reset = Date::from_calendar_date(2025, Month::January, 15)?;
-/// let period_end = Date::from_calendar_date(2025, Month::April, 15)?;
+/// use finstack_core::dates::create_date;
+/// let reset = create_date(2025, Month::January, 15)?;
+/// let period_end = create_date(2025, Month::April, 15)?;
 /// # let market = MarketContext::new();
 ///
 /// // 3M SOFR + 200bps with 0% floor, no cap

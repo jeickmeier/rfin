@@ -133,7 +133,8 @@ impl CashFlowSchedule {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
     /// use finstack_valuations::cashflow::builder::schedule::{CashFlowSchedule, CashflowMeta};
-    /// use finstack_core::cashflow::primitives::{CashFlow, CFKind, Notional};
+    /// use finstack_core::cashflow::primitives::{CashFlow, CFKind};
+    /// use finstack_valuations::cashflow::builder::Notional;
     /// use time::Month;
     ///
     /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
