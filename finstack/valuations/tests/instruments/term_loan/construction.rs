@@ -1,0 +1,229 @@
+//! Term loan construction and validation tests.
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::money::Money;
+use finstack_core::types::CurveId;
+use finstack_valuations::cashflow::builder::specs::CouponType;
+use finstack_valuations::instruments::term_loan::{
+    AmortizationSpec, LoanCall, LoanCallSchedule, RateSpec, TermLoan,
+};
+use time::macros::date;
+
+#[test]
+fn test_builder_fixed_rate_loan() {
+    // Arrange & Act
+    let loan = TermLoan::builder()
+        .id("TL-FIXED-001".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(10_000_000.0, Currency::USD))
+        .issue(date!(2025 - 01 - 01))
+        .maturity(date!(2030 - 01 - 01))
+        .rate(RateSpec::Fixed { rate_bp: 500 }) // 5%
+        .pay_freq(Frequency::quarterly())
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(AmortizationSpec::None)
+        .coupon_type(CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(None)
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build();
+
+    // Assert
+    assert!(loan.is_ok());
+    let loan = loan.unwrap();
+    assert_eq!(loan.id.as_str(), "TL-FIXED-001");
+    assert_eq!(loan.currency, Currency::USD);
+    assert!(matches!(loan.rate, RateSpec::Fixed { rate_bp: 500 }));
+}
+
+#[test]
+fn test_builder_floating_rate_loan() {
+    // Arrange & Act
+    let loan = TermLoan::builder()
+        .id("TL-FLOAT-001".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(5_000_000.0, Currency::USD))
+        .issue(date!(2025 - 01 - 01))
+        .maturity(date!(2028 - 01 - 01))
+        .rate(RateSpec::Floating {
+            index_curve_id: CurveId::from("USD-SOFR"),
+            spread_bp: 250, // +250 bps
+        })
+        .pay_freq(Frequency::quarterly())
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(AmortizationSpec::None)
+        .coupon_type(CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(None)
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build();
+
+    // Assert
+    assert!(loan.is_ok());
+    let loan = loan.unwrap();
+    assert!(matches!(
+        loan.rate,
+        RateSpec::Floating {
+            index_curve_id: _,
+            spread_bp: 250
+        }
+    ));
+}
+
+#[test]
+fn test_builder_with_amortization() {
+    // Arrange & Act
+    let loan = TermLoan::builder()
+        .id("TL-AMORT-001".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(10_000_000.0, Currency::USD))
+        .issue(date!(2025 - 01 - 01))
+        .maturity(date!(2030 - 01 - 01))
+        .rate(RateSpec::Fixed { rate_bp: 600 })
+        .pay_freq(Frequency::quarterly())
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(AmortizationSpec::Straight {
+            amortization_freq: Frequency::quarterly(),
+        })
+        .coupon_type(CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(None)
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build();
+
+    // Assert
+    assert!(loan.is_ok());
+    let loan = loan.unwrap();
+    assert!(matches!(
+        loan.amortization,
+        AmortizationSpec::Straight { .. }
+    ));
+}
+
+#[test]
+fn test_builder_with_callability() {
+    // Arrange & Act
+    let call_schedule = LoanCallSchedule {
+        calls: vec![
+            LoanCall {
+                date: date!(2027 - 01 - 01),
+                price_pct_of_par: 102.0,
+            },
+            LoanCall {
+                date: date!(2028 - 01 - 01),
+                price_pct_of_par: 101.0,
+            },
+        ],
+    };
+
+    let loan = TermLoan::builder()
+        .id("TL-CALLABLE-001".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(10_000_000.0, Currency::USD))
+        .issue(date!(2025 - 01 - 01))
+        .maturity(date!(2030 - 01 - 01))
+        .rate(RateSpec::Fixed { rate_bp: 550 })
+        .pay_freq(Frequency::semi_annual())
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(AmortizationSpec::None)
+        .coupon_type(CouponType::Cash)
+        .call_schedule_opt(Some(call_schedule.clone()))
+        .upfront_fee_opt(None)
+        .ddtl_opt(None)
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build();
+
+    // Assert
+    assert!(loan.is_ok());
+    let loan = loan.unwrap();
+    assert!(loan.call_schedule.is_some());
+    let calls = &loan.call_schedule.as_ref().unwrap().calls;
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[0].price_pct_of_par, 102.0);
+}
+
+#[test]
+fn test_builder_validation_maturity_after_issue() {
+    // Arrange & Act - maturity before issue should fail
+    let loan = TermLoan::builder()
+        .id("TL-INVALID-001".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(10_000_000.0, Currency::USD))
+        .issue(date!(2030 - 01 - 01))
+        .maturity(date!(2025 - 01 - 01)) // Before issue!
+        .rate(RateSpec::Fixed { rate_bp: 500 })
+        .pay_freq(Frequency::quarterly())
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(AmortizationSpec::None)
+        .coupon_type(CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(None)
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build();
+
+    // Assert
+    assert!(loan.is_err());
+}
+
+#[test]
+fn test_pik_coupon_type() {
+    // Arrange & Act
+    let loan = TermLoan::builder()
+        .id("TL-PIK-001".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(10_000_000.0, Currency::USD))
+        .issue(date!(2025 - 01 - 01))
+        .maturity(date!(2030 - 01 - 01))
+        .rate(RateSpec::Fixed { rate_bp: 800 }) // Higher rate for PIK
+        .pay_freq(Frequency::semi_annual())
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(AmortizationSpec::None)
+        .coupon_type(CouponType::PIK) // Payment-in-kind
+        .upfront_fee_opt(None)
+        .ddtl_opt(None)
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build();
+
+    // Assert
+    assert!(loan.is_ok());
+    let loan = loan.unwrap();
+    assert!(matches!(loan.coupon_type, CouponType::PIK));
+}
+

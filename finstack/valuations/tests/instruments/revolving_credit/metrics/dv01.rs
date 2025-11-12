@@ -1,0 +1,49 @@
+//! DV01 (interest rate sensitivity) tests for revolving credit.
+
+use finstack_core::currency::Currency;
+use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::revolving_credit::{
+    BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
+};
+use finstack_valuations::metrics::MetricId;
+use time::macros::date;
+
+use crate::common::test_helpers::flat_discount_curve;
+
+#[test]
+fn test_dv01_sensitivity() {
+    // Arrange
+    let as_of = date!(2025 - 01 - 01);
+    let facility = RevolvingCredit::builder()
+        .id("RC-DV01-001".into())
+        .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+        .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+        .commitment_date(as_of)
+        .maturity_date(date!(2028 - 01 - 01))
+        .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
+        .day_count(DayCount::Act360)
+        .payment_frequency(Frequency::quarterly())
+        .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
+        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .discount_curve_id("USD-OIS".into())
+        .build()
+        .unwrap();
+
+    let disc_curve = flat_discount_curve(0.04, as_of, "USD-OIS");
+    let market = MarketContext::new().insert_discount(disc_curve);
+
+    // Act
+    let result = facility.price_with_metrics(&market, as_of, &[MetricId::Dv01]);
+
+    // Assert
+    assert!(result.is_ok());
+    let result = result.unwrap();
+    let dv01 = *result.measures.get("dv01").unwrap();
+    
+    // DV01 should be positive and finite
+    assert!(dv01 > 0.0 && dv01.is_finite());
+}
+

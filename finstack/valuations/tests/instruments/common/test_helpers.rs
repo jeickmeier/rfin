@@ -10,6 +10,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use time::Month;
@@ -84,6 +85,45 @@ pub fn flat_curve(rate: f64, curve_id: &str) -> DiscountCurve {
         .unwrap()
 }
 
+/// Create a flat discount curve with custom rate and base date
+pub fn flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
+    DiscountCurve::builder(curve_id)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([
+            (0.0, 1.0),
+            (1.0, (-rate).exp()),
+            (5.0, (-rate * 5.0).exp()),
+            (10.0, (-rate * 10.0).exp()),
+            (30.0, (-rate * 30.0).exp()),
+        ])
+        .build()
+        .unwrap()
+}
+
+/// Create a flat hazard curve with recovery rate
+#[allow(dead_code)]
+pub fn flat_hazard_curve(
+    hazard_rate: f64,
+    recovery: f64,
+    base_date: Date,
+    curve_id: &str,
+) -> HazardCurve {
+    HazardCurve::builder(curve_id)
+        .base_date(base_date)
+        .recovery_rate(recovery)
+        .day_count(DayCount::Act365F)
+        .knots([(1.0, hazard_rate), (10.0, hazard_rate)])
+        .build()
+        .unwrap()
+}
+
+/// Standard test date helper that takes y/m/d
+#[allow(dead_code)]
+pub fn date(year: i32, month: u8, day: u8) -> Date {
+    Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
+}
+
 /// Create a standard upward-sloping curve
 pub fn upward_curve(curve_id: &str) -> DiscountCurve {
     let base = test_date();
@@ -120,6 +160,12 @@ pub fn usd(amount: f64) -> Money {
 /// Create test money in EUR
 pub fn eur(amount: f64) -> Money {
     Money::new(amount, Currency::EUR)
+}
+
+/// Create test money in GBP
+#[allow(dead_code)]
+pub fn gbp(amount: f64) -> Money {
+    Money::new(amount, Currency::GBP)
 }
 
 /// Standard day count for testing

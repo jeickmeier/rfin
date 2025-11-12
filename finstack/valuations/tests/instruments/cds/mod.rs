@@ -18,6 +18,3 @@ mod test_par_spread_roundtrip;
 
 // QuantLib parity tests
 mod quantlib_parity;
-
-// CDS index tests (commented out - needs API updates)
-// mod test_cds_index_imm_factor_cs01;

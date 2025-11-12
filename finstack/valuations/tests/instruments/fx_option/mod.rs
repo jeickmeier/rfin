@@ -10,7 +10,6 @@
 //! - `test_put_call_parity`: Market standard put-call parity validation
 //! - `test_edge_cases`: Edge cases, boundaries, and error handling
 //! - `test_instrument`: Instrument construction and trait implementations
-//! - `test_metrics`: Metric integration tests via registry
 //!
 //! ## Test Philosophy
 //!
@@ -27,5 +26,4 @@ mod test_edge_cases;
 mod test_greeks;
 mod test_implied_vol;
 mod test_instrument;
-// mod test_metrics; // Disabled - API changes
 mod test_put_call_parity;

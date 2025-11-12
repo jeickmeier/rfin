@@ -1,4 +1,13 @@
 //! Equity BucketedDv01 smoke tests
+//!
+//! Note: While equity spot positions don't have direct interest rate cashflows,
+//! they do have rate sensitivity through:
+//! 1. Discounting of the position value
+//! 2. Forward pricing adjustments
+//! 3. Portfolio-level aggregation where equities mix with fixed income
+//!
+//! These tests validate that the generic DV01 calculator properly handles
+//! equity instruments in multi-asset portfolios.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
