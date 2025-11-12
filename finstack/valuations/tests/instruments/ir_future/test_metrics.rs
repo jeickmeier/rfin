@@ -6,24 +6,22 @@ use finstack_valuations::instruments::ir_future::Position;
 use finstack_valuations::metrics::MetricId;
 
 #[test]
-fn test_pv_metric() {
+fn test_pv_value() {
     let (as_of, start, end) = standard_dates();
     let future = create_standard_future(start, end);
     let market = build_standard_market(as_of, 0.05);
 
-    let pv_metric_id = MetricId::custom("ir_future_pv");
-    let result = future
-        .price_with_metrics(&market, as_of, &[pv_metric_id])
-        .unwrap();
+    // PV is available directly in result.value (not in measures)
+    let result = future.price_with_metrics(&market, as_of, &[]).unwrap();
 
-    let pv_metric = *result.measures.get("ir_future_pv").unwrap();
+    let pv_result = result.value.amount();
 
     // Should match direct value calculation
     let pv_direct = future.value(&market, as_of).unwrap().amount();
     assert!(
-        (pv_metric - pv_direct).abs() < 1e-9,
-        "PV metric should match direct calculation: {} vs {}",
-        pv_metric,
+        (pv_result - pv_direct).abs() < 1e-9,
+        "Result.value should match direct calculation: {} vs {}",
+        pv_result,
         pv_direct
     );
 }
@@ -243,7 +241,6 @@ fn test_all_metrics_together() {
     let market = build_standard_market(as_of, 0.05);
 
     let metrics = vec![
-        MetricId::custom("ir_future_pv"),
         MetricId::Dv01,
         MetricId::Theta,
     ];
@@ -251,9 +248,10 @@ fn test_all_metrics_together() {
     let result = future.price_with_metrics(&market, as_of, &metrics).unwrap();
 
     // All metrics should be present
-    assert!(result.measures.contains_key("ir_future_pv"));
     assert!(result.measures.contains_key("dv01"));
     assert!(result.measures.contains_key("theta"));
+    // PV is in result.value, not in measures
+    assert!(result.value.amount().is_finite());
 }
 
 #[test]
@@ -321,28 +319,28 @@ fn test_metrics_consistency() {
     let market = build_standard_market(as_of, 0.05);
 
     // Request metrics separately
-    let result_pv = future
-        .price_with_metrics(&market, as_of, &[MetricId::custom("ir_future_pv")])
+    let result_basic = future
+        .price_with_metrics(&market, as_of, &[])
         .unwrap();
     let result_dv01 = future
         .price_with_metrics(&market, as_of, &[MetricId::Dv01])
         .unwrap();
 
-    // Request together
+    // Request together with theta
     let result_both = future
-        .price_with_metrics(
-            &market,
-            as_of,
-            &[MetricId::custom("ir_future_pv"), MetricId::Dv01],
-        )
+        .price_with_metrics(&market, as_of, &[MetricId::Dv01, MetricId::Theta])
         .unwrap();
 
-    let pv_separate = *result_pv.measures.get("ir_future_pv").unwrap();
+    // PV should be consistent (in result.value, not measures)
+    let pv_basic = result_basic.value.amount();
+    let pv_with_metrics = result_dv01.value.amount();
+    let pv_both = result_both.value.amount();
+
     let dv01_separate = *result_dv01.measures.get("dv01").unwrap();
-    let pv_together = *result_both.measures.get("ir_future_pv").unwrap();
     let dv01_together = *result_both.measures.get("dv01").unwrap();
 
     // Should be consistent
-    assert!((pv_separate - pv_together).abs() < 1e-9);
+    assert!((pv_basic - pv_with_metrics).abs() < 1e-9);
+    assert!((pv_with_metrics - pv_both).abs() < 1e-9);
     assert!((dv01_separate - dv01_together).abs() < 1e-9);
 }

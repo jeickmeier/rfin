@@ -8,13 +8,13 @@
 //! "FxSpot":
 //! - `spot_rate`
 //! - `base_amount`
-//! - `quote_amount`
 //! - `inverse_rate`
+//!
+//! Note: Quote amount (PV in quote currency) is available in `ValuationResult.value`.
 
 pub mod base_amount;
 pub mod fx_delta;
 pub mod inverse_rate;
-pub mod quote_amount;
 pub mod spot_rate;
 
 use crate::metrics::MetricRegistry;
@@ -37,7 +37,7 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (SpotRate, spot_rate::SpotRateCalculator),
             (BaseAmount, base_amount::BaseAmountCalculator),
-            (QuoteAmount, crate::metrics::GenericPv),
+            // QuoteAmount removed - it's just result.value which is always available
             (InverseRate, inverse_rate::InverseRateCalculator),
             (Dv01, crate::metrics::GenericParallelDv01::<
                 crate::instruments::FxSpot,
@@ -96,14 +96,13 @@ mod tests {
     }
 
     #[test]
-    fn quote_amount_matches_present_value() {
+    fn quote_amount_is_result_value() {
         let fx = sample_fx();
         let as_of = d(2025, 1, 15);
         let base_value = fx.npv(&MarketContext::new(), as_of).unwrap();
-        let mut ctx = context_for(fx, as_of);
-        let calc = crate::metrics::GenericPv;
-        let value = calc.calculate(&mut ctx).unwrap();
-        assert!((value - base_value.amount()).abs() < 1e-6);
+        let result = fx.price_with_metrics(&MarketContext::new(), as_of, &[]).unwrap();
+        // Quote amount is just the result.value (PV in quote currency)
+        assert!((result.value.amount() - base_value.amount()).abs() < 1e-6);
     }
 
     #[test]

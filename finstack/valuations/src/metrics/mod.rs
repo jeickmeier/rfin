@@ -28,7 +28,8 @@
 //! is available in `METRICS.md` in this directory.
 
 // Internal submodules (organized by concern)
-mod calculators;
+
+// calculators module removed - GenericPv was the only calculator and has been removed
 mod core;
 mod sensitivities;
 
@@ -36,7 +37,6 @@ mod sensitivities;
 mod tests;
 
 // Re-export all public items at the root level for backward compatibility
-pub use calculators::pv::GenericPv;
 pub use core::finite_difference::bump_sizes;
 pub use core::has_equity_underlying::HasEquityUnderlying;
 pub use core::has_pricing_overrides::HasPricingOverrides;
@@ -148,10 +148,7 @@ pub mod registration_macro {
     pub use super::core::registration_macro::*;
 }
 
-/// Legacy module for PV calculator. Use `calculators::pv` internally.
-pub mod pv {
-    pub use super::calculators::pv::*;
-}
+// Legacy PV module removed - PV is always available in ValuationResult.val
 
 /// Creates a standard metric registry with all built-in metrics.
 ///

@@ -2,6 +2,22 @@
 
 Comprehensive documentation on metric definitions, formulas, conventions, units, and sign conventions for all supported risk metrics.
 
+## Present Value (PV) vs Risk Metrics
+
+**Important**: The present value (PV) is **not** a metric in the measures map. It is always available in `ValuationResult.value`:
+
+```rust
+let result = instrument.price_with_metrics(&market, as_of, &metrics)?;
+let pv = result.value;  // Money type with currency
+let pv_amount = result.value.amount();  // f64 value
+```
+
+The `measures` map in `ValuationResult` contains **derived risk metrics** (e.g., DV01, Delta, Vega), not the base present value. This design ensures:
+
+- PV is always available without requesting it as a metric
+- Clear separation between valuation (PV) and risk (metrics)
+- Type safety: PV is `Money` with currency, metrics are dimensionless `f64`
+
 ## Metric Categories
 
 - **Standard Greeks**: Delta, Gamma, Vega, Theta, Rho
@@ -27,7 +43,7 @@ The following table shows which metrics are implemented for each instrument type
 | InterestRateFuture | | | | ✓ | | | | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | | | |
 | Equity | | | | ✓ | | | | | | | ✓ | | | | | | | | | | | | | | | | | | | | | EquityPricePerShare, EquityShares, EquityDividendYield, EquityForwardPrice |
 | EquityOption | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | | | | | ✓ | | | | | | | | | | | | | | | ImpliedVol |
-| FX Spot | | | | ✓ | | | | | | | ✓ | | | | | | | | | | | | ✓ | | | | | | | | | SpotRate, BaseAmount, QuoteAmount, InverseRate |
+| FX Spot | | | | ✓ | | | | | | | ✓ | | | | | | | | | | | | ✓ | | | | | | | | | SpotRate, BaseAmount, InverseRate |
 | FX Swap | | | | ✓ | | | | | | | ✓ | ✓ | | | | | | | | | | | ✓ | | | | | ✓ | ✓ | | | | ForwardPoints, CarryPv |
 | FX Option | ✓ | ✓ | ✓ | ✓ | | ✓ | ✓ | | | | ✓ | ✓ | | | | | | | | | | | | | | | | | | | ImpliedVol, RhoDomestic, RhoForeign |
 | InflationLinkedBond | | | | ✓ | | | | | | | ✓ | ✓ | | | | | ✓ | | | | | | | | | | | | | | | | RealYield, IndexRatio, RealDuration, BreakevenInflation |

@@ -119,11 +119,38 @@ pub struct ValuationResult {
 
     /// Present value in the instrument's native currency.
     ///
-    /// This is the primary pricing output. For cross-currency instruments,
-    /// this may be in a different currency than the base calculation currency.
+    /// This is the primary pricing output and is **always available** regardless
+    /// of which metrics are requested. The PV is **not** included in the `measures`
+    /// map - it is provided here as a `Money` type with full currency information.
+    ///
+    /// For cross-currency instruments, this may be in a different currency than
+    /// the base calculation currency.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use finstack_valuations::results::ValuationResult;
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::dates::create_date;
+    /// # use time::Month;
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let as_of = create_date(2025, Month::January, 15)?;
+    /// # let pv = Money::new(1_000_000.0, Currency::USD);
+    /// # let result = ValuationResult::stamped("BOND-001", as_of, pv);
+    /// // PV is always in result.value, not in measures
+    /// let pv_money = result.value;  // Money type
+    /// let pv_amount = result.value.amount();  // f64 value
+    /// let currency = result.value.currency();  // Currency type
+    /// # Ok(())
+    /// # }
+    /// ```
     pub value: Money,
 
     /// Computed risk measures and financial metrics.
+    ///
+    /// Contains **derived risk metrics** such as DV01, Delta, Vega, etc.
+    /// The present value (PV) is **not** included here - it is available
+    /// in the `value` field above.
     ///
     /// Keys are metric names (e.g., "ytm", "dv01", "delta") and values
     /// are the calculated metric values. Use `MetricId::as_str()` for

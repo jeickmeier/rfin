@@ -5,25 +5,15 @@
 //! and are registered via `register_ir_future_metrics`.
 //!
 //! Exposed metrics:
-//! - PV passthrough (currency units)
 //! - DV01 (parallel rate sensitivity via generic calculator)
-
-// All metrics now using generic implementations
+//! - Bucketed DV01 (key-rate sensitivity)
+//!
+//! Note: PV is available in `ValuationResult.value`, not as a metric in measures.
 
 use crate::metrics::MetricRegistry;
 
 /// Register IR Future metrics with the registry
 pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
-    use crate::metrics::MetricId;
-    use std::sync::Arc;
-
-    // Custom metric using GenericPv
-    registry.register_metric(
-        MetricId::custom("ir_future_pv"),
-        Arc::new(crate::metrics::GenericPv),
-        &["InterestRateFuture"],
-    );
-
     // Standard metrics using macro
     crate::register_metrics! {
         registry: registry,

@@ -7,7 +7,6 @@ use finstack_valuations::{
         common::traits::Instrument,
         fx_spot::{metrics::spot_rate::SpotRateCalculator, FxSpot},
     },
-    metrics::GenericPv,
     metrics::{traits::MetricCalculator, MetricContext},
 };
 use std::sync::Arc;
@@ -167,14 +166,15 @@ fn test_spot_rate_relationship_with_amounts() {
     use finstack_valuations::instruments::fx_spot::metrics::base_amount::BaseAmountCalculator;
 
     let fx = eurusd_with_notional(1_500_000.0, 1.25);
-    let mut ctx = create_context(fx, test_date());
+    let mut ctx = create_context(fx.clone(), test_date());
+    let market = MarketContext::new();
+    let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
 
     let base_calc = BaseAmountCalculator;
-    let quote_calc = GenericPv;
     let rate_calc = SpotRateCalculator;
 
     let base_amt = base_calc.calculate(&mut ctx).unwrap();
-    let quote_amt = quote_calc.calculate(&mut ctx).unwrap();
+    let quote_amt = result.value.amount(); // Quote amount is in result.value
     let spot_rate = rate_calc.calculate(&mut ctx).unwrap();
 
     let derived_rate = quote_amt / base_amt;
