@@ -78,8 +78,11 @@ fn get_constituent_price_value(
     context: &MetricContext,
 ) -> Result<f64> {
     match &constituent.reference {
-        crate::instruments::basket::types::ConstituentReference::Instrument(instrument) => {
-            let price = instrument.value(context.curves.as_ref(), context.as_of)?;
+        #[cfg(feature = "serde")]
+        crate::instruments::basket::types::ConstituentReference::Instrument(instr_json) => {
+            // Convert InstrumentJson to boxed instrument and price it
+            let boxed = instr_json.as_ref().clone().into_boxed()?;
+            let price = boxed.value(context.curves.as_ref(), context.as_of)?;
             Ok(price.amount())
         }
         crate::instruments::basket::types::ConstituentReference::MarketData {

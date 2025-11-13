@@ -736,7 +736,10 @@ fn test_mixed_units_and_weights_with_aum() {
 // ============================================================================
 
 #[test]
+#[cfg(feature = "serde")]
 fn test_constituent_reference_with_bond_instrument() {
+    use finstack_valuations::instruments::json_loader::InstrumentJson;
+
     // Arrange
     let base_date = date(2025, 1, 1);
     let maturity = date(2030, 1, 1);
@@ -753,7 +756,7 @@ fn test_constituent_reference_with_bond_instrument() {
         id: "BOND_BASKET".into(),
         constituents: vec![BasketConstituent {
             id: "CORP_BOND".to_string(),
-            reference: ConstituentReference::Instrument(Arc::new(bond)),
+            reference: ConstituentReference::Instrument(Box::new(InstrumentJson::Bond(bond))),
             weight: 0.0,
             units: Some(10.0),
             ticker: None,
@@ -1332,6 +1335,190 @@ fn test_asset_type_serialization() {
         let deserialized: AssetType = serde_json::from_str(&json).unwrap();
         // Can't directly compare due to no PartialEq, but serialization should succeed
         let _ = deserialized;
+    }
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_basket_with_mixed_constituents_serialization() {
+    use finstack_valuations::instruments::json_loader::InstrumentJson;
+
+    // Arrange - create a basket with both MarketData and Instrument constituents
+    let bond = Bond::fixed(
+        "CORP_BOND",
+        usd(1000.0),
+        0.05,
+        date(2025, 1, 1),
+        date(2030, 1, 1),
+        "USD-OIS",
+    );
+
+    let basket = Basket {
+        id: "MIXED_BASKET".into(),
+        constituents: vec![
+            BasketConstituent {
+                id: "MARKET_DATA_EQUITY".to_string(),
+                reference: ConstituentReference::MarketData {
+                    price_id: "AAPL".into(),
+                    asset_type: AssetType::Equity,
+                },
+                weight: 0.5,
+                units: None,
+                ticker: Some("AAPL".to_string()),
+            },
+            BasketConstituent {
+                id: "INSTRUMENT_BOND".to_string(),
+                reference: ConstituentReference::Instrument(Box::new(InstrumentJson::Bond(bond))),
+                weight: 0.0,
+                units: Some(10.0),
+                ticker: Some("CORP".to_string()),
+            },
+        ],
+        expense_ratio: 0.001,
+        currency: Currency::USD,
+        discount_curve_id: "USD-OIS".into(),
+        attributes: Attributes::new(),
+        pricing_config: BasketPricingConfig::default(),
+    };
+
+    // Act
+    let json = serde_json::to_string_pretty(&basket).unwrap();
+    let deserialized: Basket = serde_json::from_str(&json).unwrap();
+
+    // Assert
+    assert_eq!(basket.id, deserialized.id);
+    assert_eq!(basket.expense_ratio, deserialized.expense_ratio);
+    assert_eq!(basket.currency, deserialized.currency);
+    assert_eq!(basket.constituents.len(), deserialized.constituents.len());
+    assert_eq!(basket.constituents.len(), 2);
+
+    // Verify first constituent is MarketData
+    match &deserialized.constituents[0].reference {
+        ConstituentReference::MarketData { price_id, .. } => {
+            assert_eq!(price_id.as_str(), "AAPL");
+        }
+        _ => panic!("Expected MarketData constituent"),
+    }
+
+    // Verify second constituent is Instrument
+    match &deserialized.constituents[1].reference {
+        ConstituentReference::Instrument(instr_json) => {
+            match instr_json.as_ref() {
+                InstrumentJson::Bond(b) => {
+                    assert_eq!(b.id.as_str(), "CORP_BOND");
+                }
+                _ => panic!("Expected Bond instrument"),
+            }
+        }
+        _ => panic!("Expected Instrument constituent"),
+    }
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_constituent_reference_market_data_roundtrip() {
+    // Arrange
+    let reference = ConstituentReference::MarketData {
+        price_id: "AAPL-SPOT".into(),
+        asset_type: AssetType::Equity,
+    };
+
+    // Act
+    let json = serde_json::to_string(&reference).unwrap();
+    let deserialized: ConstituentReference = serde_json::from_str(&json).unwrap();
+
+    // Assert
+    match deserialized {
+        ConstituentReference::MarketData { price_id, .. } => {
+            assert_eq!(price_id.as_str(), "AAPL-SPOT");
+        }
+        _ => panic!("Expected MarketData variant"),
+    }
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_constituent_reference_instrument_roundtrip() {
+    use finstack_valuations::instruments::json_loader::InstrumentJson;
+
+    // Arrange
+    let bond = Bond::fixed(
+        "TEST_BOND",
+        usd(1000.0),
+        0.05,
+        date(2025, 1, 1),
+        date(2030, 1, 1),
+        "USD-OIS",
+    );
+    let reference = ConstituentReference::Instrument(Box::new(InstrumentJson::Bond(bond)));
+
+    // Act
+    let json = serde_json::to_string(&reference).unwrap();
+    let deserialized: ConstituentReference = serde_json::from_str(&json).unwrap();
+
+    // Assert
+    match deserialized {
+        ConstituentReference::Instrument(instr_json) => {
+            match instr_json.as_ref() {
+                InstrumentJson::Bond(b) => {
+                    assert_eq!(b.id.as_str(), "TEST_BOND");
+                }
+                _ => panic!("Expected Bond instrument"),
+            }
+        }
+        _ => panic!("Expected Instrument variant"),
+    }
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_basket_envelope_roundtrip_with_instruments() {
+    use finstack_valuations::instruments::json_loader::{InstrumentEnvelope, InstrumentJson};
+
+    // Arrange
+    let bond = Bond::fixed(
+        "ENVELOPE_BOND",
+        usd(1000.0),
+        0.05,
+        date(2025, 1, 1),
+        date(2030, 1, 1),
+        "USD-OIS",
+    );
+
+    let basket = Basket {
+        id: "ENVELOPE_BASKET".into(),
+        constituents: vec![BasketConstituent {
+            id: "BOND_CONSTITUENT".to_string(),
+            reference: ConstituentReference::Instrument(Box::new(InstrumentJson::Bond(bond))),
+            weight: 0.0,
+            units: Some(5.0),
+            ticker: None,
+        }],
+        expense_ratio: 0.001,
+        currency: Currency::USD,
+        discount_curve_id: "USD-OIS".into(),
+        attributes: Attributes::new(),
+        pricing_config: BasketPricingConfig::default(),
+    };
+
+    let envelope = InstrumentEnvelope {
+        schema: "finstack.instrument/1".to_string(),
+        instrument: InstrumentJson::Basket(basket.clone()),
+    };
+
+    // Act
+    let json = serde_json::to_string_pretty(&envelope).unwrap();
+    let deserialized: InstrumentEnvelope = serde_json::from_str(&json).unwrap();
+
+    // Assert
+    assert_eq!(deserialized.schema, envelope.schema);
+    match deserialized.instrument {
+        InstrumentJson::Basket(b) => {
+            assert_eq!(b.id, basket.id);
+            assert_eq!(b.expense_ratio, basket.expense_ratio);
+            assert_eq!(b.constituents.len(), 1);
+        }
+        _ => panic!("Expected Basket variant"),
     }
 }
 

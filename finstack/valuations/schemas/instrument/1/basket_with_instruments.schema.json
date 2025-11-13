@@ -1,0 +1,196 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/basket_with_instruments.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Basket with both market data and instrument-backed constituents",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "constituents": [
+            {
+              "id": "BOND-CORP",
+              "reference": {
+                "instrument": {
+                  "spec": {
+                    "attributes": {
+                      "meta": {},
+                      "tags": []
+                    },
+                    "call_put": null,
+                    "cashflow_spec": {
+                      "Fixed": {
+                        "bdc": "following",
+                        "calendar_id": null,
+                        "coupon_type": "Cash",
+                        "dc": "Thirty360",
+                        "freq": {
+                          "Months": 6
+                        },
+                        "rate": 0.05,
+                        "stub": "None"
+                      }
+                    },
+                    "credit_curve_id": null,
+                    "discount_curve_id": "USD-OIS",
+                    "ex_coupon_days": null,
+                    "id": "CORP-BOND-001",
+                    "issue": "2024-01-01",
+                    "maturity": "2034-01-01",
+                    "notional": {
+                      "amount": "1000",
+                      "currency": "USD"
+                    },
+                    "pricing_overrides": {
+                      "adaptive_bumps": false,
+                      "implied_volatility": null,
+                      "mc_seed_scenario": null,
+                      "quoted_clean_price": null,
+                      "quoted_spread_bp": null,
+                      "rate_bump_bp": null,
+                      "spot_bump_pct": null,
+                      "theta_period": null,
+                      "upfront_payment": null,
+                      "vol_bump_pct": null,
+                      "ytm_bump_decimal": null
+                    },
+                    "settlement_days": null
+                  },
+                  "type": "bond"
+                }
+              },
+              "ticker": "CORP",
+              "units": 100.0,
+              "weight": 0.0
+            },
+            {
+              "id": "EQ-AAPL",
+              "reference": {
+                "asset_type": "equity",
+                "price_id": "AAPL-SPOT"
+              },
+              "ticker": "AAPL",
+              "units": null,
+              "weight": 0.4
+            }
+          ],
+          "currency": "USD",
+          "discount_curve_id": "USD-OIS",
+          "expense_ratio": 0.001,
+          "id": "BASKET-MIXED",
+          "pricing_config": {
+            "days_in_year": 365.25,
+            "fx_policy": "cashflow_date"
+          }
+        },
+        "type": "basket"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Basket with Instrument Constituents instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "constituents": [
+            {
+              "id": "BOND-CORP",
+              "reference": {
+                "instrument": {
+                  "spec": {
+                    "attributes": {
+                      "meta": {},
+                      "tags": []
+                    },
+                    "call_put": null,
+                    "cashflow_spec": {
+                      "Fixed": {
+                        "bdc": "following",
+                        "calendar_id": null,
+                        "coupon_type": "Cash",
+                        "dc": "Thirty360",
+                        "freq": {
+                          "Months": 6
+                        },
+                        "rate": 0.05,
+                        "stub": "None"
+                      }
+                    },
+                    "credit_curve_id": null,
+                    "discount_curve_id": "USD-OIS",
+                    "ex_coupon_days": null,
+                    "id": "CORP-BOND-001",
+                    "issue": "2024-01-01",
+                    "maturity": "2034-01-01",
+                    "notional": {
+                      "amount": "1000",
+                      "currency": "USD"
+                    },
+                    "pricing_overrides": {
+                      "adaptive_bumps": false,
+                      "implied_volatility": null,
+                      "mc_seed_scenario": null,
+                      "quoted_clean_price": null,
+                      "quoted_spread_bp": null,
+                      "rate_bump_bp": null,
+                      "spot_bump_pct": null,
+                      "theta_period": null,
+                      "upfront_payment": null,
+                      "vol_bump_pct": null,
+                      "ytm_bump_decimal": null
+                    },
+                    "settlement_days": null
+                  },
+                  "type": "bond"
+                }
+              },
+              "ticker": "CORP",
+              "units": 100.0,
+              "weight": 0.0
+            },
+            {
+              "id": "EQ-AAPL",
+              "reference": {
+                "asset_type": "equity",
+                "price_id": "AAPL-SPOT"
+              },
+              "ticker": "AAPL",
+              "units": null,
+              "weight": 0.4
+            }
+          ],
+          "currency": "USD",
+          "discount_curve_id": "USD-OIS",
+          "expense_ratio": 0.001,
+          "id": "BASKET-MIXED",
+          "pricing_config": {
+            "days_in_year": 365.25,
+            "fx_policy": "cashflow_date"
+          }
+        },
+        "type": "basket"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Basket with Instrument Constituents",
+  "type": "object"
+}

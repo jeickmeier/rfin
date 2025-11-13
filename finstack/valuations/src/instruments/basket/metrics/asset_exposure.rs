@@ -26,9 +26,12 @@ impl MetricCalculator for AssetExposureCalculator {
                 (ConstituentReference::MarketData { asset_type, .. }, target) => {
                     std::mem::discriminant(asset_type) == std::mem::discriminant(target)
                 }
-                (ConstituentReference::Instrument(instrument), target) => {
+                #[cfg(feature = "serde")]
+                (ConstituentReference::Instrument(instr_json), target) => {
                     use crate::pricer::InstrumentType;
-                    let it = instrument.key();
+                    // Convert InstrumentJson to get InstrumentType
+                    let boxed = instr_json.as_ref().clone().into_boxed()?;
+                    let it = boxed.key();
                     matches!(
                         (it, target),
                         (InstrumentType::Bond, AssetType::Bond)

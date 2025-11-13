@@ -119,6 +119,8 @@ fn generate_all_json_examples() {
     count += 1;
     write_example("basket", json_loader::InstrumentJson::Basket(Basket::example())).unwrap();
     count += 1;
+    write_example("basket_with_instruments", json_loader::InstrumentJson::Basket(Basket::example_with_instruments())).unwrap();
+    count += 1;
     write_example("private_markets_fund", json_loader::InstrumentJson::PrivateMarketsFund(PrivateMarketsFund::example())).unwrap();
     count += 1;
     write_example("structured_credit", json_loader::InstrumentJson::StructuredCredit(Box::new(StructuredCredit::example()))).unwrap();

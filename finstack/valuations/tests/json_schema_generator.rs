@@ -232,6 +232,12 @@ fn generate_all_schemas() {
         "Basket of assets with expense ratio"
     ).unwrap();
     generate_schema_from_example(
+        "basket_with_instruments",
+        "basket_with_instruments",
+        "Basket with Instrument Constituents",
+        "Basket with both market data and instrument-backed constituents"
+    ).unwrap();
+    generate_schema_from_example(
         "private_markets_fund",
         "private_markets_fund",
         "Private Markets Fund",

@@ -8,7 +8,8 @@ use crate::instruments::common::traits::{Attributes, Instrument};
 use finstack_core::prelude::*;
 use finstack_core::types::{id::PriceId, InstrumentId};
 
-use std::sync::Arc;
+#[cfg(feature = "serde")]
+use crate::instruments::json_loader::InstrumentJson;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -33,11 +34,11 @@ pub enum AssetType {
 }
 
 /// Reference to a constituent asset in the basket
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ConstituentReference {
-    /// Direct reference to an existing instrument (uses instrument's value() method)
-    /// Note: Cannot be serialized due to trait object limitations
-    Instrument(Arc<dyn Instrument + Send + Sync>),
+    /// Direct reference to an existing instrument (serializable via InstrumentJson)
+    #[cfg(feature = "serde")]
+    Instrument(Box<InstrumentJson>),
     /// Market data reference for simple price lookups
     MarketData {
         /// Price identifier in MarketContext
@@ -47,25 +48,7 @@ pub enum ConstituentReference {
     },
 }
 
-impl std::fmt::Debug for ConstituentReference {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ConstituentReference::Instrument(instrument) => f
-                .debug_struct("Instrument")
-                .field("type", &format!("{:?}", instrument.key()))
-                .field("id", &instrument.id())
-                .finish(),
-            ConstituentReference::MarketData {
-                price_id,
-                asset_type,
-            } => f
-                .debug_struct("MarketData")
-                .field("price_id", price_id)
-                .field("asset_type", asset_type)
-                .finish(),
-        }
-    }
-}
+// Debug is now derived automatically on ConstituentReference
 
 #[cfg(feature = "serde")]
 impl Serialize for ConstituentReference {
@@ -74,21 +57,22 @@ impl Serialize for ConstituentReference {
         S: serde::Serializer,
     {
         match self {
-            ConstituentReference::Instrument(_) => {
-                // For instruments, serialize as a placeholder since trait objects can't be serialized
+            ConstituentReference::Instrument(instr_json) => {
+                // Serialize as { "instrument": <InstrumentJson> }
                 #[derive(Serialize)]
-                struct InstrumentPlaceholder {
-                    instrument_type: String,
+                struct InstrumentWrapper<'a> {
+                    instrument: &'a InstrumentJson,
                 }
-                let placeholder = InstrumentPlaceholder {
-                    instrument_type: "instrument_reference".to_string(),
+                let wrapper = InstrumentWrapper {
+                    instrument: instr_json,
                 };
-                placeholder.serialize(serializer)
+                wrapper.serialize(serializer)
             }
             ConstituentReference::MarketData {
                 price_id,
                 asset_type,
             } => {
+                // Serialize as { "price_id": "...", "asset_type": "..." }
                 #[derive(Serialize)]
                 struct MarketDataRef<'a> {
                     price_id: &'a str,
@@ -110,17 +94,27 @@ impl<'de> Deserialize<'de> for ConstituentReference {
     where
         D: serde::Deserializer<'de>,
     {
+        // Use an untagged helper enum to disambiguate between the two shapes
         #[derive(Deserialize)]
-        struct MarketDataRef {
-            price_id: PriceId,
-            asset_type: AssetType,
+        #[serde(untagged)]
+        enum Helper {
+            Instrument { instrument: Box<InstrumentJson> },
+            MarketData { price_id: PriceId, asset_type: AssetType },
         }
 
-        let market_data = MarketDataRef::deserialize(deserializer)?;
-        Ok(ConstituentReference::MarketData {
-            price_id: market_data.price_id,
-            asset_type: market_data.asset_type,
-        })
+        let helper = Helper::deserialize(deserializer)?;
+        match helper {
+            Helper::Instrument { instrument } => {
+                Ok(ConstituentReference::Instrument(instrument))
+            }
+            Helper::MarketData {
+                price_id,
+                asset_type,
+            } => Ok(ConstituentReference::MarketData {
+                price_id,
+                asset_type,
+            }),
+        }
     }
 }
 
@@ -217,6 +211,58 @@ impl Basket {
             .id(InstrumentId::new("BASKET-60-40"))
             .constituents(constituents)
             .expense_ratio(0.0025)
+            .currency(Currency::USD)
+            .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
+            .attributes(Attributes::new())
+            .pricing_config(BasketPricingConfig::default())
+            .build()
+            .expect("Example Basket construction should not fail")
+    }
+
+    /// Create an example basket with instrument-backed constituents.
+    #[cfg(feature = "serde")]
+    pub fn example_with_instruments() -> Self {
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::Date;
+        use finstack_core::money::Money;
+        use time::Month;
+
+        // Create a bond instrument
+        let bond = crate::instruments::bond::Bond::fixed(
+            "CORP-BOND-001",
+            Money::new(1000.0, Currency::USD),
+            0.05,
+            Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2034, Month::January, 1).unwrap(),
+            "USD-OIS",
+        );
+
+        let constituents = vec![
+            BasketConstituent {
+                id: "BOND-CORP".to_string(),
+                reference: ConstituentReference::Instrument(Box::new(
+                    crate::instruments::json_loader::InstrumentJson::Bond(bond),
+                )),
+                weight: 0.0,
+                units: Some(100.0),
+                ticker: Some("CORP".to_string()),
+            },
+            BasketConstituent {
+                id: "EQ-AAPL".to_string(),
+                reference: ConstituentReference::MarketData {
+                    price_id: PriceId::new("AAPL-SPOT"),
+                    asset_type: AssetType::Equity,
+                },
+                weight: 0.4,
+                units: None,
+                ticker: Some("AAPL".to_string()),
+            },
+        ];
+
+        BasketBuilder::new()
+            .id(InstrumentId::new("BASKET-MIXED"))
+            .constituents(constituents)
+            .expense_ratio(0.001)
             .currency(Currency::USD)
             .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
             .attributes(Attributes::new())

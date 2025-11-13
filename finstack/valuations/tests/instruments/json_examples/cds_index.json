@@ -1,7 +1,7 @@
 {
   "schema": "finstack.instrument/1",
   "instrument": {
-    "type": "c_d_s_index",
+    "type": "cds_index",
     "spec": {
       "id": "CDX-IG-42",
       "index_name": "CDX.NA.IG",

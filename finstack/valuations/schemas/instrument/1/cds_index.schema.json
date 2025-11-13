@@ -56,7 +56,7 @@
           "side": "pay_fixed",
           "version": 1
         },
-        "type": "c_d_s_index"
+        "type": "cds_index"
       },
       "schema": "finstack.instrument/1"
     }
@@ -115,7 +115,7 @@
           "side": "pay_fixed",
           "version": 1
         },
-        "type": "c_d_s_index"
+        "type": "cds_index"
       },
       "type": "object"
     },
