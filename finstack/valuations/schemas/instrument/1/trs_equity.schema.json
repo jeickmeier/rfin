@@ -1,0 +1,112 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/trs_equity.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Total return swap on an equity index or single stock",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "financing": {
+            "day_count": "Act360",
+            "discount_curve_id": "USD-OIS",
+            "forward_curve_id": "USD-SOFR-3M",
+            "spread_bp": 75.0
+          },
+          "id": "TRS-SPX-1Y",
+          "initial_level": null,
+          "notional": {
+            "amount": "5000000",
+            "currency": "USD"
+          },
+          "schedule": {
+            "end": "2025-01-01",
+            "params": {
+              "bdc": "following",
+              "calendar_id": null,
+              "dc": "Act360",
+              "freq": {
+                "Months": 3
+              },
+              "stub": "None"
+            },
+            "start": "2024-01-01"
+          },
+          "side": "ReceiveTotalReturn",
+          "underlying": {
+            "contract_size": 1.0,
+            "currency": "USD",
+            "div_yield_id": "SPX-DIV",
+            "spot_id": "SPX-SPOT",
+            "ticker": "SPX"
+          }
+        },
+        "type": "trs_equity"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Equity Total Return Swap instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "financing": {
+            "day_count": "Act360",
+            "discount_curve_id": "USD-OIS",
+            "forward_curve_id": "USD-SOFR-3M",
+            "spread_bp": 75.0
+          },
+          "id": "TRS-SPX-1Y",
+          "initial_level": null,
+          "notional": {
+            "amount": "5000000",
+            "currency": "USD"
+          },
+          "schedule": {
+            "end": "2025-01-01",
+            "params": {
+              "bdc": "following",
+              "calendar_id": null,
+              "dc": "Act360",
+              "freq": {
+                "Months": 3
+              },
+              "stub": "None"
+            },
+            "start": "2024-01-01"
+          },
+          "side": "ReceiveTotalReturn",
+          "underlying": {
+            "contract_size": 1.0,
+            "currency": "USD",
+            "div_yield_id": "SPX-DIV",
+            "spot_id": "SPX-SPOT",
+            "ticker": "SPX"
+          }
+        },
+        "type": "trs_equity"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Equity Total Return Swap",
+  "type": "object"
+}

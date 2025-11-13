@@ -9,6 +9,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// Cliquet option instrument.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct CliquetOption {
     pub id: InstrumentId,
     pub underlying_ticker: String,
@@ -33,6 +34,34 @@ impl crate::metrics::HasDiscountCurve for CliquetOption {
 }
 
 impl CliquetOption {
+    /// Create a canonical example cliquet option (quarterly resets with local/global caps).
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::DayCount;
+        use time::Month;
+        let reset_dates = vec![
+            Date::from_calendar_date(2024, Month::March, 29).unwrap(),
+            Date::from_calendar_date(2024, Month::June, 28).unwrap(),
+            Date::from_calendar_date(2024, Month::September, 30).unwrap(),
+            Date::from_calendar_date(2024, Month::December, 31).unwrap(),
+        ];
+        CliquetOptionBuilder::new()
+            .id(InstrumentId::new("CLIQ-SPX-QTR"))
+            .underlying_ticker("SPX".to_string())
+            .reset_dates(reset_dates)
+            .local_cap(0.05) // 5% per period
+            .global_cap(0.20) // 20% max cumulative
+            .notional(Money::new(100_000.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".to_string())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some("SPX-DIV".to_string()))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example CliquetOption construction should not fail")
+    }
     /// Calculate the net present value of this cliquet option.
     #[cfg(feature = "mc")]
     pub fn npv(

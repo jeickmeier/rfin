@@ -1,0 +1,72 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/fx_swap.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Foreign exchange swap with near and far legs",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "base_currency": "EUR",
+          "base_notional": {
+            "amount": "1000000",
+            "currency": "EUR"
+          },
+          "domestic_discount_curve_id": "USD-OIS",
+          "far_date": "2024-07-05",
+          "far_rate": 1.12,
+          "foreign_discount_curve_id": "EUR-OIS",
+          "id": "FXSWAP-EURUSD-6M",
+          "near_date": "2024-01-05",
+          "near_rate": 1.1,
+          "quote_currency": "USD"
+        },
+        "type": "fx_swap"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The FX Swap instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "base_currency": "EUR",
+          "base_notional": {
+            "amount": "1000000",
+            "currency": "EUR"
+          },
+          "domestic_discount_curve_id": "USD-OIS",
+          "far_date": "2024-07-05",
+          "far_rate": 1.12,
+          "foreign_discount_curve_id": "EUR-OIS",
+          "id": "FXSWAP-EURUSD-6M",
+          "near_date": "2024-01-05",
+          "near_rate": 1.1,
+          "quote_currency": "USD"
+        },
+        "type": "fx_swap"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "FX Swap",
+  "type": "object"
+}

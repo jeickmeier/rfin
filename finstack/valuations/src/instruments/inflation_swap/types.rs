@@ -44,6 +44,7 @@ impl std::str::FromStr for PayReceiveInflation {
 /// intentionally compact until full pricing is implemented.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct InflationSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -73,6 +74,25 @@ pub struct InflationSwap {
 impl InflationSwap {}
 
 impl InflationSwap {
+    /// Create a canonical example zero-coupon inflation swap (US CPI, 5Y).
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use time::Month;
+        InflationSwapBuilder::new()
+            .id(InstrumentId::new("INFLSWAP-USD-5Y"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .start(Date::from_calendar_date(2024, Month::January, 15).unwrap())
+            .maturity(Date::from_calendar_date(2029, Month::January, 15).unwrap())
+            .fixed_rate(0.02)
+            .inflation_index_id(CurveId::new("US-CPI"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .dc(DayCount::Act365F)
+            .side(PayReceiveInflation::PayFixed)
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example InflationSwap construction should not fail")
+    }
+
     fn projected_index_ratio(
         &self,
         curves: &MarketContext,

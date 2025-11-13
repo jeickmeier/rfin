@@ -15,6 +15,7 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
 use finstack_core::Result;
+use finstack_core::currency::Currency;
 use std::sync::Arc;
 use time::Duration;
 
@@ -143,6 +144,7 @@ impl InflationSource {
 /// Inflation-Linked Bond instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct InflationLinkedBond {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -185,6 +187,33 @@ pub struct InflationLinkedBond {
 }
 
 impl InflationLinkedBond {
+    /// Create a canonical example US TIPS inflation-linked bond.
+    ///
+    /// Returns a 10-year TIPS with semi-annual coupons and standard 3-month lag.
+    pub fn example() -> Self {
+        Self {
+            id: InstrumentId::new("TIPS-10Y"),
+            notional: Money::new(1_000_000.0, Currency::USD),
+            real_coupon: 0.025,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            issue: Date::from_calendar_date(2024, time::Month::January, 15).unwrap(),
+            maturity: Date::from_calendar_date(2034, time::Month::January, 15).unwrap(),
+            base_index: 100.0,
+            base_date: Date::from_calendar_date(2024, time::Month::January, 15).unwrap(),
+            indexation_method: IndexationMethod::TIPS,
+            lag: IndexationMethod::TIPS.standard_lag(),
+            deflation_protection: DeflationProtection::MaturityOnly,
+            bdc: BusinessDayConvention::Following,
+            stub: StubKind::None,
+            calendar_id: None,
+            discount_curve_id: CurveId::new("USD-TIPS"),
+            inflation_index_id: CurveId::new("US-CPI"),
+            quoted_clean: None,
+            attributes: Attributes::new(),
+        }
+    }
+
     /// Create a new US TIPS bond using parameter structs
     pub fn new_tips(
         id: impl Into<InstrumentId>,

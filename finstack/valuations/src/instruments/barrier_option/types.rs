@@ -26,6 +26,7 @@ pub enum BarrierType {
 /// Barrier options are options with a barrier level that can knock in or out.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct BarrierOption {
     pub id: InstrumentId,
     pub underlying_ticker: String,
@@ -53,6 +54,32 @@ impl crate::metrics::HasDiscountCurve for BarrierOption {
 }
 
 impl BarrierOption {
+    /// Create a canonical example barrier option (up-and-out call).
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::DayCount;
+        use time::Month;
+        BarrierOptionBuilder::new()
+            .id(InstrumentId::new("BAR-SPX-UO-CALL"))
+            .underlying_ticker("SPX".to_string())
+            .strike(Money::new(4500.0, Currency::USD))
+            .barrier(Money::new(5000.0, Currency::USD))
+            .option_type(crate::instruments::OptionType::Call)
+            .barrier_type(BarrierType::UpAndOut)
+            .expiry(Date::from_calendar_date(2024, Month::December, 20).unwrap())
+            .notional(Money::new(100_000.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .use_gobet_miri(false)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".to_string())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some("SPX-DIV".to_string()))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example BarrierOption construction should not fail")
+    }
+
     /// Calculate the net present value using Monte Carlo.
     #[cfg(feature = "mc")]
     pub fn npv_mc(

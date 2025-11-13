@@ -1,0 +1,88 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/repo.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Short-term collateralized borrowing/lending",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "bdc": "following",
+          "calendar_id": "target2",
+          "cash_amount": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "collateral": {
+            "collateral_type": "General",
+            "instrument_id": "UST-10Y",
+            "market_value_id": "UST_10Y_PRICE",
+            "quantity": 10000.0
+          },
+          "day_count": "Act360",
+          "discount_curve_id": "USD-OIS",
+          "haircut": 0.02,
+          "id": "REPO-GC-7D",
+          "maturity": "2024-01-09",
+          "repo_rate": 0.0525,
+          "repo_type": "Term",
+          "start_date": "2024-01-02",
+          "triparty": false
+        },
+        "type": "repo"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Repurchase Agreement (Repo) instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "bdc": "following",
+          "calendar_id": "target2",
+          "cash_amount": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "collateral": {
+            "collateral_type": "General",
+            "instrument_id": "UST-10Y",
+            "market_value_id": "UST_10Y_PRICE",
+            "quantity": 10000.0
+          },
+          "day_count": "Act360",
+          "discount_curve_id": "USD-OIS",
+          "haircut": 0.02,
+          "id": "REPO-GC-7D",
+          "maturity": "2024-01-09",
+          "repo_rate": 0.0525,
+          "repo_type": "Term",
+          "start_date": "2024-01-02",
+          "triparty": false
+        },
+        "type": "repo"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Repurchase Agreement (Repo)",
+  "type": "object"
+}

@@ -1,0 +1,74 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/forward_rate_agreement.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Forward contract on an interest rate (FRA)",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "day_count": "Act360",
+          "discount_curve_id": "USD-OIS",
+          "end_date": "2024-07-03",
+          "fixed_rate": 0.045,
+          "fixing_date": "2024-04-01",
+          "forward_id": "USD-SOFR-3M",
+          "id": "FRA-3X6-USD",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "pay_fixed": true,
+          "reset_lag": 2,
+          "start_date": "2024-04-03"
+        },
+        "type": "forward_rate_agreement"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Forward Rate Agreement instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "day_count": "Act360",
+          "discount_curve_id": "USD-OIS",
+          "end_date": "2024-07-03",
+          "fixed_rate": 0.045,
+          "fixing_date": "2024-04-01",
+          "forward_id": "USD-SOFR-3M",
+          "id": "FRA-3X6-USD",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "pay_fixed": true,
+          "reset_lag": 2,
+          "start_date": "2024-04-03"
+        },
+        "type": "forward_rate_agreement"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Forward Rate Agreement",
+  "type": "object"
+}

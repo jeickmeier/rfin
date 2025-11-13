@@ -1,0 +1,104 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/fx_option.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Vanilla foreign exchange option (Garman-Kohlhagen model)",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "base_currency": "EUR",
+          "day_count": "Act365F",
+          "domestic_discount_curve_id": "USD-OIS",
+          "exercise_style": "european",
+          "expiry": "2024-06-21",
+          "foreign_discount_curve_id": "EUR-OIS",
+          "id": "FXOPT-EURUSD-CALL",
+          "notional": {
+            "amount": "1000000",
+            "currency": "EUR"
+          },
+          "option_type": "call",
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "quote_currency": "USD",
+          "settlement": "cash",
+          "strike": 1.12,
+          "vol_surface_id": "EURUSD-VOL"
+        },
+        "type": "fx_option"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The FX Option instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "base_currency": "EUR",
+          "day_count": "Act365F",
+          "domestic_discount_curve_id": "USD-OIS",
+          "exercise_style": "european",
+          "expiry": "2024-06-21",
+          "foreign_discount_curve_id": "EUR-OIS",
+          "id": "FXOPT-EURUSD-CALL",
+          "notional": {
+            "amount": "1000000",
+            "currency": "EUR"
+          },
+          "option_type": "call",
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "quote_currency": "USD",
+          "settlement": "cash",
+          "strike": 1.12,
+          "vol_surface_id": "EURUSD-VOL"
+        },
+        "type": "fx_option"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "FX Option",
+  "type": "object"
+}

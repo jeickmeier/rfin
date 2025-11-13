@@ -1,0 +1,118 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/barrier_option.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Option with knock-in/knock-out barrier",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "barrier": {
+            "amount": "5000",
+            "currency": "USD"
+          },
+          "barrier_type": "UpAndOut",
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "div_yield_id": "SPX-DIV",
+          "expiry": "2024-12-20",
+          "id": "BAR-SPX-UO-CALL",
+          "notional": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "option_type": "call",
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "spot_id": "SPX-SPOT",
+          "strike": {
+            "amount": "4500",
+            "currency": "USD"
+          },
+          "underlying_ticker": "SPX",
+          "use_gobet_miri": false,
+          "vol_surface_id": "SPX-VOL"
+        },
+        "type": "barrier_option"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Barrier Option instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "barrier": {
+            "amount": "5000",
+            "currency": "USD"
+          },
+          "barrier_type": "UpAndOut",
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "div_yield_id": "SPX-DIV",
+          "expiry": "2024-12-20",
+          "id": "BAR-SPX-UO-CALL",
+          "notional": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "option_type": "call",
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "spot_id": "SPX-SPOT",
+          "strike": {
+            "amount": "4500",
+            "currency": "USD"
+          },
+          "underlying_ticker": "SPX",
+          "use_gobet_miri": false,
+          "vol_surface_id": "SPX-VOL"
+        },
+        "type": "barrier_option"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Barrier Option",
+  "type": "object"
+}

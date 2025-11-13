@@ -24,6 +24,9 @@ pub type Ticker = String;
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+// Note: JsonSchema derive requires finstack-core types to implement JsonSchema
+// #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct Equity {
     /// Unique identifier for the equity
     pub id: InstrumentId,
@@ -46,6 +49,16 @@ pub struct Equity {
 }
 
 impl Equity {
+    /// Create a canonical example equity for testing and documentation.
+    ///
+    /// Returns a 100-share position in AAPL with realistic market data IDs.
+    pub fn example() -> Self {
+        Self::new("EQUITY-AAPL", "AAPL", Currency::USD)
+            .with_shares(100.0)
+            .with_price_id("AAPL-SPOT")
+            .with_dividend_yield_id("AAPL-DIV")
+    }
+
     /// Create a new equity instrument with default 1 share
     pub fn new(id: impl Into<String>, ticker: impl Into<String>, currency: Currency) -> Self {
         let discount_curve_id = match currency {

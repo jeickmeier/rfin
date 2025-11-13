@@ -143,6 +143,7 @@ impl CollateralSpec {
 /// Repurchase Agreement instrument.
 #[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Repo {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -175,6 +176,24 @@ pub struct Repo {
 }
 
 impl Repo {
+    /// Create a canonical example term repo for testing and documentation.
+    ///
+    /// Returns a 7-day general collateral USD repo.
+    pub fn example() -> Self {
+        let collateral = CollateralSpec::new("UST-10Y", 10_000.0, "UST_10Y_PRICE");
+        let start = Date::from_calendar_date(2024, time::Month::January, 2).unwrap();
+        let maturity = Date::from_calendar_date(2024, time::Month::January, 9).unwrap();
+        Self::term(
+            "REPO-GC-7D",
+            Money::new(10_000_000.0, finstack_core::currency::Currency::USD),
+            collateral,
+            0.0525,
+            start,
+            maturity,
+            "USD-OIS",
+        )
+    }
+
     /// Create a new repo builder (provided by derive).
     /// Create a standard overnight repo.
     pub fn overnight(

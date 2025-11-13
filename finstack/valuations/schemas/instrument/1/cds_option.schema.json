@@ -1,0 +1,110 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/cds_option.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Option on a CDS spread",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "cds_maturity": "2030-06-20",
+          "credit_curve_id": "CORP-HAZARD",
+          "day_count": "Act360",
+          "discount_curve_id": "USD-OIS",
+          "exercise_style": "european",
+          "expiry": "2025-06-20",
+          "forward_spread_adjust_bp": 0.0,
+          "id": "CDSOPT-CALL-CORP-5Y",
+          "index_factor": null,
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "option_type": "call",
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "recovery_rate": 0.4,
+          "settlement": "cash",
+          "strike_spread_bp": 100.0,
+          "underlying_is_index": false,
+          "vol_surface_id": "CDSOPT-VOL"
+        },
+        "type": "cds_option"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The CDS Option instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "cds_maturity": "2030-06-20",
+          "credit_curve_id": "CORP-HAZARD",
+          "day_count": "Act360",
+          "discount_curve_id": "USD-OIS",
+          "exercise_style": "european",
+          "expiry": "2025-06-20",
+          "forward_spread_adjust_bp": 0.0,
+          "id": "CDSOPT-CALL-CORP-5Y",
+          "index_factor": null,
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "option_type": "call",
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "recovery_rate": 0.4,
+          "settlement": "cash",
+          "strike_spread_bp": 100.0,
+          "underlying_is_index": false,
+          "vol_surface_id": "CDSOPT-VOL"
+        },
+        "type": "cds_option"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "CDS Option",
+  "type": "object"
+}

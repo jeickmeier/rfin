@@ -8,6 +8,7 @@ use finstack_core::market_data::traits::Survival;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
+use finstack_core::currency::Currency;
 
 use crate::instruments::cds::pricer::CDSPricer;
 
@@ -107,6 +108,9 @@ pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, Protectio
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+// Note: JsonSchema derive requires finstack-core types to implement JsonSchema
+// #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct CreditDefaultSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -134,6 +138,21 @@ impl crate::metrics::HasCreditCurve for CreditDefaultSwap {
 }
 
 impl CreditDefaultSwap {
+    /// Create a canonical example CDS for testing and documentation.
+    ///
+    /// Returns a 5-year investment-grade CDS with standard ISDA conventions.
+    pub fn example() -> Self {
+        Self::buy_protection(
+            "CDS-CORP-5Y",
+            Money::new(10_000_000.0, Currency::USD),
+            100.0, // 100 bps spread
+            Date::from_calendar_date(2024, time::Month::March, 20).unwrap(),
+            Date::from_calendar_date(2029, time::Month::March, 20).unwrap(),
+            "USD-OIS",
+            "CORP-HAZARD",
+        )
+    }
+
     /// Create a standard CDS with ISDA conventions (buy protection).
     #[allow(clippy::too_many_arguments)]
     pub fn buy_protection(

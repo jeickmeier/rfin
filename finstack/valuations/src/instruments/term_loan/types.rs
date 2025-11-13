@@ -30,6 +30,7 @@ pub enum RateSpec {
 /// Term Loan instrument (DDTL features added via later tasks)
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct TermLoan {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -90,6 +91,38 @@ pub struct TermLoan {
 
     /// Attributes for tagging and scenarios
     pub attributes: Attributes,
+}
+
+impl TermLoan {
+    /// Create a canonical example term loan (fixed rate, quarterly, linear amortization).
+    pub fn example() -> Self {
+        use finstack_core::dates::BusinessDayConvention;
+        use finstack_core::dates::StubKind;
+        use time::Month;
+        TermLoanBuilder::new()
+            .id(InstrumentId::new("TERM-LOAN-USD-5Y"))
+            .currency(Currency::USD)
+            .notional_limit(Money::new(10_000_000.0, Currency::USD))
+            .issue(Date::from_calendar_date(2024, Month::January, 1).unwrap())
+            .maturity(Date::from_calendar_date(2029, Month::January, 1).unwrap())
+            .rate(RateSpec::Fixed { rate_bp: 600 }) // 6%
+            .pay_freq(Frequency::quarterly())
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::ModifiedFollowing)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .amortization(super::spec::AmortizationSpec::PercentPerPeriod { bp: 250 }) // 2.5% per period
+            .coupon_type(crate::cashflow::builder::specs::CouponType::Cash)
+            .upfront_fee_opt(None)
+            .ddtl_opt(None)
+            .covenants_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .call_schedule_opt(None)
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example TermLoan construction should not fail")
+    }
 }
 
 impl crate::instruments::common::traits::Instrument for TermLoan {

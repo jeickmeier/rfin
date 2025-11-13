@@ -55,7 +55,7 @@ impl TrsSide {
 ///
 /// Defines the payment schedule and frequency for both legs of the TRS.
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct TrsScheduleSpec {
     /// Start date for the TRS leg.

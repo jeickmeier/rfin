@@ -8,6 +8,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::currency::Currency;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::Attributes;
@@ -18,6 +19,7 @@ use crate::instruments::common::traits::Attributes;
 /// at start and principal plus interest at maturity.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Deposit {
     /// Unique identifier for the deposit.
     pub id: InstrumentId,
@@ -40,6 +42,23 @@ pub struct Deposit {
 }
 
 impl Deposit {
+    /// Create a canonical example deposit for testing and documentation.
+    ///
+    /// Returns a 6-month USD deposit with 4.5% quoted rate.
+    pub fn example() -> Self {
+        Self::builder()
+            .id(InstrumentId::new("DEP-USD-6M"))
+            .notional(Money::new(100_000.0, Currency::USD))
+            .start(Date::from_calendar_date(2024, time::Month::January, 1).unwrap())
+            .end(Date::from_calendar_date(2024, time::Month::July, 1).unwrap())
+            .day_count(DayCount::Act360)
+            .quote_rate_opt(Some(0.045))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example deposit construction should not fail")
+    }
+
     /// Calculate the net present value of this deposit using standard cashflow discounting.
     ///
     /// Builds the cashflow schedule (principal out at start, principal + interest at end)

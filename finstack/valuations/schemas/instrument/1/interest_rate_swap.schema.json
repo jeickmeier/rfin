@@ -1,0 +1,118 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/interest_rate_swap.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Fixed-for-floating interest rate swap",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "fixed": {
+            "bdc": "modified_following",
+            "calendar_id": null,
+            "compounding_simple": true,
+            "dc": "Thirty360",
+            "discount_curve_id": "USD-OIS",
+            "end": "2029-01-01",
+            "freq": {
+              "Months": 6
+            },
+            "par_method": null,
+            "rate": 0.03,
+            "start": "2024-01-01",
+            "stub": "None"
+          },
+          "float": {
+            "bdc": "modified_following",
+            "calendar_id": null,
+            "dc": "Act360",
+            "discount_curve_id": "USD-OIS",
+            "end": "2029-01-01",
+            "forward_curve_id": "USD-SOFR-3M",
+            "freq": {
+              "Months": 3
+            },
+            "reset_lag_days": 2,
+            "spread_bp": 0.0,
+            "start": "2024-01-01",
+            "stub": "None"
+          },
+          "id": "IRS-5Y-USD",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "side": "pay_fixed"
+        },
+        "type": "interest_rate_swap"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Interest Rate Swap instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "fixed": {
+            "bdc": "modified_following",
+            "calendar_id": null,
+            "compounding_simple": true,
+            "dc": "Thirty360",
+            "discount_curve_id": "USD-OIS",
+            "end": "2029-01-01",
+            "freq": {
+              "Months": 6
+            },
+            "par_method": null,
+            "rate": 0.03,
+            "start": "2024-01-01",
+            "stub": "None"
+          },
+          "float": {
+            "bdc": "modified_following",
+            "calendar_id": null,
+            "dc": "Act360",
+            "discount_curve_id": "USD-OIS",
+            "end": "2029-01-01",
+            "forward_curve_id": "USD-SOFR-3M",
+            "freq": {
+              "Months": 3
+            },
+            "reset_lag_days": 2,
+            "spread_bp": 0.0,
+            "start": "2024-01-01",
+            "stub": "None"
+          },
+          "id": "IRS-5Y-USD",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "side": "pay_fixed"
+        },
+        "type": "interest_rate_swap"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Interest Rate Swap",
+  "type": "object"
+}

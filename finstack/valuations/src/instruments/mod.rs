@@ -139,3 +139,10 @@ pub use common::parameters::{
     OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec,
     SettlementType, TotalReturnLegSpec, UnderlyingParams,
 };
+
+// === JSON Import/Export ===
+#[cfg(feature = "serde")]
+pub mod json_loader;
+
+#[cfg(feature = "serde")]
+pub use json_loader::{InstrumentEnvelope, InstrumentJson};

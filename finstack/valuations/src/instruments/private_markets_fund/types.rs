@@ -47,6 +47,49 @@ impl PrivateMarketsFund {
         }
     }
 
+    /// Create a canonical example private markets fund with a simple waterfall and events.
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::Date;
+        use time::Month;
+        use super::waterfall::{WaterfallSpec, WaterfallStyle};
+        // Build a simple European-style waterfall: Return of capital -> 8% pref -> 50% catchup -> 80/20 promote
+        let spec = WaterfallSpec::builder()
+            .style(WaterfallStyle::European)
+            .return_of_capital()
+            .preferred_irr(0.08)
+            .catchup(0.5)
+            .promote_tier(0.12, 0.8, 0.2)
+            .build()
+            .expect("WaterfallSpec build should not fail");
+        // Define a few cashflow events: contributions in year 1, proceeds in year 3, distribution in year 4
+        let events = vec![
+            super::waterfall::FundEvent::contribution(
+                Date::from_calendar_date(2024, Month::January, 15).unwrap(),
+                Money::new(5_000_000.0, Currency::USD),
+            ),
+            super::waterfall::FundEvent::contribution(
+                Date::from_calendar_date(2024, Month::June, 15).unwrap(),
+                Money::new(2_000_000.0, Currency::USD),
+            ),
+            super::waterfall::FundEvent::proceeds(
+                Date::from_calendar_date(2026, Month::March, 1).unwrap(),
+                Money::new(4_000_000.0, Currency::USD),
+                "DEAL-1",
+            ),
+            super::waterfall::FundEvent::distribution(
+                Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+                Money::new(4_000_000.0, Currency::USD),
+            ),
+        ];
+        PrivateMarketsFund::new(
+            InstrumentId::new("PMF-EXAMPLE"),
+            Currency::USD,
+            spec,
+            events,
+        )
+        .with_discount_curve("USD-OIS")
+    }
     /// with discount curve.
     pub fn with_discount_curve(mut self, discount_curve_id: impl Into<CurveId>) -> Self {
         self.discount_curve_id = Some(discount_curve_id.into());

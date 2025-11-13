@@ -6,7 +6,12 @@ use crate::{
     instruments::{common::parameters::underlying::EquityUnderlyingParams, Attributes},
 };
 use finstack_core::{
-    dates::Date, market_data::MarketContext, money::Money, types::InstrumentId, Result,
+    currency::Currency,
+    dates::Date,
+    market_data::MarketContext,
+    money::Money,
+    types::{CurveId, InstrumentId},
+    Result,
 };
 
 /// Equity Total Return Swap instrument.
@@ -17,7 +22,7 @@ use finstack_core::{
 ///
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct EquityTotalReturnSwap {
     /// Unique instrument identifier.
@@ -39,6 +44,45 @@ pub struct EquityTotalReturnSwap {
 }
 
 impl EquityTotalReturnSwap {
+    /// Create a canonical example equity TRS for testing and documentation.
+    ///
+    /// Returns a 1-year SPX total return swap with quarterly resets.
+    pub fn example() -> Self {
+        use crate::cashflow::builder::ScheduleParams;
+        Self::builder()
+            .id(InstrumentId::new("TRS-SPX-1Y"))
+            .notional(Money::new(5_000_000.0, Currency::USD))
+            .underlying(crate::instruments::common::parameters::EquityUnderlyingParams {
+                ticker: "SPX".to_string(),
+                spot_id: "SPX-SPOT".to_string(),
+                div_yield_id: Some("SPX-DIV".to_string()),
+                contract_size: 1.0,
+                currency: Currency::USD,
+            })
+            .financing(crate::instruments::common::parameters::FinancingLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                spread_bp: 75.0,
+                day_count: finstack_core::dates::DayCount::Act360,
+            })
+            .schedule(super::types::TrsScheduleSpec::from_params(
+                Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
+                Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+                ScheduleParams {
+                    freq: finstack_core::dates::Frequency::quarterly(),
+                    dc: finstack_core::dates::DayCount::Act360,
+                    bdc: finstack_core::dates::BusinessDayConvention::Following,
+                    calendar_id: None,
+                    stub: finstack_core::dates::StubKind::None,
+                },
+            ))
+            .side(super::types::TrsSide::ReceiveTotalReturn)
+            .initial_level_opt(None)
+            .attributes(crate::instruments::Attributes::new())
+            .build()
+            .expect("Example TRS construction should not fail")
+    }
+
     /// Calculates the net present value (NPV) of the equity TRS.
     ///
     /// # Arguments

@@ -20,6 +20,7 @@ pub enum LookbackType {
 /// Lookback option instrument.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct LookbackOption {
     pub id: InstrumentId,
     pub underlying_ticker: String,
@@ -45,6 +46,29 @@ impl crate::metrics::HasDiscountCurve for LookbackOption {
 }
 
 impl LookbackOption {
+    /// Create a canonical example lookback option (fixed strike call).
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::DayCount;
+        use time::Month;
+        LookbackOptionBuilder::new()
+            .id(InstrumentId::new("LOOKBACK-SPX-FIXED-CALL"))
+            .underlying_ticker("SPX".to_string())
+            .strike_opt(Some(Money::new(4500.0, Currency::USD)))
+            .option_type(crate::instruments::OptionType::Call)
+            .lookback_type(LookbackType::FixedStrike)
+            .expiry(Date::from_calendar_date(2024, Month::December, 20).unwrap())
+            .notional(Money::new(100_000.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".to_string())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some("SPX-DIV".to_string()))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example LookbackOption construction should not fail")
+    }
     /// Calculate the net present value using Monte Carlo.
     #[cfg(feature = "mc")]
     pub fn npv_mc(

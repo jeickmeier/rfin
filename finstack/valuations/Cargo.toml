@@ -14,8 +14,9 @@ indexmap = { version = "2.0", features = ["serde"] }
 smallvec = { version = "1.11", default-features = false, features = ["serde"] }
 rayon = { version = "1.10", optional = true }
 ordered-float = { version = "4.0", features = ["serde"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", features = ["raw_value"], optional = true }
+schemars = { version = "0.8", optional = true }
 time = { version = "0.3" }
 rust_decimal = { version = "1.36" }
 rand = { version = "0.8", optional = true }
@@ -36,7 +37,8 @@ criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
 default = ["serde", "parallel"]
-serde = ["finstack-core/serde", "hashbrown/serde"]
+serde = ["dep:serde", "dep:serde_json", "finstack-core/serde", "hashbrown/serde"]
+schema = ["dep:schemars", "serde"]  # JSON Schema generation for documentation and LLM outputs
 parallel = ["dep:rayon", "finstack-core/parallel"]
 stochastic = ["dep:rand", "dep:rand_pcg", "dep:rand_distr", "dep:rand_core"]
 mc = ["stochastic", "dep:nalgebra"]

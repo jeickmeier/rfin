@@ -1,0 +1,96 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/inflation_linked_bond.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Bond with coupons and principal indexed to inflation",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "base_date": "2024-01-15",
+          "base_index": 100.0,
+          "bdc": "following",
+          "calendar_id": null,
+          "dc": "Act365F",
+          "deflation_protection": "MaturityOnly",
+          "discount_curve_id": "USD-TIPS",
+          "freq": {
+            "Months": 6
+          },
+          "id": "TIPS-10Y",
+          "indexation_method": "TIPS",
+          "inflation_index_id": "US-CPI",
+          "issue": "2024-01-15",
+          "lag": {
+            "months": 3
+          },
+          "maturity": "2034-01-15",
+          "notional": {
+            "amount": "1000000",
+            "currency": "USD"
+          },
+          "quoted_clean": null,
+          "real_coupon": 0.025,
+          "stub": "None"
+        },
+        "type": "inflation_linked_bond"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Inflation-Linked Bond instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "base_date": "2024-01-15",
+          "base_index": 100.0,
+          "bdc": "following",
+          "calendar_id": null,
+          "dc": "Act365F",
+          "deflation_protection": "MaturityOnly",
+          "discount_curve_id": "USD-TIPS",
+          "freq": {
+            "Months": 6
+          },
+          "id": "TIPS-10Y",
+          "indexation_method": "TIPS",
+          "inflation_index_id": "US-CPI",
+          "issue": "2024-01-15",
+          "lag": {
+            "months": 3
+          },
+          "maturity": "2034-01-15",
+          "notional": {
+            "amount": "1000000",
+            "currency": "USD"
+          },
+          "quoted_clean": null,
+          "real_coupon": 0.025,
+          "stub": "None"
+        },
+        "type": "inflation_linked_bond"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Inflation-Linked Bond",
+  "type": "object"
+}

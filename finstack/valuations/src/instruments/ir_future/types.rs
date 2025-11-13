@@ -11,6 +11,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// Interest Rate Future instrument.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct InterestRateFuture {
     /// Unique identifier
     pub id: InstrumentId,
@@ -104,6 +105,28 @@ impl std::str::FromStr for Position {
 
 impl InterestRateFuture {
     // Note: use the builder (FinancialBuilder) for construction.
+
+    /// Create a canonical example 3M Eurodollar-style interest rate future.
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use time::Month;
+        InterestRateFutureBuilder::new()
+            .id(InstrumentId::new("IRF-ED-3M-MAR25"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry_date(Date::from_calendar_date(2025, Month::March, 17).unwrap())
+            .fixing_date(Date::from_calendar_date(2025, Month::March, 17).unwrap())
+            .period_start(Date::from_calendar_date(2025, Month::March, 19).unwrap())
+            .period_end(Date::from_calendar_date(2025, Month::June, 18).unwrap())
+            .quoted_price(95.50)
+            .day_count(finstack_core::dates::DayCount::Act360)
+            .position(Position::Long)
+            .contract_specs(FutureContractSpecs::default())
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .forward_id(CurveId::new("USD-SOFR-3M"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example InterestRateFuture construction should not fail")
+    }
 
     /// Set contract specifications.
     pub fn with_contract_specs(mut self, specs: FutureContractSpecs) -> Self {

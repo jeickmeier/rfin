@@ -17,6 +17,7 @@ use super::parameters::FxSwapParams;
 /// FX Swap instrument definition
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -45,6 +46,26 @@ pub struct FxSwap {
 }
 
 impl FxSwap {
+    /// Create a canonical example FX swap for testing and documentation.
+    ///
+    /// Returns a 6-month EUR/USD swap with realistic forward points.
+    pub fn example() -> Self {
+        Self::builder()
+            .id(InstrumentId::new("FXSWAP-EURUSD-6M"))
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
+            .near_date(Date::from_calendar_date(2024, time::Month::January, 5).unwrap())
+            .far_date(Date::from_calendar_date(2024, time::Month::July, 5).unwrap())
+            .base_notional(Money::new(1_000_000.0, Currency::EUR))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+            .near_rate_opt(Some(1.10))
+            .far_rate_opt(Some(1.12))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example FX swap construction should not fail")
+    }
+
     /// Create a new FX swap using parameter structs
     pub fn new(
         id: InstrumentId,

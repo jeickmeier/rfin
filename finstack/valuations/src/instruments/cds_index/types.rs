@@ -12,10 +12,12 @@ use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
 
 // Reuse CDS components for conventions and legs
 use crate::instruments::cds::{
-    CDSConvention, CreditDefaultSwap, PayReceive as CdsPayReceive, PremiumLegSpec,
+    CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec,
     ProtectionLegSpec,
 };
 
@@ -45,6 +47,7 @@ pub struct CDSIndexConstituent {
 /// CDS Index instrument definition
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct CDSIndex {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -59,7 +62,7 @@ pub struct CDSIndex {
     /// Index factor (fraction of surviving notional since series inception)
     pub index_factor: f64,
     /// Protection buyer/seller perspective
-    pub side: CdsPayReceive,
+    pub side: PayReceive,
     /// Regional ISDA convention
     pub convention: CDSConvention,
     /// Premium leg specification (coupon schedule and discounting)
@@ -84,6 +87,48 @@ impl crate::metrics::HasCreditCurve for CDSIndex {
 }
 
 impl CDSIndex {
+    /// Create a canonical example CDS Index for testing and documentation.
+    ///
+    /// Returns a CDX.NA.IG series 42 index with standard conventions.
+    pub fn example() -> Self {
+        let convention = CDSConvention::IsdaNa;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
+
+        Self {
+            id: InstrumentId::new("CDX-IG-42"),
+            index_name: "CDX.NA.IG".to_string(),
+            series: 42,
+            version: 1,
+            notional: Money::new(10_000_000.0, Currency::USD),
+            index_factor: 1.0,
+            side: PayReceive::PayFixed,
+            convention,
+            premium: PremiumLegSpec {
+                start: Date::from_calendar_date(2024, time::Month::March, 20).unwrap(),
+                end: Date::from_calendar_date(2029, time::Month::December, 20).unwrap(),
+                freq,
+                stub,
+                bdc,
+                calendar_id: None,
+                dc,
+                spread_bp: 60.0,
+                discount_curve_id: CurveId::new("USD-OIS"),
+            },
+            protection: ProtectionLegSpec {
+                credit_curve_id: CurveId::new("CDX.NA.IG.HAZARD"),
+                recovery_rate: 0.40,
+                settlement_delay: convention.settlement_delay(),
+            },
+            pricing: IndexPricing::SingleCurve,
+            constituents: Vec::new(),
+            pricing_overrides: PricingOverrides::default(),
+            attributes: Attributes::new(),
+        }
+    }
+
     /// Create a new CDS Index with standard ISDA conventions using parameter structs
     #[allow(clippy::too_many_arguments)]
     pub fn new_standard(

@@ -1,0 +1,66 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/deposit.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Simple single-period deposit instrument",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "day_count": "Act360",
+          "discount_curve_id": "USD-OIS",
+          "end": "2024-07-01",
+          "id": "DEP-USD-6M",
+          "notional": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "quote_rate": 0.045,
+          "start": "2024-01-01"
+        },
+        "type": "deposit"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Deposit instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "day_count": "Act360",
+          "discount_curve_id": "USD-OIS",
+          "end": "2024-07-01",
+          "id": "DEP-USD-6M",
+          "notional": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "quote_rate": 0.045,
+          "start": "2024-01-01"
+        },
+        "type": "deposit"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Deposit",
+  "type": "object"
+}

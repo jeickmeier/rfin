@@ -1,0 +1,62 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/equity.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Spot equity position in a listed stock",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "currency": "USD",
+          "discount_curve_id": "USD",
+          "div_yield_id": "AAPL-DIV",
+          "id": "EQUITY-AAPL",
+          "price_id": "AAPL-SPOT",
+          "price_quote": null,
+          "shares": 100.0,
+          "ticker": "AAPL"
+        },
+        "type": "equity"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Equity instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "currency": "USD",
+          "discount_curve_id": "USD",
+          "div_yield_id": "AAPL-DIV",
+          "id": "EQUITY-AAPL",
+          "price_id": "AAPL-SPOT",
+          "price_quote": null,
+          "shares": 100.0,
+          "ticker": "AAPL"
+        },
+        "type": "equity"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Equity",
+  "type": "object"
+}

@@ -20,6 +20,7 @@ use crate::instruments::common::traits::Attributes;
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct RevolvingCredit {
     /// Unique identifier for the facility.
     pub id: InstrumentId,
@@ -72,6 +73,61 @@ pub struct RevolvingCredit {
 
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
+}
+
+impl RevolvingCredit {
+    /// Create a canonical example revolving credit facility (USD, deterministic draws).
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::{DayCount, Frequency};
+        use time::Month;
+        let commitment = Money::new(50_000_000.0, Currency::USD);
+        let initial_draw = Money::new(10_000_000.0, Currency::USD);
+        let start = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2027, Month::January, 1).unwrap();
+        let base_rate = BaseRateSpec::Floating(FloatingRateSpec {
+            index_id: CurveId::new("USD-SOFR-3M"),
+            spread_bp: 250.0,
+            gearing: 1.0,
+            floor_bp: Some(0.0),
+            cap_bp: None,
+            reset_freq: Frequency::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+        });
+        let fees = RevolvingCreditFees::flat(25.0, 10.0, 5.0);
+        let draw_repay = DrawRepaySpec::Deterministic(vec![
+            DrawRepayEvent {
+                date: Date::from_calendar_date(2024, Month::March, 1).unwrap(),
+                amount: Money::new(5_000_000.0, Currency::USD),
+                is_draw: true,
+            },
+            DrawRepayEvent {
+                date: Date::from_calendar_date(2025, Month::June, 1).unwrap(),
+                amount: Money::new(3_000_000.0, Currency::USD),
+                is_draw: false,
+            },
+        ]);
+        RevolvingCreditBuilder::new()
+            .id(InstrumentId::new("RCF-USD-3Y"))
+            .commitment_amount(commitment)
+            .drawn_amount(initial_draw)
+            .commitment_date(start)
+            .maturity_date(end)
+            .base_rate_spec(base_rate)
+            .day_count(DayCount::Act360)
+            .payment_frequency(Frequency::quarterly())
+            .fees(fees)
+            .draw_repay_spec(draw_repay)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .hazard_curve_id_opt(None)
+            .recovery_rate(0.0)
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example RevolvingCredit construction should not fail")
+    }
 }
 
 /// Base rate specification for revolving credit interest.

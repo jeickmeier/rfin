@@ -188,6 +188,42 @@ pub struct Basket {
 
 impl Basket {
     // Builder provided by derive
+    /// Create a canonical example basket with two market data constituents.
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        let constituents = vec![
+            BasketConstituent {
+                id: "EQ-AAPL".to_string(),
+                reference: ConstituentReference::MarketData {
+                    price_id: PriceId::new("AAPL-SPOT"),
+                    asset_type: AssetType::Equity,
+                },
+                weight: 0.6,
+                units: None,
+                ticker: Some("AAPL".to_string()),
+            },
+            BasketConstituent {
+                id: "BOND-UST10".to_string(),
+                reference: ConstituentReference::MarketData {
+                    price_id: PriceId::new("UST10Y-PRICE"),
+                    asset_type: AssetType::Bond,
+                },
+                weight: 0.4,
+                units: None,
+                ticker: Some("UST10Y".to_string()),
+            },
+        ];
+        BasketBuilder::new()
+            .id(InstrumentId::new("BASKET-60-40"))
+            .constituents(constituents)
+            .expense_ratio(0.0025)
+            .currency(Currency::USD)
+            .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
+            .attributes(Attributes::new())
+            .pricing_config(BasketPricingConfig::default())
+            .build()
+            .expect("Example Basket construction should not fail")
+    }
 
     /// Create a new basket with custom pricing configuration.
     pub fn with_pricing_config(mut self, config: BasketPricingConfig) -> Self {

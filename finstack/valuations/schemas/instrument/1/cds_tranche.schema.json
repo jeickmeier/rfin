@@ -1,0 +1,88 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/cds_tranche.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Synthetic CDO tranche on a CDS index",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attach_pct": 0.0,
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "business_day_convention": "following",
+          "calendar_id": null,
+          "credit_index_id": "CDX.NA.IG.HAZARD",
+          "day_count": "Act360",
+          "detach_pct": 0.03,
+          "discount_curve_id": "USD-OIS",
+          "effective_date": null,
+          "id": "CDXIG-42-0X3",
+          "index_name": "CDX.NA.IG",
+          "maturity": "2029-12-20",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "payment_frequency": {
+            "Months": 3
+          },
+          "running_coupon_bp": 100.0,
+          "series": 42,
+          "side": "BuyProtection"
+        },
+        "type": "cds_tranche"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The CDS Tranche instrument definition",
+      "example": {
+        "spec": {
+          "attach_pct": 0.0,
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "business_day_convention": "following",
+          "calendar_id": null,
+          "credit_index_id": "CDX.NA.IG.HAZARD",
+          "day_count": "Act360",
+          "detach_pct": 0.03,
+          "discount_curve_id": "USD-OIS",
+          "effective_date": null,
+          "id": "CDXIG-42-0X3",
+          "index_name": "CDX.NA.IG",
+          "maturity": "2029-12-20",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "payment_frequency": {
+            "Months": 3
+          },
+          "running_coupon_bp": 100.0,
+          "series": 42,
+          "side": "BuyProtection"
+        },
+        "type": "cds_tranche"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "CDS Tranche",
+  "type": "object"
+}

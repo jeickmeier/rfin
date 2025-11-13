@@ -11,7 +11,8 @@ use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::market_data::traits::Forward;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::currency::Currency;
 use finstack_core::{dates::Date, Result};
 
 use crate::cashflow::builder::{
@@ -59,6 +60,7 @@ pub use crate::instruments::common::parameters::legs::FloatLegSpec;
 /// - Bloomberg SWPM function documentation
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct InterestRateSwap {
     /// Unique identifier for the swap.
     pub id: InstrumentId,
@@ -110,6 +112,46 @@ impl IRSScheduleConfig {
 }
 
 impl InterestRateSwap {
+    /// Create a canonical example IRS for testing and documentation.
+    ///
+    /// Returns a 5-year pay-fixed swap with semi-annual fixed vs quarterly floating.
+    pub fn example() -> Self {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        
+        Self::builder()
+            .id(InstrumentId::new("IRS-5Y-USD"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(PayReceive::PayFixed)
+            .fixed(crate::instruments::common::parameters::FixedLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                rate: 0.03,
+                freq: Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                start: Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
+                end: Date::from_calendar_date(2029, time::Month::January, 1).unwrap(),
+                par_method: None,
+                compounding_simple: true,
+            })
+            .float(crate::instruments::common::parameters::FloatLegSpec {
+                discount_curve_id: CurveId::new("USD-OIS"),
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                spread_bp: 0.0,
+                freq: Frequency::quarterly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
+                reset_lag_days: 2,
+                start: Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
+                end: Date::from_calendar_date(2029, time::Month::January, 1).unwrap(),
+            })
+            .build()
+            .expect("Example IRS construction should not fail")
+    }
+
     /// Helper to construct a swap with specified curve configuration.
     fn create_swap(
         id: InstrumentId,

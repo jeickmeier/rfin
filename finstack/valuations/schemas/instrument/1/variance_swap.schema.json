@@ -1,0 +1,78 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/variance_swap.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Forward contract on realized variance",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "id": "VARSPX-1Y",
+          "maturity": "2025-01-01",
+          "notional": {
+            "amount": "1000000",
+            "currency": "USD"
+          },
+          "observation_freq": {
+            "Days": 1
+          },
+          "realized_var_method": "Parkinson",
+          "side": "Receive",
+          "start_date": "2024-01-01",
+          "strike_variance": 0.04,
+          "underlying_id": "SPX"
+        },
+        "type": "variance_swap"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Variance Swap instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "id": "VARSPX-1Y",
+          "maturity": "2025-01-01",
+          "notional": {
+            "amount": "1000000",
+            "currency": "USD"
+          },
+          "observation_freq": {
+            "Days": 1
+          },
+          "realized_var_method": "Parkinson",
+          "side": "Receive",
+          "start_date": "2024-01-01",
+          "strike_variance": 0.04,
+          "underlying_id": "SPX"
+        },
+        "type": "variance_swap"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Variance Swap",
+  "type": "object"
+}

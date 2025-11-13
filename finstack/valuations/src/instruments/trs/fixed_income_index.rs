@@ -17,7 +17,7 @@ use finstack_core::{
 ///
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FIIndexTotalReturnSwap {
     /// Unique instrument identifier.
@@ -39,6 +39,46 @@ pub struct FIIndexTotalReturnSwap {
 }
 
 impl FIIndexTotalReturnSwap {
+    /// Create a canonical example fixed income index TRS (USD Corporate Index, 1Y).
+    pub fn example() -> Self {
+        use crate::instruments::trs::types::{TrsScheduleSpec, TrsSide};
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+        use crate::cashflow::builder::ScheduleParams;
+        let underlying = IndexUnderlyingParams::new("US-CORP-INDEX", Currency::USD)
+            .with_yield("US-CORP-YIELD")
+            .with_duration("US-CORP-DURATION")
+            .with_convexity("US-CORP-CONVEXITY")
+            .with_contract_size(1.0);
+        let financing = FinancingLegSpec {
+            discount_curve_id: finstack_core::types::CurveId::new("USD-OIS"),
+            forward_curve_id: finstack_core::types::CurveId::new("USD-SOFR-3M"),
+            spread_bp: 100.0,
+            day_count: DayCount::Act360,
+        };
+        let sched = TrsScheduleSpec::from_params(
+            Date::from_calendar_date(2024, time::Month::January, 1).unwrap(),
+            Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+            ScheduleParams {
+                freq: Frequency::quarterly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            },
+        );
+        FIIndexTotalReturnSwapBuilder::new()
+            .id(InstrumentId::new("TRS-US-CORP-1Y"))
+            .notional(Money::new(5_000_000.0, Currency::USD))
+            .underlying(underlying)
+            .financing(financing)
+            .schedule(sched)
+            .side(TrsSide::ReceiveTotalReturn)
+            .initial_level_opt(None)
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example FIIndexTotalReturnSwap construction should not fail")
+    }
     /// Calculates the net present value (NPV) of the fixed income index TRS.
     ///
     /// # Arguments

@@ -17,6 +17,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::{Error, Result};
+use finstack_core::currency::Currency;
 
 use super::parameters::SwaptionParams;
 
@@ -84,6 +85,7 @@ impl std::str::FromStr for SwaptionExercise {
 /// Swaption instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Swaption {
     pub id: InstrumentId,
     pub option_type: OptionType,
@@ -106,6 +108,32 @@ pub struct Swaption {
 }
 
 impl Swaption {
+    /// Create a canonical example swaption for testing and documentation.
+    ///
+    /// Returns a 1Y x 5Y payer swaption (1 year to expiry, 5 year swap tenor).
+    pub fn example() -> Self {
+        Self {
+            id: InstrumentId::new("SWPN-1Yx5Y-USD"),
+            option_type: OptionType::Call,
+            notional: Money::new(10_000_000.0, Currency::USD),
+            strike_rate: 0.03,
+            expiry: Date::from_calendar_date(2025, time::Month::January, 15).unwrap(),
+            swap_start: Date::from_calendar_date(2025, time::Month::January, 17).unwrap(),
+            swap_end: Date::from_calendar_date(2030, time::Month::January, 17).unwrap(),
+            fixed_freq: Frequency::semi_annual(),
+            float_freq: Frequency::quarterly(),
+            day_count: DayCount::Thirty360,
+            exercise: SwaptionExercise::European,
+            settlement: SwaptionSettlement::Cash,
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_id: CurveId::new("USD-SOFR-3M"),
+            vol_surface_id: CurveId::new("USD-SWPNVOL"),
+            pricing_overrides: PricingOverrides::default(),
+            sabr_params: None,
+            attributes: Attributes::new(),
+        }
+    }
+
     /// Create a new payer swaption using parameter structs.
     pub fn new_payer(
         id: impl Into<InstrumentId>,

@@ -1,0 +1,186 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/revolving_credit.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Credit facility with draws/repayments and usage/commitment fees",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "base_rate_spec": {
+            "Floating": {
+              "bdc": "modified_following",
+              "calendar_id": null,
+              "cap_bp": null,
+              "dc": "Act360",
+              "floor_bp": 0.0,
+              "gearing": 1.0,
+              "index_id": "USD-SOFR-3M",
+              "reset_freq": {
+                "Months": 3
+              },
+              "reset_lag_days": 2,
+              "spread_bp": 250.0
+            }
+          },
+          "commitment_amount": {
+            "amount": "50000000",
+            "currency": "USD"
+          },
+          "commitment_date": "2024-01-01",
+          "day_count": "Act360",
+          "discount_curve_id": "USD-OIS",
+          "draw_repay_spec": {
+            "Deterministic": [
+              {
+                "amount": {
+                  "amount": "5000000",
+                  "currency": "USD"
+                },
+                "date": "2024-03-01",
+                "is_draw": true
+              },
+              {
+                "amount": {
+                  "amount": "3000000",
+                  "currency": "USD"
+                },
+                "date": "2025-06-01",
+                "is_draw": false
+              }
+            ]
+          },
+          "drawn_amount": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "fees": {
+            "commitment_fee_tiers": [
+              {
+                "bps": 25.0,
+                "threshold": 0.0
+              }
+            ],
+            "facility_fee_bp": 5.0,
+            "upfront_fee": null,
+            "usage_fee_tiers": [
+              {
+                "bps": 10.0,
+                "threshold": 0.0
+              }
+            ]
+          },
+          "hazard_curve_id": null,
+          "id": "RCF-USD-3Y",
+          "maturity_date": "2027-01-01",
+          "payment_frequency": {
+            "Months": 3
+          },
+          "recovery_rate": 0.0
+        },
+        "type": "revolving_credit"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Revolving Credit Facility instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "base_rate_spec": {
+            "Floating": {
+              "bdc": "modified_following",
+              "calendar_id": null,
+              "cap_bp": null,
+              "dc": "Act360",
+              "floor_bp": 0.0,
+              "gearing": 1.0,
+              "index_id": "USD-SOFR-3M",
+              "reset_freq": {
+                "Months": 3
+              },
+              "reset_lag_days": 2,
+              "spread_bp": 250.0
+            }
+          },
+          "commitment_amount": {
+            "amount": "50000000",
+            "currency": "USD"
+          },
+          "commitment_date": "2024-01-01",
+          "day_count": "Act360",
+          "discount_curve_id": "USD-OIS",
+          "draw_repay_spec": {
+            "Deterministic": [
+              {
+                "amount": {
+                  "amount": "5000000",
+                  "currency": "USD"
+                },
+                "date": "2024-03-01",
+                "is_draw": true
+              },
+              {
+                "amount": {
+                  "amount": "3000000",
+                  "currency": "USD"
+                },
+                "date": "2025-06-01",
+                "is_draw": false
+              }
+            ]
+          },
+          "drawn_amount": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "fees": {
+            "commitment_fee_tiers": [
+              {
+                "bps": 25.0,
+                "threshold": 0.0
+              }
+            ],
+            "facility_fee_bp": 5.0,
+            "upfront_fee": null,
+            "usage_fee_tiers": [
+              {
+                "bps": 10.0,
+                "threshold": 0.0
+              }
+            ]
+          },
+          "hazard_curve_id": null,
+          "id": "RCF-USD-3Y",
+          "maturity_date": "2027-01-01",
+          "payment_frequency": {
+            "Months": 3
+          },
+          "recovery_rate": 0.0
+        },
+        "type": "revolving_credit"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Revolving Credit Facility",
+  "type": "object"
+}

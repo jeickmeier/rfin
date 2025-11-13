@@ -16,6 +16,7 @@ use super::parameters::EquityOptionParams;
 /// Equity option instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct EquityOption {
     pub id: InstrumentId,
     pub underlying_ticker: String,
@@ -42,6 +43,20 @@ impl crate::metrics::HasDiscountCurve for EquityOption {
 }
 
 impl EquityOption {
+    /// Create a canonical example equity option for testing and documentation.
+    ///
+    /// Returns an at-the-money SPX call option with 6 months to expiry.
+    pub fn example() -> Self {
+        Self::european_call(
+            "SPX-CALL-4500",
+            "SPX",
+            4500.0,
+            Date::from_calendar_date(2024, time::Month::June, 21).unwrap(),
+            Money::new(100_000.0, Currency::USD),
+            100.0,
+        )
+    }
+
     /// Create a European call option with standard conventions.
     ///
     /// This convenience constructor eliminates the builder for the most common case.

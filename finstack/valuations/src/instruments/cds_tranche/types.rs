@@ -5,7 +5,7 @@ use crate::instruments::build_with_metrics_dyn;
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -48,6 +48,7 @@ impl std::str::FromStr for TrancheSide {
 /// CDS Tranche instrument definition (boilerplate)
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct CdsTranche {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -93,6 +94,34 @@ impl crate::metrics::HasCreditCurve for CdsTranche {
 }
 
 impl CdsTranche {
+    /// Create a canonical example CDS tranche (CDX.NA.IG 0-3% equity tranche).
+    pub fn example() -> Self {
+        use crate::cashflow::builder::ScheduleParams;
+        use finstack_core::currency::Currency;
+        use time::Month;
+        let params = super::parameters::CDSTrancheParams::equity_tranche(
+            "CDX.NA.IG",
+            42,
+            Money::new(10_000_000.0, Currency::USD),
+            Date::from_calendar_date(2029, Month::December, 20).unwrap(),
+            100.0,
+        );
+        let sched = ScheduleParams {
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+        };
+        CdsTranche::new(
+            InstrumentId::new("CDXIG-42-0X3"),
+            &params,
+            &sched,
+            CurveId::new("USD-OIS"),
+            CurveId::new("CDX.NA.IG.HAZARD"),
+            TrancheSide::BuyProtection,
+        )
+    }
     /// Create a new CDS tranche using parameter structs
     pub fn new(
         id: impl Into<InstrumentId>,

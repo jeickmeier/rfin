@@ -55,8 +55,8 @@ pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
 ///     CurveId::new("OIS"),
 /// );
 /// ```
-#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BasisSwap {
     /// Unique identifier for this instrument.
     pub id: InstrumentId,

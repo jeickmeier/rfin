@@ -5,7 +5,7 @@ use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount};
 // Pricing/greeks live in pricing engine; keep types minimal.
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -17,6 +17,7 @@ use super::parameters::FxOptionParams;
 /// FX option instrument (Garman-Kohlhagen model)
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxOption {
     pub id: InstrumentId,
     pub base_currency: Currency,
@@ -44,6 +45,30 @@ impl crate::metrics::HasDiscountCurve for FxOption {
 }
 
 impl FxOption {
+    /// Create a canonical example FX option for testing and documentation.
+    ///
+    /// Returns a 6-month EUR/USD call option.
+    pub fn example() -> Self {
+        Self::builder()
+            .id(InstrumentId::new("FXOPT-EURUSD-CALL"))
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
+            .strike(1.12)
+            .option_type(OptionType::Call)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(Date::from_calendar_date(2024, time::Month::June, 21).unwrap())
+            .day_count(DayCount::Act365F)
+            .notional(Money::new(1_000_000.0, Currency::EUR))
+            .settlement(SettlementType::Cash)
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+            .vol_surface_id(CurveId::new("EURUSD-VOL"))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example FX option construction should not fail")
+    }
+
     /// Create a European call option on an FX pair with standard conventions.
     pub fn european_call(
         id: impl Into<InstrumentId>,

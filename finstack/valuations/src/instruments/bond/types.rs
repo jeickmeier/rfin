@@ -18,6 +18,9 @@ pub use crate::cashflow::builder::AmortizationSpec;
 /// the canonical builder coupon specs for maximum flexibility and parity.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+// Note: JsonSchema derive requires finstack-core types to implement JsonSchema
+// #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
 pub struct Bond {
     /// Unique identifier for the bond.
     pub id: InstrumentId,
@@ -78,6 +81,20 @@ impl CallPutSchedule {
 }
 
 impl Bond {
+    /// Create a canonical example bond for testing and documentation.
+    ///
+    /// Returns a 10-year USD Treasury-style bond with realistic parameters.
+    pub fn example() -> Self {
+        Self::fixed(
+            "US912828XG33",
+            Money::new(1_000_000.0, Currency::USD),
+            0.0425,
+            Date::from_calendar_date(2024, time::Month::January, 15).unwrap(),
+            Date::from_calendar_date(2034, time::Month::January, 15).unwrap(),
+            "USD-TREASURY",
+        )
+    }
+
     /// Create a standard fixed-rate bond (most common use case).
     ///
     /// Creates a bond with semi-annual frequency and 30/360 day count following

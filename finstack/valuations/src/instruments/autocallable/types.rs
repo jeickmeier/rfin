@@ -21,6 +21,7 @@ pub enum FinalPayoffType {
 /// Autocallable structured product instrument.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Autocallable {
     pub id: InstrumentId,
     pub underlying_ticker: String,
@@ -49,6 +50,40 @@ impl crate::metrics::HasDiscountCurve for Autocallable {
 }
 
 impl Autocallable {
+    /// Create a canonical example autocallable (quarterly observations, simple barriers/coupons).
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::DayCount;
+        use time::Month;
+        let observation_dates = vec![
+            Date::from_calendar_date(2024, Month::March, 29).unwrap(),
+            Date::from_calendar_date(2024, Month::June, 28).unwrap(),
+            Date::from_calendar_date(2024, Month::September, 30).unwrap(),
+            Date::from_calendar_date(2024, Month::December, 31).unwrap(),
+        ];
+        let autocall_barriers = vec![1.0, 1.0, 1.0, 1.0]; // 100% of initial
+        let coupons = vec![0.02, 0.02, 0.02, 0.02]; // 2% per observation if called
+        AutocallableBuilder::new()
+            .id(InstrumentId::new("AUTO-SPX-QTR"))
+            .underlying_ticker("SPX".to_string())
+            .observation_dates(observation_dates)
+            .autocall_barriers(autocall_barriers)
+            .coupons(coupons)
+            .final_barrier(0.6) // 60% final KI barrier
+            .final_payoff_type(FinalPayoffType::Participation { rate: 1.0 })
+            .participation_rate(1.0)
+            .cap_level(1.5) // 150% cap
+            .notional(Money::new(100_000.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".to_string())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some("SPX-DIV".to_string()))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example Autocallable construction should not fail")
+    }
     /// Calculate the net present value of this autocallable.
     #[cfg(feature = "mc")]
     pub fn npv(

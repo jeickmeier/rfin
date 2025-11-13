@@ -4,9 +4,10 @@
 //! clean implementation using composition for deal-specific differences.
 
 use super::components::{
-    AssetPool, CreditFactors, DealType, DefaultModelSpec, MarketConditions, PrepaymentModelSpec,
-    RecoveryModelSpec, TrancheCashflowResult, TrancheStructure, TrancheValuation,
-    TrancheValuationExt, WaterfallEngine,
+    AllocationMode, AssetPool, CreditFactors, DealType, DefaultModelSpec, MarketConditions,
+    PaymentType, PrepaymentModelSpec, Recipient, RecoveryModelSpec, Tranche, TrancheCashflowResult,
+    TrancheCoupon, TrancheSeniority, TrancheStructure, TrancheValuation, TrancheValuationExt,
+    WaterfallEngine, WaterfallTier,
 };
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::constants::DECIMAL_TO_PERCENT;
@@ -81,6 +82,7 @@ pub struct BehaviorOverrides {
 /// types, consolidating ~1,400 lines of near-duplicate code into a clean, composable design.
 #[derive(Clone, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct StructuredCredit {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -248,6 +250,49 @@ impl StructuredCredit {
                 discount_curve_id,
             ), // Default to ABS
         }
+    }
+
+    /// Create a canonical example CLO structured credit deal with minimal components.
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use time::Month;
+        // Build a minimal pool (empty assets for example purposes)
+        let pool = AssetPool::new("POOL-1", DealType::CLO, Currency::USD);
+        // Build a simple tranche structure with single tranche 0-100%
+        let tranche = Tranche::new(
+            "CLONOTES-A",
+            0.0,
+            100.0,
+            TrancheSeniority::Senior,
+            Money::new(100_000_000.0, Currency::USD),
+            TrancheCoupon::Fixed { rate: 0.06 },
+            Date::from_calendar_date(2034, Month::January, 1).unwrap(),
+        )
+        .expect("Tranche build should not fail");
+        let tranches = TrancheStructure::new(vec![tranche]).expect("TrancheStructure should build");
+        // Build a simple 2-tier waterfall: pay interest then principal to the tranche
+        let waterfall = WaterfallEngine::new(Currency::USD)
+            .add_tier(
+                WaterfallTier::new("Tier1-Interest", 1, PaymentType::Interest)
+                    .allocation_mode(AllocationMode::Sequential)
+                    .add_recipient(Recipient::tranche_interest("A-INT", "CLONOTES-A")),
+            )
+            .add_tier(
+                WaterfallTier::new("Tier2-Principal", 2, PaymentType::Principal)
+                    .allocation_mode(AllocationMode::Sequential)
+                    .add_recipient(Recipient::tranche_principal("A-PRIN", "CLONOTES-A", None)),
+            );
+        let closing = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let legal = Date::from_calendar_date(2034, Month::January, 1).unwrap();
+        StructuredCredit::new_clo(
+            "CLO-EXAMPLE",
+            pool,
+            tranches,
+            waterfall,
+            closing,
+            legal,
+            "USD-OIS",
+        )
     }
 
     /// Internal helper to create structured credit with common fields

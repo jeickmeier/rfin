@@ -12,6 +12,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// FX barrier option instrument.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxBarrierOption {
     pub id: InstrumentId,
     pub strike: Money,
@@ -40,6 +41,31 @@ impl crate::metrics::HasDiscountCurve for FxBarrierOption {
 }
 
 impl FxBarrierOption {
+    /// Create a canonical example FX barrier option (EURUSD up-and-out call).
+    pub fn example() -> Self {
+        use finstack_core::dates::DayCount;
+        use time::Month;
+        FxBarrierOptionBuilder::new()
+            .id(InstrumentId::new("FXBAR-EURUSD-UO-CALL"))
+            .strike(Money::new(1.10, Currency::USD))
+            .barrier(Money::new(1.20, Currency::USD))
+            .option_type(crate::instruments::OptionType::Call)
+            .barrier_type(BarrierType::UpAndOut)
+            .expiry(Date::from_calendar_date(2024, Month::December, 20).unwrap())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .domestic_currency(Currency::USD)
+            .foreign_currency(Currency::EUR)
+            .correlation(0.2)
+            .day_count(DayCount::Act365F)
+            .use_gobet_miri(false)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .fx_spot_id("EURUSD-SPOT".to_string())
+            .fx_vol_id(CurveId::new("EURUSD-VOL"))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example FxBarrierOption construction should not fail")
+    }
     /// Calculate the net present value using Monte Carlo.
     #[cfg(feature = "mc")]
     pub fn npv_mc(

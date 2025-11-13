@@ -26,6 +26,7 @@ pub enum RateOptionType {
 /// Interest rate option instrument
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct InterestRateOption {
     /// Unique instrument identifier
     pub id: InstrumentId,

@@ -1,0 +1,134 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/term_loan.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Term loan with fixed or floating rate and amortization",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "amortization": {
+            "PercentPerPeriod": {
+              "bp": 250
+            }
+          },
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "bdc": "modified_following",
+          "calendar_id": null,
+          "call_schedule": null,
+          "coupon_type": "Cash",
+          "covenants": null,
+          "currency": "USD",
+          "day_count": "Act360",
+          "ddtl": null,
+          "discount_curve_id": "USD-OIS",
+          "id": "TERM-LOAN-USD-5Y",
+          "issue": "2024-01-01",
+          "maturity": "2029-01-01",
+          "notional_limit": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "pay_freq": {
+            "Months": 3
+          },
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "rate": {
+            "Fixed": {
+              "rate_bp": 600
+            }
+          },
+          "stub": "None",
+          "upfront_fee": null
+        },
+        "type": "term_loan"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Term Loan instrument definition",
+      "example": {
+        "spec": {
+          "amortization": {
+            "PercentPerPeriod": {
+              "bp": 250
+            }
+          },
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "bdc": "modified_following",
+          "calendar_id": null,
+          "call_schedule": null,
+          "coupon_type": "Cash",
+          "covenants": null,
+          "currency": "USD",
+          "day_count": "Act360",
+          "ddtl": null,
+          "discount_curve_id": "USD-OIS",
+          "id": "TERM-LOAN-USD-5Y",
+          "issue": "2024-01-01",
+          "maturity": "2029-01-01",
+          "notional_limit": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "pay_freq": {
+            "Months": 3
+          },
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "rate": {
+            "Fixed": {
+              "rate_bp": 600
+            }
+          },
+          "stub": "None",
+          "upfront_fee": null
+        },
+        "type": "term_loan"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Term Loan",
+  "type": "object"
+}

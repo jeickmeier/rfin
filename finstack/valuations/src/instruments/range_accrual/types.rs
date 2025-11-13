@@ -9,6 +9,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// Range accrual instrument.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct RangeAccrual {
     pub id: InstrumentId,
     pub underlying_ticker: String,
@@ -27,6 +28,43 @@ pub struct RangeAccrual {
 }
 
 impl RangeAccrual {
+    /// Create a canonical example range accrual (monthly observations).
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::DayCount;
+        use time::Month;
+        let observation_dates = vec![
+            Date::from_calendar_date(2024, Month::January, 31).unwrap(),
+            Date::from_calendar_date(2024, Month::February, 29).unwrap(),
+            Date::from_calendar_date(2024, Month::March, 31).unwrap(),
+            Date::from_calendar_date(2024, Month::April, 30).unwrap(),
+            Date::from_calendar_date(2024, Month::May, 31).unwrap(),
+            Date::from_calendar_date(2024, Month::June, 30).unwrap(),
+            Date::from_calendar_date(2024, Month::July, 31).unwrap(),
+            Date::from_calendar_date(2024, Month::August, 31).unwrap(),
+            Date::from_calendar_date(2024, Month::September, 30).unwrap(),
+            Date::from_calendar_date(2024, Month::October, 31).unwrap(),
+            Date::from_calendar_date(2024, Month::November, 30).unwrap(),
+            Date::from_calendar_date(2024, Month::December, 31).unwrap(),
+        ];
+        RangeAccrualBuilder::new()
+            .id(InstrumentId::new("RANGE-SPX-1Y"))
+            .underlying_ticker("SPX".to_string())
+            .observation_dates(observation_dates)
+            .lower_bound(0.95) // 95% of initial
+            .upper_bound(1.05) // 105% of initial
+            .coupon_rate(0.08) // 8% annual if inside range
+            .notional(Money::new(100_000.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".to_string())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some("SPX-DIV".to_string()))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example RangeAccrual construction should not fail")
+    }
     /// Calculate the net present value of this range accrual.
     #[cfg(feature = "mc")]
     pub fn npv(

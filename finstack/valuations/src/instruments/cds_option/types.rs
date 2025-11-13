@@ -17,6 +17,7 @@ use super::parameters::CdsOptionParams;
 /// Credit option instrument (option on CDS spread)
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct CdsOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
@@ -64,6 +65,30 @@ impl crate::metrics::HasCreditCurve for CdsOption {
 }
 
 impl CdsOption {
+    /// Create a canonical example CDS option (call on CDS spread).
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use time::Month;
+        let option_params = CdsOptionParams::call(
+            100.0,
+            Date::from_calendar_date(2025, Month::June, 20).unwrap(),
+            Date::from_calendar_date(2030, Month::June, 20).unwrap(),
+            Money::new(10_000_000.0, Currency::USD),
+        );
+        let credit_params =
+            crate::instruments::common::parameters::CreditParams::corporate_standard(
+                "CORP",
+                "CORP-HAZARD",
+            );
+        CdsOption::new(
+            InstrumentId::new("CDSOPT-CALL-CORP-5Y"),
+            &option_params,
+            &credit_params,
+            "USD-OIS",
+            "CDSOPT-VOL",
+        )
+    }
+
     /// Create a new credit option using parameter structs.
     ///
     /// Inputs separation:

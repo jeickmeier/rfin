@@ -10,6 +10,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::currency::Currency;
 
 /// Forward Rate Agreement instrument.
 ///
@@ -18,6 +19,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 /// the start of the interest period (FRA convention).
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct ForwardRateAgreement {
     /// Unique identifier
     pub id: InstrumentId,
@@ -46,6 +48,27 @@ pub struct ForwardRateAgreement {
 }
 
 impl ForwardRateAgreement {
+    /// Create a canonical example FRA for testing and documentation.
+    ///
+    /// Returns a 3x6 FRA (3 months forward, 3 month tenor).
+    pub fn example() -> Self {
+        Self::builder()
+            .id(InstrumentId::new("FRA-3X6-USD"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .fixing_date(Date::from_calendar_date(2024, time::Month::April, 1).unwrap())
+            .start_date(Date::from_calendar_date(2024, time::Month::April, 3).unwrap())
+            .end_date(Date::from_calendar_date(2024, time::Month::July, 3).unwrap())
+            .fixed_rate(0.045)
+            .day_count(DayCount::Act360)
+            .reset_lag(2)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .forward_id(CurveId::new("USD-SOFR-3M"))
+            .pay_fixed(true)
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example FRA construction should not fail")
+    }
+
     /// Calculate the net present value of this FRA
     pub fn npv(
         &self,

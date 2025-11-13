@@ -1,0 +1,146 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/autocallable.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Autocallable structured product with observation schedule",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "autocall_barriers": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "cap_level": 1.5,
+          "coupons": [
+            0.02,
+            0.02,
+            0.02,
+            0.02
+          ],
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "div_yield_id": "SPX-DIV",
+          "final_barrier": 0.6,
+          "final_payoff_type": {
+            "Participation": {
+              "rate": 1.0
+            }
+          },
+          "id": "AUTO-SPX-QTR",
+          "notional": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "observation_dates": [
+            "2024-03-29",
+            "2024-06-28",
+            "2024-09-30",
+            "2024-12-31"
+          ],
+          "participation_rate": 1.0,
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "spot_id": "SPX-SPOT",
+          "underlying_ticker": "SPX",
+          "vol_surface_id": "SPX-VOL"
+        },
+        "type": "autocallable"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Autocallable instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "autocall_barriers": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ],
+          "cap_level": 1.5,
+          "coupons": [
+            0.02,
+            0.02,
+            0.02,
+            0.02
+          ],
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "div_yield_id": "SPX-DIV",
+          "final_barrier": 0.6,
+          "final_payoff_type": {
+            "Participation": {
+              "rate": 1.0
+            }
+          },
+          "id": "AUTO-SPX-QTR",
+          "notional": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "observation_dates": [
+            "2024-03-29",
+            "2024-06-28",
+            "2024-09-30",
+            "2024-12-31"
+          ],
+          "participation_rate": 1.0,
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "spot_id": "SPX-SPOT",
+          "underlying_ticker": "SPX",
+          "vol_surface_id": "SPX-VOL"
+        },
+        "type": "autocallable"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Autocallable",
+  "type": "object"
+}

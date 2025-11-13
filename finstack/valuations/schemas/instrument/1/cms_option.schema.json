@@ -1,0 +1,118 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/cms_option.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Caplet/Floorlet on a constant-maturity swap (CMS) rate",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "accrual_fractions": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "cms_tenor": 10.0,
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "fixing_dates": [
+            "2025-03-20",
+            "2025-06-20",
+            "2025-09-22",
+            "2025-12-22"
+          ],
+          "id": "CMSOPT-10Y-USD",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "option_type": "call",
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "strike_rate": 0.025,
+          "vol_surface_id": "USD-CMS10Y-VOL"
+        },
+        "type": "cms_option"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The CMS Option instrument definition",
+      "example": {
+        "spec": {
+          "accrual_fractions": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ],
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "cms_tenor": 10.0,
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "fixing_dates": [
+            "2025-03-20",
+            "2025-06-20",
+            "2025-09-22",
+            "2025-12-22"
+          ],
+          "id": "CMSOPT-10Y-USD",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "option_type": "call",
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "strike_rate": 0.025,
+          "vol_surface_id": "USD-CMS10Y-VOL"
+        },
+        "type": "cms_option"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "CMS Option",
+  "type": "object"
+}

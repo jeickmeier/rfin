@@ -6,6 +6,7 @@
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::currency::Currency;
 
 use crate::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::bond::CallPutSchedule;
@@ -20,6 +21,7 @@ use super::pricer;
 /// robust schedule generation and tree-based pricing for the hybrid valuation.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct ConvertibleBond {
     /// Unique identifier for the instrument.
     pub id: InstrumentId,
@@ -126,6 +128,44 @@ pub struct ConversionSpec {
 }
 
 impl ConvertibleBond {
+    /// Create a canonical example convertible bond for testing and documentation.
+    ///
+    /// Returns a 5-year convertible with fixed coupon and voluntary conversion.
+    pub fn example() -> Self {
+        use crate::cashflow::builder::specs::FixedCouponSpec;
+        use crate::cashflow::builder::CouponType;
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+
+        ConvertibleBondBuilder::new()
+            .id(InstrumentId::new("CB-TECH-5Y"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .issue(Date::from_calendar_date(2024, time::Month::January, 15).unwrap())
+            .maturity(Date::from_calendar_date(2029, time::Month::January, 15).unwrap())
+            .discount_curve_id(CurveId::new("USD-IG"))
+            .conversion(ConversionSpec {
+                ratio: Some(25.0),
+                price: None,
+                policy: ConversionPolicy::Voluntary,
+                anti_dilution: AntiDilutionPolicy::None,
+                dividend_adjustment: DividendAdjustment::None,
+            })
+            .underlying_equity_id_opt(Some("TECH".to_string()))
+            .call_put_opt(None)
+            .fixed_coupon_opt(Some(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: 0.02,
+                freq: Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            }))
+            .floating_coupon_opt(None)
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example convertible bond construction should not fail")
+    }
+
     /// Calculate the net present value of this convertible bond
     pub fn npv(
         &self,

@@ -1,0 +1,104 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/convertible_bond.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Bond with embedded equity conversion option",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "call_put": null,
+          "conversion": {
+            "anti_dilution": "None",
+            "dividend_adjustment": "None",
+            "policy": "Voluntary",
+            "price": null,
+            "ratio": 25.0
+          },
+          "discount_curve_id": "USD-IG",
+          "fixed_coupon": {
+            "bdc": "following",
+            "calendar_id": null,
+            "coupon_type": "Cash",
+            "dc": "Thirty360",
+            "freq": {
+              "Months": 6
+            },
+            "rate": 0.02,
+            "stub": "None"
+          },
+          "floating_coupon": null,
+          "id": "CB-TECH-5Y",
+          "issue": "2024-01-15",
+          "maturity": "2029-01-15",
+          "notional": {
+            "amount": "1000000",
+            "currency": "USD"
+          },
+          "underlying_equity_id": "TECH"
+        },
+        "type": "convertible_bond"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Convertible Bond instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "call_put": null,
+          "conversion": {
+            "anti_dilution": "None",
+            "dividend_adjustment": "None",
+            "policy": "Voluntary",
+            "price": null,
+            "ratio": 25.0
+          },
+          "discount_curve_id": "USD-IG",
+          "fixed_coupon": {
+            "bdc": "following",
+            "calendar_id": null,
+            "coupon_type": "Cash",
+            "dc": "Thirty360",
+            "freq": {
+              "Months": 6
+            },
+            "rate": 0.02,
+            "stub": "None"
+          },
+          "floating_coupon": null,
+          "id": "CB-TECH-5Y",
+          "issue": "2024-01-15",
+          "maturity": "2029-01-15",
+          "notional": {
+            "amount": "1000000",
+            "currency": "USD"
+          },
+          "underlying_equity_id": "TECH"
+        },
+        "type": "convertible_bond"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Convertible Bond",
+  "type": "object"
+}

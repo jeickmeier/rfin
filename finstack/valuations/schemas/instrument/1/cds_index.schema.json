@@ -1,0 +1,134 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/cds_index.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Credit default swap index (e.g., CDX, iTraxx)",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "constituents": [],
+          "convention": "IsdaNa",
+          "id": "CDX-IG-42",
+          "index_factor": 1.0,
+          "index_name": "CDX.NA.IG",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "premium": {
+            "bdc": "following",
+            "calendar_id": null,
+            "dc": "Act360",
+            "discount_curve_id": "USD-OIS",
+            "end": "2029-12-20",
+            "freq": {
+              "Months": 3
+            },
+            "spread_bp": 60.0,
+            "start": "2024-03-20",
+            "stub": "ShortFront"
+          },
+          "pricing": "SingleCurve",
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "protection": {
+            "credit_curve_id": "CDX.NA.IG.HAZARD",
+            "recovery_rate": 0.4,
+            "settlement_delay": 3
+          },
+          "series": 42,
+          "side": "pay_fixed",
+          "version": 1
+        },
+        "type": "c_d_s_index"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The CDS Index instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "constituents": [],
+          "convention": "IsdaNa",
+          "id": "CDX-IG-42",
+          "index_factor": 1.0,
+          "index_name": "CDX.NA.IG",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "premium": {
+            "bdc": "following",
+            "calendar_id": null,
+            "dc": "Act360",
+            "discount_curve_id": "USD-OIS",
+            "end": "2029-12-20",
+            "freq": {
+              "Months": 3
+            },
+            "spread_bp": 60.0,
+            "start": "2024-03-20",
+            "stub": "ShortFront"
+          },
+          "pricing": "SingleCurve",
+          "pricing_overrides": {
+            "adaptive_bumps": false,
+            "implied_volatility": null,
+            "mc_seed_scenario": null,
+            "quoted_clean_price": null,
+            "quoted_spread_bp": null,
+            "rate_bump_bp": null,
+            "spot_bump_pct": null,
+            "theta_period": null,
+            "upfront_payment": null,
+            "vol_bump_pct": null,
+            "ytm_bump_decimal": null
+          },
+          "protection": {
+            "credit_curve_id": "CDX.NA.IG.HAZARD",
+            "recovery_rate": 0.4,
+            "settlement_delay": 3
+          },
+          "series": 42,
+          "side": "pay_fixed",
+          "version": 1
+        },
+        "type": "c_d_s_index"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "CDS Index",
+  "type": "object"
+}

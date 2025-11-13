@@ -1,0 +1,114 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/trs_fixed_income_index.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "TRS on a fixed income index with financing leg",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "financing": {
+            "day_count": "Act360",
+            "discount_curve_id": "USD-OIS",
+            "forward_curve_id": "USD-SOFR-3M",
+            "spread_bp": 100.0
+          },
+          "id": "TRS-US-CORP-1Y",
+          "initial_level": null,
+          "notional": {
+            "amount": "5000000",
+            "currency": "USD"
+          },
+          "schedule": {
+            "end": "2025-01-01",
+            "params": {
+              "bdc": "following",
+              "calendar_id": null,
+              "dc": "Act360",
+              "freq": {
+                "Months": 3
+              },
+              "stub": "None"
+            },
+            "start": "2024-01-01"
+          },
+          "side": "ReceiveTotalReturn",
+          "underlying": {
+            "base_currency": "USD",
+            "contract_size": 1.0,
+            "convexity_id": "US-CORP-CONVEXITY",
+            "duration_id": "US-CORP-DURATION",
+            "index_id": "US-CORP-INDEX",
+            "yield_id": "US-CORP-YIELD"
+          }
+        },
+        "type": "trs_fixed_income_index"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Fixed Income Index Total Return Swap instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "financing": {
+            "day_count": "Act360",
+            "discount_curve_id": "USD-OIS",
+            "forward_curve_id": "USD-SOFR-3M",
+            "spread_bp": 100.0
+          },
+          "id": "TRS-US-CORP-1Y",
+          "initial_level": null,
+          "notional": {
+            "amount": "5000000",
+            "currency": "USD"
+          },
+          "schedule": {
+            "end": "2025-01-01",
+            "params": {
+              "bdc": "following",
+              "calendar_id": null,
+              "dc": "Act360",
+              "freq": {
+                "Months": 3
+              },
+              "stub": "None"
+            },
+            "start": "2024-01-01"
+          },
+          "side": "ReceiveTotalReturn",
+          "underlying": {
+            "base_currency": "USD",
+            "contract_size": 1.0,
+            "convexity_id": "US-CORP-CONVEXITY",
+            "duration_id": "US-CORP-DURATION",
+            "index_id": "US-CORP-INDEX",
+            "yield_id": "US-CORP-YIELD"
+          }
+        },
+        "type": "trs_fixed_income_index"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Fixed Income Index Total Return Swap",
+  "type": "object"
+}
