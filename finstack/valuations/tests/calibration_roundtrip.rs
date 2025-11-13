@@ -18,7 +18,7 @@ fn test_full_market_pipeline_roundtrip() {
     .expect("Failed to read example file");
 
     // Parse envelope
-    let envelope = CalibrationEnvelope::from_str(&json)
+    let envelope = CalibrationEnvelope::from_json(&json)
         .expect("Failed to parse calibration envelope");
 
     assert_eq!(envelope.schema, "finstack.calibration/1");
@@ -41,7 +41,7 @@ fn test_rates_only_pipeline_roundtrip() {
     .expect("Failed to read example file");
 
     // Parse envelope
-    let envelope = CalibrationEnvelope::from_str(&json)
+    let envelope = CalibrationEnvelope::from_json(&json)
         .expect("Failed to parse calibration envelope");
 
     assert_eq!(envelope.schema, "finstack.calibration/1");
@@ -64,7 +64,7 @@ fn test_credit_pipeline_roundtrip() {
     .expect("Failed to read example file");
 
     // Parse envelope
-    let envelope = CalibrationEnvelope::from_str(&json)
+    let envelope = CalibrationEnvelope::from_json(&json)
         .expect("Failed to parse calibration envelope");
 
     assert_eq!(envelope.schema, "finstack.calibration/1");
@@ -87,7 +87,7 @@ fn test_vol_pipeline_roundtrip() {
     .expect("Failed to read example file");
 
     // Parse envelope
-    let envelope = CalibrationEnvelope::from_str(&json)
+    let envelope = CalibrationEnvelope::from_json(&json)
         .expect("Failed to parse calibration envelope");
 
     assert_eq!(envelope.schema, "finstack.calibration/1");
@@ -110,7 +110,7 @@ fn test_rates_pipeline_execution() {
     )
     .expect("Failed to read example file");
 
-    let envelope = CalibrationEnvelope::from_str(&json)
+    let envelope = CalibrationEnvelope::from_json(&json)
         .expect("Failed to parse calibration envelope");
 
     // Execute calibration
@@ -128,7 +128,7 @@ fn test_rates_pipeline_execution() {
         .expect("Failed to serialize result");
 
     // Deserialize result back
-    let reparsed_result = CalibrationResultEnvelope::from_str(&result_json)
+    let reparsed_result = CalibrationResultEnvelope::from_json(&result_json)
         .expect("Failed to reparse result");
 
     // Verify structural equality
@@ -148,7 +148,7 @@ fn test_credit_pipeline_execution() {
     )
     .expect("Failed to read example file");
 
-    let envelope = CalibrationEnvelope::from_str(&json)
+    let envelope = CalibrationEnvelope::from_json(&json)
         .expect("Failed to parse calibration envelope");
 
     // Execute calibration

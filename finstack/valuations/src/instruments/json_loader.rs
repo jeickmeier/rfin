@@ -56,7 +56,7 @@ pub enum InstrumentJson {
 
     // Rates
     InterestRateSwap(InterestRateSwap),
-    // BasisSwap(BasisSwap), // Temporarily disabled due to serde lifetime issue
+    BasisSwap(BasisSwap),
     InflationSwap(InflationSwap),
     ForwardRateAgreement(ForwardRateAgreement),
     Swaption(Swaption),
@@ -81,7 +81,7 @@ pub enum InstrumentJson {
     VarianceSwap(VarianceSwap),
 
     // FX
-    // FxSpot(FxSpot), // Temporarily disabled due to serde lifetime issue
+    FxSpot(FxSpot),
     FxSwap(FxSwap),
     FxOption(FxOption),
     FxBarrierOption(FxBarrierOption),
@@ -124,7 +124,7 @@ impl InstrumentJson {
 
             // Swaps
             InstrumentJson::InterestRateSwap(i) => Ok(Box::new(i)),
-            // InstrumentJson::BasisSwap(i) => Ok(Box::new(i)),
+            InstrumentJson::BasisSwap(i) => Ok(Box::new(i)),
             InstrumentJson::InflationSwap(i) => Ok(Box::new(i)),
             InstrumentJson::FxSwap(i) => Ok(Box::new(i)),
             InstrumentJson::VarianceSwap(i) => Ok(Box::new(i)),
@@ -149,7 +149,7 @@ impl InstrumentJson {
             InstrumentJson::LookbackOption(i) => Ok(Box::new(i)),
 
             // FX
-            // InstrumentJson::FxSpot(i) => Ok(Box::new(i)),
+            InstrumentJson::FxSpot(i) => Ok(Box::new(i)),
             InstrumentJson::FxOption(i) => Ok(Box::new(i)),
             InstrumentJson::FxBarrierOption(i) => Ok(Box::new(i)),
             InstrumentJson::QuantoOption(i) => Ok(Box::new(i)),
@@ -210,7 +210,7 @@ impl<'de> Deserialize<'de> for InstrumentJson {
 
             // Swaps
             "interest_rate_swap" => serde_json::from_str(&spec_str).map(Self::InterestRateSwap).map_err(D::Error::custom),
-            // "basis_swap" => serde_json::from_str(&spec_str).map(Self::BasisSwap).map_err(D::Error::custom),
+            "basis_swap" => serde_json::from_str(&spec_str).map(Self::BasisSwap).map_err(D::Error::custom),
             "inflation_swap" => serde_json::from_str(&spec_str).map(Self::InflationSwap).map_err(D::Error::custom),
             "fx_swap" => serde_json::from_str(&spec_str).map(Self::FxSwap).map_err(D::Error::custom),
             "variance_swap" => serde_json::from_str(&spec_str).map(Self::VarianceSwap).map_err(D::Error::custom),
@@ -235,7 +235,7 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             "lookback_option" => serde_json::from_str(&spec_str).map(Self::LookbackOption).map_err(D::Error::custom),
 
             // FX
-            // "fx_spot" => serde_json::from_str(&spec_str).map(Self::FxSpot).map_err(D::Error::custom),
+            "fx_spot" => serde_json::from_str(&spec_str).map(Self::FxSpot).map_err(D::Error::custom),
             "fx_option" => serde_json::from_str(&spec_str).map(Self::FxOption).map_err(D::Error::custom),
             "fx_barrier_option" => serde_json::from_str(&spec_str).map(Self::FxBarrierOption).map_err(D::Error::custom),
             "quanto_option" => serde_json::from_str(&spec_str).map(Self::QuantoOption).map_err(D::Error::custom),
@@ -263,11 +263,11 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                 other,
                 &[
                     "bond", "convertible_bond", "inflation_linked_bond", "term_loan",
-                    "interest_rate_swap", /* "basis_swap", */ "inflation_swap", "fx_swap", "variance_swap",
+                    "interest_rate_swap", "basis_swap", "inflation_swap", "fx_swap", "variance_swap",
                     "forward_rate_agreement", "swaption", "interest_rate_future", "cms_option",
                     "credit_default_swap", "cds_index", "cds_tranche", "cds_option",
                     "equity", "equity_option", "asian_option", "barrier_option", "lookback_option",
-                    /* "fx_spot", */ "fx_option", "fx_barrier_option", "quanto_option",
+                    "fx_spot", "fx_option", "fx_barrier_option", "quanto_option",
                     "autocallable", "cliquet_option", "range_accrual",
                     "trs_equity", "trs_fixed_income_index",
                     "structured_credit",
@@ -339,7 +339,7 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::money::Money;
-    use finstack_core::types::InstrumentId;
+    use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;
 
     #[test]
@@ -614,6 +614,75 @@ mod tests {
                 assert_eq!(i.base_currency, fx_swap.base_currency);
             }
             _ => panic!("Expected FxSwap variant"),
+        }
+    }
+
+    #[test]
+    fn test_basis_swap_roundtrip() {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
+        
+        let primary_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0005,
+        };
+
+        let reference_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Frequency::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        };
+
+        let swap = BasisSwap::new(
+            "BASIS-TEST",
+            Money::new(10_000_000.0, Currency::USD),
+            Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            primary_leg,
+            reference_leg,
+            CurveId::new("USD-OIS"),
+        )
+        .with_calendar("USGS");
+
+        let json = InstrumentJson::BasisSwap(swap.clone());
+        let serialized = serde_json::to_string(&json).unwrap();
+        let deserialized: InstrumentJson = serde_json::from_str(&serialized).unwrap();
+
+        match deserialized {
+            InstrumentJson::BasisSwap(i) => {
+                assert_eq!(i.id, swap.id);
+                assert_eq!(i.discount_curve_id, swap.discount_curve_id);
+                assert_eq!(i.calendar_id.as_deref(), Some("USGS"));
+            }
+            _ => panic!("Expected BasisSwap variant"),
+        }
+    }
+
+    #[test]
+    fn test_fx_spot_roundtrip() {
+        let fx_spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .try_with_notional(Money::new(1_000_000.0, Currency::EUR))
+            .unwrap()
+            .with_rate(1.10)
+            .with_settlement(Date::from_calendar_date(2024, Month::January, 15).unwrap())
+            .with_calendar_id("TARGET");
+
+        let json = InstrumentJson::FxSpot(fx_spot.clone());
+        let serialized = serde_json::to_string(&json).unwrap();
+        let deserialized: InstrumentJson = serde_json::from_str(&serialized).unwrap();
+
+        match deserialized {
+            InstrumentJson::FxSpot(i) => {
+                assert_eq!(i.id, fx_spot.id);
+                assert_eq!(i.base, fx_spot.base);
+                assert_eq!(i.quote, fx_spot.quote);
+                assert_eq!(i.calendar_id.as_deref(), Some("TARGET"));
+            }
+            _ => panic!("Expected FxSpot variant"),
         }
     }
 }

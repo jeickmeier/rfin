@@ -331,7 +331,7 @@ JSON schemas are available under `schemas/calibration/1/`:
 use finstack_valuations::calibration::CalibrationEnvelope;
 
 // Load from JSON
-let envelope = CalibrationEnvelope::from_str(&json_string)?;
+let envelope = CalibrationEnvelope::from_json(&json_string)?;
 
 // Execute calibration
 let result_envelope = envelope.execute(None)?;

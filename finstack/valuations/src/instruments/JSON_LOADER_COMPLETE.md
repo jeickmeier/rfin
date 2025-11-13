@@ -18,7 +18,7 @@ Added `Deserialize` derives and `deny_unknown_fields` to all instrument entrypoi
 
 **Swaps** (5):
 - InterestRateSwap
-- BasisSwap (serde only, not in loader yet)
+- BasisSwap
 - InflationSwap
 - FxSwap
 - VarianceSwap
@@ -48,9 +48,9 @@ Added `Deserialize` derives and `deny_unknown_fields` to all instrument entrypoi
 - FxBarrierOption
 
 **FX** (3):
-- FxSpot (serde only, not in loader yet)
+- FxSpot
+- FxSwap
 - FxOption
-- QuantoOption (already listed in exotic)
 
 **TRS** (2):
 - EquityTotalReturnSwap
@@ -131,17 +131,11 @@ This approach:
 - Maintains strict validation
 - Provides clear error messages
 
-### Known Limitations
+### Coverage
 
-**Two instruments temporarily excluded from loader**:
-1. `BasisSwap` - Has conditionally-compiled `Deserialize<'static>` 
-2. `FxSpot` - Same lifetime constraint issue
+**All instruments now supported**: 35/35 instruments (100% coverage)
 
-These still have full `Serialize + Deserialize` derives and work perfectly for direct serialization. They're just excluded from the tagged union until we convert their derives to be unconditional.
-
-**Impact**: 33/35 instruments supported (94% coverage)
-
-**Future Fix**: Change `BasisSwap` and `FxSpot` to use unconditional serde derives (already partially done) and re-add to loader.
+The `BasisSwap` and `FxSpot` instruments now use `Option<String>` for their `calendar_id` fields instead of `Option<&'static str>`, which removes the lifetime constraints that previously prevented them from being included in the tagged union. This change is internal only and does not affect the JSON contract.
 
 ## Usage Examples
 
@@ -276,8 +270,8 @@ To add an example for an instrument:
 The JSON instrument migration is **functionally complete**:
 - ✅ All instruments have strict serde derives
 - ✅ Tagged union loader operational  
-- ✅ 94% instrument coverage (33/35 types)
-- ✅ Comprehensive test suite
+- ✅ 100% instrument coverage (35/35 types)
+- ✅ Comprehensive test suite including BasisSwap and FxSpot round-trips
 - ✅ Example JSON files for key instruments
 - ✅ Production-ready code quality
 

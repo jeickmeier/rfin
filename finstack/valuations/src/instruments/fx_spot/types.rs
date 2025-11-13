@@ -101,7 +101,7 @@ pub struct FxSpot {
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar identifier used for business-day logic
     #[builder(optional)]
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
@@ -189,8 +189,8 @@ impl FxSpot {
     }
 
     /// Set the holiday calendar identifier used for settlement adjustment
-    pub fn with_calendar_id(mut self, id: &'static str) -> Self {
-        self.calendar_id = Some(id);
+    pub fn with_calendar_id(mut self, id: impl Into<String>) -> Self {
+        self.calendar_id = Some(id.into());
         self
     }
 
@@ -292,7 +292,7 @@ impl CashflowProvider for FxSpot {
         // FX spot settles on provided settlement date (BDC-adjusted if calendar present)
         // or computed T+N BUSINESS days when settlement is not provided.
         let settle_date = if let Some(date) = self.settlement {
-            if let Some(id) = self.calendar_id {
+            if let Some(id) = self.calendar_id.as_deref() {
                 if let Some(cal) = calendar_by_id(id) {
                     adjust(date, self.bdc, cal)?
                 } else {
@@ -305,7 +305,7 @@ impl CashflowProvider for FxSpot {
             // Compute T+N in a calendar-aware way if a calendar is available; otherwise
             // fall back to weekend-only business-day addition.
             let lag_days = self.settlement_lag_days.unwrap_or(2);
-            if let Some(id) = self.calendar_id {
+            if let Some(id) = self.calendar_id.as_deref() {
                 if let Some(cal) = calendar_by_id(id) {
                     // Walk business days using calendar since trait-object calendars
                     // are not accepted by DateExt::add_business_days (requires Sized)

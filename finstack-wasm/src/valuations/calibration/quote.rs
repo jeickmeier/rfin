@@ -313,10 +313,6 @@ impl JsMarketQuote {
     pub(crate) fn from_inner(inner: MarketQuote) -> Self {
         Self { inner }
     }
-
-    pub(crate) fn inner(&self) -> MarketQuote {
-        self.inner.clone()
-    }
 }
 
 #[wasm_bindgen(js_class = MarketQuote)]

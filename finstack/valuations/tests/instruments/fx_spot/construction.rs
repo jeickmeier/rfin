@@ -66,7 +66,7 @@ fn test_construction_with_bdc() {
 fn test_construction_with_calendar() {
     let fx = sample_eurusd().with_calendar_id("TARGET");
 
-    assert_eq!(fx.calendar_id, Some("TARGET"));
+    assert_eq!(fx.calendar_id.as_deref(), Some("TARGET"));
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn test_construction_full_builder() {
     assert_eq!(fx.spot_rate, Some(1.32));
     assert_eq!(fx.settlement, Some(d(2025, 1, 17)));
     assert_eq!(fx.bdc, BusinessDayConvention::ModifiedFollowing);
-    assert_eq!(fx.calendar_id, Some("London"));
+    assert_eq!(fx.calendar_id.as_deref(), Some("London"));
 }
 
 #[test]

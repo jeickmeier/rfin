@@ -236,7 +236,7 @@ use std::fs;
 
 // Load calibration spec from JSON
 let json = fs::read_to_string("calibration.json")?;
-let envelope = CalibrationEnvelope::from_str(&json)?;
+let envelope = CalibrationEnvelope::from_json(&json)?;
 
 // Execute calibration
 let result_envelope = envelope.execute(None)?;

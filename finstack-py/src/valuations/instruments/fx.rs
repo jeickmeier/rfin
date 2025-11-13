@@ -201,8 +201,8 @@ impl PyFxSpot {
     /// Returns:
     ///     str | None: Calendar identifier used for settlement adjustments.
     #[getter]
-    fn calendar_id(&self) -> Option<&'static str> {
-        self.inner.calendar_id
+    fn calendar_id(&self) -> Option<&str> {
+        self.inner.calendar_id.as_deref()
     }
 
     /// FX pair mnemonic such as ``"EURUSD"``.

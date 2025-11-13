@@ -73,7 +73,7 @@ pub struct BasisSwap {
     /// Discount curve identifier for present value calculations.
     pub discount_curve_id: CurveId,
     /// Optional calendar identifier for business day adjustments.
-    pub calendar_id: Option<&'static str>,
+    pub calendar_id: Option<String>,
     /// Stub handling convention for irregular periods.
     pub stub_kind: StubKind,
     /// Attributes for instrument selection and tagging.
@@ -124,8 +124,8 @@ impl BasisSwap {
     ///
     /// # Returns
     /// Self for method chaining.
-    pub fn with_calendar(mut self, calendar_id: &'static str) -> Self {
-        self.calendar_id = Some(calendar_id);
+    pub fn with_calendar(mut self, calendar_id: impl Into<String>) -> Self {
+        self.calendar_id = Some(calendar_id.into());
         self
     }
 
@@ -155,7 +155,7 @@ impl BasisSwap {
             leg.frequency,
             self.stub_kind,
             leg.bdc,
-            self.calendar_id,
+            self.calendar_id.as_deref(),
         )
     }
 

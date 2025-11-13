@@ -50,7 +50,7 @@ impl CalibrationEnvelope {
     }
 
     /// Parse from JSON string.
-    pub fn from_str(json: &str) -> Result<Self> {
+    pub fn from_json(json: &str) -> Result<Self> {
         serde_json::from_str(json).map_err(|e| {
             finstack_core::Error::Calibration {
                 message: format!("Failed to parse calibration JSON: {}", e),
@@ -291,7 +291,7 @@ impl CalibrationResultEnvelope {
     }
 
     /// Parse from JSON string.
-    pub fn from_str(json: &str) -> Result<Self> {
+    pub fn from_json(json: &str) -> Result<Self> {
         serde_json::from_str(json).map_err(|e| {
             finstack_core::Error::Calibration {
                 message: format!("Failed to parse calibration result JSON: {}", e),

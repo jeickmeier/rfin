@@ -2,7 +2,6 @@ use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
 use crate::core::error::core_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::py_to_date;
-use crate::valuations::common::intern_calendar_id_opt;
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
@@ -213,7 +212,7 @@ impl PyBasisSwap {
         builder = builder.reference_leg(reference_leg.inner.clone());
         builder = builder.discount_curve_id(discount_curve_id);
         builder = builder.stub_kind(stub_kind);
-        builder = builder.calendar_id_opt(intern_calendar_id_opt(calendar));
+        builder = builder.calendar_id_opt(calendar.map(|s| s.to_string()));
         builder = builder.attributes(Default::default());
 
         let swap = builder.build().map_err(core_to_py)?;

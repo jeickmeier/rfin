@@ -2,7 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
 use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
@@ -94,7 +94,7 @@ impl JsBasisSwap {
             .reference_leg(reference_leg.inner.clone())
             .discount_curve_id(curve_id_from_str(discount_curve))
             .stub_kind(stub_kind)
-            .calendar_id_opt(optional_static_str(calendar))
+            .calendar_id_opt(calendar)
             .attributes(Default::default());
 
         builder

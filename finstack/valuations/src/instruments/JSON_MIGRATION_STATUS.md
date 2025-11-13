@@ -95,14 +95,13 @@ impl<'de> Deserialize<'de> for InstrumentJson {
 }
 ```
 
-**Known Limitations**:
-- `BasisSwap` and `FxSpot` temporarily excluded due to persisting lifetime constraints
-- These two instruments have conditionally-compiled serde derives that create `Deserialize<'static>` bounds
-- Future fix: Convert these to unconditional derives or create Spec DTOs
-- Impact: 33/35 instruments fully supported (94% coverage)
+**Coverage**:
+- All 35/35 instruments fully supported (100% coverage)
+- `BasisSwap` and `FxSpot` now use `Option<String>` for `calendar_id` fields to avoid lifetime constraints
+- This change is internal only and does not affect the JSON contract
 
 **Test Coverage**: ✅
-- Round-trip tests: Bond, CreditDefaultSwap, FxSwap  
+- Round-trip tests: Bond, CreditDefaultSwap, FxSwap, BasisSwap, FxSpot
 - Envelope versioning test
 - Unknown field rejection test
 - Unknown type tag rejection test
