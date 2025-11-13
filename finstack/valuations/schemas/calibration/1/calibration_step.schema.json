@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://finstack.io/schemas/calibration/1/calibration_step.schema.json",
+  "title": "Calibration Step",
+  "description": "Individual calibration step in a pipeline (specifies calibrator + quotes)",
+  "definitions": {
+    "CalibrationStep": {
+      "type": "object",
+      "required": ["kind"],
+      "oneOf": [
+        {
+          "properties": {
+            "kind": { "const": "discount" },
+            "calibrator": { "$ref": "#/definitions/DiscountCurveCalibrator" },
+            "quotes": { "type": "array", "items": { "$ref": "quotes.schema.json#/definitions/RatesQuote" } }
+          }
+        },
+        {
+          "properties": {
+            "kind": { "const": "forward" },
+            "calibrator": { "$ref": "#/definitions/ForwardCurveCalibrator" },
+            "quotes": { "type": "array", "items": { "$ref": "quotes.schema.json#/definitions/RatesQuote" } }
+          }
+        },
+        {
+          "properties": {
+            "kind": { "const": "hazard" },
+            "calibrator": { "$ref": "#/definitions/HazardCurveCalibrator" },
+            "quotes": { "type": "array", "items": { "$ref": "quotes.schema.json#/definitions/CreditQuote" } }
+          }
+        }
+      ]
+    },
+    "DiscountCurveCalibrator": {
+      "type": "object",
+      "required": ["curve_id", "base_date", "currency"],
+      "properties": {
+        "curve_id": { "type": "string" },
+        "base_date": { "type": "string", "format": "date" },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "solve_interp": { "type": "string", "enum": ["Linear", "LogLinear", "MonotoneConvex", "FlatFwd"], "default": "MonotoneConvex" },
+        "config": { "$ref": "config.schema.json#/definitions/CalibrationConfig" },
+        "calendar_id": { "type": ["string", "null"] }
+      }
+    },
+    "ForwardCurveCalibrator": {
+      "type": "object",
+      "required": ["fwd_curve_id", "tenor_years", "base_date", "currency", "discount_curve_id"],
+      "properties": {
+        "fwd_curve_id": { "type": "string" },
+        "tenor_years": { "type": "number" },
+        "base_date": { "type": "string", "format": "date" },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "discount_curve_id": { "type": "string" },
+        "time_dc": { "type": "string", "default": "Act360" },
+        "solve_interp": { "type": "string", "default": "Linear" },
+        "config": { "$ref": "config.schema.json#/definitions/CalibrationConfig" },
+        "calendar_id": { "type": ["string", "null"] }
+      }
+    },
+    "HazardCurveCalibrator": {
+      "type": "object",
+      "required": ["entity", "seniority", "recovery_rate", "base_date", "currency", "discount_curve_id"],
+      "properties": {
+        "entity": { "type": "string" },
+        "seniority": { "type": "string", "enum": ["senior_secured", "senior", "subordinated", "junior"] },
+        "recovery_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "base_date": { "type": "string", "format": "date" },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "discount_curve_id": { "type": "string" },
+        "config": { "$ref": "config.schema.json#/definitions/CalibrationConfig" },
+        "par_interp": { "type": "string", "enum": ["Linear", "LogLinear"], "default": "Linear" }
+      }
+    }
+  }
+}
+

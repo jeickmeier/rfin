@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://finstack.io/schemas/calibration/1/quotes.schema.json",
+  "title": "Market Quotes",
+  "description": "Market instrument quotes for calibration (rates, credit, volatility, inflation)",
+  "definitions": {
+    "MarketQuote": {
+      "type": "object",
+      "oneOf": [
+        { "required": ["rates"], "properties": { "rates": { "$ref": "#/definitions/RatesQuote" } } },
+        { "required": ["credit"], "properties": { "credit": { "$ref": "#/definitions/CreditQuote" } } },
+        { "required": ["vol"], "properties": { "vol": { "$ref": "#/definitions/VolQuote" } } },
+        { "required": ["inflation"], "properties": { "inflation": { "$ref": "#/definitions/InflationQuote" } } }
+      ]
+    },
+    "RatesQuote": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["deposit"],
+          "properties": {
+            "deposit": {
+              "type": "object",
+              "required": ["maturity", "rate", "day_count"],
+              "properties": {
+                "maturity": { "type": "string", "format": "date" },
+                "rate": { "type": "number" },
+                "day_count": { "type": "string", "enum": ["Act360", "Act365F", "Thirty360", "ActAct"] }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["swap"],
+          "properties": {
+            "swap": {
+              "type": "object",
+              "required": ["maturity", "rate", "fixed_freq", "float_freq", "fixed_dc", "float_dc", "index"],
+              "properties": {
+                "maturity": { "type": "string", "format": "date" },
+                "rate": { "type": "number" },
+                "fixed_freq": { "type": "string" },
+                "float_freq": { "type": "string" },
+                "fixed_dc": { "type": "string" },
+                "float_dc": { "type": "string" },
+                "index": { "type": "string" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CreditQuote": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["cds"],
+          "properties": {
+            "cds": {
+              "type": "object",
+              "required": ["entity", "maturity", "spread_bp", "recovery_rate", "currency"],
+              "properties": {
+                "entity": { "type": "string" },
+                "maturity": { "type": "string", "format": "date" },
+                "spread_bp": { "type": "number" },
+                "recovery_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+                "currency": { "type": "string", "pattern": "^[A-Z]{3}$" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VolQuote": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["option_vol"],
+          "properties": {
+            "option_vol": {
+              "type": "object",
+              "required": ["underlying", "expiry", "strike", "vol", "option_type"],
+              "properties": {
+                "underlying": { "type": "string" },
+                "expiry": { "type": "string", "format": "date" },
+                "strike": { "type": "number" },
+                "vol": { "type": "number", "minimum": 0 },
+                "option_type": { "type": "string" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "InflationQuote": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["inflation_swap"],
+          "properties": {
+            "inflation_swap": {
+              "type": "object",
+              "required": ["maturity", "rate", "index"],
+              "properties": {
+                "maturity": { "type": "string", "format": "date" },
+                "rate": { "type": "number" },
+                "index": { "type": "string" }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+

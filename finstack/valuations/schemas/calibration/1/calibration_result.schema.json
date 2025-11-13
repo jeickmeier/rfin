@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://finstack.io/schemas/calibration/1/calibration_result.schema.json",
+  "title": "Finstack Calibration Result",
+  "description": "Complete result of a calibration run including final market snapshot and reports",
+  "type": "object",
+  "required": ["schema", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "finstack.calibration/1",
+      "description": "Schema version identifier"
+    },
+    "result": {
+      "type": "object",
+      "required": ["final_market", "report", "step_reports", "results_meta"],
+      "additionalProperties": false,
+      "properties": {
+        "final_market": {
+          "type": "object",
+          "description": "Calibrated market context state with all curves and surfaces",
+          "required": ["curves", "surfaces", "prices", "series", "inflation_indices", "credit_indices", "collateral"],
+          "properties": {
+            "curves": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "description": "Tagged union of curve states (discount/forward/hazard/inflation/base_correlation)"
+              }
+            },
+            "surfaces": { "type": "array" },
+            "prices": { "type": "object" },
+            "series": { "type": "array" },
+            "inflation_indices": { "type": "array" },
+            "credit_indices": { "type": "array" },
+            "collateral": { "type": "object" }
+          }
+        },
+        "report": {
+          "type": "object",
+          "description": "Merged calibration report",
+          "required": ["success", "residuals", "iterations"],
+          "properties": {
+            "success": { "type": "boolean" },
+            "residuals": { "type": "object", "additionalProperties": { "type": "number" } },
+            "iterations": { "type": "integer" },
+            "objective_value": { "type": "number" },
+            "max_residual": { "type": "number" },
+            "rmse": { "type": "number" },
+            "convergence_reason": { "type": "string" },
+            "metadata": { "type": "object", "additionalProperties": { "type": "string" } }
+          }
+        },
+        "step_reports": {
+          "type": "object",
+          "description": "Per-step calibration reports (for pipeline mode)",
+          "additionalProperties": {
+            "type": "object",
+            "description": "Calibration report for this step"
+          }
+        },
+        "results_meta": {
+          "type": "object",
+          "description": "Results metadata (timestamp, version, rounding context)"
+        }
+      }
+    }
+  }
+}
+

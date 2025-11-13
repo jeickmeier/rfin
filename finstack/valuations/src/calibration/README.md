@@ -182,6 +182,191 @@ The calibration framework integrates seamlessly with:
 - **Metrics**: Calibrated curves work with the existing metrics framework
 - **Scenarios**: Calibrated environments support scenario analysis and stress testing
 
+## JSON Serialization
+
+### Overview
+
+The calibration framework supports 100% JSON-driven calibration specifications with stable, versioned schemas. You can define complete calibration runs in JSON, execute them, and serialize the results deterministically.
+
+### Schema Version
+
+Current version: `finstack.calibration/1`
+
+All JSON files use a top-level envelope pattern:
+```json
+{
+  "schema": "finstack.calibration/1",
+  "calibration": { ... }
+}
+```
+
+### Calibration Modes
+
+#### Simple Mode
+
+Automatic step ordering with a unified quote list:
+
+```json
+{
+  "schema": "finstack.calibration/1",
+  "calibration": {
+    "type": "simple",
+    "spec": {
+      "base_date": "2025-01-01",
+      "base_currency": "USD",
+      "config": { "tolerance": 1e-10, "max_iterations": 100, ... },
+      "entity_seniority": { "AAPL": "senior" },
+      "quotes": [
+        { "rates": { "deposit": { "maturity": "2025-01-31", "rate": 0.045, "day_count": "Act360" } } },
+        { "credit": { "cds": { "entity": "AAPL", "maturity": "2027-01-01", "spread_bp": 75.0, ... } } }
+      ],
+      "schema_version": 1
+    }
+  }
+}
+```
+
+#### Pipeline Mode
+
+Explicit ordered steps with per-step calibrators and quotes:
+
+```json
+{
+  "schema": "finstack.calibration/1",
+  "calibration": {
+    "type": "pipeline",
+    "spec": {
+      "base_date": "2025-01-01",
+      "base_currency": "USD",
+      "config": { ... },
+      "steps": [
+        {
+          "kind": "discount",
+          "calibrator": {
+            "curve_id": "USD-OIS",
+            "base_date": "2025-01-01",
+            "currency": "USD",
+            "solve_interp": "MonotoneConvex",
+            "config": { ... }
+          },
+          "quotes": [ ... ]
+        },
+        {
+          "kind": "forward",
+          "calibrator": {
+            "fwd_curve_id": "USD-SOFR-3M-FWD",
+            "tenor_years": 0.25,
+            "base_date": "2025-01-01",
+            "currency": "USD",
+            "discount_curve_id": "USD-OIS",
+            "time_dc": "Act360",
+            ...
+          },
+          "quotes": [ ... ]
+        }
+      ],
+      "schema_version": 1
+    }
+  }
+}
+```
+
+### Curve Identity and Settings
+
+Each calibrator spec defines the structure of its output curve/surface:
+
+**Discount Curves:**
+- `curve_id`: Identifier (e.g., "USD-OIS")
+- `base_date`: Valuation date
+- `currency`: ISO 4217 code
+- `solve_interp`: Interpolation style (Linear, LogLinear, MonotoneConvex, FlatFwd)
+- `calendar_id`: Optional calendar for instrument schedules
+
+**Forward Curves:**
+- `fwd_curve_id`: Identifier (e.g., "USD-SOFR-3M-FWD")
+- `tenor_years`: Index tenor (0.25 for 3M)
+- `discount_curve_id`: Reference discount curve
+- `time_dc`: Day count for time axis (defaults by currency: USD/EUR → Act360, GBP/JPY → Act365F)
+
+**Hazard Curves:**
+- `entity`: Reference entity name
+- `seniority`: senior_secured | senior | subordinated | junior
+- `recovery_rate`: 0.0 to 1.0 (typically 0.40)
+- `discount_curve_id`: Collateral discount curve
+- Output ID: "{entity}-{seniority}" (e.g., "AAPL-Senior")
+
+**Inflation Curves:**
+- `curve_id`: Index identifier (e.g., "US-CPI-U")
+- `base_cpi`: Initial CPI level
+- `discount_id`: Discount curve for PV
+- `time_dc`, `accrual_dc`: Day counts (default ActAct)
+- `solve_interp`: Interpolation (default LogLinear)
+- `inflation_lag`: Lag specification (e.g., "months:3" for TIPS)
+
+**Volatility Surfaces:**
+- `surface_id`: Identifier (e.g., "SPY-VOL")
+- `beta`: SABR beta (1.0 for equity, 0.5 for rates)
+- `target_expiries`: Grid of expiry times (years)
+- `target_strikes`: Grid of strike levels
+- `time_dc`: Day count for expiries (default Act365F)
+- `discount_id`: Required when multiple discount curves exist
+
+### Default Naming Conventions
+
+- **Discount**: `{CCY}-OIS`
+- **Forward**: `{CCY}-{INDEX}-{TENOR}-FWD` (e.g., "USD-SOFR-3M-FWD")
+- **Hazard**: `{ENTITY}-{Seniority}` (e.g., "AAPL-Senior")
+- **Inflation**: `{INDEX}` (e.g., "US-CPI-U")
+- **Vol**: `{UNDERLYING}-VOL` or `{CCY}-SWPT-VOL`
+
+### Examples
+
+See `tests/calibration/json_examples/` for canonical examples:
+- `simple_rates_only.json` - OIS discount curve from deposits and swaps
+- `hazard_aapl.json` - Hazard curve with discount + credit quotes
+- `vol_equity.json` - SABR equity vol surface
+- `full_market_pipeline.json` - Multi-step pipeline (discount → hazard)
+
+### Schemas
+
+JSON schemas are available under `schemas/calibration/1/`:
+- `calibration.schema.json` - Top-level envelope and spec
+- `calibration_step.schema.json` - Pipeline step definitions
+- `calibration_result.schema.json` - Result envelope
+- `quotes.schema.json` - Market quote types
+- `config.schema.json` - Calibration configuration
+
+### Execution
+
+```rust
+use finstack_valuations::calibration::CalibrationEnvelope;
+
+// Load from JSON
+let envelope = CalibrationEnvelope::from_str(&json_string)?;
+
+// Execute calibration
+let result_envelope = envelope.execute(None)?;
+
+// Serialize result
+let result_json = result_envelope.to_string()?;
+```
+
+### Result Structure
+
+Calibration results include:
+- **final_market**: Complete `MarketContextState` with all calibrated curves/surfaces
+- **report**: Merged calibration report with residuals and convergence metrics
+- **step_reports**: Per-step diagnostics (for pipeline mode)
+- **results_meta**: Timestamp, version, rounding context
+
+### Round-Trip Guarantees
+
+All calibration specs and results support deterministic round-trips:
+1. JSON → Rust struct → JSON (preserves structure)
+2. Execute → Serialize → Deserialize → Re-execute (deterministic)
+
+Tests: `tests/calibration_roundtrip.rs`, `tests/calibration_state_roundtrip.rs`
+
 ---
 
 *This framework provides the foundation for institutional-grade market data calibration with the flexibility to handle complex instruments and market conditions.*

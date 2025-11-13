@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://finstack.io/schemas/calibration/1/calibration.schema.json",
+  "title": "Finstack Calibration Specification",
+  "description": "Complete specification for market data calibration runs (simple or pipeline mode)",
+  "type": "object",
+  "required": ["schema", "calibration"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "finstack.calibration/1",
+      "description": "Schema version identifier"
+    },
+    "calibration": {
+      "type": "object",
+      "description": "The calibration specification",
+      "required": ["type", "spec"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["simple", "pipeline"],
+          "description": "Calibration mode"
+        },
+        "spec": {
+          "oneOf": [
+            {
+              "title": "Simple Mode",
+              "description": "Single run with automatic step ordering",
+              "type": "object",
+              "required": ["base_date", "base_currency", "config", "quotes"],
+              "additionalProperties": false,
+              "properties": {
+                "base_date": { "type": "string", "format": "date", "description": "Base date (YYYY-MM-DD)" },
+                "base_currency": { "type": "string", "pattern": "^[A-Z]{3}$", "description": "ISO 4217 currency code" },
+                "config": { "$ref": "config.schema.json#/definitions/CalibrationConfig" },
+                "entity_seniority": {
+                  "type": "object",
+                  "description": "Entity-specific seniority mappings (entity → seniority)",
+                  "additionalProperties": { "type": "string", "enum": ["senior_secured", "senior", "subordinated", "junior"] }
+                },
+                "quotes": {
+                  "type": "array",
+                  "items": { "$ref": "quotes.schema.json#/definitions/MarketQuote" }
+                },
+                "schema_version": { "type": "integer", "default": 1 }
+              }
+            },
+            {
+              "title": "Pipeline Mode",
+              "description": "Explicit ordered multi-step calibration",
+              "type": "object",
+              "required": ["base_date", "base_currency", "config", "steps"],
+              "additionalProperties": false,
+              "properties": {
+                "base_date": { "type": "string", "format": "date" },
+                "base_currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+                "config": { "$ref": "config.schema.json#/definitions/CalibrationConfig" },
+                "steps": {
+                  "type": "array",
+                  "items": { "$ref": "calibration_step.schema.json#/definitions/CalibrationStep" }
+                },
+                "schema_version": { "type": "integer", "default": 1 }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+

@@ -251,6 +251,216 @@ impl<'de> serde::Deserialize<'de> for CurveStorage {
 }
 
 // -----------------------------------------------------------------------------
+// Credit Index State (for serialization of CreditIndexData)
+// -----------------------------------------------------------------------------
+
+/// Serializable state for credit index data.
+///
+/// Instead of serializing Arc<Curve> directly, we store curve IDs that
+/// reference curves present in the MarketContextState.
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CreditIndexState {
+    /// Unique identifier for this credit index
+    pub id: String,
+    /// Number of constituents
+    pub num_constituents: u16,
+    /// Recovery rate
+    pub recovery_rate: f64,
+    /// ID of the index hazard curve (must exist in context curves)
+    pub index_credit_curve_id: String,
+    /// ID of the base correlation curve (must exist in context curves)
+    pub base_correlation_curve_id: String,
+    /// Optional map of issuer ID → hazard curve ID
+    pub issuer_credit_curve_ids: Option<std::collections::HashMap<String, String>>,
+}
+
+// -----------------------------------------------------------------------------
+// Market Context State (complete snapshot)
+// -----------------------------------------------------------------------------
+
+/// Complete serializable state of a MarketContext.
+///
+/// Provides a stable, versioned snapshot of all market data that can be
+/// persisted to JSON and reconstructed deterministically.
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MarketContextState {
+    /// All curves (discount, forward, hazard, inflation, base correlation)
+    pub curves: Vec<CurveState>,
+    /// Volatility surfaces
+    pub surfaces: Vec<crate::market_data::surfaces::vol_surface::VolSurfaceState>,
+    /// Market scalars and prices
+    pub prices: std::collections::BTreeMap<String, crate::market_data::scalars::MarketScalar>,
+    /// Generic time series
+    pub series: Vec<crate::market_data::scalars::ScalarTimeSeriesState>,
+    /// Inflation indices
+    pub inflation_indices: Vec<crate::market_data::scalars::InflationIndexState>,
+    /// Credit index aggregates (references curves by ID)
+    pub credit_indices: Vec<CreditIndexState>,
+    /// Collateral CSA mappings
+    pub collateral: std::collections::BTreeMap<String, String>,
+}
+
+#[cfg(feature = "serde")]
+impl From<&MarketContext> for MarketContextState {
+    fn from(ctx: &MarketContext) -> Self {
+        // Convert all curves
+        let curves: Vec<CurveState> = ctx
+            .curves
+            .values()
+            .filter_map(|storage| storage.to_state().ok())
+            .collect();
+
+        // Convert all surfaces
+        let surfaces: Vec<_> = ctx
+            .surfaces
+            .values()
+            .map(|surf| surf.to_state())
+            .collect();
+
+        // Convert prices (CurveId → String)
+        let prices: std::collections::BTreeMap<String, _> = ctx
+            .prices
+            .iter()
+            .map(|(id, scalar)| (id.to_string(), scalar.clone()))
+            .collect();
+
+        // Convert series
+        let series: Vec<_> = ctx
+            .series
+            .values()
+            .filter_map(|s| s.to_state().ok())
+            .collect();
+
+        // Convert inflation indices
+        let inflation_indices: Vec<_> = ctx
+            .inflation_indices
+            .values()
+            .filter_map(|idx| idx.to_state().ok())
+            .collect();
+
+        // Convert credit indices (extract IDs from Arc references)
+        let credit_indices: Vec<CreditIndexState> = ctx
+            .credit_indices
+            .iter()
+            .map(|(id, data)| {
+                let issuer_ids = data.issuer_credit_curves.as_ref().map(|map| {
+                    map.iter()
+                        .map(|(issuer, curve)| (issuer.clone(), curve.id().to_string()))
+                        .collect()
+                });
+
+                CreditIndexState {
+                    id: id.to_string(),
+                    num_constituents: data.num_constituents,
+                    recovery_rate: data.recovery_rate,
+                    index_credit_curve_id: data.index_credit_curve.id().to_string(),
+                    base_correlation_curve_id: data.base_correlation_curve.id().to_string(),
+                    issuer_credit_curve_ids: issuer_ids,
+                }
+            })
+            .collect();
+
+        // Convert collateral mappings
+        let collateral: std::collections::BTreeMap<String, String> = ctx
+            .collateral
+            .iter()
+            .map(|(csa, curve_id)| (csa.clone(), curve_id.to_string()))
+            .collect();
+
+        MarketContextState {
+            curves,
+            surfaces,
+            prices,
+            series,
+            inflation_indices,
+            credit_indices,
+            collateral,
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl TryFrom<MarketContextState> for MarketContext {
+    type Error = crate::Error;
+
+    fn try_from(state: MarketContextState) -> crate::Result<Self> {
+        let mut ctx = MarketContext::new();
+
+        // Reconstruct all curves
+        for curve_state in state.curves {
+            let storage = CurveStorage::from_state(curve_state)?;
+            ctx.curves.insert(storage.id().clone(), storage);
+        }
+
+        // Reconstruct all surfaces
+        for surface_state in state.surfaces {
+            let surface = crate::market_data::surfaces::vol_surface::VolSurface::from_state(surface_state)?;
+            ctx.surfaces.insert(surface.id().clone(), Arc::new(surface));
+        }
+
+        // Reconstruct prices
+        for (id_str, scalar) in state.prices {
+            ctx.prices.insert(CurveId::from(id_str), scalar);
+        }
+
+        // Reconstruct series
+        for series_state in state.series {
+            let series = crate::market_data::scalars::ScalarTimeSeries::from_state(series_state)?;
+            ctx.series.insert(series.id().clone(), series);
+        }
+
+        // Reconstruct inflation indices
+        for idx_state in state.inflation_indices {
+            let idx = crate::market_data::scalars::InflationIndex::from_state(idx_state)?;
+            let id = CurveId::from(idx.id.clone());
+            ctx.inflation_indices.insert(id, Arc::new(idx));
+        }
+
+        // Reconstruct credit indices (resolve curve references)
+        for credit_state in state.credit_indices {
+            // Resolve hazard curve
+            let index_curve = ctx.get_hazard(&credit_state.index_credit_curve_id)?;
+            
+            // Resolve base correlation curve
+            let base_corr = ctx.get_base_correlation(&credit_state.base_correlation_curve_id)?;
+
+            // Resolve issuer curves if present
+            let issuer_curves = if let Some(issuer_ids) = credit_state.issuer_credit_curve_ids {
+                let mut map = std::collections::HashMap::new();
+                for (issuer, curve_id) in issuer_ids {
+                    let curve = ctx.get_hazard(&curve_id)?;
+                    map.insert(issuer, curve);
+                }
+                Some(map)
+            } else {
+                None
+            };
+
+            let data = super::term_structures::credit_index::CreditIndexData {
+                num_constituents: credit_state.num_constituents,
+                recovery_rate: credit_state.recovery_rate,
+                index_credit_curve: index_curve,
+                base_correlation_curve: base_corr,
+                issuer_credit_curves: issuer_curves,
+            };
+
+            ctx.credit_indices.insert(CurveId::from(credit_state.id), Arc::new(data));
+        }
+
+        // Reconstruct collateral mappings
+        for (csa, curve_id_str) in state.collateral {
+            ctx.collateral.insert(csa, CurveId::from(curve_id_str));
+        }
+
+        Ok(ctx)
+    }
+}
+
+// -----------------------------------------------------------------------------
 // Market Context
 // -----------------------------------------------------------------------------
 
@@ -1666,5 +1876,31 @@ impl core::fmt::Display for ContextStats {
         )?;
         writeln!(f, "  Has FX: {}", self.has_fx)?;
         Ok(())
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Optional Serialize/Deserialize for MarketContext (via State)
+// -----------------------------------------------------------------------------
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for MarketContext {
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let state: MarketContextState = self.into();
+        state.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for MarketContext {
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let state = MarketContextState::deserialize(deserializer)?;
+        Self::try_from(state).map_err(serde::de::Error::custom)
     }
 }

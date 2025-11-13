@@ -1,0 +1,74 @@
+{
+  "schema": "finstack.calibration/1",
+  "calibration": {
+    "type": "simple",
+    "spec": {
+      "base_date": "2025-01-01",
+      "base_currency": "USD",
+      "config": {
+        "tolerance": 1e-10,
+        "max_iterations": 100,
+        "use_parallel": false,
+        "random_seed": 42,
+        "verbose": false,
+        "solver_kind": "Hybrid",
+        "entity_seniority": {},
+        "multi_curve": {
+          "calibrate_basis": true,
+          "enforce_separation": true
+        },
+        "use_fd_sabr_gradients": false,
+        "validation_mode": "Warn"
+      },
+      "entity_seniority": {},
+      "quotes": [
+        {
+          "rates": {
+            "deposit": {
+              "maturity": "2025-01-31",
+              "rate": 0.045,
+              "day_count": "Act360"
+            }
+          }
+        },
+        {
+          "rates": {
+            "deposit": {
+              "maturity": "2025-04-01",
+              "rate": 0.046,
+              "day_count": "Act360"
+            }
+          }
+        },
+        {
+          "rates": {
+            "swap": {
+              "maturity": "2026-01-01",
+              "rate": 0.047,
+              "fixed_freq": { "Months": 12 },
+              "float_freq": { "Days": 1 },
+              "fixed_dc": "Act365F",
+              "float_dc": "Act365F",
+              "index": "USD-OIS"
+            }
+          }
+        },
+        {
+          "rates": {
+            "swap": {
+              "maturity": "2027-01-01",
+              "rate": 0.048,
+              "fixed_freq": { "Months": 12 },
+              "float_freq": { "Days": 1 },
+              "fixed_dc": "Act365F",
+              "float_dc": "Act365F",
+              "index": "USD-OIS"
+            }
+          }
+        }
+      ],
+      "schema_version": 1
+    }
+  }
+}
+

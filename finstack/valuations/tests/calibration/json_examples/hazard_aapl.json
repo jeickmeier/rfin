@@ -1,0 +1,87 @@
+{
+  "schema": "finstack.calibration/1",
+  "calibration": {
+    "type": "simple",
+    "spec": {
+      "base_date": "2025-01-01",
+      "base_currency": "USD",
+      "config": {
+        "tolerance": 1e-10,
+        "max_iterations": 100,
+        "use_parallel": false,
+        "random_seed": 42,
+        "verbose": false,
+        "solver_kind": "Hybrid",
+        "entity_seniority": {},
+        "multi_curve": {
+          "calibrate_basis": true,
+          "enforce_separation": true
+        },
+        "use_fd_sabr_gradients": false,
+        "validation_mode": "Warn"
+      },
+      "entity_seniority": {
+        "AAPL": "senior"
+      },
+      "quotes": [
+        {
+          "rates": {
+            "deposit": {
+              "maturity": "2025-01-31",
+              "rate": 0.045,
+              "day_count": "Act360"
+            }
+          }
+        },
+        {
+          "rates": {
+            "swap": {
+              "maturity": "2030-01-01",
+              "rate": 0.046,
+              "fixed_freq": { "Months": 12 },
+              "float_freq": { "Days": 1 },
+              "fixed_dc": "Act365F",
+              "float_dc": "Act365F",
+              "index": "USD-OIS"
+            }
+          }
+        },
+        {
+          "credit": {
+            "c_d_s": {
+              "entity": "AAPL",
+              "maturity": "2026-01-01",
+              "spread_bp": 50.0,
+              "recovery_rate": 0.4,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "credit": {
+            "c_d_s": {
+              "entity": "AAPL",
+              "maturity": "2028-01-01",
+              "spread_bp": 75.0,
+              "recovery_rate": 0.4,
+              "currency": "USD"
+            }
+          }
+        },
+        {
+          "credit": {
+            "c_d_s": {
+              "entity": "AAPL",
+              "maturity": "2030-01-01",
+              "spread_bp": 100.0,
+              "recovery_rate": 0.4,
+              "currency": "USD"
+            }
+          }
+        }
+      ],
+      "schema_version": 1
+    }
+  }
+}
+

@@ -6,6 +6,7 @@ use finstack_core::types::{IndexId, UnderlyingId};
 
 /// Interest rate instrument quotes for yield curve calibration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum RatesQuote {
     /// Deposit rate quote
     Deposit {
@@ -127,6 +128,7 @@ impl RatesQuote {
 
 /// Credit instrument quotes for hazard curve and correlation calibration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum CreditQuote {
     /// CDS par spread quote
     CDS {
@@ -175,6 +177,7 @@ pub enum CreditQuote {
 
 /// Volatility quotes for surface calibration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum VolQuote {
     /// Option implied volatility quote
     OptionVol {
@@ -206,6 +209,7 @@ pub enum VolQuote {
 
 /// Inflation instrument quotes.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum InflationQuote {
     /// Zero-coupon inflation swap quote
     InflationSwap {
@@ -232,6 +236,7 @@ pub enum InflationQuote {
 /// Unified market quote that can be any instrument type.
 /// Used when multiple quote types need to be handled together.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum MarketQuote {
     /// Interest rate quotes
     Rates(RatesQuote),
@@ -245,6 +250,7 @@ pub enum MarketQuote {
 
 /// Specifications for interest rate futures contracts.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct FutureSpecs {
     /// Contract multiplier
     pub multiplier: f64,
