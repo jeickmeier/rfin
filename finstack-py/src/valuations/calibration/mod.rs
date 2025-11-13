@@ -3,7 +3,6 @@ pub mod methods;
 pub mod quote;
 pub mod report;
 pub mod sabr;
-pub mod simple;
 pub mod validation;
 
 use pyo3::prelude::*;
@@ -31,9 +30,6 @@ pub(crate) fn register<'py>(
 
     let report_exports = report::register(py, &module)?;
     exports.extend(report_exports.iter().copied());
-
-    let simple_exports = simple::register(py, &module)?;
-    exports.extend(simple_exports.iter().copied());
 
     let methods_exports = methods::register(py, &module)?;
     exports.extend(methods_exports.iter().copied());

@@ -59,9 +59,27 @@
             }
           },
           {
+            "deposit": {
+              "maturity": "2025-07-01",
+              "rate": 0.0465,
+              "day_count": "Act360"
+            }
+          },
+          {
             "swap": {
               "maturity": "2026-01-01",
               "rate": 0.047,
+              "fixed_freq": { "Months": 12 },
+              "float_freq": { "Days": 1 },
+              "fixed_dc": "Act365F",
+              "float_dc": "Act365F",
+              "index": "USD-OIS"
+            }
+          },
+          {
+            "swap": {
+              "maturity": "2027-01-01",
+              "rate": 0.048,
               "fixed_freq": { "Months": 12 },
               "float_freq": { "Days": 1 },
               "fixed_dc": "Act365F",
@@ -72,14 +90,16 @@
         ]
       },
       {
-        "kind": "hazard",
+        "kind": "forward",
         "calibrator": {
-          "entity": "AAPL",
-          "seniority": "senior",
-          "recovery_rate": 0.4,
+          "fwd_curve_id": "USD-SOFR-3M-FWD",
+          "tenor_years": 0.25,
           "base_date": "2025-01-01",
           "currency": "USD",
           "discount_curve_id": "USD-OIS",
+          "time_dc": "Act360",
+          "accrual_dc": "Act360",
+          "solve_interp": "linear",
           "config": {
             "tolerance": 1e-10,
             "max_iterations": 100,
@@ -95,34 +115,29 @@
             "use_fd_sabr_gradients": false,
             "validation_mode": "Warn"
           },
-          "par_interp": "Linear"
+          "calendar_id": null
         },
         "quotes": [
           {
-            "c_d_s": {
-              "entity": "AAPL",
+            "swap": {
               "maturity": "2026-01-01",
-              "spread_bp": 50.0,
-              "recovery_rate": 0.4,
-              "currency": "USD"
+              "rate": 0.0475,
+              "fixed_freq": { "Months": 6 },
+              "float_freq": { "Months": 3 },
+              "fixed_dc": "Thirty360",
+              "float_dc": "Act360",
+              "index": "USD-SOFR-3M"
             }
           },
           {
-            "c_d_s": {
-              "entity": "AAPL",
+            "swap": {
               "maturity": "2028-01-01",
-              "spread_bp": 75.0,
-              "recovery_rate": 0.4,
-              "currency": "USD"
-            }
-          },
-          {
-            "c_d_s": {
-              "entity": "AAPL",
-              "maturity": "2030-01-01",
-              "spread_bp": 100.0,
-              "recovery_rate": 0.4,
-              "currency": "USD"
+              "rate": 0.049,
+              "fixed_freq": { "Months": 6 },
+              "float_freq": { "Months": 3 },
+              "fixed_dc": "Thirty360",
+              "float_dc": "Act360",
+              "index": "USD-SOFR-3M"
             }
           }
         ]
@@ -131,3 +146,4 @@
     "schema_version": 1
   }
 }
+

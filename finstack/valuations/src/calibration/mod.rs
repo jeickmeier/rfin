@@ -56,7 +56,6 @@ pub mod derivatives;
 pub mod methods;
 mod quote;
 mod report;
-pub mod simple_calibration;
 pub mod spec;
 mod traits;
 mod validation;
@@ -67,7 +66,6 @@ pub use derivatives::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketDa
 pub use derivatives::sabr_model_params::SABRModelParams;
 pub use quote::{CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote};
 pub use report::CalibrationReport;
-pub use simple_calibration::SimpleCalibration;
 pub use spec::{
     CalibrationEnvelope, CalibrationResult, CalibrationResultEnvelope, CalibrationSpec,
     CalibrationStep, CALIBRATION_SCHEMA_V1,

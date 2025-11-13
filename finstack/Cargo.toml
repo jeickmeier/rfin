@@ -123,11 +123,6 @@ path = "examples/valuations/calibration_report_builder_example.rs"
 required-features = ["valuations"]
 
 [[example]]
-name = "multi_curve_framework_example"
-path = "examples/valuations/multi_curve_framework_example.rs"
-required-features = ["valuations"]
-
-[[example]]
 name = "tranche_valuation_example"
 path = "examples/valuations/tranche_valuation_example.rs"
 required-features = ["valuations"]

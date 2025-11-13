@@ -1,8 +1,8 @@
 //! JSON specification and execution framework for calibration.
 //!
 //! Provides serializable specs for defining complete calibration runs in JSON,
-//! with stable schemas and deterministic round-trip serialization. Supports
-//! both simple (all-in-one) and pipeline (multi-step) modes.
+//! with stable schemas and deterministic round-trip serialization. Uses an explicit
+//! pipeline approach where users define ordered calibration steps.
 
 use super::{
     methods::{
@@ -11,18 +11,18 @@ use super::{
         inflation_curve::InflationCurveCalibrator, sabr_surface::VolSurfaceCalibrator,
         swaption_vol::SwaptionVolCalibrator,
     },
-    quote::{CreditQuote, InflationQuote, MarketQuote, RatesQuote, VolQuote},
-    CalibrationConfig, CalibrationReport, Calibrator, SimpleCalibration,
+    quote::{CreditQuote, InflationQuote, RatesQuote, VolQuote},
+    CalibrationConfig, CalibrationReport, Calibrator,
 };
 use finstack_core::{
     config::ResultsMeta,
     currency::Currency,
     dates::Date,
-    market_data::{context::MarketContext, term_structures::Seniority},
+    market_data::context::MarketContext,
     Result,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 /// Schema version for calibration serialization.
 pub const CALIBRATION_SCHEMA_V1: &str = "finstack.calibration/1";
@@ -76,44 +76,24 @@ impl CalibrationEnvelope {
     }
 }
 
-/// Calibration specification supporting simple and pipeline modes.
+/// Calibration specification using explicit pipeline mode.
+///
+/// Users define ordered calibration steps, each with its own calibrator
+/// configuration and market quotes.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(tag = "type", content = "spec", rename_all = "snake_case", deny_unknown_fields)]
-pub enum CalibrationSpec {
-    /// Simple mode: single calibration run with unified quote list.
-    ///
-    /// Automatically determines calibration order (discount → forward → hazard → inflation → vol).
-    Simple {
-        /// Base date for all calibrations
-        base_date: Date,
-        /// Base currency
-        base_currency: Currency,
-        /// Calibration configuration
-        config: CalibrationConfig,
-        /// Entity-specific seniority mappings for credit calibration
-        entity_seniority: HashMap<String, Seniority>,
-        /// Market quotes (all asset classes)
-        quotes: Vec<MarketQuote>,
-        /// Schema version
-        #[serde(default = "default_schema_version")]
-        schema_version: u32,
-    },
-    /// Pipeline mode: explicit ordered calibration steps.
-    ///
-    /// Each step specifies its calibrator configuration and quotes.
-    Pipeline {
-        /// Base date for all calibrations
-        base_date: Date,
-        /// Base currency
-        base_currency: Currency,
-        /// Global calibration configuration (overridable per step)
-        config: CalibrationConfig,
-        /// Ordered calibration steps
-        steps: Vec<CalibrationStep>,
-        /// Schema version
-        #[serde(default = "default_schema_version")]
-        schema_version: u32,
-    },
+#[serde(deny_unknown_fields)]
+pub struct CalibrationSpec {
+    /// Base date for all calibrations
+    pub base_date: Date,
+    /// Base currency
+    pub base_currency: Currency,
+    /// Global calibration configuration (overridable per step)
+    pub config: CalibrationConfig,
+    /// Ordered calibration steps
+    pub steps: Vec<CalibrationStep>,
+    /// Schema version
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
 }
 
 fn default_schema_version() -> u32 {
@@ -126,82 +106,40 @@ impl CalibrationSpec {
     /// Returns a complete result with the final market context, merged report,
     /// and per-step diagnostics.
     pub fn execute(&self, initial_market: Option<MarketContext>) -> Result<CalibrationResult> {
-        match self {
-            CalibrationSpec::Simple {
-                base_date,
-                base_currency,
-                config,
-                entity_seniority,
-                quotes,
-                ..
-            } => {
-                // Use SimpleCalibration for simple mode
-                let mut calibration = SimpleCalibration::new(*base_date, *base_currency)
-                    .with_config(config.clone());
+        let mut context = initial_market.unwrap_or_default();
+        let mut step_reports = BTreeMap::new();
+        let mut all_residuals = BTreeMap::new();
+        let mut total_iterations = 0;
 
-                // Add entity seniority mappings
-                for (entity, seniority) in entity_seniority {
-                    calibration = calibration.with_entity_seniority(entity.clone(), *seniority);
-                }
+        // Execute each step in order
+        for (idx, step) in self.steps.iter().enumerate() {
+            let step_key = format!("step_{:03}_{}", idx, step.step_name());
+            let (updated_ctx, report) = step.execute(&context)?;
+            context = updated_ctx;
 
-                let _initial_ctx = initial_market.unwrap_or_default();
-                let (final_ctx, report) = calibration.calibrate(quotes)?;
-
-                // Create results metadata
-                let results_meta = finstack_core::config::results_meta(
-                    &finstack_core::config::FinstackConfig::default(),
-                );
-
-                Ok(CalibrationResult {
-                    final_market: (&final_ctx).into(),
-                    report,
-                    step_reports: BTreeMap::new(),
-                    results_meta,
-                })
+            // Merge residuals
+            for (key, value) in &report.residuals {
+                all_residuals.insert(format!("{}_{}", step_key, key), *value);
             }
-            CalibrationSpec::Pipeline {
-                base_date: _,
-                base_currency: _,
-                config: _,
-                steps,
-                ..
-            } => {
-                let mut context = initial_market.unwrap_or_default();
-                let mut step_reports = BTreeMap::new();
-                let mut all_residuals = BTreeMap::new();
-                let mut total_iterations = 0;
+            total_iterations += report.iterations;
 
-                // Execute each step in order
-                for (idx, step) in steps.iter().enumerate() {
-                    let step_key = format!("step_{:03}_{}", idx, step.step_name());
-                    let (updated_ctx, report) = step.execute(&context)?;
-                    context = updated_ctx;
-
-                    // Merge residuals
-                    for (key, value) in &report.residuals {
-                        all_residuals.insert(format!("{}_{}", step_key, key), *value);
-                    }
-                    total_iterations += report.iterations;
-
-                    step_reports.insert(step_key, report);
-                }
-
-                // Create merged report
-                let merged_report = CalibrationReport::for_type("pipeline", all_residuals, total_iterations);
-
-                // Create results metadata
-                let results_meta = finstack_core::config::results_meta(
-                    &finstack_core::config::FinstackConfig::default(),
-                );
-
-                Ok(CalibrationResult {
-                    final_market: (&context).into(),
-                    report: merged_report,
-                    step_reports,
-                    results_meta,
-                })
-            }
+            step_reports.insert(step_key, report);
         }
+
+        // Create merged report
+        let merged_report = CalibrationReport::for_type("pipeline", all_residuals, total_iterations);
+
+        // Create results metadata
+        let results_meta = finstack_core::config::results_meta(
+            &finstack_core::config::FinstackConfig::default(),
+        );
+
+        Ok(CalibrationResult {
+            final_market: (&context).into(),
+            report: merged_report,
+            step_reports,
+            results_meta,
+        })
     }
 }
 
@@ -371,12 +309,11 @@ mod tests {
 
     #[test]
     fn test_calibration_envelope_roundtrip() {
-        let spec = CalibrationSpec::Simple {
+        let spec = CalibrationSpec {
             base_date: create_date(2025, Month::January, 1).unwrap(),
             base_currency: Currency::USD,
             config: CalibrationConfig::default(),
-            entity_seniority: HashMap::new(),
-            quotes: vec![],
+            steps: vec![],
             schema_version: 1,
         };
 

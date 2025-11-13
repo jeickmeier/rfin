@@ -3,7 +3,7 @@
 //! Measures performance of critical calibration operations:
 //! - Discount curve bootstrapping from deposits and swaps
 //! - Forward curve calibration from FRAs and futures
-//! - Complete market calibration with SimpleCalibration
+//! - Complete market calibration with Pipeline mode
 //! - Volatility surface calibration
 //!
 //! Market Standards Review (Week 5)
@@ -22,8 +22,8 @@ use finstack_valuations::calibration::methods::{
     HazardCurveCalibrator, InflationCurveCalibrator, VolSurfaceCalibrator,
 };
 use finstack_valuations::calibration::{
-    CalibrationConfig, Calibrator, CreditQuote, InflationQuote, MarketQuote, RatesQuote,
-    SimpleCalibration, SolverKind, VolQuote,
+    CalibrationConfig, CalibrationSpec, CalibrationStep, Calibrator, CreditQuote, InflationQuote,
+    RatesQuote, SolverKind, VolQuote,
 };
 use time::Month;
 
@@ -159,32 +159,6 @@ fn create_vol_quotes(base_date: Date, num_expiries: usize) -> Vec<VolQuote> {
     quotes
 }
 
-/// Create a complete market quote set for SimpleCalibration
-fn create_complete_market_quotes(base_date: Date) -> Vec<MarketQuote> {
-    let mut quotes = Vec::new();
-
-    // Add deposits (1-12 months)
-    for deposit in create_deposit_quotes(base_date, 12) {
-        quotes.push(MarketQuote::Rates(deposit));
-    }
-
-    // Add swaps (2Y, 5Y, 10Y, 30Y)
-    for swap in create_swap_quotes(base_date, &[2, 5, 10, 30]) {
-        quotes.push(MarketQuote::Rates(swap));
-    }
-
-    // Add CDS quotes
-    for cds in create_cds_quotes(base_date, &[1, 3, 5, 10]) {
-        quotes.push(MarketQuote::Credit(cds));
-    }
-
-    // Add vol quotes
-    for vol in create_vol_quotes(base_date, 4) {
-        quotes.push(MarketQuote::Vol(vol));
-    }
-
-    quotes
-}
 
 /// Create CDS tranche quotes for base correlation calibration
 fn create_tranche_quotes(base_date: Date, detachment_points: &[f64]) -> Vec<CreditQuote> {
@@ -515,66 +489,120 @@ fn bench_hazard_curve(c: &mut Criterion) {
     group.finish();
 }
 
-fn bench_simple_calibration_small(c: &mut Criterion) {
-    let mut group = c.benchmark_group("simple_calibration_small");
+fn bench_pipeline_calibration_small(c: &mut Criterion) {
+    let mut group = c.benchmark_group("pipeline_calibration_small");
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Small market: minimal quotes
-    let mut quotes = Vec::new();
-    for deposit in create_deposit_quotes(base_date, 6) {
-        quotes.push(MarketQuote::Rates(deposit));
-    }
-    for swap in create_swap_quotes(base_date, &[2, 5]) {
-        quotes.push(MarketQuote::Rates(swap));
-    }
+    let mut discount_quotes = create_deposit_quotes(base_date, 6);
+    discount_quotes.extend(create_swap_quotes(base_date, &[2, 5]));
 
-    let calibration = SimpleCalibration::new(base_date, Currency::USD);
+    let spec = CalibrationSpec {
+        base_date,
+        base_currency: Currency::USD,
+        config: CalibrationConfig::default(),
+        steps: vec![CalibrationStep::Discount {
+            calibrator: DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD),
+            quotes: discount_quotes,
+        }],
+        schema_version: 1,
+    };
 
     group.bench_function("minimal_market", |b| {
-        b.iter(|| calibration.calibrate(black_box(&quotes)).unwrap());
+        b.iter(|| black_box(&spec).execute(None).unwrap());
     });
 
     group.finish();
 }
 
-fn bench_simple_calibration_medium(c: &mut Criterion) {
-    let mut group = c.benchmark_group("simple_calibration_medium");
+fn bench_pipeline_calibration_medium(c: &mut Criterion) {
+    let mut group = c.benchmark_group("pipeline_calibration_medium");
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Medium market: rates + credit
-    let mut quotes = Vec::new();
-    for deposit in create_deposit_quotes(base_date, 12) {
-        quotes.push(MarketQuote::Rates(deposit));
-    }
-    for swap in create_swap_quotes(base_date, &[2, 5, 10, 30]) {
-        quotes.push(MarketQuote::Rates(swap));
-    }
-    for cds in create_cds_quotes(base_date, &[1, 3, 5, 10]) {
-        quotes.push(MarketQuote::Credit(cds));
-    }
+    let mut discount_quotes = create_deposit_quotes(base_date, 12);
+    discount_quotes.extend(create_swap_quotes(base_date, &[2, 5, 10, 30]));
 
-    let calibration = SimpleCalibration::new(base_date, Currency::USD)
-        .with_entity_seniority("CORP-A", Seniority::Senior);
+    let cds_quotes = create_cds_quotes(base_date, &[1, 3, 5, 10]);
+
+    let spec = CalibrationSpec {
+        base_date,
+        base_currency: Currency::USD,
+        config: CalibrationConfig::default(),
+        steps: vec![
+            CalibrationStep::Discount {
+                calibrator: DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD),
+                quotes: discount_quotes,
+            },
+            CalibrationStep::Hazard {
+                calibrator: HazardCurveCalibrator::new(
+                    "CORP-A",
+                    Seniority::Senior,
+                    0.40,
+                    base_date,
+                    Currency::USD,
+                    "USD-OIS",
+                ),
+                quotes: cds_quotes,
+            },
+        ],
+        schema_version: 1,
+    };
 
     group.bench_function("rates_and_credit", |b| {
-        b.iter(|| calibration.calibrate(black_box(&quotes)).unwrap());
+        b.iter(|| black_box(&spec).execute(None).unwrap());
     });
 
     group.finish();
 }
 
-fn bench_simple_calibration_full(c: &mut Criterion) {
-    let mut group = c.benchmark_group("simple_calibration_full");
+fn bench_pipeline_calibration_full(c: &mut Criterion) {
+    let mut group = c.benchmark_group("pipeline_calibration_full");
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Full market: rates + credit + vol
-    let quotes = create_complete_market_quotes(base_date);
+    let mut discount_quotes = create_deposit_quotes(base_date, 12);
+    discount_quotes.extend(create_swap_quotes(base_date, &[2, 5, 10, 30]));
 
-    let calibration = SimpleCalibration::new(base_date, Currency::USD)
-        .with_entity_seniority("CORP-A", Seniority::Senior);
+    let cds_quotes = create_cds_quotes(base_date, &[1, 3, 5, 10]);
+    let vol_quotes = create_vol_quotes(base_date, 4);
+
+    let spec = CalibrationSpec {
+        base_date,
+        base_currency: Currency::USD,
+        config: CalibrationConfig::default(),
+        steps: vec![
+            CalibrationStep::Discount {
+                calibrator: DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD),
+                quotes: discount_quotes,
+            },
+            CalibrationStep::Hazard {
+                calibrator: HazardCurveCalibrator::new(
+                    "CORP-A",
+                    Seniority::Senior,
+                    0.40,
+                    base_date,
+                    Currency::USD,
+                    "USD-OIS",
+                ),
+                quotes: cds_quotes,
+            },
+            CalibrationStep::Vol {
+                calibrator: VolSurfaceCalibrator::new(
+                    "SPY-VOL",
+                    1.0,
+                    vec![0.25, 0.5, 1.0, 2.0],
+                    vec![90.0, 100.0, 110.0],
+                )
+                .with_base_date(base_date),
+                quotes: vol_quotes,
+            },
+        ],
+        schema_version: 1,
+    };
 
     group.bench_function("complete_market", |b| {
-        b.iter(|| calibration.calibrate(black_box(&quotes)).unwrap());
+        b.iter(|| black_box(&spec).execute(None).unwrap());
     });
 
     group.finish();
@@ -880,9 +908,9 @@ criterion_group!(
     bench_discount_curve_interpolation,
     bench_forward_curve,
     bench_hazard_curve,
-    bench_simple_calibration_small,
-    bench_simple_calibration_medium,
-    bench_simple_calibration_full,
+    bench_pipeline_calibration_small,
+    bench_pipeline_calibration_medium,
+    bench_pipeline_calibration_full,
     bench_calibration_solver_comparison,
     bench_base_correlation_small,
     bench_base_correlation_full,

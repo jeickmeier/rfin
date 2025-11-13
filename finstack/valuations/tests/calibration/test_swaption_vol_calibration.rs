@@ -240,42 +240,6 @@ fn test_swaption_vol_calibration_extended_grid_and_interpolation() {
     assert!(v2.is_finite() && v2 > 0.0 && v2 < 1.0);
 }
 
-#[test]
-fn test_swaption_vol_calibration_via_simple_calibration() {
-    use finstack_core::dates::{DayCount, Frequency};
-    use finstack_valuations::calibration::simple_calibration::SimpleCalibration;
-    use finstack_valuations::calibration::{MarketQuote, RatesQuote};
-
-    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-
-    // Prepare minimal OIS inputs so discount curve can be built inside SimpleCalibration
-    let quotes: Vec<MarketQuote> = vec![
-        MarketQuote::Rates(RatesQuote::Deposit {
-            maturity: base_date + time::Duration::days(30),
-            rate: 0.045,
-            day_count: DayCount::Act360,
-        }),
-        MarketQuote::Rates(RatesQuote::Swap {
-            maturity: base_date + time::Duration::days(365),
-            rate: 0.047,
-            fixed_freq: Frequency::semi_annual(),
-            float_freq: Frequency::daily(),
-            fixed_dc: DayCount::Thirty360,
-            float_dc: DayCount::Act360,
-            index: "USD-OIS".to_string().into(),
-        }),
-    ];
-
-    let calib = SimpleCalibration::new(base_date, Currency::USD);
-    let result = calib.calibrate(&quotes);
-    if let Err(e) = &result {
-        eprintln!("SimpleCalibration failed: {:?}", e);
-        return; // Allow during development
-    }
-
-    let (_ctx, report) = result.unwrap();
-    assert!(report.success);
-}
 
 #[test]
 fn test_normal_vs_lognormal_conventions() {

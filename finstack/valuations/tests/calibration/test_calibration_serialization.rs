@@ -29,7 +29,7 @@ use finstack_valuations::calibration::methods::swaption_vol::{
 };
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationReport, CreditQuote, FutureSpecs, InflationQuote, MarketQuote,
-    MultiCurveConfig, RatesQuote, SABRMarketData, SABRModelParams, SimpleCalibration, SolverKind,
+    MultiCurveConfig, RatesQuote, SABRMarketData, SABRModelParams, SolverKind,
     ValidationConfig, ValidationError, VolQuote,
 };
 use std::collections::BTreeMap;
@@ -517,17 +517,6 @@ fn test_swaption_vol_calibrator_serialization() {
     assert_eq!(calibrator.currency, restored.currency);
 }
 
-#[test]
-fn test_simple_calibration_serialization() {
-    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-
-    let calibration = SimpleCalibration::new(base_date, Currency::USD)
-        .with_config(CalibrationConfig::default())
-        .with_entity_seniority("AAPL", Seniority::Senior)
-        .with_entity_seniority("TSLA", Seniority::Subordinated);
-
-    let _ = roundtrip_json(&calibration);
-}
 
 #[test]
 fn test_convexity_parameters_serialization() {

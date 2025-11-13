@@ -59,7 +59,7 @@ pub use valuations::calibration::{
     JsMarketQuote as MarketQuote, JsMultiCurveConfig as MultiCurveConfig,
     JsRatesQuote as RatesQuote, JsSABRCalibrationDerivatives as SABRCalibrationDerivatives,
     JsSABRMarketData as SABRMarketData, JsSABRModelParams as SABRModelParams,
-    JsSimpleCalibration as SimpleCalibration, JsSolverKind as SolverKind,
+    JsSolverKind as SolverKind,
     JsValidationConfig as ValidationConfig, JsValidationError as ValidationError,
     JsVolQuote as VolQuote, JsVolSurfaceCalibrator as VolSurfaceCalibrator,
 };

@@ -32,38 +32,50 @@ The calibration framework provides a unified approach to calibrating:
 
 ## Usage
 
-### Basic Calibration
+### Pipeline Calibration
+
+The calibration framework uses an explicit pipeline approach where you define ordered calibration steps:
 
 ```rust
 use finstack_valuations::calibration::{
-    SimpleCalibration, 
-    MarketQuote, RatesQuote
+    CalibrationSpec, CalibrationStep,
+    methods::DiscountCurveCalibrator,
+    RatesQuote
 };
 
-// Create calibration builder
-let calibration = SimpleCalibration::new(base_date, Currency::USD);
+// Define calibration steps
+let spec = CalibrationSpec {
+    base_date,
+    base_currency: Currency::USD,
+    config: CalibrationConfig::default(),
+    steps: vec![
+        CalibrationStep::Discount {
+            calibrator: DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD),
+            quotes: vec![
+                RatesQuote::Deposit { 
+                    maturity: base_date + Duration::days(30),
+                    rate: 0.045,
+                    day_count: DayCount::Act360,
+                },
+                RatesQuote::Swap {
+                    maturity: base_date + Duration::days(365*2), 
+                    rate: 0.047,
+                    fixed_freq: Frequency::semi_annual(),
+                    float_freq: Frequency::quarterly(),
+                    fixed_dc: DayCount::Thirty360,
+                    float_dc: DayCount::Act360,
+                    index: "USD-OIS".to_string(),
+                },
+            ],
+        },
+        // ... more steps
+    ],
+    schema_version: 1,
+};
 
-// Prepare market quotes
-let quotes = vec![
-    MarketQuote::Rates(RatesQuote::Deposit { 
-        maturity: base_date + Duration::days(30),
-        rate: 0.045,
-        day_count: DayCount::Act360,
-    }),
-    MarketQuote::Rates(RatesQuote::Swap {
-        maturity: base_date + Duration::days(365*2), 
-        rate: 0.047,
-        fixed_freq: Frequency::semi_annual(),
-        float_freq: Frequency::quarterly(),
-        fixed_dc: DayCount::Thirty360,
-        float_dc: DayCount::Act360,
-        index: "USD-SOFR-3M".to_string(),
-    },
-    // ... more quotes
-];
-
-// Calibrate complete market environment
-let (market_context, report) = orchestrator.calibrate_market(&quotes)?;
+// Execute calibration pipeline
+let result = spec.execute(None)?;
+let market_context = MarketContext::try_from(result.final_market)?;
 ```
 
 ### Individual Curve Calibration
@@ -106,9 +118,10 @@ let (vol_surface, report) = calibrator.calibrate(&vol_quotes, &market_context)?;
 - Core calibration framework (`Calibrator` trait, `CalibrationReport`, error handling)
 - Solver infrastructure (Newton, Brent, Hybrid, Levenberg-Marquardt)
 - Market quote primitives and hashable float utilities
-- Calibration orchestrator for sequenced calibration
+- Pipeline-based calibration execution with explicit step ordering
 - FRA and Interest Rate Future instruments for short-end calibration
 - Framework structure for all curve types
+- JSON-driven calibration specifications with stable schemas
 
 ### 🚧 Simplified Implementations  
 The current implementations provide working stubs that demonstrate the framework:
@@ -135,11 +148,16 @@ The calibration framework supports multiple volatility instrument types:
   - Various ATM strike conventions (swap rate, par rate, delta neutral)
   - SABR model calibration per expiry-tenor combination
   - Accurate forward swap rate and annuity calculations
-  - Integration with `SimpleCalibration` workflow
+  - Integration with pipeline workflow
 
 The `SwaptionVolCalibrator` estimates forward swap rates and annuities from appropriate discount curves and swap conventions, making it suitable for interest rate volatility surfaces.
 
 ## Key Features
+
+### Explicit Pipeline Mode
+- Users define exact calibration order and dependencies
+- Each step specifies its calibrator configuration and quotes
+- Full control over multi-curve and cross-asset calibration workflows
 
 ### Deterministic & Parallel Ready
 - All calibrations use deterministic algorithms with optional parallelization
@@ -200,33 +218,7 @@ All JSON files use a top-level envelope pattern:
 }
 ```
 
-### Calibration Modes
-
-#### Simple Mode
-
-Automatic step ordering with a unified quote list:
-
-```json
-{
-  "schema": "finstack.calibration/1",
-  "calibration": {
-    "type": "simple",
-    "spec": {
-      "base_date": "2025-01-01",
-      "base_currency": "USD",
-      "config": { "tolerance": 1e-10, "max_iterations": 100, ... },
-      "entity_seniority": { "AAPL": "senior" },
-      "quotes": [
-        { "rates": { "deposit": { "maturity": "2025-01-31", "rate": 0.045, "day_count": "Act360" } } },
-        { "credit": { "cds": { "entity": "AAPL", "maturity": "2027-01-01", "spread_bp": 75.0, ... } } }
-      ],
-      "schema_version": 1
-    }
-  }
-}
-```
-
-#### Pipeline Mode
+### Pipeline Mode
 
 Explicit ordered steps with per-step calibrators and quotes:
 
@@ -234,39 +226,36 @@ Explicit ordered steps with per-step calibrators and quotes:
 {
   "schema": "finstack.calibration/1",
   "calibration": {
-    "type": "pipeline",
-    "spec": {
-      "base_date": "2025-01-01",
-      "base_currency": "USD",
-      "config": { ... },
-      "steps": [
-        {
-          "kind": "discount",
-          "calibrator": {
-            "curve_id": "USD-OIS",
-            "base_date": "2025-01-01",
-            "currency": "USD",
-            "solve_interp": "MonotoneConvex",
-            "config": { ... }
-          },
-          "quotes": [ ... ]
+    "base_date": "2025-01-01",
+    "base_currency": "USD",
+    "config": { "tolerance": 1e-10, "max_iterations": 100, ... },
+    "steps": [
+      {
+        "kind": "discount",
+        "calibrator": {
+          "curve_id": "USD-OIS",
+          "base_date": "2025-01-01",
+          "currency": "USD",
+          "solve_interp": "monotone_convex",
+          "config": { ... }
         },
-        {
-          "kind": "forward",
-          "calibrator": {
-            "fwd_curve_id": "USD-SOFR-3M-FWD",
-            "tenor_years": 0.25,
-            "base_date": "2025-01-01",
-            "currency": "USD",
-            "discount_curve_id": "USD-OIS",
-            "time_dc": "Act360",
-            ...
-          },
-          "quotes": [ ... ]
-        }
-      ],
-      "schema_version": 1
-    }
+        "quotes": [ ... ]
+      },
+      {
+        "kind": "forward",
+        "calibrator": {
+          "fwd_curve_id": "USD-SOFR-3M-FWD",
+          "tenor_years": 0.25,
+          "base_date": "2025-01-01",
+          "currency": "USD",
+          "discount_curve_id": "USD-OIS",
+          "time_dc": "Act360",
+          ...
+        },
+        "quotes": [ ... ]
+      }
+    ],
+    "schema_version": 1
   }
 }
 ```
@@ -322,10 +311,10 @@ Each calibrator spec defines the structure of its output curve/surface:
 ### Examples
 
 See `tests/calibration/json_examples/` for canonical examples:
-- `simple_rates_only.json` - OIS discount curve from deposits and swaps
-- `hazard_aapl.json` - Hazard curve with discount + credit quotes
-- `vol_equity.json` - SABR equity vol surface
-- `full_market_pipeline.json` - Multi-step pipeline (discount → hazard)
+- `rates_only_pipeline.json` - OIS discount and forward curves
+- `credit_pipeline.json` - Discount + multiple hazard curves
+- `vol_pipeline.json` - Discount + SABR equity vol surface
+- `full_market_pipeline.json` - Complete multi-step pipeline (discount → hazard)
 
 ### Schemas
 

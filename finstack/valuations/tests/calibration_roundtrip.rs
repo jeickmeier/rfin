@@ -10,10 +10,10 @@ use finstack_valuations::calibration::CalibrationEnvelope;
 use std::fs;
 
 #[test]
-fn test_simple_rates_only_roundtrip() {
-    // Load example
+fn test_full_market_pipeline_roundtrip() {
+    // Load pipeline example
     let json = fs::read_to_string(
-        "tests/calibration/json_examples/simple_rates_only.json",
+        "tests/calibration/json_examples/full_market_pipeline.json",
     )
     .expect("Failed to read example file");
 
@@ -23,23 +23,90 @@ fn test_simple_rates_only_roundtrip() {
 
     assert_eq!(envelope.schema, "finstack.calibration/1");
 
-    // Serialize back to JSON
+    // Serialize back
     let reserialized = serde_json::to_string_pretty(&envelope)
         .expect("Failed to serialize envelope");
 
-    // Deserialize again
-    let reparsed: CalibrationEnvelope = serde_json::from_str(&reserialized)
+    // Re-parse
+    let _reparsed: CalibrationEnvelope = serde_json::from_str(&reserialized)
         .expect("Failed to re-parse envelope");
+}
 
-    assert_eq!(reparsed.schema, envelope.schema);
+#[test]
+fn test_rates_only_pipeline_roundtrip() {
+    // Load rates example
+    let json = fs::read_to_string(
+        "tests/calibration/json_examples/rates_only_pipeline.json",
+    )
+    .expect("Failed to read example file");
+
+    // Parse envelope
+    let envelope = CalibrationEnvelope::from_str(&json)
+        .expect("Failed to parse calibration envelope");
+
+    assert_eq!(envelope.schema, "finstack.calibration/1");
+
+    // Serialize back
+    let reserialized = serde_json::to_string_pretty(&envelope)
+        .expect("Failed to serialize envelope");
+
+    // Re-parse
+    let _reparsed: CalibrationEnvelope = serde_json::from_str(&reserialized)
+        .expect("Failed to re-parse envelope");
+}
+
+#[test]
+fn test_credit_pipeline_roundtrip() {
+    // Load credit example
+    let json = fs::read_to_string(
+        "tests/calibration/json_examples/credit_pipeline.json",
+    )
+    .expect("Failed to read example file");
+
+    // Parse envelope
+    let envelope = CalibrationEnvelope::from_str(&json)
+        .expect("Failed to parse calibration envelope");
+
+    assert_eq!(envelope.schema, "finstack.calibration/1");
+
+    // Serialize back
+    let reserialized = serde_json::to_string_pretty(&envelope)
+        .expect("Failed to serialize envelope");
+
+    // Re-parse
+    let _reparsed: CalibrationEnvelope = serde_json::from_str(&reserialized)
+        .expect("Failed to re-parse envelope");
+}
+
+#[test]
+fn test_vol_pipeline_roundtrip() {
+    // Load vol surface example
+    let json = fs::read_to_string(
+        "tests/calibration/json_examples/vol_pipeline.json",
+    )
+    .expect("Failed to read example file");
+
+    // Parse envelope
+    let envelope = CalibrationEnvelope::from_str(&json)
+        .expect("Failed to parse calibration envelope");
+
+    assert_eq!(envelope.schema, "finstack.calibration/1");
+
+    // Serialize back
+    let reserialized = serde_json::to_string_pretty(&envelope)
+        .expect("Failed to serialize envelope");
+
+    // Re-parse
+    let _reparsed: CalibrationEnvelope = serde_json::from_str(&reserialized)
+        .expect("Failed to re-parse envelope");
 }
 
 #[test]
 #[cfg(feature = "slow")]
-fn test_simple_rates_calibration_execution() {
-    // Load and execute a simple rates-only calibration
+fn test_rates_pipeline_execution() {
+    // Load and execute a rates-only pipeline calibration
     let json = fs::read_to_string(
-        "tests/calibration/json_examples/simple_rates_only.json",
+        "tests/calibration/json_examples/rates_only_pipeline.json",
     )
     .expect("Failed to read example file");
 
@@ -73,71 +140,26 @@ fn test_simple_rates_calibration_execution() {
 }
 
 #[test]
-fn test_hazard_aapl_roundtrip() {
-    // Load hazard example
+#[cfg(feature = "slow")]
+fn test_credit_pipeline_execution() {
+    // Load and execute a credit pipeline calibration
     let json = fs::read_to_string(
-        "tests/calibration/json_examples/hazard_aapl.json",
+        "tests/calibration/json_examples/credit_pipeline.json",
     )
     .expect("Failed to read example file");
 
-    // Parse envelope
     let envelope = CalibrationEnvelope::from_str(&json)
         .expect("Failed to parse calibration envelope");
 
-    // Serialize back
-    let reserialized = serde_json::to_string_pretty(&envelope)
-        .expect("Failed to serialize envelope");
+    // Execute calibration
+    let result_envelope = envelope.execute(None)
+        .expect("Calibration execution failed");
 
-    // Re-parse
-    let _reparsed: CalibrationEnvelope = serde_json::from_str(&reserialized)
-        .expect("Failed to re-parse envelope");
+    assert_eq!(result_envelope.schema, "finstack.calibration/1");
+    
+    // Verify we have multiple curves (discount + hazard curves)
+    assert!(result_envelope.result.final_market.curves.len() >= 2);
+
+    // Verify step reports exist
+    assert!(!result_envelope.result.step_reports.is_empty());
 }
-
-#[test]
-fn test_vol_equity_roundtrip() {
-    // Load vol surface example
-    let json = fs::read_to_string(
-        "tests/calibration/json_examples/vol_equity.json",
-    )
-    .expect("Failed to read example file");
-
-    // Parse envelope
-    let envelope = CalibrationEnvelope::from_str(&json)
-        .expect("Failed to parse calibration envelope");
-
-    // Serialize back
-    let reserialized = serde_json::to_string_pretty(&envelope)
-        .expect("Failed to serialize envelope");
-
-    // Re-parse
-    let _reparsed: CalibrationEnvelope = serde_json::from_str(&reserialized)
-        .expect("Failed to re-parse envelope");
-}
-
-#[test]
-fn test_full_market_pipeline_roundtrip() {
-    // Load pipeline example
-    let json = fs::read_to_string(
-        "tests/calibration/json_examples/full_market_pipeline.json",
-    )
-    .expect("Failed to read example file");
-
-    // Parse envelope
-    let envelope = CalibrationEnvelope::from_str(&json)
-        .expect("Failed to parse calibration envelope");
-
-    // Verify it's a pipeline
-    match envelope.calibration {
-        finstack_valuations::calibration::CalibrationSpec::Pipeline { .. } => (),
-        _ => panic!("Expected pipeline calibration"),
-    }
-
-    // Serialize back
-    let reserialized = serde_json::to_string_pretty(&envelope)
-        .expect("Failed to serialize envelope");
-
-    // Re-parse
-    let _reparsed: CalibrationEnvelope = serde_json::from_str(&reserialized)
-        .expect("Failed to re-parse envelope");
-}
-
