@@ -83,6 +83,7 @@ use super::metadata::ProcessMetadata;
 
 /// Geometric Brownian Motion parameters.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GbmParams {
     /// Risk-free rate (annual)
     pub r: f64,

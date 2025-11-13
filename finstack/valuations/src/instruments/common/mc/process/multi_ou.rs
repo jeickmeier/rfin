@@ -10,6 +10,7 @@ use super::metadata::ProcessMetadata;
 
 /// Parameters for multi-dimensional OU.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MultiOuParams {
     /// Mean reversion speeds κ_i (>0)
     pub kappas: Vec<f64>,

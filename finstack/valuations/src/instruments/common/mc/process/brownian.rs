@@ -9,6 +9,7 @@ use super::metadata::ProcessMetadata;
 
 /// Parameters for 1D Brownian motion with drift.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BrownianParams {
     /// Constant drift (μ)
     pub mu: f64,

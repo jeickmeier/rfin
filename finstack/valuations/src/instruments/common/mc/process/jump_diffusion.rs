@@ -29,6 +29,7 @@ use super::gbm::GbmParams;
 
 /// Merton jump-diffusion parameters.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MertonJumpParams {
     /// Base GBM parameters (drift, dividend, volatility)
     pub gbm: GbmParams,

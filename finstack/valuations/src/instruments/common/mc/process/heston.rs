@@ -122,6 +122,7 @@ use super::metadata::ProcessMetadata;
 
 /// Heston model parameters.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct HestonParams {
     /// Risk-free rate
     pub r: f64,

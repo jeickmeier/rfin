@@ -26,6 +26,7 @@ use super::super::traits::StochasticProcess;
 
 /// CIR process parameters.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CirParams {
     /// Mean reversion speed (κ)
     pub kappa: f64,

@@ -22,6 +22,7 @@ use super::super::traits::StochasticProcess;
 
 /// Schwartz-Smith process parameters.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SchwartzSmithParams {
     /// Mean reversion speed for short-term deviation (κ_X)
     pub kappa_x: f64,

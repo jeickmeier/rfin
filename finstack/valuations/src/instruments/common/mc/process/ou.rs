@@ -19,6 +19,7 @@ use super::super::traits::StochasticProcess;
 
 /// Hull-White 1-factor parameters.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct HullWhite1FParams {
     /// Mean reversion speed (κ)
     pub kappa: f64,
