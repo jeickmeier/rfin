@@ -69,7 +69,8 @@ pub fn krd_dv01_ladder(
         };
 
         // Bump curve at this key rate
-        let bumped = disc.try_with_key_rate_bump_years(t, bump)
+        let bumped = disc
+            .try_with_key_rate_bump_years(t, bump)
             .map_err(|e| JsValue::from_str(&format!("Bump failed: {}", e)))?;
         let temp_market = market.inner().clone().insert_discount(bumped);
 
@@ -145,7 +146,8 @@ pub fn cs01_ladder(
         };
 
         // Bump curve at this key rate
-        let bumped = disc.try_with_key_rate_bump_years(t, bump)
+        let bumped = disc
+            .try_with_key_rate_bump_years(t, bump)
             .map_err(|e| JsValue::from_str(&format!("Bump failed: {}", e)))?;
         let temp_market = market.inner().clone().insert_discount(bumped);
 

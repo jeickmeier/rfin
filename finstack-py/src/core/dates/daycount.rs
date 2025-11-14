@@ -1,9 +1,12 @@
 use super::calendar::PyCalendar;
 use super::schedule::PyFrequency;
 use crate::core::common::labels::normalize_label;
-use crate::core::error::core_to_py;
+use crate::core::error::{calendar_not_found, core_to_py};
 use crate::core::utils::py_to_date;
-use finstack_core::dates::{DayCount, DayCountCtx, Frequency, Thirty360Convention};
+use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::{
+    DayCount, DayCountCtx, DayCountCtxState, Frequency, Thirty360Convention,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::{Bound, PyRef};
@@ -210,6 +213,17 @@ impl PyDayCountContext {
         self.frequency = frequency.map(|f| f.inner);
     }
 
+    #[pyo3(text_signature = "(self)")]
+    /// Convert the runtime context into a serializable DTO.
+    fn to_state(&self) -> PyDayCountContextState {
+        let ctx = DayCountCtx {
+            calendar: self.calendar.as_ref().map(|cal| cal.inner),
+            frequency: self.frequency,
+            bus_basis: None,
+        };
+        PyDayCountContextState { inner: ctx.into() }
+    }
+
     fn __repr__(&self) -> String {
         let cal = self
             .calendar
@@ -229,6 +243,104 @@ impl PyDayCountContext {
             })
             .unwrap_or_else(|| "None".to_string());
         format!("DayCountContext(calendar={cal}, frequency={freq})")
+    }
+}
+
+#[pyclass(
+    name = "DayCountContextState",
+    module = "finstack.core.dates.daycount",
+    frozen
+)]
+#[derive(Clone)]
+pub struct PyDayCountContextState {
+    pub(crate) inner: DayCountCtxState,
+}
+
+#[pymethods]
+impl PyDayCountContextState {
+    #[new]
+    #[pyo3(signature = (calendar_id=None, frequency=None, bus_basis=None))]
+    fn new(
+        calendar_id: Option<String>,
+        frequency: Option<PyRef<PyFrequency>>,
+        bus_basis: Option<u16>,
+    ) -> Self {
+        Self {
+            inner: DayCountCtxState {
+                calendar_id,
+                frequency: frequency.map(|f| f.inner),
+                bus_basis,
+            },
+        }
+    }
+
+    #[classmethod]
+    fn from_context(_cls: &Bound<'_, PyType>, ctx: PyRef<PyDayCountContext>) -> Self {
+        ctx.to_state()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    fn to_context(&self) -> PyResult<PyDayCountContext> {
+        let registry = CalendarRegistry::global();
+        let calendar = if let Some(ref id) = self.inner.calendar_id {
+            let cal = registry
+                .resolve_str(id)
+                .ok_or_else(|| calendar_not_found(id))?;
+            let py_cal = if let Some(meta) = cal.metadata() {
+                PyCalendar::from_metadata(meta, cal)
+            } else {
+                PyCalendar::fallback(id, cal)
+            };
+            Some(py_cal)
+        } else {
+            None
+        };
+
+        Ok(PyDayCountContext {
+            calendar,
+            frequency: self.inner.frequency,
+        })
+    }
+
+    #[getter]
+    fn calendar_id(&self) -> Option<&str> {
+        self.inner.calendar_id.as_deref()
+    }
+
+    #[getter]
+    fn frequency(&self) -> Option<PyFrequency> {
+        self.inner.frequency.map(PyFrequency::new)
+    }
+
+    #[getter]
+    fn bus_basis(&self) -> Option<u16> {
+        self.inner.bus_basis
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "failed to serialize DayCountContextState: {e}"
+            ))
+        })
+    }
+
+    #[classmethod]
+    fn from_json(_cls: &Bound<'_, PyType>, payload: &str) -> PyResult<Self> {
+        serde_json::from_str(payload)
+            .map(|inner| Self { inner })
+            .map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "failed to deserialize DayCountContextState: {e}"
+                ))
+            })
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "DayCountContextState(calendar_id={:?}, frequency={:?}, bus_basis={:?})",
+            self.inner.calendar_id, self.inner.frequency, self.inner.bus_basis
+        )
     }
 }
 
@@ -305,8 +417,14 @@ pub(crate) fn register<'py>(
     )?;
     module.add_class::<PyDayCount>()?;
     module.add_class::<PyDayCountContext>()?;
+    module.add_class::<PyDayCountContextState>()?;
     module.add_class::<PyThirty360Convention>()?;
-    let exports = ["DayCount", "DayCountContext", "Thirty360Convention"];
+    let exports = [
+        "DayCount",
+        "DayCountContext",
+        "DayCountContextState",
+        "Thirty360Convention",
+    ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

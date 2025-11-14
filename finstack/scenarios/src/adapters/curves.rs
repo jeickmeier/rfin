@@ -61,7 +61,8 @@ pub fn apply_curve_parallel_shock(
                         id: curve_id.to_string(),
                     })?;
             // Use try_with_parallel_bump which creates curve with modified ID
-            let bumped_curve = curve.try_with_parallel_bump(bp)
+            let bumped_curve = curve
+                .try_with_parallel_bump(bp)
                 .map_err(|e| Error::Internal(format!("Failed to bump curve: {}", e)))?;
 
             // Manually rebuild with original ID to preserve instrument references
@@ -265,13 +266,17 @@ pub fn apply_curve_node_shock(
                             });
                         }
                         // Apply shock via parallel bump (approximation)
-                        base_curve.try_with_parallel_bump(*bp)
+                        base_curve
+                            .try_with_parallel_bump(*bp)
                             .map_err(|e| Error::Internal(format!("Failed to bump curve: {}", e)))?
                     }
                     TenorMatchMode::Interpolate => {
                         // Use key-rate bump (localized shock)
-                        base_curve.try_with_key_rate_bump_years(tenor_years, *bp)
-                            .map_err(|e| Error::Internal(format!("Failed to key-rate bump curve: {}", e)))?
+                        base_curve
+                            .try_with_key_rate_bump_years(tenor_years, *bp)
+                            .map_err(|e| {
+                                Error::Internal(format!("Failed to key-rate bump curve: {}", e))
+                            })?
                     }
                 };
 

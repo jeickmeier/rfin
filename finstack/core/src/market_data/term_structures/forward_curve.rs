@@ -424,7 +424,8 @@ mod tests {
         assert!(
             abs_diff < 0.01,
             "Forward rate tail discontinuity: rate_at_last={:.6}, rate_beyond={:.6}",
-            rate_at_last, rate_beyond
+            rate_at_last,
+            rate_beyond
         );
     }
 
@@ -440,6 +441,10 @@ mod tests {
 
         // With FlatForward, tail rate should be stable (not zero)
         let rate_tail = fc.rate(5.0);
-        assert!(rate_tail > 0.02, "Tail forward should remain positive with FlatForward: {:.6}", rate_tail);
+        assert!(
+            rate_tail > 0.02,
+            "Tail forward should remain positive with FlatForward: {:.6}",
+            rate_tail
+        );
     }
 }

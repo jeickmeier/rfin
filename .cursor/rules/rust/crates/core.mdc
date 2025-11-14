@@ -10,7 +10,7 @@ This document defines Cursor rules for the `finstack/core/` crate. It explains p
 - **Core responsibilities**: currency/types, money and FX, dates/calendars/day-count, math (interp/solver/integration), expression engine, market term structures (discount/forward/hazard/inflation/surfaces), cashflow primitives/discounting, config and errors, explainability infrastructure.
 - **Determinism-first**: Results must be identical across serial and parallel execution; no hidden randomness.
 - **Currency-safety**: Arithmetic on `Money` requires identical currencies; FX conversions are explicit via `FxProvider`/`FxMatrix` and the applied policy should be stampable into results metadata.
-- **Serde stability**: Stable field names and enums; unknown fields are denied on inbound types; do not rename serialized fields for public APIs.
+- **Serde & wire stability**: Stable field names and enums; unknown fields are denied on inbound types; do not rename serialized fields for public APIs. Every public value type must either derive `Serialize`/`Deserialize` or have a dedicated `*State`/`*Spec` DTO that round-trips to the runtime type.
 - **No unsafe code**: The crate uses `#![forbid(unsafe_code)]` at the crate level.
 
 ### Directory Structure (selected)
@@ -44,13 +44,19 @@ This document defines Cursor rules for the `finstack/core/` crate. It explains p
 - **Type safety**: Use newtype IDs (`types::id::Id<T>`) such as `CurveId`, `InstrumentId` instead of raw `String`.
 - **APIs**: Public APIs must be documented with examples where practical. Avoid panics in public paths; return `crate::Result<T>` with `crate::Error` variants.
 - **Errors**: Use `Error` enum with variants like `InvalidInput`, `Validation`, `NotFound`, etc. Keep messages actionable. Avoid stringly‑typed errors in hot paths.
-- **Serde**: Gate serialization under the `serde` feature; maintain `rename_all = "snake_case"` where applicable; add defaults for new fields to preserve backward compatibility.
+- **Serde**: Gate serialization under the `serde` feature; maintain `rename_all = "snake_case"` where applicable; add defaults for new fields to preserve backward compatibility. Document the canonical wire shape (DTO) whenever a runtime type cannot derive serde directly.
 - **Threading config**: Do not rely on global state. Pass `FinstackConfig` where rounding/metadata is needed; use `results_meta()` to stamp outputs.
 - **Concurrency**: Respect the `parallel` feature flag (Rayon); do not change outputs when toggled.
 - **Performance**: Prefer preallocation, `smallvec` where appropriate, and vectorized math. Use `parking_lot::Mutex` for internal locking and LRU caches for hot paths (see `FxMatrix`).
 - **No implicit FX**: Never auto‑convert `Money` across currencies; require explicit `FxProvider` and `FxConversionPolicy`.
 - **Dependencies**: Core uses `time` for dates (not `chrono`), `hashbrown` for maps, `ndarray` for linear algebra, `thiserror` for errors, `rust_decimal` for high-precision decimals where needed.
 - **Tests**: Add unit, property, and golden/parity tests. Ensure serial ≡ parallel for deterministic paths and validate boundary conditions. Integration tests live in `tests/` directory with submodules per feature area.
+
+### Wire/DTO Patterns
+- `*State`/`*Spec` types capture the canonical serialized form for contexts, registries, and builders (e.g., `DiscountCurveState`, `FxMatrixState`, `ScheduleSpec`, `DayCountCtxState`).
+- Runtime types with trait objects, refs, or caches **must** expose `to_state()`/`from_state()` so Python/WASM bindings and databases can round-trip them losslessly.
+- Public errors and config types (`Error`, `ExplainOpts`, `CalendarMetadata`, `CalendarId`, etc.) must remain serde-capable so failures and configurations can be persisted.
+- New public APIs are rejected unless they specify their serialization story (derive vs DTO). Add tests under `core/tests/serialization_tests.rs` for any new wire type.
 
 ### Feature Design Patterns
 - **Term structures**: Implement as concrete types (e.g., `DiscountCurve`, `ForwardCurve`, `HazardCurve`) with builders and trait implementations (`TermStructure` + specific traits like `Discounting`, `Forward`, `Survival`). Store knots/values with validated interpolation (`math::interp`). Provide serialization via `State` types (e.g., `DiscountCurveState`) under `serde` feature.

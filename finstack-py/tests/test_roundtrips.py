@@ -8,8 +8,17 @@ import datetime as dt
 
 import pytest
 
+from finstack.core import get_calendar
 from finstack.core.currency import Currency
-from finstack.core.dates import DayCount, Frequency
+from finstack.core.dates import (
+    BusinessDayConvention,
+    DayCount,
+    DayCountContext,
+    DayCountContextState,
+    Frequency,
+    ScheduleSpec,
+    StubKind,
+)
 from finstack.core.market_data import DiscountCurve, MarketContext
 from finstack.core.money import Money
 
@@ -145,6 +154,38 @@ class TestInstrumentRoundtrips:
         assert irs.notional.amount == pytest.approx(10_000_000.0)
 
 
+class TestScheduleAndDayCountDtos:
+    """Test JSON DTO helpers for schedules and day-count contexts."""
+
+    def test_schedule_spec_json_roundtrip(self) -> None:
+        """ScheduleSpec should provide a stable JSON representation."""
+        spec = ScheduleSpec(
+            dt.date(2025, 1, 15),
+            dt.date(2025, 4, 15),
+            Frequency.MONTHLY,
+            stub=StubKind.NONE,
+            business_day_convention=BusinessDayConvention.FOLLOWING,
+            calendar_id="target2",
+        )
+        json_payload = spec.to_json()
+        restored = ScheduleSpec.from_json(json_payload)
+        schedule = restored.build()
+        assert len(schedule.dates) == 4
+
+    def test_daycount_context_state_roundtrip(self) -> None:
+        """DayCountContextState should rebuild runtime contexts."""
+        ctx = DayCountContext(calendar=get_calendar("target2"), frequency=Frequency.MONTHLY)
+        state = ctx.to_state()
+        payload = state.to_json()
+        restored = DayCountContextState.from_json(payload)
+        restored_ctx = restored.to_context()
+
+        start = dt.date(2025, 1, 2)
+        end = dt.date(2025, 1, 12)
+        fraction = DayCount.BUS_252.year_fraction(start, end, restored_ctx)
+        assert fraction > 0.0
+
+
 class TestStatementModelRoundtrips:
     """Test statement model roundtrips."""
 
@@ -278,7 +319,7 @@ class TestDateRoundtrips:
         schedule = (
             ScheduleBuilder.new(dt.date(2024, 1, 15), dt.date(2024, 12, 15))
             .frequency(Frequency.QUARTERLY)
-            .adjust_with("modified_following", calendar)
+            .adjust_with(BusinessDayConvention.MODIFIED_FOLLOWING, calendar)
             .build()
         )
 

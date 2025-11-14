@@ -4,7 +4,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsFrequency;
 use crate::core::error::js_error;
 use finstack_core::dates::Date as CoreDate;
-use finstack_core::dates::{ScheduleBuilder as CoreScheduleBuilder, StubKind};
+use finstack_core::dates::{ScheduleBuilder as CoreScheduleBuilder, ScheduleSpec, StubKind};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -177,5 +177,68 @@ impl JsSchedule {
             array.push(&JsValue::from(JsDate::from_core(*date)));
         }
         array
+    }
+}
+
+#[wasm_bindgen(js_name = ScheduleSpec)]
+#[derive(Clone, Debug)]
+pub struct JsScheduleSpec {
+    inner: ScheduleSpec,
+}
+
+#[wasm_bindgen(js_class = ScheduleSpec)]
+impl JsScheduleSpec {
+    #[wasm_bindgen(constructor)]
+    #[allow(clippy::too_many_arguments)] // WASM bindings often require many constructor arguments
+    pub fn new(
+        start: &JsDate,
+        end: &JsDate,
+        frequency: &JsFrequency,
+        stub: Option<JsStubKind>,
+        business_day_convention: Option<JsBusinessDayConvention>,
+        calendar_id: Option<String>,
+        end_of_month: bool,
+        cds_imm_mode: bool,
+        graceful: bool,
+    ) -> JsScheduleSpec {
+        let inner = ScheduleSpec {
+            start: start.inner(),
+            end: end.inner(),
+            frequency: frequency.inner(),
+            stub: stub.map(|s| s.inner()).unwrap_or(StubKind::None),
+            business_day_convention: business_day_convention.map(Into::into),
+            calendar_id,
+            end_of_month,
+            cds_imm_mode,
+            graceful,
+        };
+        JsScheduleSpec { inner }
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(&self) -> Result<JsSchedule, JsValue> {
+        self.inner
+            .build()
+            .map(|schedule| JsSchedule {
+                dates: schedule.dates,
+            })
+            .map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(getter, js_name = calendarId)]
+    pub fn calendar_id(&self) -> Option<String> {
+        self.inner.calendar_id.clone()
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(payload: &str) -> Result<JsScheduleSpec, JsValue> {
+        serde_json::from_str(payload)
+            .map(|inner| JsScheduleSpec { inner })
+            .map_err(|e| js_error(e.to_string()))
     }
 }

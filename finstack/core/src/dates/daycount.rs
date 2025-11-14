@@ -101,6 +101,7 @@ use time::{Date, Duration, Month};
 
 use crate::dates::date_extensions::BusinessDayIter;
 use crate::dates::schedule_iter::Frequency;
+use crate::dates::CalendarRegistry;
 use crate::dates::HolidayCalendar;
 use crate::error::InputError;
 
@@ -117,6 +118,47 @@ pub struct DayCountCtx<'a> {
     pub frequency: Option<Frequency>,
     /// Optional business days per year basis for Bus/N conventions (default 252 when None).
     pub bus_basis: Option<u16>,
+}
+
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct DayCountCtxState {
+    /// Optional calendar code (e.g. "target2").
+    pub calendar_id: Option<String>,
+    /// Optional coupon frequency for Act/Act ISMA.
+    pub frequency: Option<Frequency>,
+    /// Optional custom business-day divisor (defaults to 252 when `None`).
+    pub bus_basis: Option<u16>,
+}
+
+#[cfg(feature = "serde")]
+impl DayCountCtxState {
+    /// Build a runtime [`DayCountCtx`] using the provided calendar registry.
+    pub fn to_ctx<'a>(&self, registry: &'a CalendarRegistry<'a>) -> DayCountCtx<'a> {
+        let calendar = self
+            .calendar_id
+            .as_deref()
+            .and_then(|code| registry.resolve_str(code));
+        DayCountCtx {
+            calendar,
+            frequency: self.frequency,
+            bus_basis: self.bus_basis,
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'a> From<DayCountCtx<'a>> for DayCountCtxState {
+    fn from(value: DayCountCtx<'a>) -> Self {
+        let calendar_id = value
+            .calendar
+            .and_then(|cal| cal.metadata().map(|meta| meta.id.to_string()));
+        Self {
+            calendar_id,
+            frequency: value.frequency,
+            bus_basis: value.bus_basis,
+        }
+    }
 }
 
 /// Supported day-count conventions with industry-standard definitions.
@@ -561,6 +603,7 @@ impl DayCount {
 // -------------------------------------------------------------------------------------------------
 /// 30/360 day-count variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Thirty360Convention {
     /// 30U/360 (US Bond Basis).
     Us,

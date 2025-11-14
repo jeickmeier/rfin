@@ -136,6 +136,7 @@ pub trait HolidayCalendar {
 
 /// Basic metadata describing a holiday calendar.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CalendarMetadata {
     /// Lowercase identifier (stable code).
     pub id: &'static str,

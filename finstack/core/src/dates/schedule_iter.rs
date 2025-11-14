@@ -766,6 +766,43 @@ impl<'a> ScheduleBuilder<'a> {
     }
 }
 
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ScheduleSpec {
+    pub start: Date,
+    pub end: Date,
+    pub frequency: Frequency,
+    pub stub: StubKind,
+    pub business_day_convention: Option<BusinessDayConvention>,
+    pub calendar_id: Option<String>,
+    pub end_of_month: bool,
+    pub cds_imm_mode: bool,
+    pub graceful: bool,
+}
+
+#[cfg(feature = "serde")]
+impl ScheduleSpec {
+    /// Reconstruct a [`Schedule`] using the persisted configuration.
+    pub fn build(&self) -> crate::Result<Schedule> {
+        let mut builder = ScheduleBuilder::new(self.start, self.end)
+            .frequency(self.frequency)
+            .stub_rule(self.stub)
+            .end_of_month(self.end_of_month)
+            .graceful_fallback(self.graceful);
+
+        if let (Some(conv), Some(id)) = (self.business_day_convention, self.calendar_id.as_deref())
+        {
+            builder = builder.adjust_with_id(conv, id);
+        }
+
+        if self.cds_imm_mode {
+            builder = builder.cds_imm();
+        }
+
+        builder.build()
+    }
+}
+
 // Internal generator for schedule construction
 struct BuilderInternal {
     start: Date,

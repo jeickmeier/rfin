@@ -255,6 +255,7 @@ pub enum InputError {
 /// assert!(msg.contains("Invalid input"));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum Error {
     /// User input validation error.

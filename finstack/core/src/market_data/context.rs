@@ -315,11 +315,7 @@ impl From<&MarketContext> for MarketContextState {
             .collect();
 
         // Convert all surfaces
-        let surfaces: Vec<_> = ctx
-            .surfaces
-            .values()
-            .map(|surf| surf.to_state())
-            .collect();
+        let surfaces: Vec<_> = ctx.surfaces.values().map(|surf| surf.to_state()).collect();
 
         // Convert prices (CurveId → String)
         let prices: std::collections::BTreeMap<String, _> = ctx
@@ -398,7 +394,8 @@ impl TryFrom<MarketContextState> for MarketContext {
 
         // Reconstruct all surfaces
         for surface_state in state.surfaces {
-            let surface = crate::market_data::surfaces::vol_surface::VolSurface::from_state(surface_state)?;
+            let surface =
+                crate::market_data::surfaces::vol_surface::VolSurface::from_state(surface_state)?;
             ctx.surfaces.insert(surface.id().clone(), Arc::new(surface));
         }
 
@@ -424,7 +421,7 @@ impl TryFrom<MarketContextState> for MarketContext {
         for credit_state in state.credit_indices {
             // Resolve hazard curve
             let index_curve = ctx.get_hazard(&credit_state.index_credit_curve_id)?;
-            
+
             // Resolve base correlation curve
             let base_corr = ctx.get_base_correlation(&credit_state.base_correlation_curve_id)?;
 
@@ -448,7 +445,8 @@ impl TryFrom<MarketContextState> for MarketContext {
                 issuer_credit_curves: issuer_curves,
             };
 
-            ctx.credit_indices.insert(CurveId::from(credit_state.id), Arc::new(data));
+            ctx.credit_indices
+                .insert(CurveId::from(credit_state.id), Arc::new(data));
         }
 
         // Reconstruct collateral mappings

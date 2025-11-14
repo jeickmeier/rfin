@@ -29,8 +29,9 @@ pub use core::dates::next_equity_option_expiry as nextEquityOptionExpiry;
 pub use core::dates::next_imm as nextImm;
 pub use core::dates::next_imm_option_expiry as nextImmOptionExpiry;
 pub use core::dates::{
-    adjust, BusinessDayConvention, Calendar, DayCount, DayCountContext, FiscalConfig, Frequency,
-    FsDate, Period, PeriodId, PeriodPlan, Schedule, ScheduleBuilder, StubKind,
+    adjust, BusinessDayConvention, Calendar, DayCount, DayCountContext, DayCountContextState,
+    FiscalConfig, Frequency, FsDate, Period, PeriodId, PeriodPlan, Schedule, ScheduleBuilder,
+    ScheduleSpec, StubKind,
 };
 pub use core::dates::{
     imm_option_expiry as immOptionExpiry, third_friday as thirdFriday,
@@ -59,9 +60,9 @@ pub use valuations::calibration::{
     JsMarketQuote as MarketQuote, JsMultiCurveConfig as MultiCurveConfig,
     JsRatesQuote as RatesQuote, JsSABRCalibrationDerivatives as SABRCalibrationDerivatives,
     JsSABRMarketData as SABRMarketData, JsSABRModelParams as SABRModelParams,
-    JsSolverKind as SolverKind,
-    JsValidationConfig as ValidationConfig, JsValidationError as ValidationError,
-    JsVolQuote as VolQuote, JsVolSurfaceCalibrator as VolSurfaceCalibrator,
+    JsSolverKind as SolverKind, JsValidationConfig as ValidationConfig,
+    JsValidationError as ValidationError, JsVolQuote as VolQuote,
+    JsVolSurfaceCalibrator as VolSurfaceCalibrator,
 };
 // Validation functions
 pub use valuations::calibration::validation::{

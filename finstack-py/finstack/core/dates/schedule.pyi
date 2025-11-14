@@ -240,3 +240,38 @@ class Schedule:
     """
 
     def __repr__(self) -> str: ...
+
+class ScheduleSpec:
+    """Serializable specification describing how to build a schedule."""
+
+    def __init__(
+        self,
+        start: Union[str, date],
+        end: Union[str, date],
+        frequency: Frequency,
+        stub: Optional[StubKind] = ...,
+        business_day_convention: Optional[BusinessDayConvention] = ...,
+        calendar_id: Optional[str] = ...,
+        end_of_month: bool = ...,
+        cds_imm_mode: bool = ...,
+        graceful: bool = ...,
+    ) -> None: ...
+
+    def build(self) -> Schedule: ...
+    """Materialize the described schedule."""
+
+    def to_json(self) -> str: ...
+    """Serialize the spec to JSON."""
+
+    @classmethod
+    def from_json(cls, payload: str) -> ScheduleSpec: ...
+    """Deserialize from JSON."""
+
+    @property
+    def calendar_id(self) -> Optional[str]: ...
+
+    @property
+    def frequency(self) -> Frequency: ...
+
+    @property
+    def stub(self) -> StubKind: ...

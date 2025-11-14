@@ -7,7 +7,8 @@
 use super::calendar::{PyBusinessDayConvention, PyCalendar};
 use crate::core::error::core_to_py;
 use crate::core::utils::{date_to_py, py_to_date};
-use finstack_core::dates::{Frequency, ScheduleBuilder, StubKind};
+use finstack_core::dates::{Frequency, ScheduleBuilder, ScheduleSpec, StubKind};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::{Bound, PyRef};
@@ -424,6 +425,99 @@ impl PySchedule {
     }
 }
 
+#[pyclass(name = "ScheduleSpec", module = "finstack.core.dates.schedule", frozen)]
+#[derive(Clone)]
+pub struct PyScheduleSpec {
+    pub(crate) inner: ScheduleSpec,
+}
+
+#[pymethods]
+impl PyScheduleSpec {
+    #[new]
+    #[pyo3(signature = (
+        start,
+        end,
+        frequency,
+        stub=None,
+        business_day_convention=None,
+        calendar_id=None,
+        end_of_month=false,
+        cds_imm_mode=false,
+        graceful=false
+    ))]
+    fn new(
+        start: Bound<'_, PyAny>,
+        end: Bound<'_, PyAny>,
+        frequency: &PyFrequency,
+        stub: Option<&PyStubKind>,
+        business_day_convention: Option<&PyBusinessDayConvention>,
+        calendar_id: Option<String>,
+        end_of_month: bool,
+        cds_imm_mode: bool,
+        graceful: bool,
+    ) -> PyResult<Self> {
+        let start_date = py_to_date(&start)?;
+        let end_date = py_to_date(&end)?;
+        Ok(Self {
+            inner: ScheduleSpec {
+                start: start_date,
+                end: end_date,
+                frequency: frequency.inner,
+                stub: stub.map(|s| s.inner).unwrap_or(StubKind::None),
+                business_day_convention: business_day_convention.map(|c| c.inner),
+                calendar_id,
+                end_of_month,
+                cds_imm_mode,
+                graceful,
+            },
+        })
+    }
+
+    #[getter]
+    fn calendar_id(&self) -> Option<&str> {
+        self.inner.calendar_id.as_deref()
+    }
+
+    #[getter]
+    fn frequency(&self) -> PyFrequency {
+        PyFrequency::new(self.inner.frequency)
+    }
+
+    #[getter]
+    fn stub(&self) -> PyStubKind {
+        PyStubKind {
+            inner: self.inner.stub,
+        }
+    }
+
+    fn build(&self) -> PyResult<PySchedule> {
+        self.inner
+            .build()
+            .map(|schedule| PySchedule::new(schedule.dates))
+            .map_err(core_to_py)
+    }
+
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner).map_err(|e| {
+            PyValueError::new_err(format!("failed to serialize ScheduleSpec to JSON: {e}"))
+        })
+    }
+
+    #[classmethod]
+    fn from_json(_cls: &Bound<'_, PyType>, payload: &str) -> PyResult<Self> {
+        serde_json::from_str(payload)
+            .map(|inner| Self { inner })
+            .map_err(|e| PyValueError::new_err(format!("failed to parse ScheduleSpec JSON: {e}")))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ScheduleSpec(start={:?}, end={:?}, frequency={:?})",
+            self.inner.start, self.inner.end, self.inner.frequency
+        )
+    }
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -437,7 +531,14 @@ pub(crate) fn register<'py>(
     module.add_class::<PyStubKind>()?;
     module.add_class::<PyScheduleBuilder>()?;
     module.add_class::<PySchedule>()?;
-    let exports = ["Frequency", "StubKind", "ScheduleBuilder", "Schedule"];
+    module.add_class::<PyScheduleSpec>()?;
+    let exports = [
+        "Frequency",
+        "StubKind",
+        "ScheduleBuilder",
+        "Schedule",
+        "ScheduleSpec",
+    ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

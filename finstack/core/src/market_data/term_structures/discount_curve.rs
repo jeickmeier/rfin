@@ -80,7 +80,6 @@ use crate::{
     types::CurveId,
 };
 
-
 /// Piece-wise discount factor curve supporting several interpolation styles.
 #[derive(Debug)]
 pub struct DiscountCurve {
@@ -282,7 +281,10 @@ impl DiscountCurve {
     ///
     /// Panics if the bumped curve violates validation constraints. Use
     /// [`try_with_parallel_bump`](Self::try_with_parallel_bump) for fallible bumping.
-    #[deprecated(since = "0.1.0", note = "Use try_with_parallel_bump for error handling")]
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use try_with_parallel_bump for error handling"
+    )]
     pub fn with_parallel_bump(&self, bp: f64) -> Self {
         self.try_with_parallel_bump(bp)
             .expect("building bumped discount curve should not fail")
@@ -361,7 +363,10 @@ impl DiscountCurve {
     ///
     /// Panics if the bumped curve violates validation constraints. Use
     /// [`try_with_key_rate_bump_years`](Self::try_with_key_rate_bump_years) for fallible bumping.
-    #[deprecated(since = "0.1.0", note = "Use try_with_key_rate_bump_years for error handling")]
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use try_with_key_rate_bump_years for error handling"
+    )]
     pub fn with_key_rate_bump_years(&self, t: f64, bp: f64) -> Self {
         self.try_with_key_rate_bump_years(t, bp)
             .expect("building key-rate bumped discount curve should not fail")
@@ -938,7 +943,13 @@ mod tests {
         let base = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
         let curve = DiscountCurve::builder("USD-OIS")
             .base_date(base)
-            .knots([(0.0, 1.0), (0.25, 0.99), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
+            .knots([
+                (0.0, 1.0),
+                (0.25, 0.99),
+                (1.0, 0.96),
+                (5.0, 0.82),
+                (10.0, 0.67),
+            ])
             .set_interp(InterpStyle::MonotoneConvex)
             .extrapolation(ExtrapolationPolicy::FlatForward)
             .build()
@@ -950,13 +961,23 @@ mod tests {
         let df_at_20 = curve.df(20.0);
 
         // DFs should continue decreasing monotonically
-        assert!(df_at_15 < df_at_10, "Tail DF should decrease: df(15)={:.6} >= df(10)={:.6}", df_at_15, df_at_10);
-        assert!(df_at_20 < df_at_15, "Tail DF should decrease: df(20)={:.6} >= df(15)={:.6}", df_at_20, df_at_15);
+        assert!(
+            df_at_15 < df_at_10,
+            "Tail DF should decrease: df(15)={:.6} >= df(10)={:.6}",
+            df_at_15,
+            df_at_10
+        );
+        assert!(
+            df_at_20 < df_at_15,
+            "Tail DF should decrease: df(20)={:.6} >= df(15)={:.6}",
+            df_at_20,
+            df_at_15
+        );
 
         // Calculate forward rates in tail - should be stable with FlatForward
         let fwd_10_15 = curve.forward(10.0, 15.0);
         let fwd_15_20 = curve.forward(15.0, 20.0);
-        
+
         // Forward rates should be continuous (within reasonable tolerance for finite differences)
         let fwd_diff = (fwd_15_20 - fwd_10_15).abs();
         assert!(
@@ -980,16 +1001,22 @@ mod tests {
         // With FlatForward, the tail should extrapolate using the forward rate at the last segment
         let df_at_last = curve.df(5.0);
         let df_beyond = curve.df(10.0);
-        
+
         // Discount factors should continue decreasing (or remain stable in extreme cases)
         // The key is that FlatForward doesn't produce zero or increasing DFs
-        assert!(df_beyond <= df_at_last, 
-            "Tail DF should not increase: df(10)={:.6}, df(5)={:.6}", 
-            df_beyond, df_at_last);
-        
+        assert!(
+            df_beyond <= df_at_last,
+            "Tail DF should not increase: df(10)={:.6}, df(5)={:.6}",
+            df_beyond,
+            df_at_last
+        );
+
         // Forward rate in tail should be non-negative for this curve
         let zero_at_last = curve.zero(5.0);
-        assert!(zero_at_last > 0.0, "Zero rate should be positive for decreasing DF curve");
+        assert!(
+            zero_at_last > 0.0,
+            "Zero rate should be positive for decreasing DF curve"
+        );
     }
 
     #[test]
@@ -1004,8 +1031,8 @@ mod tests {
             .base_date(base)
             .knots([
                 (0.0, 1.0),
-                (1.0, 0.9998),  // ~2bp zero rate
-                (5.0, 0.9990),  // ~2bp zero rate
+                (1.0, 0.9998), // ~2bp zero rate
+                (5.0, 0.9990), // ~2bp zero rate
             ])
             .set_interp(InterpStyle::Linear)
             .build()
@@ -1020,15 +1047,16 @@ mod tests {
 
         // All forwards should be very small (< 1%)
         let rates: Vec<f64> = fwd.knots().iter().map(|&t| fwd.rate(t)).collect();
-        
+
         for (i, &rate) in rates.iter().enumerate() {
             assert!(
                 rate.abs() < 0.01,
                 "Forward rate {} should be very small: {:.4}%",
-                i, rate * 100.0
+                i,
+                rate * 100.0
             );
         }
-        
+
         // Verify no clamping occurred - rates should accurately reflect the DF curve
         // The first forward should be approximately (1.0/0.9998 - 1)/1 ≈ 0.0002 = 0.02%
         assert!(

@@ -51,7 +51,7 @@ pub use date_extensions::{DateExt, OffsetDateTimeExt};
 
 mod daycount;
 
-pub use daycount::{DayCount, DayCountCtx, Thirty360Convention};
+pub use daycount::{DayCount, DayCountCtx, DayCountCtxState, Thirty360Convention};
 
 // Re-export new holiday calendars at the top level for convenience
 pub use calendar::business_days::{adjust, BusinessDayConvention, HolidayCalendar};
@@ -61,7 +61,7 @@ pub use calendar::business_days::available_calendars;
 
 mod schedule_iter;
 
-pub use schedule_iter::{Frequency, ScheduleBuilder, StubKind};
+pub use schedule_iter::{Frequency, Schedule, ScheduleBuilder, ScheduleSpec, StubKind};
 
 pub use calendar::composite::CompositeCalendar;
 

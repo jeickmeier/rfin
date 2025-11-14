@@ -132,7 +132,43 @@ class DayCountContext:
         New frequency hint.
     """
 
+    def to_state(self) -> "DayCountContextState": ...
+    """Convert the context into a serializable DTO."""
+
     def __repr__(self) -> str: ...
+
+class DayCountContextState:
+    """Serializable representation of :class:`DayCountContext`."""
+
+    def __init__(
+        self,
+        calendar_id: Optional[str] = ...,
+        frequency: Optional["Frequency"] = ...,
+        bus_basis: Optional[int] = ...,
+    ) -> None: ...
+
+    @classmethod
+    def from_context(cls, ctx: DayCountContext) -> DayCountContextState: ...
+    """Create a DTO from a runtime context."""
+
+    def to_context(self) -> DayCountContext: ...
+    """Rehydrate the DTO into a runtime context."""
+
+    def to_json(self) -> str: ...
+    """Serialize the DTO to JSON."""
+
+    @classmethod
+    def from_json(cls, payload: str) -> DayCountContextState: ...
+    """Deserialize a DTO from JSON."""
+
+    @property
+    def calendar_id(self) -> Optional[str]: ...
+
+    @property
+    def frequency(self) -> Optional["Frequency"]: ...
+
+    @property
+    def bus_basis(self) -> Optional[int]: ...
 
 class Thirty360Convention:
     """30/360 convention variant.

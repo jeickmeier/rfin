@@ -45,6 +45,7 @@ use serde::{Deserialize, Serialize};
 /// Controls whether detailed execution traces are captured during computation.
 /// When disabled, there is zero runtime overhead.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ExplainOpts {
     /// Whether explanation tracing is enabled
     pub enabled: bool,

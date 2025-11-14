@@ -2,7 +2,7 @@ use crate::core::common::parse::ParseFromString;
 use crate::core::dates::calendar::{resolve_calendar_ref, JsCalendar};
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
-use finstack_core::dates::{DayCount, DayCountCtx, Frequency};
+use finstack_core::dates::{DayCount, DayCountCtx, DayCountCtxState, Frequency};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -180,6 +180,16 @@ impl JsDayCountContext {
     pub fn frequency(&self) -> Option<JsFrequency> {
         self.frequency.map(JsFrequency::from)
     }
+
+    #[wasm_bindgen(js_name = toState)]
+    pub fn to_state(&self) -> JsDayCountContextState {
+        let state = DayCountCtxState {
+            calendar_id: self.calendar.clone(),
+            frequency: self.frequency,
+            bus_basis: self.bus_basis,
+        };
+        JsDayCountContextState { inner: state }
+    }
 }
 
 impl JsDayCountContext {
@@ -193,6 +203,71 @@ impl JsDayCountContext {
             frequency: self.frequency,
             bus_basis: self.bus_basis,
         })
+    }
+}
+
+#[wasm_bindgen(js_name = DayCountContextState)]
+#[derive(Clone, Debug)]
+pub struct JsDayCountContextState {
+    inner: DayCountCtxState,
+}
+
+#[wasm_bindgen(js_class = DayCountContextState)]
+impl JsDayCountContextState {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        calendar_id: Option<String>,
+        frequency: Option<JsFrequency>,
+        bus_basis: Option<u16>,
+    ) -> JsDayCountContextState {
+        JsDayCountContextState {
+            inner: DayCountCtxState {
+                calendar_id,
+                frequency: frequency.map(|f| f.inner()),
+                bus_basis,
+            },
+        }
+    }
+
+    #[wasm_bindgen(js_name = fromContext)]
+    pub fn from_context(ctx: JsDayCountContext) -> JsDayCountContextState {
+        ctx.to_state()
+    }
+
+    #[wasm_bindgen(js_name = toContext)]
+    pub fn to_context(&self) -> JsDayCountContext {
+        JsDayCountContext {
+            calendar: self.inner.calendar_id.clone(),
+            frequency: self.inner.frequency,
+            bus_basis: self.inner.bus_basis,
+        }
+    }
+
+    #[wasm_bindgen(getter, js_name = calendarId)]
+    pub fn calendar_id(&self) -> Option<String> {
+        self.inner.calendar_id.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn frequency(&self) -> Option<JsFrequency> {
+        self.inner.frequency.map(JsFrequency::from_inner)
+    }
+
+    #[wasm_bindgen(getter, js_name = busBasis)]
+    pub fn bus_basis(&self) -> Option<u16> {
+        self.inner.bus_basis
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(payload: &str) -> Result<JsDayCountContextState, JsValue> {
+        serde_json::from_str(payload)
+            .map(|inner| JsDayCountContextState { inner })
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 

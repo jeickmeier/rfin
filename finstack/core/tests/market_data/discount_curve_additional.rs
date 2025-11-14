@@ -311,7 +311,10 @@ fn test_try_with_key_rate_bump_returns_error_on_invalid_curve() {
         Err(e) => {
             // Error should be typed, not panic
             assert!(
-                matches!(e, finstack_core::Error::Validation(_) | finstack_core::Error::Input(_)),
+                matches!(
+                    e,
+                    finstack_core::Error::Validation(_) | finstack_core::Error::Input(_)
+                ),
                 "Should return typed error, got: {:?}",
                 e
             );
